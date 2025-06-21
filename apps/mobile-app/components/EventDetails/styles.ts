@@ -710,8 +710,17 @@ export const styles = StyleSheet.create({
   mapPreview: {
     width: "100%",
     height: "100%",
-    borderRadius: 0,
-    overflow: "visible",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  mapPreviewContainer: {
+    width: "100%",
+    height: 200,
+    backgroundColor: MUNICIPAL_COLORS.card,
+    overflow: "hidden",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: MUNICIPAL_COLORS.border,
   },
   markerContainer: {
     width: 40,

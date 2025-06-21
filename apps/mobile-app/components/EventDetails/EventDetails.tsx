@@ -1,8 +1,5 @@
-import { useMapStyle } from "@/contexts/MapStyleContext";
-import { useFlyOverCamera } from "@/hooks/useFlyOverCamera";
 import { apiClient } from "@/services/ApiClient";
 import { formatDate } from "@/utils/dateTimeFormatting";
-import MapboxGL from "@rnmapbox/maps";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import {
@@ -21,17 +18,9 @@ import {
   Building,
   TrendingUp,
 } from "lucide-react-native";
-import React, {
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-  useMemo,
-  memo,
-} from "react";
+import React, { useState, useCallback, useMemo, memo } from "react";
 import {
   ActivityIndicator,
-  Image,
   Linking,
   Modal,
   ScrollView,
@@ -42,7 +31,7 @@ import {
   ColorValue,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import Header from "../Layout/Header";
 import ScreenLayout from "../Layout/ScreenLayout";
 import { ErrorEventDetails } from "./ErrorEventDetails";
@@ -74,57 +63,6 @@ const MUNICIPAL_COLORS = {
   warning: "#f59e0b", // Amber for warnings
   error: "#ef4444", // Red for errors
 };
-
-// Memoize EventBadge component
-const EventBadge = memo(
-  ({
-    type,
-    text,
-  }: {
-    type: "official" | "community" | "private";
-    text: string;
-  }) => {
-    const getBadgeStyle = () => {
-      switch (type) {
-        case "official":
-          return {
-            backgroundColor: MUNICIPAL_COLORS.primary,
-            color: "#ffffff",
-          };
-        case "community":
-          return {
-            backgroundColor: MUNICIPAL_COLORS.secondary,
-            color: "#ffffff",
-          };
-        case "private":
-          return {
-            backgroundColor: MUNICIPAL_COLORS.warning,
-            color: "#ffffff",
-          };
-        default:
-          return {
-            backgroundColor: MUNICIPAL_COLORS.textSecondary,
-            color: "#ffffff",
-          };
-      }
-    };
-
-    const badgeStyle = getBadgeStyle();
-
-    return (
-      <View
-        style={[
-          styles.eventBadge,
-          { backgroundColor: badgeStyle.backgroundColor },
-        ]}
-      >
-        <Text style={[styles.eventBadgeText, { color: badgeStyle.color }]}>
-          {text}
-        </Text>
-      </View>
-    );
-  },
-);
 
 // Memoize InfoCard component
 const InfoCard = memo(
@@ -264,13 +202,8 @@ const formatRecurrenceDays = (days?: string[]): string => {
 const EventDetails: React.FC<EventDetailsProps> = memo(
   ({ eventId, onBack }) => {
     const router = useRouter();
-    const { mapStyle } = useMapStyle();
-    const [modalVisible, setModalVisible] = useState(false);
     const [deleteModalVisible, setDeleteModalVisible] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
-    const [imageLoading, setImageLoading] = useState(false);
-    const [imageError, setImageError] = useState<string | null>(null);
 
     const {
       handleBack,
@@ -303,22 +236,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       !!event && !event.isPrivate, // Only fetch engagement for non-private events
     );
 
-    // Memoize map refs
-    const mapRef = useRef<MapboxGL.MapView>(null);
-    const cameraRef = useRef<MapboxGL.Camera>(null);
-    const { flyOver, stopFlyOver } = useFlyOverCamera({ cameraRef });
-
     // Memoize handlers
-    const handleImagePress = useCallback(() => {
-      if (imageUrl) {
-        setModalVisible(true);
-      }
-    }, [imageUrl]);
-
-    const handleCloseModal = useCallback(() => {
-      setModalVisible(false);
-    }, []);
-
     const handleDeleteEvent = useCallback(async () => {
       setIsDeleting(true);
       try {
@@ -390,17 +308,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       event?.recurrenceEndDate,
     ]);
 
-    // Memoize event type badge
-    const eventTypeBadge = useMemo(() => {
-      if (event?.isOfficial) {
-        return <EventBadge type="official" text="Official Event" />;
-      } else if (event?.isPrivate) {
-        return <EventBadge type="private" text="Private Event" />;
-      } else {
-        return <EventBadge type="community" text="Community Event" />;
-      }
-    }, [event?.isOfficial, event?.isPrivate]);
-
     // Memoize handlers that should trigger engagement refetch
     const handleToggleSaveWithEngagement = useCallback(async () => {
       await handleToggleSave();
@@ -411,62 +318,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       await handleToggleRsvp();
       setTimeout(() => refetchEngagement(), 500);
     }, [handleToggleRsvp, refetchEngagement]);
-
-    // Fetch image when event is loaded
-    useEffect(() => {
-      if (!event?.id || event.isPrivate) return;
-
-      let isMounted = true;
-
-      const fetchImage = async () => {
-        setImageLoading(true);
-        setImageError(null);
-
-        try {
-          const localUri = await apiClient.events.streamEventImage(event.id);
-          if (isMounted) {
-            setImageUrl(localUri);
-          }
-        } catch (err) {
-          console.error("Error fetching event image:", err);
-          if (isMounted) {
-            setImageError("Could not load event image");
-          }
-        } finally {
-          if (isMounted) {
-            setImageLoading(false);
-          }
-        }
-      };
-
-      fetchImage();
-
-      return () => {
-        isMounted = false;
-      };
-    }, [event?.id, event?.isPrivate]);
-
-    // Add effect to trigger fly-over animation when event is loaded
-    useEffect(() => {
-      if (event?.coordinates) {
-        const timer = setTimeout(() => {
-          flyOver(event.coordinates, {
-            minPitch: 45,
-            maxPitch: 75,
-            minZoom: 15,
-            maxZoom: 17,
-            minBearing: -30,
-            maxBearing: 30,
-            speed: 0.1,
-          });
-        }, 500);
-
-        return () => {
-          clearTimeout(timer);
-          stopFlyOver();
-        };
-      }
-    }, [event?.coordinates, flyOver, stopFlyOver]);
 
     if (loading) {
       return <LoadingEventDetails />;
@@ -512,37 +363,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.contentContainer}
         >
-          {/* Hero Section with Image/Map and Event Badge */}
-          <View style={styles.heroSection}>
-            <Animated.View
-              entering={FadeIn.duration(500)}
-              style={styles.heroImageContainer}
-            >
-              <EventMapPreview
-                coordinates={coordinates}
-                eventId={eventId}
-                title={event.title}
-                emoji={event.emoji}
-                isPrivate={event.isPrivate}
-                eventDate={
-                  event.eventDate instanceof Date
-                    ? event.eventDate.toISOString()
-                    : event.eventDate
-                }
-                imageUrl={imageUrl}
-                imageLoading={imageLoading}
-                imageError={imageError}
-                onImagePress={handleImagePress}
-                mapStyle={mapStyle}
-                mapRef={mapRef}
-                cameraRef={cameraRef}
-              />
-
-              {/* Event Badge Overlay */}
-              <View style={styles.eventBadgeOverlay}>{eventTypeBadge}</View>
-            </Animated.View>
-          </View>
-
           {/* Event Title and Basic Info */}
           <Animated.View
             entering={FadeInDown.duration(600).delay(300).springify()}
@@ -561,6 +381,22 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             entering={FadeInDown.duration(600).delay(400).springify()}
             style={styles.detailsSection}
           >
+            {/* Map Preview Card */}
+            <InfoCard title="Event Location" icon={MapPin}>
+              <EventMapPreview
+                coordinates={coordinates}
+                eventId={eventId}
+                title={event.title}
+                emoji={event.emoji}
+                isPrivate={event.isPrivate}
+                eventDate={
+                  event.eventDate instanceof Date
+                    ? event.eventDate.toISOString()
+                    : event.eventDate
+                }
+              />
+            </InfoCard>
+
             {/* Date and Time Card */}
             <InfoCard title="Date & Time" icon={Calendar}>
               <View style={styles.detailRow}>
@@ -812,41 +648,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             </Animated.View>
           )}
         </ScrollView>
-
-        {/* Fullscreen Image Modal */}
-        <Modal
-          visible={modalVisible}
-          transparent={true}
-          animationType="fade"
-          statusBarTranslucent={true}
-          onRequestClose={handleCloseModal}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity
-                onPress={handleCloseModal}
-                style={styles.closeButton}
-                activeOpacity={0.7}
-              >
-                <X size={24} color="#ffffff" />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.modalContent}
-              activeOpacity={1}
-              onPress={handleCloseModal}
-            >
-              {imageUrl && (
-                <Image
-                  source={{ uri: imageUrl }}
-                  style={styles.fullImage}
-                  resizeMode="contain"
-                />
-              )}
-            </TouchableOpacity>
-          </View>
-        </Modal>
 
         {/* Delete Confirmation Modal */}
         <Modal

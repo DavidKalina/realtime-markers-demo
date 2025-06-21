@@ -1,11 +1,5 @@
 import React from "react";
-import {
-  ActivityIndicator,
-  Image,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { View } from "react-native";
 import MapboxGL from "@rnmapbox/maps";
 import { MapMarker as EmojiMapMarker } from "../Markers/CustomMapMarker";
 import { styles } from "./styles";
@@ -18,14 +12,6 @@ interface EventMapPreviewProps {
   emoji: string;
   isPrivate?: boolean;
   eventDate: string;
-  imageUrl?: string | null;
-  imageLoading?: boolean;
-  imageError?: string | null;
-  onImagePress?: () => void;
-  mapStyle: string;
-  mapRef?: React.RefObject<MapboxGL.MapView>;
-  cameraRef?: React.RefObject<MapboxGL.Camera>;
-  onMapReady?: () => void;
 }
 
 const EventMapPreview: React.FC<EventMapPreviewProps> = ({
@@ -35,16 +21,9 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
   emoji,
   isPrivate,
   eventDate,
-  imageUrl,
-  imageLoading,
-  imageError,
-  onImagePress,
-  mapRef,
-  cameraRef,
-  onMapReady,
 }) => {
   return (
-    <View style={[styles.eventImage, styles.mapPreview]}>
+    <View style={styles.mapPreviewContainer}>
       <MapboxGL.MapView
         pitchEnabled={false}
         zoomEnabled={false}
@@ -52,18 +31,12 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
         scrollEnabled={false}
         rotateEnabled={false}
         scaleBarEnabled={false}
-        ref={mapRef}
         style={styles.mapPreview}
         styleURL={MapboxGL.StyleURL.Light}
         logoEnabled={false}
         attributionEnabled={false}
-        onDidFinishLoadingMap={onMapReady}
       >
-        <MapboxGL.Camera
-          ref={cameraRef}
-          zoomLevel={14}
-          centerCoordinate={coordinates}
-        />
+        <MapboxGL.Camera zoomLevel={15} centerCoordinate={coordinates} />
 
         <MapboxGL.MarkerView
           coordinate={coordinates}
@@ -85,50 +58,6 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
           />
         </MapboxGL.MarkerView>
       </MapboxGL.MapView>
-
-      {/* Image overlay for public events */}
-      {!isPrivate &&
-        (imageLoading ? (
-          <View
-            style={[
-              styles.privateEventImageOverlay,
-              { backgroundColor: `${COLORS.accent}10` },
-            ]}
-          >
-            <ActivityIndicator size="small" color={COLORS.accent} />
-          </View>
-        ) : imageError ? (
-          <View
-            style={[
-              styles.privateEventImageOverlay,
-              { backgroundColor: `${COLORS.errorBackground}` },
-            ]}
-          >
-            <Text
-              style={[
-                styles.privateEventImageError,
-                { color: COLORS.errorText },
-              ]}
-            >
-              {imageError}
-            </Text>
-          </View>
-        ) : imageUrl ? (
-          <TouchableOpacity
-            onPress={onImagePress}
-            activeOpacity={0.9}
-            style={[
-              styles.privateEventImageOverlay,
-              { backgroundColor: `${COLORS.accent}10` },
-            ]}
-          >
-            <Image
-              source={{ uri: imageUrl }}
-              style={styles.privateEventImage}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
-        ) : null)}
     </View>
   );
 };
