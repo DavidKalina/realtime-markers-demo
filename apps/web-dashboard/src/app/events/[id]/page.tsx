@@ -3,6 +3,7 @@
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { EventEngagementStats } from "@/components/dashboard/EventEngagementStats";
+import { EventLocationMap } from "@/components/dashboard/EventLocationMap";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -255,6 +256,9 @@ export default function EventDetailPage() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Event Location Map */}
+              <EventLocationMap event={event} />
 
               {/* Engagement Statistics */}
               {engagementLoading ? (
