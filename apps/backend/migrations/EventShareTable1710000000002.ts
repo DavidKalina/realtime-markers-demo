@@ -43,18 +43,20 @@ export class EventShareTable1710000000002 implements MigrationInterface {
             referencedColumnNames: ["id"],
             onDelete: "CASCADE",
           }),
-          new TableForeignKey({
-            columnNames: ["shared_with_id"],
-            referencedTableName: "users",
-            referencedColumnNames: ["id"],
-            onDelete: "CASCADE",
-          }),
-          new TableForeignKey({
-            columnNames: ["shared_by_id"],
-            referencedTableName: "users",
-            referencedColumnNames: ["id"],
-            onDelete: "CASCADE",
-          }),
+          // Temporarily removed foreign keys to users table since it doesn't exist yet
+          // These will be added in separate migrations after UserTable is created
+          // new TableForeignKey({
+          //   columnNames: ["shared_with_id"],
+          //   referencedTableName: "users",
+          //   referencedColumnNames: ["id"],
+          //   onDelete: "CASCADE",
+          // }),
+          // new TableForeignKey({
+          //   columnNames: ["shared_by_id"],
+          //   referencedTableName: "users",
+          //   referencedColumnNames: ["id"],
+          //   onDelete: "CASCADE",
+          // }),
         ],
       }),
     );

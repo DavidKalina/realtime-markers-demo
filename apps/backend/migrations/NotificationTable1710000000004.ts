@@ -1,5 +1,5 @@
 /* eslint-disable quotes */
-import { Table, TableForeignKey } from "typeorm";
+import { Table } from "typeorm";
 import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class NotificationTable1710000000004 implements MigrationInterface {
@@ -35,11 +35,13 @@ export class NotificationTable1710000000004 implements MigrationInterface {
           { name: "readAt", type: "timestamptz", isNullable: true },
         ],
         foreignKeys: [
-          new TableForeignKey({
-            columnNames: ["userId"],
-            referencedTableName: "users",
-            referencedColumnNames: ["id"],
-          }),
+          // Temporarily removed foreign key to users table since it doesn't exist yet
+          // This will be added in a separate migration after UserTable is created
+          // new TableForeignKey({
+          //   columnNames: ["userId"],
+          //   referencedTableName: "users",
+          //   referencedColumnNames: ["id"],
+          // }),
         ],
       }),
     );

@@ -1,4 +1,4 @@
-import { Table, TableForeignKey } from "typeorm";
+import { Table } from "typeorm";
 import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class FilterTable1710000000003 implements MigrationInterface {
@@ -35,12 +35,14 @@ export class FilterTable1710000000003 implements MigrationInterface {
         ],
         indices: [{ columnNames: ["user_id"] }, { columnNames: ["is_active"] }],
         foreignKeys: [
-          new TableForeignKey({
-            columnNames: ["user_id"],
-            referencedTableName: "users",
-            referencedColumnNames: ["id"],
-            onDelete: "CASCADE",
-          }),
+          // Temporarily removed foreign key to users table since it doesn't exist yet
+          // This will be added in a separate migration after UserTable is created
+          // new TableForeignKey({
+          //   columnNames: ["user_id"],
+          //   referencedTableName: "users",
+          //   referencedColumnNames: ["id"],
+          //   onDelete: "CASCADE",
+          // }),
         ],
       }),
     );

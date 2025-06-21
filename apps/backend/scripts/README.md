@@ -58,6 +58,38 @@ The following npm scripts are available in the root package.json:
 - `migration:generate`: Generates new migrations
 - `migration:revert`: Reverts the last migration
 
+## Recent Migration Fix
+
+A comprehensive migration dependency issue was recently fixed:
+
+**Problem**: Multiple migrations were trying to create foreign key constraints to the `users` table before the `users` table existed:
+
+- `EventTable1710000000001` (timestamp: 1710000000001)
+- `EventShareTable1710000000002` (timestamp: 1710000000002)
+- `FilterTable1710000000003` (timestamp: 1710000000003)
+- `NotificationTable1710000000004` (timestamp: 1710000000004)
+- `UserTable1710000000006` (timestamp: 1710000000006) - creates users table
+
+**Solution**:
+
+1. Removed all foreign key constraints to the `users` table from migrations that run before the UserTable migration
+2. Created a comprehensive migration `AddAllUserForeignKeys1710000000014` that adds all foreign key constraints after the users table exists
+3. This ensures proper migration order and prevents dependency conflicts
+
+**Tables Fixed**:
+
+- `events.creator_id` → `users.id`
+- `event_shares.shared_with_id` → `users.id`
+- `event_shares.shared_by_id` → `users.id`
+- `filters.user_id` → `users.id`
+- `notifications.userId` → `users.id`
+- `user_event_discoveries.user_id` → `users.id`
+- `user_event_rsvps.user_id` → `users.id`
+- `user_event_saves.user_id` → `users.id`
+- `user_event_views.user_id` → `users.id`
+- `friendships.user_id` → `users.id`
+- `friendships.friend_id` → `users.id`
+
 ## Removed Scripts
 
 The following scripts were removed to reduce confusion:

@@ -108,12 +108,14 @@ export class EventTable1710000000001 implements MigrationInterface {
           { columnNames: ["status"] },
         ],
         foreignKeys: [
-          new TableForeignKey({
-            columnNames: ["creator_id"],
-            referencedTableName: "users",
-            referencedColumnNames: ["id"],
-            onDelete: "SET NULL",
-          }),
+          // Temporarily removed foreign key to users table since it doesn't exist yet
+          // This will be added in a separate migration after UserTable is created
+          // new TableForeignKey({
+          //   columnNames: ["creator_id"],
+          //   referencedTableName: "users",
+          //   referencedColumnNames: ["id"],
+          //   onDelete: "SET NULL",
+          // }),
         ],
       }),
     );
