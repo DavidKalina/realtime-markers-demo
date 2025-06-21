@@ -264,7 +264,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
 
     return (
       <Screen
-        bannerTitle={event.title}
+        bannerTitle="Details"
         bannerEmoji={event.emoji}
         showBackButton={true}
         onBack={handleBack}
