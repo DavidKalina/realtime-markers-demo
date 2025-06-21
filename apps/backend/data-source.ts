@@ -31,6 +31,8 @@ import { UserEventViewTable1710000000010 } from "./migrations/UserEventViewTable
 import { FriendshipTable1710000000011 } from "./migrations/FriendshipTable1710000000011";
 import { SeedUsers1710000000012 } from "./migrations/SeedUsers1710000000012";
 import { AddAllUserForeignKeys1710000000014 } from "./migrations/AddAllUserForeignKeys1710000000014";
+import { AddIsOfficialToEvents1710000000015 } from "./migrations/AddIsOfficialToEvents1710000000015";
+import { SeedOfficialEvents1710000000016 } from "./migrations/SeedOfficialEvents1710000000016";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -65,6 +67,8 @@ const AppDataSource = new DataSource({
     FriendshipTable1710000000011,
     SeedUsers1710000000012,
     AddAllUserForeignKeys1710000000014,
+    AddIsOfficialToEvents1710000000015,
+    SeedOfficialEvents1710000000016,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

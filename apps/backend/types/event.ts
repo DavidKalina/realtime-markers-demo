@@ -20,6 +20,7 @@ export interface CreateEventInput {
   originalImageUrl?: string | null;
   embedding: number[];
   isPrivate?: boolean;
+  isOfficial?: boolean;
   sharedWithIds?: string[]; // Optional array of user IDs to share the event with
   qrUrl?: string;
   isRecurring?: boolean;

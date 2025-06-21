@@ -105,6 +105,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       detectedQrData: input.detectedQrData,
       originalImageUrl: input.originalImageUrl || undefined,
       isPrivate: input.isPrivate || false,
+      isOfficial: input.isOfficial || false,
       qrUrl: input.qrUrl,
       isRecurring: input.isRecurring || false,
       recurrenceFrequency: input.recurrenceFrequency,
@@ -239,6 +240,11 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       // Handle privacy and shares
       if (eventData.isPrivate !== undefined) {
         event.isPrivate = eventData.isPrivate;
+      }
+
+      // Handle official status
+      if (eventData.isOfficial !== undefined) {
+        event.isOfficial = eventData.isOfficial;
       }
 
       // Save the event first to ensure we have a valid ID
