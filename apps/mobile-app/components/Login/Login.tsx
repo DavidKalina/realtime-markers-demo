@@ -199,12 +199,13 @@ const Login: React.FC = () => {
     },
 
     slogan: {
-      fontSize: 16,
+      fontSize: 18,
       color: newColors.text,
       fontFamily: "SpaceMono",
       marginBottom: 20,
       textAlign: "center",
-      fontStyle: "italic",
+      fontWeight: "600",
+      letterSpacing: 0.5,
     },
 
     formContainer: {
@@ -490,7 +491,7 @@ const Login: React.FC = () => {
                   style={styles.logo}
                 />
               </Animated.View>
-              <Text style={styles.slogan}>"Built on what matters"</Text>
+              <Text style={styles.slogan}>Built on what matters</Text>
 
               <Animated.View
                 entering={FadeInDown.duration(600).delay(300).springify()}
