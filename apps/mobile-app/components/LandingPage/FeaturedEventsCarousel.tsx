@@ -22,7 +22,7 @@ interface FeaturedEventsCarouselProps {
 
 const { width: screenWidth } = Dimensions.get("window");
 const ITEM_WIDTH = screenWidth * 0.85; // 85% of screen width
-const ITEM_SPACING = 12;
+const ITEM_SPACING = 16;
 const ITEM_MARGIN = (screenWidth - ITEM_WIDTH) / 2;
 
 const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
@@ -120,11 +120,13 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
               onPress={() => handleEventPress(event)}
               activeOpacity={0.9}
             >
-              <EventListItem
-                {...event}
-                eventDate={new Date(event.eventDate)}
-                onPress={() => handleEventPress(event)}
-              />
+              <View style={styles.cardContainer}>
+                <EventListItem
+                  {...event}
+                  eventDate={new Date(event.eventDate)}
+                  onPress={() => handleEventPress(event)}
+                />
+              </View>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -170,20 +172,43 @@ const styles = StyleSheet.create({
     width: ITEM_WIDTH,
     marginRight: ITEM_SPACING,
   },
+  cardContainer: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
+    overflow: "hidden",
+  },
   loadingItem: {
     opacity: 0.6,
   },
   loadingContent: {
     width: ITEM_WIDTH,
-    height: 120,
+    height: 140,
     backgroundColor: "#f0f0f0",
-    borderRadius: 12,
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
   },
   paginationContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 16,
+    marginTop: 20,
     paddingHorizontal: 16,
   },
   paginationDot: {

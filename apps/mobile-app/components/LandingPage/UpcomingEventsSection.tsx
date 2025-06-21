@@ -44,10 +44,18 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
             style={{
               height: 120,
               backgroundColor: "#f0f0f0",
-              borderRadius: 12,
+              borderRadius: 16,
               marginHorizontal: 16,
-              marginBottom: 12,
+              marginBottom: 16,
               opacity: 0.6,
+              shadowColor: "#000",
+              shadowOffset: {
+                width: 0,
+                height: 2,
+              },
+              shadowOpacity: 0.08,
+              shadowRadius: 6,
+              elevation: 4,
             }}
           />
         ))}
@@ -76,7 +84,23 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
         <TouchableOpacity
           key={event.id}
           onPress={() => handleEventPress(event)}
-          style={{ marginHorizontal: 16, marginBottom: 12 }}
+          style={{
+            marginHorizontal: 16,
+            marginBottom: 16,
+            backgroundColor: "#ffffff",
+            borderRadius: 16,
+            shadowColor: "#000",
+            shadowOffset: {
+              width: 0,
+              height: 2,
+            },
+            shadowOpacity: 0.08,
+            shadowRadius: 6,
+            elevation: 4,
+            borderWidth: 1,
+            borderColor: "#f0f0f0",
+            overflow: "hidden",
+          }}
         >
           <EventListItem
             {...event}

@@ -48,11 +48,23 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
               key={i}
               style={[
                 styles.categoryItem,
-                { backgroundColor: "#f0f0f0", opacity: 0.6 },
+                {
+                  backgroundColor: "#f0f0f0",
+                  opacity: 0.6,
+                  shadowOpacity: 0,
+                  elevation: 0,
+                },
               ]}
             >
               <View
-                style={[styles.iconContainer, { backgroundColor: "#e0e0e0" }]}
+                style={[
+                  styles.iconContainer,
+                  {
+                    backgroundColor: "#e0e0e0",
+                    shadowOpacity: 0,
+                    elevation: 0,
+                  },
+                ]}
               />
               <View
                 style={{
@@ -112,25 +124,41 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     paddingHorizontal: 16,
-    gap: 12,
+    gap: 16,
   },
   categoryItem: {
     width: "30%",
     alignItems: "center",
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: "#f8f9fa",
+    paddingVertical: 16,
+    borderRadius: 16,
+    backgroundColor: "#ffffff",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 4,
     borderWidth: 1,
-    borderColor: "#e9ecef",
+    borderColor: "#f0f0f0",
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#007AFF",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 10,
+    shadowColor: "#007AFF",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   iconText: {
     fontSize: 20,
