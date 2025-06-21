@@ -1,6 +1,12 @@
 import { LucideIcon } from "lucide-react-native";
 import React from "react";
-import { Pressable, StyleSheet, View, ViewStyle } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  View,
+  ViewStyle,
+  TextStyle,
+} from "react-native";
 import Animated, {
   useAnimatedScrollHandler,
   useSharedValue,
@@ -84,6 +90,9 @@ export interface ScreenProps<T extends string = string> {
       | "ghost"
       | "warning"
       | "error";
+    style?: ViewStyle;
+    textStyle?: TextStyle;
+    loading?: boolean;
   }[];
 
   // Style props
@@ -216,7 +225,16 @@ const Screen = <T extends string>({
                 title={button.label}
                 onPress={button.onPress}
                 variant={button.variant || "primary"}
-                style={styles.footerButton}
+                style={
+                  button.style
+                    ? ([
+                        styles.footerButton,
+                        button.style,
+                      ] as unknown as ViewStyle)
+                    : styles.footerButton
+                }
+                textStyle={button.textStyle}
+                loading={button.loading}
               />
             ))}
           </View>
@@ -281,7 +299,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   footerButton: {
-    flex: 1,
+    // Remove default flex: 1 to allow custom flex values from EventDetails
   },
   tabsWrapper: {
     marginHorizontal: -16,

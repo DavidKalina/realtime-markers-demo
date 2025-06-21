@@ -121,7 +121,7 @@ const Button: React.FC<ButtonProps> = ({
 
   const getTextStyle = (): TextStyle => {
     const baseTextStyle: TextStyle = {
-      fontFamily: "Poppins-Regular",
+      fontFamily: "Poppins-SemiBold",
       fontWeight: "600",
       textAlign: "center",
     };

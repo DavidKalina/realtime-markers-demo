@@ -1,14 +1,8 @@
 import React from "react";
-import { styles } from "./styles";
-import { ActivityIndicator, View, Text } from "react-native";
+import { AnimatedSplashScreen } from "../SplashScreen/SplashScreen";
 
 const LoadingEventDetails = () => {
-  return (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color="#93c5fd" />
-      <Text style={styles.loadingText}>Loading event details...</Text>
-    </View>
-  );
+  return <AnimatedSplashScreen onAnimationFinish={() => {}} />;
 };
 
 export default LoadingEventDetails;

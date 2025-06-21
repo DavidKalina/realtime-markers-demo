@@ -22,6 +22,8 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ViewStyle,
+  TextStyle,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -203,6 +205,12 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       handleOpenMaps,
       distanceInfo,
       userLocation,
+      isRsvped,
+      rsvpState,
+      handleToggleRsvp,
+      isSaved,
+      savingState,
+      handleToggleSave,
     } = useEventDetails(eventId, onBack);
 
     // Add engagement hook
@@ -262,6 +270,62 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       return <Text>No event details available</Text>;
     }
 
+    // Prepare footer buttons
+    const footerButtons: {
+      label: string;
+      onPress: () => void;
+      variant?:
+        | "primary"
+        | "secondary"
+        | "outline"
+        | "ghost"
+        | "warning"
+        | "error";
+      style?: ViewStyle;
+      textStyle?: TextStyle;
+      loading?: boolean;
+    }[] = [
+      {
+        label: isRsvped ? "RSVP'd ✓" : "RSVP Now",
+        onPress: () => handleToggleRsvp(),
+        variant: isRsvped ? "secondary" : "primary",
+        loading: rsvpState === "loading",
+        style: {
+          flex: 2, // Make RSVP button take more space
+          borderRadius: 12,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 3,
+        },
+        textStyle: {
+          fontSize: 16,
+          letterSpacing: 0.5,
+        },
+      },
+      {
+        label: isSaved ? "Saved ✓" : "Save",
+        onPress: () => handleToggleSave(),
+        variant: isSaved ? "secondary" : "outline",
+        loading: savingState === "loading",
+        style: {
+          flex: 1, // Make Save button take less space
+          borderRadius: 12,
+          borderWidth: 2,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.05,
+          shadowRadius: 2,
+          elevation: 1,
+        },
+        textStyle: {
+          fontSize: 14,
+          letterSpacing: 0.3,
+        },
+      },
+    ];
+
     return (
       <Screen
         bannerTitle="Details"
@@ -269,6 +333,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
         showBackButton={true}
         onBack={handleBack}
         extendBannerToStatusBar={true}
+        footerButtons={footerButtons}
       >
         {/* Event Title and Basic Info */}
         <Animated.View
