@@ -68,22 +68,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     );
   }
 
-  // Helper function to format display name
-  const getDisplayName = () => {
-    if (profileData?.firstName && profileData?.lastName) {
-      return `${profileData.firstName} ${profileData.lastName}`;
-    } else if (profileData?.firstName) {
-      return profileData.firstName;
-    } else if (profileData?.lastName) {
-      return profileData.lastName;
-    }
-    return user?.email || "";
-  };
-
   return (
     <>
       <Screen
-        bannerTitle={getDisplayName()}
+        bannerTitle="Profile"
         bannerDescription={profileData?.bio || "View your profile details"}
         bannerEmoji="👤"
         showBackButton={true}

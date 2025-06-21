@@ -11,6 +11,7 @@ import Animated, {
   useAnimatedScrollHandler,
   useSharedValue,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Banner from "./Banner";
 import Button from "./Button";
 import ScreenContent from "./ScreenContent";
@@ -122,6 +123,7 @@ const Screen = <T extends string>({
   isScrollable = true,
   extendBannerToStatusBar = true,
 }: ScreenProps<T>) => {
+  const insets = useSafeAreaInsets();
   const scrollY = useSharedValue(0);
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -135,6 +137,11 @@ const Screen = <T extends string>({
       onBack();
     }
   };
+
+  const mainContainerStyle = [
+    styles.mainContainer,
+    footerButtons.length > 0 && !noSafeArea && { marginBottom: -insets.bottom },
+  ];
 
   const renderContent = () => (
     <ScreenContent>
@@ -187,7 +194,7 @@ const Screen = <T extends string>({
       noAnimation={noAnimation}
       extendBannerToStatusBar={extendBannerToStatusBar}
     >
-      <View style={styles.mainContainer}>
+      <View style={mainContainerStyle}>
         {(bannerTitle || showBackButton) && (
           <View style={styles.fixedBannerWrapper}>
             <Banner
@@ -218,7 +225,12 @@ const Screen = <T extends string>({
           </View>
         )}
         {footerButtons.length > 0 && (
-          <View style={styles.fixedFooter}>
+          <View
+            style={[
+              styles.fixedFooter,
+              { paddingBottom: Math.max(insets.bottom, 16) },
+            ]}
+          >
             {footerButtons.map((button, index) => (
               <Button
                 key={index}
@@ -259,7 +271,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   scrollContentWithFooter: {
-    paddingBottom: 100, // Add padding to account for fixed footer
+    paddingBottom: 120, // Add padding to account for fixed footer
   },
   contentContainer: {
     flex: 1,
@@ -292,7 +304,7 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: newColors.background, // Updated to teal background
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.1)", // Updated for better contrast on teal
     flexDirection: "row",
