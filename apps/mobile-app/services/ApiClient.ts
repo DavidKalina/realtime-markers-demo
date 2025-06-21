@@ -6,7 +6,6 @@ import { ClusterApiClient } from "./api/modules/clusters";
 import { PlacesApiClient } from "./api/modules/places";
 import { AuthModule } from "./api/modules/auth";
 import { FriendsModule } from "./api/modules/friends";
-import { NotificationsModule } from "./api/modules/notifications";
 import { FiltersModule } from "./api/modules/filters";
 import { RSVPModule } from "./api/modules/rsvp";
 import { PlansModule } from "./api/modules/plans";
@@ -31,7 +30,6 @@ class ApiClient extends BaseApiClient {
   private _places: PlacesApiClient | null = null;
   private _auth: AuthModule | null = null;
   private _friends: FriendsModule | null = null;
-  private _notifications: NotificationsModule | null = null;
   private _filters: FiltersModule | null = null;
   private _rsvp: RSVPModule | null = null;
   private _plans: PlansModule | null = null;
@@ -87,13 +85,6 @@ class ApiClient extends BaseApiClient {
       this._friends = new FriendsModule(this);
     }
     return this._friends;
-  }
-
-  public get notifications(): NotificationsModule {
-    if (!this._notifications) {
-      this._notifications = new NotificationsModule(this);
-    }
-    return this._notifications;
   }
 
   public get filters(): FiltersModule {
