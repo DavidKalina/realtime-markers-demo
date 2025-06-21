@@ -7,7 +7,6 @@ import { friendshipsRouter } from "../routes/friendships";
 import { internalRouter } from "../routes/internalRoutes";
 import { jobsRouter } from "../routes/jobs";
 import plansRouter from "../routes/plans";
-import { notificationsRouter } from "../routes/notifications";
 import { placesRouter } from "../routes/places";
 import { categoriesRouter } from "../routes/categories";
 import { jobStreamingRouter } from "../routes/jobStreaming";
@@ -25,7 +24,6 @@ export function setupRoutes(app: Hono<AppContext>): void {
   app.route("/api/plans", plansRouter);
   app.route("/api/internal", internalRouter);
   app.route("/api/friendships", friendshipsRouter);
-  app.route("/api/notifications", notificationsRouter);
   app.route("/api/places", placesRouter);
   app.route("/api/categories", categoriesRouter);
 

@@ -8,7 +8,6 @@ import { createEventCacheService } from "./shared/EventCacheService";
 import { createImageProcessingCacheService } from "./shared/ImageProcessingCacheService";
 import { createCategoryCacheService } from "./shared/CategoryCacheService";
 import { createEmbeddingCacheService } from "./shared/EmbeddingCacheService";
-import { createNotificationCacheService } from "./shared/NotificationCacheService";
 import { createFriendshipCacheService } from "./shared/FriendshipCacheService";
 import { createCategoryProcessingService } from "./CategoryProcessingService";
 import { createEmbeddingService } from "./shared/EmbeddingService";
@@ -21,10 +20,8 @@ import { createEventProcessingService } from "./EventProcessingService";
 import { createUserPreferencesService } from "./UserPreferences";
 import { createPlanService } from "./PlanService";
 import { createFriendshipService } from "./FriendshipService";
-import { createNotificationService } from "./NotificationService";
 import { createAuthService } from "./AuthService";
 import { createEmailService, MockEmailService } from "./shared/EmailService";
-import { createNotificationHandler } from "./NotificationHandler";
 import { createGoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import { createJobQueue } from "./JobQueue";
 import { RepositoryInitializer } from "./RepositoryInitializer";
@@ -35,8 +32,6 @@ import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import type { StorageService } from "./shared/StorageService";
 import type { PlanService } from "./PlanService";
 import type { FriendshipServiceImpl } from "./FriendshipService";
-import type { NotificationService } from "./NotificationService";
-import type { NotificationHandler } from "./NotificationHandler";
 import type { AuthService } from "./AuthService";
 import type { OpenAIService } from "./shared/OpenAIService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
@@ -53,8 +48,6 @@ export interface ServiceContainer {
   storageService: StorageService;
   planService: PlanService;
   friendshipService: FriendshipServiceImpl;
-  notificationService: NotificationService;
-  notificationHandler: NotificationHandler;
   authService: AuthService;
   openAIService: OpenAIService;
   embeddingService: IEmbeddingService;
@@ -93,9 +86,7 @@ export class ServiceInitializer {
     const embeddingCacheService = createEmbeddingCacheService({
       configService,
     });
-    const notificationCacheService = createNotificationCacheService(
-      this.redisClient,
-    );
+
     const friendshipCacheService = createFriendshipCacheService(
       this.redisClient,
     );
@@ -171,12 +162,6 @@ export class ServiceInitializer {
       friendshipCacheService,
     });
 
-    const notificationService = createNotificationService({
-      dataSource: this.dataSource,
-      redisService,
-      notificationCacheService,
-    });
-
     const authService = createAuthService({
       userRepository: repositories.userRepository,
       dataSource: this.dataSource,
@@ -192,14 +177,6 @@ export class ServiceInitializer {
         })
       : new MockEmailService();
 
-    const notificationHandler = createNotificationHandler({
-      redisService,
-      notificationService,
-    });
-
-    // Start notification handler
-    await notificationHandler.start();
-
     const geocodingService = createGoogleGeocodingService(openAIService);
 
     console.log("Services initialized successfully");
@@ -212,8 +189,6 @@ export class ServiceInitializer {
       storageService,
       planService,
       friendshipService,
-      notificationService,
-      notificationHandler,
       authService,
       openAIService,
       embeddingService,

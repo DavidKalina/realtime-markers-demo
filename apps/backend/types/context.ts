@@ -7,7 +7,6 @@ import type { UserPreferencesServiceImpl } from "../services/UserPreferences";
 import type { StorageService } from "../services/shared/StorageService";
 import { PlanService } from "../services/PlanService";
 import type { FriendshipServiceImpl } from "../services/FriendshipService";
-import type { NotificationService } from "../services/NotificationService";
 import type { RedisService } from "../services/shared/RedisService";
 import { AuthService } from "../services/AuthService";
 import type { GoogleGeocodingService } from "../services/shared/GoogleGeocodingService";
@@ -25,7 +24,6 @@ export interface AppVariables {
   userPreferencesService: UserPreferencesServiceImpl;
   planService: PlanService;
   friendshipService: FriendshipServiceImpl;
-  notificationService: NotificationService;
   authService: AuthService;
   geocodingService: GoogleGeocodingService;
   embeddingService: IEmbeddingService;

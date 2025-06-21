@@ -17,7 +17,6 @@ import { useSplashScreen } from "@/contexts/SplashScreenContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useMapCamera } from "@/hooks/useMapCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
-import { useSimulatedNotifications } from "@/hooks/useSimulatedNotifications";
 import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
@@ -484,9 +483,6 @@ function HomeScreen() {
       setLongPressCoordinates(null);
     }
   }, [router, longPressCoordinates]);
-
-  // Use the simulated notifications hook (disabled by default)
-  useSimulatedNotifications({ enabled: false });
 
   const floatingDateButtonStyle = useMemo(
     () => ({

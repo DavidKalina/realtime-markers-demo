@@ -10,11 +10,10 @@ import { usePathname, useRouter } from "expo-router";
 import {
   BookMarkedIcon,
   Camera,
+  LucideIcon,
   Navigation,
   SearchIcon,
   User,
-  LucideIcon,
-  Bell,
 } from "lucide-react-native";
 import React, {
   useCallback,
@@ -38,8 +37,6 @@ import {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles";
-import NotificationBadge from "./NotificationBadge";
-import { useNotifications } from "@/hooks/useNotifications";
 
 // Updated color scheme to match register/login screens
 const newColors = {
@@ -90,7 +87,7 @@ const BUTTON_RELEASE_ANIMATION = {
 
 // Create a separate component for each action button to properly handle hooks
 const ActionButton: React.FC<ActionButtonProps> = React.memo(
-  ({ label, icon, onPress, isActive, disabled, actionKey, unreadCount }) => {
+  ({ label, icon, onPress, isActive, disabled }) => {
     // Each button has its own scale animation
     const scaleValue = useSharedValue(1);
 
@@ -153,15 +150,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
         accessibilityLabel={`${label} button`}
         accessibilityState={{ disabled: !!disabled, selected: isActive }}
       >
-        <View style={styles.actionButtonIcon}>
-          {iconWithWrapper}
-          {actionKey === "notifications" && (
-            <NotificationBadge
-              isActive={isActive}
-              externalCount={unreadCount}
-            />
-          )}
-        </View>
+        <View style={styles.actionButtonIcon}>{iconWithWrapper}</View>
       </TouchableOpacity>
     );
   },
@@ -188,13 +177,7 @@ interface TabConfig {
 }
 
 // Define route type to match expo-router's expected types
-type AppRoute =
-  | "/search"
-  | "/scan"
-  | "/saved"
-  | "/user"
-  | "/"
-  | "/notifications";
+type AppRoute = "/search" | "/scan" | "/saved" | "/user" | "/";
 
 // Define all possible tabs in a single configuration object
 const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
@@ -217,13 +200,6 @@ const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
     label: "Locate",
     icon: Navigation,
     requiresLocation: true,
-    enabled: true,
-  },
-  notifications: {
-    key: "notifications",
-    label: "Messages",
-    icon: Bell,
-    route: "/notifications",
     enabled: true,
   },
   saved: {
@@ -273,7 +249,6 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     availableActions = getEnabledTabs(TAB_CONFIG).map((tab) => tab.key),
   }) => {
     const pathname = usePathname();
-    const { unreadCount } = useNotifications();
 
     const activeActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
       null,
@@ -427,9 +402,6 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
               onPress={action.action}
               isActive={action.isActive || activeAction === action.key}
               disabled={action.disabled}
-              unreadCount={
-                action.key === "notifications" ? unreadCount : undefined
-              }
             />
           ))}
         </View>
