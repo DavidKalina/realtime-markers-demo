@@ -34,7 +34,6 @@ eventsRouter.get("/category/:categoryId", handlers.getEventsByCategoryHandler);
 eventsRouter.get("/search", handlers.searchEventsHandler);
 eventsRouter.get("/landing", handlers.getLandingPageDataHandler);
 eventsRouter.post("/process", handlers.processEventImageHandler);
-eventsRouter.post("/cluster-hub", handlers.getClusterHubDataHandler);
 eventsRouter.get("/process/:jobId", handlers.getProcessingStatusHandler);
 eventsRouter.post("/private", handlers.createPrivateEventHandler);
 eventsRouter.post("/", handlers.createEventHandler);

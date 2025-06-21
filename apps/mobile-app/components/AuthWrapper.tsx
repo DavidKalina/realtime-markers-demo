@@ -2,7 +2,6 @@
 import { Redirect } from "expo-router";
 import React, { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useSplashScreen } from "@/contexts/SplashScreenContext";
 
 interface AuthWrapperProps {
@@ -15,7 +14,6 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
   requireAuth = true,
 }) => {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const { hasCompletedOnboarding } = useOnboarding();
   const { registerLoadingState, unregisterLoadingState } = useSplashScreen();
 
   // Register auth loading state with the splash screen context
@@ -40,11 +38,6 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
   // If user is authenticated but on a non-auth page (like login), redirect to home
   if (!requireAuth && isAuthenticated && !isAuthLoading) {
     return <Redirect href="/" />;
-  }
-
-  // If user is authenticated but hasn't completed onboarding, redirect to onboarding
-  if (isAuthenticated && !hasCompletedOnboarding && !isAuthLoading) {
-    return <Redirect href="/onboarding" />;
   }
 
   // Show loading state or render children

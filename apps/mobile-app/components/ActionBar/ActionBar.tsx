@@ -385,7 +385,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     );
 
     // Hide ActionBar on specific routes
-    const hiddenRoutes = ["/register", "/login", "/onboarding"];
+    const hiddenRoutes = ["/register", "/login"];
     if (hiddenRoutes.includes(pathname)) {
       return null;
     }

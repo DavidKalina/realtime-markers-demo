@@ -17,7 +17,6 @@ import { View } from "react-native";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
-import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import {
   SplashScreenProvider,
   useSplashScreen,
@@ -90,15 +89,13 @@ function RootLayout() {
     <AuthProvider>
       <LocationProvider>
         <MapStyleProvider>
-          <OnboardingProvider>
-            <SplashScreenProvider>
-              <ThemeProvider
-                value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-              >
-                <SplashScreenHandler>{children}</SplashScreenHandler>
-              </ThemeProvider>
-            </SplashScreenProvider>
-          </OnboardingProvider>
+          <SplashScreenProvider>
+            <ThemeProvider
+              value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+            >
+              <SplashScreenHandler>{children}</SplashScreenHandler>
+            </ThemeProvider>
+          </SplashScreenProvider>
         </MapStyleProvider>
       </LocationProvider>
     </AuthProvider>
@@ -126,7 +123,6 @@ function RootLayout() {
             }}
           >
             <Stack.Screen name="jobs" />
-            <Stack.Screen name="onboarding" />
             <Stack.Screen name="register" />
             <Stack.Screen name="login" />
             <Stack.Screen name="index" />
