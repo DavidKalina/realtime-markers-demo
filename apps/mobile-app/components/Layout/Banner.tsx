@@ -1,4 +1,3 @@
-import { COLORS } from "./ScreenLayout";
 import React, { useEffect } from "react";
 import { StyleSheet, View, Text } from "react-native";
 import Animated, {
@@ -12,6 +11,25 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import BackButton from "./BackButton";
+
+// Updated color scheme to match register/login screens
+const newColors = {
+  background: "#00697A",
+  text: "#FFFFFF",
+  accent: "#FDB813",
+  cardBackground: "#FFFFFF",
+  cardText: "#000000",
+  cardTextSecondary: "#6c757d",
+  buttonBackground: "#FFFFFF",
+  buttonText: "#00697A",
+  buttonBorder: "#DDDDDD",
+  inputBackground: "#F5F5F5",
+  errorBackground: "#FFCDD2",
+  errorText: "#B71C1C",
+  errorBorder: "#EF9A9A",
+  divider: "#E0E0E0",
+  activityIndicator: "#00697A",
+};
 
 interface BannerProps {
   emoji?: string;
@@ -89,9 +107,9 @@ export default function Banner({
 const styles = StyleSheet.create({
   zoneBanner: {
     height: 90,
-    backgroundColor: "#e0f2fe",
+    backgroundColor: newColors.background, // Updated to teal background
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.08)",
+    borderBottomColor: "rgba(255, 255, 255, 0.1)", // Updated for better contrast on teal
     justifyContent: "center",
     paddingTop: 2,
     zIndex: 2,
@@ -135,7 +153,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "center",
   },
   zoneBannerName: {
-    color: COLORS.textPrimary,
+    color: newColors.text, // Updated to white text for teal background
     fontSize: 22,
     fontFamily: "SpaceMono",
     fontWeight: "700",

@@ -21,7 +21,25 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
-import { COLORS } from "../Layout/ScreenLayout";
+
+// Updated color scheme to match register/login screens
+const newColors = {
+  background: "#00697A",
+  text: "#FFFFFF",
+  accent: "#FDB813",
+  cardBackground: "#FFFFFF",
+  cardText: "#000000",
+  cardTextSecondary: "#6c757d",
+  buttonBackground: "#FFFFFF",
+  buttonText: "#00697A",
+  buttonBorder: "#DDDDDD",
+  inputBackground: "#F5F5F5",
+  errorBackground: "#FFCDD2",
+  errorText: "#B71C1C",
+  errorBorder: "#EF9A9A",
+  divider: "#E0E0E0",
+  activityIndicator: "#00697A",
+};
 
 interface MunicipalBannerProps {
   backgroundColor?: string;
@@ -33,7 +51,7 @@ interface MunicipalBannerProps {
 }
 
 const MunicipalBanner: React.FC<MunicipalBannerProps> = ({
-  backgroundColor = "#e0f2fe", // Light blue municipal background
+  backgroundColor = newColors.background, // Updated to use teal background
   municipalityName = "Town of Frederick",
   logoUrl = require("@/assets/images/frederick-logo.png"),
   showUserInfo = false,
@@ -76,7 +94,7 @@ const MunicipalBanner: React.FC<MunicipalBannerProps> = ({
   return (
     <View style={containerStyle}>
       <RNStatusBar
-        barStyle="dark-content" // Changed to dark-content for light municipal theme
+        barStyle="light-content" // Changed to light-content for dark teal background
         backgroundColor={backgroundColor}
         translucent
       />
@@ -125,7 +143,7 @@ const MunicipalBanner: React.FC<MunicipalBannerProps> = ({
                 <Ionicons
                   name="briefcase"
                   size={16}
-                  color={COLORS.textPrimary}
+                  color={newColors.buttonText}
                 />
               </Animated.View>
             </TouchableOpacity>
@@ -149,10 +167,10 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 1000,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.08)",
+    borderBottomColor: "rgba(255, 255, 255, 0.1)", // Updated for better contrast on teal
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
   },
@@ -180,7 +198,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   municipalityName: {
-    color: COLORS.textPrimary,
+    color: newColors.text, // Updated to white text for teal background
     fontSize: 16,
     fontWeight: "700",
     fontFamily: "SpaceMono",
@@ -196,7 +214,7 @@ const styles = StyleSheet.create({
     maxWidth: 120,
   },
   userInfo: {
-    color: COLORS.textSecondary,
+    color: newColors.text, // Updated to white text for teal background
     fontSize: 12,
     fontWeight: "500",
     fontFamily: "SpaceMono",
@@ -215,12 +233,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: "#fff",
+    backgroundColor: newColors.cardBackground, // Updated to white background
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-    shadowColor: COLORS.shadow,
+    borderColor: newColors.buttonBorder,
+    shadowColor: "rgba(0, 0, 0, 0.1)",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,

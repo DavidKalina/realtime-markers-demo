@@ -41,6 +41,25 @@ import { styles } from "./styles";
 import NotificationBadge from "./NotificationBadge";
 import { useNotifications } from "@/hooks/useNotifications";
 
+// Updated color scheme to match register/login screens
+const newColors = {
+  background: "#00697A",
+  text: "#FFFFFF",
+  accent: "#FDB813",
+  cardBackground: "#FFFFFF",
+  cardText: "#000000",
+  cardTextSecondary: "#6c757d",
+  buttonBackground: "#FFFFFF",
+  buttonText: "#00697A",
+  buttonBorder: "#DDDDDD",
+  inputBackground: "#F5F5F5",
+  errorBackground: "#FFCDD2",
+  errorText: "#B71C1C",
+  errorBorder: "#EF9A9A",
+  divider: "#E0E0E0",
+  activityIndicator: "#00697A",
+};
+
 interface ActionBarProps {
   isStandalone?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -84,7 +103,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
     // Memoize the icon color based on active state
     const iconColor = useMemo(
-      () => (isActive ? "#0f172a" : "#64748b"), // Dark blue for active, medium gray for inactive - better contrast with light blue background
+      () => (isActive ? newColors.text : newColors.cardBackground), // White for active, white for inactive on teal background
       [isActive],
     );
 
@@ -347,7 +366,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           .map((tab) => ({
             key: tab.key,
             label: tab.label,
-            icon: <tab.icon size={22} color="#64748b" />, // Medium gray for better contrast with light blue background
+            icon: <tab.icon size={22} color={newColors.cardBackground} />, // White icons for teal background
             action: actionHandlers[tab.key],
             disabled: tab.requiresLocation && !userLocation,
             isActive: tab.key === activeTab, // Add isActive based on current route
