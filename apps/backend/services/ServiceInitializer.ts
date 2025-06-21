@@ -8,7 +8,6 @@ import { createEventCacheService } from "./shared/EventCacheService";
 import { createImageProcessingCacheService } from "./shared/ImageProcessingCacheService";
 import { createCategoryCacheService } from "./shared/CategoryCacheService";
 import { createEmbeddingCacheService } from "./shared/EmbeddingCacheService";
-import { createFriendshipCacheService } from "./shared/FriendshipCacheService";
 import { createCategoryProcessingService } from "./CategoryProcessingService";
 import { createEmbeddingService } from "./shared/EmbeddingService";
 import { createEventService } from "./EventServiceRefactored";
@@ -19,7 +18,6 @@ import { createEventExtractionService } from "./event-processing/EventExtraction
 import { createEventProcessingService } from "./EventProcessingService";
 import { createUserPreferencesService } from "./UserPreferences";
 import { createPlanService } from "./PlanService";
-import { createFriendshipService } from "./FriendshipService";
 import { createAuthService } from "./AuthService";
 import { createEmailService, MockEmailService } from "./shared/EmailService";
 import { createGoogleGeocodingService } from "./shared/GoogleGeocodingService";
@@ -31,7 +29,6 @@ import type { CategoryProcessingService } from "./CategoryProcessingService";
 import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import type { StorageService } from "./shared/StorageService";
 import type { PlanService } from "./PlanService";
-import type { FriendshipServiceImpl } from "./FriendshipService";
 import type { AuthService } from "./AuthService";
 import type { OpenAIService } from "./shared/OpenAIService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
@@ -47,7 +44,6 @@ export interface ServiceContainer {
   userPreferencesService: UserPreferencesServiceImpl;
   storageService: StorageService;
   planService: PlanService;
-  friendshipService: FriendshipServiceImpl;
   authService: AuthService;
   openAIService: OpenAIService;
   embeddingService: IEmbeddingService;
@@ -86,10 +82,6 @@ export class ServiceInitializer {
     const embeddingCacheService = createEmbeddingCacheService({
       configService,
     });
-
-    const friendshipCacheService = createFriendshipCacheService(
-      this.redisClient,
-    );
 
     // Initialize AI services
     const openAIService = createOpenAIService({
@@ -157,11 +149,6 @@ export class ServiceInitializer {
     const storageService = createStorageService();
     const planService = createPlanService({ dataSource: this.dataSource });
 
-    const friendshipService = createFriendshipService({
-      dataSource: this.dataSource,
-      friendshipCacheService,
-    });
-
     const authService = createAuthService({
       userRepository: repositories.userRepository,
       dataSource: this.dataSource,
@@ -188,7 +175,6 @@ export class ServiceInitializer {
       userPreferencesService,
       storageService,
       planService,
-      friendshipService,
       authService,
       openAIService,
       embeddingService,

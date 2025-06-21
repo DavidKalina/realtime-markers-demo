@@ -102,7 +102,6 @@ The system validates the existence of these tables:
 - `user_event_discoveries`
 - `user_event_rsvps`
 - `user_event_saves`
-- `friendships`
 - `migrations`
 
 ## Error Handling

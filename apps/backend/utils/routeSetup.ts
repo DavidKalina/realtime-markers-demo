@@ -3,7 +3,6 @@ import { adminRouter } from "../routes/admin";
 import { authRouter } from "../routes/auth";
 import { eventsRouter } from "../routes/events";
 import { filterRouter } from "../routes/filters";
-import { friendshipsRouter } from "../routes/friendships";
 import { internalRouter } from "../routes/internalRoutes";
 import { jobsRouter } from "../routes/jobs";
 import plansRouter from "../routes/plans";
@@ -23,7 +22,6 @@ export function setupRoutes(app: Hono<AppContext>): void {
   app.route("/api/filters", filterRouter);
   app.route("/api/plans", plansRouter);
   app.route("/api/internal", internalRouter);
-  app.route("/api/friendships", friendshipsRouter);
   app.route("/api/places", placesRouter);
   app.route("/api/categories", categoriesRouter);
 

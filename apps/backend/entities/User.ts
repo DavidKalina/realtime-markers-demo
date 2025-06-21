@@ -11,7 +11,6 @@ import {
 } from "typeorm";
 import type { Relation } from "typeorm";
 import { Event } from "./Event";
-import { Friendship } from "./Friendship";
 import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
 import { UserEventView } from "./UserEventView";
@@ -40,15 +39,6 @@ export class User {
   @Index({ unique: true })
   @Column({ name: "username", type: "varchar", unique: true, nullable: true })
   username?: string;
-
-  @Index({ unique: true })
-  @Column({
-    name: "friend_code",
-    type: "varchar",
-    unique: true,
-    nullable: true,
-  })
-  friendCode?: string;
 
   @Column({ type: "varchar", nullable: true })
   phone?: string;
@@ -123,13 +113,6 @@ export class User {
 
   @OneToMany(() => UserEventRsvp, (rsvp) => rsvp.user)
   rsvps!: Relation<UserEventRsvp>[];
-
-  // Friendship relationships
-  @OneToMany(() => Friendship, (friendship) => friendship.requester)
-  sentFriendRequests!: Relation<Friendship>[];
-
-  @OneToMany(() => Friendship, (friendship) => friendship.addressee)
-  receivedFriendRequests!: Relation<Friendship>[];
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

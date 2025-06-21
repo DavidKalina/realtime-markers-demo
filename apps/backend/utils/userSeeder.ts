@@ -5,7 +5,6 @@ import bcrypt from "bcrypt";
 export interface SeededUser {
   email: string;
   username: string;
-  friendCode: string;
   passwordHash: string;
   displayName: string;
   role: UserRole;
@@ -17,7 +16,6 @@ export const SEEDED_USERS: Omit<SeededUser, "passwordHash">[] = [
   {
     email: "user@example.com",
     username: "regularuser",
-    friendCode: "USER001",
     displayName: "Regular User",
     role: UserRole.USER,
     planType: PlanType.FREE,
@@ -26,7 +24,6 @@ export const SEEDED_USERS: Omit<SeededUser, "passwordHash">[] = [
   {
     email: "moderator@example.com",
     username: "moderator",
-    friendCode: "MOD001",
     displayName: "Moderator User",
     role: UserRole.MODERATOR,
     planType: PlanType.PRO,
@@ -35,7 +32,6 @@ export const SEEDED_USERS: Omit<SeededUser, "passwordHash">[] = [
   {
     email: "admin@example.com",
     username: "admin",
-    friendCode: "ADMIN001",
     displayName: "Admin User",
     role: UserRole.ADMIN,
     planType: PlanType.PRO,

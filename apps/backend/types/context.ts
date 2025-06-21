@@ -6,7 +6,6 @@ import Redis from "ioredis";
 import type { UserPreferencesServiceImpl } from "../services/UserPreferences";
 import type { StorageService } from "../services/shared/StorageService";
 import { PlanService } from "../services/PlanService";
-import type { FriendshipServiceImpl } from "../services/FriendshipService";
 import type { RedisService } from "../services/shared/RedisService";
 import { AuthService } from "../services/AuthService";
 import type { GoogleGeocodingService } from "../services/shared/GoogleGeocodingService";
@@ -23,7 +22,6 @@ export interface AppVariables {
   redisService: RedisService;
   userPreferencesService: UserPreferencesServiceImpl;
   planService: PlanService;
-  friendshipService: FriendshipServiceImpl;
   authService: AuthService;
   geocodingService: GoogleGeocodingService;
   embeddingService: IEmbeddingService;

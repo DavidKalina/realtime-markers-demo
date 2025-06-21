@@ -139,7 +139,6 @@ function RootLayout() {
             <Stack.Screen name="search/list" />
             <Stack.Screen name="category/[id]" />
             <Stack.Screen name="details" />
-            <Stack.Screen name="friends" />
             <Stack.Screen
               name="create-private-event"
               options={{

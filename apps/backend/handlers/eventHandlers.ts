@@ -543,34 +543,6 @@ export const getDiscoveredEventsHandler: EventHandler = withErrorHandling(
   },
 );
 
-export const getClusterHubDataHandler: EventHandler = withErrorHandling(
-  async (c) => {
-    const data = await c.req.json();
-    const markerIds = validateArray(data.markerIds, "markerIds") as string[];
-
-    const eventService = getEventService(c);
-    const hubData = await eventService.getClusterHubData(markerIds);
-
-    return c.json(hubData);
-  },
-);
-
-export const getFriendsSavedEventsHandler: EventHandler = withErrorHandling(
-  async (c) => {
-    const user = requireAuth(c);
-    const limit = c.req.query("limit");
-    const cursor = c.req.query("cursor");
-    const eventService = getEventService(c);
-
-    const savedEvents = await eventService.getFriendsSavedEvents(user.id, {
-      limit: limit ? parseInt(limit) : undefined,
-      cursor: cursor,
-    });
-
-    return c.json(savedEvents);
-  },
-);
-
 export const createPrivateEventHandler: EventHandler = withErrorHandling(
   async (c) => {
     const user = requireAuth(c);

@@ -27,8 +27,6 @@ interface ClusterHubData {
     email: string;
     eventCount: number;
     creatorDescription: string;
-    title: string;
-    friendCode: string;
   };
 }
 

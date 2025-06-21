@@ -6,9 +6,7 @@ import { UserEventSave } from "../entities/UserEventSave";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
 import { UserEventRsvp } from "../entities/UserEventRsvp";
 import { EventShare } from "../entities/EventShare";
-import { Notification } from "../entities/Notification";
 import { Filter } from "../entities/Filter";
-import { Friendship } from "../entities/Friendship";
 import { ensureDatabaseReadyForServices } from "../utils/databaseInitializer";
 
 export interface RepositoryContainer {
@@ -19,9 +17,7 @@ export interface RepositoryContainer {
   userEventDiscoveryRepository: Repository<UserEventDiscovery>;
   userEventRsvpRepository: Repository<UserEventRsvp>;
   eventShareRepository: Repository<EventShare>;
-  notificationRepository: Repository<Notification>;
   filterRepository: Repository<Filter>;
-  friendshipRepository: Repository<Friendship>;
 }
 
 export class RepositoryInitializer {
@@ -56,9 +52,7 @@ export class RepositoryInitializer {
           this.dataSource.getRepository(UserEventDiscovery),
         userEventRsvpRepository: this.dataSource.getRepository(UserEventRsvp),
         eventShareRepository: this.dataSource.getRepository(EventShare),
-        notificationRepository: this.dataSource.getRepository(Notification),
         filterRepository: this.dataSource.getRepository(Filter),
-        friendshipRepository: this.dataSource.getRepository(Friendship),
       };
     }
 

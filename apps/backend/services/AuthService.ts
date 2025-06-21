@@ -2,14 +2,12 @@
 
 import bcrypt from "bcrypt";
 import jwt, { type SignOptions } from "jsonwebtoken";
-import { Repository } from "typeorm";
+import { Repository, DataSource } from "typeorm";
 import { User } from "../entities/User";
 import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import { addDays, format } from "date-fns";
-import { createFriendshipService } from "./FriendshipService";
-import { DataSource } from "typeorm";
-import { OpenAIModel, type OpenAIService } from "./shared/OpenAIService";
-import { createFriendshipCacheService } from "./shared/FriendshipCacheService";
+import type { OpenAIService } from "./shared/OpenAIService";
+import { OpenAIModel } from "./shared/OpenAIService";
 
 export interface UserRegistrationData {
   email: string;
@@ -44,55 +42,45 @@ export class AuthService {
     this.userPreferencesService = dependencies.userPreferencesService;
     this.dataSource = dependencies.dataSource;
     this.openAIService = dependencies.openAIService;
-    this.jwtSecret = process.env.JWT_SECRET!;
-    if (!this.jwtSecret) {
-      throw new Error("JWT_SECRET environment variable must be set");
-    }
-    this.refreshSecret = process.env.REFRESH_SECRET!;
-    if (!this.refreshSecret) {
-      throw new Error("REFRESH_SECRET environment variable must be set");
-    }
+    this.jwtSecret = process.env.JWT_SECRET || "your-secret-key";
+    this.refreshSecret = process.env.REFRESH_SECRET || "your-refresh-secret";
     this.accessTokenExpiry = "1h";
     this.refreshTokenExpiry = "7d";
   }
 
   /**
-   * Check if a username or display name is appropriate using OpenAI
+   * Check if content is appropriate using OpenAI
    */
   private async isContentAppropriate(content: string): Promise<boolean> {
     try {
-      const prompt = `Please analyze if the following username/display name is appropriate for a general audience platform. Consider:
-1. No profanity or offensive language
-2. No hate speech or discriminatory content
-3. No impersonation of public figures
-4. No explicit sexual content
-5. No promotion of harmful activities
-
-Content to analyze: "${content}"
-
-Respond with a JSON object containing:
-{
-  "isAppropriate": boolean,
-  "reason": string
-}`;
-
       const response = await this.openAIService.executeChatCompletion({
         model: OpenAIModel.GPT4OMini,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.1,
-        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a content moderator. Determine if the given content is appropriate for a family-friendly event discovery app. Consider:\n" +
+              "1. No profanity or offensive language\n" +
+              "2. No hate speech or discriminatory content\n" +
+              "3. No inappropriate sexual content\n" +
+              "4. No violent or threatening content\n" +
+              "5. No spam or misleading content\n\n" +
+              "Respond with only 'APPROPRIATE' or 'INAPPROPRIATE'.",
+          },
+          {
+            role: "user",
+            content: `Evaluate this content: "${content}"`,
+          },
+        ],
+        max_tokens: 10,
+        temperature: 0,
       });
 
-      const responseContent = response.choices[0].message.content;
-      if (!responseContent) {
-        throw new Error("No content received from OpenAI");
-      }
-      const result = JSON.parse(responseContent);
-      return result.isAppropriate;
+      const result = response.choices[0]?.message?.content?.trim();
+      return result === "APPROPRIATE";
     } catch (error) {
       console.error("Error checking content appropriateness:", error);
-      // If we can't check appropriateness, default to allowing the content
-      // This is safer than blocking legitimate users if the service is down
+      // Default to allowing content if moderation fails
       return true;
     }
   }
@@ -377,24 +365,9 @@ Respond with a JSON object containing:
         "createdAt",
         "scanCount",
         "saveCount",
-        "friendCode",
         "username",
       ],
     });
-
-    if (!user) {
-      return null;
-    }
-
-    // Generate a friend code if the user doesn't have one
-    if (!user.friendCode) {
-      const friendshipService = createFriendshipService({
-        dataSource: this.dataSource,
-        friendshipCacheService: createFriendshipCacheService(),
-      });
-      user.friendCode = await friendshipService.generateFriendCode(userId);
-      await this.userRepository.save(user);
-    }
 
     return user;
   }

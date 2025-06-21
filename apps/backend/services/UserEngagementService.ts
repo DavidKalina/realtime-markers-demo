@@ -5,7 +5,6 @@ import { UserEventSave } from "../entities/UserEventSave";
 import { UserEventRsvp, RsvpStatus } from "../entities/UserEventRsvp";
 import { UserEventDiscovery } from "../entities/UserEventDiscovery";
 import { UserEventView } from "../entities/UserEventView";
-import { Friendship } from "../entities/Friendship";
 import type { RedisService } from "./shared/RedisService";
 
 export interface EventEngagementMetrics {
@@ -53,11 +52,6 @@ export interface UserEngagementService {
   createViewRecord(userId: string, eventId: string): Promise<void>;
 
   getDiscoveredEventsByUser(
-    userId: string,
-    options?: { limit?: number; cursor?: string },
-  ): Promise<{ events: Event[]; nextCursor?: string }>;
-
-  getFriendsSavedEvents(
     userId: string,
     options?: { limit?: number; cursor?: string },
   ): Promise<{ events: Event[]; nextCursor?: string }>;
@@ -686,113 +680,6 @@ export class UserEngagementServiceImpl implements UserEngagementService {
       const lastResult = results[results.length - 1];
       const cursorObj = {
         discoveredAt: lastResult.discoveredAt,
-        eventId: lastResult.eventId,
-      };
-      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString("base64");
-    }
-
-    return {
-      events,
-      nextCursor,
-    };
-  }
-
-  /**
-   * Get events saved by user's friends
-   *
-   * @param userId The ID of the user
-   * @param options Pagination options
-   * @returns An array of events saved by friends with pagination info
-   */
-  async getFriendsSavedEvents(
-    userId: string,
-    options: { limit?: number; cursor?: string } = {},
-  ): Promise<{ events: Event[]; nextCursor?: string }> {
-    const { limit = 10, cursor } = options;
-
-    // Parse cursor if provided
-    let cursorData: { savedAt: Date; eventId: string } | undefined;
-    if (cursor) {
-      try {
-        const jsonStr = Buffer.from(cursor, "base64").toString("utf-8");
-        cursorData = JSON.parse(jsonStr);
-      } catch (e) {
-        console.error("Invalid cursor format:", e);
-      }
-    }
-
-    // Build query to get events saved by friends
-    let queryBuilder = this.dependencies.dataSource
-      .getRepository(UserEventSave)
-      .createQueryBuilder("save")
-      .leftJoinAndSelect("save.event", "event")
-      .leftJoinAndSelect("event.categories", "categories")
-      .leftJoinAndSelect("event.creator", "creator")
-      .leftJoinAndSelect("save.user", "saver")
-      // Join with friendships to get events saved by friends
-      .innerJoin(
-        Friendship,
-        "friendship",
-        "(friendship.requesterId = :userId AND friendship.addresseeId = save.userId AND friendship.status = 'ACCEPTED') OR " +
-          "(friendship.addresseeId = :userId AND friendship.requesterId = save.userId AND friendship.status = 'ACCEPTED')",
-        { userId },
-      )
-      .where("save.userId != :userId", { userId }); // Exclude user's own saves
-
-    // Add cursor conditions if cursor is provided
-    if (cursorData) {
-      queryBuilder = queryBuilder.andWhere(
-        new Brackets((qb) => {
-          qb.where("save.savedAt < :savedAt", {
-            savedAt: cursorData.savedAt,
-          }).orWhere(
-            new Brackets((qb2) => {
-              qb2
-                .where("save.savedAt = :savedAt", {
-                  savedAt: cursorData.savedAt,
-                })
-                .andWhere("event.id < :eventId", {
-                  eventId: cursorData.eventId,
-                });
-            }),
-          );
-        }),
-      );
-    }
-
-    // Execute query
-    const saves = await queryBuilder
-      .orderBy("save.savedAt", "DESC")
-      .addOrderBy("event.id", "DESC")
-      .take(limit + 1)
-      .getMany();
-
-    // Process results
-    const hasMore = saves.length > limit;
-    const results = saves.slice(0, limit);
-
-    // Extract events and add saver information
-    const events = results.map((save) => {
-      const event = save.event;
-      // Add who saved it
-      (
-        event as unknown as {
-          savedBy: { id: string; displayName: string; email: string };
-        }
-      ).savedBy = {
-        id: save.user.id,
-        displayName: save.user.displayName || save.user.email,
-        email: save.user.email,
-      };
-      return event;
-    });
-
-    // Generate next cursor if we have more results
-    let nextCursor: string | undefined;
-    if (hasMore && results.length > 0) {
-      const lastResult = results[results.length - 1];
-      const cursorObj = {
-        savedAt: lastResult.savedAt,
         eventId: lastResult.eventId,
       };
       nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString("base64");

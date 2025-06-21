@@ -35,7 +35,6 @@ describe("AuthService", () => {
     updatedAt: new Date(),
     scanCount: 0,
     saveCount: 0,
-    friendCode: "ABC123",
     refreshToken: "refresh-token-123",
     planType: "FREE" as const,
     discoveryCount: 0,
@@ -206,33 +205,6 @@ describe("AuthService", () => {
   });
 
   describe("getUserProfile", () => {
-    it("should return user profile with level information", async () => {
-      const mockLevelInfo = {
-        currentLevel: 5,
-        currentTitle: "Adventure Seeker",
-        totalXp: 1250,
-        nextLevelXp: 1500,
-        progress: 75,
-      };
-
-      (mockUserRepository.findOne as jest.Mock).mockResolvedValue(testUser);
-
-      const result = await authService.getUserProfile(testUser.id);
-
-      expect(result).toEqual({
-        ...testUser,
-        level: mockLevelInfo.currentLevel,
-        currentTitle: mockLevelInfo.currentTitle,
-        totalXp: mockLevelInfo.totalXp,
-        nextLevelXp: mockLevelInfo.nextLevelXp,
-        xpProgress: mockLevelInfo.progress,
-      } as User & {
-        level: number;
-        nextLevelXp: number;
-        xpProgress: number;
-      });
-    });
-
     it("should return null when user not found", async () => {
       (mockUserRepository.findOne as jest.Mock).mockResolvedValue(null);
 
@@ -250,13 +222,6 @@ describe("AuthService", () => {
       };
 
       const mockUpdatedUser = { ...testUser, ...updateData };
-      const mockLevelInfo = {
-        currentLevel: 1,
-        currentTitle: "Novice Explorer",
-        totalXp: 0,
-        nextLevelXp: 100,
-        progress: 0,
-      };
 
       (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue({
         choices: [
@@ -282,16 +247,7 @@ describe("AuthService", () => {
 
       expect(result).toEqual({
         ...mockUpdatedUser,
-        level: mockLevelInfo.currentLevel,
-        currentTitle: mockLevelInfo.currentTitle,
-        totalXp: mockLevelInfo.totalXp,
-        nextLevelXp: mockLevelInfo.nextLevelXp,
-        xpProgress: mockLevelInfo.progress,
-      } as User & {
-        level: number;
-        nextLevelXp: number;
-        xpProgress: number;
-      });
+      } as User);
       expect(mockUserRepository.update).toHaveBeenCalledWith(
         testUser.id,
         updateData,

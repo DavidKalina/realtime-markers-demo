@@ -212,7 +212,6 @@ export class UserService {
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     // Generate a unique friend code
-    const friendCode = this.generateFriendCode();
 
     // Create the admin user
     const adminUser = this.userRepository.create({
@@ -220,7 +219,6 @@ export class UserService {
       passwordHash,
       displayName: displayName || email.split("@")[0],
       username,
-      friendCode,
       role: UserRole.ADMIN,
       isVerified: true, // Admin users are automatically verified
     });
@@ -276,15 +274,5 @@ export class UserService {
 
     // Delete the admin user
     await this.userRepository.remove(adminUser);
-  }
-
-  private generateFriendCode(): string {
-    // Generate a 6-character alphanumeric code
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let result = "";
-    for (let i = 0; i < 6; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
   }
 }

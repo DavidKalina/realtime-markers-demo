@@ -42,7 +42,6 @@ The original `EventService` was a monolithic service with over 2,200 lines of co
 - `getUserRsvpStatus(userId, eventId)`
 - `createDiscoveryRecord(userId, eventId)`
 - `getDiscoveredEventsByUser(userId, options)`
-- `getFriendsSavedEvents(userId, options)`
 
 **Dependencies**: DataSource, RedisService, LevelingService
 

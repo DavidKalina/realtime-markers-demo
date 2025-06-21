@@ -142,8 +142,6 @@ A comprehensive migration dependency issue was recently fixed:
 - `user_event_rsvps.user_id` → `users.id`
 - `user_event_saves.user_id` → `users.id`
 - `user_event_views.user_id` → `users.id`
-- `friendships.user_id` → `users.id`
-- `friendships.friend_id` → `users.id`
 
 ## Removed Scripts
 

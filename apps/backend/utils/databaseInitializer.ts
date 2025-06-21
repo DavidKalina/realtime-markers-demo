@@ -105,7 +105,6 @@ export async function validateTables(dataSource: DataSource): Promise<{
     "user_event_discoveries",
     "user_event_rsvps",
     "user_event_saves",
-    "friendships",
     "migrations",
   ];
 

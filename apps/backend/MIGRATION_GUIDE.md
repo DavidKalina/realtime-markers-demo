@@ -24,7 +24,6 @@ Previously, migrations were failing due to foreign key constraint conflicts. The
 ✅ UserEventRsvpTable1710000000008 (has user FK)
 ✅ UserEventSaveTable1710000000009 (has user FK)
 ✅ UserEventViewTable1710000000010 (has user FK)
-✅ FriendshipTable1710000000011 (has user FK)
 ✅ SeedUsers1710000000012
 ✅ AddAllUserForeignKeys1710000000014 (only missing FKs)
 ```
@@ -39,7 +38,6 @@ These tables already have their foreign keys defined and should NOT be added to 
 - `user_event_rsvps` - FK defined in `UserEventRsvpTable1710000000008`
 - `user_event_saves` - FK defined in `UserEventSaveTable1710000000009`
 - `user_event_views` - FK defined in `UserEventViewTable1710000000010`
-- `friendships` - FK defined in `FriendshipTable1710000000011`
 
 #### ✅ Tables with Foreign Keys in Comprehensive Migration
 

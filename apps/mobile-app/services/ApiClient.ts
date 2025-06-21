@@ -5,7 +5,6 @@ import { EventApiClient } from "./api/modules/events";
 import { ClusterApiClient } from "./api/modules/clusters";
 import { PlacesApiClient } from "./api/modules/places";
 import { AuthModule } from "./api/modules/auth";
-import { FriendsModule } from "./api/modules/friends";
 import { FiltersModule } from "./api/modules/filters";
 import { RSVPModule } from "./api/modules/rsvp";
 import { PlansModule } from "./api/modules/plans";
@@ -15,7 +14,6 @@ import { CategoriesModule } from "./api/modules/categories";
 export * from "./api/base/types";
 export * from "./api/modules/auth";
 export * from "./api/modules/events";
-export * from "./api/modules/friends";
 // export * from "./api/modules/notifications"; // Types are now in base/types
 export * from "./api/modules/filters";
 export * from "./api/modules/rsvp";
@@ -29,7 +27,6 @@ class ApiClient extends BaseApiClient {
   private _clusters: ClusterApiClient | null = null;
   private _places: PlacesApiClient | null = null;
   private _auth: AuthModule | null = null;
-  private _friends: FriendsModule | null = null;
   private _filters: FiltersModule | null = null;
   private _rsvp: RSVPModule | null = null;
   private _plans: PlansModule | null = null;
@@ -78,13 +75,6 @@ class ApiClient extends BaseApiClient {
       this._auth = new AuthModule(this);
     }
     return this._auth;
-  }
-
-  public get friends(): FriendsModule {
-    if (!this._friends) {
-      this._friends = new FriendsModule(this);
-    }
-    return this._friends;
   }
 
   public get filters(): FiltersModule {

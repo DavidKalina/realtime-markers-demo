@@ -26,7 +26,6 @@ eventsRouter.use("*", authMiddleware);
 
 // Static/specific paths should come before dynamic ones
 eventsRouter.get("/saved", handlers.getSavedEventsHandler);
-eventsRouter.get("/saved/friends", handlers.getFriendsSavedEventsHandler);
 eventsRouter.get("/discovered", handlers.getDiscoveredEventsHandler);
 eventsRouter.get("/nearby", handlers.getNearbyEventsHandler);
 eventsRouter.get("/categories", handlers.getCategoriesHandler);

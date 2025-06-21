@@ -78,7 +78,6 @@ export class ClusterApiClient extends BaseApiModule {
       email: string;
       eventCount: number;
       title: string;
-      friendCode: string;
       creatorDescription: string;
     };
   }> {
@@ -109,7 +108,6 @@ export class ClusterApiClient extends BaseApiModule {
         eventCount: number;
         creatorDescription: string;
         title: string;
-        friendCode: string;
       };
     }>(response);
 

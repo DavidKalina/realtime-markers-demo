@@ -24,8 +24,6 @@ export interface User {
   currentTitle?: string;
   level?: number;
   nextLevelXp?: number;
-  xpProgress?: number;
-  friendCode?: string;
   username?: string;
 }
 
@@ -218,7 +216,6 @@ export interface ClusterHubData {
     eventCount: number;
     creatorDescription: string;
     title: string;
-    friendCode: string;
   };
 }
 

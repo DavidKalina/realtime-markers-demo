@@ -8,27 +8,23 @@ import { Event } from "./entities/Event";
 import { Category } from "./entities/Category";
 import { EventShare } from "./entities/EventShare";
 import { Filter } from "./entities/Filter";
-import { Notification } from "./entities/Notification";
 import { QueryAnalytics } from "./entities/QueryAnalytics";
 import { UserEventView } from "./entities/UserEventView";
 import { UserEventDiscovery } from "./entities/UserEventDiscovery";
 import { UserEventRsvp } from "./entities/UserEventRsvp";
 import { UserEventSave } from "./entities/UserEventSave";
-import { Friendship } from "./entities/Friendship";
 
 // Import all migrations explicitly
 import { CategoryTable1710000000000 } from "./migrations/CategoryTable1710000000000";
 import { EventTable1710000000001 } from "./migrations/EventTable1710000000001";
 import { EventShareTable1710000000002 } from "./migrations/EventShareTable1710000000002";
 import { FilterTable1710000000003 } from "./migrations/FilterTable1710000000003";
-import { NotificationTable1710000000004 } from "./migrations/NotificationTable1710000000004";
 import { QueryAnalyticsTable1710000000005 } from "./migrations/QueryAnalyticsTable1710000000005";
 import { UserTable1710000000006 } from "./migrations/UserTable1710000000006";
 import { UserEventDiscoveryTable1710000000007 } from "./migrations/UserEventDiscoveryTable1710000000007";
 import { UserEventRsvpTable1710000000008 } from "./migrations/UserEventRsvpTable1710000000008";
 import { UserEventSaveTable1710000000009 } from "./migrations/UserEventSaveTable1710000000009";
 import { UserEventViewTable1710000000010 } from "./migrations/UserEventViewTable1710000000010";
-import { FriendshipTable1710000000011 } from "./migrations/FriendshipTable1710000000011";
 import { SeedUsers1710000000012 } from "./migrations/SeedUsers1710000000012";
 import { AddAllUserForeignKeys1710000000014 } from "./migrations/AddAllUserForeignKeys1710000000014";
 import { AddIsOfficialToEvents1710000000015 } from "./migrations/AddIsOfficialToEvents1710000000015";
@@ -45,27 +41,23 @@ const AppDataSource = new DataSource({
     Category,
     EventShare,
     Filter,
-    Notification,
     QueryAnalytics,
     UserEventView,
     UserEventDiscovery,
     UserEventRsvp,
     UserEventSave,
-    Friendship,
   ],
   migrations: [
     CategoryTable1710000000000,
     EventTable1710000000001,
     EventShareTable1710000000002,
     FilterTable1710000000003,
-    NotificationTable1710000000004,
     QueryAnalyticsTable1710000000005,
     UserTable1710000000006,
     UserEventDiscoveryTable1710000000007,
     UserEventRsvpTable1710000000008,
     UserEventSaveTable1710000000009,
     UserEventViewTable1710000000010,
-    FriendshipTable1710000000011,
     SeedUsers1710000000012,
     AddAllUserForeignKeys1710000000014,
     AddIsOfficialToEvents1710000000015,

@@ -35,7 +35,6 @@ import { UserEventSave } from "../../entities/UserEventSave";
 import { UserEventRsvp, RsvpStatus } from "../../entities/UserEventRsvp";
 import { UserEventDiscovery } from "../../entities/UserEventDiscovery";
 import { UserEventView } from "../../entities/UserEventView";
-import { Friendship } from "../../entities/Friendship";
 import { Category } from "../../entities/Category";
 import type { DataSource, Repository, EntityManager } from "typeorm";
 import type { RedisService } from "../shared/RedisService";
@@ -55,10 +54,9 @@ describe("UserEngagementService", () => {
   // Test data
   const mockUser: User = {
     id: "user-123",
-    email: "test@example.com",
+    email: "user@example.com",
     displayName: "Test User",
     currentTitle: "Event Explorer",
-    friendCode: "FRIEND123",
     passwordHash: "hashed",
     role: UserRole.USER,
     planType: PlanType.FREE,
@@ -76,35 +74,6 @@ describe("UserEngagementService", () => {
     savedEvents: [],
     viewedEvents: [],
     rsvps: [],
-    sentFriendRequests: [],
-    receivedFriendRequests: [],
-  } as User;
-
-  const mockFriend: User = {
-    id: "friend-456",
-    email: "friend@example.com",
-    displayName: "Friend User",
-    currentTitle: "Event Explorer",
-    friendCode: "FRIEND456",
-    passwordHash: "hashed",
-    role: UserRole.USER,
-    planType: PlanType.FREE,
-    isVerified: false,
-    discoveryCount: 0,
-    scanCount: 0,
-    saveCount: 0,
-    viewCount: 0,
-    weeklyScanCount: 0,
-    totalXp: 0,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    discoveries: [],
-    createdEvents: [],
-    savedEvents: [],
-    viewedEvents: [],
-    rsvps: [],
-    sentFriendRequests: [],
-    receivedFriendRequests: [],
   } as User;
 
   const mockCategory: Category = {
@@ -935,84 +904,6 @@ describe("UserEngagementService", () => {
     });
   });
 
-  describe("getFriendsSavedEvents", () => {
-    it("should return events saved by friends", async () => {
-      const friendSave = {
-        ...mockUserEventSave,
-        user: mockFriend,
-      };
-
-      const mockQueryBuilder = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        innerJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([friendSave]),
-      };
-
-      (
-        mockUserEventSaveRepository.createQueryBuilder as jest.Mock
-      ).mockReturnValue(mockQueryBuilder);
-
-      const result = await userEngagementService.getFriendsSavedEvents(
-        "user-123",
-        { limit: 10 },
-      );
-
-      expect(result.events).toHaveLength(1);
-      expect(result.events[0]).toEqual(
-        expect.objectContaining({
-          ...mockEvent,
-          savedBy: {
-            id: mockFriend.id,
-            displayName: mockFriend.displayName,
-            email: mockFriend.email,
-          },
-        }),
-      );
-
-      expect(mockQueryBuilder.innerJoin).toHaveBeenCalledWith(
-        Friendship,
-        "friendship",
-        expect.stringContaining("ACCEPTED"),
-        { userId: "user-123" },
-      );
-    });
-
-    it("should handle cursor pagination", async () => {
-      const cursorData = {
-        savedAt: new Date("2024-01-01T00:00:00Z"),
-        eventId: "event-123",
-      };
-      const cursor = Buffer.from(JSON.stringify(cursorData)).toString("base64");
-
-      const mockQueryBuilder = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        innerJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
-      };
-
-      (
-        mockUserEventSaveRepository.createQueryBuilder as jest.Mock
-      ).mockReturnValue(mockQueryBuilder);
-
-      await userEngagementService.getFriendsSavedEvents("user-123", {
-        limit: 10,
-        cursor,
-      });
-
-      expect(mockQueryBuilder.andWhere).toHaveBeenCalled();
-    });
-  });
-
   describe("stripEventForRedis", () => {
     it("should remove embedding field from event", () => {
       const eventWithEmbedding = {
@@ -1048,7 +939,6 @@ describe("UserEngagementService", () => {
       expect(typeof service.getUserRsvpStatus).toBe("function");
       expect(typeof service.createDiscoveryRecord).toBe("function");
       expect(typeof service.getDiscoveredEventsByUser).toBe("function");
-      expect(typeof service.getFriendsSavedEvents).toBe("function");
       expect(typeof service.getEventEngagement).toBe("function");
     });
   });

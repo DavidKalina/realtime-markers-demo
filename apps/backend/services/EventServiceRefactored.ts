@@ -14,8 +14,6 @@ import type {
 import { createUserEngagementService } from "./UserEngagementService";
 import type { EventSharingService } from "./EventSharingService";
 import { createEventSharingService } from "./EventSharingService";
-import type { EventAnalysisService } from "./EventAnalysisService";
-import { createEventAnalysisService } from "./EventAnalysisService";
 import type { EventAdminService } from "./EventAdminService";
 import { createEventAdminService } from "./EventAdminService";
 import type { EventCacheService } from "./shared/EventCacheService";
@@ -152,11 +150,6 @@ export interface EventService {
     options?: { limit?: number; cursor?: string },
   ): Promise<{ events: Event[]; nextCursor?: string }>;
 
-  getFriendsSavedEvents(
-    userId: string,
-    options?: { limit?: number; cursor?: string },
-  ): Promise<{ events: Event[]; nextCursor?: string }>;
-
   getEventEngagement(eventId: string): Promise<EventEngagementMetrics>;
 
   // Sharing operations
@@ -175,26 +168,6 @@ export interface EventService {
   getEventShares(
     eventId: string,
   ): Promise<{ sharedWithId: string; sharedById: string }[]>;
-
-  // Analysis operations
-  getClusterHubData(markerIds: string[]): Promise<{
-    featuredEvent: Event | null;
-    eventsByCategory: { category: Category; events: Event[] }[];
-    eventsByLocation: { location: string; events: Event[] }[];
-    eventsToday: Event[];
-    clusterName: string;
-    clusterDescription: string;
-    clusterEmoji: string;
-    featuredCreator?: {
-      id: string;
-      displayName: string;
-      email: string;
-      eventCount: number;
-      creatorDescription: string;
-      title: string;
-      friendCode: string;
-    };
-  }>;
 
   // Admin operations
   recalculateCounts(): Promise<{ eventsUpdated: number; usersUpdated: number }>;
@@ -280,7 +253,6 @@ export class EventServiceRefactored implements EventService {
   private searchService: EventSearchService;
   private engagementService: UserEngagementService;
   private sharingService: EventSharingService;
-  private analysisService: EventAnalysisService;
   private adminService: EventAdminService;
   private queryAnalyticsService: QueryAnalyticsService;
 
@@ -315,12 +287,6 @@ export class EventServiceRefactored implements EventService {
       dataSource: dependencies.dataSource,
       redisService: dependencies.redisService,
       eventCacheService: dependencies.eventCacheService,
-    });
-
-    this.analysisService = createEventAnalysisService({
-      dataSource: dependencies.dataSource,
-      eventCacheService: dependencies.eventCacheService,
-      openaiService: dependencies.openaiService,
     });
 
     this.adminService = createEventAdminService({
@@ -505,10 +471,6 @@ export class EventServiceRefactored implements EventService {
     return this.engagementService.getDiscoveredEventsByUser(userId, options);
   }
 
-  async getFriendsSavedEvents(userId: string, options = {}) {
-    return this.engagementService.getFriendsSavedEvents(userId, options);
-  }
-
   async getEventEngagement(eventId: string) {
     return this.engagementService.getEventEngagement(eventId);
   }
@@ -540,11 +502,6 @@ export class EventServiceRefactored implements EventService {
 
   async getEventShares(eventId: string) {
     return this.sharingService.getEventShares(eventId);
-  }
-
-  // Analysis operations - delegate to EventAnalysisService
-  async getClusterHubData(markerIds: string[]) {
-    return this.analysisService.getClusterHubData(markerIds);
   }
 
   // Admin operations - delegate to EventAdminService
