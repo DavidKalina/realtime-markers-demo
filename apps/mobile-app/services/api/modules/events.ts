@@ -234,6 +234,51 @@ export class EventApiClient extends BaseApiModule {
     };
   }
 
+  async getLandingPageData(
+    params: {
+      userLat?: number;
+      userLng?: number;
+      featuredLimit?: number;
+      upcomingLimit?: number;
+    } = {},
+  ): Promise<{
+    featuredEvents: EventType[];
+    upcomingEvents: EventType[];
+    popularCategories: Array<{
+      id: string;
+      name: string;
+      icon: string;
+    }>;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params.userLat !== undefined)
+      queryParams.append("lat", params.userLat.toString());
+    if (params.userLng !== undefined)
+      queryParams.append("lng", params.userLng.toString());
+    if (params.featuredLimit)
+      queryParams.append("featuredLimit", params.featuredLimit.toString());
+    if (params.upcomingLimit)
+      queryParams.append("upcomingLimit", params.upcomingLimit.toString());
+
+    const url = `${this.client.baseUrl}/api/events/landing?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    const data = await this.handleResponse<{
+      featuredEvents: ApiEvent[];
+      upcomingEvents: ApiEvent[];
+      popularCategories: Array<{
+        id: string;
+        name: string;
+        icon: string;
+      }>;
+    }>(response);
+
+    return {
+      featuredEvents: data.featuredEvents.map(mapEventToEventType),
+      upcomingEvents: data.upcomingEvents.map(mapEventToEventType),
+      popularCategories: data.popularCategories,
+    };
+  }
+
   // Event interaction methods
   async toggleSaveEvent(
     eventId: string,
