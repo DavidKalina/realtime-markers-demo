@@ -227,7 +227,7 @@ const RegisterScreen: React.FC = () => {
                     </View>
                   )}
 
-                  <View style={{ gap: 16 }}>
+                  <View style={{ gap: 12 }}>
                     <Input
                       ref={firstNameInputRef}
                       icon={User}
@@ -351,31 +351,31 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingVertical: 20,
   },
   contentContainer: {
     alignItems: "center",
     justifyContent: "center",
-    gap: 20,
+    gap: 16,
   },
   logoContainer: {
-    marginBottom: 10,
+    marginBottom: 8,
     shadowColor: "#FDB813",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.9,
-    shadowRadius: 10,
-    elevation: 10,
+    shadowRadius: 8,
+    elevation: 8,
   },
   logo: {
-    width: 150,
-    height: 150,
+    width: 100,
+    height: 100,
     resizeMode: "contain",
   },
   slogan: {
-    fontSize: 18,
+    fontSize: 16,
     color: newColors.text,
     fontFamily: "SpaceMono",
-    marginBottom: 20,
+    marginBottom: 16,
     textAlign: "center",
     fontWeight: "600",
     letterSpacing: 0.5,
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
   formCard: {
     width: "100%",
     borderRadius: 20,
-    padding: 20,
+    padding: 24,
     backgroundColor: newColors.cardBackground,
     borderWidth: 1,
     borderColor: newColors.divider,
@@ -415,14 +415,14 @@ const styles = StyleSheet.create({
     fontFamily: "SpaceMono",
   },
   loginButtonContainer: {
-    marginTop: 20,
+    marginTop: 16,
   },
   loginButton: {
     borderRadius: 12,
     height: 55,
     justifyContent: "center",
     alignItems: "center",
-    marginVertical: 20,
+    marginVertical: 16,
     backgroundColor: newColors.accent,
     borderWidth: 1,
     borderColor: newColors.accent,
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
   createAccountContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 16,
+    marginTop: 12,
   },
   createAccountText: {
     color: newColors.cardTextSecondary,
