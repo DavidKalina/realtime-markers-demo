@@ -10,7 +10,6 @@ import {
 import { User, UserRole } from "../../entities/User";
 import type { Repository } from "typeorm";
 import type { UserPreferencesServiceImpl } from "../UserPreferences";
-import { LevelingService } from "../LevelingService";
 import type { DataSource } from "typeorm";
 import type { OpenAIService } from "../shared/OpenAIService";
 
@@ -18,7 +17,6 @@ describe("AuthService", () => {
   let authService: AuthService;
   let mockUserRepository: Repository<User>;
   let mockUserPreferencesService: UserPreferencesServiceImpl;
-  let mockLevelingService: LevelingService;
   let mockDataSource: DataSource;
   let mockOpenAIService: OpenAIService;
 
@@ -37,8 +35,6 @@ describe("AuthService", () => {
     updatedAt: new Date(),
     scanCount: 0,
     saveCount: 0,
-    totalXp: 0,
-    currentTitle: "Novice Explorer",
     friendCode: "ABC123",
     refreshToken: "refresh-token-123",
     planType: "FREE" as const,
@@ -46,13 +42,14 @@ describe("AuthService", () => {
     weeklyScanCount: 0,
     lastScanReset: undefined,
     contacts: undefined,
-    userLevels: [],
     discoveries: [],
     createdEvents: [],
     savedEvents: [],
     rsvps: [],
     sentFriendRequests: [],
     receivedFriendRequests: [],
+    viewCount: 0,
+    viewedEvents: [],
   } as User;
 
   const testRegistrationData: UserRegistrationData = {
@@ -83,10 +80,6 @@ describe("AuthService", () => {
       applyFilters: jest.fn(),
     } as unknown as UserPreferencesServiceImpl;
 
-    mockLevelingService = {
-      getUserLevelInfo: jest.fn(),
-    } as unknown as LevelingService;
-
     mockDataSource = {
       getRepository: jest.fn(),
     } as unknown as DataSource;
@@ -98,7 +91,6 @@ describe("AuthService", () => {
     const dependencies: AuthServiceDependencies = {
       userRepository: mockUserRepository,
       userPreferencesService: mockUserPreferencesService,
-      levelingService: mockLevelingService,
       dataSource: mockDataSource,
       openAIService: mockOpenAIService,
     };
@@ -120,7 +112,6 @@ describe("AuthService", () => {
         createAuthService({
           userRepository: mockUserRepository,
           userPreferencesService: mockUserPreferencesService,
-          levelingService: mockLevelingService,
           dataSource: mockDataSource,
           openAIService: mockOpenAIService,
         });
@@ -134,7 +125,6 @@ describe("AuthService", () => {
         createAuthService({
           userRepository: mockUserRepository,
           userPreferencesService: mockUserPreferencesService,
-          levelingService: mockLevelingService,
           dataSource: mockDataSource,
           openAIService: mockOpenAIService,
         });
@@ -226,9 +216,6 @@ describe("AuthService", () => {
       };
 
       (mockUserRepository.findOne as jest.Mock).mockResolvedValue(testUser);
-      (mockLevelingService.getUserLevelInfo as jest.Mock).mockResolvedValue(
-        mockLevelInfo,
-      );
 
       const result = await authService.getUserProfile(testUser.id);
 
@@ -286,9 +273,6 @@ describe("AuthService", () => {
       });
       (mockUserRepository.findOne as jest.Mock).mockResolvedValue(
         mockUpdatedUser,
-      );
-      (mockLevelingService.getUserLevelInfo as jest.Mock).mockResolvedValue(
-        mockLevelInfo,
       );
 
       const result = await authService.updateUserProfile(
@@ -363,13 +347,6 @@ describe("AuthService", () => {
       };
 
       const mockUpdatedUser = { ...testUser, displayName: "Updated Name" };
-      const mockLevelInfo = {
-        currentLevel: 1,
-        currentTitle: "Novice Explorer",
-        totalXp: 0,
-        nextLevelXp: 100,
-        progress: 0,
-      };
 
       (mockOpenAIService.executeChatCompletion as jest.Mock).mockResolvedValue({
         choices: [
@@ -386,9 +363,6 @@ describe("AuthService", () => {
       });
       (mockUserRepository.findOne as jest.Mock).mockResolvedValue(
         mockUpdatedUser,
-      );
-      (mockLevelingService.getUserLevelInfo as jest.Mock).mockResolvedValue(
-        mockLevelInfo,
       );
 
       await authService.updateUserProfile(testUser.id, updateData);

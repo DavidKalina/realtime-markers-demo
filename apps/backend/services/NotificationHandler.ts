@@ -13,7 +13,6 @@ export interface NotificationHandlerDependencies {
   notificationService: NotificationService;
   // Add other services that the handler might need to call
   // friendshipService?: FriendshipService;
-  // levelingService?: LevelingService;
 }
 
 export class NotificationHandlerImpl implements NotificationHandler {
@@ -97,9 +96,6 @@ export class NotificationHandlerImpl implements NotificationHandler {
         case "FRIEND_REQUEST":
           await this.handleFriendRequest(notification);
           break;
-        case "LEVEL_UP":
-          await this.handleLevelUp(notification);
-          break;
         case "EVENT_CREATED":
           await this.handleEventCreated(notification);
           break;
@@ -117,14 +113,6 @@ export class NotificationHandlerImpl implements NotificationHandler {
     //   await this.dependencies.friendshipService.someAction(notification.data);
     // }
     console.log(`Processing friend request notification: ${notification.id}`);
-  }
-
-  private async handleLevelUp(notification: Notification): Promise<void> {
-    // Example: Call leveling service to handle level up
-    // if (this.dependencies.levelingService) {
-    //   await this.dependencies.levelingService.someAction(notification.data);
-    // }
-    console.log(`Processing level up notification: ${notification.id}`);
   }
 
   private async handleEventCreated(notification: Notification): Promise<void> {

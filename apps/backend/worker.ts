@@ -38,8 +38,6 @@ import { createOpenAIService } from "./services/shared/OpenAIService";
 import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
 import { createEventCacheService } from "./services/shared/EventCacheService";
 import { createImageProcessingCacheService } from "./services/shared/ImageProcessingCacheService";
-import { createLevelingService } from "./services/LevelingService";
-import { createLevelingCacheService } from "./services/shared/LevelingCacheService";
 import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
 
 // Constants
@@ -108,13 +106,6 @@ async function initializeWorker() {
   // Create ImageProcessingCacheService instance
   const imageProcessingCacheService = createImageProcessingCacheService();
 
-  // Create LevelingService instance
-  const levelingService = createLevelingService({
-    dataSource: AppDataSource,
-    redisService,
-    levelingCacheService: createLevelingCacheService(redisClient),
-  });
-
   // Initialize event similarity service
   const eventSimilarityService = new EventSimilarityService(
     eventRepository,
@@ -161,7 +152,7 @@ async function initializeWorker() {
     locationService: createGoogleGeocodingService(openAIService),
     eventCacheService,
     openaiService: openAIService,
-    levelingService,
+    embeddingService,
   });
 
   // Initialize plan service

@@ -54,8 +54,6 @@ export class UserTable1710000000006 implements MigrationInterface {
           { name: "view_count", type: "integer", default: 0 },
           { name: "weekly_scan_count", type: "integer", default: 0 },
           { name: "last_scan_reset", type: "timestamptz", isNullable: true },
-          { name: "total_xp", type: "integer", default: 0 },
-          { name: "current_title", type: "varchar", isNullable: true },
           { name: "contacts", type: "jsonb", isNullable: true },
           {
             name: "created_at",
