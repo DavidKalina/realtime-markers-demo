@@ -55,7 +55,7 @@ const screenLayoutStyles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 44, // Approximate status bar height
-    backgroundColor: COLORS.textPrimary,
+    backgroundColor: "#e0f2fe", // Light blue municipal background to match StatusBar and Banner
     zIndex: 1,
   },
 });
@@ -86,9 +86,9 @@ const ScreenLayout: React.FC<ScreenLayoutProps> = React.memo(
     return (
       <Container style={containerStyle}>
         <StatusBar
-          barStyle="light-content"
+          barStyle={extendBannerToStatusBar ? "dark-content" : "light-content"}
           backgroundColor={
-            extendBannerToStatusBar ? COLORS.cardBackground : COLORS.background
+            extendBannerToStatusBar ? "#e0f2fe" : COLORS.background
           }
           translucent={extendBannerToStatusBar}
         />

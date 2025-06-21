@@ -1,27 +1,26 @@
 // styles/action.ts - Updated with more refined button selection styles
 import { Platform, StyleSheet } from "react-native";
-import { COLORS } from "../Layout/ScreenLayout";
 
 export const styles = StyleSheet.create({
   bottomBar: {
     height: 60, // Reduced height since we removed labels
-    backgroundColor: COLORS.textPrimary, // Match Cluster Events view background
+    backgroundColor: "#e0f2fe", // Match StatusBar municipal background color
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 4, // Reduced padding
     borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
+    borderTopColor: "rgba(0, 0, 0, 0.08)", // Updated to match StatusBar border color
     overflow: "hidden",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
         shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
+        shadowOpacity: 0.1, // Reduced shadow opacity to match StatusBar
+        shadowRadius: 4, // Updated to match StatusBar shadow radius
       },
       android: {
-        elevation: 8,
+        elevation: 3, // Updated to match StatusBar elevation
       },
     }),
   },

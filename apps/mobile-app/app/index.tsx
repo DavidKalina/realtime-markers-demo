@@ -4,7 +4,7 @@ import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
-import StatusBar from "@/components/StatusBar/StatusBar";
+import MunicipalBanner from "@/components/StatusBar/StatusBar";
 import DateRangeIndicator from "@/components/StatusBar/DateRangeIndicator";
 import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
 import {
@@ -56,11 +56,11 @@ const styles = {
     flex: 1,
   },
   statusBarSpacer: {
-    height: 80, // Match the height of the StatusBar component
+    height: 100, // Match the height of the MunicipalBanner component
   },
   floatingDateButton: {
     position: "absolute" as const,
-    top: 100, // Position below the status bar
+    top: 120, // Position below the municipal banner
     right: 16,
     zIndex: 1000,
     backgroundColor: "rgba(26, 26, 26, 0.9)",
@@ -485,7 +485,7 @@ function HomeScreen() {
   const floatingDateButtonStyle = useMemo(
     () => ({
       position: "absolute" as const,
-      top: insets.top, // StatusBar height (40) + padding (20)
+      top: insets.top + 60, // MunicipalBanner height + padding
       right: 8,
       zIndex: 1000,
       backgroundColor: COLORS.cardBackgroundAlt,
@@ -510,7 +510,7 @@ function HomeScreen() {
 
         {!isLoadingLocation && (
           <>
-            <StatusBar />
+            <MunicipalBanner />
             <View style={styles.statusBarSpacer} />
           </>
         )}

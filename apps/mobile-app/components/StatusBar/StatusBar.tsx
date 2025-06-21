@@ -6,6 +6,7 @@ import {
   Text,
   View,
   TouchableOpacity,
+  Image,
 } from "react-native";
 import Animated, {
   FadeIn,
@@ -14,6 +15,7 @@ import Animated, {
   withSequence,
   withSpring,
   withTiming,
+  LinearTransition,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -21,13 +23,21 @@ import { Ionicons } from "@expo/vector-icons";
 import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
 import { COLORS } from "../Layout/ScreenLayout";
 
-interface StatusBarProps {
+interface MunicipalBannerProps {
   backgroundColor?: string;
   children?: React.ReactNode;
+  municipalityName?: string;
+  logoUrl?: string | number;
+  showUserInfo?: boolean;
+  showJobsButton?: boolean;
 }
 
-const StatusBar: React.FC<StatusBarProps> = ({
-  backgroundColor = COLORS.textPrimary, // Updated to match new light background
+const MunicipalBanner: React.FC<MunicipalBannerProps> = ({
+  backgroundColor = "#e0f2fe", // Light blue municipal background
+  municipalityName = "Town of Frederick",
+  logoUrl = require("@/assets/images/frederick-logo.png"),
+  showUserInfo = false,
+  showJobsButton = true,
 }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -66,32 +76,65 @@ const StatusBar: React.FC<StatusBarProps> = ({
   return (
     <View style={containerStyle}>
       <RNStatusBar
-        barStyle="light-content" // Changed to light-content for light theme
+        barStyle="dark-content" // Changed to dark-content for light municipal theme
         backgroundColor={backgroundColor}
         translucent
       />
-      <View style={styles.indicatorsRow}>
-        <Animated.View
-          entering={FadeIn.delay(300).springify()}
-          style={styles.usernameContainer}
-        >
-          <Text style={styles.username}>
-            {user?.displayName || user?.email}
-          </Text>
-        </Animated.View>
 
-        <TouchableOpacity
-          onPress={handleJobsPress}
-          style={styles.jobsIconContainer}
-        >
-          <Animated.View
-            style={[styles.jobsIconWrapper, jobsIconAnimatedStyle]}
-          >
-            <Ionicons name="briefcase" size={16} color={COLORS.textPrimary} />
-          </Animated.View>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.discoveryContainer}>
+      {/* Municipal Banner Content */}
+      <Animated.View
+        entering={FadeIn.delay(200).springify()}
+        layout={LinearTransition.springify()}
+        style={styles.bannerContent}
+      >
+        {/* Left Section - Logo and Municipality Info */}
+        <View style={styles.leftSection}>
+          {logoUrl && (
+            <Image
+              source={typeof logoUrl === "string" ? { uri: logoUrl } : logoUrl}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          )}
+          <View style={styles.municipalityInfo}>
+            <Text style={styles.municipalityName}>{municipalityName}</Text>
+          </View>
+        </View>
+
+        {/* Right Section - User Info and Actions */}
+        <View style={styles.rightSection}>
+          {showUserInfo && user && (
+            <Animated.View
+              entering={FadeIn.delay(400).springify()}
+              style={styles.userInfoContainer}
+            >
+              <Text style={styles.userInfo}>
+                {user?.displayName || user?.email}
+              </Text>
+            </Animated.View>
+          )}
+
+          {showJobsButton && (
+            <TouchableOpacity
+              onPress={handleJobsPress}
+              style={styles.jobsIconContainer}
+            >
+              <Animated.View
+                style={[styles.jobsIconWrapper, jobsIconAnimatedStyle]}
+              >
+                <Ionicons
+                  name="briefcase"
+                  size={16}
+                  color={COLORS.textPrimary}
+                />
+              </Animated.View>
+            </TouchableOpacity>
+          )}
+        </View>
+      </Animated.View>
+
+      {/* Civic Engagement Indicator */}
+      <View style={styles.engagementContainer}>
         <DiscoveryIndicator position="bottom-left" />
       </View>
     </View>
@@ -106,37 +149,71 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 1000,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.05)", // Updated for light theme
+    borderBottomColor: "rgba(0, 0, 0, 0.08)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  indicatorsRow: {
+  bannerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 8,
+    minHeight: 48,
   },
-  usernameContainer: {
+  leftSection: {
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
-    marginRight: 8,
+    marginRight: 12,
   },
-  username: {
-    color: "#fff", // Updated to dark text for light theme
-    fontSize: 14,
+  logo: {
+    width: 32,
+    height: 32,
+    marginRight: 12,
+    borderRadius: 4,
+  },
+  municipalityInfo: {
+    flex: 1,
+  },
+  municipalityName: {
+    color: COLORS.textPrimary,
+    fontSize: 16,
+    fontWeight: "700",
+    fontFamily: "SpaceMono",
+    letterSpacing: 0.3,
+    lineHeight: 20,
+  },
+  rightSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  userInfoContainer: {
+    maxWidth: 120,
+  },
+  userInfo: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
     fontWeight: "500",
     fontFamily: "SpaceMono",
+    textAlign: "right",
   },
-  discoveryContainer: {
+  engagementContainer: {
     position: "absolute",
     left: 0,
-    bottom: -20, // Reduced from -40 to -20 to bring notifications closer to status bar
+    bottom: -20,
     zIndex: 999,
   },
   jobsIconContainer: {
     padding: 4,
   },
   jobsIconWrapper: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     borderRadius: 8,
     backgroundColor: "#fff",
     justifyContent: "center",
@@ -145,10 +222,10 @@ const styles = StyleSheet.create({
     borderColor: COLORS.buttonBorder,
     shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 1,
+    elevation: 2,
   },
 });
 
-export default React.memo(StatusBar);
+export default React.memo(MunicipalBanner);
