@@ -395,6 +395,17 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                     : event.eventDate
                 }
               />
+
+              {/* Directions Button Footer */}
+              <View style={styles.mapCardFooter}>
+                <ActionButton
+                  onPress={handleGetDirections}
+                  icon={Navigation2}
+                  text="Get Directions"
+                  variant="outline"
+                  disabled={!userLocation}
+                />
+              </View>
             </InfoCard>
 
             {/* Date and Time Card */}
