@@ -53,6 +53,7 @@ export interface EventType {
     email: string;
   };
   isPrivate?: boolean;
+  isOfficial?: boolean;
   sharedWithIds?: string[]; // Add shared user IDs
   // Recurring event fields
   isRecurring?: boolean;

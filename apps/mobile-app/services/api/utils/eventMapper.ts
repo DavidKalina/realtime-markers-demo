@@ -34,6 +34,7 @@ export const mapEventToEventType = (apiEvent: ApiEvent): EventType => {
     qrGeneratedAt: apiEvent.qrGeneratedAt,
     qrDetectedInImage: apiEvent.qrDetectedInImage,
     isPrivate: apiEvent.isPrivate,
+    isOfficial: apiEvent.isOfficial,
     detectedQrData: apiEvent.detectedQrData,
     createdAt: apiEvent.createdAt,
     updatedAt: apiEvent.updatedAt,
