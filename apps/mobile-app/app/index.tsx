@@ -13,6 +13,7 @@ import {
 } from "@/config/cameraConfig";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
+import { useSplashScreen } from "@/contexts/SplashScreenContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useMapCamera } from "@/hooks/useMapCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
@@ -78,11 +79,11 @@ const styles = {
 };
 
 function HomeScreen() {
-  const [isMapReady, setIsMapReady] = useState(false);
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const { publish } = useEventBroker();
   const { mapStyle, isPitched } = useMapStyle();
+  const { registerLoadingState, unregisterLoadingState } = useSplashScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -110,6 +111,21 @@ function HomeScreen() {
   const hasCenteredOnUserRef = useRef(false);
   const [hasRequestedInitialLocation, setHasRequestedInitialLocation] =
     useState(false);
+  const [isMapReady, setIsMapReady] = useState(false);
+
+  // Register map loading state with splash screen context
+  useEffect(() => {
+    if (!isMapReady) {
+      registerLoadingState("map", true);
+    } else {
+      unregisterLoadingState("map");
+    }
+
+    // Cleanup on unmount
+    return () => {
+      unregisterLoadingState("map");
+    };
+  }, [isMapReady, registerLoadingState, unregisterLoadingState]);
 
   // Load initial location request state
   useEffect(() => {
@@ -164,7 +180,7 @@ function HomeScreen() {
     if (
       userLocation &&
       !isLoadingLocation &&
-      isMapReady &&
+      currentViewport &&
       cameraRef.current &&
       !hasCenteredOnUserRef.current
     ) {
@@ -174,7 +190,7 @@ function HomeScreen() {
         centerCoordinate: userLocation,
       });
     }
-  }, [userLocation, isLoadingLocation, isMapReady]);
+  }, [userLocation, isLoadingLocation, currentViewport]);
 
   // Cleanup Mapbox location manager on unmount
   useEffect(() => {
@@ -289,12 +305,6 @@ function HomeScreen() {
   const [viewportRectangle, setViewportRectangle] =
     useState<MapboxViewport | null>(null);
 
-  // Inside your HomeScreen component in index.tsx
-
-  // Inside your HomeScreen component in index.tsx
-
-  // Inside your HomeScreen component in index.tsx
-
   const calculateViewportRectangle = useCallback(
     (viewport: MapboxViewport, isPitched: boolean): MapboxViewport => {
       const geoWidth = viewport.east - viewport.west;
@@ -329,10 +339,6 @@ function HomeScreen() {
     [],
   );
 
-  // Inside your HomeScreen component in index.tsx
-  // Ensure isPitched is in scope, e.g., from:
-  // const { mapStyle, isPitched } = useMapStyle();
-
   const handleMapViewportChange = useCallback(
     (feature: unknown) => {
       try {
@@ -345,7 +351,7 @@ function HomeScreen() {
         const viewport = processViewportBounds(properties.visibleBounds);
         if (viewport) {
           // Pass the current isPitched state to the calculation function
-          const rectangle = calculateViewportRectangle(viewport, isPitched); // MODIFIED LINE
+          const rectangle = calculateViewportRectangle(viewport, isPitched);
           setViewportRectangle(rectangle);
 
           // Use the adjusted rectangle for updates
@@ -360,7 +366,7 @@ function HomeScreen() {
       processViewportBounds,
       calculateViewportRectangle,
       isPitched,
-    ], // MODIFIED LINE: Added isPitched
+    ],
   );
 
   // Memoize map ready handler
@@ -407,8 +413,8 @@ function HomeScreen() {
 
   // Memoize rendering conditions
   const shouldRenderMarkers = useMemo(
-    () => Boolean(isMapReady && !isLoadingLocation && currentViewport),
-    [isMapReady, isLoadingLocation, currentViewport],
+    () => Boolean(currentViewport && !isLoadingLocation),
+    [isLoadingLocation, currentViewport],
   );
 
   // Memoize markers component for better performance

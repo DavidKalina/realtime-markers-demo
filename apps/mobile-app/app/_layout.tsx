@@ -1,3 +1,4 @@
+import React, { useEffect } from "react";
 import {
   DarkTheme,
   DefaultTheme,
@@ -10,23 +11,21 @@ import { useFonts } from "expo-font";
 import { Stack, useNavigationContainerRef } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
 import "react-native-reanimated";
-import { View, StyleSheet, Image } from "react-native";
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import { View } from "react-native";
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
+import {
+  SplashScreenProvider,
+  useSplashScreen,
+} from "@/contexts/SplashScreenContext";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { isRunningInExpoGo } from "expo";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
+import { AnimatedSplashScreen } from "@/components/SplashScreen/SplashScreen";
 
 const navigationIntegration = Sentry.reactNavigationIntegration({
   enableTimeToInitialDisplay: !isRunningInExpoGo(),
@@ -45,46 +44,26 @@ Sentry.init({
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-function AnimatedSplashScreen({
-  onAnimationFinish,
-}: {
-  onAnimationFinish: () => void;
-}) {
-  const opacity = useSharedValue(1);
-  const scale = useSharedValue(1);
+// Component that handles splash screen logic after providers are available
+function SplashScreenHandler({ children }: { children: React.ReactNode }) {
+  const { shouldShowSplash, setSplashAnimationFinished } = useSplashScreen();
 
-  useEffect(() => {
-    scale.value = withTiming(1.2, { duration: 1000 });
-    opacity.value = withTiming(0, { duration: 1200 }, (isFinished) => {
-      if (isFinished) {
-        runOnJS(onAnimationFinish)();
-      }
-    });
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: opacity.value,
-      transform: [{ scale: scale.value }],
-    };
-  });
+  const onAnimationFinish = () => {
+    setSplashAnimationFinished(true);
+  };
 
   return (
-    <Animated.View
-      style={[StyleSheet.absoluteFill, styles.splashContainer, animatedStyle]}
-    >
-      <Image
-        source={require("../assets/images/frederick-logo.png")}
-        style={styles.splashImage}
-        resizeMode="contain"
-      />
-    </Animated.View>
+    <>
+      {children}
+      {shouldShowSplash && (
+        <AnimatedSplashScreen onAnimationFinish={onAnimationFinish} />
+      )}
+    </>
   );
 }
 
 function RootLayout() {
   const ref = useNavigationContainerRef();
-  const [splashAnimationFinished, setSplashAnimationFinished] = useState(false);
 
   useEffect(() => {
     if (ref?.current) {
@@ -107,20 +86,18 @@ function RootLayout() {
     return null;
   }
 
-  const onAnimationFinish = () => {
-    setSplashAnimationFinished(true);
-  };
-
   const Providers = ({ children }: { children: React.ReactNode }) => (
     <AuthProvider>
       <LocationProvider>
         <MapStyleProvider>
           <OnboardingProvider>
-            <ThemeProvider
-              value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-            >
-              {children}
-            </ThemeProvider>
+            <SplashScreenProvider>
+              <ThemeProvider
+                value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+              >
+                <SplashScreenHandler>{children}</SplashScreenHandler>
+              </ThemeProvider>
+            </SplashScreenProvider>
           </OnboardingProvider>
         </MapStyleProvider>
       </LocationProvider>
@@ -188,24 +165,8 @@ function RootLayout() {
           <StatusBar style="auto" />
         </View>
       </Providers>
-      {!splashAnimationFinished && (
-        <AnimatedSplashScreen onAnimationFinish={onAnimationFinish} />
-      )}
     </PostHogProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  splashContainer: {
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
-  },
-  splashImage: {
-    width: "50%",
-    height: "50%",
-  },
-});
 
 export default Sentry.wrap(RootLayout);
