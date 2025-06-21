@@ -6,47 +6,102 @@ This directory contains utility scripts for the backend application.
 
 ### `check-database-setup.ts`
 
-**Purpose**: Comprehensive database validation and setup checker
+Validates that the database is properly configured and ready for use.
 
-**Usage**:
+**Usage:**
 
 ```bash
-bun run check-db
-# or
-bun run scripts/check-database-setup.ts
+bun run apps/backend/scripts/check-database-setup.ts
 ```
 
-**What it does**:
+**What it does:**
 
-- Tests database connection
-- Validates migration status
-- Checks for required tables
-- Provides detailed status report
-- Helps troubleshoot database issues
-
-**Output**: Detailed console output showing database health status
+- Checks database connection
+- Validates migrations have been run
+- Ensures all required tables exist
+- Reports overall database readiness
 
 ### `test-email.ts`
 
-**Purpose**: Test email service functionality
+Tests the email service configuration and sends a test email.
 
-**Usage**:
+**Usage:**
 
 ```bash
-bun run test:email
-# or
-bun run scripts/test-email.ts
+bun run apps/backend/scripts/test-email.ts
 ```
 
-**What it does**:
+**What it does:**
 
-- Tests mock email service (no API key required)
-- Tests real email service if RESEND_API_KEY is available
 - Validates email service configuration
+- Sends a test email to verify functionality
+- Reports success or failure
 
-**Requirements**:
+### `generate-seeded-event-embeddings.ts`
 
-- Optional: `RESEND_API_KEY` environment variable for real email testing
+Generates embeddings for the seeded official events from the migration.
+
+**Usage:**
+
+```bash
+bun run apps/backend/scripts/generate-seeded-event-embeddings.ts
+```
+
+**What it does:**
+
+- Connects to the database and Redis
+- Fetches the 7 seeded official events from the `SeedOfficialEvents1710000000016` migration
+- Generates embeddings for each event using the same format as the EventProcessingService
+- Updates the events in the database with the generated embeddings
+- Skips events that already have embeddings
+
+**Prerequisites:**
+
+- Database must be running and accessible
+- Redis must be running and accessible
+- OpenAI API key must be configured (`OPENAI_API_KEY` environment variable)
+- The seeded events migration must have been run
+
+**Seeded Events:**
+
+- Frederick In Flight (🎈)
+- Chainsaws & Chuckwagons (🪓)
+- Miners Day (⛏️)
+- Tiny Terror Town (👻)
+- Festival of Lights (🎄)
+- Community Tour & Talk (🗣️)
+- Carbon Valley Memorial Day Ceremony (🇺🇸)
+
+**Environment Variables:**
+
+- `OPENAI_API_KEY` - Required for embedding generation
+- `REDIS_HOST` - Redis host (default: "redis")
+- `REDIS_PORT` - Redis port (default: "6379")
+- `REDIS_PASSWORD` - Redis password (optional)
+
+## Running Scripts
+
+All scripts can be run using Bun:
+
+```bash
+# From the project root
+bun run apps/backend/scripts/<script-name>.ts
+
+# Or from the backend directory
+cd apps/backend
+bun run scripts/<script-name>.ts
+```
+
+## Adding New Scripts
+
+When adding new scripts:
+
+1. Create the script file in this directory
+2. Add a shebang line: `#!/usr/bin/env bun`
+3. Make it executable: `chmod +x <script-name>.ts`
+4. Update this README with documentation
+5. Follow the existing patterns for error handling and logging
+6. Ensure proper cleanup of resources (database connections, Redis connections, etc.)
 
 ## Package.json Scripts
 

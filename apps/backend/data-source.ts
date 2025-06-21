@@ -33,6 +33,7 @@ import { SeedUsers1710000000012 } from "./migrations/SeedUsers1710000000012";
 import { AddAllUserForeignKeys1710000000014 } from "./migrations/AddAllUserForeignKeys1710000000014";
 import { AddIsOfficialToEvents1710000000015 } from "./migrations/AddIsOfficialToEvents1710000000015";
 import { SeedOfficialEvents1710000000016 } from "./migrations/SeedOfficialEvents1710000000016";
+import { RegenerateEmbeddings1710000000017 } from "./migrations/RegenerateEmbeddings1710000000017";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -69,6 +70,7 @@ const AppDataSource = new DataSource({
     AddAllUserForeignKeys1710000000014,
     AddIsOfficialToEvents1710000000015,
     SeedOfficialEvents1710000000016,
+    RegenerateEmbeddings1710000000017,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running
