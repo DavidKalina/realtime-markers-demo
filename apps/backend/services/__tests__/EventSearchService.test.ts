@@ -32,6 +32,7 @@ import type { Filter } from "../../entities/Filter";
 import type { DataSource, Repository } from "typeorm";
 import type { EventCacheService } from "../shared/EventCacheService";
 import type { OpenAIService } from "../shared/OpenAIService";
+import type { QueryAnalyticsService } from "../QueryAnalyticsService";
 
 describe("EventSearchService", () => {
   let eventSearchService: EventSearchService;
@@ -40,6 +41,7 @@ describe("EventSearchService", () => {
   let mockCategoryRepository: Repository<Category>;
   let mockEventCacheService: EventCacheService;
   let mockOpenAIService: OpenAIService;
+  let mockQueryAnalyticsService: QueryAnalyticsService;
 
   // Test data
   const mockEvent = {
@@ -99,6 +101,18 @@ describe("EventSearchService", () => {
       generateEmbedding: jest.fn(),
     } as unknown as OpenAIService;
 
+    mockQueryAnalyticsService = {
+      trackSearch: jest.fn(),
+      getQueryInsights: jest.fn(),
+      getPopularQueries: jest.fn(),
+      getLowHitRateQueries: jest.fn(),
+      getZeroResultQueries: jest.fn(),
+      getQueryStats: jest.fn(),
+      getQueryClusters: jest.fn(),
+      findSimilarQueries: jest.fn(),
+      updateQueryFlags: jest.fn(),
+    } as unknown as QueryAnalyticsService;
+
     mockDataSource = {
       getRepository: jest.fn().mockImplementation((entity) => {
         if (entity === "Event") {
@@ -117,6 +131,7 @@ describe("EventSearchService", () => {
       dataSource: mockDataSource,
       eventCacheService: mockEventCacheService,
       openaiService: mockOpenAIService,
+      queryAnalyticsService: mockQueryAnalyticsService,
     };
 
     eventSearchService = createEventSearchService(dependencies);
@@ -720,6 +735,7 @@ describe("EventSearchService", () => {
         dataSource: mockDataSource,
         eventCacheService: mockEventCacheService,
         openaiService: mockOpenAIService,
+        queryAnalyticsService: mockQueryAnalyticsService,
       };
 
       const service = createEventSearchService(dependencies);

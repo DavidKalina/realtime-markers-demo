@@ -5,6 +5,7 @@ import type { AppContext } from "../types/context";
 import { Buffer } from "buffer";
 import type { CategoryProcessingService } from "../services/CategoryProcessingService";
 import { RecurrenceFrequency, DayOfWeek } from "../entities/Event";
+import type { CreateEventInput } from "../types/event";
 
 // Define a type for our handler functions
 export type EventHandler = (
@@ -348,6 +349,7 @@ export const createEventHandler: EventHandler = async (c) => {
       recurrenceStartDate?: Date;
       recurrenceEndDate?: Date;
       recurrenceInterval?: number;
+      qrUrl?: string;
     }>;
     let originalImageUrl: string | null = null;
 
@@ -423,6 +425,8 @@ export const createEventHandler: EventHandler = async (c) => {
           sharedWithIds: formData.get("sharedWithIds")
             ? (formData.get("sharedWithIds") as string).split(",")
             : [],
+          // QR code related fields
+          qrUrl: formData.get("qrUrl")?.toString(),
           // Extract recurring event fields
           isRecurring: formData.get("isRecurring") === "true",
           recurrenceFrequency: formData
@@ -557,7 +561,7 @@ export const createEventHandler: EventHandler = async (c) => {
     }
 
     // Ensure required fields are present and convert to CreateEventInput format
-    const eventInput = {
+    const eventInput: CreateEventInput = {
       emoji: data.emoji || "📍",
       emojiDescription: data.emojiDescription,
       title: data.title!,
@@ -584,6 +588,8 @@ export const createEventHandler: EventHandler = async (c) => {
       embedding: data.embedding || [],
       isPrivate: data.isPrivate,
       sharedWithIds: data.sharedWithIds,
+      // QR code related fields
+      qrUrl: data.qrUrl,
       isRecurring: data.isRecurring,
       recurrenceFrequency: data.recurrenceFrequency as
         | RecurrenceFrequency

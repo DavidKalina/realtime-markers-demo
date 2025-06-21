@@ -1,46 +1,12 @@
-import { type Point } from "geojson";
 import pgvector from "pgvector";
 import { DataSource, Repository, type DeepPartial, In } from "typeorm";
-import {
-  Event,
-  EventStatus,
-  RecurrenceFrequency,
-  DayOfWeek,
-} from "../entities/Event";
+import { Event, EventStatus } from "../entities/Event";
 import { Category } from "../entities/Category";
 import { LevelingService } from "./LevelingService";
 import type { EventCacheService } from "./shared/EventCacheService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import type { RedisService } from "./shared/RedisService";
-
-interface CreateEventInput {
-  emoji: string;
-  emojiDescription?: string;
-  title: string;
-  description?: string;
-  eventDate: Date;
-  endDate?: Date;
-  location: Point;
-  categoryIds?: string[];
-  confidenceScore?: number;
-  address?: string;
-  locationNotes?: string;
-  creatorId: string;
-  timezone?: string;
-  qrDetectedInImage?: boolean;
-  detectedQrData?: string;
-  originalImageUrl?: string | null;
-  embedding: number[];
-  isPrivate?: boolean;
-  sharedWithIds?: string[]; // Optional array of user IDs to share the event with
-  isRecurring?: boolean;
-  recurrenceFrequency?: RecurrenceFrequency;
-  recurrenceDays?: DayOfWeek[];
-  recurrenceTime?: string;
-  recurrenceStartDate?: Date;
-  recurrenceEndDate?: Date;
-  recurrenceInterval?: number;
-}
+import type { CreateEventInput } from "../types/event";
 
 export interface EventLifecycleService {
   createEvent(input: CreateEventInput): Promise<Event>;
@@ -130,6 +96,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       detectedQrData: input.detectedQrData,
       originalImageUrl: input.originalImageUrl || undefined,
       isPrivate: input.isPrivate || false,
+      qrUrl: input.qrUrl,
       isRecurring: input.isRecurring || false,
       recurrenceFrequency: input.recurrenceFrequency,
       recurrenceDays: input.recurrenceDays,

@@ -1,5 +1,27 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  jest,
+  mock,
+} from "bun:test";
 import { type Point } from "geojson";
+
+// Mock pgvector before importing it
+const mockToSql = mock((embedding: number[]) => {
+  // Return a simple string representation of the embedding for testing
+  return `[${embedding.join(",")}]`;
+});
+
+// Mock the pgvector module
+mock.module("pgvector", () => ({
+  default: {
+    toSql: mockToSql,
+  },
+}));
+
 import pgvector from "pgvector";
 
 import {
@@ -818,7 +840,7 @@ describe("UserEngagementService", () => {
         new Error("Database error"),
       );
 
-      // Should not throw
+      // Should not throw and should resolve successfully
       await expect(
         userEngagementService.createDiscoveryRecord("user-123", "event-123"),
       ).resolves.toBeUndefined();

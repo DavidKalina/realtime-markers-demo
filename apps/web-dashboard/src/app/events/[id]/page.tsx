@@ -25,6 +25,7 @@ import {
   Edit,
   Trash2,
   Loader2,
+  QrCode,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -235,6 +236,23 @@ export default function EventDetailPage() {
                       <p className="text-muted-foreground">{event.address}</p>
                     </div>
                   )}
+
+                  {event.qrUrl && (
+                    <div>
+                      <h3 className="font-semibold mb-2">QR Code URL</h3>
+                      <div className="flex items-center gap-2">
+                        <QrCode className="h-4 w-4 text-muted-foreground" />
+                        <a
+                          href={event.qrUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 underline break-all"
+                        >
+                          {event.qrUrl}
+                        </a>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -354,6 +372,24 @@ export default function EventDetailPage() {
                     <p className="text-sm text-muted-foreground">Category</p>
                     <p className="text-sm">{getCategoryName(event)}</p>
                   </div>
+                  {event.qrUrl && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        QR Code URL
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <QrCode className="h-3 w-3 text-muted-foreground" />
+                        <a
+                          href={event.qrUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:text-blue-800 underline break-all"
+                        >
+                          View QR Code
+                        </a>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

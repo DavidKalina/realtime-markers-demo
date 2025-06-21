@@ -29,6 +29,8 @@ interface CreateEventPayload {
     lng: number;
   };
   image?: File;
+  // QR code related fields
+  qrUrl?: string;
   // Recurring event fields
   isRecurring?: boolean;
   recurrenceFrequency?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";
@@ -204,6 +206,11 @@ class ApiService {
       formData.append("lat", payload.location.coordinates[0].toString());
       formData.append("lng", payload.location.coordinates[1].toString());
 
+      // Add QR code related fields
+      if (payload.qrUrl) {
+        formData.append("qrUrl", payload.qrUrl);
+      }
+
       // Add recurring event fields
       if (payload.isRecurring !== undefined) {
         formData.append("isRecurring", payload.isRecurring.toString());
@@ -315,6 +322,11 @@ class ApiService {
       }
       formData.append("lat", payload.location.coordinates[0].toString());
       formData.append("lng", payload.location.coordinates[1].toString());
+
+      // Add QR code related fields
+      if (payload.qrUrl) {
+        formData.append("qrUrl", payload.qrUrl);
+      }
 
       // Add recurring event fields
       if (payload.isRecurring !== undefined) {
