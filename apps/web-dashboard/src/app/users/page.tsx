@@ -369,7 +369,6 @@ export default function UsersPage() {
                           <div className="text-sm space-y-1">
                             <div>Scans: {user.scanCount}</div>
                             <div>Saves: {user.saveCount}</div>
-                            <div>XP: {user.totalXp}</div>
                           </div>
                         </TableCell>
                         <TableCell>

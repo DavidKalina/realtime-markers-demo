@@ -55,7 +55,6 @@ describe("UserEngagementService", () => {
   const mockUser: User = {
     id: "user-123",
     email: "user@example.com",
-    currentTitle: "Event Explorer",
     passwordHash: "hashed",
     role: UserRole.USER,
     isVerified: false,
@@ -64,7 +63,6 @@ describe("UserEngagementService", () => {
     saveCount: 0,
     viewCount: 0,
     weeklyScanCount: 0,
-    totalXp: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
     discoveries: [],

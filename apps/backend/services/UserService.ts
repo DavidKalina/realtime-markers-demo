@@ -66,8 +66,6 @@ export class UserService {
         "user.scanCount",
         "user.saveCount",
         "user.viewCount",
-        "user.totalXp",
-        "user.currentTitle",
         "user.createdAt",
         "user.updatedAt",
       ])

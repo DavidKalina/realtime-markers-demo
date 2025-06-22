@@ -32,8 +32,7 @@ describe("EventLifecycleService", () => {
   // Test data
   const mockUser: User = {
     id: "user-123",
-    email: "test@example.com",
-    currentTitle: "Event Creator",
+    email: "user@example.com",
     passwordHash: "hashed",
     role: UserRole.USER,
     isVerified: false,
@@ -49,8 +48,6 @@ describe("EventLifecycleService", () => {
     savedEvents: [],
     viewedEvents: [],
     rsvps: [],
-    sentFriendRequests: [],
-    receivedFriendRequests: [],
   } as User;
 
   const mockCategory: Category = {

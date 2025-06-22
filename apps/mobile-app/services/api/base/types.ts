@@ -21,8 +21,6 @@ export interface User {
   createdAt?: Date;
   scanCount?: number;
   saveCount?: number;
-  totalXp?: number;
-  currentTitle?: string;
   level?: number;
   nextLevelXp?: number;
 }
