@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 
 interface SplashScreenContextType {
   registerLoadingState: (id: string, isLoading: boolean) => void;
@@ -6,6 +13,7 @@ interface SplashScreenContextType {
   shouldShowSplash: boolean;
   setSplashAnimationFinished: (finished: boolean) => void;
   splashAnimationFinished: boolean;
+  isInitialLoadComplete: boolean;
 }
 
 const SplashScreenContext = createContext<SplashScreenContextType | undefined>(
@@ -29,6 +37,9 @@ export const SplashScreenProvider: React.FC<{ children: React.ReactNode }> = ({
     new Map(),
   );
   const [splashAnimationFinished, setSplashAnimationFinished] = useState(false);
+  const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false);
+  const initialLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasShownSplashRef = useRef(false);
 
   const registerLoadingState = useCallback((id: string, isLoading: boolean) => {
     setLoadingStates((prev) => {
@@ -50,8 +61,37 @@ export const SplashScreenProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   }, []);
 
-  // Show splash screen if any component is loading or animation hasn't finished
-  const shouldShowSplash = loadingStates.size > 0 || !splashAnimationFinished;
+  // Track when splash has been shown to prevent multiple renders
+  useEffect(() => {
+    if (loadingStates.size > 0 && !hasShownSplashRef.current) {
+      hasShownSplashRef.current = true;
+    }
+  }, [loadingStates.size]);
+
+  // Set initial load complete after a minimum time and when all loading is done
+  useEffect(() => {
+    if (loadingStates.size === 0 && hasShownSplashRef.current) {
+      // Ensure splash shows for at least 1.5 seconds for better UX
+      if (initialLoadTimeoutRef.current) {
+        clearTimeout(initialLoadTimeoutRef.current);
+      }
+
+      initialLoadTimeoutRef.current = setTimeout(() => {
+        setIsInitialLoadComplete(true);
+      }, 1500);
+    }
+
+    return () => {
+      if (initialLoadTimeoutRef.current) {
+        clearTimeout(initialLoadTimeoutRef.current);
+      }
+    };
+  }, [loadingStates.size]);
+
+  // Show splash screen only during initial load or if animation hasn't finished
+  const shouldShowSplash =
+    (!isInitialLoadComplete && loadingStates.size > 0) ||
+    (!splashAnimationFinished && hasShownSplashRef.current);
 
   return (
     <SplashScreenContext.Provider
@@ -61,6 +101,7 @@ export const SplashScreenProvider: React.FC<{ children: React.ReactNode }> = ({
         shouldShowSplash,
         setSplashAnimationFinished,
         splashAnimationFinished,
+        isInitialLoadComplete,
       }}
     >
       {children}
