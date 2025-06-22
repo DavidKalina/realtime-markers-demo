@@ -3,13 +3,7 @@ import { useFilterStore } from "@/stores/useFilterStore";
 import { format, parseISO } from "date-fns";
 import * as Haptics from "expo-haptics";
 import { Calendar } from "lucide-react-native";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -17,7 +11,6 @@ import Animated, {
   useSharedValue,
   withSequence,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
 import { COLORS } from "../Layout/ScreenLayout";
 
@@ -32,8 +25,6 @@ const DateRangeIndicator: React.FC = () => {
   const { filters, activeFilterIds, applyFilters, createFilter, clearFilters } =
     useFilterStore();
   const scale = useSharedValue(1);
-  const textOpacity = useSharedValue(1);
-  const prevDateRangeRef = useRef<string>("");
 
   // Determine if we're in filtered mode (has date range filter) or relevant mode (no filters)
   const isFilteredMode = useMemo(() => {
@@ -60,34 +51,6 @@ const DateRangeIndicator: React.FC = () => {
       setIsLocalLoading(false);
     }
   }, [showCalendar]);
-
-  // Format date range for display
-  const dateRangeText = useMemo(() => {
-    if (isFilteredMode) {
-      const activeFilter = filters.find((f) => activeFilterIds.includes(f.id));
-      if (activeFilter?.criteria?.dateRange) {
-        const { start, end } = activeFilter.criteria.dateRange;
-        if (start && end) {
-          return `${format(parseISO(start), "M/d")}–${format(parseISO(end), "M/d")}`;
-        }
-      }
-      return "Date";
-    } else {
-      return ""; // Show only icon for "All Events" mode
-    }
-  }, [filters, activeFilterIds, isFilteredMode]);
-
-  // Animate text opacity when date range changes
-  useEffect(() => {
-    if (prevDateRangeRef.current !== dateRangeText) {
-      cancelAnimation(textOpacity);
-      textOpacity.value = withSequence(
-        withTiming(0, { duration: 150 }),
-        withTiming(1, { duration: 150 }),
-      );
-      prevDateRangeRef.current = dateRangeText;
-    }
-  }, [dateRangeText]);
 
   const handlePress = useCallback(() => {
     // Cancel any ongoing animations before starting new ones
@@ -146,7 +109,6 @@ const DateRangeIndicator: React.FC = () => {
   useEffect(() => {
     return () => {
       cancelAnimation(scale);
-      cancelAnimation(textOpacity);
     };
   }, []);
 
@@ -154,20 +116,11 @@ const DateRangeIndicator: React.FC = () => {
     transform: [{ scale: scale.value }],
   }));
 
-  const textAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: textOpacity.value,
-  }));
-
   return (
     <>
       <Pressable onPress={handlePress}>
         <Animated.View style={[styles.container, animatedStyle]}>
           <Calendar size={20} color={COLORS.accent} />
-          {dateRangeText && (
-            <Animated.Text style={[styles.text, textAnimatedStyle]}>
-              {dateRangeText}
-            </Animated.Text>
-          )}
         </Animated.View>
       </Pressable>
 
@@ -221,14 +174,7 @@ const styles = StyleSheet.create({
     elevation: 4,
     minWidth: 44,
     minHeight: 44,
-    maxWidth: 120, // Limit width for when text is shown
-  },
-  text: {
-    fontSize: 12,
-    fontFamily: "Poppins-Medium",
-    fontWeight: "500",
-    color: COLORS.textPrimary,
-    letterSpacing: 0.1,
+    maxWidth: 120, // Fixed width to maintain consistent button dimensions
   },
   modalOverlay: {
     flex: 1,
