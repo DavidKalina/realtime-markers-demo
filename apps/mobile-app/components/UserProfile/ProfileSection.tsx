@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   },
   mapStyleButtonText: {
     fontSize: 11,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "600",
     color: COLORS.textSecondary,
   },

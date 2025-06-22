@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 20,
     fontWeight: "700",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 8,
     textAlign: "center",
   },
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 16,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   dismissButton: {
     backgroundColor: COLORS.buttonBackground,
@@ -127,6 +127,6 @@ const styles = StyleSheet.create({
   dismissButtonText: {
     color: COLORS.textSecondary,
     fontSize: 14,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
 });

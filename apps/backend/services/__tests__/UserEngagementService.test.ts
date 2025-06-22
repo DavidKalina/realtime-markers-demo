@@ -30,14 +30,12 @@ import {
   type UserEngagementServiceDependencies,
 } from "../UserEngagementService";
 import { Event, EventStatus } from "../../entities/Event";
-import { User, UserRole, PlanType } from "../../entities/User";
+import { User, UserRole } from "../../entities/User";
 import { UserEventSave } from "../../entities/UserEventSave";
 import { UserEventRsvp, RsvpStatus } from "../../entities/UserEventRsvp";
 import { UserEventDiscovery } from "../../entities/UserEventDiscovery";
 import { UserEventView } from "../../entities/UserEventView";
-import { Friendship } from "../../entities/Friendship";
 import { Category } from "../../entities/Category";
-import { LevelingService } from "../LevelingService";
 import type { DataSource, Repository, EntityManager } from "typeorm";
 import type { RedisService } from "../shared/RedisService";
 
@@ -50,49 +48,28 @@ describe("UserEngagementService", () => {
   let mockUserEventRsvpRepository: Repository<UserEventRsvp>;
   let mockUserEventDiscoveryRepository: Repository<UserEventDiscovery>;
   let mockUserEventViewRepository: Repository<UserEventView>;
-  let mockLevelingService: LevelingService;
   let mockRedisService: RedisService;
   let mockEntityManager: EntityManager;
 
   // Test data
   const mockUser: User = {
     id: "user-123",
-    email: "test@example.com",
-    displayName: "Test User",
-    currentTitle: "Event Explorer",
-    friendCode: "FRIEND123",
+    email: "user@example.com",
     passwordHash: "hashed",
     role: UserRole.USER,
-    planType: PlanType.FREE,
     isVerified: false,
     discoveryCount: 0,
     scanCount: 0,
     saveCount: 0,
     viewCount: 0,
     weeklyScanCount: 0,
-    totalXp: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
-  } as User;
-
-  const mockFriend: User = {
-    id: "friend-456",
-    email: "friend@example.com",
-    displayName: "Friend User",
-    currentTitle: "Event Explorer",
-    friendCode: "FRIEND456",
-    passwordHash: "hashed",
-    role: UserRole.USER,
-    planType: PlanType.FREE,
-    isVerified: false,
-    discoveryCount: 0,
-    scanCount: 0,
-    saveCount: 0,
-    viewCount: 0,
-    weeklyScanCount: 0,
-    totalXp: 0,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    discoveries: [],
+    createdEvents: [],
+    savedEvents: [],
+    viewedEvents: [],
+    rsvps: [],
   } as User;
 
   const mockCategory: Category = {
@@ -197,10 +174,6 @@ describe("UserEngagementService", () => {
       count: jest.fn(),
     } as unknown as Repository<UserEventView>;
 
-    mockLevelingService = {
-      awardXp: jest.fn(),
-    } as unknown as LevelingService;
-
     mockRedisService = {
       publish: jest.fn(),
     } as unknown as RedisService;
@@ -239,7 +212,6 @@ describe("UserEngagementService", () => {
     const dependencies: UserEngagementServiceDependencies = {
       dataSource: mockDataSource,
       redisService: mockRedisService,
-      levelingService: mockLevelingService,
     };
 
     userEngagementService = createUserEngagementService(dependencies);
@@ -293,7 +265,6 @@ describe("UserEngagementService", () => {
         .mockResolvedValueOnce(eventWithUpdatedCounts) // Save the updated event
         .mockResolvedValueOnce(userWithUpdatedCounts); // Save the updated user
 
-      (mockLevelingService.awardXp as jest.Mock).mockResolvedValue(undefined);
       (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
 
       const result = await userEngagementService.toggleSaveEvent(
@@ -311,7 +282,6 @@ describe("UserEngagementService", () => {
         eventId: "event-123",
       });
 
-      expect(mockLevelingService.awardXp).toHaveBeenCalledWith("user-123", 5);
       expect(mockRedisService.publish).toHaveBeenCalledWith("event_changes", {
         type: "UPDATE",
         data: {
@@ -381,7 +351,6 @@ describe("UserEngagementService", () => {
       });
 
       expect(mockEntityManager.remove).toHaveBeenCalledWith(mockUserEventSave);
-      expect(mockLevelingService.awardXp).not.toHaveBeenCalled();
     });
 
     it("should throw error when event not found", async () => {
@@ -624,7 +593,6 @@ describe("UserEngagementService", () => {
         .mockResolvedValueOnce(1) // Going count
         .mockResolvedValueOnce(0); // Not going count
 
-      (mockLevelingService.awardXp as jest.Mock).mockResolvedValue(undefined);
       (mockRedisService.publish as jest.Mock).mockResolvedValue(undefined);
 
       const result = await userEngagementService.toggleRsvpEvent(
@@ -645,7 +613,18 @@ describe("UserEngagementService", () => {
         status: RsvpStatus.GOING,
       });
 
-      expect(mockLevelingService.awardXp).toHaveBeenCalledWith("user-123", 5);
+      expect(mockRedisService.publish).toHaveBeenCalledWith("event_changes", {
+        type: "UPDATE",
+        data: {
+          operation: "UPDATE",
+          record: expect.objectContaining({
+            id: "event-123",
+            rsvpCount: 1,
+          }),
+          changeType: "RSVP_ADDED",
+          userId: "user-123",
+        },
+      });
     });
 
     it("should update existing RSVP", async () => {
@@ -693,7 +672,18 @@ describe("UserEngagementService", () => {
         notGoingCount: 1,
       });
 
-      expect(mockLevelingService.awardXp).not.toHaveBeenCalled();
+      expect(mockRedisService.publish).toHaveBeenCalledWith("event_changes", {
+        type: "UPDATE",
+        data: {
+          operation: "UPDATE",
+          record: expect.objectContaining({
+            id: "event-123",
+            rsvpCount: 1,
+          }),
+          changeType: "RSVP_UPDATED",
+          userId: "user-123",
+        },
+      });
     });
 
     it("should throw error when event not found", async () => {
@@ -910,84 +900,6 @@ describe("UserEngagementService", () => {
     });
   });
 
-  describe("getFriendsSavedEvents", () => {
-    it("should return events saved by friends", async () => {
-      const friendSave = {
-        ...mockUserEventSave,
-        user: mockFriend,
-      };
-
-      const mockQueryBuilder = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        innerJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([friendSave]),
-      };
-
-      (
-        mockUserEventSaveRepository.createQueryBuilder as jest.Mock
-      ).mockReturnValue(mockQueryBuilder);
-
-      const result = await userEngagementService.getFriendsSavedEvents(
-        "user-123",
-        { limit: 10 },
-      );
-
-      expect(result.events).toHaveLength(1);
-      expect(result.events[0]).toEqual(
-        expect.objectContaining({
-          ...mockEvent,
-          savedBy: {
-            id: mockFriend.id,
-            displayName: mockFriend.displayName,
-            email: mockFriend.email,
-          },
-        }),
-      );
-
-      expect(mockQueryBuilder.innerJoin).toHaveBeenCalledWith(
-        Friendship,
-        "friendship",
-        expect.stringContaining("ACCEPTED"),
-        { userId: "user-123" },
-      );
-    });
-
-    it("should handle cursor pagination", async () => {
-      const cursorData = {
-        savedAt: new Date("2024-01-01T00:00:00Z"),
-        eventId: "event-123",
-      };
-      const cursor = Buffer.from(JSON.stringify(cursorData)).toString("base64");
-
-      const mockQueryBuilder = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        innerJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
-      };
-
-      (
-        mockUserEventSaveRepository.createQueryBuilder as jest.Mock
-      ).mockReturnValue(mockQueryBuilder);
-
-      await userEngagementService.getFriendsSavedEvents("user-123", {
-        limit: 10,
-        cursor,
-      });
-
-      expect(mockQueryBuilder.andWhere).toHaveBeenCalled();
-    });
-  });
-
   describe("stripEventForRedis", () => {
     it("should remove embedding field from event", () => {
       const eventWithEmbedding = {
@@ -1011,7 +923,6 @@ describe("UserEngagementService", () => {
       const dependencies: UserEngagementServiceDependencies = {
         dataSource: mockDataSource,
         redisService: mockRedisService,
-        levelingService: mockLevelingService,
       };
 
       const service = createUserEngagementService(dependencies);
@@ -1024,7 +935,6 @@ describe("UserEngagementService", () => {
       expect(typeof service.getUserRsvpStatus).toBe("function");
       expect(typeof service.createDiscoveryRecord).toBe("function");
       expect(typeof service.getDiscoveredEventsByUser).toBe("function");
-      expect(typeof service.getFriendsSavedEvents).toBe("function");
       expect(typeof service.getEventEngagement).toBe("function");
     });
   });

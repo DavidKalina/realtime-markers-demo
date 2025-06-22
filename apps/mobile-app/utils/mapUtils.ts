@@ -55,12 +55,14 @@ export const markerToEvent = (marker: {
     created_at?: string;
     updated_at?: string;
     isPrivate?: boolean;
+    isOfficial?: boolean;
     status?: string;
     locationNotes?: string;
     emojiDescription?: string;
     creator?: {
       id: string;
-      displayName: string;
+      firstName?: string;
+      lastName?: string;
       email: string;
       role: string;
       avatarUrl?: string;
@@ -132,6 +134,7 @@ export const markerToEvent = (marker: {
         createdAt: marker.data.createdAt || new Date().toISOString(),
         updatedAt: marker.data.updatedAt || new Date().toISOString(),
         isPrivate: marker.data.isPrivate || false,
+        isOfficial: marker.data.isOfficial || false,
         sharedWithIds: marker.data.sharedWithIds || [],
         isRecurring: marker.data.isRecurring || false,
         recurrenceFrequency: marker.data.recurrenceFrequency,
@@ -197,6 +200,7 @@ export const markerToEvent = (marker: {
         marker.data.updated_at ||
         new Date().toISOString(),
       isPrivate: marker.data.isPrivate || false,
+      isOfficial: marker.data.isOfficial || false,
       sharedWithIds: marker.data.sharedWithIds || [],
       // Recurring event fields
       isRecurring: marker.data.isRecurring || false,
@@ -246,6 +250,7 @@ export const markerToEvent = (marker: {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     isPrivate: false,
+    isOfficial: false,
     sharedWithIds: [],
     isRecurring: false,
     color: "#4dabf7",

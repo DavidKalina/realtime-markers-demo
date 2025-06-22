@@ -5,16 +5,15 @@ import { JobQueue } from "../services/JobQueue";
 import Redis from "ioredis";
 import type { UserPreferencesServiceImpl } from "../services/UserPreferences";
 import type { StorageService } from "../services/shared/StorageService";
-import { PlanService } from "../services/PlanService";
-import { LevelingService } from "../services/LevelingService";
-import type { FriendshipServiceImpl } from "../services/FriendshipService";
-import type { NotificationService } from "../services/NotificationService";
 import type { RedisService } from "../services/shared/RedisService";
 import { AuthService } from "../services/AuthService";
 import type { GoogleGeocodingService } from "../services/shared/GoogleGeocodingService";
 import type { IEmbeddingService } from "../services/event-processing/interfaces/IEmbeddingService";
 import type { CategoryProcessingService } from "../services/CategoryProcessingService";
 import type { EmailService } from "../services/shared/EmailService";
+import type { CivicEngagementService } from "../services/CivicEngagementService";
+import type { CivicEngagementSearchService } from "../services/CivicEngagementSearchService";
+import type { CivicEngagementCacheService } from "../services/shared/CivicEngagementCacheService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -24,15 +23,14 @@ export interface AppVariables {
   redisClient: Redis;
   redisService: RedisService;
   userPreferencesService: UserPreferencesServiceImpl;
-  planService: PlanService;
-  levelingService: LevelingService;
-  friendshipService: FriendshipServiceImpl;
-  notificationService: NotificationService;
   authService: AuthService;
   geocodingService: GoogleGeocodingService;
   embeddingService: IEmbeddingService;
   categoryProcessingService: CategoryProcessingService;
   emailService: EmailService;
+  civicEngagementService: CivicEngagementService;
+  civicEngagementSearchService: CivicEngagementSearchService;
+  civicEngagementCacheService: CivicEngagementCacheService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

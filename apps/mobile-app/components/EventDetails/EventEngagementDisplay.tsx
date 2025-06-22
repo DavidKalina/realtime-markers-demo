@@ -1,21 +1,31 @@
 import { EventEngagementMetrics } from "@/services/api/base/types";
-import { COLORS } from "../Layout/ScreenLayout";
-import { Heart, Eye, Users, TrendingUp } from "lucide-react-native";
+import { Heart, Eye, Users, TrendingUp, Calendar } from "lucide-react-native";
 import React, { memo } from "react";
-import { Text, View, useWindowDimensions } from "react-native";
+import { Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
+
+// Municipal-friendly color scheme (matching EventDetails)
+const MUNICIPAL_COLORS = {
+  primary: "#1e40af", // Professional blue
+  secondary: "#059669", // Municipal green
+  accent: "#f59e0b", // Warm amber
+  background: "#f8fafc", // Light gray background
+  card: "#ffffff", // White cards
+  text: "#1e293b", // Dark slate text
+  textSecondary: "#64748b", // Medium gray
+  border: "#e2e8f0", // Light border
+  success: "#10b981", // Green for success states
+  warning: "#f59e0b", // Amber for warnings
+  error: "#ef4444", // Red for errors
+};
 
 interface EventEngagementDisplayProps {
   engagement: EventEngagementMetrics;
   delay?: number;
-  isOverlay?: boolean;
 }
 
 const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
-  ({ engagement, delay = 800, isOverlay = false }) => {
-    const { width } = useWindowDimensions();
-    const isSmallScreen = width < 375;
-
+  ({ engagement, delay = 800 }) => {
     const formatNumber = (num: number): string => {
       if (num >= 1000000) {
         return `${(num / 1000000).toFixed(1)}M`;
@@ -31,57 +41,43 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
         icon: Heart,
         label: "Saves",
         value: engagement.saveCount,
-        color: "#e74c3c",
+        color: MUNICIPAL_COLORS.error,
+        bgColor: `${MUNICIPAL_COLORS.error}15`,
       },
       {
         icon: Eye,
         label: "Scans",
         value: engagement.scanCount,
-        color: "#3498db",
+        color: MUNICIPAL_COLORS.primary,
+        bgColor: `${MUNICIPAL_COLORS.primary}15`,
       },
       {
         icon: Users,
         label: "RSVPs",
         value: engagement.rsvpCount,
-        color: "#2ecc71",
+        color: MUNICIPAL_COLORS.success,
+        bgColor: `${MUNICIPAL_COLORS.success}15`,
       },
       {
         icon: TrendingUp,
         label: "Total",
         value: engagement.totalEngagement,
-        color: COLORS.accent,
+        color: MUNICIPAL_COLORS.accent,
+        bgColor: `${MUNICIPAL_COLORS.accent}15`,
       },
     ];
 
-    if (isOverlay) {
-      return (
-        <Animated.View
-          entering={FadeInDown.duration(600).delay(delay).springify()}
-          style={{
-            position: "absolute",
-            bottom: 10,
-            right: 10,
-            backgroundColor: "rgba(0, 0, 0, 0.6)",
-            borderRadius: 14,
-            paddingVertical: 4,
-            paddingHorizontal: 9,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.13,
-            shadowRadius: 3,
-            elevation: 4,
-            borderWidth: 0,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            maxWidth: undefined,
-          }}
-        >
+    return (
+      <Animated.View
+        entering={FadeInDown.duration(600).delay(delay).springify()}
+      >
+        {/* Main Metrics */}
+        <View style={{ marginBottom: 16 }}>
           <View
             style={{
               flexDirection: "row",
+              justifyContent: "space-between",
               alignItems: "center",
-              gap: 12,
             }}
           >
             {engagementItems.map((item, index) => {
@@ -91,235 +87,170 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                   key={index}
                   style={{
                     alignItems: "center",
-                    minWidth: 28,
-                    position: "relative",
-                    justifyContent: "center",
+                    flex: 1,
+                    paddingHorizontal: 4,
                   }}
                 >
                   <View
                     style={{
-                      backgroundColor: `${item.color}30`,
-                      borderRadius: 5,
-                      padding: 4,
-                      marginBottom: 1,
-                      position: "relative",
+                      backgroundColor: item.bgColor,
+                      borderRadius: 8,
+                      padding: 8,
+                      marginBottom: 8,
+                      borderWidth: 1,
+                      borderColor: `${item.color}20`,
                     }}
                   >
                     <IconComponent
-                      size={14}
+                      size={18}
                       color={item.color}
-                      strokeWidth={1.8}
+                      strokeWidth={2.5}
                     />
-                    {/* Badge count */}
-                    <View
-                      style={{
-                        position: "absolute",
-                        top: -6,
-                        right: -6,
-                        minWidth: 16,
-                        height: 16,
-                        borderRadius: 8,
-                        backgroundColor: COLORS.accent,
-                        justifyContent: "center",
-                        alignItems: "center",
-                        paddingHorizontal: 3,
-                        zIndex: 2,
-                        borderWidth: 1,
-                        borderColor: "#fff",
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: "#fff",
-                          fontSize: 10,
-                          fontWeight: "700",
-                          fontFamily: "SpaceMono",
-                        }}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                      >
-                        {formatNumber(item.value)}
-                      </Text>
-                    </View>
                   </View>
+                  <Text
+                    style={{
+                      fontFamily: "Poppins-Regular",
+                      fontSize: 16,
+                      fontWeight: "700",
+                      color: MUNICIPAL_COLORS.text,
+                      marginBottom: 2,
+                      textAlign: "center",
+                    }}
+                  >
+                    {formatNumber(item.value)}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: "Poppins-Regular",
+                      fontSize: 11,
+                      color: MUNICIPAL_COLORS.textSecondary,
+                      textAlign: "center",
+                      fontWeight: "500",
+                    }}
+                  >
+                    {item.label}
+                  </Text>
                 </View>
               );
             })}
           </View>
-
-          {/* RSVP Breakdown - just numbers, no text */}
-          {engagement.rsvpCount > 0 && (
-            <View
-              style={{
-                marginLeft: 10,
-                borderLeftWidth: 1,
-                borderLeftColor: "rgba(255,255,255,0.15)",
-                paddingLeft: 8,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 12,
-                  fontWeight: "700",
-                  color: "#2ecc71",
-                  marginRight: 2,
-                }}
-              >
-                {engagement.goingCount}
-              </Text>
-              <Text
-                style={{ fontSize: 12, fontWeight: "700", color: "#e74c3c" }}
-              >
-                {engagement.notGoingCount}
-              </Text>
-            </View>
-          )}
-        </Animated.View>
-      );
-    }
-
-    // Original full-size display for non-overlay use
-    return (
-      <Animated.View
-        entering={FadeInDown.duration(600).delay(delay).springify()}
-        style={{
-          borderRadius: 12,
-          padding: isSmallScreen ? 12 : 16,
-          marginHorizontal: 16,
-          marginVertical: 8,
-          shadowColor: "#000",
-          shadowOffset: {
-            width: 0,
-            height: 2,
-          },
-          shadowOpacity: 0.1,
-          shadowRadius: 3.84,
-          elevation: 5,
-        }}
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-around",
-            flexWrap: "wrap",
-            gap: isSmallScreen ? 4 : 8,
-          }}
-        >
-          {engagementItems.map((item, index) => {
-            const IconComponent = item.icon;
-            return (
-              <View
-                key={index}
-                style={{
-                  alignItems: "center",
-                  minWidth: isSmallScreen ? 50 : 60,
-                  paddingVertical: 8,
-                }}
-              >
-                <View
-                  style={{
-                    backgroundColor: `${item.color}20`,
-                    borderRadius: 8,
-                    padding: isSmallScreen ? 6 : 8,
-                    marginBottom: 4,
-                  }}
-                >
-                  <IconComponent
-                    size={isSmallScreen ? 16 : 20}
-                    color={item.color}
-                    strokeWidth={2.5}
-                  />
-                </View>
-                <Text
-                  style={{
-                    fontFamily: "SpaceMono",
-                    fontSize: isSmallScreen ? 14 : 16,
-                    fontWeight: "700",
-                    color: COLORS.textPrimary,
-                    marginBottom: 2,
-                  }}
-                >
-                  {formatNumber(item.value)}
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: "SpaceMono",
-                    fontSize: isSmallScreen ? 10 : 12,
-                    color: COLORS.textSecondary,
-                    textAlign: "center",
-                  }}
-                >
-                  {item.label}
-                </Text>
-              </View>
-            );
-          })}
         </View>
 
         {/* RSVP Breakdown */}
         {engagement.rsvpCount > 0 && (
           <View
             style={{
-              marginTop: 12,
-              paddingTop: 12,
+              paddingTop: 16,
               borderTopWidth: 1,
-              borderTopColor: `${COLORS.textSecondary}20`,
+              borderTopColor: MUNICIPAL_COLORS.border,
+              marginBottom: 16,
             }}
           >
-            <Text
+            <View
               style={{
-                fontSize: isSmallScreen ? 12 : 14,
-                fontWeight: "600",
-                fontFamily: "SpaceMono",
-                color: COLORS.textSecondary,
-                marginBottom: 8,
-                textAlign: "center",
+                flexDirection: "row",
+                alignItems: "center",
+                marginBottom: 12,
               }}
             >
-              RSVP Breakdown
-            </Text>
+              <Calendar
+                size={16}
+                color={MUNICIPAL_COLORS.textSecondary}
+                strokeWidth={2}
+              />
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: "600",
+                  fontFamily: "Poppins-Regular",
+                  color: MUNICIPAL_COLORS.textSecondary,
+                  marginLeft: 8,
+                }}
+              >
+                RSVP Breakdown
+              </Text>
+            </View>
             <View
               style={{
                 flexDirection: "row",
                 justifyContent: "space-around",
+                backgroundColor: MUNICIPAL_COLORS.background,
+                borderRadius: 12,
+                paddingVertical: 16,
+                paddingHorizontal: 20,
+                borderWidth: 1,
+                borderColor: MUNICIPAL_COLORS.border,
               }}
             >
-              <View style={{ alignItems: "center" }}>
+              <View style={{ alignItems: "center", flex: 1 }}>
+                <View
+                  style={{
+                    backgroundColor: `${MUNICIPAL_COLORS.success}15`,
+                    borderRadius: 8,
+                    padding: 8,
+                    marginBottom: 8,
+                    borderWidth: 1,
+                    borderColor: `${MUNICIPAL_COLORS.success}20`,
+                  }}
+                >
+                  <Users
+                    size={16}
+                    color={MUNICIPAL_COLORS.success}
+                    strokeWidth={2}
+                  />
+                </View>
                 <Text
                   style={{
-                    fontSize: isSmallScreen ? 14 : 16,
+                    fontSize: 16,
                     fontWeight: "700",
-                    color: "#2ecc71",
+                    color: MUNICIPAL_COLORS.success,
+                    marginBottom: 4,
                   }}
                 >
                   {engagement.goingCount}
                 </Text>
                 <Text
                   style={{
-                    fontSize: isSmallScreen ? 10 : 12,
-                    color: COLORS.textSecondary,
+                    fontSize: 11,
+                    color: MUNICIPAL_COLORS.textSecondary,
+                    fontWeight: "500",
                   }}
                 >
                   Going
                 </Text>
               </View>
-              <View style={{ alignItems: "center" }}>
+              <View style={{ alignItems: "center", flex: 1 }}>
+                <View
+                  style={{
+                    backgroundColor: `${MUNICIPAL_COLORS.error}15`,
+                    borderRadius: 8,
+                    padding: 8,
+                    marginBottom: 8,
+                    borderWidth: 1,
+                    borderColor: `${MUNICIPAL_COLORS.error}20`,
+                  }}
+                >
+                  <Users
+                    size={16}
+                    color={MUNICIPAL_COLORS.error}
+                    strokeWidth={2}
+                  />
+                </View>
                 <Text
                   style={{
-                    fontSize: isSmallScreen ? 14 : 16,
+                    fontSize: 16,
                     fontWeight: "700",
-                    color: "#e74c3c",
+                    color: MUNICIPAL_COLORS.error,
+                    marginBottom: 4,
                   }}
                 >
                   {engagement.notGoingCount}
                 </Text>
                 <Text
                   style={{
-                    fontSize: isSmallScreen ? 10 : 12,
-                    color: COLORS.textSecondary,
+                    fontSize: 11,
+                    color: MUNICIPAL_COLORS.textSecondary,
+                    fontWeight: "500",
                   }}
                 >
                   Not Going
@@ -329,18 +260,27 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
           </View>
         )}
 
-        {/* Last Updated */}
-        <Text
+        {/* Last Updated Footer */}
+        <View
           style={{
-            fontSize: 10,
-            color: COLORS.textSecondary,
-            textAlign: "center",
-            marginTop: 8,
-            fontStyle: "italic",
+            paddingTop: 12,
+            borderTopWidth: 1,
+            borderTopColor: MUNICIPAL_COLORS.border,
+            alignItems: "center",
           }}
         >
-          Last updated: {new Date(engagement.lastUpdated).toLocaleDateString()}
-        </Text>
+          <Text
+            style={{
+              fontSize: 11,
+              color: MUNICIPAL_COLORS.textSecondary,
+              fontFamily: "Poppins-Regular",
+              fontStyle: "italic",
+            }}
+          >
+            Last updated:{" "}
+            {new Date(engagement.lastUpdated).toLocaleDateString()}
+          </Text>
+        </View>
       </Animated.View>
     );
   },

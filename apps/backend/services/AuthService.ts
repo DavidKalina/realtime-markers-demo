@@ -2,20 +2,18 @@
 
 import bcrypt from "bcrypt";
 import jwt, { type SignOptions } from "jsonwebtoken";
-import { Repository } from "typeorm";
+import { Repository, DataSource } from "typeorm";
 import { User } from "../entities/User";
 import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import { addDays, format } from "date-fns";
-import { LevelingService } from "./LevelingService";
-import { createFriendshipService } from "./FriendshipService";
-import { DataSource } from "typeorm";
-import { OpenAIModel, type OpenAIService } from "./shared/OpenAIService";
-import { createFriendshipCacheService } from "./shared/FriendshipCacheService";
+import type { OpenAIService } from "./shared/OpenAIService";
+import { OpenAIModel } from "./shared/OpenAIService";
 
 export interface UserRegistrationData {
   email: string;
   password: string;
-  displayName?: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface AuthTokens {
@@ -26,7 +24,6 @@ export interface AuthTokens {
 export interface AuthServiceDependencies {
   userRepository: Repository<User>;
   userPreferencesService: UserPreferencesServiceImpl;
-  levelingService: LevelingService;
   dataSource: DataSource;
   openAIService: OpenAIService;
 }
@@ -38,66 +35,84 @@ export class AuthService {
   private accessTokenExpiry: SignOptions["expiresIn"];
   private refreshTokenExpiry: SignOptions["expiresIn"];
   private userPreferencesService: UserPreferencesServiceImpl;
-  private levelingService: LevelingService;
   private dataSource: DataSource;
   private openAIService: OpenAIService;
 
   constructor(private dependencies: AuthServiceDependencies) {
     this.userRepository = dependencies.userRepository;
     this.userPreferencesService = dependencies.userPreferencesService;
-    this.levelingService = dependencies.levelingService;
     this.dataSource = dependencies.dataSource;
     this.openAIService = dependencies.openAIService;
-    this.jwtSecret = process.env.JWT_SECRET!;
-    if (!this.jwtSecret) {
-      throw new Error("JWT_SECRET environment variable must be set");
-    }
-    this.refreshSecret = process.env.REFRESH_SECRET!;
-    if (!this.refreshSecret) {
-      throw new Error("REFRESH_SECRET environment variable must be set");
-    }
+    this.jwtSecret = process.env.JWT_SECRET || "your-secret-key";
+    this.refreshSecret = process.env.REFRESH_SECRET || "your-refresh-secret";
     this.accessTokenExpiry = "1h";
     this.refreshTokenExpiry = "7d";
   }
 
   /**
-   * Check if a username or display name is appropriate using OpenAI
+   * Check if content is appropriate using OpenAI
    */
   private async isContentAppropriate(content: string): Promise<boolean> {
     try {
-      const prompt = `Please analyze if the following username/display name is appropriate for a general audience platform. Consider:
-1. No profanity or offensive language
-2. No hate speech or discriminatory content
-3. No impersonation of public figures
-4. No explicit sexual content
-5. No promotion of harmful activities
-
-Content to analyze: "${content}"
-
-Respond with a JSON object containing:
-{
-  "isAppropriate": boolean,
-  "reason": string
-}`;
-
       const response = await this.openAIService.executeChatCompletion({
         model: OpenAIModel.GPT4OMini,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.1,
-        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a content moderator. Determine if the given content is appropriate for a family-friendly event discovery app. Consider:\n" +
+              "1. No profanity or offensive language\n" +
+              "2. No hate speech or discriminatory content\n" +
+              "3. No inappropriate sexual content\n" +
+              "4. No violent or threatening content\n" +
+              "5. No spam or misleading content\n\n" +
+              "Respond with only 'APPROPRIATE' or 'INAPPROPRIATE'.",
+          },
+          {
+            role: "user",
+            content: `Evaluate this content: "${content}"`,
+          },
+        ],
+        max_tokens: 10,
+        temperature: 0,
       });
 
-      const responseContent = response.choices[0].message.content;
-      if (!responseContent) {
-        throw new Error("No content received from OpenAI");
-      }
-      const result = JSON.parse(responseContent);
-      return result.isAppropriate;
+      const result = response.choices[0]?.message?.content?.trim();
+      return result === "APPROPRIATE";
     } catch (error) {
       console.error("Error checking content appropriateness:", error);
-      // If we can't check appropriateness, default to allowing the content
-      // This is safer than blocking legitimate users if the service is down
+      // Default to allowing content if moderation fails
       return true;
+    }
+  }
+
+  /**
+   * Validate names for appropriateness
+   */
+  private async validateNames(
+    firstName?: string,
+    lastName?: string,
+  ): Promise<void> {
+    const namesToValidate: string[] = [];
+
+    if (firstName?.trim()) {
+      namesToValidate.push(firstName.trim());
+    }
+
+    if (lastName?.trim()) {
+      namesToValidate.push(lastName.trim());
+    }
+
+    if (namesToValidate.length === 0) {
+      return; // No names to validate
+    }
+
+    // Check each name individually
+    for (const name of namesToValidate) {
+      const isAppropriate = await this.isContentAppropriate(name);
+      if (!isAppropriate) {
+        throw new Error(`Name "${name}" contains inappropriate content`);
+      }
     }
   }
 
@@ -114,15 +129,8 @@ Respond with a JSON object containing:
       throw new Error("User with this email already exists");
     }
 
-    // Check content appropriateness if display name is provided
-    if (userData.displayName) {
-      const isAppropriate = await this.isContentAppropriate(
-        userData.displayName,
-      );
-      if (!isAppropriate) {
-        throw new Error("Display name contains inappropriate content");
-      }
-    }
+    // Validate names for appropriateness
+    await this.validateNames(userData.firstName, userData.lastName);
 
     // Hash password
     const saltRounds = 10;
@@ -131,9 +139,9 @@ Respond with a JSON object containing:
     // Create new user
     const newUser = this.userRepository.create({
       email: userData.email,
+      firstName: userData.firstName?.trim(),
+      lastName: userData.lastName?.trim(),
       passwordHash,
-      displayName: userData.displayName || userData.email.split("@")[0],
-      username: userData.displayName || userData.email.split("@")[0],
       isVerified: false, // Set to false by default - would need email verification process
     });
 
@@ -179,7 +187,6 @@ Respond with a JSON object containing:
         "id",
         "email",
         "passwordHash",
-        "displayName",
         "role",
         "isVerified",
         "avatarUrl",
@@ -373,7 +380,8 @@ Respond with a JSON object containing:
       select: [
         "id",
         "email",
-        "displayName",
+        "firstName",
+        "lastName",
         "role",
         "isVerified",
         "avatarUrl",
@@ -381,41 +389,10 @@ Respond with a JSON object containing:
         "createdAt",
         "scanCount",
         "saveCount",
-        "totalXp",
-        "currentTitle",
-        "friendCode",
-        "username",
       ],
     });
 
-    if (!user) {
-      return null;
-    }
-
-    // Generate a friend code if the user doesn't have one
-    if (!user.friendCode) {
-      const friendshipService = createFriendshipService({
-        dataSource: this.dataSource,
-        friendshipCacheService: createFriendshipCacheService(),
-      });
-      user.friendCode = await friendshipService.generateFriendCode(userId);
-      await this.userRepository.save(user);
-    }
-
-    // Get level information from LevelingService
-    const levelInfo = await this.levelingService.getUserLevelInfo(userId);
-
-    // Create a new object with level information
-    const userWithLevelInfo = {
-      ...user,
-      level: levelInfo.currentLevel,
-      currentTitle: levelInfo.currentTitle,
-      totalXp: levelInfo.totalXp,
-      nextLevelXp: levelInfo.nextLevelXp,
-      xpProgress: levelInfo.progress,
-    };
-
-    return userWithLevelInfo;
+    return user;
   }
 
   /**
@@ -432,21 +409,16 @@ Respond with a JSON object containing:
     delete userData.id;
     delete userData.email; // Email changes should have their own flow with verification
 
-    // Check content appropriateness if display name is being updated
-    if (userData.displayName) {
-      const isAppropriate = await this.isContentAppropriate(
-        userData.displayName,
-      );
-      if (!isAppropriate) {
-        throw new Error("Display name contains inappropriate content");
-      }
-    }
+    // Validate names for appropriateness if they're being updated
+    if (userData.firstName !== undefined || userData.lastName !== undefined) {
+      await this.validateNames(userData.firstName, userData.lastName);
 
-    // Check content appropriateness if username is being updated
-    if (userData.username) {
-      const isAppropriate = await this.isContentAppropriate(userData.username);
-      if (!isAppropriate) {
-        throw new Error("Username contains inappropriate content");
+      // Trim names if they're being updated
+      if (userData.firstName !== undefined) {
+        userData.firstName = userData.firstName?.trim();
+      }
+      if (userData.lastName !== undefined) {
+        userData.lastName = userData.lastName?.trim();
       }
     }
 

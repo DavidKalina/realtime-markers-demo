@@ -2,7 +2,7 @@ import DateRangeCalendar from "@/components/DateRangeCalendar";
 import { useFilterStore } from "@/stores/useFilterStore";
 import { format, parseISO } from "date-fns";
 import * as Haptics from "expo-haptics";
-import { Calendar, Sparkles } from "lucide-react-native";
+import { Calendar } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -12,7 +12,6 @@ import React, {
 } from "react";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
-  Easing,
   cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
@@ -23,13 +22,8 @@ import Animated, {
 import { COLORS } from "../Layout/ScreenLayout";
 
 const ANIMATION_CONFIG = {
-  damping: 10,
-  stiffness: 200,
-};
-
-const ROTATION_CONFIG = {
-  duration: 100,
-  easing: Easing.inOut(Easing.ease),
+  damping: 15,
+  stiffness: 300,
 };
 
 const DateRangeIndicator: React.FC = () => {
@@ -38,7 +32,6 @@ const DateRangeIndicator: React.FC = () => {
   const { filters, activeFilterIds, applyFilters, createFilter, clearFilters } =
     useFilterStore();
   const scale = useSharedValue(1);
-  const rotation = useSharedValue(0);
   const textOpacity = useSharedValue(1);
   const prevDateRangeRef = useRef<string>("");
 
@@ -75,12 +68,12 @@ const DateRangeIndicator: React.FC = () => {
       if (activeFilter?.criteria?.dateRange) {
         const { start, end } = activeFilter.criteria.dateRange;
         if (start && end) {
-          return `${format(parseISO(start), "M/d")} – ${format(parseISO(end), "M/d")}`;
+          return `${format(parseISO(start), "M/d")}–${format(parseISO(end), "M/d")}`;
         }
       }
-      return "Calendar";
+      return "Date";
     } else {
-      return "Relevant";
+      return ""; // Show only icon for "All Events" mode
     }
   }, [filters, activeFilterIds, isFilteredMode]);
 
@@ -89,8 +82,8 @@ const DateRangeIndicator: React.FC = () => {
     if (prevDateRangeRef.current !== dateRangeText) {
       cancelAnimation(textOpacity);
       textOpacity.value = withSequence(
-        withTiming(0, { duration: 200 }),
-        withTiming(1, { duration: 200 }),
+        withTiming(0, { duration: 150 }),
+        withTiming(1, { duration: 150 }),
       );
       prevDateRangeRef.current = dateRangeText;
     }
@@ -99,17 +92,11 @@ const DateRangeIndicator: React.FC = () => {
   const handlePress = useCallback(() => {
     // Cancel any ongoing animations before starting new ones
     cancelAnimation(scale);
-    cancelAnimation(rotation);
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     scale.value = withSequence(
-      withSpring(0.95, ANIMATION_CONFIG),
+      withSpring(0.92, ANIMATION_CONFIG),
       withSpring(1, ANIMATION_CONFIG),
-    );
-    rotation.value = withSequence(
-      withTiming(-5, ROTATION_CONFIG),
-      withTiming(5, ROTATION_CONFIG),
-      withTiming(0, ROTATION_CONFIG),
     );
     setShowCalendar(true);
   }, []);
@@ -159,13 +146,12 @@ const DateRangeIndicator: React.FC = () => {
   useEffect(() => {
     return () => {
       cancelAnimation(scale);
-      cancelAnimation(rotation);
       cancelAnimation(textOpacity);
     };
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }, { rotate: `${rotation.value}deg` }],
+    transform: [{ scale: scale.value }],
   }));
 
   const textAnimatedStyle = useAnimatedStyle(() => ({
@@ -176,16 +162,12 @@ const DateRangeIndicator: React.FC = () => {
     <>
       <Pressable onPress={handlePress}>
         <Animated.View style={[styles.container, animatedStyle]}>
-          <View style={styles.iconContainer}>
-            {isFilteredMode ? (
-              <Calendar size={12} color={COLORS.accent} />
-            ) : (
-              <Sparkles size={12} color={COLORS.accent} />
-            )}
-          </View>
-          <Animated.Text style={[styles.text, textAnimatedStyle]}>
-            {dateRangeText}
-          </Animated.Text>
+          <Calendar size={20} color={COLORS.accent} />
+          {dateRangeText && (
+            <Animated.Text style={[styles.text, textAnimatedStyle]}>
+              {dateRangeText}
+            </Animated.Text>
+          )}
         </Animated.View>
       </Pressable>
 
@@ -221,24 +203,31 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 4,
-  },
-  iconContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: `${COLORS.accent}10`,
     justifyContent: "center",
-    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: `${COLORS.accent}20`,
+    borderColor: COLORS.buttonBorder,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+    minWidth: 44,
+    minHeight: 44,
+    maxWidth: 120, // Limit width for when text is shown
   },
   text: {
     fontSize: 12,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-    color: COLORS.accent,
+    fontFamily: "Poppins-Medium",
+    fontWeight: "500",
+    color: COLORS.textPrimary,
     letterSpacing: 0.1,
   },
   modalOverlay: {

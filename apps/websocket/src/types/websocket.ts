@@ -1,10 +1,12 @@
 import type { ServerWebSocket } from "bun";
+import type { ClientType } from "../../../filter-processor/src/types/types";
 
 export interface WebSocketData {
   clientId: string;
   userId?: string;
   lastActivity: number;
   sessionId?: string;
+  clientType?: ClientType;
 }
 
 export interface SystemHealth {
@@ -36,6 +38,11 @@ export interface ClientMessage {
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
+}
+
+export interface ClientIdentificationData {
+  userId: string;
+  clientType?: ClientType;
 }
 
 export interface RedisConfig {

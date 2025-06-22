@@ -4,8 +4,9 @@ import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
-import StatusBar from "@/components/StatusBar/StatusBar";
+import MunicipalBanner from "@/components/StatusBar/StatusBar";
 import DateRangeIndicator from "@/components/StatusBar/DateRangeIndicator";
+import PlusButton from "@/components/StatusBar/PlusButton";
 import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
 import {
   DEFAULT_CAMERA_SETTINGS,
@@ -13,10 +14,10 @@ import {
 } from "@/config/cameraConfig";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
+import { useSplashScreen } from "@/contexts/SplashScreenContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useMapCamera } from "@/hooks/useMapCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
-import { useSimulatedNotifications } from "@/hooks/useSimulatedNotifications";
 import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
@@ -33,7 +34,6 @@ import React, {
 import { Platform, View } from "react-native";
 import { runOnJS } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLORS } from "@/components/Layout/ScreenLayout";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -56,33 +56,16 @@ const styles = {
     flex: 1,
   },
   statusBarSpacer: {
-    height: 80, // Match the height of the StatusBar component
-  },
-  floatingDateButton: {
-    position: "absolute" as const,
-    top: 100, // Position below the status bar
-    right: 16,
-    zIndex: 1000,
-    backgroundColor: "rgba(26, 26, 26, 0.9)",
-    borderRadius: 20,
-    padding: 8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    height: 100, // Match the height of the MunicipalBanner component
   },
 };
 
 function HomeScreen() {
-  const [isMapReady, setIsMapReady] = useState(false);
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const { publish } = useEventBroker();
   const { mapStyle, isPitched } = useMapStyle();
+  const { registerLoadingState, unregisterLoadingState } = useSplashScreen();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -110,6 +93,21 @@ function HomeScreen() {
   const hasCenteredOnUserRef = useRef(false);
   const [hasRequestedInitialLocation, setHasRequestedInitialLocation] =
     useState(false);
+  const [isMapReady, setIsMapReady] = useState(false);
+
+  // Register map loading state with splash screen context
+  useEffect(() => {
+    if (!isMapReady) {
+      registerLoadingState("map", true);
+    } else {
+      unregisterLoadingState("map");
+    }
+
+    // Cleanup on unmount
+    return () => {
+      unregisterLoadingState("map");
+    };
+  }, [isMapReady, registerLoadingState, unregisterLoadingState]);
 
   // Load initial location request state
   useEffect(() => {
@@ -164,7 +162,7 @@ function HomeScreen() {
     if (
       userLocation &&
       !isLoadingLocation &&
-      isMapReady &&
+      currentViewport &&
       cameraRef.current &&
       !hasCenteredOnUserRef.current
     ) {
@@ -174,7 +172,7 @@ function HomeScreen() {
         centerCoordinate: userLocation,
       });
     }
-  }, [userLocation, isLoadingLocation, isMapReady]);
+  }, [userLocation, isLoadingLocation, currentViewport]);
 
   // Cleanup Mapbox location manager on unmount
   useEffect(() => {
@@ -289,12 +287,6 @@ function HomeScreen() {
   const [viewportRectangle, setViewportRectangle] =
     useState<MapboxViewport | null>(null);
 
-  // Inside your HomeScreen component in index.tsx
-
-  // Inside your HomeScreen component in index.tsx
-
-  // Inside your HomeScreen component in index.tsx
-
   const calculateViewportRectangle = useCallback(
     (viewport: MapboxViewport, isPitched: boolean): MapboxViewport => {
       const geoWidth = viewport.east - viewport.west;
@@ -329,10 +321,6 @@ function HomeScreen() {
     [],
   );
 
-  // Inside your HomeScreen component in index.tsx
-  // Ensure isPitched is in scope, e.g., from:
-  // const { mapStyle, isPitched } = useMapStyle();
-
   const handleMapViewportChange = useCallback(
     (feature: unknown) => {
       try {
@@ -345,7 +333,7 @@ function HomeScreen() {
         const viewport = processViewportBounds(properties.visibleBounds);
         if (viewport) {
           // Pass the current isPitched state to the calculation function
-          const rectangle = calculateViewportRectangle(viewport, isPitched); // MODIFIED LINE
+          const rectangle = calculateViewportRectangle(viewport, isPitched);
           setViewportRectangle(rectangle);
 
           // Use the adjusted rectangle for updates
@@ -360,7 +348,7 @@ function HomeScreen() {
       processViewportBounds,
       calculateViewportRectangle,
       isPitched,
-    ], // MODIFIED LINE: Added isPitched
+    ],
   );
 
   // Memoize map ready handler
@@ -407,8 +395,8 @@ function HomeScreen() {
 
   // Memoize rendering conditions
   const shouldRenderMarkers = useMemo(
-    () => Boolean(isMapReady && !isLoadingLocation && currentViewport),
-    [isMapReady, isLoadingLocation, currentViewport],
+    () => Boolean(currentViewport && !isLoadingLocation),
+    [isLoadingLocation, currentViewport],
   );
 
   // Memoize markers component for better performance
@@ -469,7 +457,7 @@ function HomeScreen() {
 
     if (longPressCoordinates) {
       router.push({
-        pathname: "/create-private-event",
+        pathname: "/create-civic-engagement",
         params: {
           latitude: longPressCoordinates.latitude.toString(),
           longitude: longPressCoordinates.longitude.toString(),
@@ -479,28 +467,15 @@ function HomeScreen() {
     }
   }, [router, longPressCoordinates]);
 
-  // Use the simulated notifications hook (disabled by default)
-  useSimulatedNotifications({ enabled: false });
-
   const floatingDateButtonStyle = useMemo(
     () => ({
       position: "absolute" as const,
-      top: insets.top, // StatusBar height (40) + padding (20)
-      right: 8,
+      bottom: insets.bottom + 80, // Move higher up for better thumb placement
+      right: 16,
       zIndex: 1000,
-      backgroundColor: COLORS.cardBackgroundAlt,
-      borderRadius: 20,
-      padding: 8,
-      shadowColor: "#000",
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.25,
-      shadowRadius: 3.84,
-      elevation: 5,
+      gap: 12, // Add gap between buttons
     }),
-    [insets.top],
+    [insets.bottom],
   );
 
   return (
@@ -510,7 +485,7 @@ function HomeScreen() {
 
         {!isLoadingLocation && (
           <>
-            <StatusBar />
+            <MunicipalBanner />
             <View style={styles.statusBarSpacer} />
           </>
         )}
@@ -562,6 +537,7 @@ function HomeScreen() {
 
           <View style={floatingDateButtonStyle}>
             <DateRangeIndicator />
+            <PlusButton />
           </View>
         </View>
       </View>

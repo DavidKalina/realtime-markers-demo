@@ -19,8 +19,6 @@ export interface User {
   scanCount: number;
   saveCount: number;
   viewCount: number;
-  totalXp: number;
-  currentTitle?: string;
   createdAt: string;
   updatedAt: string;
 }

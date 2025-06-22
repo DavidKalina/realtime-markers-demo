@@ -2,7 +2,6 @@ import pgvector from "pgvector";
 import { DataSource, Repository, type DeepPartial, In } from "typeorm";
 import { Event, EventStatus } from "../entities/Event";
 import { Category } from "../entities/Category";
-import { LevelingService } from "./LevelingService";
 import type { EventCacheService } from "./shared/EventCacheService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import type { RedisService } from "./shared/RedisService";
@@ -30,27 +29,38 @@ export interface EventLifecycleService {
 
 export interface EventLifecycleServiceDependencies {
   dataSource: DataSource;
-  levelingService: LevelingService;
   eventCacheService: EventCacheService;
   locationService: GoogleGeocodingService;
   redisService: RedisService;
 }
 
 export class EventLifecycleServiceImpl implements EventLifecycleService {
-  private eventRepository: Repository<Event>;
-  private categoryRepository: Repository<Category>;
-  private levelingService: LevelingService;
+  private eventRepository?: Repository<Event>;
+  private categoryRepository?: Repository<Category>;
   private eventCacheService: EventCacheService;
   private locationService: GoogleGeocodingService;
   private redisService: RedisService;
 
   constructor(private dependencies: EventLifecycleServiceDependencies) {
-    this.eventRepository = dependencies.dataSource.getRepository(Event);
-    this.categoryRepository = dependencies.dataSource.getRepository(Category);
-    this.levelingService = dependencies.levelingService;
     this.eventCacheService = dependencies.eventCacheService;
     this.locationService = dependencies.locationService;
     this.redisService = dependencies.redisService;
+  }
+
+  // Lazy getters for repositories
+  private get eventRepo(): Repository<Event> {
+    if (!this.eventRepository) {
+      this.eventRepository = this.dependencies.dataSource.getRepository(Event);
+    }
+    return this.eventRepository;
+  }
+
+  private get categoryRepo(): Repository<Category> {
+    if (!this.categoryRepository) {
+      this.categoryRepository =
+        this.dependencies.dataSource.getRepository(Category);
+    }
+    return this.categoryRepository;
   }
 
   async createEvent(input: CreateEventInput): Promise<Event> {
@@ -70,7 +80,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
 
     let categories: Category[] = [];
     if (input.categoryIds?.length) {
-      categories = await this.categoryRepository.find({
+      categories = await this.categoryRepo.find({
         where: { id: In(input.categoryIds) },
       });
     }
@@ -95,6 +105,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       detectedQrData: input.detectedQrData,
       originalImageUrl: input.originalImageUrl || undefined,
       isPrivate: input.isPrivate || false,
+      isOfficial: input.isOfficial || false,
       qrUrl: input.qrUrl,
       isRecurring: input.isRecurring || false,
       recurrenceFrequency: input.recurrenceFrequency,
@@ -106,17 +117,16 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
     };
 
     // Create event instance
-    const event = this.eventRepository.create(eventData);
+    const event = this.eventRepo.create(eventData);
 
     if (categories.length) {
       event.categories = categories;
     }
 
     // Save the event first to get its ID
-    const savedEvent = await this.eventRepository.save(event);
+    const savedEvent = await this.eventRepo.save(event);
 
     // Award XP for creating an event
-    await this.levelingService.awardXp(input.creatorId, 30);
 
     // Publish the new event to Redis for filter processor
     await this.redisService.publish("event_changes", {
@@ -131,6 +141,12 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
 
     await this.eventCacheService.invalidateSearchCache();
 
+    // Invalidate any cluster hub caches that might be affected
+    await this.eventCacheService.invalidateAllClusterHubs();
+
+    // Invalidate landing page cache since new official events might affect the landing page
+    await this.eventCacheService.invalidateLandingPageCache();
+
     return savedEvent;
   }
 
@@ -143,7 +159,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       }
 
       // If not in cache, get from database
-      const evt = await this.eventRepository.findOne({
+      const evt = await this.eventRepo.findOne({
         where: { id },
         relations: ["categories", "creator", "shares", "shares.sharedWith"],
       });
@@ -221,7 +237,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
 
       // Handle categories if provided
       if (eventData.categoryIds) {
-        const categories = await this.categoryRepository.find({
+        const categories = await this.categoryRepo.find({
           where: { id: In(eventData.categoryIds) },
         });
         event.categories = categories;
@@ -232,8 +248,13 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
         event.isPrivate = eventData.isPrivate;
       }
 
+      // Handle official status
+      if (eventData.isOfficial !== undefined) {
+        event.isOfficial = eventData.isOfficial;
+      }
+
       // Save the event first to ensure we have a valid ID
-      const savedEvent = await this.eventRepository.save(event);
+      const savedEvent = await this.eventRepo.save(event);
 
       // Publish the updated event to Redis for filter processor
       await this.redisService.publish("event_changes", {
@@ -256,6 +277,9 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       // Invalidate any cluster hub caches that might contain this event
       await this.eventCacheService.invalidateAllClusterHubs();
 
+      // Invalidate landing page cache since official events might have changed
+      await this.eventCacheService.invalidateLandingPageCache();
+
       return savedEvent;
     } catch (error) {
       console.error(`Error updating event ${id}:`, error);
@@ -268,7 +292,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       // Get the event before deleting it for Redis publishing
       const eventToDelete = await this.getEventById(id);
 
-      const result = await this.eventRepository.delete(id);
+      const result = await this.eventRepo.delete(id);
 
       if (result.affected && result.affected > 0 && eventToDelete) {
         // Publish the deleted event to Redis for filter processor
@@ -292,6 +316,9 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       // Invalidate any cluster hub caches that might contain this event
       await this.eventCacheService.invalidateAllClusterHubs();
 
+      // Invalidate landing page cache since official events might have changed
+      await this.eventCacheService.invalidateLandingPageCache();
+
       return result.affected ? result.affected > 0 : false;
     } catch (error) {
       console.error(`Error deleting event ${id}:`, error);
@@ -309,7 +336,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
 
       const previousStatus = event.status;
       event.status = status;
-      const updatedEvent = await this.eventRepository.save(event);
+      const updatedEvent = await this.eventRepo.save(event);
 
       // Publish the status change to Redis for filter processor
       await this.redisService.publish("event_changes", {
@@ -352,7 +379,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       event.qrGeneratedAt = new Date();
 
       // Save the updated event
-      const updatedEvent = await this.eventRepository.save(event);
+      const updatedEvent = await this.eventRepo.save(event);
 
       // Publish the QR code detection to Redis for filter processor
       await this.redisService.publish("event_changes", {

@@ -23,13 +23,17 @@ interface ClusterHubData {
   clusterEmoji: string;
   featuredCreator?: {
     id: string;
-    displayName: string;
     email: string;
     eventCount: number;
     creatorDescription: string;
-    title: string;
-    friendCode: string;
   };
+}
+
+interface LandingPageData {
+  featuredEvents: Event[];
+  upcomingEvents: Event[];
+  communityEvents?: Event[];
+  popularCategories: Category[];
 }
 
 export interface EventCacheService {
@@ -51,6 +55,13 @@ export interface EventCacheService {
   ): Promise<void>;
   invalidateClusterHub(markerIds: string[]): Promise<void>;
   invalidateAllClusterHubs(): Promise<void>;
+  getLandingPageData(key: string): Promise<LandingPageData | null>;
+  setLandingPageData(
+    key: string,
+    data: LandingPageData,
+    ttlSeconds?: number,
+  ): Promise<void>;
+  invalidateLandingPageCache(): Promise<void>;
   getCachedEmbedding(text: string): number[] | undefined;
   setCachedEmbedding(text: string, embedding: number[]): void;
 }
@@ -59,6 +70,7 @@ export class EventCacheServiceImpl implements EventCacheService {
   private static readonly CACHE_PREFIX = "event:";
   private static readonly SEARCH_PREFIX = "search:";
   private static readonly CLUSTER_PREFIX = "cluster-hub:";
+  private static readonly LANDING_PREFIX = "landing:";
   private static readonly EMBEDDING_PREFIX = "embedding:";
   private static readonly DEFAULT_TTL = 3600; // 1 hour
   private static readonly SHORT_TTL = 300; // 5 minutes
@@ -161,6 +173,37 @@ export class EventCacheServiceImpl implements EventCacheService {
   async invalidateAllClusterHubs(): Promise<void> {
     await this.cacheService.invalidateByPattern(
       `${EventCacheServiceImpl.CLUSTER_PREFIX}*`,
+    );
+  }
+
+  async getLandingPageData(key: string): Promise<LandingPageData | null> {
+    return this.cacheService.get(
+      `${EventCacheServiceImpl.LANDING_PREFIX}${key}`,
+      {
+        useMemoryCache: false,
+        ttlSeconds: EventCacheServiceImpl.SHORT_TTL,
+      },
+    );
+  }
+
+  async setLandingPageData(
+    key: string,
+    data: LandingPageData,
+    ttlSeconds: number = EventCacheServiceImpl.SHORT_TTL,
+  ): Promise<void> {
+    await this.cacheService.set(
+      `${EventCacheServiceImpl.LANDING_PREFIX}${key}`,
+      data,
+      {
+        useMemoryCache: false,
+        ttlSeconds,
+      },
+    );
+  }
+
+  async invalidateLandingPageCache(): Promise<void> {
+    await this.cacheService.invalidateByPattern(
+      `${EventCacheServiceImpl.LANDING_PREFIX}*`,
     );
   }
 

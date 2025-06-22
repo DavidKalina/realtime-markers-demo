@@ -1,33 +1,15 @@
 import { AuthWrapper } from "@/components/AuthWrapper";
-import { CheckboxGroup } from "@/components/CheckboxGroup/CheckboxGroup";
 import EmbeddedDateRangeCalendar from "@/components/EmbeddedDateRangeCalendar";
 import Input from "@/components/Input/Input";
 import TextArea from "@/components/Input/TextArea";
-import Header from "@/components/Layout/Header";
-import ScreenLayout, { COLORS } from "@/components/Layout/ScreenLayout";
-import { Friend, apiClient } from "@/services/ApiClient";
+import Screen from "@/components/Layout/Screen";
+import { COLORS } from "@/components/Layout/ScreenLayout";
+import { apiClient } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Book, List, MapPin as MapPinIcon } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import {
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withSpring,
-} from "react-native-reanimated";
+import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
 import type { CreateEventPayload } from "@/services/api/base/types";
 import {
   LocationSelector,
@@ -84,68 +66,12 @@ const CreatePrivateEvent = () => {
 
   // Initialize state with values from params if they exist
   const [date, setDate] = useState(new Date());
-  const [selectedFriends, setSelectedFriends] = useState<Friend[]>([]);
   const [eventName, setEventName] = useState((params.title as string) || "");
   const [eventDescription, setEventDescription] = useState(
     (params.description as string) || "",
   );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const buttonScale = useSharedValue(1);
-
-  // Add effect to initialize selected friends in edit mode
-  useEffect(() => {
-    const initializeSelectedFriends = async () => {
-      if (params.id) {
-        try {
-          // Get the event details including shares
-          const event = await apiClient.events.getEventById(
-            params.id as string,
-          );
-          if (event) {
-            // Get all friends
-            const friends = await apiClient.friends.getFriends();
-
-            // Get the shares for this event
-            const shares = await apiClient.events.getEventShares(
-              params.id as string,
-            );
-
-            // Get the IDs of users the event is shared with
-            const sharedWithIds = shares.map((share) => share.sharedWithId);
-
-            // Filter friends to only those that are in sharedWithIds
-            const selectedFriends = friends.filter((friend) =>
-              sharedWithIds.includes(friend.id),
-            );
-            setSelectedFriends(selectedFriends);
-
-            // Also set other event details if they exist
-            if (event.title) setEventName(event.title);
-            if (event.description) setEventDescription(event.description);
-            if (event.eventDate) setDate(new Date(event.eventDate));
-            if (
-              event.location &&
-              typeof event.location === "object" &&
-              "coordinates" in event.location
-            ) {
-              const location = event.location as {
-                coordinates: [number, number];
-              };
-              setCoordinates({
-                latitude: location.coordinates[1],
-                longitude: location.coordinates[0],
-              });
-            }
-          }
-        } catch (error) {
-          console.error("Error initializing event details:", error);
-        }
-      }
-    };
-
-    initializeSelectedFriends();
-  }, [params.id]);
 
   // Add effect to focus title input when component mounts
   useEffect(() => {
@@ -153,12 +79,6 @@ const CreatePrivateEvent = () => {
       titleInputRef.current.focus();
     }
   }, []);
-
-  const buttonAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: buttonScale.value }],
-    };
-  });
 
   const handleTitleSubmit = () => {
     if (descriptionInputRef.current) {
@@ -244,12 +164,6 @@ const CreatePrivateEvent = () => {
     // Trigger haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Animate button press
-    buttonScale.value = withSequence(
-      withSpring(0.95, { damping: 15, stiffness: 200 }),
-      withSpring(1, { damping: 15, stiffness: 200 }),
-    );
-
     setIsSubmitting(true);
 
     try {
@@ -258,7 +172,6 @@ const CreatePrivateEvent = () => {
         description: eventDescription.trim(),
         date: date.toISOString(),
         eventDate: date.toISOString(),
-        sharedWithIds: selectedFriends.map((friend) => friend.id),
         isPrivate: true,
         // Location is required by the API, and we've validated coordinates exist
         location: {
@@ -319,112 +232,83 @@ const CreatePrivateEvent = () => {
 
   return (
     <AuthWrapper>
-      <ScreenLayout>
-        <Header
-          title={params.title ? "Update Event" : "Create Event"}
-          onBack={() => router.back()}
-        />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardAvoidingView}
-        >
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={styles.container}>
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Event Details</Text>
-                <Input
-                  ref={titleInputRef}
-                  placeholder="Event Name"
-                  icon={Book}
-                  value={eventName}
-                  onChangeText={setEventName}
-                  onSubmitEditing={handleTitleSubmit}
-                  returnKeyType="next"
-                  autoFocus={true}
-                  blurOnSubmit={false}
-                />
-                <TextArea
-                  ref={descriptionInputRef}
-                  placeholder="Event Description"
-                  icon={List}
-                  value={eventDescription}
-                  onChangeText={setEventDescription}
-                  blurOnSubmit={false}
-                />
-              </View>
+      <Screen
+        bannerTitle={params.title ? "Update Event" : "Create Event"}
+        showBackButton={true}
+        onBack={() => router.back()}
+        footerButtons={[
+          {
+            label: isSubmitting
+              ? "Processing..."
+              : params.title
+                ? "Update Event"
+                : "Create Event",
+            onPress: handleSubmit,
+            variant: "primary",
+            loading: isSubmitting,
+            style: { flex: 1 },
+          },
+        ]}
+        isScrollable={true}
+        noSafeArea={false}
+        extendBannerToStatusBar={false}
+      >
+        <View style={styles.container}>
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Event Details</Text>
+            <Input
+              ref={titleInputRef}
+              placeholder="Event Name"
+              icon={Book}
+              value={eventName}
+              onChangeText={setEventName}
+              onSubmitEditing={handleTitleSubmit}
+              returnKeyType="next"
+              autoFocus={true}
+              blurOnSubmit={false}
+            />
+            <TextArea
+              ref={descriptionInputRef}
+              placeholder="Event Description"
+              icon={List}
+              value={eventDescription}
+              onChangeText={setEventDescription}
+              blurOnSubmit={false}
+            />
+          </View>
 
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <MapPinIcon size={18} color={COLORS.accent} />
-                  <Text style={styles.sectionTitle}>Location</Text>
-                </View>
-                <LocationSelector
-                  selectedLocation={locationData}
-                  onLocationSelect={handleLocationSelect}
-                  onLocationClear={handleLocationClear}
-                  onSearch={handleSearchPlaces}
-                  isLoading={isSearchingPlaces}
-                  searchResults={searchResults}
-                  error={locationError}
-                  buttonText="Search for a place..."
-                />
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Invite Friends</Text>
-                <CheckboxGroup
-                  selectedFriends={selectedFriends}
-                  onSelectionChange={setSelectedFriends}
-                  buttonText="Select Friends to Invite"
-                />
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Date & Time</Text>
-                <EmbeddedDateRangeCalendar date={date} onDateChange={setDate} />
-              </View>
-
-              <View style={styles.submitButtonContainer}>
-                <TouchableOpacity
-                  onPress={handleSubmit}
-                  disabled={isSubmitting}
-                  activeOpacity={0.7}
-                  style={[styles.submitButton, buttonAnimatedStyle]}
-                >
-                  {isSubmitting ? (
-                    <ActivityIndicator size="small" color="#000" />
-                  ) : (
-                    <Text style={styles.submitButtonText}>
-                      {params.title ? "Update Event" : "Create Event"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MapPinIcon size={18} color={COLORS.accent} />
+              <Text style={styles.sectionTitle}>Location</Text>
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </ScreenLayout>
+            <LocationSelector
+              selectedLocation={locationData}
+              onLocationSelect={handleLocationSelect}
+              onLocationClear={handleLocationClear}
+              onSearch={handleSearchPlaces}
+              isLoading={isSearchingPlaces}
+              searchResults={searchResults}
+              error={locationError}
+              buttonText="Search for a place..."
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Date & Time</Text>
+            <EmbeddedDateRangeCalendar date={date} onDateChange={setDate} />
+          </View>
+        </View>
+      </Screen>
     </AuthWrapper>
   );
 };
 
 const styles = StyleSheet.create({
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
   container: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     backgroundColor: COLORS.background,
     gap: 24,
   },
@@ -435,59 +319,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 4,
-  },
-  submitButtonContainer: {
-    marginTop: 20,
-    paddingBottom: 40,
-  },
-  submitButton: {
-    borderRadius: 12,
-    height: 55,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: `${COLORS.accent}15`,
-    borderWidth: 1,
-    borderColor: `${COLORS.accent}30`,
-  },
-  submitButtonText: {
-    color: COLORS.accent,
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "SpaceMono",
-    letterSpacing: 0.5,
-  },
-  dateDisplay: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-  },
-  dateText: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-  },
-  localTimeText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-    marginTop: 4,
-  },
-  callout: {
-    backgroundColor: `${COLORS.accent}10`,
-    padding: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: `${COLORS.accent}20`,
-  },
-  calloutText: {
-    color: COLORS.accent,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
   },
   sectionHeader: {
     flexDirection: "row",
@@ -499,10 +332,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-  },
-  input: {
-    marginBottom: 16,
+    fontFamily: "Poppins-Regular",
   },
 });
 

@@ -18,7 +18,7 @@ export function LayoutWrapper({
   const { bannerConfig } = useMunicipalConfig();
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex flex-col flex-1">
       {showBanner && (
         <MunicipalBanner config={bannerConfig} className={bannerClassName} />
       )}

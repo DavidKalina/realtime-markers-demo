@@ -1,8 +1,8 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { MapStyleType, useMapStyle } from "@/contexts/MapStyleContext";
-import { apiClient, PlanType, User, PlanDetails } from "@/services/ApiClient";
+import { apiClient, User } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 
 // Cache TTL in milliseconds (5 minutes)
@@ -15,7 +15,6 @@ interface CacheEntry<T> {
 
 interface Cache {
   profile?: CacheEntry<User>;
-  planDetails?: CacheEntry<PlanDetails>;
 }
 
 // Global cache instance
@@ -39,9 +38,7 @@ interface UseProfileReturn {
   // Data
   loading: boolean;
   profileData: User | null;
-  planDetails: PlanDetails | null;
   memberSince: string;
-  progressWidth: number;
   deleteError: string;
   isDeleting: boolean;
   showDeleteDialog: boolean;
@@ -61,7 +58,6 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
   const router = useRouter();
   const { logout } = useAuth();
   const { setMapStyle } = useMapStyle();
-  const { paymentStatus } = useLocalSearchParams<{ paymentStatus?: string }>();
 
   // State
   const [loading, setLoading] = useState(true);
@@ -70,7 +66,6 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
   const [password, setPassword] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-  const [planDetails, setPlanDetails] = useState<PlanDetails | null>(null);
 
   // Cache ref to track cache updates
   const cacheRef = useRef(globalCache);
@@ -112,27 +107,10 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
               return null;
             });
 
-        // Queue plan details request if cache is invalid
-        const planPromise = isCacheValid(cache.planDetails)
-          ? Promise.resolve(cache.planDetails!.data)
-          : queueRequest(async () => {
-              const data = await apiClient.plans.getPlanDetails();
-              if (isMounted) {
-                cache.planDetails = { data, timestamp: now };
-                return data;
-              }
-              return null;
-            });
-
-        // Wait for both requests to complete
-        const [profileResponse, planResponse] = await Promise.all([
-          profilePromise,
-          planPromise,
-        ]);
+        const [profileResponse] = await Promise.all([profilePromise]);
 
         if (isMounted) {
           if (profileResponse) setProfileData(profileResponse);
-          if (planResponse) setPlanDetails(planResponse);
           setLoading(false);
         }
       } catch (error) {
@@ -153,26 +131,6 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
     };
   }, []);
 
-  // Handle payment status with local state update
-  useEffect(() => {
-    if (paymentStatus === "success" && planDetails) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Update plan details locally instead of refetching
-      setPlanDetails((prev) =>
-        prev
-          ? {
-              ...prev,
-              planType: PlanType.PRO,
-              scanLimit: 100, // Assuming PRO plan has 100 scans
-              remainingScans: 100 - (prev.weeklyScanCount || 0),
-            }
-          : null,
-      );
-    } else if (paymentStatus === "cancel") {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    }
-  }, [paymentStatus]);
-
   // Memoize formatted date
   const memberSince = useMemo(() => {
     return profileData?.createdAt
@@ -182,15 +140,6 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
         })
       : "Loading...";
   }, [profileData?.createdAt]);
-
-  // Memoize progress bar width
-  const progressWidth = useMemo(() => {
-    return Math.min(
-      ((planDetails?.weeklyScanCount || 0) / (planDetails?.scanLimit || 10)) *
-        100,
-      100,
-    );
-  }, [planDetails?.weeklyScanCount, planDetails?.scanLimit]);
 
   // Handle back button
   const handleBack = useCallback(() => {
@@ -244,9 +193,7 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
     // Data
     loading,
     profileData,
-    planDetails,
     memberSince,
-    progressWidth,
     deleteError,
     isDeleting,
     showDeleteDialog,

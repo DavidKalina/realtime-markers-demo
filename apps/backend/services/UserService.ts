@@ -2,6 +2,7 @@ import AppDataSource from "../data-source";
 import { User, UserRole } from "../entities/User";
 import { Repository, MoreThanOrEqual } from "typeorm";
 import type { EmailService } from "./shared/EmailService";
+import bcrypt from "bcrypt";
 
 export interface UserListParams {
   page?: number;
@@ -40,10 +41,9 @@ export class UserService {
 
     // Add search filter
     if (search) {
-      queryBuilder.andWhere(
-        "(user.email ILIKE :search OR user.displayName ILIKE :search OR user.username ILIKE :search)",
-        { search: `%${search}%` },
-      );
+      queryBuilder.andWhere("(user.email ILIKE :search)", {
+        search: `%${search}%`,
+      });
     }
 
     // Add role filter
@@ -59,18 +59,13 @@ export class UserService {
       .select([
         "user.id",
         "user.email",
-        "user.username",
-        "user.displayName",
         "user.avatarUrl",
         "user.role",
-        "user.planType",
         "user.isVerified",
         "user.discoveryCount",
         "user.scanCount",
         "user.saveCount",
         "user.viewCount",
-        "user.totalXp",
-        "user.currentTitle",
         "user.createdAt",
         "user.updatedAt",
       ])
@@ -94,19 +89,14 @@ export class UserService {
       select: [
         "id",
         "email",
-        "username",
-        "displayName",
         "avatarUrl",
         "bio",
         "role",
-        "planType",
         "isVerified",
         "discoveryCount",
         "scanCount",
         "saveCount",
         "viewCount",
-        "totalXp",
-        "currentTitle",
         "createdAt",
         "updatedAt",
       ],
@@ -142,15 +132,7 @@ export class UserService {
   async getAdminUsers(): Promise<User[]> {
     return this.userRepository.find({
       where: { role: UserRole.ADMIN },
-      select: [
-        "id",
-        "email",
-        "username",
-        "displayName",
-        "avatarUrl",
-        "role",
-        "createdAt",
-      ],
+      select: ["id", "email", "avatarUrl", "role", "createdAt"],
       order: { createdAt: "ASC" },
     });
   }
@@ -192,63 +174,34 @@ export class UserService {
     params: {
       email: string;
       password: string;
-      displayName?: string;
-      username?: string;
     },
     addedBy?: string,
   ): Promise<User> {
-    const { email, password, displayName, username } = params;
+    const { email, password } = params;
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({
-      where: [{ email }, ...(username ? [{ username }] : [])],
+      where: [{ email }],
     });
 
     if (existingUser) {
-      throw new Error("User with this email or username already exists");
+      throw new Error("User with this email already exists");
     }
 
-    // Import bcrypt for password hashing
-    const bcrypt = await import("bcrypt");
-    const saltRounds = 10;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
-
-    // Generate a unique friend code
-    const friendCode = this.generateFriendCode();
-
-    // Create the admin user
-    const adminUser = this.userRepository.create({
+    // Create new admin user
+    const newAdmin = this.userRepository.create({
       email,
-      passwordHash,
-      displayName: displayName || email.split("@")[0],
-      username,
-      friendCode,
+      passwordHash: await this.hashPassword(password),
       role: UserRole.ADMIN,
-      isVerified: true, // Admin users are automatically verified
+      isVerified: true,
     });
 
-    const savedUser = await this.userRepository.save(adminUser);
+    const savedUser = await this.userRepository.save(newAdmin);
 
-    // Send email notifications
-    if (this.emailService) {
-      try {
-        // Send welcome email to the new admin
-        await this.emailService.sendWelcomeEmail(
-          email,
-          savedUser.displayName || email.split("@")[0],
-        );
-
-        // Send notification to existing admins
-        await this.emailService.sendAdminAddedNotification(
-          email,
-          savedUser.displayName || email.split("@")[0],
-          addedBy || "System",
-        );
-      } catch (error) {
-        console.error("Failed to send email notifications:", error);
-        // Don't fail the user creation if email fails
-      }
-    }
+    // Log admin creation
+    console.log(
+      `Admin user created: ${savedUser.email} by ${addedBy || "system"}`,
+    );
 
     return savedUser;
   }
@@ -280,13 +233,8 @@ export class UserService {
     await this.userRepository.remove(adminUser);
   }
 
-  private generateFriendCode(): string {
-    // Generate a 6-character alphanumeric code
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let result = "";
-    for (let i = 0; i < 6; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
+  private async hashPassword(password: string): Promise<string> {
+    const saltRounds = 10;
+    return bcrypt.hash(password, saltRounds);
   }
 }

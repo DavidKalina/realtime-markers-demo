@@ -22,7 +22,6 @@ import {
   validateArray,
   validateEnum,
   getEventService,
-  getNotificationService,
   getJobQueue,
   getRedisClient,
   type Handler,
@@ -132,20 +131,8 @@ export const processEventImageHandler: EventHandler = withErrorHandling(
           }
         : null;
 
-    // Get job queue and plan service from context
+    // Get job queue from context
     const jobQueue = getJobQueue(c);
-    const planService = c.get("planService");
-
-    // Check if user has reached their scan limit
-    const hasReachedLimit = await planService.hasReachedScanLimit(user.id);
-    if (hasReachedLimit) {
-      throw new Error(
-        "You have reached your weekly scan limit. Please upgrade to Pro for more scans.",
-      );
-    }
-
-    // Increment scan count before processing
-    await planService.incrementWeeklyScanCount(user.id);
 
     // Validate the image
     if (!imageEntry) {
@@ -544,40 +531,11 @@ export const getDiscoveredEventsHandler: EventHandler = withErrorHandling(
   },
 );
 
-export const getClusterHubDataHandler: EventHandler = withErrorHandling(
-  async (c) => {
-    const data = await c.req.json();
-    const markerIds = validateArray(data.markerIds, "markerIds") as string[];
-
-    const eventService = getEventService(c);
-    const hubData = await eventService.getClusterHubData(markerIds);
-
-    return c.json(hubData);
-  },
-);
-
-export const getFriendsSavedEventsHandler: EventHandler = withErrorHandling(
-  async (c) => {
-    const user = requireAuth(c);
-    const limit = c.req.query("limit");
-    const cursor = c.req.query("cursor");
-    const eventService = getEventService(c);
-
-    const savedEvents = await eventService.getFriendsSavedEvents(user.id, {
-      limit: limit ? parseInt(limit) : undefined,
-      cursor: cursor,
-    });
-
-    return c.json(savedEvents);
-  },
-);
-
 export const createPrivateEventHandler: EventHandler = withErrorHandling(
   async (c) => {
     const user = requireAuth(c);
     const data = await c.req.json();
     const jobQueue = getJobQueue(c);
-    const notificationService = getNotificationService(c);
 
     // Validate input
     if (!data.title || !data.date || !data.location?.coordinates) {
@@ -625,41 +583,6 @@ export const createPrivateEventHandler: EventHandler = withErrorHandling(
       data.userCoordinates,
     );
 
-    // Notify the creator
-    await notificationService.createNotification(
-      user.id,
-      "EVENT_CREATED",
-      "Private Event Created",
-      `Your private event "${data.title}" is being processed`,
-      {
-        jobId,
-        eventTitle: data.title,
-        coordinates: data.location.coordinates,
-        id: data.id,
-      },
-    );
-
-    // Notify invited users
-    if (sharedWithIds.length > 0) {
-      await Promise.all(
-        sharedWithIds.map((invitedUserId: string) =>
-          notificationService.createNotification(
-            invitedUserId,
-            "EVENT_CREATED",
-            "New Event Invitation",
-            `${user.email} has invited you to "${data.title}"`,
-            {
-              jobId,
-              eventTitle: data.title,
-              creatorId: user.id,
-              id: data.id,
-              coordinates: data.location.coordinates,
-            },
-          ),
-        ),
-      );
-    }
-
     return c.json(
       {
         status: "processing",
@@ -688,24 +611,9 @@ export const toggleRsvpEventHandler: EventHandler = withErrorHandling(
       "status",
     ) as RsvpStatus;
 
-    const notificationService = getNotificationService(c);
     const eventService = getEventService(c);
 
-    // Check if the event exists
-    const event = await requireEvent(c, eventId);
-
-    // Toggle RSVP status
     const result = await eventService.toggleRsvpEvent(user.id, eventId, status);
-
-    // Notify creator RSVP status
-    if (result.status === "GOING" && event.creatorId) {
-      notificationService.createNotification(
-        event.creatorId,
-        "EVENT_RSVP_TOGGLED",
-        `${user.email} is going to ${event.title}`,
-        `${user.email} is going to ${event.title}`,
-      );
-    }
 
     return c.json({
       eventId,
@@ -800,5 +708,27 @@ export const trackEventViewHandler: EventHandler = withErrorHandling(
       success: true,
       message: "Event view tracked successfully",
     });
+  },
+);
+
+export const getLandingPageDataHandler: EventHandler = withErrorHandling(
+  async (c) => {
+    const userLat = c.req.query("lat");
+    const userLng = c.req.query("lng");
+    const featuredLimit = c.req.query("featuredLimit");
+    const upcomingLimit = c.req.query("upcomingLimit");
+    const communityLimit = c.req.query("communityLimit");
+
+    const eventService = getEventService(c);
+
+    const landingPageData = await eventService.getLandingPageData({
+      userLat: userLat ? parseFloat(userLat) : undefined,
+      userLng: userLng ? parseFloat(userLng) : undefined,
+      featuredLimit: featuredLimit ? parseInt(featuredLimit) : undefined,
+      upcomingLimit: upcomingLimit ? parseInt(upcomingLimit) : undefined,
+      communityLimit: communityLimit ? parseInt(communityLimit) : undefined,
+    });
+
+    return c.json(landingPageData);
   },
 );

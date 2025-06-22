@@ -21,6 +21,12 @@ export interface DiscoveryMessage {
   timestamp: string;
 }
 
+export interface CivicEngagementDiscoveryMessage {
+  type: string;
+  civicEngagement: Record<string, unknown>;
+  timestamp: string;
+}
+
 export interface LevelUpdateMessage {
   type: string;
   data: {
@@ -80,6 +86,21 @@ export function formatDiscoveryMessage(
   const discoveryMessage: DiscoveryMessage = {
     type: MessageTypes.EVENT_DISCOVERED,
     event,
+    timestamp: timestamp || new Date().toISOString(),
+  };
+  return JSON.stringify(discoveryMessage);
+}
+
+/**
+ * Formats a civic engagement discovery message for WebSocket clients
+ */
+export function formatCivicEngagementDiscoveryMessage(
+  civicEngagement: Record<string, unknown>,
+  timestamp?: string,
+): string {
+  const discoveryMessage: CivicEngagementDiscoveryMessage = {
+    type: MessageTypes.CIVIC_ENGAGEMENT_DISCOVERED,
+    civicEngagement,
     timestamp: timestamp || new Date().toISOString(),
   };
   return JSON.stringify(discoveryMessage);

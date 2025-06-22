@@ -32,6 +32,10 @@ const healthCheckService = createHealthCheckService({
 // Create WebSocket message handler with dependencies
 const webSocketMessageHandler = createWebSocketMessageHandler({
   sessionManager,
+  redisService: {
+    setClientType: (userId: string, clientType: string) =>
+      redisService.setClientType(userId, clientType),
+  },
   updateViewport: async (userId: string, viewport) => {
     await redisService.updateViewport(userId, viewport);
     console.log(`Published viewport update for user ${userId}`);
@@ -66,8 +70,16 @@ redisService.onGlobalMessage((channel: string, message: string) => {
 async function setupRedisSubscriptions() {
   await Promise.all([
     redisService.subscribeToChannel(REDIS_CHANNELS.DISCOVERED_EVENTS, () => {}),
+    redisService.subscribeToChannel(
+      REDIS_CHANNELS.DISCOVERED_CIVIC_ENGAGEMENTS,
+      () => {},
+    ),
     redisService.subscribeToChannel(REDIS_CHANNELS.NOTIFICATIONS, () => {}),
     redisService.subscribeToChannel(REDIS_CHANNELS.LEVEL_UPDATE, () => {}),
+    redisService.subscribeToChannel(
+      REDIS_CHANNELS.CIVIC_ENGAGEMENT_CHANGES,
+      () => {},
+    ),
   ]);
 }
 

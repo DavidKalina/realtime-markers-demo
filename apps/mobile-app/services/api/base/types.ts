@@ -12,7 +12,8 @@ export interface AuthTokens {
 export interface User {
   id: string;
   email: string;
-  displayName: string;
+  firstName?: string;
+  lastName?: string;
   role: string;
   avatarUrl?: string;
   isVerified: boolean;
@@ -20,13 +21,8 @@ export interface User {
   createdAt?: Date;
   scanCount?: number;
   saveCount?: number;
-  totalXp?: number;
-  currentTitle?: string;
   level?: number;
   nextLevelXp?: number;
-  xpProgress?: number;
-  friendCode?: string;
-  username?: string;
 }
 
 export interface LoginResponse {
@@ -64,7 +60,8 @@ export interface ApiEvent {
   emojiDescription?: string;
   creator?: {
     id: string;
-    displayName: string;
+    firstName?: string;
+    lastName?: string;
     email: string;
     role: string;
     avatarUrl?: string;
@@ -82,6 +79,7 @@ export interface ApiEvent {
   qrDetectedInImage?: boolean;
   detectedQrData?: string | null;
   isPrivate?: boolean;
+  isOfficial?: boolean;
   shares?: { sharedWithId: string; sharedById: string }[];
   // Recurring event fields
   isRecurring?: boolean;
@@ -212,12 +210,12 @@ export interface ClusterHubData {
   clusterDescription: string;
   featuredCreator?: {
     id: string;
-    displayName: string;
+    firstName?: string;
+    lastName?: string;
     email: string;
     eventCount: number;
     creatorDescription: string;
     title: string;
-    friendCode: string;
   };
 }
 
@@ -384,7 +382,8 @@ export interface EventType {
   categories: string[];
   creator?: {
     id: string;
-    displayName: string;
+    firstName?: string;
+    lastName?: string;
     email: string;
     role: string;
     avatarUrl?: string;
@@ -407,7 +406,8 @@ export interface EventType {
   sharedWithIds: string[];
   savedBy?: {
     id: string;
-    displayName: string;
+    firstName?: string;
+    lastName?: string;
     avatarUrl?: string;
   }[];
 }
@@ -535,34 +535,4 @@ export interface EventEngagementMetrics {
   notGoingCount: number;
   totalEngagement: number;
   lastUpdated: string;
-}
-
-export interface Plan {
-  id: string;
-  name: string;
-  description?: string;
-  type: "FREE" | "BASIC" | "PREMIUM" | "ENTERPRISE";
-  price: number;
-  currency: string;
-  features: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PlanCreateInput {
-  name: string;
-  description?: string;
-  type: "FREE" | "BASIC" | "PREMIUM" | "ENTERPRISE";
-  price: number;
-  currency: string;
-  features: string[];
-}
-
-export interface PlanUpdateInput {
-  name?: string;
-  description?: string;
-  type?: "FREE" | "BASIC" | "PREMIUM" | "ENTERPRISE";
-  price?: number;
-  currency?: string;
-  features?: string[];
 }

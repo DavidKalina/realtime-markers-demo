@@ -129,6 +129,9 @@ export class Event {
   @Column({ name: "is_private", type: "boolean", default: false })
   isPrivate!: boolean;
 
+  @Column({ name: "is_official", type: "boolean", default: false })
+  isOfficial!: boolean;
+
   @Column({ name: "qr_generated_at", type: "timestamptz", nullable: true })
   qrGeneratedAt?: Date;
 

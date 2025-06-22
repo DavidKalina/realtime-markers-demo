@@ -5,7 +5,6 @@ import type { EventProcessingService } from "../../services/EventProcessingServi
 import type { EventService } from "../../services/EventServiceRefactored";
 import type { JobQueue } from "../../services/JobQueue";
 import type { RedisService } from "../../services/shared/RedisService";
-import type { PlanService } from "../../services/PlanService";
 import type { StorageService } from "../../services/shared/StorageService";
 
 describe("JobHandlerRegistry", () => {
@@ -14,7 +13,6 @@ describe("JobHandlerRegistry", () => {
   let mockEventService: EventService;
   let mockJobQueue: JobQueue;
   let mockRedisService: RedisService;
-  let mockPlanService: PlanService;
   let mockStorageService: StorageService;
 
   beforeEach(() => {
@@ -52,12 +50,6 @@ describe("JobHandlerRegistry", () => {
       expire: mock(() => Promise.resolve(1)),
     } as unknown as RedisService;
 
-    mockPlanService = {
-      checkUserPlan: mock(() => Promise.resolve({ canScan: true })),
-      incrementScanCount: mock(() => Promise.resolve()),
-      resetWeeklyScans: mock(() => Promise.resolve()),
-    } as unknown as PlanService;
-
     mockStorageService = {
       uploadFile: mock(() => Promise.resolve("https://example.com/file.jpg")),
       deleteFile: mock(() => Promise.resolve()),
@@ -72,7 +64,6 @@ describe("JobHandlerRegistry", () => {
       mockEventService,
       mockJobQueue,
       mockRedisService,
-      mockPlanService,
       mockStorageService,
     );
   });
@@ -239,7 +230,6 @@ describe("JobHandlerRegistry", () => {
         mockEventService,
         mockJobQueue,
         mockRedisService,
-        mockPlanService,
         mockStorageService,
       );
 
@@ -263,7 +253,6 @@ describe("JobHandlerRegistry", () => {
         null as unknown as EventService,
         null as unknown as JobQueue,
         null as unknown as RedisService,
-        null as unknown as PlanService,
         null as unknown as StorageService,
       );
 
@@ -281,7 +270,6 @@ describe("JobHandlerRegistry", () => {
         null as unknown as EventService,
         null as unknown as JobQueue,
         null as unknown as RedisService,
-        null as unknown as PlanService,
         null as unknown as StorageService,
       );
 

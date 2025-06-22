@@ -62,6 +62,21 @@ export interface PrivateEventJobData {
   };
 }
 
+export interface CivicEngagementJobData {
+  type: "process_civic_engagement";
+  data: {
+    title: string;
+    type: string;
+    description?: string;
+    location?: { type: "Point"; coordinates: [number, number] };
+    address?: string;
+    locationNotes?: string;
+    creatorId: string;
+    contentType?: string;
+    filename?: string;
+  };
+}
+
 // Define dependencies interface for cleaner constructor
 export interface JobQueueDependencies {
   redisService: RedisService;
@@ -328,6 +343,59 @@ export class JobQueue {
       data: {
         jobId,
         jobType: "process_private_event",
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    return jobId;
+  }
+
+  /**
+   * Enqueue a civic engagement processing job
+   */
+  async enqueueCivicEngagementJob(
+    civicEngagementData: CivicEngagementJobData["data"],
+    options: { bufferData?: Buffer } = {},
+  ): Promise<string> {
+    const jobId = crypto.randomUUID();
+
+    // Create the job data in the correct JobData format
+    const jobData: JobData = {
+      id: jobId,
+      type: "process_civic_engagement",
+      status: "pending",
+      created: new Date().toISOString(),
+      progress: 0,
+      progressStep: "Civic engagement job queued",
+      data: {
+        ...civicEngagementData,
+        hasBuffer: !!options.bufferData,
+      },
+    };
+
+    // Store the job data
+    await this.dependencies.redisService.set(`job:${jobId}`, jobData);
+
+    // If buffer data is provided, store separately
+    if (options.bufferData) {
+      // Convert Buffer to array of numbers for storage
+      const bufferArray = Array.from(options.bufferData);
+      await this.dependencies.redisService.set(`job:${jobId}:buffer`, {
+        data: bufferArray,
+      });
+    }
+
+    // Add to pending jobs queue
+    await this.dependencies.redisService
+      .getClient()
+      .lpush("jobs:pending", jobId);
+
+    // Publish notification
+    await this.dependencies.redisService.publish("job_created", {
+      type: "JOB_CREATED",
+      data: {
+        jobId,
+        jobType: "process_civic_engagement",
         timestamp: new Date().toISOString(),
       },
     });

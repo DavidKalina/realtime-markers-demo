@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: "#6c757d",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   errorContainer: {
     flex: 1,
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 16,
     color: "#e74c3c",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     textAlign: "center",
   },
   jobErrorContainer: {
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   jobErrorText: {
     fontSize: 14,
     color: "#dc2626",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     lineHeight: 20,
   },
   headerSection: {
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     color: "#000",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 8,
   },
   jobMeta: {
@@ -468,13 +468,13 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     color: "#fff",
     fontSize: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "600",
   },
   jobType: {
     fontSize: 14,
     color: "#6c757d",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   section: {
     marginBottom: 24,
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: "#000",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 12,
   },
   timelineContainer: {
@@ -500,13 +500,13 @@ const styles = StyleSheet.create({
   timelineLabel: {
     fontSize: 14,
     color: "#6c757d",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "500",
   },
   timelineValue: {
     fontSize: 14,
     color: "#000",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   progressContainer: {
     flexDirection: "row",
@@ -529,13 +529,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#000",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     minWidth: 40,
   },
   progressStep: {
     fontSize: 14,
     color: "#6c757d",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 8,
   },
   progressDetails: {
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
   progressDetailsText: {
     fontSize: 13,
     color: "#6c757d",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 4,
   },
   resultContainer: {
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
   resultMessage: {
     fontSize: 16,
     color: "#000",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 12,
     lineHeight: 22,
   },
@@ -570,13 +570,13 @@ const styles = StyleSheet.create({
   resultLabel: {
     fontSize: 14,
     color: "#6c757d",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "500",
   },
   resultValue: {
     fontSize: 14,
     color: "#000",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "600",
   },
   eventLinkContainer: {
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
   eventLinkText: {
     fontSize: 14,
     color: "#007AFF",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
 });
 

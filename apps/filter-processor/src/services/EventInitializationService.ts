@@ -1,17 +1,11 @@
 import {
   Event,
   EventStatus,
-  Point,
   RecurrenceFrequency,
   DayOfWeek,
 } from "../types/types";
-import { EventProcessor } from "../handlers/EventProcessor";
-
-export interface EventInitializationService {
-  initializeEvents(): Promise<void>;
-  clearAllEvents(): void;
-  getStats(): Record<string, unknown>;
-}
+import { LegacyEventCacheHandler } from "../handlers/EventProcessor";
+import type { EntityInitializationService as IEntityInitializationService } from "../types/entities";
 
 export interface EventInitializationServiceConfig {
   backendUrl?: string;
@@ -20,19 +14,18 @@ export interface EventInitializationServiceConfig {
   retryDelay?: number;
 }
 
-export function createEventInitializationService(
-  eventProcessor: EventProcessor,
-  config: EventInitializationServiceConfig = {},
-): EventInitializationService {
-  const {
-    backendUrl = process.env.BACKEND_URL || "http://backend:3000",
-    pageSize = 100,
-    maxRetries = 3,
-    retryDelay = 1000,
-  } = config;
+export class EventInitializationService
+  implements IEntityInitializationService
+{
+  readonly entityType = "event";
+  private eventProcessor: LegacyEventCacheHandler;
+  private backendUrl: string;
+  private pageSize: number;
+  private maxRetries: number;
+  private retryDelay: number;
 
   // Stats for monitoring
-  const stats = {
+  private stats = {
     eventsFetched: 0,
     eventsProcessed: 0,
     apiCalls: 0,
@@ -41,81 +34,120 @@ export function createEventInitializationService(
     lastInitializationTime: 0,
   };
 
-  /**
-   * Initialize events by fetching from API and processing them
-   */
-  async function initializeEvents(): Promise<void> {
+  constructor(
+    eventProcessor: LegacyEventCacheHandler,
+    config: EventInitializationServiceConfig = {},
+  ) {
+    this.eventProcessor = eventProcessor;
+    this.backendUrl =
+      config.backendUrl || process.env.BACKEND_URL || "http://backend:3000";
+    this.pageSize = config.pageSize || 100;
+    this.maxRetries = config.maxRetries || 3;
+    this.retryDelay = config.retryDelay || 1000;
+  }
+
+  async initializeEntities(): Promise<void> {
     try {
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[EventInitialization] Initializing events...");
-      }
+      console.log("🔄 [EventInitialization] Starting event initialization...");
 
       // Fetch events from the API
-      const events = await fetchAllEvents();
+      console.log("📡 [EventInitialization] Fetching events from API...");
+      const events = await this.fetchAllEvents();
 
-      if (process.env.NODE_ENV !== "production") {
-        console.log(
-          `[EventInitialization] Received ${events.length} events for initialization`,
+      console.log(
+        `📊 [EventInitialization] Received ${events.length} events for initialization`,
+      );
+
+      if (events.length === 0) {
+        console.warn(
+          "⚠️ [EventInitialization] No events found - this may indicate an API issue",
         );
+        return;
       }
 
       // Process events in batches
-      await processEventsBatch(events);
+      console.log("⚙️ [EventInitialization] Processing events...");
+      await this.processEventsBatch(events);
 
-      stats.lastInitializationTime = Date.now();
+      this.stats.lastInitializationTime = Date.now();
 
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[EventInitialization] Events initialization complete");
-      }
+      console.log("✅ [EventInitialization] Events initialization complete");
     } catch (error) {
-      console.error("[EventInitialization] Error initializing events:", error);
+      console.error(
+        "❌ [EventInitialization] Error initializing events:",
+        error,
+      );
       throw error;
     }
   }
 
-  /**
-   * Clear all events (for cleanup operations)
-   */
-  function clearAllEvents(): void {
-    // This would typically call a method on the event processor or cache service
-    // For now, we'll just log it
+  clearAllEntities(): void {
     console.log("[EventInitialization] Clearing all events");
+    // This would typically call a method on the event processor or cache service
+  }
+
+  getStats(): Record<string, unknown> {
+    return {
+      entityType: this.entityType,
+      ...this.stats,
+      backendUrl: this.backendUrl,
+      pageSize: this.pageSize,
+      maxRetries: this.maxRetries,
+      retryDelay: this.retryDelay,
+    };
   }
 
   /**
    * Fetch all events from the API or database
    */
-  async function fetchAllEvents(): Promise<Event[]> {
+  private async fetchAllEvents(): Promise<Event[]> {
     try {
+      console.log(
+        `🌐 [EventInitialization] Fetching events from: ${this.backendUrl}`,
+      );
+
       let currentPage = 1;
       let hasMorePages = true;
       let allEvents: Event[] = [];
 
       while (hasMorePages) {
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
           try {
-            const response = await fetch(
-              `${backendUrl}/api/internal/events?limit=${pageSize}&offset=${
-                (currentPage - 1) * pageSize
-              }`,
-              {
-                headers: {
-                  Accept: "application/json",
-                },
-              },
+            const url = `${this.backendUrl}/api/internal/events?limit=${this.pageSize}&offset=${
+              (currentPage - 1) * this.pageSize
+            }`;
+
+            console.log(
+              `📡 [EventInitialization] Fetching page ${currentPage}: ${url}`,
             );
 
+            const response = await fetch(url, {
+              headers: {
+                Accept: "application/json",
+              },
+            });
+
             if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
+              throw new Error(
+                `HTTP error! status: ${response.status} - ${response.statusText}`,
+              );
             }
 
             const data = await response.json();
 
             if (!data || !Array.isArray(data.events)) {
+              console.error(
+                "❌ [EventInitialization] Invalid response format:",
+                data,
+              );
               throw new Error("Invalid response format from backend");
             }
 
             const { events, hasMore } = data;
+
+            console.log(
+              `📄 [EventInitialization] Page ${currentPage}: received ${events.length} events, hasMore: ${hasMore}`,
+            );
 
             // Process and validate events
             const validEvents = events
@@ -123,7 +155,11 @@ export function createEventInitializationService(
                 (event: { location?: { coordinates?: number[] } }) =>
                   event.location?.coordinates,
               )
-              .map(normalizeEventData);
+              .map(this.normalizeEventData);
+
+            console.log(
+              `✅ [EventInitialization] Page ${currentPage}: ${validEvents.length} valid events after filtering`,
+            );
 
             // Add to our collection, ensuring no duplicates
             const newEvents = validEvents.filter(
@@ -132,34 +168,42 @@ export function createEventInitializationService(
             );
             allEvents = [...allEvents, ...newEvents];
 
+            console.log(
+              `📊 [EventInitialization] Total events so far: ${allEvents.length}`,
+            );
+
             // Update pagination state
             hasMorePages = hasMore;
             currentPage++;
 
-            stats.apiCalls++;
-            stats.eventsFetched += validEvents.length;
+            this.stats.apiCalls++;
+            this.stats.eventsFetched += validEvents.length;
 
             break; // Success, exit retry loop
           } catch (error) {
             console.error(
-              `[EventInitialization] Attempt ${attempt}/${maxRetries} failed for page ${currentPage}:`,
+              `❌ [EventInitialization] Attempt ${attempt}/${this.maxRetries} failed for page ${currentPage}:`,
               error,
             );
 
-            if (attempt === maxRetries) {
+            if (attempt === this.maxRetries) {
               console.error(
-                "[EventInitialization] Max API retries reached for page",
+                "💥 [EventInitialization] Max API retries reached for page",
                 currentPage,
               );
               hasMorePages = false; // Stop pagination on persistent failure
               break;
             }
 
-            stats.retries++;
-            stats.apiErrors++;
+            this.stats.retries++;
+            this.stats.apiErrors++;
 
             // Exponential backoff
-            const currentRetryDelay = retryDelay * Math.pow(2, attempt - 1);
+            const currentRetryDelay =
+              this.retryDelay * Math.pow(2, attempt - 1);
+            console.log(
+              `⏳ [EventInitialization] Retrying in ${currentRetryDelay}ms...`,
+            );
             await new Promise((resolve) =>
               setTimeout(resolve, currentRetryDelay),
             );
@@ -167,43 +211,68 @@ export function createEventInitializationService(
         }
       }
 
+      console.log(
+        `🎯 [EventInitialization] Total events fetched: ${allEvents.length}`,
+      );
+
       return allEvents;
     } catch (error) {
-      console.error("[EventInitialization] Error fetching events:", error);
-      return [];
+      console.error("❌ [EventInitialization] Error fetching events:", error);
+      throw error;
     }
   }
 
   /**
    * Process a batch of events
    */
-  async function processEventsBatch(events: Event[]): Promise<void> {
-    try {
-      // Remove duplicates based on event ID
-      const uniqueEvents = Array.from(
-        new Map(events.map((event) => [event.id, event])).values(),
+  private async processEventsBatch(events: Event[]): Promise<void> {
+    console.log(
+      `⚙️ [EventInitialization] Processing ${events.length} events...`,
+    );
+
+    const batchSize = 50;
+    const batches = [];
+
+    for (let i = 0; i < events.length; i += batchSize) {
+      batches.push(events.slice(i, i + batchSize));
+    }
+
+    console.log(
+      `📦 [EventInitialization] Processing ${batches.length} batches of up to ${batchSize} events each`,
+    );
+
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+      console.log(
+        `📦 [EventInitialization] Processing batch ${batchIndex + 1}/${batches.length} (${batch.length} events)`,
       );
 
-      // Process each event
-      for (const event of uniqueEvents) {
-        await eventProcessor.processEvent({
-          operation: "CREATE",
-          record: event,
-        });
-        stats.eventsProcessed++;
-      }
-    } catch (error) {
-      console.error(
-        "[EventInitialization] Error processing events batch:",
-        error,
-      );
+      const promises = batch.map(async (event) => {
+        try {
+          await this.eventProcessor.processEvent({
+            operation: "CREATE",
+            record: event,
+          });
+          this.stats.eventsProcessed++;
+        } catch (error) {
+          console.error(
+            `❌ [EventInitialization] Error processing event ${event.id}:`,
+            error,
+          );
+        }
+      });
+
+      await Promise.all(promises);
+
+      console.log(`✅ [EventInitialization] Batch ${batchIndex + 1} complete`);
     }
+
+    console.log(
+      `🎯 [EventInitialization] All batches complete. Processed ${this.stats.eventsProcessed} events`,
+    );
   }
 
-  /**
-   * Normalize event data from API response
-   */
-  function normalizeEventData(event: {
+  private normalizeEventData(event: {
     id: string;
     emoji?: string;
     title: string;
@@ -249,6 +318,72 @@ export function createEventInitializationService(
       updatedAt: string;
     }>;
   }): Event {
+    // Normalize date fields
+    const eventDate = event.eventDate || event.start_date || event.startDate;
+    const endDate = event.endDate || event.end_date;
+    const createdAt = event.createdAt || event.created_at;
+    const updatedAt = event.updatedAt || event.updated_at;
+
+    // Normalize recurrence frequency
+    let recurrenceFrequency: RecurrenceFrequency | undefined;
+    if (event.recurrenceFrequency) {
+      switch (event.recurrenceFrequency.toUpperCase()) {
+        case "DAILY":
+          recurrenceFrequency = RecurrenceFrequency.DAILY;
+          break;
+        case "WEEKLY":
+          recurrenceFrequency = RecurrenceFrequency.WEEKLY;
+          break;
+        case "MONTHLY":
+          recurrenceFrequency = RecurrenceFrequency.MONTHLY;
+          break;
+        case "YEARLY":
+          recurrenceFrequency = RecurrenceFrequency.YEARLY;
+          break;
+      }
+    }
+
+    // Normalize recurrence days
+    const recurrenceDays = event.recurrenceDays?.map((day) => {
+      switch (day.toUpperCase()) {
+        case "MONDAY":
+          return DayOfWeek.MONDAY;
+        case "TUESDAY":
+          return DayOfWeek.TUESDAY;
+        case "WEDNESDAY":
+          return DayOfWeek.WEDNESDAY;
+        case "THURSDAY":
+          return DayOfWeek.THURSDAY;
+        case "FRIDAY":
+          return DayOfWeek.FRIDAY;
+        case "SATURDAY":
+          return DayOfWeek.SATURDAY;
+        case "SUNDAY":
+          return DayOfWeek.SUNDAY;
+        default:
+          return DayOfWeek.MONDAY; // Default fallback
+      }
+    });
+
+    // Normalize status
+    let status: EventStatus | undefined;
+    if (event.status) {
+      switch (event.status.toUpperCase()) {
+        case "PENDING":
+          status = EventStatus.PENDING;
+          break;
+        case "VERIFIED":
+          status = EventStatus.VERIFIED;
+          break;
+        case "REJECTED":
+          status = EventStatus.REJECTED;
+          break;
+        case "EXPIRED":
+          status = EventStatus.EXPIRED;
+          break;
+      }
+    }
+
     return {
       id: event.id,
       emoji: event.emoji,
@@ -256,25 +391,19 @@ export function createEventInitializationService(
       description: event.description,
       location: {
         type: "Point",
-        coordinates: event.location.coordinates,
-      } as Point,
-      eventDate:
-        event.eventDate ||
-        event.start_date ||
-        event.startDate ||
-        new Date().toISOString(),
-      endDate: event.endDate || event.end_date,
-      createdAt:
-        event.created_at || event.createdAt || new Date().toISOString(),
-      updatedAt:
-        event.updated_at || event.updatedAt || new Date().toISOString(),
+        coordinates: event.location.coordinates as [number, number],
+      },
+      eventDate: eventDate || new Date().toISOString(),
+      endDate: endDate,
+      createdAt: createdAt || new Date().toISOString(),
+      updatedAt: updatedAt || new Date().toISOString(),
       categories:
         event.categories?.map((cat) => ({ id: cat.name, name: cat.name })) ||
         [],
       embedding: event.embedding,
-      status: (event.status as EventStatus) || EventStatus.VERIFIED,
+      status: status || EventStatus.VERIFIED,
       isPrivate: event.isPrivate || false,
-      creatorId: event.creatorId,
+      creatorId: event.creatorId || "unknown",
       sharedWith:
         event.sharedWith?.map((share) => ({
           sharedWithId: share.sharedWithId,
@@ -282,36 +411,31 @@ export function createEventInitializationService(
         })) || [],
       scanCount: event.scanCount || 0,
       saveCount: event.saveCount || 0,
-      confidenceScore: event.confidenceScore,
+      confidenceScore: event.confidenceScore || 0,
       timezone: event.timezone,
       address: event.address,
       locationNotes: event.locationNotes,
       // Recurring event fields
       isRecurring: event.isRecurring || false,
-      recurrenceFrequency: event.recurrenceFrequency as RecurrenceFrequency,
-      recurrenceDays: event.recurrenceDays as DayOfWeek[],
+      recurrenceFrequency,
+      recurrenceDays,
       recurrenceStartDate: event.recurrenceStartDate,
       recurrenceEndDate: event.recurrenceEndDate,
-      recurrenceInterval: event.recurrenceInterval,
+      recurrenceInterval: event.recurrenceInterval || 1,
       recurrenceTime: event.recurrenceTime,
-      recurrenceExceptions: event.recurrenceExceptions,
+      recurrenceExceptions: event.recurrenceExceptions || [],
       // RSVP relationship
       rsvps: event.rsvps || [],
     };
   }
+}
 
-  /**
-   * Get current statistics
-   */
-  function getStats(): Record<string, unknown> {
-    return {
-      ...stats,
-    };
-  }
-
-  return {
-    initializeEvents,
-    clearAllEvents,
-    getStats,
-  };
+/**
+ * Factory function to create event initialization service
+ */
+export function createEventInitializationService(
+  eventProcessor: LegacyEventCacheHandler,
+  config: EventInitializationServiceConfig = {},
+): EventInitializationService {
+  return new EventInitializationService(eventProcessor, config);
 }

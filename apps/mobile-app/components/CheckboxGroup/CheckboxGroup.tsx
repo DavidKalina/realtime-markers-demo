@@ -1,5 +1,3 @@
-import { useFetchMyFriends } from "@/hooks/useFetchMyFriends";
-import { Friend } from "@/services/ApiClient";
 import { X } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -12,52 +10,98 @@ import {
 } from "react-native";
 import { COLORS } from "../Layout/ScreenLayout";
 
-interface CheckboxGroupProps {
-  selectedFriends: Friend[];
-  onSelectionChange: (friends: Friend[]) => void;
-  buttonText?: string;
+// Generic item interface that can be used for any selectable items
+export interface SelectableItem {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  avatarUrl?: string;
+  [key: string]: string | number | boolean | undefined; // Allow additional properties with specific types
 }
 
-const FriendCard = ({
-  friend,
+interface CheckboxGroupProps<T extends SelectableItem> {
+  selectedItems: T[];
+  onSelectionChange: (items: T[]) => void;
+  items: T[];
+  isLoading?: boolean;
+  error?: string | null;
+  buttonText?: string;
+  modalTitle?: string;
+  emptyMessage?: string;
+  loadingMessage?: string;
+  errorMessage?: string;
+  renderItem?: (
+    item: T,
+    isSelected: boolean,
+    onToggle: () => void,
+  ) => React.ReactElement;
+}
+
+const DefaultItemCard = <T extends SelectableItem>({
+  item,
   isSelected,
   onToggle,
 }: {
-  friend: Friend;
+  item: T;
   isSelected: boolean;
   onToggle: () => void;
 }) => (
   <TouchableOpacity
     onPress={onToggle}
-    style={[styles.friendCard, isSelected && styles.selectedFriendCard]}
+    style={[styles.itemCard, isSelected && styles.selectedItemCard]}
   >
-    <View style={styles.friendInfo}>
-      <Text style={styles.friendName}>
-        {friend.displayName || friend.email}
+    <View style={styles.itemInfo}>
+      <Text style={styles.itemName}>
+        {item.firstName || item.email || item.id}
       </Text>
-      {friend.displayName && (
-        <Text style={styles.friendEmail}>{friend.email}</Text>
+      {item.lastName && (
+        <Text style={styles.itemDescription}>{item.lastName}</Text>
       )}
     </View>
     <View style={[styles.checkbox, isSelected && styles.checkboxSelected]} />
   </TouchableOpacity>
 );
 
-export const CheckboxGroup: React.FC<CheckboxGroupProps> = ({
-  selectedFriends,
+export const CheckboxGroup = <T extends SelectableItem>({
+  selectedItems,
   onSelectionChange,
-  buttonText = "Select Friends",
-}) => {
+  items,
+  isLoading = false,
+  error = null,
+  buttonText = "Select Items",
+  modalTitle = "Select Items",
+  emptyMessage = "No items available",
+  loadingMessage = "Loading items...",
+  errorMessage = "Error loading items",
+  renderItem,
+}: CheckboxGroupProps<T>) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const { friends, isLoading, error } = useFetchMyFriends();
 
-  const toggleFriend = (friend: Friend) => {
-    const isSelected = selectedFriends.some((f) => f.id === friend.id);
+  const toggleItem = (item: T) => {
+    const isSelected = selectedItems.some((i) => i.id === item.id);
     if (isSelected) {
-      onSelectionChange(selectedFriends.filter((f) => f.id !== friend.id));
+      onSelectionChange(selectedItems.filter((i) => i.id !== item.id));
     } else {
-      onSelectionChange([...selectedFriends, friend]);
+      onSelectionChange([...selectedItems, item]);
     }
+  };
+
+  const renderItemComponent = (
+    item: T,
+    isSelected: boolean,
+    onToggle: () => void,
+  ) => {
+    if (renderItem) {
+      return renderItem(item, isSelected, onToggle);
+    }
+    return (
+      <DefaultItemCard
+        item={item}
+        isSelected={isSelected}
+        onToggle={onToggle}
+      />
+    );
   };
 
   return (
@@ -67,9 +111,27 @@ export const CheckboxGroup: React.FC<CheckboxGroupProps> = ({
         onPress={() => setIsModalVisible(true)}
       >
         <Text style={styles.buttonText}>
-          {buttonText} ({selectedFriends.length})
+          {buttonText} ({selectedItems.length})
         </Text>
       </TouchableOpacity>
+
+      {/* Display selected items */}
+      {selectedItems.length > 0 && (
+        <View style={styles.selectedItemsContainer}>
+          {selectedItems.map((item) => (
+            <View key={item.id} style={styles.selectedItemDisplay}>
+              <Text style={styles.selectedItemText}>
+                {item.firstName || item.email || item.id}
+              </Text>
+              {item.lastName && (
+                <Text style={styles.selectedItemDescription}>
+                  {item.lastName}
+                </Text>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
 
       <Modal
         visible={isModalVisible}
@@ -79,7 +141,7 @@ export const CheckboxGroup: React.FC<CheckboxGroupProps> = ({
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Friends</Text>
+            <Text style={styles.modalTitle}>{modalTitle}</Text>
             <TouchableOpacity
               onPress={() => setIsModalVisible(false)}
               style={styles.closeButton}
@@ -90,24 +152,28 @@ export const CheckboxGroup: React.FC<CheckboxGroupProps> = ({
 
           {isLoading ? (
             <View style={styles.centerContent}>
-              <Text style={styles.loadingText}>Loading friends...</Text>
+              <Text style={styles.loadingText}>{loadingMessage}</Text>
             </View>
           ) : error ? (
             <View style={styles.centerContent}>
-              <Text style={styles.errorText}>Error loading friends</Text>
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          ) : items.length === 0 ? (
+            <View style={styles.centerContent}>
+              <Text style={styles.emptyText}>{emptyMessage}</Text>
             </View>
           ) : (
             <>
               <FlatList
-                data={friends}
+                data={items}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <FriendCard
-                    friend={item}
-                    isSelected={selectedFriends.some((f) => f.id === item.id)}
-                    onToggle={() => toggleFriend(item)}
-                  />
-                )}
+                renderItem={({ item }) =>
+                  renderItemComponent(
+                    item,
+                    selectedItems.some((i) => i.id === item.id),
+                    () => toggleItem(item),
+                  )
+                }
                 contentContainerStyle={styles.listContent}
               />
               <View style={styles.dismissButtonContainer}>
@@ -141,7 +207,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   modalContainer: {
     flex: 1,
@@ -159,7 +225,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   closeButton: {
     padding: 8,
@@ -167,7 +233,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
   },
-  friendCard: {
+  itemCard: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -178,22 +244,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.buttonBorder,
   },
-  selectedFriendCard: {
+  selectedItemCard: {
     borderColor: COLORS.accent,
   },
-  friendInfo: {
+  itemInfo: {
     flex: 1,
   },
-  friendName: {
+  itemName: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 4,
   },
-  friendEmail: {
+  itemDescription: {
     color: COLORS.textSecondary,
     fontSize: 14,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   checkbox: {
     width: 24,
@@ -214,12 +280,17 @@ const styles = StyleSheet.create({
   loadingText: {
     color: COLORS.textSecondary,
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   errorText: {
     color: "#f97583",
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
+  },
+  emptyText: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
+    fontFamily: "Poppins-Regular",
   },
   dismissButtonContainer: {
     padding: 24,
@@ -237,6 +308,31 @@ const styles = StyleSheet.create({
     color: "#000",
     fontSize: 18,
     fontWeight: "800",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
+  },
+  selectedItemsContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+  },
+  selectedItemDisplay: {
+    padding: 8,
+    backgroundColor: COLORS.background,
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  selectedItemText: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
+  },
+  selectedItemDescription: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+    fontFamily: "Poppins-Regular",
   },
 });

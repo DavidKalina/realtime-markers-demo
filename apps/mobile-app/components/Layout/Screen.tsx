@@ -1,16 +1,42 @@
 import { LucideIcon } from "lucide-react-native";
 import React from "react";
-import { Pressable, StyleSheet, View, ViewStyle } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  View,
+  ViewStyle,
+  TextStyle,
+} from "react-native";
 import Animated, {
   useAnimatedScrollHandler,
   useSharedValue,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Banner from "./Banner";
 import Button from "./Button";
 import ScreenContent from "./ScreenContent";
-import ScreenLayout, { COLORS } from "./ScreenLayout";
+import ScreenLayout from "./ScreenLayout";
 import SectionHeader from "./SectionHeader";
 import Tabs from "./Tabs";
+
+// Updated color scheme to match register/login screens
+const newColors = {
+  background: "#00697A",
+  text: "#FFFFFF",
+  accent: "#FDB813",
+  cardBackground: "#FFFFFF",
+  cardText: "#000000",
+  cardTextSecondary: "#6c757d",
+  buttonBackground: "#FFFFFF",
+  buttonText: "#00697A",
+  buttonBorder: "#DDDDDD",
+  inputBackground: "#F5F5F5",
+  errorBackground: "#FFCDD2",
+  errorText: "#B71C1C",
+  errorBorder: "#EF9A9A",
+  divider: "#E0E0E0",
+  activityIndicator: "#00697A",
+};
 
 export interface Section {
   title?: string;
@@ -65,6 +91,9 @@ export interface ScreenProps<T extends string = string> {
       | "ghost"
       | "warning"
       | "error";
+    style?: ViewStyle;
+    textStyle?: TextStyle;
+    loading?: boolean;
   }[];
 
   // Style props
@@ -79,7 +108,6 @@ export interface ScreenProps<T extends string = string> {
 
 const Screen = <T extends string>({
   bannerTitle,
-  bannerEmoji,
   showBackButton = true,
   onBack,
   tabs,
@@ -95,6 +123,7 @@ const Screen = <T extends string>({
   isScrollable = true,
   extendBannerToStatusBar = true,
 }: ScreenProps<T>) => {
+  const insets = useSafeAreaInsets();
   const scrollY = useSharedValue(0);
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -108,6 +137,11 @@ const Screen = <T extends string>({
       onBack();
     }
   };
+
+  const mainContainerStyle = [
+    styles.mainContainer,
+    footerButtons.length > 0 && !noSafeArea && { marginBottom: -insets.bottom },
+  ];
 
   const renderContent = () => (
     <ScreenContent>
@@ -160,12 +194,11 @@ const Screen = <T extends string>({
       noAnimation={noAnimation}
       extendBannerToStatusBar={extendBannerToStatusBar}
     >
-      <View style={styles.mainContainer}>
+      <View style={mainContainerStyle}>
         {(bannerTitle || showBackButton) && (
           <View style={styles.fixedBannerWrapper}>
             <Banner
               name={bannerTitle || ""}
-              emoji={bannerEmoji}
               onBack={handleBack}
               scrollY={scrollY}
               extendToStatusBar={extendBannerToStatusBar}
@@ -192,14 +225,28 @@ const Screen = <T extends string>({
           </View>
         )}
         {footerButtons.length > 0 && (
-          <View style={styles.fixedFooter}>
+          <View
+            style={[
+              styles.fixedFooter,
+              { paddingBottom: Math.max(insets.bottom, 16) },
+            ]}
+          >
             {footerButtons.map((button, index) => (
               <Button
                 key={index}
                 title={button.label}
                 onPress={button.onPress}
                 variant={button.variant || "primary"}
-                style={styles.footerButton}
+                style={
+                  button.style
+                    ? ([
+                        styles.footerButton,
+                        button.style,
+                      ] as unknown as ViewStyle)
+                    : styles.footerButton
+                }
+                textStyle={button.textStyle}
+                loading={button.loading}
               />
             ))}
           </View>
@@ -224,11 +271,11 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   scrollContentWithFooter: {
-    paddingBottom: 100, // Add padding to account for fixed footer
+    paddingBottom: 120, // Add padding to account for fixed footer
   },
   contentContainer: {
     flex: 1,
-    paddingTop: 16,
+    paddingVertical: 16,
   },
   contentWithFooter: {
     paddingBottom: 24, // Add padding when footer is present
@@ -255,16 +302,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.background,
+    backgroundColor: newColors.background, // Updated to teal background
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
+    borderTopColor: "rgba(255, 255, 255, 0.1)", // Updated for better contrast on teal
     flexDirection: "row",
     gap: 12,
   },
   footerButton: {
-    flex: 1,
+    // Remove default flex: 1 to allow custom flex values from EventDetails
   },
   tabsWrapper: {
     marginHorizontal: -16,

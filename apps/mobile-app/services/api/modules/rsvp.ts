@@ -34,7 +34,8 @@ export interface RSVPDetails {
   updatedAt: string;
   user: {
     id: string;
-    displayName: string;
+    firstName?: string;
+    lastName?: string;
     avatarUrl?: string;
   };
 }

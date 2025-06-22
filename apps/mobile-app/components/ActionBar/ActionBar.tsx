@@ -10,11 +10,10 @@ import { usePathname, useRouter } from "expo-router";
 import {
   BookMarkedIcon,
   Camera,
+  LucideIcon,
   Navigation,
   SearchIcon,
   User,
-  LucideIcon,
-  Bell,
 } from "lucide-react-native";
 import React, {
   useCallback,
@@ -38,8 +37,25 @@ import {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "./styles";
-import NotificationBadge from "./NotificationBadge";
-import { useNotifications } from "@/hooks/useNotifications";
+
+// Updated color scheme to match register/login screens
+const newColors = {
+  background: "#00697A",
+  text: "#FFFFFF",
+  accent: "#FDB813",
+  cardBackground: "#FFFFFF",
+  cardText: "#000000",
+  cardTextSecondary: "#6c757d",
+  buttonBackground: "#FFFFFF",
+  buttonText: "#00697A",
+  buttonBorder: "#DDDDDD",
+  inputBackground: "#F5F5F5",
+  errorBackground: "#FFCDD2",
+  errorText: "#B71C1C",
+  errorBorder: "#EF9A9A",
+  divider: "#E0E0E0",
+  activityIndicator: "#00697A",
+};
 
 interface ActionBarProps {
   isStandalone?: boolean;
@@ -71,7 +87,7 @@ const BUTTON_RELEASE_ANIMATION = {
 
 // Create a separate component for each action button to properly handle hooks
 const ActionButton: React.FC<ActionButtonProps> = React.memo(
-  ({ label, icon, onPress, isActive, disabled, actionKey, unreadCount }) => {
+  ({ label, icon, onPress, isActive, disabled }) => {
     // Each button has its own scale animation
     const scaleValue = useSharedValue(1);
 
@@ -84,7 +100,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
     // Memoize the icon color based on active state
     const iconColor = useMemo(
-      () => (isActive ? "#f59e0b" : "#64748b"), // Updated to use amber accent color
+      () => (isActive ? newColors.text : newColors.cardBackground), // White for active, white for inactive on teal background
       [isActive],
     );
 
@@ -134,15 +150,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
         accessibilityLabel={`${label} button`}
         accessibilityState={{ disabled: !!disabled, selected: isActive }}
       >
-        <View style={styles.actionButtonIcon}>
-          {iconWithWrapper}
-          {actionKey === "notifications" && (
-            <NotificationBadge
-              isActive={isActive}
-              externalCount={unreadCount}
-            />
-          )}
-        </View>
+        <View style={styles.actionButtonIcon}>{iconWithWrapper}</View>
       </TouchableOpacity>
     );
   },
@@ -169,13 +177,7 @@ interface TabConfig {
 }
 
 // Define route type to match expo-router's expected types
-type AppRoute =
-  | "/search"
-  | "/scan"
-  | "/saved"
-  | "/user"
-  | "/"
-  | "/notifications";
+type AppRoute = "/search" | "/scan" | "/saved" | "/user" | "/";
 
 // Define all possible tabs in a single configuration object
 const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
@@ -198,13 +200,6 @@ const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
     label: "Locate",
     icon: Navigation,
     requiresLocation: true,
-    enabled: true,
-  },
-  notifications: {
-    key: "notifications",
-    label: "Messages",
-    icon: Bell,
-    route: "/notifications",
     enabled: true,
   },
   saved: {
@@ -254,7 +249,6 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     availableActions = getEnabledTabs(TAB_CONFIG).map((tab) => tab.key),
   }) => {
     const pathname = usePathname();
-    const { unreadCount } = useNotifications();
 
     const activeActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
       null,
@@ -347,7 +341,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           .map((tab) => ({
             key: tab.key,
             label: tab.label,
-            icon: <tab.icon size={22} color="#fff" />,
+            icon: <tab.icon size={22} color={newColors.cardBackground} />, // White icons for teal background
             action: actionHandlers[tab.key],
             disabled: tab.requiresLocation && !userLocation,
             isActive: tab.key === activeTab, // Add isActive based on current route
@@ -391,7 +385,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
     );
 
     // Hide ActionBar on specific routes
-    const hiddenRoutes = ["/register", "/login", "/onboarding"];
+    const hiddenRoutes = ["/register", "/login"];
     if (hiddenRoutes.includes(pathname)) {
       return null;
     }
@@ -408,9 +402,6 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
               onPress={action.action}
               isActive={action.isActive || activeAction === action.key}
               disabled={action.disabled}
-              unreadCount={
-                action.key === "notifications" ? unreadCount : undefined
-              }
             />
           ))}
         </View>

@@ -6,13 +6,11 @@ import { User } from "../entities/User";
 import dataSource from "../data-source";
 import type { AppContext } from "../types/context";
 import { createUserPreferencesService } from "../services/UserPreferences";
-import { createLevelingService } from "../services/LevelingService";
 import { redisService } from "../services/shared/redis";
 import { createOpenAIService } from "../services/shared/OpenAIService";
 import { createOpenAICacheService } from "../services/shared/OpenAICacheService";
 import { createEmbeddingService } from "../services/shared/EmbeddingService";
 import { createEmbeddingCacheService } from "../services/shared/EmbeddingCacheService";
-import { createLevelingCacheService } from "../services/shared/LevelingCacheService";
 import { createConfigService } from "../services/shared/ConfigService";
 
 // Create an instance of AuthService (or import it if already instantiated)
@@ -40,19 +38,9 @@ const userPreferencesService = createUserPreferencesService({
   openAIService,
 });
 
-const levelingCacheService = createLevelingCacheService(
-  redisService.getClient(),
-);
-const levelingService = createLevelingService({
-  dataSource,
-  redisService,
-  levelingCacheService,
-});
-
 const authService = createAuthService({
   userRepository,
   userPreferencesService,
-  levelingService,
   dataSource,
   openAIService,
 });

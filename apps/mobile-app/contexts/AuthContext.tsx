@@ -12,7 +12,8 @@ interface AuthContextType {
   register: (
     email: string,
     password: string,
-    displayName?: string,
+    firstName?: string,
+    lastName?: string,
   ) => Promise<void>;
   logout: () => Promise<void>;
   forceLogout: () => Promise<void>;
@@ -161,11 +162,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const register = async (
     email: string,
     password: string,
-    displayName?: string,
+    firstName?: string,
+    lastName?: string,
   ) => {
     setIsLoading(true);
     try {
-      await apiClient.auth.register(email, password, displayName);
+      await apiClient.auth.register(email, password, firstName, lastName);
       await apiClient.auth.login(email, password);
       setUser(apiClient.getCurrentUser());
       setIsAuthenticated(true);

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Search as SearchIcon, X } from "lucide-react-native";
 import { TextInput } from "react-native";
@@ -9,8 +9,11 @@ import InfiniteScrollFlatList from "@/components/Layout/InfintieScrollFlatList";
 import EventListItem, {
   EventListItemProps,
 } from "@/components/Event/EventListItem";
+import LandingPageContent from "@/components/LandingPage/LandingPageContent";
 import useEventSearch from "@/hooks/useEventSearch";
+import useLandingPageData from "@/hooks/useLandingPageData";
 import { useLocationStore } from "@/stores/useLocationStore";
+import { useUserLocation } from "@/contexts/LocationContext";
 import { AuthWrapper } from "@/components/AuthWrapper";
 
 // Type for events from the API
@@ -21,18 +24,36 @@ const SearchListScreen = () => {
   const { filter } = useLocalSearchParams<{ filter?: string }>();
   const searchInputRef = useRef<TextInput>(null);
   const storedMarkers = useLocationStore((state) => state.markers);
+  const { userLocation } = useUserLocation();
 
   // Use our custom hook for search functionality
   const {
     searchQuery,
     setSearchQuery,
     eventResults,
-    isLoading,
-    error,
+    isLoading: isSearchLoading,
+    error: searchError,
     searchEvents,
     handleLoadMore: loadMoreEvents,
     clearSearch,
+    hasSearched,
   } = useEventSearch({ initialMarkers: storedMarkers });
+
+  // Use landing page data hook
+  const {
+    landingData,
+    isLoading: isLandingLoading,
+    refresh: refreshLanding,
+  } = useLandingPageData({
+    userLat: userLocation?.[1], // latitude is second element
+    userLng: userLocation?.[0], // longitude is first element
+    featuredLimit: 5,
+    upcomingLimit: 10,
+    communityLimit: 5,
+  });
+
+  // Track if we're showing landing page or search results
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Search input handlers
   const handleSearchInput = useCallback(
@@ -68,6 +89,19 @@ const SearchListScreen = () => {
     },
     [router],
   );
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      if (searchQuery.trim()) {
+        await searchEvents(true);
+      } else {
+        await refreshLanding();
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [searchQuery, searchEvents, refreshLanding]);
 
   // Auto-focus the search input when the screen opens
   useEffect(() => {
@@ -122,6 +156,9 @@ const SearchListScreen = () => {
     }
   }, [loadMoreEvents]);
 
+  // Determine what content to show
+  const showLandingPage = !searchQuery.trim() && !hasSearched;
+
   return (
     <AuthWrapper>
       <Screen
@@ -146,25 +183,35 @@ const SearchListScreen = () => {
           autoCapitalize="none"
           autoCorrect={false}
           autoFocus={true}
-          loading={isLoading}
+          loading={isSearchLoading}
           style={{ marginHorizontal: 16, marginBottom: 16 }}
         />
-        <InfiniteScrollFlatList
-          data={eventResults as unknown as EventType[]}
-          renderItem={renderEventItem}
-          fetchMoreData={handleLoadMore}
-          onRefresh={async () => await searchEvents(true)}
-          isLoading={isLoading}
-          isRefreshing={isLoading && eventResults.length === 0}
-          hasMore={!error && eventResults.length > 0}
-          error={error}
-          emptyListMessage={
-            searchQuery.trim()
-              ? "No events found matching your search"
-              : "No events found"
-          }
-          onRetry={async () => await searchEvents(true)}
-        />
+
+        {showLandingPage ? (
+          <LandingPageContent
+            data={landingData}
+            isLoading={isLandingLoading}
+            onRefresh={handleRefresh}
+            isRefreshing={isRefreshing}
+          />
+        ) : (
+          <InfiniteScrollFlatList
+            data={eventResults as unknown as EventType[]}
+            renderItem={renderEventItem}
+            fetchMoreData={handleLoadMore}
+            onRefresh={handleRefresh}
+            isLoading={isSearchLoading}
+            isRefreshing={isRefreshing}
+            hasMore={!searchError && eventResults.length > 0}
+            error={searchError}
+            emptyListMessage={
+              searchQuery.trim()
+                ? "No events found matching your search"
+                : "No events found"
+            }
+            onRetry={async () => await searchEvents(true)}
+          />
+        )}
       </Screen>
     </AuthWrapper>
   );

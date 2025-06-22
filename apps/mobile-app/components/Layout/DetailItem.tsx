@@ -63,13 +63,13 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 4,
   },
   value: {
     fontSize: 14,
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     lineHeight: 20,
   },
 });

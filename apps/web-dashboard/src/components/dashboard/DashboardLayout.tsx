@@ -3,6 +3,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { DashboardTabs } from "./DashboardTabs";
+import { RouteLoadingIndicator } from "./RouteLoadingIndicator";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
 
 interface DashboardLayoutProps {
@@ -18,7 +19,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <LayoutWrapper>
-      <div className="container mx-auto p-8">
+      <RouteLoadingIndicator />
+      <div className="container mx-auto p-8 pb-16">
         {/* Header with user info and logout */}
         <div className="flex justify-between items-center mb-8">
           <div>

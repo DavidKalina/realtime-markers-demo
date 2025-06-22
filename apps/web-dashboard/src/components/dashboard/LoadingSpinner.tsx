@@ -8,7 +8,7 @@ export function LoadingSpinner({
   className,
 }: LoadingSpinnerProps) {
   return (
-    <div className={`min-h-screen bg-background p-8 ${className}`}>
+    <div className={`min-h-screen p-8 ${className}`}>
       <div className="container mx-auto">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">

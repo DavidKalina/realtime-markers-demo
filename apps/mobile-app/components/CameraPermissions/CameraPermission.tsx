@@ -425,14 +425,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: "center",
     fontWeight: "500",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   permissionSubtext: {
     fontSize: 14,
     color: "#CCC",
     marginBottom: 24,
     textAlign: "center",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   permissionButton: {
     backgroundColor: "#69db7c",
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
     color: "#FFF",
     marginBottom: 16,
     textAlign: "center",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   settingsButton: {
     backgroundColor: "#69db7c",
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     color: "#69db7c",
     fontSize: 14,
     fontWeight: "500",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   processingContainer: {
     flex: 1,
@@ -500,14 +500,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#FFF",
     fontWeight: "500",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   returnHint: {
     marginTop: 24,
     fontSize: 14,
     color: "#FFF",
     textAlign: "center",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     opacity: 0.8,
   },
 });

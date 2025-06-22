@@ -60,7 +60,8 @@ export class AuthModule extends BaseApiModule {
   async register(
     email: string,
     password: string,
-    displayName?: string,
+    firstName?: string,
+    lastName?: string,
   ): Promise<User> {
     const url = `${this.client.baseUrl}/api/auth/register`;
     const response = await fetch(url, {
@@ -68,7 +69,7 @@ export class AuthModule extends BaseApiModule {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, password, displayName }),
+      body: JSON.stringify({ email, password, firstName, lastName }),
     });
 
     return this.handleResponse<User>(response);

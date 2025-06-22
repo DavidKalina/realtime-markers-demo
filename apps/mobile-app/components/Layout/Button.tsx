@@ -121,7 +121,7 @@ const Button: React.FC<ButtonProps> = ({
 
   const getTextStyle = (): TextStyle => {
     const baseTextStyle: TextStyle = {
-      fontFamily: "SpaceMono",
+      fontFamily: "Poppins-SemiBold",
       fontWeight: "600",
       textAlign: "center",
     };
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   },
   heading: {
     fontSize: 24,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "bold",
     color: COLORS.textPrimary,
     marginBottom: 20,
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "600",
     color: COLORS.textSecondary,
     marginBottom: 8,

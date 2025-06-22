@@ -4,7 +4,6 @@ import {
   Search as SearchIcon,
   X,
   Bookmark,
-  Users,
   Compass,
 } from "lucide-react-native";
 import { TextInput } from "react-native";
@@ -19,7 +18,7 @@ import { useSavedEvents } from "@/hooks/useSavedEvents";
 import { EventType as ApiEventType } from "@/types/types";
 import { AuthWrapper } from "@/components/AuthWrapper";
 
-type SavedTab = "personal" | "friends" | "discovered";
+type SavedTab = "personal" | "discovered";
 
 const SavedListScreen = () => {
   const router = useRouter();
@@ -38,11 +37,6 @@ const SavedListScreen = () => {
       icon: Bookmark,
       label: "My Events",
       value: "personal" as SavedTab,
-    },
-    {
-      icon: Users,
-      label: "Friends",
-      value: "friends" as SavedTab,
     },
     {
       icon: Compass,
@@ -148,7 +142,7 @@ const SavedListScreen = () => {
           icon={SearchIcon}
           rightIcon={searchQuery !== "" ? X : undefined}
           onRightIconPress={handleClearSearch}
-          placeholder={`Search ${activeTab === "personal" ? "your" : activeTab === "friends" ? "friends'" : "discovered"} saved events...`}
+          placeholder={`Search ${activeTab === "personal" ? "your" : "discovered"} saved events...`}
           value={searchQuery}
           onChangeText={handleSearchInput}
           returnKeyType="search"

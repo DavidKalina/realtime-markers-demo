@@ -103,7 +103,7 @@ const EventListItemFooter: React.FC<EventListItemFooterProps> = ({
         distanceText: {
           color: COLORS.accent,
           fontSize: 12,
-          fontFamily: "SpaceMono",
+          fontFamily: "Poppins-Regular",
           fontWeight: "600",
         },
         timeBadge: {
@@ -117,7 +117,7 @@ const EventListItemFooter: React.FC<EventListItemFooterProps> = ({
         timeBadgeText: {
           color: COLORS.cardBackground,
           fontSize: 12,
-          fontFamily: "SpaceMono",
+          fontFamily: "Poppins-Regular",
           fontWeight: "600",
         },
         categoryBadge: {
@@ -131,7 +131,7 @@ const EventListItemFooter: React.FC<EventListItemFooterProps> = ({
         categoryText: {
           color: COLORS.textSecondary,
           fontSize: 11,
-          fontFamily: "SpaceMono",
+          fontFamily: "Poppins-Regular",
           fontWeight: "500",
         },
         privateBadge: {
@@ -145,7 +145,7 @@ const EventListItemFooter: React.FC<EventListItemFooterProps> = ({
         privateBadgeText: {
           color: COLORS.textSecondary,
           fontSize: 12,
-          fontFamily: "SpaceMono",
+          fontFamily: "Poppins-Regular",
           fontWeight: "600",
         },
       }),

@@ -280,6 +280,7 @@ export function prepareCreateEventInput(
     originalImageUrl: originalImageUrl || data.originalImageUrl,
     embedding: data.embedding || [],
     isPrivate: data.isPrivate,
+    isOfficial: user.role === "ADMIN",
     sharedWithIds: data.sharedWithIds,
     // QR code related fields
     qrUrl: data.qrUrl,

@@ -11,22 +11,15 @@ import {
 } from "typeorm";
 import type { Relation } from "typeorm";
 import { Event } from "./Event";
-import { Friendship } from "./Friendship";
 import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
 import { UserEventView } from "./UserEventView";
-import { UserLevel } from "./UserLevel";
 import { UserEventRsvp } from "./UserEventRsvp";
 
 export enum UserRole {
   USER = "USER",
   MODERATOR = "MODERATOR",
   ADMIN = "ADMIN",
-}
-
-export enum PlanType {
-  FREE = "FREE",
-  PRO = "PRO",
 }
 
 @Entity("users")
@@ -38,27 +31,17 @@ export class User {
   @Column({ type: "varchar", unique: true })
   email!: string;
 
-  @Index({ unique: true })
-  @Column({ name: "username", type: "varchar", unique: true, nullable: true })
-  username?: string;
+  @Column({ name: "first_name", type: "varchar", nullable: true })
+  firstName?: string;
 
-  @Index({ unique: true })
-  @Column({
-    name: "friend_code",
-    type: "varchar",
-    unique: true,
-    nullable: true,
-  })
-  friendCode?: string;
+  @Column({ name: "last_name", type: "varchar", nullable: true })
+  lastName?: string;
 
   @Column({ type: "varchar", nullable: true })
   phone?: string;
 
   @Column({ name: "password_hash", type: "varchar", select: false })
   passwordHash!: string;
-
-  @Column({ name: "display_name", type: "varchar", nullable: true })
-  displayName?: string;
 
   @Column({ name: "avatar_url", type: "varchar", nullable: true })
   avatarUrl?: string;
@@ -72,14 +55,6 @@ export class User {
     default: UserRole.USER,
   })
   role!: UserRole;
-
-  @Column({
-    name: "plan_type",
-    type: "enum",
-    enum: PlanType,
-    default: PlanType.FREE,
-  })
-  planType!: PlanType;
 
   @Column({ name: "is_verified", type: "boolean", default: false })
   isVerified!: boolean;
@@ -102,12 +77,6 @@ export class User {
   @Column({ name: "last_scan_reset", type: "timestamptz", nullable: true })
   lastScanReset?: Date;
 
-  @Column({ name: "total_xp", type: "integer", default: 0 })
-  totalXp!: number;
-
-  @Column({ name: "current_title", type: "varchar", nullable: true })
-  currentTitle?: string;
-
   @Column({ name: "contacts", type: "jsonb", nullable: true })
   contacts?: {
     email?: string;
@@ -115,9 +84,6 @@ export class User {
     name?: string;
     lastImportedAt?: Date;
   }[];
-
-  @OneToMany(() => UserLevel, (userLevel) => userLevel.user)
-  userLevels!: Relation<UserLevel>[];
 
   @OneToMany(() => UserEventDiscovery, (discovery) => discovery.user)
   discoveries!: Relation<UserEventDiscovery>[];
@@ -133,13 +99,6 @@ export class User {
 
   @OneToMany(() => UserEventRsvp, (rsvp) => rsvp.user)
   rsvps!: Relation<UserEventRsvp>[];
-
-  // Friendship relationships
-  @OneToMany(() => Friendship, (friendship) => friendship.requester)
-  sentFriendRequests!: Relation<Friendship>[];
-
-  @OneToMany(() => Friendship, (friendship) => friendship.addressee)
-  receivedFriendRequests!: Relation<Friendship>[];
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

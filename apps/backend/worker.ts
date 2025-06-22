@@ -17,7 +17,6 @@ import {
   createEventProcessingService,
   type EventProcessingService,
 } from "./services/EventProcessingService";
-import { createPlanService, type PlanService } from "./services/PlanService";
 import {
   createStorageService,
   type StorageService,
@@ -32,15 +31,15 @@ import { createGoogleGeocodingService } from "./services/shared/GoogleGeocodingS
 import { createConfigService } from "./services/shared/ConfigService";
 import { Category } from "./entities/Category";
 import { Event } from "./entities/Event";
+import { CivicEngagement } from "./entities/CivicEngagement";
 import { createEmbeddingService } from "./services/shared/EmbeddingService";
 import { createEmbeddingCacheService } from "./services/shared/EmbeddingCacheService";
 import { createOpenAIService } from "./services/shared/OpenAIService";
 import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
 import { createEventCacheService } from "./services/shared/EventCacheService";
 import { createImageProcessingCacheService } from "./services/shared/ImageProcessingCacheService";
-import { createLevelingService } from "./services/LevelingService";
-import { createLevelingCacheService } from "./services/shared/LevelingCacheService";
 import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
+import { CivicEngagementService } from "./services/CivicEngagementService";
 
 // Constants
 const POLLING_INTERVAL = 1000; // 1 second
@@ -53,7 +52,6 @@ let jobQueue: JobQueue;
 let redisService: RedisService;
 let eventService: EventService;
 let eventProcessingService: EventProcessingService;
-let planService: PlanService;
 let storageService: StorageService;
 let jobHandlerRegistry: JobHandlerRegistry;
 
@@ -85,6 +83,8 @@ async function initializeWorker() {
   // Initialize repositories
   const categoryRepository = AppDataSource.getRepository(Category);
   const eventRepository = AppDataSource.getRepository(Event);
+  const civicEngagementRepository =
+    AppDataSource.getRepository(CivicEngagement);
 
   // Initialize category processing service
   const categoryProcessingService = createCategoryProcessingService({
@@ -107,13 +107,6 @@ async function initializeWorker() {
 
   // Create ImageProcessingCacheService instance
   const imageProcessingCacheService = createImageProcessingCacheService();
-
-  // Create LevelingService instance
-  const levelingService = createLevelingService({
-    dataSource: AppDataSource,
-    redisService,
-    levelingCacheService: createLevelingCacheService(redisClient),
-  });
 
   // Initialize event similarity service
   const eventSimilarityService = new EventSimilarityService(
@@ -161,22 +154,25 @@ async function initializeWorker() {
     locationService: createGoogleGeocodingService(openAIService),
     eventCacheService,
     openaiService: openAIService,
-    levelingService,
+    embeddingService,
   });
-
-  // Initialize plan service
-  planService = createPlanService({ dataSource: AppDataSource });
 
   // Initialize storage service
   storageService = createStorageService();
+
+  // Initialize civic engagement service
+  const civicEngagementService = new CivicEngagementService(
+    civicEngagementRepository,
+    redisService,
+  );
 
   // Initialize job handler registry
   jobHandlerRegistry = new JobHandlerRegistry(
     eventProcessingService,
     eventService,
+    civicEngagementService,
     jobQueue,
     redisService,
-    planService,
     storageService,
   );
 

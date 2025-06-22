@@ -160,10 +160,6 @@ export const getAuthService = (c: Context<AppContext>) => {
   return c.get("authService");
 };
 
-export const getNotificationService = (c: Context<AppContext>) => {
-  return c.get("notificationService");
-};
-
 export const getJobQueue = (c: Context<AppContext>) => {
   return c.get("jobQueue");
 };

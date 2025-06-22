@@ -19,7 +19,7 @@ export const styles = StyleSheet.create({
     fontWeight: "500",
     lineHeight: 22,
     minHeight: 48,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     textAlign: "left", // Changed from center to left for natural text streaming
   },
   transitionMessageText: {
@@ -28,7 +28,7 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     lineHeight: 22,
     textAlign: "center", // Keep this centered since it's a status message
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
 
   // Rest of the message styles remain the same
@@ -36,7 +36,7 @@ export const styles = StyleSheet.create({
     color: "#93c5fd",
     fontSize: 14,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 8,
   },
   detailDescription: {
@@ -47,7 +47,7 @@ export const styles = StyleSheet.create({
   detailText: {
     color: "#93c5fd",
     fontSize: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginLeft: 4,
   },
   interactiveDetailRow: {

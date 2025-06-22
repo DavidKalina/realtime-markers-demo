@@ -12,8 +12,14 @@ export const MessageTypes = {
   DELETE_EVENT: "delete-event",
   REPLACE_ALL: "replace-all",
 
+  // Civic engagement messages
+  ADD_CIVIC_ENGAGEMENT: "add-civic-engagement",
+  UPDATE_CIVIC_ENGAGEMENT: "update-civic-engagement",
+  DELETE_CIVIC_ENGAGEMENT: "delete-civic-engagement",
+
   // Discovery events
   EVENT_DISCOVERED: "event_discovered",
+  CIVIC_ENGAGEMENT_DISCOVERED: "civic_engagement_discovered",
 
   // Notifications
   NOTIFICATION: "notification",
@@ -59,8 +65,10 @@ export const SERVER_CONFIG = {
 
 export const REDIS_CHANNELS = {
   DISCOVERED_EVENTS: "discovered_events",
+  DISCOVERED_CIVIC_ENGAGEMENTS: "discovered_civic_engagements",
   NOTIFICATIONS: "notifications",
   LEVEL_UPDATE: "level-update",
   FILTER_CHANGES: "filter-changes",
   VIEWPORT_UPDATES: "viewport-updates",
+  CIVIC_ENGAGEMENT_CHANGES: "civic_engagement_changes",
 } as const;

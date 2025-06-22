@@ -1,4 +1,4 @@
-import { Event, BoundingBox, Filter } from "../types/types";
+import { Event, CivicEngagement, BoundingBox, Filter } from "../types/types";
 import { FilterMatcher } from "../handlers/FilterMatcher";
 import { ViewportProcessor } from "../handlers/ViewportProcessor";
 import { EventPublisher } from "../handlers/EventPublisher";
@@ -12,6 +12,9 @@ export interface UserNotificationService {
   ): Promise<void>;
 
   getAffectedUsers(event: Event): Promise<Set<string>>;
+  getAffectedUsersForCivicEngagement(
+    civicEngagement: CivicEngagement,
+  ): Promise<Set<string>>;
 
   getStats(): Record<string, unknown>;
 }
@@ -357,6 +360,58 @@ export function createUserNotificationService(
   }
 
   /**
+   * Get users affected by a civic engagement update
+   */
+  async function getAffectedUsersForCivicEngagement(
+    civicEngagement: CivicEngagement,
+  ): Promise<Set<string>> {
+    const affectedUsers = new Set<string>();
+
+    try {
+      // Only process civic engagements with location
+      if (!civicEngagement.location) {
+        return affectedUsers;
+      }
+
+      // Calculate civic engagement's spatial bounds
+      const [lng, lat] = civicEngagement.location.coordinates;
+      const civicEngagementBounds = {
+        minX: lng,
+        minY: lat,
+        maxX: lng,
+        maxY: lat,
+      };
+
+      // Get all viewports that intersect with this civic engagement
+      const intersectingViewports =
+        await viewportProcessor.getIntersectingViewports(civicEngagementBounds);
+
+      console.log(
+        "[UserNotification] Intersecting viewports for civic engagement:",
+        {
+          civicEngagementId: civicEngagement.id,
+          intersectingViewports: intersectingViewports.map((v) => v.userId),
+        },
+      );
+
+      // Add users from intersecting viewports
+      // Civic engagements are public, so no access control needed
+      for (const { userId } of intersectingViewports) {
+        affectedUsers.add(userId);
+      }
+
+      stats.affectedUsersCalculated += affectedUsers.size;
+    } catch (error) {
+      console.error(
+        "[UserNotification] Error getting affected users for civic engagement:",
+        error,
+      );
+    }
+
+    return affectedUsers;
+  }
+
+  /**
    * Get current statistics
    */
   function getStats(): Record<string, unknown> {
@@ -368,6 +423,7 @@ export function createUserNotificationService(
   return {
     notifyAffectedUsers,
     getAffectedUsers,
+    getAffectedUsersForCivicEngagement,
     getStats,
   };
 }

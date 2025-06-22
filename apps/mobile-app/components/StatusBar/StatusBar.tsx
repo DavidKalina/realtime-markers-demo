@@ -5,53 +5,53 @@ import {
   StyleSheet,
   Text,
   View,
-  TouchableOpacity,
+  Image,
 } from "react-native";
-import Animated, {
-  FadeIn,
-  useSharedValue,
-  useAnimatedStyle,
-  withSequence,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
+import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
-import XPBar from "./XPBar";
-import { COLORS } from "../Layout/ScreenLayout";
 
-interface StatusBarProps {
+// Updated color scheme to match register/login screens
+const municipalColors = {
+  background: "#00697A",
+  text: "#FFFFFF",
+  accent: "#FDB813",
+  cardBackground: "#FFFFFF",
+  cardText: "#000000",
+  cardTextSecondary: "#6c757d",
+  buttonBackground: "#FFFFFF",
+  buttonText: "#00697A",
+  buttonBorder: "#DDDDDD",
+  inputBackground: "#F5F5F5",
+  errorBackground: "#FFCDD2",
+  primary: "#00697A",
+  textSecondary: "#6c757d",
+  errorText: "#B71C1C",
+  errorBorder: "#EF9A9A",
+  divider: "#E0E0E0",
+  activityIndicator: "#00697A",
+  border: "#E0E0E0",
+  shadow: "rgba(0, 0, 0, 0.1)",
+};
+
+interface MunicipalBannerProps {
   backgroundColor?: string;
   children?: React.ReactNode;
+  municipalityName?: string;
+  logoUrl?: string | number;
+  showUserInfo?: boolean;
+  tagline?: string;
 }
 
-const StatusBar: React.FC<StatusBarProps> = ({
-  backgroundColor = COLORS.textPrimary, // Updated to match new light background
+const MunicipalBanner: React.FC<MunicipalBannerProps> = ({
+  backgroundColor = municipalColors.background,
+  municipalityName = "Town of Frederick",
+  logoUrl = require("@/assets/images/frederick-logo.png"),
+  showUserInfo = false,
+  tagline = "Built on what Matters",
 }) => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const router = useRouter();
-
-  // Animation value for jobs icon
-  const jobsIconScale = useSharedValue(1);
-
-  // Handle jobs icon press animation
-  const handleJobsPress = () => {
-    jobsIconScale.value = withSequence(
-      withTiming(0.95, { duration: 100 }),
-      withSpring(1, { damping: 15, stiffness: 200 }),
-    );
-    router.push("/jobs");
-  };
-
-  // Animated styles for the jobs icon
-  const jobsIconAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: jobsIconScale.value }],
-    };
-  });
 
   const containerStyle = useMemo(
     () => [
@@ -67,33 +67,56 @@ const StatusBar: React.FC<StatusBarProps> = ({
   return (
     <View style={containerStyle}>
       <RNStatusBar
-        barStyle="light-content" // Changed to light-content for light theme
+        barStyle="dark-content"
         backgroundColor={backgroundColor}
         translucent
       />
-      <View style={styles.indicatorsRow}>
-        <Animated.View
-          entering={FadeIn.delay(300).springify()}
-          style={styles.usernameContainer}
-        >
-          <Text style={styles.username}>
-            {user?.displayName || user?.email}
-          </Text>
-          <XPBar backgroundColor={backgroundColor} />
-        </Animated.View>
 
-        <TouchableOpacity
-          onPress={handleJobsPress}
-          style={styles.jobsIconContainer}
-        >
+      {/* Municipal Banner Content */}
+      <Animated.View
+        entering={FadeIn.delay(200).springify()}
+        layout={LinearTransition.springify()}
+        style={styles.bannerContent}
+      >
+        {/* Left Section - Logo and Municipality Info */}
+        <View style={styles.leftSection}>
+          {logoUrl && (
+            <Image
+              source={typeof logoUrl === "string" ? { uri: logoUrl } : logoUrl}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          )}
+          <View style={styles.municipalityInfo}>
+            <Text style={styles.municipalityName}>{municipalityName}</Text>
+            <Text style={styles.tagline}>{tagline}</Text>
+          </View>
+        </View>
+
+        {/* Right Section - User Info */}
+        {showUserInfo && user && (
           <Animated.View
-            style={[styles.jobsIconWrapper, jobsIconAnimatedStyle]}
+            entering={FadeIn.delay(400).springify()}
+            style={styles.userInfoContainer}
           >
-            <Ionicons name="briefcase" size={16} color={COLORS.textPrimary} />
+            <Text style={styles.userInfo}>
+              {(() => {
+                if (user?.firstName && user?.lastName) {
+                  return `${user.firstName} ${user.lastName}`;
+                } else if (user?.firstName) {
+                  return user.firstName;
+                } else if (user?.lastName) {
+                  return user.lastName;
+                }
+                return user?.email || "";
+              })()}
+            </Text>
           </Animated.View>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.discoveryContainer}>
+        )}
+      </Animated.View>
+
+      {/* Civic Engagement Indicator */}
+      <View style={styles.engagementContainer}>
         <DiscoveryIndicator position="bottom-left" />
       </View>
     </View>
@@ -108,49 +131,72 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 1000,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.05)", // Updated for light theme
+    borderBottomColor: municipalColors.border,
+    shadowColor: municipalColors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  indicatorsRow: {
+  bannerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    minHeight: 64,
   },
-  usernameContainer: {
+  leftSection: {
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
-    marginRight: 8,
   },
-  username: {
-    color: "#fff", // Updated to dark text for light theme
-    fontSize: 14,
+  logo: {
+    width: 40,
+    height: 40,
+    marginRight: 16,
+    borderRadius: 6,
+  },
+  municipalityInfo: {
+    flex: 1,
+  },
+  municipalityName: {
+    color: municipalColors.text,
+    fontSize: 18,
+    fontWeight: "700",
+    fontFamily: "Poppins-Bold",
+    letterSpacing: 0.2,
+    lineHeight: 22,
+    marginBottom: 2,
+  },
+  tagline: {
+    color: municipalColors.text,
+    fontSize: 12,
     fontWeight: "500",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Medium",
+    letterSpacing: 0.5,
+    lineHeight: 16,
   },
-  discoveryContainer: {
+  userInfoContainer: {
+    maxWidth: 140,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: municipalColors.primary,
+    borderRadius: 20,
+  },
+  userInfo: {
+    color: municipalColors.background,
+    fontSize: 13,
+    fontWeight: "600",
+    fontFamily: "Poppins-SemiBold",
+    textAlign: "center",
+  },
+  engagementContainer: {
     position: "absolute",
     left: 0,
-    bottom: -20, // Reduced from -40 to -20 to bring notifications closer to status bar
+    bottom: -20,
     zIndex: 999,
-  },
-  jobsIconContainer: {
-    padding: 4,
-  },
-  jobsIconWrapper: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: "#fff",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
   },
 });
 
-export default React.memo(StatusBar);
+export default React.memo(MunicipalBanner);

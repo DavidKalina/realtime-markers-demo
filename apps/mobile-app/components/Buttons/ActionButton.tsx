@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "600",
   },
   primaryButtonText: {

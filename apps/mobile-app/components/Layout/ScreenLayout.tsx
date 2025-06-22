@@ -8,6 +8,25 @@ import {
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 
+// Updated color scheme to match register/login screens
+const newColors = {
+  background: "#00697A",
+  text: "#FFFFFF",
+  accent: "#FDB813",
+  cardBackground: "#FFFFFF",
+  cardText: "#000000",
+  cardTextSecondary: "#6c757d",
+  buttonBackground: "#FFFFFF",
+  buttonText: "#00697A",
+  buttonBorder: "#DDDDDD",
+  inputBackground: "#F5F5F5",
+  errorBackground: "#FFCDD2",
+  errorText: "#B71C1C",
+  errorBorder: "#EF9A9A",
+  divider: "#E0E0E0",
+  activityIndicator: "#00697A",
+};
+
 // Unified color theme
 export const COLORS = {
   background: "#f8fafc", // Light, clean background
@@ -55,7 +74,7 @@ const screenLayoutStyles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 44, // Approximate status bar height
-    backgroundColor: COLORS.textPrimary,
+    backgroundColor: newColors.background, // Updated to teal background to match other components
     zIndex: 1,
   },
 });
@@ -86,9 +105,9 @@ const ScreenLayout: React.FC<ScreenLayoutProps> = React.memo(
     return (
       <Container style={containerStyle}>
         <StatusBar
-          barStyle="light-content"
+          barStyle={extendBannerToStatusBar ? "light-content" : "light-content"} // Updated to light-content for teal background
           backgroundColor={
-            extendBannerToStatusBar ? COLORS.cardBackground : COLORS.background
+            extendBannerToStatusBar ? newColors.background : COLORS.background // Updated to use teal background
           }
           translucent={extendBannerToStatusBar}
         />

@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
     color: "#f97583",
     fontSize: 14,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   deleteButton: {
     flex: 1,
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     color: "#dc2626",
     fontSize: 14,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
 });
 

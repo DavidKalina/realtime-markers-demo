@@ -1,0 +1,69 @@
+import React from "react";
+import { ScrollView, RefreshControl, View } from "react-native";
+import { EventType } from "@/types/types";
+import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
+import PopularCategoriesSection from "./PopularCategoriesSection";
+import UpcomingEventsSection from "./UpcomingEventsSection";
+import CommunityEventsSection from "./CommunityEventsSection";
+
+interface Category {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+interface LandingPageData {
+  featuredEvents: EventType[];
+  upcomingEvents: EventType[];
+  communityEvents?: EventType[];
+  popularCategories: Category[];
+}
+
+interface LandingPageContentProps {
+  data: LandingPageData | null;
+  isLoading: boolean;
+  onRefresh: () => Promise<void>;
+  isRefreshing?: boolean;
+}
+
+const LandingPageContent: React.FC<LandingPageContentProps> = ({
+  data,
+  isLoading,
+  onRefresh,
+  isRefreshing = false,
+}) => {
+  return (
+    <ScrollView
+      style={{ flex: 1 }}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+      }
+    >
+      <FeaturedEventsCarousel
+        events={data?.featuredEvents || []}
+        isLoading={isLoading}
+      />
+
+      <PopularCategoriesSection
+        categories={data?.popularCategories || []}
+        isLoading={isLoading}
+      />
+
+      <CommunityEventsSection
+        events={data?.communityEvents || []}
+        isLoading={isLoading}
+      />
+
+      <UpcomingEventsSection
+        events={data?.upcomingEvents || []}
+        isLoading={isLoading}
+      />
+
+      {/* Add some bottom padding */}
+      <View style={{ height: 100 }} />
+    </ScrollView>
+  );
+};
+
+export default LandingPageContent;

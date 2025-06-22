@@ -21,6 +21,7 @@
     "migration:generate": "bunx tsx ./node_modules/typeorm/cli.js migration:generate -d ./data-source.ts",
     "migration:run": "bunx tsx ./node_modules/typeorm/cli.js migration:run -d ./data-source.ts",
     "migration:revert": "bunx tsx ./node_modules/typeorm/cli.js migration:revert -d ./data-source.ts",
+    "check-db": "bun run scripts/check-database-setup.ts",
     "test": "bun test",
     "test:email": "bun run scripts/test-email.ts"
   },

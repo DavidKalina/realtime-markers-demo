@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 11,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "600",
     letterSpacing: 0.2,
   },

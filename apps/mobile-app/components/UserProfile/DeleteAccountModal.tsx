@@ -139,14 +139,14 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 16,
     textAlign: "center",
   },
   dialogText: {
     color: COLORS.textPrimary,
     fontSize: 15,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     lineHeight: 22,
     marginBottom: 16,
     textAlign: "center",
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   dialogSubText: {
     color: COLORS.textSecondary,
     fontSize: 14,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 12,
   },
   passwordInput: {
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     padding: 12,
     color: COLORS.textPrimary,
     fontSize: 15,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 16,
     borderWidth: 1,
     borderColor: COLORS.buttonBorder,
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: COLORS.errorText,
     fontSize: 14,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginBottom: 16,
     textAlign: "center",
   },
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
   deleteModalButton: {
     flex: 1,
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
   },
 });
 

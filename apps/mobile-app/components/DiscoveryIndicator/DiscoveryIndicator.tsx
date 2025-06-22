@@ -343,14 +343,14 @@ const styles = StyleSheet.create({
   titleText: {
     color: COLORS.textPrimary,
     fontSize: 12,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "600",
     letterSpacing: 0.5,
   },
   messageText: {
     color: COLORS.textSecondary,
     fontSize: 10,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     marginTop: 2,
   },
   emojiText: {

@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     minHeight: 24,
   },
   errorInput: {

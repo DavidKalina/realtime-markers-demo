@@ -108,6 +108,7 @@ export abstract class BaseJobHandler implements JobHandler {
       process_private_event: 4,
       process_multi_event_flyer: 8,
       cleanup_outdated_events: 3,
+      process_civic_engagement: 4,
     };
 
     return stepCounts[this.jobType] || 5;

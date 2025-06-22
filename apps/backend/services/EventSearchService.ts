@@ -46,6 +46,19 @@ export interface EventSearchService {
     filter: Filter,
     options?: { limit?: number; offset?: number },
   ): Promise<{ events: Event[]; total: number; hasMore: boolean }>;
+
+  getLandingPageData(options?: {
+    featuredLimit?: number;
+    upcomingLimit?: number;
+    communityLimit?: number;
+    userLat?: number;
+    userLng?: number;
+  }): Promise<{
+    featuredEvents: Event[];
+    upcomingEvents: Event[];
+    communityEvents: Event[];
+    popularCategories: Category[];
+  }>;
 }
 
 export interface EventSearchServiceDependencies {
@@ -557,6 +570,156 @@ export class EventSearchServiceImpl implements EventSearchService {
       console.error("Error tracking search analytics:", error);
       // Don't throw - analytics tracking shouldn't break the search functionality
     }
+  }
+
+  async getLandingPageData(
+    options: {
+      featuredLimit?: number;
+      upcomingLimit?: number;
+      communityLimit?: number;
+      userLat?: number;
+      userLng?: number;
+    } = {},
+  ): Promise<{
+    featuredEvents: Event[];
+    upcomingEvents: Event[];
+    communityEvents: Event[];
+    popularCategories: Category[];
+  }> {
+    const {
+      featuredLimit = 5,
+      upcomingLimit = 10,
+      communityLimit = 5,
+      userLat,
+      userLng,
+    } = options;
+
+    // Create a cache key based on the parameters
+    const cacheKey = `landing:${featuredLimit}:${upcomingLimit}:${communityLimit}:${userLat || "null"}:${userLng || "null"}`;
+
+    // Check if we have cached results
+    const cachedResults =
+      await this.eventCacheService.getLandingPageData(cacheKey);
+    if (cachedResults && cachedResults.communityEvents !== undefined) {
+      console.log(`Cache hit for landing page data: ${cacheKey}`);
+      return {
+        featuredEvents: cachedResults.featuredEvents,
+        upcomingEvents: cachedResults.upcomingEvents,
+        communityEvents: cachedResults.communityEvents,
+        popularCategories: cachedResults.popularCategories,
+      };
+    }
+
+    console.log(`Cache miss for landing page data: ${cacheKey}`);
+
+    // Get featured events (official events with high engagement)
+    const featuredEvents = await this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("event.isOfficial = :isOfficial", { isOfficial: true })
+      .andWhere("event.status = :status", { status: "VERIFIED" })
+      .andWhere("event.eventDate > NOW()")
+      .andWhere("event.isPrivate = :isPrivate", { isPrivate: false })
+      .orderBy("event.saveCount", "DESC")
+      .addOrderBy("event.viewCount", "DESC")
+      .addOrderBy("event.eventDate", "ASC")
+      .limit(featuredLimit)
+      .getMany();
+
+    // Get upcoming events (official events happening soon)
+    const upcomingQuery = this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("event.isOfficial = :isOfficial", { isOfficial: true })
+      .andWhere("event.status = :status", { status: "VERIFIED" })
+      .andWhere("event.eventDate > NOW()")
+      .andWhere("event.isPrivate = :isPrivate", { isPrivate: false })
+      .orderBy("event.eventDate", "ASC")
+      .limit(upcomingLimit);
+
+    // If user location is provided, prioritize nearby events
+    if (userLat && userLng) {
+      upcomingQuery.addSelect(
+        `ST_Distance(
+          event.location::geography,
+          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+        )`,
+        "distance",
+      );
+      upcomingQuery.setParameter("lat", userLat);
+      upcomingQuery.setParameter("lng", userLng);
+      upcomingQuery.addOrderBy("distance", "ASC");
+    }
+
+    const upcomingEvents = await upcomingQuery.getMany();
+
+    // Get community events (non-official events with originalImageUrl)
+    const communityEvents = await this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("event.isOfficial = :isOfficial", { isOfficial: false })
+      .andWhere("event.status = :status", { status: "VERIFIED" })
+      .andWhere("event.eventDate > NOW()")
+      .andWhere("event.isPrivate = :isPrivate", { isPrivate: false })
+      .andWhere("event.originalImageUrl IS NOT NULL")
+      .orderBy("event.saveCount", "DESC")
+      .addOrderBy("event.viewCount", "DESC")
+      .addOrderBy("event.eventDate", "ASC")
+      .limit(communityLimit)
+      .getMany();
+
+    console.log(`Found ${communityEvents.length} community events`);
+
+    // Get popular categories from official events
+    const popularCategories = await this.categoryRepository
+      .createQueryBuilder("category")
+      .innerJoin("category.events", "event")
+      .where("event.isOfficial = :isOfficial", { isOfficial: true })
+      .andWhere("event.status = :status", { status: "VERIFIED" })
+      .andWhere("event.eventDate > NOW()")
+      .andWhere("event.isPrivate = :isPrivate", { isPrivate: false })
+      .select("category.id", "id")
+      .addSelect("category.name", "name")
+      .addSelect("category.icon", "icon")
+      .addSelect("COUNT(event.id)", "eventcount")
+      .groupBy("category.id")
+      .addGroupBy("category.name")
+      .addGroupBy("category.icon")
+      .orderBy("eventcount", "DESC")
+      .limit(8)
+      .getRawMany();
+
+    // Convert raw results to Category objects
+    const categories = popularCategories.map((raw) => ({
+      id: raw.id,
+      name: raw.name,
+      icon: raw.icon,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      events: [],
+    })) as Category[];
+
+    const result = {
+      featuredEvents,
+      upcomingEvents,
+      communityEvents,
+      popularCategories: categories,
+    };
+
+    console.log("Landing page result:", {
+      featuredEventsCount: featuredEvents.length,
+      upcomingEventsCount: upcomingEvents.length,
+      communityEventsCount: communityEvents.length,
+      popularCategoriesCount: categories.length,
+    });
+
+    // Cache the results
+    await this.eventCacheService.setLandingPageData(cacheKey, result);
+
+    return result;
   }
 }
 

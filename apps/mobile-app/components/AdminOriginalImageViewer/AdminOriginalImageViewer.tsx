@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#f8f9fa",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     flex: 1,
     letterSpacing: 0.5,
   },
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   adminText: {
     fontSize: 11,
     color: "#ff9800",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontWeight: "600",
     marginLeft: 6,
     letterSpacing: 0.5,
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
 
   loadingText: {
     color: "#a0a0a0",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontSize: 13,
     marginTop: 12,
   },
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
 
   errorText: {
     color: "#f97583",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontSize: 13,
     textAlign: "center",
     paddingHorizontal: 20,
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
 
   viewText: {
     color: "#ffffff",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontSize: 14,
     fontWeight: "600",
     marginLeft: 8,
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
 
   noImageText: {
     color: "#a0a0a0",
-    fontFamily: "SpaceMono",
+    fontFamily: "Poppins-Regular",
     fontSize: 14,
   },
 
