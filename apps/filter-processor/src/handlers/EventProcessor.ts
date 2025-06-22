@@ -1,7 +1,7 @@
 import { UnifiedSpatialCacheService } from "../services/UnifiedSpatialCacheService";
 import { Event, CivicEngagement } from "../types/types";
 
-export class EventProcessor {
+export class LegacyEventCacheHandler {
   private eventCacheService: UnifiedSpatialCacheService;
 
   constructor(eventCacheService: UnifiedSpatialCacheService) {

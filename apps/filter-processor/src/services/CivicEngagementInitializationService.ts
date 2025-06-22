@@ -2,15 +2,9 @@ import {
   CivicEngagement,
   CivicEngagementType,
   CivicEngagementStatus,
-  Point,
 } from "../types/types";
-import { EventProcessor } from "../handlers/EventProcessor";
-
-export interface CivicEngagementInitializationService {
-  initializeCivicEngagements(): Promise<void>;
-  clearAllCivicEngagements(): void;
-  getStats(): Record<string, unknown>;
-}
+import { LegacyEventCacheHandler } from "../handlers/EventProcessor";
+import type { EntityInitializationService as IEntityInitializationService } from "../types/entities";
 
 export interface CivicEngagementInitializationServiceConfig {
   backendUrl?: string;
@@ -19,19 +13,18 @@ export interface CivicEngagementInitializationServiceConfig {
   retryDelay?: number;
 }
 
-export function createCivicEngagementInitializationService(
-  eventProcessor: EventProcessor,
-  config: CivicEngagementInitializationServiceConfig = {},
-): CivicEngagementInitializationService {
-  const {
-    backendUrl = process.env.BACKEND_URL || "http://backend:3000",
-    pageSize = 100,
-    maxRetries = 3,
-    retryDelay = 1000,
-  } = config;
+export class CivicEngagementInitializationService
+  implements IEntityInitializationService
+{
+  readonly entityType = "civic_engagement";
+  private eventProcessor: LegacyEventCacheHandler;
+  private backendUrl: string;
+  private pageSize: number;
+  private maxRetries: number;
+  private retryDelay: number;
 
   // Stats for monitoring
-  const stats = {
+  private stats = {
     civicEngagementsFetched: 0,
     civicEngagementsProcessed: 0,
     apiCalls: 0,
@@ -40,10 +33,19 @@ export function createCivicEngagementInitializationService(
     lastInitializationTime: 0,
   };
 
-  /**
-   * Initialize civic engagements by fetching from API and processing them
-   */
-  async function initializeCivicEngagements(): Promise<void> {
+  constructor(
+    eventProcessor: LegacyEventCacheHandler,
+    config: CivicEngagementInitializationServiceConfig = {},
+  ) {
+    this.eventProcessor = eventProcessor;
+    this.backendUrl =
+      config.backendUrl || process.env.BACKEND_URL || "http://backend:3000";
+    this.pageSize = config.pageSize || 100;
+    this.maxRetries = config.maxRetries || 3;
+    this.retryDelay = config.retryDelay || 1000;
+  }
+
+  async initializeEntities(): Promise<void> {
     try {
       console.log(
         "🔄 [CivicEngagementInitialization] Starting civic engagement initialization...",
@@ -53,7 +55,7 @@ export function createCivicEngagementInitializationService(
       console.log(
         "📡 [CivicEngagementInitialization] Fetching civic engagements from API...",
       );
-      const civicEngagements = await fetchAllCivicEngagements();
+      const civicEngagements = await this.fetchAllCivicEngagements();
 
       console.log(
         `📊 [CivicEngagementInitialization] Received ${civicEngagements.length} civic engagements for initialization`,
@@ -70,9 +72,9 @@ export function createCivicEngagementInitializationService(
       console.log(
         "⚙️ [CivicEngagementInitialization] Processing civic engagements...",
       );
-      await processCivicEngagementsBatch(civicEngagements);
+      await this.processCivicEngagementsBatch(civicEngagements);
 
-      stats.lastInitializationTime = Date.now();
+      this.stats.lastInitializationTime = Date.now();
 
       console.log(
         "✅ [CivicEngagementInitialization] Civic engagements initialization complete",
@@ -86,22 +88,30 @@ export function createCivicEngagementInitializationService(
     }
   }
 
-  /**
-   * Clear all civic engagements (for cleanup operations)
-   */
-  function clearAllCivicEngagements(): void {
+  clearAllEntities(): void {
     console.log(
       "[CivicEngagementInitialization] Clearing all civic engagements",
     );
   }
 
+  getStats(): Record<string, unknown> {
+    return {
+      entityType: this.entityType,
+      ...this.stats,
+      backendUrl: this.backendUrl,
+      pageSize: this.pageSize,
+      maxRetries: this.maxRetries,
+      retryDelay: this.retryDelay,
+    };
+  }
+
   /**
    * Fetch all civic engagements from the API or database
    */
-  async function fetchAllCivicEngagements(): Promise<CivicEngagement[]> {
+  private async fetchAllCivicEngagements(): Promise<CivicEngagement[]> {
     try {
       console.log(
-        `🌐 [CivicEngagementInitialization] Fetching civic engagements from: ${backendUrl}`,
+        `🌐 [CivicEngagementInitialization] Fetching civic engagements from: ${this.backendUrl}`,
       );
 
       let currentPage = 1;
@@ -109,10 +119,10 @@ export function createCivicEngagementInitializationService(
       let allCivicEngagements: CivicEngagement[] = [];
 
       while (hasMorePages) {
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
           try {
-            const url = `${backendUrl}/api/internal/civic-engagements?limit=${pageSize}&offset=${
-              (currentPage - 1) * pageSize
+            const url = `${this.backendUrl}/api/internal/civic-engagements?limit=${this.pageSize}&offset=${
+              (currentPage - 1) * this.pageSize
             }`;
 
             console.log(
@@ -153,7 +163,7 @@ export function createCivicEngagementInitializationService(
                 (civicEngagement: { location?: { coordinates?: number[] } }) =>
                   civicEngagement.location?.coordinates,
               )
-              .map(normalizeCivicEngagementData);
+              .map(this.normalizeCivicEngagementData);
 
             console.log(
               `✅ [CivicEngagementInitialization] Page ${currentPage}: ${validCivicEngagements.length} valid civic engagements after filtering`,
@@ -179,17 +189,17 @@ export function createCivicEngagementInitializationService(
             hasMorePages = hasMore;
             currentPage++;
 
-            stats.apiCalls++;
-            stats.civicEngagementsFetched += validCivicEngagements.length;
+            this.stats.apiCalls++;
+            this.stats.civicEngagementsFetched += validCivicEngagements.length;
 
             break; // Success, exit retry loop
           } catch (error) {
             console.error(
-              `❌ [CivicEngagementInitialization] Attempt ${attempt}/${maxRetries} failed for page ${currentPage}:`,
+              `❌ [CivicEngagementInitialization] Attempt ${attempt}/${this.maxRetries} failed for page ${currentPage}:`,
               error,
             );
 
-            if (attempt === maxRetries) {
+            if (attempt === this.maxRetries) {
               console.error(
                 "💥 [CivicEngagementInitialization] Max API retries reached for page",
                 currentPage,
@@ -198,11 +208,12 @@ export function createCivicEngagementInitializationService(
               break;
             }
 
-            stats.retries++;
-            stats.apiErrors++;
+            this.stats.retries++;
+            this.stats.apiErrors++;
 
             // Exponential backoff
-            const currentRetryDelay = retryDelay * Math.pow(2, attempt - 1);
+            const currentRetryDelay =
+              this.retryDelay * Math.pow(2, attempt - 1);
             console.log(
               `⏳ [CivicEngagementInitialization] Retrying in ${currentRetryDelay}ms...`,
             );
@@ -214,80 +225,74 @@ export function createCivicEngagementInitializationService(
       }
 
       console.log(
-        `🎯 [CivicEngagementInitialization] Fetch complete: ${allCivicEngagements.length} total civic engagements`,
+        `🎯 [CivicEngagementInitialization] Total civic engagements fetched: ${allCivicEngagements.length}`,
       );
+
       return allCivicEngagements;
     } catch (error) {
       console.error(
-        "💥 [CivicEngagementInitialization] Error fetching civic engagements:",
+        "❌ [CivicEngagementInitialization] Error fetching civic engagements:",
         error,
       );
-      return [];
+      throw error;
     }
   }
 
   /**
    * Process a batch of civic engagements
    */
-  async function processCivicEngagementsBatch(
+  private async processCivicEngagementsBatch(
     civicEngagements: CivicEngagement[],
   ): Promise<void> {
-    try {
+    console.log(
+      `⚙️ [CivicEngagementInitialization] Processing ${civicEngagements.length} civic engagements...`,
+    );
+
+    const batchSize = 50;
+    const batches = [];
+
+    for (let i = 0; i < civicEngagements.length; i += batchSize) {
+      batches.push(civicEngagements.slice(i, i + batchSize));
+    }
+
+    console.log(
+      `📦 [CivicEngagementInitialization] Processing ${batches.length} batches of up to ${batchSize} civic engagements each`,
+    );
+
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
       console.log(
-        `⚙️ [CivicEngagementInitialization] Processing ${civicEngagements.length} civic engagements...`,
+        `📦 [CivicEngagementInitialization] Processing batch ${batchIndex + 1}/${batches.length} (${batch.length} civic engagements)`,
       );
 
-      // Remove duplicates based on civic engagement ID
-      const uniqueCivicEngagements = Array.from(
-        new Map(
-          civicEngagements.map((civicEngagement) => [
-            civicEngagement.id,
-            civicEngagement,
-          ]),
-        ).values(),
-      );
-
-      console.log(
-        `🔄 [CivicEngagementInitialization] Processing ${uniqueCivicEngagements.length} unique civic engagements...`,
-      );
-
-      // Process each civic engagement
-      for (const civicEngagement of uniqueCivicEngagements) {
+      const promises = batch.map(async (civicEngagement) => {
         try {
-          await eventProcessor.processCivicEngagement({
+          await this.eventProcessor.processCivicEngagement({
             operation: "CREATE",
             record: civicEngagement,
           });
-          stats.civicEngagementsProcessed++;
-
-          if (stats.civicEngagementsProcessed % 50 === 0) {
-            console.log(
-              `📈 [CivicEngagementInitialization] Processed ${stats.civicEngagementsProcessed} civic engagements so far...`,
-            );
-          }
+          this.stats.civicEngagementsProcessed++;
         } catch (error) {
           console.error(
             `❌ [CivicEngagementInitialization] Error processing civic engagement ${civicEngagement.id}:`,
             error,
           );
         }
-      }
+      });
+
+      await Promise.all(promises);
 
       console.log(
-        `✅ [CivicEngagementInitialization] Successfully processed ${stats.civicEngagementsProcessed} civic engagements`,
-      );
-    } catch (error) {
-      console.error(
-        "💥 [CivicEngagementInitialization] Error processing civic engagements batch:",
-        error,
+        `✅ [CivicEngagementInitialization] Batch ${batchIndex + 1} complete`,
       );
     }
+
+    console.log(
+      `🎯 [CivicEngagementInitialization] All batches complete. Processed ${this.stats.civicEngagementsProcessed} civic engagements`,
+    );
   }
 
-  /**
-   * Normalize civic engagement data from API response
-   */
-  function normalizeCivicEngagementData(civicEngagement: {
+  private normalizeCivicEngagementData(civicEngagement: {
     id: string;
     title: string;
     description?: string;
@@ -306,48 +311,82 @@ export function createCivicEngagementInitializationService(
     updated_at?: string;
     updatedAt?: string;
   }): CivicEngagement {
+    // Normalize date fields
+    const createdAt = civicEngagement.createdAt || civicEngagement.created_at;
+    const updatedAt = civicEngagement.updatedAt || civicEngagement.updated_at;
+
+    // Normalize type
+    let type: CivicEngagementType;
+    switch (civicEngagement.type.toUpperCase()) {
+      case "POSITIVE_FEEDBACK":
+        type = CivicEngagementType.POSITIVE_FEEDBACK;
+        break;
+      case "NEGATIVE_FEEDBACK":
+        type = CivicEngagementType.NEGATIVE_FEEDBACK;
+        break;
+      case "IDEA":
+        type = CivicEngagementType.IDEA;
+        break;
+      default:
+        type = CivicEngagementType.IDEA; // Default fallback
+    }
+
+    // Normalize status
+    let status: CivicEngagementStatus;
+    switch (civicEngagement.status.toUpperCase()) {
+      case "PENDING":
+        status = CivicEngagementStatus.PENDING;
+        break;
+      case "UNDER_REVIEW":
+        status = CivicEngagementStatus.UNDER_REVIEW;
+        break;
+      case "APPROVED":
+        status = CivicEngagementStatus.APPROVED;
+        break;
+      case "REJECTED":
+        status = CivicEngagementStatus.REJECTED;
+        break;
+      case "IMPLEMENTED":
+        status = CivicEngagementStatus.IMPLEMENTED;
+        break;
+      default:
+        status = CivicEngagementStatus.PENDING; // Default fallback
+    }
+
     return {
       id: civicEngagement.id,
       title: civicEngagement.title,
       description: civicEngagement.description,
-      type: civicEngagement.type as CivicEngagementType,
-      status: civicEngagement.status as CivicEngagementStatus,
-      location: civicEngagement.location as Point,
+      type,
+      status,
+      location: civicEngagement.location
+        ? {
+            type: "Point",
+            coordinates: civicEngagement.location.coordinates as [
+              number,
+              number,
+            ],
+          }
+        : undefined,
       address: civicEngagement.address,
       locationNotes: civicEngagement.locationNotes,
-      imageUrls: civicEngagement.imageUrls,
+      imageUrls: civicEngagement.imageUrls || [],
       creatorId: civicEngagement.creatorId,
       creator: civicEngagement.creator,
       adminNotes: civicEngagement.adminNotes,
       implementedAt: civicEngagement.implementedAt,
-      createdAt:
-        civicEngagement.created_at ||
-        civicEngagement.createdAt ||
-        new Date().toISOString(),
-      updatedAt:
-        civicEngagement.updated_at ||
-        civicEngagement.updatedAt ||
-        new Date().toISOString(),
+      createdAt: createdAt || new Date().toISOString(),
+      updatedAt: updatedAt || new Date().toISOString(),
     };
   }
+}
 
-  /**
-   * Get current statistics
-   */
-  function getStats(): Record<string, unknown> {
-    return {
-      civicEngagementsFetched: stats.civicEngagementsFetched,
-      civicEngagementsProcessed: stats.civicEngagementsProcessed,
-      apiCalls: stats.apiCalls,
-      apiErrors: stats.apiErrors,
-      retries: stats.retries,
-      lastInitializationTime: stats.lastInitializationTime,
-    };
-  }
-
-  return {
-    initializeCivicEngagements,
-    clearAllCivicEngagements,
-    getStats,
-  };
+/**
+ * Factory function to create civic engagement initialization service
+ */
+export function createCivicEngagementInitializationService(
+  eventProcessor: LegacyEventCacheHandler,
+  config: CivicEngagementInitializationServiceConfig = {},
+): CivicEngagementInitializationService {
+  return new CivicEngagementInitializationService(eventProcessor, config);
 }

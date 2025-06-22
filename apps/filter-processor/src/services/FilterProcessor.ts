@@ -17,15 +17,12 @@ import { createVectorService } from "./VectorService";
 // Entity Registry Integration
 import { EntityRegistry } from "./EntityRegistry";
 import { UnifiedMessageHandler } from "./UnifiedMessageHandler";
-import { EventProcessor as HandlerEventProcessor } from "../handlers/EventProcessor";
-import { EventProcessor } from "./processors/EventProcessor";
-import { CivicEngagementProcessor } from "./processors/CivicEngagementProcessor";
+import { LegacyEventCacheHandler as HandlerEventProcessor } from "../handlers/EventProcessor";
 import { UnifiedEntityProcessor } from "./processors/UnifiedEntityProcessor";
 import { createEntityCacheService } from "./EntityCacheService";
 import { createEventInitializationService } from "./EventInitializationService";
 import { createCivicEngagementInitializationService } from "./CivicEngagementInitializationService";
 import { FilteringStrategyFactory } from "./filtering/FilteringStrategyFactory";
-import { createEntityInitializationService } from "./EntityInitializationService";
 import { createUnifiedFilteringService } from "./UnifiedFilteringService";
 import { createClientConfigService } from "./ClientConfigService";
 
@@ -153,21 +150,17 @@ export function createFilterProcessor(
   const handlerEventProcessor = new HandlerEventProcessor(
     unifiedSpatialCacheService,
   );
-  const eventProcessor = new EventProcessor(unifiedSpatialCacheService);
-  const civicEngagementProcessor = new CivicEngagementProcessor(
-    unifiedSpatialCacheService,
-  );
   const unifiedEntityProcessor = new UnifiedEntityProcessor(
     unifiedSpatialCacheService,
   );
 
   // Create the real initialization services
-  const realEventInitializationService = createEventInitializationService(
+  const eventInitializationService = createEventInitializationService(
     handlerEventProcessor,
     eventInitializationConfig,
   );
 
-  const realCivicEngagementInitializationService =
+  const civicEngagementInitializationService =
     createCivicEngagementInitializationService(
       handlerEventProcessor,
       eventInitializationConfig,
@@ -191,37 +184,6 @@ export function createFilterProcessor(
   );
   const civicEngagementFilteringStrategy =
     FilteringStrategyFactory.createStrategy("civic_engagement", "simple");
-
-  // Create wrapper services that implement EntityInitializationService interface
-  const eventInitializationService = createEntityInitializationService(
-    "event",
-    eventProcessor,
-    undefined,
-    eventInitializationConfig,
-  );
-
-  const civicEngagementInitializationService =
-    createEntityInitializationService(
-      "civic_engagement",
-      undefined,
-      civicEngagementProcessor,
-      eventInitializationConfig,
-    );
-
-  // Override the initializeEntities method to call the real services
-  eventInitializationService.initializeEntities = async () => {
-    console.log(
-      "🔄 [FilterProcessor] Calling real event initialization service...",
-    );
-    await realEventInitializationService.initializeEvents();
-  };
-
-  civicEngagementInitializationService.initializeEntities = async () => {
-    console.log(
-      "🔄 [FilterProcessor] Calling real civic engagement initialization service...",
-    );
-    await realCivicEngagementInitializationService.initializeCivicEngagements();
-  };
 
   // Register entity types with the registry using the unified system
   entityRegistry.registerEntityType(
