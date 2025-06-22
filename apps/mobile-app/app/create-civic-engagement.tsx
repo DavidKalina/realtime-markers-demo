@@ -14,7 +14,10 @@ import {
   LocationSelector,
   LocationOption,
 } from "@/components/LocationSelector/LocationSelector";
-import { Select } from "@/components/Select/Select";
+import {
+  CheckboxGroup,
+  SelectableItem,
+} from "@/components/CheckboxGroup/CheckboxGroup";
 
 const CreateCivicEngagement = () => {
   const router = useRouter();
@@ -215,32 +218,41 @@ const CreateCivicEngagement = () => {
     }
   };
 
-  const typeOptions = [
+  const typeOptions: SelectableItem[] = [
     {
       id: CivicEngagementType.IDEA,
-      label: "💡 Idea",
-      description: "Share a new idea or suggestion",
+      firstName: "💡 Idea",
+      lastName: "Share a new idea or suggestion",
     },
     {
       id: CivicEngagementType.POSITIVE_FEEDBACK,
-      label: "👍 Positive Feedback",
-      description: "Share positive feedback about something",
+      firstName: "👍 Positive Feedback",
+      lastName: "Share positive feedback about something",
     },
     {
       id: CivicEngagementType.NEGATIVE_FEEDBACK,
-      label: "👎 Negative Feedback",
-      description: "Share concerns or issues that need attention",
+      firstName: "👎 Negative Feedback",
+      lastName: "Share concerns or issues that need attention",
     },
   ];
 
   const selectedTypeOption = typeOptions.find((option) => option.id === type);
 
+  const handleTypeSelectionChange = (selectedItems: SelectableItem[]) => {
+    // Since we only want single selection, take the last selected item
+    if (selectedItems.length > 0) {
+      const lastSelected = selectedItems[selectedItems.length - 1];
+      setType(lastSelected.id as CivicEngagementType);
+    }
+  };
+
+  // Convert selected type to array format for CheckboxGroup
+  const selectedTypeItems = selectedTypeOption ? [selectedTypeOption] : [];
+
   return (
     <AuthWrapper>
       <Screen
-        bannerTitle={
-          params.title ? "Update Civic Engagement" : "Submit Civic Engagement"
-        }
+        bannerTitle={"Feedback"}
         showBackButton={true}
         onBack={() => router.back()}
         footerButtons={[
@@ -286,11 +298,15 @@ const CreateCivicEngagement = () => {
 
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Type</Text>
-            <Select
-              value={selectedTypeOption}
-              options={typeOptions}
-              onChange={(option) => setType(option.id as CivicEngagementType)}
-              placeholder="Select type"
+            <CheckboxGroup
+              selectedItems={selectedTypeItems}
+              onSelectionChange={handleTypeSelectionChange}
+              items={typeOptions}
+              buttonText="Select civic engagement type"
+              modalTitle="Select Type"
+              emptyMessage="No types available"
+              loadingMessage="Loading types..."
+              errorMessage="Error loading types"
             />
           </View>
 
@@ -345,6 +361,18 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.textPrimary,
     fontFamily: "Poppins-Regular",
+  },
+  mapSection: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  mapInstruction: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+    fontFamily: "Poppins-Regular",
+    marginBottom: 16,
   },
 });
 

@@ -53,11 +53,11 @@ const DefaultItemCard = <T extends SelectableItem>({
   >
     <View style={styles.itemInfo}>
       <Text style={styles.itemName}>
-        {item.firstName && item.lastName
-          ? `${item.firstName} ${item.lastName}`
-          : item.email || item.id}
+        {item.firstName || item.email || item.id}
       </Text>
-      {item.email && <Text style={styles.itemEmail}>{item.email}</Text>}
+      {item.lastName && (
+        <Text style={styles.itemDescription}>{item.lastName}</Text>
+      )}
     </View>
     <View style={[styles.checkbox, isSelected && styles.checkboxSelected]} />
   </TouchableOpacity>
@@ -114,6 +114,24 @@ export const CheckboxGroup = <T extends SelectableItem>({
           {buttonText} ({selectedItems.length})
         </Text>
       </TouchableOpacity>
+
+      {/* Display selected items */}
+      {selectedItems.length > 0 && (
+        <View style={styles.selectedItemsContainer}>
+          {selectedItems.map((item) => (
+            <View key={item.id} style={styles.selectedItemDisplay}>
+              <Text style={styles.selectedItemText}>
+                {item.firstName || item.email || item.id}
+              </Text>
+              {item.lastName && (
+                <Text style={styles.selectedItemDescription}>
+                  {item.lastName}
+                </Text>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
 
       <Modal
         visible={isModalVisible}
@@ -238,7 +256,7 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins-Regular",
     marginBottom: 4,
   },
-  itemEmail: {
+  itemDescription: {
     color: COLORS.textSecondary,
     fontSize: 14,
     fontFamily: "Poppins-Regular",
@@ -290,6 +308,31 @@ const styles = StyleSheet.create({
     color: "#000",
     fontSize: 18,
     fontWeight: "800",
+    fontFamily: "Poppins-Regular",
+  },
+  selectedItemsContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.buttonBorder,
+  },
+  selectedItemDisplay: {
+    padding: 8,
+    backgroundColor: COLORS.background,
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  selectedItemText: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
+  },
+  selectedItemDescription: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
     fontFamily: "Poppins-Regular",
   },
 });
