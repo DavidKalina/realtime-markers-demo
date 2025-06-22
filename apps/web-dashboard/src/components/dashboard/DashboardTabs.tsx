@@ -11,7 +11,6 @@ import {
   Plus,
   Search,
   Users,
-  MessageSquare,
   Loader2,
 } from "lucide-react";
 import { useRoutePreloader } from "@/utils/preloadUtils";
@@ -41,11 +40,6 @@ const tabs = [
     name: "Map",
     href: "/map",
     icon: MapPin,
-  },
-  {
-    name: "Civic Engagements",
-    href: "/civic-engagements",
-    icon: MessageSquare,
   },
   {
     name: "Users",
