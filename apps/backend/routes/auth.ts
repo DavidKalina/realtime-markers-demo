@@ -27,6 +27,8 @@ authRouter.use(
 authRouter.post("/register", handlers.registerHandler);
 authRouter.post("/login", handlers.loginHandler);
 authRouter.post("/refresh-token", handlers.refreshTokenHandler);
+authRouter.post("/oauth/google", handlers.googleOAuthHandler);
+authRouter.post("/oauth/facebook", handlers.facebookOAuthHandler);
 
 // Protected routes (session required)
 // You can attach the middleware as a parameter for each route

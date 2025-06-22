@@ -30,6 +30,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { AuthWrapper } from "../AuthWrapper";
 import Input from "../Input/Input";
+import OAuthButtons from "./OAuthButtons";
 
 const newColors = {
   background: "#00697A",
@@ -565,6 +566,8 @@ const Login: React.FC = () => {
                       <Text style={styles.createAccountLink}>Create one</Text>
                     </TouchableOpacity>
                   </View>
+
+                  <OAuthButtons onError={setError} />
                 </Animated.View>
               </Animated.View>
             </Animated.View>
