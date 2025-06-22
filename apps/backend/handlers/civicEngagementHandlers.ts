@@ -162,8 +162,8 @@ export const getNearbyCivicEngagementsHandler: CivicEngagementHandler =
 
 export const getCivicEngagementStatsHandler: CivicEngagementHandler =
   withErrorHandling(async (c) => {
-    const civicEngagementService = c.get("civicEngagementService");
-    const stats = await civicEngagementService.getStats();
+    const civicEngagementSearchService = c.get("civicEngagementSearchService");
+    const stats = await civicEngagementSearchService.getStats();
 
     return c.json(stats);
   });
@@ -200,4 +200,97 @@ export const deleteCivicEngagementHandler: CivicEngagementHandler =
     await civicEngagementService.deleteCivicEngagement(id);
 
     return c.json({ success: true });
+  });
+
+export const searchCivicEngagementsHandler: CivicEngagementHandler =
+  withErrorHandling(async (c) => {
+    const query = requireParam(c, "query");
+    const limit = c.req.query("limit") ? parseInt(c.req.query("limit")!) : 10;
+
+    const civicEngagementSearchService = c.get("civicEngagementSearchService");
+    const result = await civicEngagementSearchService.searchCivicEngagements(
+      query,
+      limit,
+    );
+
+    return c.json({
+      civicEngagements: result.results.map((r) => r.civicEngagement),
+      total: result.results.length,
+      scores: result.results.map((r) => ({
+        id: r.civicEngagement.id,
+        score: r.score,
+      })),
+    });
+  });
+
+export const getRecentCivicEngagementsHandler: CivicEngagementHandler =
+  withErrorHandling(async (c) => {
+    const limit = c.req.query("limit") ? parseInt(c.req.query("limit")!) : 10;
+    const cursor = c.req.query("cursor");
+
+    const civicEngagementSearchService = c.get("civicEngagementSearchService");
+    const result = await civicEngagementSearchService.getRecentCivicEngagements(
+      { limit, cursor },
+    );
+
+    return c.json({
+      civicEngagements: result.civicEngagements,
+      nextCursor: result.nextCursor,
+    });
+  });
+
+export const getCivicEngagementsByTypeHandler: CivicEngagementHandler =
+  withErrorHandling(async (c) => {
+    const type = requireParam(c, "type");
+    const limit = c.req.query("limit") ? parseInt(c.req.query("limit")!) : 10;
+    const cursor = c.req.query("cursor");
+
+    const civicEngagementSearchService = c.get("civicEngagementSearchService");
+    const result = await civicEngagementSearchService.getCivicEngagementsByType(
+      type,
+      { limit, cursor },
+    );
+
+    return c.json({
+      civicEngagements: result.civicEngagements,
+      nextCursor: result.nextCursor,
+    });
+  });
+
+export const getCivicEngagementsByStatusHandler: CivicEngagementHandler =
+  withErrorHandling(async (c) => {
+    const status = requireParam(c, "status");
+    const limit = c.req.query("limit") ? parseInt(c.req.query("limit")!) : 10;
+    const cursor = c.req.query("cursor");
+
+    const civicEngagementSearchService = c.get("civicEngagementSearchService");
+    const result =
+      await civicEngagementSearchService.getCivicEngagementsByStatus(status, {
+        limit,
+        cursor,
+      });
+
+    return c.json({
+      civicEngagements: result.civicEngagements,
+      nextCursor: result.nextCursor,
+    });
+  });
+
+export const getCivicEngagementsByCreatorHandler: CivicEngagementHandler =
+  withErrorHandling(async (c) => {
+    const creatorId = requireParam(c, "creatorId");
+    const limit = c.req.query("limit") ? parseInt(c.req.query("limit")!) : 10;
+    const cursor = c.req.query("cursor");
+
+    const civicEngagementSearchService = c.get("civicEngagementSearchService");
+    const result =
+      await civicEngagementSearchService.getCivicEngagementsByCreator(
+        creatorId,
+        { limit, cursor },
+      );
+
+    return c.json({
+      civicEngagements: result.civicEngagements,
+      nextCursor: result.nextCursor,
+    });
   });

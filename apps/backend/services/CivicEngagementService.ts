@@ -10,17 +10,40 @@ import type {
   CivicEngagementStats,
 } from "../types/civicEngagement";
 import type { RedisService } from "./shared/RedisService";
+import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
+import {
+  generateCivicEngagementEmbedding,
+  prepareCivicEngagementUpdateData,
+} from "../utils/civicEngagementUtils";
+import pgvector from "pgvector";
 
 export class CivicEngagementService {
   constructor(
     private readonly civicEngagementRepository: Repository<CivicEngagement>,
     private readonly redisService: RedisService,
+    private readonly embeddingService?: IEmbeddingService,
   ) {}
 
   async createCivicEngagement(
     input: CreateCivicEngagementInput,
   ): Promise<CivicEngagement> {
+    // Generate embedding if embedding service is available
+    let embedding: number[] | undefined;
+    if (this.embeddingService) {
+      const dataWithEmbedding = await generateCivicEngagementEmbedding(
+        input as CreateCivicEngagementInput & { embedding?: number[] },
+        this.embeddingService,
+      );
+      embedding = dataWithEmbedding.embedding;
+    }
+
     const civicEngagement = this.civicEngagementRepository.create(input);
+
+    // Convert embedding array to SQL format if present
+    if (embedding && embedding.length > 0) {
+      civicEngagement.embedding = pgvector.toSql(embedding);
+    }
+
     const saved = await this.civicEngagementRepository.save(civicEngagement);
 
     // Publish to Redis for real-time updates
@@ -48,8 +71,23 @@ export class CivicEngagementService {
       throw new Error("Civic engagement not found");
     }
 
+    // Generate embedding if embedding service is available and content changed
+    let embedding: number[] | undefined;
+    if (this.embeddingService && (input.title || input.description)) {
+      const updateDataWithEmbedding = await prepareCivicEngagementUpdateData(
+        input as UpdateCivicEngagementInput & { embedding?: number[] },
+        this.embeddingService,
+      );
+      embedding = updateDataWithEmbedding.embedding;
+    }
+
     // Update fields
     Object.assign(civicEngagement, input);
+
+    // Convert embedding array to SQL format if present
+    if (embedding && embedding.length > 0) {
+      civicEngagement.embedding = pgvector.toSql(embedding);
+    }
 
     // Handle status changes
     if (
@@ -71,6 +109,43 @@ export class CivicEngagementService {
     });
 
     return updated;
+  }
+
+  async searchCivicEngagements(
+    query: string,
+    limit: number = 10,
+  ): Promise<{ items: CivicEngagement[]; total: number }> {
+    if (!this.embeddingService) {
+      // Fallback to text search if no embedding service
+      return this.getCivicEngagements({ search: query, limit });
+    }
+
+    try {
+      // Generate embedding for the search query
+      const queryEmbedding = await this.embeddingService.getEmbedding(query);
+
+      // Build query with semantic search
+      const queryBuilder = this.civicEngagementRepository
+        .createQueryBuilder("ce")
+        .leftJoinAndSelect("ce.creator", "creator")
+        .where("ce.embedding IS NOT NULL")
+        .addSelect(
+          "(1 - (ce.embedding <-> :embedding)::float)",
+          "similarity_score",
+        )
+        .setParameter("embedding", queryEmbedding)
+        .orderBy("similarity_score", "DESC")
+        .limit(limit);
+
+      const items = await queryBuilder.getMany();
+      const total = await queryBuilder.getCount();
+
+      return { items, total };
+    } catch (error) {
+      console.error("Error in semantic search:", error);
+      // Fallback to text search
+      return this.getCivicEngagements({ search: query, limit });
+    }
   }
 
   async getCivicEngagements(filters: CivicEngagementFilters): Promise<{

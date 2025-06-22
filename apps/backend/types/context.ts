@@ -12,6 +12,8 @@ import type { IEmbeddingService } from "../services/event-processing/interfaces/
 import type { CategoryProcessingService } from "../services/CategoryProcessingService";
 import type { EmailService } from "../services/shared/EmailService";
 import type { CivicEngagementService } from "../services/CivicEngagementService";
+import type { CivicEngagementSearchService } from "../services/CivicEngagementSearchService";
+import type { CivicEngagementCacheService } from "../services/shared/CivicEngagementCacheService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -27,6 +29,8 @@ export interface AppVariables {
   categoryProcessingService: CategoryProcessingService;
   emailService: EmailService;
   civicEngagementService: CivicEngagementService;
+  civicEngagementSearchService: CivicEngagementSearchService;
+  civicEngagementCacheService: CivicEngagementCacheService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

@@ -79,6 +79,10 @@ export class CivicEngagement {
   @Column({ type: "jsonb", nullable: true, name: "image_urls" })
   imageUrls?: string[];
 
+  // Embedding for semantic search
+  @Column({ name: "embedding", type: "text", nullable: true })
+  embedding?: string;
+
   // Admin fields
   @Column({ type: "text", nullable: true, name: "admin_notes" })
   adminNotes?: string;

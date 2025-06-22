@@ -23,6 +23,8 @@ import { createGoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import { createJobQueue } from "./JobQueue";
 import { RepositoryInitializer } from "./RepositoryInitializer";
 import { CivicEngagementService } from "./CivicEngagementService";
+import { createCivicEngagementSearchService } from "./CivicEngagementSearchService";
+import { createCivicEngagementCacheService } from "./shared/CivicEngagementCacheService";
 import type { EventService } from "./EventServiceRefactored";
 import type { EventProcessingService } from "./EventProcessingService";
 import type { CategoryProcessingService } from "./CategoryProcessingService";
@@ -35,6 +37,8 @@ import type { EmailService } from "./shared/EmailService";
 import type { JobQueue } from "./JobQueue";
 import type { RedisService } from "./shared/RedisService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
+import type { CivicEngagementSearchService } from "./CivicEngagementSearchService";
+import type { CivicEngagementCacheService } from "./shared/CivicEngagementCacheService";
 
 export interface ServiceContainer {
   eventService: EventService;
@@ -50,6 +54,8 @@ export interface ServiceContainer {
   redisService: RedisService;
   geocodingService: GoogleGeocodingService;
   civicEngagementService: CivicEngagementService;
+  civicEngagementSearchService: CivicEngagementSearchService;
+  civicEngagementCacheService: CivicEngagementCacheService;
 }
 
 export class ServiceInitializer {
@@ -168,7 +174,20 @@ export class ServiceInitializer {
     const civicEngagementService = new CivicEngagementService(
       repositories.civicEngagementRepository,
       redisService,
+      embeddingService,
     );
+
+    // Initialize civic engagement cache service
+    const civicEngagementCacheService = createCivicEngagementCacheService(
+      this.redisClient,
+    );
+
+    // Initialize civic engagement search service
+    const civicEngagementSearchService = createCivicEngagementSearchService({
+      dataSource: this.dataSource,
+      embeddingService,
+      civicEngagementCacheService,
+    });
 
     console.log("Services initialized successfully");
 
@@ -186,6 +205,8 @@ export class ServiceInitializer {
       redisService,
       geocodingService,
       civicEngagementService,
+      civicEngagementSearchService,
+      civicEngagementCacheService,
     };
   }
 

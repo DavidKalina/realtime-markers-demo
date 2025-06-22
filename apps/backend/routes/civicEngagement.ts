@@ -28,6 +28,26 @@ civicEngagementRouter.get(
   civicEngagementHandlers.getCivicEngagementsHandler,
 );
 civicEngagementRouter.get(
+  "/search/:query",
+  civicEngagementHandlers.searchCivicEngagementsHandler,
+);
+civicEngagementRouter.get(
+  "/recent",
+  civicEngagementHandlers.getRecentCivicEngagementsHandler,
+);
+civicEngagementRouter.get(
+  "/type/:type",
+  civicEngagementHandlers.getCivicEngagementsByTypeHandler,
+);
+civicEngagementRouter.get(
+  "/status/:status",
+  civicEngagementHandlers.getCivicEngagementsByStatusHandler,
+);
+civicEngagementRouter.get(
+  "/creator/:creatorId",
+  civicEngagementHandlers.getCivicEngagementsByCreatorHandler,
+);
+civicEngagementRouter.get(
   "/stats",
   civicEngagementHandlers.getCivicEngagementStatsHandler,
 );
