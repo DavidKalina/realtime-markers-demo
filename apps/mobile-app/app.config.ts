@@ -3,11 +3,11 @@ import "dotenv/config";
 
 export default {
   expo: {
-    name: "MapMoji",
+    name: "Frederick",
     slug: "mobile-app",
-    version: "1.15.5",
+    version: "1.15.6",
     orientation: "portrait",
-    icon: "./assets/images/logo.png",
+    icon: "./assets/images/frederick-logo.png",
     scheme: "myapp",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
@@ -21,18 +21,18 @@ export default {
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription:
-          "MapMoji uses your location while the app is in use to center the map on your current position and improve address search results when scanning event flyers. Coordinates are sent to our server for better relevance.",
+          "Frederick uses your location while the app is in use to center the map on your current position and improve address search results when scanning event flyers. Coordinates are sent to our server for better relevance.",
         NSLocationAlwaysUsageDescription:
-          "MapMoji may access your location in the background to support location-based flyer scanning and event discovery. Your coordinates are securely sent to our server to improve results.",
+          "Frederick may access your location in the background to support location-based flyer scanning and event discovery. Your coordinates are securely sent to our server to improve results.",
         NSCameraUsageDescription:
-          "MapMoji needs camera access to scan event flyers. Images are processed on our server and may be stored to display event details to other users.",
+          "Frederick needs camera access to scan event flyers. Images are processed on our server and may be stored to display event details to other users.",
         NSAppTransportSecurity: {
           NSAllowsArbitraryLoads: false,
         },
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "156",
+      buildNumber: "157",
     },
     android: {
       adaptiveIcon: {
