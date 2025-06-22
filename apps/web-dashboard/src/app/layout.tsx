@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Space_Mono } from "next/font/google";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { MunicipalConfigProvider } from "@/contexts/MunicipalConfigContext";
@@ -7,10 +7,10 @@ import { ToastProvider } from "@/contexts/ToastContext";
 import { Footer } from "@/components/ui/footer";
 import { Toaster } from "@/components/ui/toaster";
 
-const spaceMono = Space_Mono({
+const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "700"],
-  variable: "--font-space-mono",
+  variable: "--font-poppins",
 });
 
 export const metadata: Metadata = {
@@ -26,7 +26,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="min-h-screen bg-gray-50">
-      <body className={`${spaceMono.className} min-h-screen bg-gray-50 pb-64`}>
+      <body
+        className={`${poppins.className} min-h-screen bg-gray-50 flex flex-col`}
+      >
         <ToastProvider>
           <MunicipalConfigProvider>
             <AuthProvider>{children}</AuthProvider>

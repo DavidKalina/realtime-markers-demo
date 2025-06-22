@@ -18,7 +18,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <LayoutWrapper>
-      <div className="container mx-auto p-8">
+      <div className="container mx-auto p-8 pb-16">
         {/* Header with user info and logout */}
         <div className="flex justify-between items-center mb-8">
           <div>

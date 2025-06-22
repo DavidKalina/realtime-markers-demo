@@ -68,7 +68,7 @@ export function MunicipalBanner({
   if (isFrederick) {
     return (
       <div
-        className={`w-full flex items-center justify-between ${heightClasses[height]} px-4 shadow-sm ${className}`}
+        className={`w-full shadow-sm ${className}`}
         style={{
           background:
             typeof colors.background === "string"
@@ -77,34 +77,41 @@ export function MunicipalBanner({
           minHeight: 0,
         }}
       >
-        <div className="flex items-center space-x-3">
-          {logo && (
-            <Image
-              src={logo.src}
-              alt={logo.alt}
-              width={logo.width || 32}
-              height={logo.height || 32}
-              className="object-contain"
-            />
-          )}
-          <div className="flex flex-col leading-tight">
-            <span className="font-bold text-lg" style={{ color: colors.text }}>
-              {title}
-            </span>
-            {subtitle && (
-              <span
-                className="text-xs"
-                style={{ color: (colors as any).subtitle || colors.text }}
-              >
-                {subtitle}
-              </span>
-            )}
-          </div>
-        </div>
         <div
-          className="h-10 w-1 rounded-full"
-          style={{ backgroundColor: colors.accent || "#f59e0b" }}
-        />
+          className={`container mx-auto flex items-center justify-between ${heightClasses[height]}`}
+        >
+          <div className="flex items-center space-x-3">
+            {logo && (
+              <Image
+                src={logo.src}
+                alt={logo.alt}
+                width={logo.width || 32}
+                height={logo.height || 32}
+                className="object-contain"
+              />
+            )}
+            <div className="flex flex-col leading-tight">
+              <span
+                className="font-bold text-lg"
+                style={{ color: colors.text }}
+              >
+                {title}
+              </span>
+              {subtitle && (
+                <span
+                  className="text-xs"
+                  style={{ color: (colors as any).subtitle || colors.text }}
+                >
+                  {subtitle}
+                </span>
+              )}
+            </div>
+          </div>
+          <div
+            className="h-10 w-1 rounded-full"
+            style={{ backgroundColor: colors.accent || "#f59e0b" }}
+          />
+        </div>
       </div>
     );
   }
@@ -127,46 +134,47 @@ export function MunicipalBanner({
 
   return (
     <div className={`w-full ${className}`}>
-      <div
-        className={`${heightClasses[height]} w-full flex items-center justify-between px-6 shadow-sm`}
-        style={getBackgroundStyle()}
-      >
-        <div className="flex items-center space-x-4">
-          {logo && (
-            <div className="flex-shrink-0">
-              <Image
-                src={logo.src}
-                alt={logo.alt}
-                width={logo.width || 40}
-                height={logo.height || 40}
-                className="object-contain"
-              />
-            </div>
-          )}
-          <div className="flex flex-col">
-            <h1
-              className="text-xl font-bold leading-tight"
-              style={{ color: colors.text }}
-            >
-              {title}
-            </h1>
-            {subtitle && (
-              <p
-                className="text-sm opacity-90 leading-tight"
+      <div className="shadow-sm" style={getBackgroundStyle()}>
+        <div
+          className={`container mx-auto ${heightClasses[height]} flex items-center justify-between`}
+        >
+          <div className="flex items-center space-x-4">
+            {logo && (
+              <div className="flex-shrink-0">
+                <Image
+                  src={logo.src}
+                  alt={logo.alt}
+                  width={logo.width || 40}
+                  height={logo.height || 40}
+                  className="object-contain"
+                />
+              </div>
+            )}
+            <div className="flex flex-col">
+              <h1
+                className="text-xl font-bold leading-tight"
                 style={{ color: colors.text }}
               >
-                {subtitle}
-              </p>
-            )}
+                {title}
+              </h1>
+              {subtitle && (
+                <p
+                  className="text-sm opacity-90 leading-tight"
+                  style={{ color: colors.text }}
+                >
+                  {subtitle}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
 
-        {colors.accent && (
-          <div
-            className="w-1 h-12 rounded-full"
-            style={{ backgroundColor: colors.accent }}
-          />
-        )}
+          {colors.accent && (
+            <div
+              className="w-1 h-12 rounded-full"
+              style={{ backgroundColor: colors.accent }}
+            />
+          )}
+        </div>
       </div>
 
       {showDivider && (
