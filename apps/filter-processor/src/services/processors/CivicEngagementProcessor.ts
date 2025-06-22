@@ -184,6 +184,18 @@ export class CivicEngagementProcessor
     entity: CivicEngagement,
     operation: string,
   ): Record<string, unknown> {
+    // For DELETE operations, we only need the entity ID
+    if (operation.toUpperCase() === "DELETE") {
+      return {
+        type: "civic_engagement",
+        operation,
+        data: {
+          id: entity.id,
+        },
+      };
+    }
+
+    // For CREATE and UPDATE operations, send full entity data
     return {
       type: "civic_engagement",
       operation,

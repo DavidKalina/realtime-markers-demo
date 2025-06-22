@@ -160,19 +160,105 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
       throw new Error(`No processor found for entity type: ${entityType}`);
     }
 
-    // Validate and normalize entity data
-    const entity = this.validateAndNormalizeEntity(processor, data, entityType);
-    const entityId = (entity as { id: string }).id;
+    // For DELETE operations, we need to get the affected users BEFORE processing the deletion
+    // because once the entity is removed from cache, we can't determine which users had it in their viewport
+    let affectedUsers = new Set<string>();
+    let entity: unknown;
+    let entityId: string;
+
+    if (operation.toUpperCase() === "DELETE") {
+      // For DELETE operations, extract coordinates from the deletion message
+      const entityData = data as Record<string, unknown>;
+      if (!entityData.id || typeof entityData.id !== "string") {
+        throw new Error("Missing required entity ID for deletion");
+      }
+
+      entityId = entityData.id;
+
+      // Debug logging to see what data we're receiving
+      console.log("[UnifiedMessageHandler] DELETE operation data:", {
+        entityId,
+        entityData,
+        hasLocation: !!entityData.location,
+        locationType: typeof entityData.location,
+        locationKeys: entityData.location
+          ? Object.keys(entityData.location as object)
+          : null,
+      });
+
+      // Extract coordinates if available in the deletion message
+      let coordinates: [number, number] | undefined;
+      if (entityData.location && typeof entityData.location === "object") {
+        const location = entityData.location as Record<string, unknown>;
+        if (
+          location.coordinates &&
+          Array.isArray(location.coordinates) &&
+          location.coordinates.length >= 2
+        ) {
+          coordinates = [
+            location.coordinates[0] as number,
+            location.coordinates[1] as number,
+          ];
+          console.log(
+            "[UnifiedMessageHandler] Extracted coordinates for DELETE:",
+            coordinates,
+          );
+        }
+      }
+
+      // For DELETE, use minimal entity data for processing
+      entity = { id: entityId };
+
+      // Get affected users AFTER deletion using coordinates if available
+      if (coordinates) {
+        // Create a minimal entity with location for affected user calculation
+        const minimalEntity = {
+          id: entityId,
+          location: {
+            type: "Point" as const,
+            coordinates,
+          },
+          creatorId: entityData.creatorId as string | undefined,
+          sharedWith: entityData.sharedWith as
+            | Array<{ sharedWithId: string }>
+            | undefined,
+          createdAt:
+            (entityData.createdAt as string) || new Date().toISOString(),
+          updatedAt:
+            (entityData.updatedAt as string) || new Date().toISOString(),
+        } as SpatialEntity;
+
+        affectedUsers = await this.getAffectedUsers(
+          entityType,
+          minimalEntity,
+          operation,
+        );
+      } else {
+        // No coordinates available, just notify creator if available
+        if (entityData.creatorId && typeof entityData.creatorId === "string") {
+          affectedUsers.add(entityData.creatorId);
+        }
+      }
+    } else {
+      // For CREATE and UPDATE operations, validate and normalize the full entity
+      entity = this.validateAndNormalizeEntity(
+        processor,
+        data,
+        entityType,
+        operation,
+      );
+      entityId = (entity as { id: string }).id;
+
+      // Get affected users for CREATE and UPDATE operations
+      affectedUsers = await this.getAffectedUsers(
+        entityType,
+        entity as SpatialEntity,
+        operation,
+      );
+    }
 
     // Process with retry logic
     await this.processWithRetry(processor, operation, entity);
-
-    // Get affected users
-    const affectedUsers = await this.getAffectedUsers(
-      entityType,
-      entity as SpatialEntity,
-      operation,
-    );
 
     // Mark affected users as dirty if callback is provided
     if (this.onUserDirty && affectedUsers.size > 0) {
@@ -246,9 +332,25 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
     processor: EntityProcessor,
     data: unknown,
     entityType: string,
+    operation?: string,
   ): unknown {
     try {
-      // Normalize the entity data
+      // For DELETE operations, we only need the entity ID
+      if (operation?.toUpperCase() === "DELETE") {
+        if (typeof data !== "object" || data === null) {
+          throw new Error("Invalid entity data for deletion");
+        }
+
+        const entityData = data as Record<string, unknown>;
+        if (!entityData.id || typeof entityData.id !== "string") {
+          throw new Error("Missing required entity ID for deletion");
+        }
+
+        // For DELETE, return a minimal object with just the ID
+        return { id: entityData.id };
+      }
+
+      // For CREATE and UPDATE operations, normalize and validate the full entity
       const entity = processor.normalizeEntity(data);
 
       // Validate the entity
@@ -330,7 +432,10 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
     if (
       entityConfig.hasLocation &&
       entity.location &&
-      (operation === "CREATE" || operation === "add" || operation === "update")
+      (operation === "CREATE" ||
+        operation === "add" ||
+        operation === "update" ||
+        operation === "DELETE")
     ) {
       const entityBounds = processor.getSpatialBounds(entity);
       if (entityBounds && this.viewportProcessor) {
@@ -338,10 +443,17 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
           const intersectingViewportUsers =
             await this.viewportProcessor.getIntersectingViewports(entityBounds);
 
+          console.log(
+            `[UnifiedMessageHandler] Found ${intersectingViewportUsers.length} users with intersecting viewports for ${operation} operation on ${entityType} ${entity.id}`,
+          );
+
           for (const { userId } of intersectingViewportUsers) {
             // Further check: Does this user have access to this specific entity?
             if (processor.isAccessible(entity, userId)) {
               affectedUsers.add(userId);
+              console.log(
+                `[UnifiedMessageHandler] Added user ${userId} to affected users for ${operation} operation on ${entityType} ${entity.id}`,
+              );
             }
           }
         } catch (error) {
@@ -392,8 +504,20 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
       const config = this.entityRegistry.getEntityType(entityType);
       if (!config) return;
 
-      // Format entity for WebSocket
-      const formattedEntity = processor.formatForWebSocket(entity, operation);
+      // For DELETE operations, we only need the entity ID, not the full formatted entity
+      let formattedEntity: Record<string, unknown>;
+      if (operation.toUpperCase() === "DELETE") {
+        formattedEntity = {
+          type: entityType,
+          operation,
+          data: {
+            id: (entity as { id: string }).id,
+          },
+        };
+      } else {
+        // For CREATE and UPDATE operations, format the full entity
+        formattedEntity = processor.formatForWebSocket(entity, operation);
+      }
 
       // Get the message type, handling potential undefined access
       const messageTypes = config.webSocket.messageTypes;
