@@ -6,6 +6,7 @@ import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import MunicipalBanner from "@/components/StatusBar/StatusBar";
 import DateRangeIndicator from "@/components/StatusBar/DateRangeIndicator";
+import PlusButton from "@/components/StatusBar/PlusButton";
 import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
 import {
   DEFAULT_CAMERA_SETTINGS,
@@ -33,7 +34,6 @@ import React, {
 import { Platform, View } from "react-native";
 import { runOnJS } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLORS } from "@/components/Layout/ScreenLayout";
 
 // Initialize MapboxGL only once, outside the component
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -473,17 +473,7 @@ function HomeScreen() {
       bottom: insets.bottom + 80, // Move higher up for better thumb placement
       right: 16,
       zIndex: 1000,
-      backgroundColor: COLORS.cardBackground,
-      borderRadius: 28, // Make it more circular for a compact button
-      padding: 0,
-      shadowColor: "#000",
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
-      shadowOpacity: 0.2,
-      shadowRadius: 8,
-      elevation: 8,
+      gap: 12, // Add gap between buttons
     }),
     [insets.bottom],
   );
@@ -547,6 +537,7 @@ function HomeScreen() {
 
           <View style={floatingDateButtonStyle}>
             <DateRangeIndicator />
+            <PlusButton />
           </View>
         </View>
       </View>
