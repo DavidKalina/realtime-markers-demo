@@ -5,6 +5,7 @@ import type {
   EntityProcessor,
 } from "../types/entities";
 import type { Redis } from "ioredis";
+import { ViewportProcessor } from "../handlers/ViewportProcessor";
 
 export interface UnifiedMessageHandlerConfig {
   maxRetries?: number;
@@ -51,7 +52,6 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
     entityTypeStats: new Map<string, { processed: number; failed: number }>(),
   };
 
-  private readonly activeViewports = new Map<string, Set<string>>(); // entityType -> Set<userId>
   private readonly messageQueue: Array<{
     entityType: string;
     operation: string;
@@ -73,6 +73,7 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
   constructor(
     private readonly entityRegistry: EntityRegistry,
     private readonly redisPub?: Redis,
+    private readonly viewportProcessor?: ViewportProcessor,
     config: UnifiedMessageHandlerConfig = {},
   ) {
     this.config = {
@@ -299,12 +300,13 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
   ): Promise<Set<string>> {
     const affectedUsers = new Set<string>();
     const processor = this.entityRegistry.getProcessor(entityType);
+    const entityConfig = this.entityRegistry.getEntityType(entityType);
 
-    if (!processor) {
+    if (!processor || !entityConfig) {
       return affectedUsers;
     }
 
-    // Add entity creator for CREATE, updates, and deletes
+    // 1. Add entity creator for CREATE, updates, and deletes
     if (
       (operation === "CREATE" ||
         operation === "add" ||
@@ -315,22 +317,45 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
       affectedUsers.add(entity.creatorId);
     }
 
-    // Get users in viewport for new entities or updates
+    // 2. Add users whose explicitly sharedWith list contains the entity (if applicable)
+    if (entity.sharedWith && Array.isArray(entity.sharedWith)) {
+      (entity.sharedWith as Array<{ sharedWithId: string }>).forEach(
+        (share) => {
+          affectedUsers.add(share.sharedWithId);
+        },
+      );
+    }
+
+    // 3. Find users whose viewports intersect the entity's location
     if (
+      entityConfig.hasLocation &&
       entity.location &&
       (operation === "CREATE" || operation === "add" || operation === "update")
     ) {
-      const viewportUsers = await this.getUsersInEntityViewport(
-        entityType,
-        entity,
-        processor,
-      );
+      const entityBounds = processor.getSpatialBounds(entity);
+      if (entityBounds && this.viewportProcessor) {
+        try {
+          const intersectingViewportUsers =
+            await this.viewportProcessor.getIntersectingViewports(entityBounds);
 
-      viewportUsers.forEach((userId) => affectedUsers.add(userId));
+          for (const { userId } of intersectingViewportUsers) {
+            // Further check: Does this user have access to this specific entity?
+            if (processor.isAccessible(entity, userId)) {
+              affectedUsers.add(userId);
+            }
+          }
+        } catch (error) {
+          console.error(
+            `[UnifiedMessageHandler] Error getting intersecting viewports for entity ${entity.id}:`,
+            error,
+          );
+        }
+      }
     }
 
-    // Limit the number of affected users to prevent performance issues
+    // 4. Limit the number of affected users to prevent performance issues
     if (affectedUsers.size > this.config.maxAffectedUsersPerUpdate) {
+      const originalSize = affectedUsers.size;
       const limitedUsers = new Set<string>();
       let count = 0;
       for (const userId of affectedUsers) {
@@ -339,68 +364,12 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
         count++;
       }
       console.warn(
-        `[UnifiedMessageHandler] Limited affected users from ${affectedUsers.size} to ${limitedUsers.size} for ${entityType} ${entity.id}`,
+        `[UnifiedMessageHandler] Limited affected users from ${originalSize} to ${limitedUsers.size} for ${entityType} ${entity.id}`,
       );
       return limitedUsers;
     }
 
     return affectedUsers;
-  }
-
-  private async getUsersInEntityViewport(
-    entityType: string,
-    entity: SpatialEntity,
-    processor: EntityProcessor,
-  ): Promise<Set<string>> {
-    const users = new Set<string>();
-
-    if (!this.config.enableViewportTracking) {
-      return users;
-    }
-
-    try {
-      // Get spatial bounds of the entity
-      const bounds = processor.getSpatialBounds(entity);
-      if (!bounds) {
-        return users;
-      }
-
-      // Get active viewports for this entity type
-      const activeViewports = this.activeViewports.get(entityType);
-      if (!activeViewports) {
-        return users;
-      }
-
-      // Check which users have viewports that intersect with the entity
-      for (const userId of activeViewports) {
-        // This is a simplified check - in a real implementation,
-        // you'd want to store actual viewport data and check intersection
-        users.add(userId);
-      }
-
-      // For now, we'll add a small buffer around the entity bounds
-      // and assume users within that area might be affected
-      const buffer = 0.01; // ~1km buffer
-      const bufferedBounds = {
-        minX: bounds.minX - buffer,
-        minY: bounds.minY - buffer,
-        maxX: bounds.maxX + buffer,
-        maxY: bounds.maxY + buffer,
-      };
-
-      // This would need to be implemented with actual viewport tracking
-      console.log(
-        `[UnifiedMessageHandler] Entity ${entity.id} affects area:`,
-        bufferedBounds,
-      );
-    } catch (error) {
-      console.error(
-        `[UnifiedMessageHandler] Error getting users in viewport for ${entityType}:`,
-        error,
-      );
-    }
-
-    return users;
   }
 
   private async sendWebSocketNotifications(
@@ -487,29 +456,28 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
   /**
    * Track user viewport for affected user calculation
    */
-  trackUserViewport(entityType: string, userId: string): void {
-    if (!this.config.enableViewportTracking) return;
+  trackUserViewport(
+    entityType: string,
+    userId: string,
+    viewport: {
+      minX: number;
+      minY: number;
+      maxX: number;
+      maxY: number;
+    },
+  ): void {
+    if (!this.config.enableViewportTracking || !this.viewportProcessor) return;
 
-    if (!this.activeViewports.has(entityType)) {
-      this.activeViewports.set(entityType, new Set());
-    }
-
-    const viewportSet = this.activeViewports.get(entityType);
-    if (viewportSet) {
-      viewportSet.add(userId);
-    }
-
-    // Store viewport data (simplified - in real implementation you'd want to store the actual viewport)
-    console.log(
-      `[UnifiedMessageHandler] Tracking viewport for user ${userId} on ${entityType}`,
-    );
+    this.viewportProcessor.updateUserViewport(userId, viewport);
   }
 
   /**
    * Remove user viewport tracking
    */
   removeUserViewport(entityType: string, userId: string): void {
-    this.activeViewports.get(entityType)?.delete(userId);
+    if (this.viewportProcessor) {
+      this.viewportProcessor.removeUserViewport(userId);
+    }
   }
 
   /**
@@ -560,10 +528,7 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
       averageProcessingTimeMs: this.metrics.averageProcessingTimeMs,
       lastProcessedAt: this.metrics.lastProcessedAt,
       entityTypeStats,
-      activeViewportsCount: Array.from(this.activeViewports.values()).reduce(
-        (sum, users) => sum + users.size,
-        0,
-      ),
+      activeViewportsCount: 0, // ViewportProcessor handles this now
       queueSize: this.messageQueue.length,
       batchProcessingEnabled: this.config.batchProcessingEnabled,
     };

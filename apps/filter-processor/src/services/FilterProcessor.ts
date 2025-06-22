@@ -125,17 +125,39 @@ export function createFilterProcessor(
     relevanceScoringConfig,
   );
 
+  // Create ViewportProcessor early since UnifiedMessageHandler needs it
+  const viewportProcessor = new ViewportProcessor(
+    redisPub,
+    unifiedSpatialCacheService,
+  );
+
   // Create Entity Registry and Unified Message Handler
   const entityRegistry = new EntityRegistry();
+
+  // Create a callback that will be set after userUpdateBatcherService is created
+  // eslint-disable-next-line prefer-const
+  let userDirtyCallback:
+    | ((
+        userId: string,
+        context?: {
+          reason: string;
+          entityId?: string;
+          operation?: string;
+          timestamp?: number;
+        },
+      ) => void)
+    | undefined;
+
   const unifiedMessageHandler = new UnifiedMessageHandler(
     entityRegistry,
     redisPub,
+    viewportProcessor,
     {
       enableWebSocketNotifications: true,
       enableViewportTracking: true,
       maxAffectedUsersPerUpdate: 1000,
       onUserDirty: (userId: string, context) => {
-        userUpdateBatcherService.markUserAsDirty(userId, context);
+        userDirtyCallback?.(userId, context);
       },
     },
   );
@@ -263,10 +285,6 @@ export function createFilterProcessor(
   // Create handlers with service dependencies
   const vectorService = createVectorService();
   const filterMatcher = new FilterMatcher(vectorService);
-  const viewportProcessor = new ViewportProcessor(
-    redisPub,
-    unifiedSpatialCacheService,
-  );
   const eventPublisher = new EventPublisher(redisPub);
   const mapMojiFilter = new MapMojiFilterService();
 
@@ -295,6 +313,11 @@ export function createFilterProcessor(
     (userId: string) => userStateService.getUserViewport(userId) || null,
     userUpdateBatcherConfig,
   );
+
+  // Set the callback now that userUpdateBatcherService is available
+  userDirtyCallback = (userId: string, context) => {
+    userUpdateBatcherService.markUserAsDirty(userId, context);
+  };
 
   const jobProcessingService = createJobProcessingService(
     eventPublisher,
@@ -482,8 +505,12 @@ export function createFilterProcessor(
         stats.viewportUpdatesProcessed++;
 
         // Track viewport in UnifiedMessageHandler for affected user calculation
-        unifiedMessageHandler.trackUserViewport("event", userId);
-        unifiedMessageHandler.trackUserViewport("civic_engagement", userId);
+        unifiedMessageHandler.trackUserViewport("event", userId, viewport);
+        unifiedMessageHandler.trackUserViewport(
+          "civic_engagement",
+          userId,
+          viewport,
+        );
 
         // Mark user as dirty for batch processing
         userUpdateBatcherService.markUserAsDirty(userId, {
