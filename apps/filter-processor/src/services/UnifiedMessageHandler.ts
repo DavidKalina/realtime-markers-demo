@@ -304,16 +304,22 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
       return affectedUsers;
     }
 
-    // Add entity creator for updates/deletes
+    // Add entity creator for CREATE, updates, and deletes
     if (
-      (operation === "update" || operation === "delete") &&
+      (operation === "CREATE" ||
+        operation === "add" ||
+        operation === "update" ||
+        operation === "delete") &&
       entity.creatorId
     ) {
       affectedUsers.add(entity.creatorId);
     }
 
     // Get users in viewport for new entities or updates
-    if (entity.location && (operation === "add" || operation === "update")) {
+    if (
+      entity.location &&
+      (operation === "CREATE" || operation === "add" || operation === "update")
+    ) {
       const viewportUsers = await this.getUsersInEntityViewport(
         entityType,
         entity,

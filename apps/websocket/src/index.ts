@@ -32,6 +32,10 @@ const healthCheckService = createHealthCheckService({
 // Create WebSocket message handler with dependencies
 const webSocketMessageHandler = createWebSocketMessageHandler({
   sessionManager,
+  redisService: {
+    setClientType: (userId: string, clientType: string) =>
+      redisService.setClientType(userId, clientType),
+  },
   updateViewport: async (userId: string, viewport) => {
     await redisService.updateViewport(userId, viewport);
     console.log(`Published viewport update for user ${userId}`);

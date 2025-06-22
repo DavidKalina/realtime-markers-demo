@@ -205,3 +205,30 @@ export interface CivicEngagement {
   createdAt: Date | string;
   updatedAt: Date | string;
 }
+
+/**
+ * Client configuration for filtering
+ */
+export interface ClientConfig {
+  includeEvents: boolean;
+  includeCivicEngagements: boolean;
+  maxEvents?: number;
+  maxCivicEngagements?: number;
+}
+
+/**
+ * Client type enumeration
+ */
+export enum ClientType {
+  MOBILE = "mobile",
+  DASHBOARD = "dashboard",
+}
+
+/**
+ * Client registration message
+ */
+export interface ClientRegistrationMessage {
+  type: "client_register";
+  clientType: ClientType;
+  userId: string;
+}

@@ -27,6 +27,7 @@ import { createCivicEngagementInitializationService } from "./CivicEngagementIni
 import { FilteringStrategyFactory } from "./filtering/FilteringStrategyFactory";
 import { createEntityInitializationService } from "./EntityInitializationService";
 import { createUnifiedFilteringService } from "./UnifiedFilteringService";
+import { createClientConfigService } from "./ClientConfigService";
 
 export interface FilterProcessor {
   // Core lifecycle
@@ -313,12 +314,16 @@ export function createFilterProcessor(
   const eventPublisher = new EventPublisher(redisPub);
   const mapMojiFilter = new MapMojiFilterService();
 
+  // Create client configuration service
+  const clientConfigService = createClientConfigService({ redis: redisPub });
+
   // Create unified filtering service that handles both events and civic engagements
   const unifiedFilteringService = createUnifiedFilteringService(
     filterMatcher,
     mapMojiFilter,
     relevanceScoringService,
     eventPublisher,
+    clientConfigService,
     {
       mapMojiConfig: eventFilteringConfig.mapMojiConfig,
       maxCivicEngagements: 100,

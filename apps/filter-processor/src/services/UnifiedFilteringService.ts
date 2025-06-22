@@ -3,6 +3,7 @@ import { FilterMatcher } from "../handlers/FilterMatcher";
 import { MapMojiFilterService } from "./MapMojiFilterService";
 import { RelevanceScoringService } from "./RelevanceScoringService";
 import { EventPublisher } from "../handlers/EventPublisher";
+import type { ClientConfigService } from "./ClientConfigService";
 
 export interface UnifiedFilteringService {
   calculateAndSendDiff(
@@ -29,6 +30,7 @@ export function createUnifiedFilteringService(
   mapMojiFilter: MapMojiFilterService,
   relevanceScoringService: RelevanceScoringService,
   eventPublisher: EventPublisher,
+  clientConfigService: ClientConfigService,
   config: UnifiedFilteringServiceConfig = {},
 ): UnifiedFilteringService {
   const { mapMojiConfig = {}, maxCivicEngagements = 100 } = config;
@@ -54,22 +56,64 @@ export function createUnifiedFilteringService(
     filters: Filter[],
   ): Promise<void> {
     try {
-      // Process events
-      let filteredEvents: Event[];
-      if (viewport) {
-        filteredEvents = await processViewportEvents(
-          events,
-          viewport,
-          filters,
-          userId,
-        );
-      } else {
-        filteredEvents = await processAllEvents(events, filters, userId);
+      // Get client configuration for this user
+      const clientConfig = await clientConfigService.getClientConfig(userId);
+
+      console.log(
+        `[UnifiedFiltering] Using client config for user ${userId}:`,
+        {
+          includeEvents: clientConfig.includeEvents,
+          includeCivicEngagements: clientConfig.includeCivicEngagements,
+          maxEvents: clientConfig.maxEvents,
+          maxCivicEngagements: clientConfig.maxCivicEngagements,
+        },
+      );
+
+      // Process events based on client config
+      let filteredEvents: Event[] = [];
+      if (clientConfig.includeEvents) {
+        if (viewport) {
+          filteredEvents = await processViewportEvents(
+            events,
+            viewport,
+            filters,
+            userId,
+          );
+        } else {
+          filteredEvents = await processAllEvents(events, filters, userId);
+        }
+
+        // Apply max events limit from client config
+        if (
+          clientConfig.maxEvents &&
+          filteredEvents.length > clientConfig.maxEvents
+        ) {
+          filteredEvents = filteredEvents.slice(0, clientConfig.maxEvents);
+          console.log(
+            `[UnifiedFiltering] Limited events to ${clientConfig.maxEvents} for user ${userId}`,
+          );
+        }
       }
 
-      // Process civic engagements
-      const filteredCivicEngagements =
-        processCivicEngagements(civicEngagements);
+      // Process civic engagements based on client config
+      let filteredCivicEngagements: CivicEngagement[] = [];
+      if (clientConfig.includeCivicEngagements) {
+        filteredCivicEngagements = processCivicEngagements(civicEngagements);
+
+        // Apply max civic engagements limit from client config
+        if (
+          clientConfig.maxCivicEngagements &&
+          filteredCivicEngagements.length > clientConfig.maxCivicEngagements
+        ) {
+          filteredCivicEngagements = filteredCivicEngagements.slice(
+            0,
+            clientConfig.maxCivicEngagements,
+          );
+          console.log(
+            `[UnifiedFiltering] Limited civic engagements to ${clientConfig.maxCivicEngagements} for user ${userId}`,
+          );
+        }
+      }
 
       console.log(
         `[UnifiedFiltering] Publishing unified message to user ${userId}:`,
@@ -79,6 +123,10 @@ export function createUnifiedFilteringService(
           filterCount: filters.length,
           eventCount: filteredEvents.length,
           civicEngagementCount: filteredCivicEngagements.length,
+          clientConfig: {
+            includeEvents: clientConfig.includeEvents,
+            includeCivicEngagements: clientConfig.includeCivicEngagements,
+          },
           topEventScores: filteredEvents.slice(0, 3).map((event) => ({
             eventId: event.id,
             title: event.title,

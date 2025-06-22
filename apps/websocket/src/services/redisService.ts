@@ -31,6 +31,15 @@ export interface RedisService {
   // Viewport management
   updateViewport: (userId: string, viewport: ViewportData) => Promise<void>;
 
+  // Client type management
+  setClientType: (userId: string, clientType: string) => Promise<void>;
+  getClientType: (userId: string) => Promise<string | null>;
+  setClientTypeByClientId: (
+    clientId: string,
+    clientType: string,
+  ) => Promise<void>;
+  getClientTypeByClientId: (clientId: string) => Promise<string | null>;
+
   // Connection health
   checkConnection: () => Promise<boolean>;
 
@@ -219,6 +228,117 @@ export function createRedisService(
 
     getSubClient(): Redis {
       return globalSubClient;
+    },
+
+    async setClientType(userId: string, clientType: string): Promise<void> {
+      const clientTypeKey = `user:${userId}:client_types`;
+
+      // Get existing client types for this user
+      const existingTypes = await this.get(clientTypeKey);
+      let clientTypes: Set<string>;
+
+      if (existingTypes) {
+        try {
+          const parsed = JSON.parse(existingTypes);
+          clientTypes = new Set(Array.isArray(parsed) ? parsed : [parsed]);
+        } catch {
+          clientTypes = new Set();
+        }
+      } else {
+        clientTypes = new Set();
+      }
+
+      // Add the new client type
+      clientTypes.add(clientType);
+
+      // Store the updated set
+      await this.set(
+        clientTypeKey,
+        JSON.stringify(Array.from(clientTypes)),
+        24 * 60 * 60,
+      ); // 24 hour expiry
+      console.log(
+        `[RedisService] Stored client types ${Array.from(clientTypes)} for user ${userId}`,
+      );
+    },
+
+    async getClientType(userId: string): Promise<string | null> {
+      const clientTypeKey = `user:${userId}:client_types`;
+      const clientTypesJson = await this.get(clientTypeKey);
+
+      if (!clientTypesJson) {
+        console.log(`[RedisService] No client types found for user ${userId}`);
+        return null;
+      }
+
+      try {
+        const clientTypes = JSON.parse(clientTypesJson);
+        const typesArray = Array.isArray(clientTypes)
+          ? clientTypes
+          : [clientTypes];
+
+        // If user has both mobile and dashboard clients, check which one is more recent
+        if (typesArray.includes("dashboard") && typesArray.includes("mobile")) {
+          // Get the most recent client type by checking the order in the array
+          // The last item in the array is typically the most recent
+          const mostRecentType = typesArray[typesArray.length - 1];
+
+          if (mostRecentType === "mobile") {
+            console.log(
+              `[RedisService] User ${userId} has both mobile and dashboard clients, using mobile (most recent)`,
+            );
+            return "mobile";
+          } else {
+            console.log(
+              `[RedisService] User ${userId} has both mobile and dashboard clients, using dashboard (most recent)`,
+            );
+            return "dashboard";
+          }
+        } else if (typesArray.includes("dashboard")) {
+          console.log(
+            `[RedisService] User ${userId} has dashboard client, using dashboard config`,
+          );
+          return "dashboard";
+        } else if (typesArray.includes("mobile")) {
+          console.log(
+            `[RedisService] User ${userId} has mobile client, using mobile config`,
+          );
+          return "mobile";
+        }
+
+        // Fallback to first type found
+        const firstType = typesArray[0];
+        console.log(
+          `[RedisService] Using client type ${firstType} for user ${userId}`,
+        );
+        return firstType;
+      } catch (error) {
+        console.error(
+          `[RedisService] Error parsing client types for user ${userId}:`,
+          error,
+        );
+        return null;
+      }
+    },
+
+    async setClientTypeByClientId(
+      clientId: string,
+      clientType: string,
+    ): Promise<void> {
+      const clientTypeKey = `client_type:${clientId}`;
+      await this.set(clientTypeKey, clientType, 24 * 60 * 60); // 24 hour expiry
+      console.log(
+        `[RedisService] Stored client type ${clientType} for client ${clientId}`,
+      );
+    },
+
+    async getClientTypeByClientId(clientId: string): Promise<string | null> {
+      const clientTypeKey = `client_type:${clientId}`;
+      const clientType = await this.get(clientTypeKey);
+      console.log(
+        `[RedisService] Retrieved client type ${clientType} for client ${clientId}`,
+      );
+      return clientType;
     },
   };
 }

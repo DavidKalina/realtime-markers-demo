@@ -896,6 +896,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               JSON.stringify({
                 type: MessageTypes.CLIENT_IDENTIFICATION,
                 userId: user.id,
+                clientType: "mobile", // Add client type for filtering
               }),
             );
           } else {

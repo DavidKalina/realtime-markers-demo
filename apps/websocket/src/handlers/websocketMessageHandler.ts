@@ -3,13 +3,12 @@ import { MessageTypes } from "../config/constants";
 import { isValidUserId } from "../utils/validation";
 import { formatErrorMessage } from "../utils/messageFormatter";
 import { handleViewportUpdate } from "./viewportHandler";
-import type { WebSocketData } from "../types/websocket";
+import type {
+  WebSocketData,
+  ClientIdentificationData,
+} from "../types/websocket";
 import type { SessionManager } from "../../SessionManager";
 import type { FormattedViewport } from "./viewportHandler";
-
-export interface ClientIdentificationData {
-  userId: string;
-}
 
 export interface ViewportUpdateData {
   viewport: {
@@ -37,6 +36,9 @@ export interface WebSocketMessageHandler {
 
 export interface WebSocketMessageHandlerDependencies {
   sessionManager: SessionManager;
+  redisService: {
+    setClientType: (userId: string, clientType: string) => Promise<void>;
+  };
   updateViewport: (
     userId: string,
     viewport: FormattedViewport,
@@ -68,6 +70,15 @@ export function createWebSocketMessageHandler(
 
       // Associate client with user
       ws.data.userId = userId;
+
+      // Store client type if provided
+      if (data.clientType) {
+        ws.data.clientType = data.clientType;
+        console.log(
+          `Client ${ws.data.clientId} registered as type ${data.clientType}`,
+        );
+        await dependencies.redisService.setClientType(userId, data.clientType);
+      }
 
       // Add to user-client mapping
       dependencies.addUserClient(userId, ws.data.clientId);
