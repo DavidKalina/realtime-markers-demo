@@ -32,6 +32,7 @@ import { AddIsOfficialToEvents1710000000015 } from "./migrations/AddIsOfficialTo
 import { SeedOfficialEvents1710000000016 } from "./migrations/SeedOfficialEvents1710000000016";
 import { RegenerateEmbeddings1710000000017 } from "./migrations/RegenerateEmbeddings1710000000017";
 import { CivicEngagementTables1710000000020 } from "./migrations/CivicEngagementTables1710000000020";
+import { AddEmbeddingToCivicEngagements1710000000021 } from "./migrations/AddEmbeddingToCivicEngagements1710000000021";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -67,6 +68,7 @@ const AppDataSource = new DataSource({
     SeedOfficialEvents1710000000016,
     RegenerateEmbeddings1710000000017,
     CivicEngagementTables1710000000020,
+    AddEmbeddingToCivicEngagements1710000000021,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

@@ -167,6 +167,278 @@ interface CityStateSearchResult {
   };
 }
 
+// Civic Engagement Dashboard Interfaces
+interface CivicEngagementMetrics {
+  totalEngagements: number;
+  engagementsByType: Record<string, number>;
+  engagementsByStatus: Record<string, number>;
+  recentActivity: {
+    thisMonth: number;
+    thisWeek: number;
+    implementedThisMonth: number;
+  };
+  participation: {
+    uniqueCreators: number;
+    withLocation: number;
+    withImages: number;
+  };
+  summary: {
+    avgEngagementsPerMonth: number;
+    implementationRate: number;
+    locationCoverage: number;
+    mediaCoverage: number;
+  };
+}
+
+interface CivicEngagementTrends {
+  trends: {
+    byType: Record<
+      string,
+      {
+        type: string;
+        weeklyData: Array<{
+          week: string;
+          engagementsCreated: number;
+          engagementsImplemented: number;
+        }>;
+      }
+    >;
+    byStatus: Record<
+      string,
+      {
+        status: string;
+        weeklyData: Array<{
+          week: string;
+          engagementsCount: number;
+        }>;
+      }
+    >;
+  };
+  growthRates: Array<{
+    type: string;
+    engagementCreationGrowth: number;
+    trend: "growing" | "declining" | "stable";
+  }>;
+  summary: {
+    totalWeeks: number;
+    startDate: string;
+    endDate: string;
+    typesTracked: number;
+    statusesTracked: number;
+  };
+}
+
+interface CivicEngagementStatusAnalysis {
+  statusBreakdown: Array<{
+    status: string;
+    type: string;
+    count: number;
+    avgDaysToUpdate: number;
+    withLocation: number;
+    withImages: number;
+    withAdminNotes: number;
+  }>;
+  implementationMetrics: Array<{
+    type: string;
+    avgDaysToImplement: number;
+    minDaysToImplement: number;
+    maxDaysToImplement: number;
+    totalImplemented: number;
+  }>;
+  statusTransitions: Array<{
+    status: string;
+    type: string;
+    count: number;
+    avgAgeDays: number;
+  }>;
+  summary: {
+    totalStatuses: number;
+    totalImplemented: number;
+    avgImplementationTime: number;
+  };
+}
+
+interface CivicEngagementGeographic {
+  geographicData: Array<{
+    type: string;
+    status: string;
+    address: string;
+    coordinates: {
+      longitude: number;
+      latitude: number;
+    };
+    locationNotes: string;
+    createdAt: string;
+  }>;
+  locationDensity: Array<{
+    address: string;
+    totalEngagements: number;
+    implementedCount: number;
+    byType: {
+      positive: number;
+      negative: number;
+      ideas: number;
+    };
+    implementationRate: number;
+  }>;
+  recentActivity: Array<{
+    address: string;
+    recentCount: number;
+    type: string;
+    status: string;
+  }>;
+  summary: {
+    totalWithLocation: number;
+    topLocation: string | null;
+    mostActiveLocation: string | null;
+    recentActivityCount: number;
+  };
+}
+
+interface CivicEngagementActivity {
+  id: string;
+  type: "engagement_created" | "engagement_updated" | "engagement_implemented";
+  title: string;
+  description: string;
+  timestamp: string;
+  user?: {
+    name: string;
+    avatar?: string;
+  };
+  metadata?: Record<string, string | number | boolean>;
+}
+
+// Dashboard Interfaces
+interface DashboardMetrics {
+  totalActiveEvents: number;
+  usersThisMonth: number;
+  eventsScannedThisWeek: number;
+}
+
+interface DashboardActivity {
+  id: string;
+  type:
+    | "event_scanned"
+    | "user_registered"
+    | "event_created"
+    | "category_added";
+  title: string;
+  description: string;
+  timestamp: string;
+  user?: {
+    name: string;
+    avatar?: string;
+  };
+  metadata?: Record<string, string | number | boolean>;
+}
+
+interface DashboardCategory {
+  id: string;
+  name: string;
+  emoji: string;
+  metrics: {
+    totalEvents: number;
+    verifiedEvents: number;
+    eventsThisMonth: number;
+    eventsThisWeek: number;
+    totalScans: number;
+    scansLast30Days: number;
+    totalSaves: number;
+    totalViews: number;
+    avgScanCount: number;
+    avgSaveCount: number;
+    avgViewCount: number;
+  };
+  percentages: {
+    ofTotalEvents: number;
+    ofVerifiedEvents: number;
+    ofTotalScans: number;
+    ofRecentScans: number;
+  };
+  engagement: {
+    score: number;
+    avgPerEvent: number;
+    trend: "trending" | "stable";
+  };
+}
+
+interface DashboardCategories {
+  categories: DashboardCategory[];
+  summary: {
+    totalCategories: number;
+    totalEvents: number;
+    totalVerifiedEvents: number;
+    totalScans: number;
+    totalScansLast30Days: number;
+    averageEventsPerCategory: number;
+    mostEngagedCategory: DashboardCategory | null;
+    fastestGrowingCategory: DashboardCategory | null;
+  };
+}
+
+interface DashboardCategoryTrends {
+  trends: {
+    eventCreation: Record<
+      string,
+      {
+        name: string;
+        emoji: string;
+        weeklyData: Array<{
+          week: string;
+          eventsCreated: number;
+          eventsVerified: number;
+        }>;
+      }
+    >;
+    scans: Record<
+      string,
+      {
+        name: string;
+        emoji: string;
+        weeklyData: Array<{
+          week: string;
+          scansCount: number;
+          uniqueUsers: number;
+        }>;
+      }
+    >;
+  };
+  growthRates: Array<{
+    categoryName: string;
+    emoji: string;
+    eventCreationGrowth: number;
+    scanGrowth: number;
+    trend: "growing" | "declining" | "stable";
+  }>;
+  summary: {
+    totalWeeks: number;
+    startDate: string;
+    endDate: string;
+    categoriesTracked: number;
+  };
+}
+
+interface DashboardBusiestTime {
+  day: string;
+  time: string;
+  count: number;
+}
+
+interface DashboardUpcomingEvent {
+  id: string;
+  title: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  category: {
+    name: string;
+    emoji: string;
+  };
+  attendees: number;
+  maxAttendees?: number;
+}
+
 class ApiService {
   private baseUrl: string;
 
@@ -609,6 +881,88 @@ class ApiService {
     const endpoint = `/api/civic-engagements/nearby?${queryParams.toString()}`;
     return this.makeRequest<CivicEngagement[]>(endpoint);
   }
+
+  // Dashboard API calls
+  async getDashboardMetrics(): Promise<ApiResponse<DashboardMetrics>> {
+    return this.makeRequest<DashboardMetrics>("/api/admin/dashboard/metrics");
+  }
+
+  async getDashboardActivity(): Promise<ApiResponse<DashboardActivity[]>> {
+    return this.makeRequest<DashboardActivity[]>(
+      "/api/admin/dashboard/activity",
+    );
+  }
+
+  async getDashboardCategories(): Promise<ApiResponse<DashboardCategories>> {
+    return this.makeRequest<DashboardCategories>(
+      "/api/admin/dashboard/categories",
+    );
+  }
+
+  async getDashboardCategoryTrends(): Promise<
+    ApiResponse<DashboardCategoryTrends>
+  > {
+    return this.makeRequest<DashboardCategoryTrends>(
+      "/api/admin/dashboard/category-trends",
+    );
+  }
+
+  async getDashboardBusiestTimes(): Promise<
+    ApiResponse<DashboardBusiestTime[]>
+  > {
+    return this.makeRequest<DashboardBusiestTime[]>(
+      "/api/admin/dashboard/busiest-times",
+    );
+  }
+
+  async getDashboardUpcomingEvents(): Promise<
+    ApiResponse<DashboardUpcomingEvent[]>
+  > {
+    return this.makeRequest<DashboardUpcomingEvent[]>(
+      "/api/admin/dashboard/upcoming-events",
+    );
+  }
+
+  // Civic Engagement Dashboard API calls
+  async getCivicEngagementMetrics(): Promise<
+    ApiResponse<CivicEngagementMetrics>
+  > {
+    return this.makeRequest<CivicEngagementMetrics>(
+      "/api/admin/dashboard/civic-engagement/metrics",
+    );
+  }
+
+  async getCivicEngagementTrends(): Promise<
+    ApiResponse<CivicEngagementTrends>
+  > {
+    return this.makeRequest<CivicEngagementTrends>(
+      "/api/admin/dashboard/civic-engagement/trends",
+    );
+  }
+
+  async getCivicEngagementStatusAnalysis(): Promise<
+    ApiResponse<CivicEngagementStatusAnalysis>
+  > {
+    return this.makeRequest<CivicEngagementStatusAnalysis>(
+      "/api/admin/dashboard/civic-engagement/status-analysis",
+    );
+  }
+
+  async getCivicEngagementGeographic(): Promise<
+    ApiResponse<CivicEngagementGeographic>
+  > {
+    return this.makeRequest<CivicEngagementGeographic>(
+      "/api/admin/dashboard/civic-engagement/geographic",
+    );
+  }
+
+  async getCivicEngagementActivity(): Promise<
+    ApiResponse<CivicEngagementActivity[]>
+  > {
+    return this.makeRequest<CivicEngagementActivity[]>(
+      "/api/admin/dashboard/civic-engagement/activity",
+    );
+  }
 }
 
 // Export a singleton instance
@@ -625,4 +979,16 @@ export type {
   CivicEngagement,
   CreateCivicEngagementPayload,
   CivicEngagementStats,
+  CivicEngagementMetrics,
+  CivicEngagementTrends,
+  CivicEngagementStatusAnalysis,
+  CivicEngagementGeographic,
+  CivicEngagementActivity,
+  DashboardMetrics,
+  DashboardActivity,
+  DashboardCategory,
+  DashboardCategories,
+  DashboardCategoryTrends,
+  DashboardBusiestTime,
+  DashboardUpcomingEvent,
 };
