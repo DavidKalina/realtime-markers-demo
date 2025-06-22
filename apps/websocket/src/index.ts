@@ -66,8 +66,16 @@ redisService.onGlobalMessage((channel: string, message: string) => {
 async function setupRedisSubscriptions() {
   await Promise.all([
     redisService.subscribeToChannel(REDIS_CHANNELS.DISCOVERED_EVENTS, () => {}),
+    redisService.subscribeToChannel(
+      REDIS_CHANNELS.DISCOVERED_CIVIC_ENGAGEMENTS,
+      () => {},
+    ),
     redisService.subscribeToChannel(REDIS_CHANNELS.NOTIFICATIONS, () => {}),
     redisService.subscribeToChannel(REDIS_CHANNELS.LEVEL_UPDATE, () => {}),
+    redisService.subscribeToChannel(
+      REDIS_CHANNELS.CIVIC_ENGAGEMENT_CHANGES,
+      () => {},
+    ),
   ]);
 }
 

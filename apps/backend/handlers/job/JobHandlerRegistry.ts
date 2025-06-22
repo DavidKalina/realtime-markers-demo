@@ -2,8 +2,10 @@ import type { JobHandler, JobHandlerContext } from "./BaseJobHandler";
 import { ProcessFlyerHandler } from "./ProcessFlyerHandler";
 import { ProcessPrivateEventHandler } from "./ProcessPrivateEventHandler";
 import { CleanupEventsHandler } from "./CleanupEventsHandler";
+import { ProcessCivicEngagementHandler } from "./ProcessCivicEngagementHandler";
 import type { EventProcessingService } from "../../services/EventProcessingService";
 import type { EventService } from "../../services/EventServiceRefactored";
+import type { CivicEngagementService } from "../../services/CivicEngagementService";
 import type { JobQueue } from "../../services/JobQueue";
 import type { RedisService } from "../../services/shared/RedisService";
 import { StorageService } from "../../services/shared/StorageService";
@@ -14,6 +16,7 @@ export class JobHandlerRegistry {
   constructor(
     private readonly eventProcessingService: EventProcessingService,
     private readonly eventService: EventService,
+    private readonly civicEngagementService: CivicEngagementService,
     private readonly jobQueue: JobQueue,
     private readonly redisService: RedisService,
     private readonly storageService: StorageService,
@@ -37,6 +40,12 @@ export class JobHandlerRegistry {
       ),
     );
     this.registerHandler(new CleanupEventsHandler(this.eventService));
+    this.registerHandler(
+      new ProcessCivicEngagementHandler(
+        this.civicEngagementService,
+        this.storageService,
+      ),
+    );
   }
 
   private registerHandler(handler: JobHandler): void {

@@ -9,6 +9,48 @@ interface ApiResponse<T> {
   status: number;
 }
 
+// Civic Engagement interfaces
+interface CivicEngagement {
+  id: string;
+  title: string;
+  description?: string;
+  type: "SUGGESTION" | "COMPLAINT" | "QUESTION" | "COMPLIMENT";
+  status: "PENDING" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "IMPLEMENTED";
+  location?: {
+    type: "Point";
+    coordinates: [number, number];
+  };
+  address?: string;
+  locationNotes?: string;
+  imageUrls?: string[];
+  creatorId: string;
+  adminNotes?: string;
+  implementedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface CreateCivicEngagementPayload {
+  title: string;
+  description?: string;
+  type: "SUGGESTION" | "COMPLAINT" | "QUESTION" | "COMPLIMENT";
+  location?: {
+    type: "Point";
+    coordinates: [number, number];
+  };
+  address?: string;
+  locationNotes?: string;
+  imageBuffer?: string; // base64 encoded image
+  contentType?: string;
+  filename?: string;
+}
+
+interface CivicEngagementStats {
+  total: number;
+  byType: Record<string, number>;
+  byStatus: Record<string, number>;
+}
+
 interface CreateEventPayload {
   title: string;
   description?: string;
@@ -491,6 +533,82 @@ class ApiService {
       },
     );
   }
+
+  // Civic Engagement API calls
+  async createCivicEngagement(
+    payload: CreateCivicEngagementPayload,
+  ): Promise<ApiResponse<{ jobId: string; message: string; status: string }>> {
+    return this.makeRequest<{ jobId: string; message: string; status: string }>(
+      "/api/civic-engagements",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    );
+  }
+
+  async getCivicEngagements(
+    params: {
+      limit?: number;
+      offset?: number;
+      type?: string[];
+      status?: string[];
+      search?: string;
+    } = {},
+  ): Promise<
+    ApiResponse<{ civicEngagements: CivicEngagement[]; total: number }>
+  > {
+    const queryParams = new URLSearchParams();
+    if (params.limit) queryParams.append("limit", params.limit.toString());
+    if (params.offset) queryParams.append("offset", params.offset.toString());
+    if (params.type) queryParams.append("type", params.type.join(","));
+    if (params.status) queryParams.append("status", params.status.join(","));
+    if (params.search) queryParams.append("search", params.search);
+
+    const queryString = queryParams.toString();
+    const endpoint = `/api/civic-engagements${queryString ? `?${queryString}` : ""}`;
+
+    return this.makeRequest<{
+      civicEngagements: CivicEngagement[];
+      total: number;
+    }>(endpoint);
+  }
+
+  async getCivicEngagementById(
+    id: string,
+  ): Promise<ApiResponse<CivicEngagement>> {
+    return this.makeRequest<CivicEngagement>(`/api/civic-engagements/${id}`);
+  }
+
+  async getCivicEngagementStats(): Promise<ApiResponse<CivicEngagementStats>> {
+    return this.makeRequest<CivicEngagementStats>(
+      "/api/civic-engagements/stats",
+    );
+  }
+
+  async getNearbyCivicEngagements(
+    lat: number,
+    lng: number,
+    radius?: number,
+    filters?: {
+      type?: string[];
+      status?: string[];
+      search?: string;
+    },
+  ): Promise<ApiResponse<CivicEngagement[]>> {
+    const queryParams = new URLSearchParams({
+      lat: lat.toString(),
+      lng: lng.toString(),
+    });
+
+    if (radius) queryParams.append("radius", radius.toString());
+    if (filters?.type) queryParams.append("type", filters.type.join(","));
+    if (filters?.status) queryParams.append("status", filters.status.join(","));
+    if (filters?.search) queryParams.append("search", filters.search);
+
+    const endpoint = `/api/civic-engagements/nearby?${queryParams.toString()}`;
+    return this.makeRequest<CivicEngagement[]>(endpoint);
+  }
 }
 
 // Export a singleton instance
@@ -504,4 +622,7 @@ export type {
   CityStateSearchParams,
   CityStateSearchResult,
   EventEngagement,
+  CivicEngagement,
+  CreateCivicEngagementPayload,
+  CivicEngagementStats,
 };

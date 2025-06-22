@@ -457,7 +457,7 @@ function HomeScreen() {
 
     if (longPressCoordinates) {
       router.push({
-        pathname: "/create-private-event",
+        pathname: "/create-civic-engagement",
         params: {
           latitude: longPressCoordinates.latitude.toString(),
           longitude: longPressCoordinates.longitude.toString(),

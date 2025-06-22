@@ -2,6 +2,7 @@
 import { Hono } from "hono";
 import * as eventHandler from "../handlers/eventHandlers";
 import * as filterHandler from "../handlers/filterHandlers";
+import * as civicEngagementHandler from "../handlers/civicEngagementHandlers";
 import type { AppContext } from "../types/context";
 import { ip } from "../middleware/ip";
 import { rateLimit } from "../middleware/rateLimit";
@@ -26,6 +27,10 @@ internalRouter.use(
 // Add your internal routes without auth middleware
 internalRouter.get("/events", eventHandler.getAllEventsHandler);
 internalRouter.get("/filters", filterHandler.getInternalFiltersHandler);
+internalRouter.get(
+  "/civic-engagements",
+  civicEngagementHandler.getAllCivicEngagementsHandler,
+);
 
 // Add endpoint for fetching event shares in batch
 internalRouter.post("/events/shares/batch", async (c) => {

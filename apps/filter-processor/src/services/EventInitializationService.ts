@@ -46,29 +46,35 @@ export function createEventInitializationService(
    */
   async function initializeEvents(): Promise<void> {
     try {
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[EventInitialization] Initializing events...");
-      }
+      console.log("🔄 [EventInitialization] Starting event initialization...");
 
       // Fetch events from the API
+      console.log("📡 [EventInitialization] Fetching events from API...");
       const events = await fetchAllEvents();
 
-      if (process.env.NODE_ENV !== "production") {
-        console.log(
-          `[EventInitialization] Received ${events.length} events for initialization`,
+      console.log(
+        `📊 [EventInitialization] Received ${events.length} events for initialization`,
+      );
+
+      if (events.length === 0) {
+        console.warn(
+          "⚠️ [EventInitialization] No events found - this may indicate an API issue",
         );
+        return;
       }
 
       // Process events in batches
+      console.log("⚙️ [EventInitialization] Processing events...");
       await processEventsBatch(events);
 
       stats.lastInitializationTime = Date.now();
 
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[EventInitialization] Events initialization complete");
-      }
+      console.log("✅ [EventInitialization] Events initialization complete");
     } catch (error) {
-      console.error("[EventInitialization] Error initializing events:", error);
+      console.error(
+        "❌ [EventInitialization] Error initializing events:",
+        error,
+      );
       throw error;
     }
   }
@@ -87,6 +93,10 @@ export function createEventInitializationService(
    */
   async function fetchAllEvents(): Promise<Event[]> {
     try {
+      console.log(
+        `🌐 [EventInitialization] Fetching events from: ${backendUrl}`,
+      );
+
       let currentPage = 1;
       let hasMorePages = true;
       let allEvents: Event[] = [];
@@ -94,28 +104,41 @@ export function createEventInitializationService(
       while (hasMorePages) {
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            const response = await fetch(
-              `${backendUrl}/api/internal/events?limit=${pageSize}&offset=${
-                (currentPage - 1) * pageSize
-              }`,
-              {
-                headers: {
-                  Accept: "application/json",
-                },
-              },
+            const url = `${backendUrl}/api/internal/events?limit=${pageSize}&offset=${
+              (currentPage - 1) * pageSize
+            }`;
+
+            console.log(
+              `📡 [EventInitialization] Fetching page ${currentPage}: ${url}`,
             );
 
+            const response = await fetch(url, {
+              headers: {
+                Accept: "application/json",
+              },
+            });
+
             if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
+              throw new Error(
+                `HTTP error! status: ${response.status} - ${response.statusText}`,
+              );
             }
 
             const data = await response.json();
 
             if (!data || !Array.isArray(data.events)) {
+              console.error(
+                "❌ [EventInitialization] Invalid response format:",
+                data,
+              );
               throw new Error("Invalid response format from backend");
             }
 
             const { events, hasMore } = data;
+
+            console.log(
+              `📄 [EventInitialization] Page ${currentPage}: received ${events.length} events, hasMore: ${hasMore}`,
+            );
 
             // Process and validate events
             const validEvents = events
@@ -125,12 +148,20 @@ export function createEventInitializationService(
               )
               .map(normalizeEventData);
 
+            console.log(
+              `✅ [EventInitialization] Page ${currentPage}: ${validEvents.length} valid events after filtering`,
+            );
+
             // Add to our collection, ensuring no duplicates
             const newEvents = validEvents.filter(
               (event: Event) =>
                 !allEvents.some((existing) => existing.id === event.id),
             );
             allEvents = [...allEvents, ...newEvents];
+
+            console.log(
+              `📊 [EventInitialization] Total events so far: ${allEvents.length}`,
+            );
 
             // Update pagination state
             hasMorePages = hasMore;
@@ -142,13 +173,13 @@ export function createEventInitializationService(
             break; // Success, exit retry loop
           } catch (error) {
             console.error(
-              `[EventInitialization] Attempt ${attempt}/${maxRetries} failed for page ${currentPage}:`,
+              `❌ [EventInitialization] Attempt ${attempt}/${maxRetries} failed for page ${currentPage}:`,
               error,
             );
 
             if (attempt === maxRetries) {
               console.error(
-                "[EventInitialization] Max API retries reached for page",
+                "💥 [EventInitialization] Max API retries reached for page",
                 currentPage,
               );
               hasMorePages = false; // Stop pagination on persistent failure
@@ -160,6 +191,9 @@ export function createEventInitializationService(
 
             // Exponential backoff
             const currentRetryDelay = retryDelay * Math.pow(2, attempt - 1);
+            console.log(
+              `⏳ [EventInitialization] Retrying in ${currentRetryDelay}ms...`,
+            );
             await new Promise((resolve) =>
               setTimeout(resolve, currentRetryDelay),
             );
@@ -167,9 +201,12 @@ export function createEventInitializationService(
         }
       }
 
+      console.log(
+        `🎯 [EventInitialization] Fetch complete: ${allEvents.length} total events`,
+      );
       return allEvents;
     } catch (error) {
-      console.error("[EventInitialization] Error fetching events:", error);
+      console.error("💥 [EventInitialization] Error fetching events:", error);
       return [];
     }
   }
@@ -179,22 +216,47 @@ export function createEventInitializationService(
    */
   async function processEventsBatch(events: Event[]): Promise<void> {
     try {
+      console.log(
+        `⚙️ [EventInitialization] Processing ${events.length} events...`,
+      );
+
       // Remove duplicates based on event ID
       const uniqueEvents = Array.from(
         new Map(events.map((event) => [event.id, event])).values(),
       );
 
+      console.log(
+        `🔄 [EventInitialization] Processing ${uniqueEvents.length} unique events...`,
+      );
+
       // Process each event
       for (const event of uniqueEvents) {
-        await eventProcessor.processEvent({
-          operation: "CREATE",
-          record: event,
-        });
-        stats.eventsProcessed++;
+        try {
+          await eventProcessor.processEvent({
+            operation: "CREATE",
+            record: event,
+          });
+          stats.eventsProcessed++;
+
+          if (stats.eventsProcessed % 100 === 0) {
+            console.log(
+              `📈 [EventInitialization] Processed ${stats.eventsProcessed} events so far...`,
+            );
+          }
+        } catch (error) {
+          console.error(
+            `❌ [EventInitialization] Error processing event ${event.id}:`,
+            error,
+          );
+        }
       }
+
+      console.log(
+        `✅ [EventInitialization] Successfully processed ${stats.eventsProcessed} events`,
+      );
     } catch (error) {
       console.error(
-        "[EventInitialization] Error processing events batch:",
+        "💥 [EventInitialization] Error processing events batch:",
         error,
       );
     }

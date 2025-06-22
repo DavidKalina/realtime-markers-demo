@@ -98,7 +98,7 @@ const SCREEN_CONFIGS = [
   { name: "search/list" },
   { name: "category/[id]" },
   { name: "details" },
-  { name: "create-private-event", options: MODAL_SCREEN_OPTIONS },
+  { name: "create-civic-engagement", options: MODAL_SCREEN_OPTIONS },
   { name: "job-details", options: MODAL_SCREEN_OPTIONS },
   { name: "+not-found" },
 ] as const;

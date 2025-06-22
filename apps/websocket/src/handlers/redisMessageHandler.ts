@@ -1,6 +1,7 @@
-import { REDIS_CHANNELS } from "../config/constants";
+import { REDIS_CHANNELS, MessageTypes } from "../config/constants";
 import {
   formatDiscoveryMessage,
+  formatCivicEngagementDiscoveryMessage,
   formatNotificationMessage,
   formatLevelUpdateMessage,
 } from "../utils/messageFormatter";
@@ -9,6 +10,13 @@ import type { WebSocketData } from "../types/websocket";
 
 export interface DiscoveredEvent {
   event: {
+    creatorId: string;
+    [key: string]: unknown;
+  };
+}
+
+export interface DiscoveredCivicEngagement {
+  civicEngagement: {
     creatorId: string;
     [key: string]: unknown;
   };
@@ -36,6 +44,23 @@ export interface LevelUpdate {
 export interface RedisMessageHandlerDependencies {
   getUserClients: (userId: string) => Set<string> | undefined;
   getClient: (clientId: string) => ServerWebSocket<WebSocketData> | undefined;
+}
+
+/**
+ * Get the appropriate message type for civic engagement operations
+ */
+function getCivicEngagementMessageType(operation: string): string {
+  switch (operation) {
+    case "CREATE":
+    case "INSERT":
+      return MessageTypes.ADD_CIVIC_ENGAGEMENT;
+    case "UPDATE":
+      return MessageTypes.UPDATE_CIVIC_ENGAGEMENT;
+    case "DELETE":
+      return MessageTypes.DELETE_CIVIC_ENGAGEMENT;
+    default:
+      return MessageTypes.UPDATE_CIVIC_ENGAGEMENT;
+  }
 }
 
 export function handleRedisMessage(
@@ -78,6 +103,91 @@ export function handleRedisMessage(
           }
         } else {
           console.log(`No clients found for user ${eventData.event.creatorId}`);
+        }
+        break;
+      }
+
+      case REDIS_CHANNELS.DISCOVERED_CIVIC_ENGAGEMENTS: {
+        const civicEngagementData = data as DiscoveredCivicEngagement;
+        if (!civicEngagementData.civicEngagement?.creatorId) {
+          console.error("Invalid discovered civic engagement data:", data);
+          return;
+        }
+
+        const formattedMessage = formatCivicEngagementDiscoveryMessage(
+          civicEngagementData.civicEngagement,
+        );
+
+        const userClients = dependencies.getUserClients(
+          civicEngagementData.civicEngagement.creatorId,
+        );
+        if (userClients) {
+          for (const clientId of userClients) {
+            const client = dependencies.getClient(clientId);
+            if (client) {
+              try {
+                client.send(formattedMessage);
+                console.log(
+                  `Sent civic engagement discovery to client ${clientId}`,
+                );
+              } catch (error) {
+                console.error(
+                  `Error sending civic engagement discovery to client ${clientId}:`,
+                  error,
+                );
+              }
+            }
+          }
+        } else {
+          console.log(
+            `No clients found for user ${civicEngagementData.civicEngagement.creatorId}`,
+          );
+        }
+        break;
+      }
+
+      case REDIS_CHANNELS.CIVIC_ENGAGEMENT_CHANGES: {
+        // Handle civic engagement updates from filter processor
+        const civicEngagementData = data.data || data;
+        if (!civicEngagementData.userId || !civicEngagementData.operation) {
+          console.error("Invalid civic engagement change data:", data);
+          return;
+        }
+
+        const userClients = dependencies.getUserClients(
+          civicEngagementData.userId,
+        );
+        if (userClients) {
+          for (const clientId of userClients) {
+            const client = dependencies.getClient(clientId);
+            if (client) {
+              try {
+                const messageType = getCivicEngagementMessageType(
+                  civicEngagementData.operation,
+                );
+                const formattedMessage = JSON.stringify({
+                  type: messageType,
+                  data:
+                    civicEngagementData.civicEngagement || civicEngagementData,
+                  timestamp: new Date().toISOString(),
+                });
+
+                client.send(formattedMessage);
+                console.log(
+                  `Sent civic engagement ${civicEngagementData.operation} to client ${clientId}`,
+                );
+              } catch (error) {
+                console.error(
+                  `Error sending civic engagement update to client ${clientId}:`,
+                  error,
+                );
+              }
+            }
+          }
+        } else {
+          console.log(
+            `No clients found for user ${civicEngagementData.userId}`,
+          );
         }
         break;
       }

@@ -22,6 +22,7 @@ import { createEmailService, MockEmailService } from "./shared/EmailService";
 import { createGoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import { createJobQueue } from "./JobQueue";
 import { RepositoryInitializer } from "./RepositoryInitializer";
+import { CivicEngagementService } from "./CivicEngagementService";
 import type { EventService } from "./EventServiceRefactored";
 import type { EventProcessingService } from "./EventProcessingService";
 import type { CategoryProcessingService } from "./CategoryProcessingService";
@@ -48,6 +49,7 @@ export interface ServiceContainer {
   jobQueue: JobQueue;
   redisService: RedisService;
   geocodingService: GoogleGeocodingService;
+  civicEngagementService: CivicEngagementService;
 }
 
 export class ServiceInitializer {
@@ -162,6 +164,12 @@ export class ServiceInitializer {
 
     const geocodingService = createGoogleGeocodingService(openAIService);
 
+    // Initialize civic engagement service
+    const civicEngagementService = new CivicEngagementService(
+      repositories.civicEngagementRepository,
+      redisService,
+    );
+
     console.log("Services initialized successfully");
 
     return {
@@ -177,6 +185,7 @@ export class ServiceInitializer {
       jobQueue,
       redisService,
       geocodingService,
+      civicEngagementService,
     };
   }
 

@@ -11,6 +11,7 @@ import type { GoogleGeocodingService } from "../services/shared/GoogleGeocodingS
 import type { IEmbeddingService } from "../services/event-processing/interfaces/IEmbeddingService";
 import type { CategoryProcessingService } from "../services/CategoryProcessingService";
 import type { EmailService } from "../services/shared/EmailService";
+import type { CivicEngagementService } from "../services/CivicEngagementService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -25,6 +26,7 @@ export interface AppVariables {
   embeddingService: IEmbeddingService;
   categoryProcessingService: CategoryProcessingService;
   emailService: EmailService;
+  civicEngagementService: CivicEngagementService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

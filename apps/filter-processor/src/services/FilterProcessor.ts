@@ -1,35 +1,37 @@
 // apps/filter-processor/src/services/FilterProcessor.ts
 import Redis from "ioredis";
-import { Filter, BoundingBox, Event } from "../types/types";
-import { EventProcessor } from "../handlers/EventProcessor";
+import { Filter, BoundingBox, Event, CivicEngagement } from "../types/types";
 import { FilterMatcher } from "../handlers/FilterMatcher";
 import { ViewportProcessor } from "../handlers/ViewportProcessor";
 import { EventPublisher } from "../handlers/EventPublisher";
 import { MapMojiFilterService } from "./MapMojiFilterService";
-import { createEventCacheService } from "./EventCacheService";
+import { createUnifiedSpatialCacheService } from "./UnifiedSpatialCacheService";
 import { createUserStateService } from "./UserStateService";
 import { createRelevanceScoringService } from "./RelevanceScoringService";
 import { createEventFilteringService } from "./EventFilteringService";
-import {
-  createRedisMessageHandler,
-  MessageHandlers,
-} from "./RedisMessageHandler";
-import { createEventInitializationService } from "./EventInitializationService";
 import { createUserNotificationService } from "./UserNotificationService";
 import { createJobProcessingService } from "./JobProcessingService";
 import { createHybridUserUpdateBatcherService } from "./HybridUserUpdateBatcherService";
+import { createRedisMessageHandler } from "./RedisMessageHandler";
 import { createVectorService } from "./VectorService";
+
+// Entity Registry Integration
+import { EntityRegistry } from "./EntityRegistry";
+import { UnifiedMessageHandler } from "./UnifiedMessageHandler";
+import { EventProcessor as HandlerEventProcessor } from "../handlers/EventProcessor";
+import { EventProcessor } from "./processors/EventProcessor";
+import { CivicEngagementProcessor } from "./processors/CivicEngagementProcessor";
+import { UnifiedEntityProcessor } from "./processors/UnifiedEntityProcessor";
+import { createEntityCacheService } from "./EntityCacheService";
+import { createEventInitializationService } from "./EventInitializationService";
+import { createCivicEngagementInitializationService } from "./CivicEngagementInitializationService";
+import { FilteringStrategyFactory } from "./filtering/FilteringStrategyFactory";
+import { createEntityInitializationService } from "./EntityInitializationService";
 
 export interface FilterProcessor {
   // Core lifecycle
   initialize(): Promise<void>;
   shutdown(): Promise<void>;
-
-  // Event processing
-  processEventUpdate(eventData: {
-    operation: string;
-    record: Event;
-  }): Promise<void>;
 
   // User management
   handleFilterChanges(userId: string, filters: Filter[]): Promise<void>;
@@ -124,17 +126,195 @@ export function createFilterProcessor(
   } = config;
 
   // Create core services
-  const eventCacheService = createEventCacheService(eventCacheConfig);
+  const unifiedSpatialCacheService =
+    createUnifiedSpatialCacheService(eventCacheConfig);
   const userStateService = createUserStateService(userStateConfig);
   const relevanceScoringService = createRelevanceScoringService(
     relevanceScoringConfig,
   );
 
+  // Create Entity Registry and Unified Message Handler
+  const entityRegistry = new EntityRegistry();
+  const unifiedMessageHandler = new UnifiedMessageHandler(
+    entityRegistry,
+    redisPub,
+    {
+      maxRetries: 3,
+      retryDelayMs: 1000,
+      enableMetrics: true,
+      enableWebSocketNotifications: true,
+      enableViewportTracking:
+        config.userStateConfig?.enableViewportTracking ?? true,
+      maxAffectedUsersPerUpdate: 1000,
+      batchProcessingEnabled:
+        config.userUpdateBatcherConfig?.enableBatching ?? false,
+      batchSize: config.userUpdateBatcherConfig?.maxBatchSize ?? 10,
+      batchTimeoutMs: config.userUpdateBatcherConfig?.debounceTimeoutMs ?? 100,
+    },
+  );
+
+  // Create entity processors using the unified system
+  const handlerEventProcessor = new HandlerEventProcessor(
+    unifiedSpatialCacheService,
+  );
+  const eventProcessor = new EventProcessor(unifiedSpatialCacheService);
+  const civicEngagementProcessor = new CivicEngagementProcessor(
+    unifiedSpatialCacheService,
+  );
+  const unifiedEntityProcessor = new UnifiedEntityProcessor(
+    unifiedSpatialCacheService,
+  );
+
+  // Create the real initialization services
+  const realEventInitializationService = createEventInitializationService(
+    handlerEventProcessor,
+    eventInitializationConfig,
+  );
+
+  const realCivicEngagementInitializationService =
+    createCivicEngagementInitializationService(
+      handlerEventProcessor,
+      eventInitializationConfig,
+    );
+
+  // Create wrapper services that implement EntityInitializationService interface
+  const eventInitializationService = createEntityInitializationService(
+    "event",
+    eventProcessor,
+    undefined,
+    eventInitializationConfig,
+  );
+
+  const civicEngagementInitializationService =
+    createEntityInitializationService(
+      "civic_engagement",
+      undefined,
+      civicEngagementProcessor,
+      eventInitializationConfig,
+    );
+
+  // Override the initializeEntities method to call the real services
+  eventInitializationService.initializeEntities = async () => {
+    console.log(
+      "🔄 [FilterProcessor] Calling real event initialization service...",
+    );
+    await realEventInitializationService.initializeEvents();
+  };
+
+  civicEngagementInitializationService.initializeEntities = async () => {
+    console.log(
+      "🔄 [FilterProcessor] Calling real civic engagement initialization service...",
+    );
+    await realCivicEngagementInitializationService.initializeCivicEngagements();
+  };
+
+  // Create entity-specific services
+  const eventEntityCacheService = createEntityCacheService(
+    "event",
+    unifiedSpatialCacheService,
+  );
+  const civicEngagementEntityCacheService = createEntityCacheService(
+    "civic_engagement",
+    unifiedSpatialCacheService,
+  );
+
+  // Create filtering strategies
+  const eventFilteringStrategy = FilteringStrategyFactory.createStrategy(
+    "event",
+    "mapmoji",
+    eventFilteringConfig,
+  );
+  const civicEngagementFilteringStrategy =
+    FilteringStrategyFactory.createStrategy("civic_engagement", "simple");
+
+  // Register entity types with the registry using the unified system
+  entityRegistry.registerEntityType(
+    {
+      type: "event",
+      displayName: "Events",
+      hasLocation: true,
+      isPublic: true,
+      supportsImages: true,
+      supportsCategories: true,
+      relevanceScoring: {
+        enabled: true,
+        weights: {
+          time: 0.3,
+          distance: 0.4,
+          popularity: 0.3,
+        },
+      },
+      filtering: {
+        supportedFilters: ["category", "date", "distance", "popularity"],
+        defaultFilters: {},
+        strategy: "mapmoji",
+      },
+      webSocket: {
+        messageTypes: {
+          add: "event:created",
+          update: "event:updated",
+          delete: "event:deleted",
+          discovered: "event:discovered",
+        },
+        redisChannels: {
+          changes: redisConfig.channels?.eventChanges || "event_changes",
+          discovered: "event_discovered",
+        },
+      },
+    },
+    unifiedEntityProcessor,
+    eventInitializationService,
+    eventEntityCacheService,
+    eventFilteringStrategy,
+  );
+
+  entityRegistry.registerEntityType(
+    {
+      type: "civic_engagement",
+      displayName: "Civic Engagements",
+      hasLocation: true,
+      isPublic: true,
+      supportsImages: false,
+      supportsCategories: true,
+      relevanceScoring: {
+        enabled: true,
+        weights: {
+          time: 0.5,
+          distance: 0.3,
+          popularity: 0.2,
+        },
+      },
+      filtering: {
+        supportedFilters: ["category", "status", "priority"],
+        defaultFilters: {},
+        strategy: "simple",
+      },
+      webSocket: {
+        messageTypes: {
+          add: "civic_engagement:created",
+          update: "civic_engagement:updated",
+          delete: "civic_engagement:deleted",
+          discovered: "civic_engagement:discovered",
+        },
+        redisChannels: {
+          changes: "civic_engagement_changes",
+          discovered: "civic_engagement_discovered",
+        },
+      },
+    },
+    unifiedEntityProcessor,
+    civicEngagementInitializationService,
+    civicEngagementEntityCacheService,
+    civicEngagementFilteringStrategy,
+  );
+
   // Create handlers with service dependencies
   const vectorService = createVectorService();
-  const eventProcessor = new EventProcessor(eventCacheService);
   const filterMatcher = new FilterMatcher(vectorService);
-  const viewportProcessor = new ViewportProcessor(redisPub, eventCacheService);
+  const viewportProcessor = new ViewportProcessor(
+    redisPub,
+    unifiedSpatialCacheService,
+  );
   const eventPublisher = new EventPublisher(redisPub);
   const mapMojiFilter = new MapMojiFilterService();
 
@@ -145,11 +325,6 @@ export function createFilterProcessor(
     relevanceScoringService,
     eventPublisher,
     eventFilteringConfig,
-  );
-
-  const eventInitializationService = createEventInitializationService(
-    eventProcessor,
-    eventInitializationConfig,
   );
 
   const userNotificationService = createUserNotificationService(
@@ -163,9 +338,19 @@ export function createFilterProcessor(
     userNotificationConfig,
   );
 
+  // Create user update batcher service (replaces deprecated BatchScoreUpdateService)
+  const userUpdateBatcherService = createHybridUserUpdateBatcherService(
+    eventFilteringService,
+    viewportProcessor,
+    unifiedSpatialCacheService,
+    (userId: string) => userStateService.getUserFilters(userId),
+    (userId: string) => userStateService.getUserViewport(userId) || null,
+    userUpdateBatcherConfig,
+  );
+
   const jobProcessingService = createJobProcessingService(
     eventPublisher,
-    () => eventCacheService.clearAll(),
+    () => unifiedSpatialCacheService.clearAll(),
     () => userStateService.getAllUserIds(),
     (userId: string) => userUpdateBatcherService.markUserAsDirty(userId),
     (
@@ -175,22 +360,50 @@ export function createFilterProcessor(
     jobProcessingConfig,
   );
 
-  // Create user update batcher service (replaces BatchScoreUpdateService)
-  const userUpdateBatcherService = createHybridUserUpdateBatcherService(
-    eventFilteringService,
-    viewportProcessor,
-    eventCacheService,
-    (userId: string) => userStateService.getUserFilters(userId),
-    (userId: string) => userStateService.getUserViewport(userId) || null,
-    userUpdateBatcherConfig,
-  );
-
-  // Create Redis message handler
-  const messageHandlers: MessageHandlers = {
+  // Create Redis message handler with unified message handler
+  const messageHandlers = {
     onFilterChanges: handleFilterChanges,
     onViewportUpdate: handleViewportUpdate,
     onInitialRequest: handleInitialRequest,
-    onEventUpdate: processEventUpdate,
+    onEventUpdate: async (data: { operation: string; record: Event }) => {
+      const result = await unifiedMessageHandler.handleEntityMessage(
+        "event",
+        data.operation,
+        data.record,
+      );
+
+      // Log processing results for monitoring
+      if (result.success) {
+        console.log(
+          `[FilterProcessor] Event ${data.operation} processed successfully: ${result.entityId} (${result.affectedUsersCount} affected users, ${result.processingTimeMs}ms)`,
+        );
+      } else {
+        console.error(
+          `[FilterProcessor] Event ${data.operation} failed: ${result.error}`,
+        );
+      }
+    },
+    onCivicEngagementUpdate: async (data: {
+      operation: string;
+      record: CivicEngagement;
+    }) => {
+      const result = await unifiedMessageHandler.handleEntityMessage(
+        "civic_engagement",
+        data.operation,
+        data.record,
+      );
+
+      // Log processing results for monitoring
+      if (result.success) {
+        console.log(
+          `[FilterProcessor] Civic engagement ${data.operation} processed successfully: ${result.entityId} (${result.affectedUsersCount} affected users, ${result.processingTimeMs}ms)`,
+        );
+      } else {
+        console.error(
+          `[FilterProcessor] Civic engagement ${data.operation} failed: ${result.error}`,
+        );
+      }
+    },
     onJobCreated: jobProcessingService.handleJobCreated,
     onJobUpdate: jobProcessingService.handleJobUpdate,
   };
@@ -209,29 +422,38 @@ export function createFilterProcessor(
     totalFilteredEventsPublished: 0,
   };
 
+  // Viewport debouncing to prevent excessive processing
+  const viewportDebounceTimers = new Map<string, NodeJS.Timeout>();
+  const viewportDebounceMs = 500; // 500ms debounce for viewport changes
+
   /**
    * Initialize the filter processor service.
    */
   async function initialize(): Promise<void> {
     try {
-      if (process.env.NODE_ENV !== "production") {
-        console.log("Initializing Filter Processor...");
-      }
+      console.log("🚀 Initializing Filter Processor...");
 
-      // Initialize events
-      await eventInitializationService.initializeEvents();
+      // Initialize all entities using the entity registry
+      console.log("📦 Initializing entity registry...");
+      await entityRegistry.initializeAllEntities();
 
       // Subscribe to Redis channels
+      console.log("🔌 Subscribing to Redis channels...");
       await redisMessageHandler.subscribeToChannels();
 
-      if (process.env.NODE_ENV !== "production") {
-        console.log("Filter Processor initialized:", {
-          events: eventCacheService.getStats().spatialIndexSize,
-          users: userStateService.getStats().totalUsers,
-        });
-      }
+      // Start the user update batcher service
+      console.log("⚡ Starting user update batcher service...");
+      userUpdateBatcherService.startPeriodicSweeper();
+
+      console.log("✅ Filter Processor initialized successfully:", {
+        events: unifiedSpatialCacheService.getStats().spatialIndexSize,
+        civicEngagements:
+          unifiedSpatialCacheService.getStats().civicEngagementCacheSize,
+        users: userStateService.getStats().totalUsers,
+        entityTypes: entityRegistry.getAllEntityTypes(),
+      });
     } catch (error) {
-      console.error("Error initializing Filter Processor:", error);
+      console.error("❌ Error initializing Filter Processor:", error);
       throw error;
     }
   }
@@ -240,22 +462,28 @@ export function createFilterProcessor(
    * Gracefully shut down the filter processor.
    */
   async function shutdown(): Promise<void> {
-    if (process.env.NODE_ENV !== "production") {
-      console.log("Shutting down Filter Processor...");
-      console.log("Final stats:", {
-        ...stats,
-        ...eventPublisher.getStats(),
-        ...eventCacheService.getStats(),
-        ...userStateService.getStats(),
-        ...relevanceScoringService.getStats(),
-        ...eventFilteringService.getStats(),
-        ...redisMessageHandler.getStats(),
-        ...eventInitializationService.getStats(),
-        ...userNotificationService.getStats(),
-        ...jobProcessingService.getStats(),
-        ...userUpdateBatcherService.getStats(),
-      });
+    console.log("🛑 Shutting down Filter Processor...");
+
+    // Clear all viewport debounce timers
+    for (const timer of viewportDebounceTimers.values()) {
+      clearTimeout(timer);
     }
+    viewportDebounceTimers.clear();
+
+    console.log("Final stats:", {
+      ...stats,
+      ...eventPublisher.getStats(),
+      ...eventEntityCacheService.getStats(),
+      ...userStateService.getStats(),
+      ...relevanceScoringService.getStats(),
+      ...eventFilteringService.getStats(),
+      ...redisMessageHandler.getStats(),
+      ...eventInitializationService.getStats(),
+      ...civicEngagementInitializationService.getStats(),
+      ...userNotificationService.getStats(),
+      ...jobProcessingService.getStats(),
+      ...userUpdateBatcherService.getStats(),
+    });
 
     // Shutdown user update batcher service
     userUpdateBatcherService.shutdown();
@@ -264,73 +492,6 @@ export function createFilterProcessor(
     await redisMessageHandler.unsubscribe();
     await redisMessageHandler.quit();
     await redisPub.quit();
-  }
-
-  /**
-   * Process an event update
-   */
-  async function processEventUpdate(eventData: {
-    operation: string;
-    record: Event;
-  }): Promise<void> {
-    try {
-      const { operation, record } = eventData;
-
-      console.log("[FilterProcessor] Processing event update:", {
-        eventId: record.id,
-        operation,
-        spatialIndexSize: eventCacheService.getStats().spatialIndexSize,
-        cacheSize: eventCacheService.getStats().cacheSize,
-      });
-
-      // Process the event (this updates both spatial index and cache)
-      await eventProcessor.processEvent(eventData);
-      stats.eventsProcessed++;
-
-      console.log("[FilterProcessor] Event processed, spatial index updated:", {
-        eventId: record.id,
-        operation,
-        newSpatialIndexSize: eventCacheService.getStats().spatialIndexSize,
-        newCacheSize: eventCacheService.getStats().cacheSize,
-      });
-
-      // For popularity updates, verify the spatial index was updated correctly
-      const isPopularityUpdate = isPopularityRelatedUpdate(eventData);
-      if (isPopularityUpdate) {
-        const spatialIndexUpdated = eventCacheService.verifyEventInSpatialIndex(
-          record.id,
-          record,
-        );
-        console.log(
-          "[FilterProcessor] Spatial index verification for popularity update:",
-          {
-            eventId: record.id,
-            spatialIndexUpdated,
-          },
-        );
-      }
-
-      // Mark affected users as dirty for batch processing
-      const affectedUsers =
-        await userNotificationService.getAffectedUsers(record);
-      for (const userId of affectedUsers) {
-        userUpdateBatcherService.markUserAsDirty(userId, {
-          reason: "event_update",
-          eventId: record.id,
-          operation,
-          timestamp: Date.now(),
-        });
-      }
-
-      console.log("[FilterProcessor] Event processed and users marked dirty:", {
-        eventId: record.id,
-        operation,
-        affectedUsers: affectedUsers.size,
-        isPopularityUpdate,
-      });
-    } catch (error) {
-      console.error("[FilterProcessor] Error processing event update:", error);
-    }
   }
 
   /**
@@ -362,19 +523,49 @@ export function createFilterProcessor(
     userId: string,
     viewport: BoundingBox,
   ): Promise<void> {
-    await viewportProcessor.updateUserViewport(userId, viewport);
-    userStateService.setUserViewport(userId, viewport);
-    stats.viewportUpdatesProcessed++;
+    // Clear existing debounce timer for this user
+    if (viewportDebounceTimers.has(userId)) {
+      clearTimeout(viewportDebounceTimers.get(userId)!);
+    }
 
-    // Mark user as dirty for batch processing
-    userUpdateBatcherService.markUserAsDirty(userId, {
-      reason: "viewport_change",
-      timestamp: Date.now(),
-    });
+    // Set new debounce timer
+    const timer = setTimeout(async () => {
+      try {
+        await viewportProcessor.updateUserViewport(userId, viewport);
+        userStateService.setUserViewport(userId, viewport);
+        stats.viewportUpdatesProcessed++;
 
-    console.log("[FilterProcessor] Viewport update processed:", {
+        // Track viewport in UnifiedMessageHandler for affected user calculation
+        unifiedMessageHandler.trackUserViewport("event", userId);
+        unifiedMessageHandler.trackUserViewport("civic_engagement", userId);
+
+        // Mark user as dirty for batch processing
+        userUpdateBatcherService.markUserAsDirty(userId, {
+          reason: "viewport_change",
+          timestamp: Date.now(),
+        });
+
+        console.log("[FilterProcessor] Viewport update processed:", {
+          userId,
+          viewport,
+        });
+      } catch (error) {
+        console.error(
+          "[FilterProcessor] Error processing viewport update:",
+          error,
+        );
+      } finally {
+        // Clean up timer reference
+        viewportDebounceTimers.delete(userId);
+      }
+    }, viewportDebounceMs);
+
+    viewportDebounceTimers.set(userId, timer);
+
+    console.log("[FilterProcessor] Viewport update debounced:", {
       userId,
       viewport,
+      debounceMs: viewportDebounceMs,
     });
   }
 
@@ -412,6 +603,10 @@ export function createFilterProcessor(
       hadFilters: userStateService.hasUserFilters(userId),
       hadViewport: userStateService.hasUserViewport(userId),
     });
+
+    // Clean up viewport tracking in UnifiedMessageHandler
+    unifiedMessageHandler.removeUserViewport("event", userId);
+    unifiedMessageHandler.removeUserViewport("civic_engagement", userId);
 
     // Clean up user data
     userStateService.unregisterUser(userId);
@@ -454,42 +649,24 @@ export function createFilterProcessor(
     return {
       ...stats,
       ...eventPublisher.getStats(),
-      ...eventCacheService.getStats(),
+      ...eventEntityCacheService.getStats(),
       ...userStateService.getStats(),
       ...relevanceScoringService.getStats(),
       ...eventFilteringService.getStats(),
       ...redisMessageHandler.getStats(),
       ...eventInitializationService.getStats(),
+      ...civicEngagementInitializationService.getStats(),
       ...userNotificationService.getStats(),
       ...jobProcessingService.getStats(),
       ...userUpdateBatcherService.getStats(),
+      unifiedMessageHandler: unifiedMessageHandler.getMetrics(),
+      entityRegistry: entityRegistry.getAllStats(),
     };
-  }
-
-  /**
-   * Check if an event update is related to popularity metrics
-   */
-  function isPopularityRelatedUpdate(data: {
-    operation: string;
-    record?: Event;
-  }): boolean {
-    if (data.operation !== "UPDATE") return false;
-
-    const record = data.record;
-    if (!record) return false;
-
-    // Check if any popularity-related fields are present
-    return (
-      typeof record.scanCount === "number" ||
-      typeof record.saveCount === "number" ||
-      (Array.isArray(record.rsvps) && record.rsvps.length > 0)
-    );
   }
 
   return {
     initialize,
     shutdown,
-    processEventUpdate,
     handleFilterChanges,
     handleViewportUpdate,
     handleInitialRequest,

@@ -13,10 +13,19 @@ export interface ViewportProcessor {
   updateUserViewport(userId: string, viewport: BoundingBox): Promise<void>;
 }
 
-export interface EventCacheService {
-  getEventsInViewport(viewport: BoundingBox): Event[];
+export interface UnifiedSpatialCacheService {
+  getEventsInViewport(viewport: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  }): Event[];
   getAllEvents(): Event[];
-  getStats(): { spatialIndexSize: number; cacheSize: number };
+  getStats(): {
+    cacheSize: number;
+    spatialIndexSize: number;
+    civicEngagementCacheSize: number;
+  };
 }
 
 export interface UserStateService {
@@ -47,12 +56,13 @@ export interface HybridUserUpdateBatcherService {
   forceProcessBatch(): Promise<void>;
   shutdown(): void;
   getStats(): Record<string, unknown>;
+  startPeriodicSweeper(): void;
 }
 
 export function createHybridUserUpdateBatcherService(
   eventFilteringService: EventFilteringService,
   viewportProcessor: ViewportProcessor,
-  eventCacheService: EventCacheService,
+  eventCacheService: UnifiedSpatialCacheService,
   getUserFilters: (userId: string) => Filter[],
   getUserViewport: (userId: string) => BoundingBox | null,
   config: HybridUserUpdateBatcherConfig = {},
@@ -324,5 +334,6 @@ export function createHybridUserUpdateBatcherService(
     forceProcessBatch,
     shutdown,
     getStats,
+    startPeriodicSweeper,
   };
 }

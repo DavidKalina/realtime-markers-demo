@@ -7,6 +7,7 @@ import { AuthModule } from "./api/modules/auth";
 import { FiltersModule } from "./api/modules/filters";
 import { RSVPModule } from "./api/modules/rsvp";
 import { CategoriesModule } from "./api/modules/categories";
+import { CivicEngagementApiClient } from "./api/modules/civicEngagement";
 
 // Re-export types and enums
 export * from "./api/base/types";
@@ -16,6 +17,7 @@ export * from "./api/modules/events";
 export * from "./api/modules/filters";
 export * from "./api/modules/rsvp";
 export * from "./api/modules/places";
+export * from "./api/modules/civicEngagement";
 
 class ApiClient extends BaseApiClient {
   private static instance: ApiClient | null = null;
@@ -25,6 +27,7 @@ class ApiClient extends BaseApiClient {
   private _filters: FiltersModule | null = null;
   private _rsvp: RSVPModule | null = null;
   private _categories: CategoriesModule | null = null;
+  private _civicEngagements: CivicEngagementApiClient | null = null;
 
   private constructor(baseUrl: string) {
     super(baseUrl);
@@ -83,6 +86,13 @@ class ApiClient extends BaseApiClient {
       this._categories = new CategoriesModule(this);
     }
     return this._categories;
+  }
+
+  public get civicEngagements(): CivicEngagementApiClient {
+    if (!this._civicEngagements) {
+      this._civicEngagements = new CivicEngagementApiClient(this);
+    }
+    return this._civicEngagements;
   }
 
   override setBaseUrl(baseUrl: string): void {

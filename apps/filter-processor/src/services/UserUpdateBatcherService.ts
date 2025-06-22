@@ -1,15 +1,7 @@
-import { BoundingBox, Filter } from "../types/types";
-import { EventFilteringService } from "./EventFilteringService";
-import { ViewportProcessor } from "../handlers/ViewportProcessor";
-import { EventCacheService } from "./EventCacheService";
-
-export interface UserUpdateBatcherService {
-  markUserDirty(userId: string): void;
-  markUserDirtyWithContext(userId: string, context: UserUpdateContext): void;
-  forceProcessBatch(): Promise<void>;
-  shutdown(): void;
-  getStats(): Record<string, unknown>;
-}
+import type { Filter, BoundingBox } from "../types/types";
+import type { ViewportProcessor } from "../handlers/ViewportProcessor";
+import type { EventFilteringService } from "./EventFilteringService";
+import type { UnifiedSpatialCacheService } from "./UnifiedSpatialCacheService";
 
 export interface UserUpdateContext {
   reason:
@@ -24,29 +16,44 @@ export interface UserUpdateContext {
 }
 
 export interface UserUpdateBatcherServiceConfig {
-  batchIntervalMs?: number;
-  enableBatching?: boolean;
+  debounceTimeoutMs?: number;
+  sweepIntervalMs?: number;
   maxBatchSize?: number;
+  enableBatching?: boolean;
+}
+
+export interface UserUpdateBatcherService {
+  markUserAsDirty(
+    userId: string,
+    context?: {
+      reason: string;
+      eventId?: string;
+      operation?: string;
+      timestamp: number;
+    },
+  ): void;
+  forceProcessBatch(): Promise<void>;
+  shutdown(): void;
+  getStats(): Record<string, unknown>;
 }
 
 export function createUserUpdateBatcherService(
   eventFilteringService: EventFilteringService,
   viewportProcessor: ViewportProcessor,
-  eventCacheService: EventCacheService,
+  eventCacheService: UnifiedSpatialCacheService,
   getUserFilters: (userId: string) => Filter[],
-  getUserViewport: (userId: string) => BoundingBox | undefined,
+  getUserViewport: (userId: string) => BoundingBox | null,
   config: UserUpdateBatcherServiceConfig = {},
 ): UserUpdateBatcherService {
   const {
-    batchIntervalMs = 15 * 60 * 1000, // 15 minutes default
-    enableBatching = true,
+    debounceTimeoutMs = 15 * 60 * 1000, // 15 minutes default
+    sweepIntervalMs = 15 * 60 * 1000, // 15 minutes default
     maxBatchSize = 1000,
+    enableBatching = true,
   } = config;
 
-  // Set of "dirty" users that need updates
+  // Private state
   const dirtyUsers = new Map<string, UserUpdateContext>();
-
-  // Timer for processing batches
   let batchTimer: NodeJS.Timeout | null = null;
   let isProcessingBatch = false;
 
@@ -63,12 +70,23 @@ export function createUserUpdateBatcherService(
   /**
    * Mark a user as dirty (needs update)
    */
-  function markUserDirty(userId: string): void {
-    const context: UserUpdateContext = {
-      reason: "event_update",
-      timestamp: Date.now(),
+  function markUserAsDirty(
+    userId: string,
+    context?: {
+      reason: string;
+      eventId?: string;
+      operation?: string;
+      timestamp: number;
+    },
+  ): void {
+    const contextToUse: UserUpdateContext = {
+      reason:
+        (context?.reason as UserUpdateContext["reason"]) || "event_update",
+      eventId: context?.eventId,
+      operation: context?.operation,
+      timestamp: context?.timestamp || Date.now(),
     };
-    markUserDirtyWithContext(userId, context);
+    markUserDirtyWithContext(userId, contextToUse);
   }
 
   /**
@@ -112,11 +130,11 @@ export function createUserUpdateBatcherService(
 
     batchTimer = setInterval(() => {
       processBatch();
-    }, batchIntervalMs);
+    }, debounceTimeoutMs);
 
     console.log("[UserUpdateBatcher] Started batch timer:", {
-      intervalMs: batchIntervalMs,
-      intervalMinutes: batchIntervalMs / (1000 * 60),
+      intervalMs: debounceTimeoutMs,
+      intervalMinutes: debounceTimeoutMs / (1000 * 60),
     });
   }
 
@@ -134,7 +152,7 @@ export function createUserUpdateBatcherService(
     try {
       console.log("[UserUpdateBatcher] Starting batch processing:", {
         dirtyUsers: dirtyUsers.size,
-        batchIntervalMs,
+        batchIntervalMs: debounceTimeoutMs,
       });
 
       // Get all dirty users and clear the set
@@ -279,9 +297,10 @@ export function createUserUpdateBatcherService(
       dirtyUsers: dirtyUsers.size,
       isProcessingBatch,
       config: {
-        batchIntervalMs,
-        enableBatching,
+        debounceTimeoutMs,
+        sweepIntervalMs,
         maxBatchSize,
+        enableBatching,
       },
     };
   }
@@ -292,8 +311,7 @@ export function createUserUpdateBatcherService(
   }
 
   return {
-    markUserDirty,
-    markUserDirtyWithContext,
+    markUserAsDirty,
     forceProcessBatch,
     shutdown,
     getStats,

@@ -1,12 +1,12 @@
 import Redis from "ioredis";
 import { BoundingBox, Event } from "../types/types";
-import { EventCacheService } from "../services/EventCacheService";
+import { UnifiedSpatialCacheService } from "../services/UnifiedSpatialCacheService";
 
 export class ViewportProcessor {
   private redisPub: Redis;
-  private eventCacheService: EventCacheService;
+  private eventCacheService: UnifiedSpatialCacheService;
 
-  constructor(redisPub: Redis, eventCacheService: EventCacheService) {
+  constructor(redisPub: Redis, eventCacheService: UnifiedSpatialCacheService) {
     this.redisPub = redisPub;
     this.eventCacheService = eventCacheService;
   }

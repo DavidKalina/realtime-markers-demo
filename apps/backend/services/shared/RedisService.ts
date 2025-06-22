@@ -12,6 +12,9 @@ export type RedisChannel =
   | "filter-changes"
   | "viewport-updates"
   | "websocket:job_updates"
+  | "civic_engagement:created"
+  | "civic_engagement:updated"
+  | "civic_engagement:deleted"
   | `user:${string}:filtered-events`
   | `job:${string}:updates`;
 

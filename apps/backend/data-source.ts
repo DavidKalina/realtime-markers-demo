@@ -13,6 +13,7 @@ import { UserEventView } from "./entities/UserEventView";
 import { UserEventDiscovery } from "./entities/UserEventDiscovery";
 import { UserEventRsvp } from "./entities/UserEventRsvp";
 import { UserEventSave } from "./entities/UserEventSave";
+import { CivicEngagement } from "./entities/CivicEngagement";
 
 // Import all migrations explicitly
 import { CategoryTable1710000000000 } from "./migrations/CategoryTable1710000000000";
@@ -30,6 +31,7 @@ import { AddAllUserForeignKeys1710000000014 } from "./migrations/AddAllUserForei
 import { AddIsOfficialToEvents1710000000015 } from "./migrations/AddIsOfficialToEvents1710000000015";
 import { SeedOfficialEvents1710000000016 } from "./migrations/SeedOfficialEvents1710000000016";
 import { RegenerateEmbeddings1710000000017 } from "./migrations/RegenerateEmbeddings1710000000017";
+import { CivicEngagementTables1710000000020 } from "./migrations/CivicEngagementTables1710000000020";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -46,6 +48,7 @@ const AppDataSource = new DataSource({
     UserEventDiscovery,
     UserEventRsvp,
     UserEventSave,
+    CivicEngagement,
   ],
   migrations: [
     CategoryTable1710000000000,
@@ -63,6 +66,7 @@ const AppDataSource = new DataSource({
     AddIsOfficialToEvents1710000000015,
     SeedOfficialEvents1710000000016,
     RegenerateEmbeddings1710000000017,
+    CivicEngagementTables1710000000020,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

@@ -1,7 +1,7 @@
 import RBush from "rbush";
-import { Event, SpatialItem } from "../types/types";
+import { Event, CivicEngagement, SpatialItem } from "../types/types";
 
-export interface EventCacheService {
+export interface UnifiedSpatialCacheService {
   // Event management
   addEvent(event: Event): void;
   updateEvent(event: Event): void;
@@ -9,7 +9,22 @@ export interface EventCacheService {
   getEvent(eventId: string): Event | undefined;
   getAllEvents(): Event[];
 
-  // Spatial index management
+  // Civic engagement management
+  addCivicEngagement(civicEngagement: CivicEngagement): void;
+  updateCivicEngagement(civicEngagement: CivicEngagement): void;
+  removeCivicEngagement(civicEngagementId: string): void;
+  getCivicEngagement(civicEngagementId: string): CivicEngagement | undefined;
+  getAllCivicEngagements(): CivicEngagement[];
+
+  // Unified spatial operations
+  getEntitiesInViewport(viewport: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  }): { type: string; entities: (Event | CivicEngagement)[] }[];
+
+  // Spatial index management (legacy methods for backward compatibility)
   addToSpatialIndex(event: Event): void;
   updateSpatialIndex(event: Event): void;
   removeFromSpatialIndex(eventId: string): void;
@@ -28,6 +43,7 @@ export interface EventCacheService {
   getStats(): {
     cacheSize: number;
     spatialIndexSize: number;
+    civicEngagementCacheSize: number;
   };
 
   // Verification
@@ -36,20 +52,22 @@ export interface EventCacheService {
   // Internal access for legacy compatibility
   getSpatialIndex(): RBush<SpatialItem>;
   getEventCache(): Map<string, Event>;
+  getCivicEngagementCache(): Map<string, CivicEngagement>;
 }
 
-export interface EventCacheServiceConfig {
+export interface UnifiedSpatialCacheServiceConfig {
   maxCacheSize?: number;
   enableSpatialIndex?: boolean;
 }
 
-export function createEventCacheService(
-  config: EventCacheServiceConfig = {},
-): EventCacheService {
+export function createUnifiedSpatialCacheService(
+  config: UnifiedSpatialCacheServiceConfig = {},
+): UnifiedSpatialCacheService {
   const { maxCacheSize = 10000, enableSpatialIndex = true } = config;
 
   // Private state
   const eventCache = new Map<string, Event>();
+  const civicEngagementCache = new Map<string, CivicEngagement>();
   const spatialIndex = new RBush<SpatialItem>();
 
   /**
@@ -75,6 +93,36 @@ export function createEventCacheService(
       maxY: lat,
       id: event.id,
       event,
+      type: "event",
+    };
+  }
+
+  /**
+   * Convert a civic engagement to a spatial item for the RBush index
+   */
+  function civicEngagementToSpatialItem(
+    civicEngagement: CivicEngagement,
+  ): SpatialItem {
+    // Validate location and coordinates
+    if (
+      !civicEngagement.location?.coordinates ||
+      !Array.isArray(civicEngagement.location.coordinates) ||
+      civicEngagement.location.coordinates.length !== 2
+    ) {
+      throw new Error(
+        `Civic engagement ${civicEngagement.id} has invalid coordinates: ${JSON.stringify(civicEngagement.location)}`,
+      );
+    }
+
+    const [lng, lat] = civicEngagement.location.coordinates;
+    return {
+      minX: lng,
+      minY: lat,
+      maxX: lng,
+      maxY: lat,
+      id: civicEngagement.id,
+      civicEngagement,
+      type: "civic_engagement",
     };
   }
 
@@ -183,6 +231,43 @@ export function createEventCacheService(
   }
 
   /**
+   * Get all entities in viewport across all entity types
+   */
+  function getEntitiesInViewport(viewport: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  }): { type: string; entities: (Event | CivicEngagement)[] }[] {
+    if (!enableSpatialIndex) {
+      // Fallback to cache if spatial index is disabled
+      return [
+        { type: "event", entities: getAllEvents() },
+        { type: "civic_engagement", entities: getAllCivicEngagements() },
+      ];
+    }
+
+    const spatialItems = spatialIndex.search(viewport);
+
+    // Group entities by type
+    const events: Event[] = [];
+    const civicEngagements: CivicEngagement[] = [];
+
+    spatialItems.forEach((item) => {
+      if (item.event) {
+        events.push(item.event);
+      } else if (item.civicEngagement) {
+        civicEngagements.push(item.civicEngagement);
+      }
+    });
+
+    return [
+      { type: "event", entities: events },
+      { type: "civic_engagement", entities: civicEngagements },
+    ];
+  }
+
+  /**
    * Get events in a specific viewport
    */
   function getEventsInViewport(viewport: {
@@ -253,10 +338,12 @@ export function createEventCacheService(
   function getStats(): {
     cacheSize: number;
     spatialIndexSize: number;
+    civicEngagementCacheSize: number;
   } {
     return {
       cacheSize: eventCache.size,
       spatialIndexSize: spatialIndex.all().length,
+      civicEngagementCacheSize: civicEngagementCache.size,
     };
   }
 
@@ -334,12 +421,133 @@ export function createEventCacheService(
     }
   }
 
+  /**
+   * Add a civic engagement to both cache and spatial index
+   */
+  function addCivicEngagement(civicEngagement: CivicEngagement): void {
+    // Add to cache
+    civicEngagementCache.set(civicEngagement.id, civicEngagement);
+
+    // Add to spatial index if enabled and has location
+    if (enableSpatialIndex && civicEngagement.location) {
+      addCivicEngagementToSpatialIndex(civicEngagement);
+    }
+
+    // Enforce cache size limit
+    if (civicEngagementCache.size > maxCacheSize) {
+      const firstKey = civicEngagementCache.keys().next().value;
+      if (firstKey) {
+        removeCivicEngagement(firstKey);
+      }
+    }
+  }
+
+  /**
+   * Update an existing civic engagement
+   */
+  function updateCivicEngagement(civicEngagement: CivicEngagement): void {
+    // Update cache
+    civicEngagementCache.set(civicEngagement.id, civicEngagement);
+
+    // Update spatial index if enabled and has location
+    if (enableSpatialIndex && civicEngagement.location) {
+      updateCivicEngagementSpatialIndex(civicEngagement);
+    }
+  }
+
+  /**
+   * Remove a civic engagement from both cache and spatial index
+   */
+  function removeCivicEngagement(civicEngagementId: string): void {
+    // Remove from cache
+    civicEngagementCache.delete(civicEngagementId);
+
+    // Remove from spatial index if enabled
+    if (enableSpatialIndex) {
+      removeCivicEngagementFromSpatialIndex(civicEngagementId);
+    }
+  }
+
+  /**
+   * Get a civic engagement from cache
+   */
+  function getCivicEngagement(
+    civicEngagementId: string,
+  ): CivicEngagement | undefined {
+    return civicEngagementCache.get(civicEngagementId);
+  }
+
+  /**
+   * Get all civic engagements from cache
+   */
+  function getAllCivicEngagements(): CivicEngagement[] {
+    return Array.from(civicEngagementCache.values());
+  }
+
+  /**
+   * Add civic engagement to spatial index
+   */
+  function addCivicEngagementToSpatialIndex(
+    civicEngagement: CivicEngagement,
+  ): void {
+    try {
+      const spatialItem = civicEngagementToSpatialItem(civicEngagement);
+      spatialIndex.insert(spatialItem);
+    } catch (error) {
+      console.warn(
+        `[EventCacheService] Failed to add civic engagement ${civicEngagement.id} to spatial index:`,
+        error,
+      );
+    }
+  }
+
+  /**
+   * Update civic engagement in spatial index
+   */
+  function updateCivicEngagementSpatialIndex(
+    civicEngagement: CivicEngagement,
+  ): void {
+    try {
+      // Remove old entry
+      removeCivicEngagementFromSpatialIndex(civicEngagement.id);
+      // Add new entry
+      addCivicEngagementToSpatialIndex(civicEngagement);
+    } catch (error) {
+      console.warn(
+        `[EventCacheService] Failed to update civic engagement ${civicEngagement.id} in spatial index:`,
+        error,
+      );
+    }
+  }
+
+  /**
+   * Remove civic engagement from spatial index
+   */
+  function removeCivicEngagementFromSpatialIndex(
+    civicEngagementId: string,
+  ): void {
+    const allItems = spatialIndex.all();
+    const itemToRemove = allItems.find(
+      (item) =>
+        item.id === civicEngagementId && item.type === "civic_engagement",
+    );
+    if (itemToRemove) {
+      spatialIndex.remove(itemToRemove);
+    }
+  }
+
   return {
     addEvent,
     updateEvent,
     removeEvent,
     getEvent,
     getAllEvents,
+    addCivicEngagement,
+    updateCivicEngagement,
+    removeCivicEngagement,
+    getCivicEngagement,
+    getAllCivicEngagements,
+    getEntitiesInViewport,
     addToSpatialIndex,
     updateSpatialIndex,
     removeFromSpatialIndex,
@@ -350,5 +558,6 @@ export function createEventCacheService(
     verifyEventInSpatialIndex,
     getSpatialIndex: () => spatialIndex,
     getEventCache: () => eventCache,
+    getCivicEngagementCache: () => civicEngagementCache,
   };
 }
