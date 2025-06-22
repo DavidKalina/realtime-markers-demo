@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { InteractiveMap } from "@/components/map/InteractiveMap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -128,192 +130,204 @@ export default function CivicEngagementsPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Civic Engagements
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Monitor and manage community feedback and requests
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              fetchCivicEngagements();
-              fetchStats();
-            }}
-            disabled={loading}
-          >
-            <RefreshCw
-              className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
-            />
-            Refresh
-          </Button>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            New Engagement
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total</CardTitle>
-              <MessageSquare className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {stats.byStatus.PENDING || 0}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">In Review</CardTitle>
-              <Filter className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {stats.byStatus.IN_REVIEW || 0}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Implemented</CardTitle>
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {stats.byStatus.IMPLEMENTED || 0}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Main Content Tabs */}
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="space-y-4"
-      >
-        <TabsList>
-          <TabsTrigger value="map" className="flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
-            Map View
-          </TabsTrigger>
-          <TabsTrigger value="list" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            List View
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="map" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Interactive Map</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="h-[600px] w-full">
-                <InteractiveMap
-                  websocketUrl={websocketUrl}
-                  initialCenter={userLocation || defaultCenter}
-                  initialZoom={defaultZoom}
-                  userLocation={userLocation}
-                  onLocationUpdate={setUserLocation}
+    <ProtectedRoute>
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">
+                Civic Engagements
+              </h2>
+              <p className="text-muted-foreground mt-2">
+                Monitor and manage community feedback and requests
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  fetchCivicEngagements();
+                  fetchStats();
+                }}
+                disabled={loading}
+              >
+                <RefreshCw
+                  className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
                 />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                Refresh
+              </Button>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                New Engagement
+              </Button>
+            </div>
+          </div>
 
-        <TabsContent value="list" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>All Civic Engagements</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
-                  <span className="ml-2 text-gray-600">Loading...</span>
-                </div>
-              ) : civicEngagements.length === 0 ? (
-                <div className="text-center py-8">
-                  <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No civic engagements found</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {civicEngagements.map((engagement) => (
-                    <div
-                      key={engagement.id}
-                      className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg">
-                            {engagement.title}
-                          </h3>
-                          {engagement.description && (
-                            <p className="text-gray-600 mt-1">
-                              {engagement.description}
-                            </p>
-                          )}
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge className={getTypeColor(engagement.type)}>
-                              {engagement.type}
-                            </Badge>
-                            <Badge
-                              className={getStatusColor(engagement.status)}
-                            >
-                              {engagement.status}
-                            </Badge>
-                            {engagement.address && (
-                              <div className="flex items-center text-sm text-gray-500">
-                                <MapPin className="h-3 w-3 mr-1" />
-                                {engagement.address}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right text-sm text-gray-500">
-                          <div className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            {engagement.creatorId}
-                          </div>
-                          <div className="flex items-center gap-1 mt-1">
-                            <Clock className="h-3 w-3" />
-                            {new Date(
-                              engagement.createdAt,
-                            ).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
+          {/* Stats Cards */}
+          {stats && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total</CardTitle>
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.total}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Pending</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {stats.byStatus.PENDING || 0}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    In Review
+                  </CardTitle>
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {stats.byStatus.IN_REVIEW || 0}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Implemented
+                  </CardTitle>
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {stats.byStatus.IMPLEMENTED || 0}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Main Content Tabs */}
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="space-y-4"
+          >
+            <TabsList>
+              <TabsTrigger value="map" className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Map View
+              </TabsTrigger>
+              <TabsTrigger value="list" className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                List View
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="map" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Interactive Map</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="h-[600px] w-full">
+                    <InteractiveMap
+                      websocketUrl={websocketUrl}
+                      initialCenter={userLocation || defaultCenter}
+                      initialZoom={defaultZoom}
+                      userLocation={userLocation}
+                      onLocationUpdate={setUserLocation}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="list" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>All Civic Engagements</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+                      <span className="ml-2 text-gray-600">Loading...</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+                  ) : civicEngagements.length === 0 ? (
+                    <div className="text-center py-8">
+                      <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600">
+                        No civic engagements found
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {civicEngagements.map((engagement) => (
+                        <div
+                          key={engagement.id}
+                          className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-lg">
+                                {engagement.title}
+                              </h3>
+                              {engagement.description && (
+                                <p className="text-gray-600 mt-1">
+                                  {engagement.description}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-2 mt-2">
+                                <Badge
+                                  className={getTypeColor(engagement.type)}
+                                >
+                                  {engagement.type}
+                                </Badge>
+                                <Badge
+                                  className={getStatusColor(engagement.status)}
+                                >
+                                  {engagement.status}
+                                </Badge>
+                                {engagement.address && (
+                                  <div className="flex items-center text-sm text-gray-500">
+                                    <MapPin className="h-3 w-3 mr-1" />
+                                    {engagement.address}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right text-sm text-gray-500">
+                              <div className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {engagement.creatorId}
+                              </div>
+                              <div className="flex items-center gap-1 mt-1">
+                                <Clock className="h-3 w-3" />
+                                {new Date(
+                                  engagement.createdAt,
+                                ).toLocaleDateString()}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </DashboardLayout>
+    </ProtectedRoute>
   );
 }
