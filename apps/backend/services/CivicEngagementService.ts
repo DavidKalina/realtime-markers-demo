@@ -24,11 +24,11 @@ export class CivicEngagementService {
     const saved = await this.civicEngagementRepository.save(civicEngagement);
 
     // Publish to Redis for real-time updates
-    await this.redisService.publish("civic_engagement:created", {
+    await this.redisService.publish("civic_engagement_changes", {
       data: {
-        id: saved.id,
-        type: saved.type,
-        status: saved.status,
+        operation: "CREATE",
+        record: saved,
+        userId: saved.creatorId,
       },
     });
 
@@ -62,10 +62,11 @@ export class CivicEngagementService {
     const updated = await this.civicEngagementRepository.save(civicEngagement);
 
     // Publish update
-    await this.redisService.publish("civic_engagement:updated", {
+    await this.redisService.publish("civic_engagement_changes", {
       data: {
-        id: updated.id,
-        status: updated.status,
+        operation: "UPDATE",
+        record: updated,
+        userId: updated.creatorId,
       },
     });
 
@@ -235,9 +236,11 @@ export class CivicEngagementService {
     await this.civicEngagementRepository.remove(civicEngagement);
 
     // Publish deletion
-    await this.redisService.publish("civic_engagement:deleted", {
+    await this.redisService.publish("civic_engagement_changes", {
       data: {
-        id,
+        operation: "DELETE",
+        record: civicEngagement,
+        userId: civicEngagement.creatorId,
       },
     });
   }

@@ -34,6 +34,12 @@ export interface UnifiedSpatialCacheService {
     maxX: number;
     maxY: number;
   }): Event[];
+  getCivicEngagementsInViewport(viewport: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  }): CivicEngagement[];
 
   // Bulk operations
   clearAll(): void;
@@ -536,6 +542,29 @@ export function createUnifiedSpatialCacheService(
     }
   }
 
+  /**
+   * Get civic engagements in a specific viewport
+   */
+  function getCivicEngagementsInViewport(viewport: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  }): CivicEngagement[] {
+    if (!enableSpatialIndex) {
+      // Fallback to cache if spatial index is disabled
+      return getAllCivicEngagements();
+    }
+
+    const spatialItems = spatialIndex.search(viewport);
+    return spatialItems
+      .map((item) => item.civicEngagement)
+      .filter(
+        (civicEngagement): civicEngagement is CivicEngagement =>
+          civicEngagement !== undefined,
+      );
+  }
+
   return {
     addEvent,
     updateEvent,
@@ -552,6 +581,7 @@ export function createUnifiedSpatialCacheService(
     updateSpatialIndex,
     removeFromSpatialIndex,
     getEventsInViewport,
+    getCivicEngagementsInViewport,
     clearAll,
     bulkLoad,
     getStats,

@@ -141,12 +141,15 @@ export function createRedisService(
 
         // Subscribe to user's filtered events channel
         const userChannel = `user:${userId}:filtered-events`;
+        console.log(
+          `[RedisService] Subscribing to user channel: ${userChannel}`,
+        );
         userSubscriber.subscribe(userChannel, (err, count) => {
           if (err) {
             console.error(`Error subscribing to ${userChannel}:`, err);
           } else {
             console.log(
-              `Subscribed to ${userChannel}, total subscriptions: ${count}`,
+              `Successfully subscribed to ${userChannel}, total subscriptions: ${count}`,
             );
           }
         });
@@ -154,6 +157,15 @@ export function createRedisService(
         userSubscriber.on("connect", () => {
           console.log(`Redis subscriber connected for user ${userId}`);
         });
+
+        userSubscriber.on("message", (channel: string, message: string) => {
+          console.log(
+            `[RedisService] Received message on ${channel} for user ${userId}:`,
+            message,
+          );
+        });
+      } else {
+        console.log(`Using existing Redis subscriber for user ${userId}`);
       }
 
       return userSubscribers.get(userId)!;

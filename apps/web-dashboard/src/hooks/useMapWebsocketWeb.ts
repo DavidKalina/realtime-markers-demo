@@ -220,7 +220,20 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const convertCivicEngagementToMarker = useCallback(
     (civicEngagement: any): Marker => {
-      return {
+      console.log(
+        "[useMapWebsocket] Converting civic engagement to marker:",
+        civicEngagement,
+      );
+
+      if (!civicEngagement.location || !civicEngagement.location.coordinates) {
+        console.error(
+          "[useMapWebsocket] Civic engagement missing location:",
+          civicEngagement,
+        );
+        throw new Error("Civic engagement missing location data");
+      }
+
+      const marker = {
         id: `civic-${civicEngagement.id}`, // Prefix to distinguish from events
         coordinates: civicEngagement.location.coordinates,
         data: {
@@ -242,6 +255,12 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           ...(civicEngagement.metadata || {}),
         },
       };
+
+      console.log(
+        "[useMapWebsocket] Converted civic engagement marker:",
+        marker,
+      );
+      return marker;
     },
     [],
   );
@@ -315,6 +334,11 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
+        console.log(
+          "[useMapWebsocket] Received WebSocket message:",
+          data.type,
+          data,
+        );
 
         if (!data || typeof data !== "object" || !data.type) {
           console.warn(
@@ -334,12 +358,14 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           case MessageTypes.REPLACE_ALL: // Server sends this for full viewport/filter updates
             // Note: The server also sends VIEWPORT_UPDATE which the FilterProcessor uses.
             // The client receives REPLACE_ALL as the result of a viewport change.
+            console.log("[useMapWebsocket] Received REPLACE_ALL:", data);
             if (
               !Array.isArray(data.events) &&
               !Array.isArray(data.civicEngagements)
             ) {
               console.warn(
                 "[useMapWebsocket] Invalid events or civic engagements array in REPLACE_ALL",
+                data,
               );
               setMarkers([]); // Clear markers on invalid data
               emitMarkersUpdated([], "replace");
@@ -356,7 +382,18 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                 ? data.civicEngagements.map(convertCivicEngagementToMarker)
                 : [];
 
+              console.log(
+                "[useMapWebsocket] REPLACE_ALL - Events:",
+                eventMarkers.length,
+                "Civic Engagements:",
+                civicEngagementMarkers.length,
+              );
+
               const newMarkers = [...eventMarkers, ...civicEngagementMarkers];
+              console.log(
+                "[useMapWebsocket] REPLACE_ALL - Total markers:",
+                newMarkers.length,
+              );
               setMarkers(newMarkers);
               emitMarkersUpdated(newMarkers, "replace");
 
@@ -376,6 +413,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               console.error(
                 "[useMapWebsocket] Error processing REPLACE_ALL:",
                 e,
+                data,
               );
               setMarkers([]);
               emitMarkersUpdated([], "replace");
@@ -519,26 +557,52 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
           // Civic Engagement handlers
           case MessageTypes.ADD_CIVIC_ENGAGEMENT: {
+            console.log(
+              "[useMapWebsocket] Received ADD_CIVIC_ENGAGEMENT:",
+              data,
+            );
             if (!data.civicEngagement || !data.civicEngagement.id) {
               console.warn(
                 "[useMapWebsocket] Missing or invalid civic engagement data in ADD_CIVIC_ENGAGEMENT",
+                data,
               );
               return;
             }
             try {
+              console.log(
+                "[useMapWebsocket] Converting civic engagement to marker:",
+                data.civicEngagement,
+              );
               const newMarker = convertCivicEngagementToMarker(
                 data.civicEngagement,
+              );
+              console.log(
+                "[useMapWebsocket] Converted civic engagement marker:",
+                newMarker,
               );
               let added = false;
               setMarkers((prevMarkers) => {
                 // Prevent duplicates if message is somehow re-processed
                 if (!prevMarkers.some((m) => m.id === newMarker.id)) {
                   added = true;
+                  console.log(
+                    "[useMapWebsocket] Adding civic engagement marker to map:",
+                    newMarker.id,
+                  );
                   return [...prevMarkers, newMarker];
+                } else {
+                  console.log(
+                    "[useMapWebsocket] Civic engagement marker already exists:",
+                    newMarker.id,
+                  );
+                  return prevMarkers;
                 }
-                return prevMarkers;
               });
               if (added) {
+                console.log(
+                  "[useMapWebsocket] Emitting MARKER_ADDED for civic engagement:",
+                  newMarker.id,
+                );
                 eventBroker.emit<MarkersEvent>(EventTypes.MARKER_ADDED, {
                   timestamp: Date.now(),
                   source: "useMapWebSocket",
@@ -550,43 +614,73 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               console.error(
                 "[useMapWebsocket] Error processing ADD_CIVIC_ENGAGEMENT:",
                 e,
+                data,
               );
             }
             break;
           }
 
           case MessageTypes.UPDATE_CIVIC_ENGAGEMENT: {
+            console.log(
+              "[useMapWebsocket] Received UPDATE_CIVIC_ENGAGEMENT:",
+              data,
+            );
             if (!data.civicEngagement || !data.civicEngagement.id) {
               console.warn(
                 "[useMapWebsocket] Missing or invalid civic engagement data in UPDATE_CIVIC_ENGAGEMENT",
+                data,
               );
               return;
             }
             try {
+              console.log(
+                "[useMapWebsocket] Converting civic engagement to marker:",
+                data.civicEngagement,
+              );
               const updatedMarker = convertCivicEngagementToMarker(
                 data.civicEngagement,
+              );
+              console.log(
+                "[useMapWebsocket] Converted civic engagement marker:",
+                updatedMarker,
               );
               let markerFoundAndUpdated = false;
               let markerAdded = false;
 
               setMarkers((prevMarkers) => {
+                console.log(
+                  "[useMapWebsocket] Current markers before update:",
+                  prevMarkers.length,
+                );
                 const existingMarkerIndex = prevMarkers.findIndex(
                   (marker) => marker.id === updatedMarker.id,
                 );
 
                 if (existingMarkerIndex !== -1) {
+                  console.log(
+                    "[useMapWebsocket] Updating existing civic engagement marker:",
+                    updatedMarker.id,
+                  );
                   const newMarkers = [...prevMarkers];
                   newMarkers[existingMarkerIndex] = updatedMarker;
                   markerFoundAndUpdated = true;
                   return newMarkers;
                 } else {
                   // Civic engagement was not previously visible, now it is (due to update)
+                  console.log(
+                    "[useMapWebsocket] Adding civic engagement marker (wasn't visible before):",
+                    updatedMarker.id,
+                  );
                   markerAdded = true;
                   return [...prevMarkers, updatedMarker];
                 }
               });
 
               if (markerFoundAndUpdated) {
+                console.log(
+                  "[useMapWebsocket] Emitting MARKERS_UPDATED for civic engagement:",
+                  updatedMarker.id,
+                );
                 eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
                   timestamp: Date.now(),
                   source: "useMapWebSocket",
@@ -594,6 +688,10 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
                   count: 1,
                 });
               } else if (markerAdded) {
+                console.log(
+                  "[useMapWebsocket] Emitting MARKER_ADDED for civic engagement (from update):",
+                  updatedMarker.id,
+                );
                 eventBroker.emit<MarkersEvent>(EventTypes.MARKER_ADDED, {
                   timestamp: Date.now(),
                   source: "useMapWebSocket",
@@ -605,27 +703,50 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               console.error(
                 "[useMapWebsocket] Error processing UPDATE_CIVIC_ENGAGEMENT:",
                 e,
+                data,
               );
             }
             break;
           }
 
           case MessageTypes.DELETE_CIVIC_ENGAGEMENT: {
+            console.log(
+              "[useMapWebsocket] Received DELETE_CIVIC_ENGAGEMENT:",
+              data,
+            );
             if (!data.id) {
               console.warn(
                 "[useMapWebsocket] Missing id in DELETE_CIVIC_ENGAGEMENT",
+                data,
               );
               return;
             }
             try {
               const deletedId = `civic-${data.id}`; // Add prefix to match marker ID format
+              console.log(
+                "[useMapWebsocket] Looking for civic engagement marker to delete:",
+                deletedId,
+              );
               let deleted = false;
               setMarkers((prevMarkers) => {
+                console.log(
+                  "[useMapWebsocket] Current markers before deletion:",
+                  prevMarkers.length,
+                );
                 const newMarkers = prevMarkers.filter(
                   (marker) => marker.id !== deletedId,
                 );
                 if (newMarkers.length < prevMarkers.length) {
                   deleted = true;
+                  console.log(
+                    "[useMapWebsocket] Civic engagement marker deleted:",
+                    deletedId,
+                  );
+                } else {
+                  console.log(
+                    "[useMapWebsocket] Civic engagement marker not found for deletion:",
+                    deletedId,
+                  );
                 }
                 return newMarkers;
               });
@@ -633,12 +754,19 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               if (deleted) {
                 // Check if the deleted marker was selected
                 if (deletedId === selectedMarkerIdFromStoreRef.current) {
+                  console.log(
+                    "[useMapWebsocket] Deleted civic engagement was selected, deselecting",
+                  );
                   selectMarkerFromStoreRef.current(null); // Deselect
                   eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
                     timestamp: Date.now(),
                     source: "useMapWebSocket",
                   });
                 }
+                console.log(
+                  "[useMapWebsocket] Emitting MARKER_REMOVED for civic engagement:",
+                  deletedId,
+                );
                 eventBroker.emit<MarkersEvent>(EventTypes.MARKER_REMOVED, {
                   timestamp: Date.now(),
                   source: "useMapWebSocket",
@@ -653,6 +781,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               console.error(
                 "[useMapWebsocket] Error processing DELETE_CIVIC_ENGAGEMENT:",
                 e,
+                data,
               );
             }
             break;

@@ -8,7 +8,6 @@ import { MapMojiFilterService } from "./MapMojiFilterService";
 import { createUnifiedSpatialCacheService } from "./UnifiedSpatialCacheService";
 import { createUserStateService } from "./UserStateService";
 import { createRelevanceScoringService } from "./RelevanceScoringService";
-import { createEventFilteringService } from "./EventFilteringService";
 import { createUserNotificationService } from "./UserNotificationService";
 import { createJobProcessingService } from "./JobProcessingService";
 import { createHybridUserUpdateBatcherService } from "./HybridUserUpdateBatcherService";
@@ -27,6 +26,7 @@ import { createEventInitializationService } from "./EventInitializationService";
 import { createCivicEngagementInitializationService } from "./CivicEngagementInitializationService";
 import { FilteringStrategyFactory } from "./filtering/FilteringStrategyFactory";
 import { createEntityInitializationService } from "./EntityInitializationService";
+import { createUnifiedFilteringService } from "./UnifiedFilteringService";
 
 export interface FilterProcessor {
   // Core lifecycle
@@ -177,6 +177,25 @@ export function createFilterProcessor(
       eventInitializationConfig,
     );
 
+  // Create entity-specific services
+  const eventEntityCacheService = createEntityCacheService(
+    "event",
+    unifiedSpatialCacheService,
+  );
+  const civicEngagementEntityCacheService = createEntityCacheService(
+    "civic_engagement",
+    unifiedSpatialCacheService,
+  );
+
+  // Create filtering strategies
+  const eventFilteringStrategy = FilteringStrategyFactory.createStrategy(
+    "event",
+    "mapmoji",
+    eventFilteringConfig,
+  );
+  const civicEngagementFilteringStrategy =
+    FilteringStrategyFactory.createStrategy("civic_engagement", "simple");
+
   // Create wrapper services that implement EntityInitializationService interface
   const eventInitializationService = createEntityInitializationService(
     "event",
@@ -207,25 +226,6 @@ export function createFilterProcessor(
     );
     await realCivicEngagementInitializationService.initializeCivicEngagements();
   };
-
-  // Create entity-specific services
-  const eventEntityCacheService = createEntityCacheService(
-    "event",
-    unifiedSpatialCacheService,
-  );
-  const civicEngagementEntityCacheService = createEntityCacheService(
-    "civic_engagement",
-    unifiedSpatialCacheService,
-  );
-
-  // Create filtering strategies
-  const eventFilteringStrategy = FilteringStrategyFactory.createStrategy(
-    "event",
-    "mapmoji",
-    eventFilteringConfig,
-  );
-  const civicEngagementFilteringStrategy =
-    FilteringStrategyFactory.createStrategy("civic_engagement", "simple");
 
   // Register entity types with the registry using the unified system
   entityRegistry.registerEntityType(
@@ -291,10 +291,10 @@ export function createFilterProcessor(
       },
       webSocket: {
         messageTypes: {
-          add: "civic_engagement:created",
-          update: "civic_engagement:updated",
-          delete: "civic_engagement:deleted",
-          discovered: "civic_engagement:discovered",
+          add: "add-civic-engagement",
+          update: "update-civic-engagement",
+          delete: "delete-civic-engagement",
+          discovered: "civic_engagement_discovered",
         },
         redisChannels: {
           changes: "civic_engagement_changes",
@@ -318,13 +318,16 @@ export function createFilterProcessor(
   const eventPublisher = new EventPublisher(redisPub);
   const mapMojiFilter = new MapMojiFilterService();
 
-  // Create specialized services
-  const eventFilteringService = createEventFilteringService(
+  // Create unified filtering service that handles both events and civic engagements
+  const unifiedFilteringService = createUnifiedFilteringService(
     filterMatcher,
     mapMojiFilter,
     relevanceScoringService,
     eventPublisher,
-    eventFilteringConfig,
+    {
+      mapMojiConfig: eventFilteringConfig.mapMojiConfig,
+      maxCivicEngagements: 100,
+    },
   );
 
   const userNotificationService = createUserNotificationService(
@@ -340,7 +343,7 @@ export function createFilterProcessor(
 
   // Create user update batcher service (replaces deprecated BatchScoreUpdateService)
   const userUpdateBatcherService = createHybridUserUpdateBatcherService(
-    eventFilteringService,
+    unifiedFilteringService,
     viewportProcessor,
     unifiedSpatialCacheService,
     (userId: string) => userStateService.getUserFilters(userId),
@@ -476,7 +479,6 @@ export function createFilterProcessor(
       ...eventEntityCacheService.getStats(),
       ...userStateService.getStats(),
       ...relevanceScoringService.getStats(),
-      ...eventFilteringService.getStats(),
       ...redisMessageHandler.getStats(),
       ...eventInitializationService.getStats(),
       ...civicEngagementInitializationService.getStats(),
@@ -652,7 +654,6 @@ export function createFilterProcessor(
       ...eventEntityCacheService.getStats(),
       ...userStateService.getStats(),
       ...relevanceScoringService.getStats(),
-      ...eventFilteringService.getStats(),
       ...redisMessageHandler.getStats(),
       ...eventInitializationService.getStats(),
       ...civicEngagementInitializationService.getStats(),

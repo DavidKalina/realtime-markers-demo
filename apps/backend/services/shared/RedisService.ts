@@ -15,6 +15,7 @@ export type RedisChannel =
   | "civic_engagement:created"
   | "civic_engagement:updated"
   | "civic_engagement:deleted"
+  | "civic_engagement_changes"
   | `user:${string}:filtered-events`
   | `job:${string}:updates`;
 

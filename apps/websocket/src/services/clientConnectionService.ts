@@ -157,8 +157,23 @@ export function createClientConnectionService(
         );
 
         if (channel === `user:${userId}:filtered-events`) {
+          console.log(
+            `[WebSocket] Processing filtered events for user ${userId}:`,
+            message,
+          );
           // Forward the filtered events to all clients for this user
           this.forwardMessageToUserClients(userId, message);
+        } else if (channel === `user:${userId}:filtered-civic-engagements`) {
+          console.log(
+            `[WebSocket] Processing filtered civic engagements for user ${userId}:`,
+            message,
+          );
+          // Forward the filtered civic engagements to all clients for this user
+          this.forwardMessageToUserClients(userId, message);
+        } else {
+          console.log(
+            `[WebSocket] Ignoring message on channel ${channel} for user ${userId}`,
+          );
         }
       };
 
@@ -263,15 +278,18 @@ export function createClientConnectionService(
             const replaceAllMessage = {
               type: "replace-all",
               events: parsedMessage.updates.creates,
+              civicEngagements: parsedMessage.civicEngagements || [],
               timestamp: parsedMessage.timestamp,
             };
 
             console.log(
-              `[WebSocket] Sending replace-all message with ${parsedMessage.updates.creates.length} events to ${clientIds.size} clients of user ${userId}:`,
+              `[WebSocket] Sending replace-all message with ${parsedMessage.updates.creates.length} events and ${parsedMessage.civicEngagements?.length || 0} civic engagements to ${clientIds.size} clients of user ${userId}:`,
               {
                 userId,
                 clientCount: clientIds.size,
                 eventCount: parsedMessage.updates.creates.length,
+                civicEngagementCount:
+                  parsedMessage.civicEngagements?.length || 0,
                 topEventScores: parsedMessage.updates.creates
                   .slice(0, 3)
                   .map(
@@ -293,6 +311,24 @@ export function createClientConnectionService(
                       },
                     }),
                   ),
+                topCivicEngagementScores:
+                  parsedMessage.civicEngagements
+                    ?.slice(0, 3)
+                    .map(
+                      (civicEngagement: {
+                        id: string;
+                        title: string;
+                        relevanceScore?: number;
+                        status?: string;
+                        type?: string;
+                      }) => ({
+                        civicEngagementId: civicEngagement.id,
+                        title: civicEngagement.title,
+                        relevanceScore: civicEngagement.relevanceScore,
+                        status: civicEngagement.status,
+                        type: civicEngagement.type,
+                      }),
+                    ) || [],
                 messageType: "replace-all",
               },
             );
@@ -329,16 +365,104 @@ export function createClientConnectionService(
             const replaceAllMessage = {
               type: "replace-all",
               events: [],
+              civicEngagements: parsedMessage.civicEngagements || [],
               timestamp: parsedMessage.timestamp,
             };
 
             console.log(
-              `[WebSocket] Sending replace-all message with 0 events to ${clientIds.size} clients of user ${userId}:`,
+              `[WebSocket] Sending replace-all message with 0 events and ${parsedMessage.civicEngagements?.length || 0} civic engagements to ${clientIds.size} clients of user ${userId}:`,
               {
                 userId,
                 clientCount: clientIds.size,
                 eventCount: 0,
+                civicEngagementCount:
+                  parsedMessage.civicEngagements?.length || 0,
                 topEventScores: [],
+                topCivicEngagementScores:
+                  parsedMessage.civicEngagements
+                    ?.slice(0, 3)
+                    .map(
+                      (civicEngagement: {
+                        id: string;
+                        title: string;
+                        relevanceScore?: number;
+                        status?: string;
+                        type?: string;
+                      }) => ({
+                        civicEngagementId: civicEngagement.id,
+                        title: civicEngagement.title,
+                        relevanceScore: civicEngagement.relevanceScore,
+                        status: civicEngagement.status,
+                        type: civicEngagement.type,
+                      }),
+                    ) || [],
+                messageType: "replace-all",
+              },
+            );
+
+            // Send the transformed message to all clients
+            for (const clientId of clientIds) {
+              const client = clients.get(clientId);
+              if (client) {
+                try {
+                  client.send(JSON.stringify(replaceAllMessage));
+                  console.log(
+                    `[WebSocket] Successfully sent replace-all message to client ${clientId}`,
+                  );
+                } catch (error) {
+                  console.error(
+                    `[WebSocket] Error sending replace-all message to client ${clientId}:`,
+                    error,
+                  );
+                }
+              } else {
+                console.log(
+                  `[WebSocket] Client ${clientId} not found in clients map`,
+                );
+              }
+            }
+            return; // Don't continue with the original message
+          }
+
+          // Handle case where there are only civic engagements (no events)
+          if (
+            parsedMessage.civicEngagements &&
+            parsedMessage.civicEngagements.length > 0 &&
+            (!parsedMessage.updates.creates ||
+              parsedMessage.updates.creates.length === 0)
+          ) {
+            const replaceAllMessage = {
+              type: "replace-all",
+              events: [],
+              civicEngagements: parsedMessage.civicEngagements,
+              timestamp: parsedMessage.timestamp,
+            };
+
+            console.log(
+              `[WebSocket] Sending replace-all message with 0 events and ${parsedMessage.civicEngagements.length} civic engagements to ${clientIds.size} clients of user ${userId}:`,
+              {
+                userId,
+                clientCount: clientIds.size,
+                eventCount: 0,
+                civicEngagementCount: parsedMessage.civicEngagements.length,
+                topEventScores: [],
+                topCivicEngagementScores: parsedMessage.civicEngagements
+                  .slice(0, 3)
+                  .map(
+                    (civicEngagement: {
+                      id: string;
+                      title: string;
+                      relevanceScore?: number;
+                      status?: string;
+                      type?: string;
+                    }) => ({
+                      civicEngagementId: civicEngagement.id,
+                      title: civicEngagement.title,
+                      relevanceScore: civicEngagement.relevanceScore,
+                      status: civicEngagement.status,
+                      type: civicEngagement.type,
+                    }),
+                  ),
                 messageType: "replace-all",
               },
             );

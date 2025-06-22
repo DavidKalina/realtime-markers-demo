@@ -73,6 +73,86 @@ export function handleRedisMessage(
   try {
     const data = JSON.parse(message);
 
+    // Handle filtered events channel pattern (user:${userId}:filtered-events)
+    if (channel.match(/^user:.+:filtered-events$/)) {
+      console.log("[WebSocket] Received filtered events message:", data);
+
+      // Extract userId from channel name
+      const userId = channel.split(":")[1];
+      if (!userId) {
+        console.error("Could not extract userId from channel:", channel);
+        return;
+      }
+
+      console.log("[WebSocket] Forwarding filtered events to user:", userId);
+
+      // Forward the message to the user's clients
+      const userClients = dependencies.getUserClients(userId);
+      if (userClients) {
+        for (const clientId of userClients) {
+          const client = dependencies.getClient(clientId);
+          if (client) {
+            try {
+              client.send(message);
+              console.log(`Forwarded filtered events to client ${clientId}`);
+            } catch (error) {
+              console.error(
+                `Error forwarding filtered events to client ${clientId}:`,
+                error,
+              );
+            }
+          }
+        }
+      } else {
+        console.log(`No clients found for user ${userId}`);
+      }
+      return;
+    }
+
+    // Handle filtered civic engagements channel pattern (user:${userId}:filtered-civic-engagements)
+    if (channel.match(/^user:.+:filtered-civic-engagements$/)) {
+      console.log(
+        "[WebSocket] Received filtered civic engagements message:",
+        data,
+      );
+
+      // Extract userId from channel name
+      const userId = channel.split(":")[1];
+      if (!userId) {
+        console.error("Could not extract userId from channel:", channel);
+        return;
+      }
+
+      console.log(
+        "[WebSocket] Forwarding filtered civic engagements to user:",
+        userId,
+      );
+
+      // Forward the message to the user's clients
+      const userClients = dependencies.getUserClients(userId);
+      if (userClients) {
+        for (const clientId of userClients) {
+          const client = dependencies.getClient(clientId);
+          if (client) {
+            try {
+              client.send(message);
+              console.log(
+                `Forwarded filtered civic engagements to client ${clientId}`,
+              );
+            } catch (error) {
+              console.error(
+                `Error forwarding filtered civic engagements to client ${clientId}:`,
+                error,
+              );
+            }
+          }
+        }
+      } else {
+        console.log(`No clients found for user ${userId}`);
+      }
+      return;
+    }
+
     switch (channel) {
       case REDIS_CHANNELS.DISCOVERED_EVENTS: {
         const eventData = data as DiscoveredEvent;
@@ -147,12 +227,20 @@ export function handleRedisMessage(
       }
 
       case REDIS_CHANNELS.CIVIC_ENGAGEMENT_CHANGES: {
+        console.log("[WebSocket] Received civic engagement change:", data);
         // Handle civic engagement updates from filter processor
         const civicEngagementData = data.data || data;
         if (!civicEngagementData.userId || !civicEngagementData.operation) {
           console.error("Invalid civic engagement change data:", data);
           return;
         }
+
+        console.log("[WebSocket] Processing civic engagement:", {
+          operation: civicEngagementData.operation,
+          userId: civicEngagementData.userId,
+          civicEngagement:
+            civicEngagementData.civicEngagement || civicEngagementData,
+        });
 
         const userClients = dependencies.getUserClients(
           civicEngagementData.userId,
@@ -167,10 +255,21 @@ export function handleRedisMessage(
                 );
                 const formattedMessage = JSON.stringify({
                   type: messageType,
-                  data:
+                  civicEngagement:
                     civicEngagementData.civicEngagement || civicEngagementData,
                   timestamp: new Date().toISOString(),
                 });
+
+                console.log(
+                  "[WebSocket] Sending civic engagement message to client:",
+                  {
+                    clientId,
+                    messageType,
+                    civicEngagementId:
+                      civicEngagementData.civicEngagement?.id ||
+                      civicEngagementData.id,
+                  },
+                );
 
                 client.send(formattedMessage);
                 console.log(

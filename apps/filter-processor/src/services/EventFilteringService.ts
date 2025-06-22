@@ -1,4 +1,4 @@
-import { Event, BoundingBox, Filter } from "../types/types";
+import { Event, BoundingBox, Filter, CivicEngagement } from "../types/types";
 import { FilterMatcher } from "../handlers/FilterMatcher";
 import { MapMojiFilterService } from "./MapMojiFilterService";
 import { RelevanceScoringService } from "./RelevanceScoringService";
@@ -10,6 +10,7 @@ export interface EventFilteringService {
     viewport: BoundingBox,
     filters: Filter[],
     eventsInViewport: Event[],
+    civicEngagements?: CivicEngagement[],
   ): Promise<void>;
 
   filterAndSendAllEvents(

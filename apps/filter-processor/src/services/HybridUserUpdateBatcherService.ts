@@ -1,9 +1,26 @@
-import { Event, Filter, BoundingBox } from "../types/types";
+import { Event, CivicEngagement, BoundingBox, Filter } from "../types/types";
 
 export interface EventFilteringService {
   calculateAndSendDiff(
     userId: string,
     events: Event[],
+    viewport: BoundingBox | null,
+    filters: Filter[],
+  ): Promise<void>;
+}
+
+export interface CivicEngagementFilteringService {
+  calculateAndSendDiff(
+    userId: string,
+    civicEngagements: CivicEngagement[],
+  ): Promise<void>;
+}
+
+export interface UnifiedFilteringService {
+  calculateAndSendDiff(
+    userId: string,
+    events: Event[],
+    civicEngagements: CivicEngagement[],
     viewport: BoundingBox | null,
     filters: Filter[],
   ): Promise<void>;
@@ -21,6 +38,13 @@ export interface UnifiedSpatialCacheService {
     maxY: number;
   }): Event[];
   getAllEvents(): Event[];
+  getCivicEngagementsInViewport(viewport: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  }): CivicEngagement[];
+  getAllCivicEngagements(): CivicEngagement[];
   getStats(): {
     cacheSize: number;
     spatialIndexSize: number;
@@ -60,7 +84,7 @@ export interface HybridUserUpdateBatcherService {
 }
 
 export function createHybridUserUpdateBatcherService(
-  eventFilteringService: EventFilteringService,
+  unifiedFilteringService: UnifiedFilteringService,
   viewportProcessor: ViewportProcessor,
   eventCacheService: UnifiedSpatialCacheService,
   getUserFilters: (userId: string) => Filter[],
@@ -207,21 +231,27 @@ export function createHybridUserUpdateBatcherService(
         // Note: Users with no filters will get MapMoji-curated events
         // The EventFilteringService handles this case properly
 
-        // 4. Get the relevant events (from EventCacheService)
+        // 4. Get the relevant events and civic engagements (from EventCacheService)
         const events = viewport
           ? eventCacheService.getEventsInViewport(viewport)
           : eventCacheService.getAllEvents();
+
+        const civicEngagements = viewport
+          ? eventCacheService.getCivicEngagementsInViewport(viewport)
+          : eventCacheService.getAllCivicEngagements();
 
         console.log(`[HybridBatcher] Processing user ${userId}:`, {
           viewport: !!viewport,
           filterCount: filters.length,
           eventCount: events.length,
+          civicEngagementCount: civicEngagements.length,
         });
 
-        // 5. Call the EventFilteringService to do the heavy lifting
-        await eventFilteringService.calculateAndSendDiff(
+        // 5. Call the unified filtering service for both events and civic engagements
+        await unifiedFilteringService.calculateAndSendDiff(
           userId,
           events,
+          civicEngagements,
           viewport,
           filters,
         );

@@ -72,8 +72,8 @@ export const CIVIC_ENGAGEMENT_CONFIG: EntityTypeConfig = {
       discovered: "civic_engagement_discovered",
     },
     redisChannels: {
-      changes: "civic_engagement:changes",
-      discovered: "civic_engagement:discovered",
+      changes: "civic_engagement_changes",
+      discovered: "civic_engagement_discovered",
     },
   },
 };

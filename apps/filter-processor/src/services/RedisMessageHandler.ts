@@ -187,6 +187,11 @@ export function createRedisMessageHandler(
         const data = JSON.parse(message);
         const civicEngagementData = data.data || data;
 
+        console.log("[FilterProcessor] Received civic engagement message:", {
+          channel,
+          data: civicEngagementData,
+        });
+
         // Validate the civic engagement data
         if (!civicEngagementData.record || !civicEngagementData.record.id) {
           console.error(
@@ -196,6 +201,11 @@ export function createRedisMessageHandler(
           stats.errors++;
           return;
         }
+
+        console.log("[FilterProcessor] Processing civic engagement:", {
+          operation: civicEngagementData.operation,
+          id: civicEngagementData.record.id,
+        });
 
         await handlers.onCivicEngagementUpdate(civicEngagementData);
         stats.civicEngagementUpdatesProcessed++;
