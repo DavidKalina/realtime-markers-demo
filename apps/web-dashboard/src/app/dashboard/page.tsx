@@ -2,9 +2,11 @@
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { MetricsSection } from "@/components/dashboard/MetricsSection";
-import { DashboardContent } from "@/components/dashboard/DashboardContent";
-import { CategoryAnalytics } from "@/components/dashboard/CategoryAnalytics";
+import { MetricCard } from "@/components/dashboard/MetricCard";
+import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
+import { PopularCategories } from "@/components/dashboard/PopularCategories";
+import { BusiestTimes } from "@/components/dashboard/BusiestTimes";
+import { UpcomingEvents } from "@/components/dashboard/UpcomingEvents";
 import { LoadingSpinner } from "@/components/dashboard/LoadingSpinner";
 import { CivicEngagementMetrics } from "@/components/dashboard/CivicEngagementMetrics";
 import { CivicEngagementTrends } from "@/components/dashboard/CivicEngagementTrends";
@@ -12,6 +14,7 @@ import { CivicEngagementActivity } from "@/components/dashboard/CivicEngagementA
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useCivicEngagementData } from "@/hooks/useCivicEngagementData";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CategoryAnalytics } from "@/components/dashboard/CategoryAnalytics";
 
 export default function DashboardPage() {
   const {
@@ -48,67 +51,116 @@ export default function DashboardPage() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="overview" className="space-y-6">
-                {/* Combined Metrics */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {metrics && (
-                    <div>
-                      <h2 className="text-2xl font-bold mb-4">Event Metrics</h2>
-                      <MetricsSection metrics={metrics} />
-                    </div>
-                  )}
-                  {civicMetrics && (
-                    <div>
-                      <h2 className="text-2xl font-bold mb-4">
-                        Civic Engagement Metrics
-                      </h2>
-                      <CivicEngagementMetrics metrics={civicMetrics} />
-                    </div>
-                  )}
-                </div>
+              <TabsContent value="overview" className="pt-6">
+                <div className="flex flex-wrap gap-6">
+                  {/* Event Metrics */}
+                  <MetricCard
+                    title="Total Active Events"
+                    value={(metrics?.totalActiveEvents ?? 0).toLocaleString()}
+                    description="Events currently active"
+                    icon="📅"
+                  />
+                  <MetricCard
+                    title="Users This Month"
+                    value={(metrics?.usersThisMonth ?? 0).toLocaleString()}
+                    description="New user registrations"
+                    icon="👥"
+                  />
+                  <MetricCard
+                    title="Events Scanned This Week"
+                    value={(
+                      metrics?.eventsScannedThisWeek ?? 0
+                    ).toLocaleString()}
+                    description="QR code scans"
+                    icon="📱"
+                  />
 
-                {/* Recent Activity */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {activities.length > 0 && (
-                    <div>
-                      <h2 className="text-2xl font-bold mb-4">
-                        Event Activity
-                      </h2>
-                      <DashboardContent
-                        activities={activities}
-                        popularCategories={popularCategories}
-                        busiestTimes={busiestTimes}
-                        upcomingEvents={upcomingEvents}
+                  {/* Civic Engagement Metrics */}
+                  {civicMetrics && (
+                    <>
+                      <MetricCard
+                        title="Total Engagements"
+                        value={civicMetrics.totalEngagements.toLocaleString()}
+                        description="Civic engagements"
+                        icon="🗣️"
                       />
-                    </div>
+                      <MetricCard
+                        title="Implementation Rate"
+                        value={`${civicMetrics.summary.implementationRate}%`}
+                        description="Ideas implemented"
+                        icon="✅"
+                      />
+                      <MetricCard
+                        title="Unique Creators"
+                        value={civicMetrics.participation.uniqueCreators.toLocaleString()}
+                        description="Active community members"
+                        icon="✍️"
+                      />
+                    </>
+                  )}
+
+                  {/* Event Details */}
+                  {activities.length > 0 && (
+                    <ActivityFeed activities={activities} />
+                  )}
+                  {popularCategories.length > 0 && (
+                    <PopularCategories categories={popularCategories} />
+                  )}
+                  {busiestTimes.length > 0 && (
+                    <BusiestTimes busiestTimes={busiestTimes} />
+                  )}
+                  {upcomingEvents.length > 0 && (
+                    <UpcomingEvents events={upcomingEvents} />
+                  )}
+
+                  {/* Civic Engagement Details */}
+                  {civicTrends && (
+                    <CivicEngagementTrends trends={civicTrends} />
                   )}
                   {civicActivity.length > 0 && (
-                    <div>
-                      <h2 className="text-2xl font-bold mb-4">
-                        Civic Engagement Activity
-                      </h2>
-                      <CivicEngagementActivity activities={civicActivity} />
-                    </div>
+                    <CivicEngagementActivity activities={civicActivity} />
                   )}
                 </div>
               </TabsContent>
 
               <TabsContent value="events" className="space-y-6">
-                {metrics && <MetricsSection metrics={metrics} />}
-                {(activities.length > 0 ||
-                  popularCategories.length > 0 ||
-                  busiestTimes.length > 0 ||
-                  upcomingEvents.length > 0) && (
-                  <DashboardContent
-                    activities={activities}
-                    popularCategories={popularCategories}
-                    busiestTimes={busiestTimes}
-                    upcomingEvents={upcomingEvents}
+                <div className="flex flex-wrap gap-6">
+                  <MetricCard
+                    title="Total Active Events"
+                    value={(metrics?.totalActiveEvents ?? 0).toLocaleString()}
+                    description="Events currently active"
+                    icon="📅"
                   />
-                )}
-                {popularCategories.length > 0 && (
-                  <CategoryAnalytics categories={popularCategories} />
-                )}
+                  <MetricCard
+                    title="Users This Month"
+                    value={(metrics?.usersThisMonth ?? 0).toLocaleString()}
+                    description="New user registrations"
+                    icon="👥"
+                  />
+                  <MetricCard
+                    title="Events Scanned This Week"
+                    value={(
+                      metrics?.eventsScannedThisWeek ?? 0
+                    ).toLocaleString()}
+                    description="QR code scans"
+                    icon="📱"
+                  />
+                  {activities.length > 0 && (
+                    <ActivityFeed activities={activities} />
+                  )}
+                  {popularCategories.length > 0 && (
+                    <PopularCategories categories={popularCategories} />
+                  )}
+                  {busiestTimes.length > 0 && (
+                    <BusiestTimes busiestTimes={busiestTimes} />
+                  )}
+                  {upcomingEvents.length > 0 && (
+                    <UpcomingEvents events={upcomingEvents} />
+                  )}
+                  {popularCategories.length > 0 && (
+                    <CategoryAnalytics categories={popularCategories} />
+                  )}
+                </div>
               </TabsContent>
 
               <TabsContent value="civic-engagement" className="space-y-6">
