@@ -139,17 +139,12 @@ export function createFilterProcessor(
     entityRegistry,
     redisPub,
     {
-      maxRetries: 3,
-      retryDelayMs: 1000,
-      enableMetrics: true,
       enableWebSocketNotifications: true,
-      enableViewportTracking:
-        config.userStateConfig?.enableViewportTracking ?? true,
+      enableViewportTracking: true,
       maxAffectedUsersPerUpdate: 1000,
-      batchProcessingEnabled:
-        config.userUpdateBatcherConfig?.enableBatching ?? false,
-      batchSize: config.userUpdateBatcherConfig?.maxBatchSize ?? 10,
-      batchTimeoutMs: config.userUpdateBatcherConfig?.debounceTimeoutMs ?? 100,
+      onUserDirty: (userId: string, context) => {
+        userUpdateBatcherService.markUserAsDirty(userId, context);
+      },
     },
   );
 

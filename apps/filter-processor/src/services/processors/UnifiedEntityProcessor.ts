@@ -183,18 +183,42 @@ export class UnifiedEntityProcessor implements EntityProcessor {
     if (typeof entity === "object" && entity !== null) {
       const entityObj = entity as Record<string, unknown>;
 
-      // Check for type field first
-      if (entityObj.type && typeof entityObj.type === "string") {
-        return entityObj.type;
-      }
-
       // Check for specific fields that indicate entity type
       if (entityObj.startTime || entityObj.endTime || entityObj.eventDate) {
         return "event";
       }
 
-      if (entityObj.status || entityObj.priority || entityObj.issueType) {
-        return "civic_engagement";
+      // Check for civic engagement specific fields
+      if (entityObj.status && typeof entityObj.status === "string") {
+        const status = entityObj.status as string;
+        // Civic engagement statuses: PENDING, UNDER_REVIEW, APPROVED, REJECTED, IMPLEMENTED
+        if (
+          [
+            "PENDING",
+            "UNDER_REVIEW",
+            "APPROVED",
+            "REJECTED",
+            "IMPLEMENTED",
+          ].includes(status)
+        ) {
+          return "civic_engagement";
+        }
+      }
+
+      // Check for civic engagement type field (NEGATIVE_FEEDBACK, POSITIVE_FEEDBACK, etc.)
+      if (entityObj.type && typeof entityObj.type === "string") {
+        const type = entityObj.type as string;
+        if (
+          [
+            "NEGATIVE_FEEDBACK",
+            "POSITIVE_FEEDBACK",
+            "SUGGESTION",
+            "COMPLAINT",
+            "QUESTION",
+          ].includes(type)
+        ) {
+          return "civic_engagement";
+        }
       }
 
       // Check for table name or entity type in metadata

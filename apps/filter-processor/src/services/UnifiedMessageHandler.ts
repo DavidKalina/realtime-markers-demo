@@ -16,6 +16,15 @@ export interface UnifiedMessageHandlerConfig {
   batchProcessingEnabled?: boolean;
   batchSize?: number;
   batchTimeoutMs?: number;
+  onUserDirty?: (
+    userId: string,
+    context?: {
+      reason: string;
+      entityId?: string;
+      operation?: string;
+      timestamp?: number;
+    },
+  ) => void;
 }
 
 export interface MessageProcessingResult {
@@ -33,6 +42,9 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
   private readonly metrics = {
     messagesProcessed: 0,
     messagesFailed: 0,
+    entitiesProcessed: 0,
+    errors: 0,
+    processingTimes: [] as number[],
     totalProcessingTimeMs: 0,
     averageProcessingTimeMs: 0,
     lastProcessedAt: null as Date | null,
@@ -47,6 +59,16 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
     timestamp: number;
   }> = [];
   private batchTimeout: NodeJS.Timeout | null = null;
+
+  private readonly onUserDirty?: (
+    userId: string,
+    context?: {
+      reason: string;
+      entityId?: string;
+      operation?: string;
+      timestamp?: number;
+    },
+  ) => void;
 
   constructor(
     private readonly entityRegistry: EntityRegistry,
@@ -63,7 +85,10 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
       batchProcessingEnabled: config.batchProcessingEnabled ?? false,
       batchSize: config.batchSize ?? 10,
       batchTimeoutMs: config.batchTimeoutMs ?? 100,
-    };
+    } as Required<UnifiedMessageHandlerConfig>;
+
+    // Store the optional callback separately
+    this.onUserDirty = config.onUserDirty;
   }
 
   async handleEntityMessage(
@@ -147,6 +172,18 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
       entity as SpatialEntity,
       operation,
     );
+
+    // Mark affected users as dirty if callback is provided
+    if (this.onUserDirty && affectedUsers.size > 0) {
+      for (const userId of affectedUsers) {
+        this.onUserDirty(userId, {
+          reason: "entity_update",
+          entityId,
+          operation,
+          timestamp: Date.now(),
+        });
+      }
+    }
 
     // Send WebSocket notifications
     if (this.config.enableWebSocketNotifications && affectedUsers.size > 0) {
