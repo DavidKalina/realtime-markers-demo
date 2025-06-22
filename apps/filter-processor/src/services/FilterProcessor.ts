@@ -8,7 +8,6 @@ import { MapMojiFilterService } from "./MapMojiFilterService";
 import { createUnifiedSpatialCacheService } from "./UnifiedSpatialCacheService";
 import { createUserStateService } from "./UserStateService";
 import { createRelevanceScoringService } from "./RelevanceScoringService";
-import { createUserNotificationService } from "./UserNotificationService";
 import { createJobProcessingService } from "./JobProcessingService";
 import { createHybridUserUpdateBatcherService } from "./HybridUserUpdateBatcherService";
 import { createRedisMessageHandler } from "./RedisMessageHandler";
@@ -90,10 +89,6 @@ export interface FilterProcessorConfig {
     maxRetries?: number;
     retryDelay?: number;
   };
-  userNotificationConfig?: {
-    enableMapMojiPreFiltering?: boolean;
-    enableHybridMode?: boolean;
-  };
   jobProcessingConfig?: {
     enableEventCacheClearing?: boolean;
     enableUserNotifications?: boolean;
@@ -118,7 +113,6 @@ export function createFilterProcessor(
     eventFilteringConfig = {},
     redisConfig = {},
     eventInitializationConfig = {},
-    userNotificationConfig = {},
     jobProcessingConfig = {},
     userUpdateBatcherConfig = {},
   } = config;
@@ -292,17 +286,6 @@ export function createFilterProcessor(
     },
   );
 
-  const userNotificationService = createUserNotificationService(
-    filterMatcher,
-    viewportProcessor,
-    eventPublisher,
-    relevanceScoringService,
-    mapMojiFilter,
-    (userId: string) => userStateService.getUserFilters(userId),
-    (userId: string) => userStateService.getUserViewport(userId),
-    userNotificationConfig,
-  );
-
   // Create user update batcher service (replaces deprecated BatchScoreUpdateService)
   const userUpdateBatcherService = createHybridUserUpdateBatcherService(
     unifiedFilteringService,
@@ -444,7 +427,6 @@ export function createFilterProcessor(
       ...redisMessageHandler.getStats(),
       ...eventInitializationService.getStats(),
       ...civicEngagementInitializationService.getStats(),
-      ...userNotificationService.getStats(),
       ...jobProcessingService.getStats(),
       ...userUpdateBatcherService.getStats(),
     });
@@ -619,7 +601,6 @@ export function createFilterProcessor(
       ...redisMessageHandler.getStats(),
       ...eventInitializationService.getStats(),
       ...civicEngagementInitializationService.getStats(),
-      ...userNotificationService.getStats(),
       ...jobProcessingService.getStats(),
       ...userUpdateBatcherService.getStats(),
       unifiedMessageHandler: unifiedMessageHandler.getMetrics(),

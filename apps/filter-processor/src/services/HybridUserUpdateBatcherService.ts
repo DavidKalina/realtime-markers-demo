@@ -1,55 +1,9 @@
-import { Event, CivicEngagement, BoundingBox, Filter } from "../types/types";
-
-export interface EventFilteringService {
-  calculateAndSendDiff(
-    userId: string,
-    events: Event[],
-    viewport: BoundingBox | null,
-    filters: Filter[],
-  ): Promise<void>;
-}
-
-export interface CivicEngagementFilteringService {
-  calculateAndSendDiff(
-    userId: string,
-    civicEngagements: CivicEngagement[],
-  ): Promise<void>;
-}
-
-export interface UnifiedFilteringService {
-  calculateAndSendDiff(
-    userId: string,
-    events: Event[],
-    civicEngagements: CivicEngagement[],
-    viewport: BoundingBox | null,
-    filters: Filter[],
-  ): Promise<void>;
-}
+import { BoundingBox, Filter } from "../types/types";
+import type { UnifiedFilteringService } from "./UnifiedFilteringService";
+import type { UnifiedSpatialCacheService } from "./UnifiedSpatialCacheService";
 
 export interface ViewportProcessor {
   updateUserViewport(userId: string, viewport: BoundingBox): Promise<void>;
-}
-
-export interface UnifiedSpatialCacheService {
-  getEventsInViewport(viewport: {
-    minX: number;
-    minY: number;
-    maxX: number;
-    maxY: number;
-  }): Event[];
-  getAllEvents(): Event[];
-  getCivicEngagementsInViewport(viewport: {
-    minX: number;
-    minY: number;
-    maxX: number;
-    maxY: number;
-  }): CivicEngagement[];
-  getAllCivicEngagements(): CivicEngagement[];
-  getStats(): {
-    cacheSize: number;
-    spatialIndexSize: number;
-    civicEngagementCacheSize: number;
-  };
 }
 
 export interface UserStateService {
