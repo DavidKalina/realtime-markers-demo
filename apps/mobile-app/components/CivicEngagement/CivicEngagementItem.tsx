@@ -1,12 +1,10 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useCallback, useMemo } from "react";
+import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
 import {
   CivicEngagement,
   CivicEngagementType,
   CivicEngagementStatus,
 } from "@/services/ApiClient";
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
 import { COLORS } from "@/components/Layout/ScreenLayout";
 import {
   MapPin,
@@ -55,19 +53,6 @@ const getTypeIcon = (type: CivicEngagementType) => {
   }
 };
 
-const getTypeColor = (type: CivicEngagementType) => {
-  switch (type) {
-    case CivicEngagementType.POSITIVE_FEEDBACK:
-      return "#10b981"; // green
-    case CivicEngagementType.NEGATIVE_FEEDBACK:
-      return "#ef4444"; // red
-    case CivicEngagementType.IDEA:
-      return "#3b82f6"; // blue
-    default:
-      return COLORS.textSecondary;
-  }
-};
-
 const getStatusIcon = (status: CivicEngagementStatus) => {
   switch (status) {
     case CivicEngagementStatus.IMPLEMENTED:
@@ -110,189 +95,252 @@ const getStatusColor = (status: CivicEngagementStatus) => {
   }
 };
 
-export const CivicEngagementItem: React.FC<CivicEngagementItemProps> = ({
-  civicEngagement,
-  onPress,
-  showLocation = true,
-  showStatus = true,
-}) => {
-  const handlePress = () => {
-    if (onPress) {
-      onPress(civicEngagement);
-    }
-  };
-
-  return (
-    <TouchableOpacity
-      style={styles.container}
-      onPress={handlePress}
-      activeOpacity={0.7}
-    >
-      <ThemedView style={styles.card}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.typeContainer}>
-            <Text style={styles.typeIcon}>
-              {getTypeIcon(civicEngagement.type)}
-            </Text>
-            <ThemedText
-              style={[
-                styles.typeText,
-                { color: getTypeColor(civicEngagement.type) },
-              ]}
-            >
-              {civicEngagement.type.replace("_", " ")}
-            </ThemedText>
-          </View>
-
-          {showStatus && (
-            <View style={styles.statusContainer}>
-              {getStatusIcon(civicEngagement.status)}
-              <ThemedText
-                style={[
-                  styles.statusText,
-                  { color: getStatusColor(civicEngagement.status) },
-                ]}
-              >
-                {getStatusText(civicEngagement.status)}
-              </ThemedText>
-            </View>
-          )}
-        </View>
-
-        {/* Title */}
-        <ThemedText style={styles.title} numberOfLines={2}>
-          {civicEngagement.title}
-        </ThemedText>
-
-        {/* Description */}
-        {civicEngagement.description && (
-          <ThemedText style={styles.description} numberOfLines={2}>
-            {civicEngagement.description}
-          </ThemedText>
-        )}
-
-        {/* Location */}
-        {showLocation && civicEngagement.address && (
-          <View style={styles.locationContainer}>
-            <MapPin size={12} color={COLORS.textSecondary} />
-            <ThemedText style={styles.locationText} numberOfLines={1}>
-              {civicEngagement.address}
-            </ThemedText>
-          </View>
-        )}
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <View style={styles.dateContainer}>
-            <Calendar size={12} color={COLORS.textSecondary} />
-            <ThemedText style={styles.dateText}>
-              {formatDistanceToNow(new Date(civicEngagement.createdAt))} ago
-            </ThemedText>
-          </View>
-
-          {/* Show implemented date if available */}
-          {civicEngagement.implementedAt && (
-            <View style={styles.implementedContainer}>
-              <CheckCircle size={12} color="#10b981" />
-              <ThemedText
-                style={[styles.implementedText, { color: "#10b981" }]}
-              >
-                Implemented{" "}
-                {formatDistanceToNow(new Date(civicEngagement.implementedAt))}{" "}
-                ago
-              </ThemedText>
-            </View>
-          )}
-        </View>
-      </ThemedView>
-    </TouchableOpacity>
-  );
+const getTypeBadgeColor = (type: CivicEngagementType) => {
+  switch (type) {
+    case CivicEngagementType.POSITIVE_FEEDBACK:
+      return { background: "#D1FAE5", text: "#10b981" }; // green
+    case CivicEngagementType.NEGATIVE_FEEDBACK:
+      return { background: "#FEE2E2", text: "#ef4444" }; // red
+    case CivicEngagementType.IDEA:
+      return { background: "#DBEAFE", text: "#3b82f6" }; // blue
+    default:
+      return { background: COLORS.divider, text: COLORS.textSecondary };
+  }
 };
 
-const styles = StyleSheet.create({
-  container: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-  },
-  card: {
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.divider,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  typeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  typeIcon: {
-    fontSize: 14,
-    marginRight: 4,
-  },
-  typeText: {
-    fontSize: 10,
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-  statusContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: "500",
-    marginLeft: 3,
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 4,
-    lineHeight: 18,
-  },
-  description: {
-    fontSize: 12,
-    lineHeight: 16,
-    marginBottom: 8,
-    opacity: 0.8,
-  },
-  locationContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  locationText: {
-    fontSize: 11,
-    marginLeft: 4,
-    opacity: 0.7,
-    flex: 1,
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  dateContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  dateText: {
-    fontSize: 10,
-    marginLeft: 3,
-    opacity: 0.6,
-  },
-  implementedContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  implementedText: {
-    fontSize: 10,
-    marginLeft: 3,
-    fontWeight: "500",
-  },
-});
+export const CivicEngagementItem: React.FC<CivicEngagementItemProps> =
+  React.memo(
+    ({ civicEngagement, onPress, showLocation = true, showStatus = true }) => {
+      const handlePress = useCallback(() => {
+        if (onPress) {
+          onPress(civicEngagement);
+        }
+      }, [civicEngagement, onPress]);
+
+      const styles = useMemo(
+        () =>
+          StyleSheet.create({
+            container: {
+              paddingVertical: 16,
+              paddingHorizontal: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: COLORS.divider,
+            },
+            content: {
+              flex: 1,
+            },
+            header: {
+              flexDirection: "row",
+              alignItems: "flex-start",
+            },
+            emojiContainer: {
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: COLORS.textPrimary,
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 12,
+              borderWidth: 1,
+              borderColor: COLORS.buttonBorder,
+            },
+            emoji: {
+              fontSize: 18,
+            },
+            titleContainer: {
+              flex: 1,
+            },
+            titleRow: {
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              marginBottom: 4,
+            },
+            titleText: {
+              flex: 1,
+              color: COLORS.textPrimary,
+              fontSize: 16,
+              fontFamily: "Poppins-Regular",
+              fontWeight: "600",
+            },
+            statusBadge: {
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: COLORS.buttonBorder,
+              marginLeft: 8,
+              flexDirection: "row",
+              alignItems: "center",
+            },
+            statusBadgeText: {
+              fontSize: 12,
+              fontFamily: "Poppins-Regular",
+              fontWeight: "600",
+              marginLeft: 3,
+            },
+            description: {
+              color: COLORS.textSecondary,
+              fontSize: 14,
+              fontFamily: "Poppins-Regular",
+              lineHeight: 20,
+              marginBottom: 4,
+            },
+            locationContainer: {
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 4,
+            },
+            locationText: {
+              fontSize: 12,
+              marginLeft: 4,
+              color: COLORS.textSecondary,
+              fontFamily: "Poppins-Regular",
+            },
+            footer: {
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            },
+            dateContainer: {
+              flexDirection: "row",
+              alignItems: "center",
+            },
+            dateText: {
+              fontSize: 12,
+              marginLeft: 3,
+              color: COLORS.textSecondary,
+              fontFamily: "Poppins-Regular",
+            },
+            implementedContainer: {
+              flexDirection: "row",
+              alignItems: "center",
+            },
+            implementedText: {
+              fontSize: 12,
+              marginLeft: 3,
+              fontWeight: "500",
+              color: "#10b981",
+              fontFamily: "Poppins-Regular",
+            },
+            typeBadge: {
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: COLORS.buttonBorder,
+              marginRight: 8,
+              flexDirection: "row",
+              alignItems: "center",
+            },
+            typeBadgeText: {
+              fontSize: 12,
+              fontFamily: "Poppins-Regular",
+              fontWeight: "600",
+              marginLeft: 3,
+            },
+          }),
+        [],
+      );
+
+      const typeBadgeColors = getTypeBadgeColor(civicEngagement.type);
+
+      return (
+        <TouchableOpacity
+          style={styles.container}
+          onPress={handlePress}
+          activeOpacity={0.7}
+        >
+          <View style={styles.content}>
+            <View style={styles.header}>
+              <View style={styles.emojiContainer}>
+                <Text style={styles.emoji}>
+                  {getTypeIcon(civicEngagement.type)}
+                </Text>
+              </View>
+              <View style={styles.titleContainer}>
+                <View style={styles.titleRow}>
+                  <View
+                    style={[
+                      styles.typeBadge,
+                      {
+                        backgroundColor: typeBadgeColors.background,
+                        borderColor: typeBadgeColors.text,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.typeBadgeText,
+                        { color: typeBadgeColors.text },
+                      ]}
+                    >
+                      {civicEngagement.type.replace("_", " ")}
+                    </Text>
+                  </View>
+                  {showStatus && (
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        {
+                          backgroundColor:
+                            getStatusColor(civicEngagement.status) + "20",
+                        },
+                      ]}
+                    >
+                      {getStatusIcon(civicEngagement.status)}
+                      <Text
+                        style={[
+                          styles.statusBadgeText,
+                          { color: getStatusColor(civicEngagement.status) },
+                        ]}
+                      >
+                        {getStatusText(civicEngagement.status)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                {civicEngagement.description && (
+                  <Text style={styles.description} numberOfLines={2}>
+                    {civicEngagement.description}
+                  </Text>
+                )}
+                {showLocation && civicEngagement.address && (
+                  <View style={styles.locationContainer}>
+                    <MapPin size={12} color={COLORS.textSecondary} />
+                    <Text style={styles.locationText} numberOfLines={1}>
+                      {civicEngagement.address}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.footer}>
+                  <View style={styles.dateContainer}>
+                    <Calendar size={12} color={COLORS.textSecondary} />
+                    <Text style={styles.dateText}>
+                      {formatDistanceToNow(new Date(civicEngagement.createdAt))}{" "}
+                      ago
+                    </Text>
+                  </View>
+
+                  {civicEngagement.implementedAt && (
+                    <View style={styles.implementedContainer}>
+                      <CheckCircle size={12} color="#10b981" />
+                      <Text style={styles.implementedText}>
+                        Implemented{" "}
+                        {formatDistanceToNow(
+                          new Date(civicEngagement.implementedAt),
+                        )}{" "}
+                        ago
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    },
+  );
+
+CivicEngagementItem.displayName = "CivicEngagementItem";
