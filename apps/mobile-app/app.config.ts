@@ -5,7 +5,7 @@ export default {
   expo: {
     name: "Frederick",
     slug: "mobile-app",
-    version: "1.15.7",
+    version: "1.15.8",
     orientation: "portrait",
     icon: "./assets/images/frederick-logo.png",
     scheme: "myapp",
@@ -32,7 +32,7 @@ export default {
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "158",
+      buildNumber: "159",
     },
     android: {
       adaptiveIcon: {
