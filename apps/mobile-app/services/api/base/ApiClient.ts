@@ -1,5 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 import { AuthTokens, User } from "./types";
+
+const ACCESS_TOKEN_KEY = "accessToken";
+const REFRESH_TOKEN_KEY = "refreshToken";
+const USER_KEY = "user";
 
 export class BaseApiClient {
   public baseUrl: string;
@@ -20,9 +25,9 @@ export class BaseApiClient {
   protected async loadAuthState(): Promise<void> {
     try {
       const [userJson, accessToken, refreshToken] = await Promise.all([
-        AsyncStorage.getItem("user"),
-        AsyncStorage.getItem("accessToken"),
-        AsyncStorage.getItem("refreshToken"),
+        AsyncStorage.getItem(USER_KEY),
+        SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
+        SecureStore.getItemAsync(REFRESH_TOKEN_KEY),
       ]);
 
       if (userJson) {
@@ -62,25 +67,22 @@ export class BaseApiClient {
       this.user = user;
       this.tokens = tokens;
 
-      // Then save to storage
+      // Use SecureStore for tokens and AsyncStorage for user data
       const storageOperations = [
-        AsyncStorage.setItem("user", JSON.stringify(user)),
-        AsyncStorage.setItem("accessToken", tokens.accessToken),
+        AsyncStorage.setItem(USER_KEY, JSON.stringify(user)),
+        SecureStore.setItemAsync(ACCESS_TOKEN_KEY, tokens.accessToken),
       ];
 
       if (tokens.refreshToken) {
         storageOperations.push(
-          AsyncStorage.setItem("refreshToken", tokens.refreshToken),
+          SecureStore.setItemAsync(REFRESH_TOKEN_KEY, tokens.refreshToken),
         );
+      } else {
+        // Ensure old refresh token is removed if not present in new tokens
+        storageOperations.push(SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY));
       }
 
       await Promise.all(storageOperations);
-
-      // Verify storage after save
-      await Promise.all([
-        AsyncStorage.getItem("accessToken"),
-        AsyncStorage.getItem("refreshToken"),
-      ]);
 
       // Notify all listeners about the auth state change
       this.notifyAuthListeners(true);
@@ -96,9 +98,9 @@ export class BaseApiClient {
   public async clearAuthState(): Promise<void> {
     try {
       await Promise.all([
-        AsyncStorage.removeItem("user"),
-        AsyncStorage.removeItem("accessToken"),
-        AsyncStorage.removeItem("refreshToken"),
+        AsyncStorage.removeItem(USER_KEY),
+        SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
+        SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
       ]);
 
       this.user = null;
@@ -142,7 +144,8 @@ export class BaseApiClient {
     }
 
     // If we have a refresh token in storage but not in memory, try one last refresh
-    const storedRefreshToken = await AsyncStorage.getItem("refreshToken");
+    const storedRefreshToken =
+      await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
     if (storedRefreshToken) {
       this.tokens = { accessToken: "", refreshToken: storedRefreshToken };
       const refreshSuccess = await this.refreshTokens();
@@ -342,8 +345,11 @@ export class BaseApiClient {
         } else {
           // If we don't have a user, just save the tokens
           await Promise.all([
-            AsyncStorage.setItem("accessToken", newTokens.accessToken),
-            AsyncStorage.setItem("refreshToken", newTokens.refreshToken || ""),
+            SecureStore.setItemAsync(ACCESS_TOKEN_KEY, newTokens.accessToken),
+            SecureStore.setItemAsync(
+              REFRESH_TOKEN_KEY,
+              newTokens.refreshToken || "",
+            ),
           ]);
         }
 
@@ -360,65 +366,34 @@ export class BaseApiClient {
   }
 
   public async syncTokensWithStorage(): Promise<AuthTokens | null> {
-    // If there's already a sync in progress, wait for it
-    if (this.tokenSyncPromise) {
+    await this.ensureInitialized();
+    if (this.tokenSyncPromise) return this.tokenSyncPromise;
+
+    const syncLogic = async (): Promise<AuthTokens | null> => {
       try {
-        return await this.tokenSyncPromise;
-      } catch (error) {
-        await this.clearAuthState();
-        return null;
-      }
-    }
-
-    this.tokenSyncPromise = (async () => {
-      try {
-        // First check if we have valid tokens in memory
-        if (this.tokens?.accessToken && !(await this.isTokenExpired())) {
-          return this.tokens;
-        }
-
-        // If we have an expired access token but a refresh token, try to refresh
-        if (this.tokens?.refreshToken) {
-          const refreshSuccess = await this.refreshTokens();
-          if (refreshSuccess && this.tokens?.accessToken) {
-            return this.tokens;
-          }
-        }
-
-        // If we get here, try to load from storage
         const [accessToken, refreshToken] = await Promise.all([
-          AsyncStorage.getItem("accessToken"),
-          AsyncStorage.getItem("refreshToken"),
+          SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
+          SecureStore.getItemAsync(REFRESH_TOKEN_KEY),
         ]);
 
-        if (!accessToken) {
-          await this.clearAuthState();
-          return null;
+        if (accessToken) {
+          const newTokens = {
+            accessToken,
+            refreshToken: refreshToken || undefined,
+          };
+          this.tokens = newTokens;
+          return newTokens;
         }
-
-        // If we have a refresh token, try to refresh the access token
-        if (refreshToken) {
-          const refreshSuccess = await this.refreshTokens();
-          if (refreshSuccess && this.tokens?.accessToken) {
-            return this.tokens;
-          }
-        }
-
-        // If we get here, just use the access token from storage
-        this.tokens = {
-          accessToken,
-          refreshToken: refreshToken || undefined,
-        };
-
-        return this.tokens;
+        return null;
       } catch (error) {
-        await this.clearAuthState();
+        console.error("Error syncing tokens from storage:", error);
         return null;
       } finally {
         this.tokenSyncPromise = null;
       }
-    })();
+    };
 
+    this.tokenSyncPromise = syncLogic();
     return this.tokenSyncPromise;
   }
 
