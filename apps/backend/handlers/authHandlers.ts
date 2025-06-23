@@ -334,3 +334,82 @@ function getUserIdFromToken(c: Context<AppContext>): string | null {
     return null;
   }
 }
+
+/**
+ * OAuth Google Sign-In
+ */
+export const googleOAuthHandler: AuthHandler = async (c) => {
+  try {
+    const { code, redirectUri, codeVerifier, platform } = await c.req.json();
+
+    if (!code || !redirectUri) {
+      return c.json(
+        { error: "Authorization code and redirect URI are required" },
+        400,
+      );
+    }
+
+    const { authService } = getServices(c);
+    const { user, tokens } = await authService.handleGoogleOAuth(
+      code,
+      redirectUri,
+      codeVerifier,
+      platform,
+    );
+
+    return c.json({
+      message: "Google OAuth successful",
+      user,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    });
+  } catch (error) {
+    console.error("Google OAuth error:", error);
+    return c.json(
+      {
+        error: "Google OAuth failed",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      400,
+    );
+  }
+};
+
+/**
+ * OAuth Facebook Sign-In
+ */
+export const facebookOAuthHandler: AuthHandler = async (c) => {
+  try {
+    const { code, redirectUri, codeVerifier } = await c.req.json();
+
+    if (!code || !redirectUri) {
+      return c.json(
+        { error: "Authorization code and redirect URI are required" },
+        400,
+      );
+    }
+
+    const { authService } = getServices(c);
+    const { user, tokens } = await authService.handleFacebookOAuth(
+      code,
+      redirectUri,
+      codeVerifier,
+    );
+
+    return c.json({
+      message: "Facebook OAuth successful",
+      user,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    });
+  } catch (error) {
+    console.error("Facebook OAuth error:", error);
+    return c.json(
+      {
+        error: "Facebook OAuth failed",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      400,
+    );
+  }
+};

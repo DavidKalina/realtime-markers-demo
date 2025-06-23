@@ -40,8 +40,8 @@ export class User {
   @Column({ type: "varchar", nullable: true })
   phone?: string;
 
-  @Column({ name: "password_hash", type: "varchar", select: false })
-  passwordHash!: string;
+  @Column({ name: "password_hash", type: "varchar", nullable: true })
+  passwordHash?: string;
 
   @Column({ name: "avatar_url", type: "varchar", nullable: true })
   avatarUrl?: string;

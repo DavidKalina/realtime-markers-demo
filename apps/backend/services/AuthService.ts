@@ -3,7 +3,7 @@
 import bcrypt from "bcrypt";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { Repository, DataSource } from "typeorm";
-import { User } from "../entities/User";
+import { User, UserRole } from "../entities/User";
 import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import { addDays, format } from "date-fns";
 import type { OpenAIService } from "./shared/OpenAIService";
@@ -485,6 +485,269 @@ export class AuthService {
     // Delete the user
     await this.userRepository.delete(userId);
     return true;
+  }
+
+  /**
+   * Handle Google OAuth
+   */
+  async handleGoogleOAuth(
+    code: string,
+    redirectUri: string,
+    codeVerifier?: string,
+    platform?: "ios" | "android" | "web",
+  ): Promise<{ user: User; tokens: AuthTokens }> {
+    try {
+      let clientId: string | undefined;
+      let clientSecret: string | undefined;
+
+      // Select credentials based on platform
+      switch (platform) {
+        case "ios":
+          clientId = process.env.GOOGLE_IOS_CLIENT_ID;
+          break;
+        case "android":
+          clientId = process.env.GOOGLE_ANDROID_CLIENT_ID;
+          break;
+        default: // 'web' or undefined
+          clientId = process.env.GOOGLE_CLIENT_ID; // This is the Web client
+          clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      }
+
+      if (!clientId) {
+        throw new Error(
+          `Google Client ID not configured for platform: ${platform || "web"}`,
+        );
+      }
+
+      const tokenRequestBody: Record<string, string> = {
+        code,
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      };
+
+      // If PKCE is used, add verifier and don't send secret
+      if (codeVerifier) {
+        tokenRequestBody.code_verifier = codeVerifier;
+      } else if (clientSecret) {
+        // Fallback for flows without PKCE (e.g., old web flow)
+        tokenRequestBody.client_secret = clientSecret;
+      }
+
+      // Exchange authorization code for tokens
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams(tokenRequestBody),
+      });
+
+      if (!tokenResponse.ok) {
+        const errorBody = await tokenResponse.json();
+        console.error("Google token exchange failed:", {
+          status: tokenResponse.status,
+          body: errorBody,
+        });
+        throw new Error("Failed to exchange Google authorization code");
+      }
+
+      const tokenData = await tokenResponse.json();
+      const { access_token } = tokenData;
+
+      // Get user info from Google
+      const userInfoResponse = await fetch(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        {
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+          },
+        },
+      );
+
+      if (!userInfoResponse.ok) {
+        throw new Error("Failed to get Google user info");
+      }
+
+      const userInfo = await userInfoResponse.json();
+
+      // Find or create user
+      let user = await this.userRepository.findOne({
+        where: { email: userInfo.email },
+      });
+
+      if (!user) {
+        // Create new user
+        user = this.userRepository.create({
+          email: userInfo.email,
+          firstName: userInfo.given_name,
+          lastName: userInfo.family_name,
+          avatarUrl: userInfo.picture,
+          isVerified: true, // Google users are verified
+          role: UserRole.USER,
+        });
+
+        user = await this.userRepository.save(user);
+
+        // Create default filter for new user
+        const now = new Date();
+        const twoWeeksFromNow = addDays(now, 14);
+
+        const defaultFilter = await this.userPreferencesService.createFilter(
+          user.id,
+          {
+            name: "First Two Weeks",
+            isActive: true,
+            criteria: {
+              dateRange: {
+                start: format(now, "yyyy-MM-dd"),
+                end: format(twoWeeksFromNow, "yyyy-MM-dd"),
+              },
+            },
+          },
+        );
+
+        await this.userPreferencesService.applyFilters(user.id, [
+          defaultFilter.id,
+        ]);
+      }
+
+      // Generate tokens
+      const tokens = this.generateTokens(user);
+
+      // Save refresh token
+      user.refreshToken = tokens.refreshToken;
+      await this.userRepository.save(user);
+
+      // Don't return sensitive data
+      delete user.refreshToken;
+
+      return { user, tokens };
+    } catch (error) {
+      console.error("Google OAuth error:", error);
+      throw new Error("Google OAuth failed");
+    }
+  }
+
+  /**
+   * Handle Facebook OAuth
+   */
+  async handleFacebookOAuth(
+    code: string,
+    redirectUri: string,
+    codeVerifier?: string,
+  ): Promise<{ user: User; tokens: AuthTokens }> {
+    try {
+      const clientId = process.env.FACEBOOK_CLIENT_ID;
+      const clientSecret = process.env.FACEBOOK_CLIENT_SECRET;
+
+      if (!clientId || !clientSecret) {
+        throw new Error("Facebook Client ID or Secret not configured.");
+      }
+
+      const tokenRequestBody: Record<string, string> = {
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+      };
+
+      // Facebook also supports PKCE
+      if (codeVerifier) {
+        tokenRequestBody.code_verifier = codeVerifier;
+      }
+
+      // Exchange authorization code for tokens
+      const tokenResponse = await fetch(
+        "https://graph.facebook.com/v18.0/oauth/access_token",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams(tokenRequestBody),
+        },
+      );
+
+      if (!tokenResponse.ok) {
+        const errorBody = await tokenResponse.json();
+        console.error("Facebook token exchange failed:", {
+          status: tokenResponse.status,
+          body: errorBody,
+        });
+        throw new Error("Failed to exchange Facebook authorization code");
+      }
+
+      const tokenData = await tokenResponse.json();
+      const { access_token } = tokenData;
+
+      // Get user info from Facebook
+      const userInfoResponse = await fetch(
+        `https://graph.facebook.com/v18.0/me?fields=id,email,first_name,last_name,picture&access_token=${access_token}`,
+      );
+
+      if (!userInfoResponse.ok) {
+        throw new Error("Failed to get Facebook user info");
+      }
+
+      const userInfo = await userInfoResponse.json();
+
+      // Find or create user
+      let user = await this.userRepository.findOne({
+        where: { email: userInfo.email },
+      });
+
+      if (!user) {
+        // Create new user
+        user = this.userRepository.create({
+          email: userInfo.email,
+          firstName: userInfo.first_name,
+          lastName: userInfo.last_name,
+          avatarUrl: userInfo.picture?.data?.url,
+          isVerified: true, // Facebook users are verified
+          role: UserRole.USER,
+        });
+
+        user = await this.userRepository.save(user);
+
+        // Create default filter for new user
+        const now = new Date();
+        const twoWeeksFromNow = addDays(now, 14);
+
+        const defaultFilter = await this.userPreferencesService.createFilter(
+          user.id,
+          {
+            name: "First Two Weeks",
+            isActive: true,
+            criteria: {
+              dateRange: {
+                start: format(now, "yyyy-MM-dd"),
+                end: format(twoWeeksFromNow, "yyyy-MM-dd"),
+              },
+            },
+          },
+        );
+
+        await this.userPreferencesService.applyFilters(user.id, [
+          defaultFilter.id,
+        ]);
+      }
+
+      // Generate tokens
+      const tokens = this.generateTokens(user);
+
+      // Save refresh token
+      user.refreshToken = tokens.refreshToken;
+      await this.userRepository.save(user);
+
+      // Don't return sensitive data
+      delete user.refreshToken;
+
+      return { user, tokens };
+    } catch (error) {
+      console.error("Facebook OAuth error:", error);
+      throw new Error("Facebook OAuth failed");
+    }
   }
 }
 

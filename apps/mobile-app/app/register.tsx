@@ -30,6 +30,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import Input from "@/components/Input/Input";
+import OAuthButtons from "@/components/Login/OAuthButtons";
 
 const newColors = {
   background: "#00697A",
@@ -328,6 +329,8 @@ const RegisterScreen: React.FC = () => {
                       <Text style={styles.createAccountLink}>Login</Text>
                     </TouchableOpacity>
                   </View>
+
+                  <OAuthButtons onError={setError} />
                 </Animated.View>
               </Animated.View>
             </Animated.View>
