@@ -1,6 +1,27 @@
 import AuthService from "./auth";
 import type { Event } from "./dashboard-data";
 
+// Civic Engagement interface
+interface CivicEngagement {
+  id: string;
+  title: string;
+  description?: string;
+  type: "POSITIVE_FEEDBACK" | "NEGATIVE_FEEDBACK" | "IDEA";
+  status: "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "IMPLEMENTED";
+  location?: {
+    type: "Point";
+    coordinates: [number, number];
+  };
+  address?: string;
+  locationNotes?: string;
+  imageUrls?: string[];
+  creatorId: string;
+  adminNotes?: string;
+  implementedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface ApiRequestOptions extends RequestInit {
   requireAuth?: boolean;
 }
@@ -119,14 +140,32 @@ class ApiClient {
     return response.events;
   }
 
+  // Fetch all civic engagements (admin/feedback page)
+  async getAllCivicEngagements(): Promise<CivicEngagement[]> {
+    const response = await this.get<{ civicEngagements: CivicEngagement[] }>(
+      "/api/civic-engagements",
+    );
+    return response.civicEngagements;
+  }
+
   // Fetch a specific event by ID
   async getEventById(id: string): Promise<Event> {
     return this.get<Event>(`/api/events/${id}`);
   }
 
+  // Fetch a specific civic engagement by ID
+  async getCivicEngagementById(id: string): Promise<CivicEngagement> {
+    return this.get<CivicEngagement>(`/api/civic-engagements/${id}`);
+  }
+
   // Delete a specific event by ID
   async deleteEvent(id: string): Promise<{ success: boolean }> {
     return this.delete<{ success: boolean }>(`/api/events/${id}`);
+  }
+
+  // Delete a specific civic engagement by ID
+  async deleteCivicEngagement(id: string): Promise<{ success: boolean }> {
+    return this.delete<{ success: boolean }>(`/api/civic-engagements/${id}`);
   }
 }
 
@@ -148,6 +187,9 @@ export const api = {
   getAllEvents: () => apiClient.getAllEvents(),
   getEventById: (id: string) => apiClient.getEventById(id),
   deleteEvent: (id: string) => apiClient.deleteEvent(id),
+  getAllCivicEngagements: () => apiClient.getAllCivicEngagements(),
+  getCivicEngagementById: (id: string) => apiClient.getCivicEngagementById(id),
+  deleteCivicEngagement: (id: string) => apiClient.deleteCivicEngagement(id),
 };
 
 export default apiClient;
