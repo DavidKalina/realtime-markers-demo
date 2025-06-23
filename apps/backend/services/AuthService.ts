@@ -493,24 +493,62 @@ export class AuthService {
   async handleGoogleOAuth(
     code: string,
     redirectUri: string,
+    codeVerifier?: string,
+    platform?: "ios" | "android" | "web",
   ): Promise<{ user: User; tokens: AuthTokens }> {
     try {
+      let clientId: string | undefined;
+      let clientSecret: string | undefined;
+
+      // Select credentials based on platform
+      switch (platform) {
+        case "ios":
+          clientId = process.env.GOOGLE_IOS_CLIENT_ID;
+          break;
+        case "android":
+          clientId = process.env.GOOGLE_ANDROID_CLIENT_ID;
+          break;
+        default: // 'web' or undefined
+          clientId = process.env.GOOGLE_CLIENT_ID; // This is the Web client
+          clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      }
+
+      if (!clientId) {
+        throw new Error(
+          `Google Client ID not configured for platform: ${platform || "web"}`,
+        );
+      }
+
+      const tokenRequestBody: Record<string, string> = {
+        code,
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      };
+
+      // If PKCE is used, add verifier and don't send secret
+      if (codeVerifier) {
+        tokenRequestBody.code_verifier = codeVerifier;
+      } else if (clientSecret) {
+        // Fallback for flows without PKCE (e.g., old web flow)
+        tokenRequestBody.client_secret = clientSecret;
+      }
+
       // Exchange authorization code for tokens
       const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: new URLSearchParams({
-          code,
-          client_id: process.env.GOOGLE_CLIENT_ID || "",
-          client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
-          redirect_uri: redirectUri,
-          grant_type: "authorization_code",
-        }),
+        body: new URLSearchParams(tokenRequestBody),
       });
 
       if (!tokenResponse.ok) {
+        const errorBody = await tokenResponse.json();
+        console.error("Google token exchange failed:", {
+          status: tokenResponse.status,
+          body: errorBody,
+        });
         throw new Error("Failed to exchange Google authorization code");
       }
 
@@ -597,8 +635,28 @@ export class AuthService {
   async handleFacebookOAuth(
     code: string,
     redirectUri: string,
+    codeVerifier?: string,
   ): Promise<{ user: User; tokens: AuthTokens }> {
     try {
+      const clientId = process.env.FACEBOOK_CLIENT_ID;
+      const clientSecret = process.env.FACEBOOK_CLIENT_SECRET;
+
+      if (!clientId || !clientSecret) {
+        throw new Error("Facebook Client ID or Secret not configured.");
+      }
+
+      const tokenRequestBody: Record<string, string> = {
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+      };
+
+      // Facebook also supports PKCE
+      if (codeVerifier) {
+        tokenRequestBody.code_verifier = codeVerifier;
+      }
+
       // Exchange authorization code for tokens
       const tokenResponse = await fetch(
         "https://graph.facebook.com/v18.0/oauth/access_token",
@@ -607,17 +665,16 @@ export class AuthService {
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
           },
-          body: new URLSearchParams({
-            code,
-            client_id: process.env.FACEBOOK_CLIENT_ID || "",
-            client_secret: process.env.FACEBOOK_CLIENT_SECRET || "",
-            redirect_uri: redirectUri,
-            grant_type: "authorization_code",
-          }),
+          body: new URLSearchParams(tokenRequestBody),
         },
       );
 
       if (!tokenResponse.ok) {
+        const errorBody = await tokenResponse.json();
+        console.error("Facebook token exchange failed:", {
+          status: tokenResponse.status,
+          body: errorBody,
+        });
         throw new Error("Failed to exchange Facebook authorization code");
       }
 

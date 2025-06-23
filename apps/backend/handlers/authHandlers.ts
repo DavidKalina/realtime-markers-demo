@@ -340,7 +340,7 @@ function getUserIdFromToken(c: Context<AppContext>): string | null {
  */
 export const googleOAuthHandler: AuthHandler = async (c) => {
   try {
-    const { code, redirectUri } = await c.req.json();
+    const { code, redirectUri, codeVerifier, platform } = await c.req.json();
 
     if (!code || !redirectUri) {
       return c.json(
@@ -353,6 +353,8 @@ export const googleOAuthHandler: AuthHandler = async (c) => {
     const { user, tokens } = await authService.handleGoogleOAuth(
       code,
       redirectUri,
+      codeVerifier,
+      platform,
     );
 
     return c.json({
@@ -378,7 +380,7 @@ export const googleOAuthHandler: AuthHandler = async (c) => {
  */
 export const facebookOAuthHandler: AuthHandler = async (c) => {
   try {
-    const { code, redirectUri } = await c.req.json();
+    const { code, redirectUri, codeVerifier } = await c.req.json();
 
     if (!code || !redirectUri) {
       return c.json(
@@ -391,6 +393,7 @@ export const facebookOAuthHandler: AuthHandler = async (c) => {
     const { user, tokens } = await authService.handleFacebookOAuth(
       code,
       redirectUri,
+      codeVerifier,
     );
 
     return c.json({

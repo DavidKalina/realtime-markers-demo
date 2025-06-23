@@ -131,6 +131,7 @@ class OAuthService {
           "google",
           result.params.code,
           config.redirectUri,
+          request.codeVerifier,
         );
       } else if (result.type === "cancel") {
         throw new Error("Google sign-in was cancelled");
@@ -182,6 +183,7 @@ class OAuthService {
           "facebook",
           result.params.code,
           config.redirectUri,
+          request.codeVerifier,
         );
       } else if (result.type === "cancel") {
         throw new Error("Facebook sign-in was cancelled");
@@ -203,13 +205,19 @@ class OAuthService {
     provider: "google" | "facebook",
     code: string,
     redirectUri: string,
+    codeVerifier?: string,
   ): Promise<OAuthResponse> {
     try {
-      console.log(`Handling ${provider} OAuth callback:`, {
-        codeLength: code.length,
-        redirectUri,
-        apiUrl: `${apiClient.baseUrl}/api/auth/oauth/${provider}`,
-      });
+      const platform = Platform.OS;
+      console.log(
+        `Handling ${provider} OAuth callback on platform ${platform}:`,
+        {
+          codeLength: code.length,
+          redirectUri,
+          apiUrl: `${apiClient.baseUrl}/api/auth/oauth/${provider}`,
+          hasCodeVerifier: !!codeVerifier,
+        },
+      );
 
       const response = await fetch(
         `${apiClient.baseUrl}/api/auth/oauth/${provider}`,
@@ -221,6 +229,8 @@ class OAuthService {
           body: JSON.stringify({
             code,
             redirectUri,
+            codeVerifier,
+            platform,
           }),
         },
       );

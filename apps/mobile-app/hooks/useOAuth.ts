@@ -78,13 +78,19 @@ async function handleOAuthCallback(
   provider: "google" | "facebook",
   code: string,
   redirectUri: string,
+  codeVerifier?: string,
 ): Promise<OAuthResponse> {
   try {
-    console.log(`Handling ${provider} OAuth callback:`, {
-      codeLength: code.length,
-      redirectUri,
-      apiUrl: `${apiClient.baseUrl}/api/auth/oauth/${provider}`,
-    });
+    const platform = Platform.OS;
+    console.log(
+      `Handling ${provider} OAuth callback on platform: ${platform}`,
+      {
+        codeLength: code.length,
+        redirectUri,
+        apiUrl: `${apiClient.baseUrl}/api/auth/oauth/${provider}`,
+        hasCodeVerifier: !!codeVerifier,
+      },
+    );
 
     const response = await fetch(
       `${apiClient.baseUrl}/api/auth/oauth/${provider}`,
@@ -96,6 +102,8 @@ async function handleOAuthCallback(
         body: JSON.stringify({
           code,
           redirectUri,
+          codeVerifier,
+          platform,
         }),
       },
     );
@@ -155,7 +163,12 @@ export function useGoogleOAuth() {
 
   useEffect(() => {
     if (response?.type === "success" && response.params?.code) {
-      handleOAuthCallback("google", response.params.code, redirectUri)
+      handleOAuthCallback(
+        "google",
+        response.params.code,
+        redirectUri,
+        request?.codeVerifier,
+      )
         .then((result) => {
           console.log("Google OAuth successful:", result);
           // You can add a callback here to handle successful authentication
@@ -167,7 +180,7 @@ export function useGoogleOAuth() {
     } else if (response?.type === "error") {
       console.error("Google OAuth error:", response.error);
     }
-  }, [response, redirectUri]);
+  }, [response, redirectUri, request]);
 
   const signInWithGoogle = async (): Promise<OAuthResponse | null> => {
     try {
@@ -182,6 +195,7 @@ export function useGoogleOAuth() {
           "google",
           result.params.code,
           redirectUri,
+          request.codeVerifier,
         );
       } else if (result.type === "cancel") {
         throw new Error("Google sign-in was cancelled");
@@ -220,7 +234,12 @@ export function useFacebookOAuth() {
 
   useEffect(() => {
     if (response?.type === "success" && response.params?.code) {
-      handleOAuthCallback("facebook", response.params.code, redirectUri)
+      handleOAuthCallback(
+        "facebook",
+        response.params.code,
+        redirectUri,
+        request?.codeVerifier,
+      )
         .then((result) => {
           console.log("Facebook OAuth successful:", result);
           // You can add a callback here to handle successful authentication
@@ -232,7 +251,7 @@ export function useFacebookOAuth() {
     } else if (response?.type === "error") {
       console.error("Facebook OAuth error:", response.error);
     }
-  }, [response, redirectUri]);
+  }, [response, redirectUri, request]);
 
   const signInWithFacebook = async (): Promise<OAuthResponse | null> => {
     try {
@@ -247,6 +266,7 @@ export function useFacebookOAuth() {
           "facebook",
           result.params.code,
           redirectUri,
+          request.codeVerifier,
         );
       } else if (result.type === "cancel") {
         throw new Error("Facebook sign-in was cancelled");
