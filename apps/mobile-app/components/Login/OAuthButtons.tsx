@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import * as Haptics from "expo-haptics";
+import { Chrome } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -108,16 +109,17 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ onError }) => {
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: "#FFFFFF",
-      borderRadius: 12,
-      paddingVertical: 14,
+      borderRadius: 4,
+      paddingVertical: 12,
       paddingHorizontal: 16,
       borderWidth: 1,
-      borderColor: "#DDDDDD",
-      shadowColor: "rgba(0, 0, 0, 0.1)",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 2,
+      borderColor: "#DADCE0",
+      shadowColor: "rgba(0, 0, 0, 0.08)",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 1,
+      shadowRadius: 2,
+      elevation: 1,
+      minHeight: 40,
     },
     facebookButton: {
       flexDirection: "row",
@@ -136,20 +138,21 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ onError }) => {
       elevation: 2,
     },
     buttonText: {
-      fontSize: 16,
-      fontWeight: "600",
+      fontSize: 14,
+      fontWeight: "500",
       fontFamily: "Poppins-Regular",
       marginLeft: 12,
+      letterSpacing: 0.25,
     },
     googleButtonText: {
-      color: "#000000",
+      color: "#3C4043",
     },
     facebookButtonText: {
       color: "#FFFFFF",
     },
     iconContainer: {
-      width: 24,
-      height: 24,
+      width: 18,
+      height: 18,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -173,13 +176,13 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ onError }) => {
           >
             <View style={styles.iconContainer}>
               {isLoadingGoogle ? (
-                <ActivityIndicator size="small" color="#000000" />
+                <ActivityIndicator size="small" color="#3C4043" />
               ) : (
-                <Text style={{ fontSize: 20 }}>🔍</Text>
+                <Chrome size={18} color="#FF6B35" />
               )}
             </View>
             <Text style={[styles.buttonText, styles.googleButtonText]}>
-              {isLoadingGoogle ? "Signing in..." : "Continue with Google"}
+              {isLoadingGoogle ? "Signing in..." : "Sign in with Google"}
             </Text>
           </TouchableOpacity>
         </Animated.View>
