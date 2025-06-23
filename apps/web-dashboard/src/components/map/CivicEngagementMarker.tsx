@@ -37,32 +37,46 @@ const CivicEngagementPopup: React.FC<{
     TYPE_CONFIG[type as keyof typeof TYPE_CONFIG] || TYPE_CONFIG.DEFAULT;
 
   return (
-    <div className="absolute -top-[80px] left-1/2 transform -translate-x-1/2 flex items-center justify-center z-50">
-      <div className="bg-white px-3 py-2 rounded-lg flex flex-col items-center justify-center border border-white/15 shadow-lg min-w-[200px] max-w-[250px] hover:shadow-xl hover:scale-105 hover:border-white/25 transition-all duration-200">
+    <div className="absolute -top-[120px] left-1/2 transform -translate-x-1/2 flex items-center justify-center z-50">
+      <div
+        className="bg-[#f9fafb] px-3 py-2 rounded-2xl flex flex-col items-center justify-center border border-gray-200 shadow-xl min-w-[220px] max-w-[280px] transition-all duration-200"
+        style={{
+          boxShadow:
+            "0 6px 32px 0 rgba(0,0,0,0.10), 0 1.5px 6px 0 rgba(0,0,0,0.08)",
+        }}
+      >
         {/* Type and Status */}
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm">{typeConfig.emoji}</span>
-          <span className="text-[#2a2a2a] text-[11px] leading-[13px] font-space-mono font-medium tracking-wider">
+        <div className="flex items-center gap-2 mb-1 w-full justify-center">
+          <span className="text-lg leading-none">{typeConfig.emoji}</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-700">
             {type.replace("_", " ")}
           </span>
           {status && (
-            <span className="text-[#6b7280] text-[10px] leading-[12px] font-space-mono">
-              • {status}
+            <span className="ml-2 px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-[9px] font-semibold border border-gray-200">
+              {status}
             </span>
           )}
         </div>
-
         {/* Title */}
-        <div className="text-[#2a2a2a] text-[12px] leading-[14px] font-space-mono font-medium tracking-wider text-center px-1 mb-1">
+        <div className="text-gray-900 text-sm font-bold text-center mb-1 break-words w-full">
           {title}
         </div>
-
+        {/* Divider */}
+        <div className="w-8 h-[2px] bg-gray-200 rounded-full my-1" />
         {/* Description */}
         {description && (
-          <div className="text-[#6b7280] text-[10px] leading-[12px] font-space-mono text-center px-1 max-h-[40px] overflow-hidden">
-            {description.length > 60
-              ? `${description.substring(0, 60)}...`
-              : description}
+          <div
+            className="relative text-gray-600 text-xs text-center px-1 max-h-[36px] overflow-hidden w-full"
+            style={{ lineHeight: "1.3" }}
+          >
+            <span className="block whitespace-pre-line">
+              {description.length > 100
+                ? `${description.substring(0, 100)}...`
+                : description}
+            </span>
+            {description.length > 60 && (
+              <span className="absolute bottom-0 left-0 w-full h-5 bg-gradient-to-t from-[#f9fafb] to-transparent pointer-events-none" />
+            )}
           </div>
         )}
       </div>
