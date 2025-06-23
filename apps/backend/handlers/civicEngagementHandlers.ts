@@ -115,7 +115,24 @@ export const getCivicEngagementByIdHandler: CivicEngagementHandler =
 export const updateCivicEngagementHandler: CivicEngagementHandler =
   withErrorHandling(async (c) => {
     const id = requireParam(c, "id");
-    requireAuth(c);
+    const user = requireAuth(c);
+
+    const civicEngagementService = c.get("civicEngagementService");
+
+    // First, get the civic engagement to check permissions
+    const existingEngagement =
+      await civicEngagementService.getCivicEngagementById(id);
+    if (!existingEngagement) {
+      return c.json({ error: "Civic engagement not found" }, 404);
+    }
+
+    // Check if user is the creator or an admin
+    if (existingEngagement.creatorId !== user.id && user.role !== "ADMIN") {
+      return c.json(
+        { error: "You can only modify your own civic engagements" },
+        403,
+      );
+    }
 
     const body = await c.req.json();
     const input: UpdateCivicEngagementInput = {
@@ -126,7 +143,6 @@ export const updateCivicEngagementHandler: CivicEngagementHandler =
       imageUrls: body.imageUrls,
     };
 
-    const civicEngagementService = c.get("civicEngagementService");
     const civicEngagement = await civicEngagementService.updateCivicEngagement(
       id,
       input,
@@ -194,9 +210,25 @@ export const getAllCivicEngagementsHandler: CivicEngagementHandler =
 export const deleteCivicEngagementHandler: CivicEngagementHandler =
   withErrorHandling(async (c) => {
     const id = requireParam(c, "id");
-    requireAuth(c);
+    const user = requireAuth(c);
 
     const civicEngagementService = c.get("civicEngagementService");
+
+    // First, get the civic engagement to check permissions
+    const existingEngagement =
+      await civicEngagementService.getCivicEngagementById(id);
+    if (!existingEngagement) {
+      return c.json({ error: "Civic engagement not found" }, 404);
+    }
+
+    // Check if user is the creator or an admin
+    if (existingEngagement.creatorId !== user.id && user.role !== "ADMIN") {
+      return c.json(
+        { error: "You can only delete your own civic engagements" },
+        403,
+      );
+    }
+
     await civicEngagementService.deleteCivicEngagement(id);
 
     return c.json({ success: true });

@@ -1,26 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { api } from "@/lib/api";
+import { apiClient } from "@/services/ApiClient";
+import { CivicEngagement } from "@/services/ApiClient";
 import debounce from "lodash/debounce";
-
-interface CivicEngagement {
-  id: string;
-  title: string;
-  description?: string;
-  type: "POSITIVE_FEEDBACK" | "NEGATIVE_FEEDBACK" | "IDEA";
-  status: "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "IMPLEMENTED";
-  location?: {
-    type: "Point";
-    coordinates: [number, number];
-  };
-  address?: string;
-  locationNotes?: string;
-  imageUrls?: string[];
-  creatorId: string;
-  adminNotes?: string;
-  implementedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 interface UseCivicEngagementSearchProps {
   initialCivicEngagements: CivicEngagement[];
@@ -84,11 +65,11 @@ const useCivicEngagementSearch = ({
           setError(null);
 
           // Use the search endpoint from the backend
-          const response = await api.get<{
-            civicEngagements: CivicEngagement[];
-            total: number;
-            scores?: Array<{ id: string; score: number }>;
-          }>(`/api/civic-engagements/search/${encodeURIComponent(query)}`);
+          const response =
+            await apiClient.civicEngagements.searchCivicEngagements(
+              query,
+              50, // Limit search results
+            );
 
           setCivicEngagementResults(response.civicEngagements);
           setHasSearched(true);

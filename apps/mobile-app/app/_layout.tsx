@@ -92,6 +92,7 @@ const SCREEN_CONFIGS = [
   { name: "scan" },
   { name: "user" },
   { name: "saved/index" },
+  { name: "civic-engagements/index" },
   { name: "cluster" },
   { name: "filter" },
   { name: "search/index" },

@@ -21,7 +21,7 @@ const newColors = {
   buttonBorder: "#DDDDDD",
   inputBackground: "#F5F5F5",
   errorBackground: "#FFCDD2",
-  errorText: "#B71C1C",
+  errorText: "#FFFFFF",
   errorBorder: "#EF9A9A",
   divider: "#E0E0E0",
   activityIndicator: "#00697A",
@@ -45,9 +45,9 @@ export const COLORS = {
   warningBorder: "rgba(251, 191, 36, 0.3)",
   warningText: "#d97706", // Warm orange warning text
   // Error colors
-  errorBackground: "rgba(239, 68, 68, 0.1)", // Bright red error
+  errorBackground: "rgba(239, 68, 68, 1)", // Bright red error
   errorBorder: "rgba(239, 68, 68, 0.3)",
-  errorText: "#dc2626", // Vibrant red error text
+  errorText: "#FFFFFF", // Vibrant red error text
 };
 
 interface ScreenLayoutProps {

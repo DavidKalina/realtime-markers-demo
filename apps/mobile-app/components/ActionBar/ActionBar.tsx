@@ -14,6 +14,7 @@ import {
   Navigation,
   SearchIcon,
   User,
+  MessageSquare,
 } from "lucide-react-native";
 import React, {
   useCallback,
@@ -177,7 +178,13 @@ interface TabConfig {
 }
 
 // Define route type to match expo-router's expected types
-type AppRoute = "/search" | "/scan" | "/saved" | "/user" | "/";
+type AppRoute =
+  | "/search"
+  | "/scan"
+  | "/saved"
+  | "/user"
+  | "/"
+  | "/civic-engagements";
 
 // Define all possible tabs in a single configuration object
 const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
@@ -209,6 +216,13 @@ const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
     route: "/saved",
     enabled: true,
   },
+  civic: {
+    key: "civic",
+    label: "Civic",
+    icon: MessageSquare,
+    route: "/civic-engagements",
+    enabled: true,
+  },
   user: {
     key: "user",
     label: "Me",
@@ -223,6 +237,11 @@ const getEnabledTabs = (config: Record<string, TabConfig>) => {
   return Object.values(config).filter((tab) => tab.enabled);
 };
 
+// Memoize the default available actions to prevent recalculation
+const DEFAULT_AVAILABLE_ACTIONS = getEnabledTabs(TAB_CONFIG).map(
+  (tab) => tab.key,
+);
+
 // Helper function to get the active tab key from the current path
 const getActiveTabKey = (pathname: string): string | null => {
   // Handle root path
@@ -234,6 +253,9 @@ const getActiveTabKey = (pathname: string): string | null => {
   // Handle search routes
   if (pathname.startsWith("/search")) return "search";
 
+  // Handle civic engagements routes
+  if (pathname.startsWith("/civic-engagements")) return "civic";
+
   // Handle exact matches
   const exactMatch = Object.entries(TAB_CONFIG).find(
     ([, config]) => config.route === pathname,
@@ -244,10 +266,7 @@ const getActiveTabKey = (pathname: string): string | null => {
 };
 
 export const ActionBar: React.FC<ActionBarProps> = React.memo(
-  ({
-    animatedStyle,
-    availableActions = getEnabledTabs(TAB_CONFIG).map((tab) => tab.key),
-  }) => {
+  ({ animatedStyle, availableActions = DEFAULT_AVAILABLE_ACTIONS }) => {
     const pathname = usePathname();
 
     const activeActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
