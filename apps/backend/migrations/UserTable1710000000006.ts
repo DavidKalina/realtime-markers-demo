@@ -30,7 +30,7 @@ export class UserTable1710000000006 implements MigrationInterface {
             isNullable: true,
           },
           { name: "phone", type: "varchar", isNullable: true },
-          { name: "password_hash", type: "varchar" },
+          { name: "password_hash", type: "varchar", isNullable: true },
           { name: "avatar_url", type: "varchar", isNullable: true },
           { name: "bio", type: "text", isNullable: true },
           { name: "role", type: "users_role_enum", default: "'USER'" },
