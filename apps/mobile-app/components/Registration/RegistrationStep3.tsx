@@ -49,7 +49,9 @@ const RegistrationStep3: React.FC = () => {
   const { registrationData, updateRegistrationData, setCurrentStep } =
     useRegistration();
   const passwordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const glowRadius = useSharedValue(5);
 
   const animatedGlowStyle = useAnimatedStyle(() => {
@@ -83,9 +85,16 @@ const RegistrationStep3: React.FC = () => {
     Haptics.selectionAsync();
     setShowPassword(!showPassword);
   };
+  const toggleConfirmPasswordVisibility = () => {
+    Haptics.selectionAsync();
+    setShowConfirmPassword(!showConfirmPassword);
+  };
 
   const handleNext = () => {
-    if (registrationData.password.length >= 8) {
+    if (
+      registrationData.password.length >= 8 &&
+      registrationData.password === registrationData.confirmPassword
+    ) {
       setCurrentStep(4);
     }
   };
@@ -94,7 +103,12 @@ const RegistrationStep3: React.FC = () => {
     setCurrentStep(2);
   };
 
-  const canProceed = registrationData.password.length >= 8;
+  const passwordsMatch =
+    registrationData.password === registrationData.confirmPassword;
+  const canProceed =
+    registrationData.password.length >= 8 &&
+    registrationData.confirmPassword.length > 0 &&
+    passwordsMatch;
 
   const handleOAuthError = (error: Error) => {
     console.error("OAuth error:", error);
@@ -150,11 +164,34 @@ const RegistrationStep3: React.FC = () => {
                       updateRegistrationData({ password: text })
                     }
                     secureTextEntry={!showPassword}
-                    returnKeyType="done"
-                    onSubmitEditing={handleNext}
+                    returnKeyType="next"
+                    onSubmitEditing={() =>
+                      confirmPasswordInputRef.current?.focus()
+                    }
                     delay={300}
                   />
+                  <Input
+                    ref={confirmPasswordInputRef}
+                    icon={Lock}
+                    rightIcon={showConfirmPassword ? EyeOff : Eye}
+                    onRightIconPress={toggleConfirmPasswordVisibility}
+                    placeholder="Confirm password"
+                    value={registrationData.confirmPassword}
+                    onChangeText={(text) =>
+                      updateRegistrationData({ confirmPassword: text })
+                    }
+                    secureTextEntry={!showConfirmPassword}
+                    returnKeyType="done"
+                    onSubmitEditing={handleNext}
+                    delay={350}
+                  />
                 </View>
+                {!passwordsMatch &&
+                  registrationData.confirmPassword.length > 0 && (
+                    <Text style={styles.passwordMismatch}>
+                      Passwords do not match
+                    </Text>
+                  )}
 
                 <View style={styles.passwordRequirements}>
                   <Text style={styles.requirementsTitle}>
@@ -289,6 +326,13 @@ const styles = StyleSheet.create({
   },
   requirementMet: {
     color: "#4CAF50",
+  },
+  passwordMismatch: {
+    color: newColors.errorText,
+    fontSize: 13,
+    fontFamily: "Poppins-Regular",
+    marginBottom: 8,
+    textAlign: "center",
   },
 });
 

@@ -9,7 +9,6 @@ import {
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import {
-  useAnimatedStyle,
   useSharedValue,
   withSequence,
   withSpring,
@@ -55,12 +54,6 @@ const RegistrationStepLayout: React.FC<RegistrationStepLayoutProps> = ({
 }) => {
   const { setCurrentStep } = useRegistration();
   const buttonScale = useSharedValue(1);
-
-  const buttonAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: buttonScale.value }],
-    };
-  });
 
   const handleNext = () => {
     if (!canProceed || isLoading) return;
@@ -116,27 +109,26 @@ const RegistrationStepLayout: React.FC<RegistrationStepLayoutProps> = ({
       </View>
 
       {/* Navigation buttons */}
-      <View style={styles.buttonContainer}>
+      <View style={styles.buttonRow}>
         {(onBack || stepNumber > 1) && (
           <TouchableOpacity
             onPress={handleBack}
             disabled={isLoading}
-            style={styles.backButton}
+            style={[styles.button, styles.backButton]}
             activeOpacity={0.7}
           >
             <ChevronLeft size={20} color={newColors.buttonText} />
             <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
         )}
-
         <TouchableOpacity
           onPress={handleNext}
           disabled={!canProceed || isLoading}
           activeOpacity={0.7}
           style={[
+            styles.button,
             styles.nextButton,
             !canProceed && styles.nextButtonDisabled,
-            buttonAnimatedStyle,
           ]}
         >
           {isLoading ? (
@@ -181,22 +173,23 @@ const styles = StyleSheet.create({
   progressDotInactive: {
     backgroundColor: newColors.divider,
   },
-  buttonContainer: {
+  buttonRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     gap: 12,
+    marginTop: 16,
+  },
+  button: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    height: 55,
+    borderWidth: 1,
   },
   backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
+    backgroundColor: "#fff",
     borderColor: newColors.buttonBorder,
-    backgroundColor: newColors.buttonBackground,
   },
   backButtonText: {
     fontSize: 14,
@@ -205,15 +198,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   nextButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 16,
-    borderRadius: 12,
     backgroundColor: newColors.accent,
-    borderWidth: 1,
     borderColor: newColors.accent,
   },
   nextButtonDisabled: {

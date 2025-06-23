@@ -1,6 +1,7 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { OAuthButtons } from "@/components/Login/OAuthButtons";
+import { useRouter } from "expo-router";
 
 interface RegistrationCardLayoutProps {
   children: React.ReactNode;
@@ -10,18 +11,26 @@ interface RegistrationCardLayoutProps {
 const RegistrationCardLayout: React.FC<RegistrationCardLayoutProps> = ({
   children,
   onOAuthError,
-}) => (
-  <View style={styles.formCard}>
-    <View style={styles.stepContent}>{children}</View>
-    <View style={styles.dividerContainer}>
-      <View style={styles.divider} />
-      <Text style={styles.dividerText}>or</Text>
-      <View style={styles.divider} />
+}) => {
+  const router = useRouter();
+  return (
+    <View style={styles.formCard}>
+      <View style={styles.stepContent}>{children}</View>
+      <View style={styles.dividerContainer}>
+        <View style={styles.divider} />
+        <Text style={styles.dividerText}>or</Text>
+        <View style={styles.divider} />
+      </View>
+      <OAuthButtons onError={onOAuthError} />
+      <TouchableOpacity
+        style={styles.loginLinkContainer}
+        onPress={() => router.replace("/login")}
+      >
+        <Text style={styles.loginLinkText}>Back to Login</Text>
+      </TouchableOpacity>
     </View>
-    <Text style={styles.oauthLabel}>Or continue with</Text>
-    <OAuthButtons onError={onOAuthError} />
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   formCard: {
@@ -54,11 +63,17 @@ const styles = StyleSheet.create({
     color: "#6c757d",
     fontFamily: "Poppins-Regular",
   },
-  oauthLabel: {
-    textAlign: "center",
-    color: "#6c757d",
-    marginBottom: 8,
+
+  loginLinkContainer: {
+    marginTop: 16,
+    alignItems: "center",
+  },
+  loginLinkText: {
+    color: "#00697A",
+    fontWeight: "600",
+    fontSize: 15,
     fontFamily: "Poppins-Regular",
+    textDecorationLine: "underline",
   },
 });
 

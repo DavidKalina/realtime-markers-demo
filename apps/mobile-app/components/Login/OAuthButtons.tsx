@@ -77,8 +77,6 @@ export const OAuthButtons: React.FC<OAuthButtonsProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Or continue with</Text>
-
       <View style={styles.buttonContainer}>
         {isGoogleAvailable && (
           <TouchableOpacity
