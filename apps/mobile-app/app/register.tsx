@@ -30,7 +30,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import Input from "@/components/Input/Input";
-import OAuthButtons from "@/components/Login/OAuthButtons";
+import { OAuthButtons } from "@/components/Login/OAuthButtons";
 
 const newColors = {
   background: "#00697A",
@@ -76,6 +76,10 @@ const RegisterScreen: React.FC = () => {
       transform: [{ scale: buttonScale.value }],
     };
   });
+
+  const handleOAuthError = (error: Error) => {
+    setError(error.message);
+  };
 
   const animatedGlowStyle = useAnimatedStyle(() => {
     return {
@@ -330,7 +334,7 @@ const RegisterScreen: React.FC = () => {
                     </TouchableOpacity>
                   </View>
 
-                  <OAuthButtons onError={setError} />
+                  <OAuthButtons onError={handleOAuthError} />
                 </Animated.View>
               </Animated.View>
             </Animated.View>
