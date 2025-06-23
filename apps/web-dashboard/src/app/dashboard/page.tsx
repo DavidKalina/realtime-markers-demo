@@ -132,14 +132,7 @@ export default function DashboardPage() {
                     )}
 
                     {upcomingEvents.length > 0 && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Upcoming Events</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <UpcomingEvents events={upcomingEvents} />
-                        </CardContent>
-                      </Card>
+                      <UpcomingEvents events={upcomingEvents} />
                     )}
                   </div>
 
