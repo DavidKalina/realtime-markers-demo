@@ -2,8 +2,9 @@ import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
 import { apiClient } from "./ApiClient";
+import { Platform } from "react-native";
 
-// Complete the auth session
+// Complete the auth session - this is required for all authentication providers
 WebBrowser.maybeCompleteAuthSession();
 
 export interface OAuthUser {
@@ -26,9 +27,6 @@ export interface OAuthResponse {
 }
 
 class OAuthService {
-  private googleConfig: AuthSession.AuthRequestConfig;
-  private facebookConfig: AuthSession.AuthRequestConfig;
-
   // Google discovery document - this is the recommended approach
   private googleDiscovery: AuthSession.DiscoveryDocument = {
     authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
@@ -36,45 +34,63 @@ class OAuthService {
     revocationEndpoint: "https://oauth2.googleapis.com/revoke",
   };
 
-  constructor() {
-    let redirectUri: string;
+  // Facebook discovery document
+  private facebookDiscovery: AuthSession.DiscoveryDocument = {
+    authorizationEndpoint: "https://www.facebook.com/v18.0/dialog/oauth",
+    tokenEndpoint: "https://graph.facebook.com/v18.0/oauth/access_token",
+  };
 
-    // In Expo Go, we use the auth proxy.
-    // In dev clients and standalone builds, we use the custom scheme.
+  /**
+   * Get the appropriate redirect URI based on the provider and platform
+   */
+  private getRedirectUri(provider: "google" | "facebook"): string {
+    // In Expo Go, we use the auth proxy for all providers
     if (Constants.appOwnership === "expo") {
-      // You can find your slug in app.json and username by running `expo whoami`.
       const slug = "mobile-app"; // from app.config.ts
       const username = "tenuto"; // from `expo whoami`
-      redirectUri = `https://auth.expo.io/@${username}/${slug}`;
-    } else {
-      redirectUri = AuthSession.makeRedirectUri();
+      return `https://auth.expo.io/@${username}/${slug}`;
     }
 
-    this.googleConfig = {
+    // For Google on native iOS, we MUST use the reversed iOS Client ID as the URI.
+    if (provider === "google" && Platform.OS === "ios") {
+      const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+      if (iosClientId && iosClientId.includes(".apps.googleusercontent.com")) {
+        const reversedClientId = iosClientId.split(".").reverse().join(".");
+        return `${reversedClientId}:/`;
+      }
+    }
+
+    // For other cases (Facebook, or Google on Android/Web), use the custom scheme.
+    return AuthSession.makeRedirectUri({
+      scheme: "myapp", // matches your app.config.ts scheme
+      path: "oauth/callback",
+    });
+  }
+
+  /**
+   * Create Google OAuth configuration
+   */
+  private createGoogleConfig(): AuthSession.AuthRequestConfig {
+    return {
       clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || "",
       scopes: ["openid", "profile", "email"],
-      redirectUri,
+      redirectUri: this.getRedirectUri("google"),
       responseType: AuthSession.ResponseType.Code,
       codeChallengeMethod: AuthSession.CodeChallengeMethod.S256,
     };
+  }
 
-    this.facebookConfig = {
+  /**
+   * Create Facebook OAuth configuration
+   */
+  private createFacebookConfig(): AuthSession.AuthRequestConfig {
+    return {
       clientId: process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_ID || "",
       scopes: ["public_profile", "email"],
-      redirectUri,
+      redirectUri: this.getRedirectUri("facebook"),
       responseType: AuthSession.ResponseType.Code,
       codeChallengeMethod: AuthSession.CodeChallengeMethod.S256,
     };
-
-    // Log configuration for debugging
-    console.log("OAuthService initialized with:", {
-      googleClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID
-        ? "Set"
-        : "Not set",
-      redirectUri: this.googleConfig.redirectUri,
-      apiUrl: process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000",
-      appOwnership: Constants.appOwnership,
-    });
   }
 
   /**
@@ -82,20 +98,26 @@ class OAuthService {
    */
   async signInWithGoogle(): Promise<OAuthResponse> {
     try {
+      const config = this.createGoogleConfig();
+
       // Validate configuration
-      if (!this.googleConfig.clientId) {
+      if (!config.clientId) {
         throw new Error(
           "Google Client ID is not configured. Please check your environment variables.",
         );
       }
 
       console.log("Starting Google OAuth flow with:", {
-        clientId: this.googleConfig.clientId.substring(0, 10) + "...",
-        redirectUri: this.googleConfig.redirectUri,
-        scopes: this.googleConfig.scopes,
+        clientId: config.clientId.substring(0, 10) + "...",
+        redirectUri: config.redirectUri,
+        scopes: config.scopes,
+        appOwnership: Constants.appOwnership,
       });
 
-      const request = new AuthSession.AuthRequest(this.googleConfig);
+      // Create auth request
+      const request = new AuthSession.AuthRequest(config);
+
+      // Prompt for authentication
       const result = await request.promptAsync(this.googleDiscovery);
 
       console.log("Google OAuth result:", {
@@ -105,7 +127,11 @@ class OAuthService {
       });
 
       if (result.type === "success" && result.params?.code) {
-        return this.handleOAuthCallback("google", result.params.code);
+        return this.handleOAuthCallback(
+          "google",
+          result.params.code,
+          config.redirectUri,
+        );
       } else if (result.type === "cancel") {
         throw new Error("Google sign-in was cancelled");
       } else if (result.type === "success" && result.params?.error) {
@@ -124,15 +150,43 @@ class OAuthService {
    */
   async signInWithFacebook(): Promise<OAuthResponse> {
     try {
-      const request = new AuthSession.AuthRequest(this.facebookConfig);
-      const result = await request.promptAsync({
-        authorizationEndpoint: "https://www.facebook.com/v18.0/dialog/oauth",
+      const config = this.createFacebookConfig();
+
+      // Validate configuration
+      if (!config.clientId) {
+        throw new Error(
+          "Facebook Client ID is not configured. Please check your environment variables.",
+        );
+      }
+
+      console.log("Starting Facebook OAuth flow with:", {
+        clientId: config.clientId.substring(0, 10) + "...",
+        redirectUri: config.redirectUri,
+        scopes: config.scopes,
       });
 
-      if (result.type === "success" && result.params.code) {
-        return this.handleOAuthCallback("facebook", result.params.code);
+      // Create auth request
+      const request = new AuthSession.AuthRequest(config);
+
+      // Prompt for authentication
+      const result = await request.promptAsync(this.facebookDiscovery);
+
+      console.log("Facebook OAuth result:", {
+        type: result.type,
+        hasCode: result.type === "success" && !!result.params?.code,
+        error: result.type === "success" ? result.params?.error : undefined,
+      });
+
+      if (result.type === "success" && result.params?.code) {
+        return this.handleOAuthCallback(
+          "facebook",
+          result.params.code,
+          config.redirectUri,
+        );
       } else if (result.type === "cancel") {
         throw new Error("Facebook sign-in was cancelled");
+      } else if (result.type === "success" && result.params?.error) {
+        throw new Error(`Facebook OAuth error: ${result.params.error}`);
       } else {
         throw new Error("Facebook sign-in failed");
       }
@@ -148,13 +202,9 @@ class OAuthService {
   private async handleOAuthCallback(
     provider: "google" | "facebook",
     code: string,
+    redirectUri: string,
   ): Promise<OAuthResponse> {
     try {
-      const redirectUri =
-        provider === "google"
-          ? this.googleConfig.redirectUri
-          : this.facebookConfig.redirectUri;
-
       console.log(`Handling ${provider} OAuth callback:`, {
         codeLength: code.length,
         redirectUri,
@@ -221,7 +271,9 @@ class OAuthService {
   }
 
   isFacebookAvailable(): boolean {
-    return !!process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_ID;
+    const hasFacebookId = !!process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_ID;
+    console.log("Facebook OAuth available:", hasFacebookId);
+    return hasFacebookId;
   }
 
   /**
@@ -239,6 +291,13 @@ class OAuthService {
     }
 
     return providers;
+  }
+
+  /**
+   * Get redirect URI for debugging purposes
+   */
+  getRedirectUriForDebug(): string {
+    return this.getRedirectUri("google");
   }
 }
 

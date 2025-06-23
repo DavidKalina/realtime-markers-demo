@@ -30,7 +30,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { AuthWrapper } from "../AuthWrapper";
 import Input from "../Input/Input";
-import OAuthButtons from "./OAuthButtons";
+import { OAuthButtons } from "./OAuthButtons";
 
 const newColors = {
   background: "#00697A",
@@ -139,6 +139,10 @@ const Login: React.FC = () => {
   const handleCreateAccount = () => {
     Haptics.selectionAsync();
     router.push("/register");
+  };
+
+  const handleOAuthError = (error: Error) => {
+    setError(error.message);
   };
 
   const handleLoginPress = async () => {
@@ -567,7 +571,7 @@ const Login: React.FC = () => {
                     </TouchableOpacity>
                   </View>
 
-                  <OAuthButtons onError={setError} />
+                  <OAuthButtons onError={handleOAuthError} />
                 </Animated.View>
               </Animated.View>
             </Animated.View>
