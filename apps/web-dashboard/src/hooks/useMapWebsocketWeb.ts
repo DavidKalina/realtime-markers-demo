@@ -268,16 +268,12 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   // Helper functions for civic engagement styling
   const getCivicEngagementEmoji = (type: string): string => {
     switch (type) {
-      case "SUGGESTION":
+      case "IDEA":
         return "💡";
       case "NEGATIVE_FEEDBACK":
-      case "COMPLAINT":
         return "⚠️";
       case "POSITIVE_FEEDBACK":
-      case "COMPLIMENT":
         return "👍";
-      case "QUESTION":
-        return "❓";
       default:
         return "📝";
     }
@@ -285,16 +281,12 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
   const getCivicEngagementColor = (type: string): string => {
     switch (type) {
-      case "SUGGESTION":
-        return "#fbbf24"; // Yellow for ideas/suggestions
+      case "IDEA":
+        return "#fbbf24"; // Yellow for ideas
       case "NEGATIVE_FEEDBACK":
-      case "COMPLAINT":
         return "#ef4444"; // Red for negative feedback
       case "POSITIVE_FEEDBACK":
-      case "COMPLIMENT":
         return "#22c55e"; // Green for positive feedback
-      case "QUESTION":
-        return "#3b82f6"; // Blue for questions
       default:
         return "#6b7280"; // Gray for default
     }

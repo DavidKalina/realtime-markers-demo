@@ -14,8 +14,8 @@ interface CivicEngagement {
   id: string;
   title: string;
   description?: string;
-  type: "SUGGESTION" | "COMPLAINT" | "QUESTION" | "COMPLIMENT";
-  status: "PENDING" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "IMPLEMENTED";
+  type: "POSITIVE_FEEDBACK" | "NEGATIVE_FEEDBACK" | "IDEA";
+  status: "PENDING" | "IN_REVIEW" | "IMPLEMENTED" | "CLOSED";
   location?: {
     type: "Point";
     coordinates: [number, number];
@@ -33,7 +33,7 @@ interface CivicEngagement {
 interface CreateCivicEngagementPayload {
   title: string;
   description?: string;
-  type: "SUGGESTION" | "COMPLAINT" | "QUESTION" | "COMPLIMENT";
+  type: "POSITIVE_FEEDBACK" | "NEGATIVE_FEEDBACK" | "IDEA";
   location?: {
     type: "Point";
     coordinates: [number, number];
