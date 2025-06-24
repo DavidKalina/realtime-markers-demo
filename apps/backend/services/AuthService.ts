@@ -199,6 +199,9 @@ export class AuthService {
     }
 
     // Verify password
+    if (!user.passwordHash) {
+      throw new Error("Invalid credentials");
+    }
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new Error("Invalid credentials");
@@ -444,6 +447,9 @@ export class AuthService {
     }
 
     // Verify current password
+    if (!user.passwordHash) {
+      throw new Error("Current password is incorrect");
+    }
     const isPasswordValid = await bcrypt.compare(
       currentPassword,
       user.passwordHash,
@@ -477,6 +483,9 @@ export class AuthService {
     }
 
     // Verify password before deletion
+    if (!user.passwordHash) {
+      throw new Error("Invalid password");
+    }
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new Error("Invalid password");
