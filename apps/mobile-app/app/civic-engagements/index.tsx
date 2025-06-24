@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import { useRouter } from "expo-router";
 import {
   Search as SearchIcon,
@@ -115,6 +115,32 @@ const CivicEngagementsListScreen = () => {
     [router],
   );
 
+  // Memoize footer buttons configuration - moved after handleSubmit
+  const footerButtons = useMemo(
+    () => [
+      {
+        label: "Add Feedback",
+        onPress: () => router.push("/create-civic-engagement"),
+        variant: "primary" as const,
+        loading: false,
+        style: {
+          flex: 1,
+          borderRadius: 12,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 3,
+        },
+        textStyle: {
+          fontSize: 16,
+          letterSpacing: 0.5,
+        },
+      },
+    ],
+    [],
+  );
+
   // Auto-focus the search input when the screen opens
   React.useEffect(() => {
     setTimeout(() => {
@@ -139,8 +165,10 @@ const CivicEngagementsListScreen = () => {
   return (
     <AuthWrapper>
       <Screen
+        footerButtons={footerButtons}
+        footerSafeArea={true}
         isScrollable={false}
-        bannerTitle="Civic Engagements"
+        bannerTitle="Feedback"
         bannerEmoji="💬"
         showBackButton
         onBack={handleBack}
@@ -154,7 +182,7 @@ const CivicEngagementsListScreen = () => {
           icon={SearchIcon}
           rightIcon={searchQuery !== "" ? X : undefined}
           onRightIconPress={handleClearSearch}
-          placeholder={`Search ${activeTab === "my-engagements" ? "your" : "all"} civic engagements...`}
+          placeholder={`Search ${activeTab === "my-engagements" ? "your" : "all"} Feedback...`}
           value={searchQuery}
           onChangeText={handleSearchInput}
           returnKeyType="search"
@@ -176,8 +204,8 @@ const CivicEngagementsListScreen = () => {
           error={displayError}
           emptyListMessage={
             searchQuery.trim()
-              ? "No civic engagements found matching your search"
-              : "No civic engagements found"
+              ? "No feedback found matching your search"
+              : "No feedback found"
           }
           onRetry={hasSearched ? () => {} : () => refresh()}
         />
