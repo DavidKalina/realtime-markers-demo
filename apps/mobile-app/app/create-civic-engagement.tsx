@@ -16,6 +16,7 @@ import {
   View,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import type { CreateCivicEngagementPayload } from "@/services/ApiClient";
 import {
@@ -49,9 +50,24 @@ const CreateCivicEngagement = () => {
       const lat = parseFloat(params.latitude as string);
       const lng = parseFloat(params.longitude as string);
       if (!isNaN(lat) && !isNaN(lng)) {
+        console.log(
+          "[CreateCivicEngagement] Initializing coordinates from params:",
+          {
+            latitude: lat,
+            longitude: lng,
+            source: "scan_screen",
+          },
+        );
         return { latitude: lat, longitude: lng };
       }
     }
+    console.log(
+      "[CreateCivicEngagement] No coordinates in params or invalid values:",
+      {
+        latitude: params.latitude,
+        longitude: params.longitude,
+      },
+    );
     return null;
   });
 
@@ -95,6 +111,80 @@ const CreateCivicEngagement = () => {
       titleInputRef.current.focus();
     }
   }, []);
+
+  // Handle imageUri parameter from scan screen
+  useEffect(() => {
+    const imageUri = params.imageUri as string;
+    if (imageUri) {
+      console.log(
+        "[CreateCivicEngagement] Processing imageUri from scan:",
+        imageUri,
+      );
+      setSelectedImage(imageUri);
+
+      // Process the image for upload
+      const processImageFromScan = async () => {
+        try {
+          setIsProcessingImage(true);
+
+          // Check if the URI is processable (should be a local file URI)
+          if (
+            !imageUri.startsWith("file://") &&
+            !imageUri.startsWith("content://") &&
+            !imageUri.startsWith("data:")
+          ) {
+            console.warn(
+              "[CreateCivicEngagement] Image URI is not a local file or data URI, skipping processing:",
+              imageUri,
+            );
+            // For simulation or non-local images, just set the image without processing
+            setSelectedImage(imageUri);
+            setIsProcessingImage(false);
+            return;
+          }
+
+          // For data URIs (simulation), skip processing
+          if (imageUri.startsWith("data:")) {
+            console.log(
+              "[CreateCivicEngagement] Data URI detected, skipping image processing for simulation",
+            );
+            setSelectedImage(imageUri);
+            setIsProcessingImage(false);
+            return;
+          }
+
+          const processedImage = await manipulateImage(imageUri);
+
+          // Convert to base64 for API
+          const response = await fetch(processedImage.uri);
+          const blob = await response.blob();
+          const reader = new FileReader();
+
+          reader.onload = () => {
+            const base64String = reader.result as string;
+            // Remove the data:image/jpeg;base64, prefix
+            const base64Data = base64String.split(",")[1];
+            setImageBuffer(base64Data);
+          };
+
+          reader.readAsDataURL(blob);
+        } catch (error) {
+          console.error("Error processing image from scan:", error);
+          // Don't show an alert for simulation errors, just log them
+          if (!imageUri.includes("simulation")) {
+            Alert.alert(
+              "Error",
+              "Failed to process image from scan. Please try again.",
+            );
+          }
+        } finally {
+          setIsProcessingImage(false);
+        }
+      };
+
+      processImageFromScan();
+    }
+  }, [params.imageUri]);
 
   const handleTitleSubmit = () => {
     if (descriptionInputRef.current) {
@@ -387,7 +477,7 @@ const CreateCivicEngagement = () => {
       >
         <View style={styles.container}>
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Civic Engagement Details</Text>
+            <Text style={styles.sectionLabel}>Feedback Details</Text>
             <Input
               ref={titleInputRef}
               placeholder="Title"
@@ -415,8 +505,8 @@ const CreateCivicEngagement = () => {
               selectedItems={selectedTypeItems}
               onSelectionChange={handleTypeSelectionChange}
               items={typeOptions}
-              buttonText="Select civic engagement type"
-              modalTitle="Select Type"
+              buttonText="Select feedback type"
+              modalTitle="Feedback Type"
               emptyMessage="No types available"
               loadingMessage="Loading types..."
               errorMessage="Error loading types"
@@ -433,12 +523,21 @@ const CreateCivicEngagement = () => {
                     source={{ uri: selectedImage }}
                     style={styles.photoPreview}
                   />
-                  <TouchableOpacity
-                    style={styles.removePhotoButton}
-                    onPress={handleRemovePhoto}
-                  >
-                    <Text style={styles.removePhotoText}>Remove</Text>
-                  </TouchableOpacity>
+                  <View style={styles.photoActions}>
+                    {isProcessingImage && (
+                      <View style={styles.processingIndicator}>
+                        <ActivityIndicator size="small" color={COLORS.accent} />
+                        <Text style={styles.processingText}>Processing...</Text>
+                      </View>
+                    )}
+                    <TouchableOpacity
+                      style={styles.removePhotoButton}
+                      onPress={handleRemovePhoto}
+                      disabled={isProcessingImage}
+                    >
+                      <Text style={styles.removePhotoText}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ) : (
                 <View style={styles.photoButtonsRow}>
@@ -480,7 +579,9 @@ const CreateCivicEngagement = () => {
               isLoading={isSearchingPlaces}
               searchResults={searchResults}
               error={locationError}
-              buttonText="Search for a place..."
+              buttonText={
+                locationData ? "Change location..." : "Search for a place..."
+              }
             />
           </View>
         </View>
@@ -544,6 +645,22 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 8,
     backgroundColor: COLORS.cardBackground,
+  },
+  photoActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  processingIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  processingText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+    fontFamily: "Poppins-Regular",
   },
   removePhotoButton: {
     paddingHorizontal: 16,

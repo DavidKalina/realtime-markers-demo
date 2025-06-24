@@ -124,13 +124,13 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
   const getJobTypeDisplayName = (type: string) => {
     switch (type) {
       case "process_flyer":
-        return "Process Flyer";
+        return "Process Community Flyer";
       case "process_private_event":
         return "Create Private Event";
       case "process_multi_event_flyer":
         return "Process Multi-Event Flyer";
       case "cleanup_outdated_events":
-        return "Cleanup Events";
+        return "Cleanup Community Events";
       default:
         return type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
     }
@@ -589,7 +589,7 @@ const JobsScreen: React.FC = () => {
         setHasMore(false);
       } catch (err) {
         console.error("Failed to fetch jobs:", err);
-        setError("Failed to load jobs");
+        setError("Failed to load processing tasks");
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
@@ -613,11 +613,11 @@ const JobsScreen: React.FC = () => {
     async (jobId: string) => {
       try {
         await jobsModule.retryJob(jobId);
-        Alert.alert("Success", "Job has been queued for retry");
+        Alert.alert("Success", "Task has been queued for retry");
         handleRefresh();
       } catch (err) {
         console.error("Failed to retry job:", err);
-        Alert.alert("Error", "Failed to retry job");
+        Alert.alert("Error", "Failed to retry task");
       }
     },
     [jobsModule, handleRefresh],
@@ -650,10 +650,10 @@ const JobsScreen: React.FC = () => {
   if (!user) {
     return (
       <AuthWrapper>
-        <Screen bannerTitle="Jobs">
+        <Screen bannerTitle="Processing">
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>
-              Please log in to view your jobs
+              Please log in to view your processing tasks
             </Text>
           </View>
         </Screen>
@@ -665,14 +665,15 @@ const JobsScreen: React.FC = () => {
     <AuthWrapper>
       <Screen
         onBack={() => router.back()}
-        bannerTitle="Jobs"
+        bannerTitle="Processing"
         bannerEmoji="⚙️"
         showBackButton={true}
         footerButtons={[
           {
             label: "Refresh",
             onPress: handleRefresh,
-            variant: "ghost",
+            variant: "primary",
+            style: { flex: 1 },
           },
         ]}
         isScrollable={false}
@@ -686,7 +687,7 @@ const JobsScreen: React.FC = () => {
           isRefreshing={isRefreshing}
           hasMore={hasMore}
           error={error}
-          emptyListMessage="No jobs found"
+          emptyListMessage="No processing tasks found"
           onRetry={handleRetryAll}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}

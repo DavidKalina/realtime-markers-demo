@@ -228,7 +228,7 @@ const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
   },
   civic: {
     key: "civic",
-    label: "Civic",
+    label: "Feedback",
     icon: MessageSquare,
     route: "/civic-engagements",
     enabled: true,

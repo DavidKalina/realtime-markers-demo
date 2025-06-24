@@ -32,6 +32,7 @@ export enum EventTypes {
   OPEN_SEARCH = "ui:open:search",
   OPEN_SCAN = "ui:open:scan",
   CLOSE_VIEW = "ui:close:view",
+  NAVIGATE_TO_CIVIC_ENGAGEMENT = "navigation:civic_engagement",
 
   // Navigation between events
   NEXT_EVENT = "navigation:next",
@@ -268,6 +269,12 @@ export interface XPAwardedEvent extends BaseEvent {
     reason: string;
     timestamp: string;
   };
+}
+
+// Civic engagement navigation event
+export interface NavigateToCivicEngagementEvent extends BaseEvent {
+  imageUri: string;
+  imageSource: "camera" | "gallery";
 }
 
 // Main EventBroker class

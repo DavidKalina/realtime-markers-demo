@@ -22,6 +22,9 @@ export interface ScanState {
   processingStage: ProcessingStage;
   showProcessingOverlay: boolean;
 
+  // Content type choice state
+  showContentTypeOverlay: boolean;
+
   // Upload state
   isUploading: boolean;
   uploadProgress: number;
@@ -47,6 +50,8 @@ export type ScanAction =
   | { type: "CAPTURE_ERROR"; payload: string }
   | { type: "START_PROCESSING" }
   | { type: "SET_PROCESSING_STAGE"; payload: ProcessingStage }
+  | { type: "SHOW_CONTENT_TYPE_OVERLAY" }
+  | { type: "HIDE_CONTENT_TYPE_OVERLAY" }
   | { type: "START_UPLOAD" }
   | { type: "UPLOAD_PROGRESS"; payload: number }
   | { type: "UPLOAD_SUCCESS" }
@@ -67,6 +72,7 @@ const initialState: ScanState = {
   isProcessing: false,
   processingStage: null,
   showProcessingOverlay: false,
+  showContentTypeOverlay: false,
   isUploading: false,
   uploadProgress: 0,
   uploadError: null,
@@ -114,7 +120,7 @@ function scanReducer(state: ScanState, action: ScanAction): ScanState {
         isCapturing: false,
         capturedImageUri: action.payload.uri,
         imageSource: action.payload.source,
-        showProcessingOverlay: true,
+        showContentTypeOverlay: true,
         processingStage: "captured",
         error: null,
       };
@@ -131,6 +137,7 @@ function scanReducer(state: ScanState, action: ScanAction): ScanState {
         ...state,
         isProcessing: true,
         processingStage: "uploading",
+        showProcessingOverlay: true,
         error: null,
       };
 
@@ -138,6 +145,18 @@ function scanReducer(state: ScanState, action: ScanAction): ScanState {
       return {
         ...state,
         processingStage: action.payload,
+      };
+
+    case "SHOW_CONTENT_TYPE_OVERLAY":
+      return {
+        ...state,
+        showContentTypeOverlay: true,
+      };
+
+    case "HIDE_CONTENT_TYPE_OVERLAY":
+      return {
+        ...state,
+        showContentTypeOverlay: false,
       };
 
     case "START_UPLOAD":
@@ -293,7 +312,7 @@ export const useScanReducer = ({
           throw new Error("Failed to capture image");
         }
 
-        // Capture success
+        // Capture success - show content type overlay
         dispatch({
           type: "CAPTURE_SUCCESS",
           payload: { uri: photoUri, source: "camera" },
@@ -305,42 +324,6 @@ export const useScanReducer = ({
           message: "Image captured successfully!",
         });
 
-        // Wait 2 seconds to let user see their captured image
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        if (!isMounted.current) return { success: false, error: "unmounted" };
-
-        // Start processing
-        dispatch({ type: "START_PROCESSING" });
-
-        publish(EventTypes.NOTIFICATION, {
-          timestamp: Date.now(),
-          source: "ScanScreen",
-          message: "Processing document...",
-        });
-
-        // Upload the image
-        await uploadImageAndQueueRef.current(photoUri, "camera");
-
-        if (!isMounted.current) return { success: false, error: "unmounted" };
-
-        // Processing success
-        dispatch({ type: "PROCESSING_SUCCESS" });
-
-        publish(EventTypes.NOTIFICATION, {
-          timestamp: Date.now(),
-          source: "ScanScreen",
-          message: "Document processed successfully!",
-        });
-
-        // Wait 1.5 seconds to show success state
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        if (!isMounted.current) return { success: false, error: "unmounted" };
-
-        // Navigate to jobs
-        dispatch({ type: "NAVIGATE_TO_JOBS" });
-
         return { success: true };
       } catch (error) {
         console.error("Capture failed:", error);
@@ -350,7 +333,7 @@ export const useScanReducer = ({
 
           Alert.alert(
             "Operation Failed",
-            "Failed to process the document. Please try again.",
+            "Failed to capture the image. Please try again.",
             [{ text: "OK" }],
           );
         }
@@ -391,42 +374,6 @@ export const useScanReducer = ({
           message: "Image selected successfully!",
         });
 
-        // Wait 2 seconds to let user see their selected image
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        if (!isMounted.current) return { success: false, error: "unmounted" };
-
-        // Start processing
-        dispatch({ type: "START_PROCESSING" });
-
-        publish(EventTypes.NOTIFICATION, {
-          timestamp: Date.now(),
-          source: "ScanScreen",
-          message: "Processing document from gallery...",
-        });
-
-        // Upload the image
-        await uploadImageAndQueueRef.current(uri, "gallery");
-
-        if (!isMounted.current) return { success: false, error: "unmounted" };
-
-        // Processing success
-        dispatch({ type: "PROCESSING_SUCCESS" });
-
-        publish(EventTypes.NOTIFICATION, {
-          timestamp: Date.now(),
-          source: "ScanScreen",
-          message: "Document processed successfully!",
-        });
-
-        // Wait 1.5 seconds to show success state
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        if (!isMounted.current) return { success: false, error: "unmounted" };
-
-        // Navigate to jobs
-        dispatch({ type: "NAVIGATE_TO_JOBS" });
-
         return { success: true };
       } catch (error) {
         console.error("Gallery image processing failed:", error);
@@ -466,9 +413,10 @@ export const useScanReducer = ({
   const simulateCapture = useCallback(async () => {
     if (!isMounted.current) return;
 
-    // Use a reliable sample image URL for simulation
+    // For simulation, we'll create a simple data URI that can be displayed
+    // This avoids the image processing issues with external URLs
     const sampleImageUri =
-      "https://via.placeholder.com/800x600/4A90E2/FFFFFF?text=Sample+Document";
+      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjNEE5MEUyIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI0OCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5TYW1wbGUgRG9jdW1lbnQ8L3RleHQ+PC9zdmc+";
 
     try {
       // Simulate capture success
@@ -482,23 +430,34 @@ export const useScanReducer = ({
         source: "ScanScreen",
         message: "Simulating document capture...",
       });
+    } catch (error) {
+      console.error("Simulation failed:", error);
+      if (isMounted.current) {
+        dispatch({ type: "CAPTURE_ERROR", payload: "simulation_failed" });
+      }
+    }
+  }, [isMounted, publish]);
 
-      // Wait 2 seconds to let user see their captured image
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+  // Handle content type selection
+  const handleSelectEvent = useCallback(async () => {
+    if (!isMounted.current || !state.capturedImageUri) return;
 
-      if (!isMounted.current) return;
-
-      // Start processing
+    try {
+      // Hide content type overlay and show processing overlay
+      dispatch({ type: "HIDE_CONTENT_TYPE_OVERLAY" });
       dispatch({ type: "START_PROCESSING" });
 
       publish(EventTypes.NOTIFICATION, {
         timestamp: Date.now(),
         source: "ScanScreen",
-        message: "Simulating document processing...",
+        message: "Processing document for event creation...",
       });
 
-      // Simulate upload delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Upload the image for event processing
+      await uploadImageAndQueueRef.current(
+        state.capturedImageUri,
+        state.imageSource,
+      );
 
       if (!isMounted.current) return;
 
@@ -508,7 +467,7 @@ export const useScanReducer = ({
       publish(EventTypes.NOTIFICATION, {
         timestamp: Date.now(),
         source: "ScanScreen",
-        message: "Simulation completed successfully!",
+        message: "Document processed successfully!",
       });
 
       // Wait 1.5 seconds to show success state
@@ -519,12 +478,38 @@ export const useScanReducer = ({
       // Navigate to jobs
       dispatch({ type: "NAVIGATE_TO_JOBS" });
     } catch (error) {
-      console.error("Simulation failed:", error);
+      console.error("Event processing failed:", error);
       if (isMounted.current) {
-        dispatch({ type: "CAPTURE_ERROR", payload: "simulation_failed" });
+        dispatch({ type: "CAPTURE_ERROR", payload: "event_processing_failed" });
+        Alert.alert(
+          "Operation Failed",
+          "Failed to process the document for event creation. Please try again.",
+          [{ text: "OK" }],
+        );
       }
     }
-  }, [isMounted, publish]);
+  }, [isMounted, publish, state.capturedImageUri, state.imageSource]);
+
+  const handleSelectCivicEngagement = useCallback(() => {
+    if (!isMounted.current || !state.capturedImageUri) return;
+
+    // Hide content type overlay
+    dispatch({ type: "HIDE_CONTENT_TYPE_OVERLAY" });
+
+    // Navigate to civic engagement creation with the image
+    // This will be handled by the parent component
+    publish(EventTypes.NAVIGATE_TO_CIVIC_ENGAGEMENT, {
+      timestamp: Date.now(),
+      source: "ScanScreen",
+      imageUri: state.capturedImageUri,
+      imageSource: state.imageSource,
+    });
+  }, [isMounted, publish, state.capturedImageUri, state.imageSource]);
+
+  const handleCancelContentType = useCallback(() => {
+    dispatch({ type: "HIDE_CONTENT_TYPE_OVERLAY" });
+    dispatch({ type: "RESET" });
+  }, []);
 
   // Computed values
 
@@ -540,6 +525,9 @@ export const useScanReducer = ({
     reset,
     clearError,
     simulateCapture,
+    handleSelectEvent,
+    handleSelectCivicEngagement,
+    handleCancelContentType,
 
     // Computed values
     isReady: state.isCameraInitialized && !state.error,
