@@ -14,6 +14,7 @@ import { UserEventDiscovery } from "./entities/UserEventDiscovery";
 import { UserEventRsvp } from "./entities/UserEventRsvp";
 import { UserEventSave } from "./entities/UserEventSave";
 import { CivicEngagement } from "./entities/CivicEngagement";
+import { UserPushToken } from "./entities/UserPushToken";
 
 // Import all migrations explicitly
 import { CategoryTable1710000000000 } from "./migrations/CategoryTable1710000000000";
@@ -33,6 +34,7 @@ import { SeedOfficialEvents1710000000016 } from "./migrations/SeedOfficialEvents
 import { RegenerateEmbeddings1710000000017 } from "./migrations/RegenerateEmbeddings1710000000017";
 import { CivicEngagementTables1710000000020 } from "./migrations/CivicEngagementTables1710000000020";
 import { AddEmbeddingToCivicEngagements1710000000021 } from "./migrations/AddEmbeddingToCivicEngagements1710000000021";
+import { UserPushTokenTable1710000000022 } from "./migrations/UserPushTokenTable1710000000022";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -50,6 +52,7 @@ const AppDataSource = new DataSource({
     UserEventRsvp,
     UserEventSave,
     CivicEngagement,
+    UserPushToken,
   ],
   migrations: [
     CategoryTable1710000000000,
@@ -69,6 +72,7 @@ const AppDataSource = new DataSource({
     RegenerateEmbeddings1710000000017,
     CivicEngagementTables1710000000020,
     AddEmbeddingToCivicEngagements1710000000021,
+    UserPushTokenTable1710000000022,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

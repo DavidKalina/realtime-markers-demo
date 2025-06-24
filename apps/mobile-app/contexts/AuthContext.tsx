@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { apiClient, User, Filter } from "../services/ApiClient";
 import { oAuthService } from "../services/OAuthService";
+import { pushNotificationService } from "../services/PushNotificationService";
 
 interface AuthContextType {
   user: User | null;
@@ -44,6 +45,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const { fetchFilters, applyFilters } = useFilterStore();
 
+  // Setup push notifications after successful authentication
+  const setupPushNotifications = async (userId: string) => {
+    try {
+      console.log("🔔 Setting up push notifications for user:", userId);
+      const success =
+        await pushNotificationService.setupPushNotifications(userId);
+      if (success) {
+        console.log("✅ Push notifications setup completed");
+      } else {
+        console.log("⚠️ Push notifications setup failed or permissions denied");
+      }
+    } catch (error) {
+      console.error("❌ Error setting up push notifications:", error);
+    }
+  };
+
   useEffect(() => {
     const initializeAuth = async () => {
       setIsLoading(true);
@@ -60,6 +77,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             if (userProfile) {
               setUser(userProfile);
               setIsAuthenticated(true);
+
+              // Setup push notifications after successful authentication
+              await setupPushNotifications(userProfile.id);
 
               // Sync filters and active filter IDs
               await fetchFilters();
@@ -132,8 +152,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const success = await apiClient.refreshAuthTokens();
       if (success) {
-        setUser(apiClient.getCurrentUser());
+        const currentUser = apiClient.getCurrentUser();
+        setUser(currentUser);
         setIsAuthenticated(true);
+
+        // Setup push notifications after successful refresh
+        if (currentUser?.id) {
+          await setupPushNotifications(currentUser.id);
+        }
+
         return true;
       }
       setUser(null);
@@ -154,6 +181,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const loggedInUser = await apiClient.auth.login(email, password);
       setUser(loggedInUser);
       setIsAuthenticated(true);
+
+      // Setup push notifications after successful login
+      await setupPushNotifications(loggedInUser.id);
     } catch (error) {
       // Auth state will be cleared by ApiClient
       setUser(null);
@@ -173,9 +203,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsLoading(true);
     try {
       await apiClient.auth.register(email, password, firstName, lastName);
-      await apiClient.auth.login(email, password);
-      setUser(apiClient.getCurrentUser());
+      const loggedInUser = await apiClient.auth.login(email, password);
+      setUser(loggedInUser);
       setIsAuthenticated(true);
+
+      // Setup push notifications after successful registration and login
+      await setupPushNotifications(loggedInUser.id);
     } catch (error) {
       // Auth state will be cleared by ApiClient
       setUser(null);
@@ -253,6 +286,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       };
       setUser(user);
       setIsAuthenticated(true);
+
+      // Setup push notifications after successful OAuth login
+      await setupPushNotifications(user.id);
     } catch (error) {
       // Auth state will be cleared by ApiClient
       setUser(null);
@@ -275,6 +311,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       };
       setUser(user);
       setIsAuthenticated(true);
+
+      // Setup push notifications after successful OAuth login
+      await setupPushNotifications(user.id);
     } catch (error) {
       // Auth state will be cleared by ApiClient
       setUser(null);
