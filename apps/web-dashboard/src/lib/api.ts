@@ -148,6 +148,31 @@ class ApiClient {
     return response.civicEngagements;
   }
 
+  // Fetch civic engagements with pagination and filters
+  async getCivicEngagements(
+    params: {
+      limit?: number;
+      offset?: number;
+      type?: string[];
+      status?: string[];
+      search?: string;
+    } = {},
+  ): Promise<{ civicEngagements: CivicEngagement[]; total: number }> {
+    const queryParams = new URLSearchParams();
+    if (params.limit) queryParams.append("limit", params.limit.toString());
+    if (params.offset) queryParams.append("offset", params.offset.toString());
+    if (params.type) queryParams.append("type", params.type.join(","));
+    if (params.status) queryParams.append("status", params.status.join(","));
+    if (params.search) queryParams.append("search", params.search);
+
+    const queryString = queryParams.toString();
+    const endpoint = `/api/civic-engagements${queryString ? `?${queryString}` : ""}`;
+
+    return this.get<{ civicEngagements: CivicEngagement[]; total: number }>(
+      endpoint,
+    );
+  }
+
   // Fetch a specific event by ID
   async getEventById(id: string): Promise<Event> {
     return this.get<Event>(`/api/events/${id}`);
@@ -199,6 +224,15 @@ export const api = {
   deleteCivicEngagement: (id: string) => apiClient.deleteCivicEngagement(id),
   getCivicEngagementSignedImageUrl: (id: string) =>
     apiClient.getCivicEngagementSignedImageUrl(id),
+  getCivicEngagements: (
+    params: {
+      limit?: number;
+      offset?: number;
+      type?: string[];
+      status?: string[];
+      search?: string;
+    } = {},
+  ) => apiClient.getCivicEngagements(params),
 };
 
 export default apiClient;
