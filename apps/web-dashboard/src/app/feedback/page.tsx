@@ -30,21 +30,21 @@ import { apiService as api } from "@/services/api";
 import useCivicEngagementSearch from "@/hooks/useCivicEngagementSearch";
 import { format } from "date-fns";
 
-// Helper function to get type display name
-const getTypeName = (type: string) => {
+// Helper function to get type display name and variant
+const getTypeInfo = (type: string) => {
   switch (type) {
     case "POSITIVE_FEEDBACK":
-      return "Positive Feedback";
+      return { name: "Positive Feedback", variant: "default" as const };
     case "NEGATIVE_FEEDBACK":
-      return "Negative Feedback";
+      return { name: "Negative Feedback", variant: "destructive" as const };
     case "IDEA":
-      return "Idea";
+      return { name: "Idea", variant: "secondary" as const };
     default:
-      return type;
+      return { name: type, variant: "outline" as const };
   }
 };
 
-// Helper function to get status badge variant
+// Helper function to get status badge variant with better color coding
 const getStatusVariant = (status: string) => {
   switch (status) {
     case "PENDING":
@@ -60,6 +60,62 @@ const getStatusVariant = (status: string) => {
     default:
       return "outline";
   }
+};
+
+// Helper function to get status display name with proper formatting
+const getStatusDisplayName = (status: string) => {
+  return status.toLowerCase().replace(/_/g, " ");
+};
+
+// Custom badge components with enhanced color coding
+const TypeBadge = ({ type }: { type: string }) => {
+  const typeInfo = getTypeInfo(type);
+  const getTypeStyles = (type: string) => {
+    switch (type) {
+      case "POSITIVE_FEEDBACK":
+        return "bg-green-100 text-green-800 border-green-200 hover:bg-green-200";
+      case "NEGATIVE_FEEDBACK":
+        return "bg-red-100 text-red-800 border-red-200 hover:bg-red-200";
+      case "IDEA":
+        return "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200";
+    }
+  };
+
+  return (
+    <Badge variant="outline" className={`${getTypeStyles(type)} font-medium`}>
+      {typeInfo.name}
+    </Badge>
+  );
+};
+
+const StatusBadge = ({ status }: { status: string }) => {
+  const getStatusStyles = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200";
+      case "UNDER_REVIEW":
+        return "bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200";
+      case "APPROVED":
+        return "bg-green-100 text-green-800 border-green-200 hover:bg-green-200";
+      case "REJECTED":
+        return "bg-red-100 text-red-800 border-red-200 hover:bg-red-200";
+      case "IMPLEMENTED":
+        return "bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200";
+    }
+  };
+
+  return (
+    <Badge
+      variant="outline"
+      className={`${getStatusStyles(status)} font-medium`}
+    >
+      {getStatusDisplayName(status)}
+    </Badge>
+  );
 };
 
 // Debounce hook for search
@@ -300,18 +356,10 @@ export default function FeedbackPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline">
-                              {getTypeName(civicEngagement.type)}
-                            </Badge>
+                            <TypeBadge type={civicEngagement.type} />
                           </TableCell>
                           <TableCell>
-                            <Badge
-                              variant={getStatusVariant(civicEngagement.status)}
-                            >
-                              {civicEngagement.status
-                                .toLowerCase()
-                                .replace("_", " ")}
-                            </Badge>
+                            <StatusBadge status={civicEngagement.status} />
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
