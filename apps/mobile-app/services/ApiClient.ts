@@ -8,6 +8,7 @@ import { FiltersModule } from "./api/modules/filters";
 import { RSVPModule } from "./api/modules/rsvp";
 import { CategoriesModule } from "./api/modules/categories";
 import { CivicEngagementApiClient } from "./api/modules/civicEngagement";
+import { PushNotificationsModule } from "./api/modules/pushNotifications";
 
 // Re-export types and enums
 export * from "./api/base/types";
@@ -18,6 +19,7 @@ export * from "./api/modules/filters";
 export * from "./api/modules/rsvp";
 export * from "./api/modules/places";
 export * from "./api/modules/civicEngagement";
+export * from "./api/modules/pushNotifications";
 
 class ApiClient extends BaseApiClient {
   private static instance: ApiClient | null = null;
@@ -28,6 +30,7 @@ class ApiClient extends BaseApiClient {
   private _rsvp: RSVPModule | null = null;
   private _categories: CategoriesModule | null = null;
   private _civicEngagements: CivicEngagementApiClient | null = null;
+  private _pushNotifications: PushNotificationsModule | null = null;
 
   private constructor(baseUrl: string) {
     super(baseUrl);
@@ -93,6 +96,13 @@ class ApiClient extends BaseApiClient {
       this._civicEngagements = new CivicEngagementApiClient(this);
     }
     return this._civicEngagements;
+  }
+
+  public get pushNotifications(): PushNotificationsModule {
+    if (!this._pushNotifications) {
+      this._pushNotifications = new PushNotificationsModule(this);
+    }
+    return this._pushNotifications;
   }
 
   override setBaseUrl(baseUrl: string): void {

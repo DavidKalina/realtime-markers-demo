@@ -50,6 +50,15 @@ export default {
       "expo-router",
       "expo-localization",
       [
+        "expo-notifications",
+        {
+          icon: "./assets/images/frederick-logo.png",
+          color: "#ffffff",
+          defaultChannel: "default",
+          enableBackgroundRemoteNotifications: true,
+        },
+      ],
+      [
         "@sentry/react-native/expo",
         {
           url: "https://sentry.io/",

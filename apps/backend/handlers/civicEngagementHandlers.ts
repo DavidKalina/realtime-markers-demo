@@ -19,6 +19,9 @@ import {
   processCivicEngagementUpdateFormData,
   prepareCivicEngagementUpdateData,
 } from "../utils/civicEngagementUtils";
+import { civicEngagementNotificationService } from "../services/CivicEngagementNotificationService";
+import AppDataSource from "../data-source";
+import { User } from "../entities/User";
 
 export type CivicEngagementHandler = Handler;
 
@@ -163,6 +166,10 @@ export const updateCivicEngagementHandler: CivicEngagementHandler =
       );
     }
 
+    // Store the previous values for notification purposes
+    const previousStatus = existingEngagement.status;
+    const previousAdminNotes = existingEngagement.adminNotes;
+
     // Process form data and extract civic engagement data
     const { data, imageUrls } = await processCivicEngagementUpdateFormData(
       c,
@@ -196,6 +203,54 @@ export const updateCivicEngagementHandler: CivicEngagementHandler =
       input,
     );
 
+    // Send push notifications if this is an admin update
+    if (user.role === "ADMIN" && existingEngagement.creatorId !== user.id) {
+      try {
+        // Get the full user object for the notification service
+        const userRepository = AppDataSource.getRepository(User);
+        const adminUser = await userRepository.findOne({
+          where: { id: user.id },
+        });
+
+        if (adminUser) {
+          // Notify about status change if status actually changed
+          if (previousStatus !== civicEngagement.status) {
+            await civicEngagementNotificationService.notifyCivicEngagementStatusUpdate(
+              civicEngagement,
+              previousStatus,
+              adminUser,
+            );
+
+            // Special notification for implementation
+            if (civicEngagement.status === CivicEngagementStatus.IMPLEMENTED) {
+              await civicEngagementNotificationService.notifyCivicEngagementImplemented(
+                civicEngagement,
+                adminUser,
+              );
+            }
+          }
+
+          // Notify about admin notes if they were added or changed
+          if (
+            civicEngagement.adminNotes &&
+            civicEngagement.adminNotes !== previousAdminNotes
+          ) {
+            await civicEngagementNotificationService.notifyAdminNotesAdded(
+              civicEngagement,
+              adminUser,
+              previousAdminNotes,
+            );
+          }
+        }
+      } catch (notificationError) {
+        console.error(
+          "Error sending civic engagement notifications:",
+          notificationError,
+        );
+        // Don't fail the request if notifications fail
+      }
+    }
+
     return c.json(civicEngagement);
   });
 
@@ -217,6 +272,10 @@ export const adminUpdateCivicEngagementStatusHandler: CivicEngagementHandler =
     if (!existingEngagement) {
       return c.json({ error: "Civic engagement not found" }, 404);
     }
+
+    // Store the previous status for notification purposes
+    const previousStatus = existingEngagement.status;
+    const previousAdminNotes = existingEngagement.adminNotes;
 
     // Parse the request body
     const body = await c.req.json();
@@ -245,6 +304,52 @@ export const adminUpdateCivicEngagementStatusHandler: CivicEngagementHandler =
       id,
       input,
     );
+
+    // Send push notifications based on the type of update
+    try {
+      // Get the full user object for the notification service
+      const userRepository = AppDataSource.getRepository(User);
+      const adminUser = await userRepository.findOne({
+        where: { id: user.id },
+      });
+
+      if (adminUser) {
+        // Notify about status change if status actually changed
+        if (previousStatus !== civicEngagement.status) {
+          await civicEngagementNotificationService.notifyCivicEngagementStatusUpdate(
+            civicEngagement,
+            previousStatus,
+            adminUser,
+          );
+
+          // Special notification for implementation
+          if (civicEngagement.status === CivicEngagementStatus.IMPLEMENTED) {
+            await civicEngagementNotificationService.notifyCivicEngagementImplemented(
+              civicEngagement,
+              adminUser,
+            );
+          }
+        }
+
+        // Notify about admin notes if they were added or changed
+        if (
+          civicEngagement.adminNotes &&
+          civicEngagement.adminNotes !== previousAdminNotes
+        ) {
+          await civicEngagementNotificationService.notifyAdminNotesAdded(
+            civicEngagement,
+            adminUser,
+            previousAdminNotes,
+          );
+        }
+      }
+    } catch (notificationError) {
+      console.error(
+        "Error sending civic engagement notifications:",
+        notificationError,
+      );
+      // Don't fail the request if notifications fail
+    }
 
     return c.json({
       ...civicEngagement,
@@ -291,6 +396,10 @@ export const adminBulkUpdateCivicEngagementStatusHandler: CivicEngagementHandler
       return c.json({ error: "Invalid status provided" }, 400);
     }
 
+    // Get the full user object for the notification service
+    const userRepository = AppDataSource.getRepository(User);
+    const adminUser = await userRepository.findOne({ where: { id: user.id } });
+
     // Process each civic engagement
     const results = [];
     const errors = [];
@@ -305,6 +414,10 @@ export const adminBulkUpdateCivicEngagementStatusHandler: CivicEngagementHandler
           continue;
         }
 
+        // Store the previous status for notification purposes
+        const previousStatus = existingEngagement.status;
+        const previousAdminNotes = existingEngagement.adminNotes;
+
         // Prepare the update input
         const input: UpdateCivicEngagementInput = {
           status,
@@ -318,6 +431,48 @@ export const adminBulkUpdateCivicEngagementStatusHandler: CivicEngagementHandler
         const updatedEngagement =
           await civicEngagementService.updateCivicEngagement(id, input);
         results.push(updatedEngagement);
+
+        // Send push notifications for this engagement
+        if (adminUser) {
+          try {
+            // Notify about status change if status actually changed
+            if (previousStatus !== updatedEngagement.status) {
+              await civicEngagementNotificationService.notifyCivicEngagementStatusUpdate(
+                updatedEngagement,
+                previousStatus,
+                adminUser,
+              );
+
+              // Special notification for implementation
+              if (
+                updatedEngagement.status === CivicEngagementStatus.IMPLEMENTED
+              ) {
+                await civicEngagementNotificationService.notifyCivicEngagementImplemented(
+                  updatedEngagement,
+                  adminUser,
+                );
+              }
+            }
+
+            // Notify about admin notes if they were added or changed
+            if (
+              updatedEngagement.adminNotes &&
+              updatedEngagement.adminNotes !== previousAdminNotes
+            ) {
+              await civicEngagementNotificationService.notifyAdminNotesAdded(
+                updatedEngagement,
+                adminUser,
+                previousAdminNotes,
+              );
+            }
+          } catch (notificationError) {
+            console.error(
+              `Error sending notifications for civic engagement ${id}:`,
+              notificationError,
+            );
+            // Don't fail the bulk operation if notifications fail
+          }
+        }
       } catch (error) {
         errors.push({
           id,

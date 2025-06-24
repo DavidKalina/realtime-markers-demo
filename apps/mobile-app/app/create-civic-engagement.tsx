@@ -24,6 +24,9 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from "react-native";
 import type { CreateCivicEngagementPayload } from "@/services/ApiClient";
 import {
@@ -175,6 +178,7 @@ const CreateCivicEngagement = () => {
   const params = useLocalSearchParams();
   const titleInputRef = useRef<TextInput>(null);
   const descriptionInputRef = useRef<TextInput>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Photo state
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -367,6 +371,10 @@ const CreateCivicEngagement = () => {
   const handleTitleSubmit = useCallback(() => {
     if (descriptionInputRef.current) {
       descriptionInputRef.current.focus();
+      // Scroll to description input after a short delay
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     }
   }, []);
 
@@ -684,96 +692,109 @@ const CreateCivicEngagement = () => {
         showBackButton={true}
         onBack={() => router.back()}
         footerButtons={footerButtons}
-        isScrollable={true}
+        isScrollable={false}
         noSafeArea={false}
         extendBannerToStatusBar={true}
         footerSafeArea={true}
       >
-        <View style={styles.container}>
-          {/* Location Section - First, as it's most important for municipal feedback */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <MapPinIcon size={14} color={COLORS.accent} />
-              <Text style={styles.sectionTitle}>Location</Text>
-            </View>
-            <LocationSelector
-              selectedLocation={locationData}
-              onLocationSelect={handleLocationSelect}
-              onLocationClear={handleLocationClear}
-              onSearch={handleSearchPlaces}
-              isLoading={isSearchingPlaces}
-              searchResults={searchResults}
-              error={locationError}
-              buttonText={locationButtonText}
-            />
-            {mapCoordinates && locationData && (
-              <CivicEngagementMapPreview
-                coordinates={mapCoordinates}
-                locationName={locationData.name}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardAvoidingView}
+        >
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            showsVerticalScrollIndicator={false}
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+          >
+            {/* Location Section - First, as it's most important for municipal feedback */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <MapPinIcon size={14} color={COLORS.accent} />
+                <Text style={styles.sectionTitle}>Location</Text>
+              </View>
+              <LocationSelector
+                selectedLocation={locationData}
+                onLocationSelect={handleLocationSelect}
+                onLocationClear={handleLocationClear}
+                onSearch={handleSearchPlaces}
+                isLoading={isSearchingPlaces}
+                searchResults={searchResults}
+                error={locationError}
+                buttonText={locationButtonText}
               />
-            )}
-          </View>
-
-          {/* Type Section - Second, to categorize the feedback */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Feedback Type</Text>
-            <CheckboxGroup
-              selectedItems={selectedTypeItems}
-              onSelectionChange={handleTypeSelectionChange}
-              items={typeOptions}
-              buttonText="Select feedback type"
-              modalTitle="Feedback Type"
-              emptyMessage="No types available"
-              loadingMessage="Loading types..."
-              errorMessage="Error loading types"
-              initialModalOpen={true}
-            />
-          </View>
-
-          {/* Details Section - Third, for the actual feedback content */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Feedback Details</Text>
-            <Input
-              ref={titleInputRef}
-              placeholder="Title"
-              icon={Book}
-              value={title}
-              onChangeText={setTitle}
-              onSubmitEditing={handleTitleSubmit}
-              returnKeyType="next"
-              autoFocus={false}
-              blurOnSubmit={false}
-            />
-            <TextArea
-              ref={descriptionInputRef}
-              placeholder="Description (optional)"
-              icon={List}
-              value={description}
-              onChangeText={setDescription}
-              blurOnSubmit={false}
-            />
-          </View>
-
-          {/* Photo Section - Last, as supporting documentation */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Photo (Optional)</Text>
-            <View style={styles.photoSection}>
-              {selectedImage ? (
-                <PhotoPreview
-                  selectedImage={selectedImage}
-                  isProcessingImage={isProcessingImage}
-                  onRemovePhoto={handleRemovePhoto}
-                />
-              ) : (
-                <PhotoButtons
-                  isProcessingImage={isProcessingImage}
-                  onTakePhoto={handleTakePhoto}
-                  onPickImage={handlePickImage}
+              {mapCoordinates && locationData && (
+                <CivicEngagementMapPreview
+                  coordinates={mapCoordinates}
+                  locationName={locationData.name}
                 />
               )}
             </View>
-          </View>
-        </View>
+
+            {/* Type Section - Second, to categorize the feedback */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Feedback Type</Text>
+              <CheckboxGroup
+                selectedItems={selectedTypeItems}
+                onSelectionChange={handleTypeSelectionChange}
+                items={typeOptions}
+                buttonText="Select feedback type"
+                modalTitle="Feedback Type"
+                emptyMessage="No types available"
+                loadingMessage="Loading types..."
+                errorMessage="Error loading types"
+                initialModalOpen={true}
+              />
+            </View>
+
+            {/* Details Section - Third, for the actual feedback content */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Feedback Details</Text>
+              <Input
+                ref={titleInputRef}
+                placeholder="Title"
+                icon={Book}
+                value={title}
+                onChangeText={setTitle}
+                onSubmitEditing={handleTitleSubmit}
+                returnKeyType="next"
+                autoFocus={false}
+                blurOnSubmit={false}
+              />
+              <TextArea
+                ref={descriptionInputRef}
+                placeholder="Description (optional)"
+                icon={List}
+                value={description}
+                onChangeText={setDescription}
+                blurOnSubmit={false}
+              />
+            </View>
+
+            {/* Photo Section - Last, as supporting documentation */}
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Photo (Optional)</Text>
+              <View style={styles.photoSection}>
+                {selectedImage ? (
+                  <PhotoPreview
+                    selectedImage={selectedImage}
+                    isProcessingImage={isProcessingImage}
+                    onRemovePhoto={handleRemovePhoto}
+                  />
+                ) : (
+                  <PhotoButtons
+                    isProcessingImage={isProcessingImage}
+                    onTakePhoto={handleTakePhoto}
+                    onPickImage={handlePickImage}
+                  />
+                )}
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Screen>
     </AuthWrapper>
   );
@@ -782,9 +803,18 @@ const CreateCivicEngagement = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: COLORS.background,
+    paddingBottom: 100,
     gap: 24,
   },
   section: {

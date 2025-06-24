@@ -22,6 +22,7 @@ import {
   useSplashScreen,
 } from "@/contexts/SplashScreenContext";
 import { useColorScheme } from "@/hooks/useColorScheme";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { AnimatedSplashScreen } from "@/components/SplashScreen/SplashScreen";
 
@@ -171,6 +172,9 @@ function AppProviders({ children }: AppProvidersProps) {
 
 // App content component
 function AppContent({ children }: AppContentProps) {
+  // Set up push notification listeners
+  usePushNotifications();
+
   return (
     <View style={{ flex: 1 }}>
       {children}

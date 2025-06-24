@@ -743,6 +743,7 @@ const JobsScreen: React.FC = () => {
         onBack={() => router.back()}
         bannerTitle="Processing"
         bannerEmoji="⚙️"
+        footerSafeArea={true}
         showBackButton={true}
         footerButtons={[
           {
