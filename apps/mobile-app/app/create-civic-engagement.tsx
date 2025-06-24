@@ -6,9 +6,17 @@ import { COLORS } from "@/components/Layout/ScreenLayout";
 import { apiClient, CivicEngagementType } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Book, List, MapPin as MapPinIcon } from "lucide-react-native";
+import { Book, List, MapPin as MapPinIcon, Camera } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  TouchableOpacity,
+  Image,
+} from "react-native";
 import type { CreateCivicEngagementPayload } from "@/services/ApiClient";
 import {
   LocationSelector,
@@ -18,12 +26,19 @@ import {
   CheckboxGroup,
   SelectableItem,
 } from "@/components/CheckboxGroup/CheckboxGroup";
+import * as ImagePicker from "expo-image-picker";
+import { manipulateImage } from "@/utils/imageUtils";
 
 const CreateCivicEngagement = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const titleInputRef = useRef<TextInput>(null);
   const descriptionInputRef = useRef<TextInput>(null);
+
+  // Photo state
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [imageBuffer, setImageBuffer] = useState<string | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
 
   const [coordinates, setCoordinates] = useState<{
     latitude: number;
@@ -85,6 +100,64 @@ const CreateCivicEngagement = () => {
     if (descriptionInputRef.current) {
       descriptionInputRef.current.focus();
     }
+  };
+
+  // Photo handling functions
+  const handlePickImage = async () => {
+    try {
+      // Request permission first
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert(
+          "Permission",
+          "Permission to access media library is required!",
+        );
+        return;
+      }
+
+      setIsProcessingImage(true);
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+        allowsMultipleSelection: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const imageUri = result.assets[0].uri;
+        setSelectedImage(imageUri);
+
+        // Process the image for upload
+        const processedImage = await manipulateImage(imageUri);
+
+        // Convert to base64 for API
+        const response = await fetch(processedImage.uri);
+        const blob = await response.blob();
+        const reader = new FileReader();
+
+        reader.onload = () => {
+          const base64String = reader.result as string;
+          // Remove the data:image/jpeg;base64, prefix
+          const base64Data = base64String.split(",")[1];
+          setImageBuffer(base64Data);
+        };
+
+        reader.readAsDataURL(blob);
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image. Please try again.");
+    } finally {
+      setIsProcessingImage(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setSelectedImage(null);
+    setImageBuffer(null);
   };
 
   const handleSearchPlaces = useCallback(async (query: string) => {
@@ -159,11 +232,11 @@ const CreateCivicEngagement = () => {
     setIsSubmitting(true);
 
     try {
+      // Prepare civic engagement data
       const civicEngagementData: CreateCivicEngagementPayload = {
         title: title.trim(),
         description: description.trim(),
         type: type,
-        // Location is required by the API, and we've validated coordinates exist
         location: {
           type: "Point",
           coordinates: [coordinates.longitude, coordinates.latitude] as [
@@ -179,34 +252,38 @@ const CreateCivicEngagement = () => {
         civicEngagementData.locationNotes = locationData.locationNotes;
       }
 
+      // Add image data if available
+      if (imageBuffer) {
+        civicEngagementData.imageBuffer = imageBuffer;
+        civicEngagementData.contentType = "image/jpeg";
+        civicEngagementData.filename = "civic-engagement.jpg";
+      }
+
       if (params.id) {
         // Update existing civic engagement
         await apiClient.civicEngagements.updateCivicEngagement(
           params.id as string,
           civicEngagementData,
         );
-        Alert.alert("Success", "Your civic engagement has been updated.", [
-          {
-            text: "OK",
-            onPress: () => router.back(),
-          },
-        ]);
       } else {
         // Create new civic engagement
         await apiClient.civicEngagements.createCivicEngagement(
           civicEngagementData,
         );
-        Alert.alert(
-          "Success",
-          "Your civic engagement has been submitted and is being processed. You'll be notified when it's ready.",
-          [
-            {
-              text: "OK",
-              onPress: () => router.back(),
-            },
-          ],
-        );
       }
+
+      Alert.alert(
+        "Success",
+        params.id
+          ? "Your civic engagement has been updated."
+          : "Your civic engagement has been submitted successfully!",
+        [
+          {
+            text: "OK",
+            onPress: () => router.back(),
+          },
+        ],
+      );
     } catch (error) {
       console.error("Error creating civic engagement:", error);
       Alert.alert(
@@ -248,6 +325,42 @@ const CreateCivicEngagement = () => {
 
   // Convert selected type to array format for CheckboxGroup
   const selectedTypeItems = selectedTypeOption ? [selectedTypeOption] : [];
+
+  const handleTakePhoto = async () => {
+    try {
+      const permissionResult =
+        await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Permission", "Camera access is required to take a photo.");
+        return;
+      }
+      setIsProcessingImage(true);
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const imageUri = result.assets[0].uri;
+        setSelectedImage(imageUri);
+        const processedImage = await manipulateImage(imageUri);
+        const response = await fetch(processedImage.uri);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64String = reader.result as string;
+          const base64Data = base64String.split(",")[1];
+          setImageBuffer(base64Data);
+        };
+        reader.readAsDataURL(blob);
+      }
+    } catch (error) {
+      console.error("Error taking photo:", error);
+      Alert.alert("Error", "Failed to take photo. Please try again.");
+    } finally {
+      setIsProcessingImage(false);
+    }
+  };
 
   return (
     <AuthWrapper>
@@ -308,6 +421,49 @@ const CreateCivicEngagement = () => {
               loadingMessage="Loading types..."
               errorMessage="Error loading types"
             />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Photo (Optional)</Text>
+            <View style={styles.photoSection}>
+              {selectedImage ? (
+                <View style={styles.photoPreviewContainer}>
+                  <Image
+                    source={{ uri: selectedImage }}
+                    style={styles.photoPreview}
+                  />
+                  <TouchableOpacity
+                    style={styles.removePhotoButton}
+                    onPress={handleRemovePhoto}
+                  >
+                    <Text style={styles.removePhotoText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.photoButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.photoButton}
+                    onPress={handleTakePhoto}
+                    disabled={isProcessingImage}
+                  >
+                    <Camera size={22} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.photoButtonText}>
+                      {isProcessingImage ? "Processing..." : "Take Photo"}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.photoButton}
+                    onPress={handlePickImage}
+                    disabled={isProcessingImage}
+                  >
+                    <Camera size={22} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.photoButtonText}>
+                      {isProcessingImage ? "Processing..." : "Choose Photo"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           </View>
 
           <View style={styles.section}>
@@ -373,6 +529,53 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontFamily: "Poppins-Regular",
     marginBottom: 16,
+  },
+  photoSection: {
+    alignItems: "flex-start",
+  },
+  photoPreviewContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  photoPreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: COLORS.cardBackground,
+  },
+  removePhotoButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#f97583",
+    borderRadius: 8,
+  },
+  removePhotoText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#ffffff",
+    fontFamily: "Poppins-Regular",
+  },
+  photoButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 48,
+    backgroundColor: COLORS.accent,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  photoButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+    fontFamily: "Poppins-Regular",
+  },
+  photoButtonsRow: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
   },
 });
 

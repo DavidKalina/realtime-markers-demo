@@ -2,7 +2,6 @@ import {
   withErrorHandling,
   requireAuth,
   requireParam,
-  requireBodyField,
   type Handler,
 } from "../utils/handlerUtils";
 import type {
@@ -13,45 +12,60 @@ import {
   CivicEngagementType,
   CivicEngagementStatus,
 } from "../entities/CivicEngagement";
+import {
+  processCivicEngagementFormData,
+  validateCivicEngagementData,
+  prepareCreateCivicEngagementInput,
+  generateCivicEngagementEmbedding,
+  processCivicEngagementUpdateFormData,
+  prepareCivicEngagementUpdateData,
+} from "../utils/civicEngagementUtils";
 
 export type CivicEngagementHandler = Handler;
 
 export const createCivicEngagementHandler: CivicEngagementHandler =
   withErrorHandling(async (c) => {
     const user = requireAuth(c);
-    const title = await requireBodyField<string>(c, "title");
-    const type = await requireBodyField<CivicEngagementType>(c, "type");
+    const civicEngagementService = c.get("civicEngagementService");
+    const storageService = c.get("storageService");
+    const embeddingService = c.get("embeddingService");
 
-    const body = await c.req.json();
-
-    // Get image buffer if provided
-    const imageBuffer = body.imageBuffer
-      ? Buffer.from(body.imageBuffer, "base64")
-      : undefined;
-
-    const civicEngagementData = {
-      title,
-      type,
-      description: body.description,
-      location: body.location,
-      address: body.address,
-      locationNotes: body.locationNotes,
-      creatorId: user.id,
-      contentType: body.contentType,
-      filename: body.filename,
-    };
-
-    const jobQueue = c.get("jobQueue");
-    const jobId = await jobQueue.enqueueCivicEngagementJob(
-      civicEngagementData,
-      { bufferData: imageBuffer },
+    // Process form data and extract civic engagement data
+    const { data, imageUrls } = await processCivicEngagementFormData(
+      c,
+      storageService,
+      user,
     );
 
-    return c.json({
-      jobId,
-      message: "Civic engagement request queued for processing",
-      status: "pending",
-    });
+    // Validate the civic engagement data
+    try {
+      validateCivicEngagementData(data);
+    } catch (validationError) {
+      throw new Error(
+        validationError instanceof Error
+          ? validationError.message
+          : "Validation failed",
+      );
+    }
+
+    // Generate embedding
+    const dataWithEmbedding = await generateCivicEngagementEmbedding(
+      data,
+      embeddingService,
+    );
+
+    // Prepare the final CreateCivicEngagementInput
+    const civicEngagementInput = prepareCreateCivicEngagementInput(
+      dataWithEmbedding,
+      user,
+      imageUrls,
+    );
+
+    // Create the civic engagement
+    const newCivicEngagement =
+      await civicEngagementService.createCivicEngagement(civicEngagementInput);
+
+    return c.json(newCivicEngagement);
   });
 
 export const getCivicEngagementsHandler: CivicEngagementHandler =
@@ -118,6 +132,8 @@ export const updateCivicEngagementHandler: CivicEngagementHandler =
     const user = requireAuth(c);
 
     const civicEngagementService = c.get("civicEngagementService");
+    const storageService = c.get("storageService");
+    const embeddingService = c.get("embeddingService");
 
     // First, get the civic engagement to check permissions
     const existingEngagement =
@@ -134,13 +150,32 @@ export const updateCivicEngagementHandler: CivicEngagementHandler =
       );
     }
 
-    const body = await c.req.json();
+    // Process form data and extract civic engagement data
+    const { data, imageUrls } = await processCivicEngagementUpdateFormData(
+      c,
+      storageService,
+      user,
+      id,
+    );
+
+    // Prepare the update data (generate embeddings if needed)
+    const processedData = await prepareCivicEngagementUpdateData(
+      data,
+      embeddingService,
+    );
+
+    // Prepare the final update input
     const input: UpdateCivicEngagementInput = {
-      title: body.title,
-      description: body.description,
-      status: body.status as CivicEngagementStatus,
-      adminNotes: body.adminNotes,
-      imageUrls: body.imageUrls,
+      title: processedData.title,
+      description: processedData.description,
+      // Handle status and adminNotes from the original data (not processedData)
+      status: data.status as CivicEngagementStatus,
+      adminNotes: data.adminNotes,
+      // Merge existing image URLs with new ones
+      imageUrls:
+        imageUrls.length > 0
+          ? [...(existingEngagement.imageUrls || []), ...imageUrls]
+          : existingEngagement.imageUrls,
     };
 
     const civicEngagement = await civicEngagementService.updateCivicEngagement(
