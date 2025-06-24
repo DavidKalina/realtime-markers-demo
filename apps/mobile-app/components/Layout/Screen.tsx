@@ -225,12 +225,7 @@ const Screen = <T extends string>({
           </View>
         )}
         {footerButtons.length > 0 && (
-          <View
-            style={[
-              styles.fixedFooter,
-              { paddingBottom: Math.max(insets.bottom, 16) },
-            ]}
-          >
+          <View style={[styles.fixedFooter]}>
             {footerButtons.map((button, index) => (
               <Button
                 key={index}
@@ -304,7 +299,7 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: newColors.background, // Updated to teal background
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.1)", // Updated for better contrast on teal
     flexDirection: "row",

@@ -28,6 +28,13 @@ export interface CivicEngagement {
   locationNotes?: string;
   imageUrls?: string[];
   creatorId: string;
+  creator?: {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    email: string;
+    avatarUrl?: string;
+  };
   adminNotes?: string;
   implementedAt?: string;
   createdAt: string;
