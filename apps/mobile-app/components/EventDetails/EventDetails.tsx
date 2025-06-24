@@ -334,6 +334,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
         onBack={handleBack}
         extendBannerToStatusBar={true}
         footerButtons={footerButtons}
+        footerSafeArea={true}
       >
         {/* Event Title and Basic Info */}
         <Animated.View
