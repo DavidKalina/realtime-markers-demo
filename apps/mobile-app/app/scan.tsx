@@ -79,8 +79,8 @@ export default function ScanScreen() {
     console.log("[ScanScreen] Navigating to jobs screen...");
 
     try {
-      console.log("[ScanScreen] Calling router.push('/jobs')");
-      router.push("/jobs");
+      console.log("[ScanScreen] Calling router.replace('/jobs')");
+      router.replace("/jobs");
       console.log("[ScanScreen] Navigation call completed successfully");
     } catch (error) {
       console.error("[ScanScreen] Navigation error:", error);
@@ -141,8 +141,10 @@ export default function ScanScreen() {
     return () => {
       console.log("[ScanScreen] Component unmounting, cleaning up");
       isMounted.current = false;
+      // Reset scan state to prevent re-initialization
+      reset();
     };
-  }, []);
+  }, [reset]);
 
   // Handle screen focus changes
   useFocusEffect(
@@ -157,10 +159,9 @@ export default function ScanScreen() {
   // Handle app state changes
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
+      // Only handle background/inactive states, don't re-set mounted flag
       if (nextAppState === "background" || nextAppState === "inactive") {
-        if (!isMounted.current) {
-          isMounted.current = true;
-        }
+        console.log("[ScanScreen] App going to background/inactive");
       }
     });
 

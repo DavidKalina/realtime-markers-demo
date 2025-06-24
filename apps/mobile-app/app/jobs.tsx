@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/services/ApiClient";
@@ -375,7 +381,9 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
 const JobsScreen: React.FC = () => {
   const { user } = useAuth();
   const router = useRouter();
-  const jobsModule = new JobsModule(apiClient);
+
+  // Memoize the jobs module to prevent recreation on every render
+  const jobsModule = useMemo(() => new JobsModule(apiClient), []);
 
   const [jobs, setJobs] = useState<JobData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -387,6 +395,9 @@ const JobsScreen: React.FC = () => {
   const jobsRef = useRef<JobData[]>([]);
   const streamsSetupRef = useRef<Set<string>>(new Set());
   const initializedRef = useRef<boolean>(false);
+  const fetchJobsRef = useRef<
+    ((page?: number, refresh?: boolean) => Promise<void>) | null
+  >(null);
 
   // Update ref whenever jobs change
   useEffect(() => {
@@ -397,6 +408,11 @@ const JobsScreen: React.FC = () => {
   useEffect(() => {
     const setupStreams = async () => {
       const currentJobs = jobsRef.current;
+      console.log(
+        "[JobsScreen] Setting up streams for",
+        currentJobs.length,
+        "jobs",
+      );
 
       // Get current active job IDs that need streaming
       const activeJobIds = new Set(
@@ -406,10 +422,18 @@ const JobsScreen: React.FC = () => {
           )
           .map((job) => job.id),
       );
+      console.log("[JobsScreen] Active job IDs:", Array.from(activeJobIds));
+
+      // If no active jobs, don't set up any streams
+      if (activeJobIds.size === 0) {
+        console.log("[JobsScreen] No active jobs, skipping stream setup");
+        return;
+      }
 
       // Close streams for jobs that are no longer active
       for (const [jobId, stream] of eventSourceRefs.current.entries()) {
         if (!activeJobIds.has(jobId)) {
+          console.log("[JobsScreen] Closing stream for job:", jobId);
           stream.close();
           eventSourceRefs.current.delete(jobId);
           streamsSetupRef.current.delete(jobId);
@@ -422,6 +446,12 @@ const JobsScreen: React.FC = () => {
           (job.status === "pending" || job.status === "processing") &&
           !streamsSetupRef.current.has(job.id)
         ) {
+          console.log(
+            "[JobsScreen] Setting up stream for job:",
+            job.id,
+            "status:",
+            job.status,
+          );
           streamsSetupRef.current.add(job.id);
 
           try {
@@ -432,6 +462,7 @@ const JobsScreen: React.FC = () => {
                 ? `${apiClient.baseUrl}/api/jobs/${job.id}/stream?token=${encodeURIComponent(accessToken as string)}`
                 : `${apiClient.baseUrl}/api/jobs/${job.id}/stream`;
 
+            console.log("[JobsScreen] Creating SSE stream for URL:", url);
             const stream = new EventSource(url);
 
             // Use addEventListener for react-native-sse
@@ -548,7 +579,7 @@ const JobsScreen: React.FC = () => {
     };
 
     setupStreams();
-  }, [jobs]); // Depend on jobs to detect new active jobs
+  }, [jobs.map((job) => `${job.id}-${job.status}`).join(",")]); // Only depend on job IDs and statuses, not the entire jobs array
 
   // Add a periodic job refresh to detect new jobs from other devices
   useEffect(() => {
@@ -582,7 +613,7 @@ const JobsScreen: React.FC = () => {
     }, 5000); // Check every 5 seconds
 
     return () => clearInterval(refreshInterval);
-  }, [user, jobsModule]);
+  }, [user]); // Remove jobsModule dependency since it's memoized
 
   const fetchJobs = useCallback(
     async (page = 1, refresh = false) => {
@@ -592,11 +623,14 @@ const JobsScreen: React.FC = () => {
           setIsLoading(true);
         }
 
+        console.log("[JobsScreen] Fetching jobs...");
         const response = await jobsModule.getUserJobs(10);
         const newJobs = response.jobs;
+        console.log("[JobsScreen] Received jobs:", newJobs.length, "jobs");
 
         if (refresh || page === 1) {
           const sortedJobs = sortJobsChronologically(newJobs);
+          console.log("[JobsScreen] Setting jobs:", sortedJobs.length, "jobs");
           setJobs(sortedJobs);
         } else {
           setJobs((prev) => {
@@ -613,6 +647,11 @@ const JobsScreen: React.FC = () => {
             const sortedJobs = sortJobsChronologically(
               Array.from(jobsMap.values()),
             );
+            console.log(
+              "[JobsScreen] Updated jobs:",
+              sortedJobs.length,
+              "jobs",
+            );
             return sortedJobs;
           });
         }
@@ -627,8 +666,13 @@ const JobsScreen: React.FC = () => {
         setIsRefreshing(false);
       }
     },
-    [jobsModule],
+    [], // Remove jobsModule dependency since it's memoized
   );
+
+  // Store fetchJobs in ref for use in effects
+  useEffect(() => {
+    fetchJobsRef.current = fetchJobs;
+  }, [fetchJobs]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -652,13 +696,13 @@ const JobsScreen: React.FC = () => {
         Alert.alert("Error", "Failed to retry task");
       }
     },
-    [jobsModule, handleRefresh],
+    [handleRefresh], // Remove jobsModule dependency since it's memoized
   );
 
   useEffect(() => {
-    if (user && !initializedRef.current) {
+    if (user && !initializedRef.current && fetchJobsRef.current) {
       initializedRef.current = true;
-      fetchJobs();
+      fetchJobsRef.current();
     }
   }, [user]); // Only depend on user, use ref to prevent re-initialization
 

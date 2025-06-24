@@ -516,9 +516,12 @@ const CreateCivicEngagement = () => {
         );
       } else {
         // Create new civic engagement
-        await apiClient.civicEngagements.createCivicEngagement(
-          civicEngagementData,
-        );
+        console.log("[CreateCivicEngagement] Submitting civic engagement...");
+        const response =
+          await apiClient.civicEngagements.createCivicEngagement(
+            civicEngagementData,
+          );
+        console.log("[CreateCivicEngagement] Response:", response);
       }
 
       Alert.alert(
@@ -534,8 +537,9 @@ const CreateCivicEngagement = () => {
                 // For updates, go back to previous screen
                 router.back();
               } else {
-                // For new submissions, redirect to jobs screen to see processing
-                router.push("/jobs");
+                // For new submissions, replace the current screen with jobs screen to see processing
+                // Using replace instead of push to properly close the modal
+                router.replace("/jobs");
               }
             },
           },

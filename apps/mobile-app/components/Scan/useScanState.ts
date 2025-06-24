@@ -115,7 +115,7 @@ export const useScanState = ({
     ) {
       scanState.initializeCamera();
     }
-  }, [scanState.isCameraInitialized, scanState.cameraError, isMounted]);
+  }, []); // Only run once on mount, not on every state change
 
   return {
     // Scan state from reducer
