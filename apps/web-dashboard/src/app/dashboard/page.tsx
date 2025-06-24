@@ -4,7 +4,8 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { LoadingSpinner } from "@/components/dashboard/LoadingSpinner";
 import { CivicEngagementMetrics } from "@/components/dashboard/CivicEngagementMetrics";
-import { CivicEngagementTrends } from "@/components/dashboard/CivicEngagementTrends";
+import { CivicEngagementTrendsChart } from "@/components/dashboard/CivicEngagementTrendsChart";
+import { CivicEngagementActivityChart } from "@/components/dashboard/CivicEngagementActivityChart";
 import { CivicEngagementActivity } from "@/components/dashboard/CivicEngagementActivity";
 import { EventsOverview } from "@/components/dashboard/EventsOverview";
 import { ActivityChart } from "@/components/dashboard/ActivityChart";
@@ -139,7 +140,7 @@ export default function DashboardPage() {
                 {civicMetrics && (
                   <div className="space-y-6">
                     <h2 className="text-2xl font-semibold text-foreground">
-                      Engagement Metrics
+                      Engagement Overview
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {civicMetricsCards.map((metric, index) => (
@@ -165,16 +166,33 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {/* Civic Engagement Analytics */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {civicTrends && (
-                    <CivicEngagementTrends trends={civicTrends} />
-                  )}
+                {/* Civic Engagement Trends Charts */}
+                {civicTrends && (
+                  <div className="space-y-6">
+                    <h2 className="text-2xl font-semibold text-foreground">
+                      Engagement Trends
+                    </h2>
+                    <CivicEngagementTrendsChart trends={civicTrends} />
+                  </div>
+                )}
 
-                  {civicActivity.length > 0 && (
-                    <CivicEngagementActivity activities={civicActivity} />
-                  )}
-                </div>
+                {/* Civic Engagement Activity */}
+                {civicActivity.length > 0 && (
+                  <div className="space-y-6">
+                    <h2 className="text-2xl font-semibold text-foreground">
+                      Activity Analytics
+                    </h2>
+
+                    {/* Activity Charts */}
+                    <CivicEngagementActivityChart activities={civicActivity} />
+
+                    {/* Recent Activity Feed */}
+
+                    <CivicEngagementActivity
+                      activities={civicActivity.slice(0, 6)}
+                    />
+                  </div>
+                )}
 
                 {/* Civic Engagement Details */}
                 {civicMetrics && (
