@@ -162,6 +162,27 @@ export class PushNotificationService {
     } else if (data?.type === "civic_engagement") {
       // Navigate to civic engagement details
       console.log("Navigate to civic engagement:", data.engagementId);
+    } else if (data?.type === "civic_engagement_update") {
+      // Navigate to civic engagement details when status is updated
+      console.log(
+        "Navigate to civic engagement update:",
+        data.civicEngagementId,
+      );
+      // You can use navigation here if you have access to it
+    } else if (data?.type === "civic_engagement_implemented") {
+      // Navigate to civic engagement details when implemented
+      console.log(
+        "Navigate to implemented civic engagement:",
+        data.civicEngagementId,
+      );
+      // You can use navigation here if you have access to it
+    } else if (data?.type === "civic_engagement_admin_notes") {
+      // Navigate to civic engagement details when admin notes are added
+      console.log(
+        "Navigate to civic engagement with admin notes:",
+        data.civicEngagementId,
+      );
+      // You can use navigation here if you have access to it
     }
     // Add more notification types as needed
   }
