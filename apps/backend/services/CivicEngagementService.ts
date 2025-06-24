@@ -16,6 +16,7 @@ import {
   prepareCivicEngagementUpdateData,
 } from "../utils/civicEngagementUtils";
 import pgvector from "pgvector";
+import { Brackets } from "typeorm";
 
 export class CivicEngagementService {
   constructor(
@@ -318,5 +319,81 @@ export class CivicEngagementService {
         userId: civicEngagement.creatorId,
       },
     });
+  }
+
+  /**
+   * Get all civic engagements created by a specific user
+   * Similar to getSavedEventsByUser in EventServiceRefactored
+   */
+  async getCivicEngagementsByCreator(
+    creatorId: string,
+    options: { limit?: number; cursor?: string } = {},
+  ): Promise<{ civicEngagements: CivicEngagement[]; nextCursor?: string }> {
+    const { limit = 10, cursor } = options;
+
+    // Parse cursor if provided
+    let cursorData: { createdAt: Date; id: string } | undefined;
+    if (cursor) {
+      try {
+        const jsonStr = Buffer.from(cursor, "base64").toString("utf-8");
+        cursorData = JSON.parse(jsonStr);
+      } catch (e) {
+        console.error("Invalid cursor format:", e);
+      }
+    }
+
+    // Build query
+    let queryBuilder = this.civicEngagementRepository
+      .createQueryBuilder("civic_engagement")
+      .leftJoinAndSelect("civic_engagement.creator", "creator")
+      .where("civic_engagement.creatorId = :creatorId", { creatorId });
+
+    // Add cursor conditions if cursor is provided
+    if (cursorData) {
+      queryBuilder = queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where("civic_engagement.createdAt < :createdAt", {
+            createdAt: cursorData.createdAt,
+          }).orWhere(
+            new Brackets((qb2) => {
+              qb2
+                .where("civic_engagement.createdAt = :createdAt", {
+                  createdAt: cursorData.createdAt,
+                })
+                .andWhere("civic_engagement.id < :id", {
+                  id: cursorData.id,
+                });
+            }),
+          );
+        }),
+      );
+    }
+
+    // Execute query
+    const civicEngagements = await queryBuilder
+      .orderBy("civic_engagement.createdAt", "DESC")
+      .addOrderBy("civic_engagement.id", "DESC")
+      .take(limit + 1)
+      .getMany();
+
+    // Process results
+    const hasMore = civicEngagements.length > limit;
+    const results = civicEngagements.slice(0, limit);
+
+    // Generate next cursor if we have more results
+    let nextCursor: string | undefined;
+    if (hasMore && results.length > 0) {
+      const lastResult = results[results.length - 1];
+      const cursorObj = {
+        createdAt: lastResult.createdAt,
+        id: lastResult.id,
+      };
+      nextCursor = Buffer.from(JSON.stringify(cursorObj)).toString("base64");
+    }
+
+    return {
+      civicEngagements: results,
+      nextCursor,
+    };
   }
 }

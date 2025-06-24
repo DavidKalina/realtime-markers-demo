@@ -12,6 +12,7 @@ import {
   Search,
   Users,
   Loader2,
+  MessageSquare,
 } from "lucide-react";
 import { useRoutePreloader } from "@/utils/preloadUtils";
 
@@ -25,6 +26,11 @@ const tabs = [
     name: "Query Insights",
     href: "/query-insights",
     icon: Search,
+  },
+  {
+    name: "Feedback",
+    href: "/feedback",
+    icon: MessageSquare,
   },
   {
     name: "Events",

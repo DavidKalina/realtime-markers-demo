@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
-import { adminAuthMiddleware } from "../middleware/adminMiddleware";
 import { ip } from "../middleware/ip";
 import { rateLimit } from "../middleware/rateLimit";
 import * as civicEngagementHandlers from "../handlers/civicEngagementHandlers";
@@ -67,14 +66,14 @@ civicEngagementRouter.post(
   civicEngagementHandlers.createCivicEngagementHandler,
 );
 
-// Admin routes
+// Creator/Admin routes (creators can modify their own, admins can modify any)
 civicEngagementRouter.put(
   "/:id",
-  adminAuthMiddleware,
+  authMiddleware,
   civicEngagementHandlers.updateCivicEngagementHandler,
 );
 civicEngagementRouter.delete(
   "/:id",
-  adminAuthMiddleware,
+  authMiddleware,
   civicEngagementHandlers.deleteCivicEngagementHandler,
 );

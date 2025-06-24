@@ -14,6 +14,7 @@ import {
   Navigation,
   SearchIcon,
   User,
+  MessageSquare,
 } from "lucide-react-native";
 import React, {
   useCallback,
@@ -28,6 +29,7 @@ import {
   TouchableOpacity,
   View,
   ViewStyle,
+  Text,
 } from "react-native";
 import {
   Easing,
@@ -100,7 +102,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
     // Memoize the icon color based on active state
     const iconColor = useMemo(
-      () => (isActive ? newColors.text : newColors.cardBackground), // White for active, white for inactive on teal background
+      () => (isActive ? newColors.accent : "rgba(255, 255, 255, 0.9)"), // Municipal accent for active, semi-transparent white for inactive
       [isActive],
     );
 
@@ -125,7 +127,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
     // Compute button style only when active state changes
     const buttonStyle = useMemo(
-      () => [styles.actionButton, disabled && { opacity: 0.5 }],
+      () => [styles.labeledActionButton, disabled && { opacity: 0.5 }],
       [disabled],
     );
 
@@ -134,7 +136,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
       // Clone the icon element to add color prop if active
       const iconElement = React.cloneElement(icon as React.ReactElement, {
         color: iconColor,
-        size: 22, // Increased icon size
+        size: 20, // Slightly smaller icon size for labeled buttons
       });
 
       return <View style={styles.actionButtonIcon}>{iconElement}</View>;
@@ -150,7 +152,16 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
         accessibilityLabel={`${label} button`}
         accessibilityState={{ disabled: !!disabled, selected: isActive }}
       >
-        <View style={styles.actionButtonIcon}>{iconWithWrapper}</View>
+        {iconWithWrapper}
+        <Text
+          style={[
+            styles.actionButtonLabel,
+            isActive && styles.activeActionButtonLabel,
+          ]}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
       </TouchableOpacity>
     );
   },
@@ -177,7 +188,13 @@ interface TabConfig {
 }
 
 // Define route type to match expo-router's expected types
-type AppRoute = "/search" | "/scan" | "/saved" | "/user" | "/";
+type AppRoute =
+  | "/search"
+  | "/scan"
+  | "/saved"
+  | "/user"
+  | "/"
+  | "/civic-engagements";
 
 // Define all possible tabs in a single configuration object
 const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
@@ -209,6 +226,13 @@ const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
     route: "/saved",
     enabled: true,
   },
+  civic: {
+    key: "civic",
+    label: "Civic",
+    icon: MessageSquare,
+    route: "/civic-engagements",
+    enabled: true,
+  },
   user: {
     key: "user",
     label: "Me",
@@ -223,6 +247,11 @@ const getEnabledTabs = (config: Record<string, TabConfig>) => {
   return Object.values(config).filter((tab) => tab.enabled);
 };
 
+// Memoize the default available actions to prevent recalculation
+const DEFAULT_AVAILABLE_ACTIONS = getEnabledTabs(TAB_CONFIG).map(
+  (tab) => tab.key,
+);
+
 // Helper function to get the active tab key from the current path
 const getActiveTabKey = (pathname: string): string | null => {
   // Handle root path
@@ -234,6 +263,9 @@ const getActiveTabKey = (pathname: string): string | null => {
   // Handle search routes
   if (pathname.startsWith("/search")) return "search";
 
+  // Handle civic engagements routes
+  if (pathname.startsWith("/civic-engagements")) return "civic";
+
   // Handle exact matches
   const exactMatch = Object.entries(TAB_CONFIG).find(
     ([, config]) => config.route === pathname,
@@ -244,10 +276,7 @@ const getActiveTabKey = (pathname: string): string | null => {
 };
 
 export const ActionBar: React.FC<ActionBarProps> = React.memo(
-  ({
-    animatedStyle,
-    availableActions = getEnabledTabs(TAB_CONFIG).map((tab) => tab.key),
-  }) => {
+  ({ animatedStyle, availableActions = DEFAULT_AVAILABLE_ACTIONS }) => {
     const pathname = usePathname();
 
     const activeActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -341,7 +370,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           .map((tab) => ({
             key: tab.key,
             label: tab.label,
-            icon: <tab.icon size={22} color={newColors.cardBackground} />, // White icons for teal background
+            icon: <tab.icon size={22} />, // Remove hardcoded color, let ActionButton handle it
             action: actionHandlers[tab.key],
             disabled: tab.requiresLocation && !userLocation,
             isActive: tab.key === activeTab, // Add isActive based on current route
@@ -375,7 +404,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
       () => [
         {
           flexDirection: "row",
-          justifyContent: "space-around",
+          justifyContent: "space-between",
           alignItems: "center",
           width: "100%",
           paddingHorizontal: 8,

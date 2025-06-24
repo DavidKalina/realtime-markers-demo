@@ -47,6 +47,7 @@ import { Marker as MapboxMarker } from "react-map-gl/mapbox";
 import type { Marker } from "./MapMojiMarker";
 import { useMapWebSocket } from "@/hooks/useMapWebsocketWeb";
 import ConnectionIndicator from "./ConnectionIndicator";
+import { MarkerFactory } from "./MarkerFactory";
 
 interface InteractiveMapProps {
   websocketUrl: string;
@@ -344,8 +345,8 @@ export const InteractiveMap = ({
                     <div className="w-12 h-12 bg-gray-300 rounded-full animate-pulse"></div>
                   }
                 >
-                  <MapMojiMarker
-                    event={marker}
+                  <MarkerFactory
+                    marker={marker}
                     onPress={() => handleMarkerPress(marker)}
                   />
                 </Suspense>
