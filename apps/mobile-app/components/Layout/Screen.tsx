@@ -104,6 +104,9 @@ export interface ScreenProps<T extends string = string> {
 
   // Add new prop for scrollable content
   isScrollable?: boolean;
+
+  // Add new prop for footer safe area
+  footerSafeArea?: boolean;
 }
 
 const Screen = <T extends string>({
@@ -122,6 +125,7 @@ const Screen = <T extends string>({
   noAnimation,
   isScrollable = true,
   extendBannerToStatusBar = true,
+  footerSafeArea = false,
 }: ScreenProps<T>) => {
   const insets = useSafeAreaInsets();
   const scrollY = useSharedValue(0);
@@ -225,7 +229,12 @@ const Screen = <T extends string>({
           </View>
         )}
         {footerButtons.length > 0 && (
-          <View style={[styles.fixedFooter]}>
+          <View
+            style={[
+              styles.fixedFooter,
+              { paddingBottom: footerSafeArea ? insets.bottom + 12 : 12 },
+            ]}
+          >
             {footerButtons.map((button, index) => (
               <Button
                 key={index}

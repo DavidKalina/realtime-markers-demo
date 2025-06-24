@@ -129,7 +129,7 @@ const CivicEngagementMapPreview = memo<{
     if (isMapReady && cameraRef.current) {
       cameraRef.current.setCamera({
         centerCoordinate: coordinates,
-        zoomLevel: 18,
+        zoomLevel: 16,
         animationDuration: 0,
       });
     }
@@ -597,7 +597,19 @@ const CreateCivicEngagement = () => {
         onPress: handleSubmit,
         variant: "primary" as const,
         loading: isSubmitting,
-        style: { flex: 1 },
+        style: {
+          flex: 1,
+          borderRadius: 12,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 3,
+        },
+        textStyle: {
+          fontSize: 16,
+          letterSpacing: 0.5,
+        },
       },
     ],
     [isSubmitting, params.title, handleSubmit],
@@ -675,6 +687,7 @@ const CreateCivicEngagement = () => {
         isScrollable={true}
         noSafeArea={false}
         extendBannerToStatusBar={true}
+        footerSafeArea={true}
       >
         <View style={styles.container}>
           {/* Location Section - First, as it's most important for municipal feedback */}
