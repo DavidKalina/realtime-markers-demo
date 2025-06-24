@@ -23,6 +23,12 @@ export interface UpdateCivicEngagementInput {
   imageUrls?: string[];
 }
 
+export interface AdminUpdateCivicEngagementStatusInput {
+  status: CivicEngagementStatus;
+  adminNotes?: string;
+  implementedAt?: Date;
+}
+
 export interface CivicEngagementFilters {
   type?: CivicEngagementType[];
   status?: CivicEngagementStatus[];

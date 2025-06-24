@@ -7,7 +7,7 @@ interface CivicEngagement {
   title: string;
   description?: string;
   type: "POSITIVE_FEEDBACK" | "NEGATIVE_FEEDBACK" | "IDEA";
-  status: "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "IMPLEMENTED";
+  status: "PENDING" | "IN_REVIEW" | "IMPLEMENTED" | "CLOSED";
   location?: {
     type: "Point";
     coordinates: [number, number];

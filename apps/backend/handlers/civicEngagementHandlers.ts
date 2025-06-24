@@ -7,6 +7,7 @@ import {
 import type {
   UpdateCivicEngagementInput,
   CivicEngagementFilters,
+  AdminUpdateCivicEngagementStatusInput,
 } from "../types/civicEngagement";
 import {
   CivicEngagementType,
@@ -196,6 +197,142 @@ export const updateCivicEngagementHandler: CivicEngagementHandler =
     );
 
     return c.json(civicEngagement);
+  });
+
+export const adminUpdateCivicEngagementStatusHandler: CivicEngagementHandler =
+  withErrorHandling(async (c) => {
+    const id = requireParam(c, "id");
+    const user = requireAuth(c);
+
+    // Ensure user is an admin
+    if (user.role !== "ADMIN") {
+      return c.json({ error: "Admin access required" }, 403);
+    }
+
+    const civicEngagementService = c.get("civicEngagementService");
+
+    // First, get the civic engagement to ensure it exists
+    const existingEngagement =
+      await civicEngagementService.getCivicEngagementById(id);
+    if (!existingEngagement) {
+      return c.json({ error: "Civic engagement not found" }, 404);
+    }
+
+    // Parse the request body
+    const body = await c.req.json();
+    const {
+      status,
+      adminNotes,
+      implementedAt,
+    }: AdminUpdateCivicEngagementStatusInput = body;
+
+    // Validate the status
+    if (!status || !Object.values(CivicEngagementStatus).includes(status)) {
+      return c.json({ error: "Invalid status provided" }, 400);
+    }
+
+    // Prepare the update input
+    const input: UpdateCivicEngagementInput = {
+      status,
+      adminNotes,
+      // Only set implementedAt if status is IMPLEMENTED
+      ...(status === CivicEngagementStatus.IMPLEMENTED && implementedAt
+        ? { implementedAt: new Date(implementedAt) }
+        : {}),
+    };
+
+    const civicEngagement = await civicEngagementService.updateCivicEngagement(
+      id,
+      input,
+    );
+
+    return c.json({
+      ...civicEngagement,
+      message: "Civic engagement status updated successfully",
+    });
+  });
+
+export const adminBulkUpdateCivicEngagementStatusHandler: CivicEngagementHandler =
+  withErrorHandling(async (c) => {
+    const user = requireAuth(c);
+
+    // Ensure user is an admin
+    if (user.role !== "ADMIN") {
+      return c.json({ error: "Admin access required" }, 403);
+    }
+
+    const civicEngagementService = c.get("civicEngagementService");
+
+    // Parse the request body
+    const body = await c.req.json();
+    const {
+      civicEngagementIds,
+      status,
+      adminNotes,
+    }: {
+      civicEngagementIds: string[];
+      status: CivicEngagementStatus;
+      adminNotes?: string;
+    } = body;
+
+    // Validate inputs
+    if (
+      !civicEngagementIds ||
+      !Array.isArray(civicEngagementIds) ||
+      civicEngagementIds.length === 0
+    ) {
+      return c.json(
+        { error: "civicEngagementIds must be a non-empty array" },
+        400,
+      );
+    }
+
+    if (!status || !Object.values(CivicEngagementStatus).includes(status)) {
+      return c.json({ error: "Invalid status provided" }, 400);
+    }
+
+    // Process each civic engagement
+    const results = [];
+    const errors = [];
+
+    for (const id of civicEngagementIds) {
+      try {
+        // Check if civic engagement exists
+        const existingEngagement =
+          await civicEngagementService.getCivicEngagementById(id);
+        if (!existingEngagement) {
+          errors.push({ id, error: "Civic engagement not found" });
+          continue;
+        }
+
+        // Prepare the update input
+        const input: UpdateCivicEngagementInput = {
+          status,
+          adminNotes,
+          // Only set implementedAt if status is IMPLEMENTED
+          ...(status === CivicEngagementStatus.IMPLEMENTED
+            ? { implementedAt: new Date() }
+            : {}),
+        };
+
+        const updatedEngagement =
+          await civicEngagementService.updateCivicEngagement(id, input);
+        results.push(updatedEngagement);
+      } catch (error) {
+        errors.push({
+          id,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+
+    return c.json({
+      success: results.length,
+      errors: errors.length,
+      updated: results,
+      failed: errors,
+      message: `Successfully updated ${results.length} civic engagements, ${errors.length} failed`,
+    });
   });
 
 export const getNearbyCivicEngagementsHandler: CivicEngagementHandler =

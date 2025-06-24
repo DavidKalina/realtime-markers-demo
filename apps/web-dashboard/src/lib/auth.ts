@@ -9,6 +9,7 @@ export interface User {
   id: string;
   email: string;
   displayName: string;
+  role: "USER" | "MODERATOR" | "ADMIN";
   createdAt: string;
   updatedAt: string;
 }

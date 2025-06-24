@@ -77,3 +77,25 @@ civicEngagementRouter.delete(
   authMiddleware,
   civicEngagementHandlers.deleteCivicEngagementHandler,
 );
+
+// Admin-only routes
+civicEngagementRouter.patch(
+  "/:id/status",
+  authMiddleware,
+  civicEngagementHandlers.adminUpdateCivicEngagementStatusHandler,
+);
+civicEngagementRouter.patch(
+  "/admin/bulk-status",
+  authMiddleware,
+  civicEngagementHandlers.adminBulkUpdateCivicEngagementStatusHandler,
+);
+civicEngagementRouter.get(
+  "/admin/all",
+  authMiddleware,
+  civicEngagementHandlers.getAllCivicEngagementsHandler,
+);
+civicEngagementRouter.get(
+  "/admin/stats",
+  authMiddleware,
+  civicEngagementHandlers.getCivicEngagementStatsHandler,
+);
