@@ -365,3 +365,38 @@ adminRouter.delete("/users/admins/:id", async (c) => {
     );
   }
 });
+
+adminRouter.get("/civic-engagements/:id/image", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const civicEngagementService = c.get("civicEngagementService");
+    const storageService = c.get("storageService");
+
+    const engagement = await civicEngagementService.getCivicEngagementById(id);
+
+    if (!engagement) {
+      return c.json({ error: "Civic engagement not found" }, 404);
+    }
+
+    if (!engagement.imageUrls || engagement.imageUrls.length === 0) {
+      return c.json(
+        { error: "No image available for this civic engagement" },
+        404,
+      );
+    }
+
+    // Use the first image for simplicity
+    const signedUrl = await storageService.getSignedUrl(
+      engagement.imageUrls[0],
+      3600,
+    );
+
+    return c.json({
+      civicEngagementId: engagement.id,
+      signedImageUrl: signedUrl,
+    });
+  } catch (error) {
+    console.error("Error fetching civic engagement image:", error);
+    return c.json({ error: "Failed to fetch image" }, 500);
+  }
+});

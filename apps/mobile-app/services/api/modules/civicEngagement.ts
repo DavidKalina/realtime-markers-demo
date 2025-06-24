@@ -150,7 +150,7 @@ export class CivicEngagementApiClient extends BaseApiModule {
   }
 
   /**
-   * Update a civic engagement (admin only)
+   * Update a civic engagement (creator or admin only)
    */
   async updateCivicEngagement(
     id: string,
@@ -219,5 +219,74 @@ export class CivicEngagementApiClient extends BaseApiModule {
       byType: Record<CivicEngagementType, number>;
       byStatus: Record<CivicEngagementStatus, number>;
     }>(response);
+  }
+
+  /**
+   * Get civic engagements created by a specific user
+   * Similar to getSavedEventsByUser in the events module
+   */
+  async getCivicEngagementsByCreator(
+    creatorId: string,
+    options: { limit?: number; cursor?: string } = {},
+  ): Promise<{ civicEngagements: CivicEngagement[]; nextCursor?: string }> {
+    const params = new URLSearchParams();
+
+    if (options.limit) {
+      params.append("limit", options.limit.toString());
+    }
+    if (options.cursor) {
+      params.append("cursor", options.cursor);
+    }
+
+    const queryString = params.toString();
+    const url = queryString
+      ? `${this.client.baseUrl}/api/civic-engagements/creator/${creatorId}?${queryString}`
+      : `${this.client.baseUrl}/api/civic-engagements/creator/${creatorId}`;
+
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{
+      civicEngagements: CivicEngagement[];
+      nextCursor?: string;
+    }>(response);
+  }
+
+  /**
+   * Search civic engagements using backend search
+   */
+  async searchCivicEngagements(
+    query: string,
+    limit?: number,
+  ): Promise<{
+    civicEngagements: CivicEngagement[];
+    total: number;
+    scores?: Array<{ id: string; score: number }>;
+  }> {
+    const params = new URLSearchParams();
+    if (limit) {
+      params.append("limit", limit.toString());
+    }
+
+    const queryString = params.toString();
+    const url = queryString
+      ? `${this.client.baseUrl}/api/civic-engagements/search/${encodeURIComponent(query)}?${queryString}`
+      : `${this.client.baseUrl}/api/civic-engagements/search/${encodeURIComponent(query)}`;
+
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{
+      civicEngagements: CivicEngagement[];
+      total: number;
+      scores?: Array<{ id: string; score: number }>;
+    }>(response);
+  }
+
+  /**
+   * Delete a civic engagement (creator or admin only)
+   */
+  async deleteCivicEngagement(id: string): Promise<{ success: boolean }> {
+    const url = `${this.client.baseUrl}/api/civic-engagements/${id}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    return this.handleResponse<{ success: boolean }>(response);
   }
 }

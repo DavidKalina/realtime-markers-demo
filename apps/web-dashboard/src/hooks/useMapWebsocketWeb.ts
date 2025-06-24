@@ -270,12 +270,14 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     switch (type) {
       case "SUGGESTION":
         return "💡";
+      case "NEGATIVE_FEEDBACK":
       case "COMPLAINT":
         return "⚠️";
-      case "QUESTION":
-        return "❓";
+      case "POSITIVE_FEEDBACK":
       case "COMPLIMENT":
         return "👍";
+      case "QUESTION":
+        return "❓";
       default:
         return "📝";
     }
@@ -284,15 +286,17 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const getCivicEngagementColor = (type: string): string => {
     switch (type) {
       case "SUGGESTION":
-        return "green";
+        return "#fbbf24"; // Yellow for ideas/suggestions
+      case "NEGATIVE_FEEDBACK":
       case "COMPLAINT":
-        return "red";
-      case "QUESTION":
-        return "blue";
+        return "#ef4444"; // Red for negative feedback
+      case "POSITIVE_FEEDBACK":
       case "COMPLIMENT":
-        return "purple";
+        return "#22c55e"; // Green for positive feedback
+      case "QUESTION":
+        return "#3b82f6"; // Blue for questions
       default:
-        return "gray";
+        return "#6b7280"; // Gray for default
     }
   };
 

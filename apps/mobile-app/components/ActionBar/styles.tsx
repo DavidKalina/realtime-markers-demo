@@ -22,7 +22,7 @@ const newColors = {
 
 export const styles = StyleSheet.create({
   bottomBar: {
-    height: 60, // Reduced height since we removed labels
+    height: 90, // Increased height further to accommodate labels
     backgroundColor: newColors.background, // Updated to teal background
     flexDirection: "row",
     alignItems: "center",
@@ -75,21 +75,26 @@ export const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 4, // Reduced padding
+    paddingVertical: 8, // Increased padding for better touch targets
+    paddingHorizontal: 2, // Reduced horizontal padding to reduce gaps
+    minWidth: 50, // Set minimum width for consistent spacing
+    flex: 1, // Allow buttons to take equal space
+    height: 70, // Set explicit height to ensure labels have space
   },
   actionButtonLabel: {
-    color: newColors.cardBackground, // White text for teal background
-    fontSize: 9, // Smaller font size
-    fontFamily: "Poppins-Regular",
-    marginTop: 2, // Reduced margin
+    color: "rgba(255, 255, 255, 0.9)", // Semi-transparent white for inactive state
+    fontSize: 11, // Increased font size for better visibility
+    fontFamily: "Poppins-SemiBold", // Changed to SemiBold
+    marginTop: 4, // Increased margin for better spacing
     textAlign: "center",
   },
   activeActionButtonLabel: {
-    color: newColors.text, // White text for active state on teal background
+    color: newColors.accent, // Municipal accent color (#FDB813) for active state
+    fontWeight: "600", // Make active labels slightly bolder
   },
   actionButtonIcon: {
-    width: 24, // Increased icon container size
-    height: 24, // Increased icon container size
+    width: 22, // Slightly smaller icon container for labeled buttons
+    height: 22, // Slightly smaller icon container for labeled buttons
     justifyContent: "center",
     alignItems: "center",
   },

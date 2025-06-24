@@ -68,7 +68,7 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/images/splash.png",
+          image: "./assets/images/frederick-logo.png",
           imageWidth: 200,
           resizeMode: "contain",
           backgroundColor: "#ffffff",

@@ -1,0 +1,340 @@
+"use client";
+
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { ArrowLeft, Calendar, MapPin, MessageSquare, User } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+import { format } from "date-fns";
+
+interface CivicEngagement {
+  id: string;
+  title: string;
+  description?: string;
+  type: "POSITIVE_FEEDBACK" | "NEGATIVE_FEEDBACK" | "IDEA";
+  status: "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "IMPLEMENTED";
+  location?: {
+    type: "Point";
+    coordinates: [number, number];
+  };
+  address?: string;
+  locationNotes?: string;
+  imageUrls?: string[];
+  creatorId: string;
+  adminNotes?: string;
+  implementedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Helper function to get type display name
+const getTypeName = (type: string) => {
+  switch (type) {
+    case "POSITIVE_FEEDBACK":
+      return "Positive Feedback";
+    case "NEGATIVE_FEEDBACK":
+      return "Negative Feedback";
+    case "IDEA":
+      return "Idea";
+    default:
+      return type;
+  }
+};
+
+// Helper function to get status badge variant
+const getStatusVariant = (status: string) => {
+  switch (status) {
+    case "PENDING":
+      return "secondary";
+    case "UNDER_REVIEW":
+      return "default";
+    case "APPROVED":
+      return "default";
+    case "REJECTED":
+      return "destructive";
+    case "IMPLEMENTED":
+      return "default";
+    default:
+      return "outline";
+  }
+};
+
+export default function CivicEngagementDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const [civicEngagement, setCivicEngagement] =
+    useState<CivicEngagement | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [signedImageUrl, setSignedImageUrl] = useState<string | null>(null);
+
+  const id = params.id as string;
+
+  useEffect(() => {
+    const fetchCivicEngagement = async () => {
+      if (!id) return;
+
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await api.getCivicEngagementById(id);
+        setCivicEngagement(data);
+        // Fetch signed image URL if there are images
+        if (data.imageUrls && data.imageUrls.length > 0) {
+          const signedUrl = await api.getCivicEngagementSignedImageUrl(id);
+          setSignedImageUrl(signedUrl);
+        } else {
+          setSignedImageUrl(null);
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch civic engagement",
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCivicEngagement();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <ProtectedRoute>
+        <DashboardLayout>
+          <div className="p-8 text-center text-muted-foreground">
+            Loading civic engagement...
+          </div>
+        </DashboardLayout>
+      </ProtectedRoute>
+    );
+  }
+
+  if (error || !civicEngagement) {
+    return (
+      <ProtectedRoute>
+        <DashboardLayout>
+          <div className="p-8 text-center text-destructive">
+            {error || "Civic engagement not found"}
+          </div>
+        </DashboardLayout>
+      </ProtectedRoute>
+    );
+  }
+
+  return (
+    <ProtectedRoute>
+      <DashboardLayout>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.back()}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">
+                {civicEngagement.title}
+              </h1>
+              <p className="text-muted-foreground">Civic Engagement Details</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Content */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Description */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Description
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">
+                    {civicEngagement.description || "No description provided"}
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Location */}
+              {civicEngagement.address && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="h-5 w-5" />
+                      Location
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">
+                      {civicEngagement.address}
+                    </p>
+                    {civicEngagement.locationNotes && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {civicEngagement.locationNotes}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Admin Notes */}
+              {civicEngagement.adminNotes && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Admin Notes</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">
+                      {civicEngagement.adminNotes}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Images */}
+              {signedImageUrl && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Image</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="aspect-video w-full overflow-hidden rounded-lg">
+                        <img
+                          src={signedImageUrl}
+                          alt="Civic engagement image"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-6">
+              {/* Status and Type */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Type
+                    </label>
+                    <div className="mt-1">
+                      <Badge variant="outline">
+                        {getTypeName(civicEngagement.type)}
+                      </Badge>
+                    </div>
+                  </div>
+                  <Separator />
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Status
+                    </label>
+                    <div className="mt-1">
+                      <Badge variant={getStatusVariant(civicEngagement.status)}>
+                        {civicEngagement.status.toLowerCase().replace("_", " ")}
+                      </Badge>
+                    </div>
+                  </div>
+                  <Separator />
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Created
+                    </label>
+                    <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      {format(
+                        new Date(civicEngagement.createdAt),
+                        "MMM d, yyyy 'at' h:mm a",
+                      )}
+                    </div>
+                  </div>
+                  <Separator />
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Last Updated
+                    </label>
+                    <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      {format(
+                        new Date(civicEngagement.updatedAt),
+                        "MMM d, yyyy 'at' h:mm a",
+                      )}
+                    </div>
+                  </div>
+                  {civicEngagement.implementedAt && (
+                    <>
+                      <Separator />
+                      <div>
+                        <label className="text-sm font-medium text-muted-foreground">
+                          Implemented
+                        </label>
+                        <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                          <Calendar className="h-4 w-4" />
+                          {format(
+                            new Date(civicEngagement.implementedAt),
+                            "MMM d, yyyy 'at' h:mm a",
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Creator Info */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Creator
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Creator ID: {civicEngagement.creatorId}
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Actions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Button className="w-full" variant="outline">
+                    Edit Feedback
+                  </Button>
+                  <Button className="w-full" variant="destructive">
+                    Delete Feedback
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    </ProtectedRoute>
+  );
+}
