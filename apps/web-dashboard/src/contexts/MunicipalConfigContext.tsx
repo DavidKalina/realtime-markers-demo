@@ -26,6 +26,13 @@ export function MunicipalConfigProvider({
   const [bannerConfig, setBannerConfig] = useState<MunicipalBannerConfig>(
     initialConfig || {
       ...defaultMunicipalConfigs.frederick,
+      title: "Town of Frederick",
+      subtitle: "Built on what matters",
+      colors: {
+        background: "#00697A", // Matching login page background
+        text: "#FFFFFF",
+        accent: "#FDB813", // Golden accent from mobile app
+      },
       logo: {
         src: "/frederick-logo.svg",
         alt: "Town of Frederick Logo",

@@ -14,6 +14,26 @@ import {
 } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
+import { Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import Image from "next/image";
+
+// Color scheme matching mobile app
+const colors = {
+  background: "#00697A",
+  text: "#FFFFFF",
+  accent: "#FDB813",
+  cardBackground: "#FFFFFF",
+  cardText: "#000000",
+  cardTextSecondary: "#6c757d",
+  buttonBackground: "#FFFFFF",
+  buttonText: "#00697A",
+  buttonBorder: "#DDDDDD",
+  inputBackground: "#F5F5F5",
+  errorBackground: "#FFCDD2",
+  errorText: "#B71C1C",
+  errorBorder: "#EF9A9A",
+  divider: "#E0E0E0",
+};
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -21,6 +41,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
   const [displayName, setDisplayName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const { login, register, isLoading } = useAuth();
   const router = useRouter();
@@ -50,97 +71,212 @@ export default function LoginPage() {
     setError("");
   };
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
-    <LayoutWrapper>
-      <div className="flex items-center justify-center p-4 min-h-[calc(100vh-5rem)]">
-        <div className="w-full max-w-md">
-          <Card>
-            <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl text-center">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ backgroundColor: colors.background }}
+    >
+      <div className="w-full max-w-md">
+        {/* Logo and Slogan */}
+        <div className="text-center mb-8">
+          <div className="inline-block mb-4">
+            <Image
+              src="/frederick-logo.svg"
+              alt="Frederick Logo"
+              width={120}
+              height={120}
+              className="w-24 h-24"
+            />
+          </div>
+          <h2
+            className="text-xl font-semibold tracking-wide"
+            style={{ color: colors.text }}
+          >
+            Built on what matters
+          </h2>
+        </div>
+
+        {/* Login Card */}
+        <Card
+          className="border-0 shadow-2xl"
+          style={{
+            backgroundColor: colors.cardBackground,
+            borderRadius: "20px",
+            border: `1px solid ${colors.divider}`,
+          }}
+        >
+          <CardContent className="p-6">
+            <div className="text-center mb-6">
+              <h1
+                className="text-2xl font-semibold mb-2"
+                style={{ color: colors.cardText }}
+              >
                 {isRegistering ? "Create Account" : "Welcome back"}
-              </CardTitle>
-              <CardDescription className="text-center">
+              </h1>
+              <p
+                className="text-sm"
+                style={{ color: colors.cardTextSecondary }}
+              >
                 {isRegistering
                   ? "Enter your details to create your account"
                   : "Enter your credentials to access your account"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {isRegistering && (
-                  <div className="space-y-2">
-                    <Label htmlFor="displayName">Display Name</Label>
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {isRegistering && (
+                <div className="space-y-2">
+                  <div
+                    className="flex items-center px-3 py-2 rounded-xl border"
+                    style={{
+                      backgroundColor: colors.inputBackground,
+                      borderColor: colors.buttonBorder,
+                    }}
+                  >
+                    <User
+                      size={20}
+                      className="mr-3"
+                      style={{ color: colors.cardTextSecondary }}
+                    />
                     <Input
-                      id="displayName"
                       type="text"
-                      placeholder="Enter your display name"
+                      placeholder="Display name"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                       required={isRegistering}
+                      className="border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                      style={{ color: colors.cardText }}
                     />
                   </div>
-                )}
+                </div>
+              )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+              <div className="space-y-2">
+                <div
+                  className="flex items-center px-3 py-2 rounded-xl border"
+                  style={{
+                    backgroundColor: colors.inputBackground,
+                    borderColor: colors.buttonBorder,
+                  }}
+                >
+                  <Mail
+                    size={20}
+                    className="mr-3"
+                    style={{ color: colors.cardTextSecondary }}
+                  />
                   <Input
-                    id="email"
                     type="email"
-                    placeholder="Enter your email"
+                    placeholder="Email address"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    className="border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    style={{ color: colors.cardText }}
                   />
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+              <div className="space-y-2">
+                <div
+                  className="flex items-center px-3 py-2 rounded-xl border"
+                  style={{
+                    backgroundColor: colors.inputBackground,
+                    borderColor: colors.buttonBorder,
+                  }}
+                >
+                  <Lock
+                    size={20}
+                    className="mr-3"
+                    style={{ color: colors.cardTextSecondary }}
+                  />
                   <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter your password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    className="border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0 flex-1"
+                    style={{ color: colors.cardText }}
                   />
-                </div>
-
-                {error && (
-                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                    {error}
-                  </div>
-                )}
-
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading
-                    ? isRegistering
-                      ? "Creating account..."
-                      : "Signing in..."
-                    : isRegistering
-                      ? "Create Account"
-                      : "Sign in"}
-                </Button>
-              </form>
-
-              <div className="mt-6 text-center">
-                <p className="text-sm text-muted-foreground">
-                  {isRegistering
-                    ? "Already have an account?"
-                    : "Don't have an account?"}{" "}
-                  <Button
-                    variant="link"
-                    className="p-0 h-auto"
-                    onClick={toggleMode}
-                    disabled={isLoading}
+                  <button
+                    type="button"
+                    onClick={togglePasswordVisibility}
+                    className="p-1 hover:bg-gray-200 rounded"
                   >
-                    {isRegistering ? "Sign in" : "Sign up"}
-                  </Button>
-                </p>
+                    {showPassword ? (
+                      <EyeOff
+                        size={20}
+                        style={{ color: colors.cardTextSecondary }}
+                      />
+                    ) : (
+                      <Eye
+                        size={20}
+                        style={{ color: colors.cardTextSecondary }}
+                      />
+                    )}
+                  </button>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+
+              {error && (
+                <div
+                  className="p-3 text-sm rounded-xl border"
+                  style={{
+                    backgroundColor: colors.errorBackground,
+                    borderColor: colors.errorBorder,
+                    color: colors.errorText,
+                  }}
+                >
+                  {error}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full py-3 rounded-xl font-semibold text-base tracking-wide transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                disabled={isLoading}
+                style={{
+                  backgroundColor: colors.accent,
+                  color: colors.cardText,
+                  border: `1px solid ${colors.accent}`,
+                }}
+              >
+                {isLoading
+                  ? isRegistering
+                    ? "Creating account..."
+                    : "Signing in..."
+                  : isRegistering
+                    ? "Create Account"
+                    : "Login"}
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <p
+                className="text-sm"
+                style={{ color: colors.cardTextSecondary }}
+              >
+                {isRegistering
+                  ? "Already have an account?"
+                  : "Don't have an account?"}{" "}
+                <button
+                  type="button"
+                  onClick={toggleMode}
+                  disabled={isLoading}
+                  className="font-semibold hover:underline transition-colors"
+                  style={{ color: colors.buttonText }}
+                >
+                  {isRegistering ? "Sign in" : "Sign up"}
+                </button>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </LayoutWrapper>
+    </div>
   );
 }
