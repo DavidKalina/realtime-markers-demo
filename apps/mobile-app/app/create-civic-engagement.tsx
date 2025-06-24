@@ -29,6 +29,7 @@ import {
 } from "@/components/CheckboxGroup/CheckboxGroup";
 import * as ImagePicker from "expo-image-picker";
 import { manipulateImage } from "@/utils/imageUtils";
+import MapboxGL from "@rnmapbox/maps";
 
 const CreateCivicEngagement = () => {
   const router = useRouter();
@@ -452,6 +453,48 @@ const CreateCivicEngagement = () => {
     }
   };
 
+  // Civic Engagement Map Preview Component
+  const CivicEngagementMapPreview: React.FC<{
+    coordinates: [number, number];
+    locationName: string;
+  }> = ({ coordinates, locationName }) => {
+    return (
+      <View style={styles.mapPreviewContainer}>
+        <View style={styles.mapPreview}>
+          <MapboxGL.MapView
+            pitchEnabled={false}
+            zoomEnabled={false}
+            compassEnabled={false}
+            scrollEnabled={false}
+            rotateEnabled={false}
+            scaleBarEnabled={false}
+            style={styles.mapView}
+            styleURL={MapboxGL.StyleURL.SatelliteStreet}
+            logoEnabled={false}
+            attributionEnabled={false}
+          >
+            <MapboxGL.Camera zoomLevel={18} centerCoordinate={coordinates} />
+
+            <MapboxGL.MarkerView
+              coordinate={coordinates}
+              anchor={{ x: 0.5, y: 1.0 }}
+            >
+              <View style={styles.mapMarker}>
+                <MapPinIcon size={20} color={COLORS.accent} />
+              </View>
+            </MapboxGL.MarkerView>
+          </MapboxGL.MapView>
+          <View style={styles.coordinatesOverlay}>
+            <Text style={styles.coordinatesText}>
+              {coordinates[1].toFixed(6)}, {coordinates[0].toFixed(6)}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.mapLocationText}>{locationName}</Text>
+      </View>
+    );
+  };
+
   return (
     <AuthWrapper>
       <Screen
@@ -476,6 +519,49 @@ const CreateCivicEngagement = () => {
         extendBannerToStatusBar={false}
       >
         <View style={styles.container}>
+          {/* Location Section - First, as it's most important for municipal feedback */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MapPinIcon size={14} color={COLORS.accent} />
+              <Text style={styles.sectionTitle}>Location</Text>
+            </View>
+            <LocationSelector
+              selectedLocation={locationData}
+              onLocationSelect={handleLocationSelect}
+              onLocationClear={handleLocationClear}
+              onSearch={handleSearchPlaces}
+              isLoading={isSearchingPlaces}
+              searchResults={searchResults}
+              error={locationError}
+              buttonText={
+                locationData ? "Change location..." : "Search for a place..."
+              }
+            />
+            {coordinates && locationData && (
+              <CivicEngagementMapPreview
+                coordinates={[coordinates.longitude, coordinates.latitude]}
+                locationName={locationData.name}
+              />
+            )}
+          </View>
+
+          {/* Type Section - Second, to categorize the feedback */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Feedback Type</Text>
+            <CheckboxGroup
+              selectedItems={selectedTypeItems}
+              onSelectionChange={handleTypeSelectionChange}
+              items={typeOptions}
+              buttonText="Select feedback type"
+              modalTitle="Feedback Type"
+              emptyMessage="No types available"
+              loadingMessage="Loading types..."
+              errorMessage="Error loading types"
+              initialModalOpen={true}
+            />
+          </View>
+
+          {/* Details Section - Third, for the actual feedback content */}
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Feedback Details</Text>
             <Input
@@ -499,21 +585,7 @@ const CreateCivicEngagement = () => {
             />
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Type</Text>
-            <CheckboxGroup
-              selectedItems={selectedTypeItems}
-              onSelectionChange={handleTypeSelectionChange}
-              items={typeOptions}
-              buttonText="Select feedback type"
-              modalTitle="Feedback Type"
-              emptyMessage="No types available"
-              loadingMessage="Loading types..."
-              errorMessage="Error loading types"
-              initialModalOpen={true}
-            />
-          </View>
-
+          {/* Photo Section - Last, as supporting documentation */}
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Photo (Optional)</Text>
             <View style={styles.photoSection}>
@@ -535,7 +607,7 @@ const CreateCivicEngagement = () => {
                       onPress={handleRemovePhoto}
                       disabled={isProcessingImage}
                     >
-                      <Text style={styles.removePhotoText}>Remove</Text>
+                      <Text style={styles.removePhotoText}>Remove Photo</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -564,25 +636,6 @@ const CreateCivicEngagement = () => {
                 </View>
               )}
             </View>
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <MapPinIcon size={18} color={COLORS.accent} />
-              <Text style={styles.sectionTitle}>Location</Text>
-            </View>
-            <LocationSelector
-              selectedLocation={locationData}
-              onLocationSelect={handleLocationSelect}
-              onLocationClear={handleLocationClear}
-              onSearch={handleSearchPlaces}
-              isLoading={isSearchingPlaces}
-              searchResults={searchResults}
-              error={locationError}
-              buttonText={
-                locationData ? "Change location..." : "Search for a place..."
-              }
-            />
           </View>
         </View>
       </Screen>
@@ -636,20 +689,23 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   photoPreviewContainer: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
     gap: 12,
+    width: "100%",
   },
   photoPreview: {
-    width: 100,
-    height: 100,
+    width: "100%",
+    height: 200,
     borderRadius: 8,
     backgroundColor: COLORS.cardBackground,
+    alignSelf: "stretch",
   },
   photoActions: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
     gap: 12,
+    width: "100%",
   },
   processingIndicator: {
     flexDirection: "row",
@@ -664,9 +720,12 @@ const styles = StyleSheet.create({
   },
   removePhotoButton: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     backgroundColor: "#f97583",
     borderRadius: 8,
+    width: "100%",
+    alignItems: "center",
+    alignSelf: "stretch",
   },
   removePhotoText: {
     fontSize: 14,
@@ -694,6 +753,60 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     width: "100%",
+  },
+  mapPreviewContainer: {
+    marginTop: 12,
+    width: "100%",
+  },
+  mapPreview: {
+    width: "100%",
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: COLORS.cardBackground,
+    overflow: "hidden",
+    position: "relative",
+  },
+  mapView: {
+    width: "100%",
+    height: "100%",
+  },
+  mapMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  coordinatesOverlay: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    padding: 4,
+    borderRadius: 4,
+  },
+  coordinatesText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#ffffff",
+    fontFamily: "Poppins-Regular",
+  },
+  mapLocationText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+    fontFamily: "Poppins-Regular",
+    textAlign: "center",
+    marginTop: 8,
   },
 });
 
