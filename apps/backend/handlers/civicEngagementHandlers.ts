@@ -62,7 +62,7 @@ export const createCivicEngagementHandler: CivicEngagementHandler =
       filename: data.filename,
     };
 
-    // Prepare buffer data if image is provided
+    // Prepare buffer data if image is provided - this will be processed in the background job
     let bufferData: Buffer | undefined;
     if (data.imageBuffer) {
       bufferData = Buffer.from(data.imageBuffer, "base64");

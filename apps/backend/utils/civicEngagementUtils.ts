@@ -121,22 +121,20 @@ export async function processCivicEngagementFormData(
     // Handle JSON data (existing behavior)
     data = await c.req.json();
 
-    // Handle base64 image if provided in JSON
+    // For JSON requests, we don't upload images synchronously
+    // Instead, we pass the imageBuffer to the job for background processing
+    // This prevents the API call from blocking on image upload
     if (data.imageBuffer) {
-      const imageBuffer = Buffer.from(data.imageBuffer, "base64");
-      const imageUrl = await storageService.uploadImage(
-        imageBuffer,
-        "civic-engagement",
-        {
-          filename: data.filename || "civic-engagement.jpg",
-          contentType: data.contentType || "image/jpeg",
-          size: imageBuffer.length.toString(),
-          uploadedBy: user?.userId || "unknown",
-        },
+      console.log(
+        "[processCivicEngagementFormData] Image buffer provided, will be processed in background job",
       );
-
-      if (imageUrl) {
-        imageUrls = [imageUrl];
+      // Don't upload here - let the job handle it
+      // Just ensure the data is properly structured
+      if (!data.contentType) {
+        data.contentType = "image/jpeg";
+      }
+      if (!data.filename) {
+        data.filename = "civic-engagement.jpg";
       }
     }
   }
