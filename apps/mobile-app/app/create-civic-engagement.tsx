@@ -7,7 +7,14 @@ import { apiClient, CivicEngagementType } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Book, List, MapPin as MapPinIcon, Camera } from "lucide-react-native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  memo,
+} from "react";
 import {
   Alert,
   StyleSheet,
@@ -31,6 +38,119 @@ import * as ImagePicker from "expo-image-picker";
 import { manipulateImage } from "@/utils/imageUtils";
 import MapboxGL from "@rnmapbox/maps";
 
+// Memoized map marker component
+const MapMarker = memo(({ coordinates }: { coordinates: [number, number] }) => (
+  <MapboxGL.MarkerView coordinate={coordinates} anchor={{ x: 0.5, y: 1.0 }}>
+    <View style={styles.mapMarker}>
+      <MapPinIcon size={20} color={COLORS.accent} />
+    </View>
+  </MapboxGL.MarkerView>
+));
+
+// Memoized photo preview component
+const PhotoPreview = memo(
+  ({
+    selectedImage,
+    isProcessingImage,
+    onRemovePhoto,
+  }: {
+    selectedImage: string;
+    isProcessingImage: boolean;
+    onRemovePhoto: () => void;
+  }) => (
+    <View style={styles.photoPreviewContainer}>
+      <Image source={{ uri: selectedImage }} style={styles.photoPreview} />
+      <View style={styles.photoActions}>
+        {isProcessingImage && (
+          <View style={styles.processingIndicator}>
+            <ActivityIndicator size="small" color={COLORS.accent} />
+            <Text style={styles.processingText}>Processing...</Text>
+          </View>
+        )}
+        <TouchableOpacity
+          style={styles.removePhotoButton}
+          onPress={onRemovePhoto}
+          disabled={isProcessingImage}
+        >
+          <Text style={styles.removePhotoText}>Remove Photo</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  ),
+);
+
+// Memoized photo buttons component
+const PhotoButtons = memo(
+  ({
+    isProcessingImage,
+    onTakePhoto,
+    onPickImage,
+  }: {
+    isProcessingImage: boolean;
+    onTakePhoto: () => void;
+    onPickImage: () => void;
+  }) => (
+    <View style={styles.photoButtonsRow}>
+      <TouchableOpacity
+        style={styles.photoButton}
+        onPress={onTakePhoto}
+        disabled={isProcessingImage}
+      >
+        <Camera size={22} color="#fff" style={{ marginRight: 8 }} />
+        <Text style={styles.photoButtonText}>
+          {isProcessingImage ? "Processing..." : "Take Photo"}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.photoButton}
+        onPress={onPickImage}
+        disabled={isProcessingImage}
+      >
+        <Camera size={22} color="#fff" style={{ marginRight: 8 }} />
+        <Text style={styles.photoButtonText}>
+          {isProcessingImage ? "Processing..." : "Choose Photo"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  ),
+);
+
+// Memoized Civic Engagement Map Preview Component
+const CivicEngagementMapPreview = memo<{
+  coordinates: [number, number];
+  locationName: string;
+}>(({ coordinates, locationName }) => {
+  const mapStyle = useMemo(() => MapboxGL.StyleURL.SatelliteStreet, []);
+
+  return (
+    <View style={styles.mapPreviewContainer}>
+      <View style={styles.mapPreview}>
+        <MapboxGL.MapView
+          pitchEnabled={false}
+          zoomEnabled={false}
+          compassEnabled={false}
+          scrollEnabled={false}
+          rotateEnabled={false}
+          scaleBarEnabled={false}
+          style={styles.mapView}
+          styleURL={mapStyle}
+          logoEnabled={false}
+          attributionEnabled={false}
+        >
+          <MapboxGL.Camera zoomLevel={18} centerCoordinate={coordinates} />
+          <MapMarker coordinates={coordinates} />
+        </MapboxGL.MapView>
+        <View style={styles.coordinatesOverlay}>
+          <Text style={styles.coordinatesText}>
+            {coordinates[1].toFixed(6)}, {coordinates[0].toFixed(6)}
+          </Text>
+        </View>
+      </View>
+      <Text style={styles.mapLocationText}>{locationName}</Text>
+    </View>
+  );
+});
+
 const CreateCivicEngagement = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -42,11 +162,8 @@ const CreateCivicEngagement = () => {
   const [imageBuffer, setImageBuffer] = useState<string | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
 
-  const [coordinates, setCoordinates] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(() => {
-    // Initialize from params if they exist
+  // Memoize initial coordinates calculation
+  const initialCoordinates = useMemo(() => {
     if (params.latitude && params.longitude) {
       const lat = parseFloat(params.latitude as string);
       const lng = parseFloat(params.longitude as string);
@@ -70,25 +187,32 @@ const CreateCivicEngagement = () => {
       },
     );
     return null;
-  });
+  }, [params.latitude, params.longitude]);
+
+  const [coordinates, setCoordinates] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(initialCoordinates);
+
+  // Memoize initial location data
+  const initialLocationData = useMemo(() => {
+    if (params.latitude && params.longitude) {
+      const lat = parseFloat(params.latitude as string);
+      const lng = parseFloat(params.longitude as string);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return {
+          id: "initial",
+          name: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+          address: "Selected coordinates",
+          coordinates: [lng, lat] as [number, number],
+        };
+      }
+    }
+    return null;
+  }, [params.latitude, params.longitude]);
 
   const [locationData, setLocationData] = useState<LocationOption | null>(
-    () => {
-      // Initialize from params if they exist
-      if (params.latitude && params.longitude) {
-        const lat = parseFloat(params.latitude as string);
-        const lng = parseFloat(params.longitude as string);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          return {
-            id: "initial",
-            name: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-            address: "Selected coordinates",
-            coordinates: [lng, lat],
-          };
-        }
-      }
-      return null;
-    },
+    initialLocationData,
   );
 
   const [searchResults, setSearchResults] = useState<LocationOption[]>([]);
@@ -105,6 +229,40 @@ const CreateCivicEngagement = () => {
   );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Memoize type options to prevent recreation on every render
+  const typeOptions = useMemo<SelectableItem[]>(
+    () => [
+      {
+        id: CivicEngagementType.IDEA,
+        firstName: "💡 Idea",
+        lastName: "Share a new idea or suggestion",
+      },
+      {
+        id: CivicEngagementType.POSITIVE_FEEDBACK,
+        firstName: "👍 Positive Feedback",
+        lastName: "Share positive feedback about something",
+      },
+      {
+        id: CivicEngagementType.NEGATIVE_FEEDBACK,
+        firstName: "👎 Negative Feedback",
+        lastName: "Share concerns or issues that need attention",
+      },
+    ],
+    [],
+  );
+
+  // Memoize selected type option
+  const selectedTypeOption = useMemo(
+    () => typeOptions.find((option) => option.id === type),
+    [typeOptions, type],
+  );
+
+  // Memoize selected type items for CheckboxGroup
+  const selectedTypeItems = useMemo(
+    () => (selectedTypeOption ? [selectedTypeOption] : []),
+    [selectedTypeOption],
+  );
 
   // Add effect to focus title input when component mounts
   useEffect(() => {
@@ -187,14 +345,14 @@ const CreateCivicEngagement = () => {
     }
   }, [params.imageUri]);
 
-  const handleTitleSubmit = () => {
+  const handleTitleSubmit = useCallback(() => {
     if (descriptionInputRef.current) {
       descriptionInputRef.current.focus();
     }
-  };
+  }, []);
 
   // Photo handling functions
-  const handlePickImage = async () => {
+  const handlePickImage = useCallback(async () => {
     try {
       // Request permission first
       const permissionResult =
@@ -244,12 +402,12 @@ const CreateCivicEngagement = () => {
     } finally {
       setIsProcessingImage(false);
     }
-  };
+  }, []);
 
-  const handleRemovePhoto = () => {
+  const handleRemovePhoto = useCallback(() => {
     setSelectedImage(null);
     setImageBuffer(null);
-  };
+  }, []);
 
   const handleSearchPlaces = useCallback(async (query: string) => {
     if (!query.trim()) {
@@ -302,7 +460,7 @@ const CreateCivicEngagement = () => {
     setLocationError("");
   }, []);
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (isSubmitting) return;
 
     // Validate required fields
@@ -371,7 +529,15 @@ const CreateCivicEngagement = () => {
         [
           {
             text: "OK",
-            onPress: () => router.back(),
+            onPress: () => {
+              if (params.id) {
+                // For updates, go back to previous screen
+                router.back();
+              } else {
+                // For new submissions, redirect to jobs screen to see processing
+                router.push("/");
+              }
+            },
           },
         ],
       );
@@ -384,40 +550,48 @@ const CreateCivicEngagement = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [
+    isSubmitting,
+    title,
+    coordinates,
+    type,
+    description,
+    locationData,
+    imageBuffer,
+    params.id,
+    router,
+  ]);
 
-  const typeOptions: SelectableItem[] = [
-    {
-      id: CivicEngagementType.IDEA,
-      firstName: "💡 Idea",
-      lastName: "Share a new idea or suggestion",
+  // Memoize footer buttons configuration - moved after handleSubmit
+  const footerButtons = useMemo(
+    () => [
+      {
+        label: isSubmitting
+          ? "Submitting..."
+          : params.title
+            ? "Update"
+            : "Submit",
+        onPress: handleSubmit,
+        variant: "primary" as const,
+        loading: isSubmitting,
+        style: { flex: 1 },
+      },
+    ],
+    [isSubmitting, params.title, handleSubmit],
+  );
+
+  const handleTypeSelectionChange = useCallback(
+    (selectedItems: SelectableItem[]) => {
+      // Since we only want single selection, take the last selected item
+      if (selectedItems.length > 0) {
+        const lastSelected = selectedItems[selectedItems.length - 1];
+        setType(lastSelected.id as CivicEngagementType);
+      }
     },
-    {
-      id: CivicEngagementType.POSITIVE_FEEDBACK,
-      firstName: "👍 Positive Feedback",
-      lastName: "Share positive feedback about something",
-    },
-    {
-      id: CivicEngagementType.NEGATIVE_FEEDBACK,
-      firstName: "👎 Negative Feedback",
-      lastName: "Share concerns or issues that need attention",
-    },
-  ];
+    [],
+  );
 
-  const selectedTypeOption = typeOptions.find((option) => option.id === type);
-
-  const handleTypeSelectionChange = (selectedItems: SelectableItem[]) => {
-    // Since we only want single selection, take the last selected item
-    if (selectedItems.length > 0) {
-      const lastSelected = selectedItems[selectedItems.length - 1];
-      setType(lastSelected.id as CivicEngagementType);
-    }
-  };
-
-  // Convert selected type to array format for CheckboxGroup
-  const selectedTypeItems = selectedTypeOption ? [selectedTypeOption] : [];
-
-  const handleTakePhoto = async () => {
+  const handleTakePhoto = useCallback(async () => {
     try {
       const permissionResult =
         await ImagePicker.requestCameraPermissionsAsync();
@@ -451,49 +625,22 @@ const CreateCivicEngagement = () => {
     } finally {
       setIsProcessingImage(false);
     }
-  };
+  }, []);
 
-  // Civic Engagement Map Preview Component
-  const CivicEngagementMapPreview: React.FC<{
-    coordinates: [number, number];
-    locationName: string;
-  }> = ({ coordinates, locationName }) => {
-    return (
-      <View style={styles.mapPreviewContainer}>
-        <View style={styles.mapPreview}>
-          <MapboxGL.MapView
-            pitchEnabled={false}
-            zoomEnabled={false}
-            compassEnabled={false}
-            scrollEnabled={false}
-            rotateEnabled={false}
-            scaleBarEnabled={false}
-            style={styles.mapView}
-            styleURL={MapboxGL.StyleURL.SatelliteStreet}
-            logoEnabled={false}
-            attributionEnabled={false}
-          >
-            <MapboxGL.Camera zoomLevel={18} centerCoordinate={coordinates} />
+  // Memoize location selector button text
+  const locationButtonText = useMemo(
+    () => (locationData ? "Change location..." : "Search for a place..."),
+    [locationData],
+  );
 
-            <MapboxGL.MarkerView
-              coordinate={coordinates}
-              anchor={{ x: 0.5, y: 1.0 }}
-            >
-              <View style={styles.mapMarker}>
-                <MapPinIcon size={20} color={COLORS.accent} />
-              </View>
-            </MapboxGL.MarkerView>
-          </MapboxGL.MapView>
-          <View style={styles.coordinatesOverlay}>
-            <Text style={styles.coordinatesText}>
-              {coordinates[1].toFixed(6)}, {coordinates[0].toFixed(6)}
-            </Text>
-          </View>
-        </View>
-        <Text style={styles.mapLocationText}>{locationName}</Text>
-      </View>
-    );
-  };
+  // Memoize map coordinates for preview
+  const mapCoordinates = useMemo(
+    () =>
+      coordinates
+        ? ([coordinates.longitude, coordinates.latitude] as [number, number])
+        : null,
+    [coordinates],
+  );
 
   return (
     <AuthWrapper>
@@ -501,19 +648,7 @@ const CreateCivicEngagement = () => {
         bannerTitle={"Feedback"}
         showBackButton={true}
         onBack={() => router.back()}
-        footerButtons={[
-          {
-            label: isSubmitting
-              ? "Submitting..."
-              : params.title
-                ? "Update"
-                : "Submit",
-            onPress: handleSubmit,
-            variant: "primary",
-            loading: isSubmitting,
-            style: { flex: 1 },
-          },
-        ]}
+        footerButtons={footerButtons}
         isScrollable={true}
         noSafeArea={false}
         extendBannerToStatusBar={false}
@@ -533,13 +668,11 @@ const CreateCivicEngagement = () => {
               isLoading={isSearchingPlaces}
               searchResults={searchResults}
               error={locationError}
-              buttonText={
-                locationData ? "Change location..." : "Search for a place..."
-              }
+              buttonText={locationButtonText}
             />
-            {coordinates && locationData && (
+            {mapCoordinates && locationData && (
               <CivicEngagementMapPreview
-                coordinates={[coordinates.longitude, coordinates.latitude]}
+                coordinates={mapCoordinates}
                 locationName={locationData.name}
               />
             )}
@@ -590,50 +723,17 @@ const CreateCivicEngagement = () => {
             <Text style={styles.sectionLabel}>Photo (Optional)</Text>
             <View style={styles.photoSection}>
               {selectedImage ? (
-                <View style={styles.photoPreviewContainer}>
-                  <Image
-                    source={{ uri: selectedImage }}
-                    style={styles.photoPreview}
-                  />
-                  <View style={styles.photoActions}>
-                    {isProcessingImage && (
-                      <View style={styles.processingIndicator}>
-                        <ActivityIndicator size="small" color={COLORS.accent} />
-                        <Text style={styles.processingText}>Processing...</Text>
-                      </View>
-                    )}
-                    <TouchableOpacity
-                      style={styles.removePhotoButton}
-                      onPress={handleRemovePhoto}
-                      disabled={isProcessingImage}
-                    >
-                      <Text style={styles.removePhotoText}>Remove Photo</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                <PhotoPreview
+                  selectedImage={selectedImage}
+                  isProcessingImage={isProcessingImage}
+                  onRemovePhoto={handleRemovePhoto}
+                />
               ) : (
-                <View style={styles.photoButtonsRow}>
-                  <TouchableOpacity
-                    style={styles.photoButton}
-                    onPress={handleTakePhoto}
-                    disabled={isProcessingImage}
-                  >
-                    <Camera size={22} color="#fff" style={{ marginRight: 8 }} />
-                    <Text style={styles.photoButtonText}>
-                      {isProcessingImage ? "Processing..." : "Take Photo"}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.photoButton}
-                    onPress={handlePickImage}
-                    disabled={isProcessingImage}
-                  >
-                    <Camera size={22} color="#fff" style={{ marginRight: 8 }} />
-                    <Text style={styles.photoButtonText}>
-                      {isProcessingImage ? "Processing..." : "Choose Photo"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                <PhotoButtons
+                  isProcessingImage={isProcessingImage}
+                  onTakePhoto={handleTakePhoto}
+                  onPickImage={handlePickImage}
+                />
               )}
             </View>
           </View>
