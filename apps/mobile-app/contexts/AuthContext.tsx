@@ -277,13 +277,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const signInWithGoogle = async () => {
     setIsLoading(true);
     try {
-      const oAuthResponse = await oAuthService.signInWithGoogle();
-      // Map OAuthUser to User type with required properties
-      const user: User = {
-        ...oAuthResponse.user,
-        role: "USER", // Default role for OAuth users
-        isVerified: true, // OAuth users are typically verified
-      };
+      await oAuthService.signInWithGoogle();
+
+      // Get the user from the API client to ensure authentication state is properly set up
+      const user = apiClient.getCurrentUser();
+      if (!user) {
+        throw new Error("Failed to get user from API client after OAuth");
+      }
+
       setUser(user);
       setIsAuthenticated(true);
 
@@ -302,13 +303,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const signInWithFacebook = async () => {
     setIsLoading(true);
     try {
-      const oAuthResponse = await oAuthService.signInWithFacebook();
-      // Map OAuthUser to User type with required properties
-      const user: User = {
-        ...oAuthResponse.user,
-        role: "USER", // Default role for OAuth users
-        isVerified: true, // OAuth users are typically verified
-      };
+      await oAuthService.signInWithFacebook();
+
+      // Get the user from the API client to ensure authentication state is properly set up
+      const user = apiClient.getCurrentUser();
+      if (!user) {
+        throw new Error("Failed to get user from API client after OAuth");
+      }
+
       setUser(user);
       setIsAuthenticated(true);
 
