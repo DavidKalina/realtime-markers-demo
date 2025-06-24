@@ -23,9 +23,16 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import {
   ProcessingOverlay,
   NoScansOverlay,
+  ContentTypeOverlay,
   SimulationButton,
   useScanState,
 } from "@/components/Scan";
+import { useEventBroker } from "@/hooks/useEventBroker";
+import {
+  EventTypes,
+  NavigateToCivicEngagementEvent,
+} from "@/services/EventBroker";
+import { useUserLocation } from "@/contexts/LocationContext";
 
 export default function ScanScreen() {
   console.log("[ScanScreen] Component mounting...");
@@ -51,6 +58,8 @@ export default function ScanScreen() {
   const router = useRouter();
   const isMounted = useRef(true);
   const networkState = useNetworkQuality();
+  const { subscribe } = useEventBroker();
+  const { userLocation } = useUserLocation();
 
   console.log(
     "[ScanScreen] Router and network state initialized, networkState:",
@@ -70,8 +79,8 @@ export default function ScanScreen() {
     console.log("[ScanScreen] Navigating to jobs screen...");
 
     try {
-      console.log("[ScanScreen] Calling router.push('/jobs')");
-      router.push("/jobs");
+      console.log("[ScanScreen] Calling router.replace('/jobs')");
+      router.replace("/jobs");
       console.log("[ScanScreen] Navigation call completed successfully");
     } catch (error) {
       console.error("[ScanScreen] Navigation error:", error);
@@ -102,6 +111,9 @@ export default function ScanScreen() {
     processingStage,
     showProcessingOverlay,
 
+    // Content type choice state
+    showContentTypeOverlay,
+
     // Scan limits
     showNoScansOverlay,
     setShowNoScansOverlay,
@@ -109,6 +121,9 @@ export default function ScanScreen() {
     // Actions
     handleCapture,
     handleImageSelected,
+    handleSelectEvent,
+    handleSelectCivicEngagement,
+    handleCancelContentType,
     reset,
     simulateCapture,
   } = useScanState({
@@ -126,8 +141,10 @@ export default function ScanScreen() {
     return () => {
       console.log("[ScanScreen] Component unmounting, cleaning up");
       isMounted.current = false;
+      // Reset scan state to prevent re-initialization
+      reset();
     };
-  }, []);
+  }, [reset]);
 
   // Handle screen focus changes
   useFocusEffect(
@@ -142,10 +159,9 @@ export default function ScanScreen() {
   // Handle app state changes
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
+      // Only handle background/inactive states, don't re-set mounted flag
       if (nextAppState === "background" || nextAppState === "inactive") {
-        if (!isMounted.current) {
-          isMounted.current = true;
-        }
+        console.log("[ScanScreen] App going to background/inactive");
       }
     });
 
@@ -206,6 +222,56 @@ export default function ScanScreen() {
     },
     [handleImageSelected, setShowNoScansOverlay],
   );
+
+  // Handle civic engagement navigation
+  const handleCivicEngagementNavigation = useCallback(
+    (imageUri: string) => {
+      console.log(
+        "[ScanScreen] Navigating to civic engagement creation with image:",
+        imageUri,
+      );
+
+      const params: Record<string, string> = {
+        imageUri: imageUri,
+      };
+
+      // Add coordinates if available
+      if (userLocation) {
+        params.latitude = userLocation[1].toString(); // latitude
+        params.longitude = userLocation[0].toString(); // longitude
+        console.log("[ScanScreen] Adding coordinates to params:", {
+          latitude: params.latitude,
+          longitude: params.longitude,
+        });
+      } else {
+        console.log(
+          "[ScanScreen] No user location available, proceeding without coordinates",
+        );
+      }
+
+      router.push({
+        pathname: "/create-civic-engagement" as const,
+        params,
+      });
+    },
+    [router],
+  );
+
+  // Set up event listener for civic engagement navigation
+  useEffect(() => {
+    const unsubscribe = subscribe<NavigateToCivicEngagementEvent>(
+      EventTypes.NAVIGATE_TO_CIVIC_ENGAGEMENT,
+      (event) => {
+        console.log(
+          "[ScanScreen] Received NAVIGATE_TO_CIVIC_ENGAGEMENT event:",
+          event,
+        );
+        handleCivicEngagementNavigation(event.imageUri);
+      },
+    );
+
+    return unsubscribe;
+  }, [subscribe, handleCivicEngagementNavigation]);
 
   // Handle camera permission request if needed
   if (hasPermission === false) {
@@ -322,6 +388,15 @@ export default function ScanScreen() {
             onSimulateCapture={simulateCapture}
           />
         </View>
+
+        {/* Content Type Choice Modal */}
+        <ContentTypeOverlay
+          isVisible={showContentTypeOverlay}
+          capturedImageUri={capturedImageUri}
+          onSelectEvent={handleSelectEvent}
+          onSelectCivicEngagement={handleSelectCivicEngagement}
+          onCancel={handleCancelContentType}
+        />
       </Screen>
     </AuthWrapper>
   );

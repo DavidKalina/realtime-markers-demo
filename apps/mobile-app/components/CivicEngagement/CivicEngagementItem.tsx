@@ -33,6 +33,12 @@ const formatDistanceToNow = (date: Date): string => {
   }
 };
 
+// Helper function to format coordinates
+const formatCoordinates = (coordinates: [number, number]): string => {
+  const [lng, lat] = coordinates;
+  return `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+};
+
 interface CivicEngagementItemProps {
   civicEngagement: CivicEngagement;
   onPress?: (civicEngagement: CivicEngagement) => void;
@@ -305,14 +311,20 @@ export const CivicEngagementItem: React.FC<CivicEngagementItemProps> =
                     {civicEngagement.description}
                   </Text>
                 )}
-                {showLocation && civicEngagement.address && (
-                  <View style={styles.locationContainer}>
-                    <MapPin size={12} color={COLORS.textSecondary} />
-                    <Text style={styles.locationText} numberOfLines={1}>
-                      {civicEngagement.address}
-                    </Text>
-                  </View>
-                )}
+                {showLocation &&
+                  (civicEngagement.location?.coordinates ||
+                    civicEngagement.address) && (
+                    <View style={styles.locationContainer}>
+                      <MapPin size={12} color={COLORS.textSecondary} />
+                      <Text style={styles.locationText} numberOfLines={1}>
+                        {civicEngagement.location?.coordinates
+                          ? formatCoordinates(
+                              civicEngagement.location.coordinates,
+                            )
+                          : civicEngagement.address}
+                      </Text>
+                    </View>
+                  )}
                 <View style={styles.footer}>
                   <View style={styles.dateContainer}>
                     <Calendar size={12} color={COLORS.textSecondary} />

@@ -164,6 +164,7 @@ async function initializeWorker() {
   const civicEngagementService = new CivicEngagementService(
     civicEngagementRepository,
     redisService,
+    embeddingService,
   );
 
   // Initialize job handler registry
@@ -174,6 +175,7 @@ async function initializeWorker() {
     jobQueue,
     redisService,
     storageService,
+    embeddingService,
   );
 
   console.log("Worker initialized successfully");

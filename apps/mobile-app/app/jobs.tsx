@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/services/ApiClient";
@@ -124,13 +130,15 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
   const getJobTypeDisplayName = (type: string) => {
     switch (type) {
       case "process_flyer":
-        return "Process Flyer";
+        return "Process Community Flyer";
       case "process_private_event":
         return "Create Private Event";
       case "process_multi_event_flyer":
         return "Process Multi-Event Flyer";
+      case "process_civic_engagement":
+        return "Process Civic Engagement";
       case "cleanup_outdated_events":
-        return "Cleanup Events";
+        return "Cleanup Community Events";
       default:
         return type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
     }
@@ -144,6 +152,36 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
 
     // Determine if this is a private event based on job type
     const isPrivateEvent = job.type === "process_private_event";
+    const isCivicEngagement = job.type === "process_civic_engagement";
+
+    // Handle civic engagement jobs
+    if (isCivicEngagement) {
+      const title = job.data?.title as string;
+      const type = job.data?.type as string;
+      const resultTitle = result?.title as string;
+
+      if (resultTitle) {
+        return {
+          title: resultTitle,
+          emoji: "💬",
+          isPrivate: false,
+        };
+      }
+
+      if (title) {
+        return {
+          title: `Processing ${type?.toLowerCase() || "feedback"}: ${title}`,
+          emoji: "💬",
+          isPrivate: false,
+        };
+      }
+
+      return {
+        title: "Processing Civic Engagement",
+        emoji: "💬",
+        isPrivate: false,
+      };
+    }
 
     // Prefer result emoji if present (for completed jobs)
     if (result?.title || result?.emoji) {
@@ -343,7 +381,9 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
 const JobsScreen: React.FC = () => {
   const { user } = useAuth();
   const router = useRouter();
-  const jobsModule = new JobsModule(apiClient);
+
+  // Memoize the jobs module to prevent recreation on every render
+  const jobsModule = useMemo(() => new JobsModule(apiClient), []);
 
   const [jobs, setJobs] = useState<JobData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -355,6 +395,9 @@ const JobsScreen: React.FC = () => {
   const jobsRef = useRef<JobData[]>([]);
   const streamsSetupRef = useRef<Set<string>>(new Set());
   const initializedRef = useRef<boolean>(false);
+  const fetchJobsRef = useRef<
+    ((page?: number, refresh?: boolean) => Promise<void>) | null
+  >(null);
 
   // Update ref whenever jobs change
   useEffect(() => {
@@ -365,6 +408,11 @@ const JobsScreen: React.FC = () => {
   useEffect(() => {
     const setupStreams = async () => {
       const currentJobs = jobsRef.current;
+      console.log(
+        "[JobsScreen] Setting up streams for",
+        currentJobs.length,
+        "jobs",
+      );
 
       // Get current active job IDs that need streaming
       const activeJobIds = new Set(
@@ -374,10 +422,18 @@ const JobsScreen: React.FC = () => {
           )
           .map((job) => job.id),
       );
+      console.log("[JobsScreen] Active job IDs:", Array.from(activeJobIds));
+
+      // If no active jobs, don't set up any streams
+      if (activeJobIds.size === 0) {
+        console.log("[JobsScreen] No active jobs, skipping stream setup");
+        return;
+      }
 
       // Close streams for jobs that are no longer active
       for (const [jobId, stream] of eventSourceRefs.current.entries()) {
         if (!activeJobIds.has(jobId)) {
+          console.log("[JobsScreen] Closing stream for job:", jobId);
           stream.close();
           eventSourceRefs.current.delete(jobId);
           streamsSetupRef.current.delete(jobId);
@@ -390,6 +446,12 @@ const JobsScreen: React.FC = () => {
           (job.status === "pending" || job.status === "processing") &&
           !streamsSetupRef.current.has(job.id)
         ) {
+          console.log(
+            "[JobsScreen] Setting up stream for job:",
+            job.id,
+            "status:",
+            job.status,
+          );
           streamsSetupRef.current.add(job.id);
 
           try {
@@ -400,6 +462,7 @@ const JobsScreen: React.FC = () => {
                 ? `${apiClient.baseUrl}/api/jobs/${job.id}/stream?token=${encodeURIComponent(accessToken as string)}`
                 : `${apiClient.baseUrl}/api/jobs/${job.id}/stream`;
 
+            console.log("[JobsScreen] Creating SSE stream for URL:", url);
             const stream = new EventSource(url);
 
             // Use addEventListener for react-native-sse
@@ -516,7 +579,7 @@ const JobsScreen: React.FC = () => {
     };
 
     setupStreams();
-  }, [jobs]); // Depend on jobs to detect new active jobs
+  }, [jobs.map((job) => `${job.id}-${job.status}`).join(",")]); // Only depend on job IDs and statuses, not the entire jobs array
 
   // Add a periodic job refresh to detect new jobs from other devices
   useEffect(() => {
@@ -550,7 +613,7 @@ const JobsScreen: React.FC = () => {
     }, 5000); // Check every 5 seconds
 
     return () => clearInterval(refreshInterval);
-  }, [user, jobsModule]);
+  }, [user]); // Remove jobsModule dependency since it's memoized
 
   const fetchJobs = useCallback(
     async (page = 1, refresh = false) => {
@@ -560,11 +623,14 @@ const JobsScreen: React.FC = () => {
           setIsLoading(true);
         }
 
+        console.log("[JobsScreen] Fetching jobs...");
         const response = await jobsModule.getUserJobs(10);
         const newJobs = response.jobs;
+        console.log("[JobsScreen] Received jobs:", newJobs.length, "jobs");
 
         if (refresh || page === 1) {
           const sortedJobs = sortJobsChronologically(newJobs);
+          console.log("[JobsScreen] Setting jobs:", sortedJobs.length, "jobs");
           setJobs(sortedJobs);
         } else {
           setJobs((prev) => {
@@ -581,6 +647,11 @@ const JobsScreen: React.FC = () => {
             const sortedJobs = sortJobsChronologically(
               Array.from(jobsMap.values()),
             );
+            console.log(
+              "[JobsScreen] Updated jobs:",
+              sortedJobs.length,
+              "jobs",
+            );
             return sortedJobs;
           });
         }
@@ -589,14 +660,19 @@ const JobsScreen: React.FC = () => {
         setHasMore(false);
       } catch (err) {
         console.error("Failed to fetch jobs:", err);
-        setError("Failed to load jobs");
+        setError("Failed to load processing tasks");
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
       }
     },
-    [jobsModule],
+    [], // Remove jobsModule dependency since it's memoized
   );
+
+  // Store fetchJobs in ref for use in effects
+  useEffect(() => {
+    fetchJobsRef.current = fetchJobs;
+  }, [fetchJobs]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -613,20 +689,20 @@ const JobsScreen: React.FC = () => {
     async (jobId: string) => {
       try {
         await jobsModule.retryJob(jobId);
-        Alert.alert("Success", "Job has been queued for retry");
+        Alert.alert("Success", "Task has been queued for retry");
         handleRefresh();
       } catch (err) {
         console.error("Failed to retry job:", err);
-        Alert.alert("Error", "Failed to retry job");
+        Alert.alert("Error", "Failed to retry task");
       }
     },
-    [jobsModule, handleRefresh],
+    [handleRefresh], // Remove jobsModule dependency since it's memoized
   );
 
   useEffect(() => {
-    if (user && !initializedRef.current) {
+    if (user && !initializedRef.current && fetchJobsRef.current) {
       initializedRef.current = true;
-      fetchJobs();
+      fetchJobsRef.current();
     }
   }, [user]); // Only depend on user, use ref to prevent re-initialization
 
@@ -650,10 +726,10 @@ const JobsScreen: React.FC = () => {
   if (!user) {
     return (
       <AuthWrapper>
-        <Screen bannerTitle="Jobs">
+        <Screen bannerTitle="Processing">
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>
-              Please log in to view your jobs
+              Please log in to view your processing tasks
             </Text>
           </View>
         </Screen>
@@ -665,14 +741,15 @@ const JobsScreen: React.FC = () => {
     <AuthWrapper>
       <Screen
         onBack={() => router.back()}
-        bannerTitle="Jobs"
+        bannerTitle="Processing"
         bannerEmoji="⚙️"
         showBackButton={true}
         footerButtons={[
           {
             label: "Refresh",
             onPress: handleRefresh,
-            variant: "ghost",
+            variant: "primary",
+            style: { flex: 1 },
           },
         ]}
         isScrollable={false}
@@ -686,7 +763,7 @@ const JobsScreen: React.FC = () => {
           isRefreshing={isRefreshing}
           hasMore={hasMore}
           error={error}
-          emptyListMessage="No jobs found"
+          emptyListMessage="No processing tasks found"
           onRetry={handleRetryAll}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}

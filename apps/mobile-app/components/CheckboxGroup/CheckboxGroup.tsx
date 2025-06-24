@@ -31,6 +31,7 @@ interface CheckboxGroupProps<T extends SelectableItem> {
   emptyMessage?: string;
   loadingMessage?: string;
   errorMessage?: string;
+  initialModalOpen?: boolean;
   renderItem?: (
     item: T,
     isSelected: boolean,
@@ -74,9 +75,10 @@ export const CheckboxGroup = <T extends SelectableItem>({
   emptyMessage = "No items available",
   loadingMessage = "Loading items...",
   errorMessage = "Error loading items",
+  initialModalOpen = false,
   renderItem,
 }: CheckboxGroupProps<T>) => {
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(initialModalOpen);
 
   const toggleItem = (item: T) => {
     const isSelected = selectedItems.some((i) => i.id === item.id);

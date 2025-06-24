@@ -9,6 +9,7 @@ import type { CivicEngagementService } from "../../services/CivicEngagementServi
 import type { JobQueue } from "../../services/JobQueue";
 import type { RedisService } from "../../services/shared/RedisService";
 import { StorageService } from "../../services/shared/StorageService";
+import type { IEmbeddingService } from "../../services/event-processing/interfaces/IEmbeddingService";
 
 export class JobHandlerRegistry {
   private handlers: Map<string, JobHandler> = new Map();
@@ -20,6 +21,7 @@ export class JobHandlerRegistry {
     private readonly jobQueue: JobQueue,
     private readonly redisService: RedisService,
     private readonly storageService: StorageService,
+    private readonly embeddingService: IEmbeddingService,
   ) {
     this.registerHandlers();
   }
@@ -44,6 +46,7 @@ export class JobHandlerRegistry {
       new ProcessCivicEngagementHandler(
         this.civicEngagementService,
         this.storageService,
+        this.embeddingService,
       ),
     );
   }
