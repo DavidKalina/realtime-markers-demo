@@ -396,7 +396,7 @@ const CreateCivicEngagement = () => {
               onChangeText={setTitle}
               onSubmitEditing={handleTitleSubmit}
               returnKeyType="next"
-              autoFocus={true}
+              autoFocus={false}
               blurOnSubmit={false}
             />
             <TextArea
@@ -420,6 +420,7 @@ const CreateCivicEngagement = () => {
               emptyMessage="No types available"
               loadingMessage="Loading types..."
               errorMessage="Error loading types"
+              initialModalOpen={true}
             />
           </View>
 
