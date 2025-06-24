@@ -190,7 +190,7 @@ export class JobNotificationService {
 
     return {
       title: `✅ ${title}`,
-      body: `Your ${type.toLowerCase()} has been successfully submitted and is now under review. We'll notify you when there are updates.`,
+      body: `Your ${type.toLowerCase()} has been successfully submitted. We'll notify you when there are updates.`,
     };
   }
 

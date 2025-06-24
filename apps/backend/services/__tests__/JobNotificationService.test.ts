@@ -67,7 +67,7 @@ describe("JobNotificationService", () => {
 
       expect(mockSendToUser).toHaveBeenCalledWith("user-123", {
         title: "✅ Civic Engagement Submitted",
-        body: "Your feedback has been successfully submitted and is now under review. We'll notify you when there are updates.",
+        body: "Your feedback has been successfully submitted. We'll notify you when there are updates.",
         data: {
           type: "job_completion",
           jobId: "job-123",
