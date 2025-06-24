@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Calendar, MapPin, MessageSquare, User } from "lucide-react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
@@ -72,6 +71,7 @@ export default function CivicEngagementDetailPage() {
     useState<CivicEngagement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [signedImageUrl, setSignedImageUrl] = useState<string | null>(null);
 
   const id = params.id as string;
 
@@ -84,6 +84,13 @@ export default function CivicEngagementDetailPage() {
         setError(null);
         const data = await api.getCivicEngagementById(id);
         setCivicEngagement(data);
+        // Fetch signed image URL if there are images
+        if (data.imageUrls && data.imageUrls.length > 0) {
+          const signedUrl = await api.getCivicEngagementSignedImageUrl(id);
+          setSignedImageUrl(signedUrl);
+        } else {
+          setSignedImageUrl(null);
+        }
       } catch (err) {
         setError(
           err instanceof Error
@@ -200,26 +207,24 @@ export default function CivicEngagementDetailPage() {
               )}
 
               {/* Images */}
-              {civicEngagement.imageUrls &&
-                civicEngagement.imageUrls.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Images</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 gap-4">
-                        {civicEngagement.imageUrls.map((imageUrl, index) => (
-                          <img
-                            key={index}
-                            src={imageUrl}
-                            alt={`Civic engagement image ${index + 1}`}
-                            className="rounded-lg w-full h-48 object-cover"
-                          />
-                        ))}
+              {signedImageUrl && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Image</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="aspect-video w-full overflow-hidden rounded-lg">
+                        <img
+                          src={signedImageUrl}
+                          alt="Civic engagement image"
+                          className="h-full w-full object-cover"
+                        />
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Sidebar */}

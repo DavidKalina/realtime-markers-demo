@@ -167,6 +167,13 @@ class ApiClient {
   async deleteCivicEngagement(id: string): Promise<{ success: boolean }> {
     return this.delete<{ success: boolean }>(`/api/civic-engagements/${id}`);
   }
+
+  async getCivicEngagementSignedImageUrl(id: string): Promise<string | null> {
+    const res = await this.get<{ signedImageUrl?: string }>(
+      `/api/admin/civic-engagements/${id}/image`,
+    );
+    return res.signedImageUrl || null;
+  }
 }
 
 // Export a singleton instance
@@ -190,6 +197,8 @@ export const api = {
   getAllCivicEngagements: () => apiClient.getAllCivicEngagements(),
   getCivicEngagementById: (id: string) => apiClient.getCivicEngagementById(id),
   deleteCivicEngagement: (id: string) => apiClient.deleteCivicEngagement(id),
+  getCivicEngagementSignedImageUrl: (id: string) =>
+    apiClient.getCivicEngagementSignedImageUrl(id),
 };
 
 export default apiClient;
