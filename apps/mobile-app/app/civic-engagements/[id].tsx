@@ -1,35 +1,34 @@
-import React, { useCallback, useEffect, useState, useMemo } from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  View,
-  StyleSheet,
-  Alert,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  ColorValue,
-} from "react-native";
-import * as Haptics from "expo-haptics";
-import {
-  MapPin,
-  Calendar,
-  Clock,
-  User,
-  MessageSquare,
-  Navigation2,
-} from "lucide-react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import { AuthWrapper } from "@/components/AuthWrapper";
+import Button from "@/components/Layout/Button";
 import Screen from "@/components/Layout/Screen";
 import { ThemedText } from "@/components/ThemedText";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   apiClient,
   CivicEngagement,
-  CivicEngagementType,
   CivicEngagementStatus,
+  CivicEngagementType,
 } from "@/services/ApiClient";
-import { AuthWrapper } from "@/components/AuthWrapper";
-import { useAuth } from "@/contexts/AuthContext";
-import Button from "@/components/Layout/Button";
+import * as Haptics from "expo-haptics";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  Clock,
+  MapPin,
+  MessageSquare,
+  Navigation2,
+  User,
+} from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  ColorValue,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 // Municipal-friendly color scheme
 const MUNICIPAL_COLORS = {
@@ -512,7 +511,6 @@ const CivicEngagementDetails = () => {
                   onPress={handleOpenMaps}
                   activeOpacity={0.7}
                 >
-                  <MapPin size={16} color={MUNICIPAL_COLORS.textSecondary} />
                   <View style={styles.locationContent}>
                     <Text style={styles.detailText}>
                       {civicEngagement.address}
@@ -544,7 +542,6 @@ const CivicEngagementDetails = () => {
             <InfoCard title="Timeline" icon={Clock}>
               <View style={styles.timelineContainer}>
                 <View style={styles.timelineItem}>
-                  <Calendar size={16} color={MUNICIPAL_COLORS.textSecondary} />
                   <View style={styles.timelineContent}>
                     <Text style={styles.timelineLabel}>Created</Text>
                     <Text style={styles.timelineDate}>
@@ -555,7 +552,6 @@ const CivicEngagementDetails = () => {
 
                 {civicEngagement.implementedAt && (
                   <View style={styles.timelineItem}>
-                    <Text style={styles.timelineIcon}>✅</Text>
                     <View style={styles.timelineContent}>
                       <Text
                         style={[
@@ -583,7 +579,6 @@ const CivicEngagementDetails = () => {
             {civicEngagement.creator && (
               <InfoCard title="Submitted By" icon={User}>
                 <View style={styles.creatorContainer}>
-                  <User size={16} color={MUNICIPAL_COLORS.textSecondary} />
                   <Text style={styles.creatorText}>
                     {(() => {
                       if (
@@ -782,10 +777,6 @@ const styles = StyleSheet.create({
   timelineDate: {
     fontSize: 14,
     color: MUNICIPAL_COLORS.textSecondary,
-  },
-  timelineIcon: {
-    fontSize: 16,
-    marginRight: 12,
   },
   creatorContainer: {
     flexDirection: "row",
