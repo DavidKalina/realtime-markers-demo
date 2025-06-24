@@ -92,7 +92,7 @@ export default function FeedbackPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
-  const ITEMS_PER_PAGE = 1;
+  const ITEMS_PER_PAGE = 10;
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Use the search hook with the initial civic engagements
