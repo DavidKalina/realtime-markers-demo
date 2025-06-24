@@ -174,6 +174,7 @@ async function initializeWorker() {
     jobQueue,
     redisService,
     storageService,
+    embeddingService,
   );
 
   console.log("Worker initialized successfully");

@@ -15,8 +15,6 @@ import {
 import {
   processCivicEngagementFormData,
   validateCivicEngagementData,
-  prepareCreateCivicEngagementInput,
-  generateCivicEngagementEmbedding,
   processCivicEngagementUpdateFormData,
   prepareCivicEngagementUpdateData,
 } from "../utils/civicEngagementUtils";
@@ -26,14 +24,12 @@ export type CivicEngagementHandler = Handler;
 export const createCivicEngagementHandler: CivicEngagementHandler =
   withErrorHandling(async (c) => {
     const user = requireAuth(c);
-    const civicEngagementService = c.get("civicEngagementService");
-    const storageService = c.get("storageService");
-    const embeddingService = c.get("embeddingService");
+    const jobQueue = c.get("jobQueue");
 
     // Process form data and extract civic engagement data
-    const { data, imageUrls } = await processCivicEngagementFormData(
+    const { data } = await processCivicEngagementFormData(
       c,
-      storageService,
+      c.get("storageService"),
       user,
     );
 
@@ -48,24 +44,40 @@ export const createCivicEngagementHandler: CivicEngagementHandler =
       );
     }
 
-    // Generate embedding
-    const dataWithEmbedding = await generateCivicEngagementEmbedding(
-      data,
-      embeddingService,
-    );
+    // Prepare job data
+    const jobData = {
+      title: data.title!,
+      type: data.type!,
+      description: data.description,
+      location: data.location
+        ? {
+            type: "Point" as const,
+            coordinates: data.location.coordinates as [number, number],
+          }
+        : undefined,
+      address: data.address,
+      locationNotes: data.locationNotes,
+      creatorId: user.userId!,
+      contentType: data.contentType,
+      filename: data.filename,
+    };
 
-    // Prepare the final CreateCivicEngagementInput
-    const civicEngagementInput = prepareCreateCivicEngagementInput(
-      dataWithEmbedding,
-      user,
-      imageUrls,
-    );
+    // Prepare buffer data if image is provided
+    let bufferData: Buffer | undefined;
+    if (data.imageBuffer) {
+      bufferData = Buffer.from(data.imageBuffer, "base64");
+    }
 
-    // Create the civic engagement
-    const newCivicEngagement =
-      await civicEngagementService.createCivicEngagement(civicEngagementInput);
+    // Enqueue the civic engagement processing job
+    const jobId = await jobQueue.enqueueCivicEngagementJob(jobData, {
+      bufferData,
+    });
 
-    return c.json(newCivicEngagement);
+    return c.json({
+      jobId,
+      message: "Civic engagement processing started",
+      status: "pending",
+    });
   });
 
 export const getCivicEngagementsHandler: CivicEngagementHandler =

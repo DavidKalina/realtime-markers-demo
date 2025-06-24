@@ -6,6 +6,7 @@ import type { StorageService } from "../../services/shared/StorageService";
 import type { CreateCivicEngagementInput } from "../../types/civicEngagement";
 import { CivicEngagementType } from "../../entities/CivicEngagement";
 import type { Point } from "geojson";
+import type { IEmbeddingService } from "../../services/event-processing/interfaces/IEmbeddingService";
 
 export class ProcessCivicEngagementHandler extends BaseJobHandler {
   readonly jobType = "process_civic_engagement";
@@ -13,6 +14,7 @@ export class ProcessCivicEngagementHandler extends BaseJobHandler {
   constructor(
     private readonly civicEngagementService: CivicEngagementService,
     private readonly storageService: StorageService,
+    private readonly embeddingService: IEmbeddingService,
   ) {
     super();
   }
@@ -30,13 +32,13 @@ export class ProcessCivicEngagementHandler extends BaseJobHandler {
         "Starting civic engagement processing",
       );
 
-      // Step 1: Validation and Setup (20% progress)
+      // Step 1: Validation and Setup (15% progress)
       await this.updateJobProgress(jobId, context, {
-        progress: 20,
+        progress: 15,
         progressStep: "Validating civic engagement request",
         progressDetails: {
           currentStep: "1",
-          totalSteps: 4,
+          totalSteps: 5,
           stepProgress: 100,
           stepDescription: "Validating civic engagement request",
         },
@@ -67,16 +69,16 @@ export class ProcessCivicEngagementHandler extends BaseJobHandler {
         throw new Error(`Invalid civic engagement type: ${type}`);
       }
 
-      // Step 2: Image Processing (if provided) (50% progress)
+      // Step 2: Image Processing (if provided) (35% progress)
       let imageUrls: string[] = [];
 
       if (job.data.hasBuffer) {
         await this.updateJobProgress(jobId, context, {
-          progress: 35,
+          progress: 25,
           progressStep: "Processing attached images",
           progressDetails: {
             currentStep: "2",
-            totalSteps: 4,
+            totalSteps: 5,
             stepProgress: 0,
             stepDescription: "Processing attached images",
           },
@@ -108,11 +110,11 @@ export class ProcessCivicEngagementHandler extends BaseJobHandler {
         }
 
         await this.updateJobProgress(jobId, context, {
-          progress: 50,
+          progress: 35,
           progressStep: "Images processed successfully",
           progressDetails: {
             currentStep: "2",
-            totalSteps: 4,
+            totalSteps: 5,
             stepProgress: 100,
             stepDescription: "Images processed successfully",
           },
@@ -120,11 +122,11 @@ export class ProcessCivicEngagementHandler extends BaseJobHandler {
       } else {
         // Skip image processing if no buffer
         await this.updateJobProgress(jobId, context, {
-          progress: 50,
+          progress: 35,
           progressStep: "No images to process",
           progressDetails: {
             currentStep: "2",
-            totalSteps: 4,
+            totalSteps: 5,
             stepProgress: 100,
             stepDescription: "No images to process",
           },
@@ -133,7 +135,7 @@ export class ProcessCivicEngagementHandler extends BaseJobHandler {
 
       // Step 3: Creating Civic Engagement (75% progress)
       await this.updateJobProgress(jobId, context, {
-        progress: 75,
+        progress: 55,
         progressStep: "Creating civic engagement record",
         progressDetails: {
           currentStep: "3",
@@ -155,7 +157,7 @@ export class ProcessCivicEngagementHandler extends BaseJobHandler {
         creatorId: creatorId as string,
       };
 
-      // Create the civic engagement record
+      // Create the civic engagement record (embedding will be handled by the service)
       const civicEngagement =
         await this.civicEngagementService.createCivicEngagement(
           civicEngagementInput,

@@ -129,6 +129,8 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
         return "Create Private Event";
       case "process_multi_event_flyer":
         return "Process Multi-Event Flyer";
+      case "process_civic_engagement":
+        return "Process Civic Engagement";
       case "cleanup_outdated_events":
         return "Cleanup Community Events";
       default:
@@ -144,6 +146,36 @@ const JobItem: React.FC<JobItemProps> = ({ job, onRetry }) => {
 
     // Determine if this is a private event based on job type
     const isPrivateEvent = job.type === "process_private_event";
+    const isCivicEngagement = job.type === "process_civic_engagement";
+
+    // Handle civic engagement jobs
+    if (isCivicEngagement) {
+      const title = job.data?.title as string;
+      const type = job.data?.type as string;
+      const resultTitle = result?.title as string;
+
+      if (resultTitle) {
+        return {
+          title: resultTitle,
+          emoji: "💬",
+          isPrivate: false,
+        };
+      }
+
+      if (title) {
+        return {
+          title: `Processing ${type?.toLowerCase() || "feedback"}: ${title}`,
+          emoji: "💬",
+          isPrivate: false,
+        };
+      }
+
+      return {
+        title: "Processing Civic Engagement",
+        emoji: "💬",
+        isPrivate: false,
+      };
+    }
 
     // Prefer result emoji if present (for completed jobs)
     if (result?.title || result?.emoji) {

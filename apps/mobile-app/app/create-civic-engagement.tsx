@@ -535,7 +535,7 @@ const CreateCivicEngagement = () => {
                 router.back();
               } else {
                 // For new submissions, redirect to jobs screen to see processing
-                router.push("/");
+                router.push("/jobs");
               }
             },
           },
