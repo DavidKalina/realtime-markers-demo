@@ -40,9 +40,9 @@ import MapboxGL from "@rnmapbox/maps";
 
 // Memoized map marker component
 const MapMarker = memo(({ coordinates }: { coordinates: [number, number] }) => (
-  <MapboxGL.MarkerView coordinate={coordinates} anchor={{ x: 0.5, y: 1.0 }}>
+  <MapboxGL.MarkerView coordinate={coordinates} anchor={{ x: 0.5, y: 0.5 }}>
     <View style={styles.mapMarker}>
-      <MapPinIcon size={20} color={COLORS.accent} />
+      <View style={styles.mapMarkerDot} />
     </View>
   </MapboxGL.MarkerView>
 ));
@@ -121,6 +121,19 @@ const CivicEngagementMapPreview = memo<{
   locationName: string;
 }>(({ coordinates, locationName }) => {
   const mapStyle = useMemo(() => MapboxGL.StyleURL.SatelliteStreet, []);
+  const cameraRef = useRef<MapboxGL.Camera>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
+
+  // Set camera position when map is ready
+  useEffect(() => {
+    if (isMapReady && cameraRef.current) {
+      cameraRef.current.setCamera({
+        centerCoordinate: coordinates,
+        zoomLevel: 18,
+        animationDuration: 0,
+      });
+    }
+  }, [isMapReady, coordinates]);
 
   return (
     <View style={styles.mapPreviewContainer}>
@@ -136,8 +149,14 @@ const CivicEngagementMapPreview = memo<{
           styleURL={mapStyle}
           logoEnabled={false}
           attributionEnabled={false}
+          onDidFinishLoadingMap={() => setIsMapReady(true)}
         >
-          <MapboxGL.Camera zoomLevel={18} centerCoordinate={coordinates} />
+          <MapboxGL.Camera
+            ref={cameraRef}
+            zoomLevel={18}
+            centerCoordinate={coordinates}
+            animationDuration={0}
+          />
           <MapMarker coordinates={coordinates} />
         </MapboxGL.MapView>
         <View style={styles.coordinatesOverlay}>
@@ -875,10 +894,10 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   mapMarker: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#ffffff",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "transparent",
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
@@ -889,6 +908,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  mapMarkerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#ffa500",
+    borderWidth: 2,
+    borderColor: "#ffffff",
   },
   coordinatesOverlay: {
     position: "absolute",
