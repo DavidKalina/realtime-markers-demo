@@ -23,12 +23,20 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Filter,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiService as api } from "@/services/api";
 import useCivicEngagementSearch from "@/hooks/useCivicEngagementSearch";
 import { format } from "date-fns";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Helper function to get type display name and variant
 const getTypeInfo = (type: string) => {
@@ -95,7 +103,7 @@ const StatusBadge = ({ status }: { status: string }) => {
     switch (status) {
       case "PENDING":
         return "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200";
-      case "UNDER_REVIEW":
+      case "IN_REVIEW":
         return "bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200";
       case "APPROVED":
         return "bg-green-100 text-green-800 border-green-200 hover:bg-green-200";
@@ -103,6 +111,8 @@ const StatusBadge = ({ status }: { status: string }) => {
         return "bg-red-100 text-red-800 border-red-200 hover:bg-red-200";
       case "IMPLEMENTED":
         return "bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-200";
+      case "CLOSED":
+        return "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200";
     }
@@ -148,8 +158,27 @@ export default function FeedbackPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
+  // Filter state
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [hasFilters, setHasFilters] = useState(false);
+
   const ITEMS_PER_PAGE = 10;
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  // Filter options
+  const typeOptions = [
+    { value: "POSITIVE_FEEDBACK", label: "Positive Feedback" },
+    { value: "NEGATIVE_FEEDBACK", label: "Negative Feedback" },
+    { value: "IDEA", label: "Idea" },
+  ];
+
+  const statusOptions = [
+    { value: "PENDING", label: "Pending" },
+    { value: "IN_REVIEW", label: "In Review" },
+    { value: "IMPLEMENTED", label: "Implemented" },
+    { value: "CLOSED", label: "Closed" },
+  ];
 
   // Use the search hook with the initial civic engagements
   const {
@@ -170,6 +199,8 @@ export default function FeedbackPage() {
       const response = await api.getCivicEngagements({
         limit: ITEMS_PER_PAGE,
         offset,
+        type: selectedTypes.length > 0 ? selectedTypes : undefined,
+        status: selectedStatuses.length > 0 ? selectedStatuses : undefined,
       });
 
       if (response.data) {
@@ -184,7 +215,7 @@ export default function FeedbackPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage]);
+  }, [currentPage, selectedTypes, selectedStatuses]);
 
   const handleSearch = useCallback(async () => {
     if (!debouncedSearchQuery.trim()) {
@@ -203,6 +234,8 @@ export default function FeedbackPage() {
         search: debouncedSearchQuery,
         limit: ITEMS_PER_PAGE,
         offset: 0,
+        type: selectedTypes.length > 0 ? selectedTypes : undefined,
+        status: selectedStatuses.length > 0 ? selectedStatuses : undefined,
       });
 
       if (response.data) {
@@ -218,7 +251,7 @@ export default function FeedbackPage() {
     } finally {
       setIsSearching(false);
     }
-  }, [debouncedSearchQuery]);
+  }, [debouncedSearchQuery, selectedTypes, selectedStatuses]);
 
   const clearSearch = () => {
     setSearchQuery("");
@@ -226,7 +259,34 @@ export default function FeedbackPage() {
     setIsSearching(false);
     setSearchError(null);
     setCurrentPage(1);
+    clearFilters();
     loadCivicEngagements();
+  };
+
+  // Filter management functions
+  const handleTypeFilterChange = (value: string) => {
+    const newTypes = selectedTypes.includes(value)
+      ? selectedTypes.filter((t) => t !== value)
+      : [...selectedTypes, value];
+    setSelectedTypes(newTypes);
+    setCurrentPage(1);
+    setHasFilters(newTypes.length > 0 || selectedStatuses.length > 0);
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+    const newStatuses = selectedStatuses.includes(value)
+      ? selectedStatuses.filter((s) => s !== value)
+      : [...selectedStatuses, value];
+    setSelectedStatuses(newStatuses);
+    setCurrentPage(1);
+    setHasFilters(selectedTypes.length > 0 || newStatuses.length > 0);
+  };
+
+  const clearFilters = () => {
+    setSelectedTypes([]);
+    setSelectedStatuses([]);
+    setHasFilters(false);
+    setCurrentPage(1);
   };
 
   // Load civic engagements when page changes
@@ -234,7 +294,13 @@ export default function FeedbackPage() {
     if (!hasSearched) {
       loadCivicEngagements();
     }
-  }, [currentPage, loadCivicEngagements, hasSearched]);
+  }, [
+    currentPage,
+    loadCivicEngagements,
+    hasSearched,
+    selectedTypes,
+    selectedStatuses,
+  ]);
 
   // Handle search when debounced query changes
   useEffect(() => {
@@ -251,6 +317,7 @@ export default function FeedbackPage() {
     : civicEngagements;
   const displayLoading = loading || isSearching;
   const displayError = error || searchError;
+  const isFiltered = hasFilters || hasSearched;
 
   return (
     <ProtectedRoute>
@@ -302,10 +369,75 @@ export default function FeedbackPage() {
             )}
           </div>
 
+          {/* Filters */}
+          <div className="flex flex-wrap gap-4 items-center">
+            {/* Type Filter */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Type
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {typeOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    variant={
+                      selectedTypes.includes(option.value)
+                        ? "default"
+                        : "outline"
+                    }
+                    size="sm"
+                    onClick={() => handleTypeFilterChange(option.value)}
+                    className="h-8 px-3 text-xs"
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Status
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {statusOptions.map((option) => (
+                  <Button
+                    key={option.value}
+                    variant={
+                      selectedStatuses.includes(option.value)
+                        ? "default"
+                        : "outline"
+                    }
+                    size="sm"
+                    onClick={() => handleStatusFilterChange(option.value)}
+                    className="h-8 px-3 text-xs"
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Clear Filters */}
+            {hasFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-8 px-3 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Clear Filters
+              </Button>
+            )}
+          </div>
+
           <div className="rounded-md border">
             {displayLoading ? (
               <div className="p-8 text-center text-muted-foreground">
-                {hasSearched ? "Searching feedback..." : "Loading feedback..."}
+                {isFiltered
+                  ? "Loading filtered feedback..."
+                  : "Loading feedback..."}
               </div>
             ) : displayError ? (
               <div className="p-8 text-center text-destructive">
@@ -331,8 +463,8 @@ export default function FeedbackPage() {
                           colSpan={6}
                           className="text-center text-muted-foreground py-8"
                         >
-                          {hasSearched
-                            ? "No feedback matches your search"
+                          {isFiltered
+                            ? "No feedback matches your filters"
                             : "No feedback found"}
                         </TableCell>
                       </TableRow>
