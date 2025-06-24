@@ -56,12 +56,12 @@ const CivicEngagementsListScreen = () => {
   const tabItems = [
     {
       icon: MessageSquare,
-      label: "My Engagements",
+      label: "My Feedback",
       value: "my-engagements" as CivicEngagementTab,
     },
     {
       icon: Users,
-      label: "All Engagements",
+      label: "All Feedback",
       value: "all-engagements" as CivicEngagementTab,
     },
   ];
