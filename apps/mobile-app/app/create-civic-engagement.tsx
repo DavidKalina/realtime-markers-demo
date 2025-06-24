@@ -674,7 +674,7 @@ const CreateCivicEngagement = () => {
         footerButtons={footerButtons}
         isScrollable={true}
         noSafeArea={false}
-        extendBannerToStatusBar={false}
+        extendBannerToStatusBar={true}
       >
         <View style={styles.container}>
           {/* Location Section - First, as it's most important for municipal feedback */}
