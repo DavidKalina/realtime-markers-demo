@@ -42,10 +42,32 @@ export class PushNotificationService {
 
       console.log("✅ Notification permissions granted");
 
-      // Get the token - projectId is optional
+      // Get the token - use project ID from app config or environment
       const tokenOptions: { projectId?: string } = {};
+
+      // First try to get from environment variable
       if (process.env.EXPO_PUBLIC_PROJECT_ID) {
         tokenOptions.projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+        console.log(
+          "📱 Using project ID from environment:",
+          tokenOptions.projectId,
+        );
+      }
+      // Fall back to app config
+      else if (Constants.expoConfig?.extra?.expoProjectId) {
+        tokenOptions.projectId = Constants.expoConfig.extra.expoProjectId;
+        console.log(
+          "📱 Using project ID from app config:",
+          tokenOptions.projectId,
+        );
+      }
+      // Final fallback to EAS project ID
+      else if (Constants.expoConfig?.extra?.eas?.projectId) {
+        tokenOptions.projectId = Constants.expoConfig.extra.eas.projectId;
+        console.log(
+          "📱 Using project ID from EAS config:",
+          tokenOptions.projectId,
+        );
       }
 
       const tokenData = await Notifications.getExpoPushTokenAsync(tokenOptions);

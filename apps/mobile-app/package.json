@@ -12,7 +12,8 @@
     "lint": "expo lint",
     "build:ios": "eas build --profile development --platform ios",
     "build:android": "eas build --profile development --platform android",
-    "start:dev": "expo start --dev-client"
+    "start:dev": "expo start --dev-client",
+    "test:push": "node ./scripts/test-push-notifications.js"
   },
   "jest": {
     "preset": "jest-expo"

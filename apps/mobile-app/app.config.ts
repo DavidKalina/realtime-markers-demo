@@ -29,6 +29,7 @@ export default {
         NSAppTransportSecurity: {
           NSAllowsArbitraryLoads: false,
         },
+        UIBackgroundModes: ["remote-notification"],
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
@@ -118,6 +119,7 @@ export default {
       eas: {
         projectId: "ff0ebef4-f13d-442f-be77-f5818888f458",
       },
+      expoProjectId: "ff0ebef4-f13d-442f-be77-f5818888f458",
     },
   },
 };
