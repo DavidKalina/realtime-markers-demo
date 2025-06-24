@@ -89,7 +89,7 @@ export default function LoginPage() {
               alt="Frederick Logo"
               width={120}
               height={120}
-              className="w-24 h-24"
+              className="w-48 h-48"
             />
           </div>
           <h2
