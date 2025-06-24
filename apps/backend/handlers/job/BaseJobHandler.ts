@@ -1,6 +1,7 @@
 import type { JobData } from "../../services/JobQueue";
 import type { JobQueue } from "../../services/JobQueue";
 import type { RedisService } from "../../services/shared/RedisService";
+import { jobNotificationService } from "../../services/JobNotificationService";
 
 export interface JobHandlerContext {
   jobQueue: JobQueue;
@@ -78,13 +79,33 @@ export abstract class BaseJobHandler implements JobHandler {
     error: Error | string,
     message?: string,
   ): Promise<void> {
+    const errorMessage = error instanceof Error ? error.message : error;
+
     await this.updateJobProgress(jobId, context, {
       status: "failed",
       progress: 100,
-      error: error instanceof Error ? error.message : error,
+      error: errorMessage,
       message: message || "An error occurred while processing the job",
       completed: new Date().toISOString(),
     });
+
+    // Send push notification for job failure
+    try {
+      const jobData = await context.jobQueue.getJobStatus(jobId);
+      if (jobData) {
+        await jobNotificationService.notifyJobFailure(
+          jobData,
+          errorMessage,
+          message,
+        );
+      }
+    } catch (notificationError) {
+      console.error(
+        "Error sending job failure notification:",
+        notificationError,
+      );
+      // Don't throw error to avoid breaking job failure handling
+    }
   }
 
   protected async completeJob(
@@ -100,6 +121,20 @@ export abstract class BaseJobHandler implements JobHandler {
       eventId,
       completed: new Date().toISOString(),
     });
+
+    // Send push notification for job completion
+    try {
+      const jobData = await context.jobQueue.getJobStatus(jobId);
+      if (jobData && result) {
+        await jobNotificationService.notifyJobCompletion(jobData, result);
+      }
+    } catch (notificationError) {
+      console.error(
+        "Error sending job completion notification:",
+        notificationError,
+      );
+      // Don't throw error to avoid breaking job completion
+    }
   }
 
   private getTotalStepsForJobType(): number {

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -25,6 +25,16 @@ export const ContentTypeOverlay: React.FC<ContentTypeOverlayProps> = ({
   onSelectCivicEngagement,
   onCancel,
 }) => {
+  const [pressedOption, setPressedOption] = useState<string | null>(null);
+
+  const handlePressIn = (option: string) => {
+    setPressedOption(option);
+  };
+
+  const handlePressOut = () => {
+    setPressedOption(null);
+  };
+
   return (
     <Modal
       visible={isVisible}
@@ -54,11 +64,21 @@ export const ContentTypeOverlay: React.FC<ContentTypeOverlayProps> = ({
           <View style={styles.optionsContainer}>
             {/* Event Option */}
             <TouchableOpacity
-              style={styles.optionCard}
+              style={[
+                styles.optionCard,
+                pressedOption === "event" && styles.optionCardPressed,
+              ]}
               onPress={onSelectEvent}
-              activeOpacity={0.8}
+              onPressIn={() => handlePressIn("event")}
+              onPressOut={handlePressOut}
+              activeOpacity={0.7}
             >
-              <View style={styles.optionIcon}>
+              <View
+                style={[
+                  styles.optionIcon,
+                  pressedOption === "event" && styles.optionIconPressed,
+                ]}
+              >
                 <Calendar size={32} color={COLORS.accent} />
               </View>
               <Text style={styles.optionTitle}>Community Event</Text>
@@ -69,11 +89,21 @@ export const ContentTypeOverlay: React.FC<ContentTypeOverlayProps> = ({
 
             {/* Civic Engagement Option */}
             <TouchableOpacity
-              style={styles.optionCard}
+              style={[
+                styles.optionCard,
+                pressedOption === "civic" && styles.optionCardPressed,
+              ]}
               onPress={onSelectCivicEngagement}
-              activeOpacity={0.8}
+              onPressIn={() => handlePressIn("civic")}
+              onPressOut={handlePressOut}
+              activeOpacity={0.7}
             >
-              <View style={styles.optionIcon}>
+              <View
+                style={[
+                  styles.optionIcon,
+                  pressedOption === "civic" && styles.optionIconPressed,
+                ]}
+              >
                 <MessageSquare size={32} color={COLORS.accent} />
               </View>
               <Text style={styles.optionTitle}>Community Feedback</Text>
@@ -155,6 +185,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minHeight: 120,
     justifyContent: "center",
+    transform: [{ scale: 1 }],
+  },
+  optionCardPressed: {
+    backgroundColor: COLORS.accent + "10",
+    borderColor: COLORS.accent,
+    transform: [{ scale: 0.98 }],
   },
   optionIcon: {
     width: 64,
@@ -164,6 +200,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 12,
+  },
+  optionIconPressed: {
+    backgroundColor: COLORS.accent + "40",
+    transform: [{ scale: 1.05 }],
   },
   optionTitle: {
     color: COLORS.textPrimary,

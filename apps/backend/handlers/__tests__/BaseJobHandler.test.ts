@@ -4,6 +4,18 @@ import type { JobData } from "../../services/JobQueue";
 import type { JobQueue } from "../../services/JobQueue";
 import type { RedisService } from "../../services/shared/RedisService";
 
+// Mock the JobNotificationService
+const mockNotifyJobCompletion = mock(() => Promise.resolve());
+const mockNotifyJobFailure = mock(() => Promise.resolve());
+
+// Mock the entire module
+mock.module("../../services/JobNotificationService", () => ({
+  jobNotificationService: {
+    notifyJobCompletion: mockNotifyJobCompletion,
+    notifyJobFailure: mockNotifyJobFailure,
+  },
+}));
+
 // Create a concrete implementation of BaseJobHandler for testing
 class TestJobHandler extends BaseJobHandler {
   readonly jobType = "test_job";
@@ -51,6 +63,10 @@ describe("BaseJobHandler", () => {
   let mockContext: JobHandlerContext;
 
   beforeEach(() => {
+    // Reset mocks
+    mockNotifyJobCompletion.mockClear();
+    mockNotifyJobFailure.mockClear();
+
     // Create mock services
     mockJobQueue = {
       updateJobStatus: mock(() => Promise.resolve()),
@@ -60,6 +76,15 @@ describe("BaseJobHandler", () => {
       getJob: mock(() => Promise.resolve(null)),
       getJobs: mock(() => Promise.resolve([])),
       sortJobsChronologically: mock(() => []),
+      getJobStatus: mock(() =>
+        Promise.resolve({
+          id: "job-123",
+          type: "test_job",
+          status: "pending",
+          created: new Date().toISOString(),
+          data: { creatorId: "user-123" },
+        }),
+      ),
     } as unknown as JobQueue;
 
     mockRedisService = {
@@ -149,6 +174,16 @@ describe("BaseJobHandler", () => {
         eventId: "event-123",
         completed: expect.any(String),
       });
+
+      // Verify that notification was sent
+      expect(mockNotifyJobCompletion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "job-123",
+          type: "test_job",
+          data: { creatorId: "user-123" },
+        }),
+        { success: true },
+      );
     });
 
     it("should handle job processing errors", async () => {
@@ -222,7 +257,7 @@ describe("BaseJobHandler", () => {
       );
     });
 
-    it("should fail job with error details", async () => {
+    it("should fail job with error details and send notification", async () => {
       const error = new Error("Test error");
       const message = "A test error occurred";
 
@@ -235,9 +270,19 @@ describe("BaseJobHandler", () => {
         message: "A test error occurred",
         completed: expect.any(String),
       });
+
+      // Verify that failure notification was sent
+      expect(mockNotifyJobFailure).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "job-123",
+          data: { creatorId: "user-123" },
+        }),
+        "Test error",
+        "A test error occurred",
+      );
     });
 
-    it("should fail job with string error", async () => {
+    it("should fail job with string error and send notification", async () => {
       const errorMessage = "String error message";
 
       await testHandler["failJob"]("job-123", mockContext, errorMessage);
@@ -249,9 +294,19 @@ describe("BaseJobHandler", () => {
         message: "An error occurred while processing the job",
         completed: expect.any(String),
       });
+
+      // Verify that failure notification was sent
+      expect(mockNotifyJobFailure).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "job-123",
+          data: { creatorId: "user-123" },
+        }),
+        "String error message",
+        "An error occurred while processing the job",
+      );
     });
 
-    it("should complete job with result", async () => {
+    it("should complete job with result and send notification", async () => {
       const result = {
         eventId: "event-456",
         success: true,
@@ -268,9 +323,18 @@ describe("BaseJobHandler", () => {
         eventId,
         completed: expect.any(String),
       });
+
+      // Verify that completion notification was sent
+      expect(mockNotifyJobCompletion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "job-123",
+          data: { creatorId: "user-123" },
+        }),
+        result,
+      );
     });
 
-    it("should complete job without eventId", async () => {
+    it("should complete job without eventId and send notification", async () => {
       const result = { success: true };
 
       await testHandler["completeJob"]("job-123", mockContext, result);
@@ -281,6 +345,37 @@ describe("BaseJobHandler", () => {
         result,
         completed: expect.any(String),
       });
+
+      // Verify that completion notification was sent
+      expect(mockNotifyJobCompletion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "job-123",
+          data: { creatorId: "user-123" },
+        }),
+        result,
+      );
+    });
+
+    it("should handle notification errors gracefully", async () => {
+      // Mock notification service to throw an error
+      mockNotifyJobCompletion.mockImplementation(() =>
+        Promise.reject(new Error("Notification service error")),
+      );
+
+      const result = { success: true };
+
+      await testHandler["completeJob"]("job-123", mockContext, result);
+
+      // Verify job was still completed
+      expect(mockJobQueue.updateJobStatus).toHaveBeenCalledWith("job-123", {
+        status: "completed",
+        progress: 100,
+        result,
+        completed: expect.any(String),
+      });
+
+      // Verify notification was attempted but failed gracefully
+      expect(mockNotifyJobCompletion).toHaveBeenCalled();
     });
   });
 
