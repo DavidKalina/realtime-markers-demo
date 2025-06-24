@@ -29,6 +29,7 @@ import {
   TouchableOpacity,
   View,
   ViewStyle,
+  Text,
 } from "react-native";
 import {
   Easing,
@@ -101,7 +102,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
     // Memoize the icon color based on active state
     const iconColor = useMemo(
-      () => (isActive ? newColors.text : newColors.cardBackground), // White for active, white for inactive on teal background
+      () => (isActive ? newColors.accent : "rgba(255, 255, 255, 0.9)"), // Municipal accent for active, semi-transparent white for inactive
       [isActive],
     );
 
@@ -126,7 +127,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
     // Compute button style only when active state changes
     const buttonStyle = useMemo(
-      () => [styles.actionButton, disabled && { opacity: 0.5 }],
+      () => [styles.labeledActionButton, disabled && { opacity: 0.5 }],
       [disabled],
     );
 
@@ -135,7 +136,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
       // Clone the icon element to add color prop if active
       const iconElement = React.cloneElement(icon as React.ReactElement, {
         color: iconColor,
-        size: 22, // Increased icon size
+        size: 20, // Slightly smaller icon size for labeled buttons
       });
 
       return <View style={styles.actionButtonIcon}>{iconElement}</View>;
@@ -151,7 +152,16 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
         accessibilityLabel={`${label} button`}
         accessibilityState={{ disabled: !!disabled, selected: isActive }}
       >
-        <View style={styles.actionButtonIcon}>{iconWithWrapper}</View>
+        {iconWithWrapper}
+        <Text
+          style={[
+            styles.actionButtonLabel,
+            isActive && styles.activeActionButtonLabel,
+          ]}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
       </TouchableOpacity>
     );
   },
@@ -360,7 +370,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
           .map((tab) => ({
             key: tab.key,
             label: tab.label,
-            icon: <tab.icon size={22} color={newColors.cardBackground} />, // White icons for teal background
+            icon: <tab.icon size={22} />, // Remove hardcoded color, let ActionButton handle it
             action: actionHandlers[tab.key],
             disabled: tab.requiresLocation && !userLocation,
             isActive: tab.key === activeTab, // Add isActive based on current route
@@ -394,7 +404,7 @@ export const ActionBar: React.FC<ActionBarProps> = React.memo(
       () => [
         {
           flexDirection: "row",
-          justifyContent: "space-around",
+          justifyContent: "space-between",
           alignItems: "center",
           width: "100%",
           paddingHorizontal: 8,
