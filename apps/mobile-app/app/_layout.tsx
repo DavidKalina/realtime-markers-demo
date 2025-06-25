@@ -86,7 +86,6 @@ const MODAL_SCREEN_OPTIONS = {
 
 // Screen configurations
 const SCREEN_CONFIGS = [
-  { name: "jobs" },
   { name: "register" },
   { name: "login" },
   { name: "index" },
@@ -101,7 +100,6 @@ const SCREEN_CONFIGS = [
   { name: "category/[id]" },
   { name: "details" },
   { name: "create-civic-engagement" },
-  { name: "job-details", options: MODAL_SCREEN_OPTIONS },
   { name: "+not-found" },
 ] as const;
 

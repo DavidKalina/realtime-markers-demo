@@ -79,8 +79,7 @@ export default function ScanScreen() {
     console.log("[ScanScreen] Navigating to jobs screen...");
 
     try {
-      console.log("[ScanScreen] Calling router.replace('/jobs')");
-      router.replace("/jobs");
+      router.replace("/");
       console.log("[ScanScreen] Navigation call completed successfully");
     } catch (error) {
       console.error("[ScanScreen] Navigation error:", error);

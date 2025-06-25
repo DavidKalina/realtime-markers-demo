@@ -566,7 +566,7 @@ const CreateCivicEngagement = () => {
               } else {
                 // For new submissions, replace the current screen with jobs screen to see processing
                 // Using replace instead of push to properly close the modal
-                router.replace("/jobs");
+                router.replace("/");
               }
             },
           },
