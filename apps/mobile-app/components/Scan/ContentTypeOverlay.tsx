@@ -26,6 +26,7 @@ export const ContentTypeOverlay: React.FC<ContentTypeOverlayProps> = ({
   onCancel,
 }) => {
   const [pressedOption, setPressedOption] = useState<string | null>(null);
+  const [isCancelPressed, setIsCancelPressed] = useState(false);
 
   const handlePressIn = (option: string) => {
     setPressedOption(option);
@@ -33,6 +34,14 @@ export const ContentTypeOverlay: React.FC<ContentTypeOverlayProps> = ({
 
   const handlePressOut = () => {
     setPressedOption(null);
+  };
+
+  const handleCancelPressIn = () => {
+    setIsCancelPressed(true);
+  };
+
+  const handleCancelPressOut = () => {
+    setIsCancelPressed(false);
   };
 
   return (
@@ -115,11 +124,23 @@ export const ContentTypeOverlay: React.FC<ContentTypeOverlayProps> = ({
 
           {/* Cancel Button */}
           <TouchableOpacity
-            style={styles.cancelButton}
+            style={[
+              styles.cancelButton,
+              isCancelPressed && styles.cancelButtonPressed,
+            ]}
             onPress={onCancel}
+            onPressIn={handleCancelPressIn}
+            onPressOut={handleCancelPressOut}
             activeOpacity={0.7}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text
+              style={[
+                styles.cancelButtonText,
+                isCancelPressed && styles.cancelButtonTextPressed,
+              ]}
+            >
+              Cancel
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -225,10 +246,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.buttonBorder,
+    transform: [{ scale: 1 }],
+  },
+  cancelButtonPressed: {
+    backgroundColor: COLORS.accent + "10",
+    borderColor: COLORS.accent,
+    transform: [{ scale: 0.98 }],
   },
   cancelButtonText: {
     color: COLORS.textSecondary,
     fontSize: 16,
     fontFamily: "Poppins-Regular",
+  },
+  cancelButtonTextPressed: {
+    color: COLORS.accent,
   },
 });

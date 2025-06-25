@@ -9,21 +9,13 @@ import {
 } from "react-native";
 import { EventType } from "@/types/types";
 import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
-import PopularCategoriesSection from "./PopularCategoriesSection";
-import UpcomingEventsSection from "./UpcomingEventsSection";
 import CommunityEventsSection from "./CommunityEventsSection";
-
-interface Category {
-  id: string;
-  name: string;
-  icon: string;
-}
+import UpcomingEventsSection from "./UpcomingEventsSection";
 
 interface LandingPageData {
   featuredEvents: EventType[];
   upcomingEvents: EventType[];
   communityEvents?: EventType[];
-  popularCategories: Category[];
 }
 
 interface LandingPageContentProps {
@@ -62,19 +54,6 @@ const LandingPageSkeleton: React.FC = () => {
               </View>
             ))}
           </ScrollView>
-        </View>
-      </View>
-
-      {/* Popular Categories Skeleton */}
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Popular Categories</Text>
-        <View style={styles.categoriesGrid}>
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <View key={i} style={styles.categorySkeletonItem}>
-              <View style={styles.categorySkeletonIcon} />
-              <View style={styles.categorySkeletonText} />
-            </View>
-          ))}
         </View>
       </View>
 
@@ -150,11 +129,6 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
     >
       <FeaturedEventsCarousel
         events={data?.featuredEvents || []}
-        isLoading={false}
-      />
-
-      <PopularCategoriesSection
-        categories={data?.popularCategories || []}
         isLoading={false}
       />
 
@@ -241,32 +215,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#e0e0e0",
     borderRadius: 4,
     width: "70%",
-  },
-  categoriesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: 16,
-    gap: 16,
-  },
-  categorySkeletonItem: {
-    width: "30%",
-    alignItems: "center",
-    paddingVertical: 16,
-    borderRadius: 16,
-    backgroundColor: "#f0f0f0",
-  },
-  categorySkeletonIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#e0e0e0",
-    marginBottom: 10,
-  },
-  categorySkeletonText: {
-    height: 12,
-    backgroundColor: "#e0e0e0",
-    borderRadius: 6,
-    width: "60%",
   },
   communitySkeletonItem: {
     width: COMMUNITY_ITEM_WIDTH,
