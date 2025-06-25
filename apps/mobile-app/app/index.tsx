@@ -478,43 +478,100 @@ function HomeScreen() {
     [insets.bottom],
   );
 
+  // Memoize camera settings object
+  const cameraSettings = useMemo(
+    () => ({
+      ...defaultCameraSettings,
+      pitch: isPitched ? 52 : 0,
+    }),
+    [defaultCameraSettings, isPitched],
+  );
+
+  // Memoize static MapView props
+  const mapViewProps = useMemo(
+    () => ({
+      scaleBarEnabled: false,
+      rotateEnabled: false,
+      pitchEnabled: false,
+      style: styles.map,
+      logoEnabled: false,
+      attributionEnabled: false,
+    }),
+    [],
+  );
+
+  // Memoize static Camera props
+  const cameraProps = useMemo(
+    () => ({
+      minZoomLevel: 5,
+      animationDuration: 0,
+    }),
+    [],
+  );
+
+  // Memoize status bar section
+  const statusBarSection = useMemo(() => {
+    if (isLoadingLocation) return null;
+    return (
+      <>
+        <MunicipalBanner />
+        <View style={styles.statusBarSpacer} />
+      </>
+    );
+  }, [isLoadingLocation]);
+
+  // Memoize floating buttons section
+  const floatingButtonsSection = useMemo(
+    () => (
+      <View style={floatingDateButtonStyle}>
+        <DateRangeIndicator />
+        <PlusButton />
+      </View>
+    ),
+    [floatingDateButtonStyle],
+  );
+
+  // Memoize ripple effect component
+  const rippleEffectComponent = useMemo(() => {
+    if (!showRipple) return null;
+    return (
+      <MapRippleEffect
+        isVisible={showRipple}
+        position={ripplePosition}
+        onAnimationComplete={handleRippleComplete}
+      />
+    );
+  }, [showRipple, ripplePosition, handleRippleComplete]);
+
+  // Memoize viewport rectangle component
+  const viewportRectangleComponent = useMemo(
+    () => <ViewportRectangle viewport={viewportRectangle} />,
+    [viewportRectangle],
+  );
+
   return (
     <AuthWrapper>
       <View style={styles.container}>
         {isLoadingLocation && <LoadingOverlay />}
 
-        {!isLoadingLocation && (
-          <>
-            <MunicipalBanner />
-            <View style={styles.statusBarSpacer} />
-          </>
-        )}
+        {statusBarSection}
 
         <View style={styles.mapContainer}>
           <MapboxGL.MapView
             onTouchStart={handleUserPan}
             onPress={handleMapPress}
             onLongPress={handleMapLongPress}
-            scaleBarEnabled={false}
-            rotateEnabled={false}
-            pitchEnabled={false}
             ref={mapRef}
-            style={styles.map}
             styleURL={mapStyle}
-            logoEnabled={false}
-            attributionEnabled={false}
             onDidFinishLoadingMap={handleMapReady}
             onRegionIsChanging={handleRegionChanging}
+            {...mapViewProps}
           >
             {/* Camera with ref for control */}
             <MapboxGL.Camera
-              minZoomLevel={5}
               ref={cameraRef}
-              defaultSettings={{
-                ...defaultCameraSettings,
-                pitch: isPitched ? 52 : 0,
-              }}
-              animationDuration={0}
+              defaultSettings={cameraSettings}
+              {...cameraProps}
             />
 
             {/* Map Markers */}
@@ -524,21 +581,12 @@ function HomeScreen() {
             {userLocationLayer}
 
             {/* Viewport Rectangle */}
-            <ViewportRectangle viewport={viewportRectangle} />
+            {viewportRectangleComponent}
           </MapboxGL.MapView>
 
-          {showRipple && (
-            <MapRippleEffect
-              isVisible={showRipple}
-              position={ripplePosition}
-              onAnimationComplete={handleRippleComplete}
-            />
-          )}
+          {rippleEffectComponent}
 
-          <View style={floatingDateButtonStyle}>
-            <DateRangeIndicator />
-            <PlusButton />
-          </View>
+          {floatingButtonsSection}
         </View>
       </View>
     </AuthWrapper>
