@@ -8,13 +8,13 @@ import {
 import * as Haptics from "expo-haptics";
 import { usePathname, useRouter } from "expo-router";
 import {
-  BookMarkedIcon,
   Camera,
+  HeartIcon,
   LucideIcon,
+  MessageSquare,
   Navigation,
   SearchIcon,
   User,
-  MessageSquare,
 } from "lucide-react-native";
 import React, {
   useCallback,
@@ -26,10 +26,10 @@ import React, {
 import {
   Platform,
   StyleProp,
+  Text,
   TouchableOpacity,
   View,
   ViewStyle,
-  Text,
 } from "react-native";
 import {
   Easing,
@@ -221,8 +221,8 @@ const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
   },
   saved: {
     key: "saved",
-    label: "Events",
-    icon: BookMarkedIcon,
+    label: "Saved",
+    icon: HeartIcon,
     route: "/saved",
     enabled: true,
   },

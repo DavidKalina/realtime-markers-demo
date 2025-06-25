@@ -71,14 +71,14 @@ export const SplashScreenProvider: React.FC<{ children: React.ReactNode }> = ({
   // Set initial load complete after a minimum time and when all loading is done
   useEffect(() => {
     if (loadingStates.size === 0 && hasShownSplashRef.current) {
-      // Ensure splash shows for at least 1.5 seconds for better UX
+      // Ensure splash shows for at least 2 seconds for better UX and to cover map loading
       if (initialLoadTimeoutRef.current) {
         clearTimeout(initialLoadTimeoutRef.current);
       }
 
       initialLoadTimeoutRef.current = setTimeout(() => {
         setIsInitialLoadComplete(true);
-      }, 1500);
+      }, 2000); // Increased from 1500ms to 2000ms to ensure map loads properly
     }
 
     return () => {
@@ -88,10 +88,28 @@ export const SplashScreenProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, [loadingStates.size]);
 
-  // Show splash screen only during initial load or if animation hasn't finished
+  // Show splash screen during initial load, when map is loading, or if animation hasn't finished
   const shouldShowSplash =
-    (!isInitialLoadComplete && loadingStates.size > 0) ||
+    (!isInitialLoadComplete &&
+      (loadingStates.size > 0 || hasShownSplashRef.current)) ||
     (!splashAnimationFinished && hasShownSplashRef.current);
+
+  // Debug logging
+  useEffect(() => {
+    console.log("[SplashScreen] State update:", {
+      loadingStatesSize: loadingStates.size,
+      loadingStates: Array.from(loadingStates.entries()),
+      hasShownSplash: hasShownSplashRef.current,
+      isInitialLoadComplete,
+      splashAnimationFinished,
+      shouldShowSplash,
+    });
+  }, [
+    loadingStates,
+    isInitialLoadComplete,
+    splashAnimationFinished,
+    shouldShowSplash,
+  ]);
 
   return (
     <SplashScreenContext.Provider
