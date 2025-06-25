@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View, Text, Image } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   LinearTransition,
   SharedValue,
@@ -38,7 +38,6 @@ export default function Banner({
   name,
   onBack,
   extendToStatusBar,
-  logoUrl = require("@/assets/images/frederick-logo.png"),
 }: BannerProps) {
   const zoneBannerAnimatedStyle = useAnimatedStyle(() => ({
     paddingTop: extendToStatusBar ? 44 : 8,
@@ -65,13 +64,7 @@ export default function Banner({
         </View>
 
         <View style={styles.rightSection}>
-          {logoUrl && (
-            <Image
-              source={typeof logoUrl === "string" ? { uri: logoUrl } : logoUrl}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          )}
+          {/* Invisible element to balance the layout and center the text */}
         </View>
       </View>
     </Animated.View>
