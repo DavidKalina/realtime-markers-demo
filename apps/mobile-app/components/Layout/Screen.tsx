@@ -247,6 +247,7 @@ const Screen = <T extends string>({
                 title={button.label}
                 onPress={button.onPress}
                 variant={button.variant || "primary"}
+                size="small"
                 style={
                   button.style
                     ? ([
