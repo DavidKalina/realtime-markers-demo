@@ -77,13 +77,6 @@ const STACK_SCREEN_OPTIONS = {
   },
 } as const;
 
-const MODAL_SCREEN_OPTIONS = {
-  presentation: "modal" as const,
-  animation: "slide_from_bottom" as const,
-  gestureEnabled: true,
-  gestureDirection: "vertical" as const,
-} as const;
-
 // Screen configurations
 const SCREEN_CONFIGS = [
   { name: "register" },
@@ -217,11 +210,7 @@ function RootLayout() {
         <AppContent>
           <Stack screenOptions={STACK_SCREEN_OPTIONS}>
             {SCREEN_CONFIGS.map((screen) => (
-              <Stack.Screen
-                key={screen.name}
-                name={screen.name}
-                options={"options" in screen ? screen.options : undefined}
-              />
+              <Stack.Screen key={screen.name} name={screen.name} />
             ))}
           </Stack>
         </AppContent>
