@@ -395,7 +395,7 @@ export function createFilterProcessor(
 
   // Viewport debouncing to prevent excessive processing
   const viewportDebounceTimers = new Map<string, NodeJS.Timeout>();
-  const viewportDebounceMs = 500; // 500ms debounce for viewport changes
+  const viewportDebounceMs = 0; // 500ms debounce for viewport changes
 
   /**
    * Initialize the filter processor service.

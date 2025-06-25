@@ -12,9 +12,29 @@ describe("HybridUserUpdateBatcherService", () => {
     updateUserViewport: ReturnType<typeof mock>;
   };
   let mockEventCacheService: {
-    getEventsInViewport: ReturnType<typeof mock>;
+    addEvent: ReturnType<typeof mock>;
+    updateEvent: ReturnType<typeof mock>;
+    removeEvent: ReturnType<typeof mock>;
+    getEvent: ReturnType<typeof mock>;
     getAllEvents: ReturnType<typeof mock>;
+    addCivicEngagement: ReturnType<typeof mock>;
+    updateCivicEngagement: ReturnType<typeof mock>;
+    removeCivicEngagement: ReturnType<typeof mock>;
+    getCivicEngagement: ReturnType<typeof mock>;
+    getAllCivicEngagements: ReturnType<typeof mock>;
+    getEntitiesInViewport: ReturnType<typeof mock>;
+    addToSpatialIndex: ReturnType<typeof mock>;
+    updateSpatialIndex: ReturnType<typeof mock>;
+    removeFromSpatialIndex: ReturnType<typeof mock>;
+    getEventsInViewport: ReturnType<typeof mock>;
+    getCivicEngagementsInViewport: ReturnType<typeof mock>;
+    clearAll: ReturnType<typeof mock>;
+    bulkLoad: ReturnType<typeof mock>;
     getStats: ReturnType<typeof mock>;
+    verifyEventInSpatialIndex: ReturnType<typeof mock>;
+    getSpatialIndex: ReturnType<typeof mock>;
+    getEventCache: ReturnType<typeof mock>;
+    getCivicEngagementCache: ReturnType<typeof mock>;
   };
   let mockGetUserFilters: ReturnType<typeof mock>;
   let mockGetUserViewport: ReturnType<typeof mock>;
@@ -37,24 +57,10 @@ describe("HybridUserUpdateBatcherService", () => {
     };
 
     mockEventCacheService = {
-      getEventsInViewport: mock(() => {
-        return [
-          {
-            id: "event-1",
-            title: "Test Event 1",
-            location: { coordinates: [-122.4194, 37.7749] },
-            eventDate: "2024-01-15T10:00:00Z",
-            scanCount: 5,
-            saveCount: 2,
-            isPrivate: false,
-            creatorId: "user-1",
-            sharedWith: [],
-            isRecurring: false,
-            createdAt: "2024-01-01T00:00:00Z",
-            updatedAt: "2024-01-01T00:00:00Z",
-          },
-        ] as Event[];
-      }),
+      addEvent: mock(() => {}),
+      updateEvent: mock(() => {}),
+      removeEvent: mock(() => {}),
+      getEvent: mock(() => undefined),
       getAllEvents: mock(() => {
         return [
           {
@@ -73,7 +79,45 @@ describe("HybridUserUpdateBatcherService", () => {
           },
         ] as Event[];
       }),
-      getStats: mock(() => ({ spatialIndexSize: 1, cacheSize: 1 })),
+      addCivicEngagement: mock(() => {}),
+      updateCivicEngagement: mock(() => {}),
+      removeCivicEngagement: mock(() => {}),
+      getCivicEngagement: mock(() => undefined),
+      getAllCivicEngagements: mock(() => []),
+      getEntitiesInViewport: mock(() => []),
+      addToSpatialIndex: mock(() => {}),
+      updateSpatialIndex: mock(() => {}),
+      removeFromSpatialIndex: mock(() => {}),
+      getEventsInViewport: mock(() => {
+        return [
+          {
+            id: "event-1",
+            title: "Test Event 1",
+            location: { coordinates: [-122.4194, 37.7749] },
+            eventDate: "2024-01-15T10:00:00Z",
+            scanCount: 5,
+            saveCount: 2,
+            isPrivate: false,
+            creatorId: "user-1",
+            sharedWith: [],
+            isRecurring: false,
+            createdAt: "2024-01-01T00:00:00Z",
+            updatedAt: "2024-01-01T00:00:00Z",
+          },
+        ] as Event[];
+      }),
+      getCivicEngagementsInViewport: mock(() => []),
+      clearAll: mock(() => {}),
+      bulkLoad: mock(() => {}),
+      getStats: mock(() => ({
+        spatialIndexSize: 1,
+        cacheSize: 1,
+        civicEngagementCacheSize: 0,
+      })),
+      verifyEventInSpatialIndex: mock(() => true),
+      getSpatialIndex: mock(() => ({})),
+      getEventCache: mock(() => new Map()),
+      getCivicEngagementCache: mock(() => new Map()),
     };
 
     mockGetUserFilters = mock(() => {
