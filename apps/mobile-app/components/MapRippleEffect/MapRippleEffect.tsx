@@ -21,7 +21,38 @@ interface MapRippleEffectProps {
   onAnimationComplete?: () => void;
 }
 
-export const MapRippleEffect: React.FC<MapRippleEffectProps> = ({
+// Custom comparison function for React.memo
+const arePropsEqual = (
+  prevProps: MapRippleEffectProps,
+  nextProps: MapRippleEffectProps,
+): boolean => {
+  // If visibility changed, always re-render
+  if (prevProps.isVisible !== nextProps.isVisible) {
+    return false;
+  }
+
+  // If not visible, don't re-render for position changes
+  if (!nextProps.isVisible) {
+    return true;
+  }
+
+  // If visible, check if position changed
+  if (
+    prevProps.position.x !== nextProps.position.x ||
+    prevProps.position.y !== nextProps.position.y
+  ) {
+    return false;
+  }
+
+  // Check if onAnimationComplete callback changed
+  if (prevProps.onAnimationComplete !== nextProps.onAnimationComplete) {
+    return false;
+  }
+
+  return true;
+};
+
+const MapRippleEffectComponent: React.FC<MapRippleEffectProps> = ({
   isVisible,
   position,
   onAnimationComplete,
@@ -93,6 +124,12 @@ export const MapRippleEffect: React.FC<MapRippleEffectProps> = ({
     </AnimatedReanimated.View>
   );
 };
+
+// Export the memoized component
+export const MapRippleEffect = React.memo(
+  MapRippleEffectComponent,
+  arePropsEqual,
+);
 
 const styles = StyleSheet.create({
   ripple: {
