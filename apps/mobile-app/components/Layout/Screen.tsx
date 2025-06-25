@@ -224,7 +224,13 @@ const Screen = <T extends string>({
             {renderContent()}
           </Animated.ScrollView>
         ) : (
-          <View style={[styles.container, { paddingTop: BANNER_HEIGHT }]}>
+          <View
+            style={[
+              styles.container,
+              { paddingTop: BANNER_HEIGHT },
+              footerButtons.length > 0 && styles.nonScrollableContentWithFooter,
+            ]}
+          >
             {renderContent()}
           </View>
         )}
@@ -328,6 +334,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 10,
+  },
+  nonScrollableContentWithFooter: {
+    paddingBottom: 120, // Add sufficient padding to account for fixed footer
   },
 });
 
