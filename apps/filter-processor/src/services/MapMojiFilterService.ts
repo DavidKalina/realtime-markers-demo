@@ -6,10 +6,8 @@ interface FilterConfig {
 
   currentTime: Date;
   weights: {
-    timeProximity: number; // 0.35 - how soon the event is (increased from 0.25)
-    popularity: number; // 0.40 - scans, saves, rsvps (increased from 0.30)
-    recency: number; // 0.15 - how recently discovered/created (unchanged)
-    confidence: number; // 0.10 - AI confidence in parsing (unchanged)
+    timeProximity: number; // 0.60 - how soon the event is (increased from 0.35)
+    recency: number; // 0.40 - how recently discovered/created (increased from 0.15)
   };
   timeDecayHours: number; // 72 - events lose relevance after X hours
   maxDistanceKm: number; // 50 - maximum relevant distance
@@ -40,10 +38,8 @@ export class MapMojiFilterService {
       viewportBounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
       currentTime: new Date(),
       weights: {
-        timeProximity: 0.35,
-        popularity: 0.4,
-        recency: 0.15,
-        confidence: 0.1,
+        timeProximity: 0.6,
+        recency: 0.4,
       },
       timeDecayHours: 72,
       maxDistanceKm: 50,
@@ -79,15 +75,30 @@ export class MapMojiFilterService {
       });
     }
 
-    // Step 2: Calculate raw scores for each event
-    const scoredEvents = preFiltered.map((event) =>
-      this.scoreEvent(event, preFiltered.length),
-    );
+    // Step 2: For civic engagement, show all events when there are few
+    const sparseEventThreshold = 20; // Show all events if 10 or fewer
+    if (preFiltered.length <= sparseEventThreshold) {
+      console.log(
+        "[MapMoji] Sparse events detected - showing all events for civic engagement:",
+        {
+          eventCount: preFiltered.length,
+          threshold: sparseEventThreshold,
+        },
+      );
 
-    // Step 3: Apply relative scoring normalization
+      return preFiltered.map((event) => ({
+        ...event,
+        relevanceScore: 1.0, // Give all events maximum relevance in sparse scenarios
+      }));
+    }
+
+    // Step 3: Only apply scoring when we have many events
+    const scoredEvents = preFiltered.map((event) => this.scoreEvent(event));
+
+    // Step 4: Apply relative scoring normalization
     const normalizedEvents = this.applyRelativeScoring(scoredEvents);
 
-    // Step 4: Sort by normalized score (highest first)
+    // Step 5: Sort by normalized score (highest first)
     normalizedEvents.sort((a, b) => b.relativeScore - a.relativeScore);
 
     console.log("[MapMoji] Scoring and sorting complete:", {
@@ -100,7 +111,7 @@ export class MapMojiFilterService {
       })),
     });
 
-    // Step 5: Apply geographic clustering to prevent overcrowding
+    // Step 6: Apply geographic clustering to prevent overcrowding
     const clusteredEvents = this.config.clusteringEnabled
       ? this.applyClustering(normalizedEvents)
       : normalizedEvents;
@@ -112,7 +123,7 @@ export class MapMojiFilterService {
       clusteringEnabled: this.config.clusteringEnabled,
     });
 
-    // Step 6: Take top N events and attach relevance scores
+    // Step 7: Take top N events and attach relevance scores
     const topEvents = clusteredEvents.slice(0, this.config.maxEvents);
 
     console.log("[MapMoji] Filter algorithm complete:", {
@@ -175,20 +186,13 @@ export class MapMojiFilterService {
     });
   }
 
-  private scoreEvent(event: Event, totalEventCount?: number): EventScore {
+  private scoreEvent(event: Event): EventScore {
     const timeScore = this.calculateTimeScore(event);
-    const popularityScore = this.calculatePopularityScore(
-      event,
-      totalEventCount,
-    );
     const recencyScore = this.calculateRecencyScore(event);
-    const confidenceScore = this.calculateConfidenceScore(event);
 
     const rawScore =
       timeScore * this.config.weights.timeProximity +
-      popularityScore * this.config.weights.popularity +
-      recencyScore * this.config.weights.recency +
-      confidenceScore * this.config.weights.confidence;
+      recencyScore * this.config.weights.recency;
 
     return {
       event,
@@ -197,9 +201,9 @@ export class MapMojiFilterService {
       percentileRank: 0, // Will be calculated in applyRelativeScoring
       components: {
         timeScore,
-        popularityScore,
+        popularityScore: 0,
         recencyScore,
-        confidenceScore,
+        confidenceScore: 0,
       },
     };
   }
@@ -241,110 +245,6 @@ export class MapMojiFilterService {
     }
   }
 
-  private calculatePopularityScore(
-    event: Event,
-    totalEventCount?: number,
-  ): number {
-    // Weighted combination of engagement metrics
-    const scanWeight = 1.0;
-    const saveWeight = 3.0; // Saves are more valuable than scans
-    const rsvpWeight = 5.0; // RSVPs are most valuable
-
-    const scanScore = Math.min(event.scanCount / 10, 1.0); // Normalize to 10 scans = 1.0
-    const saveScore = Math.min((event.saveCount || 0) / 5, 1.0); // 5 saves = 1.0
-
-    // Count RSVPs from the relationship
-    const rsvpCount = event.rsvps?.length || 0;
-    const rsvpScore = Math.min(rsvpCount / 3, 1.0); // 3 RSVPs = 1.0
-
-    const totalWeight = scanWeight + saveWeight + rsvpWeight;
-
-    let popularityScore =
-      (scanScore * scanWeight +
-        saveScore * saveWeight +
-        rsvpScore * rsvpWeight) /
-      totalWeight;
-
-    // Apply significant boost when there are few events
-    if (totalEventCount !== undefined && totalEventCount <= 5) {
-      // Calculate engagement intensity (how much engagement relative to event count)
-      const totalEngagement =
-        event.scanCount + (event.saveCount || 0) + rsvpCount;
-
-      if (totalEngagement > 0) {
-        // Apply boost based on event scarcity and engagement presence
-        let scarcityBoost = 1.0;
-
-        if (totalEventCount === 1) {
-          // Single event with any engagement gets massive boost
-          scarcityBoost = 3.0;
-        } else if (totalEventCount === 2) {
-          // Two events - significant boost for engagement
-          scarcityBoost = 2.5;
-        } else if (totalEventCount === 3) {
-          // Three events - moderate boost
-          scarcityBoost = 2.0;
-        } else if (totalEventCount <= 5) {
-          // 4-5 events - smaller but still significant boost
-          scarcityBoost = 1.5;
-        }
-
-        // Apply the boost, but cap at 1.0 to avoid overscoring
-        popularityScore = Math.min(1.0, popularityScore * scarcityBoost);
-
-        // Additional bonus for having multiple types of engagement
-        const engagementTypes = [
-          event.scanCount > 0,
-          (event.saveCount || 0) > 0,
-          rsvpCount > 0,
-        ].filter(Boolean).length;
-
-        if (engagementTypes >= 2) {
-          // Multiple engagement types get extra boost in sparse scenarios
-          const multiEngagementBonus = Math.min(
-            0.3,
-            (engagementTypes - 1) * 0.15,
-          );
-          popularityScore = Math.min(
-            1.0,
-            popularityScore + multiEngagementBonus,
-          );
-        }
-      }
-    }
-
-    // Log popularity score calculation for debugging
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[MapMoji] Popularity score calculation:", {
-        eventId: event.id,
-        eventTitle: event.title,
-        totalEventCount,
-        metrics: {
-          scanCount: event.scanCount,
-          saveCount: event.saveCount || 0,
-          rsvpCount,
-        },
-        scores: {
-          scanScore: Math.round(scanScore * 100) / 100,
-          saveScore: Math.round(saveScore * 100) / 100,
-          rsvpScore: Math.round(rsvpScore * 100) / 100,
-        },
-        finalPopularityScore: Math.round(popularityScore * 100) / 100,
-        weights: {
-          scanWeight,
-          saveWeight,
-          rsvpWeight,
-        },
-        scarcityBoost:
-          totalEventCount !== undefined && totalEventCount <= 5
-            ? "applied"
-            : "none",
-      });
-    }
-
-    return popularityScore;
-  }
-
   private calculateRecencyScore(event: Event): number {
     const now = this.config.currentTime;
     const createdAt = new Date(event.createdAt);
@@ -357,11 +257,6 @@ export class MapMojiFilterService {
     if (hoursOld <= 72) return 0.5; // Few days old
     if (hoursOld <= 168) return 0.3; // Week old
     return 0.1; // Older than a week
-  }
-
-  private calculateConfidenceScore(event: Event): number {
-    if (!event.confidenceScore) return 0.5; // Default for missing confidence
-    return event.confidenceScore; // Already normalized 0-1 from AI
   }
 
   private applyClustering(scoredEvents: EventScore[]): EventScore[] {
