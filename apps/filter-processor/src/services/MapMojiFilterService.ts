@@ -3,7 +3,6 @@ import { Event, BoundingBox, RecurrenceFrequency } from "../types/types";
 interface FilterConfig {
   maxEvents: number;
   viewportBounds: BoundingBox;
-
   currentTime: Date;
   weights: {
     timeProximity: number; // 0.60 - how soon the event is (increased from 0.35)
