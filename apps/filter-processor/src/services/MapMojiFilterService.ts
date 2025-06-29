@@ -10,7 +10,6 @@ interface FilterConfig {
     recency: number; // 0.40 - how recently discovered/created (increased from 0.15)
   };
   timeDecayHours: number; // 72 - events lose relevance after X hours
-  maxDistanceKm: number; // 50 - maximum relevant distance
 }
 
 interface EventScore {
@@ -40,7 +39,6 @@ export class MapMojiFilterService {
         recency: 0.4,
       },
       timeDecayHours: 72,
-      maxDistanceKm: 50,
       ...config,
     };
   }
