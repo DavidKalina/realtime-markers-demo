@@ -11,8 +11,6 @@ interface FilterConfig {
   };
   timeDecayHours: number; // 72 - events lose relevance after X hours
   maxDistanceKm: number; // 50 - maximum relevant distance
-  clusteringEnabled: boolean; // true - prevent overcrowding
-  minClusterDistance: number; // 0.5 - minimum km between events
 }
 
 interface EventScore {
@@ -43,8 +41,6 @@ export class MapMojiFilterService {
       },
       timeDecayHours: 72,
       maxDistanceKm: 50,
-      clusteringEnabled: true,
-      minClusterDistance: 0.5,
       ...config,
     };
   }
@@ -111,20 +107,8 @@ export class MapMojiFilterService {
       })),
     });
 
-    // Step 6: Apply geographic clustering to prevent overcrowding
-    const clusteredEvents = this.config.clusteringEnabled
-      ? this.applyClustering(normalizedEvents)
-      : normalizedEvents;
-
-    console.log("[MapMoji] Clustering complete:", {
-      beforeClustering: normalizedEvents.length,
-      afterClustering: clusteredEvents.length,
-      removedByClustering: normalizedEvents.length - clusteredEvents.length,
-      clusteringEnabled: this.config.clusteringEnabled,
-    });
-
-    // Step 7: Take top N events and attach relevance scores
-    const topEvents = clusteredEvents.slice(0, this.config.maxEvents);
+    // Step 6: Take top N events and attach relevance scores
+    const topEvents = normalizedEvents.slice(0, this.config.maxEvents);
 
     console.log("[MapMoji] Filter algorithm complete:", {
       finalEventCount: topEvents.length,
@@ -259,35 +243,6 @@ export class MapMojiFilterService {
     return 0.1; // Older than a week
   }
 
-  private applyClustering(scoredEvents: EventScore[]): EventScore[] {
-    const result: EventScore[] = [];
-    const minDistanceKm = this.config.minClusterDistance;
-
-    for (const candidate of scoredEvents) {
-      let tooClose = false;
-
-      for (const accepted of result) {
-        const distance = this.haversineDistance(
-          candidate.event.location.coordinates[1],
-          candidate.event.location.coordinates[0],
-          accepted.event.location.coordinates[1],
-          accepted.event.location.coordinates[0],
-        );
-
-        if (distance < minDistanceKm) {
-          tooClose = true;
-          break;
-        }
-      }
-
-      if (!tooClose) {
-        result.push(candidate);
-      }
-    }
-
-    return result;
-  }
-
   private applyRelativeScoring(scoredEvents: EventScore[]): EventScore[] {
     if (scoredEvents.length === 0) return scoredEvents;
 
@@ -404,28 +359,5 @@ export class MapMojiFilterService {
     }
 
     return nextDate;
-  }
-
-  private haversineDistance(
-    lat1: number,
-    lng1: number,
-    lat2: number,
-    lng2: number,
-  ): number {
-    const R = 6371; // Earth's radius in kilometers
-    const dLat = this.toRadians(lat2 - lat1);
-    const dLng = this.toRadians(lng2 - lng1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.toRadians(lat1)) *
-        Math.cos(this.toRadians(lat2)) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  private toRadians(degrees: number): number {
-    return degrees * (Math.PI / 180);
   }
 }
