@@ -3,7 +3,7 @@ import { Event, BoundingBox, RecurrenceFrequency } from "../types/types";
 interface FilterConfig {
   maxEvents: number;
   viewportBounds: BoundingBox;
-  currentTime: Date;
+
   weights: {
     timeProximity: number; // 0.60 - how soon the event is (increased from 0.35)
     recency: number; // 0.40 - how recently discovered/created (increased from 0.15)
@@ -32,7 +32,6 @@ export class MapMojiFilterService {
     this.config = {
       maxEvents: 50,
       viewportBounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
-      currentTime: new Date(),
       weights: {
         timeProximity: 0.6,
         recency: 0.4,
@@ -48,17 +47,20 @@ export class MapMojiFilterService {
   async filterEvents(
     events: Event[],
   ): Promise<Array<Event & { relevanceScore?: number }>> {
+    // Always use fresh current time to avoid staleness
+    const currentTime = new Date();
+
     if (process.env.NODE_ENV !== "production") {
       console.log("[MapMoji] Starting filter algorithm:", {
         totalEvents: events.length,
         viewportBounds: this.config.viewportBounds,
         maxEvents: this.config.maxEvents,
-        currentTime: this.config.currentTime,
+        currentTime: currentTime,
       });
     }
 
     // Step 1: Pre-filter by basic criteria
-    const preFiltered = this.preFilter(events);
+    const preFiltered = this.preFilter(events, currentTime);
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[MapMoji] Pre-filtering complete:", {
@@ -86,7 +88,9 @@ export class MapMojiFilterService {
     }
 
     // Step 3: Only apply scoring when we have many events
-    const scoredEvents = preFiltered.map((event) => this.scoreEvent(event));
+    const scoredEvents = preFiltered.map((event) =>
+      this.scoreEvent(event, currentTime),
+    );
 
     // Step 4: Apply relative scoring normalization
     const normalizedEvents = this.applyRelativeScoring(scoredEvents);
@@ -130,9 +134,7 @@ export class MapMojiFilterService {
     this.config = { ...this.config, ...config };
   }
 
-  private preFilter(events: Event[]): Event[] {
-    const now = this.config.currentTime;
-
+  private preFilter(events: Event[], currentTime: Date): Event[] {
     return events.filter((event) => {
       // Must be verified or pending (not rejected/expired)
       if (event.status === "REJECTED" || event.status === "EXPIRED") {
@@ -146,9 +148,9 @@ export class MapMojiFilterService {
 
       // Must not be too far in the past (unless recurring)
       const eventDate = new Date(event.eventDate);
-      if (!this.isRecurringEvent(event) && eventDate < now) {
+      if (!this.isRecurringEvent(event) && eventDate < currentTime) {
         const hoursSincePast =
-          (now.getTime() - eventDate.getTime()) / (1000 * 60 * 60);
+          (currentTime.getTime() - eventDate.getTime()) / (1000 * 60 * 60);
         if (hoursSincePast > 24) {
           // Hide events more than 24h past
           return false;
@@ -157,7 +159,7 @@ export class MapMojiFilterService {
 
       // Must not be too far in the future
       const hoursInFuture =
-        (eventDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+        (eventDate.getTime() - currentTime.getTime()) / (1000 * 60 * 60);
       if (hoursInFuture > 24 * 30) {
         // Hide events more than 30 days future
         return false;
@@ -167,8 +169,8 @@ export class MapMojiFilterService {
     });
   }
 
-  private scoreEvent(event: Event): EventScore {
-    const timeScore = this.calculateTimeScore(event);
+  private scoreEvent(event: Event, currentTime: Date): EventScore {
+    const timeScore = this.calculateTimeScore(event, currentTime);
     const recencyScore = this.calculateRecencyScore(event);
 
     const rawScore =
@@ -189,19 +191,18 @@ export class MapMojiFilterService {
     };
   }
 
-  private calculateTimeScore(event: Event): number {
-    const now = this.config.currentTime;
+  private calculateTimeScore(event: Event, currentTime: Date): number {
     const eventTime = new Date(event.eventDate);
 
     // Handle recurring events - find next occurrence
     const relevantTime = this.isRecurringEvent(event)
-      ? this.getNextRecurrence(event, now)
+      ? this.getNextRecurrence(event, currentTime)
       : eventTime;
 
     if (!relevantTime) return 0;
 
     const hoursUntilEvent =
-      (relevantTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+      (relevantTime.getTime() - currentTime.getTime()) / (1000 * 60 * 60);
 
     // Events happening soon get higher scores
     // Peak score at 2-24 hours from now, decay after that
@@ -227,9 +228,9 @@ export class MapMojiFilterService {
   }
 
   private calculateRecencyScore(event: Event): number {
-    const now = this.config.currentTime;
     const createdAt = new Date(event.createdAt);
-    const hoursOld = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+    const hoursOld =
+      (new Date().getTime() - createdAt.getTime()) / (1000 * 60 * 60);
 
     // Newer events get higher scores
     if (hoursOld <= 1) return 1.0; // Brand new
