@@ -117,7 +117,83 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
       where: { userId },
       order: { updatedAt: "DESC" },
     });
-    return filters;
+
+    const updatedFilters = await this.updateStaleDateRanges(filters);
+
+    return updatedFilters;
+  }
+
+  /**
+   * Update stale date ranges in filters
+   */
+  private async updateStaleDateRanges(filters: Filter[]): Promise<Filter[]> {
+    const today = new Date();
+    const updatedFilters: Filter[] = [];
+    let hasUpdates = false;
+
+    for (const filter of filters) {
+      let needsUpdate = false;
+      const updatedFilter = { ...filter };
+
+      // Check if this is a date range filter that needs updating
+      if (
+        filter.criteria?.dateRange?.start &&
+        filter.criteria?.dateRange?.end
+      ) {
+        const startDate = new Date(filter.criteria.dateRange.start);
+        const endDate = new Date(filter.criteria.dateRange.end);
+
+        // If the end date is in the past, update the date range
+        if (endDate < today) {
+          const daysDiff = Math.ceil(
+            (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+          );
+
+          // Calculate new start and end dates maintaining the same duration
+          const newStartDate = new Date(today);
+          const newEndDate = new Date(today);
+          newEndDate.setDate(today.getDate() + daysDiff);
+
+          updatedFilter.criteria = {
+            ...updatedFilter.criteria,
+            dateRange: {
+              start: newStartDate.toISOString().split("T")[0],
+              end: newEndDate.toISOString().split("T")[0],
+            },
+          };
+
+          // Update the filter name to reflect new dates
+          const startFormatted = newStartDate.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          });
+          const endFormatted = newEndDate.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          });
+          updatedFilter.name = `${startFormatted} - ${endFormatted}`;
+
+          needsUpdate = true;
+          hasUpdates = true;
+        }
+      }
+
+      if (needsUpdate) {
+        // Save the updated filter to the database
+        const savedFilter = await this.filterRepository.save(updatedFilter);
+        updatedFilters.push(savedFilter);
+      } else {
+        updatedFilters.push(filter);
+      }
+    }
+
+    // If we updated any filters, publish the change
+    if (hasUpdates && updatedFilters.length > 0) {
+      const userId = updatedFilters[0].userId;
+      await this.publishFilterChange(userId);
+    }
+
+    return updatedFilters;
   }
 
   /**
@@ -129,7 +205,10 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
       order: { updatedAt: "DESC" },
       cache: 60000,
     });
-    return filters;
+
+    const updatedFilters = await this.updateStaleDateRanges(filters);
+
+    return updatedFilters;
   }
 
   async createFilter(
