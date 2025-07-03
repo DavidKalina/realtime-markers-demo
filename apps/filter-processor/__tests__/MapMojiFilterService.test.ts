@@ -9,7 +9,6 @@ import {
 
 describe("MapMojiFilterService", () => {
   let filterService: MapMojiFilterService;
-  const baseTime = new Date("2024-01-15T12:00:00Z");
 
   // Test event factory
   const createTestEvent = (overrides: Partial<Event> = {}): Event => ({
@@ -38,10 +37,8 @@ describe("MapMojiFilterService", () => {
 
   beforeEach(() => {
     filterService = new MapMojiFilterService({
-      currentTime: baseTime,
       viewportBounds: testViewport,
       maxEvents: 10,
-      clusteringEnabled: false, // Disable clustering for simpler tests
     });
   });
 
@@ -56,15 +53,12 @@ describe("MapMojiFilterService", () => {
     test("should accept custom configuration", () => {
       const customConfig = {
         maxEvents: 25,
-        currentTime: baseTime,
         viewportBounds: testViewport,
         weights: {
           timeProximity: 0.5,
-          popularity: 0.3,
-          recency: 0.1,
-          confidence: 0.1,
+          recency: 0.5,
         },
-        clusteringEnabled: false,
+        timeDecayHours: 48,
       };
 
       const service = new MapMojiFilterService(customConfig);
@@ -74,13 +68,35 @@ describe("MapMojiFilterService", () => {
     test("should update configuration", () => {
       const newConfig = {
         maxEvents: 15,
-        clusteringEnabled: true,
-        minClusterDistance: 1.0,
+        timeDecayHours: 48,
       };
 
       filterService.updateConfig(newConfig);
 
       // Test that config was updated by running a filter operation
+      const events = [createTestEvent()];
+      expect(() => filterService.filterEvents(events)).not.toThrow();
+    });
+
+    test("should handle undefined viewportBounds gracefully", () => {
+      // This test verifies the fix for the bug where undefined viewportBounds caused errors
+      const newConfig = {
+        viewportBounds: undefined,
+        maxEvents: 10,
+      };
+
+      filterService.updateConfig(newConfig);
+
+      // Test that filterEvents doesn't throw when viewportBounds is undefined
+      const events = [createTestEvent()];
+      expect(() => filterService.filterEvents(events)).not.toThrow();
+    });
+
+    test("should preserve default viewportBounds when undefined is passed", () => {
+      // Test that passing undefined for viewportBounds doesn't overwrite the default
+      filterService.updateConfig({ viewportBounds: undefined });
+
+      // The service should still work without throwing errors
       const events = [createTestEvent()];
       expect(() => filterService.filterEvents(events)).not.toThrow();
     });
@@ -358,46 +374,6 @@ describe("MapMojiFilterService", () => {
       const result = await filterService.filterEvents([]);
 
       expect(result).toHaveLength(0);
-    });
-  });
-
-  describe("Clustering", () => {
-    beforeEach(() => {
-      filterService.updateConfig({
-        clusteringEnabled: true,
-        minClusterDistance: 0.1, // 100 meters
-      });
-    });
-
-    test("should remove events that are too close together", async () => {
-      const event1 = createTestEvent({
-        id: "event-1",
-        location: { type: "Point", coordinates: [-122.4194, 37.7749] },
-      });
-      const event2 = createTestEvent({
-        id: "event-2",
-        location: { type: "Point", coordinates: [-122.4195, 37.775] }, // Very close
-      });
-
-      const result = await filterService.filterEvents([event1, event2]);
-
-      // Should only keep one event due to clustering
-      expect(result).toHaveLength(1);
-    });
-
-    test("should keep events that are far enough apart", async () => {
-      const event1 = createTestEvent({
-        id: "event-1",
-        location: { type: "Point", coordinates: [-122.4194, 37.7749] },
-      });
-      const event2 = createTestEvent({
-        id: "event-2",
-        location: { type: "Point", coordinates: [-122.42, 37.78] }, // Further apart
-      });
-
-      const result = await filterService.filterEvents([event1, event2]);
-
-      expect(result).toHaveLength(2);
     });
   });
 

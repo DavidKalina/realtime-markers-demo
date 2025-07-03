@@ -131,7 +131,16 @@ export class MapMojiFilterService {
    * Update configuration for a specific request
    */
   updateConfig(config: Partial<FilterConfig>): void {
-    this.config = { ...this.config, ...config };
+    // Handle the case where viewportBounds might be undefined
+    // We don't want to overwrite the default bounds with undefined
+    const { viewportBounds, ...otherConfig } = config;
+
+    this.config = {
+      ...this.config,
+      ...otherConfig,
+      // Only update viewportBounds if it's provided and not undefined
+      ...(viewportBounds !== undefined && { viewportBounds }),
+    };
   }
 
   private preFilter(events: Event[], currentTime: Date): Event[] {
@@ -303,9 +312,16 @@ export class MapMojiFilterService {
   }
 
   private isInViewport(event: Event): boolean {
+    const bounds = this.config.viewportBounds;
+
+    // If no viewport bounds are provided, consider all events as "in viewport"
+    // This happens when processing "all events" instead of viewport-specific events
+    if (!bounds) {
+      return true;
+    }
+
     const lat = event.location.coordinates[1];
     const lng = event.location.coordinates[0];
-    const bounds = this.config.viewportBounds;
 
     return (
       lat >= bounds.minY &&
