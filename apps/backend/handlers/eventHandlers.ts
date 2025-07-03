@@ -23,7 +23,6 @@ import {
   validateEnum,
   getEventService,
   getJobQueue,
-  getRedisClient,
   type Handler,
 } from "../utils/handlerUtils";
 
@@ -254,7 +253,6 @@ export const createEventHandler: EventHandler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
   const eventService = getEventService(c);
   const embeddingService = c.get("embeddingService");
-  const redisPub = getRedisClient(c);
   const storageService = c.get("storageService");
   const categoryProcessingService = c.get("categoryProcessingService") as
     | CategoryProcessingService
@@ -305,15 +303,6 @@ export const createEventHandler: EventHandler = withErrorHandling(async (c) => {
     await eventService.createDiscoveryRecord(user.id, newEvent.id);
   }
 
-  // Publish to Redis for WebSocket service to broadcast
-  await redisPub.publish(
-    "event_changes",
-    JSON.stringify({
-      operation: "INSERT",
-      record: newEvent,
-    }),
-  );
-
   return c.json(newEvent);
 });
 
@@ -321,9 +310,8 @@ export const deleteEventHandler: EventHandler = withErrorHandling(async (c) => {
   const id = requireParam(c, "id");
   const user = requireAuth(c);
   const eventService = getEventService(c);
-  const redisPub = getRedisClient(c);
 
-  const event = await requireEvent(c, id);
+  await requireEvent(c, id);
 
   // Check if user has access to delete the event
   const hasAccess = await eventService.hasEventAccess(id, user.id);
@@ -336,19 +324,6 @@ export const deleteEventHandler: EventHandler = withErrorHandling(async (c) => {
 
   const isSuccess = await eventService.deleteEvent(id);
 
-  if (isSuccess && event) {
-    await redisPub.publish(
-      "event_changes",
-      JSON.stringify({
-        operation: "DELETE",
-        record: {
-          id: event.id,
-          location: event.location,
-        },
-      }),
-    );
-  }
-
   return c.json({ success: isSuccess });
 });
 
@@ -356,7 +331,6 @@ export const updateEventHandler: EventHandler = withErrorHandling(async (c) => {
   const id = requireParam(c, "id");
   const user = requireAuth(c);
   const eventService = getEventService(c);
-  const redisPub = getRedisClient(c);
   const storageService = c.get("storageService");
   const embeddingService = c.get("embeddingService");
   const categoryProcessingService = c.get("categoryProcessingService") as
@@ -393,17 +367,6 @@ export const updateEventHandler: EventHandler = withErrorHandling(async (c) => {
   console.log({ id, processedData });
 
   const updatedEvent = await eventService.updateEvent(id, processedData);
-
-  if (updatedEvent) {
-    // Publish to Redis for WebSocket service to broadcast
-    await redisPub.publish(
-      "event_changes",
-      JSON.stringify({
-        operation: "UPDATE",
-        record: updatedEvent,
-      }),
-    );
-  }
 
   return c.json(updatedEvent);
 });
