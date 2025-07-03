@@ -147,8 +147,27 @@ export class AuthService {
 
     const savedUser = await this.userRepository.save(newUser);
 
-    // Create default two-week filter using date-fns for consistency with frontend
+    const now = new Date();
+    const twoWeeksFromNow = addDays(now, 14);
 
+    const defaultFilter = await this.userPreferencesService.createFilter(
+      savedUser.id,
+      {
+        name: "First Two Weeks",
+        isActive: true,
+        criteria: {
+          dateRange: {
+            start: format(now, "yyyy-MM-dd"),
+            end: format(twoWeeksFromNow, "yyyy-MM-dd"),
+          },
+        },
+      },
+    );
+
+    // Apply the filter
+    await this.userPreferencesService.applyFilters(savedUser.id, [
+      defaultFilter.id,
+    ]);
     return savedUser;
   }
 
