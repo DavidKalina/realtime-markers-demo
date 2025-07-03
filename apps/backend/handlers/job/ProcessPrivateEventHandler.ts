@@ -206,20 +206,6 @@ export class ProcessPrivateEventHandler extends BaseJobHandler {
       // Get the shares for the event to include in notifications
       const eventShares = await this.eventService.getEventShares(newEvent.id);
 
-      // Publish notifications
-      const eventChangeMessage = {
-        operation: "INSERT",
-        record: {
-          ...newEvent,
-          coordinates: pointToCoordinates(newEvent.location),
-          ...(newEvent.isPrivate && { sharedWith: eventShares }),
-        },
-      };
-
-      await context.redisService
-        .getClient()
-        .publish("event_changes", JSON.stringify(eventChangeMessage));
-
       await context.redisService.publish("discovered_events", {
         type: "EVENT_DISCOVERED",
         data: {
