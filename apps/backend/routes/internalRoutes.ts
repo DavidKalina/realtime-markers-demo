@@ -32,35 +32,6 @@ internalRouter.get(
   civicEngagementHandler.getAllCivicEngagementsHandler,
 );
 
-// Public health endpoint for internal service communication
-internalRouter.get("/health", async (c) => {
-  try {
-    const redisClient = c.get("redisClient");
-
-    // Check Redis connection
-    const redisStatus = redisClient
-      ? (await redisClient.ping()) === "PONG"
-      : false;
-
-    return c.json({
-      status: "healthy",
-      redis: {
-        connected: redisStatus,
-      },
-      memory: {
-        heapUsed: process.memoryUsage().heapUsed,
-        heapTotal: process.memoryUsage().heapTotal,
-        external: process.memoryUsage().external,
-        rss: process.memoryUsage().rss,
-      },
-      uptime: process.uptime(),
-    });
-  } catch (error) {
-    console.error("Error checking system health:", error);
-    return c.json({ error: "Failed to check system health" }, 500);
-  }
-});
-
 // Add endpoint for fetching event shares in batch
 internalRouter.post("/events/shares/batch", async (c) => {
   try {

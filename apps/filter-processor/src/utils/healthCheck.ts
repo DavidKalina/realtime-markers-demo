@@ -71,7 +71,7 @@ export function initializeHealthCheck(options: HealthCheckOptions) {
   // Periodically check backend API connection
   const checkBackendInterval = setInterval(async () => {
     try {
-      const response = await fetch(`${backendUrl}/api/internal/health`, {
+      const response = await fetch(`${backendUrl}/api/health`, {
         method: "GET",
         headers: {
           Accept: "application/json",

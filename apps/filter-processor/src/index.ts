@@ -96,7 +96,7 @@ async function startFilterProcessor() {
 
     for (let attempt = 1; attempt <= maxBackendRetries; attempt++) {
       try {
-        const response = await fetch(`${backendUrl}/api/internal/health`, {
+        const response = await fetch(`${backendUrl}/api/health`, {
           method: "GET",
           headers: {
             Accept: "application/json",
