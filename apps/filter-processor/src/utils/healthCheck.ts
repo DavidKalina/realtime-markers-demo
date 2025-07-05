@@ -17,6 +17,11 @@ interface HealthStatus {
       connected: boolean;
       lastChecked: string;
     };
+    backend: {
+      connected: boolean;
+      lastChecked: string;
+      url: string;
+    };
   };
   metrics: {
     memoryUsage: {
@@ -38,9 +43,14 @@ export function initializeHealthCheck(options: HealthCheckOptions) {
   // Service version from package.json or environment variable
   const version = process.env.npm_package_version || "0.1.0";
 
-  // Track Redis health - initialize as true to allow startup
+  // Get backend URL from environment
+  const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
+
+  // Track service health - initialize as true to allow startup
   let redisConnected = true;
   let lastRedisCheck = new Date().toISOString();
+  let backendConnected = true;
+  let lastBackendCheck = new Date().toISOString();
 
   // Periodically check Redis connection
   const checkRedisInterval = setInterval(async () => {
@@ -58,6 +68,29 @@ export function initializeHealthCheck(options: HealthCheckOptions) {
     }
   }, 30000); // Check every 30 seconds
 
+  // Periodically check backend API connection
+  const checkBackendInterval = setInterval(async () => {
+    try {
+      const response = await fetch(`${backendUrl}/api/admin/health`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+      });
+
+      backendConnected = response.ok;
+      lastBackendCheck = new Date().toISOString();
+      console.log(
+        `Backend health check: ${backendConnected ? "connected" : "disconnected"}`,
+      );
+    } catch (error) {
+      backendConnected = false;
+      lastBackendCheck = new Date().toISOString();
+      console.error("Backend health check failed:", error);
+    }
+  }, 30000); // Check every 30 seconds
+
   // Create HTTP server for health check
   const server = createServer((req, res) => {
     console.log(`Health request received: ${req.url}`);
@@ -68,9 +101,18 @@ export function initializeHealthCheck(options: HealthCheckOptions) {
       req.url === "/health" || req.url === "/" || req.url === "/healthz";
 
     if (isHealthRequest) {
+      // Determine overall health status
+      let overallStatus: "healthy" | "unhealthy" | "degraded" = "healthy";
+
+      if (!redisConnected && !backendConnected) {
+        overallStatus = "unhealthy";
+      } else if (!redisConnected || !backendConnected) {
+        overallStatus = "degraded";
+      }
+
       // Get current health status
       const status: HealthStatus = {
-        status: "healthy", // Always return healthy for initial startup
+        status: overallStatus,
         timestamp: new Date().toISOString(),
         uptime: Math.floor((Date.now() - startTime) / 1000),
         version,
@@ -79,13 +121,19 @@ export function initializeHealthCheck(options: HealthCheckOptions) {
             connected: redisConnected,
             lastChecked: lastRedisCheck,
           },
+          backend: {
+            connected: backendConnected,
+            lastChecked: lastBackendCheck,
+            url: backendUrl,
+          },
         },
         metrics: {
           memoryUsage: process.memoryUsage(),
         },
       };
 
-      res.writeHead(200, {
+      const statusCode = overallStatus === "healthy" ? 200 : 503;
+      res.writeHead(statusCode, {
         "Content-Type": "application/json",
       });
       res.end(JSON.stringify(status, null, 2));
@@ -96,6 +144,8 @@ export function initializeHealthCheck(options: HealthCheckOptions) {
         memory_usage_heap_total: process.memoryUsage().heapTotal,
         memory_usage_heap_used: process.memoryUsage().heapUsed,
         uptime_seconds: Math.floor((Date.now() - startTime) / 1000),
+        redis_connected: redisConnected ? 1 : 0,
+        backend_connected: backendConnected ? 1 : 0,
       };
 
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -116,6 +166,7 @@ export function initializeHealthCheck(options: HealthCheckOptions) {
     },
     stopHealthServer: () => {
       clearInterval(checkRedisInterval);
+      clearInterval(checkBackendInterval);
       server.close();
     },
   };

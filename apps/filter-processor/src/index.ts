@@ -84,6 +84,57 @@ async function startFilterProcessor() {
   try {
     // console.log("👾 Initializing Filter Processor...");
 
+    // Wait for backend to be ready before initializing
+    const backendUrl = process.env.BACKEND_URL || "http://backend:3000";
+    console.log(
+      `⏳ [FilterProcessor] Waiting for backend to be ready at ${backendUrl}...`,
+    );
+
+    let backendReady = false;
+    const maxBackendRetries = 10;
+    const backendRetryDelay = 3000; // 3 seconds
+
+    for (let attempt = 1; attempt <= maxBackendRetries; attempt++) {
+      try {
+        const response = await fetch(`${backendUrl}/api/admin/health`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+          },
+          signal: AbortSignal.timeout(5000), // 5 second timeout
+        });
+
+        if (response.ok) {
+          backendReady = true;
+          console.log(
+            `✅ [FilterProcessor] Backend is ready (attempt ${attempt}/${maxBackendRetries})`,
+          );
+          break;
+        } else {
+          console.log(
+            `⚠️ [FilterProcessor] Backend health check failed with status ${response.status} (attempt ${attempt}/${maxBackendRetries})`,
+          );
+        }
+      } catch (error) {
+        console.log(
+          `⏳ [FilterProcessor] Backend not ready yet (attempt ${attempt}/${maxBackendRetries}): ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+      }
+
+      if (attempt < maxBackendRetries) {
+        console.log(
+          `⏳ [FilterProcessor] Retrying in ${backendRetryDelay}ms...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, backendRetryDelay));
+      }
+    }
+
+    if (!backendReady) {
+      throw new Error(
+        `Backend failed to become ready after ${maxBackendRetries} attempts`,
+      );
+    }
+
     // Create the FilterProcessor instance with Redis clients using the factory function
     const filterProcessor = createFilterProcessor(redisPub, redisSub, {
       // Optional configuration

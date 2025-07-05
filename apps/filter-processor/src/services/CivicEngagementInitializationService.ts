@@ -46,45 +46,64 @@ export class CivicEngagementInitializationService
   }
 
   async initializeEntities(): Promise<void> {
-    try {
-      console.log(
-        "🔄 [CivicEngagementInitialization] Starting civic engagement initialization...",
-      );
+    const maxRetries = 5;
+    const baseDelay = 2000; // 2 seconds
 
-      // Fetch civic engagements from the API
-      console.log(
-        "📡 [CivicEngagementInitialization] Fetching civic engagements from API...",
-      );
-      const civicEngagements = await this.fetchAllCivicEngagements();
-
-      console.log(
-        `📊 [CivicEngagementInitialization] Received ${civicEngagements.length} civic engagements for initialization`,
-      );
-
-      if (civicEngagements.length === 0) {
-        console.warn(
-          "⚠️ [CivicEngagementInitialization] No civic engagements found - this may indicate an API issue",
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(
+          `🔄 [CivicEngagementInitialization] Starting civic engagement initialization (attempt ${attempt}/${maxRetries})...`,
         );
-        return;
+
+        // Fetch civic engagements from the API
+        console.log(
+          "📡 [CivicEngagementInitialization] Fetching civic engagements from API...",
+        );
+        const civicEngagements = await this.fetchAllCivicEngagements();
+
+        console.log(
+          `📊 [CivicEngagementInitialization] Received ${civicEngagements.length} civic engagements for initialization`,
+        );
+
+        if (civicEngagements.length === 0) {
+          console.warn(
+            "⚠️ [CivicEngagementInitialization] No civic engagements found - this may indicate an API issue",
+          );
+          return;
+        }
+
+        // Process civic engagements in batches
+        console.log(
+          "⚙️ [CivicEngagementInitialization] Processing civic engagements...",
+        );
+        await this.processCivicEngagementsBatch(civicEngagements);
+
+        this.stats.lastInitializationTime = Date.now();
+
+        console.log(
+          "✅ [CivicEngagementInitialization] Civic engagements initialization complete",
+        );
+        return; // Success, exit retry loop
+      } catch (error) {
+        console.error(
+          `❌ [CivicEngagementInitialization] Error initializing civic engagements (attempt ${attempt}/${maxRetries}):`,
+          error,
+        );
+
+        if (attempt === maxRetries) {
+          console.error(
+            "💥 [CivicEngagementInitialization] Max retries reached, giving up",
+          );
+          throw error;
+        }
+
+        // Exponential backoff
+        const delay = baseDelay * Math.pow(2, attempt - 1);
+        console.log(
+          `⏳ [CivicEngagementInitialization] Retrying in ${delay}ms...`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
-
-      // Process civic engagements in batches
-      console.log(
-        "⚙️ [CivicEngagementInitialization] Processing civic engagements...",
-      );
-      await this.processCivicEngagementsBatch(civicEngagements);
-
-      this.stats.lastInitializationTime = Date.now();
-
-      console.log(
-        "✅ [CivicEngagementInitialization] Civic engagements initialization complete",
-      );
-    } catch (error) {
-      console.error(
-        "❌ [CivicEngagementInitialization] Error initializing civic engagements:",
-        error,
-      );
-      throw error;
     }
   }
 

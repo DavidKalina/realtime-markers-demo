@@ -47,37 +47,56 @@ export class EventInitializationService
   }
 
   async initializeEntities(): Promise<void> {
-    try {
-      console.log("🔄 [EventInitialization] Starting event initialization...");
+    const maxRetries = 5;
+    const baseDelay = 2000; // 2 seconds
 
-      // Fetch events from the API
-      console.log("📡 [EventInitialization] Fetching events from API...");
-      const events = await this.fetchAllEvents();
-
-      console.log(
-        `📊 [EventInitialization] Received ${events.length} events for initialization`,
-      );
-
-      if (events.length === 0) {
-        console.warn(
-          "⚠️ [EventInitialization] No events found - this may indicate an API issue",
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(
+          `🔄 [EventInitialization] Starting event initialization (attempt ${attempt}/${maxRetries})...`,
         );
-        return;
+
+        // Fetch events from the API
+        console.log("📡 [EventInitialization] Fetching events from API...");
+        const events = await this.fetchAllEvents();
+
+        console.log(
+          `📊 [EventInitialization] Received ${events.length} events for initialization`,
+        );
+
+        if (events.length === 0) {
+          console.warn(
+            "⚠️ [EventInitialization] No events found - this may indicate an API issue",
+          );
+          return;
+        }
+
+        // Process events in batches
+        console.log("⚙️ [EventInitialization] Processing events...");
+        await this.processEventsBatch(events);
+
+        this.stats.lastInitializationTime = Date.now();
+
+        console.log("✅ [EventInitialization] Events initialization complete");
+        return; // Success, exit retry loop
+      } catch (error) {
+        console.error(
+          `❌ [EventInitialization] Error initializing events (attempt ${attempt}/${maxRetries}):`,
+          error,
+        );
+
+        if (attempt === maxRetries) {
+          console.error(
+            "💥 [EventInitialization] Max retries reached, giving up",
+          );
+          throw error;
+        }
+
+        // Exponential backoff
+        const delay = baseDelay * Math.pow(2, attempt - 1);
+        console.log(`⏳ [EventInitialization] Retrying in ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
-
-      // Process events in batches
-      console.log("⚙️ [EventInitialization] Processing events...");
-      await this.processEventsBatch(events);
-
-      this.stats.lastInitializationTime = Date.now();
-
-      console.log("✅ [EventInitialization] Events initialization complete");
-    } catch (error) {
-      console.error(
-        "❌ [EventInitialization] Error initializing events:",
-        error,
-      );
-      throw error;
     }
   }
 
