@@ -211,9 +211,21 @@ export class ServiceInitializer {
   }
 
   setupCleanupSchedule(jobQueue: JobQueue): void {
-    const CLEANUP_HOUR = 3;
-    const BATCH_SIZE = 100;
+    // Allow disabling daily cleanup via environment variable
+    if (process.env.DISABLE_DAILY_CLEANUP === "true") {
+      console.log(
+        "Daily event cleanup disabled via DISABLE_DAILY_CLEANUP environment variable",
+      );
+      return;
+    }
+
+    const CLEANUP_HOUR = parseInt(process.env.CLEANUP_HOUR || "3");
+    const BATCH_SIZE = parseInt(process.env.CLEANUP_BATCH_SIZE || "100");
     let lastRunDate = "";
+
+    console.log(
+      `Setting up daily cleanup schedule: hour=${CLEANUP_HOUR}, batchSize=${BATCH_SIZE}`,
+    );
 
     setInterval(() => {
       const now = new Date();

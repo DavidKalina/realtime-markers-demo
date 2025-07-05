@@ -9,7 +9,7 @@ export interface JobProcessingService {
   handleJobUpdate(data: {
     jobId: string;
     status: string;
-    result?: { deletedCount?: number };
+    result?: { deletedCount?: number; deletedEvents?: Array<{ id: string }> };
   }): Promise<void>;
 
   getStats(): Record<string, unknown>;
@@ -23,6 +23,7 @@ export interface JobProcessingServiceConfig {
 export function createJobProcessingService(
   eventPublisher: EventPublisher,
   clearEventCache: () => void,
+  removeEventFromCache: (eventId: string) => void,
   getAllUserIds: () => string[],
   markUserDirty: (userId: string) => void,
   markUserDirtyWithContext: (
@@ -41,6 +42,7 @@ export function createJobProcessingService(
     eventsDeleted: 0,
     usersMarkedDirty: 0,
     cacheClears: 0,
+    selectiveRemovals: 0,
   };
 
   /**
@@ -57,22 +59,21 @@ export function createJobProcessingService(
       console.log("[JobProcessing] Received cleanup job:", data.data.jobId);
       stats.jobsCreated++;
 
-      if (enableEventCacheClearing) {
-        // When a cleanup job is created, we should clear our spatial index and event cache
-        // since events will be deleted from the database
-        clearEventCache();
-        stats.cacheClears++;
+      // Don't clear the cache immediately - wait for job completion
+      // This prevents the spatial index from being reset unnecessarily
+      console.log(
+        "[JobProcessing] Waiting for cleanup job completion before processing cache updates",
+      );
 
-        if (enableUserNotifications) {
-          // Mark all connected users as dirty for batch processing
-          const userIds = getAllUserIds();
-          for (const userId of userIds) {
-            markUserDirtyWithContext(userId, {
-              reason: "job_completion",
-              timestamp: Date.now(),
-            });
-            stats.usersMarkedDirty++;
-          }
+      if (enableUserNotifications) {
+        // Mark all connected users as dirty for batch processing
+        const userIds = getAllUserIds();
+        for (const userId of userIds) {
+          markUserDirtyWithContext(userId, {
+            reason: "job_completion",
+            timestamp: Date.now(),
+          });
+          stats.usersMarkedDirty++;
         }
       }
     }
@@ -84,7 +85,7 @@ export function createJobProcessingService(
   async function handleJobUpdate(data: {
     jobId: string;
     status: string;
-    result?: { deletedCount?: number };
+    result?: { deletedCount?: number; deletedEvents?: Array<{ id: string }> };
   }): Promise<void> {
     if (data.status === "completed" && data.result?.deletedCount) {
       console.log("[JobProcessing] Cleanup job completed:", {
@@ -94,6 +95,31 @@ export function createJobProcessingService(
 
       stats.jobsCompleted++;
       stats.eventsDeleted += data.result.deletedCount;
+
+      if (enableEventCacheClearing) {
+        if (data.result.deletedEvents && data.result.deletedEvents.length > 0) {
+          // Selectively remove only the deleted events from the cache
+          console.log(
+            "[JobProcessing] Selectively removing deleted events from cache:",
+            {
+              count: data.result.deletedEvents.length,
+              eventIds: data.result.deletedEvents.map((e) => e.id),
+            },
+          );
+
+          for (const deletedEvent of data.result.deletedEvents) {
+            removeEventFromCache(deletedEvent.id);
+            stats.selectiveRemovals++;
+          }
+        } else {
+          // Fallback: if we don't have specific event IDs, clear the entire cache
+          console.log(
+            "[JobProcessing] No specific event IDs provided, clearing entire cache as fallback",
+          );
+          clearEventCache();
+          stats.cacheClears++;
+        }
+      }
 
       if (enableUserNotifications) {
         // Mark all users as dirty for batch processing

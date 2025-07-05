@@ -55,6 +55,7 @@ export class CleanupEventsHandler extends BaseJobHandler {
       await this.completeJob(jobId, context, {
         deletedCount: result.deletedCount,
         hasMore: result.hasMore,
+        deletedEvents: result.deletedEvents.map((event) => ({ id: event.id })),
       });
 
       // If there are more events to clean up, queue another job

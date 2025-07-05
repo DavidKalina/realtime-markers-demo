@@ -92,6 +92,7 @@ export interface FilterProcessorConfig {
   jobProcessingConfig?: {
     enableEventCacheClearing?: boolean;
     enableUserNotifications?: boolean;
+    enableSelectiveCacheRemoval?: boolean;
   };
   userUpdateBatcherConfig?: {
     debounceTimeoutMs?: number;
@@ -322,6 +323,7 @@ export function createFilterProcessor(
   const jobProcessingService = createJobProcessingService(
     eventPublisher,
     () => unifiedSpatialCacheService.clearAll(),
+    (eventId: string) => unifiedSpatialCacheService.removeEvent(eventId),
     () => userStateService.getAllUserIds(),
     (userId: string) => userUpdateBatcherService.markUserAsDirty(userId),
     (
