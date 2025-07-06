@@ -5,6 +5,9 @@ WORKDIR /app
 # Install pnpm
 RUN npm install -g pnpm
 
+# Set NODE_ENV to production for the build
+ENV NODE_ENV=production
+
 # Copy workspace configuration files first (these change less frequently)
 COPY pnpm-workspace.yaml ./
 COPY pnpm-lock.yaml ./
@@ -14,7 +17,7 @@ COPY package.json ./
 COPY apps/web-dashboard/package.json ./apps/web-dashboard/package.json
 
 # Install dependencies (this layer will be cached unless package.json or lock files change)
-RUN pnpm install --filter ./apps/web-dashboard
+RUN pnpm install --filter ./apps/web-dashboard --frozen-lockfile
 
 # Copy source code (this layer will be invalidated when source code changes)
 COPY apps/web-dashboard/ ./apps/web-dashboard/
@@ -28,6 +31,9 @@ WORKDIR /app
 
 # Install pnpm
 RUN npm install -g pnpm
+
+# Set NODE_ENV to production
+ENV NODE_ENV=production
 
 # Copy the entire app with node_modules
 COPY --from=builder /app/apps/web-dashboard ./apps/web-dashboard
@@ -43,9 +49,9 @@ RUN adduser --system --uid 1001 nextjs
 RUN chown -R nextjs:nodejs /app
 USER nextjs
 
-EXPOSE 3000
+EXPOSE 3001
 
-ENV PORT 3000
+ENV PORT 3001
 ENV HOSTNAME "0.0.0.0"
 
 WORKDIR /app/apps/web-dashboard

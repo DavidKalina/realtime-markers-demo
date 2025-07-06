@@ -257,20 +257,18 @@ services:
   web-dashboard:
     build:
       context: .
-      dockerfile: ${WEB_DASHBOARD_DOCKERFILE:-apps/web-dashboard/Dockerfile.dev}
+      dockerfile: ${WEB_DASHBOARD_DOCKERFILE:-apps/web-dashboard/Dockerfile}
     environment:
-      - NODE_ENV=${WEB_DASHBOARD_NODE_ENV:-development}
+      - NODE_ENV=${WEB_DASHBOARD_NODE_ENV:-production}
       - PORT=3001
     ports:
       - "127.0.0.1:3001:3001" # Expose to host for development
     networks:
       - marker-network
     volumes:
-      - ./apps/web-dashboard:/app/apps/web-dashboard
-      - /app/apps/web-dashboard/node_modules
       - web_dashboard_next_cache:/app/apps/web-dashboard/.next
     working_dir: /app/apps/web-dashboard
-    command: ${WEB_DASHBOARD_COMMAND:-pnpm dev}
+    command: ${WEB_DASHBOARD_COMMAND:-pnpm start}
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
