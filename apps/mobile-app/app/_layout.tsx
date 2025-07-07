@@ -36,7 +36,7 @@ const SENTRY_CONFIG = {
 } as const;
 
 const POSTHOG_CONFIG = {
-  apiKey: "phc_HCnuKRNZ6OzogwrVT3UkLfOI4wiGONDB2hLXNgdJxCd",
+  apiKey: process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
   options: {
     host: "https://us.i.posthog.com",
   },
