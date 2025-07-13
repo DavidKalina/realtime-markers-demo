@@ -1,5 +1,6 @@
 import { BaseApiClient } from "./ApiClient";
-import { User, AuthTokens } from "./types";
+import { AuthTokens } from "./types";
+import { UserResponse } from "@realtime-markers/types";
 
 export abstract class BaseApiModule {
   protected readonly client: BaseApiClient;
@@ -9,7 +10,7 @@ export abstract class BaseApiModule {
   }
 
   // Expose auth-related methods to all modules
-  protected getCurrentUser(): User | null {
+  protected getCurrentUser(): UserResponse | null {
     return this.client.getCurrentUser();
   }
 
@@ -42,7 +43,10 @@ export abstract class BaseApiModule {
   }
 
   // Auth state management methods
-  protected async saveAuthState(user: User, tokens: AuthTokens): Promise<void> {
+  protected async saveAuthState(
+    user: UserResponse,
+    tokens: AuthTokens,
+  ): Promise<void> {
     return this.client.saveAuthState(user, tokens);
   }
 

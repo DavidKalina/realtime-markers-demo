@@ -1,6 +1,10 @@
 import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
-import { Filter, FilterCreateInput, FilterUpdateInput } from "../base/types";
+import {
+  Filter,
+  CreateFilterRequest,
+  UpdateFilterRequest,
+} from "../base/types";
 import { apiClient } from "../../ApiClient";
 
 export class FiltersModule extends BaseApiModule {
@@ -34,7 +38,7 @@ export class FiltersModule extends BaseApiModule {
    * @param filterData - Filter data to create
    * @returns Created filter
    */
-  async createFilter(filterData: FilterCreateInput): Promise<Filter> {
+  async createFilter(filterData: CreateFilterRequest): Promise<Filter> {
     const url = `${this.client.baseUrl}/api/filters`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
@@ -51,7 +55,7 @@ export class FiltersModule extends BaseApiModule {
    */
   async updateFilter(
     filterId: string,
-    filterData: FilterUpdateInput,
+    filterData: UpdateFilterRequest,
   ): Promise<Filter> {
     const url = `${this.client.baseUrl}/api/filters/${filterId}`;
     const response = await this.fetchWithAuth(url, {
@@ -133,7 +137,7 @@ export class FiltersModule extends BaseApiModule {
    * @returns Generated emoji
    */
   async generateFilterEmoji(
-    filterData: FilterCreateInput,
+    filterData: CreateFilterRequest,
   ): Promise<{ emoji: string }> {
     const url = `${this.client.baseUrl}/api/filters/generate-emoji`;
     const response = await this.fetchWithAuth(url, {

@@ -1,6 +1,7 @@
 import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
-import { User, AuthTokens, LoginResponse } from "../base/types";
+import { AuthTokens, LoginResponse } from "../base/types";
+import { UserResponse } from "@realtime-markers/types";
 import { apiClient } from "../../ApiClient";
 
 export class AuthModule extends BaseApiModule {
@@ -12,7 +13,7 @@ export class AuthModule extends BaseApiModule {
    * Login with email and password
    * @returns The logged in user
    */
-  async login(email: string, password: string): Promise<User> {
+  async login(email: string, password: string): Promise<UserResponse> {
     const url = `${this.client.baseUrl}/api/auth/login`;
     try {
       const response = await fetch(url, {
@@ -39,7 +40,7 @@ export class AuthModule extends BaseApiModule {
       };
 
       // Save auth state and notify listeners
-      await this.saveAuthState(data.user, tokens);
+      await this.saveAuthState(data.user as UserResponse, tokens);
 
       // Ensure we're initialized
       await this.ensureInitialized();
@@ -62,7 +63,7 @@ export class AuthModule extends BaseApiModule {
     password: string,
     firstName?: string,
     lastName?: string,
-  ): Promise<User> {
+  ): Promise<UserResponse> {
     const url = `${this.client.baseUrl}/api/auth/register`;
     const response = await fetch(url, {
       method: "POST",
@@ -72,7 +73,7 @@ export class AuthModule extends BaseApiModule {
       body: JSON.stringify({ email, password, firstName, lastName }),
     });
 
-    return this.handleResponse<User>(response);
+    return this.handleResponse<UserResponse>(response);
   }
 
   /**
@@ -97,10 +98,10 @@ export class AuthModule extends BaseApiModule {
    * Get the current user's profile
    * @returns The current user's profile
    */
-  async getUserProfile(): Promise<User> {
+  async getUserProfile(): Promise<UserResponse> {
     const url = `${this.client.baseUrl}/api/auth/me`;
     const response = await this.fetchWithAuth(url, { method: "POST" });
-    const user = await this.handleResponse<User>(response);
+    const user = await this.handleResponse<UserResponse>(response);
 
     // Update local user state with the new data
     if (this.client.user) {
@@ -115,14 +116,16 @@ export class AuthModule extends BaseApiModule {
    * Update the current user's profile
    * @returns The updated user profile
    */
-  async updateUserProfile(updates: Partial<User>): Promise<User> {
+  async updateUserProfile(
+    updates: Partial<UserResponse>,
+  ): Promise<UserResponse> {
     const url = `${this.client.baseUrl}/api/users/me`;
     const response = await this.fetchWithAuth(url, {
       method: "PATCH",
       body: JSON.stringify(updates),
     });
 
-    const updatedUser = await this.handleResponse<User>(response);
+    const updatedUser = await this.handleResponse<UserResponse>(response);
 
     // Update local user state
     if (this.client.user) {

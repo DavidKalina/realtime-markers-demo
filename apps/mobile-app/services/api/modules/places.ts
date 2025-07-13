@@ -1,6 +1,47 @@
 import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
-import { Place, PlaceCreateInput, PlaceUpdateInput } from "../base/types";
+// Note: Place types are not yet available in the shared package, so we keep them local
+
+// Local Place types (not yet in shared package)
+export interface Place {
+  id: string;
+  name: string;
+  description?: string;
+  lat: number;
+  lng: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdById: string;
+}
+
+export interface PlaceCreateInput {
+  name: string;
+  description?: string;
+  lat: number;
+  lng: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+}
+
+export interface PlaceUpdateInput {
+  name?: string;
+  description?: string;
+  lat?: number;
+  lng?: number;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+}
 
 // Types for the places API
 export interface PlaceSearchResult {

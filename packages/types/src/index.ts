@@ -3,6 +3,9 @@
 // Database derived types
 export * from "./database/derived-types";
 
+// Database enums
+export * from "./database/enums";
+
 // Re-export commonly used types for convenience
 export type {
   // Entity types

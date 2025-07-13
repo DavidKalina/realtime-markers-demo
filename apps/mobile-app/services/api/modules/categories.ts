@@ -2,8 +2,8 @@ import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
 import {
   Category,
-  CategoryCreateInput,
-  CategoryUpdateInput,
+  CreateCategoryRequest,
+  UpdateCategoryRequest,
 } from "../base/types";
 import { apiClient } from "../../ApiClient";
 
@@ -38,7 +38,7 @@ export class CategoriesModule extends BaseApiModule {
    * @param input Category creation input
    * @returns Promise<Category> The created category
    */
-  async createCategory(input: CategoryCreateInput): Promise<Category> {
+  async createCategory(input: CreateCategoryRequest): Promise<Category> {
     const url = `${this.client.baseUrl}/api/categories`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
@@ -55,7 +55,7 @@ export class CategoriesModule extends BaseApiModule {
    */
   async updateCategory(
     id: string,
-    input: CategoryUpdateInput,
+    input: UpdateCategoryRequest,
   ): Promise<Category> {
     const url = `${this.client.baseUrl}/api/categories/${id}`;
     const response = await this.fetchWithAuth(url, {

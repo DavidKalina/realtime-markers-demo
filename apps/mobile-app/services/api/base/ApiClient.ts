@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
-import { AuthTokens, User } from "./types";
+import { AuthTokens } from "./types";
+import { UserResponse } from "@realtime-markers/types";
 
 const ACCESS_TOKEN_KEY = "accessToken";
 const REFRESH_TOKEN_KEY = "refreshToken";
@@ -8,7 +9,7 @@ const USER_KEY = "user";
 
 export class BaseApiClient {
   public baseUrl: string;
-  public user: User | null = null;
+  public user: UserResponse | null = null;
   public tokens: AuthTokens | null = null;
   private authListeners: ((isAuthenticated: boolean) => void)[] = [];
   private isInitialized: boolean = false;
@@ -61,7 +62,10 @@ export class BaseApiClient {
     await this.initializationPromise;
   }
 
-  public async saveAuthState(user: User, tokens: AuthTokens): Promise<void> {
+  public async saveAuthState(
+    user: UserResponse,
+    tokens: AuthTokens,
+  ): Promise<void> {
     try {
       // Update in-memory state first
       this.user = user;
@@ -116,7 +120,7 @@ export class BaseApiClient {
     return !!this.user;
   }
 
-  getCurrentUser(): User | null {
+  getCurrentUser(): UserResponse | null {
     return this.user;
   }
 

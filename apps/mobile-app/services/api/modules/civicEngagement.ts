@@ -1,68 +1,29 @@
 import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
+import {
+  CivicEngagement as CivicEngagementResponse,
+  CreateCivicEngagementRequest,
+  UpdateCivicEngagementRequest,
+  CivicEngagementType,
+  CivicEngagementStatus,
+} from "@realtime-markers/types";
 
-export enum CivicEngagementType {
-  POSITIVE_FEEDBACK = "POSITIVE_FEEDBACK",
-  NEGATIVE_FEEDBACK = "NEGATIVE_FEEDBACK",
-  IDEA = "IDEA",
-}
+// Re-export the enums for convenience
+export { CivicEngagementType, CivicEngagementStatus };
 
-export enum CivicEngagementStatus {
-  PENDING = "PENDING",
-  IN_REVIEW = "IN_REVIEW",
-  IMPLEMENTED = "IMPLEMENTED",
-  CLOSED = "CLOSED",
-}
+// Use the shared type as the main CivicEngagement interface
+export type CivicEngagement = CivicEngagementResponse;
 
-export interface CivicEngagement {
-  id: string;
-  title: string;
-  description?: string;
-  type: CivicEngagementType;
-  status: CivicEngagementStatus;
-  location?: {
-    type: "Point";
-    coordinates: [number, number];
-  };
-  address?: string;
-  locationNotes?: string;
-  imageUrls?: string[];
-  creatorId: string;
-  creator?: {
-    id: string;
-    firstName?: string;
-    lastName?: string;
-    email: string;
-    avatarUrl?: string;
-  };
-  adminNotes?: string;
-  implementedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateCivicEngagementPayload {
-  title: string;
-  description?: string;
-  type: CivicEngagementType;
-  location?: {
-    type: "Point";
-    coordinates: [number, number];
-  };
-  address?: string;
-  locationNotes?: string;
+// Extend the create request type to include mobile-specific fields
+export interface CreateCivicEngagementPayload
+  extends CreateCivicEngagementRequest {
   imageBuffer?: string; // base64 encoded image
   contentType?: string;
   filename?: string;
 }
 
-export interface UpdateCivicEngagementPayload {
-  title?: string;
-  description?: string;
-  status?: CivicEngagementStatus;
-  adminNotes?: string;
-  imageUrls?: string[];
-}
+// Use the shared update request type
+export type UpdateCivicEngagementPayload = UpdateCivicEngagementRequest;
 
 export interface CivicEngagementFilters {
   type?: CivicEngagementType[];

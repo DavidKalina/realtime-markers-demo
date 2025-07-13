@@ -15,7 +15,7 @@ import EventListItem, {
   EventListItemProps,
 } from "@/components/Event/EventListItem";
 import { useSavedEvents } from "@/hooks/useSavedEvents";
-import { EventType as ApiEventType } from "@/types/types";
+import { EventResponse as ApiEventType } from "@realtime-markers/types";
 import { AuthWrapper } from "@/components/AuthWrapper";
 
 type SavedTab = "personal" | "discovered";
@@ -96,12 +96,13 @@ const SavedListScreen = () => {
         id: event.id,
         title: event.title,
         description: event.description,
-        location: event.location,
-        distance: event.distance,
+        location: event.address || "Unknown location",
+        distance: "0.5 mi", // TODO: Calculate actual distance
         emoji: event.emoji,
-        eventDate: new Date(event.eventDate),
-        endDate: event.endDate,
-        categories: event.categories,
+        eventDate: event.eventDate,
+        endDate: event.endDate?.toISOString(),
+        categories:
+          event.categories?.map((cat) => ({ id: cat, name: cat })) || [],
         onPress: handleEventPress,
         isPrivate: event.isPrivate,
         isRecurring: event.isRecurring,
