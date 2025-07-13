@@ -121,7 +121,6 @@ const CategoryEventsScreen = () => {
         isScrollable={false}
         bannerTitle={category?.name || "Category Events"}
         bannerDescription={`Events in ${category?.name || "this category"}`}
-        bannerEmoji={category?.emoji || "📅"}
         showBackButton
         onBack={handleBack}
         noAnimation

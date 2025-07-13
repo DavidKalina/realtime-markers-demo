@@ -13,6 +13,7 @@ import {
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useAuth } from "@/contexts/AuthContext";
+import { EventMarkerData, CivicEngagementMarkerData } from "@/types/types";
 
 // Mapbox viewport format
 interface MapboxViewport {
@@ -26,25 +27,7 @@ interface MapboxViewport {
 export interface Marker {
   id: string;
   coordinates: [number, number]; // [longitude, latitude]
-  data: {
-    title: string;
-    emoji: string;
-    color: string;
-    location?: string;
-    distance?: string;
-    time?: string;
-    eventDate?: string;
-    endDate?: string;
-    description?: string;
-    categories?: string[];
-    isVerified?: boolean;
-    created_at?: string;
-    updated_at?: string;
-    isPrivate?: boolean;
-    status?: string; // Added status here as it's in convertEventToMarker
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [key: string]: any;
-  };
+  data: EventMarkerData | CivicEngagementMarkerData;
 }
 
 interface MapWebSocketResult {
@@ -199,8 +182,8 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         categories: event.categories?.map((c: any) => c.name || c), // Ensure categories are handled
         isVerified: event.isVerified,
-        created_at: event.createdAt,
-        updated_at: event.updatedAt,
+        createdAt: event.createdAt,
+        updatedAt: event.updatedAt,
         isPrivate: event.isPrivate,
         status: event.status,
         // Add recurring event fields
@@ -212,8 +195,9 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         recurrenceInterval: event.recurrenceInterval,
         recurrenceTime: event.recurrenceTime,
         recurrenceExceptions: event.recurrenceExceptions,
+        entityType: "event" as const,
         ...(event.metadata || {}), // Ensure metadata is spread safely
-      },
+      } as EventMarkerData,
     };
   }, []);
 
@@ -246,15 +230,15 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           status: civicEngagement.status,
           address: civicEngagement.address,
           locationNotes: civicEngagement.locationNotes,
-          created_at: civicEngagement.createdAt,
-          updated_at: civicEngagement.updatedAt,
+          createdAt: civicEngagement.createdAt,
+          updatedAt: civicEngagement.updatedAt,
           creatorId: civicEngagement.creatorId,
           adminNotes: civicEngagement.adminNotes,
           implementedAt: civicEngagement.implementedAt,
           imageUrls: civicEngagement.imageUrls,
-          entityType: "civic_engagement", // Add this to distinguish from events
+          entityType: "civic_engagement" as const,
           ...(civicEngagement.metadata || {}),
-        },
+        } as CivicEngagementMarkerData,
       };
 
       console.log(

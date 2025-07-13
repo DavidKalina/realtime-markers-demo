@@ -113,7 +113,8 @@ const SavedListScreen = () => {
       (event) =>
         event.title.toLowerCase().includes(query) ||
         event.description?.toLowerCase().includes(query) ||
-        event.location.toLowerCase().includes(query),
+        event.address?.toLowerCase().includes(query) ||
+        false,
     );
   }, [events, searchQuery]);
 

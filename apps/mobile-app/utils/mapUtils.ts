@@ -1,5 +1,5 @@
 // mapUtils.ts - Utility functions for map-event conversions
-import { Coordinates, EventType } from "../types/types";
+import { Coordinates, EventType } from "@/types/types";
 
 /**
  * Converts an EventType to a Marker format for use with maps
@@ -47,13 +47,15 @@ export const markerToEvent = (marker: {
     location?: string;
     distance?: string;
     time?: string;
-    eventDate?: string;
-    endDate?: string;
+    eventDate?: string | Date;
+    endDate?: string | Date;
     description?: string;
     categories?: (string | { id: string; name: string })[];
     isVerified?: boolean;
     created_at?: string;
     updated_at?: string;
+    createdAt?: string;
+    updatedAt?: string;
     isPrivate?: boolean;
     isOfficial?: boolean;
     status?: string;
@@ -79,8 +81,6 @@ export const markerToEvent = (marker: {
     qrGeneratedAt?: string | null;
     qrDetectedInImage?: boolean;
     detectedQrData?: string | null;
-    createdAt?: string;
-    updatedAt?: string;
     sharedWithIds?: string[];
     isRecurring?: boolean;
     recurrenceFrequency?: string;
@@ -91,6 +91,7 @@ export const markerToEvent = (marker: {
     recurrenceTime?: string;
     recurrenceExceptions?: string[];
     category?: { id: string; name: string };
+    entityType?: "event" | "civic_engagement";
     [key: string]: unknown;
   };
 }): EventType => {
@@ -144,16 +145,26 @@ export const markerToEvent = (marker: {
         recurrenceInterval: marker.data.recurrenceInterval,
         recurrenceTime: marker.data.recurrenceTime,
         recurrenceExceptions: marker.data.recurrenceExceptions,
-      } as EventType;
+      };
     }
 
     // If marker.data has properties but isn't an EventType - map properly
     const eventDate: string =
       (typeof marker.data.eventDate === "string"
         ? marker.data.eventDate
-        : "") ||
+        : marker.data.eventDate instanceof Date
+          ? marker.data.eventDate.toISOString()
+          : "") ||
       (typeof marker.data.date === "string" ? marker.data.date : "") ||
       new Date().toISOString();
+
+    const endDate: string | undefined =
+      typeof marker.data.endDate === "string"
+        ? marker.data.endDate
+        : marker.data.endDate instanceof Date
+          ? marker.data.endDate.toISOString()
+          : undefined;
+
     const time: string =
       (typeof marker.data.time === "string" ? marker.data.time : "") ||
       new Date(eventDate).toLocaleTimeString();
@@ -162,8 +173,8 @@ export const markerToEvent = (marker: {
       id: marker.id,
       title: marker.data.title || "Unknown Location",
       description: marker.data.description || "",
-      eventDate: eventDate as string,
-      endDate: marker.data.endDate,
+      eventDate: eventDate,
+      endDate: endDate,
       time: time,
       coordinates: marker.coordinates,
       location: marker.data.location || "Unknown location",

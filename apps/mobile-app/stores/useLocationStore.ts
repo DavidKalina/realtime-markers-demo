@@ -1,7 +1,7 @@
 // stores/useLocationStore.ts - Updated with unified selection model
 import { create } from "zustand";
 import { EventType, MapboxViewport } from "@/types/types";
-import { markerToEvent, isValidCoordinates } from "@/utils/mapUtils";
+import { isValidCoordinates } from "@/utils/mapUtils";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { ClusterFeature } from "@/hooks/useMarkerClustering";
 
@@ -142,9 +142,6 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
         ? markers.find((m) => m.id === state.selectedMarkerId) || null
         : null;
 
-      // Sync the events with markers
-      const newEvents = markers.map(markerToEvent);
-
       // Update the unified selection if needed
       let newSelectedItem = state.selectedItem;
       if (state.selectedItem?.type === "marker" && state.selectedMarkerId) {
@@ -171,12 +168,6 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
         selectedItemType: selectedExists ? "marker" : null,
         // Update the unified selection
         selectedItem: newSelectedItem,
-        // Update events derived from markers
-        events: newEvents,
-        // Update current event if needed
-        currentEvent: newSelectedMarker
-          ? markerToEvent(newSelectedMarker)
-          : null,
       };
     }),
 
