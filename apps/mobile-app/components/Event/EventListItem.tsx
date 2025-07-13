@@ -2,20 +2,11 @@ import React, { useCallback, useMemo } from "react";
 import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
 import { COLORS } from "@/components/Layout/ScreenLayout";
 import EventListItemFooter from "./EventListItemFooter";
+import { EventType } from "@/types/types";
 
-export interface EventListItemProps {
-  id: string;
-  title: string;
-  description?: string;
-  location: string;
-  distance: string;
-  emoji?: string;
-  eventDate: Date | string;
-  endDate?: string;
-  categories: { id: string; name: string }[];
-  isRecurring?: boolean;
-  isPrivate?: boolean;
-  onPress: (event: EventListItemProps) => void;
+export interface EventListItemProps extends EventType {
+  onPress: (event: EventType) => void;
+  distance?: number;
 }
 
 const EventListItem: React.FC<EventListItemProps> = React.memo(
@@ -24,7 +15,6 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
     title,
     description,
     location,
-    distance,
     emoji,
     eventDate,
     endDate,
@@ -32,6 +22,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
     isRecurring,
     isPrivate,
     onPress,
+    distance,
   }) => {
     const handlePress = useCallback(() => {
       onPress({
@@ -39,21 +30,18 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
         title,
         description,
         location,
-        distance,
         emoji,
         eventDate,
         endDate,
         categories,
         isRecurring,
         isPrivate,
-        onPress,
-      });
+      } as EventType);
     }, [
       id,
       title,
       description,
       location,
-      distance,
       emoji,
       eventDate,
       endDate,
@@ -165,10 +153,12 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
                 </Text>
               )}
               <EventListItemFooter
-                distance={distance}
-                categories={categories}
+                distance={distance ? `${distance.toFixed(1)}km` : ""}
+                categories={
+                  categories?.map((cat) => ({ id: cat, name: cat })) || []
+                }
                 eventDate={eventDate}
-                endDate={endDate}
+                endDate={endDate?.toISOString()}
                 isPrivate={isPrivate}
               />
             </View>

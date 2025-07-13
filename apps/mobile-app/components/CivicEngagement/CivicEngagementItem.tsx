@@ -319,7 +319,10 @@ export const CivicEngagementItem: React.FC<CivicEngagementItemProps> =
                       <Text style={styles.locationText} numberOfLines={1}>
                         {civicEngagement.location?.coordinates
                           ? formatCoordinates(
-                              civicEngagement.location.coordinates,
+                              civicEngagement.location.coordinates as [
+                                number,
+                                number,
+                              ],
                             )
                           : civicEngagement.address}
                       </Text>
