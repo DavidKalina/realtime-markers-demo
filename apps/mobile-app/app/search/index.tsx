@@ -6,38 +6,36 @@ import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
 import Input from "@/components/Input/Input";
 import InfiniteScrollFlatList from "@/components/Layout/InfintieScrollFlatList";
-import EventListItem, {
-  EventListItemProps,
-} from "@/components/Event/EventListItem";
+import EventListItem from "@/components/Event/EventListItem";
 import LandingPageContent from "@/components/LandingPage/LandingPageContent";
-import useEventSearch from "@/hooks/useEventSearch";
+import useEventInfiniteSearch from "@/hooks/useEventInfiniteSearch";
 import useLandingPageData from "@/hooks/useLandingPageData";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { AuthWrapper } from "@/components/AuthWrapper";
+import { EventResponse } from "@realtime-markers/types";
 
 // Type for events from the API
-type EventType = Omit<EventListItemProps, "onPress">;
+type EventType = EventResponse;
 
 const SearchListScreen = () => {
   const router = useRouter();
   const { filter } = useLocalSearchParams<{ filter?: string }>();
   const searchInputRef = useRef<TextInput>(null);
-  const storedMarkers = useLocationStore((state) => state.markers);
   const { userLocation } = useUserLocation();
 
-  // Use our custom hook for search functionality
+  // Use the new infinite search hook
   const {
     searchQuery,
     setSearchQuery,
-    eventResults,
+    allItems: eventResults,
     isLoading: isSearchLoading,
     error: searchError,
-    searchEvents,
-    handleLoadMore: loadMoreEvents,
+    hasMore,
+    fetchNextPage,
     clearSearch,
-    hasSearched,
-  } = useEventSearch({ initialMarkers: storedMarkers });
+  } = useEventInfiniteSearch({
+    initialParams: { limit: 10 },
+  });
 
   // Use landing page data hook
   const {
@@ -63,10 +61,6 @@ const SearchListScreen = () => {
     },
     [setSearchQuery],
   );
-
-  const handleSearch = useCallback(async () => {
-    await searchEvents(true);
-  }, [searchEvents]);
 
   const handleClearSearch = useCallback(() => {
     Haptics.selectionAsync();
@@ -94,14 +88,15 @@ const SearchListScreen = () => {
     setIsRefreshing(true);
     try {
       if (searchQuery.trim()) {
-        await searchEvents(true);
+        // For infinite search, we don't have a direct refresh method
+        // The search will automatically update when the query changes
       } else {
         await refreshLanding();
       }
     } finally {
       setIsRefreshing(false);
     }
-  }, [searchQuery, searchEvents, refreshLanding]);
+  }, [searchQuery, refreshLanding]);
 
   // Auto-focus the search input when the screen opens
   useEffect(() => {
@@ -149,15 +144,15 @@ const SearchListScreen = () => {
 
   const handleLoadMore = useCallback(async (): Promise<void> => {
     try {
-      await loadMoreEvents();
+      await fetchNextPage();
     } catch (error) {
       console.error("Error loading more events:", error);
       throw error; // Re-throw to let InfiniteScrollFlatList handle the error
     }
-  }, [loadMoreEvents]);
+  }, [fetchNextPage]);
 
   // Determine what content to show
-  const showLandingPage = !searchQuery.trim() && !hasSearched;
+  const showLandingPage = !searchQuery.trim();
 
   return (
     <AuthWrapper>
@@ -179,7 +174,6 @@ const SearchListScreen = () => {
           value={searchQuery}
           onChangeText={handleSearchInput}
           returnKeyType="search"
-          onSubmitEditing={handleSearch}
           autoCapitalize="none"
           autoCorrect={false}
           autoFocus={true}
@@ -196,20 +190,23 @@ const SearchListScreen = () => {
           />
         ) : (
           <InfiniteScrollFlatList
-            data={eventResults as unknown as EventType[]}
+            data={eventResults}
             renderItem={renderEventItem}
             fetchMoreData={handleLoadMore}
             onRefresh={handleRefresh}
             isLoading={isSearchLoading}
             isRefreshing={isRefreshing}
-            hasMore={!searchError && eventResults.length > 0}
-            error={searchError}
+            hasMore={hasMore}
+            error={searchError ? String(searchError) : null}
             emptyListMessage={
               searchQuery.trim()
                 ? "No events found matching your search"
                 : "No events found"
             }
-            onRetry={async () => await searchEvents(true)}
+            onRetry={async () => {
+              // For infinite search, we can't directly retry a specific search
+              // The search will automatically retry when the query changes
+            }}
           />
         )}
       </Screen>
