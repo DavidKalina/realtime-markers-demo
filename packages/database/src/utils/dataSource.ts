@@ -1,47 +1,43 @@
-// data-source.ts
+// utils/dataSource.ts
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 
-// Import all entities from the shared database package
-import {
-  User,
-  Event,
-  Category,
-  EventShare,
-  Filter,
-  QueryAnalytics,
-  UserEventView,
-  UserEventDiscovery,
-  UserEventRsvp,
-  UserEventSave,
-  CivicEngagement,
-  UserPushToken,
-} from "@realtime-markers/database";
+// Import all entities
+import { User } from "../entities/User";
+import { Event } from "../entities/Event";
+import { Category } from "../entities/Category";
+import { EventShare } from "../entities/EventShare";
+import { Filter } from "../entities/Filter";
+import { QueryAnalytics } from "../entities/QueryAnalytics";
+import { UserEventView } from "../entities/UserEventView";
+import { UserEventDiscovery } from "../entities/UserEventDiscovery";
+import { UserEventRsvp } from "../entities/UserEventRsvp";
+import { UserEventSave } from "../entities/UserEventSave";
+import { CivicEngagement } from "../entities/CivicEngagement";
+import { UserPushToken } from "../entities/UserPushToken";
 
-// Import all migrations from the shared database package
-import {
-  CategoryTable1710000000000,
-  EventTable1710000000001,
-  EventShareTable1710000000002,
-  FilterTable1710000000003,
-  QueryAnalyticsTable1710000000005,
-  UserTable1710000000006,
-  UserEventDiscoveryTable1710000000007,
-  UserEventRsvpTable1710000000008,
-  UserEventSaveTable1710000000009,
-  UserEventViewTable1710000000010,
-  SeedUsers1710000000012,
-  AddAllUserForeignKeys1710000000014,
-  AddIsOfficialToEvents1710000000015,
-  SeedOfficialEvents1710000000016,
-  RegenerateEmbeddings1710000000017,
-  CivicEngagementTables1710000000020,
-  AddEmbeddingToCivicEngagements1710000000021,
-  UserPushTokenTable1710000000022,
-} from "@realtime-markers/database";
+// Import all migrations
+import { CategoryTable1710000000000 } from "../migrations/CategoryTable1710000000000";
+import { EventTable1710000000001 } from "../migrations/EventTable1710000000001";
+import { EventShareTable1710000000002 } from "../migrations/EventShareTable1710000000002";
+import { FilterTable1710000000003 } from "../migrations/FilterTable1710000000003";
+import { QueryAnalyticsTable1710000000005 } from "../migrations/QueryAnalyticsTable1710000000005";
+import { UserTable1710000000006 } from "../migrations/UserTable1710000000006";
+import { UserEventDiscoveryTable1710000000007 } from "../migrations/UserEventDiscoveryTable1710000000007";
+import { UserEventRsvpTable1710000000008 } from "../migrations/UserEventRsvpTable1710000000008";
+import { UserEventSaveTable1710000000009 } from "../migrations/UserEventSaveTable1710000000009";
+import { UserEventViewTable1710000000010 } from "../migrations/UserEventViewTable1710000000010";
+import { SeedUsers1710000000012 } from "../migrations/SeedUsers1710000000012";
+import { AddAllUserForeignKeys1710000000014 } from "../migrations/AddAllUserForeignKeys1710000000014";
+import { AddIsOfficialToEvents1710000000015 } from "../migrations/AddIsOfficialToEvents1710000000015";
+import { SeedOfficialEvents1710000000016 } from "../migrations/SeedOfficialEvents1710000000016";
+import { RegenerateEmbeddings1710000000017 } from "../migrations/RegenerateEmbeddings1710000000017";
+import { CivicEngagementTables1710000000020 } from "../migrations/CivicEngagementTables1710000000020";
+import { AddEmbeddingToCivicEngagements1710000000021 } from "../migrations/AddEmbeddingToCivicEngagements1710000000021";
+import { UserPushTokenTable1710000000022 } from "../migrations/UserPushTokenTable1710000000022";
 
 // Create the DataSource instance
-const AppDataSource = new DataSource({
+export const AppDataSource = new DataSource({
   type: "postgres",
   url: process.env.DATABASE_URL,
   entities: [
@@ -93,7 +89,7 @@ const AppDataSource = new DataSource({
 });
 
 // Function to run migrations manually
-const runMigrations = async (): Promise<void> => {
+export const runMigrations = async (): Promise<void> => {
   if (!AppDataSource.isInitialized) {
     throw new Error("Database must be initialized before running migrations");
   }
@@ -114,7 +110,7 @@ const runMigrations = async (): Promise<void> => {
 };
 
 // Function to ensure database is fully ready
-const ensureDatabaseReady = async (): Promise<void> => {
+export const ensureDatabaseReady = async (): Promise<void> => {
   if (!AppDataSource.isInitialized) {
     throw new Error("Database must be initialized before checking readiness");
   }
@@ -152,7 +148,7 @@ const ensureDatabaseReady = async (): Promise<void> => {
 };
 
 // Wrapped DataSource with retry logic and development seeding
-const initializeDatabase = async (
+export const initializeDatabase = async (
   retries = 5,
   delay = 2000,
 ): Promise<DataSource> => {
@@ -207,11 +203,4 @@ const initializeDatabase = async (
   }
 
   throw new Error("Failed to initialize database after all retries");
-};
-
-export {
-  AppDataSource,
-  runMigrations,
-  ensureDatabaseReady,
-  initializeDatabase,
-};
+}; 

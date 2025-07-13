@@ -1,19 +1,20 @@
 import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
 import {
-  ApiEvent,
-  CreateEventPayload,
   EventEngagementMetrics,
   GetEventsParams,
   JobStatus,
   JobStreamMessage,
   ProcessEventImagePayload,
   RsvpStatus,
-  UpdateEventPayload,
 } from "../base/types";
-import { EventType } from "@/types/types";
+import {
+  EventResponse as EventType,
+  CreateEventRequest,
+  UpdateEventRequest,
+  EventResponse,
+} from "@/types/types";
 import * as FileSystem from "expo-file-system";
-import { mapEventToEventType } from "../utils/eventMapper";
 
 export class EventApiClient extends BaseApiModule {
   constructor(client: BaseApiClient) {
@@ -34,13 +35,13 @@ export class EventApiClient extends BaseApiModule {
     const url = `${this.client.baseUrl}/api/users/me/events/created?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
-      events: ApiEvent[];
+      events: EventResponse[];
       nextCursor?: string;
       prevCursor?: string;
     }>(response);
 
     return {
-      events: data.events.map(mapEventToEventType),
+      events: data.events as EventType[],
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -59,13 +60,13 @@ export class EventApiClient extends BaseApiModule {
     const url = `${this.client.baseUrl}/api/events/discovered?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
-      events: ApiEvent[];
+      events: EventResponse[];
       nextCursor?: string;
       prevCursor?: string;
     }>(response);
 
     return {
-      events: data.events.map(mapEventToEventType),
+      events: data.events as EventType[],
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -88,13 +89,13 @@ export class EventApiClient extends BaseApiModule {
     const url = `${this.client.baseUrl}/api/events?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
-      events: ApiEvent[];
+      events: EventResponse[];
       nextCursor?: string;
       prevCursor?: string;
     }>(response);
 
     return {
-      events: data.events.map(mapEventToEventType),
+      events: data.events as EventType[],
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -103,8 +104,8 @@ export class EventApiClient extends BaseApiModule {
   async getEventById(id: string): Promise<EventType> {
     const url = `${this.client.baseUrl}/api/events/${id}`;
     const response = await this.fetchWithAuth(url);
-    const data = await this.handleResponse<ApiEvent>(response);
-    return mapEventToEventType(data);
+    const data = await this.handleResponse<EventResponse>(response);
+    return data as EventType;
   }
 
   async getNearbyEvents(
@@ -131,13 +132,13 @@ export class EventApiClient extends BaseApiModule {
     const url = `${this.client.baseUrl}/api/events/nearby?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
-      events: ApiEvent[];
+      events: EventResponse[];
       nextCursor?: string;
       prevCursor?: string;
     }>(response);
 
     return {
-      events: data.events.map(mapEventToEventType),
+      events: data.events as EventType[],
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -161,7 +162,7 @@ export class EventApiClient extends BaseApiModule {
 
     const data = await this.handleResponse<{
       query: string;
-      results: ApiEvent[];
+      results: EventResponse[];
     }>(response);
 
     // Validate response data
@@ -171,7 +172,7 @@ export class EventApiClient extends BaseApiModule {
     }
 
     return {
-      events: data.results.map(mapEventToEventType),
+      events: data.results as EventType[],
       nextCursor: undefined, // The new API format doesn't seem to include cursors
       prevCursor: undefined,
     };
@@ -198,13 +199,13 @@ export class EventApiClient extends BaseApiModule {
     const url = `${this.client.baseUrl}/api/events/by-categories?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
-      events: ApiEvent[];
+      events: EventResponse[];
       nextCursor?: string;
       prevCursor?: string;
     }>(response);
 
     return {
-      events: data.events.map(mapEventToEventType),
+      events: data.events as EventType[],
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -224,12 +225,12 @@ export class EventApiClient extends BaseApiModule {
     const url = `${this.client.baseUrl}/api/events/category/${categoryId}?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
-      events: ApiEvent[];
+      events: EventResponse[];
       nextCursor?: string;
     }>(response);
 
     return {
-      events: data.events.map(mapEventToEventType),
+      events: data.events as EventType[],
       nextCursor: data.nextCursor,
     };
   }
@@ -267,9 +268,9 @@ export class EventApiClient extends BaseApiModule {
     const url = `${this.client.baseUrl}/api/events/landing?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
-      featuredEvents: ApiEvent[];
-      upcomingEvents: ApiEvent[];
-      communityEvents?: ApiEvent[];
+      featuredEvents: EventResponse[];
+      upcomingEvents: EventResponse[];
+      communityEvents?: EventResponse[];
       popularCategories: Array<{
         id: string;
         name: string;
@@ -285,9 +286,11 @@ export class EventApiClient extends BaseApiModule {
     });
 
     return {
-      featuredEvents: data.featuredEvents.map(mapEventToEventType),
-      upcomingEvents: data.upcomingEvents.map(mapEventToEventType),
-      communityEvents: (data.communityEvents || []).map(mapEventToEventType),
+      featuredEvents: data.featuredEvents as EventType[],
+      upcomingEvents: data.upcomingEvents as EventType[],
+      communityEvents: (data.communityEvents || []).map(
+        (event) => event as EventType,
+      ),
       popularCategories: data.popularCategories,
     };
   }
@@ -322,13 +325,13 @@ export class EventApiClient extends BaseApiModule {
     const url = `${this.client.baseUrl}/api/events/saved?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
-      events: ApiEvent[];
+      events: EventResponse[];
       nextCursor?: string;
       prevCursor?: string;
     }>(response);
 
     return {
-      events: data.events.map(mapEventToEventType),
+      events: data.events as EventType[],
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -347,13 +350,13 @@ export class EventApiClient extends BaseApiModule {
     const url = `${this.client.baseUrl}/api/events/saved/friends?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
     const data = await this.handleResponse<{
-      events: ApiEvent[];
+      events: EventResponse[];
       nextCursor?: string;
       prevCursor?: string;
     }>(response);
 
     return {
-      events: data.events.map(mapEventToEventType),
+      events: data.events as EventType[],
       nextCursor: data.nextCursor,
       prevCursor: data.prevCursor,
     };
@@ -389,17 +392,18 @@ export class EventApiClient extends BaseApiModule {
   }
 
   // Event creation and management methods
-  async createEvent(payload: CreateEventPayload): Promise<EventType> {
+  async createEvent(payload: CreateEventRequest): Promise<EventType> {
     const url = `${this.client.baseUrl}/api/events`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await this.handleResponse<ApiEvent>(response);
-    return mapEventToEventType(data);
+    const data = await this.handleResponse<EventResponse>(response);
+    return data as EventType;
   }
 
-  async createPrivateEvent(payload: CreateEventPayload): Promise<{
+  async createPrivateEvent(payload: CreateEventRequest): Promise<{
     status: string;
     jobId: string;
     message: string;
@@ -412,18 +416,12 @@ export class EventApiClient extends BaseApiModule {
     const url = `${this.client.baseUrl}/api/events/private`;
     const response = await this.fetchWithAuth(url, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    return this.handleResponse<{
-      status: string;
-      jobId: string;
-      message: string;
-      _links: {
-        self: string;
-        status: string;
-        stream: string;
-      };
-    }>(response);
+    const data = await this.handleResponse<EventResponse>(response);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return data as any;
   }
 
   async processEventImage(
@@ -497,15 +495,16 @@ export class EventApiClient extends BaseApiModule {
 
   async updateEvent(
     eventId: string,
-    payload: UpdateEventPayload,
+    payload: UpdateEventRequest,
   ): Promise<EventType> {
     const url = `${this.client.baseUrl}/api/events/${eventId}`;
     const response = await this.fetchWithAuth(url, {
-      method: "PUT",
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await this.handleResponse<ApiEvent>(response);
-    return mapEventToEventType(data);
+    const data = await this.handleResponse<EventResponse>(response);
+    return data as EventType;
   }
 
   // Event sharing methods
