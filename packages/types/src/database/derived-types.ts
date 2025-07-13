@@ -1,7 +1,10 @@
 // database/derived-types.ts
 // Derived types from database entities using utility types
 
-import { Event as EventEntity } from "@realtime-markers/database";
+import {
+  Event as EventEntity,
+  EventStatus as EventStatusEnum,
+} from "@realtime-markers/database";
 import { User as UserEntity } from "@realtime-markers/database";
 import { Category as CategoryEntity } from "@realtime-markers/database";
 import { CivicEngagement as CivicEngagementEntity } from "@realtime-markers/database";
@@ -18,6 +21,8 @@ import {
 
 // The full Event instance type (includes all properties, including relations)
 export type Event = InstanceType<typeof EventEntity>;
+
+export type EventStatus = EventStatusEnum;
 
 // API-safe Event type (omit relations and internal fields)
 export type EventResponse = Omit<

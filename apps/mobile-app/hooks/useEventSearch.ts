@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { apiClient } from "@/services/ApiClient";
 import { Marker } from "@/hooks/useMapWebsocket";
 import { EventType } from "@/types/types";
+import { EventStatus } from "@realtime-markers/types";
+
 import debounce from "lodash/debounce";
 
 // Convert Marker to EventType for consistent handling
@@ -11,39 +13,31 @@ const markerToEventType = (marker: Marker): EventType => {
     id: marker.id,
     title: marker.data.title || "Unnamed Event",
     description: marker.data.description || "",
-    eventDate: marker.data.eventDate || new Date().toISOString(),
-    endDate: marker.data.endDate,
-    time: marker.data.time || "Time not specified",
-    coordinates: marker.coordinates,
-    location: marker.data.location || "Location not specified",
-    locationNotes: marker.data.locationNotes,
-    distance: marker.data.distance || "",
+    eventDate: marker.data.eventDate
+      ? new Date(marker.data.eventDate)
+      : new Date(),
+    endDate: marker.data.endDate ? new Date(marker.data.endDate) : undefined,
+    location: {
+      type: "Point",
+      coordinates: marker.coordinates,
+    },
     emoji: marker.data.emoji || "📍",
-    categories: (marker.data.categories || []).map((cat) =>
-      typeof cat === "string" ? { id: cat, name: cat } : cat,
-    ),
-    creator: marker.data.creator,
+    categories: marker.data.categories || [],
+    isPrivate: marker.data.isPrivate ?? false,
+    isRecurring: marker.data.isRecurring ?? false,
     scanCount: marker.data.scanCount ?? 1,
     saveCount: marker.data.saveCount ?? 0,
-    timezone: marker.data.timezone ?? "",
-    qrUrl: marker.data.qrUrl,
-    qrCodeData: marker.data.qrCodeData,
-    qrImagePath: marker.data.qrImagePath,
-    hasQrCode: marker.data.hasQrCode,
-    qrGeneratedAt: marker.data.qrGeneratedAt,
-    qrDetectedInImage: marker.data.qrDetectedInImage,
-    detectedQrData: marker.data.detectedQrData,
-    createdAt: marker.data.createdAt,
-    updatedAt: marker.data.updatedAt,
-    isRecurring: marker.data.isRecurring ?? false,
-    recurrenceFrequency: marker.data.recurrenceFrequency,
-    recurrenceDays: marker.data.recurrenceDays,
-    recurrenceStartDate: marker.data.recurrenceStartDate,
-    recurrenceEndDate: marker.data.recurrenceEndDate,
-    recurrenceInterval: marker.data.recurrenceInterval,
-    recurrenceTime: marker.data.recurrenceTime,
-    recurrenceExceptions: marker.data.recurrenceExceptions,
-  };
+    viewCount: marker.data.viewCount ?? 0,
+    status: (marker.data.status || "PENDING") as unknown as EventStatus,
+    address: marker.data.location || "",
+    locationNotes: marker.data.locationNotes || "",
+    timezone: marker.data.timezone || "UTC",
+    createdAt: marker.data.created_at || new Date().toISOString(),
+    updatedAt: marker.data.updated_at || new Date().toISOString(),
+    hasQrCode: marker.data.hasQrCode ?? false,
+    isOfficial: marker.data.isOfficial ?? false,
+    qrDetectedInImage: marker.data.qrDetectedInImage ?? false,
+  } as EventType;
 };
 
 interface UseEventSearchProps {

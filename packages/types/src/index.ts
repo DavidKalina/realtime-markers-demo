@@ -10,6 +10,7 @@ export * from "./database/enums";
 export type {
   // Entity types
   Event,
+  EventStatus,
   EventResponse,
   CreateEventRequest,
   UpdateEventRequest,

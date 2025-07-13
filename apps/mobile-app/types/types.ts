@@ -15,5 +15,12 @@ export interface MapboxViewport {
   pitch?: number;
 }
 
+export interface ViewportBounds {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
 // Re-export EventType from the shared types for backward compatibility
 export type { EventResponse as EventType } from "@realtime-markers/types";

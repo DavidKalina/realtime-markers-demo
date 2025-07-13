@@ -20,7 +20,13 @@ import { useMapCamera } from "@/hooks/useMapCamera";
 import { useMapWebSocket } from "@/hooks/useMapWebsocket";
 import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
-import { MapboxViewport } from "@/types/types";
+// Define the viewport bounds type to match the hook's MapboxViewport
+interface ViewportBounds {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MapboxGL from "@rnmapbox/maps";
 import { useRouter } from "expo-router";
@@ -323,10 +329,10 @@ function HomeScreen() {
   );
 
   const [viewportRectangle, setViewportRectangle] =
-    useState<MapboxViewport | null>(null);
+    useState<ViewportBounds | null>(null);
 
   const calculateViewportRectangle = useCallback(
-    (viewport: MapboxViewport, isPitched: boolean): MapboxViewport => {
+    (viewport: ViewportBounds, isPitched: boolean): ViewportBounds => {
       const geoWidth = viewport.east - viewport.west;
       const geoHeight = viewport.north - viewport.south;
 
@@ -375,7 +381,7 @@ function HomeScreen() {
           setViewportRectangle(rectangle);
 
           // Use the adjusted rectangle for updates
-          updateViewport(rectangle);
+          updateViewport(rectangle as ViewportBounds);
         }
       } catch (error) {
         console.error("Error processing viewport change:", error);

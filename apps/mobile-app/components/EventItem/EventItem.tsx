@@ -1,5 +1,5 @@
 import { EventType } from "@/types/types";
-import { Calendar, ChevronRight, MapPin } from "lucide-react-native";
+import { Calendar, ChevronRight } from "lucide-react-native";
 import React, { useCallback } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
@@ -42,7 +42,6 @@ const EventItem: React.FC<EventItemProps> = ({
   index = 0,
   variant = "default",
   showChevron = true,
-  showDistance = false,
   footerContent,
 }) => {
   const scale = useSharedValue(1);
@@ -123,20 +122,7 @@ const EventItem: React.FC<EventItemProps> = ({
                   numberOfLines={1}
                   ellipsizeMode="tail"
                 >
-                  {event.time}
-                </Text>
-              </View>
-
-              <View style={styles.resultDetailsRow}>
-                <MapPin size={14} color="#93c5fd" style={{ marginRight: 6 }} />
-                <Text
-                  style={styles.resultDetailText}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {showDistance && event.distance
-                    ? event.distance
-                    : event.location}
+                  {event.eventDate.toLocaleDateString()}
                 </Text>
               </View>
             </View>

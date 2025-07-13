@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { apiClient } from "@/services/ApiClient";
 import { Filter } from "@/services/ApiClient";
+import {
+  CreateFilterRequest,
+  UpdateFilterRequest,
+} from "@realtime-markers/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { eventBroker, EventTypes } from "@/services/EventBroker";
 
@@ -16,8 +20,8 @@ interface FilterState {
 
   // Actions
   fetchFilters: () => Promise<void>;
-  createFilter: (filter: Partial<Filter> & { name: string }) => Promise<Filter>;
-  updateFilter: (id: string, filter: Partial<Filter>) => Promise<Filter>;
+  createFilter: (filter: CreateFilterRequest) => Promise<Filter>;
+  updateFilter: (id: string, filter: UpdateFilterRequest) => Promise<Filter>;
   deleteFilter: (id: string) => Promise<void>;
   applyFilters: (filterIds: string[]) => Promise<void>;
   clearFilters: () => Promise<void>;
@@ -84,7 +88,7 @@ export const useFilterStore = create<FilterState>((set) => ({
     }
   },
 
-  createFilter: async (filter: Partial<Filter> & { name: string }) => {
+  createFilter: async (filter: CreateFilterRequest) => {
     set({ isLoading: true, error: null });
     try {
       const newFilter = await apiClient.filters.createFilter(filter);
@@ -104,7 +108,7 @@ export const useFilterStore = create<FilterState>((set) => ({
     }
   },
 
-  updateFilter: async (id: string, filter: Partial<Filter>) => {
+  updateFilter: async (id: string, filter: UpdateFilterRequest) => {
     set({ isLoading: true, error: null });
     try {
       const updatedFilter = await apiClient.filters.updateFilter(id, filter);

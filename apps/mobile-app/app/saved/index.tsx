@@ -15,7 +15,10 @@ import EventListItem, {
   EventListItemProps,
 } from "@/components/Event/EventListItem";
 import { useSavedEvents } from "@/hooks/useSavedEvents";
-import { EventResponse as ApiEventType } from "@realtime-markers/types";
+import {
+  EventResponse as ApiEventType,
+  EventResponse,
+} from "@realtime-markers/types";
 import { AuthWrapper } from "@/components/AuthWrapper";
 
 type SavedTab = "personal" | "discovered";
@@ -73,7 +76,7 @@ const SavedListScreen = () => {
   }, [router]);
 
   const handleEventPress = useCallback(
-    (event: EventListItemProps) => {
+    (event: EventResponse) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       router.push({
         pathname: "/details" as const,
@@ -93,19 +96,8 @@ const SavedListScreen = () => {
   const renderEventItem = useCallback(
     (event: ApiEventType) => {
       const eventProps: EventListItemProps = {
-        id: event.id,
-        title: event.title,
-        description: event.description,
-        location: event.address || "Unknown location",
-        distance: "0.5 mi", // TODO: Calculate actual distance
-        emoji: event.emoji,
-        eventDate: event.eventDate,
-        endDate: event.endDate?.toISOString(),
-        categories:
-          event.categories?.map((cat) => ({ id: cat, name: cat })) || [],
+        ...event,
         onPress: handleEventPress,
-        isPrivate: event.isPrivate,
-        isRecurring: event.isRecurring,
       };
       return <EventListItem {...eventProps} />;
     },
