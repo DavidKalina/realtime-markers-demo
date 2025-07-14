@@ -15,7 +15,6 @@ import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
 import { UserEventView } from "./UserEventView";
 import { UserEventRsvp } from "./UserEventRsvp";
-import { UserPushToken } from "./UserPushToken";
 
 export enum UserRole {
   USER = "USER",
@@ -101,8 +100,8 @@ export class User {
   @OneToMany(() => UserEventRsvp, (rsvp) => rsvp.user)
   rsvps!: Relation<UserEventRsvp>[];
 
-  @OneToMany(() => UserPushToken, (pushToken) => pushToken.user)
-  pushTokens!: Relation<UserPushToken>[];
+  @OneToMany("UserPushToken", "user")
+  pushTokens!: Relation<any>[];
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

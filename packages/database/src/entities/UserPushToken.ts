@@ -8,7 +8,6 @@ import {
   JoinColumn,
   Index,
 } from "typeorm";
-import { User } from "./User";
 
 @Entity("user_push_tokens")
 @Index(["userId", "token"], { unique: true })
@@ -40,7 +39,7 @@ export class UserPushToken {
   updatedAt!: Date;
 
   // Relations
-  @ManyToOne(() => User, (user) => user.id, { onDelete: "CASCADE" })
+  @ManyToOne("User", "pushTokens", { onDelete: "CASCADE" })
   @JoinColumn({ name: "user_id" })
-  user!: User;
+  user!: any;
 }
