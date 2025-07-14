@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from "bun:test";
 import type { DataSource, Repository } from "typeorm";
-import { QueryAnalytics } from "../../entities/QueryAnalytics";
-import { Event } from "../../entities/Event";
-import { Category } from "../../entities/Category";
+import { QueryAnalytics } from "@realtime-markers/database";
+import { QueryAnalytics";
+import { Event } from "@realtime-markers/database";
+import { Event";
+import { Category } from "@realtime-markers/database";
+import { Category";
 import {
   QueryAnalyticsServiceImpl,
   createQueryAnalyticsService,

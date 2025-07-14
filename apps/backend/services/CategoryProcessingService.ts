@@ -1,5 +1,5 @@
 import { In, Repository } from "typeorm";
-import { Category } from "../entities/Category";
+import { Category } from "@realtime-markers/database";
 import type { CategoryCacheService } from "./shared/CategoryCacheService";
 import { OpenAIModel, type OpenAIService } from "./shared/OpenAIService";
 

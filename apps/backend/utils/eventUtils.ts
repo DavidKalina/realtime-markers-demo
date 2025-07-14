@@ -4,7 +4,7 @@ import { Buffer } from "buffer";
 import type { CategoryProcessingService } from "../services/CategoryProcessingService";
 import type { StorageService } from "../services/shared/StorageService";
 import type { IEmbeddingService } from "../services/event-processing/interfaces/IEmbeddingService";
-import { RecurrenceFrequency, DayOfWeek } from "../entities/Event";
+import { RecurrenceFrequency, DayOfWeek } from "@realtime-markers/database";
 import type { CreateEventInput } from "../types/event";
 
 // Extended type for internal processing that includes categories

@@ -4,7 +4,8 @@ import { BaseJobHandler } from "./BaseJobHandler";
 import type { CivicEngagementService } from "../../services/CivicEngagementService";
 import type { StorageService } from "../../services/shared/StorageService";
 import type { CreateCivicEngagementInput } from "../../types/civicEngagement";
-import { CivicEngagementType } from "../../entities/CivicEngagement";
+import { CivicEngagementType } from "@realtime-markers/database";
+import { CivicEngagement";
 import type { Point } from "geojson";
 import type { IEmbeddingService } from "../../services/event-processing/interfaces/IEmbeddingService";
 

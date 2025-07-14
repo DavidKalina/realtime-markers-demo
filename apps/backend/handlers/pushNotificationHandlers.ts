@@ -2,7 +2,7 @@ import type { Context } from "hono";
 import { pushNotificationService } from "../services/PushNotificationService";
 import type { AppContext } from "../types/context";
 import type { DeviceInfo } from "../services/PushNotificationService";
-import { UserRole } from "../entities/User";
+import { UserRole } from "@realtime-markers/database";
 
 // Register a push token for the current user
 export const registerTokenHandler = async (c: Context<AppContext>) => {

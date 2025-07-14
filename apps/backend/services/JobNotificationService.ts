@@ -1,5 +1,5 @@
 import { Repository } from "typeorm";
-import { User } from "../entities/User";
+import { User } from "@realtime-markers/database";
 import { pushNotificationService } from "./PushNotificationService";
 import AppDataSource from "../data-source";
 import type { JobData } from "./JobQueue";

@@ -1,9 +1,12 @@
 import { DataSource, Repository } from "typeorm";
-import { Event, EventStatus } from "../entities/Event";
-import { Category } from "../entities/Category";
-import { UserEventSave } from "../entities/UserEventSave";
-import { UserEventDiscovery } from "../entities/UserEventDiscovery";
-import { User } from "../entities/User";
+import {
+  Event,
+  EventStatus,
+  Category,
+  UserEventSave,
+  UserEventDiscovery,
+  User,
+} from "@realtime-markers/database";
 import type { EventCacheService } from "./shared/EventCacheService";
 import type { RedisService } from "./shared/RedisService";
 

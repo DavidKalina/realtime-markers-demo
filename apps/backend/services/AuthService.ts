@@ -3,7 +3,7 @@
 import bcrypt from "bcrypt";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { Repository, DataSource } from "typeorm";
-import { User, UserRole } from "../entities/User";
+import { User, UserRole } from "@realtime-markers/database";
 import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import { addDays, format } from "date-fns";
 import type { OpenAIService } from "./shared/OpenAIService";

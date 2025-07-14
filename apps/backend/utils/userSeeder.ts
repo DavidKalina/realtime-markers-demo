@@ -1,5 +1,5 @@
 import { DataSource } from "typeorm";
-import { User, UserRole } from "../entities/User";
+import { User, UserRole } from "@realtime-markers/database";
 import bcrypt from "bcrypt";
 
 export interface SeededUser {

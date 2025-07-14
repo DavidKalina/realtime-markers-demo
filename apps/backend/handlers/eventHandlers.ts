@@ -2,7 +2,7 @@
 
 import { Buffer } from "buffer";
 import type { CategoryProcessingService } from "../services/CategoryProcessingService";
-import { RsvpStatus } from "../entities/UserEventRsvp";
+import { RsvpStatus } from "@realtime-markers/database";
 import {
   processEventFormData,
   validateEventData,

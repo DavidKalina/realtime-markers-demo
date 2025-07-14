@@ -7,7 +7,8 @@ import {
   type AuthServiceDependencies,
   type UserRegistrationData,
 } from "../AuthService";
-import { User, UserRole } from "../../entities/User";
+import { User, UserRole } from "@realtime-markers/database";
+import { User";
 import type { Repository } from "typeorm";
 import type { UserPreferencesServiceImpl } from "../UserPreferences";
 import type { DataSource } from "typeorm";

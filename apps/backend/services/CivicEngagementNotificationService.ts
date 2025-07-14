@@ -1,9 +1,10 @@
 import { Repository } from "typeorm";
-import { User } from "../entities/User";
 import {
+  User,
   CivicEngagement,
+  CivicEngagementType,
   CivicEngagementStatus,
-} from "../entities/CivicEngagement";
+} from "@realtime-markers/database";
 import { pushNotificationService } from "./PushNotificationService";
 import AppDataSource from "../data-source";
 

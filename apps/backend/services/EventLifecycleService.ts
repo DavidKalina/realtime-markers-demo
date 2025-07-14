@@ -1,7 +1,6 @@
 import pgvector from "pgvector";
 import { DataSource, Repository, type DeepPartial, In } from "typeorm";
-import { Event, EventStatus } from "../entities/Event";
-import { Category } from "../entities/Category";
+import { Event, EventStatus, Category } from "@realtime-markers/database";
 import type { EventCacheService } from "./shared/EventCacheService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import type { RedisService } from "./shared/RedisService";

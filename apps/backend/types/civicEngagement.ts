@@ -2,7 +2,7 @@ import { type Point } from "geojson";
 import {
   CivicEngagementType,
   CivicEngagementStatus,
-} from "../entities/CivicEngagement";
+} from "@realtime-markers/database";
 
 export interface CreateCivicEngagementInput {
   title: string;

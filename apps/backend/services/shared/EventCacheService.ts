@@ -1,5 +1,4 @@
-import { Event } from "../../entities/Event";
-import { Category } from "../../entities/Category";
+import { Event, Category } from "@realtime-markers/database";
 import { createCacheService } from "./CacheService";
 import { Redis } from "ioredis";
 

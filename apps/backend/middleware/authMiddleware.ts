@@ -2,7 +2,7 @@
 
 import type { Context, Next } from "hono";
 import { createAuthService } from "../services/AuthService";
-import { User } from "../entities/User";
+import { User } from "@realtime-markers/database";
 import dataSource from "../data-source";
 import type { AppContext } from "../types/context";
 import { createUserPreferencesService } from "../services/UserPreferences";

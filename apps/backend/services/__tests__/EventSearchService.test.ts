@@ -26,9 +26,12 @@ import {
   type EventSearchService,
   type EventSearchServiceDependencies,
 } from "../EventSearchService";
-import { Event } from "../../entities/Event";
-import { Category } from "../../entities/Category";
-import type { Filter } from "../../entities/Filter";
+import { Event } from "@realtime-markers/database";
+import { Event";
+import { Category } from "@realtime-markers/database";
+import { Category";
+import type { Filter } from "@realtime-markers/database";
+import { Filter";
 import type { DataSource, Repository } from "typeorm";
 import type { EventCacheService } from "../shared/EventCacheService";
 import type { OpenAIService } from "../shared/OpenAIService";

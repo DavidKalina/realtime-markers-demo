@@ -1,16 +1,17 @@
 import { Hono } from "hono";
 import type { AppContext } from "../types/context";
 import AppDataSource from "../data-source";
-import { Event, EventStatus } from "../entities/Event";
-import { User } from "../entities/User";
-import { Category } from "../entities/Category";
-import { UserEventDiscovery } from "../entities/UserEventDiscovery";
-import { UserEventRsvp } from "../entities/UserEventRsvp";
 import {
+  Event,
+  EventStatus,
+  User,
+  Category,
+  UserEventDiscovery,
+  UserEventRsvp,
   CivicEngagement,
   CivicEngagementType,
   CivicEngagementStatus,
-} from "../entities/CivicEngagement";
+} from "@realtime-markers/database";
 
 export const dashboardRouter = new Hono<AppContext>();
 

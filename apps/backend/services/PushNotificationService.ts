@@ -1,8 +1,7 @@
 import { Expo } from "expo-server-sdk";
 import type { ExpoPushMessage } from "expo-server-sdk";
 import { Repository, In } from "typeorm";
-import { UserPushToken } from "../entities/UserPushToken";
-import { User } from "../entities/User";
+import { UserPushToken, User } from "@realtime-markers/database";
 import AppDataSource from "../data-source";
 
 export interface PushNotificationPayload {

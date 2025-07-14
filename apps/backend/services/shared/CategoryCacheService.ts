@@ -1,4 +1,4 @@
-import { Category } from "../../entities/Category";
+import { Category } from "@realtime-markers/database";
 import { createCacheService } from "./CacheService";
 import { Redis } from "ioredis";
 

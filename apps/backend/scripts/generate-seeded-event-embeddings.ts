@@ -2,7 +2,7 @@
 
 import "reflect-metadata";
 import { initializeDatabase } from "../data-source";
-import { Event } from "../entities/Event";
+import { Event } from "@realtime-markers/database";
 import { DataSource, In } from "typeorm";
 import { createEmbeddingService } from "../services/shared/EmbeddingService";
 import { createEmbeddingCacheService } from "../services/shared/EmbeddingCacheService";

@@ -1,5 +1,5 @@
 import { type Point } from "geojson";
-import { RecurrenceFrequency, DayOfWeek } from "../entities/Event";
+import { RecurrenceFrequency, DayOfWeek } from "@realtime-markers/database";
 
 export interface CreateEventInput {
   emoji: string;

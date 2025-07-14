@@ -1,6 +1,10 @@
 // services/EventProcessingService.ts
 import type { Point } from "geojson";
-import type { Category } from "../entities/Category";
+import type {
+  Category,
+  RecurrenceFrequency,
+  DayOfWeek,
+} from "@realtime-markers/database";
 import type { SimilarityResult } from "./event-processing/dto/SimilarityResult";
 import { createEventExtractionService } from "./event-processing/EventExtractionService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
@@ -10,7 +14,6 @@ import type { IImageProcessingService } from "./event-processing/interfaces/IIma
 
 import type { JobQueue } from "./JobQueue";
 import type { EventStructuredData } from "./event-processing/dto/ImageProcessingResult";
-import { RecurrenceFrequency, DayOfWeek } from "../entities/Event";
 
 interface LocationContext {
   userCoordinates?: { lat: number; lng: number };

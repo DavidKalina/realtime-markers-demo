@@ -29,13 +29,20 @@ import {
   type UserEngagementService,
   type UserEngagementServiceDependencies,
 } from "../UserEngagementService";
-import { Event, EventStatus } from "../../entities/Event";
-import { User, UserRole } from "../../entities/User";
-import { UserEventSave } from "../../entities/UserEventSave";
-import { UserEventRsvp, RsvpStatus } from "../../entities/UserEventRsvp";
-import { UserEventDiscovery } from "../../entities/UserEventDiscovery";
-import { UserEventView } from "../../entities/UserEventView";
-import { Category } from "../../entities/Category";
+import { Event, EventStatus } from "@realtime-markers/database";
+import { Event";
+import { User, UserRole } from "@realtime-markers/database";
+import { User";
+import { UserEventSave } from "@realtime-markers/database";
+import { UserEventSave";
+import { UserEventRsvp, RsvpStatus } from "@realtime-markers/database";
+import { UserEventRsvp";
+import { UserEventDiscovery } from "@realtime-markers/database";
+import { UserEventDiscovery";
+import { UserEventView } from "@realtime-markers/database";
+import { UserEventView";
+import { Category } from "@realtime-markers/database";
+import { Category";
 import type { DataSource, Repository, EntityManager } from "typeorm";
 import type { RedisService } from "../shared/RedisService";
 

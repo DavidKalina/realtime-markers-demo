@@ -5,8 +5,10 @@ import type { EventProcessingService } from "../../services/EventProcessingServi
 import type { EventService } from "../../services/EventServiceRefactored";
 import type { Point } from "geojson";
 import AppDataSource from "../../data-source";
-import { User } from "../../entities/User";
-import { Category } from "../../entities/Category";
+import { User } from "@realtime-markers/database";
+import { User";
+import { Category } from "@realtime-markers/database";
+import { Category";
 import { In } from "typeorm";
 
 interface PrivateEventDetails {

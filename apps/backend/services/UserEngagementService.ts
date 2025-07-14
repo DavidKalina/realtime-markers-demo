@@ -1,10 +1,13 @@
 import { DataSource, Repository, Brackets } from "typeorm";
-import { Event } from "../entities/Event";
-import { User } from "../entities/User";
-import { UserEventSave } from "../entities/UserEventSave";
-import { UserEventRsvp, RsvpStatus } from "../entities/UserEventRsvp";
-import { UserEventDiscovery } from "../entities/UserEventDiscovery";
-import { UserEventView } from "../entities/UserEventView";
+import {
+  Event,
+  User,
+  UserEventSave,
+  UserEventRsvp,
+  RsvpStatus,
+  UserEventDiscovery,
+  UserEventView,
+} from "@realtime-markers/database";
 import type { RedisService } from "./shared/RedisService";
 
 export interface EventEngagementMetrics {

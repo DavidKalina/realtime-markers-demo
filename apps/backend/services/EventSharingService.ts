@@ -1,6 +1,5 @@
 import { DataSource, Repository, In } from "typeorm";
-import { Event } from "../entities/Event";
-import { EventShare } from "../entities/EventShare";
+import { Event, EventShare } from "@realtime-markers/database";
 import type { EventCacheService } from "./shared/EventCacheService";
 import type { RedisService } from "./shared/RedisService";
 
