@@ -7,7 +7,6 @@ import type { JobQueue } from "../../services/JobQueue";
 import type { RedisService } from "../../services/shared/RedisService";
 import type { Point } from "geojson";
 import type { Event } from "@realtime-markers/database";
-import { Event";
 
 describe("CleanupEventsHandler", () => {
   let handler: CleanupEventsHandler;

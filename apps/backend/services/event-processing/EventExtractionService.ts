@@ -3,7 +3,6 @@
 import { parseISO } from "date-fns";
 import { format, fromZonedTime } from "date-fns-tz";
 import type { Category } from "@realtime-markers/database";
-import { Category";
 import type { CategoryProcessingService } from "../CategoryProcessingService";
 import type { ConfigService } from "../shared/ConfigService";
 import { OpenAIModel, type OpenAIService } from "../shared/OpenAIService";

@@ -5,7 +5,6 @@ import type { CivicEngagementService } from "../../services/CivicEngagementServi
 import type { StorageService } from "../../services/shared/StorageService";
 import type { CreateCivicEngagementInput } from "../../types/civicEngagement";
 import { CivicEngagementType } from "@realtime-markers/database";
-import { CivicEngagement";
 import type { Point } from "geojson";
 import type { IEmbeddingService } from "../../services/event-processing/interfaces/IEmbeddingService";
 
