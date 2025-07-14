@@ -47,6 +47,9 @@ importers:
       '@hono-rate-limiter/redis':
         specifier: ^0.1.4
         version: 0.1.4(hono-rate-limiter@0.4.2(hono@4.7.2))
+      '@realtime-markers/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@types/jsonwebtoken':
         specifier: ^9.0.9
         version: 9.0.9
@@ -571,6 +574,43 @@ importers:
       bun-types:
         specifier: latest
         version: 1.2.17
+
+  packages/database:
+    dependencies:
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.4.7
+      geojson:
+        specifier: ^0.5.0
+        version: 0.5.0
+      ioredis:
+        specifier: ^5.5.0
+        version: 5.6.0
+      openai:
+        specifier: ^4.85.3
+        version: 4.85.4(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.2)
+      pg:
+        specifier: ^8.13.3
+        version: 8.13.3
+      pgvector:
+        specifier: ^0.2.0
+        version: 0.2.0
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+      typeorm:
+        specifier: ^0.3.20
+        version: 0.3.20(ioredis@5.6.0)(pg@8.13.3)(ts-node@10.9.2(@types/node@20.17.19)(typescript@5.7.3))
+    devDependencies:
+      '@types/geojson':
+        specifier: ^7946.0.14
+        version: 7946.0.16
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.17.19
+      typescript:
+        specifier: ^5.0.0
+        version: 5.7.3
 
 packages:
 
@@ -19630,6 +19670,30 @@ snapshots:
       ioredis: 5.5.0
       pg: 8.13.3
       ts-node: 10.9.2(@types/node@22.13.4)(typescript@5.7.3)
+    transitivePeerDependencies:
+      - supports-color
+
+  typeorm@0.3.20(ioredis@5.6.0)(pg@8.13.3)(ts-node@10.9.2(@types/node@20.17.19)(typescript@5.7.3)):
+    dependencies:
+      '@sqltools/formatter': 1.2.5
+      app-root-path: 3.1.0
+      buffer: 6.0.3
+      chalk: 4.1.2
+      cli-highlight: 2.1.11
+      dayjs: 1.11.13
+      debug: 4.4.0
+      dotenv: 16.4.7
+      glob: 10.4.5
+      mkdirp: 2.1.6
+      reflect-metadata: 0.2.2
+      sha.js: 2.4.11
+      tslib: 2.8.1
+      uuid: 9.0.1
+      yargs: 17.7.2
+    optionalDependencies:
+      ioredis: 5.6.0
+      pg: 8.13.3
+      ts-node: 10.9.2(@types/node@20.17.19)(typescript@5.7.3)
     transitivePeerDependencies:
       - supports-color
 

@@ -17,9 +17,11 @@ RUN apt-get update && apt-get install -y \
 # Copy package files first for better caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/backend/package.json ./apps/backend/
+COPY packages/database/package.json ./packages/database/
 
 # Copy source code
 COPY apps/backend ./apps/backend
+COPY packages/database ./packages/database
 
 # Install dependencies using pnpm for workspace support
 RUN pnpm install --frozen-lockfile || pnpm install

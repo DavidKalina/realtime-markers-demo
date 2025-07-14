@@ -27,6 +27,7 @@
     "test:push": "bun run scripts/test-push-notifications.ts"
   },
   "dependencies": {
+    "@realtime-markers/database": "workspace:*",
     "@aws-sdk/client-s3": "^3.758.0",
     "@aws-sdk/s3-request-presigner": "^3.758.0",
     "@hono-rate-limiter/redis": "^0.1.4",
