@@ -112,9 +112,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - backend_node_modules:/app/node_modules
-      - backend_app_node_modules:/app/apps/backend/node_modules
+    volumes: []
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 60s
@@ -167,8 +165,7 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
-    volumes:
-      - worker_node_modules:/app/apps/backend/node_modules
+    volumes: []
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
@@ -201,8 +198,7 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
-    volumes:
-      - filter_processor_node_modules:/app/apps/filter-processor/node_modules
+    volumes: []
     healthcheck:
       test:
         [
@@ -241,8 +237,7 @@ services:
         condition: service_healthy
       filter-processor:
         condition: service_healthy
-    volumes:
-      - websocket_node_modules:/app/apps/websocket/node_modules
+    volumes: []
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8081/health || exit 1"]
       interval: 30s
@@ -282,10 +277,4 @@ networks:
 volumes:
   postgres_data:
   redis_data:
-  backend_node_modules:
-  backend_app_node_modules:
-  worker_node_modules:
-  websocket_node_modules:
-  filter_processor_node_modules:
-  web_dashboard_node_modules:
   web_dashboard_next_cache:
