@@ -8,7 +8,7 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_EMAIL:-admin@yourdomain.com}"
+      - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_EMAIL}"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
       - "--log.level=INFO"
@@ -81,7 +81,7 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.adminer.rule=Host(`${ADMINER_HOST:-adminer.yourdomain.com}`)"
+      - "traefik.http.routers.adminer.rule=Host(`${ADMINER_HOST}`)"
       - "traefik.http.services.adminer.loadbalancer.server.port=8080"
       - "traefik.http.routers.adminer.tls.certresolver=letsencrypt"
 
@@ -173,7 +173,7 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`${API_HOST:-api.yourdomain.com}`)"
+      - "traefik.http.routers.backend.rule=Host(`${API_HOST}`)"
       - "traefik.http.services.backend.loadbalancer.server.port=3000"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.backend.middlewares=backend-headers"
@@ -277,7 +277,7 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.filter-processor.rule=Host(`${FILTER_PROCESSOR_HOST:-filter.yourdomain.com}`)"
+      - "traefik.http.routers.filter-processor.rule=Host(`${FILTER_PROCESSOR_HOST}`)"
       - "traefik.http.services.filter-processor.loadbalancer.server.port=8082"
       - "traefik.http.routers.filter-processor.tls.certresolver=letsencrypt"
 
@@ -314,7 +314,7 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.websocket.rule=Host(`${WEBSOCKET_HOST:-ws.yourdomain.com}`)"
+      - "traefik.http.routers.websocket.rule=Host(`${WEBSOCKET_HOST}`)"
       - "traefik.http.services.websocket.loadbalancer.server.port=8081"
       - "traefik.http.routers.websocket.tls.certresolver=letsencrypt"
       - "traefik.http.routers.websocket.middlewares=websocket-headers"
@@ -344,7 +344,7 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.dashboard.rule=Host(`${DASHBOARD_HOST:-dashboard.yourdomain.com}`)"
+      - "traefik.http.routers.dashboard.rule=Host(`${DASHBOARD_HOST}`)"
       - "traefik.http.services.dashboard.loadbalancer.server.port=3001"
       - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
 

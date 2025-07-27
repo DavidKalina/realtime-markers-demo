@@ -33,10 +33,10 @@ REDIS_HOST=redis
 REDIS_PORT=6379
 REDIS_PASSWORD=your_redis_password_here
 
-# Traefik Configuration
+# Traefik Configuration (REQUIRED - no fallbacks)
 TRAEFIK_EMAIL=admin@yourdomain.com
 
-# Domain Configuration for Traefik
+# Domain Configuration for Traefik (REQUIRED - no fallbacks)
 API_HOST=api.yourdomain.com
 DASHBOARD_HOST=dashboard.yourdomain.com
 WEBSOCKET_HOST=ws.yourdomain.com
@@ -81,6 +81,8 @@ WEB_DASHBOARD_DOCKERFILE=apps/web-dashboard/Dockerfile
 WEB_DASHBOARD_NODE_ENV=production
 WEB_DASHBOARD_COMMAND=pnpm start
 ```
+
+**Important:** The main `docker-compose.yml` file is now domain-agnostic and requires all `*_HOST` environment variables to be set. There are no fallback values.
 
 ## Deployment
 
