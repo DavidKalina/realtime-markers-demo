@@ -7,8 +7,8 @@ import { StorageService } from "../../services/shared/StorageService";
 import { isEventTemporalyRelevant } from "../../utils/isEventTemporalyRelevant";
 import type { Point } from "geojson";
 import type { MultiEventScanResult } from "../../services/EventProcessingService";
-import type { Event } from "@realtime-markers/database";
-import type { Category } from "@realtime-markers/database";
+import { EventStatus } from "@realtime-markers/database";
+import type { Event, Category } from "@realtime-markers/database";
 
 // Helper function to convert Point to [number, number]
 function pointToCoordinates(point: Point): [number, number] {
@@ -334,15 +334,20 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         creatorId: job.data.creatorId as string,
         qrDetectedInImage: scanResult.qrCodeDetected || false,
         detectedQrData: scanResult.qrCodeData,
-        originalImageUrl: originalImageUrl,
-        embedding: scanResult.embedding,
-        isRecurring: eventDetails.isRecurring,
+        originalImageUrl: originalImageUrl || undefined,
+        embedding: scanResult.embedding
+          ? JSON.stringify(scanResult.embedding)
+          : undefined,
+        isRecurring: eventDetails.isRecurring || false,
         recurrenceFrequency: eventDetails.recurrenceFrequency,
         recurrenceDays: eventDetails.recurrenceDays,
         recurrenceTime: eventDetails.recurrenceTime,
         recurrenceStartDate: parseDateOrNull(eventDetails.recurrenceStartDate),
         recurrenceEndDate: parseDateOrNull(eventDetails.recurrenceEndDate),
         recurrenceInterval: eventDetails.recurrenceInterval || 1,
+        status: EventStatus.PENDING,
+        hasQrCode: false,
+        isOfficial: false,
       });
 
       // Create discovery record if creator exists
@@ -353,16 +358,12 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         );
       }
 
-      // Get the shares for the event to include in notifications
-      const eventShares = await this.eventService.getEventShares(newEvent.id);
-
       await context.redisService.publish("discovered_events", {
         type: "EVENT_DISCOVERED",
         data: {
           event: {
             ...newEvent,
             coordinates: pointToCoordinates(newEvent.location),
-            ...(newEvent.isPrivate && { sharedWith: eventShares }),
           },
           timestamp: new Date().toISOString(),
         },
@@ -472,7 +473,13 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         qrDetectedInImage: eventResult.qrCodeDetected || false,
         detectedQrData: eventResult.qrCodeData,
         originalImageUrl: originalImageUrl || undefined,
-        embedding: eventResult.embedding,
+        embedding: eventResult.embedding
+          ? JSON.stringify(eventResult.embedding)
+          : undefined,
+        status: EventStatus.PENDING,
+        hasQrCode: false,
+        isOfficial: false,
+        isRecurring: false,
       });
 
       // Create discovery record if creator exists
@@ -480,16 +487,12 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         await this.eventService.createDiscoveryRecord(creatorId, newEvent.id);
       }
 
-      // Get the shares for the event
-      const eventShares = await this.eventService.getEventShares(newEvent.id);
-
       await context.redisService.publish("discovered_events", {
         type: "EVENT_DISCOVERED",
         data: {
           event: {
             ...newEvent,
             coordinates: pointToCoordinates(newEvent.location),
-            ...(newEvent.isPrivate && { sharedWith: eventShares }),
           },
           timestamp: new Date().toISOString(),
         },

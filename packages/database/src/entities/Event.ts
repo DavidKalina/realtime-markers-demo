@@ -125,9 +125,6 @@ export class Event {
   @Column({ name: "has_qr_code", type: "boolean", default: false })
   hasQrCode!: boolean;
 
-  @Column({ name: "is_private", type: "boolean", default: false })
-  isPrivate!: boolean;
-
   @Column({ name: "is_official", type: "boolean", default: false })
   isOfficial!: boolean;
 

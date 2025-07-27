@@ -15,7 +15,6 @@ import {
   UserEventSave,
   UserEventView,
   UserEventRsvp,
-  EventShare,
   Filter,
   QueryAnalytics,
   UserPushToken,
@@ -89,7 +88,6 @@ export type EventInput = Omit<
   | "discoveries"
   | "saves"
   | "views"
-  | "shares"
   | "rsvps"
   | "categories"
   | "creator"
@@ -107,7 +105,6 @@ export type EventUpdate = Partial<
     | "discoveries"
     | "saves"
     | "views"
-    | "shares"
     | "rsvps"
     | "categories"
     | "creator"
@@ -131,7 +128,6 @@ export type EventSummary = Pick<
   | "saveCount"
   | "viewCount"
   | "status"
-  | "isPrivate"
   | "isOfficial"
   | "hasQrCode"
 > & {
@@ -312,23 +308,7 @@ export type UserPushTokenInput = Omit<
 // EVENT SHARE TYPES
 // ============================================================================
 
-export type EventShareInput = Omit<
-  EventShare,
-  "id" | "createdAt" | "event" | "sharedWith" | "sharedBy"
-> & {
-  eventId: string;
-  sharedWithId: string;
-  sharedById: string;
-};
-
-export type EventShareSummary = Pick<
-  EventShare,
-  "id" | "eventId" | "sharedWithId" | "sharedById" | "createdAt"
-> & {
-  event?: EventSummary;
-  sharedWith?: UserProfile;
-  sharedBy?: UserProfile;
-};
+// Removed EventShare types since event sharing has been removed
 
 // ============================================================================
 // SEARCH AND FILTER TYPES
@@ -345,7 +325,6 @@ export type EventSearchFilters = {
     center: Point;
     radius: number; // in meters
   };
-  isPrivate?: boolean;
   isOfficial?: boolean;
   hasQrCode?: boolean;
   creatorId?: string;
