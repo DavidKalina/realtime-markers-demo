@@ -16,8 +16,6 @@ import type {
   EventEngagementMetrics,
 } from "./UserEngagementService";
 import { createUserEngagementService } from "./UserEngagementService";
-import type { EventSharingService } from "./EventSharingService";
-import { createEventSharingService } from "./EventSharingService";
 import type { EventAdminService } from "./EventAdminService";
 import { createEventAdminService } from "./EventAdminService";
 import type { EventCacheService } from "./shared/EventCacheService";
@@ -156,23 +154,6 @@ export interface EventService {
 
   getEventEngagement(eventId: string): Promise<EventEngagementMetrics>;
 
-  // Sharing operations
-  shareEventWithUsers(
-    eventId: string,
-    sharedById: string,
-    sharedWithIds: string[],
-  ): Promise<void>;
-
-  removeEventShares(eventId: string, sharedWithIds: string[]): Promise<void>;
-
-  getEventSharedWithUsers(eventId: string): Promise<string[]>;
-
-  hasEventAccess(eventId: string, userId: string): Promise<boolean>;
-
-  getEventShares(
-    eventId: string,
-  ): Promise<{ sharedWithId: string; sharedById: string }[]>;
-
   // Admin operations
   recalculateCounts(): Promise<{ eventsUpdated: number; usersUpdated: number }>;
 
@@ -256,7 +237,6 @@ export class EventServiceRefactored implements EventService {
   private lifecycleService: EventLifecycleService;
   private searchService: EventSearchService;
   private engagementService: UserEngagementService;
-  private sharingService: EventSharingService;
   private adminService: EventAdminService;
   private queryAnalyticsService: QueryAnalyticsService;
 
@@ -285,12 +265,6 @@ export class EventServiceRefactored implements EventService {
     this.engagementService = createUserEngagementService({
       dataSource: dependencies.dataSource,
       redisService: dependencies.redisService,
-    });
-
-    this.sharingService = createEventSharingService({
-      dataSource: dependencies.dataSource,
-      redisService: dependencies.redisService,
-      eventCacheService: dependencies.eventCacheService,
     });
 
     this.adminService = createEventAdminService({
@@ -334,68 +308,11 @@ export class EventServiceRefactored implements EventService {
   }
 
   async createEvent(input: CreateEventInput) {
-    const event = await this.lifecycleService.createEvent(input);
-
-    // If the event is private and there are users to share with, create the shares
-    if (event.isPrivate && input.sharedWithIds?.length) {
-      await this.sharingService.shareEventWithUsers(
-        event.id,
-        input.creatorId,
-        input.sharedWithIds,
-      );
-    }
-
-    return event;
+    return this.lifecycleService.createEvent(input);
   }
 
   async updateEvent(id: string, eventData: Partial<CreateEventInput>) {
-    const event = await this.lifecycleService.updateEvent(id, eventData);
-
-    // Handle shares in a separate transaction if needed
-    if (
-      event &&
-      event.isPrivate &&
-      eventData.sharedWithIds &&
-      event.creatorId
-    ) {
-      console.log("Updating shares for event:", {
-        eventId: event.id,
-        creatorId: event.creatorId,
-        sharedWithIds: eventData.sharedWithIds,
-      });
-
-      try {
-        // First remove all existing shares
-        const existingShares =
-          await this.sharingService.getEventSharedWithUsers(event.id);
-        if (existingShares.length > 0) {
-          await this.sharingService.removeEventShares(event.id, existingShares);
-        }
-        // Then add the new shares
-        await this.sharingService.shareEventWithUsers(
-          event.id,
-          event.creatorId,
-          eventData.sharedWithIds,
-        );
-      } catch (error) {
-        console.error("Error updating shares:", error);
-        // Don't throw the error - we still want to return the updated event
-      }
-    } else if (event && !event.isPrivate) {
-      try {
-        // If event is not private, remove all shares
-        const existingShares =
-          await this.sharingService.getEventSharedWithUsers(event.id);
-        if (existingShares.length > 0) {
-          await this.sharingService.removeEventShares(event.id, existingShares);
-        }
-      } catch (error) {
-        console.error("Error removing shares:", error);
-        // Don't throw the error - we still want to return the updated event
-      }
-    }
-
-    return event;
+    return this.lifecycleService.updateEvent(id, eventData);
   }
 
   async deleteEvent(id: string) {
@@ -477,35 +394,6 @@ export class EventServiceRefactored implements EventService {
 
   async getEventEngagement(eventId: string) {
     return this.engagementService.getEventEngagement(eventId);
-  }
-
-  // Sharing operations - delegate to EventSharingService
-  async shareEventWithUsers(
-    eventId: string,
-    sharedById: string,
-    sharedWithIds: string[],
-  ) {
-    return this.sharingService.shareEventWithUsers(
-      eventId,
-      sharedById,
-      sharedWithIds,
-    );
-  }
-
-  async removeEventShares(eventId: string, sharedWithIds: string[]) {
-    return this.sharingService.removeEventShares(eventId, sharedWithIds);
-  }
-
-  async getEventSharedWithUsers(eventId: string) {
-    return this.sharingService.getEventSharedWithUsers(eventId);
-  }
-
-  async hasEventAccess(eventId: string, userId: string) {
-    return this.sharingService.hasEventAccess(eventId, userId);
-  }
-
-  async getEventShares(eventId: string) {
-    return this.sharingService.getEventShares(eventId);
   }
 
   // Admin operations - delegate to EventAdminService

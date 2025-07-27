@@ -65,7 +65,6 @@ interface PrivateEventInput {
   timezone?: string;
   locationNotes?: string;
   isPrivate: boolean;
-  sharedWithIds?: string[];
   isRecurring?: boolean;
   recurrenceFrequency?: RecurrenceFrequency;
   recurrenceDays?: DayOfWeek[];

@@ -79,7 +79,7 @@ export const markerToEvent = (marker: {
     detectedQrData?: string | null;
     createdAt?: string;
     updatedAt?: string;
-    sharedWithIds?: string[];
+
     isRecurring?: boolean;
     recurrenceFrequency?: string;
     recurrenceDays?: string[];
@@ -132,7 +132,6 @@ export const markerToEvent = (marker: {
         createdAt: marker.data.createdAt || new Date().toISOString(),
         updatedAt: marker.data.updatedAt || new Date().toISOString(),
         isPrivate: marker.data.isPrivate || false,
-        sharedWithIds: marker.data.sharedWithIds || [],
         isRecurring: marker.data.isRecurring || false,
         recurrenceFrequency: marker.data.recurrenceFrequency,
         recurrenceDays: marker.data.recurrenceDays,
@@ -197,7 +196,6 @@ export const markerToEvent = (marker: {
         marker.data.updated_at ||
         new Date().toISOString(),
       isPrivate: marker.data.isPrivate || false,
-      sharedWithIds: marker.data.sharedWithIds || [],
       // Recurring event fields
       isRecurring: marker.data.isRecurring || false,
       recurrenceFrequency: marker.data.recurrenceFrequency,
@@ -246,7 +244,7 @@ export const markerToEvent = (marker: {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     isPrivate: false,
-    sharedWithIds: [],
+
     isRecurring: false,
     color: "#4dabf7",
     isVerified: false,

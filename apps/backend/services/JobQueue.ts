@@ -40,28 +40,6 @@ export interface JobData {
   data: Record<string, unknown>;
 }
 
-export interface PrivateEventJobData {
-  type: "process_private_event";
-  data: {
-    eventDetails: {
-      emoji: string;
-      emojiDescription?: string;
-      title: string;
-      date: string;
-      endDate?: string;
-      address: string;
-      location: { type: "Point"; coordinates: [number, number] };
-      description: string;
-      categories?: { id: string }[];
-      timezone?: string;
-      locationNotes?: string;
-    };
-    creatorId: string;
-    sharedWithIds: string[];
-    userCoordinates?: { lat: number; lng: number };
-  };
-}
-
 export interface CivicEngagementJobData {
   type: "process_civic_engagement";
   data: {
@@ -300,54 +278,6 @@ export class JobQueue {
       error,
       message: message || "An error occurred while processing the job",
     });
-  }
-
-  /**
-   * Enqueue a private event processing job
-   */
-  async enqueuePrivateEventJob(
-    eventDetails: PrivateEventJobData["data"]["eventDetails"],
-    creatorId: string,
-    sharedWithIds: string[],
-    userCoordinates?: { lat: number; lng: number },
-  ): Promise<string> {
-    const jobId = crypto.randomUUID();
-
-    // Create the job data in the correct JobData format
-    const jobData: JobData = {
-      id: jobId,
-      type: "process_private_event",
-      status: "pending",
-      created: new Date().toISOString(),
-      progress: 0,
-      progressStep: "Private event job queued",
-      data: {
-        eventDetails,
-        creatorId,
-        sharedWithIds,
-        userCoordinates,
-      },
-    };
-
-    // Store the job data
-    await this.dependencies.redisService.set(`job:${jobId}`, jobData);
-
-    // Add to pending jobs queue
-    await this.dependencies.redisService
-      .getClient()
-      .lpush("jobs:pending", jobId);
-
-    // Publish notification
-    await this.dependencies.redisService.publish("job_created", {
-      type: "JOB_CREATED",
-      data: {
-        jobId,
-        jobType: "process_private_event",
-        timestamp: new Date().toISOString(),
-      },
-    });
-
-    return jobId;
   }
 
   /**

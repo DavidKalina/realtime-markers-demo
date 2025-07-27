@@ -118,7 +118,7 @@ export interface CreateEventPayload {
   emoji?: string;
   emojiDescription?: string;
   isPrivate?: boolean;
-  sharedWithIds?: string[];
+
   userCoordinates?: {
     lat: number;
     lng: number;
@@ -393,7 +393,7 @@ export interface EventType {
   detectedQrData?: string | null;
   createdAt: string;
   updatedAt: string;
-  sharedWithIds: string[];
+
   savedBy?: {
     id: string;
     firstName?: string;
