@@ -1,4 +1,44 @@
 services:
+  # Traefik Reverse Proxy
+  traefik:
+    image: traefik:v2.10
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--log.level=INFO"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080" # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certificates:/letsencrypt
+    networks:
+      - marker-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/api/rawdata",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    security_opt:
+      - no-new-privileges:true
+
   postgres:
     build:
       context: .
@@ -9,8 +49,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-markersdb}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "127.0.0.1:5432:5432" # Only accessible from the host machine
+    # Remove port exposure - only accessible via internal network
+    # ports:
+    #   - "127.0.0.1:5432:5432"
     networks:
       - marker-network
     healthcheck:
@@ -28,8 +69,9 @@ services:
 
   adminer:
     image: adminer:latest
-    ports:
-      - "127.0.0.1:8080:8080" # Only accessible from the host machine
+    # Remove port exposure - only accessible via Traefik
+    # ports:
+    #   - "127.0.0.1:8080:8080"
     networks:
       - marker-network
     depends_on:
@@ -37,11 +79,17 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.adminer.rule=Host(`${ADMINER_HOST}`)"
+      - "traefik.http.services.adminer.loadbalancer.server.port=8080"
+      - "traefik.http.routers.adminer.tls.certresolver=letsencrypt"
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "127.0.0.1:6379:6379" # Only accessible from the host machine
+    # Remove port exposure - only accessible via internal network
+    # ports:
+    #   - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -103,8 +151,9 @@ services:
       - DO_SPACE_SECRET_KEY=${DO_SPACE_SECRET_KEY}
       - DO_SPACE_PUBLIC_URL=${DO_SPACE_PUBLIC_URL:-https://nyc3.digitaloceanspaces.com}
 
-    ports:
-      - "127.0.0.1:3000:3000" # Only expose to the host for Nginx
+    # Remove port exposure - only accessible via Traefik
+    # ports:
+    #   - "127.0.0.1:3000:3000"
     networks:
       - marker-network
     depends_on:
@@ -122,6 +171,15 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`${API_HOST}`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.backend.middlewares=backend-headers"
+      - "traefik.http.middlewares.backend-headers.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+      - "traefik.http.middlewares.backend-headers.headers.accesscontrolalloworiginlist=*"
+      - "traefik.http.middlewares.backend-headers.headers.accesscontrolallowheaders=*"
 
   worker:
     build:
@@ -187,8 +245,9 @@ services:
       - NODE_ENV=production
       - HEALTH_PORT=8082
       - BACKEND_URL=http://backend:3000
-    ports:
-      - "127.0.0.1:8082:8082" # Expose health check port to host for debugging
+    # Remove port exposure - only accessible via Traefik
+    # ports:
+    #   - "127.0.0.1:8082:8082"
     networks:
       - marker-network
     depends_on:
@@ -216,6 +275,11 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.filter-processor.rule=Host(`${FILTER_PROCESSOR_HOST}`)"
+      - "traefik.http.services.filter-processor.loadbalancer.server.port=8082"
+      - "traefik.http.routers.filter-processor.tls.certresolver=letsencrypt"
 
   websocket:
     build:
@@ -226,8 +290,9 @@ services:
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - BACKEND_URL=http://backend:3000
-    ports:
-      - "127.0.0.1:8081:8081" # Only expose to the host for Nginx
+    # Remove port exposure - only accessible via Traefik
+    # ports:
+    #   - "127.0.0.1:8081:8081"
     networks:
       - marker-network
     depends_on:
@@ -247,6 +312,15 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.websocket.rule=Host(`${WEBSOCKET_HOST}`)"
+      - "traefik.http.services.websocket.loadbalancer.server.port=8081"
+      - "traefik.http.routers.websocket.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.websocket.middlewares=websocket-headers"
+      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolallowmethods=GET,POST,OPTIONS"
+      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolalloworiginlist=*"
+      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolallowheaders=*"
 
   # Web Dashboard Service with Environment-based Build Selection
   web-dashboard:
@@ -256,8 +330,9 @@ services:
     environment:
       - NODE_ENV=${WEB_DASHBOARD_NODE_ENV:-production}
       - PORT=3001
-    ports:
-      - "127.0.0.1:3001:3001" # Expose to host for development
+    # Remove port exposure - only accessible via Traefik
+    # ports:
+    #   - "127.0.0.1:3001:3001"
     networks:
       - marker-network
     volumes:
@@ -267,8 +342,11 @@ services:
     security_opt:
       - no-new-privileges:true
     restart: unless-stopped
-
-  # Removed the nginx container since we're using the host's nginx
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`${DASHBOARD_HOST}`)"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=3001"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
 
 networks:
   marker-network:
@@ -278,3 +356,4 @@ volumes:
   postgres_data:
   redis_data:
   web_dashboard_next_cache:
+  traefik-certificates:
