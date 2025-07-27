@@ -29,11 +29,11 @@ If you want to test with real domains:
 sudo nano /etc/hosts
 
 # Add these lines:
-127.0.0.1 api.yourdomain.com
-127.0.0.1 dashboard.yourdomain.com
-127.0.0.1 ws.yourdomain.com
-127.0.0.1 filter.yourdomain.com
-127.0.0.1 adminer.yourdomain.com
+127.0.0.1 api.mapmoji.app
+127.0.0.1 dashboard.mapmoji.app
+127.0.0.1 ws.mapmoji.app
+127.0.0.1 filter.mapmoji.app
+127.0.0.1 adminer.mapmoji.app
 ```
 
 2. **Use the main docker-compose.yml:**
@@ -196,12 +196,12 @@ Add the domain variables:
 
 ```bash
 # Add these to your .env file
-TRAEFIK_EMAIL=admin@yourdomain.com
-API_HOST=api.yourdomain.com
-DASHBOARD_HOST=dashboard.yourdomain.com
-WEBSOCKET_HOST=ws.yourdomain.com
-FILTER_PROCESSOR_HOST=filter.yourdomain.com
-ADMINER_HOST=adminer.yourdomain.com
+TRAEFIK_EMAIL=admin@mapmoji.app
+API_HOST=api.mapmoji.app
+DASHBOARD_HOST=dashboard.mapmoji.app
+WEBSOCKET_HOST=ws.mapmoji.app
+FILTER_PROCESSOR_HOST=filter.mapmoji.app
+ADMINER_HOST=adminer.mapmoji.app
 ```
 
 ## 🧪 Testing Your Services
@@ -594,7 +594,7 @@ nslookup api.localhost
 nslookup dashboard.localhost
 
 # If using custom domains, test resolution
-nslookup api.yourdomain.com
+nslookup api.mapmoji.app
 ```
 
 ## 🧪 Testing Scenarios

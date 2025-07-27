@@ -34,14 +34,14 @@ REDIS_PORT=6379
 REDIS_PASSWORD=your_redis_password_here
 
 # Traefik Configuration (REQUIRED - no fallbacks)
-TRAEFIK_EMAIL=admin@yourdomain.com
+TRAEFIK_EMAIL=admin@mapmoji.app
 
 # Domain Configuration for Traefik (REQUIRED - no fallbacks)
-API_HOST=api.yourdomain.com
-DASHBOARD_HOST=dashboard.yourdomain.com
-WEBSOCKET_HOST=ws.yourdomain.com
-FILTER_PROCESSOR_HOST=filter.yourdomain.com
-ADMINER_HOST=adminer.yourdomain.com
+API_HOST=api.mapmoji.app
+DASHBOARD_HOST=dashboard.mapmoji.app
+WEBSOCKET_HOST=ws.mapmoji.app
+FILTER_PROCESSOR_HOST=filter.mapmoji.app
+ADMINER_HOST=adminer.mapmoji.app
 
 # JWT Configuration
 JWT_SECRET=your_jwt_secret_here
@@ -107,11 +107,11 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 Once deployed, your services will be available at:
 
-- **API Backend**: `https://api.yourdomain.com`
-- **Web Dashboard**: `https://dashboard.yourdomain.com`
-- **WebSocket Service**: `https://ws.yourdomain.com`
-- **Filter Processor**: `https://filter.yourdomain.com`
-- **Adminer (Dev only)**: `https://adminer.yourdomain.com`
+- **API Backend**: `https://api.mapmoji.app`
+- **Web Dashboard**: `https://dashboard.mapmoji.app`
+- **WebSocket Service**: `https://ws.mapmoji.app`
+- **Filter Processor**: `https://filter.mapmoji.app`
+- **Adminer (Dev only)**: `https://adminer.mapmoji.app`
 
 ## DNS Configuration
 
@@ -119,11 +119,11 @@ Make sure your domain points to your server's IP address:
 
 ```bash
 # Add these A records to your DNS
-api.yourdomain.com     A    YOUR_SERVER_IP
-dashboard.yourdomain.com A    YOUR_SERVER_IP
-ws.yourdomain.com      A    YOUR_SERVER_IP
-filter.yourdomain.com  A    YOUR_SERVER_IP
-adminer.yourdomain.com A    YOUR_SERVER_IP
+api.mapmoji.app     A    YOUR_SERVER_IP
+dashboard.mapmoji.app A    YOUR_SERVER_IP
+ws.mapmoji.app      A    YOUR_SERVER_IP
+filter.mapmoji.app  A    YOUR_SERVER_IP
+adminer.mapmoji.app A    YOUR_SERVER_IP
 ```
 
 ## SSL Certificates

@@ -4,7 +4,6 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
-import { PostHogProvider } from "posthog-react-native";
 import * as Sentry from "@sentry/react-native";
 import { useFonts } from "expo-font";
 import { Stack, useNavigationContainerRef } from "expo-router";
@@ -35,12 +34,12 @@ const SENTRY_CONFIG = {
   sendDefaultPii: true,
 } as const;
 
-const POSTHOG_CONFIG = {
-  apiKey: process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
-  options: {
-    host: "https://us.i.posthog.com",
-  },
-} as const;
+// const POSTHOG_CONFIG = {
+//   apiKey: process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
+//   options: {
+//     host: "https://us.i.posthog.com",
+//   },
+// } as const;
 
 const FONT_FAMILY = {
   // Poppins font family
@@ -202,20 +201,15 @@ function RootLayout() {
   }
 
   return (
-    <PostHogProvider
-      apiKey={POSTHOG_CONFIG.apiKey}
-      options={POSTHOG_CONFIG.options}
-    >
-      <AppProviders>
-        <AppContent>
-          <Stack screenOptions={STACK_SCREEN_OPTIONS}>
-            {SCREEN_CONFIGS.map((screen) => (
-              <Stack.Screen key={screen.name} name={screen.name} />
-            ))}
-          </Stack>
-        </AppContent>
-      </AppProviders>
-    </PostHogProvider>
+    <AppProviders>
+      <AppContent>
+        <Stack screenOptions={STACK_SCREEN_OPTIONS}>
+          {SCREEN_CONFIGS.map((screen) => (
+            <Stack.Screen key={screen.name} name={screen.name} />
+          ))}
+        </Stack>
+      </AppContent>
+    </AppProviders>
   );
 }
 

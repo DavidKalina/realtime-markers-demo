@@ -76,9 +76,9 @@ docker stats
 ### Test Production
 
 ```bash
-curl -I https://api.yourdomain.com/api/health
-curl -I https://dashboard.yourdomain.com
-curl -I https://ws.yourdomain.com/health
+curl -I https://api.mapmoji.app/api/health
+curl -I https://dashboard.mapmoji.app
+curl -I https://ws.mapmoji.app/health
 ```
 
 ## 🔧 Troubleshooting
@@ -167,12 +167,12 @@ ADMINER_HOST=adminer.localhost
 ### Production (.env)
 
 ```bash
-API_HOST=api.yourdomain.com
-DASHBOARD_HOST=dashboard.yourdomain.com
-WEBSOCKET_HOST=ws.yourdomain.com
-FILTER_PROCESSOR_HOST=filter.yourdomain.com
-ADMINER_HOST=adminer.yourdomain.com
-TRAEFIK_EMAIL=admin@yourdomain.com
+API_HOST=api.mapmoji.app
+DASHBOARD_HOST=dashboard.mapmoji.app
+WEBSOCKET_HOST=ws.mapmoji.app
+FILTER_PROCESSOR_HOST=filter.mapmoji.app
+ADMINER_HOST=adminer.mapmoji.app
+TRAEFIK_EMAIL=admin@mapmoji.app
 ```
 
 ## 🌐 Service URLs
@@ -188,11 +188,11 @@ TRAEFIK_EMAIL=admin@yourdomain.com
 
 ### Production
 
-- API: `https://api.yourdomain.com`
-- Dashboard: `https://dashboard.yourdomain.com`
-- WebSocket: `wss://ws.yourdomain.com`
-- Filter: `https://filter.yourdomain.com`
-- Adminer: `https://adminer.yourdomain.com`
+- API: `https://api.mapmoji.app`
+- Dashboard: `https://dashboard.mapmoji.app`
+- WebSocket: `wss://ws.mapmoji.app`
+- Filter: `https://filter.mapmoji.app`
+- Adminer: `https://adminer.mapmoji.app`
 
 ## 🚨 Emergency Commands
 
