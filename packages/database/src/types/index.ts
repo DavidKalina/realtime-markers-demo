@@ -2,3 +2,6 @@
 export * from "../entities/User";
 export * from "../entities/Event";
 export * from "../entities/CivicEngagement";
+
+// Export derived types
+export * from "./derived";

@@ -38,7 +38,7 @@ export const mapEventToEventType = (apiEvent: ApiEvent): EventType => {
     detectedQrData: apiEvent.detectedQrData,
     createdAt: apiEvent.createdAt,
     updatedAt: apiEvent.updatedAt,
-    sharedWithIds: apiEvent.shares?.map((share) => share.sharedWithId) || [],
+
     isRecurring: apiEvent.isRecurring,
     recurrenceFrequency: apiEvent.recurrenceFrequency,
     recurrenceDays: apiEvent.recurrenceDays,

@@ -19,7 +19,6 @@ import {
   requireQueryParam,
   requireEvent,
   requireBodyField,
-  validateArray,
   validateEnum,
   getEventService,
   getJobQueue,
@@ -311,14 +310,10 @@ export const deleteEventHandler: EventHandler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
   const eventService = getEventService(c);
 
-  await requireEvent(c, id);
+  const event = await requireEvent(c, id);
 
-  // Check if user has access to delete the event
-  const hasAccess = await eventService.hasEventAccess(id, user.id);
-
-  console.log("hasAccess", hasAccess);
-
-  if (!hasAccess) {
+  // Check if user is the creator of the event
+  if (event.creatorId !== user.id && user.role !== "ADMIN") {
     throw new Error("You don't have permission to delete this event");
   }
 
@@ -337,10 +332,11 @@ export const updateEventHandler: EventHandler = withErrorHandling(async (c) => {
     | CategoryProcessingService
     | undefined;
 
-  // Check if the event exists and user has access
-  await requireEvent(c, id);
-  const hasAccess = await eventService.hasEventAccess(id, user.id);
-  if (!hasAccess) {
+  // Check if the event exists
+  const event = await requireEvent(c, id);
+
+  // Check if user is the creator of the event
+  if (event.creatorId !== user.id && user.role !== "ADMIN") {
     throw new Error("You don't have permission to update this event");
   }
 
@@ -394,28 +390,10 @@ export const getAllEventsHandler: EventHandler = withErrorHandling(
 
     console.log(`Retrieved ${eventsData.length} events from database`);
 
-    // For each private event, get its shares
-    const eventsWithShares = await Promise.all(
-      eventsData.map(async (event) => {
-        if (event.isPrivate) {
-          console.log(`Fetching shares for private event ${event.id}`);
-          const shares = await eventService.getEventShares(event.id);
-          console.log(`Found ${shares.length} shares for event ${event.id}`);
-          return {
-            ...event,
-            sharedWith: shares,
-          };
-        }
-        return event;
-      }),
-    );
-
-    console.log(`Returning ${eventsWithShares.length} events with shares`);
-
     // Return data in the format expected by the filter processor
     return c.json({
-      events: eventsWithShares,
-      total: eventsWithShares.length,
+      events: eventsData,
+      total: eventsData.length,
       hasMore: false, // Since we're not implementing pagination in the backend yet
     });
   },
@@ -494,76 +472,6 @@ export const getDiscoveredEventsHandler: EventHandler = withErrorHandling(
   },
 );
 
-export const createPrivateEventHandler: EventHandler = withErrorHandling(
-  async (c) => {
-    const user = requireAuth(c);
-    const data = await c.req.json();
-    const jobQueue = getJobQueue(c);
-
-    // Validate input
-    if (!data.title || !data.date || !data.location?.coordinates) {
-      throw new Error("Missing required fields");
-    }
-
-    // Ensure location is in GeoJSON format
-    if (data.location && !data.location.type) {
-      data.location = {
-        type: "Point",
-        coordinates: data.location.coordinates,
-      };
-    }
-
-    // Validate shared users if provided
-    let sharedWithIds: string[] = [];
-    if (data.sharedWithIds) {
-      const validatedArray = validateArray(data.sharedWithIds, "sharedWithIds");
-      // Ensure all items are strings
-      if (!validatedArray.every((item) => typeof item === "string")) {
-        throw new Error("sharedWithIds must contain only string values");
-      }
-      sharedWithIds = validatedArray.filter(
-        (item): item is string => typeof item === "string",
-      );
-    }
-
-    // Create job for private event processing
-    const jobId = await jobQueue.enqueuePrivateEventJob(
-      {
-        emoji: data.emoji,
-        emojiDescription: data.emojiDescription,
-        title: data.title,
-        date: data.date,
-        endDate: data.endDate,
-        address: data.address,
-        location: data.location,
-        description: data.description,
-        categories: data.categories,
-        timezone: data.timezone,
-        locationNotes: data.locationNotes,
-      },
-      user.id,
-      sharedWithIds,
-      data.userCoordinates,
-    );
-
-    return c.json(
-      {
-        status: "processing",
-        jobId,
-        message:
-          "Your private event is being processed. Check status at /api/jobs/" +
-          jobId,
-        _links: {
-          self: `/api/events/process/${jobId}`,
-          status: `/api/jobs/${jobId}`,
-          stream: `/api/jobs/${jobId}/stream`,
-        },
-      },
-      202,
-    );
-  },
-);
-
 export const toggleRsvpEventHandler: EventHandler = withErrorHandling(
   async (c) => {
     const eventId = requireParam(c, "id");
@@ -601,26 +509,6 @@ export const isEventRsvpedHandler: EventHandler = withErrorHandling(
     return c.json({
       isRsvped,
     });
-  },
-);
-
-export const getEventSharesHandler: EventHandler = withErrorHandling(
-  async (c) => {
-    const eventId = requireParam(c, "id");
-    const user = requireAuth(c);
-    const eventService = getEventService(c);
-
-    // Check if the event exists and user has access
-    await requireEvent(c, eventId);
-    const hasAccess = await eventService.hasEventAccess(eventId, user.id);
-    if (!hasAccess) {
-      throw new Error("You don't have permission to view this event's shares");
-    }
-
-    // Get the shares
-    const shares = await eventService.getEventShares(eventId);
-
-    return c.json(shares);
   },
 );
 

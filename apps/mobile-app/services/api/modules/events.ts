@@ -508,17 +508,6 @@ export class EventApiClient extends BaseApiModule {
     return mapEventToEventType(data);
   }
 
-  // Event sharing methods
-  async getEventShares(
-    eventId: string,
-  ): Promise<{ sharedWithId: string; sharedById: string }[]> {
-    const url = `${this.client.baseUrl}/api/events/${eventId}/shares`;
-    const response = await this.fetchWithAuth(url);
-    return this.handleResponse<{ sharedWithId: string; sharedById: string }[]>(
-      response,
-    );
-  }
-
   // Event engagement methods
   async getEventEngagement(eventId: string): Promise<EventEngagementMetrics> {
     const url = `${this.client.baseUrl}/api/events/${eventId}/engagement`;

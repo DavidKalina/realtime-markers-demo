@@ -32,35 +32,6 @@ internalRouter.get(
   civicEngagementHandler.getAllCivicEngagementsHandler,
 );
 
-// Add endpoint for fetching event shares in batch
-internalRouter.post("/events/shares/batch", async (c) => {
-  try {
-    const { eventIds } = await c.req.json();
-    if (!Array.isArray(eventIds)) {
-      return c.json({ error: "eventIds must be an array" }, 400);
-    }
-
-    const eventService = c.get("eventService");
-    const shares = await Promise.all(
-      eventIds.map(async (eventId) => {
-        const eventShares = await eventService.getEventShares(eventId);
-        return eventShares.map((share) => ({
-          eventId,
-          sharedWithId: share.sharedWithId,
-          sharedById: share.sharedById,
-        }));
-      }),
-    );
-
-    // Flatten the array of arrays
-    const flattenedShares = shares.flat();
-    return c.json(flattenedShares);
-  } catch (error) {
-    console.error("Error fetching event shares batch:", error);
-    return c.json({ error: "Failed to fetch event shares batch" }, 500);
-  }
-});
-
 // Award XP to a user
 
 export default internalRouter;

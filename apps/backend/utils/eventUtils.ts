@@ -93,9 +93,6 @@ export async function processEventFormData(
         address: formData.get("address")?.toString(),
         locationNotes: formData.get("locationNotes")?.toString(),
         isPrivate: formData.get("isPrivate") === "true",
-        sharedWithIds: formData.get("sharedWithIds")
-          ? (formData.get("sharedWithIds") as string).split(",")
-          : [],
         // QR code related fields
         qrUrl: formData.get("qrUrl")?.toString(),
         // Extract recurring event fields
@@ -281,7 +278,6 @@ export function prepareCreateEventInput(
     embedding: data.embedding || [],
     isPrivate: data.isPrivate,
     isOfficial: user.role === "ADMIN",
-    sharedWithIds: data.sharedWithIds,
     // QR code related fields
     qrUrl: data.qrUrl,
     isRecurring: data.isRecurring,
@@ -379,9 +375,6 @@ export async function processEventUpdateFormData(
         address: formData.get("address")?.toString(),
         locationNotes: formData.get("locationNotes")?.toString(),
         isPrivate: formData.get("isPrivate") === "true",
-        sharedWithIds: formData.get("sharedWithIds")
-          ? (formData.get("sharedWithIds") as string).split(",")
-          : [],
         // QR code related fields
         qrUrl: formData.get("qrUrl")?.toString(),
         // Extract recurring event fields

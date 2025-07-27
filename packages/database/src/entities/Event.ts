@@ -20,7 +20,6 @@ import { User } from "./User";
 import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
 import { UserEventView } from "./UserEventView";
-import { EventShare } from "./EventShare";
 import { UserEventRsvp } from "./UserEventRsvp";
 
 export enum EventStatus {
@@ -126,9 +125,6 @@ export class Event {
   @Column({ name: "has_qr_code", type: "boolean", default: false })
   hasQrCode!: boolean;
 
-  @Column({ name: "is_private", type: "boolean", default: false })
-  isPrivate!: boolean;
-
   @Column({ name: "is_official", type: "boolean", default: false })
   isOfficial!: boolean;
 
@@ -168,9 +164,6 @@ export class Event {
   // View relationship
   @OneToMany(() => UserEventView, (view) => view.event)
   views!: Relation<UserEventView>[];
-
-  @OneToMany(() => EventShare, (share: EventShare) => share.event)
-  shares!: Relation<EventShare>[];
 
   @OneToMany(() => UserEventRsvp, (rsvp) => rsvp.event)
   rsvps!: Relation<UserEventRsvp>[];

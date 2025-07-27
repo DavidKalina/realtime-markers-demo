@@ -65,7 +65,7 @@ interface CreateEventPayload {
   };
   address?: string;
   locationNotes?: string;
-  sharedWithIds?: string[];
+
   userCoordinates?: {
     lat: number;
     lng: number;
@@ -514,9 +514,6 @@ class ApiService {
       if (payload.locationNotes)
         formData.append("locationNotes", payload.locationNotes);
       formData.append("isPrivate", payload.isPrivate.toString());
-      if (payload.sharedWithIds && payload.sharedWithIds.length > 0) {
-        formData.append("sharedWithIds", payload.sharedWithIds.join(","));
-      }
       formData.append("lat", payload.location.coordinates[0].toString());
       formData.append("lng", payload.location.coordinates[1].toString());
 
@@ -631,9 +628,6 @@ class ApiService {
       if (payload.locationNotes)
         formData.append("locationNotes", payload.locationNotes);
       formData.append("isPrivate", payload.isPrivate.toString());
-      if (payload.sharedWithIds && payload.sharedWithIds.length > 0) {
-        formData.append("sharedWithIds", payload.sharedWithIds.join(","));
-      }
       formData.append("lat", payload.location.coordinates[0].toString());
       formData.append("lng", payload.location.coordinates[1].toString());
 
