@@ -2,6 +2,33 @@
 
 This guide covers different approaches for testing your Traefik setup locally.
 
+## 🚀 Quick Start Options
+
+| Use Case               | Recommended Approach  | Setup Time |
+| ---------------------- | --------------------- | ---------- |
+| **Mobile App Testing** | **ngrok + Traefik**   | 5 minutes  |
+| **Local Development**  | Localhost Testing     | 2 minutes  |
+| **Network Testing**    | IP Address + nip.io   | 3 minutes  |
+| **Custom Domains**     | Custom Domain Testing | 5 minutes  |
+
+### For Mobile App Testing (Recommended)
+
+If you're testing a mobile app that needs to connect to your local backend:
+
+```bash
+# 1. Start services with ngrok config
+docker compose -f docker-compose.yml -f docker-compose.ngrok.yml up -d
+
+# 2. Start ngrok tunnels
+ngrok start --all
+
+# 3. Configure mobile app with ngrok URLs
+EXPO_PUBLIC_API_URL=https://frederick-api-dev.ngrok.io
+EXPO_PUBLIC_WEB_SOCKET_URL=wss://frederick-ws-dev.ngrok.io
+```
+
+**See [Option E: Use ngrok + Traefik](#option-e-use-ngrok--traefik-for-mobile-app-testing) for full setup instructions.**
+
 ## 🚀 Quick Start (Recommended)
 
 ### Option 1: Localhost Testing (Easiest)
@@ -155,6 +182,175 @@ ADMINER_HOST=adminer.markers.test
 127.0.0.1 filter.markers.test
 127.0.0.1 adminer.markers.test
 ```
+
+### Option E: Use ngrok + Traefik (For Mobile App Testing)
+
+Perfect for testing mobile apps that need to connect to your local backend:
+
+#### 1. Install ngrok
+
+```bash
+# Download and install ngrok
+# Visit https://ngrok.com/download
+
+# Authenticate with your ngrok account
+ngrok authtoken your_ngrok_auth_token
+```
+
+#### 2. Create ngrok Configuration
+
+Create `ngrok.yml` in your project root:
+
+```yaml
+version: "2"
+authtoken: your_ngrok_auth_token_here
+
+tunnels:
+  api:
+    proto: http
+    addr: 80
+    subdomain: frederick-api-dev
+    inspect: false
+
+  ws:
+    proto: http
+    addr: 80
+    subdomain: frederick-ws-dev
+    inspect: false
+
+  filter:
+    proto: http
+    addr: 80
+    subdomain: frederick-filter-dev
+    inspect: false
+```
+
+#### 3. Create Traefik Override for ngrok
+
+Create `docker-compose.ngrok.yml`:
+
+```yaml
+# ngrok override for docker-compose.yml
+# This file configures Traefik to accept ngrok hostnames
+
+services:
+  # ngrok backend configuration
+  backend:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`frederick-api-dev.ngrok.io`) || Host(`api.mapmoji.app`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.backend.tls=false" # Disable SSL for ngrok
+      - "traefik.http.routers.backend.middlewares=backend-headers"
+      - "traefik.http.middlewares.backend-headers.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+      - "traefik.http.middlewares.backend-headers.headers.accesscontrolalloworiginlist=*"
+      - "traefik.http.middlewares.backend-headers.headers.accesscontrolallowheaders=*"
+
+  # ngrok websocket configuration
+  websocket:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.websocket.rule=Host(`frederick-ws-dev.ngrok.io`) || Host(`ws.mapmoji.app`)"
+      - "traefik.http.services.websocket.loadbalancer.server.port=8081"
+      - "traefik.http.routers.websocket.tls=false" # Disable SSL for ngrok
+      - "traefik.http.routers.websocket.middlewares=websocket-headers"
+      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolallowmethods=GET,POST,OPTIONS"
+      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolalloworiginlist=*"
+      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolallowheaders=*"
+
+  # ngrok filter-processor configuration
+  filter-processor:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.filter-processor.rule=Host(`frederick-filter-dev.ngrok.io`) || Host(`filter.mapmoji.app`)"
+      - "traefik.http.services.filter-processor.loadbalancer.server.port=8082"
+      - "traefik.http.routers.filter-processor.tls=false" # Disable SSL for ngrok
+```
+
+#### 4. Start Services
+
+```bash
+# Start Traefik and backend services with ngrok configuration
+docker-compose -f docker-compose.yml -f docker-compose.ngrok.yml up -d
+
+# Start ngrok tunnels
+ngrok start --config ngrok.yml api ws filter
+```
+
+#### 5. Configure Mobile App
+
+Create `.env.local` in your mobile app directory:
+
+```bash
+# Mobile App Environment Configuration for ngrok + Traefik
+
+# API Configuration
+EXPO_PUBLIC_API_URL=https://frederick-api-dev.ngrok.io
+
+# WebSocket Configuration
+EXPO_PUBLIC_WEB_SOCKET_URL=wss://frederick-ws-dev.ngrok.io
+
+# Optional: Filter Processor (if needed)
+EXPO_PUBLIC_FILTER_PROCESSOR_URL=https://frederick-filter-dev.ngrok.io
+
+# Keep your existing tokens
+EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN=your_mapbox_token_here
+```
+
+#### 6. Test the Setup
+
+```bash
+# Test API endpoint
+curl https://frederick-api-dev.ngrok.io/api/health
+
+# Test WebSocket endpoint
+curl https://frederick-ws-dev.ngrok.io/health
+
+# Check ngrok dashboard
+open http://localhost:4040
+```
+
+#### Benefits of ngrok + Traefik:
+
+- ✅ **Mobile app testing**: Connect from any device
+- ✅ **Real HTTPS**: ngrok provides SSL certificates
+- ✅ **No domain needed**: Works with free ngrok subdomains
+- ✅ **Traefik routing**: Maintains your existing architecture
+- ✅ **WebSocket support**: Full WebSocket tunneling
+- ✅ **Easy debugging**: ngrok dashboard shows all requests
+
+#### Troubleshooting:
+
+```bash
+# Check if services are running
+docker-compose ps
+
+# Check Traefik logs
+docker-compose logs traefik
+
+# Check backend logs
+docker-compose logs backend
+
+# Test local Traefik routing
+curl -H "Host: frederick-api-dev.ngrok.io" http://localhost/api/health
+```
+
+#### Common Issues:
+
+**ngrok tunnel offline:**
+
+- Make sure ngrok is pointing to port 80 (Traefik), not direct service ports
+- Restart ngrok with the config file: `ngrok start --config ngrok.yml api ws`
+
+**400 errors from ngrok:**
+
+- Verify Traefik is running: `docker-compose ps`
+- Check that the ngrok hostnames match your docker-compose.ngrok.yml configuration
+
+**Mobile app can't connect:**
+
+- Ensure you're using `https://` for API and `wss://` for WebSocket URLs
+- Check ngrok dashboard at `http://localhost:4040` for connection status
 
 ## 🔧 Environment Setup
 
