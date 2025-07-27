@@ -1,0 +1,35 @@
+# ngrok override for docker-compose.yml
+# This file configures Traefik to accept ngrok hostnames
+
+services:
+  # ngrok backend configuration
+  backend:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`frederick-api-dev.ngrok.io`) || Host(`api.mapmoji.app`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.backend.tls=false" # Disable SSL for ngrok
+      - "traefik.http.routers.backend.middlewares=backend-headers"
+      - "traefik.http.middlewares.backend-headers.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+      - "traefik.http.middlewares.backend-headers.headers.accesscontrolalloworiginlist=*"
+      - "traefik.http.middlewares.backend-headers.headers.accesscontrolallowheaders=*"
+
+  # ngrok websocket configuration
+  websocket:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.websocket.rule=Host(`frederick-ws-dev.ngrok.io`) || Host(`ws.mapmoji.app`)"
+      - "traefik.http.services.websocket.loadbalancer.server.port=8081"
+      - "traefik.http.routers.websocket.tls=false" # Disable SSL for ngrok
+      - "traefik.http.routers.websocket.middlewares=websocket-headers"
+      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolallowmethods=GET,POST,OPTIONS"
+      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolalloworiginlist=*"
+      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolallowheaders=*"
+
+  # ngrok filter-processor configuration
+  filter-processor:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.filter-processor.rule=Host(`frederick-filter-dev.ngrok.io`) || Host(`filter.mapmoji.app`)"
+      - "traefik.http.services.filter-processor.loadbalancer.server.port=8082"
+      - "traefik.http.routers.filter-processor.tls=false" # Disable SSL for ngrok
