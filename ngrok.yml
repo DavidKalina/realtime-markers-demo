@@ -1,0 +1,21 @@
+version: "2"
+authtoken: your_ngrok_auth_token_here
+
+tunnels:
+  api:
+    proto: http
+    addr: 80
+    subdomain: frederick-api-dev
+    inspect: false
+
+  ws:
+    proto: http
+    addr: 80
+    subdomain: frederick-ws-dev
+    inspect: false
+
+  filter:
+    proto: http
+    addr: 80
+    subdomain: frederick-filter-dev
+    inspect: false

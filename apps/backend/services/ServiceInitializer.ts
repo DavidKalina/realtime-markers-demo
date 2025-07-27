@@ -163,7 +163,7 @@ export class ServiceInitializer {
     const emailService = process.env.RESEND_API_KEY
       ? createEmailService({
           apiKey: process.env.RESEND_API_KEY,
-          fromEmail: process.env.EMAIL_FROM || "noreply@yourdomain.com",
+          fromEmail: process.env.EMAIL_FROM || "noreply@mapmoji.app",
           adminEmails: process.env.ADMIN_EMAILS?.split(",") || [],
         })
       : new MockEmailService();

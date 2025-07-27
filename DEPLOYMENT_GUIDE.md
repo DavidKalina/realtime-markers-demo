@@ -194,14 +194,14 @@ REDIS_PORT=6379
 REDIS_PASSWORD=your_secure_redis_password
 
 # Traefik Configuration
-TRAEFIK_EMAIL=admin@yourdomain.com
+TRAEFIK_EMAIL=admin@mapmoji.app
 
 # Domain Configuration (REQUIRED)
-API_HOST=api.yourdomain.com
-DASHBOARD_HOST=dashboard.yourdomain.com
-WEBSOCKET_HOST=ws.yourdomain.com
-FILTER_PROCESSOR_HOST=filter.yourdomain.com
-ADMINER_HOST=adminer.yourdomain.com
+API_HOST=api.mapmoji.app
+DASHBOARD_HOST=dashboard.mapmoji.app
+WEBSOCKET_HOST=ws.mapmoji.app
+FILTER_PROCESSOR_HOST=filter.mapmoji.app
+ADMINER_HOST=adminer.mapmoji.app
 
 # JWT Configuration
 JWT_SECRET=your_very_secure_jwt_secret
@@ -247,11 +247,11 @@ WEB_DASHBOARD_COMMAND=pnpm start
 1. **Add A records to your domain:**
 
 ```
-api.yourdomain.com     A    YOUR_DROPLET_IP
-dashboard.yourdomain.com A    YOUR_DROPLET_IP
-ws.yourdomain.com      A    YOUR_DROPLET_IP
-filter.yourdomain.com  A    YOUR_DROPLET_IP
-adminer.yourdomain.com A    YOUR_DROPLET_IP
+api.mapmoji.app     A    YOUR_DROPLET_IP
+dashboard.mapmoji.app A    YOUR_DROPLET_IP
+ws.mapmoji.app      A    YOUR_DROPLET_IP
+filter.mapmoji.app  A    YOUR_DROPLET_IP
+adminer.mapmoji.app A    YOUR_DROPLET_IP
 ```
 
 2. **Wait for DNS propagation** (can take up to 24 hours)
@@ -291,14 +291,14 @@ export DIGITALOCEAN_TOKEN=your_do_api_token
 
 ```bash
 # Test all services
-curl -I https://api.yourdomain.com/api/health
-curl -I https://dashboard.yourdomain.com
-curl -I https://ws.yourdomain.com/health
-curl -I https://filter.yourdomain.com/health
-curl -I https://adminer.yourdomain.com
+curl -I https://api.mapmoji.app/api/health
+curl -I https://dashboard.mapmoji.app
+curl -I https://ws.mapmoji.app/health
+curl -I https://filter.mapmoji.app/health
+curl -I https://adminer.mapmoji.app
 
 # Check SSL certificates
-curl -I https://api.yourdomain.com/api/health
+curl -I https://api.mapmoji.app/api/health
 ```
 
 ## 🔧 Production Management
