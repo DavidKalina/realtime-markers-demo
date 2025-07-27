@@ -10,9 +10,11 @@ import type {
   AdminUpdateCivicEngagementStatusInput,
 } from "../types/civicEngagement";
 import {
+  CivicEngagement,
   CivicEngagementType,
   CivicEngagementStatus,
-} from "../entities/CivicEngagement";
+  User,
+} from "@realtime-markers/database";
 import {
   processCivicEngagementFormData,
   validateCivicEngagementData,
@@ -21,7 +23,6 @@ import {
 } from "../utils/civicEngagementUtils";
 import { civicEngagementNotificationService } from "../services/CivicEngagementNotificationService";
 import AppDataSource from "../data-source";
-import { User } from "../entities/User";
 
 export type CivicEngagementHandler = Handler;
 

@@ -7,7 +7,7 @@ import type { CreateCivicEngagementInput } from "../types/civicEngagement";
 import {
   CivicEngagementType,
   CivicEngagementStatus,
-} from "../entities/CivicEngagement";
+} from "@realtime-markers/database";
 
 // Extended type for internal processing
 export interface CivicEngagementDataWithEmbedding

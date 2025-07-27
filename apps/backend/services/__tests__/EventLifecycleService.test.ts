@@ -12,9 +12,12 @@ import {
   EventStatus,
   RecurrenceFrequency,
   DayOfWeek,
-} from "../../entities/Event";
-import { Category } from "../../entities/Category";
-import { User, UserRole } from "../../entities/User";
+} from "@realtime-markers/database";
+import { Event";
+import { Category } from "@realtime-markers/database";
+import { Category";
+import { User, UserRole } from "@realtime-markers/database";
+import { User";
 import type { DataSource, Repository } from "typeorm";
 import type { EventCacheService } from "../shared/EventCacheService";
 import type { GoogleGeocodingService } from "../shared/GoogleGeocodingService";

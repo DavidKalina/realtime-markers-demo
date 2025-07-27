@@ -1,13 +1,15 @@
 import { DataSource, Repository } from "typeorm";
-import { Category } from "../entities/Category";
-import { Event } from "../entities/Event";
-import { User } from "../entities/User";
-import { UserEventSave } from "../entities/UserEventSave";
-import { UserEventDiscovery } from "../entities/UserEventDiscovery";
-import { UserEventRsvp } from "../entities/UserEventRsvp";
-import { EventShare } from "../entities/EventShare";
-import { Filter } from "../entities/Filter";
-import { CivicEngagement } from "../entities/CivicEngagement";
+import {
+  Category,
+  Event,
+  User,
+  UserEventSave,
+  UserEventDiscovery,
+  UserEventRsvp,
+  EventShare,
+  Filter,
+  CivicEngagement,
+} from "@realtime-markers/database";
 import { ensureDatabaseReadyForServices } from "../utils/databaseInitializer";
 
 export interface RepositoryContainer {

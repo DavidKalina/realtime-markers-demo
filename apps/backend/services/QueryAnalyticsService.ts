@@ -1,7 +1,5 @@
 import { DataSource, Repository } from "typeorm";
-import { QueryAnalytics } from "../entities/QueryAnalytics";
-import { Event } from "../entities/Event";
-import { Category } from "../entities/Category";
+import { QueryAnalytics, Event, Category } from "@realtime-markers/database";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
 
 export interface QueryAnalyticsData {

@@ -1,7 +1,6 @@
 import pgvector from "pgvector";
 import { Brackets, DataSource, Repository } from "typeorm";
-import type { CivicEngagement } from "../entities/CivicEngagement";
-import type { User } from "../entities/User";
+import type { CivicEngagement, User } from "@realtime-markers/database";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
 import type { CivicEngagementCacheService } from "./shared/CivicEngagementCacheService";
 

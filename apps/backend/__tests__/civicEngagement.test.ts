@@ -4,7 +4,7 @@ import {
   CivicEngagement,
   CivicEngagementType,
   CivicEngagementStatus,
-} from "../entities/CivicEngagement";
+} from "@realtime-markers/database";
 import { CivicEngagementService } from "../services/CivicEngagementService";
 import { createRedisService } from "../services/shared/RedisService";
 import Redis from "ioredis";

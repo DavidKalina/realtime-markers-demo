@@ -1,8 +1,9 @@
 import { Repository } from "typeorm";
 import {
   CivicEngagement,
+  CivicEngagementType,
   CivicEngagementStatus,
-} from "../entities/CivicEngagement";
+} from "@realtime-markers/database";
 import type {
   CreateCivicEngagementInput,
   UpdateCivicEngagementInput,

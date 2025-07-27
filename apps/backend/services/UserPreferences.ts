@@ -1,6 +1,6 @@
 // This would be added to the backend service as src/services/UserPreferencesService.ts
 import { DataSource, Repository } from "typeorm";
-import { Filter as FilterEntity } from "../entities/Filter";
+import { Filter as FilterEntity } from "@realtime-markers/database";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
 import { OpenAIModel } from "./shared/OpenAIService";
 import type { OpenAIService } from "./shared/OpenAIService";

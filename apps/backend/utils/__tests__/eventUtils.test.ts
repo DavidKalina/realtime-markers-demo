@@ -4,7 +4,8 @@ import type { AppContext } from "../../types/context";
 import type { StorageService } from "../../services/shared/StorageService";
 import type { CategoryProcessingService } from "../../services/CategoryProcessingService";
 import type { IEmbeddingService } from "../../services/event-processing/interfaces/IEmbeddingService";
-import { RecurrenceFrequency, DayOfWeek } from "../../entities/Event";
+import { RecurrenceFrequency, DayOfWeek } from "@realtime-markers/database";
+import { Event";
 import {
   processEventFormData,
   validateEventData,

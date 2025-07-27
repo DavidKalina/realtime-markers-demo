@@ -1,8 +1,12 @@
 import { DataSource } from "typeorm";
-import { Event, EventStatus } from "../entities/Event";
-import { Category } from "../entities/Category";
-import type { Filter } from "../entities/Filter";
-import { UserEventRsvp, RsvpStatus } from "../entities/UserEventRsvp";
+import {
+  Event,
+  EventStatus,
+  Category,
+  Filter,
+  UserEventRsvp,
+  RsvpStatus,
+} from "@realtime-markers/database";
 import type { EventLifecycleService } from "./EventLifecycleService";
 import { createEventLifecycleService } from "./EventLifecycleService";
 import type { EventSearchService } from "./EventSearchService";

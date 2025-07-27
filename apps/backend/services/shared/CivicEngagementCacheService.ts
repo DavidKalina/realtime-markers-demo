@@ -1,4 +1,4 @@
-import { CivicEngagement } from "../../entities/CivicEngagement";
+import { CivicEngagement } from "@realtime-markers/database";
 import { createCacheService } from "./CacheService";
 import { Redis } from "ioredis";
 

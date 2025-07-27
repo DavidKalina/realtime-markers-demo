@@ -2,25 +2,32 @@ FROM oven/bun:1.0.35
 
 WORKDIR /app
 
-# Install PostgreSQL client, Python, and build tools for native dependencies
+# Install Node.js, npm, pnpm and system dependencies
 RUN apt-get update && apt-get install -y \
-    postgresql-client \
     curl \
     python3 \
     python3-pip \
     build-essential \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g pnpm@8.15.0 \
+    && apt-get install -y postgresql-client \
     && apt-get clean
 
-# Copy workspace and package files first
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY apps/backend/package.json ./apps/backend/package.json
+# Copy package files first for better caching
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/backend/package.json ./apps/backend/
+COPY packages/database/package.json ./packages/database/
 
-# Install dependencies
-RUN bun install
-RUN cd /app/apps/backend && bun add -d typeorm@latest @types/node ts-node typescript
-
-# Copy backend source AFTER installing dependencies
+# Copy source code
 COPY apps/backend ./apps/backend
+COPY packages/database ./packages/database
+
+# Install dependencies using pnpm for workspace support
+RUN pnpm install --frozen-lockfile || pnpm install
+
+# Verify that key dependencies are installed
+RUN ls -la /app/apps/backend/node_modules/ | grep -E "(hono|ioredis)" || echo "Key dependencies not found"
 
 # Create an entrypoint script
 COPY apps/backend/docker-entrypoint.sh /usr/local/bin/

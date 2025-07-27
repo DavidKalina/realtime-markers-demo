@@ -1,8 +1,6 @@
 import pgvector from "pgvector";
 import { Brackets, DataSource, Repository } from "typeorm";
-import type { Category } from "../entities/Category";
-import type { Event } from "../entities/Event";
-import type { Filter } from "../entities/Filter";
+import type { Category, Event, Filter } from "@realtime-markers/database";
 import type { EventCacheService } from "./shared/EventCacheService";
 import type { OpenAIService } from "./shared/OpenAIService";
 import type { QueryAnalyticsService } from "./QueryAnalyticsService";

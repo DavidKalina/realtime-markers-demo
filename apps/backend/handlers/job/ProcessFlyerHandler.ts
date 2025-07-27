@@ -7,8 +7,8 @@ import { StorageService } from "../../services/shared/StorageService";
 import { isEventTemporalyRelevant } from "../../utils/isEventTemporalyRelevant";
 import type { Point } from "geojson";
 import type { MultiEventScanResult } from "../../services/EventProcessingService";
-import type { Event } from "../../entities/Event";
-import type { Category } from "../../entities/Category";
+import type { Event } from "@realtime-markers/database";
+import type { Category } from "@realtime-markers/database";
 
 // Helper function to convert Point to [number, number]
 function pointToCoordinates(point: Point): [number, number] {

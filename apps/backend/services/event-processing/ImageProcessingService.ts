@@ -11,7 +11,7 @@ import type { OpenAIService } from "../shared/OpenAIService";
 import { OpenAIModel } from "../shared/OpenAIService";
 import jsQR from "jsqr";
 import { Jimp } from "jimp";
-import { RecurrenceFrequency, DayOfWeek } from "../../entities/Event";
+import { RecurrenceFrequency, DayOfWeek } from "@realtime-markers/database";
 
 // New interface for multi-event results
 export interface MultiEventProcessingResult {

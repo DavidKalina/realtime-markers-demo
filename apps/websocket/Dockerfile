@@ -2,18 +2,26 @@ FROM oven/bun:1
 
 WORKDIR /app
 
-# Copy package files first
-COPY package.json pnpm-workspace.yaml ./
+# Install Node.js, npm, pnpm and system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    python3 \
+    python3-pip \
+    build-essential \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g pnpm@8.15.0 \
+    && apt-get clean
+
+# Copy package files first for better caching
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/websocket/package.json ./apps/websocket/
 
-# Install dependencies
-RUN apt-get update && apt-get install -y curl && apt-get clean
-RUN cd apps/websocket && bun install
+# Copy source code
+COPY apps/websocket ./apps/websocket
 
-# Copy only the necessary files, excluding node_modules
-COPY apps/websocket/src/ ./apps/websocket/src/
-COPY apps/websocket/SessionManager.ts ./apps/websocket/
-COPY apps/websocket/tsconfig.json ./apps/websocket/
+# Install dependencies using pnpm for workspace support
+RUN pnpm install --frozen-lockfile || pnpm install
 
 # Set working directory to the websocket app
 WORKDIR /app/apps/websocket

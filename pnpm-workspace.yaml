@@ -1,2 +1,13 @@
 packages:
+  # Apps (services that run independently)
   - "apps/*"
+
+  # Shared packages (libraries used across apps)
+  - "packages/*"
+
+  # Exclude test files and build artifacts
+  - "!**/test/**"
+  - "!**/tests/**"
+  - "!**/dist/**"
+  - "!**/build/**"
+  - "!**/node_modules/**"

@@ -7,7 +7,8 @@ import { OpenAIModel } from "../shared/OpenAIService";
 import type { Repository } from "typeorm";
 import type { OpenAIService } from "../shared/OpenAIService";
 import type { CategoryCacheService } from "../shared/CategoryCacheService";
-import type { Category } from "../../entities/Category";
+import type { Category } from "@realtime-markers/database";
+import { Category";
 
 describe("CategoryProcessingService", () => {
   let categoryProcessingService: CategoryProcessingService;

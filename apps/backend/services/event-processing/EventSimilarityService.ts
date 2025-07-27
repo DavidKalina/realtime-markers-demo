@@ -2,7 +2,7 @@
 
 import { Repository } from "typeorm";
 import pgvector from "pgvector";
-import { Event } from "../../entities/Event";
+import { Event } from "@realtime-markers/database";
 import { type IEventSimilarityService } from "./interfaces/IEventSimilarityService";
 import { type SimilarityResult } from "./dto/SimilarityResult";
 import type { ConfigService } from "../shared/ConfigService";

@@ -2,7 +2,7 @@
 
 import "reflect-metadata";
 import { initializeDatabase } from "../data-source";
-import { CivicEngagement } from "../entities/CivicEngagement";
+import { CivicEngagement } from "@realtime-markers/database";
 import { DataSource } from "typeorm";
 import { createEmbeddingService } from "../services/shared/EmbeddingService";
 import { createEmbeddingCacheService } from "../services/shared/EmbeddingCacheService";

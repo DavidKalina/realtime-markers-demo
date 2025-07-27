@@ -2,19 +2,21 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 
-// Import all entities explicitly
-import { User } from "./entities/User";
-import { Event } from "./entities/Event";
-import { Category } from "./entities/Category";
-import { EventShare } from "./entities/EventShare";
-import { Filter } from "./entities/Filter";
-import { QueryAnalytics } from "./entities/QueryAnalytics";
-import { UserEventView } from "./entities/UserEventView";
-import { UserEventDiscovery } from "./entities/UserEventDiscovery";
-import { UserEventRsvp } from "./entities/UserEventRsvp";
-import { UserEventSave } from "./entities/UserEventSave";
-import { CivicEngagement } from "./entities/CivicEngagement";
-import { UserPushToken } from "./entities/UserPushToken";
+// Import all entities from the shared package
+import {
+  User,
+  Event,
+  Category,
+  EventShare,
+  Filter,
+  QueryAnalytics,
+  UserEventView,
+  UserEventDiscovery,
+  UserEventRsvp,
+  UserEventSave,
+  CivicEngagement,
+  UserPushToken,
+} from "@realtime-markers/database";
 
 // Import all migrations explicitly
 import { CategoryTable1710000000000 } from "./migrations/CategoryTable1710000000000";
