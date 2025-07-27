@@ -6,6 +6,36 @@ services:
   adminer:
     profiles: ["never"] # This prevents the service from starting
 
+  # Production Traefik configuration
+  traefik:
+    # Production-specific Traefik settings
+    command:
+      - "--api.insecure=false" # Disable insecure API in production
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--log.level=WARN" # Reduce log verbosity in production
+      - "--accesslog=true"
+      - "--accesslog.filepath=/var/log/traefik/access.log"
+      - "--accesslog.format=json"
+    # Remove dashboard port in production for security
+    ports:
+      - "80:80"
+      - "443:443"
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+
   web-dashboard:
     # Remove development volumes - use baked-in code from the image
     volumes: []
@@ -40,11 +70,43 @@ services:
     # Production restart policy
     restart: unless-stopped
 
-    # Remove development-specific port binding if using reverse proxy
-    # ports:
-    #   - "127.0.0.1:3001:3001"
-
     # Production resource limits (optional)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 256M
+          cpus: "0.25"
+
+  # Production backend configuration
+  backend:
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+
+  # Production websocket configuration
+  websocket:
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
+
+  # Production filter-processor configuration
+  filter-processor:
+    # Production resource limits
     deploy:
       resources:
         limits:

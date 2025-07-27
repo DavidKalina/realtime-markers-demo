@@ -1,0 +1,78 @@
+# Development override for docker-compose.yml
+# This file optimizes Traefik for local development and testing
+
+services:
+  # Development Traefik configuration
+  traefik:
+    # Development-specific Traefik settings
+    command:
+      - "--api.insecure=true" # Enable dashboard for development
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--log.level=DEBUG" # More verbose logging for development
+      - "--accesslog=true"
+      - "--accesslog.format=common"
+    # Keep dashboard port for development
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080" # Traefik dashboard
+    # Development resource limits (more generous)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 256M
+          cpus: "0.5"
+
+  # Development backend configuration
+  backend:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.localhost`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+      - "traefik.http.routers.backend.tls=false" # Disable SSL for localhost
+      - "traefik.http.routers.backend.middlewares=backend-headers"
+      - "traefik.http.middlewares.backend-headers.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+      - "traefik.http.middlewares.backend-headers.headers.accesscontrolalloworiginlist=*"
+      - "traefik.http.middlewares.backend-headers.headers.accesscontrolallowheaders=*"
+
+  # Development websocket configuration
+  websocket:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.websocket.rule=Host(`ws.localhost`)"
+      - "traefik.http.services.websocket.loadbalancer.server.port=8081"
+      - "traefik.http.routers.websocket.tls=false" # Disable SSL for localhost
+      - "traefik.http.routers.websocket.middlewares=websocket-headers"
+      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolallowmethods=GET,POST,OPTIONS"
+      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolalloworiginlist=*"
+      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolallowheaders=*"
+
+  # Development filter-processor configuration
+  filter-processor:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.filter-processor.rule=Host(`filter.localhost`)"
+      - "traefik.http.services.filter-processor.loadbalancer.server.port=8082"
+      - "traefik.http.routers.filter-processor.tls=false" # Disable SSL for localhost
+
+  # Development web-dashboard configuration
+  web-dashboard:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`dashboard.localhost`)"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=3001"
+      - "traefik.http.routers.dashboard.tls=false" # Disable SSL for localhost
+
+  # Development adminer configuration
+  adminer:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.adminer.rule=Host(`adminer.localhost`)"
+      - "traefik.http.services.adminer.loadbalancer.server.port=8080"
+      - "traefik.http.routers.adminer.tls=false" # Disable SSL for localhost
