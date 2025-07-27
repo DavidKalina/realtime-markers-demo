@@ -3,25 +3,15 @@ import {
   CivicEngagementType,
   CivicEngagementStatus,
 } from "@realtime-markers/database";
+import type {
+  CivicEngagementInput,
+  CivicEngagementUpdate,
+  CivicEngagementSearchFilters,
+} from "@realtime-markers/database";
 
-export interface CreateCivicEngagementInput {
-  title: string;
-  description?: string;
-  type: CivicEngagementType;
-  location?: Point;
-  address?: string;
-  locationNotes?: string;
-  imageUrls?: string[];
-  creatorId: string;
-}
-
-export interface UpdateCivicEngagementInput {
-  title?: string;
-  description?: string;
-  status?: CivicEngagementStatus;
-  adminNotes?: string;
-  imageUrls?: string[];
-}
+// Re-export shared types for backward compatibility
+export type CreateCivicEngagementInput = CivicEngagementInput;
+export type UpdateCivicEngagementInput = CivicEngagementUpdate;
 
 export interface AdminUpdateCivicEngagementStatusInput {
   status: CivicEngagementStatus;
@@ -29,23 +19,8 @@ export interface AdminUpdateCivicEngagementStatusInput {
   implementedAt?: Date;
 }
 
-export interface CivicEngagementFilters {
-  type?: CivicEngagementType[];
-  status?: CivicEngagementStatus[];
-  creatorId?: string;
-  dateRange?: {
-    start?: Date;
-    end?: Date;
-  };
-  location?: {
-    latitude: number;
-    longitude: number;
-    radius: number; // in meters
-  };
-  search?: string;
-  limit?: number;
-  offset?: number;
-}
+// Re-export the shared search filters type
+export type CivicEngagementFilters = CivicEngagementSearchFilters;
 
 export interface CivicEngagementStats {
   total: number;

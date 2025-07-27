@@ -1,3 +1,5 @@
+import type { UserProfile, CategorySummary } from "@realtime-markers/database";
+
 // Base API types
 export interface Location {
   type: string;
@@ -9,21 +11,9 @@ export interface AuthTokens {
   refreshToken?: string;
 }
 
-export interface User {
-  id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  role: string;
-  avatarUrl?: string;
-  isVerified: boolean;
-  bio?: string;
-  createdAt?: Date;
-  scanCount?: number;
-  saveCount?: number;
-  level?: number;
-  nextLevelXp?: number;
-}
+// Re-export shared types for consistency
+export type User = UserProfile;
+export type Category = CategorySummary;
 
 export interface LoginResponse {
   user: User;
@@ -412,18 +402,7 @@ export interface EventType {
   }[];
 }
 
-/**
- * Category entity type
- */
-export interface Category {
-  id: string;
-  name: string;
-  description?: string;
-  emoji?: string;
-  parentId?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// Category interface is now re-exported from shared types
 
 export interface CategoryCreateInput {
   name: string;
