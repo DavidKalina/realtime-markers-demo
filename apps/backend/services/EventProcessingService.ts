@@ -1,10 +1,10 @@
 // services/EventProcessingService.ts
 import type { Point } from "geojson";
 import type {
-  Category,
   RecurrenceFrequency,
   DayOfWeek,
 } from "@realtime-markers/database";
+import type { CategorySummary } from "@realtime-markers/database";
 import type { SimilarityResult } from "./event-processing/dto/SimilarityResult";
 import { createEventExtractionService } from "./event-processing/EventExtractionService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
@@ -20,31 +20,33 @@ interface LocationContext {
   organizationHints?: string[];
 }
 
-interface EventDetails {
+// Simplified ProcessedEventDetails using CategorySummary from derived types
+interface ProcessedEventDetails {
   emoji: string;
   emojiDescription?: string;
   title: string;
-  date: string;
-  endDate?: string;
+  date: string; // Keep as string for processing
+  endDate?: string; // Keep as string for processing
   address: string;
   location: Point;
   description: string;
-  categories?: Category[];
+  categories?: CategorySummary[]; // Use CategorySummary from derived types
   timezone?: string; // IANA timezone identifier (e.g., "America/New_York")
   locationNotes?: string; // Additional location context like building, room, etc.
   userCityState?: string; // User's city and state for location context
+  // Include recurrence fields using derived types
   isRecurring?: boolean;
   recurrenceFrequency?: RecurrenceFrequency;
   recurrenceDays?: DayOfWeek[];
   recurrenceTime?: string;
-  recurrenceStartDate?: string;
-  recurrenceEndDate?: string;
+  recurrenceStartDate?: string; // Keep as string for processing
+  recurrenceEndDate?: string; // Keep as string for processing
   recurrenceInterval?: number | null;
 }
 
 interface ScanResult {
   confidence: number;
-  eventDetails: EventDetails;
+  eventDetails: ProcessedEventDetails;
   similarity: SimilarityResult;
   isDuplicate?: boolean;
   qrCodeDetected?: boolean;
@@ -52,25 +54,27 @@ interface ScanResult {
   embedding: number[];
 }
 
+// Simplified PrivateEventInput using CategorySummary from derived types
 interface PrivateEventInput {
   emoji: string;
   emojiDescription?: string;
   title: string;
-  date: string;
-  endDate?: string;
+  date: string; // Keep as string for processing
+  endDate?: string; // Keep as string for processing
   address: string;
   location: Point;
   description: string;
-  categories?: Category[];
+  categories?: CategorySummary[]; // Use CategorySummary from derived types
   timezone?: string;
   locationNotes?: string;
   isPrivate: boolean;
+  // Include recurrence fields using derived types
   isRecurring?: boolean;
   recurrenceFrequency?: RecurrenceFrequency;
   recurrenceDays?: DayOfWeek[];
   recurrenceTime?: string;
-  recurrenceStartDate?: string;
-  recurrenceEndDate?: string;
+  recurrenceStartDate?: string; // Keep as string for processing
+  recurrenceEndDate?: string; // Keep as string for processing
   recurrenceInterval?: number;
 }
 
@@ -301,7 +305,7 @@ export class EventProcessingService {
   }
 
   private async generateEmbedding(
-    eventDetails: EventDetails,
+    eventDetails: ProcessedEventDetails,
   ): Promise<number[]> {
     // Use the same format as EventService
     const textForEmbedding = `
