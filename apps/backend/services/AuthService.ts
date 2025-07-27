@@ -4,16 +4,19 @@ import bcrypt from "bcrypt";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { Repository, DataSource } from "typeorm";
 import { User, UserRole } from "@realtime-markers/database";
+import type {
+  UserInput,
+  UserUpdate,
+  UserProfile,
+} from "@realtime-markers/database";
 import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import { addDays, format } from "date-fns";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
 
-export interface UserRegistrationData {
-  email: string;
+// Create a registration-specific interface that includes password
+export interface UserRegistrationData extends Omit<UserInput, "passwordHash"> {
   password: string;
-  firstName?: string;
-  lastName?: string;
 }
 
 export interface AuthTokens {
@@ -119,7 +122,7 @@ export class AuthService {
   /**
    * Register a new user
    */
-  async register(userData: UserRegistrationData): Promise<User> {
+  async register(userData: UserRegistrationData): Promise<UserProfile> {
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({
       where: { email: userData.email },
@@ -168,7 +171,7 @@ export class AuthService {
     await this.userPreferencesService.applyFilters(savedUser.id, [
       defaultFilter.id,
     ]);
-    return savedUser;
+    return this.toUserProfile(savedUser);
   }
 
   /**
@@ -177,7 +180,7 @@ export class AuthService {
   async login(
     email: string,
     password: string,
-  ): Promise<{ user: User; tokens: AuthTokens }> {
+  ): Promise<{ user: UserProfile; tokens: AuthTokens }> {
     // Find user by email with password included
     const user = await this.userRepository.findOne({
       where: { email },
@@ -217,7 +220,7 @@ export class AuthService {
     delete (user as any).passwordHash;
     delete user.refreshToken;
 
-    return { user, tokens };
+    return { user: this.toUserProfile(user), tokens };
   }
 
   /**
@@ -375,7 +378,7 @@ export class AuthService {
   /**
    * Get user profile by ID
    */
-  async getUserProfile(userId: string): Promise<User | null> {
+  async getUserProfile(userId: string): Promise<UserProfile | null> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
       select: [
@@ -401,13 +404,13 @@ export class AuthService {
    */
   async updateUserProfile(
     userId: string,
-    userData: Partial<User>,
-  ): Promise<User | null> {
+    userData: UserUpdate,
+  ): Promise<UserProfile | null> {
     // Exclude sensitive fields from updates
     delete userData.passwordHash;
     delete userData.refreshToken;
     delete userData.role; // Role should be updated through admin functions
-    delete userData.id;
+    // Note: userData.id is already excluded by UserUpdate type
     delete userData.email; // Email changes should have their own flow with verification
 
     // Validate names for appropriateness if they're being updated
@@ -495,6 +498,26 @@ export class AuthService {
   }
 
   /**
+   * Convert User to UserProfile (removes sensitive fields)
+   */
+  private toUserProfile(user: User): UserProfile {
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      isVerified: user.isVerified,
+      avatarUrl: user.avatarUrl,
+      bio: user.bio,
+      discoveryCount: user.discoveryCount,
+      scanCount: user.scanCount,
+      saveCount: user.saveCount,
+      viewCount: user.viewCount,
+    };
+  }
+
+  /**
    * Handle Google OAuth
    */
   async handleGoogleOAuth(
@@ -502,7 +525,7 @@ export class AuthService {
     redirectUri: string,
     codeVerifier?: string,
     platform?: "ios" | "android" | "web",
-  ): Promise<{ user: User; tokens: AuthTokens }> {
+  ): Promise<{ user: UserProfile; tokens: AuthTokens }> {
     try {
       let clientId: string | undefined;
       let clientSecret: string | undefined;
@@ -609,7 +632,7 @@ export class AuthService {
       // Don't return sensitive data
       delete user.refreshToken;
 
-      return { user, tokens };
+      return { user: this.toUserProfile(user), tokens };
     } catch (error) {
       console.error("Google OAuth error:", error);
       throw new Error("Google OAuth failed");
@@ -623,7 +646,7 @@ export class AuthService {
     code: string,
     redirectUri: string,
     codeVerifier?: string,
-  ): Promise<{ user: User; tokens: AuthTokens }> {
+  ): Promise<{ user: UserProfile; tokens: AuthTokens }> {
     try {
       const clientId = process.env.FACEBOOK_CLIENT_ID;
       const clientSecret = process.env.FACEBOOK_CLIENT_SECRET;
@@ -730,7 +753,7 @@ export class AuthService {
       // Don't return sensitive data
       delete user.refreshToken;
 
-      return { user, tokens };
+      return { user: this.toUserProfile(user), tokens };
     } catch (error) {
       console.error("Facebook OAuth error:", error);
       throw new Error("Facebook OAuth failed");
