@@ -6,7 +6,6 @@ import {
   UserEventSave,
   UserEventDiscovery,
   UserEventRsvp,
-  EventShare,
   Filter,
   CivicEngagement,
 } from "@realtime-markers/database";
@@ -19,7 +18,6 @@ export interface RepositoryContainer {
   userEventSaveRepository: Repository<UserEventSave>;
   userEventDiscoveryRepository: Repository<UserEventDiscovery>;
   userEventRsvpRepository: Repository<UserEventRsvp>;
-  eventShareRepository: Repository<EventShare>;
   filterRepository: Repository<Filter>;
   civicEngagementRepository: Repository<CivicEngagement>;
 }
@@ -55,7 +53,6 @@ export class RepositoryInitializer {
         userEventDiscoveryRepository:
           this.dataSource.getRepository(UserEventDiscovery),
         userEventRsvpRepository: this.dataSource.getRepository(UserEventRsvp),
-        eventShareRepository: this.dataSource.getRepository(EventShare),
         filterRepository: this.dataSource.getRepository(Filter),
         civicEngagementRepository:
           this.dataSource.getRepository(CivicEngagement),

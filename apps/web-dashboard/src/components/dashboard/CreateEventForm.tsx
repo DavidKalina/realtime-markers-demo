@@ -307,7 +307,6 @@ export function CreateEventForm({
         address: selectedLocation?.address || "",
         locationNotes:
           selectedLocation?.locationNotes || formData.locationNotes,
-        sharedWithIds: formData.isPrivate ? formData.sharedWithIds : [],
         userCoordinates: userCoordinates || undefined,
         image: formData.image,
         // QR code related fields
