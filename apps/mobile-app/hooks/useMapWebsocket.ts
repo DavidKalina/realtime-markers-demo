@@ -13,39 +13,7 @@ import {
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useAuth } from "@/contexts/AuthContext";
-
-// Mapbox viewport format
-interface MapboxViewport {
-  north: number;
-  south: number;
-  east: number;
-  west: number;
-}
-
-// Server marker structure adjusted for Mapbox
-export interface Marker {
-  id: string;
-  coordinates: [number, number]; // [longitude, latitude]
-  data: {
-    title: string;
-    emoji: string;
-    color: string;
-    location?: string;
-    distance?: string;
-    time?: string;
-    eventDate?: string;
-    endDate?: string;
-    description?: string;
-    categories?: string[];
-    isVerified?: boolean;
-    created_at?: string;
-    updated_at?: string;
-    isPrivate?: boolean;
-    status?: string; // Added status here as it's in convertEventToMarker
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [key: string]: any;
-  };
-}
+import { Marker, MapboxViewport } from "@realtime-markers/database";
 
 interface MapWebSocketResult {
   markers: Marker[];
