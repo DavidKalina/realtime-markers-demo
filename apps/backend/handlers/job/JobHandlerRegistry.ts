@@ -1,6 +1,5 @@
 import type { JobHandler, JobHandlerContext } from "./BaseJobHandler";
 import { ProcessFlyerHandler } from "./ProcessFlyerHandler";
-import { ProcessPrivateEventHandler } from "./ProcessPrivateEventHandler";
 import { CleanupEventsHandler } from "./CleanupEventsHandler";
 import { ProcessCivicEngagementHandler } from "./ProcessCivicEngagementHandler";
 import type { EventProcessingService } from "../../services/EventProcessingService";
@@ -33,12 +32,6 @@ export class JobHandlerRegistry {
         this.eventProcessingService,
         this.eventService,
         this.storageService,
-      ),
-    );
-    this.registerHandler(
-      new ProcessPrivateEventHandler(
-        this.eventProcessingService,
-        this.eventService,
       ),
     );
     this.registerHandler(new CleanupEventsHandler(this.eventService));
