@@ -1,52 +1,41 @@
-// types.ts - Updated to align with Marker interface
+// types.ts - Updated to use derived types from database package
+import {
+  Marker,
+  MapboxViewport,
+  EventSummary,
+  UserProfile,
+  CivicEngagementSummary,
+  CivicEngagementType as CivicEngagementTypeEnum,
+  EventStatus,
+  RecurrenceFrequency,
+  DayOfWeek,
+} from "@realtime-markers/database";
+
+// Re-export the main types for convenience
+export { Marker, MapboxViewport };
 
 // Coordinates type for location data
 export type Coordinates = [number, number]; // [longitude, latitude]
 
-// Base event interface with all common properties
-export interface UserType {
-  id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  avatarUrl?: string;
-  role: string;
-  // Add other user properties you need
+// User type that extends the database UserProfile
+export interface UserType extends UserProfile {
+  // Add any mobile-specific user properties here
 }
 
-export interface EventType {
-  id: string;
-  title: string;
-  description: string;
-  eventDate: Date | string; // Allow both Date and string for flexibility
-  endDate?: string;
+// Event type that extends the database EventSummary with mobile-specific additions
+export interface EventType extends Omit<EventSummary, "hasQrCode"> {
+  // Add mobile-specific event properties
   time: string;
-  coordinates: [number, number];
-  location: string;
-  locationNotes?: string; // Additional location context like building, room, etc.
   distance: string;
-  emoji: string;
-  emojiDescription?: string;
-  categories: { id: string; name: string }[];
-  creator?: UserType;
-  creatorId?: string;
-  scanCount: number;
-  saveCount: number;
   timezone: string;
   qrUrl?: string | null;
   qrCodeData?: string;
   qrImagePath?: string | null;
-  hasQrCode?: boolean;
+  hasQrCode?: boolean; // Make optional to match mobile usage
   qrGeneratedAt?: string | null;
   qrDetectedInImage?: boolean;
   detectedQrData?: string | null;
   imageUrl?: string;
-  category?: {
-    id: string;
-    name: string;
-  };
-  createdAt: string;
-  updatedAt: string;
   discoveryCount?: number;
   savedBy?: {
     id: string;
@@ -54,21 +43,10 @@ export interface EventType {
     lastName?: string;
     email: string;
   };
-  isPrivate?: boolean;
-  isOfficial?: boolean;
-
-  // Recurring event fields
+  // Recurring event fields with proper types
   isRecurring?: boolean;
-  recurrenceFrequency?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";
-  recurrenceDays?: (
-    | "SUNDAY"
-    | "MONDAY"
-    | "TUESDAY"
-    | "WEDNESDAY"
-    | "THURSDAY"
-    | "FRIDAY"
-    | "SATURDAY"
-  )[];
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceDays?: DayOfWeek[];
   recurrenceStartDate?: string;
   recurrenceEndDate?: string;
   recurrenceInterval?: number;
@@ -76,17 +54,12 @@ export interface EventType {
   recurrenceExceptions?: string[];
 }
 
-// Mapbox viewport format for map integration
-export interface MapboxViewport {
-  north: number;
-  south: number;
-  east: number;
-  west: number;
+// Civic engagement type that extends the database CivicEngagementSummary
+export interface CivicEngagementType extends CivicEngagementSummary {
+  // Add mobile-specific civic engagement properties
+  distance?: string;
+  time?: string;
 }
 
-// Marker type that extends EventType for map usage
-export interface Marker {
-  id: string;
-  coordinates: Coordinates;
-  data: EventType;
-}
+// Re-export database enums for convenience
+export { CivicEngagementTypeEnum, EventStatus, RecurrenceFrequency, DayOfWeek };

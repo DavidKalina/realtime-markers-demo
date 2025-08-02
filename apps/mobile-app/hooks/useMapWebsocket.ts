@@ -13,7 +13,7 @@ import {
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useAuth } from "@/contexts/AuthContext";
-import { Marker, MapboxViewport } from "@realtime-markers/database";
+import { Marker, MapboxViewport } from "@/types/types";
 
 interface MapWebSocketResult {
   markers: Marker[];

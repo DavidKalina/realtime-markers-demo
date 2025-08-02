@@ -1,8 +1,7 @@
 // stores/useLocationStore.ts - Updated with unified selection model
 import { create } from "zustand";
-import { EventType, MapboxViewport } from "@/types/types";
+import { EventType, MapboxViewport, Marker } from "@/types/types";
 import { markerToEvent, isValidCoordinates } from "@/utils/mapUtils";
-import { Marker } from "@/hooks/useMapWebsocket";
 import { ClusterFeature } from "@/hooks/useMarkerClustering";
 
 type ActiveView = "none" | "details" | "share" | "search" | "camera" | "map";
