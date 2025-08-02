@@ -112,13 +112,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
         // Check if the event exists
         const event = await transactionalEntityManager.findOne(Event, {
           where: { id: eventId },
-          relations: [
-            "categories",
-            "creator",
-            "shares",
-            "shares.sharedWith",
-            "rsvps",
-          ],
+          relations: ["categories", "creator", "rsvps"],
         });
 
         if (!event) {
@@ -331,13 +325,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
         // Check if the event exists
         const event = await transactionalEntityManager.findOne(Event, {
           where: { id: eventId },
-          relations: [
-            "categories",
-            "creator",
-            "shares",
-            "shares.sharedWith",
-            "rsvps",
-          ],
+          relations: ["categories", "creator", "rsvps"],
         });
 
         if (!event) {
@@ -389,13 +377,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
         // Reload the event with updated RSVP data for Redis publishing
         const updatedEvent = await transactionalEntityManager.findOne(Event, {
           where: { id: eventId },
-          relations: [
-            "categories",
-            "creator",
-            "shares",
-            "shares.sharedWith",
-            "rsvps",
-          ],
+          relations: ["categories", "creator", "rsvps"],
         });
 
         // Publish the updated event to Redis for filter processor to recalculate popularity scores
@@ -500,13 +482,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
       // Get the updated event with scan count and publish to Redis for filter processor
       const updatedEvent = await this.eventRepository.findOne({
         where: { id: eventId },
-        relations: [
-          "categories",
-          "creator",
-          "shares",
-          "shares.sharedWith",
-          "rsvps",
-        ],
+        relations: ["categories", "creator", "rsvps"],
       });
 
       if (updatedEvent) {
@@ -570,13 +546,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
       // Get the updated event and publish to Redis for filter processor
       const updatedEvent = await this.eventRepository.findOne({
         where: { id: eventId },
-        relations: [
-          "categories",
-          "creator",
-          "shares",
-          "shares.sharedWith",
-          "rsvps",
-        ],
+        relations: ["categories", "creator", "rsvps"],
       });
 
       if (updatedEvent) {

@@ -103,7 +103,6 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       qrDetectedInImage: input.qrDetectedInImage || false,
       detectedQrData: input.detectedQrData,
       originalImageUrl: input.originalImageUrl || undefined,
-      isPrivate: input.isPrivate || false,
       isOfficial: input.isOfficial || false,
       qrUrl: input.qrUrl,
       isRecurring: input.isRecurring || false,
@@ -140,9 +139,6 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
 
     await this.eventCacheService.invalidateSearchCache();
 
-    // Invalidate any cluster hub caches that might be affected
-    await this.eventCacheService.invalidateAllClusterHubs();
-
     // Invalidate landing page cache since new official events might affect the landing page
     await this.eventCacheService.invalidateLandingPageCache();
 
@@ -160,7 +156,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       // If not in cache, get from database
       const evt = await this.eventRepo.findOne({
         where: { id },
-        relations: ["categories", "creator", "shares", "shares.sharedWith"],
+        relations: ["categories", "creator"],
       });
 
       // If found, cache it with a shorter TTL for frequently accessed events
@@ -242,11 +238,6 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
         event.categories = categories;
       }
 
-      // Handle privacy and shares
-      if (eventData.isPrivate !== undefined) {
-        event.isPrivate = eventData.isPrivate;
-      }
-
       // Handle official status
       if (eventData.isOfficial !== undefined) {
         event.isOfficial = eventData.isOfficial;
@@ -272,9 +263,6 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
 
       // Invalidate search cache since we updated an event
       await this.eventCacheService.invalidateSearchCache();
-
-      // Invalidate any cluster hub caches that might contain this event
-      await this.eventCacheService.invalidateAllClusterHubs();
 
       // Invalidate landing page cache since official events might have changed
       await this.eventCacheService.invalidateLandingPageCache();
@@ -311,9 +299,6 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
 
       // Invalidate search cache since we deleted an event
       await this.eventCacheService.invalidateSearchCache();
-
-      // Invalidate any cluster hub caches that might contain this event
-      await this.eventCacheService.invalidateAllClusterHubs();
 
       // Invalidate landing page cache since official events might have changed
       await this.eventCacheService.invalidateLandingPageCache();

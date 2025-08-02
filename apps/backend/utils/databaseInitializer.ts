@@ -1,6 +1,7 @@
 import { DataSource } from "typeorm";
 import { Redis } from "ioredis";
 import { initializeDatabase } from "../data-source";
+import { getAllRequiredTableNames } from "@realtime-markers/database";
 
 export interface DatabaseStatus {
   isConnected: boolean;
@@ -83,6 +84,7 @@ export async function validateMigrations(dataSource: DataSource): Promise<{
 
 /**
  * Validate that all required tables exist and are accessible
+ * Now dynamically determines required tables from entities instead of hardcoding
  */
 export async function validateTables(dataSource: DataSource): Promise<{
   tablesReady: boolean;
@@ -92,19 +94,19 @@ export async function validateTables(dataSource: DataSource): Promise<{
     throw new Error("Database must be initialized before checking tables");
   }
 
-  // Define all required tables based on your entities
-  const requiredTables = [
-    "users",
-    "events",
-    "categories",
-    "filters",
-    "query_analytics",
-    "user_event_views",
-    "user_event_discoveries",
-    "user_event_rsvps",
-    "user_event_saves",
-    "migrations",
-  ];
+  // Dynamically get required tables from entities instead of hardcoding
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const requiredTables = getAllRequiredTableNames(dataSource as any);
+
+  if (requiredTables.length === 0) {
+    console.warn(
+      "No required tables found from entities. This might indicate a configuration issue.",
+    );
+    return {
+      tablesReady: false,
+      missingTables: [],
+    };
+  }
 
   const missingTables: string[] = [];
 

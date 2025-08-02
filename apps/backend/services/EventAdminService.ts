@@ -139,7 +139,6 @@ export class EventAdminServiceImpl implements EventAdminService {
     await this.eventCacheService.invalidateSearchCache();
 
     // Invalidate any cluster hub caches that might contain these events
-    await this.eventCacheService.invalidateAllClusterHubs();
 
     return {
       deletedEvents: toDelete,
@@ -159,9 +158,7 @@ export class EventAdminServiceImpl implements EventAdminService {
       const queryBuilder = this.eventRepo
         .createQueryBuilder("event")
         .leftJoinAndSelect("event.categories", "category")
-        .leftJoinAndSelect("event.creator", "creator")
-        .leftJoinAndSelect("event.shares", "shares")
-        .leftJoinAndSelect("shares.sharedWith", "sharedWith");
+        .leftJoinAndSelect("event.creator", "creator");
 
       if (options.limit) {
         queryBuilder.take(options.limit);
