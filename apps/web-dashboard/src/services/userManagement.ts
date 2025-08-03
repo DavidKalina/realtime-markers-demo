@@ -1,41 +1,15 @@
 import { AuthService } from "@/lib/auth";
+import type { UserProfile, ApiResponse, PaginationParams, PaginatedResponse } from "@realtime-markers/database";
 
-interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-  status: number;
-}
+export type User = UserProfile;
 
-export interface User {
-  id: string;
-  email: string;
-  username?: string;
-  displayName?: string;
-  avatarUrl?: string;
-  role: "USER" | "MODERATOR" | "ADMIN";
-  planType: "FREE" | "PRO";
-  isVerified: boolean;
-  discoveryCount: number;
-  scanCount: number;
-  saveCount: number;
-  viewCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UserListParams {
-  page?: number;
-  limit?: number;
+export interface UserListParams extends PaginationParams {
   search?: string;
   role?: "USER" | "MODERATOR" | "ADMIN";
 }
 
-export interface UserListResponse {
+export interface UserListResponse extends PaginatedResponse<User> {
   users: User[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
 }
 
 export interface UserStats {

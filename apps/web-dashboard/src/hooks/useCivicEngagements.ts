@@ -1,26 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
+import type { CivicEngagementSummary } from "@realtime-markers/database";
 
-// Import the CivicEngagement type from the API client to ensure consistency
-interface CivicEngagement {
-  id: string;
-  title: string;
-  description?: string;
-  type: "POSITIVE_FEEDBACK" | "NEGATIVE_FEEDBACK" | "IDEA";
-  status: "PENDING" | "IN_REVIEW" | "IMPLEMENTED" | "CLOSED";
-  location?: {
-    type: "Point";
-    coordinates: [number, number];
-  };
-  address?: string;
-  locationNotes?: string;
-  imageUrls?: string[];
-  creatorId: string;
-  adminNotes?: string;
-  implementedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// Use derived CivicEngagement type
+type CivicEngagement = CivicEngagementSummary;
 
 interface UseCivicEngagementsResult {
   civicEngagements: CivicEngagement[];

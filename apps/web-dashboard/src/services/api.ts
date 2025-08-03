@@ -2,38 +2,30 @@
 // This handles authentication and API calls to the backend
 
 import { AuthService } from "@/lib/auth";
+import type {
+  ApiResponse,
+  CivicEngagementSummary,
+  CivicEngagementDetails,
+  EventSummary,
+  EventDetails,
+  MapboxViewport,
+  UserProfile,
+  PaginationParams,
+  PaginatedResponse,
+  CivicEngagementType,
+  CivicEngagementStatus,
+  EventStatus,
+  RecurrenceFrequency,
+  DayOfWeek,
+} from "@realtime-markers/database";
 
-interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-  status: number;
-}
-
-// Civic Engagement interfaces
-interface CivicEngagement {
-  id: string;
-  title: string;
-  description?: string;
-  type: "POSITIVE_FEEDBACK" | "NEGATIVE_FEEDBACK" | "IDEA";
-  status: "PENDING" | "IN_REVIEW" | "IMPLEMENTED" | "CLOSED";
-  location?: {
-    type: "Point";
-    coordinates: [number, number];
-  };
-  address?: string;
-  locationNotes?: string;
-  imageUrls?: string[];
-  creatorId: string;
-  adminNotes?: string;
-  implementedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// Civic Engagement interfaces - using derived types
+type CivicEngagement = CivicEngagementSummary;
 
 interface CreateCivicEngagementPayload {
   title: string;
   description?: string;
-  type: "POSITIVE_FEEDBACK" | "NEGATIVE_FEEDBACK" | "IDEA";
+  type: CivicEngagementType;
   location?: {
     type: "Point";
     coordinates: [number, number];
@@ -75,30 +67,16 @@ interface CreateEventPayload {
   qrUrl?: string;
   // Recurring event fields
   isRecurring?: boolean;
-  recurrenceFrequency?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";
-  recurrenceDays?: string[];
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceDays?: DayOfWeek[];
   recurrenceStartDate?: string;
   recurrenceEndDate?: string;
   recurrenceInterval?: number;
   recurrenceTime?: string;
 }
 
-interface Event {
-  id: string;
-  title: string;
-  description?: string;
-  eventDate: string;
-  location: {
-    type: "Point";
-    coordinates: [number, number];
-  };
-  address?: string;
-  isPrivate: boolean;
-  creatorId: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// Use derived Event type
+type Event = EventSummary;
 
 interface EventEngagement {
   eventId: string;
