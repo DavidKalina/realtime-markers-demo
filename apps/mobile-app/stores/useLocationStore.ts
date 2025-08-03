@@ -4,8 +4,6 @@ import { EventType, MapboxViewport, Marker } from "@/types/types";
 import { markerToEvent, isValidCoordinates } from "@/utils/mapUtils";
 import { ClusterFeature } from "@/hooks/useMarkerClustering";
 
-type ActiveView = "none" | "details" | "share" | "search" | "camera" | "map";
-
 // Define the base interface for map items (markers and clusters)
 interface BaseMapItem {
   id: string;
@@ -55,13 +53,7 @@ interface LocationStoreState {
   isConnected: boolean;
 
   // View states
-  activeView: ActiveView;
   showActions: boolean;
-  detailsViewVisible: boolean;
-  shareViewVisible: boolean;
-  searchViewVisible: boolean;
-  scanViewVisible: boolean;
-  mapViewVisible: boolean;
 
   // Marker operations
   setMarkers: (markers: Marker[]) => void;
@@ -78,16 +70,6 @@ interface LocationStoreState {
 
   // View handlers
   setShowActions: (show: boolean) => void;
-  openDetailsView: () => void;
-  closeDetailsView: () => void;
-  openShareView: () => void;
-  closeShareView: () => void;
-  openSearchView: () => void;
-  closeSearchView: () => void;
-  openScanView: () => void;
-  closeScanView: () => void;
-  openMapView: () => void;
-  closeMapView: () => void;
 
   // Action handlers
   shareEvent: () => void;
@@ -118,13 +100,7 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
   isConnected: false,
 
   // Initial view states
-  activeView: "none",
   showActions: true,
-  detailsViewVisible: false,
-  shareViewVisible: false,
-  searchViewVisible: false,
-  scanViewVisible: false,
-  mapViewVisible: false,
 
   setZoomLevel: (zoom) => set({ zoomLevel: zoom }),
 
@@ -346,90 +322,9 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
   // View state handlers
   setShowActions: (show: boolean) => set({ showActions: show }),
 
-  openDetailsView: () =>
-    set({
-      activeView: "details",
-      detailsViewVisible: true,
-      shareViewVisible: false,
-      searchViewVisible: false,
-      scanViewVisible: false,
-      mapViewVisible: false,
-    }),
-
-  closeDetailsView: () =>
-    set({
-      activeView: "none",
-      detailsViewVisible: false,
-    }),
-
-  openShareView: () =>
-    set({
-      activeView: "share",
-      shareViewVisible: true,
-      detailsViewVisible: false,
-      searchViewVisible: false,
-      scanViewVisible: false,
-      mapViewVisible: false,
-    }),
-
-  closeShareView: () =>
-    set({
-      activeView: "none",
-      shareViewVisible: false,
-    }),
-
-  openSearchView: () =>
-    set({
-      activeView: "search",
-      searchViewVisible: true,
-      detailsViewVisible: false,
-      shareViewVisible: false,
-      scanViewVisible: false,
-      mapViewVisible: false,
-    }),
-
-  closeSearchView: () =>
-    set({
-      activeView: "none",
-      searchViewVisible: false,
-    }),
-
-  openScanView: () =>
-    set({
-      activeView: "camera",
-      scanViewVisible: true,
-      detailsViewVisible: false,
-      shareViewVisible: false,
-      searchViewVisible: false,
-      mapViewVisible: false,
-    }),
-
-  closeScanView: () =>
-    set({
-      activeView: "none",
-      scanViewVisible: false,
-    }),
-
-  openMapView: () =>
-    set({
-      activeView: "map",
-      mapViewVisible: true,
-      detailsViewVisible: false,
-      shareViewVisible: false,
-      searchViewVisible: false,
-      scanViewVisible: false,
-    }),
-
-  closeMapView: () =>
-    set({
-      activeView: "none",
-      mapViewVisible: false,
-    }),
-
   // Action handlers
   shareEvent: () => {
-    const { openShareView } = get();
-    openShareView();
+    // This function can be implemented as needed
   },
 
   openMaps: (location: string) => {
@@ -458,10 +353,7 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
   },
 
   handleSelectEventFromSearch: (event: EventType) => {
-    const { selectMarker, closeSearchView } = get();
-
-    // Close search first
-    closeSearchView();
+    const { selectMarker } = get();
 
     // Select the marker to update both marker and event state
     if (event.id) {
@@ -471,10 +363,7 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
 
   handleSelectEventFromMap: (marker: Marker) => {
     try {
-      const { selectMapItem, closeMapView } = get();
-
-      // Close map view
-      closeMapView();
+      const { selectMapItem } = get();
 
       // Select the marker using the unified selection method
       if (marker.id) {
