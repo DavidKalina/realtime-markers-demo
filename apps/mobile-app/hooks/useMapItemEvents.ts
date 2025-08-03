@@ -1,6 +1,7 @@
 // hooks/useMapItemEvents.ts
 import { useCallback, useEffect, useRef } from "react";
-import { useEventBroker } from "./useEventBroker";
+import { useEventBroker } from "@/hooks/useEventBroker";
+import { Marker } from "@/types/types";
 import {
   EventTypes,
   MapItemEvent,
@@ -8,14 +9,13 @@ import {
   ClusterItem,
   BaseEvent,
 } from "@/services/EventBroker";
-import { Marker } from "@/hooks/useMapWebsocket";
 import {
   generateMessageSequence,
   generateClusterMessages,
   generateGoodbyeMessage,
 } from "@/utils/messageUtils";
 
-// Define the map item types for internal use
+// Define the base interface for map items (markers and clusters)
 interface BaseMapItem {
   id: string;
   coordinates: [number, number];

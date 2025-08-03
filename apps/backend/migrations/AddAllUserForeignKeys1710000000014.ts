@@ -19,27 +19,6 @@ export class AddAllUserForeignKeys1710000000014 implements MigrationInterface {
       }),
     );
 
-    // Event shares table - shared_with_id and shared_by_id foreign keys
-    await queryRunner.createForeignKey(
-      "event_shares",
-      new TableForeignKey({
-        columnNames: ["shared_with_id"],
-        referencedTableName: "users",
-        referencedColumnNames: ["id"],
-        onDelete: "CASCADE",
-      }),
-    );
-
-    await queryRunner.createForeignKey(
-      "event_shares",
-      new TableForeignKey({
-        columnNames: ["shared_by_id"],
-        referencedTableName: "users",
-        referencedColumnNames: ["id"],
-        onDelete: "CASCADE",
-      }),
-    );
-
     // Filters table - user_id foreign key
     await queryRunner.createForeignKey(
       "filters",
@@ -59,14 +38,7 @@ export class AddAllUserForeignKeys1710000000014 implements MigrationInterface {
       "filters",
       "FK_03cae8398ba982cf0b26e714c6f",
     );
-    await queryRunner.dropForeignKey(
-      "event_shares",
-      "FK_41e912fbc9c67e23363fc3fedc0",
-    );
-    await queryRunner.dropForeignKey(
-      "event_shares",
-      "FK_2e732410994cd4d4c95d9aeef29",
-    );
+
     await queryRunner.dropForeignKey(
       "events",
       "FK_39f98b48445861611ea17108071",

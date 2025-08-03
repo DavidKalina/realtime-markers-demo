@@ -33,3 +33,21 @@ services:
       - "traefik.http.routers.filter-processor.rule=Host(`frederick-filter-dev.ngrok.io`) || Host(`filter.mapmoji.app`)"
       - "traefik.http.services.filter-processor.loadbalancer.server.port=8082"
       - "traefik.http.routers.filter-processor.tls=false" # Disable SSL for ngrok
+
+  # ngrok web-dashboard configuration with development settings
+  web-dashboard:
+    build:
+      context: .
+      dockerfile: apps/web-dashboard/Dockerfile.dev
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+    volumes:
+      - ./apps/web-dashboard:/app/apps/web-dashboard
+      - /app/apps/web-dashboard/node_modules
+    command: pnpm dev
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`frederick-dashboard-dev.ngrok.io`) || Host(`dashboard.mapmoji.app`)"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=3001"
+      - "traefik.http.routers.dashboard.tls=false" # Disable SSL for ngrok

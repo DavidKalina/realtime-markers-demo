@@ -1,15 +1,14 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserLocation } from "@/contexts/LocationContext";
-import { useEventCacheStore } from "@/stores/useEventCacheStore";
+import useEventAnalytics from "@/hooks/useEventAnalytics";
 import { apiClient } from "@/services/ApiClient";
-import { useRouter } from "expo-router";
-import { useState, useEffect } from "react";
-import { Linking, Alert, Platform } from "react-native";
+import { useEventCacheStore } from "@/stores/useEventCacheStore";
+import { EventType } from "@/types/types";
 import { calculateDistance, formatDistance } from "@/utils/distanceUtils";
 import * as Haptics from "expo-haptics";
-import { formatDate } from "@/utils/dateTimeFormatting";
-import { EventType } from "@/types/types";
-import useEventAnalytics from "@/hooks/useEventAnalytics";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import { Alert, Linking, Platform } from "react-native";
 
 export const useEventDetails = (eventId: string, onBack?: () => void) => {
   const [event, setEvent] = useState<EventType | null>(null);
@@ -125,12 +124,14 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
 
   // Update distance whenever user location or event coordinates change
   useEffect(() => {
-    if (!event || !event.coordinates || !userLocation) {
+    if (!event || !event.location || !userLocation) {
       setDistanceInfo(null);
       return;
     }
 
-    const distance = calculateDistance(userLocation, event.coordinates);
+    const [longitude, latitude] = event.location.coordinates;
+
+    const distance = calculateDistance(userLocation, [longitude, latitude]);
     setDistanceInfo(formatDistance(distance));
   }, [event, userLocation]);
 
@@ -198,51 +199,15 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
     }
   };
 
-  const handleShare = async () => {
-    if (!event) return;
-
-    try {
-      // Track the share action
-      eventAnalytics.trackEventShare(event, "native_share");
-
-      // Create a shareable message
-      const message = `${event.title}\n\n📅 ${formatDate(
-        event.eventDate instanceof Date
-          ? event.eventDate.toISOString()
-          : event.eventDate,
-        event.timezone,
-      )}\n📍 ${event.location}\n\n${event.description || ""}`;
-
-      // Create a deep link (if your app supports it)
-      const deepLink = `eventexplorer://event/${eventId}`;
-
-      // Combine message and deeplink
-      const fullMessage = message + "\n\n" + deepLink;
-
-      // Open SMS with the message pre-filled
-      const url = `sms:&body=${encodeURIComponent(fullMessage)}`;
-
-      // Check if we can open the URL
-      const canOpen = await Linking.canOpenURL(url);
-
-      if (canOpen) {
-        await Linking.openURL(url);
-      }
-    } catch (err) {
-      console.error("Error sharing event:", err);
-      Alert.alert("Sharing Failed", "There was a problem sharing this event.");
-    }
-  };
-
   // Open the location in the native maps app
   const handleOpenMaps = () => {
-    if (!event || !event.coordinates) return;
+    if (!event || !event.location) return;
 
     try {
       // Track the map open action
       eventAnalytics.trackMapOpen(event);
 
-      const [longitude, latitude] = event.coordinates;
+      const [longitude, latitude] = event.location.coordinates;
       const url = Platform.select({
         ios: `maps:?q=${latitude},${longitude}`,
         android: `geo:${latitude},${longitude}?q=${latitude},${longitude}`,
@@ -259,13 +224,13 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
 
   // Handle get directions (uses turn-by-turn navigation)
   const handleGetDirections = () => {
-    if (!event || !event.coordinates || !userLocation) return;
+    if (!event || !event.location || !userLocation) return;
 
     try {
       // Track the directions request
       eventAnalytics.trackGetDirections(event, userLocation);
 
-      const [longitude, latitude] = event.coordinates;
+      const [longitude, latitude] = event.location.coordinates;
       const [userLongitude, userLatitude] = userLocation;
 
       const url = Platform.select({
@@ -315,7 +280,6 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
 
   return {
     handleGetDirections,
-    handleShare,
     handleToggleSave,
     handleBack,
     handleOpenMaps,

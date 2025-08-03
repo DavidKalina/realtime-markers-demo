@@ -51,9 +51,27 @@ const EventsView: React.FC<EventsViewProps> = ({
   );
 
   const renderEventItem = useCallback(
-    (event: EventType) => (
-      <EventListItem {...event} onPress={() => handleEventPress(event)} />
-    ),
+    (event: EventType) => {
+      const eventListItemProps = {
+        id: event.id,
+        title: event.title,
+        description: event.description,
+        location: event.address || "Unknown location",
+        distance: event.distance,
+        emoji: event.emoji,
+        eventDate: event.eventDate,
+        endDate: event.endDate
+          ? new Date(event.endDate).toISOString()
+          : undefined,
+        categories:
+          event.categories?.map((cat) => ({ id: cat.id, name: cat.name })) ||
+          [],
+        isRecurring: event.isRecurring,
+        onPress: () => handleEventPress(event),
+      };
+
+      return <EventListItem {...eventListItemProps} />;
+    },
     [handleEventPress],
   );
 

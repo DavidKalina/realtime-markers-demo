@@ -21,6 +21,101 @@ import {
 } from "../entities";
 
 // ============================================================================
+// MAP MARKER TYPES
+// ============================================================================
+
+// Mapbox viewport format for map interactions
+export interface MapboxViewport {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
+// Base marker data structure for map display
+export interface MarkerData {
+  title: string;
+  emoji: string;
+  color: string;
+  location?: string;
+  distance?: string;
+  time?: string;
+  eventDate?: string;
+  endDate?: string;
+  description?: string;
+  categories?: string[];
+  isVerified?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  isPrivate?: boolean;
+  status?: string;
+  // Recurring event fields
+  isRecurring?: boolean;
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceDays?: DayOfWeek[];
+  recurrenceStartDate?: string;
+  recurrenceEndDate?: string;
+  recurrenceInterval?: number;
+  recurrenceTime?: string;
+  recurrenceExceptions?: string[];
+  // Civic engagement specific fields
+  type?: CivicEngagementType;
+  address?: string;
+  locationNotes?: string;
+  creatorId?: string;
+  adminNotes?: string;
+  implementedAt?: string;
+  imageUrls?: string[];
+  entityType?: "event" | "civic_engagement";
+  // Metadata and additional fields
+  [key: string]: unknown;
+}
+
+// Main marker interface for map display
+export interface Marker {
+  id: string;
+  coordinates: [number, number]; // [longitude, latitude]
+  data: MarkerData;
+}
+
+// Event-specific marker data
+export interface EventMarkerData extends MarkerData {
+  entityType: "event";
+  isRecurring?: boolean;
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceDays?: DayOfWeek[];
+  recurrenceStartDate?: string;
+  recurrenceEndDate?: string;
+  recurrenceInterval?: number;
+  recurrenceTime?: string;
+  recurrenceExceptions?: string[];
+}
+
+// Civic engagement-specific marker data
+export interface CivicEngagementMarkerData extends MarkerData {
+  entityType: "civic_engagement";
+  type: CivicEngagementType;
+  address?: string;
+  locationNotes?: string;
+  creatorId?: string;
+  adminNotes?: string;
+  implementedAt?: string;
+  imageUrls?: string[];
+}
+
+// Typed marker variants
+export interface EventMarker extends Omit<Marker, 'data'> {
+  data: EventMarkerData;
+}
+
+export interface CivicEngagementMarker extends Omit<Marker, 'data'> {
+  data: CivicEngagementMarkerData;
+}
+
+// Union type for all marker types
+export type MapMarker = EventMarker | CivicEngagementMarker;
+
+// ============================================================================
 // USER TYPES
 // ============================================================================
 

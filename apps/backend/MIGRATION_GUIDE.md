@@ -44,8 +44,6 @@ These tables already have their foreign keys defined and should NOT be added to 
 These tables were created without foreign keys and have them added in `AddAllUserForeignKeys1710000000014`:
 
 - `events.creator_id` → `users.id`
-- `event_shares.shared_with_id` → `users.id`
-- `event_shares.shared_by_id` → `users.id`
 - `filters.user_id` → `users.id`
 - `notifications.userId` → `users.id`
 

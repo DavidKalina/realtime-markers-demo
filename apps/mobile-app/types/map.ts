@@ -1,3 +1,5 @@
+import { Marker } from "@/types/types";
+
 export interface BaseMapItem {
   id: string;
   coordinates: [number, number];
@@ -6,8 +8,7 @@ export interface BaseMapItem {
 
 export interface MarkerItem extends BaseMapItem {
   type: "marker";
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data: any; // Replace with your actual marker data type
+  data: Marker["data"];
 }
 
 export interface ClusterItem extends BaseMapItem {

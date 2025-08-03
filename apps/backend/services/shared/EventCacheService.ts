@@ -12,22 +12,6 @@ interface SearchResults {
   nextCursor?: string;
 }
 
-interface ClusterHubData {
-  featuredEvent: Event | null;
-  eventsByCategory: { category: Category; events: Event[] }[];
-  eventsByLocation: { location: string; events: Event[] }[];
-  eventsToday: Event[];
-  clusterName: string;
-  clusterDescription: string;
-  clusterEmoji: string;
-  featuredCreator?: {
-    id: string;
-    email: string;
-    eventCount: number;
-    creatorDescription: string;
-  };
-}
-
 interface LandingPageData {
   featuredEvents: Event[];
   upcomingEvents: Event[];
@@ -46,14 +30,6 @@ export interface EventCacheService {
     ttlSeconds?: number,
   ): Promise<void>;
   invalidateSearchCache(): Promise<void>;
-  getClusterHub(markerIds: string[]): Promise<ClusterHubData | null>;
-  setClusterHub(
-    markerIds: string[],
-    data: ClusterHubData,
-    ttlSeconds?: number,
-  ): Promise<void>;
-  invalidateClusterHub(markerIds: string[]): Promise<void>;
-  invalidateAllClusterHubs(): Promise<void>;
   getLandingPageData(key: string): Promise<LandingPageData | null>;
   setLandingPageData(
     key: string,
@@ -68,7 +44,6 @@ export interface EventCacheService {
 export class EventCacheServiceImpl implements EventCacheService {
   private static readonly CACHE_PREFIX = "event:";
   private static readonly SEARCH_PREFIX = "search:";
-  private static readonly CLUSTER_PREFIX = "cluster-hub:";
   private static readonly LANDING_PREFIX = "landing:";
   private static readonly EMBEDDING_PREFIX = "embedding:";
   private static readonly DEFAULT_TTL = 3600; // 1 hour
@@ -141,37 +116,6 @@ export class EventCacheServiceImpl implements EventCacheService {
   async invalidateSearchCache(): Promise<void> {
     await this.cacheService.invalidateByPattern(
       `${EventCacheServiceImpl.SEARCH_PREFIX}*`,
-    );
-  }
-
-  async getClusterHub(markerIds: string[]): Promise<ClusterHubData | null> {
-    const key = `${EventCacheServiceImpl.CLUSTER_PREFIX}${markerIds.sort().join(",")}`;
-    return this.cacheService.get(key, {
-      useMemoryCache: false,
-      ttlSeconds: EventCacheServiceImpl.SHORT_TTL,
-    });
-  }
-
-  async setClusterHub(
-    markerIds: string[],
-    data: ClusterHubData,
-    ttlSeconds: number = EventCacheServiceImpl.SHORT_TTL,
-  ): Promise<void> {
-    const key = `${EventCacheServiceImpl.CLUSTER_PREFIX}${markerIds.sort().join(",")}`;
-    await this.cacheService.set(key, data, {
-      useMemoryCache: false,
-      ttlSeconds,
-    });
-  }
-
-  async invalidateClusterHub(markerIds: string[]): Promise<void> {
-    const key = `${EventCacheServiceImpl.CLUSTER_PREFIX}${markerIds.sort().join(",")}`;
-    await this.cacheService.invalidate(key);
-  }
-
-  async invalidateAllClusterHubs(): Promise<void> {
-    await this.cacheService.invalidateByPattern(
-      `${EventCacheServiceImpl.CLUSTER_PREFIX}*`,
     );
   }
 

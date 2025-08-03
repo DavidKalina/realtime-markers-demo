@@ -1,11 +1,15 @@
 import { DataSource } from "typeorm";
 import {
-  Event,
   EventStatus,
-  Category,
   Filter,
   UserEventRsvp,
   RsvpStatus,
+} from "@realtime-markers/database";
+import type {
+  EventUpdate,
+  EventSummary,
+  EventDetails,
+  CategorySummary,
 } from "@realtime-markers/database";
 import type { EventLifecycleService } from "./EventLifecycleService";
 import { createEventLifecycleService } from "./EventLifecycleService";
@@ -28,15 +32,16 @@ import type { QueryInsights, QueryCluster } from "./QueryAnalyticsService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
 import type { CreateEventInput } from "../types/event";
 
+// Replace SearchResult with EventSummary for better type safety
 interface SearchResult {
-  event: Event;
+  event: EventSummary;
   score: number;
 }
 
 export interface EventService {
   // Lifecycle operations
   cleanupOutdatedEvents(batchSize?: number): Promise<{
-    deletedEvents: Event[];
+    deletedEvents: EventSummary[];
     deletedCount: number;
     hasMore: boolean;
   }>;
@@ -45,9 +50,9 @@ export interface EventService {
     limit?: number;
     offset?: number;
     userId?: string;
-  }): Promise<Event[]>;
+  }): Promise<EventSummary[]>;
 
-  getEventById(id: string): Promise<Event | null>;
+  getEventById(id: string): Promise<EventDetails | null>;
 
   getNearbyEvents(
     lat: number,
@@ -55,23 +60,23 @@ export interface EventService {
     radius?: number,
     startDate?: Date,
     endDate?: Date,
-  ): Promise<Event[]>;
+  ): Promise<EventSummary[]>;
 
   storeDetectedQRCode(
     eventId: string,
     qrCodeData: string,
-  ): Promise<Event | null>;
+  ): Promise<EventDetails | null>;
 
-  createEvent(input: CreateEventInput): Promise<Event>;
+  createEvent(input: CreateEventInput): Promise<EventDetails>;
 
-  updateEvent(
-    id: string,
-    eventData: Partial<CreateEventInput>,
-  ): Promise<Event | null>;
+  updateEvent(id: string, eventData: EventUpdate): Promise<EventDetails | null>;
 
   deleteEvent(id: string): Promise<boolean>;
 
-  updateEventStatus(id: string, status: EventStatus): Promise<Event | null>;
+  updateEventStatus(
+    id: string,
+    status: EventStatus,
+  ): Promise<EventDetails | null>;
 
   // Search operations
   searchEvents(
@@ -88,19 +93,19 @@ export interface EventService {
       limit?: number;
       offset?: number;
     },
-  ): Promise<{ events: Event[]; total: number; hasMore: boolean }>;
+  ): Promise<{ events: EventSummary[]; total: number; hasMore: boolean }>;
 
-  getAllCategories(): Promise<Category[]>;
+  getAllCategories(): Promise<CategorySummary[]>;
 
   searchEventsByFilter(
     filter: Filter,
     options?: { limit?: number; offset?: number },
-  ): Promise<{ events: Event[]; total: number; hasMore: boolean }>;
+  ): Promise<{ events: EventSummary[]; total: number; hasMore: boolean }>;
 
   getEventsByCategory(
     categoryId: string,
     options?: { limit?: number; cursor?: string },
-  ): Promise<{ events: Event[]; nextCursor?: string }>;
+  ): Promise<{ events: EventSummary[]; nextCursor?: string }>;
 
   getLandingPageData(options?: {
     featuredLimit?: number;
@@ -109,10 +114,10 @@ export interface EventService {
     userLat?: number;
     userLng?: number;
   }): Promise<{
-    featuredEvents: Event[];
-    upcomingEvents: Event[];
-    communityEvents: Event[];
-    popularCategories: Category[];
+    featuredEvents: EventSummary[];
+    upcomingEvents: EventSummary[];
+    communityEvents: EventSummary[];
+    popularCategories: CategorySummary[];
   }>;
 
   // User engagement operations
@@ -126,7 +131,7 @@ export interface EventService {
   getSavedEventsByUser(
     userId: string,
     options?: { limit?: number; cursor?: string },
-  ): Promise<{ events: Event[]; nextCursor?: string }>;
+  ): Promise<{ events: EventSummary[]; nextCursor?: string }>;
 
   toggleRsvpEvent(
     userId: string,
@@ -150,7 +155,7 @@ export interface EventService {
   getDiscoveredEventsByUser(
     userId: string,
     options?: { limit?: number; cursor?: string },
-  ): Promise<{ events: Event[]; nextCursor?: string }>;
+  ): Promise<{ events: EventSummary[]; nextCursor?: string }>;
 
   getEventEngagement(eventId: string): Promise<EventEngagementMetrics>;
 
@@ -311,7 +316,7 @@ export class EventServiceRefactored implements EventService {
     return this.lifecycleService.createEvent(input);
   }
 
-  async updateEvent(id: string, eventData: Partial<CreateEventInput>) {
+  async updateEvent(id: string, eventData: EventUpdate) {
     return this.lifecycleService.updateEvent(id, eventData);
   }
 
@@ -351,10 +356,10 @@ export class EventServiceRefactored implements EventService {
     userLat?: number;
     userLng?: number;
   }): Promise<{
-    featuredEvents: Event[];
-    upcomingEvents: Event[];
-    communityEvents: Event[];
-    popularCategories: Category[];
+    featuredEvents: EventSummary[];
+    upcomingEvents: EventSummary[];
+    communityEvents: EventSummary[];
+    popularCategories: CategorySummary[];
   }> {
     return this.searchService.getLandingPageData(options);
   }

@@ -158,18 +158,6 @@ export const useEventAnalytics = () => {
    * @param event The event being shared
    * @param method The sharing method used
    */
-  const trackEventShare = (
-    event: EventType | null | undefined,
-    method: string,
-  ) => {
-    if (!event || !event.id || !method) return;
-
-    safeCapture("event_shared", {
-      event_id: event.id,
-      event_title: event.title || "Untitled Event",
-      share_method: method,
-    });
-  };
 
   /**
    * Track when a user opens the map for an event
@@ -182,7 +170,7 @@ export const useEventAnalytics = () => {
       event_id: event.id,
       event_title: event.title || "Untitled Event",
       event_location: event.location || "",
-      event_coordinates: event.coordinates || [],
+      event_coordinates: event.location || [],
     });
   };
 
@@ -202,7 +190,7 @@ export const useEventAnalytics = () => {
       event_id: event.id,
       event_title: event.title || "Untitled Event",
       event_location: event.location || "",
-      event_coordinates: event.coordinates || [],
+      event_coordinates: event.location || [],
       user_location: userLocation,
     });
   };
@@ -212,7 +200,6 @@ export const useEventAnalytics = () => {
     trackQRCodeScan,
     trackQRCodeLinkClick,
     trackEventSave,
-    trackEventShare,
     trackMapOpen,
     trackGetDirections,
   };

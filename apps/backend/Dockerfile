@@ -26,6 +26,9 @@ COPY packages/database ./packages/database
 # Install dependencies using pnpm for workspace support
 RUN pnpm install --frozen-lockfile || pnpm install
 
+# Build the database package
+RUN cd packages/database && pnpm run build
+
 # Verify that key dependencies are installed
 RUN ls -la /app/apps/backend/node_modules/ | grep -E "(hono|ioredis)" || echo "Key dependencies not found"
 

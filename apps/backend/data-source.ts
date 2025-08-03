@@ -7,7 +7,6 @@ import {
   User,
   Event,
   Category,
-  EventShare,
   Filter,
   QueryAnalytics,
   UserEventView,
@@ -21,7 +20,6 @@ import {
 // Import all migrations explicitly
 import { CategoryTable1710000000000 } from "./migrations/CategoryTable1710000000000";
 import { EventTable1710000000001 } from "./migrations/EventTable1710000000001";
-import { EventShareTable1710000000002 } from "./migrations/EventShareTable1710000000002";
 import { FilterTable1710000000003 } from "./migrations/FilterTable1710000000003";
 import { QueryAnalyticsTable1710000000005 } from "./migrations/QueryAnalyticsTable1710000000005";
 import { UserTable1710000000006 } from "./migrations/UserTable1710000000006";
@@ -46,7 +44,6 @@ const AppDataSource = new DataSource({
     User,
     Event,
     Category,
-    EventShare,
     Filter,
     QueryAnalytics,
     UserEventView,
@@ -59,7 +56,6 @@ const AppDataSource = new DataSource({
   migrations: [
     CategoryTable1710000000000,
     EventTable1710000000001,
-    EventShareTable1710000000002,
     FilterTable1710000000003,
     QueryAnalyticsTable1710000000005,
     UserTable1710000000006,
