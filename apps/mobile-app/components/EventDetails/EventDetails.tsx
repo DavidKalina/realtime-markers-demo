@@ -218,16 +218,13 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       engagement,
       loading: engagementLoading,
       error: engagementError,
-    } = useEventEngagement(
-      eventId,
-      !!event && !event.isPrivate, // Only fetch engagement for non-private events
-    );
+    } = useEventEngagement(eventId, true);
 
     // Memoize computed values
     const coordinates = useMemo(() => {
-      if (!event?.coordinates) return [0, 0] as [number, number];
-      return event.coordinates as [number, number];
-    }, [event?.coordinates]);
+      if (!event?.location) return [0, 0] as [number, number];
+      return event.location.coordinates as [number, number];
+    }, [event?.location]);
 
     const formattedDate = useMemo(() => {
       if (!event?.eventDate) return "";
@@ -378,7 +375,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             >
               <MapPin size={16} color={MUNICIPAL_COLORS.textSecondary} />
               <View style={styles.locationContent}>
-                <Text style={styles.detailText}>{event.location}</Text>
+                <Text style={styles.detailText}>{event.address}</Text>
                 {distanceInfo && (
                   <Text style={styles.distanceText}>{distanceInfo}</Text>
                 )}
@@ -389,11 +386,10 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           {/* Map Preview Card - Visual context for location */}
           <InfoCard title="Event Location" icon={MapPin}>
             <EventMapPreview
-              emoji={event.emoji}
+              emoji={event.emoji || "📍"}
               coordinates={coordinates}
               eventId={eventId}
               title={event.title}
-              isPrivate={event.isPrivate}
               eventDate={
                 event.eventDate instanceof Date
                   ? event.eventDate.toISOString()
@@ -476,14 +472,11 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           )}
 
           {/* Event Engagement Card - Shows community interest */}
-          {!event.isPrivate &&
-            engagement &&
-            !engagementLoading &&
-            !engagementError && (
-              <InfoCard title="Event Engagement" icon={TrendingUp}>
-                <EventEngagementDisplay engagement={engagement} delay={450} />
-              </InfoCard>
-            )}
+          {engagement && !engagementLoading && !engagementError && (
+            <InfoCard title="Event Engagement" icon={TrendingUp}>
+              <EventEngagementDisplay engagement={engagement} delay={450} />
+            </InfoCard>
+          )}
 
           {/* QR Code Section - Additional resources */}
           {(event.qrCodeData || event.detectedQrData || event.qrUrl) && (

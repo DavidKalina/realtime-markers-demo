@@ -124,12 +124,14 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
 
   // Update distance whenever user location or event coordinates change
   useEffect(() => {
-    if (!event || !event.coordinates || !userLocation) {
+    if (!event || !event.location || !userLocation) {
       setDistanceInfo(null);
       return;
     }
 
-    const distance = calculateDistance(userLocation, event.coordinates);
+    const [longitude, latitude] = event.location.coordinates;
+
+    const distance = calculateDistance(userLocation, [longitude, latitude]);
     setDistanceInfo(formatDistance(distance));
   }, [event, userLocation]);
 
@@ -199,13 +201,13 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
 
   // Open the location in the native maps app
   const handleOpenMaps = () => {
-    if (!event || !event.coordinates) return;
+    if (!event || !event.location) return;
 
     try {
       // Track the map open action
       eventAnalytics.trackMapOpen(event);
 
-      const [longitude, latitude] = event.coordinates;
+      const [longitude, latitude] = event.location.coordinates;
       const url = Platform.select({
         ios: `maps:?q=${latitude},${longitude}`,
         android: `geo:${latitude},${longitude}?q=${latitude},${longitude}`,
@@ -222,13 +224,13 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
 
   // Handle get directions (uses turn-by-turn navigation)
   const handleGetDirections = () => {
-    if (!event || !event.coordinates || !userLocation) return;
+    if (!event || !event.location || !userLocation) return;
 
     try {
       // Track the directions request
       eventAnalytics.trackGetDirections(event, userLocation);
 
-      const [longitude, latitude] = event.coordinates;
+      const [longitude, latitude] = event.location.coordinates;
       const [userLongitude, userLatitude] = userLocation;
 
       const url = Platform.select({

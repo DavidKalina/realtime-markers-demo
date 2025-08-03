@@ -25,6 +25,7 @@ export interface UserType extends UserProfile {
 // Event type that extends the database EventSummary with mobile-specific additions
 export interface EventType extends Omit<EventSummary, "hasQrCode"> {
   // Add mobile-specific event properties
+  coordinates: Coordinates; // Required for map display
   time: string;
   distance: string;
   timezone: string;
@@ -52,6 +53,18 @@ export interface EventType extends Omit<EventSummary, "hasQrCode"> {
   recurrenceInterval?: number;
   recurrenceTime?: string;
   recurrenceExceptions?: string[];
+  // Ensure required properties from EventSummary are included
+  viewCount: number;
+  status: EventStatus;
+  // Additional mobile-specific properties
+  createdAt?: string;
+  updatedAt?: string;
+  isPrivate?: boolean;
+  locationNotes?: string;
+  creator?: UserProfile;
+  creatorId?: string;
+  color?: string;
+  isVerified?: boolean;
 }
 
 // Civic engagement type that extends the database CivicEngagementSummary

@@ -10,7 +10,6 @@ interface EventMapPreviewProps {
   eventId: string;
   title: string;
   emoji: string;
-  isPrivate?: boolean;
   eventDate: string;
 }
 
@@ -19,7 +18,6 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
   eventId,
   title,
   emoji,
-  isPrivate,
   eventDate,
 }) => {
   return (
@@ -49,7 +47,6 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
               data: {
                 title,
                 emoji,
-                isPrivate,
                 eventDate,
                 color: COLORS.accent,
               },

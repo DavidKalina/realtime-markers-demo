@@ -170,7 +170,7 @@ export const useEventAnalytics = () => {
       event_id: event.id,
       event_title: event.title || "Untitled Event",
       event_location: event.location || "",
-      event_coordinates: event.coordinates || [],
+      event_coordinates: event.location || [],
     });
   };
 
@@ -190,7 +190,7 @@ export const useEventAnalytics = () => {
       event_id: event.id,
       event_title: event.title || "Untitled Event",
       event_location: event.location || "",
-      event_coordinates: event.coordinates || [],
+      event_coordinates: event.location || [],
       user_location: userLocation,
     });
   };
