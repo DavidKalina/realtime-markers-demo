@@ -3,21 +3,18 @@
 
 import { AuthService } from "@/lib/auth";
 import type {
-  ApiResponse,
   CivicEngagementSummary,
-  CivicEngagementDetails,
-  EventSummary,
-  EventDetails,
-  MapboxViewport,
-  UserProfile,
-  PaginationParams,
-  PaginatedResponse,
   CivicEngagementType,
-  CivicEngagementStatus,
-  EventStatus,
-  RecurrenceFrequency,
+  ApiResponse as DatabaseApiResponse,
   DayOfWeek,
+  EventSummary,
+  RecurrenceFrequency,
 } from "@realtime-markers/database";
+
+// Extend the database ApiResponse to include status property
+interface ApiResponse<T> extends DatabaseApiResponse<T> {
+  status: number;
+}
 
 // Civic Engagement interfaces - using derived types
 type CivicEngagement = CivicEngagementSummary;
@@ -455,17 +452,20 @@ class ApiService {
 
       if (!response.ok) {
         return {
+          success: false,
           error: data.error || `HTTP ${response.status}`,
           status: response.status,
         };
       }
 
       return {
+        success: true,
         data,
         status: response.status,
       };
     } catch (error) {
       return {
+        success: false,
         error: error instanceof Error ? error.message : "Network error",
         status: 0,
       };
@@ -552,17 +552,20 @@ class ApiService {
 
         if (!response.ok) {
           return {
+            success: false,
             error: data.error || `HTTP ${response.status}`,
             status: response.status,
           };
         }
 
         return {
+          success: true,
           data,
           status: response.status,
         };
       } catch (error) {
         return {
+          success: false,
           error: error instanceof Error ? error.message : "Network error",
           status: 0,
         };
@@ -666,17 +669,20 @@ class ApiService {
 
         if (!response.ok) {
           return {
+            success: false,
             error: data.error || `HTTP ${response.status}`,
             status: response.status,
           };
         }
 
         return {
+          success: true,
           data,
           status: response.status,
         };
       } catch (error) {
         return {
+          success: false,
           error: error instanceof Error ? error.message : "Network error",
           status: 0,
         };
@@ -940,27 +946,27 @@ class ApiService {
 // Export a singleton instance
 export const apiService = new ApiService();
 export type {
+  CityStateSearchParams,
+  CityStateSearchResult,
+  CivicEngagement,
+  CivicEngagementActivity,
+  CivicEngagementGeographic,
+  CivicEngagementMetrics,
+  CivicEngagementStats,
+  CivicEngagementStatusAnalysis,
+  CivicEngagementTrends,
+  CreateCivicEngagementPayload,
   CreateEventPayload,
+  DashboardActivity,
+  DashboardBusiestTime,
+  DashboardCategories,
+  DashboardCategory,
+  DashboardCategoryTrends,
+  DashboardMetrics,
+  DashboardUpcomingEvent,
   Event,
+  EventEngagement,
   JobStatus,
   PlaceSearchParams,
   PlaceSearchResult,
-  CityStateSearchParams,
-  CityStateSearchResult,
-  EventEngagement,
-  CivicEngagement,
-  CreateCivicEngagementPayload,
-  CivicEngagementStats,
-  CivicEngagementMetrics,
-  CivicEngagementTrends,
-  CivicEngagementStatusAnalysis,
-  CivicEngagementGeographic,
-  CivicEngagementActivity,
-  DashboardMetrics,
-  DashboardActivity,
-  DashboardCategory,
-  DashboardCategories,
-  DashboardCategoryTrends,
-  DashboardBusiestTime,
-  DashboardUpcomingEvent,
 };
