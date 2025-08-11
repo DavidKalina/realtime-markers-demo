@@ -2,38 +2,27 @@
 // This handles authentication and API calls to the backend
 
 import { AuthService } from "@/lib/auth";
+import type {
+  CivicEngagementSummary,
+  CivicEngagementType,
+  ApiResponse as DatabaseApiResponse,
+  DayOfWeek,
+  EventSummary,
+  RecurrenceFrequency,
+} from "@realtime-markers/database";
 
-interface ApiResponse<T> {
-  data?: T;
-  error?: string;
+// Extend the database ApiResponse to include status property
+interface ApiResponse<T> extends DatabaseApiResponse<T> {
   status: number;
 }
 
-// Civic Engagement interfaces
-interface CivicEngagement {
-  id: string;
-  title: string;
-  description?: string;
-  type: "POSITIVE_FEEDBACK" | "NEGATIVE_FEEDBACK" | "IDEA";
-  status: "PENDING" | "IN_REVIEW" | "IMPLEMENTED" | "CLOSED";
-  location?: {
-    type: "Point";
-    coordinates: [number, number];
-  };
-  address?: string;
-  locationNotes?: string;
-  imageUrls?: string[];
-  creatorId: string;
-  adminNotes?: string;
-  implementedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// Civic Engagement interfaces - using derived types
+type CivicEngagement = CivicEngagementSummary;
 
 interface CreateCivicEngagementPayload {
   title: string;
   description?: string;
-  type: "POSITIVE_FEEDBACK" | "NEGATIVE_FEEDBACK" | "IDEA";
+  type: CivicEngagementType;
   location?: {
     type: "Point";
     coordinates: [number, number];
@@ -75,30 +64,16 @@ interface CreateEventPayload {
   qrUrl?: string;
   // Recurring event fields
   isRecurring?: boolean;
-  recurrenceFrequency?: "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";
-  recurrenceDays?: string[];
+  recurrenceFrequency?: RecurrenceFrequency;
+  recurrenceDays?: DayOfWeek[];
   recurrenceStartDate?: string;
   recurrenceEndDate?: string;
   recurrenceInterval?: number;
   recurrenceTime?: string;
 }
 
-interface Event {
-  id: string;
-  title: string;
-  description?: string;
-  eventDate: string;
-  location: {
-    type: "Point";
-    coordinates: [number, number];
-  };
-  address?: string;
-  isPrivate: boolean;
-  creatorId: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// Use derived Event type
+type Event = EventSummary;
 
 interface EventEngagement {
   eventId: string;
@@ -477,17 +452,20 @@ class ApiService {
 
       if (!response.ok) {
         return {
+          success: false,
           error: data.error || `HTTP ${response.status}`,
           status: response.status,
         };
       }
 
       return {
+        success: true,
         data,
         status: response.status,
       };
     } catch (error) {
       return {
+        success: false,
         error: error instanceof Error ? error.message : "Network error",
         status: 0,
       };
@@ -574,17 +552,20 @@ class ApiService {
 
         if (!response.ok) {
           return {
+            success: false,
             error: data.error || `HTTP ${response.status}`,
             status: response.status,
           };
         }
 
         return {
+          success: true,
           data,
           status: response.status,
         };
       } catch (error) {
         return {
+          success: false,
           error: error instanceof Error ? error.message : "Network error",
           status: 0,
         };
@@ -688,17 +669,20 @@ class ApiService {
 
         if (!response.ok) {
           return {
+            success: false,
             error: data.error || `HTTP ${response.status}`,
             status: response.status,
           };
         }
 
         return {
+          success: true,
           data,
           status: response.status,
         };
       } catch (error) {
         return {
+          success: false,
           error: error instanceof Error ? error.message : "Network error",
           status: 0,
         };
@@ -962,27 +946,27 @@ class ApiService {
 // Export a singleton instance
 export const apiService = new ApiService();
 export type {
+  CityStateSearchParams,
+  CityStateSearchResult,
+  CivicEngagement,
+  CivicEngagementActivity,
+  CivicEngagementGeographic,
+  CivicEngagementMetrics,
+  CivicEngagementStats,
+  CivicEngagementStatusAnalysis,
+  CivicEngagementTrends,
+  CreateCivicEngagementPayload,
   CreateEventPayload,
+  DashboardActivity,
+  DashboardBusiestTime,
+  DashboardCategories,
+  DashboardCategory,
+  DashboardCategoryTrends,
+  DashboardMetrics,
+  DashboardUpcomingEvent,
   Event,
+  EventEngagement,
   JobStatus,
   PlaceSearchParams,
   PlaceSearchResult,
-  CityStateSearchParams,
-  CityStateSearchResult,
-  EventEngagement,
-  CivicEngagement,
-  CreateCivicEngagementPayload,
-  CivicEngagementStats,
-  CivicEngagementMetrics,
-  CivicEngagementTrends,
-  CivicEngagementStatusAnalysis,
-  CivicEngagementGeographic,
-  CivicEngagementActivity,
-  DashboardMetrics,
-  DashboardActivity,
-  DashboardCategory,
-  DashboardCategories,
-  DashboardCategoryTrends,
-  DashboardBusiestTime,
-  DashboardUpcomingEvent,
 };

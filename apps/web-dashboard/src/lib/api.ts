@@ -1,26 +1,9 @@
 import AuthService from "./auth";
 import type { Event } from "./dashboard-data";
+import type { CivicEngagementSummary } from "@realtime-markers/database";
 
-// Civic Engagement interface
-interface CivicEngagement {
-  id: string;
-  title: string;
-  description?: string;
-  type: "POSITIVE_FEEDBACK" | "NEGATIVE_FEEDBACK" | "IDEA";
-  status: "PENDING" | "IN_REVIEW" | "IMPLEMENTED" | "CLOSED";
-  location?: {
-    type: "Point";
-    coordinates: [number, number];
-  };
-  address?: string;
-  locationNotes?: string;
-  imageUrls?: string[];
-  creatorId: string;
-  adminNotes?: string;
-  implementedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// Use derived CivicEngagement type
+type CivicEngagement = CivicEngagementSummary;
 
 interface ApiRequestOptions extends RequestInit {
   requireAuth?: boolean;

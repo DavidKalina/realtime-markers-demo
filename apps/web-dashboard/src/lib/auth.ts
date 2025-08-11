@@ -1,18 +1,12 @@
 // Authentication utilities for secure token management
+import type { UserProfile, ApiResponse } from "@realtime-markers/database";
 
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
 }
 
-export interface User {
-  id: string;
-  email: string;
-  displayName: string;
-  role: "USER" | "MODERATOR" | "ADMIN";
-  createdAt: string;
-  updatedAt: string;
-}
+export type User = UserProfile;
 
 export interface LoginResponse {
   message: string;
