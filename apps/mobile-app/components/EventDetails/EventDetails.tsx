@@ -222,8 +222,8 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
 
     // Memoize computed values
     const coordinates = useMemo(() => {
-      if (!event?.location) return [0, 0] as [number, number];
-      return event.location.coordinates as [number, number];
+      if (!event?.coordinates) return [0, 0] as [number, number];
+      return event.coordinates as [number, number];
     }, [event?.location]);
 
     const formattedDate = useMemo(() => {
