@@ -64,7 +64,6 @@ export const useScanState = ({
         });
 
         if (result.jobId && isMounted.current) {
-          console.log("[ScanScreen] Upload successful, job ID:", result.jobId);
           // Publish job queued event
           publish(EventTypes.JOB_QUEUED, {
             timestamp: Date.now(),
@@ -76,12 +75,9 @@ export const useScanState = ({
           // Return the job ID - navigation will be handled by the calling function
           return result.jobId;
         } else {
-          console.log("[ScanScreen] No job ID returned from upload");
           throw new Error("No job ID returned");
         }
       } catch (error) {
-        console.error("Upload failed:", error);
-
         if (isMounted.current) {
           publish(EventTypes.ERROR_OCCURRED, {
             timestamp: Date.now(),

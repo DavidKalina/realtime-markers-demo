@@ -191,24 +191,10 @@ const CreateCivicEngagement = () => {
       const lat = parseFloat(params.latitude as string);
       const lng = parseFloat(params.longitude as string);
       if (!isNaN(lat) && !isNaN(lng)) {
-        console.log(
-          "[CreateCivicEngagement] Initializing coordinates from params:",
-          {
-            latitude: lat,
-            longitude: lng,
-            source: "scan_screen",
-          },
-        );
         return { latitude: lat, longitude: lng };
       }
     }
-    console.log(
-      "[CreateCivicEngagement] No coordinates in params or invalid values:",
-      {
-        latitude: params.latitude,
-        longitude: params.longitude,
-      },
-    );
+
     return null;
   }, [params.latitude, params.longitude]);
 
@@ -298,10 +284,6 @@ const CreateCivicEngagement = () => {
   useEffect(() => {
     const imageUri = params.imageUri as string;
     if (imageUri) {
-      console.log(
-        "[CreateCivicEngagement] Processing imageUri from scan:",
-        imageUri,
-      );
       setSelectedImage(imageUri);
 
       // Process the image for upload
@@ -327,9 +309,6 @@ const CreateCivicEngagement = () => {
 
           // For data URIs (simulation), skip processing
           if (imageUri.startsWith("data:")) {
-            console.log(
-              "[CreateCivicEngagement] Data URI detected, skipping image processing for simulation",
-            );
             setSelectedImage(imageUri);
             setIsProcessingImage(false);
             return;
@@ -536,19 +515,15 @@ const CreateCivicEngagement = () => {
       }
 
       if (params.id) {
-        // Update existing civic engagement
+        // Update  civic engagement
         await apiClient.civicEngagements.updateCivicEngagement(
           params.id as string,
           civicEngagementData,
         );
       } else {
-        // Create new civic engagement
-        console.log("[CreateCivicEngagement] Submitting civic engagement...");
-        const response =
-          await apiClient.civicEngagements.createCivicEngagement(
-            civicEngagementData,
-          );
-        console.log("[CreateCivicEngagement] Response:", response);
+        await apiClient.civicEngagements.createCivicEngagement(
+          civicEngagementData,
+        );
       }
 
       Alert.alert(

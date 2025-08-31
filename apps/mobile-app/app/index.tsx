@@ -124,28 +124,13 @@ function HomeScreen() {
   // Update map loading state when map becomes ready
   useEffect(() => {
     if (isMapReady && isMapLoading) {
-      console.log(
-        "[HomeScreen] Map is ready, scheduling loading state update...",
-      );
-      // Add a small delay to ensure smooth transition
       const timer = setTimeout(() => {
-        console.log("[HomeScreen] Setting map loading to false");
         setIsMapLoading(false);
       }, 500); // 500ms delay to ensure splash screen shows properly
 
       return () => clearTimeout(timer);
     }
   }, [isMapReady, isMapLoading]);
-
-  // Debug logging for map states
-  useEffect(() => {
-    console.log("[HomeScreen] Map state update:", {
-      isMapReady,
-      isMapLoading,
-      isLoadingLocation,
-      userLocation: userLocation ? "available" : "not available",
-    });
-  }, [isMapReady, isMapLoading, isLoadingLocation, userLocation]);
 
   // Load initial location request state
   useEffect(() => {

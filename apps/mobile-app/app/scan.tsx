@@ -35,8 +35,6 @@ import {
 import { useUserLocation } from "@/contexts/LocationContext";
 
 export default function ScanScreen() {
-  console.log("[ScanScreen] Component mounting...");
-
   const {
     hasPermission,
     cameraRef,
@@ -50,37 +48,20 @@ export default function ScanScreen() {
     checkPermission,
   } = useCamera();
 
-  console.log(
-    "[ScanScreen] Camera hook initialized, hasPermission:",
-    hasPermission,
-  );
-
   const router = useRouter();
   const isMounted = useRef(true);
   const networkState = useNetworkQuality();
   const { subscribe } = useEventBroker();
   const { userLocation } = useUserLocation();
 
-  console.log(
-    "[ScanScreen] Router and network state initialized, networkState:",
-    {
-      isConnected: networkState.isConnected,
-      strength: networkState.strength,
-    },
-  );
-
   // Navigation callback - memoized to prevent re-renders
   const navigateToJobs = useCallback(() => {
-    console.log("[ScanScreen] navigateToJobs called from main component");
     if (!isMounted.current) {
-      console.log("[ScanScreen] Component not mounted, skipping navigation");
       return;
     }
-    console.log("[ScanScreen] Navigating to jobs screen...");
 
     try {
       router.replace("/");
-      console.log("[ScanScreen] Navigation call completed successfully");
     } catch (error) {
       console.error("[ScanScreen] Navigation error:", error);
     }
@@ -89,15 +70,8 @@ export default function ScanScreen() {
   // Check if network is suitable for upload - memoized to prevent re-renders
   const isNetworkSuitable = useCallback(() => {
     const suitable = networkState.isConnected && networkState.strength >= 40;
-    console.log("[ScanScreen] isNetworkSuitable check:", {
-      isConnected: networkState.isConnected,
-      strength: networkState.strength,
-      suitable,
-    });
     return suitable;
   }, [networkState.isConnected, networkState.strength]);
-
-  console.log("[ScanScreen] isNetworkSuitable function created");
 
   // Use the new unified scan state hook
   const {
@@ -132,33 +106,17 @@ export default function ScanScreen() {
     onNavigateToJobs: navigateToJobs,
   });
 
-  console.log("[ScanScreen] useScanState initialized");
-
   // Set mounted flag to false when component unmounts
   useEffect(() => {
-    console.log("[ScanScreen] Component mounted, setting up cleanup");
     return () => {
-      console.log("[ScanScreen] Component unmounting, cleaning up");
       isMounted.current = false;
-      // Reset scan state to prevent re-initialization
       reset();
     };
   }, [reset]);
 
-  // Handle screen focus changes
-  useFocusEffect(
-    useCallback(() => {
-      console.log("[ScanScreen] Screen focused");
-      return () => {
-        console.log("[ScanScreen] Screen unfocused");
-      };
-    }, []),
-  );
-
   // Handle app state changes
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
-      // Only handle background/inactive states, don't re-set mounted flag
       if (nextAppState === "background" || nextAppState === "inactive") {
         console.log("[ScanScreen] App going to background/inactive");
       }
@@ -201,9 +159,7 @@ export default function ScanScreen() {
 
   // Handle capture with proper error handling
   const onCapture = useCallback(async () => {
-    console.log("[ScanScreen] onCapture called - button pressed!");
     const result = await handleCapture(takePicture);
-    console.log("[ScanScreen] handleCapture result:", result);
     if (result?.error === "no_scans") {
       setShowNoScansOverlay(true);
     }
@@ -212,9 +168,7 @@ export default function ScanScreen() {
   // Handle image selection with proper error handling
   const onImageSelected = useCallback(
     async (uri: string) => {
-      console.log("[ScanScreen] onImageSelected called with URI:", uri);
       const result = await handleImageSelected(uri);
-      console.log("[ScanScreen] handleImageSelected result:", result);
       if (result?.error === "no_scans") {
         setShowNoScansOverlay(true);
       }
@@ -225,11 +179,6 @@ export default function ScanScreen() {
   // Handle civic engagement navigation
   const handleCivicEngagementNavigation = useCallback(
     (imageUri: string) => {
-      console.log(
-        "[ScanScreen] Navigating to civic engagement creation with image:",
-        imageUri,
-      );
-
       const params: Record<string, string> = {
         imageUri: imageUri,
       };
@@ -238,10 +187,6 @@ export default function ScanScreen() {
       if (userLocation) {
         params.latitude = userLocation[1].toString(); // latitude
         params.longitude = userLocation[0].toString(); // longitude
-        console.log("[ScanScreen] Adding coordinates to params:", {
-          latitude: params.latitude,
-          longitude: params.longitude,
-        });
       } else {
         console.log(
           "[ScanScreen] No user location available, proceeding without coordinates",
@@ -305,9 +250,6 @@ export default function ScanScreen() {
     );
   }
 
-  console.log("[ScanScreen] All checks passed, rendering main camera view");
-
-  // Main camera view
   return (
     <AuthWrapper>
       <Screen
