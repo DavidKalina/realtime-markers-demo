@@ -129,7 +129,7 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
       return;
     }
 
-    const [longitude, latitude] = event.location.coordinates;
+    const [longitude, latitude] = event.coordinates;
 
     const distance = calculateDistance(userLocation, [longitude, latitude]);
     setDistanceInfo(formatDistance(distance));
