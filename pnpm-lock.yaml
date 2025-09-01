@@ -561,6 +561,9 @@ importers:
 
   apps/websocket:
     dependencies:
+      '@realtime-markers/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       ioredis:
         specifier: ^5.3.2
         version: 5.5.0

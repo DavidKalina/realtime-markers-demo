@@ -184,113 +184,13 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     [], // Dependencies are managed via refs now
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const convertEventToMarker = useCallback((event: any): Marker => {
-    return {
-      id: event.id,
-      coordinates: event.location.coordinates,
-      data: {
-        title: event.title || "Unnamed Event",
-        emoji: event.emoji || "📍",
-        color: event.color || "red",
-        description: event.description,
-        eventDate: event.eventDate,
-        endDate: event.endDate,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        categories: event.categories?.map((c: any) => c.name || c), // Ensure categories are handled
-        isVerified: event.isVerified,
-        created_at: event.createdAt,
-        updated_at: event.updatedAt,
-        isPrivate: event.isPrivate,
-        status: event.status,
-        // Add recurring event fields
-        isRecurring: event.isRecurring ?? false,
-        recurrenceFrequency: event.recurrenceFrequency,
-        recurrenceDays: event.recurrenceDays,
-        recurrenceStartDate: event.recurrenceStartDate,
-        recurrenceEndDate: event.recurrenceEndDate,
-        recurrenceInterval: event.recurrenceInterval,
-        recurrenceTime: event.recurrenceTime,
-        recurrenceExceptions: event.recurrenceExceptions,
-        ...(event.metadata || {}), // Ensure metadata is spread safely
-      },
-    };
-  }, []);
+  // Note: convertEventToMarker has been moved to the websocket service
+  // Events now come pre-converted as markers from the server
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const convertCivicEngagementToMarker = useCallback(
-    (civicEngagement: any): Marker => {
-      console.log(
-        "[useMapWebsocket] Converting civic engagement to marker:",
-        civicEngagement,
-      );
+  // Note: convertCivicEngagementToMarker has been moved to the websocket service
+  // Civic engagements now come pre-converted as markers from the server
 
-      if (!civicEngagement.location || !civicEngagement.location.coordinates) {
-        console.error(
-          "[useMapWebsocket] Civic engagement missing location:",
-          civicEngagement,
-        );
-        throw new Error("Civic engagement missing location data");
-      }
-
-      const marker = {
-        id: `civic-${civicEngagement.id}`, // Prefix to distinguish from events
-        coordinates: civicEngagement.location.coordinates,
-        data: {
-          title: civicEngagement.title || "Unnamed Civic Engagement",
-          emoji: getCivicEngagementEmoji(civicEngagement.type),
-          color: getCivicEngagementColor(civicEngagement.type),
-          description: civicEngagement.description,
-          type: civicEngagement.type,
-          status: civicEngagement.status,
-          address: civicEngagement.address,
-          locationNotes: civicEngagement.locationNotes,
-          created_at: civicEngagement.createdAt,
-          updated_at: civicEngagement.updatedAt,
-          creatorId: civicEngagement.creatorId,
-          adminNotes: civicEngagement.adminNotes,
-          implementedAt: civicEngagement.implementedAt,
-          imageUrls: civicEngagement.imageUrls,
-          entityType: "civic_engagement", // Add this to distinguish from events
-          ...(civicEngagement.metadata || {}),
-        },
-      };
-
-      console.log(
-        "[useMapWebsocket] Converted civic engagement marker:",
-        marker,
-      );
-      return marker;
-    },
-    [],
-  );
-
-  // Helper functions for civic engagement styling
-  const getCivicEngagementEmoji = (type: string): string => {
-    switch (type) {
-      case "IDEA":
-        return "💡";
-      case "NEGATIVE_FEEDBACK":
-        return "⚠️";
-      case "POSITIVE_FEEDBACK":
-        return "👍";
-      default:
-        return "📝";
-    }
-  };
-
-  const getCivicEngagementColor = (type: string): string => {
-    switch (type) {
-      case "IDEA":
-        return "#fbbf24"; // Yellow for ideas
-      case "NEGATIVE_FEEDBACK":
-        return "#ef4444"; // Red for negative feedback
-      case "POSITIVE_FEEDBACK":
-        return "#22c55e"; // Green for positive feedback
-      default:
-        return "#6b7280"; // Gray for default
-    }
-  };
+  // Note: Helper functions for civic engagement styling have been moved to the websocket service
 
   const sendViewportUpdateToServer = useCallback(() => {
     if (
@@ -368,28 +268,19 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               return;
             }
             try {
-              const eventMarkers = Array.isArray(data.events)
-                ? data.events.map(convertEventToMarker)
+              const newMarkers = Array.isArray(data.markers)
+                ? data.markers
                 : [];
 
-              const civicEngagementMarkers = Array.isArray(
-                data.civicEngagements,
-              )
-                ? data.civicEngagements.map(convertCivicEngagementToMarker)
-                : [];
-
-              console.log(
-                "[useMapWebsocket] REPLACE_ALL - Events:",
-                eventMarkers.length,
-                "Civic Engagements:",
-                civicEngagementMarkers.length,
-              );
-
-              const newMarkers = [...eventMarkers, ...civicEngagementMarkers];
               console.log(
                 "[useMapWebsocket] REPLACE_ALL - Total markers:",
                 newMarkers.length,
               );
+              console.log(
+                "[useMapWebsocket] REPLACE_ALL - Markers:",
+                newMarkers,
+              );
+
               setMarkers(newMarkers);
               emitMarkersUpdated(newMarkers, "replace");
 
@@ -417,14 +308,14 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
             break;
 
           case MessageTypes.ADD_EVENT: {
-            if (!data.event || !data.event.id) {
+            if (!data.marker || !data.marker.id) {
               console.warn(
-                "[useMapWebsocket] Missing or invalid event data in ADD_EVENT",
+                "[useMapWebsocket] Missing or invalid marker data in ADD_EVENT",
               );
               return;
             }
             try {
-              const newMarker = convertEventToMarker(data.event);
+              const newMarker = data.marker;
               let added = false;
               setMarkers((prevMarkers) => {
                 // Prevent duplicates if message is somehow re-processed
@@ -450,14 +341,14 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           }
 
           case MessageTypes.UPDATE_EVENT: {
-            if (!data.event || !data.event.id) {
+            if (!data.marker || !data.marker.id) {
               console.warn(
-                "[useMapWebsocket] Missing or invalid event data in UPDATE_EVENT",
+                "[useMapWebsocket] Missing or invalid marker data in UPDATE_EVENT",
               );
               return;
             }
             try {
-              const updatedMarker = convertEventToMarker(data.event);
+              const updatedMarker = data.marker;
               let markerFoundAndUpdated = false;
               let markerAdded = false;
 
@@ -565,15 +456,9 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               return;
             }
             try {
+              const newMarker = data.marker;
               console.log(
-                "[useMapWebsocket] Converting civic engagement to marker:",
-                data.civicEngagement,
-              );
-              const newMarker = convertCivicEngagementToMarker(
-                data.civicEngagement,
-              );
-              console.log(
-                "[useMapWebsocket] Converted civic engagement marker:",
+                "[useMapWebsocket] Received civic engagement marker:",
                 newMarker,
               );
               let added = false;
@@ -629,15 +514,9 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
               return;
             }
             try {
+              const updatedMarker = data.marker;
               console.log(
-                "[useMapWebsocket] Converting civic engagement to marker:",
-                data.civicEngagement,
-              );
-              const updatedMarker = convertCivicEngagementToMarker(
-                data.civicEngagement,
-              );
-              console.log(
-                "[useMapWebsocket] Converted civic engagement marker:",
+                "[useMapWebsocket] Received civic engagement marker:",
                 updatedMarker,
               );
               let markerFoundAndUpdated = false;
@@ -897,7 +776,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         );
       }
     },
-    [convertEventToMarker, convertCivicEngagementToMarker], // emitMarkersUpdated is not needed here if setMarkers -> useEffect handles it
+    [], // No dependencies needed since convertEventToMarker has been moved to websocket service
     // selectMarker/selectedMarkerId are handled via refs
   );
 

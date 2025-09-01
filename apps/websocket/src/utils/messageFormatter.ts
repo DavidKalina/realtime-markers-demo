@@ -1,4 +1,9 @@
 import { MessageTypes } from "../config/constants";
+import {
+  convertEventToMarker,
+  convertCivicEngagementToMarker,
+} from "./markerConverter";
+import type { Marker } from "@realtime-markers/database";
 
 export interface ErrorMessage {
   type: string;
@@ -24,6 +29,18 @@ export interface DiscoveryMessage {
 export interface CivicEngagementDiscoveryMessage {
   type: string;
   civicEngagement: Record<string, unknown>;
+  timestamp: string;
+}
+
+export interface MarkerMessage {
+  type: string;
+  marker: Marker;
+  timestamp: string;
+}
+
+export interface MarkersMessage {
+  type: string;
+  markers: Marker[];
   timestamp: string;
 }
 
@@ -104,6 +121,57 @@ export function formatCivicEngagementDiscoveryMessage(
     timestamp: timestamp || new Date().toISOString(),
   };
   return JSON.stringify(discoveryMessage);
+}
+
+/**
+ * Formats an event as a marker message for WebSocket clients
+ * This converts the event to marker format before sending to clients
+ */
+export function formatEventAsMarkerMessage(
+  event: Record<string, unknown>,
+  timestamp?: string,
+): string {
+  const marker = convertEventToMarker(event);
+  const markerMessage: MarkerMessage = {
+    type: MessageTypes.ADD_EVENT,
+    marker,
+    timestamp: timestamp || new Date().toISOString(),
+  };
+  return JSON.stringify(markerMessage);
+}
+
+/**
+ * Formats a civic engagement as a marker message for WebSocket clients
+ * This converts the civic engagement to marker format before sending to clients
+ */
+export function formatCivicEngagementAsMarkerMessage(
+  civicEngagement: Record<string, unknown>,
+  timestamp?: string,
+): string {
+  const marker = convertCivicEngagementToMarker(civicEngagement);
+  const markerMessage: MarkerMessage = {
+    type: MessageTypes.ADD_CIVIC_ENGAGEMENT,
+    marker,
+    timestamp: timestamp || new Date().toISOString(),
+  };
+  return JSON.stringify(markerMessage);
+}
+
+/**
+ * Formats multiple events as markers message for WebSocket clients
+ * This converts all events to marker format before sending to clients
+ */
+export function formatEventsAsMarkersMessage(
+  events: Record<string, unknown>[],
+  timestamp?: string,
+): string {
+  const markers = events.map((event) => convertEventToMarker(event));
+  const markersMessage: MarkersMessage = {
+    type: MessageTypes.REPLACE_ALL,
+    markers,
+    timestamp: timestamp || new Date().toISOString(),
+  };
+  return JSON.stringify(markersMessage);
 }
 
 /**

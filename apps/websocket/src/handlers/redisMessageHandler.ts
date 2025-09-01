@@ -4,7 +4,11 @@ import {
   formatCivicEngagementDiscoveryMessage,
   formatNotificationMessage,
   formatLevelUpdateMessage,
+  formatEventAsMarkerMessage,
+  formatCivicEngagementAsMarkerMessage,
+  formatEventsAsMarkersMessage,
 } from "../utils/messageFormatter";
+import { convertCivicEngagementToMarker } from "../utils/markerConverter";
 import type { ServerWebSocket } from "bun";
 import type { WebSocketData } from "../types/websocket";
 
@@ -84,17 +88,50 @@ export function handleRedisMessage(
         return;
       }
 
-      console.log("[WebSocket] Forwarding filtered events to user:", userId);
+      console.log(
+        "[WebSocket] Converting and forwarding filtered events to user:",
+        userId,
+      );
 
-      // Forward the message to the user's clients
+      // Convert events to markers and forward to user's clients
       const userClients = dependencies.getUserClients(userId);
       if (userClients) {
         for (const clientId of userClients) {
           const client = dependencies.getClient(clientId);
           if (client) {
             try {
-              client.send(message);
-              console.log(`Forwarded filtered events to client ${clientId}`);
+              let convertedMessage: string;
+
+              // Handle different message types
+              if (data.type === "replace-all" && data.events) {
+                // Convert multiple events to markers
+                convertedMessage = formatEventsAsMarkersMessage(data.events);
+              } else if (data.type === "add-event" && data.event) {
+                // Convert single event to marker
+                convertedMessage = formatEventAsMarkerMessage(data.event);
+              } else if (data.type === "update-event" && data.event) {
+                // Convert updated event to marker
+                convertedMessage = formatEventAsMarkerMessage(data.event);
+              } else if (data.type === "delete-event" && data.id) {
+                // For delete operations, just forward the ID
+                convertedMessage = JSON.stringify({
+                  type: MessageTypes.DELETE_EVENT,
+                  id: data.id,
+                  timestamp: data.timestamp || new Date().toISOString(),
+                });
+              } else {
+                // Fallback: forward original message if we can't process it
+                console.warn(
+                  "[WebSocket] Unknown filtered events message format, forwarding as-is:",
+                  data,
+                );
+                convertedMessage = message;
+              }
+
+              client.send(convertedMessage);
+              console.log(
+                `Forwarded converted filtered events to client ${clientId}`,
+              );
             } catch (error) {
               console.error(
                 `Error forwarding filtered events to client ${clientId}:`,
@@ -124,20 +161,65 @@ export function handleRedisMessage(
       }
 
       console.log(
-        "[WebSocket] Forwarding filtered civic engagements to user:",
+        "[WebSocket] Converting and forwarding filtered civic engagements to user:",
         userId,
       );
 
-      // Forward the message to the user's clients
+      // Convert civic engagements to markers and forward to user's clients
       const userClients = dependencies.getUserClients(userId);
       if (userClients) {
         for (const clientId of userClients) {
           const client = dependencies.getClient(clientId);
           if (client) {
             try {
-              client.send(message);
+              let convertedMessage: string;
+
+              // Handle different message types
+              if (data.type === "replace-all" && data.civicEngagements) {
+                // Convert multiple civic engagements to markers
+                const markers = data.civicEngagements.map((ce: any) =>
+                  convertCivicEngagementToMarker(ce),
+                );
+                convertedMessage = JSON.stringify({
+                  type: MessageTypes.REPLACE_ALL,
+                  markers,
+                  timestamp: data.timestamp || new Date().toISOString(),
+                });
+              } else if (
+                data.type === "add-civic-engagement" &&
+                data.civicEngagement
+              ) {
+                // Convert single civic engagement to marker
+                convertedMessage = formatCivicEngagementAsMarkerMessage(
+                  data.civicEngagement,
+                );
+              } else if (
+                data.type === "update-civic-engagement" &&
+                data.civicEngagement
+              ) {
+                // Convert updated civic engagement to marker
+                convertedMessage = formatCivicEngagementAsMarkerMessage(
+                  data.civicEngagement,
+                );
+              } else if (data.type === "delete-civic-engagement" && data.id) {
+                // For delete operations, just forward the ID
+                convertedMessage = JSON.stringify({
+                  type: MessageTypes.DELETE_CIVIC_ENGAGEMENT,
+                  id: data.id,
+                  timestamp: data.timestamp || new Date().toISOString(),
+                });
+              } else {
+                // Fallback: forward original message if we can't process it
+                console.warn(
+                  "[WebSocket] Unknown filtered civic engagements message format, forwarding as-is:",
+                  data,
+                );
+                convertedMessage = message;
+              }
+
+              client.send(convertedMessage);
               console.log(
-                `Forwarded filtered civic engagements to client ${clientId}`,
+                `Forwarded converted filtered civic engagements to client ${clientId}`,
               );
             } catch (error) {
               console.error(
