@@ -239,6 +239,7 @@ Respond with only: "MULTIPLE" if there are multiple distinct events, or "SINGLE"
           },
         ],
         max_tokens: 50,
+        usageScope: "image_processing:multi_check",
       });
 
       const content =
@@ -373,6 +374,7 @@ Make sure to clearly separate each event and provide confidence scores for each.
           },
         ],
         max_tokens: 2000,
+        usageScope: "image_processing:multi_extract",
       });
 
       const content = response.choices[0].message.content || "";
@@ -767,6 +769,7 @@ Confidence Score: [score]`,
           },
         ],
         max_tokens: 1000,
+        usageScope: "image_processing:single_extract",
       });
 
       const content = response.choices[0].message.content || "";
@@ -971,6 +974,7 @@ ${extractedText}`,
         temperature: 0.1,
         response_format: { type: "json_object" },
         max_tokens: 500,
+        usageScope: "image_processing:privacy_validation",
       });
 
       const content = response.choices[0].message.content;

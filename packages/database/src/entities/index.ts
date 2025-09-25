@@ -10,3 +10,4 @@ export * from "./UserEventRsvp";
 export * from "./UserEventSave";
 export * from "./UserEventView";
 export * from "./UserPushToken";
+export * from "./TokenUsageDaily";

@@ -15,6 +15,7 @@ import {
   UserEventSave,
   CivicEngagement,
   UserPushToken,
+  TokenUsageDaily,
 } from "@realtime-markers/database";
 
 // Import all migrations explicitly
@@ -35,6 +36,7 @@ import { RegenerateEmbeddings1710000000017 } from "./migrations/RegenerateEmbedd
 import { CivicEngagementTables1710000000020 } from "./migrations/CivicEngagementTables1710000000020";
 import { AddEmbeddingToCivicEngagements1710000000021 } from "./migrations/AddEmbeddingToCivicEngagements1710000000021";
 import { UserPushTokenTable1710000000022 } from "./migrations/UserPushTokenTable1710000000022";
+import { TokenUsageDailyTable1710000000023 } from "./migrations/TokenUsageDailyTable1710000000023";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -52,6 +54,7 @@ const AppDataSource = new DataSource({
     UserEventSave,
     CivicEngagement,
     UserPushToken,
+    TokenUsageDaily,
   ],
   migrations: [
     CategoryTable1710000000000,
@@ -71,6 +74,7 @@ const AppDataSource = new DataSource({
     CivicEngagementTables1710000000020,
     AddEmbeddingToCivicEngagements1710000000021,
     UserPushTokenTable1710000000022,
+    TokenUsageDailyTable1710000000023,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

@@ -42,6 +42,7 @@ export interface OpenAIService {
     temperature?: number;
     max_tokens?: number;
     response_format?: { type: "json_object" | "text" };
+    usageScope?: string;
   }): Promise<ChatCompletion>;
 
   generateEmbedding(text: string, model?: OpenAIModel): Promise<number[]>;
@@ -52,6 +53,16 @@ export interface OpenAIService {
   }>;
 
   resetRateLimits(): Promise<void>;
+
+  attachTokenUsageRecorder(recorder: {
+    record: (args: {
+      model: OpenAIModel;
+      operation: "chat" | "embeddings";
+      scope?: string;
+      usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+      date?: string;
+    }) => Promise<void>;
+  }): void;
 }
 
 // Define dependencies interface for cleaner constructor
@@ -65,6 +76,16 @@ export class OpenAIServiceImpl implements OpenAIService {
   private redisService: RedisService;
   private openAICacheService: OpenAICacheService;
   private activeRequests: Map<string, number> = new Map();
+  // Optional DB recorder, injected later
+  private tokenUsageRecorder?: {
+    record: (args: {
+      model: OpenAIModel;
+      operation: "chat" | "embeddings";
+      scope?: string;
+      usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+      date?: string;
+    }) => Promise<void>;
+  };
 
   constructor(private dependencies: OpenAIServiceDependencies) {
     if (!process.env.OPENAI_API_KEY) {
@@ -80,6 +101,19 @@ export class OpenAIServiceImpl implements OpenAIService {
       // Use a fetch wrapper to implement rate limiting and retries
       fetch: this.createFetchWithRateLimit(),
     });
+  }
+
+  // Allow late-binding a DB recorder without coupling
+  attachTokenUsageRecorder(recorder: {
+    record: (args: {
+      model: OpenAIModel;
+      operation: "chat" | "embeddings";
+      scope?: string;
+      usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
+      date?: string;
+    }) => Promise<void>;
+  }): void {
+    this.tokenUsageRecorder = recorder;
   }
 
   // Create a custom fetch function with rate limiting and retries
@@ -213,6 +247,7 @@ export class OpenAIServiceImpl implements OpenAIService {
     temperature?: number;
     max_tokens?: number;
     response_format?: { type: "json_object" | "text" };
+    usageScope?: string;
   }): Promise<ChatCompletion> {
     const nonStreamingParams: ChatCompletionCreateParamsNonStreaming = {
       ...params,
@@ -233,6 +268,18 @@ export class OpenAIServiceImpl implements OpenAIService {
             totalTokens: usage.total_tokens || 0,
           },
         );
+        if (this.tokenUsageRecorder) {
+          await this.tokenUsageRecorder.record({
+            model: params.model,
+            operation: "chat",
+            scope: params.usageScope,
+            usage: {
+              promptTokens: usage.prompt_tokens || 0,
+              completionTokens: usage.completion_tokens || 0,
+              totalTokens: usage.total_tokens || 0,
+            },
+          });
+        }
       }
     } catch (e) {
       console.warn("Failed to record token usage:", e);
@@ -261,6 +308,33 @@ export class OpenAIServiceImpl implements OpenAIService {
 
     // Cache the embedding
     await this.openAICacheService.setEmbedding(text, embedding);
+
+    // Record token usage if available
+    try {
+      const usageAny = (response as unknown as { usage?: { prompt_tokens?: number; total_tokens?: number } }).usage;
+      if (usageAny) {
+        const promptTokens = usageAny.prompt_tokens || 0;
+        const totalTokens = usageAny.total_tokens || promptTokens;
+        await this.openAICacheService.incrementTokenUsage(model, "embeddings", {
+          promptTokens,
+          completionTokens: 0,
+          totalTokens,
+        });
+        if (this.tokenUsageRecorder) {
+          await this.tokenUsageRecorder.record({
+            model,
+            operation: "embeddings",
+            usage: {
+              promptTokens,
+              completionTokens: 0,
+              totalTokens,
+            },
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to record embedding token usage:", e);
+    }
 
     return embedding;
   }

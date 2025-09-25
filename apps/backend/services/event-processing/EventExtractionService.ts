@@ -122,6 +122,9 @@ export class EventExtractionService implements IEventExtractionService {
         },
       ],
       response_format: { type: "json_object" },
+      ],
+      response_format: { type: "json_object" },
+      usageScope: "event_extraction:details",
     });
 
     const parsedDetails = JSON.parse(

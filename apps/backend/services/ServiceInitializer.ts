@@ -39,6 +39,7 @@ import type { RedisService } from "./shared/RedisService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import type { CivicEngagementSearchService } from "./CivicEngagementSearchService";
 import type { CivicEngagementCacheService } from "./shared/CivicEngagementCacheService";
+import { createTokenUsageService } from "./shared/TokenUsageService";
 
 export interface ServiceContainer {
   eventService: EventService;
@@ -92,6 +93,18 @@ export class ServiceInitializer {
     const openAIService = createOpenAIService({
       redisService,
       openAICacheService,
+    });
+
+    // Attach DB-backed token usage recorder
+    const tokenUsageService = createTokenUsageService(this.dataSource);
+    openAIService.attachTokenUsageRecorder({
+      record: async ({ model, operation, usage, date }) => {
+        try {
+          await tokenUsageService.record({ model, operation, usage, date });
+        } catch (e) {
+          console.warn("Failed to persist token usage to DB:", e);
+        }
+      },
     });
 
     const embeddingService = createEmbeddingService({
