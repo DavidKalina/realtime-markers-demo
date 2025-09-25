@@ -6,6 +6,7 @@ import type { Category } from "@realtime-markers/database";
 import type { CategoryProcessingService } from "../CategoryProcessingService";
 import type { ConfigService } from "../shared/ConfigService";
 import { OpenAIModel, type OpenAIService } from "../shared/OpenAIService";
+import { fromOpenAIUsage, addTokenUsage } from "../../types/TokenUsage";
 import type { EventExtractionResult } from "./dto/EventExtractionResult";
 import type { IEventExtractionService } from "./interfaces/IEventExtractionService";
 import type { ILocationResolutionService } from "./interfaces/ILocationResolutionService";
@@ -126,6 +127,7 @@ export class EventExtractionService implements IEventExtractionService {
     const parsedDetails = JSON.parse(
       response.choices[0]?.message.content?.trim() ?? "{}",
     );
+    const tokenUsage = fromOpenAIUsage(response.usage);
 
     console.log("[EventExtractionService] Parsed details:", parsedDetails);
     console.log(
@@ -208,6 +210,7 @@ export class EventExtractionService implements IEventExtractionService {
         resolvedAt: resolvedLocation.resolvedAt,
         clues: locationClues,
       },
+      tokenUsage,
     };
   }
 

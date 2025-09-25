@@ -130,4 +130,13 @@ export interface EventExtractionResult {
      */
     clues: string[];
   };
+
+  /**
+   * Token usage for the extraction call
+   */
+  tokenUsage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 }

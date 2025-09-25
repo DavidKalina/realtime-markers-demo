@@ -12,6 +12,7 @@ import { OpenAIModel } from "../shared/OpenAIService";
 import jsQR from "jsqr";
 import { Jimp } from "jimp";
 import { RecurrenceFrequency, DayOfWeek } from "@realtime-markers/database";
+import { addTokenUsage, fromOpenAIUsage } from "../../types/TokenUsage";
 
 // New interface for multi-event results
 export interface MultiEventProcessingResult {
@@ -120,6 +121,7 @@ export class ImageProcessingServiceImpl implements ImageProcessingService {
         qrCodeData: qrResult.data || visionResult.qrCodeData,
         structuredData: visionResult.structuredData,
         privacyValidation,
+        tokenUsage: addTokenUsage(visionResult.tokenUsage, privacyValidation.tokenUsage),
       };
     }
 
@@ -129,6 +131,7 @@ export class ImageProcessingServiceImpl implements ImageProcessingService {
       qrCodeDetected: qrResult.detected || visionResult.qrCodeDetected || false,
       qrCodeData: qrResult.data || visionResult.qrCodeData,
       privacyValidation,
+      tokenUsage: addTokenUsage(visionResult.tokenUsage, privacyValidation.tokenUsage),
     };
 
     // Cache the result for future use
@@ -767,6 +770,7 @@ Confidence Score: [score]`,
       });
 
       const content = response.choices[0].message.content || "";
+      const tokenUsage = fromOpenAIUsage(response.usage);
 
       // Check if Vision API detected private information
       if (content.includes("PRIVATE INFORMATION DETECTED")) {
@@ -776,6 +780,7 @@ Confidence Score: [score]`,
           confidence: 0,
           extractedAt: new Date().toISOString(),
           error: "Private information detected - event processing rejected",
+          tokenUsage,
         };
       }
 
@@ -797,6 +802,7 @@ Confidence Score: [score]`,
         extractedAt: new Date().toISOString(),
         qrCodeDetected: qrDetected,
         structuredData,
+        tokenUsage,
       };
     } catch (error) {
       console.error("Error calling Vision API:", error);
@@ -973,9 +979,13 @@ ${extractedText}`,
       }
 
       const result = JSON.parse(content) as PrivacyValidationResult;
+      const tokenUsage = fromOpenAIUsage(response.usage);
 
       // Ensure confidence is within bounds
       result.confidence = Math.max(0, Math.min(1, result.confidence));
+      if (tokenUsage) {
+        (result as PrivacyValidationResult).tokenUsage = tokenUsage;
+      }
 
       return result;
     } catch (error) {

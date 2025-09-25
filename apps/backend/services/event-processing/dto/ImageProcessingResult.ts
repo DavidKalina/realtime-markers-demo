@@ -76,6 +76,14 @@ export interface PrivacyValidationResult {
   reason: string;
   containsPrivateInfo: boolean;
   privateInfoTypes: string[];
+  /**
+   * Token usage for the privacy validation model call
+   */
+  tokenUsage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 }
 
 /**
@@ -121,4 +129,13 @@ export interface ImageProcessingResult {
    * Privacy validation result
    */
   privacyValidation?: PrivacyValidationResult;
+
+  /**
+   * Token usage for AI calls used during image processing
+   */
+  tokenUsage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 }

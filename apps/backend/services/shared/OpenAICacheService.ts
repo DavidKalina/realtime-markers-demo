@@ -15,6 +15,17 @@ export interface OpenAICacheService {
   resetRateLimitCounters(): Promise<void>;
   invalidateEmbedding(text: string): Promise<void>;
   invalidateAllEmbeddings(): Promise<void>;
+  incrementTokenUsage(
+    model: OpenAIModel,
+    operation: string,
+    usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number },
+    dateKey?: string,
+  ): Promise<void>;
+  getTokenUsage(
+    model: OpenAIModel,
+    operation: string,
+    dateKey?: string,
+  ): Promise<{ promptTokens: number; completionTokens: number; totalTokens: number } | null>;
 }
 
 export class OpenAICacheServiceImpl
@@ -23,8 +34,10 @@ export class OpenAICacheServiceImpl
 {
   private static readonly EMBEDDING_PREFIX = "openai:embedding:";
   private static readonly RATE_LIMIT_PREFIX = "openai:ratelimit:";
+  private static readonly USAGE_PREFIX = "openai:usage:";
   private static readonly EMBEDDING_TTL = 24 * 60 * 60; // 24 hours
   private static readonly RATE_LIMIT_TTL = 120; // 2 minutes
+  private static readonly USAGE_TTL = 8 * 24 * 60 * 60; // 8 days
 
   /**
    * Get cached embedding for text
@@ -111,6 +124,58 @@ export class OpenAICacheServiceImpl
     await this.invalidateByPattern(
       `${OpenAICacheServiceImpl.EMBEDDING_PREFIX}*`,
     );
+  }
+
+  private buildUsageKey(
+    model: OpenAIModel,
+    operation: string,
+    dateKey?: string,
+  ): string {
+    const day = dateKey || new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    return `${OpenAICacheServiceImpl.USAGE_PREFIX}${day}:${model}:${operation}`;
+  }
+
+  async incrementTokenUsage(
+    model: OpenAIModel,
+    operation: string,
+    usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number },
+    dateKey?: string,
+  ): Promise<void> {
+    const key = this.buildUsageKey(model, operation, dateKey);
+    const current =
+      (await this.get<{
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+      }>(key)) || { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+
+    const updated = {
+      promptTokens: current.promptTokens + (usage.promptTokens || 0),
+      completionTokens: current.completionTokens + (usage.completionTokens || 0),
+      totalTokens: current.totalTokens + (usage.totalTokens || 0),
+    };
+
+    await this.set(key, updated, {
+      useMemoryCache: false,
+      ttlSeconds: OpenAICacheServiceImpl.USAGE_TTL,
+    });
+  }
+
+  async getTokenUsage(
+    model: OpenAIModel,
+    operation: string,
+    dateKey?: string,
+  ): Promise<{
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  } | null> {
+    const key = this.buildUsageKey(model, operation, dateKey);
+    return this.get<{
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    }>(key);
   }
 }
 

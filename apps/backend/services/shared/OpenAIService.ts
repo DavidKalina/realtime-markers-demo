@@ -218,7 +218,26 @@ export class OpenAIServiceImpl implements OpenAIService {
       ...params,
       stream: false,
     };
-    return this.openai.chat.completions.create(nonStreamingParams);
+    const result = await this.openai.chat.completions.create(
+      nonStreamingParams,
+    );
+    try {
+      const usage = result.usage;
+      if (usage) {
+        await this.openAICacheService.incrementTokenUsage(
+          params.model,
+          "chat",
+          {
+            promptTokens: usage.prompt_tokens || 0,
+            completionTokens: usage.completion_tokens || 0,
+            totalTokens: usage.total_tokens || 0,
+          },
+        );
+      }
+    } catch (e) {
+      console.warn("Failed to record token usage:", e);
+    }
+    return result;
   }
 
   // Helper method for generating embeddings with caching
