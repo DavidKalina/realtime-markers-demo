@@ -140,7 +140,10 @@ export const markerToEvent = (marker: {
         recurrenceInterval: marker.data.recurrenceInterval,
         recurrenceTime: marker.data.recurrenceTime,
         recurrenceExceptions: marker.data.recurrenceExceptions,
-      } as EventType;
+        status: marker.data.status || "ACTIVE",
+        viewCount: marker.data.viewCount || 0,
+        isOfficial: marker.data.isOfficial || false,
+      } as unknown as EventType;
     }
 
     // If marker.data has properties but isn't an EventType - map properly
@@ -208,7 +211,9 @@ export const markerToEvent = (marker: {
       // Additional fields
       color: marker.data.color || "#4dabf7",
       isVerified: marker.data.isVerified || false,
-      status: marker.data.status,
+      status: marker.data.status || "ACTIVE",
+      viewCount: marker.data.viewCount || 0,
+      isOfficial: marker.data.isOfficial || false,
       // Legacy support
       category: marker.data.category || { id: "general", name: "General" },
     } as unknown as EventType;
@@ -246,10 +251,13 @@ export const markerToEvent = (marker: {
     isPrivate: false,
 
     isRecurring: false,
+    status: "ACTIVE",
+    viewCount: 0,
+    isOfficial: false,
     color: "#4dabf7",
     isVerified: false,
     category: { id: "general", name: "General" },
-  } as EventType;
+  } as unknown as EventType;
 };
 
 /**
