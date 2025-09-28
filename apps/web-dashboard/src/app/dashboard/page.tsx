@@ -15,7 +15,6 @@ import { MetricsSummary } from "@/components/dashboard/MetricsSummary";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { useCivicEngagementData } from "@/hooks/useCivicEngagementData";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function DashboardPage() {
   const {

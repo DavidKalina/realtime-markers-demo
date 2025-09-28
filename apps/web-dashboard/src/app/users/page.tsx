@@ -1,45 +1,5 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Search,
-  Filter,
-  ChevronLeft,
-  ChevronRight,
-  Shield,
-  ShieldCheck,
-  ShieldX,
-  User as UserIcon,
-  Crown,
-  Trash2,
-  AlertTriangle,
-} from "lucide-react";
-import {
-  userManagementService,
-  type User,
-  type UserStats,
-} from "@/services/userManagement";
-import { useToast } from "@/contexts/ToastContext";
 import { AddAdminModal } from "@/components/dashboard/AddAdminModal";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import {
@@ -53,6 +13,43 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useToast } from "@/contexts/ToastContext";
+import {
+  userManagementService,
+  type User,
+  type UserStats,
+} from "@/services/userManagement";
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Crown,
+  Search,
+  ShieldCheck,
+  Trash2,
+  User as UserIcon,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 // Custom debounce hook
 function useDebounce<T>(value: T, delay: number): T {
@@ -81,7 +78,7 @@ export default function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
-  const [adminUsers, setAdminUsers] = useState<User[]>([]);
+  const [, setAdminUsers] = useState<User[]>([]);
 
   // Debounce the search value with 300ms delay
   const debouncedSearch = useDebounce(search, 300);
@@ -162,23 +159,6 @@ export default function UsersPage() {
     }
   };
 
-  const handleDeleteAdmin = async (adminId: string, adminEmail: string) => {
-    try {
-      const response = await userManagementService.deleteAdminUser(adminId);
-
-      if (response.data) {
-        success("Admin user deleted successfully");
-        loadUsers(); // Refresh the list
-        loadAdminUsers(); // Refresh admin list
-        loadStats(); // Refresh stats
-      } else {
-        error(response.error || "Failed to delete admin user");
-      }
-    } catch (err) {
-      error("Failed to delete admin user");
-    }
-  };
-
   const handleAdminAdded = () => {
     loadUsers();
     loadAdminUsers();
@@ -211,11 +191,7 @@ export default function UsersPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const isCurrentUser = (userId: string) => {
+  const isCurrentUser = () => {
     // This would need to be implemented based on your auth context
     // For now, we'll assume it's not the current user
     return false;
@@ -332,7 +308,7 @@ export default function UsersPage() {
                       <TableHead>User</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Stats</TableHead>
-                      <TableHead>Plan</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>Joined</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
@@ -345,13 +321,17 @@ export default function UsersPage() {
                             <Avatar>
                               <AvatarImage src={user.avatarUrl} />
                               <AvatarFallback>
-                                {user.displayName?.charAt(0) ||
-                                  user.email.charAt(0)}
+                                {(
+                                  user.firstName?.charAt(0) ||
+                                  user.email.charAt(0)
+                                ).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                             <div>
                               <div className="font-medium">
-                                {user.displayName || user.username || "No name"}
+                                {user.firstName && user.lastName
+                                  ? `${user.firstName} ${user.lastName}`
+                                  : user.firstName || "No name"}
                               </div>
                               <div className="text-sm text-muted-foreground">
                                 {user.email}
@@ -369,21 +349,15 @@ export default function UsersPage() {
                           <div className="text-sm space-y-1">
                             <div>Scans: {user.scanCount}</div>
                             <div>Saves: {user.saveCount}</div>
+                            <div>Views: {user.viewCount}</div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <Badge
-                            variant={
-                              user.planType === "PRO" ? "default" : "outline"
-                            }
+                            variant={user.isVerified ? "default" : "outline"}
                           >
-                            {user.planType}
+                            {user.isVerified ? "Verified" : "Unverified"}
                           </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {formatDate(user.createdAt)}
-                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
@@ -405,52 +379,48 @@ export default function UsersPage() {
                               </SelectContent>
                             </Select>
 
-                            {user.role === "ADMIN" &&
-                              !isCurrentUser(user.id) && (
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button variant="outline" size="sm">
-                                      <Trash2 className="h-4 w-4 text-red-500" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>
-                                        Delete Admin User
-                                      </AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Are you sure you want to delete the
-                                        admin user{" "}
-                                        <strong>
-                                          {user.displayName || user.email}
-                                        </strong>
-                                        ?
-                                        <br />
-                                        <br />
-                                        <div className="flex items-center space-x-2 text-yellow-600">
-                                          <AlertTriangle className="h-4 w-4" />
-                                          <span>
-                                            This action cannot be undone.
-                                          </span>
-                                        </div>
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>
-                                        Cancel
-                                      </AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() =>
-                                          handleDeleteAdmin(user.id, user.email)
-                                        }
-                                        className="bg-red-500 hover:bg-red-600"
-                                      >
-                                        Delete Admin
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              )}
+                            {user.role === "ADMIN" && !isCurrentUser && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      Delete Admin User
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete the admin
+                                      user{" "}
+                                      <strong>
+                                        {user.firstName && user.lastName
+                                          ? `${user.firstName} ${user.lastName}`
+                                          : user.firstName || user.email}
+                                      </strong>
+                                      ?
+                                      <br />
+                                      <br />
+                                      <div className="flex items-center space-x-2 text-yellow-600">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <span>
+                                          This action cannot be undone.
+                                        </span>
+                                      </div>
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction className="bg-red-500 hover:bg-red-600">
+                                      Delete Admin
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

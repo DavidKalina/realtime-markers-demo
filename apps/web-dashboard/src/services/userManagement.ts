@@ -1,9 +1,8 @@
 import { AuthService } from "@/lib/auth";
 import type {
-  UserProfile,
   ApiResponse,
   PaginationParams,
-  PaginatedResponse,
+  UserProfile,
 } from "@realtime-markers/database";
 
 export type User = UserProfile;
@@ -13,8 +12,12 @@ export interface UserListParams extends PaginationParams {
   role?: "USER" | "MODERATOR" | "ADMIN";
 }
 
-export interface UserListResponse extends PaginatedResponse<User> {
+export interface UserListResponse {
   users: User[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface UserStats {
@@ -72,19 +75,19 @@ class UserManagementService {
 
       if (!response.ok) {
         return {
+          success: false,
           error: data.error || `HTTP ${response.status}`,
-          status: response.status,
         };
       }
 
       return {
+        success: true,
         data,
-        status: response.status,
       };
     } catch (error) {
       return {
+        success: false,
         error: error instanceof Error ? error.message : "Network error",
-        status: 0,
       };
     }
   }

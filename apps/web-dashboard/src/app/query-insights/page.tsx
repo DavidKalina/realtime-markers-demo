@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 export default function QueryInsightsPage() {
-  const [options, setOptions] = useState({
+  const [options] = useState({
     days: 30,
     limit: 10,
     minSearches: 3,
@@ -28,10 +28,6 @@ export default function QueryInsightsPage() {
 
   const handleRefresh = () => {
     refetch();
-  };
-
-  const updateOptions = (newOptions: Partial<typeof options>) => {
-    setOptions((prev) => ({ ...prev, ...newOptions }));
   };
 
   if (loading) {
