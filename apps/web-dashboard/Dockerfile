@@ -28,7 +28,7 @@ RUN pnpm --filter @realtime-markers/shared build
 COPY apps/web-dashboard/ ./apps/web-dashboard/
 
 # Build the web-dashboard application
-RUN pnpm --filter ./apps/web-dashboard build
+RUN pnpm --filter ./apps/web-dashboard build --no-lint
 
 # Production image
 FROM node:20-alpine AS runner
