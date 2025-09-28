@@ -334,10 +334,12 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
+      # HTTPS router
       - "traefik.http.routers.dashboard.rule=Host(`${DASHBOARD_HOST}`)"
-      - "traefik.http.services.dashboard.loadbalancer.server.port=3001"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
-      # Add HTTP to HTTPS redirect for certificate generation
+      - "traefik.http.services.dashboard.loadbalancer.server.port=3001"
+      # HTTP router for ACME challenge and redirect
       - "traefik.http.routers.dashboard-http.rule=Host(`${DASHBOARD_HOST}`)"
       - "traefik.http.routers.dashboard-http.entrypoints=web"
       - "traefik.http.routers.dashboard-http.middlewares=redirect-to-https"
