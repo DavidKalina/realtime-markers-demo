@@ -36,8 +36,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    security_opt:
-      - no-new-privileges:true
 
   postgres:
     build:
@@ -63,8 +61,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    security_opt:
-      - no-new-privileges:true
+
     restart: unless-stopped
 
   adminer:
@@ -76,8 +73,7 @@ services:
       - marker-network
     depends_on:
       - postgres
-    security_opt:
-      - no-new-privileges:true
+
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
@@ -107,8 +103,7 @@ services:
         "--bind",
         "0.0.0.0",
       ]
-    security_opt:
-      - no-new-privileges:true
+
     restart: unless-stopped
 
   backend:
@@ -168,8 +163,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    security_opt:
-      - no-new-privileges:true
+
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
@@ -224,8 +218,7 @@ services:
       backend:
         condition: service_healthy
     volumes: []
-    security_opt:
-      - no-new-privileges:true
+
     restart: unless-stopped
 
   # New Filter Processor Service
@@ -272,8 +265,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-    security_opt:
-      - no-new-privileges:true
+
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
@@ -309,8 +301,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-    security_opt:
-      - no-new-privileges:true
+
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
@@ -339,8 +330,7 @@ services:
       - web_dashboard_next_cache:/app/apps/web-dashboard/.next
     working_dir: /app/apps/web-dashboard
     command: ${WEB_DASHBOARD_COMMAND:-pnpm start}
-    security_opt:
-      - no-new-privileges:true
+
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
