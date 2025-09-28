@@ -1,23 +1,21 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { CategoryStat, TimeStat } from "@/lib/dashboard-data";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
   Area,
   AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
-import type { CategoryStat, TimeStat } from "@/lib/dashboard-data";
 
 interface EventsOverviewProps {
   categories: CategoryStat[];
@@ -177,7 +175,7 @@ export function EventsOverview({
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {categories.slice(0, 5).map((category, index) => (
+              {categories.slice(0, 5).map((category) => (
                 <div
                   key={category.id}
                   className="flex items-center justify-between"

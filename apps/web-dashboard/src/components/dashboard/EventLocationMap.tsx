@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Calendar, Users } from "lucide-react";
-import dynamic from "next/dynamic";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calendar, MapPin, Users } from "lucide-react";
 import "mapbox-gl/dist/mapbox-gl.css";
+import dynamic from "next/dynamic";
+import { useEffect, useRef, useState } from "react";
 
 // Dynamic import for Map component to reduce initial bundle size
 const Map = dynamic(
@@ -38,10 +38,10 @@ const MapMojiMarker = dynamic(
   },
 );
 
-import type { ViewState, MapRef } from "react-map-gl/mapbox";
+import type { Event } from "@/lib/dashboard-data";
+import type { MapRef, ViewState } from "react-map-gl/mapbox";
 import { Marker as MapboxMarker } from "react-map-gl/mapbox";
 import type { Marker } from "../map/MapMojiMarker";
-import type { Event } from "@/lib/dashboard-data";
 
 interface EventLocationMapProps {
   event: Event;
@@ -60,7 +60,7 @@ export function EventLocationMap({
     pitch: 0,
     bearing: 0,
   });
-  const [isMapReady, setIsMapReady] = useState(false);
+  const [, setIsMapReady] = useState(false);
 
   // Set map center to event location when component mounts or event changes
   useEffect(() => {

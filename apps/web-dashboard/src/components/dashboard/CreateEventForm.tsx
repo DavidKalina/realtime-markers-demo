@@ -1,12 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -14,10 +11,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, MapPin, Users, Clock, Globe, Lock } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { apiService, type CreateEventPayload } from "@/services/api";
-import { LocationSearch } from "./LocationSearch";
+import { Globe, Lock, MapPin, Users } from "lucide-react";
+import React, { useEffect, useState } from "react";
 import { EmojiPicker } from "./EmojiPicker";
+import { LocationSearch } from "./LocationSearch";
 
 interface CreateEventFormProps {
   onSuccess?: () => void;
@@ -88,7 +87,6 @@ export function CreateEventForm({
   onFormDataChange,
   selectedLocation,
   onLocationSelect,
-  initialData,
 }: CreateEventFormProps) {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -313,8 +311,8 @@ export function CreateEventForm({
         qrUrl: formData.qrUrl,
         // Recurring event fields
         isRecurring: formData.isRecurring,
-        recurrenceFrequency: formData.recurrenceFrequency,
-        recurrenceDays: formData.recurrenceDays,
+        recurrenceFrequency: formData.recurrenceFrequency as any,
+        recurrenceDays: formData.recurrenceDays as any,
         recurrenceStartDate: formData.recurrenceStartDate,
         recurrenceEndDate: formData.recurrenceEndDate,
         recurrenceInterval: formData.recurrenceInterval,

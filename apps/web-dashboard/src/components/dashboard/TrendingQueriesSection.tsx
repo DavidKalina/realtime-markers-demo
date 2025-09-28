@@ -28,7 +28,7 @@ export function TrendingQueriesSection({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {queries.map((query, index) => (
+          {queries.map((query) => (
             <div
               key={query.query}
               className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"

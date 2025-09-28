@@ -102,18 +102,18 @@ export function useToast() {
 
 // Export convenience functions that work with the context
 export const toast = {
-  success: (message: string) => {
+  success: () => {
     // This will be called from components that have access to the context
     console.warn(
       "toast.success() called outside of component context. Use useToast() hook instead.",
     );
   },
-  error: (message: string) => {
+  error: () => {
     console.warn(
       "toast.error() called outside of component context. Use useToast() hook instead.",
     );
   },
-  info: (message: string) => {
+  info: () => {
     console.warn(
       "toast.info() called outside of component context. Use useToast() hook instead.",
     );

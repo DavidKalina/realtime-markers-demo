@@ -52,7 +52,7 @@ export function CivicEngagementTrendsChart({
 
   // Prepare type distribution for pie chart
   const typeDistribution = Object.entries(trends.trends.byType).map(
-    ([type, data]) => ({
+    ([, data]) => ({
       name: data.type,
       value: data.weeklyData.reduce(
         (sum, week) => sum + week.engagementsCreated,

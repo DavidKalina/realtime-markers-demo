@@ -7,36 +7,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import type { CivicEngagementMetrics } from "@/services/api";
+import { CheckCircle, MessageSquare, TrendingUp, Users } from "lucide-react";
 import {
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  Area,
-  AreaChart,
 } from "recharts";
-import {
-  Users,
-  MapPin,
-  Image,
-  TrendingUp,
-  Clock,
-  CheckCircle,
-  MessageSquare,
-  Lightbulb,
-  AlertTriangle,
-} from "lucide-react";
-import type { CivicEngagementMetrics } from "@/services/api";
 
 interface CivicEngagementMetricsProps {
   metrics: CivicEngagementMetrics;

@@ -1,16 +1,10 @@
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  Suspense,
-  useCallback,
-} from "react";
+import { Navigation } from "lucide-react";
+import "mapbox-gl/dist/mapbox-gl.css";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import "mapbox-gl/dist/mapbox-gl.css";
-import { Navigation } from "lucide-react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 // Dynamic import for Map component to reduce initial bundle size
 const Map = dynamic(
@@ -28,25 +22,12 @@ const Map = dynamic(
   },
 );
 
-// Dynamic import for MapMojiMarker to reduce initial bundle size
-const MapMojiMarker = dynamic(
-  () =>
-    import("./MapMojiMarker").then((mod) => ({ default: mod.MapMojiMarker })),
-  {
-    loading: () => (
-      <div className="w-12 h-12 bg-gray-300 rounded-full animate-pulse flex items-center justify-center">
-        <div className="text-gray-500 text-xs">...</div>
-      </div>
-    ),
-  },
-);
-
 // Import types and components
-import type { ViewState, MapRef } from "react-map-gl/mapbox";
-import { Marker as MapboxMarker } from "react-map-gl/mapbox";
-import type { Marker } from "./MapMojiMarker";
 import { useMapWebSocket } from "@/hooks/useMapWebsocketWeb";
+import type { MapRef, ViewState } from "react-map-gl/mapbox";
+import { Marker as MapboxMarker } from "react-map-gl/mapbox";
 import ConnectionIndicator from "./ConnectionIndicator";
+import type { Marker } from "./MapMojiMarker";
 import { MarkerFactory } from "./MarkerFactory";
 
 interface InteractiveMapProps {
@@ -72,8 +53,7 @@ export const InteractiveMap = ({
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Use the websocket hook
-  const { markers, isConnected, error, updateViewport } =
-    useMapWebSocket(websocketUrl);
+  const { markers, error, updateViewport } = useMapWebSocket(websocketUrl);
 
   const [viewState, setViewState] = useState({
     longitude: initialCenter[0],

@@ -1,7 +1,7 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Heart, Eye, Users, TrendingUp, Calendar } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { type EventEngagement } from "@/services/api";
+import { Eye, Heart, TrendingUp, Users } from "lucide-react";
 
 interface EventEngagementStatsProps {
   engagement: EventEngagement;

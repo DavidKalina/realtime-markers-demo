@@ -1,29 +1,28 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { InteractiveMap } from "@/components/map/InteractiveMap";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  MessageSquare,
-  MapPin,
-  Clock,
-  User,
-  Filter,
-  RefreshCw,
-  Plus,
-  Calendar,
-  Users,
-  Layers,
-} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLocationStore } from "@/stores/useLocationStoreWeb";
 import { apiService, type CivicEngagementStats } from "@/services/api";
+import { useLocationStore } from "@/stores/useLocationStoreWeb";
 import type { CivicEngagement } from "@realtime-markers/database";
+import {
+  Calendar,
+  Clock,
+  Filter,
+  Layers,
+  MapPin,
+  MessageSquare,
+  RefreshCw,
+  User,
+  Users,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function MapPage() {
   const { user } = useAuth();

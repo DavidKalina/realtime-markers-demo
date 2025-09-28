@@ -1,9 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
-import { useMunicipalConfig } from "@/contexts/MunicipalConfigContext";
-import { defaultMunicipalConfigs } from "@/components/MunicipalBanner";
+import { MunicipalBanner } from "@/components/MunicipalBanner";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -13,14 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { MunicipalBanner } from "@/components/MunicipalBanner";
+import { useMunicipalConfig } from "@/contexts/MunicipalConfigContext";
+import { useState } from "react";
 
 export function BannerConfigPanel() {
   const { bannerConfig, updateBannerConfig, resetToDefault } =

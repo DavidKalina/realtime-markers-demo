@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -14,29 +13,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { apiService as api } from "@/services/api";
+import { format } from "date-fns";
 import {
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   MapPin,
   MessageSquare,
   Plus,
   Search,
   X,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiService as api } from "@/services/api";
-import useCivicEngagementSearch from "@/hooks/useCivicEngagementSearch";
-import { format } from "date-fns";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useCallback, useEffect, useState } from "react";
 
 // Helper function to get type display name and variant
 const getTypeInfo = (type: string) => {
@@ -49,24 +40,6 @@ const getTypeInfo = (type: string) => {
       return { name: "Idea", variant: "secondary" as const };
     default:
       return { name: type, variant: "outline" as const };
-  }
-};
-
-// Helper function to get status badge variant with better color coding
-const getStatusVariant = (status: string) => {
-  switch (status) {
-    case "PENDING":
-      return "secondary";
-    case "UNDER_REVIEW":
-      return "default";
-    case "APPROVED":
-      return "default";
-    case "REJECTED":
-      return "destructive";
-    case "IMPLEMENTED":
-      return "default";
-    default:
-      return "outline";
   }
 };
 
@@ -179,17 +152,6 @@ export default function FeedbackPage() {
     { value: "IMPLEMENTED", label: "Implemented" },
     { value: "CLOSED", label: "Closed" },
   ];
-
-  // Use the search hook with the initial civic engagements
-  const {
-    searchQuery: searchHookQuery,
-    setSearchQuery: setSearchHookQuery,
-    civicEngagementResults,
-    isLoading: isSearchHookLoading,
-    error: searchHookError,
-    hasSearched: searchHookHasSearched,
-    clearSearch: clearSearchHook,
-  } = useCivicEngagementSearch({ initialCivicEngagements: civicEngagements });
 
   const loadCivicEngagements = useCallback(async () => {
     setLoading(true);

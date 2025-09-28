@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Wifi, WifiOff } from "lucide-react";
-import { eventBroker, EventTypes, BaseEvent } from "@/services/EventBroker";
+import { eventBroker, EventTypes } from "@/services/EventBroker";
 
 interface ConnectionIndicatorProps {
   className?: string;
@@ -13,12 +13,12 @@ const ConnectionIndicator: React.FC<ConnectionIndicatorProps> = ({
   const [isConnecting, setIsConnecting] = useState(false);
 
   useEffect(() => {
-    const handleConnected = (event: BaseEvent) => {
+    const handleConnected = () => {
       setIsConnected(true);
       setIsConnecting(false);
     };
 
-    const handleDisconnected = (event: BaseEvent) => {
+    const handleDisconnected = () => {
       setIsConnected(false);
       setIsConnecting(false);
     };

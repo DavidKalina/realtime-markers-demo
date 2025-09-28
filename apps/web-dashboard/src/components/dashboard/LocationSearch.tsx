@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Search, X, Star, Users, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { apiService, type PlaceSearchResult } from "@/services/api";
+import { MapPin, Search, Star, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 interface LocationSearchProps {
   onLocationSelect: (location: {

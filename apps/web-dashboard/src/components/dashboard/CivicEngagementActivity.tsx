@@ -1,5 +1,7 @@
 "use client";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -7,10 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageSquare, Edit, CheckCircle, Clock, User } from "lucide-react";
 import type { CivicEngagementActivity } from "@/services/api";
+import { CheckCircle, Clock, Edit, MessageSquare } from "lucide-react";
 
 interface CivicEngagementActivityProps {
   activities: CivicEngagementActivity[];
