@@ -8,6 +8,10 @@ RUN npm install -g pnpm
 # Set NODE_ENV to production for the build
 ENV NODE_ENV=production
 
+# Accept build arguments for Next.js public environment variables
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
 # Copy workspace configuration files first (these change less frequently)
 COPY pnpm-workspace.yaml ./
 COPY pnpm-lock.yaml ./
