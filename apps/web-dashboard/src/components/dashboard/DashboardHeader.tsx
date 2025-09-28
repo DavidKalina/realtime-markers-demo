@@ -17,7 +17,7 @@ export function DashboardHeader({ className }: DashboardHeaderProps) {
       <div>
         <h1 className="text-4xl font-bold text-foreground mb-2">Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome back, {user?.displayName || user?.email}!
+          Welcome back, {user?.firstName || user?.email}!
         </p>
       </div>
       <Button variant="outline" onClick={handleLogout}>
