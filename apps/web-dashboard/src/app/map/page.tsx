@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from "@/contexts/AuthContext";
 import { apiService, type CivicEngagementStats } from "@/services/api";
 import { useLocationStore } from "@/stores/useLocationStoreWeb";
 import type { CivicEngagement } from "@realtime-markers/database";
@@ -25,7 +24,6 @@ import {
 import { useEffect, useState } from "react";
 
 export default function MapPage() {
-  const { user } = useAuth();
   const { markers } = useLocationStore();
   const [civicEngagements, setCivicEngagements] = useState<CivicEngagement[]>(
     [],
