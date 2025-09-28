@@ -319,7 +319,7 @@ services:
       context: .
       dockerfile: ${WEB_DASHBOARD_DOCKERFILE:-apps/web-dashboard/Dockerfile}
       args:
-        - NEXT_PUBLIC_API_URL=${API_HOST:-api.localhost}
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://${API_HOST:-api.localhost}}
     environment:
       - NODE_ENV=${WEB_DASHBOARD_NODE_ENV:-production}
       - PORT=3001
