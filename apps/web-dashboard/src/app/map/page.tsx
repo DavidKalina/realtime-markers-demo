@@ -22,11 +22,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocationStore } from "@/stores/useLocationStoreWeb";
-import {
-  apiService,
-  type CivicEngagement,
-  type CivicEngagementStats,
-} from "@/services/api";
+import { apiService, type CivicEngagementStats } from "@/services/api";
+import type { CivicEngagement } from "@realtime-markers/database";
 
 export default function MapPage() {
   const { user } = useAuth();
@@ -60,7 +57,9 @@ export default function MapPage() {
       const response = await apiService.getCivicEngagements();
 
       if (response.data) {
-        setCivicEngagements(response.data.civicEngagements || []);
+        setCivicEngagements(
+          (response.data.civicEngagements as CivicEngagement[]) || [],
+        );
       }
     } catch (error) {
       console.error("Error fetching civic engagements:", error);

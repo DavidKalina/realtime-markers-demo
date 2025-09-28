@@ -1,9 +1,6 @@
 import AuthService from "./auth";
 import type { Event } from "./dashboard-data";
-import type { CivicEngagementSummary } from "@realtime-markers/database";
-
-// Use derived CivicEngagement type
-type CivicEngagement = CivicEngagementSummary;
+import type { CivicEngagement } from "@realtime-markers/database";
 
 interface ApiRequestOptions extends RequestInit {
   requireAuth?: boolean;

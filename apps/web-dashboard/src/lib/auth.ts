@@ -1,5 +1,5 @@
 // Authentication utilities for secure token management
-import type { UserProfile, ApiResponse } from "@realtime-markers/database";
+import type { UserProfile } from "@realtime-markers/database";
 
 export interface AuthTokens {
   accessToken: string;

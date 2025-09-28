@@ -1,5 +1,10 @@
 import { AuthService } from "@/lib/auth";
-import type { UserProfile, ApiResponse, PaginationParams, PaginatedResponse } from "@realtime-markers/database";
+import type {
+  UserProfile,
+  ApiResponse,
+  PaginationParams,
+  PaginatedResponse,
+} from "@realtime-markers/database";
 
 export type User = UserProfile;
 

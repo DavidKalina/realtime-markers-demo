@@ -46,35 +46,20 @@ import {
   ToastTitle,
   ToastViewport,
 } from "@/components/ui/toast";
-
-interface CivicEngagement {
-  id: string;
-  title: string;
-  description?: string;
-  type: "POSITIVE_FEEDBACK" | "NEGATIVE_FEEDBACK" | "IDEA";
-  status: "PENDING" | "IN_REVIEW" | "IMPLEMENTED" | "CLOSED";
-  location?: {
-    type: "Point";
-    coordinates: [number, number];
-  };
-  address?: string;
-  locationNotes?: string;
-  imageUrls?: string[];
-  creatorId: string;
-  adminNotes?: string;
-  implementedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { CivicEngagement } from "@realtime-markers/database";
+import {
+  CivicEngagementType,
+  CivicEngagementStatus,
+} from "@realtime-markers/database";
 
 // Helper function to get type display name
-const getTypeName = (type: string) => {
+const getTypeName = (type: CivicEngagementType | string) => {
   switch (type) {
-    case "POSITIVE_FEEDBACK":
+    case CivicEngagementType.POSITIVE_FEEDBACK:
       return "Positive Feedback";
-    case "NEGATIVE_FEEDBACK":
+    case CivicEngagementType.NEGATIVE_FEEDBACK:
       return "Negative Feedback";
-    case "IDEA":
+    case CivicEngagementType.IDEA:
       return "Idea";
     default:
       return type;
@@ -82,15 +67,15 @@ const getTypeName = (type: string) => {
 };
 
 // Helper function to get status display name
-const getStatusName = (status: string) => {
+const getStatusName = (status: CivicEngagementStatus | string) => {
   switch (status) {
-    case "PENDING":
+    case CivicEngagementStatus.PENDING:
       return "Pending";
-    case "IN_REVIEW":
+    case CivicEngagementStatus.IN_REVIEW:
       return "In Review";
-    case "IMPLEMENTED":
+    case CivicEngagementStatus.IMPLEMENTED:
       return "Implemented";
-    case "CLOSED":
+    case CivicEngagementStatus.CLOSED:
       return "Closed";
     default:
       return status;
@@ -98,15 +83,15 @@ const getStatusName = (status: string) => {
 };
 
 // Helper function to get status badge variant
-const getStatusVariant = (status: string) => {
+const getStatusVariant = (status: CivicEngagementStatus | string) => {
   switch (status) {
-    case "PENDING":
+    case CivicEngagementStatus.PENDING:
       return "secondary";
-    case "IN_REVIEW":
+    case CivicEngagementStatus.IN_REVIEW:
       return "default";
-    case "IMPLEMENTED":
+    case CivicEngagementStatus.IMPLEMENTED:
       return "default";
-    case "CLOSED":
+    case CivicEngagementStatus.CLOSED:
       return "destructive";
     default:
       return "outline";
@@ -171,13 +156,10 @@ export default function CivicEngagementDetailPage() {
       setStatusUpdateSuccess(false);
 
       // Call the admin status update API
-      await api.patch<CivicEngagement & { message?: string }>(
-        `/api/civic-engagements/${id}/status`,
-        {
-          status: newStatus,
-          adminNotes: adminNotes || undefined,
-        },
-      );
+      await api.patch<CivicEngagement>(`/api/civic-engagements/${id}/status`, {
+        status: newStatus,
+        adminNotes: adminNotes || undefined,
+      });
 
       // Reset form
       setNewStatus("");
@@ -486,16 +468,26 @@ export default function CivicEngagementDetailPage() {
                                   <SelectValue placeholder="Select a status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="PENDING">
+                                  <SelectItem
+                                    value={CivicEngagementStatus.PENDING}
+                                  >
                                     Pending
                                   </SelectItem>
-                                  <SelectItem value="IN_REVIEW">
+                                  <SelectItem
+                                    value={CivicEngagementStatus.IN_REVIEW}
+                                  >
                                     In Review
                                   </SelectItem>
-                                  <SelectItem value="IMPLEMENTED">
+                                  <SelectItem
+                                    value={CivicEngagementStatus.IMPLEMENTED}
+                                  >
                                     Implemented
                                   </SelectItem>
-                                  <SelectItem value="CLOSED">Closed</SelectItem>
+                                  <SelectItem
+                                    value={CivicEngagementStatus.CLOSED}
+                                  >
+                                    Closed
+                                  </SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>

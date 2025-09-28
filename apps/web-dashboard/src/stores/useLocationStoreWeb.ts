@@ -1,9 +1,9 @@
 // stores/useLocationStore.ts - Updated with unified selection model
-import { create } from "zustand";
-import { EventType, MapboxViewport } from "@/types/types";
-import { markerToEvent, isValidCoordinates } from "@/utils/mapUtilsWeb";
 import { Marker } from "@/hooks/useMapWebsocketWeb";
 import { ClusterFeature } from "@/hooks/useMarkerClusteringWeb";
+import { EventType, MapboxViewport } from "@/types/types";
+import { markerToEvent } from "@/utils/mapUtilsWeb";
+import { create } from "zustand";
 
 type ActiveView = "none" | "details" | "share" | "search" | "camera" | "map";
 
@@ -92,7 +92,6 @@ interface LocationStoreState {
 
   // Action handlers
   shareEvent: () => void;
-  openMaps: (location: string) => void;
   handleSelectEventFromSearch: (event: EventType) => void;
   handleSelectEventFromMap: (marker: Marker) => void;
   updateMapViewport: (viewport: MapboxViewport) => void;
@@ -431,27 +430,6 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
   shareEvent: () => {
     const { openShareView } = get();
     openShareView();
-  },
-
-  openMaps: (location: string) => {
-    const { selectedMarker } = get();
-
-    if (!selectedMarker) {
-      console.warn("Cannot open maps: no current event");
-      return;
-    }
-
-    // Try to use coordinates if available, otherwise fall back to location text
-    if (
-      selectedMarker.coordinates &&
-      isValidCoordinates(selectedMarker.coordinates)
-    ) {
-      const [longitude, latitude] = selectedMarker.coordinates;
-      const url = `https://maps.google.com/?q=${latitude},${longitude}`;
-    } else {
-      const encodedLocation = encodeURIComponent(location);
-      const url = `https://maps.google.com/?q=${encodedLocation}`;
-    }
   },
 
   handleSelectEventFromSearch: (event: EventType) => {
