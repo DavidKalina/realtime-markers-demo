@@ -28,7 +28,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               Admin Dashboard
             </h1>
             <p className="text-muted-foreground">
-              Welcome back, {user?.displayName || user?.email}!
+              Welcome back, {user?.firstName || user?.email}!
             </p>
           </div>
           <Button variant="outline" onClick={handleLogout}>
