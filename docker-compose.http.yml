@@ -9,35 +9,41 @@ services:
 
   postgres:
     ports:
-      - "127.0.0.1:5432:5432" # Re-enable local access for debugging
+      - "5432:5432" # External access for debugging (optional - you may want to keep this restricted)
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust # Allow connections without specific password for external access
 
   adminer:
     ports:
-      - "127.0.0.1:8080:8080" # Admin database access
+      - "8080:8080" # External admin database access
     profiles: [] # Remove traefik labels to enable direct access
 
   redis:
     ports:
-      - "127.0.0.1:6379:6379" # Redis access for debugging
+      - "6379:6379" # External Redis access for debugging
 
   backend:
     ports:
-      - "127.0.0.1:3000:3000" # Direct API access
+      - "3000:3000" # External API access via droplet IP
     labels: [] # Remove Traefik labels
+    environment:
+      - TRUST_PROXY=true # Allow requests from external sources
 
   filter-processor:
     ports:
-      - "127.0.0.1:8082:8082" # Direct filter processor access
+      - "8082:8082" # External filter processor access
     labels: [] # Remove Traefik labels
 
   websocket:
     ports:
-      - "127.0.0.1:8081:8081" # Direct WebSocket access
+      - "8081:8081" # External WebSocket access
     labels: [] # Remove Traefik labels
+    environment:
+      - TRUST_PROXY=true # Allow WebSocket connections from external sources
 
   web-dashboard:
     ports:
-      - "127.0.0.1:3001:3001" # Direct web dashboard access
+      - "3001:3001" # External web dashboard access
     labels: [] # Remove Traefik labels
     environment:
       - NODE_ENV=development # Ensure dev mode for better debugging
