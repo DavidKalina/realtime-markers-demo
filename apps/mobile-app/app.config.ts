@@ -5,7 +5,7 @@ export default {
   expo: {
     name: "Frederick",
     slug: "mobile-app",
-    version: "1.16.5",
+    version: "1.16.6",
     orientation: "portrait",
     icon: "./assets/images/frederick-logo.png",
     scheme: "myapp",
@@ -27,13 +27,13 @@ export default {
         NSCameraUsageDescription:
           "Frederick needs camera access to scan event flyers. Images are processed on our server and may be stored to display event details to other users.",
         NSAppTransportSecurity: {
-          NSAllowsArbitraryLoads: true,
+          NSAllowsArbitraryLoads: false,
         },
         UIBackgroundModes: ["remote-notification"],
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "166",
+      buildNumber: "167",
     },
     android: {
       adaptiveIcon: {
