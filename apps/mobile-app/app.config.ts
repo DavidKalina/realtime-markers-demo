@@ -27,7 +27,7 @@ export default {
         NSCameraUsageDescription:
           "Frederick needs camera access to scan event flyers. Images are processed on our server and may be stored to display event details to other users.",
         NSAppTransportSecurity: {
-          NSAllowsArbitraryLoads: false,
+          NSAllowsArbitraryLoads: true,
         },
         UIBackgroundModes: ["remote-notification"],
       },
