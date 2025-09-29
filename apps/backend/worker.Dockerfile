@@ -25,8 +25,14 @@ COPY packages/database ./packages/database
 # Install dependencies using pnpm for workspace support
 RUN pnpm install --frozen-lockfile || pnpm install
 
+# Build the database package
+RUN cd packages/database && pnpm run build
+
 # Verify that key dependencies are installed
 RUN ls -la /app/apps/backend/node_modules/ | grep -E "(hono|ioredis)" || echo "Key dependencies not found"
+
+# Verify that the database package was built
+RUN ls -la /app/packages/database/dist/ || echo "Database package not built"
 
 # Create a simple worker entrypoint script
 RUN echo '#!/bin/bash\necho "Starting worker..."\nexec "$@"' > /usr/local/bin/worker-entrypoint.sh
