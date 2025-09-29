@@ -238,6 +238,7 @@ services:
       - NODE_ENV=production
       - HEALTH_PORT=8082
       - BACKEND_URL=http://backend:3000
+      - FILTER_PROCESSOR_URL=http://filter-processor:8082
     # Remove port exposure - only accessible via Traefik
     # ports:
     #   - "127.0.0.1:8082:8082"
@@ -282,6 +283,7 @@ services:
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - BACKEND_URL=http://backend:3000
+      - FILTER_PROCESSOR_URL=http://filter-processor:8082
     # Remove port exposure - only accessible via Traefik
     # ports:
     #   - "127.0.0.1:8081:8081"
