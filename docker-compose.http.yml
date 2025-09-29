@@ -1,0 +1,43 @@
+# HTTP-only override for docker-compose.yml
+# This file enables direct IPv4 access with HTTP (no HTTPS/TLS)
+# Use this bypass Let's Encrypt rate limiting: docker-compose -f docker-compose.yml -f docker-compose.http.yml up
+
+services:
+  # Disable Traefik entirely to allow direct service access
+  traefik:
+    profiles: ["never"] # This prevents Traefik from starting
+
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432" # Re-enable local access for debugging
+
+  adminer:
+    ports:
+      - "127.0.0.1:8080:8080" # Admin database access
+    profiles: [] # Remove traefik labels to enable direct access
+
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379" # Redis access for debugging
+
+  backend:
+    ports:
+      - "127.0.0.1:3000:3000" # Direct API access
+    labels: [] # Remove Traefik labels
+
+  filter-processor:
+    ports:
+      - "127.0.0.1:8082:8082" # Direct filter processor access
+    labels: [] # Remove Traefik labels
+
+  websocket:
+    ports:
+      - "127.0.0.1:8081:8081" # Direct WebSocket access
+    labels: [] # Remove Traefik labels
+
+  web-dashboard:
+    ports:
+      - "127.0.0.1:3001:3001" # Direct web dashboard access
+    labels: [] # Remove Traefik labels
+    environment:
+      - NODE_ENV=development # Ensure dev mode for better debugging
