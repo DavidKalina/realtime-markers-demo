@@ -34,10 +34,8 @@ export const securityHeaders = () => {
     }
 
     // CORS headers (if not using Hono's cors middleware)
-    const allowedOrigins = process.env.ALLOWED_ORIGINS;
-    if (allowedOrigins) {
-      c.header("Access-Control-Allow-Origin", allowedOrigins);
-    }
+    const allowedOrigins = process.env.ALLOWED_ORIGINS || "*";
+    c.header("Access-Control-Allow-Origin", allowedOrigins);
     c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     c.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
     c.header("Access-Control-Max-Age", "86400");
