@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import type { RedisService } from "./redisService";
 
 export interface Filter {
@@ -29,13 +30,18 @@ export function createUserFilterService(
       try {
         console.log(`🔍 Fetching filters for user ${userId}`);
 
+        const headers: Record<string, string> = {
+          Accept: "application/json",
+        };
+        const internalSecret = process.env.INTERNAL_API_SECRET?.trim();
+        if (internalSecret) {
+          headers["x-internal-secret"] = internalSecret;
+        }
+
         const response = await fetch(
           `${dependencies.backendUrl}/api/internal/filters?userId=${userId}`,
           {
-            headers: {
-              Accept: "application/json",
-              "x-internal-secret": process.env.INTERNAL_API_SECRET || "",
-            },
+            headers,
             signal: AbortSignal.timeout(5000),
           },
         );

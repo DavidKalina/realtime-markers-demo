@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import {
   CivicEngagement,
   CivicEngagementType,
@@ -148,11 +149,16 @@ export class CivicEngagementInitializationService
               `📡 [CivicEngagementInitialization] Fetching page ${currentPage}: ${url}`,
             );
 
+            const headers: Record<string, string> = {
+              Accept: "application/json",
+            };
+            const internalSecret = process.env.INTERNAL_API_SECRET?.trim();
+            if (internalSecret) {
+              headers["x-internal-secret"] = internalSecret;
+            }
+
             const response = await fetch(url, {
-              headers: {
-                Accept: "application/json",
-                "x-internal-secret": process.env.INTERNAL_API_SECRET || "",
-              },
+              headers,
             });
 
             if (!response.ok) {
