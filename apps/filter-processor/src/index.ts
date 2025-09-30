@@ -33,9 +33,38 @@ const redisConfig = {
 };
 
 // Initialize Redis clients for publishing and subscribing
-// console.log("Initializing Redis clients...");
+// Use a specialized reconnect strategy for the subscriber to avoid reconnect loops
+// caused by benign CLIENT SETINFO errors in pub/sub mode
 const redisPub = new Redis(redisConfig);
-const redisSub = new Redis(redisConfig);
+const redisSub = new Redis({
+  ...redisConfig,
+  reconnectOnError: (err: Error) => {
+    const message = err?.message || "";
+    const isSubscriberContextCommandError =
+      message.includes("only (P|S)SUBSCRIBE") ||
+      message.includes("only (P|S)UNSUBSCRIBE") ||
+      message.includes("in this context");
+    const isClientSetInfo =
+      message.toLowerCase().includes("client|setinfo") ||
+      message.toLowerCase().includes("client setinfo");
+
+    if (isSubscriberContextCommandError && isClientSetInfo) {
+      console.warn(
+        "Redis subscriber received CLIENT SETINFO error in subscribed context; ignoring without reconnect:",
+        { message },
+      );
+      return false; // do not reconnect for this benign error
+    }
+
+    // Fallback to the default behavior for other errors
+    console.log("Redis subscriber reconnectOnError triggered:", {
+      message: err.message,
+      stack: err.stack,
+      name: err.name,
+    });
+    return true;
+  },
+});
 
 // Add error handling for Redis publisher
 redisPub.on("error", (error: Error & { code?: string }) => {
