@@ -234,7 +234,12 @@ export class UserService {
   }
 
   private async hashPassword(password: string): Promise<string> {
-    const saltRounds = 10;
-    return bcrypt.hash(password, saltRounds);
+    const parsed = parseInt(process.env.BCRYPT_ROUNDS || "", 10);
+    const isProd = (process.env.NODE_ENV || "development") === "production";
+    let rounds = Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
+    if (isProd && rounds < 12) {
+      rounds = 12;
+    }
+    return bcrypt.hash(password, rounds);
   }
 }

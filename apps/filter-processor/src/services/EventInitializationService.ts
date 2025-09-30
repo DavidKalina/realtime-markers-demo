@@ -143,6 +143,7 @@ export class EventInitializationService
             const response = await fetch(url, {
               headers: {
                 Accept: "application/json",
+                "x-internal-secret": process.env.INTERNAL_API_SECRET || "",
               },
             });
 

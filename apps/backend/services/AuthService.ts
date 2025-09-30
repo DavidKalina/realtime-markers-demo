@@ -46,10 +46,26 @@ export class AuthService {
     this.userPreferencesService = dependencies.userPreferencesService;
     this.dataSource = dependencies.dataSource;
     this.openAIService = dependencies.openAIService;
-    this.jwtSecret = process.env.JWT_SECRET || "your-secret-key";
-    this.refreshSecret = process.env.REFRESH_SECRET || "your-refresh-secret";
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET environment variable must be set");
+    }
+    if (!process.env.REFRESH_SECRET) {
+      throw new Error("REFRESH_SECRET environment variable must be set");
+    }
+    this.jwtSecret = process.env.JWT_SECRET;
+    this.refreshSecret = process.env.REFRESH_SECRET;
     this.accessTokenExpiry = "1h";
     this.refreshTokenExpiry = "7d";
+  }
+
+  private getBcryptRounds(): number {
+    const parsed = parseInt(process.env.BCRYPT_ROUNDS || "", 10);
+    const isProd = (process.env.NODE_ENV || "development") === "production";
+    let rounds = Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
+    if (isProd && rounds < 12) {
+      rounds = 12;
+    }
+    return rounds;
   }
 
   /**
@@ -136,7 +152,7 @@ export class AuthService {
     await this.validateNames(userData.firstName, userData.lastName);
 
     // Hash password
-    const saltRounds = 10;
+    const saltRounds = this.getBcryptRounds();
     const passwordHash = await bcrypt.hash(userData.password, saltRounds);
 
     // Create new user
@@ -460,7 +476,7 @@ export class AuthService {
     }
 
     // Hash new password
-    const saltRounds = 10;
+    const saltRounds = this.getBcryptRounds();
     const passwordHash = await bcrypt.hash(newPassword, saltRounds);
 
     // Update password

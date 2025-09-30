@@ -50,7 +50,12 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
   }
 
   // Hash passwords
-  const saltRounds = 10;
+  const parsed = parseInt(process.env.BCRYPT_ROUNDS || "", 10);
+  const isProd = (process.env.NODE_ENV || "development") === "production";
+  let saltRounds = Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
+  if (isProd && saltRounds < 12) {
+    saltRounds = 12;
+  }
   const usersWithHashedPasswords: SeededUser[] = await Promise.all(
     SEEDED_USERS.map(async (user) => ({
       ...user,

@@ -2,54 +2,7 @@
 
 import type { Context } from "hono";
 import type { AppContext } from "../types/context";
-import Redis from "ioredis";
-
-// Initialize Redis client with proper configuration
-const redisConfig = {
-  host: process.env.REDIS_HOST || "redis",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD,
-  maxRetriesPerRequest: 3,
-  retryStrategy: (times: number) => {
-    const delay = Math.min(times * 50, 2000);
-    console.log(`Redis retry attempt ${times} with delay ${delay}ms`);
-    return delay;
-  },
-  reconnectOnError: (err: Error) => {
-    console.log("Redis reconnectOnError triggered:", {
-      message: err.message,
-      stack: err.stack,
-      name: err.name,
-    });
-    return true;
-  },
-  enableOfflineQueue: true,
-  connectTimeout: 10000,
-  commandTimeout: 5000,
-  lazyConnect: true,
-  authRetry: true,
-  enableReadyCheck: true,
-};
-
-// Initialize Redis client
-const redisClient = new Redis(redisConfig);
-
-// Add error handling for Redis
-redisClient.on("error", (error: Error & { code?: string }) => {
-  console.error("Redis connection error:", {
-    message: error.message,
-    code: error.code,
-    stack: error.stack,
-  });
-});
-
-redisClient.on("connect", () => {
-  console.log("Redis connected successfully");
-});
-
-redisClient.on("ready", () => {
-  console.log("Redis is ready to accept commands");
-});
+// Use shared Redis service from context; remove duplicate client
 
 // Initialize services using the shared Redis instance from context
 export type AuthHandler = (

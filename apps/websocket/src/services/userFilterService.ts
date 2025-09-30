@@ -34,6 +34,7 @@ export function createUserFilterService(
           {
             headers: {
               Accept: "application/json",
+              "x-internal-secret": process.env.INTERNAL_API_SECRET || "",
             },
             signal: AbortSignal.timeout(5000),
           },
