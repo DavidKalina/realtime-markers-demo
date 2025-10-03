@@ -16,7 +16,25 @@ export function setupMiddlewares(
 ): void {
   // Apply global middlewares
   app.use("*", logger());
-  app.use("*", cors());
+  app.use(
+    "*",
+    cors({
+      origin:
+        process.env.ALLOWED_ORIGINS
+          ? process.env.ALLOWED_ORIGINS.split(",")
+          : "*",
+      allowMethods: [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "PATCH",
+        "OPTIONS",
+      ],
+      allowHeaders: ["Content-Type", "Authorization"],
+      maxAge: 86400,
+    }),
+  );
   app.use("*", securityHeaders());
   app.use(
     "*",

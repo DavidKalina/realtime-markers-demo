@@ -171,7 +171,7 @@ services:
       - "traefik.http.services.backend.loadbalancer.server.port=3000"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
       - "traefik.http.routers.backend.middlewares=backend-headers"
-      - "traefik.http.middlewares.backend-headers.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS"
+      - "traefik.http.middlewares.backend-headers.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,PATCH,OPTIONS"
       - "traefik.http.middlewares.backend-headers.headers.accesscontrolalloworiginlist=*"
       - "traefik.http.middlewares.backend-headers.headers.accesscontrolallowheaders=*"
 
