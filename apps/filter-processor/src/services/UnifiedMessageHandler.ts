@@ -4,7 +4,10 @@ import type {
   EntityRegistry,
   EntityProcessor,
 } from "../types/entities";
-import type { Redis } from "ioredis";
+// Minimal Redis publisher interface to avoid importing external types here
+interface MinimalRedisPublisher {
+  publish: (channel: string, message: string) => Promise<number> | number;
+}
 import { ViewportProcessor } from "../handlers/ViewportProcessor";
 
 export interface UnifiedMessageHandlerConfig {
@@ -58,7 +61,7 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
     data: unknown;
     timestamp: number;
   }> = [];
-  private batchTimeout: NodeJS.Timeout | null = null;
+  private batchTimeout: ReturnType<typeof setTimeout> | null = null;
 
   private readonly onUserDirty?: (
     userId: string,
@@ -72,7 +75,7 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
 
   constructor(
     private readonly entityRegistry: EntityRegistry,
-    private readonly redisPub?: Redis,
+    private readonly redisPub?: MinimalRedisPublisher,
     private readonly viewportProcessor?: ViewportProcessor,
     config: UnifiedMessageHandlerConfig = {},
   ) {
@@ -501,46 +504,62 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
       const processor = this.entityRegistry.getProcessor(entityType);
       if (!processor) return;
 
-      const config = this.entityRegistry.getEntityType(entityType);
-      if (!config) return;
+      const opUpper = operation.toUpperCase();
 
-      // For DELETE operations, we only need the entity ID, not the full formatted entity
-      let formattedEntity: Record<string, unknown>;
-      if (operation.toUpperCase() === "DELETE") {
-        formattedEntity = {
-          type: entityType,
-          operation,
-          data: {
-            id: (entity as { id: string }).id,
-          },
-        };
-      } else {
-        // For CREATE and UPDATE operations, format the full entity
-        formattedEntity = processor.formatForWebSocket(entity, operation);
-      }
+      // Helper to choose per-user channel
+      const channelForUser = (userId: string): string => {
+        if (entityType === "civic_engagement") {
+          return `user:${userId}:filtered-civic-engagements`;
+        }
+        return `user:${userId}:filtered-events`;
+      };
 
-      // Get the message type, handling potential undefined access
-      const messageTypes = config.webSocket.messageTypes;
-      const messageType =
-        messageTypes[operation as keyof typeof messageTypes] || operation;
+      // Build payload per entity type in mobile-friendly shapes
+      const buildPayload = (): ((userId: string) => string) => {
+        const timestamp = new Date().toISOString();
 
-      // Send notification to each affected user
-      const notificationPromises = Array.from(affectedUsers).map((userId) =>
-        this.redisPub!.publish(
-          `user:${userId}:notifications`,
-          JSON.stringify({
-            type: messageType,
-            entityType,
-            data: formattedEntity,
-            timestamp: new Date().toISOString(),
-          }),
-        ),
+        if (entityType === "event") {
+          if (opUpper === "DELETE") {
+            const id = (entity as { id: string }).id;
+            return () => JSON.stringify({ type: "delete-event", id, timestamp });
+          }
+
+          const formatted = processor.formatForWebSocket(entity, operation);
+          const eventData = (formatted as { data?: Record<string, unknown> })
+            .data || (entity as Record<string, unknown>);
+          const type = opUpper === "UPDATE" ? "update-event" : "add-event";
+          return () => JSON.stringify({ type, event: eventData, timestamp });
+        }
+
+        // civic_engagement
+        if (opUpper === "DELETE") {
+          const id = (entity as { id: string }).id;
+          return () =>
+            JSON.stringify({ type: "delete-civic-engagement", id, timestamp });
+        }
+
+        const formatted = processor.formatForWebSocket(entity, operation);
+        const ceData = (formatted as { data?: Record<string, unknown> }).data ||
+          (entity as Record<string, unknown>);
+        const type =
+          opUpper === "UPDATE"
+            ? "update-civic-engagement"
+            : "add-civic-engagement";
+        return () =>
+          JSON.stringify({ type, civicEngagement: ceData, timestamp });
+      };
+
+      const payloadBuilder = buildPayload();
+
+      // Publish per affected user on their filtered channels
+      const publishPromises = Array.from(affectedUsers).map((userId) =>
+        this.redisPub!.publish(channelForUser(userId), payloadBuilder(userId)),
       );
 
-      await Promise.all(notificationPromises);
+      await Promise.all(publishPromises);
 
       console.log(
-        `[UnifiedMessageHandler] Sent ${affectedUsers.size} WebSocket notifications for ${entityType} ${operation}`,
+        `[UnifiedMessageHandler] Sent ${affectedUsers.size} per-user ${entityType} ${operation} notifications on filtered channels`,
       );
     } catch (error) {
       console.error(

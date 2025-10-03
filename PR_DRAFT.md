@@ -20,3 +20,30 @@ Next Steps
 Files Added
 - docs/audit.md
 - docs/aws-architecture.md
+
+---
+
+Title: Switch immediate per-user publishes to filtered channels in mobile format
+
+Summary
+- Changes `UnifiedMessageHandler` to publish immediate deltas to `user:{userId}:filtered-events` (and `filtered-civic-engagements`) using mobile-friendly message types (`add-event`, `update-event`, `delete-event`).
+- Fixes issue where newly created events didn’t appear on mobile until viewport changed.
+
+Rationale
+- The mobile `useMapWebSocket` hook consumes `add-event`/`update-event`/`delete-event` and `replace-all` from the `filtered-events` channel.
+- Previously, filter-processor published immediate updates to per-user `notifications`, which the websocket layer doesn’t forward to clients.
+
+Details
+- Updated file: `apps/filter-processor/src/services/UnifiedMessageHandler.ts`
+  - Channel now selected per entity type:
+    - Events → `user:{userId}:filtered-events`
+    - Civic engagements → `user:{userId}:filtered-civic-engagements`
+  - Payloads:
+    - CREATE → `add-event` / `add-civic-engagement`
+    - UPDATE → `update-event` / `update-civic-engagement`
+    - DELETE → `delete-event` / `delete-civic-engagement`
+  - Avoids importing external Redis types; uses a minimal publisher interface to satisfy linter.
+
+Testing notes
+- Creating an event from the dashboard should now appear on the mobile map instantly (assuming the user has identified and sent an initial viewport).
+- No websocket or mobile changes required.
