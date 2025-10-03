@@ -46,8 +46,8 @@ export function createHybridUserUpdateBatcherService(
   config: HybridUserUpdateBatcherConfig = {},
 ): HybridUserUpdateBatcherService {
   const {
-    debounceTimeoutMs = 200,
-    sweepIntervalMs = 5000,
+    debounceTimeoutMs = 150,
+    sweepIntervalMs = 2000,
     maxBatchSize = 100,
     enableBatching = true,
   } = config;
@@ -110,7 +110,9 @@ export function createHybridUserUpdateBatcherService(
     const timer = setTimeout(() => {
       // The timer fired, so process this one user now
       stats.totalDebounceTimersFired++;
-      stats.currentActiveTimers = userDebounceTimers.size - 1;
+      // Remove and clean timer metadata
+      userDebounceTimers.delete(userId);
+      stats.currentActiveTimers = userDebounceTimers.size;
 
       // Remove from dirty set to prevent sweeper from processing again
       dirtyUserIds.delete(userId);
