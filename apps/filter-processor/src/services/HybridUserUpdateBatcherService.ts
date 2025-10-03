@@ -19,12 +19,6 @@ export interface HybridUserUpdateBatcherConfig {
   sweepIntervalMs?: number;
   maxBatchSize?: number;
   enableBatching?: boolean;
-  /**
-   * If a user's per-user debounce timer is due within this threshold,
-   * the sweeper will skip processing that user to allow the near-firing
-   * debounce to deliver a faster update.
-   */
-  sweeperSkipNearDueMs?: number;
 }
 
 export interface HybridUserUpdateBatcherService {
@@ -56,13 +50,11 @@ export function createHybridUserUpdateBatcherService(
     sweepIntervalMs = 2000,
     maxBatchSize = 100,
     enableBatching = true,
-    sweeperSkipNearDueMs = 100,
   } = config;
 
   // Internal state
   const dirtyUserIds = new Set<string>();
   const userDebounceTimers = new Map<string, NodeJS.Timeout>();
-  const userDebounceDueTimes = new Map<string, number>();
   let periodicSweeper: NodeJS.Timeout | null = null;
   let isShutdown = false;
 
@@ -73,7 +65,6 @@ export function createHybridUserUpdateBatcherService(
     totalBatchesProcessed: 0,
     totalDebounceTimersFired: 0,
     totalSweeperRuns: 0,
-    totalUsersSkippedNearDue: 0,
     currentDirtyUsers: 0,
     currentActiveTimers: 0,
   };
@@ -121,7 +112,6 @@ export function createHybridUserUpdateBatcherService(
       stats.totalDebounceTimersFired++;
       // Remove and clean timer metadata
       userDebounceTimers.delete(userId);
-      userDebounceDueTimes.delete(userId);
       stats.currentActiveTimers = userDebounceTimers.size;
 
       // Remove from dirty set to prevent sweeper from processing again
@@ -131,7 +121,6 @@ export function createHybridUserUpdateBatcherService(
     }, debounceTimeoutMs);
 
     userDebounceTimers.set(userId, timer);
-    userDebounceDueTimes.set(userId, Date.now() + debounceTimeoutMs);
     stats.currentActiveTimers = userDebounceTimers.size;
   }
 
@@ -146,9 +135,7 @@ export function createHybridUserUpdateBatcherService(
     if (!enableBatching) return;
 
     // --- Batching Part ---
-    // Every sweepIntervalMs, process ALL users who are currently dirty,
-    // except those with a per-user timer due very soon (to avoid stealing
-    // near-firing debounces that provide a snappier UX)
+    // Every sweepIntervalMs, process ALL users who are currently dirty
     periodicSweeper = setInterval(() => {
       if (isShutdown) return;
 
@@ -156,25 +143,10 @@ export function createHybridUserUpdateBatcherService(
       const usersToProcess = Array.from(dirtyUserIds);
       if (usersToProcess.length > 0) {
         stats.totalSweeperRuns++;
-        const now = Date.now();
-        const readyUsers = usersToProcess.filter((userId) => {
-          const due = userDebounceDueTimes.get(userId);
-          if (due == null) return true; // no active per-user timer
-          const timeUntilDue = due - now;
-          if (timeUntilDue <= sweeperSkipNearDueMs) {
-            // Skip this user; let their near-firing debounce handle it
-            stats.totalUsersSkippedNearDue++;
-            return false;
-          }
-          return true;
-        });
-
-        if (readyUsers.length > 0) {
-          console.log(
-            `[HybridBatcher] Sweeper processing ${readyUsers.length} dirty users (skipped ${usersToProcess.length - readyUsers.length} near-due)`,
-          );
-          processUpdatesForUsers(readyUsers);
-        }
+        console.log(
+          `[HybridBatcher] Sweeper processing ${usersToProcess.length} dirty users`,
+        );
+        processUpdatesForUsers(usersToProcess);
       }
     }, sweepIntervalMs);
 
@@ -206,10 +178,6 @@ export function createHybridUserUpdateBatcherService(
         if (userDebounceTimers.has(userId)) {
           clearTimeout(userDebounceTimers.get(userId)!);
           userDebounceTimers.delete(userId);
-        }
-        // Clear due-time metadata if present
-        if (userDebounceDueTimes.has(userId)) {
-          userDebounceDueTimes.delete(userId);
         }
 
         // 3. Get the user's current state (viewport, filters)
@@ -291,7 +259,6 @@ export function createHybridUserUpdateBatcherService(
       clearTimeout(timer);
     }
     userDebounceTimers.clear();
-    userDebounceDueTimes.clear();
 
     // Process all dirty users
     const usersToProcess = Array.from(dirtyUserIds);
@@ -312,7 +279,6 @@ export function createHybridUserUpdateBatcherService(
       clearTimeout(timer);
     }
     userDebounceTimers.clear();
-    userDebounceDueTimes.clear();
 
     if (periodicSweeper) {
       clearInterval(periodicSweeper);
@@ -342,7 +308,6 @@ export function createHybridUserUpdateBatcherService(
         sweepIntervalMs,
         maxBatchSize,
         enableBatching,
-        sweeperSkipNearDueMs,
       },
     };
   }
