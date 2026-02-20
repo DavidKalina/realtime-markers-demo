@@ -38,7 +38,6 @@ USE_NGROK=true
 FORCE_ENV=false
 NO_CACHE=false
 NGROK_PID=""
-EXPO_PID=""
 DOCKER_STARTED=false
 NGROK_CONFIG="/tmp/ngrok-dev-local.yml"
 
@@ -69,12 +68,6 @@ cleanup() {
   echo ""
   header "Shutting down"
 
-  if [[ -n "$EXPO_PID" ]] && kill -0 "$EXPO_PID" 2>/dev/null; then
-    info "Stopping Expo (PID $EXPO_PID)..."
-    kill "$EXPO_PID" 2>/dev/null || true
-    wait "$EXPO_PID" 2>/dev/null || true
-  fi
-
   if [[ -n "$NGROK_PID" ]] && kill -0 "$NGROK_PID" 2>/dev/null; then
     info "Stopping ngrok (PID $NGROK_PID)..."
     kill "$NGROK_PID" 2>/dev/null || true
@@ -83,6 +76,7 @@ cleanup() {
 
   if [[ "$DOCKER_STARTED" == "true" ]]; then
     info "Stopping Docker services..."
+    cd "$REPO_ROOT"
     docker compose -f docker-compose.yml -f docker-compose.http.yml -f docker-compose.local.yml down
   fi
 
@@ -215,9 +209,16 @@ if [[ "$USE_NGROK" == "true" ]]; then
     sleep 1
   fi
 
-  # Write temp ngrok config
+  # Locate the global ngrok config (contains authtoken)
+  NGROK_GLOBAL_CONFIG=$(ngrok config check 2>&1 | grep -oE '/.*\.yml' || true)
+  if [[ -z "$NGROK_GLOBAL_CONFIG" || ! -f "$NGROK_GLOBAL_CONFIG" ]]; then
+    error "ngrok config not found. Run: ngrok config add-authtoken <token>"
+    exit 1
+  fi
+
+  # Write temp tunnel config
   cat > "$NGROK_CONFIG" <<'NGROK_EOF'
-version: "3"
+version: 3
 tunnels:
   api:
     proto: http
@@ -227,8 +228,8 @@ tunnels:
     addr: 8081
 NGROK_EOF
 
-  # Start ngrok in background
-  ngrok start --all --config "$NGROK_CONFIG" > /dev/null 2>&1 &
+  # Start ngrok with both global config (authtoken) and tunnel config
+  ngrok start --all --config "$NGROK_GLOBAL_CONFIG" --config "$NGROK_CONFIG" > /dev/null 2>&1 &
   NGROK_PID=$!
   info "ngrok started (PID $NGROK_PID)"
 
@@ -330,8 +331,5 @@ echo ""
 header "Starting Expo"
 
 cd apps/mobile-app
-npx expo start &
-EXPO_PID=$!
-
-# Wait for Expo process to finish (user presses Ctrl+C)
-wait "$EXPO_PID" 2>/dev/null || true
+npx expo start --port 8084
+# Expo runs in foreground — Ctrl+C triggers cleanup via the trap
