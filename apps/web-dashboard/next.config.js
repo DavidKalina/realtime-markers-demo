@@ -12,7 +12,6 @@ const nextConfig = {
   },
   // Enable fast refresh
   reactStrictMode: true,
-  swcMinify: true,
 };
 
 module.exports = nextConfig;
