@@ -29,6 +29,12 @@
     "dev:local:no-ngrok": "bash scripts/dev-local.sh --no-ngrok",
     "dev:local:no-cache": "bash scripts/dev-local.sh --no-cache"
   },
+  "pnpm": {
+    "overrides": {
+      "react": "19.1.0",
+      "react-dom": "19.1.0"
+    }
+  },
   "devDependencies": {
     "@types/rbush": "^4.0.0",
     "@typescript-eslint/eslint-plugin": "^8.56.0",
