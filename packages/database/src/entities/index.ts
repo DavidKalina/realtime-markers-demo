@@ -2,7 +2,6 @@
 export * from "./User";
 export * from "./Event";
 export * from "./Category";
-export * from "./CivicEngagement";
 export * from "./Filter";
 export * from "./QueryAnalytics";
 export * from "./UserEventDiscovery";

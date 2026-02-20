@@ -20,15 +20,11 @@ export function createClientConfigService(
   const defaultConfigs: Record<ClientType, ClientConfig> = {
     [ClientType.MOBILE]: {
       includeEvents: true,
-      includeCivicEngagements: false, // Mobile doesn't see civic engagements
       maxEvents: 100,
-      maxCivicEngagements: 0,
     },
     [ClientType.DASHBOARD]: {
       includeEvents: true,
-      includeCivicEngagements: true, // Dashboard sees everything
       maxEvents: 200,
-      maxCivicEngagements: 50,
     },
   };
 

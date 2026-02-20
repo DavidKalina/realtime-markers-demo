@@ -16,7 +16,6 @@ export interface JobCompletionResult {
   title?: string;
   emoji?: string;
   coordinates?: [number, number];
-  civicEngagementId?: string;
   type?: string;
   status?: string;
   hasImages?: boolean;
@@ -167,9 +166,6 @@ export class JobNotificationService {
     result: JobCompletionResult,
   ): { title: string; body: string } | null {
     switch (job.type) {
-      case "process_civic_engagement":
-        return this.createCivicEngagementCompletionNotification(result);
-
       case "process_flyer":
         return this.createFlyerCompletionNotification(result);
 
@@ -177,21 +173,6 @@ export class JobNotificationService {
         // Don't send notifications for other job types
         return null;
     }
-  }
-
-  /**
-   * Create notification content for civic engagement completion
-   */
-  private createCivicEngagementCompletionNotification(
-    result: JobCompletionResult,
-  ): { title: string; body: string } {
-    const title = result.title || "Civic Engagement Submitted";
-    const type = result.type || "feedback";
-
-    return {
-      title: `✅ ${title}`,
-      body: `Your ${type.toLowerCase()} has been successfully submitted. We'll notify you when there are updates.`,
-    };
   }
 
   /**
@@ -250,14 +231,6 @@ export class JobNotificationService {
     message?: string,
   ): { title: string; body: string } | null {
     switch (job.type) {
-      case "process_civic_engagement":
-        return {
-          title: `❌ Civic Engagement Failed`,
-          body:
-            message ||
-            "There was an error processing your civic engagement. Please try again.",
-        };
-
       case "process_flyer":
         return {
           title: `❌ Flyer Processing Failed`,

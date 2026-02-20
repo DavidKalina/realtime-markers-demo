@@ -1,5 +1,5 @@
 import type { EntityCacheService as IEntityCacheService } from "../types/entities";
-import type { Event, CivicEngagement } from "../types/types";
+import type { Event } from "../types/types";
 import type { UnifiedSpatialCacheService } from "./UnifiedSpatialCacheService";
 
 /**
@@ -17,32 +17,24 @@ export class EntityCacheService<T = unknown> implements IEntityCacheService<T> {
   addEntity(entity: T): void {
     if (this.entityType === "event") {
       this.unifiedCache.addEvent(entity as Event);
-    } else if (this.entityType === "civic_engagement") {
-      this.unifiedCache.addCivicEngagement(entity as CivicEngagement);
     }
   }
 
   updateEntity(entity: T): void {
     if (this.entityType === "event") {
       this.unifiedCache.updateEvent(entity as Event);
-    } else if (this.entityType === "civic_engagement") {
-      this.unifiedCache.updateCivicEngagement(entity as CivicEngagement);
     }
   }
 
   removeEntity(entityId: string): void {
     if (this.entityType === "event") {
       this.unifiedCache.removeEvent(entityId);
-    } else if (this.entityType === "civic_engagement") {
-      this.unifiedCache.removeCivicEngagement(entityId);
     }
   }
 
   getEntity(entityId: string): T | undefined {
     if (this.entityType === "event") {
       return this.unifiedCache.getEvent(entityId) as T;
-    } else if (this.entityType === "civic_engagement") {
-      return this.unifiedCache.getCivicEngagement(entityId) as T;
     }
     return undefined;
   }
@@ -50,8 +42,6 @@ export class EntityCacheService<T = unknown> implements IEntityCacheService<T> {
   getAllEntities(): T[] {
     if (this.entityType === "event") {
       return this.unifiedCache.getAllEvents() as T[];
-    } else if (this.entityType === "civic_engagement") {
-      return this.unifiedCache.getAllCivicEngagements() as T[];
     }
     return [];
   }
@@ -60,21 +50,18 @@ export class EntityCacheService<T = unknown> implements IEntityCacheService<T> {
     if (this.entityType === "event") {
       this.unifiedCache.addToSpatialIndex(entity as Event);
     }
-    // Civic engagements are handled automatically by the unified cache
   }
 
   updateSpatialIndex(entity: T): void {
     if (this.entityType === "event") {
       this.unifiedCache.updateSpatialIndex(entity as Event);
     }
-    // Civic engagements are handled automatically by the unified cache
   }
 
   removeFromSpatialIndex(entityId: string): void {
     if (this.entityType === "event") {
       this.unifiedCache.removeFromSpatialIndex(entityId);
     }
-    // Civic engagements are handled automatically by the unified cache
   }
 
   getEntitiesInViewport(viewport: {
@@ -109,11 +96,6 @@ export class EntityCacheService<T = unknown> implements IEntityCacheService<T> {
     if (this.entityType === "event") {
       return {
         cacheSize: unifiedStats.cacheSize,
-        spatialIndexSize: unifiedStats.spatialIndexSize,
-      };
-    } else if (this.entityType === "civic_engagement") {
-      return {
-        cacheSize: unifiedStats.civicEngagementCacheSize,
         spatialIndexSize: unifiedStats.spatialIndexSize,
       };
     }

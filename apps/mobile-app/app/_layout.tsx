@@ -84,14 +84,12 @@ const SCREEN_CONFIGS = [
   { name: "scan" },
   { name: "user" },
   { name: "saved/index" },
-  { name: "civic-engagements/index" },
   { name: "cluster" },
   { name: "filter" },
   { name: "search/index" },
   { name: "search/list" },
   { name: "category/[id]" },
   { name: "details" },
-  { name: "create-civic-engagement" },
   { name: "+not-found" },
 ] as const;
 

@@ -1,5 +1,5 @@
 import Redis from "ioredis";
-import { Event, CivicEngagement, Filter, BoundingBox } from "../types/types";
+import { Event, Filter, BoundingBox } from "../types/types";
 
 export interface RedisMessageHandler {
   subscribeToChannels(): Promise<void>;
@@ -15,10 +15,6 @@ export interface MessageHandlers {
   onEventUpdate: (eventData: {
     operation: string;
     record: Event;
-  }) => Promise<void>;
-  onCivicEngagementUpdate: (civicEngagementData: {
-    operation: string;
-    record: CivicEngagement;
   }) => Promise<void>;
   onJobCreated: (data: {
     type: string;
@@ -37,7 +33,6 @@ export interface RedisMessageHandlerConfig {
     viewportUpdates?: string;
     initialRequest?: string;
     eventChanges?: string;
-    civicEngagementChanges?: string;
     jobCreated?: string;
     jobUpdates?: string;
   };
@@ -53,7 +48,6 @@ export function createRedisMessageHandler(
     viewportUpdates = "viewport-updates",
     initialRequest = "filter-processor:request-initial",
     eventChanges = "event_changes",
-    civicEngagementChanges = "civic_engagement_changes",
     jobCreated = "job_created",
     jobUpdates = "job_updates",
   } = config.channels || {};
@@ -65,7 +59,6 @@ export function createRedisMessageHandler(
     viewportUpdatesProcessed: 0,
     initialRequestsProcessed: 0,
     eventUpdatesProcessed: 0,
-    civicEngagementUpdatesProcessed: 0,
     jobNotificationsProcessed: 0,
     errors: 0,
   };
@@ -87,9 +80,6 @@ export function createRedisMessageHandler(
       // Subscribe to raw events feed
       await redisSub.psubscribe(eventChanges);
 
-      // Subscribe to civic engagement changes
-      await redisSub.psubscribe(civicEngagementChanges);
-
       // Subscribe to job notifications
       await redisSub.subscribe(jobCreated);
       await redisSub.subscribe(jobUpdates);
@@ -100,7 +90,7 @@ export function createRedisMessageHandler(
 
       if (process.env.NODE_ENV !== "production") {
         console.log(
-          `[RedisMessageHandler] Subscribed to Redis channels: ${filterChanges}, ${viewportUpdates}, ${initialRequest}, ${eventChanges}, ${civicEngagementChanges}, ${jobCreated}, ${jobUpdates}`,
+          `[RedisMessageHandler] Subscribed to Redis channels: ${filterChanges}, ${viewportUpdates}, ${initialRequest}, ${eventChanges}, ${jobCreated}, ${jobUpdates}`,
         );
       }
     } catch (error) {
@@ -182,33 +172,6 @@ export function createRedisMessageHandler(
 
         await handlers.onEventUpdate(eventData);
         stats.eventUpdatesProcessed++;
-      } else if (channel.startsWith(civicEngagementChanges)) {
-        stats.messagesReceived++;
-        const data = JSON.parse(message);
-        const civicEngagementData = data.data || data;
-
-        console.log("[FilterProcessor] Received civic engagement message:", {
-          channel,
-          data: civicEngagementData,
-        });
-
-        // Validate the civic engagement data
-        if (!civicEngagementData.record || !civicEngagementData.record.id) {
-          console.error(
-            "[RedisMessageHandler] Invalid civic engagement data received:",
-            data,
-          );
-          stats.errors++;
-          return;
-        }
-
-        console.log("[FilterProcessor] Processing civic engagement:", {
-          operation: civicEngagementData.operation,
-          id: civicEngagementData.record.id,
-        });
-
-        await handlers.onCivicEngagementUpdate(civicEngagementData);
-        stats.civicEngagementUpdatesProcessed++;
       }
     } catch (error) {
       console.error(

@@ -23,7 +23,6 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MapboxGL from "@rnmapbox/maps";
-import { useRouter } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -66,7 +65,6 @@ function HomeScreen() {
   const { publish } = useEventBroker();
   const { mapStyle, isPitched } = useMapStyle();
   const { registerLoadingState, unregisterLoadingState } = useSplashScreen();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
 
   // Store references
@@ -440,10 +438,6 @@ function HomeScreen() {
 
   const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
   const [showRipple, setShowRipple] = useState(false);
-  const [longPressCoordinates, setLongPressCoordinates] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
 
   // Add long press handler
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -461,34 +455,13 @@ function HomeScreen() {
         runOnJS(setShowRipple)(true);
 
         // Store coordinates for later use
-        if (
-          coordinates &&
-          Array.isArray(coordinates) &&
-          coordinates.length === 2
-        ) {
-          runOnJS(setLongPressCoordinates)({
-            latitude: coordinates[1],
-            longitude: coordinates[0],
-          });
-        }
       }
     }
   }, []);
 
   const handleRippleComplete = useCallback(() => {
     setShowRipple(false);
-
-    if (longPressCoordinates) {
-      router.push({
-        pathname: "/create-civic-engagement",
-        params: {
-          latitude: longPressCoordinates.latitude.toString(),
-          longitude: longPressCoordinates.longitude.toString(),
-        },
-      });
-      setLongPressCoordinates(null);
-    }
-  }, [router, longPressCoordinates]);
+  }, []);
 
   const floatingDateButtonStyle = useMemo(
     () => ({

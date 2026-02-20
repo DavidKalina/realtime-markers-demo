@@ -152,8 +152,7 @@ export interface SpatialItem {
   maxY: number; // latitude
   id: string;
   event?: Event;
-  civicEngagement?: CivicEngagement;
-  type: "event" | "civic_engagement";
+  type: "event";
 }
 
 /**
@@ -166,54 +165,11 @@ export interface User {
 }
 
 /**
- * Civic Engagement Type enum based on your CivicEngagement.ts
- */
-export enum CivicEngagementType {
-  POSITIVE_FEEDBACK = "POSITIVE_FEEDBACK",
-  NEGATIVE_FEEDBACK = "NEGATIVE_FEEDBACK",
-  IDEA = "IDEA",
-}
-
-/**
- * Civic Engagement Status enum based on your CivicEngagement.ts
- */
-export enum CivicEngagementStatus {
-  PENDING = "PENDING",
-  UNDER_REVIEW = "UNDER_REVIEW",
-  APPROVED = "APPROVED",
-  REJECTED = "REJECTED",
-  IMPLEMENTED = "IMPLEMENTED",
-}
-
-/**
- * Civic Engagement entity based on your CivicEngagement.ts
- */
-export interface CivicEngagement {
-  id: string;
-  title: string;
-  description?: string;
-  type: CivicEngagementType;
-  status: CivicEngagementStatus;
-  location?: Point;
-  address?: string;
-  locationNotes?: string;
-  imageUrls?: string[];
-  creatorId: string;
-  creator?: User;
-  adminNotes?: string;
-  implementedAt?: Date | string;
-  createdAt: Date | string;
-  updatedAt: Date | string;
-}
-
-/**
  * Client configuration for filtering
  */
 export interface ClientConfig {
   includeEvents: boolean;
-  includeCivicEngagements: boolean;
   maxEvents?: number;
-  maxCivicEngagements?: number;
 }
 
 /**

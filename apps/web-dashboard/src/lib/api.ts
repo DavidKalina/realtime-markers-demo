@@ -1,6 +1,5 @@
 import AuthService from "./auth";
 import type { Event } from "./dashboard-data";
-import type { CivicEngagement } from "@realtime-markers/database";
 
 interface ApiRequestOptions extends RequestInit {
   requireAuth?: boolean;
@@ -120,47 +119,9 @@ class ApiClient {
     return response.events;
   }
 
-  // Fetch all civic engagements (admin/feedback page)
-  async getAllCivicEngagements(): Promise<CivicEngagement[]> {
-    const response = await this.get<{ civicEngagements: CivicEngagement[] }>(
-      "/api/civic-engagements",
-    );
-    return response.civicEngagements;
-  }
-
-  // Fetch civic engagements with pagination and filters
-  async getCivicEngagements(
-    params: {
-      limit?: number;
-      offset?: number;
-      type?: string[];
-      status?: string[];
-      search?: string;
-    } = {},
-  ): Promise<{ civicEngagements: CivicEngagement[]; total: number }> {
-    const queryParams = new URLSearchParams();
-    if (params.limit) queryParams.append("limit", params.limit.toString());
-    if (params.offset) queryParams.append("offset", params.offset.toString());
-    if (params.type) queryParams.append("type", params.type.join(","));
-    if (params.status) queryParams.append("status", params.status.join(","));
-    if (params.search) queryParams.append("search", params.search);
-
-    const queryString = queryParams.toString();
-    const endpoint = `/api/civic-engagements${queryString ? `?${queryString}` : ""}`;
-
-    return this.get<{ civicEngagements: CivicEngagement[]; total: number }>(
-      endpoint,
-    );
-  }
-
   // Fetch a specific event by ID
   async getEventById(id: string): Promise<Event> {
     return this.get<Event>(`/api/events/${id}`);
-  }
-
-  // Fetch a specific civic engagement by ID
-  async getCivicEngagementById(id: string): Promise<CivicEngagement> {
-    return this.get<CivicEngagement>(`/api/civic-engagements/${id}`);
   }
 
   // Delete a specific event by ID
@@ -168,17 +129,6 @@ class ApiClient {
     return this.delete<{ success: boolean }>(`/api/events/${id}`);
   }
 
-  // Delete a specific civic engagement by ID
-  async deleteCivicEngagement(id: string): Promise<{ success: boolean }> {
-    return this.delete<{ success: boolean }>(`/api/civic-engagements/${id}`);
-  }
-
-  async getCivicEngagementSignedImageUrl(id: string): Promise<string | null> {
-    const res = await this.get<{ signedImageUrl?: string }>(
-      `/api/admin/civic-engagements/${id}/image`,
-    );
-    return res.signedImageUrl || null;
-  }
 }
 
 // Export a singleton instance
@@ -199,20 +149,6 @@ export const api = {
   getAllEvents: () => apiClient.getAllEvents(),
   getEventById: (id: string) => apiClient.getEventById(id),
   deleteEvent: (id: string) => apiClient.deleteEvent(id),
-  getAllCivicEngagements: () => apiClient.getAllCivicEngagements(),
-  getCivicEngagementById: (id: string) => apiClient.getCivicEngagementById(id),
-  deleteCivicEngagement: (id: string) => apiClient.deleteCivicEngagement(id),
-  getCivicEngagementSignedImageUrl: (id: string) =>
-    apiClient.getCivicEngagementSignedImageUrl(id),
-  getCivicEngagements: (
-    params: {
-      limit?: number;
-      offset?: number;
-      type?: string[];
-      status?: string[];
-      search?: string;
-    } = {},
-  ) => apiClient.getCivicEngagements(params),
 };
 
 export default apiClient;

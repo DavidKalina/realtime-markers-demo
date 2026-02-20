@@ -1,21 +1,16 @@
 import type { EntityProcessor, SpatialEntity } from "../../types/entities";
-import type { Event, CivicEngagement, Point } from "../../types/types";
+import type { Event, Point } from "../../types/types";
 import { EventProcessor } from "./EventProcessor";
-import { CivicEngagementProcessor } from "./CivicEngagementProcessor";
 import { UnifiedSpatialCacheService } from "../UnifiedSpatialCacheService";
 
 export class UnifiedEntityProcessor implements EntityProcessor {
   public readonly entityType = "unified";
   private eventProcessor: EventProcessor;
-  private civicEngagementProcessor: CivicEngagementProcessor;
   private eventCacheService: UnifiedSpatialCacheService;
 
   constructor(eventCacheService: UnifiedSpatialCacheService) {
     this.eventCacheService = eventCacheService;
     this.eventProcessor = new EventProcessor(eventCacheService);
-    this.civicEngagementProcessor = new CivicEngagementProcessor(
-      eventCacheService,
-    );
   }
 
   /**
@@ -150,27 +145,12 @@ export class UnifiedEntityProcessor implements EntityProcessor {
   }
 
   /**
-   * Process a civic engagement specifically
-   */
-  async processCivicEngagement(
-    operation: string,
-    civicEngagement: CivicEngagement,
-  ): Promise<void> {
-    await this.civicEngagementProcessor.processEntity(
-      operation,
-      civicEngagement,
-    );
-  }
-
-  /**
    * Get the appropriate processor for an entity type
    */
   private getProcessor(entityType: string): EntityProcessor | undefined {
     switch (entityType.toLowerCase()) {
       case "event":
         return this.eventProcessor;
-      case "civic_engagement":
-        return this.civicEngagementProcessor;
       default:
         return undefined;
     }
@@ -188,39 +168,6 @@ export class UnifiedEntityProcessor implements EntityProcessor {
         return "event";
       }
 
-      // Check for civic engagement specific fields
-      if (entityObj.status && typeof entityObj.status === "string") {
-        const status = entityObj.status as string;
-        // Civic engagement statuses: PENDING, UNDER_REVIEW, APPROVED, REJECTED, IMPLEMENTED
-        if (
-          [
-            "PENDING",
-            "UNDER_REVIEW",
-            "APPROVED",
-            "REJECTED",
-            "IMPLEMENTED",
-          ].includes(status)
-        ) {
-          return "civic_engagement";
-        }
-      }
-
-      // Check for civic engagement type field (NEGATIVE_FEEDBACK, POSITIVE_FEEDBACK, etc.)
-      if (entityObj.type && typeof entityObj.type === "string") {
-        const type = entityObj.type as string;
-        if (
-          [
-            "NEGATIVE_FEEDBACK",
-            "POSITIVE_FEEDBACK",
-            "SUGGESTION",
-            "COMPLAINT",
-            "QUESTION",
-          ].includes(type)
-        ) {
-          return "civic_engagement";
-        }
-      }
-
       // Check for table name or entity type in metadata
       if (entityObj.tableName && typeof entityObj.tableName === "string") {
         return entityObj.tableName;
@@ -235,7 +182,7 @@ export class UnifiedEntityProcessor implements EntityProcessor {
    * Get all supported entity types
    */
   getSupportedEntityTypes(): string[] {
-    return ["event", "civic_engagement"];
+    return ["event"];
   }
 
   /**
@@ -246,9 +193,6 @@ export class UnifiedEntityProcessor implements EntityProcessor {
       supportedEntityTypes: this.getSupportedEntityTypes(),
       eventProcessor: {
         entityType: this.eventProcessor.entityType,
-      },
-      civicEngagementProcessor: {
-        entityType: this.civicEngagementProcessor.entityType,
       },
     };
   }

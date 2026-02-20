@@ -11,7 +11,6 @@ import {
   Camera,
   HeartIcon,
   LucideIcon,
-  MessageSquare,
   Navigation,
   SearchIcon,
   User,
@@ -226,13 +225,6 @@ const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
     route: "/saved",
     enabled: true,
   },
-  civic: {
-    key: "civic",
-    label: "Feedback",
-    icon: MessageSquare,
-    route: "/civic-engagements",
-    enabled: true,
-  },
   user: {
     key: "user",
     label: "Me",
@@ -262,9 +254,6 @@ const getActiveTabKey = (pathname: string): string | null => {
 
   // Handle search routes
   if (pathname.startsWith("/search")) return "search";
-
-  // Handle civic engagements routes
-  if (pathname.startsWith("/civic-engagements")) return "civic";
 
   // Handle exact matches
   const exactMatch = Object.entries(TAB_CONFIG).find(

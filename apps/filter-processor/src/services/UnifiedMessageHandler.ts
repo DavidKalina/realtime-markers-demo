@@ -507,49 +507,25 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
       const opUpper = operation.toUpperCase();
 
       // Helper to choose per-user channel
-      const channelForUser = (userId: string): string => {
-        if (entityType === "civic_engagement") {
-          return `user:${userId}:filtered-civic-engagements`;
-        }
-        return `user:${userId}:filtered-events`;
-      };
+      const channelForUser = (userId: string): string =>
+        `user:${userId}:filtered-events`;
 
-      // Build payload per entity type in mobile-friendly shapes
+      // Build payload in mobile-friendly shape
       const buildPayload = (): ((userId: string) => string) => {
         const timestamp = new Date().toISOString();
 
-        if (entityType === "event") {
-          if (opUpper === "DELETE") {
-            const id = (entity as { id: string }).id;
-            return () =>
-              JSON.stringify({ type: "delete-event", id, timestamp });
-          }
-
-          const formatted = processor.formatForWebSocket(entity, operation);
-          const eventData =
-            (formatted as { data?: Record<string, unknown> }).data ||
-            (entity as Record<string, unknown>);
-          const type = opUpper === "UPDATE" ? "update-event" : "add-event";
-          return () => JSON.stringify({ type, event: eventData, timestamp });
-        }
-
-        // civic_engagement
         if (opUpper === "DELETE") {
           const id = (entity as { id: string }).id;
           return () =>
-            JSON.stringify({ type: "delete-civic-engagement", id, timestamp });
+            JSON.stringify({ type: "delete-event", id, timestamp });
         }
 
         const formatted = processor.formatForWebSocket(entity, operation);
-        const ceData =
+        const eventData =
           (formatted as { data?: Record<string, unknown> }).data ||
           (entity as Record<string, unknown>);
-        const type =
-          opUpper === "UPDATE"
-            ? "update-civic-engagement"
-            : "add-civic-engagement";
-        return () =>
-          JSON.stringify({ type, civicEngagement: ceData, timestamp });
+        const type = opUpper === "UPDATE" ? "update-event" : "add-event";
+        return () => JSON.stringify({ type, event: eventData, timestamp });
       };
 
       const payloadBuilder = buildPayload();
@@ -580,7 +556,7 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
       const data = JSON.parse(message);
 
       // Extract entity type and operation from channel name
-      // Expected format: entity_type:operation (e.g., "event:created", "civic_engagement:updated")
+      // Expected format: entity_type:operation (e.g., "event:created", "event:updated")
       const [entityType, operation] = channel.split(":");
 
       if (!entityType || !operation) {

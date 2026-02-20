@@ -13,7 +13,6 @@ import {
   UserEventDiscovery,
   UserEventRsvp,
   UserEventSave,
-  CivicEngagement,
   UserPushToken,
 } from "@realtime-markers/database";
 
@@ -32,9 +31,8 @@ import { AddAllUserForeignKeys1710000000014 } from "./migrations/AddAllUserForei
 import { AddIsOfficialToEvents1710000000015 } from "./migrations/AddIsOfficialToEvents1710000000015";
 import { SeedOfficialEvents1710000000016 } from "./migrations/SeedOfficialEvents1710000000016";
 import { RegenerateEmbeddings1710000000017 } from "./migrations/RegenerateEmbeddings1710000000017";
-import { CivicEngagementTables1710000000020 } from "./migrations/CivicEngagementTables1710000000020";
-import { AddEmbeddingToCivicEngagements1710000000021 } from "./migrations/AddEmbeddingToCivicEngagements1710000000021";
 import { UserPushTokenTable1710000000022 } from "./migrations/UserPushTokenTable1710000000022";
+import { DropCivicEngagementTables1710000000023 } from "./migrations/DropCivicEngagementTables1710000000023";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -50,7 +48,6 @@ const AppDataSource = new DataSource({
     UserEventDiscovery,
     UserEventRsvp,
     UserEventSave,
-    CivicEngagement,
     UserPushToken,
   ],
   migrations: [
@@ -68,9 +65,8 @@ const AppDataSource = new DataSource({
     AddIsOfficialToEvents1710000000015,
     SeedOfficialEvents1710000000016,
     RegenerateEmbeddings1710000000017,
-    CivicEngagementTables1710000000020,
-    AddEmbeddingToCivicEngagements1710000000021,
     UserPushTokenTable1710000000022,
+    DropCivicEngagementTables1710000000023,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

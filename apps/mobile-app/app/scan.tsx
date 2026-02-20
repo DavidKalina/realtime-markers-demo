@@ -23,16 +23,9 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import {
   ProcessingOverlay,
   NoScansOverlay,
-  ContentTypeOverlay,
   SimulationButton,
   useScanState,
 } from "@/components/Scan";
-import { useEventBroker } from "@/hooks/useEventBroker";
-import {
-  EventTypes,
-  NavigateToCivicEngagementEvent,
-} from "@/services/EventBroker";
-import { useUserLocation } from "@/contexts/LocationContext";
 
 export default function ScanScreen() {
   const {
@@ -51,9 +44,6 @@ export default function ScanScreen() {
   const router = useRouter();
   const isMounted = useRef(true);
   const networkState = useNetworkQuality();
-  const { subscribe } = useEventBroker();
-  const { userLocation } = useUserLocation();
-
   // Navigation callback - memoized to prevent re-renders
   const navigateToJobs = useCallback(() => {
     if (!isMounted.current) {
@@ -84,9 +74,6 @@ export default function ScanScreen() {
     processingStage,
     showProcessingOverlay,
 
-    // Content type choice state
-    showContentTypeOverlay,
-
     // Scan limits
     showNoScansOverlay,
     setShowNoScansOverlay,
@@ -95,8 +82,6 @@ export default function ScanScreen() {
     handleCapture,
     handleImageSelected,
     handleSelectEvent,
-    handleSelectCivicEngagement,
-    handleCancelContentType,
     reset,
     simulateCapture,
   } = useScanState({
@@ -176,46 +161,12 @@ export default function ScanScreen() {
     [handleImageSelected, setShowNoScansOverlay],
   );
 
-  // Handle civic engagement navigation
-  const handleCivicEngagementNavigation = useCallback(
-    (imageUri: string) => {
-      const params: Record<string, string> = {
-        imageUri: imageUri,
-      };
-
-      // Add coordinates if available
-      if (userLocation) {
-        params.latitude = userLocation[1].toString(); // latitude
-        params.longitude = userLocation[0].toString(); // longitude
-      } else {
-        console.log(
-          "[ScanScreen] No user location available, proceeding without coordinates",
-        );
-      }
-
-      router.push({
-        pathname: "/create-civic-engagement" as const,
-        params,
-      });
-    },
-    [router],
-  );
-
-  // Set up event listener for civic engagement navigation
+  // Auto-process as event when image is captured (scan is event-only)
   useEffect(() => {
-    const unsubscribe = subscribe<NavigateToCivicEngagementEvent>(
-      EventTypes.NAVIGATE_TO_CIVIC_ENGAGEMENT,
-      (event) => {
-        console.log(
-          "[ScanScreen] Received NAVIGATE_TO_CIVIC_ENGAGEMENT event:",
-          event,
-        );
-        handleCivicEngagementNavigation(event.imageUri);
-      },
-    );
-
-    return unsubscribe;
-  }, [subscribe, handleCivicEngagementNavigation]);
+    if (capturedImageUri && !isProcessing && !showProcessingOverlay) {
+      handleSelectEvent();
+    }
+  }, [capturedImageUri]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle camera permission request if needed
   if (hasPermission === false) {
@@ -330,14 +281,6 @@ export default function ScanScreen() {
           />
         </View>
 
-        {/* Content Type Choice Modal */}
-        <ContentTypeOverlay
-          isVisible={showContentTypeOverlay}
-          capturedImageUri={capturedImageUri}
-          onSelectEvent={handleSelectEvent}
-          onSelectCivicEngagement={handleSelectCivicEngagement}
-          onCancel={handleCancelContentType}
-        />
       </Screen>
     </AuthWrapper>
   );

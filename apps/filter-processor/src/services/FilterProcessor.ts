@@ -1,6 +1,6 @@
 // apps/filter-processor/src/services/FilterProcessor.ts
 import Redis from "ioredis";
-import { Filter, BoundingBox, Event, CivicEngagement } from "../types/types";
+import { Filter, BoundingBox, Event } from "../types/types";
 import { FilterMatcher } from "../handlers/FilterMatcher";
 import { ViewportProcessor } from "../handlers/ViewportProcessor";
 import { EventPublisher } from "../handlers/EventPublisher";
@@ -20,7 +20,6 @@ import { LegacyEventCacheHandler as HandlerEventProcessor } from "../handlers/Ev
 import { UnifiedEntityProcessor } from "./processors/UnifiedEntityProcessor";
 import { createEntityCacheService } from "./EntityCacheService";
 import { createEventInitializationService } from "./EventInitializationService";
-import { createCivicEngagementInitializationService } from "./CivicEngagementInitializationService";
 import { FilteringStrategyFactory } from "./filtering/FilteringStrategyFactory";
 import { createUnifiedFilteringService } from "./UnifiedFilteringService";
 import { createClientConfigService } from "./ClientConfigService";
@@ -177,31 +176,17 @@ export function createFilterProcessor(
     eventInitializationConfig,
   );
 
-  const civicEngagementInitializationService =
-    createCivicEngagementInitializationService(
-      handlerEventProcessor,
-      eventInitializationConfig,
-    );
-
   // Create entity-specific services
   const eventEntityCacheService = createEntityCacheService(
     "event",
     unifiedSpatialCacheService,
   );
-  const civicEngagementEntityCacheService = createEntityCacheService(
-    "civic_engagement",
-    unifiedSpatialCacheService,
-  );
-
   // Create filtering strategies
   const eventFilteringStrategy = FilteringStrategyFactory.createStrategy(
     "event",
     "mapmoji",
     eventFilteringConfig,
   );
-  const civicEngagementFilteringStrategy =
-    FilteringStrategyFactory.createStrategy("civic_engagement", "simple");
-
   // Register entity types with the registry using the unified system
   entityRegistry.registerEntityType(
     {
@@ -243,45 +228,6 @@ export function createFilterProcessor(
     eventFilteringStrategy,
   );
 
-  entityRegistry.registerEntityType(
-    {
-      type: "civic_engagement",
-      displayName: "Civic Engagements",
-      hasLocation: true,
-      isPublic: true,
-      supportsImages: false,
-      supportsCategories: true,
-      relevanceScoring: {
-        enabled: true,
-        weights: {
-          time: 0.5,
-          distance: 0.3,
-          popularity: 0.2,
-        },
-      },
-      filtering: {
-        supportedFilters: ["category", "status", "priority"],
-        defaultFilters: {},
-        strategy: "simple",
-      },
-      webSocket: {
-        messageTypes: {
-          add: "add-civic-engagement",
-          update: "update-civic-engagement",
-          delete: "delete-civic-engagement",
-          discovered: "civic_engagement_discovered",
-        },
-        redisChannels: {
-          changes: "civic_engagement_changes",
-          discovered: "civic_engagement_discovered",
-        },
-      },
-    },
-    unifiedEntityProcessor,
-    civicEngagementInitializationService,
-    civicEngagementEntityCacheService,
-    civicEngagementFilteringStrategy,
-  );
 
   // Create handlers with service dependencies
   const vectorService = createVectorService();
@@ -301,7 +247,6 @@ export function createFilterProcessor(
     clientConfigService,
     {
       mapMojiConfig: eventFilteringConfig.mapMojiConfig,
-      maxCivicEngagements: 100,
     },
   );
 
@@ -356,27 +301,6 @@ export function createFilterProcessor(
         );
       }
     },
-    onCivicEngagementUpdate: async (data: {
-      operation: string;
-      record: CivicEngagement;
-    }) => {
-      const result = await unifiedMessageHandler.handleEntityMessage(
-        "civic_engagement",
-        data.operation,
-        data.record,
-      );
-
-      // Log processing results for monitoring
-      if (result.success) {
-        console.log(
-          `[FilterProcessor] Civic engagement ${data.operation} processed successfully: ${result.entityId} (${result.affectedUsersCount} affected users, ${result.processingTimeMs}ms)`,
-        );
-      } else {
-        console.error(
-          `[FilterProcessor] Civic engagement ${data.operation} failed: ${result.error}`,
-        );
-      }
-    },
     onJobCreated: jobProcessingService.handleJobCreated,
     onJobUpdate: jobProcessingService.handleJobUpdate,
   };
@@ -421,8 +345,6 @@ export function createFilterProcessor(
 
       console.log("✅ Filter Processor initialized successfully:", {
         events: unifiedSpatialCacheService.getStats().spatialIndexSize,
-        civicEngagements:
-          unifiedSpatialCacheService.getStats().civicEngagementCacheSize,
         users: userStateService.getStats().totalUsers,
         entityTypes: entityRegistry.getAllEntityTypes(),
       });
@@ -452,7 +374,6 @@ export function createFilterProcessor(
       ...relevanceScoringService.getStats(),
       ...redisMessageHandler.getStats(),
       ...eventInitializationService.getStats(),
-      ...civicEngagementInitializationService.getStats(),
       ...jobProcessingService.getStats(),
       ...userUpdateBatcherService.getStats(),
     });
@@ -509,12 +430,6 @@ export function createFilterProcessor(
 
         // Track viewport in UnifiedMessageHandler for affected user calculation
         unifiedMessageHandler.trackUserViewport("event", userId, viewport);
-        unifiedMessageHandler.trackUserViewport(
-          "civic_engagement",
-          userId,
-          viewport,
-        );
-
         // Mark user as dirty for batch processing
         userUpdateBatcherService.markUserAsDirty(userId, {
           reason: "viewport_change",
@@ -582,7 +497,6 @@ export function createFilterProcessor(
 
     // Clean up viewport tracking in UnifiedMessageHandler
     unifiedMessageHandler.removeUserViewport("event", userId);
-    unifiedMessageHandler.removeUserViewport("civic_engagement", userId);
 
     // Clean up user data
     userStateService.unregisterUser(userId);
@@ -630,7 +544,6 @@ export function createFilterProcessor(
       ...relevanceScoringService.getStats(),
       ...redisMessageHandler.getStats(),
       ...eventInitializationService.getStats(),
-      ...civicEngagementInitializationService.getStats(),
       ...jobProcessingService.getStats(),
       ...userUpdateBatcherService.getStats(),
       unifiedMessageHandler: unifiedMessageHandler.getMetrics(),

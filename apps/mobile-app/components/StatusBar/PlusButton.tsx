@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Plus } from "lucide-react-native";
 import React, { useCallback, useEffect } from "react";
@@ -10,7 +9,6 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { COLORS } from "../Layout/ScreenLayout";
-import { useUserLocation } from "@/contexts/LocationContext";
 
 const ANIMATION_CONFIG = {
   damping: 15,
@@ -18,8 +16,6 @@ const ANIMATION_CONFIG = {
 };
 
 const PlusButton: React.FC = () => {
-  const router = useRouter();
-  const { userLocation } = useUserLocation();
   const scale = useSharedValue(1);
 
   const handlePress = useCallback(() => {
@@ -28,22 +24,7 @@ const PlusButton: React.FC = () => {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     scale.value = withSpring(0.92, ANIMATION_CONFIG);
-
-    // Navigate to create civic engagement with user's current coordinates
-    if (userLocation) {
-      const [longitude, latitude] = userLocation;
-      router.push({
-        pathname: "/create-civic-engagement",
-        params: {
-          latitude: latitude.toString(),
-          longitude: longitude.toString(),
-        },
-      });
-    } else {
-      // If no user location, navigate without coordinates
-      router.push("/create-civic-engagement");
-    }
-  }, [router, userLocation]);
+  }, [scale]);
 
   // Reset scale after animation
   useEffect(() => {

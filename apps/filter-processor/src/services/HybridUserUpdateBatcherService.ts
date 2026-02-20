@@ -187,27 +187,21 @@ export function createHybridUserUpdateBatcherService(
         // Note: Users with no filters will get MapMoji-curated events
         // The EventFilteringService handles this case properly
 
-        // 4. Get the relevant events and civic engagements (from EventCacheService)
+        // 4. Get the relevant events (from EventCacheService)
         const events = viewport
           ? eventCacheService.getEventsInViewport(viewport)
           : eventCacheService.getAllEvents();
-
-        const civicEngagements = viewport
-          ? eventCacheService.getCivicEngagementsInViewport(viewport)
-          : eventCacheService.getAllCivicEngagements();
 
         console.log(`[HybridBatcher] Processing user ${userId}:`, {
           viewport: !!viewport,
           filterCount: filters.length,
           eventCount: events.length,
-          civicEngagementCount: civicEngagements.length,
         });
 
-        // 5. Call the unified filtering service for both events and civic engagements
+        // 5. Call the unified filtering service for events
         await unifiedFilteringService.calculateAndSendDiff(
           userId,
           events,
-          civicEngagements,
           viewport,
           filters,
         );

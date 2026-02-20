@@ -9,8 +9,8 @@ interface MetricsSummaryProps {
   totalScans: number;
   totalUsers: number;
   scanRate: number; // percentage of events that have been scanned
-  userGrowth: number; // percentage growth from last month
-  scanGrowth: number; // percentage growth from last week
+  userGrowth?: number;
+  scanGrowth?: number;
   className?: string;
 }
 
@@ -19,8 +19,8 @@ export function MetricsSummary({
   totalScans,
   totalUsers,
   scanRate,
-  userGrowth,
-  scanGrowth,
+  userGrowth = 0,
+  scanGrowth = 0,
   className,
 }: MetricsSummaryProps) {
   const getTrendIcon = (growth: number) => {

@@ -14,7 +14,6 @@ const ENTITY_TO_TABLE_MAPPING: Record<string, string> = {
   UserEventDiscovery: "user_event_discoveries",
   UserEventRsvp: "user_event_rsvps",
   UserEventSave: "user_event_saves",
-  CivicEngagement: "civic_engagements",
   UserPushToken: "user_push_tokens",
 };
 

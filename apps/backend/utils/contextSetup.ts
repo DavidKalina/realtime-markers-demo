@@ -22,12 +22,6 @@ export function setupContext(
     c.set("embeddingService", services.embeddingService);
     c.set("categoryProcessingService", services.categoryProcessingService);
     c.set("emailService", services.emailService);
-    c.set("civicEngagementService", services.civicEngagementService);
-    c.set(
-      "civicEngagementSearchService",
-      services.civicEngagementSearchService,
-    );
-    c.set("civicEngagementCacheService", services.civicEngagementCacheService);
     await next();
   });
 }

@@ -1,7 +1,5 @@
 import type { FilteringStrategy } from "../../types/entities";
 import { MapMojiFilterStrategy } from "./MapMojiFilterStrategy";
-import { SimpleFilterStrategy } from "./SimpleFilterStrategy";
-import { NoFilterStrategy } from "./NoFilterStrategy";
 
 export class FilteringStrategyFactory {
   /**
@@ -23,23 +21,6 @@ export class FilteringStrategyFactory {
           `MapMoji strategy is only supported for events, not ${entityType}`,
         );
 
-      case "simple":
-        if (entityType === "civic_engagement") {
-          return new SimpleFilterStrategy() as unknown as FilteringStrategy<T>;
-        }
-        throw new Error(
-          `Simple strategy is only supported for civic_engagement, not ${entityType}`,
-        );
-
-      case "none":
-      case "nofilter":
-        if (entityType === "civic_engagement") {
-          return new NoFilterStrategy() as unknown as FilteringStrategy<T>;
-        }
-        throw new Error(
-          `No-filter strategy is only supported for civic_engagement, not ${entityType}`,
-        );
-
       default:
         throw new Error(
           `Unknown filtering strategy: ${strategyName} for entity type: ${entityType}`,
@@ -54,8 +35,6 @@ export class FilteringStrategyFactory {
     switch (entityType) {
       case "event":
         return "mapmoji";
-      case "civic_engagement":
-        return "simple";
       default:
         throw new Error(`No default strategy for entity type: ${entityType}`);
     }
@@ -68,8 +47,6 @@ export class FilteringStrategyFactory {
     switch (entityType) {
       case "event":
         return ["mapmoji"];
-      case "civic_engagement":
-        return ["simple", "none"];
       default:
         return [];
     }
