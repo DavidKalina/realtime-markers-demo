@@ -27,7 +27,9 @@
     "db:reset": "docker compose down && docker volume rm realtime-markers-demo_postgres_data && docker compose up -d postgres && sleep 10 && docker compose exec backend pnpm migration:run",
     "db:migrate": "docker compose exec backend pnpm migration:run",
     "db:seed": "docker compose exec backend pnpm seed",
-    "status": "docker compose ps"
+    "status": "docker compose ps",
+    "dev:local": "bash scripts/dev-local.sh",
+    "dev:local:no-ngrok": "bash scripts/dev-local.sh --no-ngrok"
   },
   "devDependencies": {
     "@types/rbush": "^4.0.0",

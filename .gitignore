@@ -39,6 +39,7 @@ privatePackages/store
 dist/
 .env
 .env.*
+!.env.example
 
 ## Verdaccio storage
 storage

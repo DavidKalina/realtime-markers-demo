@@ -1,11 +1,15 @@
 # Realtime Markers Demo - Development Shortcuts
 # Usage: make <command>
 
-.PHONY: help dev build start lint format test clean docker-up docker-down docker-build docker-ngrok docker-dev docker-prod logs logs-backend logs-websocket logs-filter logs-dashboard shell-backend shell-websocket shell-filter shell-dashboard shell-postgres reset-db migrate seed
+.PHONY: help dev build start lint format test clean docker-up docker-down docker-build docker-ngrok docker-dev docker-prod logs logs-backend logs-websocket logs-filter logs-dashboard shell-backend shell-websocket shell-filter shell-dashboard shell-postgres reset-db migrate seed dev-local dev-local-no-ngrok
 
 # Default target
 help:
 	@echo "Available commands:"
+	@echo ""
+	@echo "Local Development (Everything):"
+	@echo "  dev-local          - Docker + ngrok + Expo (physical device ready)"
+	@echo "  dev-local-no-ngrok - Docker + Expo (simulator only, no ngrok)"
 	@echo ""
 	@echo "Development:"
 	@echo "  dev          - Start all apps in development mode"
@@ -165,4 +169,11 @@ restart-filter:
 	docker compose restart filter-processor
 
 restart-dashboard:
-	docker compose restart web-dashboard 
+	docker compose restart web-dashboard
+
+# Local development (everything in one command)
+dev-local:
+	bash scripts/dev-local.sh
+
+dev-local-no-ngrok:
+	bash scripts/dev-local.sh --no-ngrok

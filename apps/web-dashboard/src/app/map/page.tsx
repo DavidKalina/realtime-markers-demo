@@ -26,7 +26,7 @@ export default function MapPage() {
 
   // WebSocket URL for real-time updates
   const websocketUrl =
-    process.env.NEXT_PUBLIC_WEBSOCKET_URL || "ws://localhost:3001";
+    process.env.NEXT_PUBLIC_WEBSOCKET_URL || "ws://localhost:8081";
 
   // Get user location
   const getUserLocation = () => {

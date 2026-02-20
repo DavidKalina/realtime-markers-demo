@@ -12,6 +12,12 @@ The codebase is **events-only**. Civic engagement functionality has been fully r
 
 ## Common Commands
 
+### Local Development (Everything)
+```bash
+pnpm dev:local            # Docker + ngrok + Expo (physical device ready)
+pnpm dev:local:no-ngrok   # Docker + Expo (simulator only, no ngrok)
+```
+
 ### Development (Docker-based)
 ```bash
 pnpm docker:dev          # Start all services with localhost config
@@ -87,7 +93,7 @@ Hono HTTP server. Organized as:
 - `middleware/` — Auth, CORS, rate limiting
 - `migrations/` — TypeORM migration files
 
-Integrations: Stripe, OpenAI (gpt-4o for flyer extraction), Resend (email), Expo push notifications, AWS/DO Spaces (file storage).
+Integrations: OpenAI (gpt-4o for flyer extraction), Resend (email), Expo push notifications, AWS/DO Spaces (file storage).
 
 ### WebSocket (`apps/websocket/`)
 Manages live client connections. Uses RBush for viewport-based filtering — clients only receive updates for markers within their visible map bounds. Tracks client type (web vs mobile). Per-user channels: `user:{userId}:filtered-events`.
@@ -113,6 +119,8 @@ Exports TypeORM entities (`Event`, `User`, `Category`, etc.), the shared `DataSo
 
 All services run inside Docker via `docker-compose.yml`. Environment-specific overrides:
 - `docker-compose.dev.yml` — localhost development
+- `docker-compose.http.yml` — HTTP-only (no Traefik), direct port access
+- `docker-compose.local.yml` — local dev overlay (dashboard hot reload + localhost URLs)
 - `docker-compose.ngrok.yml` — ngrok tunnels for mobile testing
 - `docker-compose.prod.yml` — production
 
