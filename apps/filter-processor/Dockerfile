@@ -1,4 +1,4 @@
-FROM oven/bun:1.1.1 as base
+FROM oven/bun:1 as base
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     build-essential \
-    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g pnpm@8.15.0 \
     && apt-get clean
@@ -27,7 +27,7 @@ RUN pnpm install --frozen-lockfile || pnpm install
 RUN mkdir -p dist && bun build apps/filter-processor/src/index.ts --target bun --outfile dist/index.js
 
 # Use a smaller image for production
-FROM oven/bun:1.1.1
+FROM oven/bun:1
 
 WORKDIR /app
 

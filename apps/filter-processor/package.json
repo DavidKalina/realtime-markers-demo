@@ -10,12 +10,12 @@
     "test": "bun test"
   },
   "dependencies": {
-    "ioredis": "^5.6.0",
-    "pgvector": "^0.2.0",
-    "rbush": "^3.0.1"
+    "ioredis": "^5.9.3",
+    "pgvector": "^0.2.1",
+    "rbush": "^4.0.1"
   },
   "devDependencies": {
-    "@types/rbush": "^3.0.0",
+    "@types/rbush": "^4.0.0",
     "bun-types": "latest"
   }
 }
