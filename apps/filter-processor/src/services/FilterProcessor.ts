@@ -13,14 +13,8 @@ import { createHybridUserUpdateBatcherService } from "./HybridUserUpdateBatcherS
 import { createRedisMessageHandler } from "./RedisMessageHandler";
 import { createVectorService } from "./VectorService";
 
-// Entity Registry Integration
-import { EntityRegistry } from "./EntityRegistry";
 import { UnifiedMessageHandler } from "./UnifiedMessageHandler";
-import { LegacyEventCacheHandler as HandlerEventProcessor } from "../handlers/EventProcessor";
-import { UnifiedEntityProcessor } from "./processors/UnifiedEntityProcessor";
-import { createEntityCacheService } from "./EntityCacheService";
 import { createEventInitializationService } from "./EventInitializationService";
-import { FilteringStrategyFactory } from "./filtering/FilteringStrategyFactory";
 import { createUnifiedFilteringService } from "./UnifiedFilteringService";
 import { createClientConfigService } from "./ClientConfigService";
 
@@ -131,9 +125,6 @@ export function createFilterProcessor(
     unifiedSpatialCacheService,
   );
 
-  // Create Entity Registry and Unified Message Handler
-  const entityRegistry = new EntityRegistry();
-
   // Create a callback that will be set after userUpdateBatcherService is created
   // eslint-disable-next-line prefer-const
   let userDirtyCallback:
@@ -149,7 +140,7 @@ export function createFilterProcessor(
     | undefined;
 
   const unifiedMessageHandler = new UnifiedMessageHandler(
-    entityRegistry,
+    unifiedSpatialCacheService,
     redisPub,
     viewportProcessor,
     {
@@ -162,72 +153,11 @@ export function createFilterProcessor(
     },
   );
 
-  // Create entity processors using the unified system
-  const handlerEventProcessor = new HandlerEventProcessor(
-    unifiedSpatialCacheService,
-  );
-  const unifiedEntityProcessor = new UnifiedEntityProcessor(
-    unifiedSpatialCacheService,
-  );
-
-  // Create the real initialization services
+  // Create event initialization service
   const eventInitializationService = createEventInitializationService(
-    handlerEventProcessor,
+    unifiedSpatialCacheService,
     eventInitializationConfig,
   );
-
-  // Create entity-specific services
-  const eventEntityCacheService = createEntityCacheService(
-    "event",
-    unifiedSpatialCacheService,
-  );
-  // Create filtering strategies
-  const eventFilteringStrategy = FilteringStrategyFactory.createStrategy(
-    "event",
-    "mapmoji",
-    eventFilteringConfig,
-  );
-  // Register entity types with the registry using the unified system
-  entityRegistry.registerEntityType(
-    {
-      type: "event",
-      displayName: "Events",
-      hasLocation: true,
-      isPublic: true,
-      supportsImages: true,
-      supportsCategories: true,
-      relevanceScoring: {
-        enabled: true,
-        weights: {
-          time: 0.3,
-          distance: 0.4,
-          popularity: 0.3,
-        },
-      },
-      filtering: {
-        supportedFilters: ["category", "date", "distance", "popularity"],
-        defaultFilters: {},
-        strategy: "mapmoji",
-      },
-      webSocket: {
-        messageTypes: {
-          add: "event:created",
-          update: "event:updated",
-          delete: "event:deleted",
-          discovered: "event:discovered",
-        },
-        redisChannels: {
-          changes: redisConfig.channels?.eventChanges || "event_changes",
-          discovered: "event_discovered",
-        },
-      },
-    },
-    unifiedEntityProcessor,
-    eventInitializationService,
-    eventEntityCacheService,
-    eventFilteringStrategy,
-  );
-
 
   // Create handlers with service dependencies
   const vectorService = createVectorService();
@@ -331,9 +261,9 @@ export function createFilterProcessor(
     try {
       console.log("🚀 Initializing Filter Processor...");
 
-      // Initialize all entities using the entity registry
-      console.log("📦 Initializing entity registry...");
-      await entityRegistry.initializeAllEntities();
+      // Initialize events from backend
+      console.log("📦 Initializing events...");
+      await eventInitializationService.initializeEntities();
 
       // Subscribe to Redis channels
       console.log("🔌 Subscribing to Redis channels...");
@@ -346,7 +276,7 @@ export function createFilterProcessor(
       console.log("✅ Filter Processor initialized successfully:", {
         events: unifiedSpatialCacheService.getStats().spatialIndexSize,
         users: userStateService.getStats().totalUsers,
-        entityTypes: entityRegistry.getAllEntityTypes(),
+        entityTypes: ["event"],
       });
     } catch (error) {
       console.error("❌ Error initializing Filter Processor:", error);
@@ -369,7 +299,7 @@ export function createFilterProcessor(
     console.log("Final stats:", {
       ...stats,
       ...eventPublisher.getStats(),
-      ...eventEntityCacheService.getStats(),
+      ...unifiedSpatialCacheService.getStats(),
       ...userStateService.getStats(),
       ...relevanceScoringService.getStats(),
       ...redisMessageHandler.getStats(),
@@ -539,7 +469,7 @@ export function createFilterProcessor(
     return {
       ...stats,
       ...eventPublisher.getStats(),
-      ...eventEntityCacheService.getStats(),
+      ...unifiedSpatialCacheService.getStats(),
       ...userStateService.getStats(),
       ...relevanceScoringService.getStats(),
       ...redisMessageHandler.getStats(),
@@ -547,7 +477,6 @@ export function createFilterProcessor(
       ...jobProcessingService.getStats(),
       ...userUpdateBatcherService.getStats(),
       unifiedMessageHandler: unifiedMessageHandler.getMetrics(),
-      entityRegistry: entityRegistry.getAllStats(),
     };
   }
 
