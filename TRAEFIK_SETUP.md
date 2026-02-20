@@ -62,11 +62,6 @@ GOOGLE_ANDROID_CLIENT_ID=your_google_android_client_id
 FACEBOOK_CLIENT_ID=your_facebook_client_id
 FACEBOOK_CLIENT_SECRET=your_facebook_client_secret
 
-# Stripe Configuration
-STRIPE_SECRET_KEY=your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
-STRIPE_PRICE_ID=your_stripe_price_id
-
 # Image Storage Configuration
 ENABLE_IMAGE_STORAGE=false
 DO_SPACE_ENDPOINT=https://nyc3.digitaloceanspaces.com
