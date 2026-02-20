@@ -1,4 +1,4 @@
-import React, { forwardRef } from "react";
+import React, { Ref } from "react";
 import {
   StyleSheet,
   TextInput,
@@ -16,6 +16,7 @@ import { LucideIcon } from "lucide-react-native";
 import { COLORS } from "../Layout/ScreenLayout";
 
 interface InputProps extends Omit<TextInputProps, "style"> {
+  ref?: Ref<TextInput>;
   icon?: LucideIcon;
   rightIcon?: LucideIcon;
   onRightIconPress?: () => void;
@@ -27,64 +28,60 @@ interface InputProps extends Omit<TextInputProps, "style"> {
   onChangeText?: (text: string) => void;
 }
 
-const Input = forwardRef<TextInput, InputProps>(
-  (
-    {
-      icon: Icon,
-      rightIcon: RightIcon,
-      onRightIconPress,
-      error,
-      delay = 0,
-      style,
-      loading = false,
-      value = "",
-      onChangeText,
-      ...props
-    },
-    ref,
-  ) => {
-    const handleChangeText = (text: string) => {
-      onChangeText?.(text);
-    };
+const Input = ({
+  icon: Icon,
+  rightIcon: RightIcon,
+  onRightIconPress,
+  error,
+  delay = 0,
+  style,
+  loading = false,
+  value = "",
+  onChangeText,
+  ref,
+  ...props
+}: InputProps) => {
+  const handleChangeText = (text: string) => {
+    onChangeText?.(text);
+  };
 
-    return (
-      <Animated.View
-        entering={FadeInDown.duration(600).delay(delay).springify()}
-        layout={LinearTransition.springify()}
-        style={[styles.container, error && styles.errorContainer, style]}
-      >
-        {Icon && (
-          <View style={styles.iconContainer}>
-            <Icon size={18} color={error ? "#f97583" : "#93c5fd"} />
-          </View>
-        )}
-        <TextInput
-          ref={ref}
-          style={[styles.input, error && styles.errorInput]}
-          placeholderTextColor="#808080"
-          value={value}
-          onChangeText={handleChangeText}
-          {...props}
-        />
-        {loading ? (
-          <View style={styles.rightIconContainer}>
-            <ActivityIndicator size="small" color="#93c5fd" />
-          </View>
-        ) : (
-          RightIcon && (
-            <TouchableOpacity
-              onPress={onRightIconPress}
-              style={styles.rightIconContainer}
-              disabled={!onRightIconPress}
-            >
-              <RightIcon size={18} color={error ? "#f97583" : "#93c5fd"} />
-            </TouchableOpacity>
-          )
-        )}
-      </Animated.View>
-    );
-  },
-);
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(600).delay(delay).springify()}
+      layout={LinearTransition.springify()}
+      style={[styles.container, error && styles.errorContainer, style]}
+    >
+      {Icon && (
+        <View style={styles.iconContainer}>
+          <Icon size={18} color={error ? "#f97583" : "#93c5fd"} />
+        </View>
+      )}
+      <TextInput
+        ref={ref}
+        style={[styles.input, error && styles.errorInput]}
+        placeholderTextColor="#808080"
+        value={value}
+        onChangeText={handleChangeText}
+        {...props}
+      />
+      {loading ? (
+        <View style={styles.rightIconContainer}>
+          <ActivityIndicator size="small" color="#93c5fd" />
+        </View>
+      ) : (
+        RightIcon && (
+          <TouchableOpacity
+            onPress={onRightIconPress}
+            style={styles.rightIconContainer}
+            disabled={!onRightIconPress}
+          >
+            <RightIcon size={18} color={error ? "#f97583" : "#93c5fd"} />
+          </TouchableOpacity>
+        )
+      )}
+    </Animated.View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
