@@ -43,7 +43,7 @@ export function createUnifiedFilteringService(
   };
 
   /**
-   * Calculate and send diff for both events and civic engagements in a unified message
+   * Calculate and send filtered events diff for a user based on their viewport and filters
    */
   async function calculateAndSendDiff(
     userId: string,
@@ -108,7 +108,7 @@ export function createUnifiedFilteringService(
         },
       );
 
-      // Send unified message with both events and civic engagements
+      // Send filtered events to user
       await eventPublisher.publishFilteredEvents(
         userId,
         viewport ? "viewport" : "all",

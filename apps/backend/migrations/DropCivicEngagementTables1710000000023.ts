@@ -23,6 +23,10 @@ export class DropCivicEngagementTables1710000000023
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    // WARNING: Rolling back this migration re-creates the civic_engagements table in the
+    // database, but all application code for civic engagement has been permanently removed.
+    // The table will exist with no entity, service, handler, or route backing it.
+    // Only revert this migration if you intend to restore civic engagement functionality.
     // Re-create the enums
     await queryRunner.query(`
       CREATE TYPE "public"."civic_engagements_type_enum" AS ENUM (

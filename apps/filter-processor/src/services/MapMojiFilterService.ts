@@ -70,11 +70,11 @@ export class MapMojiFilterService {
       });
     }
 
-    // Step 2: For civic engagement, show all events when there are few
+    // Step 2: Show all events at full relevance when there are few
     const sparseEventThreshold = 20; // Show all events if 10 or fewer
     if (preFiltered.length <= sparseEventThreshold) {
       console.log(
-        "[MapMoji] Sparse events detected - showing all events for civic engagement:",
+        "[MapMoji] Sparse events detected - showing all events at full relevance:",
         {
           eventCount: preFiltered.length,
           threshold: sparseEventThreshold,

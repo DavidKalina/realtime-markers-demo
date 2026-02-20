@@ -192,8 +192,7 @@ type AppRoute =
   | "/scan"
   | "/saved"
   | "/user"
-  | "/"
-  | "/civic-engagements";
+  | "/";
 
 // Define all possible tabs in a single configuration object
 const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {

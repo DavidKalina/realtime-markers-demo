@@ -147,7 +147,7 @@ export function createRedisMessageHandler(
   }
 
   /**
-   * Handle pattern messages (event changes and civic engagement changes)
+   * Handle pattern messages (event changes)
    */
   async function handlePatternMessage(
     pattern: string,

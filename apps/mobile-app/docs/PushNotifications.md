@@ -98,9 +98,6 @@ private handleNotificationResponse(response: Notifications.NotificationResponse)
   if (data?.type === "event") {
     // Navigate to event details
     console.log("Navigate to event:", data.eventId);
-  } else if (data?.type === "civic_engagement") {
-    // Navigate to civic engagement details
-    console.log("Navigate to civic engagement:", data.engagementId);
   }
 }
 ```

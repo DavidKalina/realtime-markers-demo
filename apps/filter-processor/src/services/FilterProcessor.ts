@@ -238,7 +238,7 @@ export function createFilterProcessor(
   // Create client configuration service
   const clientConfigService = createClientConfigService({ redis: redisPub });
 
-  // Create unified filtering service that handles both events and civic engagements
+  // Create unified filtering service for events
   const unifiedFilteringService = createUnifiedFilteringService(
     filterMatcher,
     mapMojiFilter,
