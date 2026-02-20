@@ -12,6 +12,7 @@ set -euo pipefail
 #   pnpm dev:local:no-ngrok     # Docker + Expo only (simulator / localhost)
 #   bash scripts/dev-local.sh --force-env   # Regenerate root .env
 #   bash scripts/dev-local.sh --no-ngrok    # Skip ngrok
+#   bash scripts/dev-local.sh --no-cache    # Rebuild Docker images from scratch
 # =============================================================================
 
 # --- Colors ---
@@ -35,6 +36,7 @@ cd "$REPO_ROOT"
 # --- Defaults ---
 USE_NGROK=true
 FORCE_ENV=false
+NO_CACHE=false
 NGROK_PID=""
 EXPO_PID=""
 DOCKER_STARTED=false
@@ -46,6 +48,7 @@ usage() {
   echo ""
   echo "Options:"
   echo "  --no-ngrok    Skip ngrok tunnels (simulator/localhost only)"
+  echo "  --no-cache    Rebuild Docker images without cache"
   echo "  --force-env   Regenerate root .env from env.local.example"
   echo "  -h, --help    Show this help message"
   exit 0
@@ -54,6 +57,7 @@ usage() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-ngrok)   USE_NGROK=false; shift ;;
+    --no-cache)   NO_CACHE=true; shift ;;
     --force-env)  FORCE_ENV=true; shift ;;
     -h|--help)    usage ;;
     *)            error "Unknown option: $1"; usage ;;
@@ -141,7 +145,16 @@ fi
 # =============================================================================
 header "Starting Docker services"
 
-info "Building and starting containers..."
+if [[ "$NO_CACHE" == "true" ]]; then
+  info "Building containers from scratch (no cache)..."
+  docker compose \
+    -f docker-compose.yml \
+    -f docker-compose.http.yml \
+    -f docker-compose.local.yml \
+    build --no-cache
+else
+  info "Building and starting containers..."
+fi
 docker compose \
   -f docker-compose.yml \
   -f docker-compose.http.yml \

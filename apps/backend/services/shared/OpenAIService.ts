@@ -68,7 +68,7 @@ export class OpenAIServiceImpl implements OpenAIService {
 
   constructor(private dependencies: OpenAIServiceDependencies) {
     if (!process.env.OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY environment variable is not set");
+      console.warn("OPENAI_API_KEY is not set — AI features will be unavailable");
     }
 
     this.redisService = dependencies.redisService;

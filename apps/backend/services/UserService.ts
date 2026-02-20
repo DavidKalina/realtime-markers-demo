@@ -2,7 +2,7 @@ import AppDataSource from "../data-source";
 import { User, UserRole } from "@realtime-markers/database";
 import { Repository, MoreThanOrEqual } from "typeorm";
 import type { EmailService } from "./shared/EmailService";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 export interface UserListParams {
   page?: number;

@@ -20,8 +20,6 @@ pnpm dev:local:no-ngrok   # Docker + Expo (simulator only, no ngrok)
 
 ### Development (Docker-based)
 ```bash
-pnpm docker:dev          # Start all services with localhost config
-pnpm docker:ngrok        # Start with ngrok config (for mobile testing)
 pnpm docker:prod         # Start with production config
 pnpm docker:down         # Stop all services
 ```
@@ -118,10 +116,8 @@ Exports TypeORM entities (`Event`, `User`, `Category`, etc.), the shared `DataSo
 ## Docker Infrastructure
 
 All services run inside Docker via `docker-compose.yml`. Environment-specific overrides:
-- `docker-compose.dev.yml` — localhost development
 - `docker-compose.http.yml` — HTTP-only (no Traefik), direct port access
 - `docker-compose.local.yml` — local dev overlay (dashboard hot reload + localhost URLs)
-- `docker-compose.ngrok.yml` — ngrok tunnels for mobile testing
 - `docker-compose.prod.yml` — production
 
 All services communicate over the `marker-network` bridge. Environment variables are configured via `.env` (see `env.example`).

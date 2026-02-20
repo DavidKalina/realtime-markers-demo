@@ -1,5 +1,5 @@
 import type { MigrationInterface, QueryRunner } from "typeorm";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 export class SeedUsers1710000000012 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {

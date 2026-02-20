@@ -3,7 +3,7 @@
   "module": "index.ts",
   "type": "module",
   "devDependencies": {
-    "@types/bcrypt": "^5.0.2",
+    "@types/bcryptjs": "^2.4.6",
     "@types/bun": "latest",
     "@types/geojson": "^7946.0.16",
     "@types/qrcode": "^1.5.6",
@@ -32,7 +32,7 @@
     "@hono-rate-limiter/redis": "^0.1.4",
     "@realtime-markers/database": "workspace:*",
     "@types/jsonwebtoken": "^9.0.10",
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^2.4.3",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "dotenv": "^16.6.1",
