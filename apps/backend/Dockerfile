@@ -6,11 +6,11 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     curl \
     python3 \
-    python3-pip \
+    python3-setuptools \
     build-essential \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
-    && npm install -g pnpm@8.15.0 \
+    && npm install -g pnpm@10 \
     && apt-get install -y postgresql-client \
     && apt-get clean
 
