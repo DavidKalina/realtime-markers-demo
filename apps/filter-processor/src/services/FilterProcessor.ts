@@ -308,8 +308,8 @@ export function createFilterProcessor(
       ...userUpdateBatcherService.getStats(),
     });
 
-    // Shutdown user update batcher service
-    userUpdateBatcherService.shutdown();
+    // Shutdown user update batcher service (await final flush)
+    await userUpdateBatcherService.shutdown();
 
     // Clean up Redis connection
     await redisMessageHandler.unsubscribe();

@@ -30,7 +30,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Platform, View } from "react-native";
+import { Platform, Text, View } from "react-native";
 import { runOnJS } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -124,11 +124,23 @@ function HomeScreen() {
     if (isMapReady && isMapLoading) {
       const timer = setTimeout(() => {
         setIsMapLoading(false);
-      }, 500); // 500ms delay to ensure splash screen shows properly
+      }, 500);
 
       return () => clearTimeout(timer);
     }
   }, [isMapReady, isMapLoading]);
+
+  // Fallback: dismiss loading overlay after 5s even if onDidFinishLoadingMap
+  // doesn't fire (known issue with @rnmapbox/maps on New Architecture/Fabric)
+  useEffect(() => {
+    const fallback = setTimeout(() => {
+      if (!isMapReady) {
+        console.warn("Map ready timeout — forcing dismiss of loading overlay");
+        setIsMapReady(true);
+      }
+    }, 5000);
+    return () => clearTimeout(fallback);
+  }, []);
 
   // Load initial location request state
   useEffect(() => {
@@ -570,7 +582,12 @@ function HomeScreen() {
 
         {statusBarSection}
 
+        {/* TODO: Re-enable map after isolating crash */}
         <View style={styles.mapContainer}>
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+            <Text style={{ fontSize: 18, color: "#666" }}>Map disabled for debugging</Text>
+          </View>
+          {/*
           <MapboxGL.MapView
             onTouchStart={handleUserPan}
             onPress={handleMapPress}
@@ -581,26 +598,20 @@ function HomeScreen() {
             onRegionIsChanging={handleRegionChanging}
             {...mapViewProps}
           >
-            {/* Camera with ref for control */}
             <MapboxGL.Camera
               ref={cameraRef}
               defaultSettings={cameraSettings}
               {...cameraProps}
             />
-
-            {/* Map Markers */}
             {markersComponent}
-
-            {/* User location layer */}
             {userLocationLayer}
-
-            {/* Viewport Rectangle */}
             {viewportRectangleComponent}
           </MapboxGL.MapView>
 
           {rippleEffectComponent}
 
           {floatingButtonsSection}
+          */}
         </View>
       </View>
     </AuthWrapper>

@@ -46,6 +46,9 @@ export interface RedisService {
   // Connection health
   checkConnection: () => Promise<boolean>;
 
+  // Lifecycle
+  shutdown: () => Promise<void>;
+
   // Client access (for backward compatibility)
   getPubClient: () => Redis;
   getSubClient: () => Redis;
@@ -226,6 +229,22 @@ export function createRedisService(
       } catch (error) {
         console.error("Redis connection check failed:", error);
         return false;
+      }
+    },
+
+    async shutdown(): Promise<void> {
+      console.log("[RedisService] Shutting down Redis connections...");
+      subscribedUsers.clear();
+      userMessageCallback = null;
+      try {
+        await Promise.allSettled([
+          userPatternSubClient.punsubscribe().then(() => userPatternSubClient.quit()),
+          globalSubClient.unsubscribe().then(() => globalSubClient.quit()),
+          pubClient.quit(),
+        ]);
+        console.log("[RedisService] All Redis connections closed");
+      } catch (error) {
+        console.error("[RedisService] Error during shutdown:", error);
       }
     },
 

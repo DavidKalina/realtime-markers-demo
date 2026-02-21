@@ -20,6 +20,7 @@ export interface ClientConnectionService {
   getClientTypeForUser: (userId: string) => ClientType | undefined;
   cleanupClientTypes: (userId: string) => Promise<void>;
   updateClientTypesForUser: (userId: string) => Promise<void>;
+  reapZombieConnections: (maxIdleMs: number) => number;
 }
 
 export interface ClientConnectionServiceDependencies {
@@ -419,6 +420,39 @@ export function createClientConnectionService(
           error,
         );
       }
+    },
+
+    reapZombieConnections(maxIdleMs: number): number {
+      const now = Date.now();
+      const staleClients: Array<{
+        clientId: string;
+        ws: ServerWebSocket<WebSocketData>;
+      }> = [];
+
+      for (const [clientId, ws] of clients) {
+        if (now - ws.data.lastActivity > maxIdleMs) {
+          staleClients.push({ clientId, ws });
+        }
+      }
+
+      if (staleClients.length > 0) {
+        console.log(
+          `[ClientConnectionService] Reaping ${staleClients.length} zombie connections (idle > ${Math.round(maxIdleMs / 1000)}s)`,
+        );
+        for (const { ws } of staleClients) {
+          try {
+            ws.close(1000, "Idle timeout");
+          } catch {
+            // Connection may already be dead — unregister directly
+            const clientId = ws.data?.clientId;
+            if (clientId) {
+              this.unregisterClient(clientId, ws.data?.userId);
+            }
+          }
+        }
+      }
+
+      return staleClients.length;
     },
   };
 }

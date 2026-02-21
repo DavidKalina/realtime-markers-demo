@@ -23,7 +23,7 @@ import Animated, {
   LinearTransition,
 } from "react-native-reanimated";
 import { ClusterMarker } from "./ClusterMarker";
-import { MapMarker as EmojiMapMarker } from "./CustomMapMarker";
+import { EmojiMapMarker } from "./CustomMapMarker";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import { useRouter } from "expo-router";
@@ -58,6 +58,7 @@ interface ClusteredMapMarkersProps {
 const SingleMarkerView = React.memo(
   ({
     marker,
+    isSelected,
     onPress,
     index,
   }: {
@@ -100,8 +101,10 @@ const SingleMarkerView = React.memo(
         >
           <EmojiMapMarker
             event={marker}
+            isSelected={isSelected}
             isHighlighted={false}
             onPress={onPress}
+            index={index}
           />
         </Animated.View>
       </MapboxGL.MarkerView>

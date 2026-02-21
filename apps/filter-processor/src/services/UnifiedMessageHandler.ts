@@ -681,8 +681,10 @@ export class UnifiedMessageHandler {
 
     if (processingTimeMs) {
       this.metrics.totalProcessingTimeMs += processingTimeMs;
-      this.metrics.averageProcessingTimeMs =
-        this.metrics.totalProcessingTimeMs / this.metrics.messagesProcessed;
+      if (this.metrics.messagesProcessed > 0) {
+        this.metrics.averageProcessingTimeMs =
+          this.metrics.totalProcessingTimeMs / this.metrics.messagesProcessed;
+      }
     }
 
     this.metrics.lastProcessedAt = new Date();

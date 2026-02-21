@@ -149,10 +149,10 @@ describe("HybridUserUpdateBatcherService", () => {
     );
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     // Clean up after each test
     if (batcherService) {
-      batcherService.shutdown();
+      await batcherService.shutdown();
     }
   });
 
@@ -183,7 +183,7 @@ describe("HybridUserUpdateBatcherService", () => {
         expect.any(Array),
       );
 
-      immediateBatcher.shutdown();
+      await immediateBatcher.shutdown();
     });
 
     test("should debounce rapid updates for the same user", async () => {
@@ -284,7 +284,7 @@ describe("HybridUserUpdateBatcherService", () => {
       expect(processedUsers).toContain("user-3");
       expect(processedUsers).toContain("user-4");
 
-      smallBatchBatcher.shutdown();
+      await smallBatchBatcher.shutdown();
     });
   });
 
@@ -336,8 +336,8 @@ describe("HybridUserUpdateBatcherService", () => {
       batcherService.markUserAsDirty("user-1");
       batcherService.markUserAsDirty("user-2");
 
-      // Shutdown
-      batcherService.shutdown();
+      // Shutdown (now async — awaits final flush)
+      await batcherService.shutdown();
 
       // Should process remaining users (may be processed by sweeper before shutdown)
       const callCount = (

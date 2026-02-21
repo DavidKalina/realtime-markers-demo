@@ -34,12 +34,16 @@ export function validateAndFormatViewport(
 
   const viewport = viewportData as ViewportData;
 
-  // Check for required properties
+  // Check for required properties and reject NaN/Infinity
   if (
     typeof viewport.west !== "number" ||
     typeof viewport.south !== "number" ||
     typeof viewport.east !== "number" ||
-    typeof viewport.north !== "number"
+    typeof viewport.north !== "number" ||
+    !Number.isFinite(viewport.west) ||
+    !Number.isFinite(viewport.south) ||
+    !Number.isFinite(viewport.east) ||
+    !Number.isFinite(viewport.north)
   ) {
     return {
       isValid: false,

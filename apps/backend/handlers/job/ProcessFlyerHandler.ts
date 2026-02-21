@@ -28,6 +28,26 @@ function parseDateOrNull(dateStr?: string): Date | undefined {
   return isNaN(date.getTime()) ? undefined : date;
 }
 
+// Generate a fingerprint for duplicate scan prevention.
+// Rounds coordinates to 3 decimal places (~111m precision) to catch
+// near-identical scans without false positives from GPS jitter.
+function eventFingerprint(
+  title: string,
+  dateStr: string,
+  location: Point,
+): string {
+  const normalized = [
+    title.toLowerCase().trim(),
+    dateStr,
+    Math.round(location.coordinates[0] * 1000) / 1000,
+    Math.round(location.coordinates[1] * 1000) / 1000,
+  ].join("|");
+  // Use Bun's fast hashing
+  const hasher = new Bun.CryptoHasher("sha256");
+  hasher.update(normalized);
+  return hasher.digest("hex").slice(0, 16);
+}
+
 export class ProcessFlyerHandler extends BaseJobHandler {
   readonly jobType = "process_flyer";
 
@@ -300,6 +320,29 @@ export class ProcessFlyerHandler extends BaseJobHandler {
 
       console.log("[ProcessFlyerHandler] Moving to Step 6: Event Creation");
 
+      // Acquire distributed lock to prevent duplicate concurrent scans
+      const fingerprint = eventFingerprint(
+        eventDetails.title,
+        eventDetails.date,
+        eventDetails.location,
+      );
+      const lockKey = `scan:lock:${fingerprint}`;
+      const lockAcquired = await context.redisService
+        .getClient()
+        .set(lockKey, jobId, "EX", 60, "NX");
+
+      if (!lockAcquired) {
+        console.log(
+          `[ProcessFlyerHandler] Duplicate scan detected (lock exists for fingerprint ${fingerprint}), completing as duplicate`,
+        );
+        await this.completeJob(jobId, context, {
+          message:
+            "This event is already being processed by another scan. Please wait a moment.",
+          isDuplicate: true,
+        });
+        return;
+      }
+
       // Step 6: Event Creation (90% progress)
       await this.updateJobProgress(jobId, context, {
         progress: 90,
@@ -358,16 +401,23 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         );
       }
 
-      await context.redisService.publish("discovered_events", {
-        type: "EVENT_DISCOVERED",
-        data: {
-          event: {
-            ...newEvent,
-            coordinates: pointToCoordinates(newEvent.location),
+      try {
+        await context.redisService.publish("discovered_events", {
+          type: "EVENT_DISCOVERED",
+          data: {
+            event: {
+              ...newEvent,
+              coordinates: pointToCoordinates(newEvent.location),
+            },
+            timestamp: new Date().toISOString(),
           },
-          timestamp: new Date().toISOString(),
-        },
-      });
+        });
+      } catch (publishError) {
+        console.error(
+          `[ProcessFlyerHandler] Failed to publish event ${newEvent.id} to Redis (event saved to DB successfully):`,
+          publishError,
+        );
+      }
 
       // Mark as completed with success
       await this.completeJob(
@@ -411,6 +461,13 @@ export class ProcessFlyerHandler extends BaseJobHandler {
     creatorId?: string,
     originalImageUrl?: string | null,
   ): Promise<ProcessedEvent[]> {
+    if (!creatorId) {
+      console.warn(
+        `[ProcessFlyerHandler] Skipping multi-event processing — no creatorId for job ${jobId}`,
+      );
+      return [];
+    }
+
     const processedEvents: ProcessedEvent[] = [];
 
     for (const eventResult of scanResult.events) {
@@ -448,6 +505,24 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         continue;
       }
 
+      // Acquire distributed lock to prevent duplicate concurrent scans
+      const fingerprint = eventFingerprint(
+        eventResult.eventDetails.title || "Untitled Event",
+        eventResult.eventDetails.date,
+        eventResult.eventDetails.location,
+      );
+      const lockKey = `scan:lock:${fingerprint}`;
+      const lockAcquired = await context.redisService
+        .getClient()
+        .set(lockKey, jobId, "EX", 60, "NX");
+
+      if (!lockAcquired) {
+        console.log(
+          `[ProcessFlyerHandler] Skipping duplicate event in multi-scan (lock exists for fingerprint ${fingerprint})`,
+        );
+        continue;
+      }
+
       // Create the event
       console.log(
         "[ProcessFlyerHandler] Creating multi-event with emoji:",
@@ -469,7 +544,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         categoryIds:
           eventResult.eventDetails.categories?.map((cat: Category) => cat.id) ||
           [],
-        creatorId: creatorId || "", // Use empty string as fallback since it's required
+        creatorId: creatorId!, // Validated above — skip events without a creator
         qrDetectedInImage: eventResult.qrCodeDetected || false,
         detectedQrData: eventResult.qrCodeData,
         originalImageUrl: originalImageUrl || undefined,
@@ -487,16 +562,23 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         await this.eventService.createDiscoveryRecord(creatorId, newEvent.id);
       }
 
-      await context.redisService.publish("discovered_events", {
-        type: "EVENT_DISCOVERED",
-        data: {
-          event: {
-            ...newEvent,
-            coordinates: pointToCoordinates(newEvent.location),
+      try {
+        await context.redisService.publish("discovered_events", {
+          type: "EVENT_DISCOVERED",
+          data: {
+            event: {
+              ...newEvent,
+              coordinates: pointToCoordinates(newEvent.location),
+            },
+            timestamp: new Date().toISOString(),
           },
-          timestamp: new Date().toISOString(),
-        },
-      });
+        });
+      } catch (publishError) {
+        console.error(
+          `[ProcessFlyerHandler] Failed to publish event ${newEvent.id} to Redis (event saved to DB successfully):`,
+          publishError,
+        );
+      }
 
       processedEvents.push(newEvent as ProcessedEvent);
     }

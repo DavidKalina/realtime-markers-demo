@@ -1,7 +1,7 @@
 import React from "react";
 import { View } from "react-native";
 import MapboxGL from "@rnmapbox/maps";
-import { MapMarker as EmojiMapMarker } from "../Markers/CustomMapMarker";
+import { EmojiMapMarker } from "../Markers/CustomMapMarker";
 import { styles } from "./styles";
 import { COLORS } from "../Layout/ScreenLayout";
 
@@ -51,6 +51,7 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
                 color: COLORS.accent,
               },
             }}
+            isSelected={false}
             onPress={() => {}}
           />
         </MapboxGL.MarkerView>
