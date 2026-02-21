@@ -545,21 +545,23 @@ const Login: React.FC = () => {
                   </View>
 
                   <View style={styles.loginButtonContainer}>
-                    <TouchableOpacity
-                      onPress={handleLoginPress}
-                      disabled={isLoading}
-                      activeOpacity={0.7}
-                      style={[styles.loginButton, buttonAnimatedStyle]}
-                    >
-                      {isLoading ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={newColors.cardText}
-                        />
-                      ) : (
-                        <Text style={styles.loginButtonText}>Login</Text>
-                      )}
-                    </TouchableOpacity>
+                    <Animated.View style={buttonAnimatedStyle}>
+                      <TouchableOpacity
+                        onPress={handleLoginPress}
+                        disabled={isLoading}
+                        activeOpacity={0.7}
+                        style={styles.loginButton}
+                      >
+                        {isLoading ? (
+                          <ActivityIndicator
+                            size="small"
+                            color={newColors.cardText}
+                          />
+                        ) : (
+                          <Text style={styles.loginButtonText}>Login</Text>
+                        )}
+                      </TouchableOpacity>
+                    </Animated.View>
                   </View>
 
                   <View style={styles.createAccountContainer}>
