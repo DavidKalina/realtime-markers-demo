@@ -15,6 +15,7 @@ import { isRunningInExpoGo } from "expo";
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
+import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
 import {
   SplashScreenProvider,
@@ -60,6 +61,7 @@ const STACK_SCREEN_OPTIONS = {
 const SCREEN_CONFIGS = [
   { name: "register" },
   { name: "login" },
+  { name: "onboarding" },
   { name: "index" },
   { name: "scan" },
   { name: "user" },
@@ -123,17 +125,19 @@ function AppProviders({ children }: AppProvidersProps) {
 
   return (
     <AuthProvider>
-      <LocationProvider>
-        <MapStyleProvider>
-          <SplashScreenProvider>
-            <ThemeProvider
-              value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-            >
-              <SplashScreenHandler>{children}</SplashScreenHandler>
-            </ThemeProvider>
-          </SplashScreenProvider>
-        </MapStyleProvider>
-      </LocationProvider>
+      <OnboardingProvider>
+        <LocationProvider>
+          <MapStyleProvider>
+            <SplashScreenProvider>
+              <ThemeProvider
+                value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+              >
+                <SplashScreenHandler>{children}</SplashScreenHandler>
+              </ThemeProvider>
+            </SplashScreenProvider>
+          </MapStyleProvider>
+        </LocationProvider>
+      </OnboardingProvider>
     </AuthProvider>
   );
 }

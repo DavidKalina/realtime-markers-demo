@@ -22,11 +22,10 @@ import Animated, {
   LinearTransition,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
   withSequence,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
+import MapMojiHeader from "../AnimationHeader";
 import { AuthWrapper } from "../AuthWrapper";
 import Input from "../Input/Input";
 import { COLORS } from "../Layout/ScreenLayout";
@@ -151,16 +150,6 @@ const Login: React.FC = () => {
       gap: 20,
     },
 
-    slogan: {
-      fontSize: 18,
-      color: COLORS.textPrimary,
-      fontFamily: "SpaceMono",
-      marginBottom: 20,
-      textAlign: "center",
-      fontWeight: "600",
-      letterSpacing: 0.5,
-    },
-
     formContainer: {
       width: "100%",
       maxWidth: 400,
@@ -233,9 +222,9 @@ const Login: React.FC = () => {
       justifyContent: "center",
       alignItems: "center",
       marginVertical: 20,
-      backgroundColor: COLORS.accent,
+      backgroundColor: "rgba(147, 197, 253, 0.15)",
       borderWidth: 1,
-      borderColor: COLORS.accent,
+      borderColor: "rgba(147, 197, 253, 0.3)",
     },
 
     loginButtonText: {
@@ -438,7 +427,7 @@ const Login: React.FC = () => {
               entering={FadeInDown.duration(600).delay(100).springify()}
               style={styles.contentContainer}
             >
-              <Text style={styles.slogan}>Discover Events</Text>
+              <MapMojiHeader />
 
               <Animated.View
                 entering={FadeInDown.duration(600).delay(300).springify()}
