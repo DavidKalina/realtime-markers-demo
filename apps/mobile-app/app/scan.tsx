@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
   cameraNotReadyText: {
     color: COLORS.textPrimary,
     marginTop: 16,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontSize: 14,
   },
   cameraPlaceholder: {
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   cameraPlaceholderText: {
     color: COLORS.textSecondary,
     marginTop: 16,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontSize: 14,
   },
   loaderContainer: {
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   loaderText: {
     color: COLORS.textSecondary,
     marginTop: 16,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontSize: 14,
   },
   controlsContainer: {
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   scanCountText: {
     color: COLORS.cardBackground,
     fontSize: 12,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontWeight: "600",
   },
 });

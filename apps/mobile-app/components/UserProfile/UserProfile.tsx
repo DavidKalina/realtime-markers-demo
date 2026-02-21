@@ -11,7 +11,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { Building, MapPin, Shield, User, Heart } from "lucide-react-native";
+import { MapPin, User } from "lucide-react-native";
 import Card from "../Layout/Card";
 import Screen from "../Layout/Screen";
 import { COLORS } from "../Layout/ScreenLayout";
@@ -21,21 +21,6 @@ import DeleteAccountModalComponent from "./DeleteAccountModal";
 interface UserProfileProps {
   onBack?: () => void;
 }
-
-// Warm, community-focused color scheme
-const COMMUNITY_COLORS = {
-  primary: "#3b82f6", // Friendly blue
-  secondary: "#10b981", // Community green
-  accent: "#f59e0b", // Warm amber
-  background: "#f8fafc", // Soft background
-  card: "#ffffff", // Clean white
-  text: "#1e293b", // Readable dark
-  textSecondary: "#64748b", // Gentle gray
-  border: "#e2e8f0", // Soft border
-  success: "#10b981", // Success green
-  warning: "#f59e0b", // Warm warning
-  error: "#ef4444", // Clear error
-};
 
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { user } = useAuth();
@@ -77,10 +62,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     return (
       <Screen>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COMMUNITY_COLORS.primary} />
-          <Text style={styles.loadingText}>
-            Loading your community profile...
-          </Text>
+          <ActivityIndicator size="large" color={COLORS.accent} />
+          <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
       </Screen>
     );
@@ -89,22 +72,20 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   return (
     <>
       <Screen
-        bannerTitle="My Community"
-        bannerDescription="Your local engagement journey"
-        bannerEmoji="🏘️"
+        bannerTitle="Profile"
+        bannerDescription="Your account and preferences"
         showBackButton={true}
         onBack={handleBack}
         isScrollable
       >
         <View style={styles.profileContainer}>
-          {/* Community Activity - Show what you've discovered */}
           <Card style={styles.card}>
             <View style={styles.sectionHeader}>
-              <Heart size={20} color={COMMUNITY_COLORS.primary} />
-              <Text style={styles.sectionTitle}>My Local Adventures</Text>
+              <User size={20} color={COLORS.accent} />
+              <Text style={styles.sectionTitle}>Your Stats</Text>
             </View>
             <Text style={styles.sectionDescription}>
-              See how you're exploring and connecting with your community
+              Your scanning and saving activity
             </Text>
             <UserStats
               items={[
@@ -121,19 +102,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               delay={200}
             />
             <Text style={styles.statsDescription}>
-              Every event you discover helps build a stronger, more connected
-              community! 🎉
+              Keep scanning to discover more events around you.
             </Text>
           </Card>
 
-          {/* About You - More personal and friendly */}
           <Card style={styles.card}>
             <View style={styles.sectionHeader}>
-              <User size={20} color={COMMUNITY_COLORS.primary} />
-              <Text style={styles.sectionTitle}>About You</Text>
+              <User size={20} color={COLORS.accent} />
+              <Text style={styles.sectionTitle}>Account Information</Text>
             </View>
             <Text style={styles.sectionDescription}>
-              Help us get to know you better as a community member
+              Your account details
             </Text>
             {profileData?.firstName && (
               <View style={styles.detailRow}>
@@ -152,33 +131,28 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               <Text style={styles.value}>{user?.email}</Text>
             </View>
             <View style={styles.detailRow}>
-              <Text style={styles.label}>Community Member Since</Text>
+              <Text style={styles.label}>Member Since</Text>
               <Text style={styles.value}>{memberSince}</Text>
             </View>
           </Card>
 
-          {/* Bio Section - More engaging */}
           {profileData?.bio && (
             <Card style={styles.card}>
               <View style={styles.sectionHeader}>
-                <Building size={20} color={COMMUNITY_COLORS.primary} />
-                <Text style={styles.sectionTitle}>Your Story</Text>
+                <User size={20} color={COLORS.accent} />
+                <Text style={styles.sectionTitle}>Bio</Text>
               </View>
-              <Text style={styles.sectionDescription}>
-                Share what makes you excited about your community
-              </Text>
               <Text style={styles.bioText}>{profileData.bio}</Text>
             </Card>
           )}
 
-          {/* Map Preferences - More user-friendly */}
           <Card style={styles.card}>
             <View style={styles.sectionHeader}>
-              <MapPin size={20} color={COMMUNITY_COLORS.primary} />
+              <MapPin size={20} color={COLORS.accent} />
               <Text style={styles.sectionTitle}>Map Style</Text>
             </View>
             <Text style={styles.sectionDescription}>
-              Choose how you'd like to explore your neighborhood
+              Choose your preferred map appearance
             </Text>
 
             {/* Map Style Settings */}
@@ -261,7 +235,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   <View style={styles.styleOptionText}>
                     <Text style={styles.settingText}>Street View</Text>
                     <Text style={styles.settingDescription}>
-                      See all the neighborhood details
+                      Detailed street-level view
                     </Text>
                   </View>
                 </View>
@@ -281,25 +255,24 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 onValueChange={handlePitchChange}
                 trackColor={{
                   false: COLORS.divider,
-                  true: COMMUNITY_COLORS.primary,
+                  true: COLORS.accent,
                 }}
                 thumbColor={
                   mapSettings.isPitched
-                    ? COMMUNITY_COLORS.primary
+                    ? COLORS.accent
                     : COLORS.cardBackground
                 }
               />
             </View>
           </Card>
 
-          {/* Account Settings - Friendly but clear */}
           <Card style={styles.card}>
             <View style={styles.sectionHeader}>
-              <Shield size={20} color={COMMUNITY_COLORS.primary} />
+              <User size={20} color={COLORS.accent} />
               <Text style={styles.sectionTitle}>Account</Text>
             </View>
             <Text style={styles.sectionDescription}>
-              Manage your community profile settings
+              Manage your account settings
             </Text>
             <View style={styles.buttonContainer}>
               <Card
@@ -352,7 +325,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     color: COLORS.textSecondary,
     fontSize: 14,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   profileContainer: {
     padding: 16,
@@ -371,13 +344,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.textPrimary,
     marginLeft: 8,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   sectionDescription: {
     fontSize: 14,
     color: COLORS.textSecondary,
     marginBottom: 16,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     lineHeight: 20,
   },
   detailRow: {
@@ -387,20 +360,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textSecondary,
     marginBottom: 4,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   value: {
     fontSize: 16,
     color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontWeight: "500",
   },
   bioText: {
     fontSize: 16,
     color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     lineHeight: 24,
   },
   buttonContainer: {
@@ -421,14 +394,14 @@ const styles = StyleSheet.create({
   buttonText: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     textAlign: "center",
     fontWeight: "500",
   },
   deleteButtonText: {
     color: COLORS.errorText,
     fontSize: 16,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     textAlign: "center",
     fontWeight: "500",
   },
@@ -442,9 +415,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   styleOptionActive: {
-    backgroundColor: COMMUNITY_COLORS.background,
+    backgroundColor: COLORS.background,
     borderWidth: 2,
-    borderColor: COMMUNITY_COLORS.primary,
+    borderColor: COLORS.accent,
   },
   styleOptionContent: {
     flexDirection: "row",
@@ -464,13 +437,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   radioButtonActive: {
-    borderColor: COMMUNITY_COLORS.primary,
+    borderColor: COLORS.accent,
   },
   radioButtonInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: COMMUNITY_COLORS.primary,
+    backgroundColor: COLORS.accent,
   },
   settingRow: {
     flexDirection: "row",
@@ -490,20 +463,20 @@ const styles = StyleSheet.create({
   settingText: {
     fontSize: 16,
     color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     marginBottom: 4,
     fontWeight: "500",
   },
   settingDescription: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     lineHeight: 20,
   },
   statsDescription: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     lineHeight: 20,
     marginTop: 8,
     textAlign: "center",

@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontWeight: "bold",
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     textAlign: "center",
     lineHeight: 24,
     ...Platform.select({

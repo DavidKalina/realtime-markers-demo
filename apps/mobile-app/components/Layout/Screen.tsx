@@ -15,28 +15,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Banner from "./Banner";
 import Button from "./Button";
 import ScreenContent from "./ScreenContent";
-import ScreenLayout from "./ScreenLayout";
+import ScreenLayout, { COLORS } from "./ScreenLayout";
 import SectionHeader from "./SectionHeader";
 import Tabs from "./Tabs";
-
-// Updated color scheme to match register/login screens
-const newColors = {
-  background: "#00697A",
-  text: "#FFFFFF",
-  accent: "#FDB813",
-  cardBackground: "#FFFFFF",
-  cardText: "#000000",
-  cardTextSecondary: "#6c757d",
-  buttonBackground: "#FFFFFF",
-  buttonText: "#00697A",
-  buttonBorder: "#DDDDDD",
-  inputBackground: "#F5F5F5",
-  errorBackground: "#FFCDD2",
-  errorText: "#B71C1C",
-  errorBorder: "#EF9A9A",
-  divider: "#E0E0E0",
-  activityIndicator: "#00697A",
-};
 
 export interface Section {
   title?: string;
@@ -313,7 +294,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: newColors.background, // Updated to teal background
+    backgroundColor: COLORS.background,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,

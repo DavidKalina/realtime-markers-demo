@@ -28,6 +28,7 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Screen from "../Layout/Screen";
+import { COLORS } from "../Layout/ScreenLayout";
 import { ErrorEventDetails } from "./ErrorEventDetails";
 import EventEngagementDisplay from "./EventEngagementDisplay";
 import EventMapPreview from "./EventMapPreview";
@@ -40,21 +41,6 @@ interface EventDetailsProps {
   eventId: string;
   onBack?: () => void;
 }
-
-// Municipal-friendly color scheme
-const MUNICIPAL_COLORS = {
-  primary: "#1e40af", // Professional blue
-  secondary: "#059669", // Municipal green
-  accent: "#f59e0b", // Warm amber
-  background: "#f8fafc", // Light gray background
-  card: "#ffffff", // White cards
-  text: "#1e293b", // Dark slate text
-  textSecondary: "#64748b", // Medium gray
-  border: "#e2e8f0", // Light border
-  success: "#10b981", // Green for success states
-  warning: "#f59e0b", // Amber for warnings
-  error: "#ef4444", // Red for errors
-};
 
 // Memoize InfoCard component
 const InfoCard = memo(
@@ -78,7 +64,7 @@ const InfoCard = memo(
             <View style={styles.infoCardIcon}>
               <Icon
                 size={18}
-                color={MUNICIPAL_COLORS.primary}
+                color={COLORS.accent}
                 strokeWidth={2}
               />
             </View>
@@ -114,26 +100,26 @@ const ActionButton = memo(
       switch (variant) {
         case "primary":
           return {
-            backgroundColor: MUNICIPAL_COLORS.primary,
-            borderColor: MUNICIPAL_COLORS.primary,
+            backgroundColor: COLORS.accent,
+            borderColor: COLORS.accent,
             textColor: "#ffffff",
           };
         case "secondary":
           return {
-            backgroundColor: MUNICIPAL_COLORS.secondary,
-            borderColor: MUNICIPAL_COLORS.secondary,
+            backgroundColor: "#059669",
+            borderColor: "#059669",
             textColor: "#ffffff",
           };
         case "outline":
           return {
             backgroundColor: "transparent",
-            borderColor: MUNICIPAL_COLORS.border,
-            textColor: MUNICIPAL_COLORS.text,
+            borderColor: COLORS.divider,
+            textColor: COLORS.textPrimary,
           };
         default:
           return {
-            backgroundColor: MUNICIPAL_COLORS.primary,
-            borderColor: MUNICIPAL_COLORS.primary,
+            backgroundColor: COLORS.accent,
+            borderColor: COLORS.accent,
             textColor: "#ffffff",
           };
       }
@@ -361,7 +347,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           {/* Date and Time Card - Most important for planning */}
           <InfoCard title="Date & Time" icon={Calendar}>
             <View style={styles.detailRow}>
-              <Clock size={16} color={MUNICIPAL_COLORS.textSecondary} />
+              <Clock size={16} color={COLORS.textSecondary} />
               <Text style={styles.detailText}>{formattedDate}</Text>
             </View>
           </InfoCard>
@@ -373,7 +359,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
               onPress={handleOpenMaps}
               activeOpacity={0.7}
             >
-              <MapPin size={16} color={MUNICIPAL_COLORS.textSecondary} />
+              <MapPin size={16} color={COLORS.textSecondary} />
               <View style={styles.locationContent}>
                 <Text style={styles.detailText}>{event.address}</Text>
                 {distanceInfo && (
@@ -539,7 +525,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           {event.creator && (
             <InfoCard title="Event Discovery" icon={Users}>
               <View style={styles.discoveredByContent}>
-                <Scan size={16} color={MUNICIPAL_COLORS.textSecondary} />
+                <Scan size={16} color={COLORS.textSecondary} />
                 <Text style={styles.discoveredByText}>
                   Discovered by{" "}
                   <Text style={styles.discoveredByName}>

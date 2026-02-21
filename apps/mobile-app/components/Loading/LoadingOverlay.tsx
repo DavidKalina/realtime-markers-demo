@@ -56,12 +56,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     marginBottom: 8,
   },
   loadingSubtext: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
 });

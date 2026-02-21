@@ -14,24 +14,7 @@ import {
   withSpring,
 } from "react-native-reanimated";
 import { useRegistration } from "@/contexts/RegistrationContext";
-
-const newColors = {
-  background: "#00697A",
-  text: "#FFFFFF",
-  accent: "#FDB813",
-  cardBackground: "#FFFFFF",
-  cardText: "#000000",
-  cardTextSecondary: "#6c757d",
-  buttonBackground: "#FFFFFF",
-  buttonText: "#00697A",
-  buttonBorder: "#DDDDDD",
-  inputBackground: "#F5F5F5",
-  errorBackground: "#FFCDD2",
-  errorText: "#B71C1C",
-  errorBorder: "#EF9A9A",
-  divider: "#E0E0E0",
-  activityIndicator: "#00697A",
-};
+import { COLORS } from "../Layout/ScreenLayout";
 
 interface RegistrationStepLayoutProps {
   onNext: () => void;
@@ -117,7 +100,7 @@ const RegistrationStepLayout: React.FC<RegistrationStepLayoutProps> = ({
             style={[styles.button, styles.backButton]}
             activeOpacity={0.7}
           >
-            <ChevronLeft size={20} color={newColors.buttonText} />
+            <ChevronLeft size={20} color={COLORS.accent} />
             <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
         )}
@@ -132,11 +115,11 @@ const RegistrationStepLayout: React.FC<RegistrationStepLayoutProps> = ({
           ]}
         >
           {isLoading ? (
-            <ActivityIndicator size="small" color={newColors.cardText} />
+            <ActivityIndicator size="small" color={COLORS.textPrimary} />
           ) : (
             <>
               <Text style={styles.nextButtonText}>{nextButtonText}</Text>
-              <ChevronRight size={20} color={newColors.cardText} />
+              <ChevronRight size={20} color={COLORS.textPrimary} />
             </>
           )}
         </TouchableOpacity>
@@ -155,8 +138,8 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 12,
-    color: newColors.cardTextSecondary,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textSecondary,
+    fontFamily: "SpaceMono",
   },
   progressDots: {
     flexDirection: "row",
@@ -168,10 +151,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   progressDotActive: {
-    backgroundColor: newColors.accent,
+    backgroundColor: COLORS.accent,
   },
   progressDotInactive: {
-    backgroundColor: newColors.divider,
+    backgroundColor: COLORS.divider,
   },
   buttonRow: {
     flexDirection: "row",
@@ -188,27 +171,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   backButton: {
-    backgroundColor: "#fff",
-    borderColor: newColors.buttonBorder,
+    backgroundColor: COLORS.cardBackground,
+    borderColor: COLORS.buttonBorder,
   },
   backButtonText: {
     fontSize: 14,
-    color: newColors.buttonText,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.accent,
+    fontFamily: "SpaceMono",
     fontWeight: "500",
   },
   nextButton: {
-    backgroundColor: newColors.accent,
-    borderColor: newColors.accent,
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent,
   },
   nextButtonDisabled: {
-    backgroundColor: newColors.divider,
-    borderColor: newColors.divider,
+    backgroundColor: COLORS.divider,
+    borderColor: COLORS.divider,
   },
   nextButtonText: {
     fontSize: 16,
-    color: newColors.cardText,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
     fontWeight: "600",
   },
 });

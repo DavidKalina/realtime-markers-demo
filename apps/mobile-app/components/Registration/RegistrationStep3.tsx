@@ -13,37 +13,14 @@ import {
 import Animated, {
   FadeInDown,
   LinearTransition,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
 } from "react-native-reanimated";
-import { Image } from "react-native";
 import { Lock, Eye, EyeOff } from "lucide-react-native";
 import Input from "@/components/Input/Input";
 import { useRegistration } from "@/contexts/RegistrationContext";
+import { COLORS } from "../Layout/ScreenLayout";
 import RegistrationStepLayout from "./RegistrationStepLayout";
 import * as Haptics from "expo-haptics";
 import RegistrationCardLayout from "./RegistrationCardLayout";
-
-const newColors = {
-  background: "#00697A",
-  text: "#FFFFFF",
-  accent: "#FDB813",
-  cardBackground: "#FFFFFF",
-  cardText: "#000000",
-  cardTextSecondary: "#6c757d",
-  buttonBackground: "#FFFFFF",
-  buttonText: "#00697A",
-  buttonBorder: "#DDDDDD",
-  inputBackground: "#F5F5F5",
-  errorBackground: "#FFCDD2",
-  errorText: "#B71C1C",
-  errorBorder: "#EF9A9A",
-  divider: "#E0E0E0",
-  activityIndicator: "#00697A",
-};
 
 const RegistrationStep3: React.FC = () => {
   const { registrationData, updateRegistrationData, setCurrentStep } =
@@ -52,28 +29,8 @@ const RegistrationStep3: React.FC = () => {
   const confirmPasswordInputRef = useRef<TextInput>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const glowRadius = useSharedValue(5);
-
-  const animatedGlowStyle = useAnimatedStyle(() => {
-    return {
-      shadowColor: "#FDB813",
-      shadowRadius: glowRadius.value,
-      shadowOpacity: 0.9,
-      shadowOffset: { width: 0, height: 0 },
-      elevation: glowRadius.value,
-    };
-  });
 
   useEffect(() => {
-    glowRadius.value = withRepeat(
-      withSequence(
-        withTiming(15, { duration: 2000 }),
-        withTiming(5, { duration: 2000 }),
-      ),
-      -1,
-      true,
-    );
-
     const timer = setTimeout(() => {
       passwordInputRef.current?.focus();
     }, 500);
@@ -118,7 +75,7 @@ const RegistrationStep3: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={newColors.background}
+        backgroundColor={COLORS.background}
       />
 
       <KeyboardAvoidingView
@@ -133,13 +90,7 @@ const RegistrationStep3: React.FC = () => {
             entering={FadeInDown.duration(600).delay(100).springify()}
             style={styles.contentContainer}
           >
-            <Animated.View style={[styles.logoContainer, animatedGlowStyle]}>
-              <Image
-                source={require("@/assets/images/frederick-logo.png")}
-                style={styles.logo}
-              />
-            </Animated.View>
-            <Text style={styles.slogan}>Built on what matters</Text>
+            <Text style={styles.slogan}>Discover Events</Text>
 
             <Animated.View
               entering={FadeInDown.duration(600).delay(300).springify()}
@@ -227,7 +178,7 @@ const RegistrationStep3: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: newColors.background,
+    backgroundColor: COLORS.background,
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -244,23 +195,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 16,
   },
-  logoContainer: {
-    marginBottom: 8,
-    shadowColor: "#FDB813",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  logo: {
-    width: 100,
-    height: 100,
-    resizeMode: "contain",
-  },
   slogan: {
     fontSize: 16,
-    color: newColors.text,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
     marginBottom: 16,
     textAlign: "center",
     fontWeight: "600",
@@ -276,9 +214,9 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: 20,
     padding: 24,
-    backgroundColor: newColors.cardBackground,
+    backgroundColor: COLORS.cardBackground,
     borderWidth: 1,
-    borderColor: newColors.divider,
+    borderColor: COLORS.divider,
     shadowColor: "rgba(0, 0, 0, 0.1)",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
@@ -290,15 +228,15 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: newColors.cardText,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
     textAlign: "center",
     marginBottom: 8,
   },
   stepSubtitle: {
     fontSize: 14,
-    color: newColors.cardTextSecondary,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textSecondary,
+    fontFamily: "SpaceMono",
     textAlign: "center",
     marginBottom: 24,
   },
@@ -309,28 +247,28 @@ const styles = StyleSheet.create({
   passwordRequirements: {
     marginBottom: 24,
     padding: 12,
-    backgroundColor: newColors.inputBackground,
+    backgroundColor: COLORS.cardBackgroundAlt,
     borderRadius: 8,
   },
   requirementsTitle: {
     fontSize: 12,
     fontWeight: "600",
-    color: newColors.cardTextSecondary,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textSecondary,
+    fontFamily: "SpaceMono",
     marginBottom: 8,
   },
   requirement: {
     fontSize: 12,
-    color: newColors.cardTextSecondary,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textSecondary,
+    fontFamily: "SpaceMono",
   },
   requirementMet: {
     color: "#4CAF50",
   },
   passwordMismatch: {
-    color: newColors.errorText,
+    color: COLORS.errorText,
     fontSize: 13,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     marginBottom: 8,
     textAlign: "center",
   },

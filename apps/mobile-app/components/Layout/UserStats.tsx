@@ -89,14 +89,14 @@ const styles = StyleSheet.create({
   statValue: {
     color: COLORS.textPrimary,
     fontSize: 20,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontWeight: "700",
     letterSpacing: 0.3,
   },
   statLabel: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     opacity: 0.9,
     letterSpacing: 0.2,
   },
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   badgeText: {
     color: COLORS.background,
     fontSize: 10,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontWeight: "700",
   },
 });

@@ -1,29 +1,11 @@
 // styles/action.ts - Updated with more refined button selection styles
 import { Platform, StyleSheet } from "react-native";
-
-// Updated color scheme to match register/login screens
-const newColors = {
-  background: "#00697A",
-  text: "#FFFFFF",
-  accent: "#FDB813",
-  cardBackground: "#FFFFFF",
-  cardText: "#000000",
-  cardTextSecondary: "#6c757d",
-  buttonBackground: "#FFFFFF",
-  buttonText: "#00697A",
-  buttonBorder: "#DDDDDD",
-  inputBackground: "#F5F5F5",
-  errorBackground: "#FFCDD2",
-  errorText: "#B71C1C",
-  errorBorder: "#EF9A9A",
-  divider: "#E0E0E0",
-  activityIndicator: "#00697A",
-};
+import { COLORS } from "../Layout/ScreenLayout";
 
 export const styles = StyleSheet.create({
   bottomBar: {
-    height: 90, // Increased height further to accommodate labels
-    backgroundColor: newColors.background, // Updated to teal background
+    height: 60,
+    backgroundColor: COLORS.background,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -84,12 +66,12 @@ export const styles = StyleSheet.create({
   actionButtonLabel: {
     color: "rgba(255, 255, 255, 0.9)", // Semi-transparent white for inactive state
     fontSize: 11, // Increased font size for better visibility
-    fontFamily: "Poppins-SemiBold", // Changed to SemiBold
+    fontFamily: "SpaceMono", // Changed to SemiBold
     marginTop: 4, // Increased margin for better spacing
     textAlign: "center",
   },
   activeActionButtonLabel: {
-    color: newColors.accent, // Municipal accent color (#FDB813) for active state
+    color: COLORS.accent,
     fontWeight: "600", // Make active labels slightly bolder
   },
   actionButtonIcon: {
@@ -103,8 +85,8 @@ export const styles = StyleSheet.create({
     transform: [{ scale: 0.95 }],
   },
   actionButtonText: {
-    fontFamily: "Poppins-Regular",
-    color: newColors.text, // White text for teal background
+    fontFamily: "SpaceMono",
+    color: COLORS.textPrimary, // White text for teal background
     fontSize: 12,
     fontWeight: "500",
   },
@@ -141,7 +123,7 @@ export const styles = StyleSheet.create({
   detailActionText: {
     color: "#f8f9fa", // Light text for dark theme
     fontSize: 12,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     marginLeft: 6,
   },
   iconSmall: {

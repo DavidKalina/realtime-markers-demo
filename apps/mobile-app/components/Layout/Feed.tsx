@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   badgeText: {
     color: COLORS.background,
     fontSize: 10,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontWeight: "700",
   },
   itemContent: {
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   itemTitle: {
     color: COLORS.textPrimary,
     fontSize: 13,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontWeight: "500",
     marginBottom: 1,
     letterSpacing: 0.1,
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   itemDescription: {
     color: COLORS.textSecondary,
     fontSize: 12,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     marginBottom: 1,
     lineHeight: 15,
     opacity: 0.8,
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   itemTimestamp: {
     color: COLORS.textSecondary,
     fontSize: 11,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     opacity: 0.6,
     letterSpacing: 0.1,
   },
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     color: COLORS.textPrimary,
     fontSize: 18,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontWeight: "600",
     marginBottom: 8,
     textAlign: "center",
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   emptyStateDescription: {
     color: COLORS.textSecondary,
     fontSize: 15,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     textAlign: "center",
     opacity: 0.7,
     lineHeight: 22,

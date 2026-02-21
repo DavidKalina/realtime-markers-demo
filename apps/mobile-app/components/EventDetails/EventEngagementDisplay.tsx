@@ -3,21 +3,7 @@ import { Heart, Eye, Users, TrendingUp, Calendar } from "lucide-react-native";
 import React, { memo } from "react";
 import { Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-
-// Municipal-friendly color scheme (matching EventDetails)
-const MUNICIPAL_COLORS = {
-  primary: "#1e40af", // Professional blue
-  secondary: "#059669", // Municipal green
-  accent: "#f59e0b", // Warm amber
-  background: "#f8fafc", // Light gray background
-  card: "#ffffff", // White cards
-  text: "#1e293b", // Dark slate text
-  textSecondary: "#64748b", // Medium gray
-  border: "#e2e8f0", // Light border
-  success: "#10b981", // Green for success states
-  warning: "#f59e0b", // Amber for warnings
-  error: "#ef4444", // Red for errors
-};
+import { COLORS } from "../Layout/ScreenLayout";
 
 interface EventEngagementDisplayProps {
   engagement: EventEngagementMetrics;
@@ -41,29 +27,29 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
         icon: Heart,
         label: "Saves",
         value: engagement.saveCount,
-        color: MUNICIPAL_COLORS.error,
-        bgColor: `${MUNICIPAL_COLORS.error}15`,
+        color: COLORS.errorBackground,
+        bgColor: `${COLORS.errorBackground}15`,
       },
       {
         icon: Eye,
         label: "Scans",
         value: engagement.scanCount,
-        color: MUNICIPAL_COLORS.primary,
-        bgColor: `${MUNICIPAL_COLORS.primary}15`,
+        color: COLORS.accent,
+        bgColor: `${COLORS.accent}15`,
       },
       {
         icon: Users,
         label: "RSVPs",
         value: engagement.rsvpCount,
-        color: MUNICIPAL_COLORS.success,
-        bgColor: `${MUNICIPAL_COLORS.success}15`,
+        color: "#10b981",
+        bgColor: `${"#10b981"}15`,
       },
       {
         icon: TrendingUp,
         label: "Total",
         value: engagement.totalEngagement,
-        color: MUNICIPAL_COLORS.accent,
-        bgColor: `${MUNICIPAL_COLORS.accent}15`,
+        color: COLORS.accent,
+        bgColor: `${COLORS.accent}15`,
       },
     ];
 
@@ -109,10 +95,10 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                   </View>
                   <Text
                     style={{
-                      fontFamily: "Poppins-Regular",
+                      fontFamily: "SpaceMono",
                       fontSize: 16,
                       fontWeight: "700",
-                      color: MUNICIPAL_COLORS.text,
+                      color: COLORS.textPrimary,
                       marginBottom: 2,
                       textAlign: "center",
                     }}
@@ -121,9 +107,9 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                   </Text>
                   <Text
                     style={{
-                      fontFamily: "Poppins-Regular",
+                      fontFamily: "SpaceMono",
                       fontSize: 11,
-                      color: MUNICIPAL_COLORS.textSecondary,
+                      color: COLORS.textSecondary,
                       textAlign: "center",
                       fontWeight: "500",
                     }}
@@ -142,7 +128,7 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
             style={{
               paddingTop: 16,
               borderTopWidth: 1,
-              borderTopColor: MUNICIPAL_COLORS.border,
+              borderTopColor: COLORS.divider,
               marginBottom: 16,
             }}
           >
@@ -155,15 +141,15 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
             >
               <Calendar
                 size={16}
-                color={MUNICIPAL_COLORS.textSecondary}
+                color={COLORS.textSecondary}
                 strokeWidth={2}
               />
               <Text
                 style={{
                   fontSize: 14,
                   fontWeight: "600",
-                  fontFamily: "Poppins-Regular",
-                  color: MUNICIPAL_COLORS.textSecondary,
+                  fontFamily: "SpaceMono",
+                  color: COLORS.textSecondary,
                   marginLeft: 8,
                 }}
               >
@@ -174,28 +160,28 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
               style={{
                 flexDirection: "row",
                 justifyContent: "space-around",
-                backgroundColor: MUNICIPAL_COLORS.background,
+                backgroundColor: COLORS.background,
                 borderRadius: 12,
                 paddingVertical: 16,
                 paddingHorizontal: 20,
                 borderWidth: 1,
-                borderColor: MUNICIPAL_COLORS.border,
+                borderColor: COLORS.divider,
               }}
             >
               <View style={{ alignItems: "center", flex: 1 }}>
                 <View
                   style={{
-                    backgroundColor: `${MUNICIPAL_COLORS.success}15`,
+                    backgroundColor: `${"#10b981"}15`,
                     borderRadius: 8,
                     padding: 8,
                     marginBottom: 8,
                     borderWidth: 1,
-                    borderColor: `${MUNICIPAL_COLORS.success}20`,
+                    borderColor: `${"#10b981"}20`,
                   }}
                 >
                   <Users
                     size={16}
-                    color={MUNICIPAL_COLORS.success}
+                    color={"#10b981"}
                     strokeWidth={2}
                   />
                 </View>
@@ -203,7 +189,7 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                   style={{
                     fontSize: 16,
                     fontWeight: "700",
-                    color: MUNICIPAL_COLORS.success,
+                    color: "#10b981",
                     marginBottom: 4,
                   }}
                 >
@@ -212,7 +198,7 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                 <Text
                   style={{
                     fontSize: 11,
-                    color: MUNICIPAL_COLORS.textSecondary,
+                    color: COLORS.textSecondary,
                     fontWeight: "500",
                   }}
                 >
@@ -222,17 +208,17 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
               <View style={{ alignItems: "center", flex: 1 }}>
                 <View
                   style={{
-                    backgroundColor: `${MUNICIPAL_COLORS.error}15`,
+                    backgroundColor: `${COLORS.errorBackground}15`,
                     borderRadius: 8,
                     padding: 8,
                     marginBottom: 8,
                     borderWidth: 1,
-                    borderColor: `${MUNICIPAL_COLORS.error}20`,
+                    borderColor: `${COLORS.errorBackground}20`,
                   }}
                 >
                   <Users
                     size={16}
-                    color={MUNICIPAL_COLORS.error}
+                    color={COLORS.errorBackground}
                     strokeWidth={2}
                   />
                 </View>
@@ -240,7 +226,7 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                   style={{
                     fontSize: 16,
                     fontWeight: "700",
-                    color: MUNICIPAL_COLORS.error,
+                    color: COLORS.errorBackground,
                     marginBottom: 4,
                   }}
                 >
@@ -249,7 +235,7 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                 <Text
                   style={{
                     fontSize: 11,
-                    color: MUNICIPAL_COLORS.textSecondary,
+                    color: COLORS.textSecondary,
                     fontWeight: "500",
                   }}
                 >
@@ -265,15 +251,15 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
           style={{
             paddingTop: 12,
             borderTopWidth: 1,
-            borderTopColor: MUNICIPAL_COLORS.border,
+            borderTopColor: COLORS.divider,
             alignItems: "center",
           }}
         >
           <Text
             style={{
               fontSize: 11,
-              color: MUNICIPAL_COLORS.textSecondary,
-              fontFamily: "Poppins-Regular",
+              color: COLORS.textSecondary,
+              fontFamily: "SpaceMono",
               fontStyle: "italic",
             }}
           >

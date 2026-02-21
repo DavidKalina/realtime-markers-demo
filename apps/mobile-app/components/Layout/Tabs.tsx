@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontWeight: "500",
   },
   activeTabText: {

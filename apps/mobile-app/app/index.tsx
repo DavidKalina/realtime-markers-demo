@@ -4,7 +4,7 @@ import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
-import MunicipalBanner from "@/components/StatusBar/StatusBar";
+import StatusBar from "@/components/StatusBar/StatusBar";
 import DateRangeIndicator from "@/components/StatusBar/DateRangeIndicator";
 import PlusButton from "@/components/StatusBar/PlusButton";
 import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
@@ -55,7 +55,7 @@ const styles = {
     flex: 1,
   },
   statusBarSpacer: {
-    height: 100, // Match the height of the MunicipalBanner component
+    height: 80, // Match the height of the StatusBar component
   },
 };
 
@@ -522,7 +522,7 @@ function HomeScreen() {
     if (isLoadingLocation) return null;
     return (
       <>
-        <MunicipalBanner />
+        <StatusBar />
         <View style={styles.statusBarSpacer} />
       </>
     );

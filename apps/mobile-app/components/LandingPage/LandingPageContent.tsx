@@ -157,14 +157,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 12,
     paddingHorizontal: 16,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   sectionSubtitle: {
     fontSize: 14,
     color: "#666",
     marginBottom: 12,
     paddingHorizontal: 16,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   carouselContainer: {
     position: "relative",

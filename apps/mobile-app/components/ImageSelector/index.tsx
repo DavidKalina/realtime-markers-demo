@@ -84,6 +84,6 @@ const styles = StyleSheet.create({
   text: {
     color: "#f8f9fa",
     fontSize: 12,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
 });

@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   modalContainer: {
     flex: 1,
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   closeButton: {
     padding: 8,
@@ -255,13 +255,13 @@ const styles = StyleSheet.create({
   itemName: {
     color: COLORS.textPrimary,
     fontSize: 16,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     marginBottom: 4,
   },
   itemDescription: {
     color: COLORS.textSecondary,
     fontSize: 14,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   checkbox: {
     width: 24,
@@ -282,17 +282,17 @@ const styles = StyleSheet.create({
   loadingText: {
     color: COLORS.textSecondary,
     fontSize: 16,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   errorText: {
     color: "#f97583",
     fontSize: 16,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   emptyText: {
     color: COLORS.textSecondary,
     fontSize: 16,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   dismissButtonContainer: {
     padding: 24,
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     color: "#000",
     fontSize: 18,
     fontWeight: "800",
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   selectedItemsContainer: {
     marginTop: 12,
@@ -329,12 +329,12 @@ const styles = StyleSheet.create({
   selectedItemText: {
     color: COLORS.textPrimary,
     fontSize: 14,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   selectedItemDescription: {
     color: COLORS.textSecondary,
     fontSize: 12,
     marginTop: 2,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
 });

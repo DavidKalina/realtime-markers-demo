@@ -198,7 +198,7 @@ const defaultStyles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     marginBottom: 6,
   },
   detailsContainer: {
@@ -211,7 +211,7 @@ const defaultStyles = StyleSheet.create({
   resultDetailText: {
     fontSize: 13,
     color: COLORS.textSecondary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     flex: 1,
   },
   chevronContainer: {

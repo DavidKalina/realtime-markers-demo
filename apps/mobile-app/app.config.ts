@@ -3,7 +3,7 @@ import "dotenv/config";
 
 export default {
   expo: {
-    name: "Frederick",
+    name: "Realtime Markers",
     slug: "mobile-app",
     version: "1.16.6",
     orientation: "portrait",
@@ -21,11 +21,11 @@ export default {
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription:
-          "Frederick uses your location while the app is in use to center the map on your current position and improve address search results when scanning event flyers. Coordinates are sent to our server for better relevance.",
+          "Realtime Markers uses your location while the app is in use to center the map on your current position and improve address search results when scanning event flyers. Coordinates are sent to our server for better relevance.",
         NSLocationAlwaysUsageDescription:
-          "Frederick may access your location in the background to support location-based flyer scanning and event discovery. Your coordinates are securely sent to our server to improve results.",
+          "Realtime Markers may access your location in the background to support location-based flyer scanning and event discovery. Your coordinates are securely sent to our server to improve results.",
         NSCameraUsageDescription:
-          "Frederick needs camera access to scan event flyers. Images are processed on our server and may be stored to display event details to other users.",
+          "Realtime Markers needs camera access to scan event flyers. Images are processed on our server and may be stored to display event details to other users.",
         NSAppTransportSecurity: {
           NSAllowsArbitraryLoads: false,
         },

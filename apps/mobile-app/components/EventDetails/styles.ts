@@ -1,27 +1,13 @@
 import { StyleSheet, Dimensions } from "react-native";
+import { COLORS } from "../Layout/ScreenLayout";
 
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
 
-// Municipal-friendly color scheme
-const MUNICIPAL_COLORS = {
-  primary: "#1e40af", // Professional blue
-  secondary: "#059669", // Municipal green
-  accent: "#f59e0b", // Warm amber
-  background: "#f8fafc", // Light gray background
-  card: "#ffffff", // White cards
-  text: "#1e293b", // Dark slate text
-  textSecondary: "#64748b", // Medium gray
-  border: "#e2e8f0", // Light border
-  success: "#10b981", // Green for success states
-  warning: "#f59e0b", // Amber for warnings
-  error: "#ef4444", // Red for errors
-};
-
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: MUNICIPAL_COLORS.background,
+    backgroundColor: COLORS.background,
   },
   contentContainer: {
     paddingBottom: 24,
@@ -39,7 +25,7 @@ export const styles = StyleSheet.create({
   heroImageContainer: {
     width: "100%",
     height: 280,
-    backgroundColor: MUNICIPAL_COLORS.card,
+    backgroundColor: COLORS.cardBackground,
     overflow: "hidden",
   },
   eventBadgeOverlay: {
@@ -61,7 +47,7 @@ export const styles = StyleSheet.create({
   eventBadgeText: {
     fontSize: 12,
     fontWeight: "600",
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     letterSpacing: 0.5,
   },
   engagementOverlay: {
@@ -76,15 +62,15 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 16,
-    backgroundColor: MUNICIPAL_COLORS.card,
+    backgroundColor: COLORS.cardBackground,
     borderBottomWidth: 1,
-    borderBottomColor: MUNICIPAL_COLORS.border,
+    borderBottomColor: COLORS.divider,
   },
   eventTitle: {
     fontSize: 28,
     fontWeight: "700",
-    color: MUNICIPAL_COLORS.text,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
     lineHeight: 36,
     marginBottom: 12,
   },
@@ -92,10 +78,10 @@ export const styles = StyleSheet.create({
     alignSelf: "flex-start",
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: MUNICIPAL_COLORS.background,
+    backgroundColor: COLORS.background,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: MUNICIPAL_COLORS.border,
+    borderColor: COLORS.divider,
   },
   eventEmoji: {
     fontSize: 24,
@@ -110,10 +96,10 @@ export const styles = StyleSheet.create({
 
   // Info Card Components
   infoCard: {
-    backgroundColor: MUNICIPAL_COLORS.card,
+    backgroundColor: COLORS.cardBackground,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: MUNICIPAL_COLORS.border,
+    borderColor: COLORS.divider,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -127,25 +113,25 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: MUNICIPAL_COLORS.border,
-    backgroundColor: MUNICIPAL_COLORS.background,
+    borderBottomColor: COLORS.divider,
+    backgroundColor: COLORS.background,
   },
   infoCardIcon: {
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: MUNICIPAL_COLORS.card,
+    backgroundColor: COLORS.cardBackground,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
     borderWidth: 1,
-    borderColor: MUNICIPAL_COLORS.border,
+    borderColor: COLORS.divider,
   },
   infoCardTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: MUNICIPAL_COLORS.text,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
   },
   infoCardContent: {
     padding: 20,
@@ -158,16 +144,16 @@ export const styles = StyleSheet.create({
     gap: 12,
   },
   detailText: {
-    color: MUNICIPAL_COLORS.text,
+    color: COLORS.textPrimary,
     fontSize: 16,
     flex: 1,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     lineHeight: 24,
   },
   detailTextSecondary: {
-    color: MUNICIPAL_COLORS.textSecondary,
+    color: COLORS.textSecondary,
     fontSize: 14,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     lineHeight: 20,
     marginTop: 4,
   },
@@ -177,9 +163,9 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   distanceText: {
-    color: MUNICIPAL_COLORS.primary,
+    color: COLORS.accent,
     fontSize: 14,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     marginTop: 4,
     fontWeight: "500",
   },
@@ -187,9 +173,9 @@ export const styles = StyleSheet.create({
   // Description
   descriptionText: {
     fontSize: 16,
-    color: MUNICIPAL_COLORS.text,
+    color: COLORS.textPrimary,
     lineHeight: 24,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
 
   // Recurring Details
@@ -204,17 +190,17 @@ export const styles = StyleSheet.create({
     gap: 8,
   },
   categoryTag: {
-    backgroundColor: MUNICIPAL_COLORS.primary + "15", // 15% opacity
+    backgroundColor: COLORS.accent + "15", // 15% opacity
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: MUNICIPAL_COLORS.primary + "30", // 30% opacity
+    borderColor: COLORS.accent + "30", // 30% opacity
   },
   categoryText: {
-    color: MUNICIPAL_COLORS.primary,
+    color: COLORS.accent,
     fontSize: 14,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontWeight: "500",
   },
 
@@ -246,7 +232,7 @@ export const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
 
   // Admin Section
@@ -257,8 +243,8 @@ export const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: MUNICIPAL_COLORS.text,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
     marginBottom: 12,
   },
   adminActionsContainer: {
@@ -276,7 +262,7 @@ export const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: MUNICIPAL_COLORS.border,
+    borderColor: COLORS.divider,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -287,29 +273,29 @@ export const styles = StyleSheet.create({
     width: "100%",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: MUNICIPAL_COLORS.background,
+    backgroundColor: COLORS.background,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: MUNICIPAL_COLORS.border,
+    borderColor: COLORS.divider,
   },
   qrUrlLabel: {
     fontSize: 12,
     fontWeight: "600",
-    color: MUNICIPAL_COLORS.primary,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.accent,
+    fontFamily: "SpaceMono",
     marginBottom: 4,
     letterSpacing: 0.5,
   },
   qrUrlText: {
     fontSize: 14,
-    color: MUNICIPAL_COLORS.text,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
     lineHeight: 18,
   },
   qrDescription: {
-    color: MUNICIPAL_COLORS.textSecondary,
+    color: COLORS.textSecondary,
     fontSize: 14,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     textAlign: "center",
     lineHeight: 20,
   },
@@ -322,12 +308,12 @@ export const styles = StyleSheet.create({
   },
   discoveredByText: {
     fontSize: 16,
-    color: MUNICIPAL_COLORS.text,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
   },
   discoveredByName: {
     fontWeight: "600",
-    color: MUNICIPAL_COLORS.primary,
+    color: COLORS.accent,
   },
 
   // Modal Styles
@@ -371,13 +357,13 @@ export const styles = StyleSheet.create({
     alignItems: "center",
   },
   dialogContainer: {
-    backgroundColor: MUNICIPAL_COLORS.card,
+    backgroundColor: COLORS.cardBackground,
     borderRadius: 16,
     padding: 24,
     width: "85%",
     maxWidth: 400,
     borderWidth: 1,
-    borderColor: MUNICIPAL_COLORS.border,
+    borderColor: COLORS.divider,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
@@ -387,15 +373,15 @@ export const styles = StyleSheet.create({
   dialogTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: MUNICIPAL_COLORS.text,
+    color: COLORS.textPrimary,
     marginBottom: 12,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   dialogText: {
     fontSize: 16,
-    color: MUNICIPAL_COLORS.textSecondary,
+    color: COLORS.textSecondary,
     marginBottom: 24,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     lineHeight: 22,
   },
   dialogButtons: {
@@ -411,48 +397,48 @@ export const styles = StyleSheet.create({
     alignItems: "center",
   },
   dialogButtonCancel: {
-    backgroundColor: MUNICIPAL_COLORS.background,
+    backgroundColor: COLORS.background,
     borderWidth: 1,
-    borderColor: MUNICIPAL_COLORS.border,
+    borderColor: COLORS.divider,
   },
   dialogButtonDelete: {
-    backgroundColor: MUNICIPAL_COLORS.error,
+    backgroundColor: COLORS.errorBackground,
   },
   dialogButtonTextCancel: {
     fontSize: 14,
     fontWeight: "600",
-    fontFamily: "Poppins-Regular",
-    color: MUNICIPAL_COLORS.text,
+    fontFamily: "SpaceMono",
+    color: COLORS.textPrimary,
   },
   dialogButtonTextDelete: {
     fontSize: 14,
     fontWeight: "600",
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     color: "#ffffff",
   },
 
   // Legacy styles for compatibility
   loadingContainer: {
     flex: 1,
-    backgroundColor: MUNICIPAL_COLORS.background,
+    backgroundColor: COLORS.background,
     justifyContent: "center",
     alignItems: "center",
   },
   loadingText: {
-    color: MUNICIPAL_COLORS.textSecondary,
+    color: COLORS.textSecondary,
     marginTop: 16,
     fontSize: 16,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   shareIconButton: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: MUNICIPAL_COLORS.card,
+    backgroundColor: COLORS.cardBackground,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: MUNICIPAL_COLORS.border,
+    borderColor: COLORS.divider,
   },
   imageWrapper: {
     position: "relative",
@@ -461,7 +447,7 @@ export const styles = StyleSheet.create({
   imageContainer: {
     width: "100%",
     height: 240,
-    backgroundColor: MUNICIPAL_COLORS.card,
+    backgroundColor: COLORS.cardBackground,
     overflow: "hidden",
   },
   eventImage: {
@@ -469,15 +455,15 @@ export const styles = StyleSheet.create({
     height: "100%",
   },
   placeholderImage: {
-    backgroundColor: MUNICIPAL_COLORS.card,
+    backgroundColor: COLORS.cardBackground,
     justifyContent: "center",
     alignItems: "center",
   },
   placeholderText: {
-    color: MUNICIPAL_COLORS.text,
+    color: COLORS.textPrimary,
     fontSize: 16,
     opacity: 0.6,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   emojiWrapper: {
     position: "absolute",
@@ -512,37 +498,37 @@ export const styles = StyleSheet.create({
     paddingBottom: 20,
     paddingRight: 72,
     borderBottomWidth: 1,
-    borderBottomColor: MUNICIPAL_COLORS.border,
+    borderBottomColor: COLORS.divider,
     position: "relative",
   },
   title: {
     fontSize: 24,
     fontWeight: "700",
-    color: MUNICIPAL_COLORS.text,
+    color: COLORS.textPrimary,
     flex: 1,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     lineHeight: 32,
   },
   saveButton: {
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: MUNICIPAL_COLORS.card,
+    backgroundColor: COLORS.cardBackground,
     borderWidth: 1,
-    borderColor: MUNICIPAL_COLORS.border,
+    borderColor: COLORS.divider,
   },
   savedButton: {
-    backgroundColor: MUNICIPAL_COLORS.primary,
+    backgroundColor: COLORS.accent,
     borderColor: "transparent",
   },
   saveButtonText: {
-    color: MUNICIPAL_COLORS.text,
+    color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: "500",
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   savedButtonText: {
-    color: MUNICIPAL_COLORS.background,
+    color: COLORS.background,
   },
   detailsContainer: {
     padding: 20,
@@ -564,9 +550,9 @@ export const styles = StyleSheet.create({
   descriptionTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: MUNICIPAL_COLORS.text,
+    color: COLORS.textPrimary,
     marginBottom: 12,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     flexDirection: "row",
     alignItems: "center",
   },
@@ -583,7 +569,7 @@ export const styles = StyleSheet.create({
   },
   viewText: {
     color: "#ffffff",
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontSize: 14,
     fontWeight: "600",
     marginLeft: 8,
@@ -599,7 +585,7 @@ export const styles = StyleSheet.create({
   adminButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   categoriesSection: {
     paddingHorizontal: 20,
@@ -613,9 +599,9 @@ export const styles = StyleSheet.create({
   categoriesTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: MUNICIPAL_COLORS.text,
+    color: COLORS.textPrimary,
     marginLeft: 8,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     letterSpacing: 0.3,
   },
   qrSection: {
@@ -649,8 +635,8 @@ export const styles = StyleSheet.create({
   qrTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: MUNICIPAL_COLORS.text,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textPrimary,
+    fontFamily: "SpaceMono",
     flex: 1,
     letterSpacing: 0.5,
   },
@@ -665,17 +651,17 @@ export const styles = StyleSheet.create({
     borderColor: "rgba(147, 197, 253, 0.3)",
   },
   qrButtonText: {
-    color: MUNICIPAL_COLORS.primary,
+    color: COLORS.accent,
     fontSize: 14,
     fontWeight: "600",
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     marginLeft: 10,
     letterSpacing: 0.5,
   },
   discoveredBySection: {
     marginHorizontal: 20,
     marginTop: 20,
-    backgroundColor: MUNICIPAL_COLORS.text,
+    backgroundColor: COLORS.textPrimary,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
@@ -703,8 +689,8 @@ export const styles = StyleSheet.create({
   discoveredByTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: MUNICIPAL_COLORS.textSecondary,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textSecondary,
+    fontFamily: "SpaceMono",
     letterSpacing: 0.5,
   },
   mapPreview: {
@@ -716,11 +702,11 @@ export const styles = StyleSheet.create({
   mapPreviewContainer: {
     width: "100%",
     height: 200,
-    backgroundColor: MUNICIPAL_COLORS.card,
+    backgroundColor: COLORS.cardBackground,
     overflow: "hidden",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: MUNICIPAL_COLORS.border,
+    borderColor: COLORS.divider,
   },
   mapPreviewFooter: {
     position: "absolute",
@@ -731,7 +717,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: MUNICIPAL_COLORS.border,
+    borderTopColor: COLORS.divider,
     flexDirection: "row",
     justifyContent: "center",
   },
@@ -743,19 +729,19 @@ export const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: MUNICIPAL_COLORS.primary + "10",
+    backgroundColor: COLORS.accent + "10",
     borderWidth: 1,
-    borderColor: MUNICIPAL_COLORS.primary + "20",
+    borderColor: COLORS.accent + "20",
   },
   directionsButtonDisabled: {
-    backgroundColor: MUNICIPAL_COLORS.border,
-    borderColor: MUNICIPAL_COLORS.border,
+    backgroundColor: COLORS.divider,
+    borderColor: COLORS.divider,
   },
   directionsButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: MUNICIPAL_COLORS.primary,
-    fontFamily: "Poppins-Regular",
+    color: COLORS.accent,
+    fontFamily: "SpaceMono",
   },
   directionsButtonTextDisabled: {
     color: "#9ca3af",
@@ -764,7 +750,7 @@ export const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: MUNICIPAL_COLORS.border,
+    borderTopColor: COLORS.divider,
   },
   markerContainer: {
     width: 40,
@@ -774,7 +760,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: MUNICIPAL_COLORS.primary,
+    borderColor: COLORS.accent,
     zIndex: 1000,
   },
   markerEmoji: {
@@ -787,7 +773,7 @@ export const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 12,
-    backgroundColor: MUNICIPAL_COLORS.background,
+    backgroundColor: COLORS.background,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -805,7 +791,7 @@ export const styles = StyleSheet.create({
     height: "100%",
   },
   privateEventImageError: {
-    color: MUNICIPAL_COLORS.text,
+    color: COLORS.textPrimary,
     fontSize: 12,
     textAlign: "center",
     padding: 8,
@@ -813,11 +799,11 @@ export const styles = StyleSheet.create({
   recurringDetailsContainer: {
     marginTop: 8,
     marginBottom: 8,
-    backgroundColor: MUNICIPAL_COLORS.background,
+    backgroundColor: COLORS.background,
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: MUNICIPAL_COLORS.border,
+    borderColor: COLORS.divider,
   },
   recurringDetailsContent: {
     flex: 1,

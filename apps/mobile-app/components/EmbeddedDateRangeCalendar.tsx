@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     letterSpacing: 0.5,
   },
   monthNavButton: {
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 13,
     color: COLORS.textSecondary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontWeight: "600",
   },
   daysGrid: {
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   dayText: {
     fontSize: 14,
     color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
   },
   selectedDay: {
     backgroundColor: COLORS.accent,
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 20,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     color: COLORS.textPrimary,
     textAlign: "center",
     fontWeight: "600",
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   timeSeparator: {
     fontSize: 20,
     color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontWeight: "600",
     marginBottom: 2,
   },
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
   amPmText: {
     fontSize: 12,
     color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     fontWeight: "600",
   },
   amPmTextActive: {
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
   warningText: {
     color: COLORS.errorText,
     fontSize: 12,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     textAlign: "center",
   },
 });

@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { OAuthButtons } from "@/components/Login/OAuthButtons";
+import { COLORS } from "@/components/Layout/ScreenLayout";
 import { useRouter } from "expo-router";
 
 interface RegistrationCardLayoutProps {
@@ -37,9 +38,9 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: 20,
     padding: 24,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.cardBackground,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: COLORS.divider,
     minHeight: 420, // adjust as needed for your tallest step
     justifyContent: "space-between",
   },
@@ -55,13 +56,13 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: "#E0E0E0",
+    backgroundColor: COLORS.divider,
   },
   dividerText: {
     marginHorizontal: 16,
     fontSize: 14,
-    color: "#6c757d",
-    fontFamily: "Poppins-Regular",
+    color: COLORS.textSecondary,
+    fontFamily: "SpaceMono",
   },
 
   loginLinkContainer: {
@@ -69,10 +70,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loginLinkText: {
-    color: "#00697A",
+    color: COLORS.accent,
     fontWeight: "600",
     fontSize: 15,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "SpaceMono",
     textDecorationLine: "underline",
   },
 });

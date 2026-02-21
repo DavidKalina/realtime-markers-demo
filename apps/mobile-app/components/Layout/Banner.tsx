@@ -6,25 +6,7 @@ import Animated, {
   useAnimatedStyle,
 } from "react-native-reanimated";
 import BackButton from "./BackButton";
-
-// Updated color scheme to match register/login screens
-const newColors = {
-  background: "#00697A",
-  text: "#FFFFFF",
-  accent: "#FDB813",
-  cardBackground: "#FFFFFF",
-  cardText: "#000000",
-  cardTextSecondary: "#6c757d",
-  buttonBackground: "#FFFFFF",
-  buttonText: "#00697A",
-  buttonBorder: "#DDDDDD",
-  inputBackground: "#F5F5F5",
-  errorBackground: "#FFCDD2",
-  errorText: "#B71C1C",
-  errorBorder: "#EF9A9A",
-  divider: "#E0E0E0",
-  activityIndicator: "#00697A",
-};
+import { COLORS } from "./ScreenLayout";
 
 interface BannerProps {
   name: string;
@@ -74,7 +56,7 @@ export default function Banner({
 const styles = StyleSheet.create({
   zoneBanner: {
     height: 90,
-    backgroundColor: newColors.background,
+    backgroundColor: COLORS.cardBackground,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.1)",
     justifyContent: "center",
@@ -119,9 +101,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   zoneBannerName: {
-    color: newColors.text,
+    color: COLORS.textPrimary,
     fontSize: 22,
-    fontFamily: "Poppins-SemiBold",
+    fontFamily: "SpaceMono",
     letterSpacing: 0.4,
     lineHeight: 26,
     height: 26,

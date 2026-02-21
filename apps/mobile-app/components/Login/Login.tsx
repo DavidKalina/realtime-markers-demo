@@ -5,7 +5,6 @@ import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -30,25 +29,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { AuthWrapper } from "../AuthWrapper";
 import Input from "../Input/Input";
+import { COLORS } from "../Layout/ScreenLayout";
 import { OAuthButtons } from "./OAuthButtons";
-
-const newColors = {
-  background: "#00697A",
-  text: "#FFFFFF",
-  accent: "#FDB813",
-  cardBackground: "#FFFFFF",
-  cardText: "#000000",
-  cardTextSecondary: "#6c757d",
-  buttonBackground: "#FFFFFF",
-  buttonText: "#00697A",
-  buttonBorder: "#DDDDDD",
-  inputBackground: "#F5F5F5",
-  errorBackground: "#FFCDD2",
-  errorText: "#B71C1C",
-  errorBorder: "#EF9A9A",
-  divider: "#E0E0E0",
-  activityIndicator: "#00697A",
-};
 
 const Login: React.FC = () => {
   const router = useRouter();
@@ -63,7 +45,6 @@ const Login: React.FC = () => {
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const buttonScale = useSharedValue(1);
-  const glowRadius = useSharedValue(5);
 
   const buttonAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -71,26 +52,8 @@ const Login: React.FC = () => {
     };
   });
 
-  const animatedGlowStyle = useAnimatedStyle(() => {
-    return {
-      shadowColor: "#FDB813",
-      shadowRadius: glowRadius.value,
-      shadowOpacity: 0.9,
-      shadowOffset: { width: 0, height: 0 },
-      elevation: glowRadius.value,
-    };
-  });
-
   // Cleanup effect
   useEffect(() => {
-    glowRadius.value = withRepeat(
-      withSequence(
-        withTiming(15, { duration: 2000 }),
-        withTiming(5, { duration: 2000 }),
-      ),
-      -1,
-      true,
-    );
     return () => {
       isMounted.current = false;
     };
@@ -167,7 +130,7 @@ const Login: React.FC = () => {
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: newColors.background,
+      backgroundColor: COLORS.background,
     },
 
     keyboardAvoidingView: {
@@ -188,25 +151,10 @@ const Login: React.FC = () => {
       gap: 20,
     },
 
-    logoContainer: {
-      marginBottom: 10,
-      shadowColor: "#FDB813",
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.9,
-      shadowRadius: 10,
-      elevation: 10,
-    },
-
-    logo: {
-      width: 150,
-      height: 150,
-      resizeMode: "contain",
-    },
-
     slogan: {
       fontSize: 18,
-      color: newColors.text,
-      fontFamily: "Poppins-SemiBold",
+      color: COLORS.textPrimary,
+      fontFamily: "SpaceMono",
       marginBottom: 20,
       textAlign: "center",
       fontWeight: "600",
@@ -224,9 +172,9 @@ const Login: React.FC = () => {
       width: "100%",
       borderRadius: 20,
       padding: 20,
-      backgroundColor: newColors.cardBackground,
+      backgroundColor: COLORS.cardBackground,
       borderWidth: 1,
-      borderColor: newColors.divider,
+      borderColor: COLORS.divider,
       shadowColor: "rgba(0, 0, 0, 0.1)",
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.2,
@@ -237,30 +185,30 @@ const Login: React.FC = () => {
     },
 
     errorContainer: {
-      backgroundColor: newColors.errorBackground,
+      backgroundColor: COLORS.errorBackground,
       borderRadius: 12,
       padding: 12,
       marginBottom: 16,
       borderWidth: 1,
-      borderColor: newColors.errorBorder,
+      borderColor: COLORS.errorBorder,
     },
 
     errorText: {
-      color: newColors.errorText,
+      color: COLORS.errorText,
       fontSize: 14,
-      fontFamily: "Poppins-Regular",
+      fontFamily: "SpaceMono",
     },
 
     inputContainer: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: newColors.inputBackground,
+      backgroundColor: COLORS.cardBackgroundAlt,
       borderRadius: 12,
       marginBottom: 16,
       paddingHorizontal: 12,
       height: 55,
       borderWidth: 1,
-      borderColor: newColors.buttonBorder,
+      borderColor: COLORS.buttonBorder,
     },
 
     inputIcon: {
@@ -270,9 +218,9 @@ const Login: React.FC = () => {
     input: {
       flex: 1,
       height: "100%",
-      color: newColors.cardText,
+      color: COLORS.textPrimary,
       fontSize: 16,
-      fontFamily: "Poppins-Regular",
+      fontFamily: "SpaceMono",
     },
 
     eyeIcon: {
@@ -285,16 +233,16 @@ const Login: React.FC = () => {
       justifyContent: "center",
       alignItems: "center",
       marginVertical: 20,
-      backgroundColor: newColors.accent,
+      backgroundColor: COLORS.accent,
       borderWidth: 1,
-      borderColor: newColors.accent,
+      borderColor: COLORS.accent,
     },
 
     loginButtonText: {
-      color: newColors.cardText,
+      color: COLORS.textPrimary,
       fontSize: 16,
       fontWeight: "600",
-      fontFamily: "Poppins-Regular",
+      fontFamily: "SpaceMono",
       letterSpacing: 0.5,
     },
 
@@ -305,29 +253,29 @@ const Login: React.FC = () => {
     },
 
     createAccountText: {
-      color: newColors.cardTextSecondary,
+      color: COLORS.textSecondary,
       fontSize: 14,
-      fontFamily: "Poppins-Regular",
+      fontFamily: "SpaceMono",
     },
 
     createAccountLink: {
-      color: newColors.buttonText,
+      color: COLORS.accent,
       fontSize: 14,
       fontWeight: "600",
-      fontFamily: "Poppins-Regular",
+      fontFamily: "SpaceMono",
     },
 
     profileSelectorContainer: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      backgroundColor: newColors.inputBackground,
+      backgroundColor: COLORS.cardBackgroundAlt,
       borderRadius: 12,
       marginBottom: 16,
       paddingVertical: 8,
       paddingHorizontal: 12,
       borderWidth: 1,
-      borderColor: newColors.buttonBorder,
+      borderColor: COLORS.buttonBorder,
       height: 55,
       zIndex: 4,
     },
@@ -355,10 +303,10 @@ const Login: React.FC = () => {
     },
 
     selectedProfileName: {
-      color: newColors.cardText,
+      color: COLORS.textPrimary,
       fontSize: 15,
       fontWeight: "500",
-      fontFamily: "Poppins-Regular",
+      fontFamily: "SpaceMono",
     },
 
     noProfileContainer: {
@@ -371,29 +319,29 @@ const Login: React.FC = () => {
       width: 40,
       height: 40,
       borderRadius: 12,
-      backgroundColor: newColors.inputBackground,
+      backgroundColor: COLORS.cardBackgroundAlt,
       justifyContent: "center",
       alignItems: "center",
       marginRight: 12,
       borderWidth: 1,
-      borderColor: newColors.buttonBorder,
+      borderColor: COLORS.buttonBorder,
     },
 
     selectProfileText: {
-      color: newColors.cardTextSecondary,
+      color: COLORS.textSecondary,
       fontSize: 15,
-      fontFamily: "Poppins-Regular",
+      fontFamily: "SpaceMono",
     },
 
     dropdownTrigger: {
       width: 40,
       height: 40,
       borderRadius: 12,
-      backgroundColor: newColors.inputBackground,
+      backgroundColor: COLORS.cardBackgroundAlt,
       justifyContent: "center",
       alignItems: "center",
       borderWidth: 1,
-      borderColor: newColors.buttonBorder,
+      borderColor: COLORS.buttonBorder,
     },
 
     modalOverlay: {
@@ -409,11 +357,11 @@ const Login: React.FC = () => {
       width: "90%",
       maxWidth: 400,
       maxHeight: 300,
-      backgroundColor: newColors.cardBackground,
+      backgroundColor: COLORS.cardBackground,
       borderRadius: 20,
       overflow: "hidden",
       borderWidth: 1,
-      borderColor: newColors.divider,
+      borderColor: COLORS.divider,
       shadowColor: "rgba(0, 0, 0, 0.1)",
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.2,
@@ -432,19 +380,19 @@ const Login: React.FC = () => {
       paddingVertical: 12,
       paddingHorizontal: 15,
       borderBottomWidth: 1,
-      borderBottomColor: newColors.divider,
+      borderBottomColor: COLORS.divider,
     },
 
     profileEmojiContainer: {
       width: 40,
       height: 40,
       borderRadius: 12,
-      backgroundColor: newColors.inputBackground,
+      backgroundColor: COLORS.cardBackgroundAlt,
       justifyContent: "center",
       alignItems: "center",
       marginRight: 12,
       borderWidth: 1,
-      borderColor: newColors.buttonBorder,
+      borderColor: COLORS.buttonBorder,
     },
 
     profileEmojiSmall: {
@@ -452,15 +400,15 @@ const Login: React.FC = () => {
     },
 
     profileDropdownName: {
-      color: newColors.cardText,
+      color: COLORS.textPrimary,
       fontSize: 15,
-      fontFamily: "Poppins-Regular",
+      fontFamily: "SpaceMono",
       flex: 1,
     },
 
     profileDropdownRole: {
       fontSize: 12,
-      fontFamily: "Poppins-Regular",
+      fontFamily: "SpaceMono",
       fontWeight: "600",
       textTransform: "uppercase",
     },
@@ -475,7 +423,7 @@ const Login: React.FC = () => {
       <SafeAreaView style={styles.container}>
         <StatusBar
           barStyle="light-content"
-          backgroundColor={newColors.background}
+          backgroundColor={COLORS.background}
         />
 
         <KeyboardAvoidingView
@@ -490,13 +438,7 @@ const Login: React.FC = () => {
               entering={FadeInDown.duration(600).delay(100).springify()}
               style={styles.contentContainer}
             >
-              <Animated.View style={[styles.logoContainer, animatedGlowStyle]}>
-                <Image
-                  source={require("@/assets/images/frederick-logo.png")}
-                  style={styles.logo}
-                />
-              </Animated.View>
-              <Text style={styles.slogan}>Built on what matters</Text>
+              <Text style={styles.slogan}>Discover Events</Text>
 
               <Animated.View
                 entering={FadeInDown.duration(600).delay(300).springify()}
@@ -555,7 +497,7 @@ const Login: React.FC = () => {
                         {isLoading ? (
                           <ActivityIndicator
                             size="small"
-                            color={newColors.cardText}
+                            color={COLORS.textPrimary}
                           />
                         ) : (
                           <Text style={styles.loginButtonText}>Login</Text>

@@ -37,26 +37,8 @@ import {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { COLORS } from "../Layout/ScreenLayout";
 import { styles } from "./styles";
-
-// Updated color scheme to match register/login screens
-const newColors = {
-  background: "#00697A",
-  text: "#FFFFFF",
-  accent: "#FDB813",
-  cardBackground: "#FFFFFF",
-  cardText: "#000000",
-  cardTextSecondary: "#6c757d",
-  buttonBackground: "#FFFFFF",
-  buttonText: "#00697A",
-  buttonBorder: "#DDDDDD",
-  inputBackground: "#F5F5F5",
-  errorBackground: "#FFCDD2",
-  errorText: "#B71C1C",
-  errorBorder: "#EF9A9A",
-  divider: "#E0E0E0",
-  activityIndicator: "#00697A",
-};
 
 interface ActionBarProps {
   isStandalone?: boolean;
@@ -101,7 +83,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
     // Memoize the icon color based on active state
     const iconColor = useMemo(
-      () => (isActive ? newColors.accent : "rgba(255, 255, 255, 0.9)"), // Municipal accent for active, semi-transparent white for inactive
+      () => (isActive ? COLORS.accent : "rgba(255, 255, 255, 0.9)"),
       [isActive],
     );
 
