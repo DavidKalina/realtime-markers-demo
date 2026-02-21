@@ -10,8 +10,12 @@ import { Stack, useNavigationContainerRef } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
-import { View } from "react-native";
+import { LogBox, View } from "react-native";
 import { isRunningInExpoGo } from "expo";
+
+// Suppress known React Native dev-only warning triggered during hot reload
+// when Mapbox native modules send messages through the packager WebSocket
+LogBox.ignoreLogs(["RCTPackagerConnection received message with not supported version"]);
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
