@@ -1,3 +1,12 @@
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  lineHeight,
+} from "@/theme";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -13,16 +22,6 @@ import {
 import Animated, { SlideInRight, SlideOutLeft } from "react-native-reanimated";
 
 const { width } = Dimensions.get("window");
-
-const COLORS = {
-  background: "#1a1a1a",
-  textPrimary: "#f8f9fa",
-  textSecondary: "#a0a0a0",
-  accent: "#93c5fd",
-  accentTint: "rgba(147, 197, 253, 0.15)",
-  accentBorder: "rgba(147, 197, 253, 0.3)",
-  dotInactive: "rgba(255, 255, 255, 0.2)",
-};
 
 interface OnboardingStep {
   emoji: string;
@@ -90,7 +89,7 @@ export const OnboardingScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg.primary} />
 
       <View style={styles.content}>
         <Animated.View
@@ -137,13 +136,13 @@ export const OnboardingScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg.primary,
   },
   content: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 40,
+    paddingHorizontal: spacing["4xl"],
   },
   stepContainer: {
     alignItems: "center",
@@ -153,52 +152,52 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: COLORS.accentTint,
+    backgroundColor: colors.accent.muted,
     borderWidth: 1,
-    borderColor: COLORS.accentBorder,
+    borderColor: colors.accent.border,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 32,
+    marginBottom: spacing["3xl"],
   },
   emoji: {
     fontSize: 48,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    fontFamily: "SpaceMono",
-    color: COLORS.textPrimary,
+    fontSize: fontSize["3xl"],
+    fontWeight: fontWeight.bold,
+    fontFamily: fontFamily.mono,
+    color: colors.text.primary,
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   description: {
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-    color: COLORS.textSecondary,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
+    color: colors.text.secondary,
     textAlign: "center",
-    lineHeight: 24,
+    lineHeight: lineHeight.loose,
   },
   footer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    paddingTop: 10,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
+    paddingTop: spacing._10,
   },
   skipButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     minWidth: 80,
   },
   skipText: {
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-    color: COLORS.textSecondary,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
+    color: colors.text.secondary,
   },
   dotsContainer: {
     flexDirection: "row",
-    gap: 8,
+    gap: spacing.sm,
   },
   dot: {
     width: 8,
@@ -206,25 +205,25 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   dotActive: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: colors.accent.primary,
   },
   dotInactive: {
-    backgroundColor: COLORS.dotInactive,
+    backgroundColor: colors.border.accent,
   },
   nextButton: {
-    backgroundColor: COLORS.accentTint,
+    backgroundColor: colors.accent.muted,
     borderWidth: 1,
-    borderColor: COLORS.accentBorder,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    borderColor: colors.accent.border,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
     minWidth: 80,
     alignItems: "center",
   },
   nextText: {
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-    color: COLORS.textPrimary,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
   },
 });

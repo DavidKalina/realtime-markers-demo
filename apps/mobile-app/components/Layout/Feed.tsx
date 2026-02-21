@@ -6,7 +6,15 @@ import {
   TouchableOpacity,
   ViewStyle,
 } from "react-native";
-import { COLORS } from "./ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  lineHeight,
+} from "@/theme";
 import { LucideIcon } from "lucide-react-native";
 import Animated, {
   FadeIn,
@@ -80,7 +88,7 @@ const FeedItem = React.memo<{
         >
           <Icon
             size={20}
-            color={item.isRead ? COLORS.textSecondary : COLORS.accent}
+            color={item.isRead ? colors.text.secondary : colors.accent.primary}
             style={styles.itemIcon}
           />
           {item.badge && (
@@ -119,7 +127,11 @@ const EmptyState = React.memo<{
     entering={FadeIn.duration(400).springify()}
   >
     <View style={styles.emptyStateIconContainer}>
-      <Icon size={40} color={COLORS.accent} style={styles.emptyStateIcon} />
+      <Icon
+        size={40}
+        color={colors.accent.primary}
+        style={styles.emptyStateIcon}
+      />
     </View>
     <Text style={styles.emptyStateTitle}>{title}</Text>
     <Text style={styles.emptyStateDescription}>{description}</Text>
@@ -169,13 +181,13 @@ const Feed: React.FC<FeedProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    borderRadius: 12,
+    borderRadius: radius.md,
     overflow: "hidden",
-    paddingBottom: 8,
+    paddingBottom: spacing.sm,
   },
   itemsContainer: {
     width: "100%",
-    borderRadius: 12,
+    borderRadius: radius.md,
     overflow: "hidden",
   },
   itemContainer: {
@@ -187,24 +199,24 @@ const styles = StyleSheet.create({
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 4,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
   },
   itemIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: spacing["3xl"],
+    height: spacing["3xl"],
+    borderRadius: spacing.lg,
     backgroundColor: "rgba(255, 255, 255, 0.03)",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
+    marginRight: spacing._10,
     position: "relative",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.04)",
   },
   unreadIconContainer: {
     backgroundColor: "rgba(147, 197, 253, 0.08)",
-    borderColor: "rgba(147, 197, 253, 0.15)",
+    borderColor: colors.accent.muted,
   },
   itemIcon: {
     marginRight: 0,
@@ -213,98 +225,98 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -3,
     right: -3,
-    backgroundColor: COLORS.accent,
-    borderRadius: 6,
-    minWidth: 16,
-    height: 16,
+    backgroundColor: colors.accent.primary,
+    borderRadius: spacing._6,
+    minWidth: spacing.lg,
+    height: spacing.lg,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 3,
     borderWidth: 1,
-    borderColor: COLORS.background,
+    borderColor: colors.bg.primary,
   },
   badgeText: {
-    color: COLORS.background,
+    color: colors.bg.primary,
     fontSize: 10,
-    fontFamily: "SpaceMono",
-    fontWeight: "700",
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.bold,
   },
   itemContent: {
     flex: 1,
     paddingRight: 2,
   },
   itemTitle: {
-    color: COLORS.textPrimary,
+    color: colors.text.primary,
     fontSize: 13,
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.medium,
     marginBottom: 1,
     letterSpacing: 0.1,
   },
   unreadItemTitle: {
-    fontWeight: "700",
-    color: COLORS.accent,
+    fontWeight: fontWeight.bold,
+    color: colors.accent.primary,
   },
   itemDescription: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
+    color: colors.text.secondary,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
     marginBottom: 1,
     lineHeight: 15,
     opacity: 0.8,
   },
   itemTimestamp: {
-    color: COLORS.textSecondary,
+    color: colors.text.secondary,
     fontSize: 11,
-    fontFamily: "SpaceMono",
+    fontFamily: fontFamily.mono,
     opacity: 0.6,
     letterSpacing: 0.1,
   },
   viewAllContainer: {
-    marginTop: 8,
-    marginHorizontal: 4,
-    paddingHorizontal: 4,
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.xs,
+    paddingHorizontal: spacing.xs,
   },
   emptyStateContainer: {
-    padding: 32,
+    padding: spacing["3xl"],
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255, 255, 255, 0.02)",
-    borderRadius: 16,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.05)",
-    margin: 16,
+    borderColor: colors.border.subtle,
+    margin: spacing.lg,
   },
   emptyStateIconContainer: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: spacing["4xl"],
     backgroundColor: "rgba(147, 197, 253, 0.1)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: spacing.xl,
     borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.2)",
+    borderColor: colors.accent.border,
   },
   emptyStateIcon: {
     opacity: 0.9,
   },
   emptyStateTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 18,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-    marginBottom: 8,
+    color: colors.text.primary,
+    fontSize: fontSize.lg,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
+    marginBottom: spacing.sm,
     textAlign: "center",
     letterSpacing: 0.3,
   },
   emptyStateDescription: {
-    color: COLORS.textSecondary,
+    color: colors.text.secondary,
     fontSize: 15,
-    fontFamily: "SpaceMono",
+    fontFamily: fontFamily.mono,
     textAlign: "center",
     opacity: 0.7,
-    lineHeight: 22,
+    lineHeight: lineHeight.relaxed,
     letterSpacing: 0.2,
   },
 });

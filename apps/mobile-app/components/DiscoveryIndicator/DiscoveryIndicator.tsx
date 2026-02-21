@@ -15,7 +15,14 @@ import Animated, {
   LinearTransition,
 } from "react-native-reanimated";
 import * as Crypto from "expo-crypto";
-import { COLORS } from "../Layout/ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 
 interface DiscoveryIndicatorProps {
   position?:
@@ -45,8 +52,8 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
   const { subscribe, publish } = useEventBroker();
 
   const positionStyle = useMemo(() => {
-    const baseSpacing = 4;
-    const itemSpacing = 8;
+    const baseSpacing = spacing.xs;
+    const itemSpacing = spacing.sm;
     const maxItems = 5;
 
     switch (position) {
@@ -225,7 +232,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
     return (
       <Animated.View
         key={item.id}
-        style={[styles.itemContainer, index > 0 && { marginTop: 8 }]}
+        style={[styles.itemContainer, index > 0 && { marginTop: spacing.sm }]}
         entering={FadeInDown.springify()
           .damping(15)
           .mass(0.8)
@@ -312,54 +319,54 @@ const styles = StyleSheet.create({
   indicator: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 12,
-    padding: 8,
-    paddingRight: 8,
+    backgroundColor: colors.bg.card,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    paddingRight: spacing.sm,
     width: 200,
     minHeight: 40,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-    shadowColor: COLORS.shadow,
+    borderColor: colors.border.medium,
+    shadowColor: colors.shadow.default,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
   },
   notificationIndicator: {
-    backgroundColor: COLORS.cardBackgroundAlt,
+    backgroundColor: colors.bg.cardAlt,
   },
   iconContainer: {
     width: 24,
     height: 24,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 8,
-    backgroundColor: COLORS.buttonBackground,
+    marginRight: spacing.sm,
+    backgroundColor: colors.border.subtle,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   titleText: {
-    color: COLORS.textPrimary,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
+    color: colors.text.primary,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
     letterSpacing: 0.5,
   },
   messageText: {
-    color: COLORS.textSecondary,
+    color: colors.text.secondary,
     fontSize: 10,
-    fontFamily: "SpaceMono",
+    fontFamily: fontFamily.mono,
     marginTop: 2,
   },
   emojiText: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     textAlign: "center",
-    color: COLORS.textPrimary,
+    color: colors.text.primary,
   },
   tapIndicator: {
-    marginLeft: 4,
+    marginLeft: spacing.xs,
     justifyContent: "center",
     alignItems: "center",
   },

@@ -1,5 +1,13 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
+import {
+  colors,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  spacing,
+  radius,
+} from "@/theme";
 import { EventType } from "@/types/types";
 import EventListItem from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
@@ -26,14 +34,14 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
 
   if (isLoading) {
     return (
-      <View style={{ marginBottom: 24 }}>
+      <View style={{ marginBottom: spacing["2xl"] }}>
         <Text
           style={{
-            fontSize: 20,
-            fontWeight: "600",
-            marginBottom: 12,
-            paddingHorizontal: 16,
-            fontFamily: "SpaceMono",
+            fontSize: fontSize.xl,
+            fontWeight: fontWeight.semibold,
+            marginBottom: spacing.md,
+            paddingHorizontal: spacing.lg,
+            fontFamily: fontFamily.mono,
           }}
         >
           Upcoming Events
@@ -44,11 +52,11 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
             style={{
               height: 120,
               backgroundColor: "#f0f0f0",
-              borderRadius: 16,
-              marginHorizontal: 16,
-              marginBottom: 16,
+              borderRadius: radius.xl,
+              marginHorizontal: spacing.lg,
+              marginBottom: spacing.lg,
               opacity: 0.6,
-              shadowColor: "#000",
+              shadowColor: colors.fixed.black,
               shadowOffset: {
                 width: 0,
                 height: 2,
@@ -68,14 +76,14 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
   }
 
   return (
-    <View style={{ marginBottom: 24 }}>
+    <View style={{ marginBottom: spacing["2xl"] }}>
       <Text
         style={{
-          fontSize: 20,
-          fontWeight: "600",
-          marginBottom: 12,
-          paddingHorizontal: 16,
-          fontFamily: "SpaceMono",
+          fontSize: fontSize.xl,
+          fontWeight: fontWeight.semibold,
+          marginBottom: spacing.md,
+          paddingHorizontal: spacing.lg,
+          fontFamily: fontFamily.mono,
         }}
       >
         Upcoming Events
@@ -85,11 +93,11 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
           key={event.id}
           onPress={() => handleEventPress(event)}
           style={{
-            marginHorizontal: 16,
-            marginBottom: 16,
-            backgroundColor: "#ffffff",
-            borderRadius: 16,
-            shadowColor: "#000",
+            marginHorizontal: spacing.lg,
+            marginBottom: spacing.lg,
+            backgroundColor: colors.fixed.white,
+            borderRadius: radius.xl,
+            shadowColor: colors.fixed.black,
             shadowOffset: {
               width: 0,
               height: 2,

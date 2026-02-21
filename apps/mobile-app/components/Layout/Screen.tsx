@@ -15,7 +15,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Banner from "./Banner";
 import Button from "./Button";
 import ScreenContent from "./ScreenContent";
-import ScreenLayout, { COLORS } from "./ScreenLayout";
+import { colors, spacing, radius } from "@/theme";
+import ScreenLayout from "./ScreenLayout";
 import SectionHeader from "./SectionHeader";
 import Tabs from "./Tabs";
 
@@ -267,46 +268,46 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: spacing.lg,
   },
   contentWithFooter: {
-    paddingBottom: 24, // Add padding when footer is present
+    paddingBottom: spacing["2xl"], // Add padding when footer is present
   },
   contentWrapper: {
     flex: 1,
     minHeight: 0,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing["2xl"],
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
-    marginLeft: 4,
+    marginBottom: spacing.md,
+    marginLeft: spacing.xs,
   },
   card: {
-    borderRadius: 12,
+    borderRadius: radius.md,
   },
   fixedFooter: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.background,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: colors.bg.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)", // Updated for better contrast on teal
+    borderTopColor: colors.border.medium,
     flexDirection: "row",
-    gap: 12,
+    gap: spacing.md,
   },
   footerButton: {
     // Remove default flex: 1 to allow custom flex values from EventDetails
   },
   tabsWrapper: {
-    marginHorizontal: -16,
+    marginHorizontal: -spacing.lg,
     marginTop: 0,
     marginBottom: 0,
   },

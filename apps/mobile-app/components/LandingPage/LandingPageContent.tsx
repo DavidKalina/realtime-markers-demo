@@ -7,6 +7,14 @@ import {
   StyleSheet,
   Dimensions,
 } from "react-native";
+import {
+  colors,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  spacing,
+  radius,
+} from "@/theme";
 import { EventType } from "@/types/types";
 import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
 import CommunityEventsSection from "./CommunityEventsSection";
@@ -150,21 +158,21 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
 
 const styles = StyleSheet.create({
   sectionContainer: {
-    marginBottom: 24,
+    marginBottom: spacing["2xl"],
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    marginBottom: 12,
-    paddingHorizontal: 16,
-    fontFamily: "SpaceMono",
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.semibold,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    fontFamily: fontFamily.mono,
   },
   sectionSubtitle: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     color: "#666",
-    marginBottom: 12,
-    paddingHorizontal: 16,
-    fontFamily: "SpaceMono",
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    fontFamily: fontFamily.mono,
   },
   carouselContainer: {
     position: "relative",
@@ -173,17 +181,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: (screenWidth - FEATURED_ITEM_WIDTH) / 2,
   },
   communityScrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
   },
   featuredSkeletonItem: {
     width: FEATURED_ITEM_WIDTH,
-    marginRight: 16,
+    marginRight: spacing.lg,
   },
   featuredSkeletonCard: {
     backgroundColor: "#f0f0f0",
-    borderRadius: 16,
+    borderRadius: radius.xl,
     overflow: "hidden",
-    shadowColor: "#000",
+    shadowColor: colors.fixed.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -194,20 +202,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#e0e0e0",
   },
   featuredSkeletonContent: {
-    padding: 16,
+    padding: spacing.lg,
   },
   featuredSkeletonTitle: {
     height: 16,
     backgroundColor: "#e0e0e0",
     borderRadius: 4,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     width: "80%",
   },
   featuredSkeletonDate: {
     height: 12,
     backgroundColor: "#e0e0e0",
     borderRadius: 4,
-    marginBottom: 6,
+    marginBottom: spacing._6,
     width: "60%",
   },
   featuredSkeletonLocation: {
@@ -218,13 +226,13 @@ const styles = StyleSheet.create({
   },
   communitySkeletonItem: {
     width: COMMUNITY_ITEM_WIDTH,
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   communitySkeletonCard: {
     backgroundColor: "#f0f0f0",
-    borderRadius: 12,
+    borderRadius: radius.md,
     overflow: "hidden",
-    shadowColor: "#000",
+    shadowColor: colors.fixed.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -235,20 +243,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#e0e0e0",
   },
   communitySkeletonContent: {
-    padding: 12,
+    padding: spacing.md,
   },
   communitySkeletonTitle: {
     height: 14,
     backgroundColor: "#e0e0e0",
     borderRadius: 4,
-    marginBottom: 6,
+    marginBottom: spacing._6,
     width: "85%",
   },
   communitySkeletonDate: {
     height: 10,
     backgroundColor: "#e0e0e0",
     borderRadius: 4,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     width: "50%",
   },
   communitySkeletonLocation: {
@@ -258,14 +266,14 @@ const styles = StyleSheet.create({
     width: "65%",
   },
   upcomingSkeletonItem: {
-    marginHorizontal: 16,
-    marginBottom: 16,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
   },
   upcomingSkeletonCard: {
     backgroundColor: "#f0f0f0",
-    borderRadius: 16,
+    borderRadius: radius.xl,
     overflow: "hidden",
-    shadowColor: "#000",
+    shadowColor: colors.fixed.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -276,27 +284,27 @@ const styles = StyleSheet.create({
     backgroundColor: "#e0e0e0",
   },
   upcomingSkeletonContent: {
-    padding: 16,
+    padding: spacing.lg,
   },
   upcomingSkeletonTitle: {
     height: 16,
     backgroundColor: "#e0e0e0",
     borderRadius: 4,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     width: "90%",
   },
   upcomingSkeletonDate: {
     height: 12,
     backgroundColor: "#e0e0e0",
     borderRadius: 4,
-    marginBottom: 6,
+    marginBottom: spacing._6,
     width: "55%",
   },
   upcomingSkeletonLocation: {
     height: 12,
     backgroundColor: "#e0e0e0",
     borderRadius: 4,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     width: "75%",
   },
   upcomingSkeletonDescription: {

@@ -9,31 +9,6 @@ import {
 import Animated, { FadeIn } from "react-native-reanimated";
 import { colors } from "@/theme";
 
-// Backward-compatible bridge to new theme tokens.
-// All 55+ files import COLORS from here; this mapping keeps them working
-// while we migrate each file to import from @/theme directly.
-export const COLORS = {
-  background: colors.bg.primary,
-  cardBackground: colors.bg.card,
-  cardBackgroundAlt: colors.bg.cardAlt,
-  textPrimary: colors.text.primary,
-  textSecondary: colors.text.secondary,
-  accent: colors.accent.primary,
-  accentDark: colors.accent.dark,
-  divider: colors.border.default,
-  buttonBackground: colors.border.subtle,
-  buttonBorder: colors.border.medium,
-  shadow: colors.shadow.default,
-  // Warning colors
-  warningBackground: colors.status.warning.bg,
-  warningBorder: colors.status.warning.border,
-  warningText: colors.status.warning.text,
-  // Error colors
-  errorBackground: colors.status.error.bg,
-  errorBorder: colors.status.error.border,
-  errorText: colors.status.error.text,
-};
-
 interface ScreenLayoutProps {
   children: React.ReactNode;
   style?: ViewStyle;
@@ -47,7 +22,7 @@ interface ScreenLayoutProps {
 const screenLayoutStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg.primary,
   },
   content: {
     flex: 1,
@@ -58,7 +33,7 @@ const screenLayoutStyles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 44, // Approximate status bar height
-    backgroundColor: "#333",
+    backgroundColor: colors.bg.elevated,
     zIndex: 1,
   },
 });
@@ -90,7 +65,7 @@ const ScreenLayout: React.FC<ScreenLayoutProps> = React.memo(
       <Container style={containerStyle}>
         <StatusBar
           barStyle="light-content"
-          backgroundColor={COLORS.background}
+          backgroundColor={colors.bg.primary}
           translucent={extendBannerToStatusBar}
         />
         {extendBannerToStatusBar && (

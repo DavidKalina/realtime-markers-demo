@@ -18,7 +18,7 @@ import Animated, {
   withRepeat,
   Easing,
 } from "react-native-reanimated";
-import { COLORS } from "../Layout/ScreenLayout";
+import { colors, fontSize, lineHeight, spacing } from "@/theme";
 import {
   MARKER_HEIGHT,
   MARKER_WIDTH,
@@ -263,7 +263,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
     const rippleStyle = useAnimatedStyle(() => ({
       opacity: rippleOpacity.value,
       transform: [{ scale: rippleScale.value }],
-      borderColor: "#fff",
+      borderColor: colors.fixed.white,
     }));
 
     // Memoized SVGs
@@ -271,12 +271,20 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
     const MarkerSvg = useMemo(
       () => (
         <MarkerSVG
-          fill={event.data.isPrivate ? COLORS.accent : "#1a1a1a"}
-          stroke={event.data.isPrivate ? COLORS.accentDark : "white"}
+          fill={
+            event.data.isPrivate ? colors.accent.primary : colors.bg.primary
+          }
+          stroke={
+            event.data.isPrivate ? colors.accent.dark : colors.fixed.white
+          }
           strokeWidth="3"
           highlightStrokeWidth="2.5"
           circleRadius="12"
-          circleStroke={event.data.isPrivate ? COLORS.accentDark : "#E2E8F0"}
+          circleStroke={
+            event.data.isPrivate
+              ? colors.accent.dark
+              : colors.brand.markerStroke
+          }
           circleStrokeWidth="1"
         />
       ),
@@ -357,27 +365,27 @@ const styles = StyleSheet.create({
   },
   emojiContainer: {
     position: "absolute",
-    top: 10,
+    top: spacing._10,
     width: MARKER_WIDTH,
-    height: 20,
+    height: spacing.xl,
     alignItems: "center",
     justifyContent: "center",
   },
   emojiText: {
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.tight,
     textAlign: "center",
     padding: 2,
   },
   rippleEffect: {
     position: "absolute",
-    width: 10,
-    height: 10,
+    width: spacing._10,
+    height: spacing._10,
     borderRadius: 5,
-    backgroundColor: "transparent",
+    backgroundColor: colors.fixed.transparent,
     borderWidth: 2,
     opacity: 0.7,
-    bottom: 12,
+    bottom: spacing.md,
   },
   popupContainer: {
     position: "absolute",

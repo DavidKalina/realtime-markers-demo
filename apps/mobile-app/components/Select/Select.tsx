@@ -18,7 +18,7 @@ import Animated, {
   SlideOutDown,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { COLORS } from "../Layout/ScreenLayout";
+import { colors } from "@/theme";
 import Input from "../Input/Input";
 
 export interface SelectOption {
@@ -122,7 +122,9 @@ export const Select: React.FC<SelectProps> = ({
             <item.icon
               size={20}
               color={
-                value?.id === item.id ? COLORS.accent : COLORS.textSecondary
+                value?.id === item.id
+                  ? colors.accent.primary
+                  : colors.text.secondary
               }
             />
           </View>
@@ -168,7 +170,7 @@ export const Select: React.FC<SelectProps> = ({
           <View style={styles.selectedContent}>
             {value.icon && (
               <View style={styles.selectedIcon}>
-                <value.icon size={18} color={COLORS.accent} />
+                <value.icon size={18} color={colors.accent.primary} />
               </View>
             )}
             <View style={styles.selectedTextContainer}>
@@ -197,16 +199,16 @@ export const Select: React.FC<SelectProps> = ({
         )}
         <View style={styles.triggerIcon}>
           {loading ? (
-            <ActivityIndicator size="small" color={COLORS.accent} />
+            <ActivityIndicator size="small" color={colors.accent.primary} />
           ) : isOpen ? (
             <ChevronUp
               size={18}
-              color={error ? COLORS.errorText : COLORS.accent}
+              color={error ? colors.status.error.text : colors.accent.primary}
             />
           ) : (
             <ChevronDown
               size={18}
-              color={error ? COLORS.errorText : COLORS.accent}
+              color={error ? colors.status.error.text : colors.accent.primary}
             />
           )}
         </View>
@@ -250,7 +252,7 @@ export const Select: React.FC<SelectProps> = ({
                   onPress={() => setIsOpen(false)}
                   activeOpacity={0.7}
                 >
-                  <X size={20} color={COLORS.textPrimary} />
+                  <X size={20} color={colors.text.primary} />
                 </TouchableOpacity>
               </View>
 
@@ -290,7 +292,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: COLORS.accent,
+    color: colors.accent.primary,
     fontFamily: "SpaceMono",
     fontWeight: "500",
     marginBottom: 8,
@@ -298,18 +300,18 @@ const styles = StyleSheet.create({
   trigger: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg.primary,
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 55,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   errorTrigger: {
-    borderColor: COLORS.errorBorder,
+    borderColor: colors.status.error.border,
   },
   hasValue: {
-    borderColor: COLORS.accent,
+    borderColor: colors.accent.primary,
   },
   selectedContent: {
     flex: 1,
@@ -324,19 +326,19 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   selectedLabel: {
-    color: COLORS.textPrimary,
+    color: colors.text.primary,
     fontSize: 16,
     fontFamily: "SpaceMono",
   },
   selectedDescription: {
-    color: COLORS.textSecondary,
+    color: colors.text.secondary,
     fontSize: 12,
     fontFamily: "SpaceMono",
     marginTop: 2,
   },
   placeholder: {
     flex: 1,
-    color: COLORS.textSecondary,
+    color: colors.text.secondary,
     fontSize: 16,
     fontFamily: "SpaceMono",
   },
@@ -344,21 +346,21 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
+    backgroundColor: colors.border.subtle,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   errorText: {
-    color: COLORS.errorText,
+    color: colors.status.error.text,
     fontSize: 12,
     fontFamily: "SpaceMono",
     marginTop: 4,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    backgroundColor: colors.overlay.scrim,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -369,12 +371,12 @@ const styles = StyleSheet.create({
     maxHeight: "80%",
   },
   dropdownContainer: {
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: colors.bg.card,
     borderRadius: 20,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: COLORS.divider,
-    shadowColor: "rgba(0, 0, 0, 0.5)",
+    borderColor: colors.border.default,
+    shadowColor: colors.overlay.light,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
@@ -386,19 +388,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: colors.border.default,
   },
   dropdownTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: COLORS.textPrimary,
+    color: colors.text.primary,
     fontFamily: "SpaceMono",
   },
   closeButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.buttonBackground,
+    backgroundColor: colors.border.subtle,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -415,10 +417,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: colors.border.default,
   },
   selectedOption: {
-    backgroundColor: COLORS.buttonBackground,
+    backgroundColor: colors.border.subtle,
   },
   optionIcon: {
     marginRight: 12,
@@ -427,17 +429,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   optionLabel: {
-    color: COLORS.textPrimary,
+    color: colors.text.primary,
     fontSize: 16,
     fontFamily: "SpaceMono",
   },
   optionDescription: {
-    color: COLORS.textSecondary,
+    color: colors.text.secondary,
     fontSize: 12,
     fontFamily: "SpaceMono",
     marginTop: 2,
   },
   selectedText: {
-    color: COLORS.accent,
+    color: colors.accent.primary,
   },
 });

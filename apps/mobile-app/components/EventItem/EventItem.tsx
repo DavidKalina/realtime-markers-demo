@@ -1,5 +1,12 @@
 import { EventType } from "@/types/types";
-import { COLORS } from "@/components/Layout/ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 import { Calendar, ChevronRight, MapPin } from "lucide-react-native";
 import React, { useCallback } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -101,8 +108,8 @@ const EventItem: React.FC<EventItemProps> = ({
               <View style={styles.resultDetailsRow}>
                 <Calendar
                   size={14}
-                  color="#93c5fd"
-                  style={{ marginRight: 6 }}
+                  color={colors.accent.primary}
+                  style={{ marginRight: spacing._6 }}
                 />
                 <Text
                   style={styles.resultDetailText}
@@ -114,7 +121,11 @@ const EventItem: React.FC<EventItemProps> = ({
               </View>
 
               <View style={styles.resultDetailsRow}>
-                <MapPin size={14} color="#93c5fd" style={{ marginRight: 6 }} />
+                <MapPin
+                  size={14}
+                  color={colors.accent.primary}
+                  style={{ marginRight: spacing._6 }}
+                />
                 <Text
                   style={styles.resultDetailText}
                   numberOfLines={1}
@@ -130,7 +141,7 @@ const EventItem: React.FC<EventItemProps> = ({
 
           {showChevron && (
             <View style={styles.chevronContainer}>
-              <ChevronRight size={16} color={COLORS.textSecondary} />
+              <ChevronRight size={16} color={colors.text.secondary} />
             </View>
           )}
         </View>
@@ -144,15 +155,15 @@ const EventItem: React.FC<EventItemProps> = ({
 
 const defaultStyles = StyleSheet.create({
   eventCard: {
-    backgroundColor: COLORS.cardBackground,
-    padding: 12,
+    backgroundColor: colors.bg.card,
+    padding: spacing.md,
     marginHorizontal: 0,
-    marginVertical: 6,
-    borderRadius: 12,
+    marginVertical: spacing._6,
+    borderRadius: radius.md,
     flexDirection: "column",
     borderWidth: 1,
-    borderColor: COLORS.divider,
-    shadowColor: COLORS.shadow,
+    borderColor: colors.border.default,
+    shadowColor: colors.shadow.default,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -163,32 +174,32 @@ const defaultStyles = StyleSheet.create({
     alignItems: "center",
   },
   emojiContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
+    width: spacing["4xl"],
+    height: spacing["4xl"],
+    borderRadius: radius.md,
+    backgroundColor: colors.border.subtle,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    marginRight: spacing.md,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   resultEmoji: {
-    fontSize: 20,
+    fontSize: fontSize.xl,
   },
   resultTextContainer: {
     flex: 1,
     justifyContent: "center",
   },
   resultTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    marginBottom: 6,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
+    marginBottom: spacing._6,
   },
   detailsContainer: {
-    gap: 4,
+    gap: spacing.xs,
   },
   resultDetailsRow: {
     flexDirection: "row",
@@ -196,25 +207,25 @@ const defaultStyles = StyleSheet.create({
   },
   resultDetailText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
     flex: 1,
   },
   chevronContainer: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: COLORS.buttonBackground,
+    backgroundColor: colors.border.subtle,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   footerContainer: {
     borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-    marginTop: 12,
-    paddingTop: 12,
+    borderTopColor: colors.border.default,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
   },
 });
 
@@ -222,27 +233,27 @@ const compactStyles = StyleSheet.create({
   ...defaultStyles,
   eventCard: {
     ...defaultStyles.eventCard,
-    padding: 8,
-    marginVertical: 4,
+    padding: spacing.sm,
+    marginVertical: spacing.xs,
   },
   emojiContainer: {
     ...defaultStyles.emojiContainer,
-    width: 32,
-    height: 32,
+    width: spacing["3xl"],
+    height: spacing["3xl"],
   },
   resultTitle: {
     ...defaultStyles.resultTitle,
     fontSize: 13,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   resultDetailText: {
     ...defaultStyles.resultDetailText,
-    fontSize: 12,
+    fontSize: fontSize.xs,
   },
   footerContainer: {
     ...defaultStyles.footerContainer,
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
   },
 });
 
@@ -250,27 +261,27 @@ const featuredStyles = StyleSheet.create({
   ...defaultStyles,
   eventCard: {
     ...defaultStyles.eventCard,
-    padding: 16,
-    marginVertical: 8,
+    padding: spacing.lg,
+    marginVertical: spacing.sm,
   },
   emojiContainer: {
     ...defaultStyles.emojiContainer,
-    width: 48,
-    height: 48,
+    width: spacing["5xl"],
+    height: spacing["5xl"],
   },
   resultTitle: {
     ...defaultStyles.resultTitle,
-    fontSize: 16,
-    marginBottom: 8,
+    fontSize: fontSize.md,
+    marginBottom: spacing.sm,
   },
   resultDetailText: {
     ...defaultStyles.resultDetailText,
-    fontSize: 14,
+    fontSize: fontSize.sm,
   },
   footerContainer: {
     ...defaultStyles.footerContainer,
-    marginTop: 16,
-    paddingTop: 16,
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
   },
 });
 

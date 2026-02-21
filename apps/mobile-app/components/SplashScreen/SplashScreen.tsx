@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -68,7 +69,7 @@ export function AnimatedSplashScreen({
 
 const styles = StyleSheet.create({
   splashContainer: {
-    backgroundColor: "#1a1a1a",
+    backgroundColor: colors.bg.primary,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1000,
@@ -78,22 +79,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   titleContainer: {
-    marginBottom: 20,
+    marginBottom: spacing.xl,
     alignItems: "center",
   },
   appTitle: {
     fontSize: 36,
-    fontWeight: "700",
-    fontFamily: "SpaceMono",
-    color: "#ffffff",
+    fontWeight: fontWeight.bold,
+    fontFamily: fontFamily.mono,
+    color: colors.fixed.white,
     letterSpacing: 1,
     lineHeight: 44,
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: fontSize.md,
     color: "#888888",
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
-    marginTop: 10,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.medium,
+    marginTop: spacing._10,
   },
 });

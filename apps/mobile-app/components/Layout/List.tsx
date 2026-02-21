@@ -19,8 +19,16 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  lineHeight,
+} from "@/theme";
 import Button from "./Button";
-import { COLORS } from "./ScreenLayout";
 
 export interface ListItem {
   id: string;
@@ -59,9 +67,9 @@ export const StyledSwitch = React.memo<{
     <Switch
       value={value}
       onValueChange={onValueChange}
-      trackColor={{ false: "rgba(255, 255, 255, 0.1)", true: COLORS.accent }}
-      thumbColor={COLORS.background}
-      ios_backgroundColor="rgba(255, 255, 255, 0.1)"
+      trackColor={{ false: colors.border.medium, true: colors.accent.primary }}
+      thumbColor={colors.bg.primary}
+      ios_backgroundColor={colors.border.medium}
       style={styles.switch as ViewStyle}
     />
   </View>
@@ -109,7 +117,9 @@ const ListItem = React.memo<{
           <View style={styles.itemIconContainer}>
             <Icon
               size={18}
-              color={item.isActive ? COLORS.accent : COLORS.textSecondary}
+              color={
+                item.isActive ? colors.accent.primary : colors.text.secondary
+              }
               style={styles.itemIcon}
             />
           </View>
@@ -148,7 +158,11 @@ const EmptyState = React.memo<{
     entering={FadeIn.duration(400).springify()}
   >
     <View style={styles.emptyStateIconContainer}>
-      <Icon size={40} color={COLORS.accent} style={styles.emptyStateIcon} />
+      <Icon
+        size={40}
+        color={colors.accent.primary}
+        style={styles.emptyStateIcon}
+      />
     </View>
     <Text style={styles.emptyStateTitle}>{title}</Text>
     <Text style={styles.emptyStateDescription}>{description}</Text>
@@ -228,11 +242,11 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   scrollContent: {
-    paddingBottom: 8,
+    paddingBottom: spacing.sm,
   },
   itemsContainer: {
     width: "100%",
-    borderRadius: 12,
+    borderRadius: radius.md,
     overflow: "hidden",
   },
   itemContainer: {
@@ -244,20 +258,20 @@ const styles = StyleSheet.create({
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 4,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
   },
   activeItem: {
     // Remove background color, keep only the text color change
   },
   itemIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: spacing["3xl"],
+    height: spacing["3xl"],
+    borderRadius: spacing.lg,
     backgroundColor: "rgba(255, 255, 255, 0.03)",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
+    marginRight: spacing._10,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.04)",
   },
@@ -269,92 +283,92 @@ const styles = StyleSheet.create({
     paddingRight: 2,
   },
   itemTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
+    color: colors.text.primary,
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.medium,
     marginBottom: 1,
     letterSpacing: 0.1,
   },
   activeItemTitle: {
-    color: COLORS.accent,
-    fontWeight: "700",
+    color: colors.accent.primary,
+    fontWeight: fontWeight.bold,
   },
   itemDescription: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
+    color: colors.text.secondary,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
     marginBottom: 1,
     lineHeight: 15,
     opacity: 0.8,
   },
   badgeContainer: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 6,
-    minWidth: 16,
-    height: 16,
+    backgroundColor: colors.accent.primary,
+    borderRadius: spacing._6,
+    minWidth: spacing.lg,
+    height: spacing.lg,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 4,
-    marginLeft: 8,
+    paddingHorizontal: spacing.xs,
+    marginLeft: spacing.sm,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: colors.border.medium,
   },
   badgeText: {
-    color: COLORS.background,
+    color: colors.bg.primary,
     fontSize: 10,
-    fontFamily: "SpaceMono",
-    fontWeight: "700",
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.bold,
   },
   viewAllContainer: {
-    marginTop: 8,
-    marginHorizontal: 4,
-    paddingHorizontal: 4,
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.xs,
+    paddingHorizontal: spacing.xs,
   },
   emptyStateContainer: {
-    padding: 32,
+    padding: spacing["3xl"],
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 16,
-    margin: 16,
+    borderRadius: radius.xl,
+    margin: spacing.lg,
   },
   emptyStateIconContainer: {
     width: 60,
     height: 60,
-    borderRadius: 40,
+    borderRadius: spacing["4xl"],
     backgroundColor: "rgba(147, 197, 253, 0.1)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: spacing.xl,
     borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.2)",
+    borderColor: colors.accent.border,
   },
   emptyStateIcon: {
     opacity: 0.9,
   },
   emptyStateTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-    marginBottom: 8,
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
+    marginBottom: spacing.sm,
     textAlign: "center",
     letterSpacing: 0.3,
   },
   emptyStateDescription: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
+    color: colors.text.secondary,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
     textAlign: "center",
     opacity: 0.7,
-    lineHeight: 22,
+    lineHeight: lineHeight.relaxed,
     letterSpacing: 0.2,
   },
   switchContainer: {
-    height: 20,
+    height: spacing.xl,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 8,
+    marginLeft: spacing.sm,
   } as ViewStyle,
   switch: {
     transform: [{ scale: Platform.select({ ios: 0.7, android: 0.8 }) }],

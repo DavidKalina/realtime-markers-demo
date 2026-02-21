@@ -3,6 +3,7 @@ import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { colors, fontSize, fontFamily } from "@/theme";
 
 interface ImageSelectorProps {
   onImageSelected: (uri: string) => void;
@@ -50,7 +51,7 @@ export const ImageSelector: React.FC<ImageSelectorProps> = ({
       activeOpacity={0.7}
     >
       <View style={[styles.button, disabled && styles.buttonDisabled]}>
-        <Feather name="image" size={20} color="#f8f9fa" />
+        <Feather name="image" size={20} color={colors.text.primary} />
       </View>
     </TouchableOpacity>
   );
@@ -65,12 +66,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: colors.overlay.light,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1.5,
-    borderColor: "#f8f9fa",
-    shadowColor: "#000",
+    borderColor: colors.text.primary,
+    shadowColor: colors.fixed.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
     shadowRadius: 2,
@@ -82,8 +83,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.3)",
   },
   text: {
-    color: "#f8f9fa",
-    fontSize: 12,
-    fontFamily: "SpaceMono",
+    color: colors.text.primary,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
   },
 });

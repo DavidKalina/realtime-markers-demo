@@ -25,10 +25,17 @@ import Animated, {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 import MapMojiHeader from "../AnimationHeader";
 import { AuthWrapper } from "../AuthWrapper";
 import Input from "../Input/Input";
-import { COLORS } from "../Layout/ScreenLayout";
 import { OAuthButtons } from "./OAuthButtons";
 
 const Login: React.FC = () => {
@@ -129,7 +136,7 @@ const Login: React.FC = () => {
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: COLORS.background,
+      backgroundColor: colors.bg.primary,
     },
 
     keyboardAvoidingView: {
@@ -140,14 +147,14 @@ const Login: React.FC = () => {
     scrollContent: {
       flexGrow: 1,
       justifyContent: "center",
-      paddingHorizontal: 20,
-      paddingVertical: 10,
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing._10,
     },
 
     contentContainer: {
       alignItems: "center",
       justifyContent: "center",
-      gap: 20,
+      gap: spacing.xl,
     },
 
     formContainer: {
@@ -159,112 +166,112 @@ const Login: React.FC = () => {
 
     formCard: {
       width: "100%",
-      borderRadius: 20,
-      padding: 20,
-      backgroundColor: COLORS.cardBackground,
+      borderRadius: radius["2xl"],
+      padding: spacing.xl,
+      backgroundColor: colors.bg.card,
       borderWidth: 1,
-      borderColor: COLORS.divider,
+      borderColor: colors.border.default,
       shadowColor: "rgba(0, 0, 0, 0.1)",
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.2,
-      shadowRadius: 12,
+      shadowRadius: radius.md,
       elevation: 8,
       position: "relative",
       overflow: "hidden",
     },
 
     errorContainer: {
-      backgroundColor: COLORS.errorBackground,
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 16,
+      backgroundColor: colors.status.error.bg,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.lg,
       borderWidth: 1,
-      borderColor: COLORS.errorBorder,
+      borderColor: colors.status.error.border,
     },
 
     errorText: {
-      color: COLORS.errorText,
-      fontSize: 14,
-      fontFamily: "SpaceMono",
+      color: colors.status.error.text,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
     },
 
     inputContainer: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: COLORS.cardBackgroundAlt,
-      borderRadius: 12,
-      marginBottom: 16,
-      paddingHorizontal: 12,
+      backgroundColor: colors.bg.cardAlt,
+      borderRadius: radius.md,
+      marginBottom: spacing.lg,
+      paddingHorizontal: spacing.md,
       height: 55,
       borderWidth: 1,
-      borderColor: COLORS.buttonBorder,
+      borderColor: colors.border.medium,
     },
 
     inputIcon: {
-      marginRight: 10,
+      marginRight: spacing._10,
     },
 
     input: {
       flex: 1,
       height: "100%",
-      color: COLORS.textPrimary,
-      fontSize: 16,
-      fontFamily: "SpaceMono",
+      color: colors.text.primary,
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
     },
 
     eyeIcon: {
-      padding: 8,
+      padding: spacing.sm,
     },
 
     loginButton: {
-      borderRadius: 12,
+      borderRadius: radius.md,
       height: 55,
       justifyContent: "center",
       alignItems: "center",
-      marginVertical: 20,
-      backgroundColor: "rgba(147, 197, 253, 0.15)",
+      marginVertical: spacing.xl,
+      backgroundColor: colors.accent.muted,
       borderWidth: 1,
-      borderColor: "rgba(147, 197, 253, 0.3)",
+      borderColor: colors.accent.border,
     },
 
     loginButtonText: {
-      color: COLORS.textPrimary,
-      fontSize: 16,
-      fontWeight: "600",
-      fontFamily: "SpaceMono",
+      color: colors.text.primary,
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
       letterSpacing: 0.5,
     },
 
     createAccountContainer: {
       flexDirection: "row",
       justifyContent: "center",
-      marginTop: 16,
+      marginTop: spacing.lg,
     },
 
     createAccountText: {
-      color: COLORS.textSecondary,
-      fontSize: 14,
-      fontFamily: "SpaceMono",
+      color: colors.text.secondary,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
     },
 
     createAccountLink: {
-      color: COLORS.accent,
-      fontSize: 14,
-      fontWeight: "600",
-      fontFamily: "SpaceMono",
+      color: colors.accent.primary,
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
     },
 
     profileSelectorContainer: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      backgroundColor: COLORS.cardBackgroundAlt,
-      borderRadius: 12,
-      marginBottom: 16,
-      paddingVertical: 8,
-      paddingHorizontal: 12,
+      backgroundColor: colors.bg.cardAlt,
+      borderRadius: radius.md,
+      marginBottom: spacing.lg,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
       borderWidth: 1,
-      borderColor: COLORS.buttonBorder,
+      borderColor: colors.border.medium,
       height: 55,
       zIndex: 4,
     },
@@ -278,24 +285,24 @@ const Login: React.FC = () => {
     selectedProfileEmojiContainer: {
       width: 40,
       height: 40,
-      borderRadius: 12,
+      borderRadius: radius.md,
       backgroundColor: "rgba(245, 158, 11, 0.1)",
       justifyContent: "center",
       alignItems: "center",
-      marginRight: 12,
+      marginRight: spacing.md,
       borderWidth: 1,
       borderColor: "rgba(245, 158, 11, 0.2)",
     },
 
     profileEmojiLarge: {
-      fontSize: 20,
+      fontSize: fontSize.xl,
     },
 
     selectedProfileName: {
-      color: COLORS.textPrimary,
+      color: colors.text.primary,
       fontSize: 15,
-      fontWeight: "500",
-      fontFamily: "SpaceMono",
+      fontWeight: fontWeight.medium,
+      fontFamily: fontFamily.mono,
     },
 
     noProfileContainer: {
@@ -307,38 +314,38 @@ const Login: React.FC = () => {
     placeholderAvatar: {
       width: 40,
       height: 40,
-      borderRadius: 12,
-      backgroundColor: COLORS.cardBackgroundAlt,
+      borderRadius: radius.md,
+      backgroundColor: colors.bg.cardAlt,
       justifyContent: "center",
       alignItems: "center",
-      marginRight: 12,
+      marginRight: spacing.md,
       borderWidth: 1,
-      borderColor: COLORS.buttonBorder,
+      borderColor: colors.border.medium,
     },
 
     selectProfileText: {
-      color: COLORS.textSecondary,
+      color: colors.text.secondary,
       fontSize: 15,
-      fontFamily: "SpaceMono",
+      fontFamily: fontFamily.mono,
     },
 
     dropdownTrigger: {
       width: 40,
       height: 40,
-      borderRadius: 12,
-      backgroundColor: COLORS.cardBackgroundAlt,
+      borderRadius: radius.md,
+      backgroundColor: colors.bg.cardAlt,
       justifyContent: "center",
       alignItems: "center",
       borderWidth: 1,
-      borderColor: COLORS.buttonBorder,
+      borderColor: colors.border.medium,
     },
 
     modalOverlay: {
       flex: 1,
-      backgroundColor: "rgba(0, 0, 0, 0.75)",
+      backgroundColor: colors.overlay.scrim,
       justifyContent: "center",
       alignItems: "center",
-      padding: 20,
+      padding: spacing.xl,
       zIndex: 10,
     },
 
@@ -346,64 +353,64 @@ const Login: React.FC = () => {
       width: "90%",
       maxWidth: 400,
       maxHeight: 300,
-      backgroundColor: COLORS.cardBackground,
-      borderRadius: 20,
+      backgroundColor: colors.bg.card,
+      borderRadius: radius["2xl"],
       overflow: "hidden",
       borderWidth: 1,
-      borderColor: COLORS.divider,
+      borderColor: colors.border.default,
       shadowColor: "rgba(0, 0, 0, 0.1)",
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.2,
-      shadowRadius: 12,
+      shadowRadius: radius.md,
       elevation: 8,
     },
 
     profileList: {
       width: "100%",
-      paddingVertical: 4,
+      paddingVertical: spacing.xs,
     },
 
     profileDropdownItem: {
       flexDirection: "row",
       alignItems: "center",
-      paddingVertical: 12,
+      paddingVertical: spacing.md,
       paddingHorizontal: 15,
       borderBottomWidth: 1,
-      borderBottomColor: COLORS.divider,
+      borderBottomColor: colors.border.default,
     },
 
     profileEmojiContainer: {
       width: 40,
       height: 40,
-      borderRadius: 12,
-      backgroundColor: COLORS.cardBackgroundAlt,
+      borderRadius: radius.md,
+      backgroundColor: colors.bg.cardAlt,
       justifyContent: "center",
       alignItems: "center",
-      marginRight: 12,
+      marginRight: spacing.md,
       borderWidth: 1,
-      borderColor: COLORS.buttonBorder,
+      borderColor: colors.border.medium,
     },
 
     profileEmojiSmall: {
-      fontSize: 20,
+      fontSize: fontSize.xl,
     },
 
     profileDropdownName: {
-      color: COLORS.textPrimary,
+      color: colors.text.primary,
       fontSize: 15,
-      fontFamily: "SpaceMono",
+      fontFamily: fontFamily.mono,
       flex: 1,
     },
 
     profileDropdownRole: {
-      fontSize: 12,
-      fontFamily: "SpaceMono",
-      fontWeight: "600",
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
       textTransform: "uppercase",
     },
 
     loginButtonContainer: {
-      marginTop: 20,
+      marginTop: spacing.xl,
     },
   });
 
@@ -412,7 +419,7 @@ const Login: React.FC = () => {
       <SafeAreaView style={styles.container}>
         <StatusBar
           barStyle="light-content"
-          backgroundColor={COLORS.background}
+          backgroundColor={colors.bg.primary}
         />
 
         <KeyboardAvoidingView
@@ -444,7 +451,7 @@ const Login: React.FC = () => {
                     </View>
                   )}
 
-                  <View style={{ gap: 16 }}>
+                  <View style={{ gap: spacing.lg }}>
                     <Input
                       ref={emailInputRef}
                       icon={Mail}
@@ -486,7 +493,7 @@ const Login: React.FC = () => {
                         {isLoading ? (
                           <ActivityIndicator
                             size="small"
-                            color={COLORS.textPrimary}
+                            color={colors.text.primary}
                           />
                         ) : (
                           <Text style={styles.loginButtonText}>Login</Text>

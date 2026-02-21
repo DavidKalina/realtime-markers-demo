@@ -1,5 +1,13 @@
 // styles/layout.ts - Update to container and innerContainer
 import { StyleSheet } from "react-native";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 
 export const layout = StyleSheet.create({
   container: {
@@ -14,11 +22,11 @@ export const layout = StyleSheet.create({
     zIndex: 10000000,
   },
   card: {
-    backgroundColor: "#1a1a1a",
+    backgroundColor: colors.bg.primary,
     borderRadius: 0, // Remove the border radius at top
     borderBottomRightRadius: 0,
     borderBottomLeftRadius: 0,
-    shadowColor: "#000",
+    shadowColor: colors.fixed.black,
     shadowOpacity: 0.2,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
@@ -30,8 +38,8 @@ export const layout = StyleSheet.create({
   row: {
     flexDirection: "row",
     flex: 1,
-    padding: 8,
-    gap: 4,
+    padding: spacing.sm,
+    gap: spacing.xs,
   },
 
   fixedActionContainer: {
@@ -49,28 +57,28 @@ export const layout = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     height: 50,
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xs,
   },
   detailRow: {
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   button: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 10,
+    paddingVertical: spacing._14,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius._10,
     flex: 1,
     marginHorizontal: 5,
     elevation: 2,
-    shadowColor: "#000",
+    shadowColor: colors.fixed.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
   primaryButton: {
-    backgroundColor: "#4dabf7", // Keep this blue for directions
+    backgroundColor: colors.connection.dot, // Keep this blue for directions
   },
   secondaryButton: {
     backgroundColor: "#4a4a4a",
@@ -78,25 +86,25 @@ export const layout = StyleSheet.create({
     borderColor: "#5a5a5a",
   },
   primaryButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "500",
-    fontFamily: "SpaceMono",
+    color: colors.fixed.white,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    fontFamily: fontFamily.mono,
   },
   secondaryButtonText: {
-    color: "#f8f9fa",
-    fontSize: 14,
-    fontWeight: "500",
-    fontFamily: "SpaceMono",
+    color: colors.text.primary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    fontFamily: fontFamily.mono,
   },
   buttonIcon: {
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   eventEmoji: {
-    fontSize: 24,
-    marginRight: 12,
+    fontSize: fontSize["2xl"],
+    marginRight: spacing.md,
   },
   icon: {
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
 });

@@ -1,25 +1,25 @@
 import { Easing } from "react-native-reanimated";
-import { COLORS } from "../../Layout/ScreenLayout";
+import { colors } from "@/theme";
 
 // Color schemes with teardrop design
 export const COLOR_SCHEMES = {
   small: {
-    fill: "#1a1a1a",
-    stroke: "white",
-    text: COLORS.textPrimary,
-    circleStroke: "#E2E8F0",
+    fill: colors.bg.primary,
+    stroke: colors.fixed.white,
+    text: colors.text.primary,
+    circleStroke: colors.brand.markerStroke,
   },
   medium: {
-    fill: "#1a1a1a",
-    stroke: "white",
-    text: COLORS.textPrimary,
-    circleStroke: "#E2E8F0",
+    fill: colors.bg.primary,
+    stroke: colors.fixed.white,
+    text: colors.text.primary,
+    circleStroke: colors.brand.markerStroke,
   },
   large: {
-    fill: COLORS.accent,
-    stroke: COLORS.accentDark,
-    text: COLORS.textPrimary,
-    circleStroke: COLORS.accentDark,
+    fill: colors.accent.primary,
+    stroke: colors.accent.dark,
+    text: colors.text.primary,
+    circleStroke: colors.accent.dark,
   },
 };
 

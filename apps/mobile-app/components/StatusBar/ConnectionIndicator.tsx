@@ -11,6 +11,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Wifi } from "lucide-react-native";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
+import { spacing, fontFamily, fontWeight } from "@/theme";
 
 const ANIMATION_CONFIG = {
   damping: 10,
@@ -156,7 +157,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: spacing.xs,
   },
   indicator: {
     width: 22,
@@ -167,8 +168,8 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 11,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
     letterSpacing: 0.2,
   },
 });

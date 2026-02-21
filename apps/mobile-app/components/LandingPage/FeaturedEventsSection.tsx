@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
+import { fontSize, fontWeight, fontFamily, spacing, radius } from "@/theme";
 import { EventType } from "@/types/types";
 import EventListItem from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
@@ -26,14 +27,14 @@ const FeaturedEventsSection: React.FC<FeaturedEventsSectionProps> = ({
 
   if (isLoading) {
     return (
-      <View style={{ marginBottom: 24 }}>
+      <View style={{ marginBottom: spacing["2xl"] }}>
         <Text
           style={{
-            fontSize: 20,
-            fontWeight: "600",
-            marginBottom: 12,
-            paddingHorizontal: 16,
-            fontFamily: "SpaceMono",
+            fontSize: fontSize.xl,
+            fontWeight: fontWeight.semibold,
+            marginBottom: spacing.md,
+            paddingHorizontal: spacing.lg,
+            fontFamily: fontFamily.mono,
           }}
         >
           Featured Events
@@ -41,7 +42,7 @@ const FeaturedEventsSection: React.FC<FeaturedEventsSectionProps> = ({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16 }}
+          contentContainerStyle={{ paddingHorizontal: spacing.lg }}
         >
           {[1, 2, 3].map((i) => (
             <View
@@ -50,8 +51,8 @@ const FeaturedEventsSection: React.FC<FeaturedEventsSectionProps> = ({
                 width: 280,
                 height: 120,
                 backgroundColor: "#f0f0f0",
-                borderRadius: 12,
-                marginRight: 12,
+                borderRadius: radius.md,
+                marginRight: spacing.md,
                 opacity: 0.6,
               }}
             />
@@ -66,14 +67,14 @@ const FeaturedEventsSection: React.FC<FeaturedEventsSectionProps> = ({
   }
 
   return (
-    <View style={{ marginBottom: 24 }}>
+    <View style={{ marginBottom: spacing["2xl"] }}>
       <Text
         style={{
-          fontSize: 20,
-          fontWeight: "600",
-          marginBottom: 12,
-          paddingHorizontal: 16,
-          fontFamily: "SpaceMono",
+          fontSize: fontSize.xl,
+          fontWeight: fontWeight.semibold,
+          marginBottom: spacing.md,
+          paddingHorizontal: spacing.lg,
+          fontFamily: fontFamily.mono,
         }}
       >
         Featured Events
@@ -81,13 +82,13 @@ const FeaturedEventsSection: React.FC<FeaturedEventsSectionProps> = ({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16 }}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg }}
       >
         {events.map((event) => (
           <TouchableOpacity
             key={event.id}
             onPress={() => handleEventPress(event)}
-            style={{ marginRight: 12, width: 280 }}
+            style={{ marginRight: spacing.md, width: 280 }}
           >
             <EventListItem
               {...event}

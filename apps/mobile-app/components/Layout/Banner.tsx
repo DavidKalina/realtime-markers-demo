@@ -5,8 +5,8 @@ import Animated, {
   SharedValue,
   useAnimatedStyle,
 } from "react-native-reanimated";
+import { colors, spacing, radius, fontFamily } from "@/theme";
 import BackButton from "./BackButton";
-import { COLORS } from "./ScreenLayout";
 
 interface BannerProps {
   name: string;
@@ -56,9 +56,9 @@ export default function Banner({
 const styles = StyleSheet.create({
   zoneBanner: {
     height: 90,
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: colors.bg.card,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    borderBottomColor: colors.border.medium,
     justifyContent: "center",
     paddingTop: 2,
     zIndex: 2,
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
   },
   leftSection: {
     width: 44,
@@ -98,12 +98,12 @@ const styles = StyleSheet.create({
   logo: {
     width: 28,
     height: 28,
-    borderRadius: 4,
+    borderRadius: radius.sm / 2,
   },
   zoneBannerName: {
-    color: COLORS.textPrimary,
+    color: colors.text.primary,
     fontSize: 22,
-    fontFamily: "SpaceMono",
+    fontFamily: fontFamily.mono,
     letterSpacing: 0.4,
     lineHeight: 26,
     height: 26,

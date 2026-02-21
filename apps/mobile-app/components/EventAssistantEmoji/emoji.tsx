@@ -1,9 +1,10 @@
 // styles/emoji.ts
 import { StyleSheet } from "react-native";
+import { colors, spacing } from "@/theme";
 
 export const styles = StyleSheet.create({
   emojiWrapper: {
-    marginRight: 16,
+    marginRight: spacing.lg,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -26,7 +27,7 @@ export const styles = StyleSheet.create({
   emojiText: {
     fontSize: 26,
     zIndex: 10,
-    color: "#ffffff",
+    color: colors.fixed.white,
   },
   emojiOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -35,6 +36,6 @@ export const styles = StyleSheet.create({
   },
   emoji: {
     fontSize: 24,
-    marginRight: 10,
+    marginRight: spacing._10,
   },
 });

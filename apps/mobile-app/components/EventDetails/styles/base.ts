@@ -1,17 +1,26 @@
 import { StyleSheet } from "react-native";
-import { COLORS } from "../../Layout/ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  shadows,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  lineHeight,
+} from "@/theme";
 
 export const baseStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg.primary,
   },
   contentContainer: {
-    paddingBottom: 24,
+    paddingBottom: spacing["2xl"],
   },
   headerActions: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing.md,
   },
 
   // Hero Section
@@ -22,94 +31,90 @@ export const baseStyles = StyleSheet.create({
   heroImageContainer: {
     width: "100%",
     height: 280,
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: colors.bg.card,
     overflow: "hidden",
   },
   eventBadgeOverlay: {
     position: "absolute",
-    top: 20,
-    left: 20,
+    top: spacing.xl,
+    left: spacing.xl,
     zIndex: 10,
   },
   eventBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing._6,
+    borderRadius: radius["2xl"],
+    ...shadows.md,
   },
   eventBadgeText: {
-    fontSize: 12,
-    fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
     letterSpacing: 0.5,
   },
   engagementOverlay: {
     position: "absolute",
-    bottom: 20,
-    right: 20,
+    bottom: spacing.xl,
+    right: spacing.xl,
     zIndex: 10,
   },
 
   // Title Section
   titleSection: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 16,
-    backgroundColor: COLORS.cardBackground,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing["2xl"],
+    paddingBottom: spacing.lg,
+    backgroundColor: colors.bg.card,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: colors.border.default,
   },
   eventTitle: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    lineHeight: 36,
-    marginBottom: 12,
+    fontSize: fontSize["3xl"],
+    fontWeight: fontWeight.bold,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
+    lineHeight: lineHeight.display,
+    marginBottom: spacing.md,
   },
   eventEmojiContainer: {
     alignSelf: "flex-start",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.bg.primary,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.border.default,
   },
   eventEmoji: {
-    fontSize: 24,
+    fontSize: fontSize["2xl"],
   },
 
   // Details Section
   detailsSection: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    gap: 24,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    gap: spacing["2xl"],
   },
 
   // Detail Rows
   detailRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 12,
+    gap: spacing.md,
   },
   detailText: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
+    color: colors.text.primary,
+    fontSize: fontSize.md,
     flex: 1,
-    fontFamily: "SpaceMono",
-    lineHeight: 24,
+    fontFamily: fontFamily.mono,
+    lineHeight: lineHeight.loose,
   },
   detailTextSecondary: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-    lineHeight: 20,
-    marginTop: 4,
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
+    lineHeight: lineHeight.normal,
+    marginTop: spacing.xs,
   },
 
   // Location Content
@@ -117,123 +122,123 @@ export const baseStyles = StyleSheet.create({
     flex: 1,
   },
   distanceText: {
-    color: COLORS.accent,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-    marginTop: 4,
-    fontWeight: "500",
+    color: colors.accent.primary,
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
+    marginTop: spacing.xs,
+    fontWeight: fontWeight.medium,
   },
 
   // Description
   descriptionText: {
-    fontSize: 16,
-    color: COLORS.textPrimary,
-    lineHeight: 24,
-    fontFamily: "SpaceMono",
+    fontSize: fontSize.md,
+    color: colors.text.primary,
+    lineHeight: lineHeight.loose,
+    fontFamily: fontFamily.mono,
   },
 
   // Recurring Details
   recurringDetails: {
-    gap: 8,
+    gap: spacing.sm,
   },
 
   // Categories
   categoriesContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: spacing.sm,
   },
   categoryTag: {
-    backgroundColor: COLORS.accent + "15",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    backgroundColor: colors.accent.muted,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing._6,
+    borderRadius: radius["2xl"],
     borderWidth: 1,
-    borderColor: COLORS.accent + "30",
+    borderColor: colors.accent.border,
   },
   categoryText: {
-    color: COLORS.accent,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
+    color: colors.accent.primary,
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.medium,
   },
 
   // Section Title
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    marginBottom: 12,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
+    marginBottom: spacing.md,
   },
 
   // Discovered By Section
   discoveredByContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing.sm,
   },
   discoveredByText: {
-    fontSize: 16,
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontSize: fontSize.md,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
   },
   discoveredByName: {
-    fontWeight: "600",
-    color: COLORS.accent,
+    fontWeight: fontWeight.semibold,
+    color: colors.accent.primary,
   },
 
   // Loading
   loadingContainer: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg.primary,
     justifyContent: "center",
     alignItems: "center",
   },
   loadingText: {
-    color: COLORS.textSecondary,
-    marginTop: 16,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
+    color: colors.text.secondary,
+    marginTop: spacing.lg,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
   },
 
   // Error
   errorContainer: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg.primary,
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
+    padding: spacing["2xl"],
   },
   errorText: {
-    color: COLORS.textSecondary,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
+    color: colors.text.secondary,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   retryButton: {
-    backgroundColor: COLORS.accent,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
+    backgroundColor: colors.accent.primary,
+    paddingHorizontal: spacing["2xl"],
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
   },
   retryButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
+    color: colors.fixed.white,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
   },
 
   // Save Count
   saveCountContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: spacing.xs,
   },
   saveCountText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
   },
 });

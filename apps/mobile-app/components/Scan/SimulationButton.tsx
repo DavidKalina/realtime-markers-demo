@@ -2,7 +2,14 @@ import React, { useCallback } from "react";
 import { TouchableOpacity, Text, StyleSheet } from "react-native";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes } from "@/services/EventBroker";
-import { COLORS } from "../Layout/ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 
 interface SimulationButtonProps {
   isVisible: boolean;
@@ -48,18 +55,18 @@ export const SimulationButton: React.FC<SimulationButtonProps> = ({
 
 const styles = StyleSheet.create({
   simulationButton: {
-    backgroundColor: COLORS.accent,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    backgroundColor: colors.accent.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.md,
     width: "100%",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   simulationButtonText: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "SpaceMono",
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
   },
 });

@@ -28,7 +28,7 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Screen from "../Layout/Screen";
-import { COLORS } from "../Layout/ScreenLayout";
+import { colors } from "@/theme";
 import { ErrorEventDetails } from "./ErrorEventDetails";
 import EventEngagementDisplay from "./EventEngagementDisplay";
 import EventMapPreview from "./EventMapPreview";
@@ -63,7 +63,7 @@ const InfoCard = memo(
         <View style={styles.infoCardHeader}>
           {Icon && (
             <View style={styles.infoCardIcon}>
-              <Icon size={18} color={COLORS.accent} strokeWidth={2} />
+              <Icon size={18} color={colors.accent.primary} strokeWidth={2} />
             </View>
           )}
           {title && <Text style={styles.infoCardTitle}>{title}</Text>}
@@ -97,27 +97,27 @@ const ActionButton = memo(
       switch (variant) {
         case "primary":
           return {
-            backgroundColor: COLORS.accent,
-            borderColor: COLORS.accent,
-            textColor: "#ffffff",
+            backgroundColor: colors.accent.primary,
+            borderColor: colors.accent.primary,
+            textColor: colors.fixed.white,
           };
         case "secondary":
           return {
             backgroundColor: "#059669",
             borderColor: "#059669",
-            textColor: "#ffffff",
+            textColor: colors.fixed.white,
           };
         case "outline":
           return {
-            backgroundColor: "transparent",
-            borderColor: COLORS.divider,
-            textColor: COLORS.textPrimary,
+            backgroundColor: colors.fixed.transparent,
+            borderColor: colors.border.default,
+            textColor: colors.text.primary,
           };
         default:
           return {
-            backgroundColor: COLORS.accent,
-            borderColor: COLORS.accent,
-            textColor: "#ffffff",
+            backgroundColor: colors.accent.primary,
+            borderColor: colors.accent.primary,
+            textColor: colors.fixed.white,
           };
       }
     };
@@ -249,7 +249,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
         style: {
           flex: 2, // Make RSVP button take more space
           borderRadius: 12,
-          shadowColor: "#000",
+          shadowColor: colors.fixed.black,
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.1,
           shadowRadius: 4,
@@ -269,7 +269,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           flex: 1, // Make Save button take less space
           borderRadius: 12,
           borderWidth: 2,
-          shadowColor: "#000",
+          shadowColor: colors.fixed.black,
           shadowOffset: { width: 0, height: 1 },
           shadowOpacity: 0.05,
           shadowRadius: 2,
@@ -320,7 +320,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           {/* Date and Time Card - Most important for planning */}
           <InfoCard title="Date & Time" icon={Calendar}>
             <View style={styles.detailRow}>
-              <Clock size={16} color={COLORS.textSecondary} />
+              <Clock size={16} color={colors.text.secondary} />
               <Text style={styles.detailText}>{formattedDate}</Text>
             </View>
           </InfoCard>
@@ -332,7 +332,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
               onPress={handleOpenMaps}
               activeOpacity={0.7}
             >
-              <MapPin size={16} color={COLORS.textSecondary} />
+              <MapPin size={16} color={colors.text.secondary} />
               <View style={styles.locationContent}>
                 <Text style={styles.detailText}>{event.address}</Text>
                 {distanceInfo && (
@@ -452,8 +452,8 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                         ""
                       }
                       size={180}
-                      backgroundColor="#ffffff"
-                      color="#000000"
+                      backgroundColor={colors.fixed.white}
+                      color={colors.fixed.black}
                     />
                   </View>
                 )}
@@ -498,7 +498,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           {event.creator && (
             <InfoCard title="Event Discovery" icon={Users}>
               <View style={styles.discoveredByContent}>
-                <Scan size={16} color={COLORS.textSecondary} />
+                <Scan size={16} color={colors.text.secondary} />
                 <Text style={styles.discoveredByText}>
                   Discovered by{" "}
                   <Text style={styles.discoveredByName}>

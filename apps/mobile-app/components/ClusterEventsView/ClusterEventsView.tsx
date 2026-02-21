@@ -6,7 +6,7 @@ import { StyleSheet } from "react-native";
 import EventListItem from "../Event/EventListItem";
 import InfiniteScrollFlatList from "../Layout/InfintieScrollFlatList";
 import Screen from "../Layout/Screen";
-import { COLORS } from "../Layout/ScreenLayout";
+import { colors, spacing } from "@/theme";
 
 interface EventsViewProps {
   events: EventType[];
@@ -105,10 +105,10 @@ const EventsView: React.FC<EventsViewProps> = ({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg.primary,
   },
   listContent: {
-    paddingBottom: 24,
+    paddingBottom: spacing["2xl"],
   },
 });
 

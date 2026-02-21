@@ -37,7 +37,7 @@ import {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLORS } from "../Layout/ScreenLayout";
+import { colors } from "@/theme";
 import { styles } from "./styles";
 
 interface ActionBarProps {
@@ -83,7 +83,7 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
 
     // Memoize the icon color based on active state
     const iconColor = useMemo(
-      () => (isActive ? COLORS.accent : "rgba(255, 255, 255, 0.9)"),
+      () => (isActive ? colors.accent.primary : "rgba(255, 255, 255, 0.9)"),
       [isActive],
     );
 

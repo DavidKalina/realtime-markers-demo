@@ -3,7 +3,14 @@ import { AuthWrapper } from "@/components/AuthWrapper";
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import Screen from "@/components/Layout/Screen";
-import { COLORS } from "@/components/Layout/ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 import { useCamera } from "@/hooks/useCamera";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
 import { CameraView } from "expo-camera";
@@ -198,7 +205,7 @@ export default function ScanScreen() {
         noSafeArea={false}
       >
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
+          <ActivityIndicator size="large" color={colors.accent.primary} />
           <Text style={styles.loaderText}>Checking camera permissions...</Text>
         </View>
       </Screen>
@@ -237,7 +244,10 @@ export default function ScanScreen() {
                 {/* Camera not ready indicator */}
                 {!isCameraReady && !showProcessingOverlay && (
                   <View style={styles.cameraNotReadyOverlay}>
-                    <ActivityIndicator size="large" color="#ffffff" />
+                    <ActivityIndicator
+                      size="large"
+                      color={colors.fixed.white}
+                    />
                     <Text style={styles.cameraNotReadyText}>
                       Initializing camera...
                     </Text>
@@ -256,7 +266,7 @@ export default function ScanScreen() {
               </CameraView>
             ) : (
               <View style={styles.cameraPlaceholder}>
-                <ActivityIndicator size="large" color={COLORS.accent} />
+                <ActivityIndicator size="large" color={colors.accent.primary} />
                 <Text style={styles.cameraPlaceholderText}>
                   Initializing camera...
                 </Text>
@@ -292,48 +302,48 @@ export default function ScanScreen() {
 const styles = StyleSheet.create({
   contentArea: {
     flex: 1,
-    padding: 8,
+    padding: spacing.sm,
     minHeight: 400,
   },
   cameraCard: {
     flex: 1,
-    borderRadius: 20,
+    borderRadius: radius["2xl"],
     overflow: "hidden",
-    backgroundColor: COLORS.cardBackground,
-    shadowColor: COLORS.shadow,
+    backgroundColor: colors.bg.card,
+    shadowColor: colors.shadow.default,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
-    borderColor: COLORS.divider,
+    borderColor: colors.border.default,
   },
   camera: {
     flex: 1,
   },
   cameraNotReadyOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    backgroundColor: colors.overlay.scrim,
     justifyContent: "center",
     alignItems: "center",
   },
   cameraNotReadyText: {
-    color: COLORS.textPrimary,
-    marginTop: 16,
-    fontFamily: "SpaceMono",
-    fontSize: 14,
+    color: colors.text.primary,
+    marginTop: spacing.lg,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.sm,
   },
   cameraPlaceholder: {
     flex: 1,
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: colors.bg.card,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 20,
+    borderRadius: radius["2xl"],
   },
   cameraPlaceholderText: {
-    color: COLORS.textSecondary,
-    marginTop: 16,
-    fontFamily: "SpaceMono",
-    fontSize: 14,
+    color: colors.text.secondary,
+    marginTop: spacing.lg,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.sm,
   },
   loaderContainer: {
     flex: 1,
@@ -341,30 +351,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loaderText: {
-    color: COLORS.textSecondary,
-    marginTop: 16,
-    fontFamily: "SpaceMono",
-    fontSize: 14,
+    color: colors.text.secondary,
+    marginTop: spacing.lg,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.sm,
   },
   controlsContainer: {
-    paddingBottom: 16,
+    paddingBottom: spacing.lg,
     position: "relative",
   },
   scanCountBadge: {
     position: "absolute",
-    bottom: 8,
-    right: 16,
-    backgroundColor: COLORS.textPrimary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    bottom: spacing.sm,
+    right: spacing.lg,
+    backgroundColor: colors.text.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing._6,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: COLORS.accent,
+    borderColor: colors.accent.primary,
   },
   scanCountText: {
-    color: COLORS.cardBackground,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
+    color: colors.bg.card,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
   },
 });

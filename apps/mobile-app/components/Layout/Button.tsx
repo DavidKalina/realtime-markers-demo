@@ -7,7 +7,14 @@ import {
   ActivityIndicator,
   ColorValue,
 } from "react-native";
-import { COLORS } from "./ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 
 type ButtonVariant =
   | "primary"
@@ -49,58 +56,58 @@ const Button: React.FC<ButtonProps> = ({
 }) => {
   const getButtonStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
-      borderRadius: 8,
+      borderRadius: radius.sm,
       borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
       flexDirection: "row",
-      gap: Icon ? 8 : 0,
+      gap: Icon ? spacing.sm : 0,
     };
 
     // Size variations
     const sizeStyles: Record<ButtonSize, ViewStyle> = {
       small: {
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        minHeight: 32,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        minHeight: spacing["3xl"],
       },
       medium: {
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        minHeight: 40,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
+        minHeight: spacing["4xl"],
       },
       large: {
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        minHeight: 48,
+        paddingHorizontal: spacing.xl,
+        paddingVertical: spacing.lg,
+        minHeight: spacing["5xl"],
       },
     };
 
     // Variant styles
     const variantStyles: Record<ButtonVariant, ViewStyle> = {
       primary: {
-        backgroundColor: COLORS.accent,
-        borderColor: COLORS.accent,
+        backgroundColor: colors.accent.primary,
+        borderColor: colors.accent.primary,
       },
       secondary: {
-        backgroundColor: COLORS.cardBackground,
-        borderColor: COLORS.buttonBorder,
+        backgroundColor: colors.bg.card,
+        borderColor: colors.border.medium,
       },
       outline: {
-        backgroundColor: "transparent",
-        borderColor: COLORS.accent,
+        backgroundColor: colors.fixed.transparent,
+        borderColor: colors.accent.primary,
       },
       ghost: {
-        backgroundColor: "transparent",
-        borderColor: "transparent",
+        backgroundColor: colors.fixed.transparent,
+        borderColor: colors.fixed.transparent,
       },
       warning: {
-        backgroundColor: COLORS.warningBackground,
-        borderColor: COLORS.warningBorder,
+        backgroundColor: colors.status.warning.bg,
+        borderColor: colors.status.warning.border,
       },
       error: {
-        backgroundColor: COLORS.errorBackground,
-        borderColor: COLORS.errorBorder,
+        backgroundColor: colors.status.error.bg,
+        borderColor: colors.status.error.border,
       },
     };
 
@@ -127,43 +134,43 @@ const Button: React.FC<ButtonProps> = ({
 
   const getTextStyle = (): TextStyle => {
     const baseTextStyle: TextStyle = {
-      fontFamily: "SpaceMono",
-      fontWeight: "600",
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
       textAlign: "center",
     };
 
     // Size text variations
     const sizeTextStyles: Record<ButtonSize, TextStyle> = {
       small: {
-        fontSize: 12,
+        fontSize: fontSize.xs,
       },
       medium: {
-        fontSize: 14,
+        fontSize: fontSize.sm,
       },
       large: {
-        fontSize: 16,
+        fontSize: fontSize.md,
       },
     };
 
     // Variant text styles
     const variantTextStyles: Record<ButtonVariant, TextStyle> = {
       primary: {
-        color: COLORS.background,
+        color: colors.bg.primary,
       },
       secondary: {
-        color: COLORS.textPrimary,
+        color: colors.text.primary,
       },
       outline: {
-        color: COLORS.accent,
+        color: colors.accent.primary,
       },
       ghost: {
-        color: COLORS.textPrimary,
+        color: colors.text.primary,
       },
       warning: {
-        color: COLORS.warningText,
+        color: colors.status.warning.text,
       },
       error: {
-        color: COLORS.errorText,
+        color: colors.status.error.text,
       },
     };
 
@@ -177,15 +184,15 @@ const Button: React.FC<ButtonProps> = ({
   const getIconColor = (): string => {
     switch (variant) {
       case "primary":
-        return COLORS.background;
+        return colors.bg.primary;
       case "outline":
-        return COLORS.accent;
+        return colors.accent.primary;
       case "warning":
-        return COLORS.warningText;
+        return colors.status.warning.text;
       case "error":
-        return COLORS.errorText;
+        return colors.status.error.text;
       default:
-        return COLORS.textPrimary;
+        return colors.text.primary;
     }
   };
 

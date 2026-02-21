@@ -9,7 +9,7 @@ import {
   Calendar,
   LucideIcon,
 } from "lucide-react-native";
-import { COLORS } from "../Layout/ScreenLayout";
+import { colors, spacing, fontWeight, fontFamily } from "@/theme";
 import List, { StyledSwitch } from "../Layout/List";
 
 interface Section {
@@ -188,31 +188,31 @@ const ProfileSection = ({
 const styles = StyleSheet.create({
   mapStyleButtons: {
     flexDirection: "row",
-    gap: 4,
+    gap: spacing.xs,
   },
   mapStyleButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: COLORS.buttonBackground,
+    backgroundColor: colors.border.subtle,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
     minHeight: 28,
   },
   mapStyleButtonActive: {
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
-    borderColor: "rgba(147, 197, 253, 0.3)",
+    backgroundColor: colors.accent.muted,
+    borderColor: colors.accent.border,
   },
   mapStyleButtonText: {
     fontSize: 11,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-    color: COLORS.textSecondary,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.secondary,
   },
   mapStyleButtonTextActive: {
-    color: COLORS.accent,
+    color: colors.accent.primary,
   },
 });
 

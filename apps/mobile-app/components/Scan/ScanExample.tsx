@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { colors, spacing, radius, fontSize, fontWeight } from "@/theme";
 import { useScanState } from "./useScanState";
 import { ProcessingOverlay } from "./ProcessingOverlay";
 import { NoScansOverlay } from "./NoScansOverlay";
@@ -196,27 +197,27 @@ export const ScanExample: React.FC<ScanExampleProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: spacing.xl,
     backgroundColor: "#f5f5f5",
   },
   statusContainer: {
-    marginBottom: 20,
+    marginBottom: spacing.xl,
     padding: 15,
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    shadowColor: "#000",
+    backgroundColor: colors.fixed.white,
+    borderRadius: radius.sm,
+    shadowColor: colors.fixed.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
   statusText: {
-    fontSize: 16,
+    fontSize: fontSize.md,
     marginBottom: 5,
-    color: "#333",
+    color: colors.bg.elevated,
   },
   errorText: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     color: "#d32f2f",
     marginBottom: 5,
   },
@@ -226,9 +227,9 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: "#2196f3",
     padding: 15,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: colors.fixed.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -241,9 +242,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#ff9800",
   },
   buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+    color: colors.fixed.white,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
   },
   loadingContainer: {
     position: "absolute",
@@ -253,11 +254,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: colors.overlay.light,
   },
   loadingText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
+    color: colors.fixed.white,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
   },
 });

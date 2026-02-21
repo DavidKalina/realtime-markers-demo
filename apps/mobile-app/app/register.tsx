@@ -1,8 +1,15 @@
 import { AuthWrapper } from "@/components/AuthWrapper";
 import MapMojiHeader from "@/components/AnimationHeader";
 import Input from "@/components/Input/Input";
-import { COLORS } from "@/components/Layout/ScreenLayout";
 import { OAuthButtons } from "@/components/Login/OAuthButtons";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -131,7 +138,7 @@ const RegisterScreen: React.FC = () => {
       <SafeAreaView style={styles.container}>
         <StatusBar
           barStyle="light-content"
-          backgroundColor={COLORS.background}
+          backgroundColor={colors.bg.primary}
         />
 
         <KeyboardAvoidingView
@@ -163,7 +170,7 @@ const RegisterScreen: React.FC = () => {
                     </View>
                   )}
 
-                  <View style={{ gap: 16 }}>
+                  <View style={{ gap: spacing.lg }}>
                     <Input
                       ref={firstNameRef}
                       icon={User}
@@ -247,7 +254,7 @@ const RegisterScreen: React.FC = () => {
                         {isLoading ? (
                           <ActivityIndicator
                             size="small"
-                            color={COLORS.textPrimary}
+                            color={colors.text.primary}
                           />
                         ) : (
                           <Text style={styles.registerButtonText}>
@@ -286,7 +293,7 @@ const RegisterScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg.primary,
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -295,13 +302,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing._10,
   },
   contentContainer: {
     alignItems: "center",
     justifyContent: "center",
-    gap: 20,
+    gap: spacing.xl,
   },
   formContainer: {
     width: "100%",
@@ -311,66 +318,66 @@ const styles = StyleSheet.create({
   },
   formCard: {
     width: "100%",
-    borderRadius: 20,
-    padding: 20,
-    backgroundColor: COLORS.cardBackground,
+    borderRadius: radius["2xl"],
+    padding: spacing.xl,
+    backgroundColor: colors.bg.card,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.border.default,
     shadowColor: "rgba(0, 0, 0, 0.1)",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
-    shadowRadius: 12,
+    shadowRadius: radius.md,
     elevation: 8,
     position: "relative",
     overflow: "hidden",
   },
   errorContainer: {
-    backgroundColor: COLORS.errorBackground,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+    backgroundColor: colors.status.error.bg,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: COLORS.errorBorder,
+    borderColor: colors.status.error.border,
   },
   errorText: {
-    color: COLORS.errorText,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
+    color: colors.status.error.text,
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
   },
   buttonContainer: {
-    marginTop: 20,
+    marginTop: spacing.xl,
   },
   registerButton: {
-    borderRadius: 12,
+    borderRadius: radius.md,
     height: 55,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
+    backgroundColor: colors.accent.muted,
     borderWidth: 1,
-    borderColor: "rgba(147, 197, 253, 0.3)",
+    borderColor: colors.accent.border,
   },
   registerButtonText: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "SpaceMono",
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
     letterSpacing: 0.5,
   },
   loginLinkContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 16,
+    marginTop: spacing.lg,
   },
   loginLinkText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
   },
   loginLink: {
-    color: COLORS.accent,
-    fontSize: 14,
-    fontWeight: "600",
-    fontFamily: "SpaceMono",
+    color: colors.accent.primary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
   },
 });
 

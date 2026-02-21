@@ -9,6 +9,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { colors, spacing } from "@/theme";
 
 interface BackButtonProps {
   onPress: () => void;
@@ -45,7 +46,7 @@ export default function BackButton({ onPress }: BackButtonProps) {
         style={styles.backButtonTouchable}
         activeOpacity={0.7}
       >
-        <ArrowLeft size={20} color="#fff" />
+        <ArrowLeft size={20} color={colors.fixed.white} />
       </TouchableOpacity>
     </Animated.View>
   );
@@ -54,7 +55,7 @@ export default function BackButton({ onPress }: BackButtonProps) {
 const styles = StyleSheet.create({
   bannerBackButton: {
     position: "absolute",
-    left: 16,
+    left: spacing.lg,
     top: 0,
     bottom: 0,
     width: 44,
@@ -69,8 +70,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.15)",
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    shadowColor: "#000",
+    borderColor: colors.border.medium,
+    shadowColor: colors.fixed.black,
     shadowOffset: {
       width: 0,
       height: 2,

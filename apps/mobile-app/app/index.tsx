@@ -2,6 +2,7 @@
 import { AuthWrapper } from "@/components/AuthWrapper";
 import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
+import { colors } from "@/theme";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import StatusBar from "@/components/StatusBar/StatusBar";
@@ -42,7 +43,7 @@ const styles = {
   ...homeScreenStyles,
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: colors.fixed.black,
   },
   mapContainer: {
     flex: 1,

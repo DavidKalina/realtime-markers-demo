@@ -3,7 +3,14 @@ import { Heart, Eye, Users, TrendingUp, Calendar } from "lucide-react-native";
 import React, { memo } from "react";
 import { Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { COLORS } from "../Layout/ScreenLayout";
+import {
+  colors,
+  spacing,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  radius,
+} from "@/theme";
 
 interface EventEngagementDisplayProps {
   engagement: EventEngagementMetrics;
@@ -27,15 +34,15 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
         icon: Heart,
         label: "Saves",
         value: engagement.saveCount,
-        color: COLORS.errorBackground,
-        bgColor: `${COLORS.errorBackground}15`,
+        color: colors.status.error.bg,
+        bgColor: `${colors.status.error.bg}15`,
       },
       {
         icon: Eye,
         label: "Scans",
         value: engagement.scanCount,
-        color: COLORS.accent,
-        bgColor: `${COLORS.accent}15`,
+        color: colors.accent.primary,
+        bgColor: colors.accent.muted,
       },
       {
         icon: Users,
@@ -48,8 +55,8 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
         icon: TrendingUp,
         label: "Total",
         value: engagement.totalEngagement,
-        color: COLORS.accent,
-        bgColor: `${COLORS.accent}15`,
+        color: colors.accent.primary,
+        bgColor: colors.accent.muted,
       },
     ];
 
@@ -58,7 +65,7 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
         entering={FadeInDown.duration(600).delay(delay).springify()}
       >
         {/* Main Metrics */}
-        <View style={{ marginBottom: 16 }}>
+        <View style={{ marginBottom: spacing.lg }}>
           <View
             style={{
               flexDirection: "row",
@@ -74,15 +81,15 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                   style={{
                     alignItems: "center",
                     flex: 1,
-                    paddingHorizontal: 4,
+                    paddingHorizontal: spacing.xs,
                   }}
                 >
                   <View
                     style={{
                       backgroundColor: item.bgColor,
-                      borderRadius: 8,
-                      padding: 8,
-                      marginBottom: 8,
+                      borderRadius: radius.sm,
+                      padding: spacing.sm,
+                      marginBottom: spacing.sm,
                       borderWidth: 1,
                       borderColor: `${item.color}20`,
                     }}
@@ -95,10 +102,10 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                   </View>
                   <Text
                     style={{
-                      fontFamily: "SpaceMono",
-                      fontSize: 16,
-                      fontWeight: "700",
-                      color: COLORS.textPrimary,
+                      fontFamily: fontFamily.mono,
+                      fontSize: fontSize.md,
+                      fontWeight: fontWeight.bold,
+                      color: colors.text.primary,
                       marginBottom: 2,
                       textAlign: "center",
                     }}
@@ -107,11 +114,11 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                   </Text>
                   <Text
                     style={{
-                      fontFamily: "SpaceMono",
+                      fontFamily: fontFamily.mono,
                       fontSize: 11,
-                      color: COLORS.textSecondary,
+                      color: colors.text.secondary,
                       textAlign: "center",
-                      fontWeight: "500",
+                      fontWeight: fontWeight.medium,
                     }}
                   >
                     {item.label}
@@ -126,31 +133,31 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
         {engagement.rsvpCount > 0 && (
           <View
             style={{
-              paddingTop: 16,
+              paddingTop: spacing.lg,
               borderTopWidth: 1,
-              borderTopColor: COLORS.divider,
-              marginBottom: 16,
+              borderTopColor: colors.border.default,
+              marginBottom: spacing.lg,
             }}
           >
             <View
               style={{
                 flexDirection: "row",
                 alignItems: "center",
-                marginBottom: 12,
+                marginBottom: spacing.md,
               }}
             >
               <Calendar
                 size={16}
-                color={COLORS.textSecondary}
+                color={colors.text.secondary}
                 strokeWidth={2}
               />
               <Text
                 style={{
-                  fontSize: 14,
-                  fontWeight: "600",
-                  fontFamily: "SpaceMono",
-                  color: COLORS.textSecondary,
-                  marginLeft: 8,
+                  fontSize: fontSize.sm,
+                  fontWeight: fontWeight.semibold,
+                  fontFamily: fontFamily.mono,
+                  color: colors.text.secondary,
+                  marginLeft: spacing.sm,
                 }}
               >
                 RSVP Breakdown
@@ -160,21 +167,21 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
               style={{
                 flexDirection: "row",
                 justifyContent: "space-around",
-                backgroundColor: COLORS.background,
-                borderRadius: 12,
-                paddingVertical: 16,
-                paddingHorizontal: 20,
+                backgroundColor: colors.bg.primary,
+                borderRadius: radius.md,
+                paddingVertical: spacing.lg,
+                paddingHorizontal: spacing.xl,
                 borderWidth: 1,
-                borderColor: COLORS.divider,
+                borderColor: colors.border.default,
               }}
             >
               <View style={{ alignItems: "center", flex: 1 }}>
                 <View
                   style={{
                     backgroundColor: `${"#10b981"}15`,
-                    borderRadius: 8,
-                    padding: 8,
-                    marginBottom: 8,
+                    borderRadius: radius.sm,
+                    padding: spacing.sm,
+                    marginBottom: spacing.sm,
                     borderWidth: 1,
                     borderColor: `${"#10b981"}20`,
                   }}
@@ -183,10 +190,10 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                 </View>
                 <Text
                   style={{
-                    fontSize: 16,
-                    fontWeight: "700",
+                    fontSize: fontSize.md,
+                    fontWeight: fontWeight.bold,
                     color: "#10b981",
-                    marginBottom: 4,
+                    marginBottom: spacing.xs,
                   }}
                 >
                   {engagement.goingCount}
@@ -194,8 +201,8 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                 <Text
                   style={{
                     fontSize: 11,
-                    color: COLORS.textSecondary,
-                    fontWeight: "500",
+                    color: colors.text.secondary,
+                    fontWeight: fontWeight.medium,
                   }}
                 >
                   Going
@@ -204,26 +211,26 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
               <View style={{ alignItems: "center", flex: 1 }}>
                 <View
                   style={{
-                    backgroundColor: `${COLORS.errorBackground}15`,
-                    borderRadius: 8,
-                    padding: 8,
-                    marginBottom: 8,
+                    backgroundColor: `${colors.status.error.bg}15`,
+                    borderRadius: radius.sm,
+                    padding: spacing.sm,
+                    marginBottom: spacing.sm,
                     borderWidth: 1,
-                    borderColor: `${COLORS.errorBackground}20`,
+                    borderColor: `${colors.status.error.bg}20`,
                   }}
                 >
                   <Users
                     size={16}
-                    color={COLORS.errorBackground}
+                    color={colors.status.error.bg}
                     strokeWidth={2}
                   />
                 </View>
                 <Text
                   style={{
-                    fontSize: 16,
-                    fontWeight: "700",
-                    color: COLORS.errorBackground,
-                    marginBottom: 4,
+                    fontSize: fontSize.md,
+                    fontWeight: fontWeight.bold,
+                    color: colors.status.error.bg,
+                    marginBottom: spacing.xs,
                   }}
                 >
                   {engagement.notGoingCount}
@@ -231,8 +238,8 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                 <Text
                   style={{
                     fontSize: 11,
-                    color: COLORS.textSecondary,
-                    fontWeight: "500",
+                    color: colors.text.secondary,
+                    fontWeight: fontWeight.medium,
                   }}
                 >
                   Not Going
@@ -245,17 +252,17 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
         {/* Last Updated Footer */}
         <View
           style={{
-            paddingTop: 12,
+            paddingTop: spacing.md,
             borderTopWidth: 1,
-            borderTopColor: COLORS.divider,
+            borderTopColor: colors.border.default,
             alignItems: "center",
           }}
         >
           <Text
             style={{
               fontSize: 11,
-              color: COLORS.textSecondary,
-              fontFamily: "SpaceMono",
+              color: colors.text.secondary,
+              fontFamily: fontFamily.mono,
               fontStyle: "italic",
             }}
           >

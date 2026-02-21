@@ -1,7 +1,14 @@
 import React, { useCallback, useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from "react-native";
 import { MapPin, X } from "lucide-react-native";
-import { COLORS } from "../Layout/ScreenLayout";
+import {
+  colors,
+  fontSize,
+  fontFamily,
+  fontWeight,
+  spacing,
+  radius,
+} from "@/theme";
 import Input from "../Input/Input";
 import InfiniteScrollFlatList from "../Layout/InfintieScrollFlatList";
 import * as Haptics from "expo-haptics";
@@ -118,8 +125,8 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
             size={20}
             color={
               selectedLocation?.id === location.id
-                ? COLORS.accent
-                : COLORS.textSecondary
+                ? colors.accent.primary
+                : colors.text.secondary
             }
           />
         </View>
@@ -153,7 +160,11 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
         onPress={() => setIsModalVisible(true)}
         activeOpacity={0.7}
       >
-        <MapPin size={18} color={COLORS.accent} style={styles.buttonIcon} />
+        <MapPin
+          size={18}
+          color={colors.accent.primary}
+          style={styles.buttonIcon}
+        />
         <View style={{ flex: 1 }}>
           <Text style={styles.buttonText}>
             {selectedLocation ? selectedLocation.name : buttonText}
@@ -179,7 +190,7 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
               onPress={() => setIsModalVisible(false)}
               style={styles.closeButton}
             >
-              <X size={24} color={COLORS.textPrimary} />
+              <X size={24} color={colors.text.primary} />
             </TouchableOpacity>
           </View>
 
@@ -225,111 +236,111 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   button: {
-    backgroundColor: COLORS.buttonBackground,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    backgroundColor: colors.border.subtle,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing._14,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: spacing.sm,
   },
   buttonText: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
   },
   buttonIcon: {
     opacity: 0.7,
   },
   coordinatesText: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
+    color: colors.text.secondary,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
     marginTop: 2,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg.primary,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    padding: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: colors.border.default,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
   },
   closeButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.buttonBackground,
+    borderRadius: radius["2xl"],
+    backgroundColor: colors.border.subtle,
     justifyContent: "center",
     alignItems: "center",
   },
   searchContainer: {
-    padding: 16,
+    padding: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: colors.border.default,
   },
   listContent: {
-    padding: 16,
+    padding: spacing.lg,
   },
   locationItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: colors.border.default,
   },
   selectedLocationItem: {
-    backgroundColor: COLORS.buttonBackground,
+    backgroundColor: colors.border.subtle,
   },
   locationIcon: {
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   locationContent: {
     flex: 1,
   },
   locationName: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
   },
   locationAddress: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
+    color: colors.text.secondary,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
     marginTop: 2,
   },
   selectedText: {
-    color: COLORS.accent,
+    color: colors.accent.primary,
   },
   dismissButtonContainer: {
-    padding: 16,
+    padding: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
+    borderTopColor: colors.border.default,
   },
   dismissButton: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 12,
-    paddingVertical: 14,
+    backgroundColor: colors.accent.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing._14,
     alignItems: "center",
   },
   dismissButtonText: {
-    color: "#000",
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "SpaceMono",
+    color: colors.fixed.black,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
   },
 });

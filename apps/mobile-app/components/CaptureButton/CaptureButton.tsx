@@ -12,6 +12,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
 import { FlashMode } from "expo-camera";
+import { colors, spacing, radius } from "@/theme";
 
 interface CaptureButtonProps {
   onPress: () => void;
@@ -23,18 +24,6 @@ interface CaptureButtonProps {
   flashButtonPosition?: "left" | "right";
   disabled?: boolean;
 }
-
-// Add unified color theme at the top
-const COLORS = {
-  background: "#1a1a1a",
-  cardBackground: "#2a2a2a",
-  textPrimary: "#f8f9fa",
-  textSecondary: "#a0a0a0",
-  accent: "#93c5fd",
-  divider: "rgba(255, 255, 255, 0.08)",
-  buttonBackground: "rgba(255, 255, 255, 0.05)",
-  buttonBorder: "rgba(255, 255, 255, 0.1)",
-};
 
 export const CaptureButton: React.FC<CaptureButtonProps> = ({
   onPress,
@@ -227,7 +216,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
         return "#5cafff"; // Blue for auto
       case "off":
       default:
-        return "#ffffff"; // White for off
+        return colors.fixed.white; // White for off
     }
   };
 
@@ -289,7 +278,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
                     <Feather
                       name="camera"
                       size={size === "compact" ? 18 : 20}
-                      color="#1a1a1a"
+                      color={colors.bg.primary}
                     />
                   </Animated.View>
                 </Animated.View>
@@ -309,7 +298,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: Platform.OS === "ios" ? 20 : 24,
+    paddingVertical: Platform.OS === "ios" ? spacing.xl : spacing["2xl"],
     width: "100%",
   },
   controlsContainer: {
@@ -317,7 +306,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     width: "100%",
-    paddingHorizontal: 40,
+    paddingHorizontal: spacing["4xl"],
   },
   sideContainer: {
     width: 44,
@@ -337,8 +326,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    shadowColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: colors.border.subtle,
+    shadowColor: colors.overlay.light,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -347,7 +336,7 @@ const styles = StyleSheet.create({
   innerCircle: {
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowColor: colors.overlay.light,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -365,13 +354,13 @@ const styles = StyleSheet.create({
   flashButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
+    borderRadius: radius.md,
+    backgroundColor: colors.border.subtle,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1.5,
-    borderColor: COLORS.buttonBorder,
-    shadowColor: "rgba(0, 0, 0, 0.5)",
+    borderColor: colors.border.medium,
+    shadowColor: colors.overlay.light,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,

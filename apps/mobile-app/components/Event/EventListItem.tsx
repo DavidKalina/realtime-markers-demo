@@ -1,6 +1,14 @@
 import React, { useCallback, useMemo } from "react";
 import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
-import { COLORS } from "@/components/Layout/ScreenLayout";
+import {
+  colors,
+  fontSize,
+  fontFamily,
+  fontWeight,
+  spacing,
+  radius,
+  lineHeight,
+} from "@/theme";
 import EventListItemFooter from "./EventListItemFooter";
 
 export interface EventListItemProps {
@@ -67,10 +75,10 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
       () =>
         StyleSheet.create({
           eventItem: {
-            paddingVertical: 16,
-            paddingHorizontal: 16,
+            paddingVertical: spacing.lg,
+            paddingHorizontal: spacing.lg,
             borderBottomWidth: 1,
-            borderBottomColor: COLORS.divider,
+            borderBottomColor: colors.border.default,
           },
           eventContent: {
             flex: 1,
@@ -83,15 +91,15 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
             width: 36,
             height: 36,
             borderRadius: 18,
-            backgroundColor: COLORS.textPrimary,
+            backgroundColor: colors.text.primary,
             alignItems: "center",
             justifyContent: "center",
-            marginRight: 12,
+            marginRight: spacing.md,
             borderWidth: 1,
-            borderColor: COLORS.buttonBorder,
+            borderColor: colors.border.medium,
           },
           emoji: {
-            fontSize: 18,
+            fontSize: fontSize.lg,
           },
           titleContainer: {
             flex: 1,
@@ -100,36 +108,36 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
             flexDirection: "row",
             justifyContent: "space-between",
             alignItems: "flex-start",
-            marginBottom: 4,
+            marginBottom: spacing.xs,
           },
           titleText: {
             flex: 1,
-            color: COLORS.textPrimary,
-            fontSize: 16,
-            fontFamily: "SpaceMono",
-            fontWeight: "600",
+            color: colors.text.primary,
+            fontSize: fontSize.md,
+            fontFamily: fontFamily.mono,
+            fontWeight: fontWeight.semibold,
           },
           eventDescription: {
-            color: COLORS.textSecondary,
-            fontSize: 14,
-            fontFamily: "SpaceMono",
-            lineHeight: 20,
-            marginBottom: 4,
+            color: colors.text.secondary,
+            fontSize: fontSize.sm,
+            fontFamily: fontFamily.mono,
+            lineHeight: lineHeight.normal,
+            marginBottom: spacing.xs,
           },
           recurringBadge: {
-            backgroundColor: COLORS.accent,
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            borderRadius: 12,
+            backgroundColor: colors.accent.primary,
+            paddingHorizontal: spacing.sm,
+            paddingVertical: spacing.xs,
+            borderRadius: radius.md,
             borderWidth: 1,
-            borderColor: COLORS.buttonBorder,
-            marginLeft: 8,
+            borderColor: colors.border.medium,
+            marginLeft: spacing.sm,
           },
           recurringBadgeText: {
-            color: COLORS.cardBackground,
-            fontSize: 12,
-            fontFamily: "SpaceMono",
-            fontWeight: "600",
+            color: colors.bg.card,
+            fontSize: fontSize.xs,
+            fontFamily: fontFamily.mono,
+            fontWeight: fontWeight.semibold,
           },
         }),
       [],

@@ -2,6 +2,7 @@
 import React from "react";
 import { StyleSheet, View, TouchableOpacity, Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { colors, spacing } from "@/theme";
 
 import { FlashMode } from "expo-camera";
 import { CaptureButton } from "../CaptureButton/CaptureButton";
@@ -48,7 +49,7 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
         return "#5cafff"; // Blue for auto
       case "off":
       default:
-        return "#ffffff"; // White for off
+        return colors.fixed.white; // White for off
     }
   };
 
@@ -94,16 +95,16 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    paddingBottom: Platform.OS === "ios" ? 20 : 16,
+    paddingBottom: Platform.OS === "ios" ? spacing.xl : spacing.lg,
   },
   controlsContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
   },
   sideContainer: {
-    width: 50,
+    width: spacing._50,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -120,7 +121,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1.5,
-    shadowColor: "#000",
+    shadowColor: colors.fixed.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
     shadowRadius: 2,

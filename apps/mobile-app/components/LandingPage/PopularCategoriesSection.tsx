@@ -1,5 +1,13 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import {
+  colors,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  spacing,
+  radius,
+} from "@/theme";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
@@ -30,14 +38,14 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
 
   if (isLoading) {
     return (
-      <View style={{ marginBottom: 24 }}>
+      <View style={{ marginBottom: spacing["2xl"] }}>
         <Text
           style={{
-            fontSize: 20,
-            fontWeight: "600",
-            marginBottom: 12,
-            paddingHorizontal: 16,
-            fontFamily: "SpaceMono",
+            fontSize: fontSize.xl,
+            fontWeight: fontWeight.semibold,
+            marginBottom: spacing.md,
+            paddingHorizontal: spacing.lg,
+            fontFamily: fontFamily.mono,
           }}
         >
           Popular Categories
@@ -71,7 +79,7 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
                   height: 12,
                   backgroundColor: "#e0e0e0",
                   borderRadius: 6,
-                  marginTop: 8,
+                  marginTop: spacing.sm,
                   width: "60%",
                 }}
               />
@@ -87,14 +95,14 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
   }
 
   return (
-    <View style={{ marginBottom: 24 }}>
+    <View style={{ marginBottom: spacing["2xl"] }}>
       <Text
         style={{
-          fontSize: 20,
-          fontWeight: "600",
-          marginBottom: 12,
-          paddingHorizontal: 16,
-          fontFamily: "SpaceMono",
+          fontSize: fontSize.xl,
+          fontWeight: fontWeight.semibold,
+          marginBottom: spacing.md,
+          paddingHorizontal: spacing.lg,
+          fontFamily: fontFamily.mono,
         }}
       >
         Popular Categories
@@ -123,16 +131,16 @@ const styles = StyleSheet.create({
   gridContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: 16,
-    gap: 16,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.lg,
   },
   categoryItem: {
     width: "30%",
     alignItems: "center",
-    paddingVertical: 16,
-    borderRadius: 16,
-    backgroundColor: "#ffffff",
-    shadowColor: "#000",
+    paddingVertical: spacing.lg,
+    borderRadius: radius.xl,
+    backgroundColor: colors.fixed.white,
+    shadowColor: colors.fixed.black,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -150,7 +158,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#007AFF",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: spacing._10,
     shadowColor: "#007AFF",
     shadowOffset: {
       width: 0,
@@ -161,14 +169,14 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   iconText: {
-    fontSize: 20,
+    fontSize: fontSize.xl,
   },
   categoryName: {
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
     textAlign: "center",
-    color: "#333",
-    fontFamily: "SpaceMono",
+    color: colors.bg.elevated,
+    fontFamily: fontFamily.mono,
   },
 });
 

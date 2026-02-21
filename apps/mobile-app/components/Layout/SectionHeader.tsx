@@ -1,4 +1,11 @@
-import { COLORS } from "./ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 import { LucideIcon } from "lucide-react-native";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -17,7 +24,7 @@ export default function SectionHeader({
   title,
   actionText,
   onActionPress,
-  iconColor = COLORS.accent,
+  iconColor = colors.accent.primary,
 }: SectionHeaderProps) {
   const handleActionPress = () => {
     if (onActionPress) {
@@ -48,36 +55,36 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
-    marginLeft: 4,
+    marginBottom: spacing.md,
+    marginLeft: spacing.xs,
   },
   sectionIconContainer: {
     width: 36,
     height: 36,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 12,
+    backgroundColor: colors.border.default,
+    borderRadius: radius.md,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontFamily: "SpaceMono",
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    marginLeft: 12,
+    fontSize: fontSize.lg,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.bold,
+    color: colors.text.primary,
+    marginLeft: spacing.md,
     letterSpacing: 0.3,
   },
   sectionActionButton: {
     marginLeft: "auto",
-    backgroundColor: "rgba(255,255,255,0.1)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    backgroundColor: colors.border.medium,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing._6,
+    borderRadius: radius.sm,
   },
   sectionActionText: {
-    color: COLORS.accent,
+    color: colors.accent.primary,
     fontSize: 13,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
   },
 });

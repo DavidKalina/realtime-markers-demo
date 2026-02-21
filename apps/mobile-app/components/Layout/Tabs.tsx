@@ -10,7 +10,7 @@ import Animated, {
   FadeInDown,
   LinearTransition,
 } from "react-native-reanimated";
-import { COLORS } from "./ScreenLayout";
+import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
 
 export interface TabItem<T extends string> {
   icon: React.ElementType;
@@ -41,7 +41,7 @@ const TabButton = memo<{
     <View style={styles.tabContent}>
       <Icon
         size={20}
-        color={isActive ? COLORS.accent : COLORS.textSecondary}
+        color={isActive ? colors.accent.primary : colors.text.secondary}
         style={styles.tabIcon}
       />
       <Text style={[styles.tabText, isActive && styles.activeTabText]}>
@@ -88,12 +88,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "rgba(0, 0, 0, 0.05)",
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
   },
   tab: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
     position: "relative",
   },
   tabContent: {
@@ -110,21 +110,21 @@ const styles = StyleSheet.create({
     left: "15%",
     right: "15%",
     height: 2,
-    backgroundColor: COLORS.accent,
+    backgroundColor: colors.accent.primary,
     borderRadius: 1,
   },
   tabIcon: {
-    marginRight: 6,
+    marginRight: spacing._6,
   },
   tabText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
+    fontSize: fontSize.sm,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.medium,
   },
   activeTabText: {
-    color: COLORS.accent,
-    fontWeight: "600",
+    color: colors.accent.primary,
+    fontWeight: fontWeight.semibold,
   },
 });
 

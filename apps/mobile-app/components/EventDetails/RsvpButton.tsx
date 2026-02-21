@@ -8,7 +8,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { COLORS } from "../Layout/ScreenLayout";
+import { colors, radius } from "@/theme";
 
 interface RsvpButtonProps {
   isRsvped: boolean;
@@ -50,7 +50,7 @@ const RsvpButton: React.FC<RsvpButtonProps> = ({
       backgroundColor: interpolateColor(
         color.value,
         [0, 1],
-        [COLORS.buttonBackground, COLORS.accent + "20"],
+        [colors.border.subtle, colors.accent.primary + "20"],
       ),
     };
   });
@@ -70,14 +70,11 @@ const RsvpButton: React.FC<RsvpButtonProps> = ({
         style={[StyleSheet.absoluteFill, styles.buttonContent, animatedStyle]}
       >
         {rsvpState === "loading" ? (
-          <ActivityIndicator
-            size="small"
-            color={isRsvped ? COLORS.accent : COLORS.accent}
-          />
+          <ActivityIndicator size="small" color={colors.accent.primary} />
         ) : isRsvped ? (
-          <CalendarCheck size={24} color={COLORS.accent} />
+          <CalendarCheck size={24} color={colors.accent.primary} />
         ) : (
-          <CalendarPlus size={24} color={COLORS.accent} />
+          <CalendarPlus size={24} color={colors.accent.primary} />
         )}
       </Animated.View>
     </Pressable>
@@ -88,10 +85,10 @@ const styles = StyleSheet.create({
   rsvpButton: {
     width: 44,
     height: 44,
-    borderRadius: 14,
+    borderRadius: radius.lg,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: COLORS.shadow,
+    shadowColor: colors.shadow.default,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -102,9 +99,9 @@ const styles = StyleSheet.create({
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 14,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   loading: {
     opacity: 0.7,

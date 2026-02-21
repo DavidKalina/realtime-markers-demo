@@ -1,6 +1,6 @@
 import React from "react";
 import Svg, { Path, Circle } from "react-native-svg";
-import { COLORS } from "../Layout/ScreenLayout";
+import { colors } from "@/theme";
 
 // Constants
 export const MARKER_WIDTH = 48;
@@ -22,7 +22,7 @@ export const ShadowSVG: React.FC = React.memo(() => (
   <Svg width={MARKER_WIDTH} height={MARKER_HEIGHT} viewBox="0 0 48 64">
     <Path
       d="M24 4C13.5 4 6 12.1 6 22C6 28.5 9 34.4 13.5 39.6C17.5 44.2 24 52 24 52C24 52 30.5 44.2 34.5 39.6C39 34.4 42 28.5 42 22C42 12.1 34.5 4 24 4Z"
-      fill={COLORS.shadow}
+      fill={colors.shadow.default}
       fillOpacity="0.3"
     />
   </Svg>
@@ -31,12 +31,12 @@ export const ShadowSVG: React.FC = React.memo(() => (
 // Shared Marker SVG component
 export const MarkerSVG: React.FC<MarkerSVGProps> = React.memo(
   ({
-    fill = COLORS.background,
-    stroke = COLORS.textPrimary,
+    fill = colors.bg.primary,
+    stroke = colors.text.primary,
     strokeWidth = "3",
     highlightStrokeWidth = "2.5",
     circleRadius = "12",
-    circleStroke = COLORS.buttonBorder,
+    circleStroke = colors.border.medium,
     circleStrokeWidth = "1",
   }) => (
     <Svg width={MARKER_WIDTH} height={MARKER_HEIGHT} viewBox="0 0 48 64">
@@ -52,7 +52,7 @@ export const MarkerSVG: React.FC<MarkerSVGProps> = React.memo(
       {/* Nintendo-style highlight */}
       <Path
         d="M16 12C16 12 19 9 24 9C29 9 32 12 32 12"
-        stroke={COLORS.textPrimary}
+        stroke={colors.text.primary}
         strokeOpacity="0.7"
         strokeWidth={highlightStrokeWidth}
         strokeLinecap="round"
@@ -63,7 +63,7 @@ export const MarkerSVG: React.FC<MarkerSVGProps> = React.memo(
         cx="24"
         cy="22"
         r={circleRadius}
-        fill={COLORS.cardBackground}
+        fill={colors.bg.card}
         stroke={circleStroke}
         strokeWidth={circleStrokeWidth}
       />

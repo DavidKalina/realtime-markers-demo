@@ -1,13 +1,20 @@
 import { StyleSheet } from "react-native";
-import { COLORS } from "../../Layout/ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 
 export const infoCardStyles = StyleSheet.create({
   infoCard: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 16,
+    backgroundColor: colors.bg.card,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: COLORS.divider,
-    shadowColor: "#000",
+    borderColor: colors.border.default,
+    shadowColor: colors.fixed.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -17,30 +24,30 @@ export const infoCardStyles = StyleSheet.create({
   infoCardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-    backgroundColor: COLORS.background,
+    borderBottomColor: colors.border.default,
+    backgroundColor: colors.bg.primary,
   },
   infoCardIcon: {
     width: 32,
     height: 32,
-    borderRadius: 8,
-    backgroundColor: COLORS.cardBackground,
+    borderRadius: radius.sm,
+    backgroundColor: colors.bg.card,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    marginRight: spacing.md,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.border.default,
   },
   infoCardTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
   },
   infoCardContent: {
-    padding: 20,
+    padding: spacing.xl,
   },
 });

@@ -14,7 +14,15 @@ import {
 import { MapPin, User } from "lucide-react-native";
 import Card from "../Layout/Card";
 import Screen from "../Layout/Screen";
-import { COLORS } from "../Layout/ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  lineHeight,
+} from "@/theme";
 import UserStats from "../Layout/UserStats";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
 
@@ -62,7 +70,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     return (
       <Screen>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
+          <ActivityIndicator size="large" color={colors.accent.primary} />
           <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
       </Screen>
@@ -81,7 +89,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         <View style={styles.profileContainer}>
           <Card style={styles.card}>
             <View style={styles.sectionHeader}>
-              <User size={20} color={COLORS.accent} />
+              <User size={20} color={colors.accent.primary} />
               <Text style={styles.sectionTitle}>Your Stats</Text>
             </View>
             <Text style={styles.sectionDescription}>
@@ -108,7 +116,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
           <Card style={styles.card}>
             <View style={styles.sectionHeader}>
-              <User size={20} color={COLORS.accent} />
+              <User size={20} color={colors.accent.primary} />
               <Text style={styles.sectionTitle}>Account Information</Text>
             </View>
             <Text style={styles.sectionDescription}>Your account details</Text>
@@ -137,7 +145,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           {profileData?.bio && (
             <Card style={styles.card}>
               <View style={styles.sectionHeader}>
-                <User size={20} color={COLORS.accent} />
+                <User size={20} color={colors.accent.primary} />
                 <Text style={styles.sectionTitle}>Bio</Text>
               </View>
               <Text style={styles.bioText}>{profileData.bio}</Text>
@@ -146,7 +154,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
           <Card style={styles.card}>
             <View style={styles.sectionHeader}>
-              <MapPin size={20} color={COLORS.accent} />
+              <MapPin size={20} color={colors.accent.primary} />
               <Text style={styles.sectionTitle}>Map Style</Text>
             </View>
             <Text style={styles.sectionDescription}>
@@ -252,11 +260,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 value={mapSettings.isPitched}
                 onValueChange={handlePitchChange}
                 trackColor={{
-                  false: COLORS.divider,
-                  true: COLORS.accent,
+                  false: colors.border.default,
+                  true: colors.accent.primary,
                 }}
                 thumbColor={
-                  mapSettings.isPitched ? COLORS.accent : COLORS.cardBackground
+                  mapSettings.isPitched ? colors.accent.primary : colors.bg.card
                 }
               />
             </View>
@@ -264,7 +272,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
           <Card style={styles.card}>
             <View style={styles.sectionHeader}>
-              <User size={20} color={COLORS.accent} />
+              <User size={20} color={colors.accent.primary} />
               <Text style={styles.sectionTitle}>Account</Text>
             </View>
             <Text style={styles.sectionDescription}>
@@ -309,23 +317,23 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
 const styles = StyleSheet.create({
   loadingContainer: {
-    padding: 16,
+    padding: spacing.lg,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: COLORS.cardBackgroundAlt,
-    borderRadius: 12,
+    backgroundColor: colors.bg.cardAlt,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.border.default,
   },
   loadingText: {
-    marginTop: 8,
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontFamily: "SpaceMono",
+    marginTop: spacing.sm,
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
   },
   profileContainer: {
-    padding: 16,
-    gap: 16,
+    padding: spacing.lg,
+    gap: spacing.lg,
   },
   card: {
     marginVertical: 0,
@@ -333,87 +341,87 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.textPrimary,
-    marginLeft: 8,
-    fontFamily: "SpaceMono",
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+    fontFamily: fontFamily.mono,
   },
   sectionDescription: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: 16,
-    fontFamily: "SpaceMono",
-    lineHeight: 20,
+    fontSize: fontSize.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+    fontFamily: fontFamily.mono,
+    lineHeight: lineHeight.normal,
   },
   detailRow: {
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   label: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-    fontFamily: "SpaceMono",
+    fontSize: fontSize.xs,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+    fontFamily: fontFamily.mono,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   value: {
-    fontSize: 16,
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
+    fontSize: fontSize.md,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.medium,
   },
   bioText: {
-    fontSize: 16,
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    lineHeight: 24,
+    fontSize: fontSize.md,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
+    lineHeight: lineHeight.loose,
   },
   buttonContainer: {
-    gap: 12,
+    gap: spacing.md,
   },
   actionButton: {
-    padding: 16,
+    padding: spacing.lg,
     marginVertical: 0,
-    backgroundColor: COLORS.buttonBackground,
-    borderColor: COLORS.buttonBorder,
+    backgroundColor: colors.border.subtle,
+    borderColor: colors.border.medium,
   },
   deleteActionButton: {
-    padding: 16,
+    padding: spacing.lg,
     marginVertical: 0,
-    backgroundColor: COLORS.errorBackground,
-    borderColor: COLORS.errorBorder,
+    backgroundColor: colors.status.error.bg,
+    borderColor: colors.status.error.border,
   },
   buttonText: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
     textAlign: "center",
-    fontWeight: "500",
+    fontWeight: fontWeight.medium,
   },
   deleteButtonText: {
-    color: COLORS.errorText,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
+    color: colors.status.error.text,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
     textAlign: "center",
-    fontWeight: "500",
+    fontWeight: fontWeight.medium,
   },
   styleOptions: {
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   styleOption: {
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    marginBottom: 8,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    marginBottom: spacing.sm,
   },
   styleOptionActive: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg.primary,
     borderWidth: 2,
-    borderColor: COLORS.accent,
+    borderColor: colors.accent.primary,
   },
   styleOptionContent: {
     flexDirection: "row",
@@ -421,60 +429,60 @@ const styles = StyleSheet.create({
   },
   styleOptionText: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: spacing.lg,
   },
   radioButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: spacing["2xl"],
+    height: spacing["2xl"],
+    borderRadius: radius.md,
     borderWidth: 2,
-    borderColor: COLORS.divider,
+    borderColor: colors.border.default,
     alignItems: "center",
     justifyContent: "center",
   },
   radioButtonActive: {
-    borderColor: COLORS.accent,
+    borderColor: colors.accent.primary,
   },
   radioButtonInner: {
-    width: 12,
-    height: 12,
+    width: spacing.md,
+    height: spacing.md,
     borderRadius: 6,
-    backgroundColor: COLORS.accent,
+    backgroundColor: colors.accent.primary,
   },
   settingRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 16,
+    paddingVertical: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
+    borderTopColor: colors.border.default,
   },
   lastSettingRow: {
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   settingLabel: {
     flex: 1,
-    marginRight: 16,
+    marginRight: spacing.lg,
   },
   settingText: {
-    fontSize: 16,
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    marginBottom: 4,
-    fontWeight: "500",
+    fontSize: fontSize.md,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
+    marginBottom: spacing.xs,
+    fontWeight: fontWeight.medium,
   },
   settingDescription: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
-    lineHeight: 20,
+    fontSize: fontSize.sm,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
+    lineHeight: lineHeight.normal,
   },
   statsDescription: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
-    lineHeight: 20,
-    marginTop: 8,
+    fontSize: fontSize.sm,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
+    lineHeight: lineHeight.normal,
+    marginTop: spacing.sm,
     textAlign: "center",
   },
 });

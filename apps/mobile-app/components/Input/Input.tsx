@@ -13,7 +13,7 @@ import Animated, {
   LinearTransition,
 } from "react-native-reanimated";
 import { LucideIcon } from "lucide-react-native";
-import { COLORS } from "../Layout/ScreenLayout";
+import { colors, spacing, radius, fontSize, fontFamily } from "@/theme";
 
 interface InputProps extends Omit<TextInputProps, "style"> {
   ref?: Ref<TextInput>;
@@ -53,7 +53,7 @@ const Input = ({
     >
       {Icon && (
         <View style={styles.iconContainer}>
-          <Icon size={18} color={error ? "#f97583" : "#93c5fd"} />
+          <Icon size={18} color={error ? "#f97583" : colors.accent.primary} />
         </View>
       )}
       <TextInput
@@ -66,7 +66,7 @@ const Input = ({
       />
       {loading ? (
         <View style={styles.rightIconContainer}>
-          <ActivityIndicator size="small" color="#93c5fd" />
+          <ActivityIndicator size="small" color={colors.accent.primary} />
         </View>
       ) : (
         RightIcon && (
@@ -75,7 +75,10 @@ const Input = ({
             style={styles.rightIconContainer}
             disabled={!onRightIconPress}
           >
-            <RightIcon size={18} color={error ? "#f97583" : "#93c5fd"} />
+            <RightIcon
+              size={18}
+              color={error ? "#f97583" : colors.accent.primary}
+            />
           </TouchableOpacity>
         )
       )}
@@ -87,28 +90,28 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    backgroundColor: colors.bg.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
     height: 55,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   errorContainer: {
     borderColor: "#f97583",
   },
   iconContainer: {
-    marginRight: 10,
+    marginRight: spacing._10,
   },
   rightIconContainer: {
-    padding: 8,
+    padding: spacing.sm,
   },
   input: {
     flex: 1,
     height: "100%",
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
   },
   errorInput: {
     color: "#f97583",

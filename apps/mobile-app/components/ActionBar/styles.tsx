@@ -1,21 +1,28 @@
 // styles/action.ts - Updated with more refined button selection styles
 import { Platform, StyleSheet } from "react-native";
-import { COLORS } from "../Layout/ScreenLayout";
+import {
+  colors,
+  fontSize,
+  fontFamily,
+  fontWeight,
+  spacing,
+  radius,
+} from "@/theme";
 
 export const styles = StyleSheet.create({
   bottomBar: {
     height: 60,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 4, // Reduced padding
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)", // Updated for better contrast on teal
+    borderTopColor: colors.border.medium, // Updated for better contrast on teal
     overflow: "hidden",
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: colors.fixed.black,
         shadowOffset: { width: 0, height: -3 },
         shadowOpacity: 0.2, // Increased shadow opacity for better visibility on teal
         shadowRadius: 4, // Updated to match StatusBar shadow radius
@@ -33,17 +40,17 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   actionButton: {
-    padding: 8,
-    borderRadius: 12,
+    padding: spacing.sm,
+    borderRadius: radius.md,
     marginHorizontal: 4,
     width: 44,
     height: 44,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "transparent",
+    backgroundColor: colors.fixed.transparent,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: colors.fixed.black,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
         shadowRadius: 2,
@@ -57,22 +64,22 @@ export const styles = StyleSheet.create({
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8, // Increased padding for better touch targets
+    paddingVertical: spacing.sm, // Increased padding for better touch targets
     paddingHorizontal: 2, // Reduced horizontal padding to reduce gaps
-    minWidth: 50, // Set minimum width for consistent spacing
+    minWidth: spacing._50, // Set minimum width for consistent spacing
     flex: 1, // Allow buttons to take equal space
     height: 70, // Set explicit height to ensure labels have space
   },
   actionButtonLabel: {
     color: "rgba(255, 255, 255, 0.9)", // Semi-transparent white for inactive state
     fontSize: 11, // Increased font size for better visibility
-    fontFamily: "SpaceMono", // Changed to SemiBold
-    marginTop: 4, // Increased margin for better spacing
+    fontFamily: fontFamily.mono, // Changed to SemiBold
+    marginTop: spacing.xs, // Increased margin for better spacing
     textAlign: "center",
   },
   activeActionButtonLabel: {
-    color: COLORS.accent,
-    fontWeight: "600", // Make active labels slightly bolder
+    color: colors.accent.primary,
+    fontWeight: fontWeight.semibold, // Make active labels slightly bolder
   },
   actionButtonIcon: {
     width: 22, // Slightly smaller icon container for labeled buttons
@@ -85,32 +92,32 @@ export const styles = StyleSheet.create({
     transform: [{ scale: 0.95 }],
   },
   actionButtonText: {
-    fontFamily: "SpaceMono",
-    color: COLORS.textPrimary, // White text for teal background
-    fontSize: 12,
-    fontWeight: "500",
+    fontFamily: fontFamily.mono,
+    color: colors.text.primary, // White text for teal background
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
   },
   detailActions: {
     flexDirection: "row",
     justifyContent: "space-around",
-    marginTop: 12,
+    marginTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
-    paddingTop: 8,
+    borderTopColor: colors.border.medium,
+    paddingTop: spacing.sm,
   },
   detailActionButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10, // Slightly more refined corners
-    backgroundColor: "#1a1a1a", // Match Cluster Events view background
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing._14,
+    borderRadius: radius._10, // Slightly more refined corners
+    backgroundColor: colors.bg.primary, // Match Cluster Events view background
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: colors.border.medium,
     ...Platform.select({
       ios: {
-        shadowColor: "#000",
+        shadowColor: colors.fixed.black,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 3,
@@ -121,10 +128,10 @@ export const styles = StyleSheet.create({
     }),
   },
   detailActionText: {
-    color: "#f8f9fa", // Light text for dark theme
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    marginLeft: 6,
+    color: colors.text.primary, // Light text for dark theme
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
+    marginLeft: spacing._6,
   },
   iconSmall: {
     marginRight: 2,

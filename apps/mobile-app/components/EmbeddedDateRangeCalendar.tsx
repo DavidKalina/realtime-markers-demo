@@ -22,7 +22,14 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { COLORS } from "./Layout/ScreenLayout";
+import {
+  colors,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  spacing,
+  radius,
+} from "@/theme";
 import * as Haptics from "expo-haptics";
 
 // Helper for dimmed text color
@@ -345,8 +352,8 @@ const EmbeddedDateRangeCalendar: React.FC<EmbeddedDateRangeCalendarProps> = ({
             size={20}
             color={
               canGoBack
-                ? COLORS.accent
-                : getDimmedTextColor(COLORS.textPrimary, 0.4)
+                ? colors.accent.primary
+                : getDimmedTextColor(colors.text.primary, 0.4)
             }
           />
         </TouchableOpacity>
@@ -360,7 +367,7 @@ const EmbeddedDateRangeCalendar: React.FC<EmbeddedDateRangeCalendarProps> = ({
           style={styles.monthNavButton}
           activeOpacity={0.7}
         >
-          <ChevronRight size={20} color={COLORS.accent} />
+          <ChevronRight size={20} color={colors.accent.primary} />
         </TouchableOpacity>
       </View>
 
@@ -401,17 +408,17 @@ const EmbeddedDateRangeCalendar: React.FC<EmbeddedDateRangeCalendarProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 20,
-    padding: 20,
+    backgroundColor: colors.bg.card,
+    borderRadius: radius["2xl"],
+    padding: spacing.xl,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.border.default,
   },
   monthHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   headerContent: {
     flex: 1,
@@ -421,21 +428,21 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   monthText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
     letterSpacing: 0.5,
   },
   monthNavButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
+    borderRadius: radius.md,
+    backgroundColor: colors.border.subtle,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   monthNavButtonDisabled: {
     opacity: 0.5,
@@ -443,15 +450,15 @@ const styles = StyleSheet.create({
   weekDays: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   weekDayText: {
     width: 40,
     textAlign: "center",
     fontSize: 13,
-    color: COLORS.textSecondary,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
   },
   daysGrid: {
     flexDirection: "row",
@@ -463,57 +470,57 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
-    borderRadius: 12,
+    marginBottom: spacing.sm,
+    borderRadius: radius.md,
   },
   dayText: {
-    fontSize: 14,
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
+    fontSize: fontSize.sm,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
   },
   selectedDay: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: colors.accent.primary,
   },
   selectedDayText: {
-    color: COLORS.textPrimary,
-    fontWeight: "600",
+    color: colors.text.primary,
+    fontWeight: fontWeight.semibold,
   },
   otherMonthDay: {
-    color: COLORS.textSecondary,
+    color: colors.text.secondary,
   },
   todayText: {
-    color: COLORS.textPrimary,
-    fontWeight: "600",
+    color: colors.text.primary,
+    fontWeight: fontWeight.semibold,
   },
   disabledDay: {
     opacity: 0.4,
   },
   disabledDayText: {
-    color: COLORS.textSecondary,
+    color: colors.text.secondary,
   },
   timeSelectorContainer: {
-    marginTop: 16,
-    paddingTop: 16,
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
+    borderTopColor: colors.border.default,
   },
   timeSelector: {
     alignItems: "center",
-    gap: 8,
+    gap: spacing.sm,
   },
   timePickerContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: spacing.sm,
   },
   timeBlockContainer: {
     width: 48,
     height: 48,
-    borderRadius: 8,
-    backgroundColor: COLORS.cardBackground,
+    borderRadius: radius.sm,
+    backgroundColor: colors.bg.card,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.border.default,
     overflow: "hidden",
   },
   timeBlockMask: {
@@ -530,50 +537,50 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   timeText: {
-    fontSize: 20,
-    fontFamily: "SpaceMono",
-    color: COLORS.textPrimary,
+    fontSize: fontSize.xl,
+    fontFamily: fontFamily.mono,
+    color: colors.text.primary,
     textAlign: "center",
-    fontWeight: "600",
+    fontWeight: fontWeight.semibold,
     letterSpacing: 1,
   },
   timeSeparator: {
-    fontSize: 20,
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
+    fontSize: fontSize.xl,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
     marginBottom: 2,
   },
   amPmButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
     borderRadius: 6,
-    backgroundColor: COLORS.buttonBackground,
+    backgroundColor: colors.border.subtle,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   amPmButtonActive: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: colors.accent.primary,
   },
   amPmText: {
-    fontSize: 12,
-    color: COLORS.textPrimary,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
+    fontSize: fontSize.xs,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
   },
   amPmTextActive: {
-    color: COLORS.background,
+    color: colors.bg.primary,
   },
   invalidTimeText: {
-    color: COLORS.errorText,
+    color: colors.status.error.text,
   },
   invalidAmPmButton: {
-    borderColor: COLORS.errorText,
+    borderColor: colors.status.error.text,
   },
   warningText: {
-    color: COLORS.errorText,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
+    color: colors.status.error.text,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
     textAlign: "center",
   },
 });

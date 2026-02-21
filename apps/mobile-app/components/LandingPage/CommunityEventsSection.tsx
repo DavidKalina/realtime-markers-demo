@@ -7,6 +7,14 @@ import {
   StyleSheet,
   Dimensions,
 } from "react-native";
+import {
+  colors,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  spacing,
+  radius,
+} from "@/theme";
 import { EventType } from "@/types/types";
 import EventListItem from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
@@ -100,36 +108,36 @@ const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
+    marginBottom: spacing["2xl"],
   },
   title: {
-    fontSize: 20,
-    fontWeight: "600",
-    marginBottom: 4,
-    paddingHorizontal: 16,
-    fontFamily: "SpaceMono",
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.semibold,
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    fontFamily: fontFamily.mono,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     color: "#666",
-    marginBottom: 12,
-    paddingHorizontal: 16,
-    fontFamily: "SpaceMono",
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    fontFamily: fontFamily.mono,
   },
   scrollContainer: {
     position: "relative",
   },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
   },
   itemContainer: {
     width: ITEM_WIDTH,
     marginRight: ITEM_SPACING,
   },
   cardContainer: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    shadowColor: "#000",
+    backgroundColor: colors.fixed.white,
+    borderRadius: radius.md,
+    shadowColor: colors.fixed.black,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -148,7 +156,7 @@ const styles = StyleSheet.create({
     width: ITEM_WIDTH,
     height: 120,
     backgroundColor: "#f0f0f0",
-    borderRadius: 12,
+    borderRadius: radius.md,
   },
 });
 

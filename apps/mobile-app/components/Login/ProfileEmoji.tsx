@@ -1,3 +1,4 @@
+import { colors, spacing, radius, fontWeight, fontFamily } from "@/theme";
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, {
@@ -8,32 +9,22 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 
-// Unified color theme matching ClusterEventsView
-const COLORS = {
-  background: "#1a1a1a",
-  cardBackground: "#2a2a2a",
-  textPrimary: "#f8f9fa",
-  textSecondary: "#a0a0a0",
-  accent: "#93c5fd",
-  divider: "rgba(255, 255, 255, 0.08)",
-  buttonBackground: "rgba(255, 255, 255, 0.05)",
-  buttonBorder: "rgba(255, 255, 255, 0.1)",
-  roles: {
-    admin: {
-      background: "rgba(255, 204, 0, 0.15)",
-      border: "rgba(255, 204, 0, 0.3)",
-      text: "#ffcc00",
-    },
-    moderator: {
-      background: "rgba(147, 197, 253, 0.15)",
-      border: "rgba(147, 197, 253, 0.3)",
-      text: "#93c5fd",
-    },
-    default: {
-      background: "rgba(255, 255, 255, 0.05)",
-      border: "rgba(255, 255, 255, 0.1)",
-      text: "#a0a0a0",
-    },
+// Domain-specific role colors (admin gold, moderator, default)
+const ROLE_COLORS = {
+  admin: {
+    background: "rgba(255, 204, 0, 0.15)",
+    border: "rgba(255, 204, 0, 0.3)",
+    text: "#ffcc00",
+  },
+  moderator: {
+    background: colors.accent.muted,
+    border: colors.accent.border,
+    text: colors.accent.primary,
+  },
+  default: {
+    background: colors.border.subtle,
+    border: colors.border.medium,
+    text: colors.text.secondary,
   },
 };
 
@@ -95,11 +86,11 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
   const getRoleStyles = () => {
     switch (role?.toUpperCase()) {
       case "ADMIN":
-        return COLORS.roles.admin;
+        return ROLE_COLORS.admin;
       case "MODERATOR":
-        return COLORS.roles.moderator;
+        return ROLE_COLORS.moderator;
       default:
-        return COLORS.roles.default;
+        return ROLE_COLORS.default;
     }
   };
 
@@ -113,7 +104,7 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
           {
             width: size,
             height: size,
-            borderRadius: 12,
+            borderRadius: radius.md,
             backgroundColor: roleStyles.background,
             borderColor: roleStyles.border,
             borderWidth: isActive ? 2 : 1,
@@ -136,7 +127,7 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
         style={[
           styles.nameText,
           {
-            color: isActive ? COLORS.textPrimary : COLORS.textSecondary,
+            color: isActive ? colors.text.primary : colors.text.secondary,
             fontSize: isActive ? 14 : 13,
           },
         ]}
@@ -159,13 +150,13 @@ const styles = StyleSheet.create({
   container: {
     alignItems: "center",
     justifyContent: "center",
-    padding: 10,
+    padding: spacing._10,
     width: 80,
   },
   emojiBubble: {
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "rgba(0, 0, 0, 0.5)",
+    shadowColor: colors.overlay.light,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
@@ -175,18 +166,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   nameText: {
-    marginTop: 8,
+    marginTop: spacing.sm,
     textAlign: "center",
-    fontWeight: "600",
+    fontWeight: fontWeight.semibold,
     maxWidth: 80,
-    fontFamily: "SpaceMono",
+    fontFamily: fontFamily.mono,
     letterSpacing: 0.2,
   },
   roleIndicator: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    marginTop: 6,
+    marginTop: spacing._6,
     opacity: 0.9,
   },
 });

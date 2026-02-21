@@ -12,7 +12,7 @@ import Animated, {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
-import { COLORS } from "../Layout/ScreenLayout";
+import { colors, spacing } from "@/theme";
 
 const ANIMATION_CONFIG = {
   damping: 15,
@@ -120,7 +120,7 @@ const DateRangeIndicator: React.FC = () => {
     <>
       <Pressable onPress={handlePress}>
         <Animated.View style={[styles.container, animatedStyle]}>
-          <Calendar size={20} color={COLORS.accent} />
+          <Calendar size={20} color={colors.accent.primary} />
         </Animated.View>
       </Pressable>
 
@@ -157,14 +157,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-    backgroundColor: COLORS.cardBackground,
+    gap: spacing._6,
+    paddingHorizontal: spacing._6,
+    paddingVertical: spacing._6,
+    backgroundColor: colors.bg.card,
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-    shadowColor: "#000",
+    borderColor: colors.border.medium,
+    shadowColor: colors.fixed.black,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: COLORS.shadow,
+    backgroundColor: colors.shadow.default,
     justifyContent: "center",
     alignItems: "center",
   },

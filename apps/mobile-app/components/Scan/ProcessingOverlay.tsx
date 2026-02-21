@@ -1,7 +1,15 @@
 import React from "react";
 import { View, Text, StyleSheet, Image, ActivityIndicator } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { COLORS } from "../Layout/ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  lineHeight,
+} from "@/theme";
 
 export type ProcessingStage = "captured" | "uploading" | "success" | null;
 
@@ -43,8 +51,8 @@ export const ProcessingOverlay: React.FC<ProcessingOverlayProps> = ({
             </Text>
             <ActivityIndicator
               size="large"
-              color={COLORS.accent}
-              style={{ marginTop: 24 }}
+              color={colors.accent.primary}
+              style={{ marginTop: spacing["2xl"] }}
             />
           </>
         )}
@@ -52,8 +60,8 @@ export const ProcessingOverlay: React.FC<ProcessingOverlayProps> = ({
           <>
             <ActivityIndicator
               size="large"
-              color={COLORS.accent}
-              style={{ marginBottom: 24 }}
+              color={colors.accent.primary}
+              style={{ marginBottom: spacing["2xl"] }}
             />
             <Text style={styles.processingTitleStrong}>
               Processing Document
@@ -100,9 +108,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.6)",
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: COLORS.shadow,
+    borderRadius: radius.xl,
+    padding: spacing["2xl"],
+    shadowColor: colors.shadow.default,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
@@ -111,23 +119,23 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.3)",
   },
   processingTitleStrong: {
-    color: "#000000",
-    fontSize: 20,
-    fontWeight: "700",
-    fontFamily: "SpaceMono",
-    marginBottom: 8,
+    color: colors.fixed.black,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
+    fontFamily: fontFamily.mono,
+    marginBottom: spacing.sm,
     textAlign: "center",
   },
   processingMessageStrong: {
-    color: "#333333",
-    fontSize: 14,
+    color: colors.bg.elevated,
+    fontSize: fontSize.sm,
     textAlign: "center",
-    fontFamily: "SpaceMono",
-    marginBottom: 24,
-    lineHeight: 20,
+    fontFamily: fontFamily.mono,
+    marginBottom: spacing["2xl"],
+    lineHeight: lineHeight.normal,
   },
   successEmoji: {
     fontSize: 48,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
 });

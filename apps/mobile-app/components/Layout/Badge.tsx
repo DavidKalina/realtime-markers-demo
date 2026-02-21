@@ -1,6 +1,13 @@
 import React from "react";
 import { StyleSheet, Text, View, ViewStyle } from "react-native";
-import { COLORS } from "./ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 
 export type BadgeVariant = "default" | "success" | "warning" | "error" | "pro";
 
@@ -39,9 +46,9 @@ const getVariantStyles = (variant: BadgeVariant) => {
       };
     default:
       return {
-        background: COLORS.buttonBackground,
-        border: COLORS.buttonBorder,
-        text: COLORS.textPrimary,
+        background: colors.border.subtle,
+        border: colors.border.medium,
+        text: colors.text.primary,
       };
   }
 };
@@ -71,7 +78,7 @@ const Badge: React.FC<BadgeProps> = ({
           styles.text,
           {
             color: variantStyles.text,
-            marginLeft: icon ? 4 : 0,
+            marginLeft: icon ? spacing.xs : 0,
           },
         ]}
       >
@@ -85,15 +92,15 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing._6,
+    borderRadius: radius.md,
     borderWidth: 1,
   },
   text: {
-    fontSize: 14,
-    fontWeight: "600",
-    fontFamily: "SpaceMono",
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
   },
 });
 

@@ -4,7 +4,7 @@ import Animated, {
   FadeInDown,
   LinearTransition,
 } from "react-native-reanimated";
-import { COLORS } from "./ScreenLayout";
+import { colors, spacing, radius } from "@/theme";
 
 interface CardProps {
   children: React.ReactNode;
@@ -19,17 +19,17 @@ interface CardProps {
 // Memoize the card styles
 const cardStyles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 20,
-    padding: 16,
-    marginVertical: 8,
+    backgroundColor: colors.bg.card,
+    borderRadius: radius["2xl"],
+    padding: spacing.lg,
+    marginVertical: spacing.sm,
   },
   border: {
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.border.default,
   },
   shadow: {
-    shadowColor: COLORS.shadow,
+    shadowColor: colors.shadow.default,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 12,

@@ -18,6 +18,7 @@ import {
   MarkerSVG,
   ShadowSVG,
 } from "../MarkerSVGs";
+import { colors, fontFamily, lineHeight } from "@/theme";
 import { COLOR_SCHEMES, ANIMATIONS } from "./constants";
 import { useClusterAnimations } from "./useClusterAnimations";
 
@@ -163,18 +164,18 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontWeight: "bold",
-    fontFamily: "SpaceMono",
+    fontFamily: fontFamily.mono,
     textAlign: "center",
-    lineHeight: 24,
+    lineHeight: lineHeight.loose,
     ...Platform.select({
       ios: {
-        shadowColor: "rgba(0, 0, 0, 0.2)",
+        shadowColor: colors.shadow.light,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.5,
         shadowRadius: 1,
       },
       android: {
-        textShadowColor: "rgba(0,0,0,0.2)",
+        textShadowColor: colors.shadow.light,
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 1,
       },
@@ -185,9 +186,9 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "transparent",
+    backgroundColor: colors.fixed.transparent,
     borderWidth: 2,
-    borderColor: "white",
+    borderColor: colors.fixed.white,
     opacity: 0.7,
     bottom: 12,
   },

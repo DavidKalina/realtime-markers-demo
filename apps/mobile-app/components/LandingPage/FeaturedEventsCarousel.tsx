@@ -10,6 +10,14 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
+import {
+  colors,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  spacing,
+  radius,
+} from "@/theme";
 import { EventType } from "@/types/types";
 import EventListItem from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
@@ -153,14 +161,14 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
+    marginBottom: spacing["2xl"],
   },
   title: {
-    fontSize: 20,
-    fontWeight: "600",
-    marginBottom: 12,
-    paddingHorizontal: 16,
-    fontFamily: "SpaceMono",
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.semibold,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    fontFamily: fontFamily.mono,
   },
   carouselContainer: {
     position: "relative",
@@ -173,9 +181,9 @@ const styles = StyleSheet.create({
     marginRight: ITEM_SPACING,
   },
   cardContainer: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    shadowColor: "#000",
+    backgroundColor: colors.fixed.white,
+    borderRadius: radius.xl,
+    shadowColor: colors.fixed.black,
     shadowOffset: {
       width: 0,
       height: 4,
@@ -194,8 +202,8 @@ const styles = StyleSheet.create({
     width: ITEM_WIDTH,
     height: 140,
     backgroundColor: "#f0f0f0",
-    borderRadius: 16,
-    shadowColor: "#000",
+    borderRadius: radius.xl,
+    shadowColor: colors.fixed.black,
     shadowOffset: {
       width: 0,
       height: 4,
@@ -208,15 +216,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 20,
-    paddingHorizontal: 16,
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
   paginationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: "#e0e0e0",
-    marginHorizontal: 4,
+    marginHorizontal: spacing.xs,
   },
   paginationDotActive: {
     backgroundColor: "#007AFF",

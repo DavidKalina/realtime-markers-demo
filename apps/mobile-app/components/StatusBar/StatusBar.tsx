@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
 import React, { useMemo } from "react";
 import { StatusBar as RNStatusBar, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
@@ -25,7 +26,7 @@ const StatusBar: React.FC = () => {
     <View style={containerStyle}>
       <RNStatusBar
         barStyle="light-content"
-        backgroundColor="#1a1a1a"
+        backgroundColor={colors.bg.primary}
         translucent
       />
 
@@ -51,28 +52,28 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1000,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: colors.bg.primary,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    borderBottomColor: colors.border.medium,
     shadowColor: "rgba(0, 0, 0, 0.3)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowRadius: spacing.sm,
     elevation: 4,
   },
   bannerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    minHeight: 48,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    minHeight: spacing["5xl"],
   },
   userName: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "SpaceMono",
+    color: colors.fixed.white,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
     letterSpacing: 0.2,
   },
   engagementContainer: {
