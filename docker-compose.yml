@@ -63,6 +63,10 @@ services:
       retries: 5
 
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   adminer:
     image: adminer:latest
@@ -102,6 +106,10 @@ services:
         "${REDIS_PASSWORD}",
         "--bind",
         "0.0.0.0",
+        "--maxmemory",
+        "512mb",
+        "--maxmemory-policy",
+        "allkeys-lru",
       ]
 
     restart: unless-stopped

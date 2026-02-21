@@ -33,6 +33,7 @@ import { SeedOfficialEvents1710000000016 } from "./migrations/SeedOfficialEvents
 import { RegenerateEmbeddings1710000000017 } from "./migrations/RegenerateEmbeddings1710000000017";
 import { UserPushTokenTable1710000000022 } from "./migrations/UserPushTokenTable1710000000022";
 import { DropCivicEngagementTables1710000000023 } from "./migrations/DropCivicEngagementTables1710000000023";
+import { AddSpatialAndCompoundIndexes1710000000024 } from "./migrations/AddSpatialAndCompoundIndexes1710000000024";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -67,16 +68,17 @@ const AppDataSource = new DataSource({
     RegenerateEmbeddings1710000000017,
     UserPushTokenTable1710000000022,
     DropCivicEngagementTables1710000000023,
+    AddSpatialAndCompoundIndexes1710000000024,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running
-  logging: ["query", "error", "schema"], // More detailed logging
+  logging: ["error"],
   ssl: false,
-  poolSize: 20,
+  poolSize: 50,
   connectTimeoutMS: 10000, // Increase timeout for initial connection
   maxQueryExecutionTime: 1000, // Log slow queries
   extra: {
-    max: 25, // Maximum pool size
+    max: 60, // Maximum pool size
     idleTimeoutMillis: 30000, // Close idle connections after 30s
     connectionTimeoutMillis: 5000, // Longer timeout for connection
   },

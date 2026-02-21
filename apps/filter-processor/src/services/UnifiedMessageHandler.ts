@@ -85,8 +85,8 @@ export class UnifiedMessageHandler {
       enableWebSocketNotifications: config.enableWebSocketNotifications ?? true,
       enableViewportTracking: config.enableViewportTracking ?? true,
       maxAffectedUsersPerUpdate: config.maxAffectedUsersPerUpdate ?? 1000,
-      batchProcessingEnabled: config.batchProcessingEnabled ?? false,
-      batchSize: config.batchSize ?? 10,
+      batchProcessingEnabled: config.batchProcessingEnabled ?? true,
+      batchSize: config.batchSize ?? 50,
       batchTimeoutMs: config.batchTimeoutMs ?? 100,
     } as Required<UnifiedMessageHandlerConfig>;
 
