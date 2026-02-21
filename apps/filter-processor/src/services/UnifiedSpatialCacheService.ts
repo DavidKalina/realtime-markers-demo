@@ -59,6 +59,7 @@ export function createUnifiedSpatialCacheService(
   // Private state
   const eventCache = new Map<string, Event>();
   const spatialIndex = new RBush<SpatialItem>();
+  const spatialItemMap = new Map<string, SpatialItem>();
 
   /**
    * Convert an event to a spatial item for the RBush index
@@ -155,6 +156,7 @@ export function createUnifiedSpatialCacheService(
     try {
       const spatialItem = eventToSpatialItem(event);
       spatialIndex.insert(spatialItem);
+      spatialItemMap.set(event.id, spatialItem);
     } catch (error) {
       console.warn(
         `[EventCacheService] Failed to add event ${event.id} to spatial index:`,
@@ -184,10 +186,10 @@ export function createUnifiedSpatialCacheService(
    * Remove event from spatial index
    */
   function removeFromSpatialIndex(eventId: string): void {
-    const allItems = spatialIndex.all();
-    const itemToRemove = allItems.find((item) => item.id === eventId);
+    const itemToRemove = spatialItemMap.get(eventId);
     if (itemToRemove) {
       spatialIndex.remove(itemToRemove);
+      spatialItemMap.delete(eventId);
     }
   }
 
@@ -238,6 +240,7 @@ export function createUnifiedSpatialCacheService(
   function clearAll(): void {
     eventCache.clear();
     spatialIndex.clear();
+    spatialItemMap.clear();
   }
 
   /**
@@ -274,6 +277,9 @@ export function createUnifiedSpatialCacheService(
         eventToSpatialItem(event),
       );
       spatialIndex.load(spatialItems);
+      for (const item of spatialItems) {
+        spatialItemMap.set(item.id, item);
+      }
     }
   }
 
@@ -286,7 +292,7 @@ export function createUnifiedSpatialCacheService(
   } {
     return {
       cacheSize: eventCache.size,
-      spatialIndexSize: spatialIndex.all().length,
+      spatialIndexSize: spatialItemMap.size,
     };
   }
 
@@ -302,8 +308,7 @@ export function createUnifiedSpatialCacheService(
         return true; // Skip verification if spatial index is disabled
       }
 
-      const spatialItems = spatialIndex.all();
-      const spatialItem = spatialItems.find((item) => item.id === eventId);
+      const spatialItem = spatialItemMap.get(eventId);
 
       if (!spatialItem) {
         console.warn(

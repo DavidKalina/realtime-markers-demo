@@ -24,9 +24,12 @@ export interface RedisService {
     callback: (channel: string, message: string) => void,
   ) => void;
 
-  // User-specific subscribers
-  getUserSubscriber: (userId: string) => Redis;
-  releaseUserSubscriber: (userId: string) => void;
+  // User-specific subscribers (shared pattern subscriber)
+  subscribeUser: (userId: string) => void;
+  unsubscribeUser: (userId: string) => void;
+  onUserMessage: (
+    callback: (userId: string, channel: string, message: string) => void,
+  ) => void;
 
   // Viewport management
   updateViewport: (userId: string, viewport: ViewportData) => Promise<void>;
@@ -63,8 +66,12 @@ export function createRedisService(
   // Global subscriber client for system-wide channels
   const globalSubClient = new Redis(config);
 
-  // Map to store user-specific subscribers
-  const userSubscribers = new Map<string, Redis>();
+  // Shared pattern subscriber for all user channels
+  const subscribedUsers = new Set<string>();
+  let userMessageCallback:
+    | ((userId: string, channel: string, message: string) => void)
+    | null = null;
+  const userPatternSubClient = new Redis(config);
 
   // Event emitter for global messages
   const eventEmitter = new EventEmitter();
@@ -72,6 +79,39 @@ export function createRedisService(
   // Setup error handling for main clients
   setupErrorHandling(pubClient, "publisher");
   setupErrorHandling(globalSubClient, "global subscriber");
+  setupErrorHandling(userPatternSubClient, "user pattern subscriber");
+
+  // Subscribe to all user filtered-events channels via pattern
+  userPatternSubClient.psubscribe(
+    "user:*:filtered-events",
+    (err, count) => {
+      if (err) {
+        console.error(
+          "Error pattern-subscribing to user:*:filtered-events:",
+          err,
+        );
+      } else {
+        console.log(
+          `Pattern-subscribed to user:*:filtered-events, total subscriptions: ${count}`,
+        );
+      }
+    },
+  );
+
+  // Route pattern messages to the registered callback
+  const userChannelRegex = /^user:([^:]+):filtered-events$/;
+  userPatternSubClient.on(
+    "pmessage",
+    (_pattern: string, channel: string, message: string) => {
+      const match = channel.match(userChannelRegex);
+      if (match) {
+        const userId = match[1];
+        if (subscribedUsers.has(userId) && userMessageCallback) {
+          userMessageCallback(userId, channel, message);
+        }
+      }
+    },
+  );
 
   // Setup global message handling
   globalSubClient.on("message", (channel: string, message: string) => {
@@ -137,57 +177,24 @@ export function createRedisService(
       eventEmitter.on("message", callback);
     },
 
-    getUserSubscriber(userId: string): Redis {
-      if (!userSubscribers.has(userId)) {
-        console.log(`Creating new Redis subscriber for user ${userId}`);
-
-        // Create a dedicated subscriber for this user
-        const userSubscriber = new Redis(config);
-        userSubscribers.set(userId, userSubscriber);
-
-        // Setup error handling for user subscriber
-        setupErrorHandling(userSubscriber, `user ${userId} subscriber`);
-
-        // Subscribe to user's filtered events channel
-        const userChannel = `user:${userId}:filtered-events`;
-        console.log(
-          `[RedisService] Subscribing to user channel: ${userChannel}`,
-        );
-        userSubscriber.subscribe(userChannel, (err, count) => {
-          if (err) {
-            console.error(`Error subscribing to ${userChannel}:`, err);
-          } else {
-            console.log(
-              `Successfully subscribed to ${userChannel}, total subscriptions: ${count}`,
-            );
-          }
-        });
-
-        userSubscriber.on("connect", () => {
-          console.log(`Redis subscriber connected for user ${userId}`);
-        });
-
-        userSubscriber.on("message", (channel: string, message: string) => {
-          console.log(
-            `[RedisService] Received message on ${channel} for user ${userId}:`,
-            message,
-          );
-        });
-      } else {
-        console.log(`Using existing Redis subscriber for user ${userId}`);
-      }
-
-      return userSubscribers.get(userId)!;
+    subscribeUser(userId: string): void {
+      subscribedUsers.add(userId);
+      console.log(
+        `[RedisService] Subscribed user ${userId} (${subscribedUsers.size} active users)`,
+      );
     },
 
-    releaseUserSubscriber(userId: string): void {
-      const subscriber = userSubscribers.get(userId);
-      if (subscriber) {
-        subscriber.unsubscribe();
-        subscriber.quit();
-        userSubscribers.delete(userId);
-        console.log(`Released Redis subscriber for user ${userId}`);
-      }
+    unsubscribeUser(userId: string): void {
+      subscribedUsers.delete(userId);
+      console.log(
+        `[RedisService] Unsubscribed user ${userId} (${subscribedUsers.size} active users)`,
+      );
+    },
+
+    onUserMessage(
+      callback: (userId: string, channel: string, message: string) => void,
+    ): void {
+      userMessageCallback = callback;
     },
 
     async updateViewport(

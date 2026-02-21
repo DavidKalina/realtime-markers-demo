@@ -14,7 +14,6 @@ export interface ClientConnectionService {
   getClient: (clientId: string) => ServerWebSocket<WebSocketData> | undefined;
   getConnectedClientsCount: () => number;
   getConnectedUsersCount: () => number;
-  getUserSubscriber: (userId: string) => unknown;
   releaseUserSubscriber: (userId: string) => void;
   forwardMessageToUserClients: (userId: string, message: string) => void;
   setupUserMessageHandling: (userId: string) => void;
@@ -39,6 +38,37 @@ export function createClientConnectionService(
     (channel: string, message: string) => void
   >();
   const userIdToClientType = new Map<string, ClientType>();
+
+  // Central message router for all user channels via shared pattern subscriber
+  dependencies.redisService.onUserMessage(
+    (userId: string, channel: string, message: string) => {
+      const handler = userMessageHandlers.get(userId);
+      if (handler) {
+        handler(channel, message);
+      }
+    },
+  );
+
+  function sendToAllClients(
+    clientIds: Set<string>,
+    message: object,
+    messageType: string,
+  ): void {
+    const serialized = JSON.stringify(message);
+    for (const clientId of clientIds) {
+      const client = clients.get(clientId);
+      if (client) {
+        try {
+          client.send(serialized);
+        } catch (error) {
+          console.error(
+            `[WebSocket] Error sending ${messageType} message to client ${clientId}:`,
+            error,
+          );
+        }
+      }
+    }
+  }
 
   return {
     registerClient(ws: ServerWebSocket<WebSocketData>): void {
@@ -153,12 +183,8 @@ export function createClientConnectionService(
       return userToClients.size;
     },
 
-    getUserSubscriber(userId: string): unknown {
-      return dependencies.redisService.getUserSubscriber(userId);
-    },
-
     releaseUserSubscriber(userId: string): void {
-      dependencies.redisService.releaseUserSubscriber(userId);
+      dependencies.redisService.unsubscribeUser(userId);
       userMessageHandlers.delete(userId);
     },
 
@@ -167,8 +193,8 @@ export function createClientConnectionService(
         return; // Already set up
       }
 
-      const userSubscriber =
-        dependencies.redisService.getUserSubscriber(userId);
+      // Register this user with the shared pattern subscriber
+      dependencies.redisService.subscribeUser(userId);
 
       const messageHandler = (channel: string, message: string) => {
         console.log(
@@ -190,21 +216,7 @@ export function createClientConnectionService(
         }
       };
 
-      userSubscriber.on("message", messageHandler);
       userMessageHandlers.set(userId, messageHandler);
-
-      userSubscriber.on("error", (error: Error) => {
-        console.error(
-          `[WebSocket] Redis subscriber error for user ${userId}:`,
-          error,
-        );
-      });
-
-      userSubscriber.on("connect", () => {
-        console.log(
-          `[WebSocket] Redis subscriber connected for user ${userId}`,
-        );
-      });
     },
 
     forwardMessageToUserClients(userId: string, message: string): void {
@@ -231,93 +243,59 @@ export function createClientConnectionService(
             },
           );
 
-          // For deletes, send as delete-event (check this first)
+          let handledBatchUpdate = false;
+
+          // For deletes, send as delete-event
           if (parsedMessage.updates.deletes.length > 0) {
             for (const eventId of parsedMessage.updates.deletes) {
-              const deleteEventMessage = {
-                type: "delete-event",
-                id: eventId,
-                timestamp: parsedMessage.timestamp,
-              };
-
-              for (const clientId of clientIds) {
-                const client = clients.get(clientId);
-                if (client) {
-                  try {
-                    client.send(JSON.stringify(deleteEventMessage));
-                  } catch (error) {
-                    console.error(
-                      `[WebSocket] Error sending delete-event message to client ${clientId}:`,
-                      error,
-                    );
-                  }
-                }
-              }
+              sendToAllClients(
+                clientIds,
+                {
+                  type: "delete-event",
+                  id: eventId,
+                  timestamp: parsedMessage.timestamp,
+                },
+                "delete-event",
+              );
             }
-            return; // Don't continue with the original message
+            handledBatchUpdate = true;
           }
 
           // For individual updates, send as update-event
           if (parsedMessage.updates.updates.length > 0) {
             for (const event of parsedMessage.updates.updates) {
-              const updateEventMessage = {
-                type: "update-event",
-                event: event,
-                timestamp: parsedMessage.timestamp,
-              };
-
-              for (const clientId of clientIds) {
-                const client = clients.get(clientId);
-                if (client) {
-                  try {
-                    client.send(JSON.stringify(updateEventMessage));
-                  } catch (error) {
-                    console.error(
-                      `[WebSocket] Error sending update-event message to client ${clientId}:`,
-                      error,
-                    );
-                  }
-                }
-              }
+              sendToAllClients(
+                clientIds,
+                {
+                  type: "update-event",
+                  event: event,
+                  timestamp: parsedMessage.timestamp,
+                },
+                "update-event",
+              );
             }
-            return; // Don't continue with the original message
+            handledBatchUpdate = true;
           }
 
           // For viewport/all updates, send as replace-all (including empty arrays to clear markers)
           if (parsedMessage.updates.creates !== undefined) {
-            const replaceAllMessage = {
-              type: "replace-all",
-              events: parsedMessage.updates.creates,
-              timestamp: parsedMessage.timestamp,
-            };
-
             console.log(
               `[WebSocket] Sending replace-all message with ${parsedMessage.updates.creates.length} events to ${clientIds.size} clients of user ${userId}`,
             );
 
-            // Send the transformed message to all clients
-            for (const clientId of clientIds) {
-              const client = clients.get(clientId);
-              if (client) {
-                try {
-                  client.send(JSON.stringify(replaceAllMessage));
-                  console.log(
-                    `[WebSocket] Successfully sent replace-all message to client ${clientId}`,
-                  );
-                } catch (error) {
-                  console.error(
-                    `[WebSocket] Error sending replace-all message to client ${clientId}:`,
-                    error,
-                  );
-                }
-              } else {
-                console.log(
-                  `[WebSocket] Client ${clientId} not found in clients map`,
-                );
-              }
-            }
-            return; // Don't continue with the original message
+            sendToAllClients(
+              clientIds,
+              {
+                type: "replace-all",
+                events: parsedMessage.updates.creates,
+                timestamp: parsedMessage.timestamp,
+              },
+              "replace-all",
+            );
+            handledBatchUpdate = true;
           }
+
+          if (handledBatchUpdate) return;
         }
 
         // Enhanced logging for relevance score updates
@@ -372,19 +350,12 @@ export function createClientConnectionService(
         if (client) {
           try {
             client.send(message);
-            console.log(
-              `[WebSocket] Successfully sent message to client ${clientId}`,
-            );
           } catch (error) {
             console.error(
               `[WebSocket] Error sending message to client ${clientId}:`,
               error,
             );
           }
-        } else {
-          console.log(
-            `[WebSocket] Client ${clientId} not found in clients map`,
-          );
         }
       }
     },

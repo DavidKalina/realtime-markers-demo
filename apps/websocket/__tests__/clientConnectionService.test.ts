@@ -24,10 +24,9 @@ describe("ClientConnectionService", () => {
       subscribe: mock(() => Promise.resolve()),
       unsubscribe: mock(() => Promise.resolve()),
       publish: mock(() => Promise.resolve()),
-      getUserSubscriber: mock(() => ({
-        on: mock(() => {}),
-      })),
-      releaseUserSubscriber: mock(() => {}),
+      subscribeUser: mock(() => {}),
+      unsubscribeUser: mock(() => {}),
+      onUserMessage: mock(() => {}),
     } as unknown as RedisService;
 
     // Create mock WebSocket
@@ -235,7 +234,7 @@ describe("ClientConnectionService", () => {
         type: "batch-update",
         timestamp: new Date().toISOString(),
         updates: {
-          creates: [],
+          creates: undefined,
           updates: [
             {
               id: "event-1",
@@ -298,7 +297,7 @@ describe("ClientConnectionService", () => {
         type: "batch-update",
         timestamp: new Date().toISOString(),
         updates: {
-          creates: [],
+          creates: undefined,
           updates: [],
           deletes: ["event-1", "event-2"],
         },
@@ -325,6 +324,82 @@ describe("ClientConnectionService", () => {
       expect(calls[0][0]).toContain('"id":"event-1"');
       expect(calls[1][0]).toContain('"type":"delete-event"');
       expect(calls[1][0]).toContain('"id":"event-2"');
+    });
+
+    test("should process all operation types in a mixed batch-update", () => {
+      const userId = "test-user-1";
+
+      // Register a client
+      clientConnectionService.registerClient(mockWebSocket);
+      const clientId = mockWebSocket.data.clientId;
+      clientConnectionService.addUserClient(userId, clientId);
+
+      // Clear mock calls from registration
+      (mockWebSocket.send as ReturnType<typeof mock>).mockClear();
+
+      const batchUpdateMessage = {
+        type: "batch-update",
+        timestamp: new Date().toISOString(),
+        updates: {
+          creates: [
+            {
+              id: "event-new",
+              title: "New Event",
+              location: { coordinates: [-122.42, 37.78] },
+              eventDate: "2024-01-20T10:00:00Z",
+              scanCount: 0,
+              saveCount: 0,
+              isPrivate: false,
+              creatorId: "user-1",
+              sharedWith: [],
+              isRecurring: false,
+              createdAt: "2024-01-01T00:00:00Z",
+              updatedAt: "2024-01-01T00:00:00Z",
+            },
+          ],
+          updates: [
+            {
+              id: "event-existing",
+              title: "Updated Event",
+              location: { coordinates: [-122.4194, 37.7749] },
+              eventDate: "2024-01-15T10:00:00Z",
+              scanCount: 10,
+              saveCount: 5,
+              isPrivate: false,
+              creatorId: "user-1",
+              sharedWith: [],
+              isRecurring: false,
+              createdAt: "2024-01-01T00:00:00Z",
+              updatedAt: "2024-01-01T00:00:00Z",
+            },
+          ],
+          deletes: ["event-old"],
+        },
+        summary: {
+          totalEvents: 3,
+          newEvents: 1,
+          updatedEvents: 1,
+          deletedEvents: 1,
+        },
+      };
+
+      clientConnectionService.forwardMessageToUserClients(
+        userId,
+        JSON.stringify(batchUpdateMessage),
+      );
+
+      // Should have sent 3 messages: 1 delete + 1 update + 1 replace-all
+      const calls = (mockWebSocket.send as ReturnType<typeof mock>).mock.calls;
+      expect(calls.length).toBe(3);
+
+      const sentTypes = calls.map((call: unknown[]) => {
+        const parsed = JSON.parse(call[0] as string);
+        return parsed.type;
+      });
+
+      expect(sentTypes).toContain("delete-event");
+      expect(sentTypes).toContain("update-event");
+      expect(sentTypes).toContain("replace-all");
     });
 
     test("should forward non-batch-update messages as-is", () => {
