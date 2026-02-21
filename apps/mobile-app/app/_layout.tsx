@@ -13,9 +13,33 @@ import "react-native-reanimated";
 import { LogBox, View } from "react-native";
 import { isRunningInExpoGo } from "expo";
 
-// Suppress known React Native dev-only warning triggered during hot reload
-// when Mapbox native modules send messages through the packager WebSocket
-LogBox.ignoreLogs(["RCTPackagerConnection received message with not supported version"]);
+// Suppress known React Native dev-only error triggered during reload
+// when Mapbox native modules send messages through the packager WebSocket.
+// LogBox handles the console.error path; the global handler catches the
+// native exception path that shows a red screen.
+LogBox.ignoreLogs([
+  "RCTPackagerConnection received message with not supported version",
+]);
+
+if (__DEV__) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const errorUtils = (global as any).ErrorUtils;
+  const originalHandler = errorUtils?.getGlobalHandler?.();
+  if (originalHandler) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    errorUtils.setGlobalHandler((error: any, isFatal: boolean) => {
+      if (
+        typeof error?.message === "string" &&
+        error.message.includes(
+          "RCTPackagerConnection received message with not supported version",
+        )
+      ) {
+        return;
+      }
+      originalHandler(error, isFatal);
+    });
+  }
+}
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
