@@ -1,7 +1,7 @@
 import { EventEngagementMetrics } from "@/services/api/base/types";
 import { Heart, Eye, Users, TrendingUp, Calendar } from "lucide-react-native";
 import React, { memo } from "react";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import {
   colors,
@@ -65,34 +65,20 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
         entering={FadeInDown.duration(600).delay(delay).springify()}
       >
         {/* Main Metrics */}
-        <View style={{ marginBottom: spacing.lg }}>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
+        <View style={styles.metricsSection}>
+          <View style={styles.metricsRow}>
             {engagementItems.map((item, index) => {
               const IconComponent = item.icon;
               return (
-                <View
-                  key={index}
-                  style={{
-                    alignItems: "center",
-                    flex: 1,
-                    paddingHorizontal: spacing.xs,
-                  }}
-                >
+                <View key={index} style={styles.metricItem}>
                   <View
-                    style={{
-                      backgroundColor: item.bgColor,
-                      borderRadius: radius.sm,
-                      padding: spacing.sm,
-                      marginBottom: spacing.sm,
-                      borderWidth: 1,
-                      borderColor: `${item.color}20`,
-                    }}
+                    style={[
+                      styles.metricIconContainer,
+                      {
+                        backgroundColor: item.bgColor,
+                        borderColor: `${item.color}20`,
+                      },
+                    ]}
                   >
                     <IconComponent
                       size={18}
@@ -100,29 +86,10 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                       strokeWidth={2.5}
                     />
                   </View>
-                  <Text
-                    style={{
-                      fontFamily: fontFamily.mono,
-                      fontSize: fontSize.md,
-                      fontWeight: fontWeight.bold,
-                      color: colors.text.primary,
-                      marginBottom: 2,
-                      textAlign: "center",
-                    }}
-                  >
+                  <Text style={styles.metricValue}>
                     {formatNumber(item.value)}
                   </Text>
-                  <Text
-                    style={{
-                      fontFamily: fontFamily.mono,
-                      fontSize: 11,
-                      color: colors.text.secondary,
-                      textAlign: "center",
-                      fontWeight: fontWeight.medium,
-                    }}
-                  >
-                    {item.label}
-                  </Text>
+                  <Text style={styles.metricLabel}>{item.label}</Text>
                 </View>
               );
             })}
@@ -131,60 +98,19 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
 
         {/* RSVP Breakdown */}
         {engagement.rsvpCount > 0 && (
-          <View
-            style={{
-              paddingTop: spacing.lg,
-              borderTopWidth: 1,
-              borderTopColor: colors.border.default,
-              marginBottom: spacing.lg,
-            }}
-          >
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginBottom: spacing.md,
-              }}
-            >
+          <View style={styles.rsvpSection}>
+            <View style={styles.rsvpHeader}>
               <Calendar
                 size={16}
                 color={colors.text.secondary}
                 strokeWidth={2}
               />
-              <Text
-                style={{
-                  fontSize: fontSize.sm,
-                  fontWeight: fontWeight.semibold,
-                  fontFamily: fontFamily.mono,
-                  color: colors.text.secondary,
-                  marginLeft: spacing.sm,
-                }}
-              >
-                RSVP Breakdown
-              </Text>
+              <Text style={styles.rsvpHeaderText}>RSVP Breakdown</Text>
             </View>
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-around",
-                backgroundColor: colors.bg.primary,
-                borderRadius: radius.md,
-                paddingVertical: spacing.lg,
-                paddingHorizontal: spacing.xl,
-                borderWidth: 1,
-                borderColor: colors.border.default,
-              }}
-            >
-              <View style={{ alignItems: "center", flex: 1 }}>
+            <View style={styles.rsvpCard}>
+              <View style={styles.rsvpItem}>
                 <View
-                  style={{
-                    backgroundColor: `${colors.status.success.text}15`,
-                    borderRadius: radius.sm,
-                    padding: spacing.sm,
-                    marginBottom: spacing.sm,
-                    borderWidth: 1,
-                    borderColor: `${colors.status.success.text}20`,
-                  }}
+                  style={[styles.rsvpIconContainer, styles.rsvpGoingIcon]}
                 >
                   <Users
                     size={16}
@@ -192,36 +118,14 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                     strokeWidth={2}
                   />
                 </View>
-                <Text
-                  style={{
-                    fontSize: fontSize.md,
-                    fontWeight: fontWeight.bold,
-                    color: colors.status.success.text,
-                    marginBottom: spacing.xs,
-                  }}
-                >
+                <Text style={[styles.rsvpCount, styles.rsvpGoingCount]}>
                   {engagement.goingCount}
                 </Text>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    color: colors.text.secondary,
-                    fontWeight: fontWeight.medium,
-                  }}
-                >
-                  Going
-                </Text>
+                <Text style={styles.rsvpLabel}>Going</Text>
               </View>
-              <View style={{ alignItems: "center", flex: 1 }}>
+              <View style={styles.rsvpItem}>
                 <View
-                  style={{
-                    backgroundColor: `${colors.status.error.bg}15`,
-                    borderRadius: radius.sm,
-                    padding: spacing.sm,
-                    marginBottom: spacing.sm,
-                    borderWidth: 1,
-                    borderColor: `${colors.status.error.bg}20`,
-                  }}
+                  style={[styles.rsvpIconContainer, styles.rsvpNotGoingIcon]}
                 >
                   <Users
                     size={16}
@@ -229,47 +133,18 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                     strokeWidth={2}
                   />
                 </View>
-                <Text
-                  style={{
-                    fontSize: fontSize.md,
-                    fontWeight: fontWeight.bold,
-                    color: colors.status.error.bg,
-                    marginBottom: spacing.xs,
-                  }}
-                >
+                <Text style={[styles.rsvpCount, styles.rsvpNotGoingCount]}>
                   {engagement.notGoingCount}
                 </Text>
-                <Text
-                  style={{
-                    fontSize: 11,
-                    color: colors.text.secondary,
-                    fontWeight: fontWeight.medium,
-                  }}
-                >
-                  Not Going
-                </Text>
+                <Text style={styles.rsvpLabel}>Not Going</Text>
               </View>
             </View>
           </View>
         )}
 
         {/* Last Updated Footer */}
-        <View
-          style={{
-            paddingTop: spacing.md,
-            borderTopWidth: 1,
-            borderTopColor: colors.border.default,
-            alignItems: "center",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 11,
-              color: colors.text.secondary,
-              fontFamily: fontFamily.mono,
-              fontStyle: "italic",
-            }}
-          >
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
             Last updated:{" "}
             {new Date(engagement.lastUpdated).toLocaleDateString()}
           </Text>
@@ -282,3 +157,114 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
 EventEngagementDisplay.displayName = "EventEngagementDisplay";
 
 export default EventEngagementDisplay;
+
+const styles = StyleSheet.create({
+  metricsSection: {
+    marginBottom: spacing.lg,
+  },
+  metricsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  metricItem: {
+    alignItems: "center",
+    flex: 1,
+    paddingHorizontal: spacing.xs,
+  },
+  metricIconContainer: {
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+  },
+  metricValue: {
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+    color: colors.text.primary,
+    marginBottom: 2,
+    textAlign: "center",
+  },
+  metricLabel: {
+    fontFamily: fontFamily.mono,
+    fontSize: 11,
+    color: colors.text.secondary,
+    textAlign: "center",
+    fontWeight: fontWeight.medium,
+  },
+  rsvpSection: {
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.default,
+    marginBottom: spacing.lg,
+  },
+  rsvpHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  rsvpHeaderText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
+    color: colors.text.secondary,
+    marginLeft: spacing.sm,
+  },
+  rsvpCard: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    backgroundColor: colors.bg.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+  },
+  rsvpItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  rsvpIconContainer: {
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+  },
+  rsvpGoingIcon: {
+    backgroundColor: `${colors.status.success.text}15`,
+    borderColor: `${colors.status.success.text}20`,
+  },
+  rsvpNotGoingIcon: {
+    backgroundColor: `${colors.status.error.bg}15`,
+    borderColor: `${colors.status.error.bg}20`,
+  },
+  rsvpCount: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+    marginBottom: spacing.xs,
+  },
+  rsvpGoingCount: {
+    color: colors.status.success.text,
+  },
+  rsvpNotGoingCount: {
+    color: colors.status.error.bg,
+  },
+  rsvpLabel: {
+    fontSize: 11,
+    color: colors.text.secondary,
+    fontWeight: fontWeight.medium,
+  },
+  footer: {
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.default,
+    alignItems: "center",
+  },
+  footerText: {
+    fontSize: 11,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
+    fontStyle: "italic",
+  },
+});

@@ -53,17 +53,6 @@ const getDimmedTextColor = (baseColor: string, opacity: number = 0.5) => {
   return `rgba(173, 181, 189, ${opacity})`; // Fallback grey
 };
 
-// Helper for RGBA background from hex
-const getRgbaBackground = (hexColor: string, opacity: number) => {
-  if (hexColor.startsWith("#") && hexColor.length === 7) {
-    const r = parseInt(hexColor.slice(1, 3), 16);
-    const g = parseInt(hexColor.slice(3, 5), 16);
-    const b = parseInt(hexColor.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-  }
-  return `rgba(147, 197, 253, ${opacity})`; // Fallback accent
-};
-
 interface DateRangeCalendarProps {
   startDate?: string;
   endDate?: string;
