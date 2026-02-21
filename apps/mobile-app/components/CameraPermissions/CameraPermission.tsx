@@ -6,7 +6,7 @@ import {
   fontWeight,
   fontFamily,
 } from "@/theme";
-import { Feather } from "@expo/vector-icons";
+import { CameraOff, CheckCircle } from "lucide-react-native";
 import { useCameraPermissions } from "expo-camera";
 import * as Linking from "expo-linking";
 import React, { useEffect, useState } from "react";
@@ -299,7 +299,7 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
         entering={FadeIn.duration(400).easing(Easing.out(Easing.ease))}
       >
         <Animated.View style={[styles.iconContainer, iconContainerStyle]}>
-          <Feather name="camera-off" size={64} color={colors.text.primary} />
+          <CameraOff size={64} color={colors.text.primary} />
         </Animated.View>
 
         <Animated.Text
@@ -399,7 +399,7 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
           .delay(200)
           .easing(Easing.out(Easing.ease))}
       >
-        <Feather name="check-circle" size={64} color="#69db7c" />
+        <CheckCircle size={64} color="#69db7c" />
       </Animated.View>
       <Animated.Text
         style={styles.processingText}

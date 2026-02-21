@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { AlertTriangle } from "lucide-react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import {
   colors,
@@ -32,11 +32,7 @@ export const NoScansOverlay: React.FC<NoScansOverlayProps> = ({
     >
       <View style={styles.noScansContent}>
         <View style={styles.noScansIconContainer}>
-          <Feather
-            name="alert-triangle"
-            size={32}
-            color={colors.status.warning.text}
-          />
+          <AlertTriangle size={32} color={colors.status.warning.text} />
         </View>
         <Text style={styles.noScansTitle}>Scan Limit Reached</Text>
         <Text style={styles.noScansMessage}>

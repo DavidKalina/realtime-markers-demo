@@ -111,7 +111,7 @@ export const ScanExample: React.FC<ScanExampleProps> = ({
             Alert.alert("Error", "Failed to process image. Please try again.");
         }
       }
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to select image from gallery.");
     }
   };
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: spacing.xl,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: colors.bg.card,
   },
   statusContainer: {
     marginBottom: spacing.xl,
@@ -218,14 +218,14 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: fontSize.sm,
-    color: "#d32f2f",
+    color: colors.status.error.text,
     marginBottom: 5,
   },
   buttonContainer: {
     gap: 15,
   },
   button: {
-    backgroundColor: "#2196f3",
+    backgroundColor: colors.accent.dark,
     padding: 15,
     borderRadius: radius.sm,
     alignItems: "center",
@@ -236,10 +236,10 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   buttonDisabled: {
-    backgroundColor: "#ccc",
+    backgroundColor: colors.text.disabled,
   },
   resetButton: {
-    backgroundColor: "#ff9800",
+    backgroundColor: colors.status.warning.text,
   },
   buttonText: {
     color: colors.fixed.white,

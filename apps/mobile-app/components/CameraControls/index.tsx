@@ -1,7 +1,7 @@
 // CameraControls.tsx
 import React from "react";
 import { StyleSheet, View, TouchableOpacity, Platform } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Zap, ZapOff } from "lucide-react-native";
 import { colors, spacing } from "@/theme";
 
 import { FlashMode } from "expo-camera";
@@ -27,18 +27,8 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
   onFlashToggle,
   disabled = false,
 }) => {
-  // Get flash icon based on current mode
-  const getFlashIcon = () => {
-    switch (flashMode) {
-      case "on":
-        return "zap";
-      case "auto":
-        return "zap-off";
-      case "off":
-      default:
-        return "zap-off";
-    }
-  };
+  // Get flash icon component based on current mode
+  const FlashIcon = flashMode === "on" ? Zap : ZapOff;
 
   // Get flash button color based on current mode
   const getFlashColor = () => {
@@ -64,7 +54,7 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
             activeOpacity={0.7}
             disabled={isCapturing || disabled}
           >
-            <Feather name={getFlashIcon()} size={20} color={getFlashColor()} />
+            <FlashIcon size={20} color={getFlashColor()} />
           </TouchableOpacity>
         </View>
 

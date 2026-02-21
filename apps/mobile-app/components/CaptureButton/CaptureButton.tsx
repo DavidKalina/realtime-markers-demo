@@ -10,7 +10,7 @@ import Animated, {
   cancelAnimation,
   interpolateColor,
 } from "react-native-reanimated";
-import { Feather } from "@expo/vector-icons";
+import { Camera, Zap, ZapOff } from "lucide-react-native";
 import { FlashMode } from "expo-camera";
 import { colors, spacing, radius } from "@/theme";
 
@@ -194,18 +194,8 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
     };
   });
 
-  // Get flash icon based on current mode
-  const getFlashIcon = () => {
-    switch (flashMode) {
-      case "on":
-        return "zap";
-      case "auto":
-        return "zap-off";
-      case "off":
-      default:
-        return "zap-off";
-    }
-  };
+  // Get flash icon component based on current mode
+  const FlashIcon = flashMode === "on" ? Zap : ZapOff;
 
   // Get flash button color based on current mode
   const getFlashColor = () => {
@@ -232,7 +222,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
           activeOpacity={0.7}
           disabled={isCapturing || disabled}
         >
-          <Feather name={getFlashIcon()} size={20} color={getFlashColor()} />
+          <FlashIcon size={20} color={getFlashColor()} />
         </TouchableOpacity>
       </Animated.View>
     );
@@ -275,8 +265,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
               >
                 <Animated.View style={[styles.innerCircle, innerCircleStyle]}>
                   <Animated.View style={[styles.iconContainer, iconStyle]}>
-                    <Feather
-                      name="camera"
+                    <Camera
                       size={size === "compact" ? 18 : 20}
                       color={colors.bg.primary}
                     />

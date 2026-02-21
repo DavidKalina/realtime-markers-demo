@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   cancelAnimation,
-  SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -12,19 +11,8 @@ import {
 import { ANIMATIONS, calculateMarkerSize } from "./constants";
 import { SHADOW_OFFSET } from "../MarkerSVGs";
 
-// Helper to create animation cleanup
-const createAnimationCleanup = (animations: SharedValue<number>[]) => {
-  return () => {
-    animations.forEach((anim) => cancelAnimation(anim));
-  };
-};
-
 export function useClusterAnimations(count: number, isSelected: boolean) {
   const prevSelectedRef = useRef(isSelected);
-  const animationTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
-  const animationIntervalsRef = useRef<Array<ReturnType<typeof setInterval>>>(
-    [],
-  );
 
   const baseScale = useMemo(() => calculateMarkerSize(count), [count]);
 
@@ -38,35 +26,23 @@ export function useClusterAnimations(count: number, isSelected: boolean) {
   const pulseScale = useSharedValue(1);
   const burstScale = useSharedValue(1);
 
-  // Cleanup function for all animations and timers
-  const cleanupAnimations = useCallback(() => {
-    createAnimationCleanup([
-      scale,
-      shadowOpacity,
-      rippleScale,
-      rippleOpacity,
-      fanRotation,
-      fanScale,
-      pulseScale,
-      burstScale,
-    ])();
-
-    animationTimersRef.current.forEach((timer) => clearTimeout(timer));
-    animationTimersRef.current = [];
-    animationIntervalsRef.current.forEach((interval) =>
-      clearInterval(interval),
-    );
-    animationIntervalsRef.current = [];
-  }, []);
-
   // Set up initial animations on mount
   useEffect(() => {
     shadowOpacity.value = withTiming(0.3, ANIMATIONS.SHADOW);
     rippleScale.value = withTiming(5, ANIMATIONS.RIPPLE);
     rippleOpacity.value = withTiming(0, ANIMATIONS.RIPPLE);
 
-    return cleanupAnimations;
-  }, [cleanupAnimations]);
+    return () => {
+      cancelAnimation(scale);
+      cancelAnimation(shadowOpacity);
+      cancelAnimation(rippleScale);
+      cancelAnimation(rippleOpacity);
+      cancelAnimation(fanRotation);
+      cancelAnimation(fanScale);
+      cancelAnimation(pulseScale);
+      cancelAnimation(burstScale);
+    };
+  }, []);
 
   // Handle selection state changes
   useEffect(() => {
@@ -80,35 +56,32 @@ export function useClusterAnimations(count: number, isSelected: boolean) {
     }
   }, [isSelected]);
 
-  // Fanning animation effect
+  // Fanning animation effect (UI thread only — no setInterval)
   useEffect(() => {
-    fanRotation.value = withSequence(
-      withTiming(0.2, ANIMATIONS.FAN_OUT),
-      withTiming(-0.2, ANIMATIONS.FAN_OUT),
-      withTiming(0, ANIMATIONS.FAN_IN),
-    );
-    fanScale.value = withSequence(
-      withTiming(1.1, ANIMATIONS.FAN_OUT),
-      withTiming(1.1, { duration: 200 }),
-      withTiming(1, ANIMATIONS.FAN_IN),
-    );
-
-    const fanTimer = setInterval(() => {
-      fanRotation.value = withSequence(
+    fanRotation.value = withRepeat(
+      withSequence(
         withTiming(0.2, ANIMATIONS.FAN_OUT),
         withTiming(-0.2, ANIMATIONS.FAN_OUT),
         withTiming(0, ANIMATIONS.FAN_IN),
-      );
-      fanScale.value = withSequence(
+        withTiming(0, { duration: 4000 }), // pause
+      ),
+      -1,
+      false,
+    );
+    fanScale.value = withRepeat(
+      withSequence(
         withTiming(1.1, ANIMATIONS.FAN_OUT),
         withTiming(1.1, { duration: 200 }),
         withTiming(1, ANIMATIONS.FAN_IN),
-      );
-    }, 4000);
-    animationIntervalsRef.current.push(fanTimer);
+        withTiming(1, { duration: 4000 }), // pause
+      ),
+      -1,
+      false,
+    );
 
     return () => {
-      clearInterval(fanTimer);
+      cancelAnimation(fanRotation);
+      cancelAnimation(fanScale);
     };
   }, []);
 

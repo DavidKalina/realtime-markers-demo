@@ -46,7 +46,7 @@ export const colors = {
       border: "rgba(248, 113, 113, 0.3)",
     },
     success: {
-      text: "#34d399",
+      text: "#10b981",
       bg: "#059669",
       border: "#059669",
     },

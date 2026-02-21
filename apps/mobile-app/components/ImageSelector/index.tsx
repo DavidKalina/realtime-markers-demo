@@ -1,5 +1,5 @@
 // ImageSelector.tsx
-import { Feather } from "@expo/vector-icons";
+import { Image as ImageIcon } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
@@ -51,7 +51,7 @@ export const ImageSelector: React.FC<ImageSelectorProps> = ({
       activeOpacity={0.7}
     >
       <View style={[styles.button, disabled && styles.buttonDisabled]}>
-        <Feather name="image" size={20} color={colors.text.primary} />
+        <ImageIcon size={20} color={colors.text.primary} />
       </View>
     </TouchableOpacity>
   );

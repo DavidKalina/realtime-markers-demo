@@ -183,7 +183,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     isConnected,
     error,
     currentViewport,
-    updateViewport: updateViewport,
+    updateViewport,
     clientId,
   };
 };

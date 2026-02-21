@@ -1,6 +1,6 @@
 import { Marker } from "@/types/types";
 import * as Haptics from "expo-haptics";
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import {
   Platform,
   StyleSheet,
@@ -12,6 +12,7 @@ import Animated, {
   cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withSequence,
   withSpring,
   withTiming,
@@ -71,12 +72,6 @@ interface EmojiMapMarkerProps {
 
 export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
   ({ event, isSelected, onPress, index = 0 }) => {
-    const isMountedRef = useRef(true);
-    const animationTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
-    const animationIntervalsRef = useRef<Array<ReturnType<typeof setInterval>>>(
-      [],
-    );
-
     // Animation values
     const scale = useSharedValue(1);
     const shadowOpacity = useSharedValue(0.3);
@@ -90,43 +85,8 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
     // Calculate stagger delay based on marker index
     const initialDelay = useMemo(() => index * 200, [index]);
 
-    // Cleanup function for all animations and timers
-    const cleanupAnimations = useCallback(() => {
-      isMountedRef.current = false;
-
-      cancelAnimation(scale);
-      cancelAnimation(shadowOpacity);
-      cancelAnimation(rippleScale);
-      cancelAnimation(rippleOpacity);
-      cancelAnimation(fanRotation);
-      cancelAnimation(fanScale);
-      cancelAnimation(pulseScale);
-      cancelAnimation(burstScale);
-
-      for (const timer of animationTimersRef.current) {
-        clearTimeout(timer);
-      }
-      animationTimersRef.current = [];
-
-      for (const interval of animationIntervalsRef.current) {
-        clearInterval(interval);
-      }
-      animationIntervalsRef.current = [];
-    }, []);
-
-    // Track a timeout safely — only schedule if mounted, auto-track for cleanup
-    const safeTimeout = useCallback((fn: () => void, delay: number): void => {
-      if (!isMountedRef.current) return;
-      const timer = setTimeout(() => {
-        if (isMountedRef.current) fn();
-      }, delay);
-      animationTimersRef.current.push(timer);
-    }, []);
-
     // Initial mount animations
     useEffect(() => {
-      isMountedRef.current = true;
-
       // Shadow fade-in
       shadowOpacity.value = withTiming(0.3, ANIMATIONS.SHADOW);
 
@@ -134,8 +94,17 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       rippleScale.value = withTiming(5, ANIMATIONS.RIPPLE);
       rippleOpacity.value = withTiming(0, ANIMATIONS.RIPPLE);
 
-      return cleanupAnimations;
-    }, [cleanupAnimations]);
+      return () => {
+        cancelAnimation(scale);
+        cancelAnimation(shadowOpacity);
+        cancelAnimation(rippleScale);
+        cancelAnimation(rippleOpacity);
+        cancelAnimation(fanRotation);
+        cancelAnimation(fanScale);
+        cancelAnimation(pulseScale);
+        cancelAnimation(burstScale);
+      };
+    }, []);
 
     // Selection state spring
     useEffect(() => {
@@ -146,43 +115,41 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       }
     }, [isSelected]);
 
-    // Fan-out/in animation — gentle wobble at randomized intervals
+    // Fan-out/in animation — gentle wobble on a repeating cycle (UI thread only)
     useEffect(() => {
-      const startFanAnimation = () => {
-        if (!isMountedRef.current) return;
-
-        fanRotation.value = withSequence(
-          withTiming(0.15, ANIMATIONS.FAN_OUT),
-          withTiming(-0.15, ANIMATIONS.FAN_OUT),
-          withTiming(0, ANIMATIONS.FAN_IN),
-        );
-
-        fanScale.value = withSequence(
-          withTiming(1.05, ANIMATIONS.FAN_OUT),
-          withTiming(1.05, { duration: 200 }),
-          withTiming(1, ANIMATIONS.FAN_IN),
-        );
-      };
-
-      // Staggered start
-      safeTimeout(startFanAnimation, initialDelay);
-
-      // Repeat every 4-6s with a random offset
-      const fanInterval = setInterval(
-        () => {
-          const randomDelay = Math.random() * 2000;
-          safeTimeout(startFanAnimation, randomDelay);
-        },
-        4000 + Math.random() * 2000,
+      fanRotation.value = withDelay(
+        initialDelay,
+        withRepeat(
+          withSequence(
+            withTiming(0, { duration: 4000 }), // pause
+            withTiming(0.15, ANIMATIONS.FAN_OUT),
+            withTiming(-0.15, ANIMATIONS.FAN_OUT),
+            withTiming(0, ANIMATIONS.FAN_IN),
+          ),
+          -1,
+          false,
+        ),
       );
-      animationIntervalsRef.current.push(fanInterval);
+
+      fanScale.value = withDelay(
+        initialDelay,
+        withRepeat(
+          withSequence(
+            withTiming(1, { duration: 4000 }), // pause
+            withTiming(1.05, ANIMATIONS.FAN_OUT),
+            withTiming(1.05, { duration: 200 }),
+            withTiming(1, ANIMATIONS.FAN_IN),
+          ),
+          -1,
+          false,
+        ),
+      );
 
       return () => {
-        clearInterval(fanInterval);
         cancelAnimation(fanRotation);
         cancelAnimation(fanScale);
       };
-    }, [initialDelay, safeTimeout]);
+    }, [initialDelay]);
 
     // Gentle breathing pulse
     useEffect(() => {
@@ -200,27 +167,22 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       };
     }, []);
 
-    // Occasional burst pop
+    // Occasional burst pop (UI thread only)
     useEffect(() => {
-      const burstInterval = setInterval(
-        () => {
-          const randomDelay = Math.random() * 2000;
-          safeTimeout(() => {
-            burstScale.value = withSequence(
-              withTiming(1.1, ANIMATIONS.BURST),
-              withTiming(1, ANIMATIONS.BURST),
-            );
-          }, randomDelay);
-        },
-        8000 + Math.random() * 4000,
+      burstScale.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 8000 }), // pause
+          withTiming(1.1, ANIMATIONS.BURST),
+          withTiming(1, ANIMATIONS.BURST),
+        ),
+        -1,
+        false,
       );
-      animationIntervalsRef.current.push(burstInterval);
 
       return () => {
-        clearInterval(burstInterval);
         cancelAnimation(burstScale);
       };
-    }, [safeTimeout]);
+    }, []);
 
     // Press handler with haptic + burst
     const handlePress = useCallback(() => {

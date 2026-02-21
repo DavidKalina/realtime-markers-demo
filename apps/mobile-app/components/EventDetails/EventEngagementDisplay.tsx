@@ -48,8 +48,8 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
         icon: Users,
         label: "RSVPs",
         value: engagement.rsvpCount,
-        color: "#10b981",
-        bgColor: `${"#10b981"}15`,
+        color: colors.status.success.text,
+        bgColor: `${colors.status.success.text}15`,
       },
       {
         icon: TrendingUp,
@@ -178,21 +178,25 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
               <View style={{ alignItems: "center", flex: 1 }}>
                 <View
                   style={{
-                    backgroundColor: `${"#10b981"}15`,
+                    backgroundColor: `${colors.status.success.text}15`,
                     borderRadius: radius.sm,
                     padding: spacing.sm,
                     marginBottom: spacing.sm,
                     borderWidth: 1,
-                    borderColor: `${"#10b981"}20`,
+                    borderColor: `${colors.status.success.text}20`,
                   }}
                 >
-                  <Users size={16} color={"#10b981"} strokeWidth={2} />
+                  <Users
+                    size={16}
+                    color={colors.status.success.text}
+                    strokeWidth={2}
+                  />
                 </View>
                 <Text
                   style={{
                     fontSize: fontSize.md,
                     fontWeight: fontWeight.bold,
-                    color: "#10b981",
+                    color: colors.status.success.text,
                     marginBottom: spacing.xs,
                   }}
                 >

@@ -32,7 +32,7 @@ export const styles = StyleSheet.create({
     textAlign: "left", // Changed from center to left for natural text streaming
   },
   transitionMessageText: {
-    color: "#40c057", // Use verified green color for important messages
+    color: colors.status.success.text,
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
     lineHeight: lineHeight.relaxed,
@@ -49,7 +49,7 @@ export const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   detailDescription: {
-    color: "#cbd5e1",
+    color: colors.text.secondary,
     fontSize: fontSize.sm,
     marginBottom: spacing.md,
   },
@@ -76,7 +76,7 @@ export const styles = StyleSheet.create({
   typingIndicator: {
     fontSize: fontSize.md,
     fontWeight: fontWeight.medium,
-    color: "#888",
+    color: colors.text.disabled,
     marginLeft: 2,
     marginTop: -5,
     opacity: 0.8,
@@ -88,7 +88,7 @@ export const styles = StyleSheet.create({
     width: spacing.sm,
     height: spacing.sm,
     borderRadius: spacing.xs,
-    backgroundColor: "#888",
+    backgroundColor: colors.text.disabled,
     marginHorizontal: 2,
   },
 });

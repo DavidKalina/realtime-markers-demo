@@ -53,7 +53,10 @@ const Input = ({
     >
       {Icon && (
         <View style={styles.iconContainer}>
-          <Icon size={18} color={error ? "#f97583" : colors.accent.primary} />
+          <Icon
+            size={18}
+            color={error ? colors.status.error.text : colors.accent.primary}
+          />
         </View>
       )}
       <TextInput
@@ -77,7 +80,7 @@ const Input = ({
           >
             <RightIcon
               size={18}
-              color={error ? "#f97583" : colors.accent.primary}
+              color={error ? colors.status.error.text : colors.accent.primary}
             />
           </TouchableOpacity>
         )
@@ -98,7 +101,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border.medium,
   },
   errorContainer: {
-    borderColor: "#f97583",
+    borderColor: colors.status.error.text,
   },
   iconContainer: {
     marginRight: spacing._10,
@@ -114,7 +117,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
   },
   errorInput: {
-    color: "#f97583",
+    color: colors.status.error.text,
   },
 });
 

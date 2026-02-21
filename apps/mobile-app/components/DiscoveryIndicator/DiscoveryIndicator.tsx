@@ -6,8 +6,20 @@ import {
   EventTypes,
   NotificationEvent,
 } from "@/services/EventBroker";
-import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronRight,
+  Info,
+} from "lucide-react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   FadeInDown,
@@ -50,6 +62,24 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
 }) => {
   const [items, setItems] = useState<IndicatorItem[]>([]);
   const { subscribe, publish } = useEventBroker();
+  const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+
+  // Track timeouts for cleanup on unmount
+  const safeTimeout = useCallback((fn: () => void, delay: number) => {
+    const timer = setTimeout(fn, delay);
+    timersRef.current.push(timer);
+    return timer;
+  }, []);
+
+  // Clear all pending timers on unmount
+  useEffect(() => {
+    return () => {
+      for (const timer of timersRef.current) {
+        clearTimeout(timer);
+      }
+      timersRef.current = [];
+    };
+  }, []);
 
   const positionStyle = useMemo(() => {
     const baseSpacing = spacing.xs;
@@ -107,7 +137,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
           const newItems = [newItem, ...(prev || [])];
 
           // Auto-dismiss after 10 seconds
-          setTimeout(() => {
+          safeTimeout(() => {
             setItems((current) => {
               if (!current) return [];
               return current.filter((item) => item.id !== newItem.id);
@@ -152,7 +182,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
           const newItems = [newItem, ...(prev || [])];
 
           // Auto-dismiss after the specified duration or default to 5 seconds
-          setTimeout(() => {
+          safeTimeout(() => {
             setItems((current) => {
               if (!current) return [];
               return current.filter((item) => item.id !== newItem.id);
@@ -169,7 +199,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
       unsubscribeDiscovery();
       unsubscribeNotification();
     };
-  }, [subscribe]);
+  }, [subscribe, safeTimeout]);
 
   const handlePress = (item: IndicatorItem) => {
     if (item.type === "discovery" && item.event?.location?.coordinates) {
@@ -185,7 +215,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
     }
 
     // Remove the item after a short delay
-    setTimeout(() => {
+    safeTimeout(() => {
       setItems((current) => current.filter((i) => i.id !== item.id));
     }, 50);
   };
@@ -195,13 +225,13 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
   ) => {
     switch (type) {
       case "success":
-        return "checkmark-circle";
+        return CheckCircle2;
       case "warning":
-        return "warning";
+        return AlertTriangle;
       case "error":
-        return "alert-circle";
+        return AlertCircle;
       default:
-        return "information-circle";
+        return Info;
     }
   };
 
@@ -210,13 +240,13 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
   ) => {
     switch (type) {
       case "success":
-        return "#4CAF50";
+        return colors.status.success.text;
       case "warning":
-        return "#FFC107";
+        return colors.status.warning.text;
       case "error":
-        return "#F44336";
+        return colors.status.error.text;
       default:
-        return "#2196F3";
+        return colors.accent.dark;
     }
   };
 
@@ -225,9 +255,9 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
     const iconColor = isNotification
       ? getNotificationColor(item.notification!.type)
       : "rgba(255, 255, 255, 0.9)";
-    const iconName = isNotification
+    const IconComponent = isNotification
       ? getNotificationIcon(item.notification!.type)
-      : "chevron-forward";
+      : ChevronRight;
 
     return (
       <Animated.View
@@ -257,7 +287,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
               ]}
             >
               {isNotification ? (
-                <Ionicons name={iconName} size={20} color={iconColor} />
+                <IconComponent size={20} color={iconColor} />
               ) : (
                 <Text style={styles.emojiText}>
                   {item.event?.emoji || "🎉"}
@@ -278,11 +308,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
 
             {!isNotification && (
               <View style={styles.tapIndicator}>
-                <Ionicons
-                  name={iconName}
-                  size={16}
-                  color="rgba(255, 255, 255, 0.6)"
-                />
+                <ChevronRight size={16} color="rgba(255, 255, 255, 0.6)" />
               </View>
             )}
           </View>
