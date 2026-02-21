@@ -258,6 +258,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
             time={event.data.eventDate || ""}
             endDate={event.data.endDate || ""}
             title={event.data.title || ""}
+            index={index}
           />
         </Animated.View>
 

@@ -3,13 +3,21 @@ import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
+  FadeIn,
+  FadeOut,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withSequence,
   withTiming,
   ZoomIn,
-  ZoomOut,
+  FlipInYLeft,
+  FlipInYRight,
+  FlipInEasyX,
+  FlipInEasyY,
+  RotateInDownLeft,
+  RotateInDownRight,
+  BounceIn,
 } from "react-native-reanimated";
 import { colors, spacing, radius, fontFamily, fontWeight } from "@/theme";
 
@@ -17,6 +25,7 @@ interface TimePopupProps {
   time: string;
   title: string;
   endDate?: string;
+  index?: number;
 }
 
 // Timing constants
@@ -27,6 +36,25 @@ const MARQUEE_END_PAUSE = 600;
 const STATIC_TITLE_MS = 3000;
 const MARQUEE_MAX_WIDTH = 130;
 const CYCLE_GUARD_MS = 500;
+
+// Marker entrance: index * 300ms delay + ~500ms BounceIn
+const MARKER_STAGGER_MS = 300;
+const MARKER_ENTRANCE_MS = 500;
+// Extra breathing room + random spread after marker settles
+const POPUP_SETTLE_MS = 200;
+const POPUP_JITTER_RANGE = 300;
+
+// Curated entrance pool — organic, not zany
+const ENTRANCE_POOL = [
+  (d: number) => ZoomIn.duration(400).delay(d),
+  (d: number) => FlipInYLeft.duration(450).delay(d),
+  (d: number) => FlipInYRight.duration(450).delay(d),
+  (d: number) => FlipInEasyX.duration(400).delay(d),
+  (d: number) => FlipInEasyY.duration(400).delay(d),
+  (d: number) => RotateInDownLeft.duration(450).delay(d),
+  (d: number) => RotateInDownRight.duration(450).delay(d),
+  (d: number) => BounceIn.duration(500).delay(d),
+];
 
 const TimeContent: React.FC<{
   timeLeft: string;
@@ -124,10 +152,7 @@ const TitleContent: React.FC<{
     <View style={styles.marqueeClip}>
       <Animated.View style={marqueeStyle}>
         <Text
-          style={[
-            styles.titleText,
-            needsMarquee && { width: titleWidth },
-          ]}
+          style={[styles.titleText, needsMarquee && { width: titleWidth }]}
         >
           {title}
         </Text>
@@ -137,19 +162,38 @@ const TitleContent: React.FC<{
 });
 
 export const TimePopup: React.FC<TimePopupProps> = React.memo(
-  ({ time, title, endDate }) => {
+  ({ time, title, endDate, index = 0 }) => {
+    const [visible, setVisible] = useState(false);
     const [timeLeft, setTimeLeft] = useState<string>("");
     const [isExpired, setIsExpired] = useState(false);
     const [showTitle, setShowTitle] = useState(false);
     const [titleWidth, setTitleWidth] = useState(0);
 
     const guardRef = useRef(false);
+    const isInitial = useRef(true);
     const rotateAnimation = useSharedValue(0);
 
-    // Callback-driven cycling (replaces fixed interval)
+    // Each popup picks a random entrance style once on mount
+    const animIndex = useRef(
+      Math.floor(Math.random() * ENTRANCE_POOL.length),
+    ).current;
+
+    // Wait for this marker's staggered entrance to finish, then show popup
+    useEffect(() => {
+      const markerDone = index * MARKER_STAGGER_MS + MARKER_ENTRANCE_MS;
+      const jitter = Math.floor(Math.random() * POPUP_JITTER_RANGE);
+      const timer = setTimeout(
+        () => setVisible(true),
+        markerDone + POPUP_SETTLE_MS + jitter,
+      );
+      return () => clearTimeout(timer);
+    }, [index]);
+
+    // Callback-driven cycling
     const cycleToTitle = useCallback(() => {
       if (guardRef.current) return;
       guardRef.current = true;
+      isInitial.current = false;
       setShowTitle(true);
       setTimeout(() => {
         guardRef.current = false;
@@ -322,9 +366,15 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(
       return () => clearInterval(interval);
     }, [time, endDate]);
 
+    // First appearance: random entrance. Cycles: quiet crossfade.
+    const entering = isInitial.current
+      ? ENTRANCE_POOL[animIndex](0)
+      : FadeIn.duration(200);
+    const exiting = FadeOut.duration(150);
+
     return (
       <View style={styles.container}>
-        {/* Off-screen measurement text (outside badgeContainer overflow:hidden) */}
+        {/* Off-screen measurement text (always rendered for measuring) */}
         <Text
           style={styles.measureText}
           onLayout={(e) =>
@@ -334,10 +384,10 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(
           {title}
         </Text>
 
-        {!showTitle && (
+        {visible && !showTitle && (
           <Animated.View
-            entering={ZoomIn.duration(400).delay(300)}
-            exiting={ZoomOut.duration(300)}
+            entering={entering}
+            exiting={exiting}
             style={[styles.badgeContainer, styles.absolute]}
           >
             <TimeContent
@@ -349,10 +399,10 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(
           </Animated.View>
         )}
 
-        {showTitle && (
+        {visible && showTitle && (
           <Animated.View
-            entering={ZoomIn.duration(400).delay(300)}
-            exiting={ZoomOut.duration(300)}
+            entering={entering}
+            exiting={exiting}
             style={[styles.badgeContainer, styles.absolute]}
           >
             <TitleContent
