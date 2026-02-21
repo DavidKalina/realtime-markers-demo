@@ -1,4 +1,3 @@
-import { AuthWrapper } from "@/components/AuthWrapper";
 import EventDetails from "@/components/EventDetails/EventDetails";
 import { useLocalSearchParams } from "expo-router";
 import React from "react";
@@ -8,11 +7,7 @@ const DetailScreen = () => {
 
   if (!eventId) return null;
 
-  return (
-    <AuthWrapper>
-      <EventDetails eventId={eventId} />
-    </AuthWrapper>
-  );
+  return <EventDetails eventId={eventId} />;
 };
 
 export default DetailScreen;

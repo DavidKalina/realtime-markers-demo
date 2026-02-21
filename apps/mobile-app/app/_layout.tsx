@@ -45,6 +45,7 @@ import {
   SplashScreenProvider,
   useSplashScreen,
 } from "@/contexts/SplashScreenContext";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { AnimatedSplashScreen } from "@/components/SplashScreen/SplashScreen";
@@ -115,6 +116,8 @@ function AppProviders({ children }: AppProvidersProps) {
 
 // App content component
 function AppContent({ children }: AppContentProps) {
+  // Centralized auth guard — replaces per-screen <AuthWrapper>
+  useAuthGuard();
   // Set up push notification listeners
   usePushNotifications();
 

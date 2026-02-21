@@ -1,5 +1,4 @@
 // scan.tsx - Refactored to use modular components
-import { AuthWrapper } from "@/components/AuthWrapper";
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import Screen from "@/components/Layout/Screen";
@@ -213,89 +212,84 @@ export default function ScanScreen() {
   }
 
   return (
-    <AuthWrapper>
-      <Screen
-        bannerEmoji="📸"
-        bannerTitle="Scan"
-        onBack={handleBack}
-        isScrollable={false}
-        noSafeArea={false}
-      >
-        {/* Camera container with fixed dimensions */}
-        <View style={styles.contentArea}>
-          <Animated.View
-            style={styles.cameraCard}
-            entering={FadeIn.duration(300)}
-          >
-            {isCameraActive ? (
-              <CameraView
-                ref={cameraRef}
-                style={styles.camera}
-                onCameraReady={onCameraReady}
-                flash={flashMode}
-              >
-                {/* Processing Overlay */}
-                <ProcessingOverlay
-                  isVisible={showProcessingOverlay}
-                  stage={processingStage}
-                  capturedImageUri={capturedImageUri}
-                />
+    <Screen
+      bannerEmoji="📸"
+      bannerTitle="Scan"
+      onBack={handleBack}
+      isScrollable={false}
+      noSafeArea={false}
+    >
+      {/* Camera container with fixed dimensions */}
+      <View style={styles.contentArea}>
+        <Animated.View
+          style={styles.cameraCard}
+          entering={FadeIn.duration(300)}
+        >
+          {isCameraActive ? (
+            <CameraView
+              ref={cameraRef}
+              style={styles.camera}
+              onCameraReady={onCameraReady}
+              flash={flashMode}
+            >
+              {/* Processing Overlay */}
+              <ProcessingOverlay
+                isVisible={showProcessingOverlay}
+                stage={processingStage}
+                capturedImageUri={capturedImageUri}
+              />
 
-                {/* Camera not ready indicator */}
-                {!isCameraReady && !showProcessingOverlay && (
-                  <View style={styles.cameraNotReadyOverlay}>
-                    <ActivityIndicator
-                      size="large"
-                      color={colors.fixed.white}
-                    />
-                    <Text style={styles.cameraNotReadyText}>
-                      Initializing camera...
-                    </Text>
-                  </View>
-                )}
+              {/* Camera not ready indicator */}
+              {!isCameraReady && !showProcessingOverlay && (
+                <View style={styles.cameraNotReadyOverlay}>
+                  <ActivityIndicator size="large" color={colors.fixed.white} />
+                  <Text style={styles.cameraNotReadyText}>
+                    Initializing camera...
+                  </Text>
+                </View>
+              )}
 
-                {/* No Scans Available Overlay */}
-                <NoScansOverlay
-                  isVisible={showNoScansOverlay && !showProcessingOverlay}
-                  onDismiss={() => setShowNoScansOverlay(false)}
-                  onUpgrade={() => {
-                    // TODO: Implement upgrade flow
-                    console.log("Upgrade to Pro");
-                  }}
-                />
-              </CameraView>
-            ) : (
-              <View style={styles.cameraPlaceholder}>
-                <ActivityIndicator size="large" color={colors.accent.primary} />
-                <Text style={styles.cameraPlaceholderText}>
-                  Initializing camera...
-                </Text>
-              </View>
-            )}
-          </Animated.View>
-        </View>
+              {/* No Scans Available Overlay */}
+              <NoScansOverlay
+                isVisible={showNoScansOverlay && !showProcessingOverlay}
+                onDismiss={() => setShowNoScansOverlay(false)}
+                onUpgrade={() => {
+                  // TODO: Implement upgrade flow
+                  console.log("Upgrade to Pro");
+                }}
+              />
+            </CameraView>
+          ) : (
+            <View style={styles.cameraPlaceholder}>
+              <ActivityIndicator size="large" color={colors.accent.primary} />
+              <Text style={styles.cameraPlaceholderText}>
+                Initializing camera...
+              </Text>
+            </View>
+          )}
+        </Animated.View>
+      </View>
 
-        {/* Fixed height container for controls */}
-        <View style={styles.controlsContainer}>
-          <CameraControls
-            onCapture={onCapture}
-            onImageSelected={onImageSelected}
-            isCapturing={isScanCapturing || isProcessing}
-            isReady={isCameraReady}
-            flashMode={flashMode}
-            onFlashToggle={toggleFlash}
-            disabled={!isCameraReady || isProcessing || showProcessingOverlay}
-          />
+      {/* Fixed height container for controls */}
+      <View style={styles.controlsContainer}>
+        <CameraControls
+          onCapture={onCapture}
+          onImageSelected={onImageSelected}
+          isCapturing={isScanCapturing || isProcessing}
+          isReady={isCameraReady}
+          flashMode={flashMode}
+          onFlashToggle={toggleFlash}
+          disabled={!isCameraReady || isProcessing || showProcessingOverlay}
+        />
 
-          {/* Simulation button for testing in development */}
-          <SimulationButton
-            isVisible={__DEV__ && !showProcessingOverlay}
-            isMounted={isMounted}
-            onSimulateCapture={simulateCapture}
-          />
-        </View>
-      </Screen>
-    </AuthWrapper>
+        {/* Simulation button for testing in development */}
+        <SimulationButton
+          isVisible={__DEV__ && !showProcessingOverlay}
+          isMounted={isMounted}
+          onSimulateCapture={simulateCapture}
+        />
+      </View>
+    </Screen>
   );
 }
 

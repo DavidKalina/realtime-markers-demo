@@ -34,7 +34,6 @@ import {
   fontFamily,
 } from "@/theme";
 import MapMojiHeader from "../AnimationHeader";
-import { AuthWrapper } from "../AuthWrapper";
 import Input from "../Input/Input";
 import { OAuthButtons } from "./OAuthButtons";
 
@@ -91,7 +90,7 @@ const Login: React.FC = () => {
     try {
       await login(email, password);
       // Keep loading state until navigation completes
-      // The AuthWrapper will handle the navigation
+      // The auth guard will handle the navigation
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -415,110 +414,105 @@ const Login: React.FC = () => {
   });
 
   return (
-    <AuthWrapper requireAuth={false}>
-      <SafeAreaView style={styles.container}>
-        <StatusBar
-          barStyle="light-content"
-          backgroundColor={colors.bg.primary}
-        />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg.primary} />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardAvoidingView}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(100).springify()}
+            style={styles.contentContainer}
           >
+            <MapMojiHeader />
+
             <Animated.View
-              entering={FadeInDown.duration(600).delay(100).springify()}
-              style={styles.contentContainer}
+              entering={FadeInDown.duration(600).delay(300).springify()}
+              layout={LinearTransition.springify()}
+              style={styles.formContainer}
             >
-              <MapMojiHeader />
-
               <Animated.View
-                entering={FadeInDown.duration(600).delay(300).springify()}
                 layout={LinearTransition.springify()}
-                style={styles.formContainer}
+                style={styles.formCard}
               >
-                <Animated.View
-                  layout={LinearTransition.springify()}
-                  style={styles.formCard}
-                >
-                  {error && (
-                    <View style={styles.errorContainer}>
-                      <Text style={styles.errorText}>{error}</Text>
-                    </View>
-                  )}
-
-                  <View style={{ gap: spacing.lg }}>
-                    <Input
-                      ref={emailInputRef}
-                      icon={Mail}
-                      placeholder="Email address"
-                      value={email}
-                      onChangeText={setEmail}
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      autoCorrect={false}
-                      keyboardType="email-address"
-                      returnKeyType="next"
-                      onSubmitEditing={() => passwordInputRef.current?.focus()}
-                      delay={300}
-                    />
-
-                    <Input
-                      ref={passwordInputRef}
-                      icon={Lock}
-                      rightIcon={showPassword ? EyeOff : Eye}
-                      onRightIconPress={togglePasswordVisibility}
-                      placeholder="Password"
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry={!showPassword}
-                      returnKeyType="done"
-                      onSubmitEditing={handleLogin}
-                      delay={400}
-                    />
+                {error && (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{error}</Text>
                   </View>
+                )}
 
-                  <View style={styles.loginButtonContainer}>
-                    <Animated.View style={buttonAnimatedStyle}>
-                      <TouchableOpacity
-                        onPress={handleLoginPress}
-                        disabled={isLoading}
-                        activeOpacity={0.7}
-                        style={styles.loginButton}
-                      >
-                        {isLoading ? (
-                          <ActivityIndicator
-                            size="small"
-                            color={colors.text.primary}
-                          />
-                        ) : (
-                          <Text style={styles.loginButtonText}>Login</Text>
-                        )}
-                      </TouchableOpacity>
-                    </Animated.View>
-                  </View>
+                <View style={{ gap: spacing.lg }}>
+                  <Input
+                    ref={emailInputRef}
+                    icon={Mail}
+                    placeholder="Email address"
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordInputRef.current?.focus()}
+                    delay={300}
+                  />
 
-                  <View style={styles.createAccountContainer}>
-                    <Text style={styles.createAccountText}>
-                      Don't have an account?{" "}
-                    </Text>
-                    <TouchableOpacity onPress={handleCreateAccount}>
-                      <Text style={styles.createAccountLink}>Create one</Text>
+                  <Input
+                    ref={passwordInputRef}
+                    icon={Lock}
+                    rightIcon={showPassword ? EyeOff : Eye}
+                    onRightIconPress={togglePasswordVisibility}
+                    placeholder="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    returnKeyType="done"
+                    onSubmitEditing={handleLogin}
+                    delay={400}
+                  />
+                </View>
+
+                <View style={styles.loginButtonContainer}>
+                  <Animated.View style={buttonAnimatedStyle}>
+                    <TouchableOpacity
+                      onPress={handleLoginPress}
+                      disabled={isLoading}
+                      activeOpacity={0.7}
+                      style={styles.loginButton}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.text.primary}
+                        />
+                      ) : (
+                        <Text style={styles.loginButtonText}>Login</Text>
+                      )}
                     </TouchableOpacity>
-                  </View>
+                  </Animated.View>
+                </View>
 
-                  <OAuthButtons onError={handleOAuthError} />
-                </Animated.View>
+                <View style={styles.createAccountContainer}>
+                  <Text style={styles.createAccountText}>
+                    Don't have an account?{" "}
+                  </Text>
+                  <TouchableOpacity onPress={handleCreateAccount}>
+                    <Text style={styles.createAccountLink}>Create one</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <OAuthButtons onError={handleOAuthError} />
               </Animated.View>
             </Animated.View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </AuthWrapper>
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 

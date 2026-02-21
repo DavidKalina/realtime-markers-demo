@@ -1,5 +1,4 @@
 /* eslint-disable prefer-const */
-import { AuthWrapper } from "@/components/AuthWrapper";
 import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { colors } from "@/theme";
@@ -308,57 +307,55 @@ function HomeScreen() {
   );
 
   return (
-    <AuthWrapper>
-      <View style={styles.container}>
-        {/* Show loading overlay for both location loading and map loading */}
-        {(isLoadingLocation || isMapLoading) && (
-          <LoadingOverlay
-            message={
-              isMapLoading
-                ? "Loading map..."
-                : isLoadingLocation
-                  ? "Finding your location..."
-                  : "Loading..."
-            }
-            subMessage={
-              isMapLoading
-                ? "Preparing your view"
-                : isLoadingLocation
-                  ? "We'll show you events nearby"
-                  : "Please wait"
-            }
+    <View style={styles.container}>
+      {/* Show loading overlay for both location loading and map loading */}
+      {(isLoadingLocation || isMapLoading) && (
+        <LoadingOverlay
+          message={
+            isMapLoading
+              ? "Loading map..."
+              : isLoadingLocation
+                ? "Finding your location..."
+                : "Loading..."
+          }
+          subMessage={
+            isMapLoading
+              ? "Preparing your view"
+              : isLoadingLocation
+                ? "We'll show you events nearby"
+                : "Please wait"
+          }
+        />
+      )}
+
+      {statusBarSection}
+
+      <View style={styles.mapContainer}>
+        <MapboxGL.MapView
+          onTouchStart={handleUserPan}
+          onPress={handleMapPress}
+          onLongPress={handleMapLongPress}
+          ref={mapRef}
+          styleURL={mapStyle}
+          onDidFinishLoadingMap={handleMapReady}
+          onRegionIsChanging={handleRegionChanging}
+          {...mapViewProps}
+        >
+          <MapboxGL.Camera
+            ref={cameraRef}
+            defaultSettings={cameraSettings}
+            {...cameraProps}
           />
-        )}
+          {markersComponent}
+          {userLocationLayer}
+          {viewportRectangleComponent}
+        </MapboxGL.MapView>
 
-        {statusBarSection}
+        {rippleEffectComponent}
 
-        <View style={styles.mapContainer}>
-          <MapboxGL.MapView
-            onTouchStart={handleUserPan}
-            onPress={handleMapPress}
-            onLongPress={handleMapLongPress}
-            ref={mapRef}
-            styleURL={mapStyle}
-            onDidFinishLoadingMap={handleMapReady}
-            onRegionIsChanging={handleRegionChanging}
-            {...mapViewProps}
-          >
-            <MapboxGL.Camera
-              ref={cameraRef}
-              defaultSettings={cameraSettings}
-              {...cameraProps}
-            />
-            {markersComponent}
-            {userLocationLayer}
-            {viewportRectangleComponent}
-          </MapboxGL.MapView>
-
-          {rippleEffectComponent}
-
-          {floatingButtonsSection}
-        </View>
+        {floatingButtonsSection}
       </View>
-    </AuthWrapper>
+    </View>
   );
 }
 

@@ -1,4 +1,3 @@
-import { AuthWrapper } from "@/components/AuthWrapper";
 import MapMojiHeader from "@/components/AnimationHeader";
 import Input from "@/components/Input/Input";
 import { OAuthButtons } from "@/components/Login/OAuthButtons";
@@ -134,159 +133,152 @@ const RegisterScreen: React.FC = () => {
   };
 
   return (
-    <AuthWrapper requireAuth={false}>
-      <SafeAreaView style={styles.container}>
-        <StatusBar
-          barStyle="light-content"
-          backgroundColor={colors.bg.primary}
-        />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg.primary} />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardAvoidingView}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(100).springify()}
+            style={styles.contentContainer}
           >
+            <MapMojiHeader />
+
             <Animated.View
-              entering={FadeInDown.duration(600).delay(100).springify()}
-              style={styles.contentContainer}
+              entering={FadeInDown.duration(600).delay(300).springify()}
+              layout={LinearTransition.springify()}
+              style={styles.formContainer}
             >
-              <MapMojiHeader />
-
               <Animated.View
-                entering={FadeInDown.duration(600).delay(300).springify()}
                 layout={LinearTransition.springify()}
-                style={styles.formContainer}
+                style={styles.formCard}
               >
-                <Animated.View
-                  layout={LinearTransition.springify()}
-                  style={styles.formCard}
-                >
-                  {error && (
-                    <View style={styles.errorContainer}>
-                      <Text style={styles.errorText}>{error}</Text>
-                    </View>
-                  )}
-
-                  <View style={{ gap: spacing.lg }}>
-                    <Input
-                      ref={firstNameRef}
-                      icon={User}
-                      placeholder="First Name"
-                      value={firstName}
-                      onChangeText={setFirstName}
-                      autoCapitalize="words"
-                      autoComplete="given-name"
-                      returnKeyType="next"
-                      onSubmitEditing={() => lastNameRef.current?.focus()}
-                      delay={200}
-                    />
-
-                    <Input
-                      ref={lastNameRef}
-                      icon={User}
-                      placeholder="Last Name"
-                      value={lastName}
-                      onChangeText={setLastName}
-                      autoCapitalize="words"
-                      autoComplete="family-name"
-                      returnKeyType="next"
-                      onSubmitEditing={() => emailRef.current?.focus()}
-                      delay={250}
-                    />
-
-                    <Input
-                      ref={emailRef}
-                      icon={Mail}
-                      placeholder="Email address"
-                      value={email}
-                      onChangeText={setEmail}
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      autoCorrect={false}
-                      keyboardType="email-address"
-                      returnKeyType="next"
-                      onSubmitEditing={() => passwordRef.current?.focus()}
-                      delay={300}
-                    />
-
-                    <Input
-                      ref={passwordRef}
-                      icon={Lock}
-                      rightIcon={showPassword ? EyeOff : Eye}
-                      onRightIconPress={togglePasswordVisibility}
-                      placeholder="Password"
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry={!showPassword}
-                      returnKeyType="next"
-                      onSubmitEditing={() =>
-                        confirmPasswordRef.current?.focus()
-                      }
-                      delay={350}
-                    />
-
-                    <Input
-                      ref={confirmPasswordRef}
-                      icon={Lock}
-                      rightIcon={showConfirmPassword ? EyeOff : Eye}
-                      onRightIconPress={toggleConfirmPasswordVisibility}
-                      placeholder="Confirm Password"
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      secureTextEntry={!showConfirmPassword}
-                      returnKeyType="done"
-                      onSubmitEditing={handleRegister}
-                      delay={400}
-                    />
+                {error && (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{error}</Text>
                   </View>
+                )}
 
-                  <View style={styles.buttonContainer}>
-                    <Animated.View style={buttonAnimatedStyle}>
-                      <TouchableOpacity
-                        onPress={handleRegisterPress}
-                        disabled={isLoading}
-                        activeOpacity={0.7}
-                        style={styles.registerButton}
-                      >
-                        {isLoading ? (
-                          <ActivityIndicator
-                            size="small"
-                            color={colors.text.primary}
-                          />
-                        ) : (
-                          <Text style={styles.registerButtonText}>
-                            Create Account
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    </Animated.View>
-                  </View>
+                <View style={{ gap: spacing.lg }}>
+                  <Input
+                    ref={firstNameRef}
+                    icon={User}
+                    placeholder="First Name"
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    autoCapitalize="words"
+                    autoComplete="given-name"
+                    returnKeyType="next"
+                    onSubmitEditing={() => lastNameRef.current?.focus()}
+                    delay={200}
+                  />
 
-                  <View style={styles.loginLinkContainer}>
-                    <Text style={styles.loginLinkText}>
-                      Already have an account?{" "}
-                    </Text>
+                  <Input
+                    ref={lastNameRef}
+                    icon={User}
+                    placeholder="Last Name"
+                    value={lastName}
+                    onChangeText={setLastName}
+                    autoCapitalize="words"
+                    autoComplete="family-name"
+                    returnKeyType="next"
+                    onSubmitEditing={() => emailRef.current?.focus()}
+                    delay={250}
+                  />
+
+                  <Input
+                    ref={emailRef}
+                    icon={Mail}
+                    placeholder="Email address"
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordRef.current?.focus()}
+                    delay={300}
+                  />
+
+                  <Input
+                    ref={passwordRef}
+                    icon={Lock}
+                    rightIcon={showPassword ? EyeOff : Eye}
+                    onRightIconPress={togglePasswordVisibility}
+                    placeholder="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    returnKeyType="next"
+                    onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                    delay={350}
+                  />
+
+                  <Input
+                    ref={confirmPasswordRef}
+                    icon={Lock}
+                    rightIcon={showConfirmPassword ? EyeOff : Eye}
+                    onRightIconPress={toggleConfirmPasswordVisibility}
+                    placeholder="Confirm Password"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                    returnKeyType="done"
+                    onSubmitEditing={handleRegister}
+                    delay={400}
+                  />
+                </View>
+
+                <View style={styles.buttonContainer}>
+                  <Animated.View style={buttonAnimatedStyle}>
                     <TouchableOpacity
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        router.push("/login");
-                      }}
+                      onPress={handleRegisterPress}
+                      disabled={isLoading}
+                      activeOpacity={0.7}
+                      style={styles.registerButton}
                     >
-                      <Text style={styles.loginLink}>Login</Text>
+                      {isLoading ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.text.primary}
+                        />
+                      ) : (
+                        <Text style={styles.registerButtonText}>
+                          Create Account
+                        </Text>
+                      )}
                     </TouchableOpacity>
-                  </View>
+                  </Animated.View>
+                </View>
 
-                  <OAuthButtons onError={handleOAuthError} />
-                </Animated.View>
+                <View style={styles.loginLinkContainer}>
+                  <Text style={styles.loginLinkText}>
+                    Already have an account?{" "}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      router.push("/login");
+                    }}
+                  >
+                    <Text style={styles.loginLink}>Login</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <OAuthButtons onError={handleOAuthError} />
               </Animated.View>
             </Animated.View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </AuthWrapper>
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 

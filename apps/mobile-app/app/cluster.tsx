@@ -1,4 +1,3 @@
-import { AuthWrapper } from "@/components/AuthWrapper";
 import ClusterEventsView from "@/components/ClusterEventsView/ClusterEventsView";
 import { useLocalSearchParams } from "expo-router";
 import React from "react";
@@ -12,11 +11,7 @@ const ClusterEventsScreen = () => {
     ? JSON.parse(decodeURIComponent(eventsParam))
     : [];
 
-  return (
-    <AuthWrapper>
-      <ClusterEventsView events={events} isLoading={false} error={null} />
-    </AuthWrapper>
-  );
+  return <ClusterEventsView events={events} isLoading={false} error={null} />;
 };
 
 export default ClusterEventsScreen;

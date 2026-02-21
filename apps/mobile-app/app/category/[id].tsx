@@ -8,7 +8,6 @@ import EventListItem, {
 } from "@/components/Event/EventListItem";
 import { apiClient } from "@/services/ApiClient";
 import { Category } from "@/services/api/base/types";
-import { AuthWrapper } from "@/components/AuthWrapper";
 
 // Type for events from the API
 type EventListItemType = Omit<EventListItemProps, "onPress">;
@@ -116,30 +115,28 @@ const CategoryEventsScreen = () => {
   }, [fetchEvents]);
 
   return (
-    <AuthWrapper>
-      <Screen
-        isScrollable={false}
-        bannerTitle={category?.name || "Category Events"}
-        bannerDescription={`Events in ${category?.name || "this category"}`}
-        bannerEmoji={category?.emoji || "📅"}
-        showBackButton
-        onBack={handleBack}
-        noAnimation
-      >
-        <InfiniteScrollFlatList
-          data={events}
-          renderItem={renderEventItem}
-          fetchMoreData={handleLoadMore}
-          onRefresh={handleRefresh}
-          isLoading={isLoading}
-          isRefreshing={isLoading && events.length === 0}
-          hasMore={hasMore && !error}
-          error={error}
-          emptyListMessage="No events found in this category"
-          onRetry={handleRefresh}
-        />
-      </Screen>
-    </AuthWrapper>
+    <Screen
+      isScrollable={false}
+      bannerTitle={category?.name || "Category Events"}
+      bannerDescription={`Events in ${category?.name || "this category"}`}
+      bannerEmoji={category?.emoji || "📅"}
+      showBackButton
+      onBack={handleBack}
+      noAnimation
+    >
+      <InfiniteScrollFlatList
+        data={events}
+        renderItem={renderEventItem}
+        fetchMoreData={handleLoadMore}
+        onRefresh={handleRefresh}
+        isLoading={isLoading}
+        isRefreshing={isLoading && events.length === 0}
+        hasMore={hasMore && !error}
+        error={error}
+        emptyListMessage="No events found in this category"
+        onRetry={handleRefresh}
+      />
+    </Screen>
   );
 };
 
