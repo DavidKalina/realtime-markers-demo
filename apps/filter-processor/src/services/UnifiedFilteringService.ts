@@ -89,7 +89,6 @@ export function createUnifiedFilteringService(
         }
       }
 
-
       console.log(
         `[UnifiedFiltering] Publishing unified message to user ${userId}:`,
         {
@@ -251,7 +250,6 @@ export function createUnifiedFilteringService(
     return filteredEvents;
   }
 
-
   /**
    * Apply MapMoji filtering algorithm
    */
@@ -334,7 +332,6 @@ export function createUnifiedFilteringService(
 
     return eventsWithScores;
   }
-
 
   /**
    * Get current statistics

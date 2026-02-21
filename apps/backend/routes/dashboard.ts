@@ -737,4 +737,3 @@ dashboardRouter.get("/upcoming-events", async (c) => {
     );
   }
 });
-

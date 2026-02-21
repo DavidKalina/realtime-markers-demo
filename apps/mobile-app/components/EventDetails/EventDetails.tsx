@@ -34,6 +34,7 @@ import EventEngagementDisplay from "./EventEngagementDisplay";
 import EventMapPreview from "./EventMapPreview";
 import LoadingEventDetails from "./LoadingEventDetails";
 import { styles } from "./styles";
+import { formatRecurrenceFrequency, formatRecurrenceDays } from "./formatters";
 import { useEventDetails } from "./useEventDetails";
 import { useEventEngagement } from "./useEventEngagement";
 
@@ -62,11 +63,7 @@ const InfoCard = memo(
         <View style={styles.infoCardHeader}>
           {Icon && (
             <View style={styles.infoCardIcon}>
-              <Icon
-                size={18}
-                color={COLORS.accent}
-                strokeWidth={2}
-              />
+              <Icon size={18} color={COLORS.accent} strokeWidth={2} />
             </View>
           )}
           {title && <Text style={styles.infoCardTitle}>{title}</Text>}
@@ -151,30 +148,6 @@ const ActionButton = memo(
     );
   },
 );
-
-// Memoize helper functions
-const formatRecurrenceFrequency = (frequency?: string): string => {
-  if (!frequency) return "";
-  switch (frequency) {
-    case "DAILY":
-      return "Daily";
-    case "WEEKLY":
-      return "Weekly";
-    case "BIWEEKLY":
-      return "Every 2 weeks";
-    case "MONTHLY":
-      return "Monthly";
-    case "YEARLY":
-      return "Yearly";
-    default:
-      return frequency.toLowerCase();
-  }
-};
-
-const formatRecurrenceDays = (days?: string[]): string => {
-  if (!days || days.length === 0) return "";
-  return days.join(", ");
-};
 
 // Memoize the main component
 const EventDetails: React.FC<EventDetailsProps> = memo(

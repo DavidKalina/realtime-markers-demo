@@ -119,7 +119,6 @@ docker-compose down -v --rmi all
 ### Step 1: Create Droplet
 
 1. **Create a new droplet:**
-
    - **Image**: Ubuntu 22.04 LTS
    - **Size**: Basic → Regular → 2GB RAM / 1 vCPU (minimum)
    - **Region**: Choose closest to your users

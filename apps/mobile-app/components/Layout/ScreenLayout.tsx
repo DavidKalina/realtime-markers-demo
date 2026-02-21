@@ -7,28 +7,31 @@ import {
   ViewStyle,
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
+import { colors } from "@/theme";
 
-// Peak dark theme colors
+// Backward-compatible bridge to new theme tokens.
+// All 55+ files import COLORS from here; this mapping keeps them working
+// while we migrate each file to import from @/theme directly.
 export const COLORS = {
-  background: "#1a1a1a",
-  cardBackground: "#2a2a2a",
-  cardBackgroundAlt: "#232323",
-  textPrimary: "#f8f9fa",
-  textSecondary: "#a0a0a0",
-  accent: "#93c5fd",
-  accentDark: "#3b82f6",
-  divider: "rgba(255, 255, 255, 0.08)",
-  buttonBackground: "rgba(255, 255, 255, 0.05)",
-  buttonBorder: "rgba(255, 255, 255, 0.1)",
-  shadow: "rgba(0, 0, 0, 0.5)",
+  background: colors.bg.primary,
+  cardBackground: colors.bg.card,
+  cardBackgroundAlt: colors.bg.cardAlt,
+  textPrimary: colors.text.primary,
+  textSecondary: colors.text.secondary,
+  accent: colors.accent.primary,
+  accentDark: colors.accent.dark,
+  divider: colors.border.default,
+  buttonBackground: colors.border.subtle,
+  buttonBorder: colors.border.medium,
+  shadow: colors.shadow.default,
   // Warning colors
-  warningBackground: "rgba(251, 191, 36, 0.1)",
-  warningBorder: "rgba(251, 191, 36, 0.3)",
-  warningText: "#d97706",
+  warningBackground: colors.status.warning.bg,
+  warningBorder: colors.status.warning.border,
+  warningText: colors.status.warning.text,
   // Error colors
-  errorBackground: "rgba(248, 113, 113, 0.1)",
-  errorBorder: "rgba(248, 113, 113, 0.3)",
-  errorText: "#f87171",
+  errorBackground: colors.status.error.bg,
+  errorBorder: colors.status.error.border,
+  errorText: colors.status.error.text,
 };
 
 interface ScreenLayoutProps {

@@ -196,7 +196,6 @@ export class EventPublisher {
     }
   }
 
-
   private stripSensitiveData(event: Event): Omit<Event, "embedding"> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { embedding, ...eventWithoutEmbedding } = event;

@@ -200,12 +200,10 @@ For Android, the necessary permissions are automatically added by expo-notificat
 ### Common Issues
 
 1. **Permissions Denied**
-
    - Check if user denied permissions
    - Guide user to Settings to enable notifications
 
 2. **Token Registration Fails**
-
    - Check network connectivity
    - Verify backend API is running
    - Check authentication state

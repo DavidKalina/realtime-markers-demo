@@ -2,11 +2,10 @@ import React from "react";
 import {
   TouchableOpacity,
   Text,
-  StyleSheet,
   ViewStyle,
   TextStyle,
   ActivityIndicator,
-  View,
+  ColorValue,
 } from "react-native";
 import { COLORS } from "./ScreenLayout";
 
@@ -29,6 +28,11 @@ interface ButtonProps {
   fullWidth?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  icon?: React.ComponentType<{
+    size?: number;
+    color?: string | ColorValue;
+    strokeWidth?: number;
+  }>;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -41,6 +45,7 @@ const Button: React.FC<ButtonProps> = ({
   fullWidth = false,
   style,
   textStyle,
+  icon: Icon,
 }) => {
   const getButtonStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
@@ -49,6 +54,7 @@ const Button: React.FC<ButtonProps> = ({
       alignItems: "center",
       justifyContent: "center",
       flexDirection: "row",
+      gap: Icon ? 8 : 0,
     };
 
     // Size variations
@@ -168,7 +174,7 @@ const Button: React.FC<ButtonProps> = ({
     };
   };
 
-  const getLoadingColor = (): string => {
+  const getIconColor = (): string => {
     switch (variant) {
       case "primary":
         return COLORS.background;
@@ -183,6 +189,12 @@ const Button: React.FC<ButtonProps> = ({
     }
   };
 
+  const getLoadingColor = (): string => {
+    return getIconColor();
+  };
+
+  const iconSize = size === "small" ? 14 : size === "medium" ? 16 : 20;
+
   return (
     <TouchableOpacity
       style={[getButtonStyle(), style]}
@@ -194,8 +206,11 @@ const Button: React.FC<ButtonProps> = ({
         <ActivityIndicator
           size="small"
           color={getLoadingColor()}
-          style={{ marginRight: 8 }}
+          style={{ marginRight: Icon ? 0 : 8 }}
         />
+      )}
+      {!loading && Icon && (
+        <Icon size={iconSize} color={getIconColor()} strokeWidth={2} />
       )}
       <Text style={[getTextStyle(), textStyle]}>
         {loading ? "Loading..." : title}
@@ -204,93 +219,4 @@ const Button: React.FC<ButtonProps> = ({
   );
 };
 
-// Usage Examples Component
-const ButtonExamples: React.FC = () => {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.heading}>Button Variants</Text>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Primary Buttons</Text>
-        <Button
-          title="Primary Small"
-          variant="primary"
-          size="small"
-          onPress={() => {}}
-        />
-        <Button
-          title="Primary Medium"
-          variant="primary"
-          size="medium"
-          onPress={() => {}}
-        />
-        <Button
-          title="Primary Large"
-          variant="primary"
-          size="large"
-          onPress={() => {}}
-        />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Secondary Buttons</Text>
-        <Button title="Secondary" variant="secondary" onPress={() => {}} />
-        <Button title="Outline" variant="outline" onPress={() => {}} />
-        <Button title="Ghost" variant="ghost" onPress={() => {}} />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Status Buttons</Text>
-        <Button title="Warning" variant="warning" onPress={() => {}} />
-        <Button title="Error" variant="error" onPress={() => {}} />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>States</Text>
-        <Button
-          title="Disabled"
-          variant="primary"
-          disabled
-          onPress={() => {}}
-        />
-        <Button title="Loading" variant="primary" loading onPress={() => {}} />
-        <Button
-          title="Full Width"
-          variant="primary"
-          fullWidth
-          onPress={() => {}}
-        />
-      </View>
-    </View>
-  );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    padding: 20,
-  },
-  heading: {
-    fontSize: 24,
-    fontFamily: "SpaceMono",
-    fontWeight: "bold",
-    color: COLORS.textPrimary,
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  section: {
-    marginBottom: 24,
-    gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-    fontWeight: "600",
-    color: COLORS.textSecondary,
-    marginBottom: 8,
-  },
-});
-
 export default Button;
-export { ButtonExamples };

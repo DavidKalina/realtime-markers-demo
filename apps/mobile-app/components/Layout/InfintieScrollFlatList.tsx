@@ -8,11 +8,10 @@ import {
   StyleSheet,
 } from "react-native";
 
-interface InfiniteScrollFlatListProps<T>
-  extends Omit<
-    FlatListProps<T>,
-    "data" | "renderItem" | "onRefresh" | "refreshing"
-  > {
+interface InfiniteScrollFlatListProps<T> extends Omit<
+  FlatListProps<T>,
+  "data" | "renderItem" | "onRefresh" | "refreshing"
+> {
   data: T[];
   renderItem: (item: T, index: number) => React.ReactElement;
   fetchMoreData: () => Promise<void>;

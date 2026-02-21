@@ -1,6 +1,5 @@
 // components/Markers/ClusteredMapMarkers.tsx
 import { useEventBroker } from "@/hooks/useEventBroker";
-import { Marker } from "@/hooks/useMapWebsocket";
 import {
   ClusterFeature,
   PointFeature,
@@ -14,7 +13,8 @@ import {
   MapItemEvent,
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
-import { MapboxViewport } from "@/types/types";
+import { Marker, MapboxViewport } from "@/types/types";
+import type { MapItem, MarkerItem, ClusterItem } from "@/types/map";
 import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useMemo, useEffect } from "react";
 import Animated, {
@@ -28,26 +28,6 @@ import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { markerToEvent } from "@/utils/mapUtils";
-
-// Define the map item types from the store (ideally these would be imported from a types file)
-interface BaseMapItem {
-  id: string;
-  coordinates: [number, number];
-  type: "marker" | "cluster";
-}
-
-interface MarkerItem extends BaseMapItem {
-  type: "marker";
-  data: Marker["data"];
-}
-
-interface ClusterItem extends BaseMapItem {
-  type: "cluster";
-  count: number;
-  childrenIds?: string[];
-}
-
-type MapItem = MarkerItem | ClusterItem;
 
 interface ClusteredMapMarkersProps {
   markers?: Marker[];

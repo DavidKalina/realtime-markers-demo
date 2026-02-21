@@ -5,12 +5,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { InteractiveMap } from "@/components/map/InteractiveMap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocationStore } from "@/stores/useLocationStoreWeb";
-import {
-  Calendar,
-  Layers,
-  MapPin,
-  Users,
-} from "lucide-react";
+import { Calendar, Layers, MapPin, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 

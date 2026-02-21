@@ -7,8 +7,10 @@ import {
 import type { EventPublisher } from "../src/handlers/EventPublisher";
 
 // Create mock types that preserve mock methods while being compatible with real interfaces
-interface MockEventPublisher
-  extends Pick<EventPublisher, "publishFilteredEvents"> {
+interface MockEventPublisher extends Pick<
+  EventPublisher,
+  "publishFilteredEvents"
+> {
   publishFilteredEvents: ReturnType<typeof mock>;
 }
 

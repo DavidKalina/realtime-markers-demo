@@ -169,12 +169,7 @@ interface TabConfig {
 }
 
 // Define route type to match expo-router's expected types
-type AppRoute =
-  | "/search"
-  | "/scan"
-  | "/saved"
-  | "/user"
-  | "/";
+type AppRoute = "/search" | "/scan" | "/saved" | "/user" | "/";
 
 // Define all possible tabs in a single configuration object
 const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {

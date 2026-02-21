@@ -355,8 +355,8 @@ export interface FilterUpdateInput {
   };
 }
 
-// Event types
-export interface EventType {
+// API-layer event type (distinct from types/types.ts EventType used across the app)
+export interface ApiEventType {
   id: string;
   title: string;
   description?: string;

@@ -1,4 +1,5 @@
 import { EventType } from "@/types/types";
+import { COLORS } from "@/components/Layout/ScreenLayout";
 import { Calendar, ChevronRight, MapPin } from "lucide-react-native";
 import React, { useCallback } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -10,21 +11,6 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-
-// Unified color theme
-const COLORS = {
-  background: "#1a1a1a",
-  cardBackground: "#2a2a2a",
-  cardBackgroundAlt: "#232323",
-  textPrimary: "#f8f9fa",
-  textSecondary: "#a0a0a0",
-  accent: "#93c5fd",
-  accentDark: "#3b82f6",
-  divider: "rgba(255, 255, 255, 0.08)",
-  buttonBackground: "rgba(147, 197, 253, 0.1)",
-  buttonBorder: "rgba(255, 255, 255, 0.05)",
-  shadow: "rgba(0, 0, 0, 0.5)",
-};
 
 interface EventItemProps {
   event: EventType;

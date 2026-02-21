@@ -284,7 +284,6 @@ export default function ScanScreen() {
             onSimulateCapture={simulateCapture}
           />
         </View>
-
       </Screen>
     </AuthWrapper>
   );

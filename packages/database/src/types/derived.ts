@@ -81,7 +81,7 @@ export interface EventMarkerData extends MarkerData {
 }
 
 // Typed marker variants
-export interface EventMarker extends Omit<Marker, 'data'> {
+export interface EventMarker extends Omit<Marker, "data"> {
   data: EventMarkerData;
 }
 
@@ -432,9 +432,4 @@ export type EntityRelations<T> = {
 // ENUM EXPORTS
 // ============================================================================
 
-export {
-  UserRole,
-  EventStatus,
-  RecurrenceFrequency,
-  DayOfWeek,
-};
+export { UserRole, EventStatus, RecurrenceFrequency, DayOfWeek };

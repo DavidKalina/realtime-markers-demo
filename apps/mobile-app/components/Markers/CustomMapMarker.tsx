@@ -1,4 +1,4 @@
-import { Marker } from "@/hooks/useMapWebsocket";
+import { Marker } from "@/types/types";
 import * as Haptics from "expo-haptics";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
@@ -73,7 +73,9 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
   ({ event, isSelected, onPress, index = 0 }) => {
     const isMountedRef = useRef(true);
     const animationTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
-    const animationIntervalsRef = useRef<Array<ReturnType<typeof setInterval>>>([]);
+    const animationIntervalsRef = useRef<Array<ReturnType<typeof setInterval>>>(
+      [],
+    );
 
     // Animation values
     const scale = useSharedValue(1);
@@ -113,16 +115,13 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
     }, []);
 
     // Track a timeout safely — only schedule if mounted, auto-track for cleanup
-    const safeTimeout = useCallback(
-      (fn: () => void, delay: number): void => {
-        if (!isMountedRef.current) return;
-        const timer = setTimeout(() => {
-          if (isMountedRef.current) fn();
-        }, delay);
-        animationTimersRef.current.push(timer);
-      },
-      [],
-    );
+    const safeTimeout = useCallback((fn: () => void, delay: number): void => {
+      if (!isMountedRef.current) return;
+      const timer = setTimeout(() => {
+        if (isMountedRef.current) fn();
+      }, delay);
+      animationTimersRef.current.push(timer);
+    }, []);
 
     // Initial mount animations
     useEffect(() => {
@@ -169,10 +168,13 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       safeTimeout(startFanAnimation, initialDelay);
 
       // Repeat every 4-6s with a random offset
-      const fanInterval = setInterval(() => {
-        const randomDelay = Math.random() * 2000;
-        safeTimeout(startFanAnimation, randomDelay);
-      }, 4000 + Math.random() * 2000);
+      const fanInterval = setInterval(
+        () => {
+          const randomDelay = Math.random() * 2000;
+          safeTimeout(startFanAnimation, randomDelay);
+        },
+        4000 + Math.random() * 2000,
+      );
       animationIntervalsRef.current.push(fanInterval);
 
       return () => {
@@ -200,15 +202,18 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
 
     // Occasional burst pop
     useEffect(() => {
-      const burstInterval = setInterval(() => {
-        const randomDelay = Math.random() * 2000;
-        safeTimeout(() => {
-          burstScale.value = withSequence(
-            withTiming(1.1, ANIMATIONS.BURST),
-            withTiming(1, ANIMATIONS.BURST),
-          );
-        }, randomDelay);
-      }, 8000 + Math.random() * 4000);
+      const burstInterval = setInterval(
+        () => {
+          const randomDelay = Math.random() * 2000;
+          safeTimeout(() => {
+            burstScale.value = withSequence(
+              withTiming(1.1, ANIMATIONS.BURST),
+              withTiming(1, ANIMATIONS.BURST),
+            );
+          }, randomDelay);
+        },
+        8000 + Math.random() * 4000,
+      );
       animationIntervalsRef.current.push(burstInterval);
 
       return () => {

@@ -1,7 +1,7 @@
 // hooks/useEventSearch.ts
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { apiClient } from "@/services/ApiClient";
-import { Marker } from "@/hooks/useMapWebsocket";
+import { Marker } from "@/types/types";
 import { EventType } from "@/types/types";
 import debounce from "lodash/debounce";
 

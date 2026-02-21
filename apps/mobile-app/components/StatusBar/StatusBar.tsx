@@ -1,11 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import React, { useMemo } from "react";
-import {
-  StatusBar as RNStatusBar,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { StatusBar as RNStatusBar, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";

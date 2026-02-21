@@ -111,9 +111,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               <User size={20} color={COLORS.accent} />
               <Text style={styles.sectionTitle}>Account Information</Text>
             </View>
-            <Text style={styles.sectionDescription}>
-              Your account details
-            </Text>
+            <Text style={styles.sectionDescription}>Your account details</Text>
             {profileData?.firstName && (
               <View style={styles.detailRow}>
                 <Text style={styles.label}>First Name</Text>
@@ -258,9 +256,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   true: COLORS.accent,
                 }}
                 thumbColor={
-                  mapSettings.isPitched
-                    ? COLORS.accent
-                    : COLORS.cardBackground
+                  mapSettings.isPitched ? COLORS.accent : COLORS.cardBackground
                 }
               />
             </View>

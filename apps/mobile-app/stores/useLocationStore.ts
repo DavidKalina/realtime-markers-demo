@@ -1,31 +1,9 @@
-// stores/useLocationStore.ts - Updated with unified selection model
+// stores/useLocationStore.ts - Unified selection model (legacy fields removed)
 import { create } from "zustand";
 import { EventType, MapboxViewport, Marker } from "@/types/types";
 import { markerToEvent, isValidCoordinates } from "@/utils/mapUtils";
 import { ClusterFeature } from "@/hooks/useMarkerClustering";
-
-// Define the base interface for map items (markers and clusters)
-interface BaseMapItem {
-  id: string;
-  coordinates: [number, number];
-  type: "marker" | "cluster";
-}
-
-// Marker-specific properties
-interface MarkerItem extends BaseMapItem {
-  type: "marker";
-  data: Marker["data"];
-}
-
-// Cluster-specific properties
-interface ClusterItem extends BaseMapItem {
-  type: "cluster";
-  count: number;
-  childrenIds?: string[]; // Optional IDs of markers in this cluster
-}
-
-// Union type for any selectable map item
-type MapItem = MarkerItem | ClusterItem;
+import type { MapItem, MarkerItem, ClusterItem } from "@/types/map";
 
 interface LocationStoreState {
   // Marker data
@@ -37,16 +15,6 @@ interface LocationStoreState {
 
   // Unified selection state
   selectedItem: MapItem | null;
-
-  // Legacy selection state (for backward compatibility)
-  selectedMarkerId: string | null;
-  selectedMarker: Marker | null;
-  selectedItemType: "marker" | "cluster" | null;
-  selectedCluster: {
-    id: string;
-    count: number;
-    coordinates: [number, number];
-  } | null;
 
   // Map state
   mapViewport: MapboxViewport | null;
@@ -64,7 +32,7 @@ interface LocationStoreState {
   selectMapItem: (item: MapItem | null) => void;
   isItemSelected: (id: string) => boolean;
 
-  // Legacy selection methods (for backward compatibility)
+  // Legacy selection methods (thin wrappers for backward compatibility)
   selectMarker: (markerId: string | null) => void;
   selectCluster: (cluster: ClusterFeature | null) => void;
 
@@ -89,12 +57,6 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
   // Unified selection state
   selectedItem: null,
 
-  // Legacy selection state (for backward compatibility)
-  selectedMarkerId: null,
-  selectedMarker: null,
-  selectedItemType: null,
-  selectedCluster: null,
-
   // Map state
   mapViewport: null,
   isConnected: false,
@@ -108,13 +70,15 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
   setMarkers: (markers) =>
     set((state) => {
       // If we have a selected marker, check if it still exists in new markers
-      const selectedExists = state.selectedMarkerId
-        ? markers.some((m) => m.id === state.selectedMarkerId)
+      const selectedId =
+        state.selectedItem?.type === "marker" ? state.selectedItem.id : null;
+      const selectedExists = selectedId
+        ? markers.some((m) => m.id === selectedId)
         : false;
 
       // Find the new selected marker if it exists
       const newSelectedMarker = selectedExists
-        ? markers.find((m) => m.id === state.selectedMarkerId) || null
+        ? markers.find((m) => m.id === selectedId) || null
         : null;
 
       // Sync the events with markers
@@ -122,7 +86,7 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
 
       // Update the unified selection if needed
       let newSelectedItem = state.selectedItem;
-      if (state.selectedItem?.type === "marker" && state.selectedMarkerId) {
+      if (state.selectedItem?.type === "marker" && selectedId) {
         if (selectedExists && newSelectedMarker) {
           // Update the marker item with new data
           newSelectedItem = {
@@ -139,12 +103,6 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
 
       return {
         markers,
-        // Deselect if marker no longer exists
-        selectedMarkerId: selectedExists ? state.selectedMarkerId : null,
-        selectedMarker: newSelectedMarker,
-        // Clear cluster selection when markers are updated
-        selectedItemType: selectedExists ? "marker" : null,
-        // Update the unified selection
         selectedItem: newSelectedItem,
         // Update events derived from markers
         events: newEvents,
@@ -168,73 +126,45 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
         }
       });
 
-      // Update selected marker if it was updated
-      const updatedSelectedMarker = state.selectedMarkerId
-        ? newMarkers.find((m) => m.id === state.selectedMarkerId) || null
-        : null;
-
       // Update the unified selection if needed
       let newSelectedItem = state.selectedItem;
-      if (state.selectedItem?.type === "marker" && updatedSelectedMarker) {
-        newSelectedItem = {
-          id: updatedSelectedMarker.id,
-          type: "marker",
-          coordinates: updatedSelectedMarker.coordinates,
-          data: updatedSelectedMarker.data,
-        };
+      if (state.selectedItem?.type === "marker") {
+        const updatedSelectedMarker = newMarkers.find(
+          (m) => m.id === state.selectedItem!.id,
+        );
+        if (updatedSelectedMarker) {
+          newSelectedItem = {
+            id: updatedSelectedMarker.id,
+            type: "marker",
+            coordinates: updatedSelectedMarker.coordinates,
+            data: updatedSelectedMarker.data,
+          };
+        }
       }
 
       return {
         markers: newMarkers,
-        selectedMarker: updatedSelectedMarker,
         selectedItem: newSelectedItem,
       };
     }),
 
   deleteMarker: (markerId) =>
     set((state) => {
-      // Check if we're deleting the currently selected marker
-      const isSelectedMarker = state.selectedMarkerId === markerId;
+      const isSelectedMarker =
+        state.selectedItem?.type === "marker" &&
+        state.selectedItem.id === markerId;
 
       return {
         markers: state.markers.filter((m) => m.id !== markerId),
-        selectedMarkerId: isSelectedMarker ? null : state.selectedMarkerId,
-        selectedMarker: isSelectedMarker ? null : state.selectedMarker,
-        selectedItemType: isSelectedMarker ? null : state.selectedItemType,
-        // Clear the unified selection if we're deleting the selected marker
-        selectedItem:
-          isSelectedMarker && state.selectedItem?.type === "marker"
-            ? null
-            : state.selectedItem,
+        selectedItem: isSelectedMarker ? null : state.selectedItem,
       };
     }),
 
   // Unified selection method
   selectMapItem: (item) =>
-    set((state) => {
-      // Update legacy selection state for backward compatibility
-      const legacyState = {
-        selectedMarkerId: item?.type === "marker" ? item.id : null,
-        selectedMarker:
-          item?.type === "marker"
-            ? state.markers.find((m) => m.id === item.id) || null
-            : null,
-        selectedCluster:
-          item?.type === "cluster"
-            ? {
-                id: item.id,
-                count: item.count,
-                coordinates: item.coordinates,
-              }
-            : null,
-        selectedItemType: item?.type || null,
-      };
-
-      return {
-        ...legacyState,
-        selectedItem: item,
-      };
-    }),
+    set(() => ({
+      selectedItem: item,
+    })),
 
   // Helper to check if an item is selected
   isItemSelected: (id) => {
@@ -242,23 +172,25 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
     return selectedItem?.id === id;
   },
 
-  // Legacy selection methods (adapted to use the unified selection)
+  // Legacy selection methods (thin wrappers delegating to selectMapItem)
   selectMarker: (markerId) =>
     set((state) => {
       // Skip if trying to select the same marker that's already selected
       if (
-        state.selectedMarkerId === markerId &&
-        state.selectedItemType === "marker"
+        state.selectedItem?.id === markerId &&
+        state.selectedItem?.type === "marker"
       ) {
         return state; // No change needed
       }
 
-      const selectedMarker = markerId
-        ? state.markers.find((m) => m.id === markerId) || null
-        : null;
+      if (!markerId) {
+        return { selectedItem: null };
+      }
 
-      // Create the unified map item
-      const selectedItem = selectedMarker
+      const selectedMarker =
+        state.markers.find((m) => m.id === markerId) || null;
+
+      const selectedItem: MarkerItem | null = selectedMarker
         ? {
             id: selectedMarker.id,
             type: "marker" as const,
@@ -267,25 +199,13 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
           }
         : null;
 
-      return {
-        selectedMarkerId: markerId,
-        selectedMarker: selectedMarker,
-        selectedItemType: markerId ? "marker" : null,
-        selectedCluster: null,
-        selectedItem: selectedItem,
-      };
+      return { selectedItem };
     }),
 
   selectCluster: (cluster) =>
     set(() => {
       if (!cluster) {
-        return {
-          selectedCluster: null,
-          selectedItemType: null,
-          selectedMarkerId: null,
-          selectedMarker: null,
-          selectedItem: null,
-        };
+        return { selectedItem: null };
       }
 
       // Extract cluster information
@@ -294,29 +214,15 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
       const coordinates = cluster.geometry.coordinates as [number, number];
       const childMarkers = cluster.properties.childMarkers || [];
 
-      // Create the unified cluster item
       const selectedItem: ClusterItem = {
         id: clusterId,
         type: "cluster",
         coordinates,
         count,
-        childrenIds: childMarkers, // Ensure childMarkers are passed through
+        childrenIds: childMarkers,
       };
 
-      return {
-        // Store cluster information in legacy format
-        selectedCluster: {
-          id: clusterId,
-          count: count,
-          coordinates: coordinates,
-        },
-        // Set item type to cluster, and clear any marker selection
-        selectedItemType: "cluster",
-        selectedMarkerId: null,
-        selectedMarker: null,
-        // Set the unified selection
-        selectedItem,
-      };
+      return { selectedItem };
     }),
 
   // View state handlers
@@ -328,12 +234,15 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
   },
 
   openMaps: (location: string) => {
-    const { selectedMarker } = get();
+    const { selectedItem, markers } = get();
 
-    if (!selectedMarker) {
+    if (!selectedItem || selectedItem.type !== "marker") {
       console.warn("Cannot open maps: no current event");
       return;
     }
+
+    const selectedMarker = markers.find((m) => m.id === selectedItem.id);
+    if (!selectedMarker) return;
 
     // Try to use coordinates if available, otherwise fall back to location text
     if (

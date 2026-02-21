@@ -25,24 +25,20 @@ The app supports OAuth authentication with Google and Facebook providers using t
 ### ✅ Expo Best Practices Implemented
 
 1. **WebBrowser.maybeCompleteAuthSession()**
-
    - Called at the top level to dismiss web popups
    - Required for all authentication providers
 
 2. **Proper Redirect URI Handling**
-
    - Uses `AuthSession.makeRedirectUri()` for universal platform support
    - Handles both Expo Go and standalone builds correctly
    - Matches the scheme defined in `app.config.ts`
 
 3. **Authorization Code Flow with PKCE**
-
    - Uses `ResponseType.Code` for secure token exchange
    - Implements `CodeChallengeMethod.S256` for PKCE
    - Exchanges authorization codes on the backend (not in client)
 
 4. **Discovery Documents**
-
    - Uses proper discovery documents for OAuth endpoints
    - Follows OAuth 2.0 and OpenID Connect standards
 
@@ -136,17 +132,14 @@ async function handleSignIn() {
 ### ✅ Implemented Security Measures
 
 1. **Authorization Code Flow**
-
    - Uses authorization codes instead of implicit flow
    - Tokens are exchanged securely on the backend
 
 2. **PKCE (Proof Key for Code Exchange)**
-
    - Prevents authorization code interception attacks
    - Uses SHA256 code challenge method
 
 3. **Secure Token Storage**
-
    - Access tokens are stored securely using the API client
    - Refresh tokens are handled properly
 
@@ -159,7 +152,6 @@ async function handleSignIn() {
 The backend handles the secure parts of OAuth:
 
 1. **Token Exchange**
-
    - Exchanges authorization codes for access tokens
    - Uses client secrets securely
 
@@ -192,12 +184,10 @@ https://yourwebsite.com/auth/callback
 The implementation includes comprehensive error handling:
 
 1. **Configuration Errors**
-
    - Validates client IDs are set
    - Checks for proper environment setup
 
 2. **OAuth Flow Errors**
-
    - Handles user cancellation
    - Processes OAuth provider errors
    - Manages network failures
@@ -211,7 +201,6 @@ The implementation includes comprehensive error handling:
 ### Development Testing
 
 1. **Expo Go**
-
    - Use the auth proxy for testing
    - Configure redirect URIs in OAuth provider dashboards
 
@@ -222,7 +211,6 @@ The implementation includes comprehensive error handling:
 ### Production Testing
 
 1. **Standalone Builds**
-
    - Test OAuth flows in production builds
    - Verify redirect URI handling
 
@@ -236,12 +224,10 @@ The implementation includes comprehensive error handling:
 ### Common Issues
 
 1. **"OAuth request not ready"**
-
    - Check that client IDs are properly configured
    - Verify environment variables are set
 
 2. **Redirect URI mismatch**
-
    - Ensure redirect URIs match between app and OAuth provider
    - Check scheme configuration in `app.config.ts`
 

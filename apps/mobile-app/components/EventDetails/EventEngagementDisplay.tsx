@@ -179,11 +179,7 @@ const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
                     borderColor: `${"#10b981"}20`,
                   }}
                 >
-                  <Users
-                    size={16}
-                    color={"#10b981"}
-                    strokeWidth={2}
-                  />
+                  <Users size={16} color={"#10b981"} strokeWidth={2} />
                 </View>
                 <Text
                   style={{

@@ -13,18 +13,21 @@ The codebase is **events-only**. Civic engagement functionality has been fully r
 ## Common Commands
 
 ### Local Development (Everything)
+
 ```bash
 pnpm dev:local            # Docker + ngrok + Expo (physical device ready)
 pnpm dev:local:no-ngrok   # Docker + Expo (simulator only, no ngrok)
 ```
 
 ### Development (Docker-based)
+
 ```bash
 pnpm docker:prod         # Start with production config
 pnpm docker:down         # Stop all services
 ```
 
 ### Logs & Debugging
+
 ```bash
 pnpm logs                # All service logs
 pnpm logs:backend        # Backend logs only
@@ -34,6 +37,7 @@ pnpm shell:backend       # Shell into backend container
 ```
 
 ### Code Quality
+
 ```bash
 pnpm lint                # ESLint across all packages
 pnpm format              # Prettier formatting
@@ -41,6 +45,7 @@ pnpm test                # Run tests across all apps (Bun test runner)
 ```
 
 ### Database
+
 ```bash
 pnpm db:migrate          # Run TypeORM migrations
 pnpm db:seed             # Seed initial data
@@ -56,6 +61,7 @@ docker compose exec backend pnpm migration:revert
 ## Architecture
 
 ### Monorepo Structure
+
 ```
 apps/
   backend/          # REST API (Hono + Bun)
@@ -68,6 +74,7 @@ packages/
 ```
 
 ### Scan → Map Pipeline
+
 1. Mobile camera → **Backend** (`ProcessFlyerHandler`) → gpt-4o vision → PostgreSQL (`events` table)
 2. Backend publishes `event:created` → **Redis pub/sub**
 3. **WebSocket server** subscribes Redis → broadcasts to connected clients (viewport-filtered via RBush)
@@ -76,6 +83,7 @@ packages/
 Per-user WebSocket channels follow the pattern `user:{userId}:filtered-events`.
 
 ### Key Technologies
+
 - **Database:** PostgreSQL + PostGIS (geospatial) + pgvector (embeddings)
 - **Cache/Pub-Sub:** Redis (ioredis)
 - **Spatial Indexing:** RBush (in-memory, used in websocket and filter-processor)
@@ -84,7 +92,9 @@ Per-user WebSocket channels follow the pattern `user:{userId}:filtered-events`.
 - **Auth:** JWT + OAuth (Google, Facebook)
 
 ### Backend (`apps/backend/`)
+
 Hono HTTP server. Organized as:
+
 - `handlers/` — HTTP request handlers (including `job/ProcessFlyerHandler` for AI flyer processing)
 - `routes/` — Route definitions
 - `services/` — Business logic & DB access; `ServiceInitializer.ts` wires all services via dependency injection
@@ -94,10 +104,13 @@ Hono HTTP server. Organized as:
 Integrations: OpenAI (gpt-4o for flyer extraction), Resend (email), Expo push notifications, AWS/DO Spaces (file storage).
 
 ### WebSocket (`apps/websocket/`)
+
 Manages live client connections. Uses RBush for viewport-based filtering — clients only receive updates for markers within their visible map bounds. Tracks client type (web vs mobile). Per-user channels: `user:{userId}:filtered-events`.
 
 ### Filter Processor (`apps/filter-processor/`)
+
 Background service; subscribes to Redis channels and processes per-user spatial/vector filtering queries. Key services:
+
 - `UnifiedMessageHandler` — routes entity changes to affected users
 - `UnifiedSpatialCacheService` — RBush-backed in-memory spatial cache (events only)
 - `HybridUserUpdateBatcherService` — debounce/sweep-based batching for viewport updates
@@ -105,17 +118,21 @@ Background service; subscribes to Redis channels and processes per-user spatial/
 - Exposes health check on port 8082.
 
 ### Web Dashboard (`apps/web-dashboard/`)
+
 Next.js 14 App Router. Uses Mapbox GL for map visualization, Recharts for analytics, Radix UI + Tailwind for components. Shows events map and analytics only.
 
 ### Mobile App (`apps/mobile-app/`)
+
 Expo Router with `app/` directory for screens. Uses `@rnmapbox/maps`, Zustand stores, and Expo modules (camera, location, haptics, notifications). Core screens: `index` (map), `scan` (camera → flyer processing), `search`, `saved`, `user`.
 
 ### Shared Database Package (`packages/database/`)
+
 Exports TypeORM entities (`Event`, `User`, `Category`, etc.), the shared `DataSource`, and TypeScript types consumed by backend, websocket, and filter-processor. The only map marker type is `EventMarker`.
 
 ## Docker Infrastructure
 
 All services run inside Docker via `docker-compose.yml`. Environment-specific overrides:
+
 - `docker-compose.http.yml` — HTTP-only (no Traefik), direct port access
 - `docker-compose.local.yml` — local dev overlay (dashboard hot reload + localhost URLs)
 - `docker-compose.prod.yml` — production
@@ -125,6 +142,7 @@ All services communicate over the `marker-network` bridge. Environment variables
 ## CI/CD
 
 GitHub Actions workflows on PRs:
+
 - **`lint.yml`** — ESLint + checks for disallowed `any` types (Node 20, pnpm v8)
 - **`test.yml`** — Bun test runner for backend, websocket, filter-processor
 

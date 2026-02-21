@@ -344,7 +344,15 @@ export class UnifiedMessageHandler {
         throw new Error("Missing required event fields");
       }
 
-      if (!(event.id && event.title && event.location && event.creatorId && event.createdAt)) {
+      if (
+        !(
+          event.id &&
+          event.title &&
+          event.location &&
+          event.creatorId &&
+          event.createdAt
+        )
+      ) {
         throw new Error(`Invalid entity data for type: ${entityType}`);
       }
 
@@ -512,8 +520,7 @@ export class UnifiedMessageHandler {
 
         if (opUpper === "DELETE") {
           const id = entity.id;
-          return () =>
-            JSON.stringify({ type: "delete-event", id, timestamp });
+          return () => JSON.stringify({ type: "delete-event", id, timestamp });
         }
 
         const ev = entity as Event;

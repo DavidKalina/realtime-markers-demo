@@ -657,7 +657,6 @@ class ApiService {
       "/api/admin/dashboard/upcoming-events",
     );
   }
-
 }
 
 // Export a singleton instance

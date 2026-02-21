@@ -19,18 +19,10 @@ export function setupMiddlewares(
   app.use(
     "*",
     cors({
-      origin:
-        process.env.ALLOWED_ORIGINS
-          ? process.env.ALLOWED_ORIGINS.split(",")
-          : "*",
-      allowMethods: [
-        "GET",
-        "POST",
-        "PUT",
-        "DELETE",
-        "PATCH",
-        "OPTIONS",
-      ],
+      origin: process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(",")
+        : "*",
+      allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"],
       maxAge: 86400,
     }),

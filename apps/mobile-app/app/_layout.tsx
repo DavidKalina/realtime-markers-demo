@@ -1,9 +1,5 @@
 import React, { useEffect } from "react";
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
+import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import * as Sentry from "@sentry/react-native";
 import { useFonts } from "expo-font";
 import { Stack, useNavigationContainerRef } from "expo-router";
@@ -49,59 +45,10 @@ import {
   SplashScreenProvider,
   useSplashScreen,
 } from "@/contexts/SplashScreenContext";
-import { useColorScheme } from "@/hooks/useColorScheme";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { AnimatedSplashScreen } from "@/components/SplashScreen/SplashScreen";
-
-// Configuration constants
-const SENTRY_CONFIG = {
-  dsn: "https://9c69ddf62f2bf7490416ba65f2d5dd2d@o4509054186815488.ingest.us.sentry.io/4509054187798528",
-  debug: false,
-  tracesSampleRate: 0.1,
-  enableNativeFramesTracking: !isRunningInExpoGo(),
-  sendDefaultPii: true,
-} as const;
-
-// const POSTHOG_CONFIG = {
-//   apiKey: process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
-//   options: {
-//     host: "https://us.i.posthog.com",
-//   },
-// } as const;
-
-const FONT_FAMILY = {
-  SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
-} as const;
-
-const STACK_SCREEN_OPTIONS = {
-  headerShown: false,
-  animation: "fade_from_bottom" as const,
-  animationDuration: 200,
-  gestureEnabled: true,
-  gestureDirection: "horizontal" as const,
-  contentStyle: {
-    backgroundColor: "transparent",
-  },
-} as const;
-
-// Screen configurations
-const SCREEN_CONFIGS = [
-  { name: "register" },
-  { name: "login" },
-  { name: "onboarding" },
-  { name: "index" },
-  { name: "scan" },
-  { name: "user" },
-  { name: "saved/index" },
-  { name: "cluster" },
-  { name: "filter" },
-  { name: "search/index" },
-  { name: "search/list" },
-  { name: "category/[id]" },
-  { name: "details" },
-  { name: "+not-found" },
-] as const;
+import { SENTRY_CONFIG, STACK_SCREEN_OPTIONS, SCREEN_CONFIGS } from "@/config";
 
 // Initialize Sentry
 const navigationIntegration = Sentry.reactNavigationIntegration({
@@ -147,19 +94,15 @@ function SplashScreenHandler({ children }: SplashScreenHandlerProps) {
   );
 }
 
-// App providers component
+// App providers component (dark theme only)
 function AppProviders({ children }: AppProvidersProps) {
-  const colorScheme = useColorScheme();
-
   return (
     <AuthProvider>
       <OnboardingProvider>
         <LocationProvider>
           <MapStyleProvider>
             <SplashScreenProvider>
-              <ThemeProvider
-                value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-              >
+              <ThemeProvider value={DarkTheme}>
                 <SplashScreenHandler>{children}</SplashScreenHandler>
               </ThemeProvider>
             </SplashScreenProvider>
@@ -196,7 +139,10 @@ function RootLayout() {
   }, [navigationRef]);
 
   // Load fonts
-  const [fontsLoaded] = useFonts(FONT_FAMILY);
+  const [fontsLoaded] = useFonts({
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
+  });
 
   // Hide splash screen when fonts are loaded
   useEffect(() => {

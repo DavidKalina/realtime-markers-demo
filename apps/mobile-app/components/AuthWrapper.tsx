@@ -56,7 +56,12 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
 
   // If authenticated and hasn't completed onboarding, redirect to onboarding
   // (but not if already on the onboarding screen)
-  if (requireAuth && isAuthenticated && !hasCompletedOnboarding && pathname !== "/onboarding") {
+  if (
+    requireAuth &&
+    isAuthenticated &&
+    !hasCompletedOnboarding &&
+    pathname !== "/onboarding"
+  ) {
     return <Redirect href="/onboarding" />;
   }
 

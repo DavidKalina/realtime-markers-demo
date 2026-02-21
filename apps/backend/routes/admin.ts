@@ -365,4 +365,3 @@ adminRouter.delete("/users/admins/:id", async (c) => {
     );
   }
 });
-

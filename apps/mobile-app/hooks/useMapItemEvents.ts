@@ -1,7 +1,6 @@
 // hooks/useMapItemEvents.ts
 import { useCallback, useEffect, useRef } from "react";
 import { useEventBroker } from "@/hooks/useEventBroker";
-import { Marker } from "@/types/types";
 import {
   EventTypes,
   MapItemEvent,
@@ -14,26 +13,7 @@ import {
   generateClusterMessages,
   generateGoodbyeMessage,
 } from "@/utils/messageUtils";
-
-// Define the base interface for map items (markers and clusters)
-interface BaseMapItem {
-  id: string;
-  coordinates: [number, number];
-  type: "marker" | "cluster";
-}
-
-interface AppMarkerItem extends BaseMapItem {
-  type: "marker";
-  data: Marker["data"];
-}
-
-interface AppClusterItem extends BaseMapItem {
-  type: "cluster";
-  count: number;
-  childrenIds?: string[];
-}
-
-type MapItem = AppMarkerItem | AppClusterItem;
+import type { MapItem } from "@/types/map";
 
 interface UseMapItemEventsOptions {
   // User's location for distance calculations

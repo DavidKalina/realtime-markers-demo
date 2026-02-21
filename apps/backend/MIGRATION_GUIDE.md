@@ -64,9 +64,7 @@ These tables were created without foreign keys and have them added in `AddAllUse
    import { Table, TableForeignKey } from "typeorm";
    import type { MigrationInterface, QueryRunner } from "typeorm";
 
-   export class CreateUserPreferencesTable1710000000015
-     implements MigrationInterface
-   {
+   export class CreateUserPreferencesTable1710000000015 implements MigrationInterface {
      public async up(queryRunner: QueryRunner): Promise<void> {
        await queryRunner.createTable(
          new Table({

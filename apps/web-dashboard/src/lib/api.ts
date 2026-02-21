@@ -128,7 +128,6 @@ class ApiClient {
   async deleteEvent(id: string): Promise<{ success: boolean }> {
     return this.delete<{ success: boolean }>(`/api/events/${id}`);
   }
-
 }
 
 // Export a singleton instance

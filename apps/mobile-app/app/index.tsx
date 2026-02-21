@@ -17,7 +17,7 @@ import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useSplashScreen } from "@/contexts/SplashScreenContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useMapCamera } from "@/hooks/useMapCamera";
-import { useMapWebSocket } from "@/hooks/useMapWebsocket";
+import { useMapWebSocket } from "@/hooks/useMapWebSocket";
 import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
@@ -212,7 +212,6 @@ function HomeScreen() {
       });
     }
   }, [userLocation, isLoadingLocation, currentViewport]);
-
 
   // Create map item event utility
   const createMapItemEvent = useCallback(

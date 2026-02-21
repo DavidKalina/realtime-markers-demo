@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class DropCivicEngagementTables1710000000023
-  implements MigrationInterface
-{
+export class DropCivicEngagementTables1710000000023 implements MigrationInterface {
   name = "DropCivicEngagementTables1710000000023";
 
   public async up(queryRunner: QueryRunner): Promise<void> {

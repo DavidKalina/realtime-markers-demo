@@ -33,7 +33,9 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({
   fallbackEmoji,
 }) => {
   // Get marker selection state from location store
-  const { selectedMarkerId } = useLocationStore();
+  const selectedItem = useLocationStore((state) => state.selectedItem);
+  const selectedMarkerId =
+    selectedItem?.type === "marker" ? selectedItem.id : null;
 
   // Local state for position
   const [offset, setOffset] = useState({ x: 0, y: 0 });
