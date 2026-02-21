@@ -34,15 +34,8 @@ import { Platform, View } from "react-native";
 import { runOnJS } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// Initialize MapboxGL only once, outside the component
+// Set access token at module scope (lightweight, required before MapView renders)
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
-if (Platform.OS === "android") {
-  MapboxGL.setTelemetryEnabled(false);
-}
-
-// Initialize location module
-MapboxGL.locationManager.start();
-MapboxGL.setWellKnownTileServer("mapbox");
 
 // Use the imported styles directly
 const styles = {
@@ -66,6 +59,19 @@ function HomeScreen() {
   const { mapStyle, isPitched } = useMapStyle();
   const { registerLoadingState, unregisterLoadingState } = useSplashScreen();
   const insets = useSafeAreaInsets();
+
+  // Defer heavy Mapbox native initialization to avoid blocking the main thread on cold start.
+  // setAccessToken is set at module scope (lightweight); these heavier calls run after mount.
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      MapboxGL.setTelemetryEnabled(false);
+    }
+    MapboxGL.locationManager.start();
+
+    return () => {
+      MapboxGL.locationManager.stop();
+    };
+  }, []);
 
   // Store references
   const { selectMapItem, setZoomLevel, zoomLevel } = useLocationStore();
@@ -207,12 +213,6 @@ function HomeScreen() {
     }
   }, [userLocation, isLoadingLocation, currentViewport]);
 
-  // Cleanup Mapbox location manager on unmount
-  useEffect(() => {
-    return () => {
-      MapboxGL.locationManager.stop();
-    };
-  }, []);
 
   // Create map item event utility
   const createMapItemEvent = useCallback(
