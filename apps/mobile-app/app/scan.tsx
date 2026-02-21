@@ -6,9 +6,8 @@ import Screen from "@/components/Layout/Screen";
 import { COLORS } from "@/components/Layout/ScreenLayout";
 import { useCamera } from "@/hooks/useCamera";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
-import { useFocusEffect } from "@react-navigation/native";
 import { CameraView } from "expo-camera";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
@@ -129,14 +128,19 @@ export default function ScanScreen() {
     }, 500);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
+  const pathname = usePathname();
+
+  // Check permission when the scan screen gains focus
+  useEffect(() => {
+    if (pathname === "/scan") {
       checkPermission();
-      return () => {
+    }
+    return () => {
+      if (pathname !== "/scan") {
         console.log("[ScanScreen] Screen unfocused");
-      };
-    }, []),
-  );
+      }
+    };
+  }, [pathname, checkPermission]);
   // Handle retry permission
   const handleRetryPermission = useCallback(async (): Promise<boolean> => {
     return await checkPermission();

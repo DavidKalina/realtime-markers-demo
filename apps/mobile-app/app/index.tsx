@@ -30,7 +30,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Platform, Text, View } from "react-native";
+import { Platform, View } from "react-native";
 import { runOnJS } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -444,7 +444,7 @@ function HomeScreen() {
   const userLocationLayer = useMemo(() => {
     if (!locationPermissionGranted) return null;
     return (
-      <MapboxGL.UserLocation visible={true} showsUserHeadingIndicator={true} />
+      <MapboxGL.LocationPuck puckBearingEnabled={true} puckBearing="heading" />
     );
   }, [locationPermissionGranted]);
 
@@ -582,12 +582,7 @@ function HomeScreen() {
 
         {statusBarSection}
 
-        {/* TODO: Re-enable map after isolating crash */}
         <View style={styles.mapContainer}>
-          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-            <Text style={{ fontSize: 18, color: "#666" }}>Map disabled for debugging</Text>
-          </View>
-          {/*
           <MapboxGL.MapView
             onTouchStart={handleUserPan}
             onPress={handleMapPress}
@@ -611,7 +606,6 @@ function HomeScreen() {
           {rippleEffectComponent}
 
           {floatingButtonsSection}
-          */}
         </View>
       </View>
     </AuthWrapper>
