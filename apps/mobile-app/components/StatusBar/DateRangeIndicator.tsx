@@ -12,12 +12,7 @@ import Animated, {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
-import { colors, spacing } from "@/theme";
-
-const ANIMATION_CONFIG = {
-  damping: 15,
-  stiffness: 300,
-};
+import { colors, spacing, spring } from "@/theme";
 
 const DateRangeIndicator: React.FC = () => {
   const [showCalendar, setShowCalendar] = useState(false);
@@ -58,8 +53,8 @@ const DateRangeIndicator: React.FC = () => {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     scale.value = withSequence(
-      withSpring(0.92, ANIMATION_CONFIG),
-      withSpring(1, ANIMATION_CONFIG),
+      withSpring(0.92, spring.snappy),
+      withSpring(1, spring.snappy),
     );
     setShowCalendar(true);
   }, []);

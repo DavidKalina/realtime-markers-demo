@@ -610,75 +610,140 @@ export class EventSearchServiceImpl implements EventSearchService {
 
     console.log(`Cache miss for landing page data: ${cacheKey}`);
 
-    // Get featured events (official events with high engagement)
-    const featuredEvents = await this.eventRepository
-      .createQueryBuilder("event")
-      .leftJoinAndSelect("event.categories", "category")
-      .leftJoinAndSelect("event.creator", "creator")
-      .where("event.isOfficial = :isOfficial", { isOfficial: true })
-      .andWhere("event.status = :status", { status: "VERIFIED" })
-      .andWhere("event.eventDate > NOW()")
-      .andWhere("event.isPrivate = :isPrivate", { isPrivate: false })
-      .orderBy("event.saveCount", "DESC")
-      .addOrderBy("event.viewCount", "DESC")
-      .addOrderBy("event.eventDate", "ASC")
-      .limit(featuredLimit)
-      .getMany();
+    // Helper: progressively relax query constraints until we have enough results.
+    // Tries strict filters first (official + verified + future), then broadens.
+    // excludeIds prevents the same event from appearing in multiple sections.
+    const fetchWithFallback = async (
+      buildQuery: (
+        qb: ReturnType<typeof this.eventRepository.createQueryBuilder>,
+        tier: number,
+      ) => ReturnType<typeof this.eventRepository.createQueryBuilder>,
+      limit: number,
+      excludeIds: string[] = [],
+    ): Promise<Event[]> => {
+      // Tier 0: official + verified + future dates
+      // Tier 1: any official status + verified + future dates
+      // Tier 2: any status + future dates
+      // Tier 3: any status + any date (ordered so future events come first)
+      for (let tier = 0; tier <= 3; tier++) {
+        const qb = this.eventRepository
+          .createQueryBuilder("event")
+          .leftJoinAndSelect("event.categories", "category")
+          .leftJoinAndSelect("event.creator", "creator");
 
-    // Get upcoming events (official events happening soon)
-    const upcomingQuery = this.eventRepository
-      .createQueryBuilder("event")
-      .leftJoinAndSelect("event.categories", "category")
-      .leftJoinAndSelect("event.creator", "creator")
-      .where("event.isOfficial = :isOfficial", { isOfficial: true })
-      .andWhere("event.status = :status", { status: "VERIFIED" })
-      .andWhere("event.eventDate > NOW()")
-      .andWhere("event.isPrivate = :isPrivate", { isPrivate: false })
-      .orderBy("event.eventDate", "ASC")
-      .limit(upcomingLimit);
+        // Apply tier-based filters
+        if (tier === 0) {
+          qb.where("event.isOfficial = :isOfficial", { isOfficial: true });
+          qb.andWhere("event.status = :status", { status: "VERIFIED" });
+          qb.andWhere("event.eventDate > NOW()");
+        } else if (tier === 1) {
+          qb.where("event.status = :status", { status: "VERIFIED" });
+          qb.andWhere("event.eventDate > NOW()");
+        } else if (tier === 2) {
+          qb.where("event.status IN (:...statuses)", {
+            statuses: ["VERIFIED", "PENDING"],
+          });
+          qb.andWhere("event.eventDate > NOW()");
+        } else {
+          // Tier 3: all events, prefer future dates
+          qb.where("event.status IN (:...statuses)", {
+            statuses: ["VERIFIED", "PENDING"],
+          });
+        }
 
-    // If user location is provided, prioritize nearby events
-    if (userLat && userLng) {
-      upcomingQuery.addSelect(
-        `ST_Distance(
-          event.location::geography,
-          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
-        )`,
-        "distance",
+        // Exclude events already used in other sections
+        if (excludeIds.length > 0) {
+          qb.andWhere("event.id NOT IN (:...excludeIds)", { excludeIds });
+        }
+
+        const finalQb = buildQuery(qb, tier);
+        finalQb.limit(limit);
+
+        const results = await finalQb.getMany();
+        if (results.length > 0) {
+          return results;
+        }
+      }
+      return [];
+    };
+
+    // Featured events: high engagement, ordered by saves/views
+    const featuredEvents = await fetchWithFallback((qb, tier) => {
+      qb.orderBy("event.saveCount", "DESC")
+        .addOrderBy("event.viewCount", "DESC");
+      // On the broadest tier, prefer future events first
+      if (tier === 3) {
+        qb.addOrderBy(
+          "CASE WHEN event.eventDate > NOW() THEN 0 ELSE 1 END",
+          "ASC",
+        );
+      }
+      qb.addOrderBy("event.eventDate", "ASC");
+      return qb;
+    }, featuredLimit);
+
+    // Collect IDs to avoid duplicates across sections
+    const featuredIds = featuredEvents.map((e) => e.id);
+
+    // Upcoming events: soonest first, with optional distance sorting
+    // Always require future dates — if none exist, section is hidden on the client
+    const upcomingEvents = await fetchWithFallback((qb, tier) => {
+      if (tier === 3) {
+        qb.andWhere("event.eventDate > NOW()");
+      }
+      qb.addOrderBy("event.eventDate", "ASC");
+
+      if (userLat && userLng) {
+        qb.addSelect(
+          `ST_Distance(
+            event.location::geography,
+            ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+          )`,
+          "distance",
+        );
+        qb.setParameter("lat", userLat);
+        qb.setParameter("lng", userLng);
+        qb.addOrderBy("distance", "ASC");
+      }
+      return qb;
+    }, upcomingLimit, featuredIds);
+
+    // Collect all used IDs for community exclusion
+    const usedIds = [...featuredIds, ...upcomingEvents.map((e) => e.id)];
+
+    // Community events: recurring or upcoming events (no past one-offs)
+    const communityEvents = await fetchWithFallback((qb, tier) => {
+      // Only show events that are still relevant: recurring OR future date
+      qb.andWhere(
+        "(event.isRecurring = true OR event.eventDate > NOW())",
       );
-      upcomingQuery.setParameter("lat", userLat);
-      upcomingQuery.setParameter("lng", userLng);
-      upcomingQuery.addOrderBy("distance", "ASC");
-    }
 
-    const upcomingEvents = await upcomingQuery.getMany();
+      // Prefer non-official, user-scanned content with images
+      if (tier <= 1) {
+        qb.andWhere("event.isOfficial = :comOfficial", { comOfficial: false });
+        qb.andWhere("event.originalImageUrl IS NOT NULL");
+      } else if (tier === 2) {
+        // Drop the image requirement
+        qb.andWhere("event.isOfficial = :comOfficial", { comOfficial: false });
+      }
+      // Tier 3: any recurring/future event not already in featured/upcoming
 
-    // Get community events (non-official events with originalImageUrl)
-    const communityEvents = await this.eventRepository
-      .createQueryBuilder("event")
-      .leftJoinAndSelect("event.categories", "category")
-      .leftJoinAndSelect("event.creator", "creator")
-      .where("event.isOfficial = :isOfficial", { isOfficial: false })
-      .andWhere("event.status = :status", { status: "VERIFIED" })
-      .andWhere("event.eventDate > NOW()")
-      .andWhere("event.isPrivate = :isPrivate", { isPrivate: false })
-      .andWhere("event.originalImageUrl IS NOT NULL")
-      .orderBy("event.saveCount", "DESC")
-      .addOrderBy("event.viewCount", "DESC")
-      .addOrderBy("event.eventDate", "ASC")
-      .limit(communityLimit)
-      .getMany();
+      qb.orderBy("event.isRecurring", "DESC")
+        .addOrderBy("event.saveCount", "DESC")
+        .addOrderBy("event.eventDate", "ASC");
+      return qb;
+    }, communityLimit, usedIds);
 
     console.log(`Found ${communityEvents.length} community events`);
 
-    // Get popular categories from official events
+    // Popular categories: from any events that passed filters
+    // Try from all non-rejected events first, only narrow if we have plenty
     const popularCategories = await this.categoryRepository
       .createQueryBuilder("category")
       .innerJoin("category.events", "event")
-      .where("event.isOfficial = :isOfficial", { isOfficial: true })
-      .andWhere("event.status = :status", { status: "VERIFIED" })
-      .andWhere("event.eventDate > NOW()")
-      .andWhere("event.isPrivate = :isPrivate", { isPrivate: false })
+      .where("event.status IN (:...statuses)", {
+        statuses: ["VERIFIED", "PENDING"],
+      })
       .select("category.id", "id")
       .addSelect("category.name", "name")
       .addSelect("category.icon", "icon")

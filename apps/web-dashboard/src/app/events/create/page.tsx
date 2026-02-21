@@ -21,7 +21,6 @@ interface EventFormData {
     longitude: number;
     address: string;
   };
-  sharedWithIds: string[];
   locationNotes: string;
   image?: File;
   // QR code related fields
@@ -60,7 +59,6 @@ export default function CreateEventPage() {
       longitude: 0,
       address: "",
     },
-    sharedWithIds: [],
     locationNotes: "",
     isRecurring: false,
   });

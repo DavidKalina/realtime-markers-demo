@@ -131,12 +131,6 @@ const Screen = <T extends string>({
 
   const renderContent = () => (
     <ScreenContent>
-      {tabs && activeTab && onTabChange && (
-        <View style={styles.tabsWrapper}>
-          <Tabs items={tabs} activeTab={activeTab} onTabPress={onTabChange} />
-        </View>
-      )}
-
       <View
         style={[
           styles.contentContainer,
@@ -167,6 +161,11 @@ const Screen = <T extends string>({
           </View>
         ))}
       </View>
+       {tabs && activeTab && onTabChange && (
+        <View style={styles.tabsWrapper}>
+          <Tabs items={tabs} activeTab={activeTab} onTabPress={onTabChange} />
+        </View>
+      )}
     </ScreenContent>
   );
 
@@ -220,7 +219,7 @@ const Screen = <T extends string>({
           <View
             style={[
               styles.fixedFooter,
-              { paddingBottom: footerSafeArea ? insets.bottom + 12 : 12 },
+              { paddingBottom: footerSafeArea ? insets.bottom + 8 : 8 },
             ]}
           >
             {footerButtons.map((button, index) => (
@@ -296,18 +295,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: colors.bg.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border.medium,
     flexDirection: "row",
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   footerButton: {
     // Remove default flex: 1 to allow custom flex values from EventDetails
   },
   tabsWrapper: {
-    marginHorizontal: -spacing.lg,
     marginTop: 0,
     marginBottom: 0,
   },

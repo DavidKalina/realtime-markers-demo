@@ -164,7 +164,11 @@ function RootLayout() {
       <AppContent>
         <Stack screenOptions={STACK_SCREEN_OPTIONS}>
           {SCREEN_CONFIGS.map((screen) => (
-            <Stack.Screen key={screen.name} name={screen.name} />
+            <Stack.Screen
+              key={screen.name}
+              name={screen.name}
+              options={screen.options}
+            />
           ))}
         </Stack>
       </AppContent>

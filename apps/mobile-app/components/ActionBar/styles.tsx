@@ -61,4 +61,15 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  actionButtonInner: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activeIndicator: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.accent.primary,
+    marginTop: 2,
+  },
 });

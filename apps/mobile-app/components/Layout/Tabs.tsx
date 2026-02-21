@@ -88,7 +88,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "rgba(0, 0, 0, 0.05)",
-    paddingHorizontal: spacing.lg,
   },
   tab: {
     flex: 1,

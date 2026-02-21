@@ -1,5 +1,5 @@
 import { Easing } from "react-native-reanimated";
-import { colors } from "@/theme";
+import { colors, spring } from "@/theme";
 
 // Color schemes with teardrop design
 export const COLOR_SCHEMES = {
@@ -40,10 +40,7 @@ export const ANIMATIONS = {
   SCALE_PRESS: {
     duration: 100,
   },
-  SCALE_RELEASE: {
-    stiffness: 200,
-    damping: 12,
-  },
+  SCALE_RELEASE: spring.bouncy,
   RIPPLE: {
     duration: 800,
   },

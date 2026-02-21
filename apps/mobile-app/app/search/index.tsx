@@ -135,11 +135,12 @@ const SearchListScreen = () => {
   };
 
   const renderEventItem = useCallback(
-    (event: EventType) => (
+    (event: EventType, index: number) => (
       <EventListItem
         {...event}
         eventDate={new Date(event.eventDate)}
         onPress={handleEventPress}
+        index={index}
       />
     ),
     [handleEventPress],
@@ -154,7 +155,7 @@ const SearchListScreen = () => {
     }
   }, [loadMoreEvents]);
 
-  // Determine what content to show
+  // Show landing page only when there's no active search
   const showLandingPage = !searchQuery.trim() && !hasSearched;
 
   return (

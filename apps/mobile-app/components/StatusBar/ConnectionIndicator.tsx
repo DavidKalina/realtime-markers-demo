@@ -11,12 +11,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Wifi } from "lucide-react-native";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
-import { spacing, fontFamily, fontWeight } from "@/theme";
-
-const ANIMATION_CONFIG = {
-  damping: 10,
-  stiffness: 200,
-};
+import { spacing, fontFamily, fontWeight, spring } from "@/theme";
 
 const PULSE_CONFIG = {
   duration: 1500,
@@ -128,8 +123,8 @@ const ConnectionIndicator: React.FC = () => {
     () => () => {
       cancelAnimation(scale);
       scale.value = withSequence(
-        withSpring(0.95, ANIMATION_CONFIG),
-        withSpring(1, ANIMATION_CONFIG),
+        withSpring(0.95, spring.soft),
+        withSpring(1, spring.soft),
       );
     },
     [],

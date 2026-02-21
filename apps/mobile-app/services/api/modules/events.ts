@@ -334,31 +334,6 @@ export class EventApiClient extends BaseApiModule {
     };
   }
 
-  async getFriendsSavedEvents(params: GetEventsParams = {}): Promise<{
-    events: EventType[];
-    nextCursor?: string;
-    prevCursor?: string;
-  }> {
-    const queryParams = new URLSearchParams();
-    if (params.cursor) queryParams.append("cursor", params.cursor);
-    if (params.limit) queryParams.append("limit", params.limit.toString());
-    if (params.direction) queryParams.append("direction", params.direction);
-
-    const url = `${this.client.baseUrl}/api/events/saved/friends?${queryParams.toString()}`;
-    const response = await this.fetchWithAuth(url);
-    const data = await this.handleResponse<{
-      events: ApiEvent[];
-      nextCursor?: string;
-      prevCursor?: string;
-    }>(response);
-
-    return {
-      events: data.events.map(mapEventToEventType),
-      nextCursor: data.nextCursor,
-      prevCursor: data.prevCursor,
-    };
-  }
-
   // RSVP methods
   async toggleRsvpEvent(
     eventId: string,

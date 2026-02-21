@@ -6,6 +6,7 @@ import {
   fontSize,
   fontWeight,
   fontFamily,
+  spring,
 } from "@/theme";
 import { Calendar, ChevronRight, MapPin } from "lucide-react-native";
 import React, { useCallback } from "react";
@@ -45,17 +46,11 @@ const EventItem: React.FC<EventItemProps> = ({
   }));
 
   const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.98, {
-      damping: 25,
-      stiffness: 400,
-    });
+    scale.value = withSpring(0.98, spring.stiff);
   }, []);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, {
-      damping: 25,
-      stiffness: 400,
-    });
+    scale.value = withSpring(1, spring.stiff);
   }, []);
 
   const handlePress = useCallback(() => {

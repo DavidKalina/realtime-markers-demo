@@ -30,7 +30,7 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
         rotateEnabled={false}
         scaleBarEnabled={false}
         style={styles.mapPreview}
-        styleURL={MapboxGL.StyleURL.Light}
+        styleURL={MapboxGL.StyleURL.Dark}
         logoEnabled={false}
         attributionEnabled={false}
       >

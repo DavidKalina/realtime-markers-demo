@@ -8,12 +8,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { colors, spacing } from "@/theme";
-
-const ANIMATION_CONFIG = {
-  damping: 15,
-  stiffness: 300,
-};
+import { colors, spacing, spring } from "@/theme";
 
 const PlusButton: React.FC = () => {
   const scale = useSharedValue(1);
@@ -23,13 +18,13 @@ const PlusButton: React.FC = () => {
     cancelAnimation(scale);
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    scale.value = withSpring(0.92, ANIMATION_CONFIG);
+    scale.value = withSpring(0.92, spring.snappy);
   }, [scale]);
 
   // Reset scale after animation
   useEffect(() => {
     const timer = setTimeout(() => {
-      scale.value = withSpring(1, ANIMATION_CONFIG);
+      scale.value = withSpring(1, spring.snappy);
     }, 100);
 
     return () => clearTimeout(timer);

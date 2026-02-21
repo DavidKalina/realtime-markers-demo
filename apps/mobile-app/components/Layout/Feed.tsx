@@ -14,6 +14,7 @@ import {
   fontWeight,
   fontFamily,
   lineHeight,
+  spring,
 } from "@/theme";
 import { LucideIcon } from "lucide-react-native";
 import Animated, {
@@ -57,9 +58,9 @@ const FeedItem = React.memo<{
   const scale = useSharedValue(1);
 
   const handlePress = () => {
-    scale.value = withSpring(0.98, { damping: 10 });
+    scale.value = withSpring(0.98, spring.soft);
     setTimeout(() => {
-      scale.value = withSpring(1, { damping: 10 });
+      scale.value = withSpring(1, spring.soft);
     }, 100);
 
     if (onPress) {

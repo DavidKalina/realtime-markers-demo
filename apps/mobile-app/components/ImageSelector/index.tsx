@@ -3,7 +3,7 @@ import { Image as ImageIcon } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
-import { colors, fontSize, fontFamily } from "@/theme";
+import { colors, radius } from "@/theme";
 
 interface ImageSelectorProps {
   onImageSelected: (uri: string) => void;
@@ -63,28 +63,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   button: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.overlay.light,
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+    backgroundColor: colors.bg.elevated,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: colors.text.primary,
-    shadowColor: colors.fixed.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
-    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: colors.border.medium,
   },
   buttonDisabled: {
-    opacity: 0.5,
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
-  },
-  text: {
-    color: colors.text.primary,
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
+    opacity: 0.4,
   },
 });

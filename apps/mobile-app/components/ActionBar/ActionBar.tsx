@@ -16,8 +16,9 @@ import {
 } from "lucide-react-native";
 import React, { useCallback, useMemo } from "react";
 import { Platform, Text, TouchableOpacity, View } from "react-native";
-import {
+import Animated, {
   Easing,
+  useAnimatedStyle,
   useSharedValue,
   withSequence,
   withTiming,
@@ -77,6 +78,10 @@ const ActionButton: React.FC<{
   const IconComponent = tab.icon;
   const iconColor = isActive ? colors.accent.primary : colors.text.primary;
 
+  const animatedButtonStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scaleValue.value }],
+  }));
+
   const handlePress = useCallback(() => {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -98,18 +103,21 @@ const ActionButton: React.FC<{
       accessibilityLabel={`${tab.label} button`}
       accessibilityState={{ disabled, selected: isActive }}
     >
-      <View style={styles.actionButtonIcon}>
-        <IconComponent size={20} color={iconColor} />
-      </View>
-      <Text
-        style={[
-          styles.actionButtonLabel,
-          isActive && styles.activeActionButtonLabel,
-        ]}
-        numberOfLines={1}
-      >
-        {tab.label}
-      </Text>
+      <Animated.View style={[styles.actionButtonInner, animatedButtonStyle]}>
+        <View style={styles.actionButtonIcon}>
+          <IconComponent size={20} color={iconColor} />
+        </View>
+        <Text
+          style={[
+            styles.actionButtonLabel,
+            isActive && styles.activeActionButtonLabel,
+          ]}
+          numberOfLines={1}
+        >
+          {tab.label}
+        </Text>
+      </Animated.View>
+      {isActive && <View style={styles.activeIndicator} />}
     </TouchableOpacity>
   );
 });

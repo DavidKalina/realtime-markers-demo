@@ -582,19 +582,6 @@ class ApiService {
     return this.makeRequest<JobStatus>(`/api/jobs/${jobId}`);
   }
 
-  // Friends-related API calls (for private events)
-  async getFriends(): Promise<
-    ApiResponse<
-      Array<{
-        id: string;
-        name: string;
-        email: string;
-      }>
-    >
-  > {
-    return this.makeRequest("/api/friends");
-  }
-
   // Place search API calls
   async searchPlace(
     params: PlaceSearchParams,

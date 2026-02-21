@@ -207,10 +207,7 @@ export const legacyStyles = StyleSheet.create({
     justifyContent: "center",
   },
   mapCardFooter: {
-    marginTop: spacing.lg,
-    paddingTop: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
+    marginTop: spacing.md,
   },
   markerContainer: {
     width: 40,

@@ -29,7 +29,7 @@ interface FeaturedEventsCarouselProps {
 }
 
 const { width: screenWidth } = Dimensions.get("window");
-const ITEM_WIDTH = screenWidth * 0.85; // 85% of screen width
+const ITEM_WIDTH = screenWidth * 0.85;
 const ITEM_SPACING = 16;
 const ITEM_MARGIN = (screenWidth - ITEM_WIDTH) / 2;
 
@@ -77,30 +77,6 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
     }
   }, []);
 
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Featured Events</Text>
-        <View style={styles.carouselContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-            pagingEnabled={false}
-            snapToInterval={ITEM_WIDTH + ITEM_SPACING}
-            decelerationRate="fast"
-          >
-            {[1, 2, 3].map((i) => (
-              <View key={i} style={[styles.itemContainer, styles.loadingItem]}>
-                <View style={styles.loadingContent} />
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-      </View>
-    );
-  }
-
   if (!events || events.length === 0) {
     return null;
   }
@@ -140,7 +116,6 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
         </ScrollView>
       </View>
 
-      {/* Pagination Indicators */}
       {events.length > 1 && (
         <View style={styles.paginationContainer}>
           {events.map((_, index) => (
@@ -166,6 +141,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSize.xl,
     fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
     marginBottom: spacing.md,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
@@ -181,53 +157,28 @@ const styles = StyleSheet.create({
     marginRight: ITEM_SPACING,
   },
   cardContainer: {
-    backgroundColor: colors.fixed.white,
+    backgroundColor: colors.bg.card,
     borderRadius: radius.xl,
-    shadowColor: colors.fixed.black,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
     borderWidth: 1,
-    borderColor: "#f0f0f0",
+    borderColor: colors.border.default,
     overflow: "hidden",
-  },
-  loadingItem: {
-    opacity: 0.6,
-  },
-  loadingContent: {
-    width: ITEM_WIDTH,
-    height: 140,
-    backgroundColor: "#f0f0f0",
-    borderRadius: radius.xl,
-    shadowColor: colors.fixed.black,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
   },
   paginationContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: spacing.xl,
+    marginTop: spacing.lg,
     paddingHorizontal: spacing.lg,
   },
   paginationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#e0e0e0",
+    backgroundColor: colors.border.accent,
     marginHorizontal: spacing.xs,
   },
   paginationDotActive: {
-    backgroundColor: "#007AFF",
+    backgroundColor: colors.accent.primary,
     width: 24,
   },
 });

@@ -18,7 +18,7 @@ import Animated, {
   SlideOutDown,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { colors } from "@/theme";
+import { colors, spring } from "@/theme";
 import Input from "../Input/Input";
 
 export interface SelectOption {
@@ -235,13 +235,13 @@ export const Select: React.FC<SelectProps> = ({
             <Animated.View
               style={styles.dropdownContainer}
               entering={SlideInDown.springify()
-                .damping(12)
-                .stiffness(100)
+                .damping(spring.dropdown.damping)
+                .stiffness(spring.dropdown.stiffness)
                 .withInitialValues({
                   transform: [{ translateY: 50 }, { scale: 0.9 }],
                 })}
               exiting={SlideOutDown.duration(150)}
-              layout={Layout.springify().damping(12).stiffness(100)}
+              layout={Layout.springify().damping(spring.dropdown.damping).stiffness(spring.dropdown.stiffness)}
             >
               <View style={styles.dropdownHeader}>
                 <Text style={styles.dropdownTitle}>

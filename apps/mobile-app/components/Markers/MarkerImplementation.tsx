@@ -24,6 +24,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { ClusterMarker } from "./ClusterMarker";
 import { EmojiMapMarker } from "./CustomMapMarker";
+import { spring } from "@/theme";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import { useRouter } from "expo-router";
@@ -70,13 +71,13 @@ const SingleMarkerView = React.memo(
         <Animated.View
           entering={BounceIn.duration(500)
             .springify()
-            .damping(15)
-            .stiffness(200)
+            .damping(spring.firm.damping)
+            .stiffness(spring.firm.stiffness)
             .delay(index * 300)}
           exiting={BounceOut.duration(500)
             .springify()
-            .damping(15)
-            .stiffness(200)}
+            .damping(spring.firm.damping)
+            .stiffness(spring.firm.stiffness)}
           layout={LinearTransition.springify()}
         >
           <EmojiMapMarker
@@ -128,13 +129,13 @@ const ClusterView = React.memo(
         <Animated.View
           entering={BounceIn.duration(500)
             .springify()
-            .damping(15)
-            .stiffness(200)
+            .damping(spring.firm.damping)
+            .stiffness(spring.firm.stiffness)
             .delay(index * 50)}
           exiting={BounceOut.duration(500)
             .springify()
-            .damping(15)
-            .stiffness(200)}
+            .damping(spring.firm.damping)
+            .stiffness(spring.firm.stiffness)}
           layout={LinearTransition.springify()}
         >
           <ClusterMarker

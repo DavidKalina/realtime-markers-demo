@@ -2,14 +2,7 @@
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import Screen from "@/components/Layout/Screen";
-import {
-  colors,
-  spacing,
-  radius,
-  fontSize,
-  fontWeight,
-  fontFamily,
-} from "@/theme";
+import { colors, spacing, radius, fontSize, fontFamily } from "@/theme";
 import { useCamera } from "@/hooks/useCamera";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
 import { CameraView } from "expo-camera";
@@ -301,14 +294,10 @@ const styles = StyleSheet.create({
   },
   cameraCard: {
     flex: 1,
-    borderRadius: radius["2xl"],
+    borderRadius: radius.xl,
     overflow: "hidden",
     backgroundColor: colors.bg.card,
-    shadowColor: colors.shadow.default,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
+    borderWidth: 1,
     borderColor: colors.border.default,
   },
   camera: {
@@ -331,7 +320,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg.card,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: radius["2xl"],
   },
   cameraPlaceholderText: {
     color: colors.text.secondary,
@@ -353,22 +341,5 @@ const styles = StyleSheet.create({
   controlsContainer: {
     paddingBottom: spacing.lg,
     position: "relative",
-  },
-  scanCountBadge: {
-    position: "absolute",
-    bottom: spacing.sm,
-    right: spacing.lg,
-    backgroundColor: colors.text.primary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing._6,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.accent.primary,
-  },
-  scanCountText: {
-    color: colors.bg.card,
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
   },
 });

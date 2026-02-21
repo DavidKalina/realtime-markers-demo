@@ -54,12 +54,6 @@ const STEPS: OnboardingStep[] = [
     description:
       "Scan flyers, attend events, and engage with your community to earn experience points and level up your profile.",
   },
-  {
-    emoji: "\uD83D\uDD12",
-    title: "Create Private Events",
-    description:
-      "Host your own events and share them with friends. Keep them private or make them public for everyone to discover.",
-  },
 ];
 
 export const OnboardingScreen: React.FC = () => {

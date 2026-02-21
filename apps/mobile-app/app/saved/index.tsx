@@ -89,7 +89,7 @@ const SavedListScreen = () => {
   }, []);
 
   const renderEventItem = useCallback(
-    (event: ApiEventType) => {
+    (event: ApiEventType, index: number) => {
       const eventProps: EventListItemProps = {
         id: event.id,
         title: event.title,
@@ -103,6 +103,7 @@ const SavedListScreen = () => {
         onPress: handleEventPress,
         isPrivate: event.isPrivate,
         isRecurring: event.isRecurring,
+        index,
       };
       return <EventListItem {...eventProps} />;
     },

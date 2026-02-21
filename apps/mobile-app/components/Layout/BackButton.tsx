@@ -9,7 +9,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { colors, spacing } from "@/theme";
+import { colors, spacing, spring } from "@/theme";
 
 interface BackButtonProps {
   onPress: () => void;
@@ -21,8 +21,8 @@ export default function BackButton({ onPress }: BackButtonProps) {
 
   const handlePress = () => {
     backButtonScale.value = withSequence(
-      withSpring(0.9, { damping: 10 }),
-      withSpring(1, { damping: 10 }),
+      withSpring(0.9, spring.soft),
+      withSpring(1, spring.soft),
     );
     backButtonRotation.value = withSequence(
       withTiming(-0.1, { duration: 100, easing: Easing.ease }),

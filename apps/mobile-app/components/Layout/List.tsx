@@ -27,6 +27,7 @@ import {
   fontWeight,
   fontFamily,
   lineHeight,
+  spring,
 } from "@/theme";
 import Button from "./Button";
 
@@ -88,7 +89,7 @@ const ListItem = React.memo<{
   const handlePress = () => {
     scale.value = withSequence(
       withTiming(0.95, { duration: 100 }),
-      withSpring(1, { damping: 15, stiffness: 200 }),
+      withSpring(1, spring.press),
     );
 
     if (onPress) {
@@ -103,7 +104,7 @@ const ListItem = React.memo<{
   return (
     <ListItemComponent
       style={[styles.itemContainer]}
-      layout={LinearTransition.springify().damping(15).stiffness(200)}
+      layout={LinearTransition.springify().damping(spring.firm.damping).stiffness(spring.firm.stiffness)}
       entering={
         animated ? FadeIn.duration(300).delay(delay + index * 50) : undefined
       }

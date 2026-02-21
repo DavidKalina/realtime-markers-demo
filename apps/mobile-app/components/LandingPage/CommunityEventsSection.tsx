@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -26,7 +26,7 @@ interface CommunityEventsSectionProps {
 }
 
 const { width: screenWidth } = Dimensions.get("window");
-const ITEM_WIDTH = screenWidth * 0.75; // 75% of screen width
+const ITEM_WIDTH = screenWidth * 0.75;
 const ITEM_SPACING = 12;
 
 const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
@@ -46,28 +46,15 @@ const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
     [router],
   );
 
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Community Events</Text>
-        <View style={styles.scrollContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-          >
-            {[1, 2, 3].map((i) => (
-              <View key={i} style={[styles.itemContainer, styles.loadingItem]}>
-                <View style={styles.loadingContent} />
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-      </View>
+  // Only show recurring events or events with a future date
+  const activeEvents = useMemo(() => {
+    const now = new Date();
+    return events.filter(
+      (event) => event.isRecurring || new Date(event.eventDate) > now,
     );
-  }
+  }, [events]);
 
-  if (!events || events.length === 0) {
+  if (!activeEvents || activeEvents.length === 0) {
     return null;
   }
 
@@ -78,30 +65,28 @@ const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
         Events discovered by the community through photo scanning
       </Text>
 
-      <View style={styles.scrollContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {events.map((event) => (
-            <TouchableOpacity
-              key={event.id}
-              style={styles.itemContainer}
-              onPress={() => handleEventPress(event)}
-              activeOpacity={0.9}
-            >
-              <View style={styles.cardContainer}>
-                <EventListItem
-                  {...event}
-                  eventDate={new Date(event.eventDate)}
-                  onPress={() => handleEventPress(event)}
-                />
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {activeEvents.map((event) => (
+          <TouchableOpacity
+            key={event.id}
+            style={styles.itemContainer}
+            onPress={() => handleEventPress(event)}
+            activeOpacity={0.9}
+          >
+            <View style={styles.cardContainer}>
+              <EventListItem
+                {...event}
+                eventDate={new Date(event.eventDate)}
+                onPress={() => handleEventPress(event)}
+              />
+            </View>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
     </View>
   );
 };
@@ -113,19 +98,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fontSize.xl,
     fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
     marginBottom: spacing.xs,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
   },
   subtitle: {
     fontSize: fontSize.sm,
-    color: "#666",
+    color: colors.text.secondary,
     marginBottom: spacing.md,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
-  },
-  scrollContainer: {
-    position: "relative",
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,
@@ -135,28 +118,11 @@ const styles = StyleSheet.create({
     marginRight: ITEM_SPACING,
   },
   cardContainer: {
-    backgroundColor: colors.fixed.white,
+    backgroundColor: colors.bg.card,
     borderRadius: radius.md,
-    shadowColor: colors.fixed.black,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
     borderWidth: 1,
-    borderColor: "#f0f0f0",
+    borderColor: colors.border.default,
     overflow: "hidden",
-  },
-  loadingItem: {
-    opacity: 0.6,
-  },
-  loadingContent: {
-    width: ITEM_WIDTH,
-    height: 120,
-    backgroundColor: "#f0f0f0",
-    borderRadius: radius.md,
   },
 });
 

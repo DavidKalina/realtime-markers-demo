@@ -8,6 +8,7 @@ import {
   fontSize,
   fontWeight,
   fontFamily,
+  spring,
 } from "@/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import * as Haptics from "expo-haptics";
@@ -119,8 +120,8 @@ const RegisterScreen: React.FC = () => {
     if (isLoading) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     buttonScale.value = withSequence(
-      withSpring(0.95, { damping: 15, stiffness: 200 }),
-      withSpring(1, { damping: 15, stiffness: 200 }),
+      withSpring(0.95, spring.press),
+      withSpring(1, spring.press),
     );
     setTimeout(() => {
       Keyboard.dismiss();

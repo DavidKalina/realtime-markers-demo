@@ -34,6 +34,7 @@ import {
   fontSize,
   fontWeight,
   fontFamily,
+  spring,
 } from "@/theme";
 
 interface DiscoveryIndicatorProps {
@@ -264,11 +265,11 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
         key={item.id}
         style={[styles.itemContainer, index > 0 && { marginTop: spacing.sm }]}
         entering={FadeInDown.springify()
-          .damping(15)
+          .damping(spring.firm.damping)
           .mass(0.8)
           .delay(index * 100)}
         exiting={FadeOutUp.springify()
-          .damping(15)
+          .damping(spring.firm.damping)
           .mass(0.8)
           .delay(index * 100)}
         layout={LinearTransition.springify()}

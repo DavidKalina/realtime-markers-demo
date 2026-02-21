@@ -40,6 +40,7 @@ import {
   fontSize,
   fontWeight,
   fontFamily,
+  spring,
 } from "@/theme";
 
 // Helper for dimmed text color
@@ -269,10 +270,10 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
   return (
     <Animated.View
       style={styles.container}
-      entering={SlideInDown.springify().damping(15).stiffness(100)}
+      entering={SlideInDown.springify().damping(spring.firm.damping).stiffness(spring.dropdown.stiffness)}
       exiting={SlideOutDown.springify()
-        .damping(15)
-        .stiffness(100)
+        .damping(spring.firm.damping)
+        .stiffness(spring.dropdown.stiffness)
         .withCallback((finished) => {
           if (finished) {
             runOnJS(cleanupAnimations)();

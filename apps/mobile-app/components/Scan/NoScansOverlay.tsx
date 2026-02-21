@@ -60,7 +60,7 @@ export const NoScansOverlay: React.FC<NoScansOverlayProps> = ({
 const styles = StyleSheet.create({
   noScansOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    backgroundColor: colors.overlay.heavy,
     justifyContent: "center",
     alignItems: "center",
     padding: spacing.xl,

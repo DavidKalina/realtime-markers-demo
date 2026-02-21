@@ -72,12 +72,9 @@ const useEventSearch = ({
   const [error, setError] = useState<string | null>(null);
   const [eventResults, setEventResults] = useState<EventType[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
-  const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
-  const [hasMoreResults, setHasMoreResults] = useState(true);
+  const [hasMoreResults, setHasMoreResults] = useState(false);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const searchInProgress = useRef(false);
-  const lastSearchQuery = useRef<string>("");
-  const searchTimeout = useRef<NodeJS.Timeout>();
 
   // Initialize with initial markers if available
   useEffect(() => {
@@ -87,125 +84,102 @@ const useEventSearch = ({
     }
   }, [initialMarkers, hasSearched]);
 
-  // Create a debounced search function that persists across renders
-  const debouncedSearchEvents = useMemo(
-    () =>
-      debounce(async (query: string, reset: boolean = true) => {
-        // Clear any pending timeouts
-        if (searchTimeout.current) {
-          clearTimeout(searchTimeout.current);
+  // Core search function
+  const executeSearch = useCallback(
+    async (query: string) => {
+      if (!query.trim()) {
+        if (initialMarkers.length > 0) {
+          setEventResults(initialMarkers.map(markerToEventType));
+        } else {
+          setEventResults([]);
         }
+        setHasMoreResults(false);
+        setHasSearched(false);
+        setIsLoading(false);
+        return;
+      }
 
-        if (!query.trim()) {
-          if (initialMarkers.length > 0) {
-            const initialEvents = initialMarkers.map(markerToEventType);
-            setEventResults(initialEvents);
-          } else {
-            setEventResults([]);
-          }
-          setHasMoreResults(false);
-          setNextCursor(undefined);
-          setHasSearched(false);
-          setIsLoading(false);
-          setIsFetchingMore(false);
-          return;
-        }
+      if (searchInProgress.current) return;
+      searchInProgress.current = true;
 
-        // Prevent concurrent searches and duplicate queries
-        if (searchInProgress.current || query === lastSearchQuery.current)
-          return;
-        searchInProgress.current = true;
-        lastSearchQuery.current = query;
+      try {
+        setIsLoading(true);
+        setError(null);
 
-        try {
-          if (reset) {
-            setIsLoading(true);
-            setIsFetchingMore(false);
-          } else {
-            setIsFetchingMore(true);
-          }
-          setError(null);
+        const response = await apiClient.events.searchEvents(query, {
+          limit: 20,
+        });
 
-          const response = await apiClient.events.searchEvents(query, {
-            limit: 10,
-            cursor: reset ? undefined : nextCursor,
-          });
-
-          // Since the new API doesn't support pagination, we'll just use the results directly
-          const newResults = response.events;
-
-          setEventResults(newResults);
-          setHasMoreResults(false); // No pagination in new API
-          setNextCursor(undefined);
-          setHasSearched(true);
-        } catch (err) {
-          console.error("Search error:", err);
-          setError("Failed to search events. Please try again.");
-          if (reset) {
-            setEventResults([]);
-          }
-        } finally {
-          setIsLoading(false);
-          setIsFetchingMore(false);
-          searchInProgress.current = false;
-        }
-      }, 800),
-    [initialMarkers], // Removed nextCursor from dependencies since we don't use pagination anymore
+        setEventResults(response.events);
+        setHasMoreResults(false);
+        setHasSearched(true);
+      } catch (err) {
+        console.error("Search error:", err);
+        setError("Failed to search events. Please try again.");
+        setEventResults([]);
+      } finally {
+        setIsLoading(false);
+        searchInProgress.current = false;
+      }
+    },
+    [initialMarkers],
   );
 
-  // Clean up the debounced function and timeouts on unmount
+  // Debounced version for auto-search as user types
+  const debouncedSearch = useMemo(
+    () => debounce((query: string) => executeSearch(query), 400),
+    [executeSearch],
+  );
+
+  // Clean up debounce on unmount
   useEffect(() => {
     return () => {
-      debouncedSearchEvents.cancel();
-      if (searchTimeout.current) {
-        clearTimeout(searchTimeout.current);
-      }
+      debouncedSearch.cancel();
     };
-  }, [debouncedSearchEvents]);
+  }, [debouncedSearch]);
 
-  // Update search when query changes
+  // Trigger debounced search when query changes
   useEffect(() => {
-    if (searchQuery.trim() || hasSearched) {
-      // Clear any pending timeouts
-      if (searchTimeout.current) {
-        clearTimeout(searchTimeout.current);
+    if (searchQuery.trim()) {
+      setIsLoading(true);
+      debouncedSearch(searchQuery);
+    } else if (hasSearched) {
+      // Query was cleared — reset to landing page state
+      debouncedSearch.cancel();
+      if (initialMarkers.length > 0) {
+        setEventResults(initialMarkers.map(markerToEventType));
+      } else {
+        setEventResults([]);
       }
-
-      // Set a new timeout to prevent immediate double renders
-      searchTimeout.current = setTimeout(() => {
-        debouncedSearchEvents(searchQuery, true);
-      }, 100);
+      setHasSearched(false);
+      setIsLoading(false);
     }
-  }, [searchQuery, hasSearched, debouncedSearchEvents]);
+  }, [searchQuery, debouncedSearch, hasSearched, initialMarkers]);
 
-  // Update handleLoadMore to be a no-op since we don't have pagination
   const handleLoadMore = useCallback(() => {
-    // No-op since the new API doesn't support pagination
-    console.log("Pagination is not supported in the current API version");
+    // No-op — current API returns all results at once
   }, []);
 
-  // Clear search query
   const clearSearch = useCallback(() => {
     setSearchQuery("");
     if (initialMarkers.length > 0) {
-      const initialEvents = initialMarkers.map(markerToEventType);
-      setEventResults(initialEvents);
+      setEventResults(initialMarkers.map(markerToEventType));
     } else {
       setEventResults([]);
     }
     setHasSearched(false);
     setIsLoading(false);
     setIsFetchingMore(false);
-    lastSearchQuery.current = "";
   }, [initialMarkers]);
 
-  // Create a wrapper for searchEvents that matches the expected type
+  // Immediate search (for submit button / return key)
   const searchEvents = useCallback(
     async (reset: boolean = true) => {
       if (!searchQuery.trim()) return;
-      await debouncedSearchEvents(searchQuery, reset);
+      debouncedSearch.cancel();
+      await executeSearch(searchQuery);
     },
-    [searchQuery, debouncedSearchEvents],
+    [searchQuery, debouncedSearch, executeSearch],
   );
 
   return {

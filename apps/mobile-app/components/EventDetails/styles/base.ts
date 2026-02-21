@@ -1,13 +1,13 @@
 import { StyleSheet } from "react-native";
 import {
   colors,
-  spacing,
+  fontSize,
+  fontFamily,
+  fontWeight,
+  lineHeight,
   radius,
   shadows,
-  fontSize,
-  fontWeight,
-  fontFamily,
-  lineHeight,
+  spacing,
 } from "@/theme";
 
 export const baseStyles = StyleSheet.create({
@@ -62,52 +62,56 @@ export const baseStyles = StyleSheet.create({
   // Title Section
   titleSection: {
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing["2xl"],
-    paddingBottom: spacing.lg,
-    backgroundColor: colors.bg.card,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
   },
   eventTitle: {
-    fontSize: fontSize["3xl"],
+    fontSize: fontSize.xl,
     fontWeight: fontWeight.bold,
     color: colors.text.primary,
     fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.display,
-    marginBottom: spacing.md,
+    lineHeight: lineHeight.heading,
+    flex: 1,
   },
   eventEmojiContainer: {
-    alignSelf: "flex-start",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.bg.primary,
+    width: 40,
+    height: 40,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
+    backgroundColor: colors.bg.elevated,
+    justifyContent: "center",
+    alignItems: "center",
   },
   eventEmoji: {
-    fontSize: fontSize["2xl"],
+    fontSize: fontSize.xl,
   },
 
   // Details Section
   detailsSection: {
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    gap: spacing["2xl"],
+    paddingBottom: spacing["2xl"],
+  },
+
+  // Section divider
+  sectionDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border.medium,
   },
 
   // Detail Rows
   detailRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   detailText: {
     color: colors.text.primary,
-    fontSize: fontSize.md,
+    fontSize: fontSize.sm,
     flex: 1,
     fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.loose,
+    lineHeight: lineHeight.normal,
   },
   detailTextSecondary: {
     color: colors.text.secondary,
@@ -121,19 +125,25 @@ export const baseStyles = StyleSheet.create({
   locationContent: {
     flex: 1,
   },
-  distanceText: {
-    color: colors.accent.primary,
+  locationAddress: {
+    color: colors.text.primary,
     fontSize: fontSize.sm,
     fontFamily: fontFamily.mono,
-    marginTop: spacing.xs,
+    lineHeight: lineHeight.normal,
+  },
+  distanceText: {
+    color: colors.accent.primary,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
+    marginTop: 2,
     fontWeight: fontWeight.medium,
   },
 
   // Description
   descriptionText: {
-    fontSize: fontSize.md,
-    color: colors.text.primary,
-    lineHeight: lineHeight.loose,
+    fontSize: fontSize.sm,
+    color: colors.text.secondary,
+    lineHeight: lineHeight.relaxed,
     fontFamily: fontFamily.mono,
   },
 
@@ -146,19 +156,17 @@ export const baseStyles = StyleSheet.create({
   categoriesContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: spacing._6,
   },
   categoryTag: {
-    backgroundColor: colors.accent.muted,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing._6,
-    borderRadius: radius["2xl"],
-    borderWidth: 1,
-    borderColor: colors.accent.border,
+    backgroundColor: colors.bg.elevated,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
   },
   categoryText: {
-    color: colors.accent.primary,
-    fontSize: fontSize.sm,
+    color: colors.text.secondary,
+    fontSize: fontSize.xs,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.medium,
   },
@@ -176,12 +184,12 @@ export const baseStyles = StyleSheet.create({
   discoveredByContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
   },
   discoveredByText: {
-    fontSize: fontSize.md,
+    fontSize: fontSize.sm,
     color: colors.text.primary,
     fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.medium,
   },
   discoveredByName: {
     fontWeight: fontWeight.semibold,

@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { useMapStyle } from "@/contexts/MapStyleContext";
+import { useMapStyle, MapStyleType } from "@/contexts/MapStyleContext";
 import { useProfile } from "@/hooks/useProfile";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
@@ -11,8 +11,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { MapPin, User } from "lucide-react-native";
-import Card from "../Layout/Card";
 import Screen from "../Layout/Screen";
 import {
   colors,
@@ -23,12 +21,17 @@ import {
   fontFamily,
   lineHeight,
 } from "@/theme";
-import UserStats from "../Layout/UserStats";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
 
 interface UserProfileProps {
   onBack?: () => void;
 }
+
+const MAP_STYLES: { key: MapStyleType; label: string }[] = [
+  { key: "dark", label: "Night" },
+  { key: "light", label: "Classic" },
+  { key: "street", label: "Street" },
+];
 
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { user } = useAuth();
@@ -54,7 +57,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     mapStyle: currentStyle,
   });
 
-  const handleMapStyleChange = (style: "light" | "dark" | "street") => {
+  const handleMapStyleChange = (style: MapStyleType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setMapSettings((prev) => ({ ...prev, mapStyle: style }));
     setMapStyle(style);
@@ -77,6 +80,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     );
   }
 
+  const displayName = [profileData?.firstName, profileData?.lastName]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <>
       <Screen
@@ -86,219 +93,119 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         onBack={handleBack}
         isScrollable
       >
-        <View style={styles.profileContainer}>
-          <Card style={styles.card}>
-            <View style={styles.sectionHeader}>
-              <User size={20} color={colors.accent.primary} />
-              <Text style={styles.sectionTitle}>Your Stats</Text>
-            </View>
-            <Text style={styles.sectionDescription}>
-              Your scanning and saving activity
-            </Text>
-            <UserStats
-              items={[
-                {
-                  value: profileData?.scanCount || 0,
-                  label: "Events Found",
-                },
-                {
-                  value: profileData?.saveCount || 0,
-                  label: "Events Saved",
-                },
-              ]}
-              animated={true}
-              delay={200}
-            />
-            <Text style={styles.statsDescription}>
-              Keep scanning to discover more events around you.
-            </Text>
-          </Card>
-
-          <Card style={styles.card}>
-            <View style={styles.sectionHeader}>
-              <User size={20} color={colors.accent.primary} />
-              <Text style={styles.sectionTitle}>Account Information</Text>
-            </View>
-            <Text style={styles.sectionDescription}>Your account details</Text>
-            {profileData?.firstName && (
-              <View style={styles.detailRow}>
-                <Text style={styles.label}>First Name</Text>
-                <Text style={styles.value}>{profileData.firstName}</Text>
+        <View style={styles.container}>
+          {/* Stats */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Your Stats</Text>
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {profileData?.scanCount || 0}
+                </Text>
+                <Text style={styles.statLabel}>Events Found</Text>
               </View>
-            )}
-            {profileData?.lastName && (
-              <View style={styles.detailRow}>
-                <Text style={styles.label}>Last Name</Text>
-                <Text style={styles.value}>{profileData.lastName}</Text>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {profileData?.saveCount || 0}
+                </Text>
+                <Text style={styles.statLabel}>Events Saved</Text>
               </View>
-            )}
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Email</Text>
-              <Text style={styles.value}>{user?.email}</Text>
             </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Member Since</Text>
-              <Text style={styles.value}>{memberSince}</Text>
-            </View>
-          </Card>
+          </View>
 
-          {profileData?.bio && (
-            <Card style={styles.card}>
-              <View style={styles.sectionHeader}>
-                <User size={20} color={colors.accent.primary} />
-                <Text style={styles.sectionTitle}>Bio</Text>
+          {/* Account Info */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Account</Text>
+            {displayName ? (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Name</Text>
+                <Text style={styles.infoValue}>{displayName}</Text>
               </View>
-              <Text style={styles.bioText}>{profileData.bio}</Text>
-            </Card>
-          )}
-
-          <Card style={styles.card}>
-            <View style={styles.sectionHeader}>
-              <MapPin size={20} color={colors.accent.primary} />
-              <Text style={styles.sectionTitle}>Map Style</Text>
+            ) : null}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Email</Text>
+              <Text style={styles.infoValue}>{user?.email}</Text>
             </View>
-            <Text style={styles.sectionDescription}>
-              Choose your preferred map appearance
-            </Text>
+            <View style={[styles.infoRow, styles.lastRow]}>
+              <Text style={styles.infoLabel}>Member Since</Text>
+              <Text style={styles.infoValue}>{memberSince}</Text>
+            </View>
+            {profileData?.bio ? (
+              <View style={styles.bioRow}>
+                <Text style={styles.infoLabel}>Bio</Text>
+                <Text style={styles.bioText}>{profileData.bio}</Text>
+              </View>
+            ) : null}
+          </View>
 
-            {/* Map Style Settings */}
-            <View style={styles.styleOptions}>
-              <Pressable
-                style={[
-                  styles.styleOption,
-                  mapSettings.mapStyle === "light" && styles.styleOptionActive,
-                ]}
-                onPress={() => handleMapStyleChange("light")}
-              >
-                <View style={styles.styleOptionContent}>
-                  <View
+          {/* Map Style */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Map Style</Text>
+            <View style={styles.stylePills}>
+              {MAP_STYLES.map(({ key, label }) => (
+                <Pressable
+                  key={key}
+                  style={[
+                    styles.stylePill,
+                    mapSettings.mapStyle === key && styles.stylePillActive,
+                  ]}
+                  onPress={() => handleMapStyleChange(key)}
+                >
+                  <Text
                     style={[
-                      styles.radioButton,
-                      mapSettings.mapStyle === "light" &&
-                        styles.radioButtonActive,
+                      styles.stylePillText,
+                      mapSettings.mapStyle === key &&
+                        styles.stylePillTextActive,
                     ]}
                   >
-                    {mapSettings.mapStyle === "light" && (
-                      <View style={styles.radioButtonInner} />
-                    )}
-                  </View>
-                  <View style={styles.styleOptionText}>
-                    <Text style={styles.settingText}>Classic</Text>
-                    <Text style={styles.settingDescription}>
-                      Clean and easy to read
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.styleOption,
-                  mapSettings.mapStyle === "dark" && styles.styleOptionActive,
-                ]}
-                onPress={() => handleMapStyleChange("dark")}
-              >
-                <View style={styles.styleOptionContent}>
-                  <View
-                    style={[
-                      styles.radioButton,
-                      mapSettings.mapStyle === "dark" &&
-                        styles.radioButtonActive,
-                    ]}
-                  >
-                    {mapSettings.mapStyle === "dark" && (
-                      <View style={styles.radioButtonInner} />
-                    )}
-                  </View>
-                  <View style={styles.styleOptionText}>
-                    <Text style={styles.settingText}>Night Mode</Text>
-                    <Text style={styles.settingDescription}>
-                      Easy on the eyes after dark
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.styleOption,
-                  mapSettings.mapStyle === "street" && styles.styleOptionActive,
-                ]}
-                onPress={() => handleMapStyleChange("street")}
-              >
-                <View style={styles.styleOptionContent}>
-                  <View
-                    style={[
-                      styles.radioButton,
-                      mapSettings.mapStyle === "street" &&
-                        styles.radioButtonActive,
-                    ]}
-                  >
-                    {mapSettings.mapStyle === "street" && (
-                      <View style={styles.radioButtonInner} />
-                    )}
-                  </View>
-                  <View style={styles.styleOptionText}>
-                    <Text style={styles.settingText}>Street View</Text>
-                    <Text style={styles.settingDescription}>
-                      Detailed street-level view
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
-
-            {/* 3D Buildings Toggle */}
-            <View style={[styles.settingRow, styles.lastSettingRow]}>
-              <View style={styles.settingLabel}>
-                <Text style={styles.settingText}>3D Buildings</Text>
-                <Text style={styles.settingDescription}>
-                  Make the map feel more real and immersive
+            <View style={styles.switchRow}>
+              <View style={styles.switchLabel}>
+                <Text style={styles.switchTitle}>3D Buildings</Text>
+                <Text style={styles.switchDescription}>
+                  Tilted view with 3D buildings
                 </Text>
               </View>
               <Switch
                 value={mapSettings.isPitched}
                 onValueChange={handlePitchChange}
                 trackColor={{
-                  false: colors.border.default,
+                  false: colors.border.medium,
                   true: colors.accent.primary,
                 }}
-                thumbColor={
-                  mapSettings.isPitched ? colors.accent.primary : colors.bg.card
-                }
+                thumbColor={colors.bg.elevated}
               />
             </View>
-          </Card>
+          </View>
 
-          <Card style={styles.card}>
-            <View style={styles.sectionHeader}>
-              <User size={20} color={colors.accent.primary} />
-              <Text style={styles.sectionTitle}>Account</Text>
-            </View>
-            <Text style={styles.sectionDescription}>
-              Manage your account settings
-            </Text>
-            <View style={styles.buttonContainer}>
-              <Card
-                style={styles.actionButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  handleLogout();
-                }}
-              >
-                <Text style={styles.buttonText}>Sign Out</Text>
-              </Card>
-              <Card
-                style={styles.deleteActionButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setShowDeleteDialog(true);
-                }}
-              >
-                <Text style={styles.deleteButtonText}>Delete Account</Text>
-              </Card>
-            </View>
-          </Card>
+          {/* Actions */}
+          <View style={styles.actions}>
+            <Pressable
+              style={styles.signOutButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                handleLogout();
+              }}
+            >
+              <Text style={styles.signOutText}>Sign Out</Text>
+            </Pressable>
+            <Pressable
+              style={styles.deleteButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowDeleteDialog(true);
+              }}
+            >
+              <Text style={styles.deleteText}>Delete Account</Text>
+            </Pressable>
+          </View>
+
+          <View style={{ height: 100 }} />
         </View>
       </Screen>
 
@@ -317,13 +224,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
 const styles = StyleSheet.create({
   loadingContainer: {
-    padding: spacing.lg,
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg.cardAlt,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
+    paddingVertical: spacing["2xl"],
   },
   loadingText: {
     marginTop: spacing.sm,
@@ -331,48 +235,81 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontFamily: fontFamily.mono,
   },
-  profileContainer: {
+  container: {
     padding: spacing.lg,
     gap: spacing.lg,
   },
-  card: {
-    marginVertical: 0,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacing.sm,
+  section: {
+    backgroundColor: colors.bg.card,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    overflow: "hidden",
   },
   sectionTitle: {
     fontSize: fontSize.lg,
     fontWeight: fontWeight.semibold,
     color: colors.text.primary,
-    marginLeft: spacing.sm,
     fontFamily: fontFamily.mono,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  sectionDescription: {
-    fontSize: fontSize.sm,
-    color: colors.text.secondary,
-    marginBottom: spacing.lg,
+  // Stats
+  statsRow: {
+    flexDirection: "row",
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: fontSize["2xl"],
+    fontWeight: fontWeight.bold,
+    color: colors.accent.primary,
     fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.normal,
+    marginBottom: spacing.xs,
   },
-  detailRow: {
-    marginBottom: spacing.lg,
-  },
-  label: {
+  statLabel: {
     fontSize: fontSize.xs,
     color: colors.text.secondary,
-    marginBottom: spacing.xs,
+    fontFamily: fontFamily.mono,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: colors.border.default,
+  },
+  // Account Info
+  infoRow: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.default,
+  },
+  lastRow: {
+    borderBottomWidth: 0,
+  },
+  infoLabel: {
+    fontSize: fontSize.xs,
+    color: colors.text.secondary,
     fontFamily: fontFamily.mono,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    marginBottom: spacing.xs,
   },
-  value: {
+  infoValue: {
     fontSize: fontSize.md,
     color: colors.text.primary,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.medium,
+  },
+  bioRow: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.default,
   },
   bioText: {
     fontSize: fontSize.md,
@@ -380,110 +317,95 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     lineHeight: lineHeight.loose,
   },
-  buttonContainer: {
-    gap: spacing.md,
+  // Map Style
+  stylePills: {
+    flexDirection: "row",
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    gap: spacing.sm,
   },
-  actionButton: {
-    padding: spacing.lg,
-    marginVertical: 0,
-    backgroundColor: colors.border.subtle,
+  stylePill: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    alignItems: "center",
+    backgroundColor: colors.bg.elevated,
+    borderWidth: 1,
     borderColor: colors.border.medium,
   },
-  deleteActionButton: {
-    padding: spacing.lg,
-    marginVertical: 0,
-    backgroundColor: colors.status.error.bg,
-    borderColor: colors.status.error.border,
+  stylePillActive: {
+    backgroundColor: colors.accent.muted,
+    borderColor: colors.accent.border,
   },
-  buttonText: {
-    color: colors.text.primary,
-    fontSize: fontSize.md,
+  stylePillText: {
+    fontSize: fontSize.sm,
     fontFamily: fontFamily.mono,
-    textAlign: "center",
-    fontWeight: fontWeight.medium,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.secondary,
   },
-  deleteButtonText: {
-    color: colors.status.error.text,
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-    textAlign: "center",
-    fontWeight: fontWeight.medium,
+  stylePillTextActive: {
+    color: colors.accent.primary,
   },
-  styleOptions: {
-    marginBottom: spacing.lg,
-  },
-  styleOption: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radius.md,
-    marginBottom: spacing.sm,
-  },
-  styleOptionActive: {
-    backgroundColor: colors.bg.primary,
-    borderWidth: 2,
-    borderColor: colors.accent.primary,
-  },
-  styleOptionContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  styleOptionText: {
-    flex: 1,
-    marginLeft: spacing.lg,
-  },
-  radioButton: {
-    width: spacing["2xl"],
-    height: spacing["2xl"],
-    borderRadius: radius.md,
-    borderWidth: 2,
-    borderColor: colors.border.default,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  radioButtonActive: {
-    borderColor: colors.accent.primary,
-  },
-  radioButtonInner: {
-    width: spacing.md,
-    height: spacing.md,
-    borderRadius: 6,
-    backgroundColor: colors.accent.primary,
-  },
-  settingRow: {
+  switchRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
     borderTopWidth: 1,
     borderTopColor: colors.border.default,
   },
-  lastSettingRow: {
-    marginTop: spacing.sm,
-  },
-  settingLabel: {
+  switchLabel: {
     flex: 1,
     marginRight: spacing.lg,
   },
-  settingText: {
+  switchTitle: {
     fontSize: fontSize.md,
     color: colors.text.primary,
     fontFamily: fontFamily.mono,
-    marginBottom: spacing.xs,
     fontWeight: fontWeight.medium,
+    marginBottom: spacing.xs,
   },
-  settingDescription: {
+  switchDescription: {
     fontSize: fontSize.sm,
     color: colors.text.secondary,
     fontFamily: fontFamily.mono,
     lineHeight: lineHeight.normal,
   },
-  statsDescription: {
+  // Actions
+  actions: {
+    flexDirection: "row",
+    gap: spacing.md,
+  },
+  signOutButton: {
+    flex: 1,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.xl,
+    alignItems: "center",
+    backgroundColor: colors.bg.card,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+  },
+  signOutText: {
+    color: colors.text.primary,
     fontSize: fontSize.sm,
-    color: colors.text.secondary,
+    fontWeight: fontWeight.semibold,
     fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.normal,
-    marginTop: spacing.sm,
-    textAlign: "center",
+  },
+  deleteButton: {
+    flex: 1,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.xl,
+    alignItems: "center",
+    backgroundColor: colors.status.error.bg,
+    borderWidth: 1,
+    borderColor: colors.status.error.border,
+  },
+  deleteText: {
+    color: colors.status.error.text,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
   },
 });
 

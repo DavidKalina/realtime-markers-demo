@@ -67,9 +67,9 @@ const Button: React.FC<ButtonProps> = ({
     // Size variations
     const sizeStyles: Record<ButtonSize, ViewStyle> = {
       small: {
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        minHeight: spacing["3xl"],
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing._6,
+        minHeight: 28,
       },
       medium: {
         paddingHorizontal: spacing.lg,

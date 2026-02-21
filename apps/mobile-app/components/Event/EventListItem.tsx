@@ -1,5 +1,11 @@
 import React, { useCallback, useMemo } from "react";
-import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
+import { Pressable, View, Text, StyleSheet } from "react-native";
+import Animated, {
+  FadeInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import {
   colors,
   fontSize,
@@ -9,6 +15,7 @@ import {
   radius,
   lineHeight,
 } from "@/theme";
+import { spring } from "@/theme/tokens/animation";
 import EventListItemFooter from "./EventListItemFooter";
 
 export interface EventListItemProps {
@@ -23,6 +30,7 @@ export interface EventListItemProps {
   categories: { id: string; name: string }[];
   isRecurring?: boolean;
   isPrivate?: boolean;
+  index?: number;
   onPress: (event: EventListItemProps) => void;
 }
 
@@ -39,8 +47,11 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
     categories,
     isRecurring,
     isPrivate,
+    index = 0,
     onPress,
   }) => {
+    const scale = useSharedValue(1);
+
     const handlePress = useCallback(() => {
       onPress({
         id,
@@ -54,6 +65,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
         categories,
         isRecurring,
         isPrivate,
+        index,
         onPress,
       });
     }, [
@@ -68,8 +80,23 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
       categories,
       isRecurring,
       isPrivate,
+      index,
       onPress,
     ]);
+
+    const handlePressIn = useCallback(() => {
+      scale.value = withSpring(0.98, spring.snappy);
+    }, [scale]);
+
+    const handlePressOut = useCallback(() => {
+      scale.value = withSpring(1, spring.snappy);
+    }, [scale]);
+
+    const animatedScaleStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scale.value }],
+    }));
+
+    const cappedDelay = Math.min(index, 8) * 50;
 
     const styles = useMemo(
       () =>
@@ -144,45 +171,57 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
     );
 
     return (
-      <TouchableOpacity
-        style={styles.eventItem}
-        onPress={handlePress}
-        activeOpacity={0.7}
+      <Animated.View
+        entering={FadeInUp.duration(300)
+          .delay(cappedDelay)
+          .springify()
+          .damping(spring.firm.damping)
+          .stiffness(spring.firm.stiffness)}
       >
-        <View style={styles.eventContent}>
-          <View style={styles.eventHeader}>
-            {emoji && (
-              <View style={styles.emojiContainer}>
-                <Text style={styles.emoji}>{emoji}</Text>
-              </View>
-            )}
-            <View style={styles.titleContainer}>
-              <View style={styles.titleRow}>
-                <Text style={styles.titleText} numberOfLines={1}>
-                  {title}
-                </Text>
-                {isRecurring && (
-                  <View style={styles.recurringBadge}>
-                    <Text style={styles.recurringBadgeText}>🔄 Recurring</Text>
+        <Pressable
+          onPress={handlePress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+        >
+          <Animated.View style={[styles.eventItem, animatedScaleStyle]}>
+            <View style={styles.eventContent}>
+              <View style={styles.eventHeader}>
+                {emoji && (
+                  <View style={styles.emojiContainer}>
+                    <Text style={styles.emoji}>{emoji}</Text>
                   </View>
                 )}
+                <View style={styles.titleContainer}>
+                  <View style={styles.titleRow}>
+                    <Text style={styles.titleText} numberOfLines={1}>
+                      {title}
+                    </Text>
+                    {isRecurring && (
+                      <View style={styles.recurringBadge}>
+                        <Text style={styles.recurringBadgeText}>
+                          🔄 Recurring
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  {description && (
+                    <Text style={styles.eventDescription} numberOfLines={2}>
+                      {description}
+                    </Text>
+                  )}
+                  <EventListItemFooter
+                    distance={distance}
+                    categories={categories}
+                    eventDate={eventDate}
+                    endDate={endDate}
+                    isPrivate={isPrivate}
+                  />
+                </View>
               </View>
-              {description && (
-                <Text style={styles.eventDescription} numberOfLines={2}>
-                  {description}
-                </Text>
-              )}
-              <EventListItemFooter
-                distance={distance}
-                categories={categories}
-                eventDate={eventDate}
-                endDate={endDate}
-                isPrivate={isPrivate}
-              />
             </View>
-          </View>
-        </View>
-      </TouchableOpacity>
+          </Animated.View>
+        </Pressable>
+      </Animated.View>
     );
   },
 );

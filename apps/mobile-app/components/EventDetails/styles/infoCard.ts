@@ -1,53 +1,26 @@
 import { StyleSheet } from "react-native";
-import {
-  colors,
-  spacing,
-  radius,
-  fontSize,
-  fontWeight,
-  fontFamily,
-} from "@/theme";
+import { colors, spacing, fontWeight, fontFamily } from "@/theme";
 
 export const infoCardStyles = StyleSheet.create({
   infoCard: {
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    shadowColor: colors.fixed.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    overflow: "hidden",
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   infoCardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-    backgroundColor: colors.bg.primary,
+    marginBottom: spacing.sm,
   },
   infoCardIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.sm,
-    backgroundColor: colors.bg.card,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
+    marginRight: spacing._6,
   },
   infoCardTitle: {
-    fontSize: fontSize.md,
+    fontSize: 11,
     fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
+    color: colors.text.disabled,
     fontFamily: fontFamily.mono,
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
-  infoCardContent: {
-    padding: spacing.xl,
-  },
+  infoCardContent: {},
 });

@@ -32,6 +32,7 @@ import {
   fontSize,
   fontWeight,
   fontFamily,
+  spring,
 } from "@/theme";
 import MapMojiHeader from "../AnimationHeader";
 import Input from "../Input/Input";
@@ -121,8 +122,8 @@ const Login: React.FC = () => {
 
     // Animate button press
     buttonScale.value = withSequence(
-      withSpring(0.95, { damping: 15, stiffness: 200 }),
-      withSpring(1, { damping: 15, stiffness: 200 }),
+      withSpring(0.95, spring.press),
+      withSpring(1, spring.press),
     );
 
     // Delay the login action until after animation

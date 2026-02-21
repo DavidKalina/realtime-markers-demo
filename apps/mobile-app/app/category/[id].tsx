@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
@@ -42,6 +42,9 @@ const CategoryEventsScreen = () => {
     fetchCategory();
   }, [id]);
 
+  const nextCursorRef = useRef<string | undefined>();
+  nextCursorRef.current = nextCursor;
+
   // Fetch events for the category
   const fetchEvents = useCallback(
     async (refresh = false) => {
@@ -53,7 +56,7 @@ const CategoryEventsScreen = () => {
 
         const result = await apiClient.events.getEventsByCategory(id, {
           limit: 20,
-          cursor: refresh ? undefined : nextCursor,
+          cursor: refresh ? undefined : nextCursorRef.current,
         });
 
         if (refresh) {
@@ -74,7 +77,7 @@ const CategoryEventsScreen = () => {
         setIsLoading(false);
       }
     },
-    [id, nextCursor],
+    [id],
   );
 
   // Initial load
@@ -99,8 +102,8 @@ const CategoryEventsScreen = () => {
   );
 
   const renderEventItem = useCallback(
-    (event: EventListItemType) => (
-      <EventListItem {...event} onPress={handleEventPress} />
+    (event: EventListItemType, index: number) => (
+      <EventListItem {...event} onPress={handleEventPress} index={index} />
     ),
     [handleEventPress],
   );

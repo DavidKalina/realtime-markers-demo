@@ -10,18 +10,14 @@ import Animated, {
   cancelAnimation,
   interpolateColor,
 } from "react-native-reanimated";
-import { Camera, Zap, ZapOff } from "lucide-react-native";
-import { FlashMode } from "expo-camera";
-import { colors, spacing, radius } from "@/theme";
+import { Camera } from "lucide-react-native";
+import { colors, spacing } from "@/theme";
 
 interface CaptureButtonProps {
   onPress: () => void;
   isCapturing?: boolean;
   isReady?: boolean;
   size?: "normal" | "compact";
-  flashMode?: FlashMode;
-  onFlashToggle?: () => void;
-  flashButtonPosition?: "left" | "right";
   disabled?: boolean;
 }
 
@@ -30,9 +26,6 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
   isCapturing = false,
   isReady = true,
   size = "normal",
-  flashMode = "off",
-  onFlashToggle,
-  flashButtonPosition = "left",
   disabled = false,
 }) => {
   // Animation values
@@ -40,7 +33,6 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
   const colorProgress = useSharedValue(0);
   const iconOpacity = useSharedValue(0);
   const borderProgress = useSharedValue(0);
-  const flashButtonOpacity = useSharedValue(0);
 
   // Track if component is mounted
   const isMounted = useRef(true);
@@ -62,17 +54,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
     cancelAnimation(colorProgress);
     cancelAnimation(iconOpacity);
     cancelAnimation(borderProgress);
-    cancelAnimation(flashButtonOpacity);
   };
-
-  // Show flash button when onFlashToggle is provided and not capturing
-  useEffect(() => {
-    if (onFlashToggle && !isCapturing) {
-      flashButtonOpacity.value = withTiming(1, { duration: 300 });
-    } else {
-      flashButtonOpacity.value = withTiming(0, { duration: 200 });
-    }
-  }, [isCapturing, flashButtonOpacity, onFlashToggle]);
 
   // Setup animations based on state
   useEffect(() => {
@@ -94,7 +76,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
       iconOpacity.value = withTiming(0, { duration: 150 });
       borderProgress.value = withTiming(0, { duration: 150 });
     } else if (isReady) {
-      // Ready animation - subtle pulse without the oversized glow
+      // Ready animation - subtle pulse
       const initialScale = withTiming(1.05, {
         duration: 300,
         easing: Easing.out(Easing.ease),
@@ -112,13 +94,9 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
         true,
       );
 
-      // Apply sequence animation with safeguards
       buttonScale.value = withSequence(initialScale, pulseAnimation);
-
-      // Animate color and icon without the large glow
       colorProgress.value = withTiming(1, { duration: 400 });
       iconOpacity.value = withTiming(1, { duration: 300 });
-      // Animate border instead of using a separate glow element
       borderProgress.value = withTiming(1, { duration: 400 });
     } else {
       // Default state
@@ -140,13 +118,12 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
   });
 
   const innerCircleStyle = useAnimatedStyle(() => {
-    // Use interpolateColor for smooth color transitions
     const backgroundColor = disabled
-      ? "#6c757d" // Dimmed gray when disabled
+      ? colors.text.disabled
       : interpolateColor(
           colorProgress.value,
           [0, 0.5, 1],
-          ["#f8f9fa", "#adb5bd", "#37D05C"],
+          [colors.bg.elevated, colors.text.secondary, colors.accent.primary],
         );
 
     return {
@@ -158,21 +135,20 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
   });
 
   const buttonOuterStyle = useAnimatedStyle(() => {
-    // Transition border color for ready state instead of using a separate glow
     const borderColor = disabled
-      ? "rgba(255, 255, 255, 0.2)" // Dimmed border when disabled
+      ? colors.border.default
       : interpolateColor(
           borderProgress.value,
           [0, 1],
-          ["rgba(255, 255, 255, 0.3)", "rgba(55, 208, 92, 0.8)"],
+          [colors.border.medium, colors.accent.border],
         );
 
-    const shadowOpacity = disabled ? 0.1 : 0.2 + borderProgress.value * 0.3;
+    const shadowOpacity = disabled ? 0.05 : 0.1 + borderProgress.value * 0.15;
     const shadowRadius = disabled ? 1 : 2 + borderProgress.value * 3;
 
     return {
       borderColor,
-      shadowColor: disabled ? "#000" : isReady ? "#37D05C" : "#000",
+      shadowColor: isReady ? colors.accent.primary : colors.fixed.black,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity,
       shadowRadius,
@@ -187,123 +163,50 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
     };
   });
 
-  const flashButtonStyle = useAnimatedStyle(() => {
-    return {
-      opacity: flashButtonOpacity.value,
-      transform: [{ scale: 0.8 + flashButtonOpacity.value * 0.2 }],
-    };
-  });
-
-  // Get flash icon component based on current mode
-  const FlashIcon = flashMode === "on" ? Zap : ZapOff;
-
-  // Get flash button color based on current mode
-  const getFlashColor = () => {
-    switch (flashMode) {
-      case "on":
-        return "#ffce00"; // Yellow for on
-      case "auto":
-        return "#5cafff"; // Blue for auto
-      case "off":
-      default:
-        return colors.fixed.white; // White for off
-    }
-  };
-
-  // Render flash button
-  const renderFlashButton = () => {
-    if (!onFlashToggle) return null;
-
-    return (
-      <Animated.View style={[styles.flashButtonWrapper, flashButtonStyle]}>
+  return (
+    <View style={styles.container}>
+      <Animated.View style={[buttonAnimatedStyle]}>
         <TouchableOpacity
-          style={[styles.flashButton, { borderColor: getFlashColor() }]}
-          onPress={onFlashToggle}
+          style={[
+            styles.button,
+            {
+              width: buttonSize,
+              height: buttonSize,
+              borderRadius: buttonSize / 2,
+            },
+          ]}
+          onPress={onPress}
           activeOpacity={0.7}
           disabled={isCapturing || disabled}
         >
-          <FlashIcon size={20} color={getFlashColor()} />
+          <Animated.View
+            style={[
+              styles.outerBorder,
+              {
+                width: buttonSize,
+                height: buttonSize,
+                borderRadius: buttonSize / 2,
+              },
+              buttonOuterStyle,
+            ]}
+          >
+            <Animated.View style={[styles.innerCircle, innerCircleStyle]}>
+              <Animated.View style={[styles.iconContainer, iconStyle]}>
+                <Camera
+                  size={size === "compact" ? 18 : 20}
+                  color={colors.bg.primary}
+                />
+              </Animated.View>
+            </Animated.View>
+          </Animated.View>
         </TouchableOpacity>
       </Animated.View>
-    );
-  };
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.controlsContainer}>
-        {/* Left side - flash button if positioned left */}
-        <View style={styles.sideContainer}>
-          {flashButtonPosition === "left" && renderFlashButton()}
-        </View>
-
-        {/* Center - capture button */}
-        <View style={styles.centerContainer}>
-          <Animated.View style={[buttonAnimatedStyle]}>
-            <TouchableOpacity
-              style={[
-                styles.button,
-                {
-                  width: buttonSize,
-                  height: buttonSize,
-                  borderRadius: buttonSize / 2,
-                },
-              ]}
-              onPress={onPress}
-              activeOpacity={0.7}
-              disabled={isCapturing || disabled}
-            >
-              <Animated.View
-                style={[
-                  styles.outerBorder,
-                  {
-                    width: buttonSize,
-                    height: buttonSize,
-                    borderRadius: buttonSize / 2,
-                  },
-                  buttonOuterStyle,
-                ]}
-              >
-                <Animated.View style={[styles.innerCircle, innerCircleStyle]}>
-                  <Animated.View style={[styles.iconContainer, iconStyle]}>
-                    <Camera
-                      size={size === "compact" ? 18 : 20}
-                      color={colors.bg.primary}
-                    />
-                  </Animated.View>
-                </Animated.View>
-              </Animated.View>
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-
-        {/* Right side - flash button if positioned right */}
-        <View style={styles.sideContainer}>
-          {flashButtonPosition === "right" && renderFlashButton()}
-        </View>
-      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: Platform.OS === "ios" ? spacing.xl : spacing["2xl"],
-    width: "100%",
-  },
-  controlsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    width: "100%",
-    paddingHorizontal: spacing["4xl"],
-  },
-  sideContainer: {
-    width: 44,
-    height: 44,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  centerContainer: {
     justifyContent: "center",
     alignItems: "center",
   },
@@ -315,44 +218,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    backgroundColor: colors.border.subtle,
-    shadowColor: colors.overlay.light,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
+    backgroundColor: colors.bg.cardAlt,
   },
   innerCircle: {
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: colors.overlay.light,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
   },
   iconContainer: {
     justifyContent: "center",
     alignItems: "center",
     opacity: 0,
-  },
-  flashButtonWrapper: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  flashButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
-    backgroundColor: colors.border.subtle,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: colors.border.medium,
-    shadowColor: colors.overlay.light,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
   },
 });

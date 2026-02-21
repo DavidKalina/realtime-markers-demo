@@ -19,7 +19,7 @@ import Animated, {
   withRepeat,
   Easing,
 } from "react-native-reanimated";
-import { colors, fontSize, lineHeight, spacing } from "@/theme";
+import { colors, fontSize, lineHeight, spacing, spring } from "@/theme";
 import {
   MARKER_HEIGHT,
   MARKER_WIDTH,
@@ -34,10 +34,7 @@ const ANIMATIONS = {
   SCALE_PRESS: {
     duration: 100,
   },
-  SCALE_RELEASE: {
-    stiffness: 200,
-    damping: 12,
-  },
+  SCALE_RELEASE: spring.bouncy,
   RIPPLE: {
     duration: 800,
   },

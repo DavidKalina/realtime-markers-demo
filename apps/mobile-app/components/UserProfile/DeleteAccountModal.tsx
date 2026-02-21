@@ -24,6 +24,7 @@ import {
   fontWeight,
   fontFamily,
   lineHeight,
+  spring,
 } from "@/theme";
 
 interface DeleteAccountModalProps {
@@ -59,8 +60,8 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
         <Animated.View
           entering={BounceIn.duration(500)
             .springify()
-            .damping(15)
-            .stiffness(200)}
+            .damping(spring.firm.damping)
+            .stiffness(spring.firm.stiffness)}
           layout={LinearTransition.springify()}
           style={styles.modalContent}
         >
@@ -84,7 +85,7 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
             <Animated.View
               entering={BounceIn.duration(500)
                 .springify()
-                .damping(15)
+                .damping(32)
                 .stiffness(200)}
               exiting={BounceOut.duration(300)}
             >
@@ -153,7 +154,7 @@ const styles = StyleSheet.create({
   },
   dialogText: {
     color: colors.text.primary,
-    fontSize: 15,
+    fontSize: fontSize.md,
     fontFamily: fontFamily.mono,
     lineHeight: lineHeight.relaxed,
     marginBottom: spacing.lg,
@@ -170,7 +171,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.md,
     color: colors.text.primary,
-    fontSize: 15,
+    fontSize: fontSize.md,
     fontFamily: fontFamily.mono,
     marginBottom: spacing.lg,
     borderWidth: 1,
