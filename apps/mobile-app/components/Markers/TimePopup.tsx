@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -19,21 +19,44 @@ interface TimePopupProps {
   endDate?: string;
 }
 
+// Timing constants
+const TIME_DISPLAY_MS = 3000;
+const MARQUEE_SPEED = 25; // px per second
+const MARQUEE_START_PAUSE = 600;
+const MARQUEE_END_PAUSE = 600;
+const STATIC_TITLE_MS = 3000;
+const MARQUEE_MAX_WIDTH = 130;
+const CYCLE_GUARD_MS = 500;
+
 const TimeContent: React.FC<{
   timeLeft: string;
   isExpired: boolean;
-  animatedStyle: {
+  hourglassStyle: {
     transform: {
       rotate: string;
     }[];
   };
-}> = React.memo(({ timeLeft, isExpired, animatedStyle }) => {
+  onComplete: () => void;
+}> = React.memo(({ timeLeft, isExpired, hourglassStyle, onComplete }) => {
+  const called = useRef(false);
+
+  useEffect(() => {
+    called.current = false;
+    const timer = setTimeout(() => {
+      if (!called.current) {
+        called.current = true;
+        onComplete();
+      }
+    }, TIME_DISPLAY_MS);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+
   return (
-    <View style={styles.contentContainer}>
+    <View style={styles.timeRow}>
       {isExpired ? (
         <Text style={styles.emojiText}>⏰</Text>
       ) : (
-        <Animated.Text style={[styles.emojiText, animatedStyle]}>
+        <Animated.Text style={[styles.emojiText, hourglassStyle]}>
           ⌛️
         </Animated.Text>
       )}
@@ -42,12 +65,73 @@ const TimeContent: React.FC<{
   );
 });
 
-const TitleContent: React.FC<{ title: string }> = React.memo(({ title }) => {
+const TitleContent: React.FC<{
+  title: string;
+  titleWidth: number;
+  onComplete: () => void;
+}> = React.memo(({ title, titleWidth, onComplete }) => {
+  const translateX = useSharedValue(0);
+  const called = useRef(false);
+
+  const overflow =
+    titleWidth > 0 ? titleWidth - MARQUEE_MAX_WIDTH + spacing.xs * 2 : 0;
+  const needsMarquee = overflow > 0;
+
+  useEffect(() => {
+    if (titleWidth <= 0) return;
+    called.current = false;
+    translateX.value = 0;
+
+    if (needsMarquee) {
+      const scrollMs = (overflow / MARQUEE_SPEED) * 1000;
+
+      const scrollTimer = setTimeout(() => {
+        translateX.value = withTiming(-overflow, {
+          duration: scrollMs,
+          easing: Easing.linear,
+        });
+      }, MARQUEE_START_PAUSE);
+
+      const doneTimer = setTimeout(() => {
+        if (!called.current) {
+          called.current = true;
+          onComplete();
+        }
+      }, MARQUEE_START_PAUSE + scrollMs + MARQUEE_END_PAUSE);
+
+      return () => {
+        clearTimeout(scrollTimer);
+        clearTimeout(doneTimer);
+        cancelAnimation(translateX);
+      };
+    } else {
+      const timer = setTimeout(() => {
+        if (!called.current) {
+          called.current = true;
+          onComplete();
+        }
+      }, STATIC_TITLE_MS);
+
+      return () => clearTimeout(timer);
+    }
+  }, [titleWidth, needsMarquee, overflow, onComplete]);
+
+  const marqueeStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
   return (
-    <View style={styles.contentContainer}>
-      <Text style={styles.titleText} numberOfLines={1}>
-        {title}
-      </Text>
+    <View style={styles.marqueeClip}>
+      <Animated.View style={marqueeStyle}>
+        <Text
+          style={[
+            styles.titleText,
+            needsMarquee && { width: titleWidth },
+          ]}
+        >
+          {title}
+        </Text>
+      </Animated.View>
     </View>
   );
 });
@@ -57,34 +141,31 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(
     const [timeLeft, setTimeLeft] = useState<string>("");
     const [isExpired, setIsExpired] = useState(false);
     const [showTitle, setShowTitle] = useState(false);
-    const [isAnimating, setIsAnimating] = useState(false);
+    const [titleWidth, setTitleWidth] = useState(0);
 
+    const guardRef = useRef(false);
     const rotateAnimation = useSharedValue(0);
-    const intervalRef = useRef<NodeJS.Timeout>();
 
-    // Toggle between time and title every 4 seconds
-    useEffect(() => {
-      const cycleContent = () => {
-        if (isAnimating) return;
+    // Callback-driven cycling (replaces fixed interval)
+    const cycleToTitle = useCallback(() => {
+      if (guardRef.current) return;
+      guardRef.current = true;
+      setShowTitle(true);
+      setTimeout(() => {
+        guardRef.current = false;
+      }, CYCLE_GUARD_MS);
+    }, []);
 
-        setIsAnimating(true);
-        setShowTitle((prev) => !prev);
+    const cycleToTime = useCallback(() => {
+      if (guardRef.current) return;
+      guardRef.current = true;
+      setShowTitle(false);
+      setTimeout(() => {
+        guardRef.current = false;
+      }, CYCLE_GUARD_MS);
+    }, []);
 
-        // Reset animation state after the transition is complete
-        setTimeout(() => {
-          setIsAnimating(false);
-        }, 700);
-      };
-
-      intervalRef.current = setInterval(cycleContent, 4000);
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-        }
-      };
-    }, [isAnimating]);
-
-    // Set up rotation animation
+    // Hourglass rotation animation
     useEffect(() => {
       if (!isExpired) {
         rotateAnimation.value = withRepeat(
@@ -123,21 +204,9 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(
       };
     }, [isExpired]);
 
-    const animatedStyle = useAnimatedStyle(() => {
+    const hourglassStyle = useAnimatedStyle(() => {
       return {
         transform: [{ rotate: `${rotateAnimation.value}deg` }],
-      };
-    });
-
-    const timeContentStyle = useAnimatedStyle(() => {
-      return {
-        position: "absolute",
-      };
-    });
-
-    const titleContentStyle = useAnimatedStyle(() => {
-      return {
-        position: "absolute",
       };
     });
 
@@ -255,16 +324,27 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(
 
     return (
       <View style={styles.container}>
+        {/* Off-screen measurement text (outside badgeContainer overflow:hidden) */}
+        <Text
+          style={styles.measureText}
+          onLayout={(e) =>
+            setTitleWidth(Math.ceil(e.nativeEvent.layout.width))
+          }
+        >
+          {title}
+        </Text>
+
         {!showTitle && (
           <Animated.View
             entering={ZoomIn.duration(400).delay(300)}
             exiting={ZoomOut.duration(300)}
-            style={[styles.badgeContainer, timeContentStyle]}
+            style={[styles.badgeContainer, styles.absolute]}
           >
             <TimeContent
               timeLeft={timeLeft}
               isExpired={isExpired}
-              animatedStyle={animatedStyle}
+              hourglassStyle={hourglassStyle}
+              onComplete={cycleToTitle}
             />
           </Animated.View>
         )}
@@ -273,9 +353,13 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(
           <Animated.View
             entering={ZoomIn.duration(400).delay(300)}
             exiting={ZoomOut.duration(300)}
-            style={[styles.badgeContainer, titleContentStyle]}
+            style={[styles.badgeContainer, styles.absolute]}
           >
-            <TitleContent title={title} />
+            <TitleContent
+              title={title}
+              titleWidth={titleWidth}
+              onComplete={cycleToTime}
+            />
           </Animated.View>
         )}
       </View>
@@ -290,6 +374,9 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     alignItems: "center",
     justifyContent: "center",
+  },
+  absolute: {
+    position: "absolute",
   },
   badgeContainer: {
     backgroundColor: colors.text.primary,
@@ -310,7 +397,7 @@ const styles = StyleSheet.create({
     elevation: 4,
     overflow: "hidden",
   },
-  contentContainer: {
+  timeRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -318,6 +405,23 @@ const styles = StyleSheet.create({
     maxWidth: 150,
     minHeight: 20,
     paddingHorizontal: spacing.xs,
+  },
+  marqueeClip: {
+    overflow: "hidden",
+    maxWidth: MARQUEE_MAX_WIDTH,
+    minHeight: 20,
+    justifyContent: "center",
+    paddingHorizontal: spacing.xs,
+  },
+  measureText: {
+    position: "absolute",
+    opacity: 0,
+    top: -9999,
+    fontSize: 11,
+    lineHeight: 13,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.medium,
+    letterSpacing: 0.2,
   },
   emojiText: {
     fontSize: 11,
@@ -339,7 +443,5 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.medium,
     letterSpacing: 0.2,
-    textAlign: "center",
-    paddingHorizontal: 2,
   },
 });
