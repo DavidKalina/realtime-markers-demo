@@ -457,7 +457,6 @@ function HomeScreen() {
     "worklet";
     if (event?.properties) {
       const { screenPointX, screenPointY } = event.properties;
-      const coordinates = event.geometry?.coordinates;
 
       if (
         typeof screenPointX === "number" &&
@@ -465,8 +464,6 @@ function HomeScreen() {
       ) {
         runOnJS(setRipplePosition)({ x: screenPointX, y: screenPointY });
         runOnJS(setShowRipple)(true);
-
-        // Store coordinates for later use
       }
     }
   }, []);

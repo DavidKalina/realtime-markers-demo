@@ -3,6 +3,7 @@ import { eventBroker, EventTypes, BaseEvent } from "@/services/EventBroker";
 import { MessageTypes } from "./constants";
 
 interface UseWebSocketConnectionArgs {
+  wsRef: React.MutableRefObject<WebSocket | null>;
   url: string;
   isAuthenticated: boolean;
   userId: string | undefined;
@@ -14,6 +15,7 @@ interface UseWebSocketConnectionArgs {
 }
 
 export function useWebSocketConnection({
+  wsRef,
   url,
   isAuthenticated,
   userId,
@@ -23,7 +25,6 @@ export function useWebSocketConnection({
   setError,
   currentViewportRef,
 }: UseWebSocketConnectionArgs) {
-  const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -216,5 +217,5 @@ export function useWebSocketConnection({
     }
   }, []);
 
-  return { wsRef, connectWebSocket, cleanup };
+  return { connectWebSocket, cleanup };
 }

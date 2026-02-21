@@ -1,5 +1,5 @@
 // hooks/useMapWebSocket/useMapWebSocket.ts - Main orchestrator
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   eventBroker,
   EventTypes,
@@ -23,14 +23,18 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const { user, isAuthenticated } = useAuth();
   const setStoreMarkers = useLocationStore.getState().setMarkers;
 
+  // Stable WebSocket ref shared between viewport sync and connection hooks
+  const wsRef = useRef<WebSocket | null>(null);
+
   // Viewport sync
   const {
     currentViewport,
     currentViewportRef,
     markersRef,
     updateMarkersRef,
+    updateViewport,
     sendViewportUpdateToServer,
-  } = useViewportSync({ current: null } as React.RefObject<WebSocket | null>);
+  } = useViewportSync(wsRef);
 
   // Keep markersRef in sync
   useEffect(() => {
@@ -121,8 +125,9 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     convertEventToMarker,
   });
 
-  // WebSocket connection
-  const { wsRef, connectWebSocket, cleanup } = useWebSocketConnection({
+  // WebSocket connection (shares wsRef with viewport sync)
+  const { connectWebSocket, cleanup } = useWebSocketConnection({
+    wsRef,
     url,
     isAuthenticated,
     userId: user?.id,
@@ -132,39 +137,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     setError,
     currentViewportRef,
   });
-
-  // Re-assign wsRef for viewport sync (since it was created with a placeholder)
-  // Viewport sync needs to send messages through the WebSocket
-  const sendViewportUpdateToServerWithWs = useCallback(() => {
-    if (
-      wsRef.current?.readyState === WebSocket.OPEN &&
-      currentViewportRef.current
-    ) {
-      const message = {
-        type: "viewport-update",
-        viewport: currentViewportRef.current,
-      };
-      wsRef.current.send(JSON.stringify(message));
-    }
-  }, [wsRef, currentViewportRef]);
-
-  // Override updateViewport to use actual wsRef
-  const updateViewportWithWs = useCallback(
-    (viewport: import("@/types/types").MapboxViewport) => {
-      currentViewportRef.current = viewport;
-
-      eventBroker.emit(EventTypes.VIEWPORT_CHANGED, {
-        timestamp: Date.now(),
-        source: "useMapWebSocket",
-        viewport: viewport,
-        markers: markersRef.current,
-        searching: true,
-      });
-
-      sendViewportUpdateToServerWithWs();
-    },
-    [sendViewportUpdateToServerWithWs, currentViewportRef, markersRef],
-  );
 
   // Emit markers updated when markers state changes
   useEffect(() => {
@@ -184,14 +156,14 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     }
 
     return cleanup;
-  }, [connectWebSocket, isAuthenticated, user?.id, cleanup, wsRef]);
+  }, [connectWebSocket, isAuthenticated, user?.id, cleanup]);
 
   // Force viewport update listener
   useEffect(() => {
     const handleForceViewportUpdate = () => {
       if (currentViewportRef.current) {
         const viewport = { ...currentViewportRef.current };
-        updateViewportWithWs(viewport);
+        updateViewport(viewport);
       } else {
         console.warn(
           "[useMapWebsocket] Force viewport update called, but no current viewport exists.",
@@ -204,14 +176,14 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       handleForceViewportUpdate,
     );
     return unsubscribe;
-  }, [updateViewportWithWs, currentViewportRef]);
+  }, [updateViewport, currentViewportRef]);
 
   return {
     markers,
     isConnected,
     error,
     currentViewport,
-    updateViewport: updateViewportWithWs,
+    updateViewport: updateViewport,
     clientId,
   };
 };
