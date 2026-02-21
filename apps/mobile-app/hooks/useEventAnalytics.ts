@@ -1,8 +1,7 @@
-import { usePostHog } from "posthog-react-native";
 import { EventType } from "@/types/types";
 
 /**
- * Hook for tracking event-related analytics using PostHog
+ * Hook for tracking event-related analytics
  *
  * This hook provides methods to track various user interactions with events:
  * - Event detail views
@@ -10,70 +9,15 @@ import { EventType } from "@/types/types";
  * - Event saves
  * - Event shares
  * - Map interactions
+ *
+ * Currently logs to console in dev mode and is a no-op in production.
+ * Replace the safeCapture implementation to wire up a real analytics provider.
  */
 export const useEventAnalytics = () => {
-  // Only use PostHog in production
-  const posthog = __DEV__ ? null : usePostHog();
-
-  // Safely capture an event with error handling
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const safeCapture = (eventName: string, properties: Record<string, any>) => {
-    try {
-      if (__DEV__) {
-        // In development, just log to console
-        console.log(`[Analytics] ${eventName}:`, properties);
-        return;
-      }
-
-      if (!posthog) return;
-
-      // Filter out any undefined or null values to prevent crashes
-      const safeProperties = Object.entries(properties).reduce(
-        (acc, [key, value]) => {
-          // Skip null, undefined, or empty values
-          if (value === null || value === undefined) return acc;
-
-          // Handle arrays - filter out null/undefined values
-          if (Array.isArray(value)) {
-            const filteredArray = value.filter(
-              (item) => item !== null && item !== undefined,
-            );
-            if (filteredArray.length > 0) {
-              acc[key] = filteredArray;
-            }
-            return acc;
-          }
-
-          // Handle objects - recursively clean them
-          if (typeof value === "object") {
-            const safeObject = Object.entries(value).reduce(
-              (obj, [k, v]) => {
-                if (v !== null && v !== undefined) {
-                  obj[k] = v;
-                }
-                return obj;
-              },
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              {} as Record<string, any>,
-            );
-
-            if (Object.keys(safeObject).length > 0) {
-              acc[key] = safeObject;
-            }
-            return acc;
-          }
-
-          // For primitive values, just include them
-          acc[key] = value;
-          return acc;
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        {} as Record<string, any>,
-      );
-
-      posthog.capture(eventName, safeProperties);
-    } catch (error) {
-      console.error(`Error capturing PostHog event ${eventName}:`, error);
+    if (__DEV__) {
+      console.log(`[Analytics] ${eventName}:`, properties);
     }
   };
 

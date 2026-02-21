@@ -4,11 +4,13 @@ import { useLocalSearchParams } from "expo-router";
 import React from "react";
 
 const DetailScreen = () => {
-  const { eventId } = useLocalSearchParams();
+  const { eventId } = useLocalSearchParams<{ eventId: string }>();
+
+  if (!eventId) return null;
 
   return (
     <AuthWrapper>
-      <EventDetails eventId={eventId.toString()} />
+      <EventDetails eventId={eventId} />
     </AuthWrapper>
   );
 };

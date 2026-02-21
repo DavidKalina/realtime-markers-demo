@@ -87,7 +87,7 @@ function HomeScreen() {
   } = useUserLocation();
 
   // WebSocket and map data
-  const { markers, updateViewport, currentViewport } = useMapWebSocket(
+  const { updateViewport, currentViewport } = useMapWebSocket(
     process.env.EXPO_PUBLIC_WEB_SOCKET_URL!,
   );
 
@@ -438,7 +438,7 @@ function HomeScreen() {
     return (
       <ClusteredMapMarkers viewport={currentViewport} currentZoom={zoomLevel} />
     );
-  }, [shouldRenderMarkers, markers, currentViewport, zoomLevel]);
+  }, [shouldRenderMarkers, currentViewport, zoomLevel]);
 
   // Memoize user location layer
   const userLocationLayer = useMemo(() => {
