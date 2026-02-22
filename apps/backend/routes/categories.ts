@@ -12,7 +12,7 @@ categoriesRouter.use("*", ip());
 categoriesRouter.use(
   "*",
   rateLimit({
-    maxRequests: 30, // 30 requests per minute for category routes
+    maxRequests: 60,
     windowMs: 60 * 1000,
     keyGenerator: (c) => {
       const ipInfo = c.get("ip");

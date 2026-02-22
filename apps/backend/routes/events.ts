@@ -14,7 +14,7 @@ eventsRouter.use("*", ip());
 eventsRouter.use(
   "*",
   rateLimit({
-    maxRequests: 20, // 10 requests per minute for event routes
+    maxRequests: 60,
     windowMs: 60 * 1000,
     keyGenerator: (c) => {
       const ipInfo = c.get("ip");

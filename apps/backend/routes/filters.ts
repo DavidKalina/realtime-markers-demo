@@ -14,7 +14,7 @@ filterRouter.use("*", ip());
 filterRouter.use(
   "*",
   rateLimit({
-    maxRequests: 20, // 20 requests per minute for filter routes
+    maxRequests: 40,
     windowMs: 60 * 1000,
     keyGenerator: (c) => {
       const ipInfo = c.get("ip");

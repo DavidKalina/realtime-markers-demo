@@ -18,7 +18,7 @@ placesRouter.use("*", authMiddleware);
 placesRouter.use(
   "*",
   rateLimit({
-    maxRequests: 20, // 20 requests per minute for places routes
+    maxRequests: 40,
     windowMs: 60 * 1000,
     keyGenerator: (c) => {
       const ipInfo = c.get("ip");
