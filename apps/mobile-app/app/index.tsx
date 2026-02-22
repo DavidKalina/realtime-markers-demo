@@ -56,6 +56,18 @@ function HomeScreen() {
   const { mapStyle, isPitched } = useMapStyle();
   const insets = useSafeAreaInsets();
 
+  // Defer Mapbox mount by one frame to avoid a deadlock between Mapbox's
+  // legacy component descriptor registration (which holds the
+  // ComponentDescriptorRegistry mutex) and react-native-reanimated's
+  // entering layout animations (which read the same registry).
+  // See: https://github.com/facebook/react-native/issues/53128
+  const [isMapMounted, setIsMapMounted] = useState(false);
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      setIsMapMounted(true);
+    });
+  }, []);
+
   // Defer heavy Mapbox native initialization to avoid blocking the main thread on cold start.
   useEffect(() => {
     if (Platform.OS === "android") {
@@ -331,25 +343,27 @@ function HomeScreen() {
       {statusBarSection}
 
       <View style={styles.mapContainer}>
-        <MapboxGL.MapView
-          onTouchStart={handleUserPan}
-          onPress={handleMapPress}
-          onLongPress={handleMapLongPress}
-          ref={mapRef}
-          styleURL={mapStyle}
-          onDidFinishLoadingMap={handleMapReady}
-          onRegionIsChanging={handleRegionChanging}
-          {...mapViewProps}
-        >
-          <MapboxGL.Camera
-            ref={cameraRef}
-            defaultSettings={cameraSettings}
-            {...cameraProps}
-          />
-          {markersComponent}
-          {userLocationLayer}
-          {viewportRectangleComponent}
-        </MapboxGL.MapView>
+        {isMapMounted && (
+          <MapboxGL.MapView
+            onTouchStart={handleUserPan}
+            onPress={handleMapPress}
+            onLongPress={handleMapLongPress}
+            ref={mapRef}
+            styleURL={mapStyle}
+            onDidFinishLoadingMap={handleMapReady}
+            onRegionIsChanging={handleRegionChanging}
+            {...mapViewProps}
+          >
+            <MapboxGL.Camera
+              ref={cameraRef}
+              defaultSettings={cameraSettings}
+              {...cameraProps}
+            />
+            {markersComponent}
+            {userLocationLayer}
+            {viewportRectangleComponent}
+          </MapboxGL.MapView>
+        )}
 
         {rippleEffectComponent}
 
