@@ -7,7 +7,7 @@ export default {
     slug: "mobile-app",
     version: "1.16.9",
     orientation: "portrait",
-    icon: "./assets/images/frederick-logo.png",
+    icon: "./assets/images/logo.png",
     scheme: "myapp",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
