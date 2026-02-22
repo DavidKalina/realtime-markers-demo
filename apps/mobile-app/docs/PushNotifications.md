@@ -98,9 +98,6 @@ private handleNotificationResponse(response: Notifications.NotificationResponse)
   if (data?.type === "event") {
     // Navigate to event details
     console.log("Navigate to event:", data.eventId);
-  } else if (data?.type === "civic_engagement") {
-    // Navigate to civic engagement details
-    console.log("Navigate to civic engagement:", data.engagementId);
   }
 }
 ```
@@ -203,12 +200,10 @@ For Android, the necessary permissions are automatically added by expo-notificat
 ### Common Issues
 
 1. **Permissions Denied**
-
    - Check if user denied permissions
    - Guide user to Settings to enable notifications
 
 2. **Token Registration Fails**
-
    - Check network connectivity
    - Verify backend API is running
    - Check authentication state

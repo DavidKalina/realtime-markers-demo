@@ -13,7 +13,6 @@ import {
   UserEventDiscovery,
   UserEventRsvp,
   UserEventSave,
-  CivicEngagement,
   UserPushToken,
 } from "@realtime-markers/database";
 
@@ -32,9 +31,9 @@ import { AddAllUserForeignKeys1710000000014 } from "./migrations/AddAllUserForei
 import { AddIsOfficialToEvents1710000000015 } from "./migrations/AddIsOfficialToEvents1710000000015";
 import { SeedOfficialEvents1710000000016 } from "./migrations/SeedOfficialEvents1710000000016";
 import { RegenerateEmbeddings1710000000017 } from "./migrations/RegenerateEmbeddings1710000000017";
-import { CivicEngagementTables1710000000020 } from "./migrations/CivicEngagementTables1710000000020";
-import { AddEmbeddingToCivicEngagements1710000000021 } from "./migrations/AddEmbeddingToCivicEngagements1710000000021";
 import { UserPushTokenTable1710000000022 } from "./migrations/UserPushTokenTable1710000000022";
+import { DropCivicEngagementTables1710000000023 } from "./migrations/DropCivicEngagementTables1710000000023";
+import { AddSpatialAndCompoundIndexes1710000000024 } from "./migrations/AddSpatialAndCompoundIndexes1710000000024";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -50,7 +49,6 @@ const AppDataSource = new DataSource({
     UserEventDiscovery,
     UserEventRsvp,
     UserEventSave,
-    CivicEngagement,
     UserPushToken,
   ],
   migrations: [
@@ -68,19 +66,19 @@ const AppDataSource = new DataSource({
     AddIsOfficialToEvents1710000000015,
     SeedOfficialEvents1710000000016,
     RegenerateEmbeddings1710000000017,
-    CivicEngagementTables1710000000020,
-    AddEmbeddingToCivicEngagements1710000000021,
     UserPushTokenTable1710000000022,
+    DropCivicEngagementTables1710000000023,
+    AddSpatialAndCompoundIndexes1710000000024,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running
-  logging: ["query", "error", "schema"], // More detailed logging
+  logging: ["error"],
   ssl: false,
-  poolSize: 20,
+  poolSize: 50,
   connectTimeoutMS: 10000, // Increase timeout for initial connection
   maxQueryExecutionTime: 1000, // Log slow queries
   extra: {
-    max: 25, // Maximum pool size
+    max: 60, // Maximum pool size
     idleTimeoutMillis: 30000, // Close idle connections after 30s
     connectionTimeoutMillis: 5000, // Longer timeout for connection
   },

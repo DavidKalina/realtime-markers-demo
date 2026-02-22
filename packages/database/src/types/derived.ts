@@ -8,9 +8,6 @@ import {
   RecurrenceFrequency,
   DayOfWeek,
   Category,
-  CivicEngagement,
-  CivicEngagementType,
-  CivicEngagementStatus,
   UserEventDiscovery,
   UserEventSave,
   UserEventView,
@@ -58,15 +55,7 @@ export interface MarkerData {
   recurrenceInterval?: number;
   recurrenceTime?: string;
   recurrenceExceptions?: string[];
-  // Civic engagement specific fields
-  type?: CivicEngagementType;
-  address?: string;
-  locationNotes?: string;
-  creatorId?: string;
-  adminNotes?: string;
-  implementedAt?: string;
-  imageUrls?: string[];
-  entityType?: "event" | "civic_engagement";
+  entityType?: "event";
   // Metadata and additional fields
   [key: string]: unknown;
 }
@@ -91,29 +80,13 @@ export interface EventMarkerData extends MarkerData {
   recurrenceExceptions?: string[];
 }
 
-// Civic engagement-specific marker data
-export interface CivicEngagementMarkerData extends MarkerData {
-  entityType: "civic_engagement";
-  type: CivicEngagementType;
-  address?: string;
-  locationNotes?: string;
-  creatorId?: string;
-  adminNotes?: string;
-  implementedAt?: string;
-  imageUrls?: string[];
-}
-
 // Typed marker variants
-export interface EventMarker extends Omit<Marker, 'data'> {
+export interface EventMarker extends Omit<Marker, "data"> {
   data: EventMarkerData;
 }
 
-export interface CivicEngagementMarker extends Omit<Marker, 'data'> {
-  data: CivicEngagementMarkerData;
-}
-
 // Union type for all marker types
-export type MapMarker = EventMarker | CivicEngagementMarker;
+export type MapMarker = EventMarker;
 
 // ============================================================================
 // USER TYPES
@@ -289,44 +262,6 @@ export type CategorySummary = Pick<
 >;
 
 // ============================================================================
-// CIVIC ENGAGEMENT TYPES
-// ============================================================================
-
-export type CivicEngagementInput = Omit<
-  CivicEngagement,
-  "id" | "createdAt" | "updatedAt" | "creator"
-> & {
-  creatorId: string;
-};
-
-export type CivicEngagementUpdate = Partial<
-  Omit<CivicEngagement, "id" | "createdAt" | "updatedAt" | "creator">
->;
-
-export type CivicEngagementSummary = Pick<
-  CivicEngagement,
-  | "id"
-  | "title"
-  | "description"
-  | "type"
-  | "status"
-  | "address"
-  | "location"
-  | "imageUrls"
-> & {
-  creator?: UserProfile;
-};
-
-export type CivicEngagementDetails = CivicEngagementSummary & {
-  locationNotes?: string;
-  embedding?: string;
-  adminNotes?: string;
-  implementedAt?: Date;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-// ============================================================================
 // USER EVENT RELATIONSHIP TYPES
 // ============================================================================
 
@@ -425,20 +360,6 @@ export type EventSearchFilters = {
   creatorId?: string;
 };
 
-export type CivicEngagementSearchFilters = {
-  types?: CivicEngagementType[];
-  status?: CivicEngagementStatus[];
-  dateRange?: {
-    start: Date;
-    end: Date;
-  };
-  location?: {
-    center: Point;
-    radius: number; // in meters
-  };
-  creatorId?: string;
-};
-
 // ============================================================================
 // PAGINATION TYPES
 // ============================================================================
@@ -511,11 +432,4 @@ export type EntityRelations<T> = {
 // ENUM EXPORTS
 // ============================================================================
 
-export {
-  UserRole,
-  EventStatus,
-  RecurrenceFrequency,
-  DayOfWeek,
-  CivicEngagementType,
-  CivicEngagementStatus,
-};
+export { UserRole, EventStatus, RecurrenceFrequency, DayOfWeek };

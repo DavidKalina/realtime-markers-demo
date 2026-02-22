@@ -1,7 +1,15 @@
 import React from "react";
 import { View, Text, StyleSheet, Image, ActivityIndicator } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { COLORS } from "../Layout/ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  lineHeight,
+} from "@/theme";
 
 export type ProcessingStage = "captured" | "uploading" | "success" | null;
 
@@ -31,20 +39,20 @@ export const ProcessingOverlay: React.FC<ProcessingOverlayProps> = ({
           resizeMode="cover"
         />
       )}
-      {/* Fullscreen dark overlay for contrast */}
+      {/* Dark scrim over the image */}
       <View style={styles.processingDarkLayer} />
       {/* Centered content based on processing stage */}
       <View style={styles.processingCenterContent}>
         {stage === "captured" && (
           <>
-            <Text style={styles.processingTitleStrong}>Image Captured!</Text>
-            <Text style={styles.processingMessageStrong}>
-              Your document has been captured successfully.
+            <Text style={styles.processingTitle}>Image Captured</Text>
+            <Text style={styles.processingMessage}>
+              Preparing to analyze your document...
             </Text>
             <ActivityIndicator
               size="large"
-              color={COLORS.accent}
-              style={{ marginTop: 24 }}
+              color={colors.accent.primary}
+              style={styles.spinnerTop}
             />
           </>
         )}
@@ -52,23 +60,23 @@ export const ProcessingOverlay: React.FC<ProcessingOverlayProps> = ({
           <>
             <ActivityIndicator
               size="large"
-              color={COLORS.accent}
-              style={{ marginBottom: 24 }}
+              color={colors.accent.primary}
+              style={styles.spinnerBottom}
             />
-            <Text style={styles.processingTitleStrong}>
-              Processing Document
-            </Text>
-            <Text style={styles.processingMessageStrong}>
-              Please wait while we analyze your document...
+            <Text style={styles.processingTitle}>Processing Document</Text>
+            <Text style={styles.processingMessage}>
+              Analyzing your document with AI...
             </Text>
           </>
         )}
         {stage === "success" && (
           <>
-            <Text style={styles.successEmoji}>✅</Text>
-            <Text style={styles.processingTitleStrong}>Success!</Text>
-            <Text style={styles.processingMessageStrong}>
-              Your document has been processed successfully.
+            <View style={styles.successIcon}>
+              <Text style={styles.successCheck}>✓</Text>
+            </View>
+            <Text style={styles.processingTitle}>Success</Text>
+            <Text style={styles.processingMessage}>
+              Document processed successfully.
             </Text>
           </>
         )}
@@ -80,7 +88,6 @@ export const ProcessingOverlay: React.FC<ProcessingOverlayProps> = ({
 const styles = StyleSheet.create({
   processingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.1)",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 100,
@@ -90,44 +97,51 @@ const styles = StyleSheet.create({
   },
   processingDarkLayer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
+    backgroundColor: colors.overlay.scrim,
   },
   processingCenterContent: {
-    width: "100%",
-    height: "100%",
-    display: "flex",
-    flexDirection: "column",
+    width: "80%",
+    maxWidth: 300,
+    backgroundColor: colors.bg.card,
+    borderRadius: radius.xl,
+    padding: spacing["2xl"],
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border.medium,
+  },
+  processingTitle: {
+    color: colors.text.primary,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
+    marginBottom: spacing.xs,
+    textAlign: "center",
+  },
+  processingMessage: {
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    textAlign: "center",
+    fontFamily: fontFamily.mono,
+    lineHeight: lineHeight.normal,
+  },
+  spinnerTop: {
+    marginTop: spacing.xl,
+  },
+  spinnerBottom: {
+    marginBottom: spacing.xl,
+  },
+  successIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.status.success.bg,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.6)",
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.3)",
+    marginBottom: spacing.lg,
   },
-  processingTitleStrong: {
-    color: "#000000",
-    fontSize: 20,
-    fontWeight: "700",
-    fontFamily: "Poppins-Regular",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  processingMessageStrong: {
-    color: "#333333",
-    fontSize: 14,
-    textAlign: "center",
-    fontFamily: "Poppins-Regular",
-    marginBottom: 24,
-    lineHeight: 20,
-  },
-  successEmoji: {
-    fontSize: 48,
-    marginBottom: 16,
+  successCheck: {
+    color: colors.fixed.white,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
   },
 });

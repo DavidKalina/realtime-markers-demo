@@ -4,7 +4,6 @@ import { useRouter } from "expo-router";
 import {
   Building,
   Calendar,
-  Clock,
   ExternalLink,
   Info,
   MapPin,
@@ -13,7 +12,6 @@ import {
   Repeat,
   Scan,
   TrendingUp,
-  Users,
 } from "lucide-react-native";
 import React, { memo, useMemo } from "react";
 import {
@@ -28,11 +26,13 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Screen from "../Layout/Screen";
+import { colors } from "@/theme";
 import { ErrorEventDetails } from "./ErrorEventDetails";
 import EventEngagementDisplay from "./EventEngagementDisplay";
 import EventMapPreview from "./EventMapPreview";
 import LoadingEventDetails from "./LoadingEventDetails";
 import { styles } from "./styles";
+import { formatRecurrenceFrequency, formatRecurrenceDays } from "./formatters";
 import { useEventDetails } from "./useEventDetails";
 import { useEventEngagement } from "./useEventEngagement";
 
@@ -41,52 +41,24 @@ interface EventDetailsProps {
   onBack?: () => void;
 }
 
-// Municipal-friendly color scheme
-const MUNICIPAL_COLORS = {
-  primary: "#1e40af", // Professional blue
-  secondary: "#059669", // Municipal green
-  accent: "#f59e0b", // Warm amber
-  background: "#f8fafc", // Light gray background
-  card: "#ffffff", // White cards
-  text: "#1e293b", // Dark slate text
-  textSecondary: "#64748b", // Medium gray
-  border: "#e2e8f0", // Light border
-  success: "#10b981", // Green for success states
-  warning: "#f59e0b", // Amber for warnings
-  error: "#ef4444", // Red for errors
-};
-
-// Memoize InfoCard component
-const InfoCard = memo(
+// Lightweight section label
+const SectionLabel = memo(
   ({
-    children,
     title,
     icon: Icon,
   }: {
-    children: React.ReactNode;
-    title?: string;
-    icon?: React.ComponentType<{
+    title: string;
+    icon: React.ComponentType<{
       size?: number | string;
       color?: ColorValue;
       strokeWidth?: number | string;
     }>;
   }) => (
-    <View style={styles.infoCard}>
-      {(title || Icon) && (
-        <View style={styles.infoCardHeader}>
-          {Icon && (
-            <View style={styles.infoCardIcon}>
-              <Icon
-                size={18}
-                color={MUNICIPAL_COLORS.primary}
-                strokeWidth={2}
-              />
-            </View>
-          )}
-          {title && <Text style={styles.infoCardTitle}>{title}</Text>}
-        </View>
-      )}
-      <View style={styles.infoCardContent}>{children}</View>
+    <View style={styles.infoCardHeader}>
+      <View style={styles.infoCardIcon}>
+        <Icon size={12} color={colors.text.disabled} strokeWidth={2} />
+      </View>
+      <Text style={styles.infoCardTitle}>{title}</Text>
     </View>
   ),
 );
@@ -114,27 +86,27 @@ const ActionButton = memo(
       switch (variant) {
         case "primary":
           return {
-            backgroundColor: MUNICIPAL_COLORS.primary,
-            borderColor: MUNICIPAL_COLORS.primary,
-            textColor: "#ffffff",
+            backgroundColor: colors.accent.primary,
+            borderColor: colors.accent.primary,
+            textColor: colors.fixed.white,
           };
         case "secondary":
           return {
-            backgroundColor: MUNICIPAL_COLORS.secondary,
-            borderColor: MUNICIPAL_COLORS.secondary,
-            textColor: "#ffffff",
+            backgroundColor: "#059669",
+            borderColor: "#059669",
+            textColor: colors.fixed.white,
           };
         case "outline":
           return {
-            backgroundColor: "transparent",
-            borderColor: MUNICIPAL_COLORS.border,
-            textColor: MUNICIPAL_COLORS.text,
+            backgroundColor: colors.fixed.transparent,
+            borderColor: colors.border.medium,
+            textColor: colors.text.primary,
           };
         default:
           return {
-            backgroundColor: MUNICIPAL_COLORS.primary,
-            borderColor: MUNICIPAL_COLORS.primary,
-            textColor: "#ffffff",
+            backgroundColor: colors.accent.primary,
+            borderColor: colors.accent.primary,
+            textColor: colors.fixed.white,
           };
       }
     };
@@ -155,7 +127,7 @@ const ActionButton = memo(
         disabled={disabled}
         activeOpacity={0.8}
       >
-        <Icon size={20} color={buttonStyle.textColor} strokeWidth={2} />
+        <Icon size={18} color={buttonStyle.textColor} strokeWidth={2} />
         <Text
           style={[styles.actionButtonText, { color: buttonStyle.textColor }]}
         >
@@ -165,30 +137,6 @@ const ActionButton = memo(
     );
   },
 );
-
-// Memoize helper functions
-const formatRecurrenceFrequency = (frequency?: string): string => {
-  if (!frequency) return "";
-  switch (frequency) {
-    case "DAILY":
-      return "Daily";
-    case "WEEKLY":
-      return "Weekly";
-    case "BIWEEKLY":
-      return "Every 2 weeks";
-    case "MONTHLY":
-      return "Monthly";
-    case "YEARLY":
-      return "Yearly";
-    default:
-      return frequency.toLowerCase();
-  }
-};
-
-const formatRecurrenceDays = (days?: string[]): string => {
-  if (!days || days.length === 0) return "";
-  return days.join(", ");
-};
 
 // Memoize the main component
 const EventDetails: React.FC<EventDetailsProps> = memo(
@@ -213,14 +161,12 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       handleToggleSave,
     } = useEventDetails(eventId, onBack);
 
-    // Add engagement hook
     const {
       engagement,
       loading: engagementLoading,
       error: engagementError,
     } = useEventEngagement(eventId, true);
 
-    // Memoize computed values
     const coordinates = useMemo(() => {
       if (!event?.coordinates) return [0, 0] as [number, number];
       return event.coordinates as [number, number];
@@ -267,7 +213,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       return <Text>No event details available</Text>;
     }
 
-    // Prepare footer buttons
     const footerButtons: {
       label: string;
       onPress: () => void;
@@ -283,43 +228,18 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       loading?: boolean;
     }[] = [
       {
-        label: isRsvped ? "RSVP'd ✓" : "RSVP Now",
+        label: isRsvped ? "RSVP'd ✓" : "RSVP",
         onPress: () => handleToggleRsvp(),
         variant: isRsvped ? "secondary" : "primary",
         loading: rsvpState === "loading",
-        style: {
-          flex: 2, // Make RSVP button take more space
-          borderRadius: 12,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 3,
-        },
-        textStyle: {
-          fontSize: 16,
-          letterSpacing: 0.5,
-        },
+        style: { flex: 2 },
       },
       {
         label: isSaved ? "Saved ✓" : "Save",
         onPress: () => handleToggleSave(),
         variant: isSaved ? "secondary" : "outline",
         loading: savingState === "loading",
-        style: {
-          flex: 1, // Make Save button take less space
-          borderRadius: 12,
-          borderWidth: 2,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.05,
-          shadowRadius: 2,
-          elevation: 1,
-        },
-        textStyle: {
-          fontSize: 14,
-          letterSpacing: 0.3,
-        },
+        style: { flex: 1 },
       },
     ];
 
@@ -333,58 +253,55 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
         footerButtons={footerButtons}
         footerSafeArea={true}
       >
-        {/* Event Title and Basic Info */}
+        {/* Title row: emoji + title inline */}
         <Animated.View
           entering={FadeInDown.duration(600).delay(300).springify()}
           style={styles.titleSection}
         >
-          <Text style={styles.eventTitle}>{event.title}</Text>
-
-          {/* Event Emoji */}
           <View style={styles.eventEmojiContainer}>
             <Text style={styles.eventEmoji}>{event.emoji}</Text>
           </View>
+          <Text style={styles.eventTitle}>{event.title}</Text>
         </Animated.View>
 
-        {/* Event Details Cards */}
         <Animated.View
           entering={FadeInDown.duration(600).delay(400).springify()}
           style={styles.detailsSection}
         >
-          {/* Description Card - What the event is about (most important context) */}
+          {/* Date & Time */}
+          <View style={styles.sectionDivider} />
+          <View style={styles.infoCard}>
+            <SectionLabel title="Date & Time" icon={Calendar} />
+            <Text style={styles.detailText}>{formattedDate}</Text>
+          </View>
+
+          {/* Location */}
+          <View style={styles.sectionDivider} />
+          <View style={styles.infoCard}>
+            <SectionLabel title="Location" icon={MapPin} />
+            <TouchableOpacity onPress={handleOpenMaps} activeOpacity={0.7}>
+              <Text style={styles.locationAddress}>{event.address}</Text>
+              {distanceInfo && (
+                <Text style={styles.distanceText}>{distanceInfo}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* About */}
           {event.description && (
-            <InfoCard title="About This Event" icon={Info}>
-              <Text style={styles.descriptionText}>{event.description}</Text>
-            </InfoCard>
+            <>
+              <View style={styles.sectionDivider} />
+              <View style={styles.infoCard}>
+                <SectionLabel title="About" icon={Info} />
+                <Text style={styles.descriptionText}>{event.description}</Text>
+              </View>
+            </>
           )}
 
-          {/* Date and Time Card - Most important for planning */}
-          <InfoCard title="Date & Time" icon={Calendar}>
-            <View style={styles.detailRow}>
-              <Clock size={16} color={MUNICIPAL_COLORS.textSecondary} />
-              <Text style={styles.detailText}>{formattedDate}</Text>
-            </View>
-          </InfoCard>
-
-          {/* Location Card - Essential for knowing where to go */}
-          <InfoCard title="Location" icon={MapPin}>
-            <TouchableOpacity
-              style={styles.detailRow}
-              onPress={handleOpenMaps}
-              activeOpacity={0.7}
-            >
-              <MapPin size={16} color={MUNICIPAL_COLORS.textSecondary} />
-              <View style={styles.locationContent}>
-                <Text style={styles.detailText}>{event.address}</Text>
-                {distanceInfo && (
-                  <Text style={styles.distanceText}>{distanceInfo}</Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          </InfoCard>
-
-          {/* Map Preview Card - Visual context for location */}
-          <InfoCard title="Event Location" icon={MapPin}>
+          {/* Map */}
+          <View style={styles.sectionDivider} />
+          <View style={styles.infoCard}>
+            <SectionLabel title="Map" icon={MapPin} />
             <EventMapPreview
               emoji={event.emoji || "📍"}
               coordinates={coordinates}
@@ -396,8 +313,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                   : event.eventDate
               }
             />
-
-            {/* Directions Button Footer */}
             <View style={styles.mapCardFooter}>
               <ActionButton
                 onPress={handleGetDirections}
@@ -407,142 +322,163 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                 disabled={!userLocation}
               />
             </View>
-          </InfoCard>
+          </View>
 
-          {/* Categories - Helps understand event type/context */}
+          {/* Categories */}
           {event.categories && event.categories.length > 0 && (
-            <InfoCard title="Categories" icon={Building}>
-              <View style={styles.categoriesContainer}>
-                {event.categories.map((category) => (
-                  <TouchableOpacity
-                    key={category.id}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      router.push(`/category/${category.id}`);
-                    }}
-                    style={styles.categoryTag}
-                  >
-                    <Text style={styles.categoryText}>{category.name}</Text>
-                  </TouchableOpacity>
-                ))}
+            <>
+              <View style={styles.sectionDivider} />
+              <View style={styles.infoCard}>
+                <SectionLabel title="Categories" icon={Building} />
+                <View style={styles.categoriesContainer}>
+                  {event.categories.map((category) => (
+                    <TouchableOpacity
+                      key={category.id}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push(`/category/${category.id}`);
+                      }}
+                      style={styles.categoryTag}
+                    >
+                      <Text style={styles.categoryText}>{category.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-            </InfoCard>
+            </>
           )}
 
-          {/* Recurring Event Details - Important for recurring events */}
+          {/* Recurring Schedule */}
           {event.isRecurring && (
-            <InfoCard title="Recurring Schedule" icon={Repeat}>
-              <View style={styles.recurringDetails}>
-                <Text style={styles.detailText}>
-                  {recurringEventDetails?.frequency}
-                  {recurringEventDetails?.interval &&
-                    recurringEventDetails.interval > 1 && (
-                      <Text style={styles.detailTextSecondary}>
-                        {" "}
-                        (Every {recurringEventDetails.interval}{" "}
-                        {recurringEventDetails.frequency.toLowerCase()}s)
-                      </Text>
-                    )}
-                </Text>
-                {recurringEventDetails?.days && (
-                  <Text style={styles.detailTextSecondary}>
-                    Days: {recurringEventDetails.days}
+            <>
+              <View style={styles.sectionDivider} />
+              <View style={styles.infoCard}>
+                <SectionLabel title="Recurring" icon={Repeat} />
+                <View style={styles.recurringDetails}>
+                  <Text style={styles.detailText}>
+                    {recurringEventDetails?.frequency}
+                    {recurringEventDetails?.interval &&
+                      recurringEventDetails.interval > 1 && (
+                        <Text style={styles.detailTextSecondary}>
+                          {" "}
+                          (Every {recurringEventDetails.interval}{" "}
+                          {recurringEventDetails.frequency.toLowerCase()}s)
+                        </Text>
+                      )}
                   </Text>
-                )}
-                {recurringEventDetails?.time && (
-                  <Text style={styles.detailTextSecondary}>
-                    Time: {recurringEventDetails.time}
-                  </Text>
-                )}
-                {recurringEventDetails?.startDate &&
-                  recurringEventDetails.endDate && (
+                  {recurringEventDetails?.days && (
                     <Text style={styles.detailTextSecondary}>
-                      From{" "}
-                      {new Date(
-                        recurringEventDetails.startDate,
-                      ).toLocaleDateString()}{" "}
-                      to{" "}
-                      {new Date(
-                        recurringEventDetails.endDate,
-                      ).toLocaleDateString()}
+                      Days: {recurringEventDetails.days}
                     </Text>
                   )}
-              </View>
-            </InfoCard>
-          )}
-
-          {/* Event Engagement Card - Shows community interest */}
-          {engagement && !engagementLoading && !engagementError && (
-            <InfoCard title="Event Engagement" icon={TrendingUp}>
-              <EventEngagementDisplay engagement={engagement} delay={450} />
-            </InfoCard>
-          )}
-
-          {/* QR Code Section - Additional resources */}
-          {(event.qrCodeData || event.detectedQrData || event.qrUrl) && (
-            <InfoCard title="QR Code" icon={QrCode}>
-              <View style={styles.qrContent}>
-                {/* Display QR Code */}
-                {(event.qrCodeData || event.detectedQrData || event.qrUrl) && (
-                  <View style={styles.qrCodeWrapper}>
-                    <QRCode
-                      value={
-                        event.qrCodeData ||
-                        event.detectedQrData ||
-                        event.qrUrl ||
-                        ""
-                      }
-                      size={180}
-                      backgroundColor="#ffffff"
-                      color="#000000"
-                    />
-                  </View>
-                )}
-
-                {/* QR URL Display */}
-                {event.qrUrl && (
-                  <View style={styles.qrUrlContainer}>
-                    <Text style={styles.qrUrlLabel}>QR Code URL:</Text>
-                    <Text style={styles.qrUrlText} numberOfLines={2}>
-                      {event.qrUrl}
+                  {recurringEventDetails?.time && (
+                    <Text style={styles.detailTextSecondary}>
+                      Time: {recurringEventDetails.time}
                     </Text>
-                  </View>
-                )}
-
-                <Text style={styles.qrDescription}>
-                  {event.qrDetectedInImage
-                    ? "This QR code was detected in the original event flyer"
-                    : "Scan this QR code to access additional event information"}
-                </Text>
-
-                {/* Open QR Code Link Button */}
-                {(event.qrCodeData || event.detectedQrData || event.qrUrl) && (
-                  <ActionButton
-                    onPress={() => {
-                      const url =
-                        event.qrUrl || event.qrCodeData || event.detectedQrData;
-                      if (url && url.startsWith("http")) {
-                        Linking.openURL(url);
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      }
-                    }}
-                    icon={ExternalLink}
-                    text="Open QR Code Link"
-                    variant="outline"
-                  />
-                )}
+                  )}
+                  {recurringEventDetails?.startDate &&
+                    recurringEventDetails.endDate && (
+                      <Text style={styles.detailTextSecondary}>
+                        From{" "}
+                        {new Date(
+                          recurringEventDetails.startDate,
+                        ).toLocaleDateString()}{" "}
+                        to{" "}
+                        {new Date(
+                          recurringEventDetails.endDate,
+                        ).toLocaleDateString()}
+                      </Text>
+                    )}
+                </View>
               </View>
-            </InfoCard>
+            </>
           )}
 
-          {/* Discovered By Section - Attribution (least important for users) */}
+          {/* Engagement */}
+          {engagement && !engagementLoading && !engagementError && (
+            <>
+              <View style={styles.sectionDivider} />
+              <View style={styles.infoCard}>
+                <SectionLabel title="Engagement" icon={TrendingUp} />
+                <EventEngagementDisplay engagement={engagement} delay={450} />
+              </View>
+            </>
+          )}
+
+          {/* QR Code */}
+          {(event.qrCodeData || event.detectedQrData || event.qrUrl) && (
+            <>
+              <View style={styles.sectionDivider} />
+              <View style={styles.infoCard}>
+                <SectionLabel title="QR Code" icon={QrCode} />
+                <View style={styles.qrContent}>
+                  {(event.qrCodeData ||
+                    event.detectedQrData ||
+                    event.qrUrl) && (
+                    <View style={styles.qrCodeWrapper}>
+                      <QRCode
+                        value={
+                          event.qrCodeData ||
+                          event.detectedQrData ||
+                          event.qrUrl ||
+                          ""
+                        }
+                        size={160}
+                        backgroundColor={colors.fixed.white}
+                        color={colors.fixed.black}
+                      />
+                    </View>
+                  )}
+
+                  {event.qrUrl && (
+                    <View style={styles.qrUrlContainer}>
+                      <Text style={styles.qrUrlLabel}>QR Code URL:</Text>
+                      <Text style={styles.qrUrlText} numberOfLines={2}>
+                        {event.qrUrl}
+                      </Text>
+                    </View>
+                  )}
+
+                  <Text style={styles.qrDescription}>
+                    {event.qrDetectedInImage
+                      ? "Detected in the original event flyer"
+                      : "Scan for additional event information"}
+                  </Text>
+
+                  {(event.qrCodeData ||
+                    event.detectedQrData ||
+                    event.qrUrl) && (
+                    <ActionButton
+                      onPress={() => {
+                        const url =
+                          event.qrUrl ||
+                          event.qrCodeData ||
+                          event.detectedQrData;
+                        if (url && url.startsWith("http")) {
+                          Linking.openURL(url);
+                          Haptics.impactAsync(
+                            Haptics.ImpactFeedbackStyle.Medium,
+                          );
+                        }
+                      }}
+                      icon={ExternalLink}
+                      text="Open Link"
+                      variant="outline"
+                    />
+                  )}
+                </View>
+              </View>
+            </>
+          )}
+
+          {/* Discovered By */}
           {event.creator && (
-            <InfoCard title="Event Discovery" icon={Users}>
-              <View style={styles.discoveredByContent}>
-                <Scan size={16} color={MUNICIPAL_COLORS.textSecondary} />
-                <Text style={styles.discoveredByText}>
-                  Discovered by{" "}
-                  <Text style={styles.discoveredByName}>
+            <>
+              <View style={styles.sectionDivider} />
+              <View style={styles.infoCard}>
+                <SectionLabel title="Discovered by" icon={Scan} />
+                <View style={styles.discoveredByContent}>
+                  <Text style={styles.discoveredByText}>
                     {(() => {
                       if (event.creator?.firstName && event.creator?.lastName) {
                         return `${event.creator.firstName} ${event.creator.lastName}`;
@@ -554,9 +490,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                       return "Anonymous User";
                     })()}
                   </Text>
-                </Text>
+                </View>
               </View>
-            </InfoCard>
+            </>
           )}
         </Animated.View>
       </Screen>

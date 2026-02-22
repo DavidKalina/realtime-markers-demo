@@ -42,43 +42,6 @@ describe("JobNotificationService", () => {
   });
 
   describe("notifyJobCompletion", () => {
-    it("should send notification for civic engagement completion", async () => {
-      const job: JobData = {
-        id: "job-123",
-        type: "process_civic_engagement",
-        status: "completed",
-        created: new Date().toISOString(),
-        data: { creatorId: "user-123" },
-      };
-
-      const result: JobCompletionResult = {
-        message: "Civic engagement created successfully",
-        civicEngagementId: "ce-123",
-        type: "FEEDBACK",
-        status: "PENDING",
-        hasImages: true,
-      };
-
-      await service.notifyJobCompletion(job, result);
-
-      expect(mockFindOne).toHaveBeenCalledWith({
-        where: { id: "user-123" },
-      });
-
-      expect(mockSendToUser).toHaveBeenCalledWith("user-123", {
-        title: "✅ Civic Engagement Submitted",
-        body: "Your feedback has been successfully submitted. We'll notify you when there are updates.",
-        data: {
-          type: "job_completion",
-          jobId: "job-123",
-          jobType: "process_civic_engagement",
-          result: result,
-          timestamp: expect.any(String),
-        },
-        priority: "normal",
-      });
-    });
-
     it("should send notification for flyer completion with single event", async () => {
       const job: JobData = {
         id: "job-456",
@@ -283,35 +246,6 @@ describe("JobNotificationService", () => {
   });
 
   describe("notifyJobFailure", () => {
-    it("should send notification for civic engagement failure", async () => {
-      const job: JobData = {
-        id: "job-606",
-        type: "process_civic_engagement",
-        status: "failed",
-        created: new Date().toISOString(),
-        data: { creatorId: "user-123" },
-      };
-
-      const error = "Validation failed";
-      const message = "Please check your input and try again";
-
-      await service.notifyJobFailure(job, error, message);
-
-      expect(mockSendToUser).toHaveBeenCalledWith("user-123", {
-        title: "❌ Civic Engagement Failed",
-        body: "Please check your input and try again",
-        data: {
-          type: "job_failure",
-          jobId: "job-606",
-          jobType: "process_civic_engagement",
-          error: "Validation failed",
-          message: "Please check your input and try again",
-          timestamp: expect.any(String),
-        },
-        priority: "high",
-      });
-    });
-
     it("should send notification for flyer failure", async () => {
       const job: JobData = {
         id: "job-707",

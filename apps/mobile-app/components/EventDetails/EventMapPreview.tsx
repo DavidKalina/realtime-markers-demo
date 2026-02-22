@@ -1,9 +1,9 @@
 import React from "react";
 import { View } from "react-native";
 import MapboxGL from "@rnmapbox/maps";
-import { MapMarker as EmojiMapMarker } from "../Markers/CustomMapMarker";
+import { EmojiMapMarker } from "../Markers/CustomMapMarker";
 import { styles } from "./styles";
-import { COLORS } from "../Layout/ScreenLayout";
+import { colors } from "@/theme";
 
 interface EventMapPreviewProps {
   coordinates: [number, number];
@@ -30,7 +30,7 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
         rotateEnabled={false}
         scaleBarEnabled={false}
         style={styles.mapPreview}
-        styleURL={MapboxGL.StyleURL.Light}
+        styleURL={MapboxGL.StyleURL.Dark}
         logoEnabled={false}
         attributionEnabled={false}
       >
@@ -48,9 +48,10 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
                 title,
                 emoji,
                 eventDate,
-                color: COLORS.accent,
+                color: colors.accent.primary,
               },
             }}
+            isSelected={false}
             onPress={() => {}}
           />
         </MapboxGL.MarkerView>

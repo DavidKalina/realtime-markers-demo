@@ -3,8 +3,6 @@
 
 import { AuthService } from "@/lib/auth";
 import type {
-  CivicEngagementSummary,
-  CivicEngagementType,
   ApiResponse as DatabaseApiResponse,
   DayOfWeek,
   EventSummary,
@@ -14,30 +12,6 @@ import type {
 // Extend the database ApiResponse to include status property
 interface ApiResponse<T> extends DatabaseApiResponse<T> {
   status: number;
-}
-
-// Civic Engagement interfaces - using derived types
-type CivicEngagement = CivicEngagementSummary;
-
-interface CreateCivicEngagementPayload {
-  title: string;
-  description?: string;
-  type: CivicEngagementType;
-  location?: {
-    type: "Point";
-    coordinates: [number, number];
-  };
-  address?: string;
-  locationNotes?: string;
-  imageBuffer?: string; // base64 encoded image
-  contentType?: string;
-  filename?: string;
-}
-
-interface CivicEngagementStats {
-  total: number;
-  byType: Record<string, number>;
-  byStatus: Record<string, number>;
 }
 
 interface CreateEventPayload {
@@ -140,147 +114,6 @@ interface CityStateSearchResult {
     placeId: string;
     distance?: number;
   };
-}
-
-// Civic Engagement Dashboard Interfaces
-interface CivicEngagementMetrics {
-  totalEngagements: number;
-  engagementsByType: Record<string, number>;
-  engagementsByStatus: Record<string, number>;
-  recentActivity: {
-    thisMonth: number;
-    thisWeek: number;
-    implementedThisMonth: number;
-  };
-  participation: {
-    uniqueCreators: number;
-    withLocation: number;
-    withImages: number;
-  };
-  summary: {
-    avgEngagementsPerMonth: number;
-    implementationRate: number;
-    locationCoverage: number;
-    mediaCoverage: number;
-  };
-}
-
-interface CivicEngagementTrends {
-  trends: {
-    byType: Record<
-      string,
-      {
-        type: string;
-        weeklyData: Array<{
-          week: string;
-          engagementsCreated: number;
-          engagementsImplemented: number;
-        }>;
-      }
-    >;
-    byStatus: Record<
-      string,
-      {
-        status: string;
-        weeklyData: Array<{
-          week: string;
-          engagementsCount: number;
-        }>;
-      }
-    >;
-  };
-  growthRates: Array<{
-    type: string;
-    engagementCreationGrowth: number;
-    trend: "growing" | "declining" | "stable";
-  }>;
-  summary: {
-    totalWeeks: number;
-    startDate: string;
-    endDate: string;
-    typesTracked: number;
-    statusesTracked: number;
-  };
-}
-
-interface CivicEngagementStatusAnalysis {
-  statusBreakdown: Array<{
-    status: string;
-    type: string;
-    count: number;
-    avgDaysToUpdate: number;
-    withLocation: number;
-    withImages: number;
-    withAdminNotes: number;
-  }>;
-  implementationMetrics: Array<{
-    type: string;
-    avgDaysToImplement: number;
-    minDaysToImplement: number;
-    maxDaysToImplement: number;
-    totalImplemented: number;
-  }>;
-  statusTransitions: Array<{
-    status: string;
-    type: string;
-    count: number;
-    avgAgeDays: number;
-  }>;
-  summary: {
-    totalStatuses: number;
-    totalImplemented: number;
-    avgImplementationTime: number;
-  };
-}
-
-interface CivicEngagementGeographic {
-  geographicData: Array<{
-    type: string;
-    status: string;
-    address: string;
-    coordinates: {
-      longitude: number;
-      latitude: number;
-    };
-    locationNotes: string;
-    createdAt: string;
-  }>;
-  locationDensity: Array<{
-    address: string;
-    totalEngagements: number;
-    implementedCount: number;
-    byType: {
-      positive: number;
-      negative: number;
-      ideas: number;
-    };
-    implementationRate: number;
-  }>;
-  recentActivity: Array<{
-    address: string;
-    recentCount: number;
-    type: string;
-    status: string;
-  }>;
-  summary: {
-    totalWithLocation: number;
-    topLocation: string | null;
-    mostActiveLocation: string | null;
-    recentActivityCount: number;
-  };
-}
-
-interface CivicEngagementActivity {
-  id: string;
-  type: "engagement_created" | "engagement_updated" | "engagement_implemented";
-  title: string;
-  description: string;
-  timestamp: string;
-  user?: {
-    name: string;
-    avatar?: string;
-  };
-  metadata?: Record<string, string | number | boolean>;
 }
 
 // Dashboard Interfaces
@@ -749,19 +582,6 @@ class ApiService {
     return this.makeRequest<JobStatus>(`/api/jobs/${jobId}`);
   }
 
-  // Friends-related API calls (for private events)
-  async getFriends(): Promise<
-    ApiResponse<
-      Array<{
-        id: string;
-        name: string;
-        email: string;
-      }>
-    >
-  > {
-    return this.makeRequest("/api/friends");
-  }
-
   // Place search API calls
   async searchPlace(
     params: PlaceSearchParams,
@@ -782,82 +602,6 @@ class ApiService {
         body: JSON.stringify(params),
       },
     );
-  }
-
-  // Civic Engagement API calls
-  async createCivicEngagement(
-    payload: CreateCivicEngagementPayload,
-  ): Promise<ApiResponse<{ jobId: string; message: string; status: string }>> {
-    return this.makeRequest<{ jobId: string; message: string; status: string }>(
-      "/api/civic-engagements",
-      {
-        method: "POST",
-        body: JSON.stringify(payload),
-      },
-    );
-  }
-
-  async getCivicEngagements(
-    params: {
-      limit?: number;
-      offset?: number;
-      type?: string[];
-      status?: string[];
-      search?: string;
-    } = {},
-  ): Promise<
-    ApiResponse<{ civicEngagements: CivicEngagement[]; total: number }>
-  > {
-    const queryParams = new URLSearchParams();
-    if (params.limit) queryParams.append("limit", params.limit.toString());
-    if (params.offset) queryParams.append("offset", params.offset.toString());
-    if (params.type) queryParams.append("type", params.type.join(","));
-    if (params.status) queryParams.append("status", params.status.join(","));
-    if (params.search) queryParams.append("search", params.search);
-
-    const queryString = queryParams.toString();
-    const endpoint = `/api/civic-engagements${queryString ? `?${queryString}` : ""}`;
-
-    return this.makeRequest<{
-      civicEngagements: CivicEngagement[];
-      total: number;
-    }>(endpoint);
-  }
-
-  async getCivicEngagementById(
-    id: string,
-  ): Promise<ApiResponse<CivicEngagement>> {
-    return this.makeRequest<CivicEngagement>(`/api/civic-engagements/${id}`);
-  }
-
-  async getCivicEngagementStats(): Promise<ApiResponse<CivicEngagementStats>> {
-    return this.makeRequest<CivicEngagementStats>(
-      "/api/civic-engagements/stats",
-    );
-  }
-
-  async getNearbyCivicEngagements(
-    lat: number,
-    lng: number,
-    radius?: number,
-    filters?: {
-      type?: string[];
-      status?: string[];
-      search?: string;
-    },
-  ): Promise<ApiResponse<CivicEngagement[]>> {
-    const queryParams = new URLSearchParams({
-      lat: lat.toString(),
-      lng: lng.toString(),
-    });
-
-    if (radius) queryParams.append("radius", radius.toString());
-    if (filters?.type) queryParams.append("type", filters.type.join(","));
-    if (filters?.status) queryParams.append("status", filters.status.join(","));
-    if (filters?.search) queryParams.append("search", filters.search);
-
-    const endpoint = `/api/civic-engagements/nearby?${queryParams.toString()}`;
-    return this.makeRequest<CivicEngagement[]>(endpoint);
   }
 
   // Dashboard API calls
@@ -900,47 +644,6 @@ class ApiService {
       "/api/admin/dashboard/upcoming-events",
     );
   }
-
-  // Civic Engagement Dashboard API calls
-  async getCivicEngagementMetrics(): Promise<
-    ApiResponse<CivicEngagementMetrics>
-  > {
-    return this.makeRequest<CivicEngagementMetrics>(
-      "/api/admin/dashboard/civic-engagement/metrics",
-    );
-  }
-
-  async getCivicEngagementTrends(): Promise<
-    ApiResponse<CivicEngagementTrends>
-  > {
-    return this.makeRequest<CivicEngagementTrends>(
-      "/api/admin/dashboard/civic-engagement/trends",
-    );
-  }
-
-  async getCivicEngagementStatusAnalysis(): Promise<
-    ApiResponse<CivicEngagementStatusAnalysis>
-  > {
-    return this.makeRequest<CivicEngagementStatusAnalysis>(
-      "/api/admin/dashboard/civic-engagement/status-analysis",
-    );
-  }
-
-  async getCivicEngagementGeographic(): Promise<
-    ApiResponse<CivicEngagementGeographic>
-  > {
-    return this.makeRequest<CivicEngagementGeographic>(
-      "/api/admin/dashboard/civic-engagement/geographic",
-    );
-  }
-
-  async getCivicEngagementActivity(): Promise<
-    ApiResponse<CivicEngagementActivity[]>
-  > {
-    return this.makeRequest<CivicEngagementActivity[]>(
-      "/api/admin/dashboard/civic-engagement/activity",
-    );
-  }
 }
 
 // Export a singleton instance
@@ -948,14 +651,6 @@ export const apiService = new ApiService();
 export type {
   CityStateSearchParams,
   CityStateSearchResult,
-  CivicEngagement,
-  CivicEngagementActivity,
-  CivicEngagementGeographic,
-  CivicEngagementMetrics,
-  CivicEngagementStats,
-  CivicEngagementStatusAnalysis,
-  CivicEngagementTrends,
-  CreateCivicEngagementPayload,
   CreateEventPayload,
   DashboardActivity,
   DashboardBusiestTime,

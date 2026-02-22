@@ -5,7 +5,6 @@ import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -23,32 +22,21 @@ import Animated, {
   LinearTransition,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
   withSequence,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
-import { AuthWrapper } from "../AuthWrapper";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  spring,
+} from "@/theme";
+import MapMojiHeader from "../AnimationHeader";
 import Input from "../Input/Input";
 import { OAuthButtons } from "./OAuthButtons";
-
-const newColors = {
-  background: "#00697A",
-  text: "#FFFFFF",
-  accent: "#FDB813",
-  cardBackground: "#FFFFFF",
-  cardText: "#000000",
-  cardTextSecondary: "#6c757d",
-  buttonBackground: "#FFFFFF",
-  buttonText: "#00697A",
-  buttonBorder: "#DDDDDD",
-  inputBackground: "#F5F5F5",
-  errorBackground: "#FFCDD2",
-  errorText: "#B71C1C",
-  errorBorder: "#EF9A9A",
-  divider: "#E0E0E0",
-  activityIndicator: "#00697A",
-};
 
 const Login: React.FC = () => {
   const router = useRouter();
@@ -63,7 +51,6 @@ const Login: React.FC = () => {
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const buttonScale = useSharedValue(1);
-  const glowRadius = useSharedValue(5);
 
   const buttonAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -71,26 +58,8 @@ const Login: React.FC = () => {
     };
   });
 
-  const animatedGlowStyle = useAnimatedStyle(() => {
-    return {
-      shadowColor: "#FDB813",
-      shadowRadius: glowRadius.value,
-      shadowOpacity: 0.9,
-      shadowOffset: { width: 0, height: 0 },
-      elevation: glowRadius.value,
-    };
-  });
-
   // Cleanup effect
   useEffect(() => {
-    glowRadius.value = withRepeat(
-      withSequence(
-        withTiming(15, { duration: 2000 }),
-        withTiming(5, { duration: 2000 }),
-      ),
-      -1,
-      true,
-    );
     return () => {
       isMounted.current = false;
     };
@@ -122,7 +91,7 @@ const Login: React.FC = () => {
     try {
       await login(email, password);
       // Keep loading state until navigation completes
-      // The AuthWrapper will handle the navigation
+      // The auth guard will handle the navigation
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -153,8 +122,8 @@ const Login: React.FC = () => {
 
     // Animate button press
     buttonScale.value = withSequence(
-      withSpring(0.95, { damping: 15, stiffness: 200 }),
-      withSpring(1, { damping: 15, stiffness: 200 }),
+      withSpring(0.95, spring.press),
+      withSpring(1, spring.press),
     );
 
     // Delay the login action until after animation
@@ -167,7 +136,7 @@ const Login: React.FC = () => {
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: newColors.background,
+      backgroundColor: colors.bg.primary,
     },
 
     keyboardAvoidingView: {
@@ -178,39 +147,14 @@ const Login: React.FC = () => {
     scrollContent: {
       flexGrow: 1,
       justifyContent: "center",
-      paddingHorizontal: 20,
-      paddingVertical: 10,
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing._10,
     },
 
     contentContainer: {
       alignItems: "center",
       justifyContent: "center",
-      gap: 20,
-    },
-
-    logoContainer: {
-      marginBottom: 10,
-      shadowColor: "#FDB813",
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.9,
-      shadowRadius: 10,
-      elevation: 10,
-    },
-
-    logo: {
-      width: 150,
-      height: 150,
-      resizeMode: "contain",
-    },
-
-    slogan: {
-      fontSize: 18,
-      color: newColors.text,
-      fontFamily: "Poppins-SemiBold",
-      marginBottom: 20,
-      textAlign: "center",
-      fontWeight: "600",
-      letterSpacing: 0.5,
+      gap: spacing.xl,
     },
 
     formContainer: {
@@ -222,112 +166,112 @@ const Login: React.FC = () => {
 
     formCard: {
       width: "100%",
-      borderRadius: 20,
-      padding: 20,
-      backgroundColor: newColors.cardBackground,
+      borderRadius: radius["2xl"],
+      padding: spacing.xl,
+      backgroundColor: colors.bg.card,
       borderWidth: 1,
-      borderColor: newColors.divider,
+      borderColor: colors.border.default,
       shadowColor: "rgba(0, 0, 0, 0.1)",
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.2,
-      shadowRadius: 12,
+      shadowRadius: radius.md,
       elevation: 8,
       position: "relative",
       overflow: "hidden",
     },
 
     errorContainer: {
-      backgroundColor: newColors.errorBackground,
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 16,
+      backgroundColor: colors.status.error.bg,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.lg,
       borderWidth: 1,
-      borderColor: newColors.errorBorder,
+      borderColor: colors.status.error.border,
     },
 
     errorText: {
-      color: newColors.errorText,
-      fontSize: 14,
-      fontFamily: "Poppins-Regular",
+      color: colors.status.error.text,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
     },
 
     inputContainer: {
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: newColors.inputBackground,
-      borderRadius: 12,
-      marginBottom: 16,
-      paddingHorizontal: 12,
+      backgroundColor: colors.bg.cardAlt,
+      borderRadius: radius.md,
+      marginBottom: spacing.lg,
+      paddingHorizontal: spacing.md,
       height: 55,
       borderWidth: 1,
-      borderColor: newColors.buttonBorder,
+      borderColor: colors.border.medium,
     },
 
     inputIcon: {
-      marginRight: 10,
+      marginRight: spacing._10,
     },
 
     input: {
       flex: 1,
       height: "100%",
-      color: newColors.cardText,
-      fontSize: 16,
-      fontFamily: "Poppins-Regular",
+      color: colors.text.primary,
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
     },
 
     eyeIcon: {
-      padding: 8,
+      padding: spacing.sm,
     },
 
     loginButton: {
-      borderRadius: 12,
+      borderRadius: radius.md,
       height: 55,
       justifyContent: "center",
       alignItems: "center",
-      marginVertical: 20,
-      backgroundColor: newColors.accent,
+      marginVertical: spacing.xl,
+      backgroundColor: colors.accent.muted,
       borderWidth: 1,
-      borderColor: newColors.accent,
+      borderColor: colors.accent.border,
     },
 
     loginButtonText: {
-      color: newColors.cardText,
-      fontSize: 16,
-      fontWeight: "600",
-      fontFamily: "Poppins-Regular",
+      color: colors.text.primary,
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
       letterSpacing: 0.5,
     },
 
     createAccountContainer: {
       flexDirection: "row",
       justifyContent: "center",
-      marginTop: 16,
+      marginTop: spacing.lg,
     },
 
     createAccountText: {
-      color: newColors.cardTextSecondary,
-      fontSize: 14,
-      fontFamily: "Poppins-Regular",
+      color: colors.text.secondary,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
     },
 
     createAccountLink: {
-      color: newColors.buttonText,
-      fontSize: 14,
-      fontWeight: "600",
-      fontFamily: "Poppins-Regular",
+      color: colors.accent.primary,
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
     },
 
     profileSelectorContainer: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      backgroundColor: newColors.inputBackground,
-      borderRadius: 12,
-      marginBottom: 16,
-      paddingVertical: 8,
-      paddingHorizontal: 12,
+      backgroundColor: colors.bg.cardAlt,
+      borderRadius: radius.md,
+      marginBottom: spacing.lg,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
       borderWidth: 1,
-      borderColor: newColors.buttonBorder,
+      borderColor: colors.border.medium,
       height: 55,
       zIndex: 4,
     },
@@ -341,24 +285,24 @@ const Login: React.FC = () => {
     selectedProfileEmojiContainer: {
       width: 40,
       height: 40,
-      borderRadius: 12,
+      borderRadius: radius.md,
       backgroundColor: "rgba(245, 158, 11, 0.1)",
       justifyContent: "center",
       alignItems: "center",
-      marginRight: 12,
+      marginRight: spacing.md,
       borderWidth: 1,
       borderColor: "rgba(245, 158, 11, 0.2)",
     },
 
     profileEmojiLarge: {
-      fontSize: 20,
+      fontSize: fontSize.xl,
     },
 
     selectedProfileName: {
-      color: newColors.cardText,
+      color: colors.text.primary,
       fontSize: 15,
-      fontWeight: "500",
-      fontFamily: "Poppins-Regular",
+      fontWeight: fontWeight.medium,
+      fontFamily: fontFamily.mono,
     },
 
     noProfileContainer: {
@@ -370,38 +314,38 @@ const Login: React.FC = () => {
     placeholderAvatar: {
       width: 40,
       height: 40,
-      borderRadius: 12,
-      backgroundColor: newColors.inputBackground,
+      borderRadius: radius.md,
+      backgroundColor: colors.bg.cardAlt,
       justifyContent: "center",
       alignItems: "center",
-      marginRight: 12,
+      marginRight: spacing.md,
       borderWidth: 1,
-      borderColor: newColors.buttonBorder,
+      borderColor: colors.border.medium,
     },
 
     selectProfileText: {
-      color: newColors.cardTextSecondary,
+      color: colors.text.secondary,
       fontSize: 15,
-      fontFamily: "Poppins-Regular",
+      fontFamily: fontFamily.mono,
     },
 
     dropdownTrigger: {
       width: 40,
       height: 40,
-      borderRadius: 12,
-      backgroundColor: newColors.inputBackground,
+      borderRadius: radius.md,
+      backgroundColor: colors.bg.cardAlt,
       justifyContent: "center",
       alignItems: "center",
       borderWidth: 1,
-      borderColor: newColors.buttonBorder,
+      borderColor: colors.border.medium,
     },
 
     modalOverlay: {
       flex: 1,
-      backgroundColor: "rgba(0, 0, 0, 0.75)",
+      backgroundColor: colors.overlay.scrim,
       justifyContent: "center",
       alignItems: "center",
-      padding: 20,
+      padding: spacing.xl,
       zIndex: 10,
     },
 
@@ -409,176 +353,167 @@ const Login: React.FC = () => {
       width: "90%",
       maxWidth: 400,
       maxHeight: 300,
-      backgroundColor: newColors.cardBackground,
-      borderRadius: 20,
+      backgroundColor: colors.bg.card,
+      borderRadius: radius["2xl"],
       overflow: "hidden",
       borderWidth: 1,
-      borderColor: newColors.divider,
+      borderColor: colors.border.default,
       shadowColor: "rgba(0, 0, 0, 0.1)",
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.2,
-      shadowRadius: 12,
+      shadowRadius: radius.md,
       elevation: 8,
     },
 
     profileList: {
       width: "100%",
-      paddingVertical: 4,
+      paddingVertical: spacing.xs,
     },
 
     profileDropdownItem: {
       flexDirection: "row",
       alignItems: "center",
-      paddingVertical: 12,
+      paddingVertical: spacing.md,
       paddingHorizontal: 15,
       borderBottomWidth: 1,
-      borderBottomColor: newColors.divider,
+      borderBottomColor: colors.border.default,
     },
 
     profileEmojiContainer: {
       width: 40,
       height: 40,
-      borderRadius: 12,
-      backgroundColor: newColors.inputBackground,
+      borderRadius: radius.md,
+      backgroundColor: colors.bg.cardAlt,
       justifyContent: "center",
       alignItems: "center",
-      marginRight: 12,
+      marginRight: spacing.md,
       borderWidth: 1,
-      borderColor: newColors.buttonBorder,
+      borderColor: colors.border.medium,
     },
 
     profileEmojiSmall: {
-      fontSize: 20,
+      fontSize: fontSize.xl,
     },
 
     profileDropdownName: {
-      color: newColors.cardText,
+      color: colors.text.primary,
       fontSize: 15,
-      fontFamily: "Poppins-Regular",
+      fontFamily: fontFamily.mono,
       flex: 1,
     },
 
     profileDropdownRole: {
-      fontSize: 12,
-      fontFamily: "Poppins-Regular",
-      fontWeight: "600",
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
       textTransform: "uppercase",
     },
 
     loginButtonContainer: {
-      marginTop: 20,
+      marginTop: spacing.xl,
     },
   });
 
   return (
-    <AuthWrapper requireAuth={false}>
-      <SafeAreaView style={styles.container}>
-        <StatusBar
-          barStyle="light-content"
-          backgroundColor={newColors.background}
-        />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg.primary} />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardAvoidingView}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
+          <Animated.View
+            entering={FadeInDown.duration(600).delay(100).springify()}
+            style={styles.contentContainer}
           >
+            <MapMojiHeader />
+
             <Animated.View
-              entering={FadeInDown.duration(600).delay(100).springify()}
-              style={styles.contentContainer}
+              entering={FadeInDown.duration(600).delay(300).springify()}
+              layout={LinearTransition.springify()}
+              style={styles.formContainer}
             >
-              <Animated.View style={[styles.logoContainer, animatedGlowStyle]}>
-                <Image
-                  source={require("@/assets/images/frederick-logo.png")}
-                  style={styles.logo}
-                />
-              </Animated.View>
-              <Text style={styles.slogan}>Built on what matters</Text>
-
               <Animated.View
-                entering={FadeInDown.duration(600).delay(300).springify()}
                 layout={LinearTransition.springify()}
-                style={styles.formContainer}
+                style={styles.formCard}
               >
-                <Animated.View
-                  layout={LinearTransition.springify()}
-                  style={styles.formCard}
-                >
-                  {error && (
-                    <View style={styles.errorContainer}>
-                      <Text style={styles.errorText}>{error}</Text>
-                    </View>
-                  )}
-
-                  <View style={{ gap: 16 }}>
-                    <Input
-                      ref={emailInputRef}
-                      icon={Mail}
-                      placeholder="Email address"
-                      value={email}
-                      onChangeText={setEmail}
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      autoCorrect={false}
-                      keyboardType="email-address"
-                      returnKeyType="next"
-                      onSubmitEditing={() => passwordInputRef.current?.focus()}
-                      delay={300}
-                    />
-
-                    <Input
-                      ref={passwordInputRef}
-                      icon={Lock}
-                      rightIcon={showPassword ? EyeOff : Eye}
-                      onRightIconPress={togglePasswordVisibility}
-                      placeholder="Password"
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry={!showPassword}
-                      returnKeyType="done"
-                      onSubmitEditing={handleLogin}
-                      delay={400}
-                    />
+                {error && (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{error}</Text>
                   </View>
+                )}
 
-                  <View style={styles.loginButtonContainer}>
+                <View style={{ gap: spacing.lg }}>
+                  <Input
+                    ref={emailInputRef}
+                    icon={Mail}
+                    placeholder="Email address"
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordInputRef.current?.focus()}
+                    delay={300}
+                  />
+
+                  <Input
+                    ref={passwordInputRef}
+                    icon={Lock}
+                    rightIcon={showPassword ? EyeOff : Eye}
+                    onRightIconPress={togglePasswordVisibility}
+                    placeholder="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    returnKeyType="done"
+                    onSubmitEditing={handleLogin}
+                    delay={400}
+                  />
+                </View>
+
+                <View style={styles.loginButtonContainer}>
+                  <Animated.View style={buttonAnimatedStyle}>
                     <TouchableOpacity
                       onPress={handleLoginPress}
                       disabled={isLoading}
                       activeOpacity={0.7}
-                      style={[styles.loginButton, buttonAnimatedStyle]}
+                      style={styles.loginButton}
                     >
                       {isLoading ? (
                         <ActivityIndicator
                           size="small"
-                          color={newColors.cardText}
+                          color={colors.text.primary}
                         />
                       ) : (
                         <Text style={styles.loginButtonText}>Login</Text>
                       )}
                     </TouchableOpacity>
-                  </View>
+                  </Animated.View>
+                </View>
 
-                  <View style={styles.createAccountContainer}>
-                    <Text style={styles.createAccountText}>
-                      Don't have an account?{" "}
-                    </Text>
-                    <TouchableOpacity onPress={handleCreateAccount}>
-                      <Text style={styles.createAccountLink}>Create one</Text>
-                    </TouchableOpacity>
-                  </View>
+                <View style={styles.createAccountContainer}>
+                  <Text style={styles.createAccountText}>
+                    Don't have an account?{" "}
+                  </Text>
+                  <TouchableOpacity onPress={handleCreateAccount}>
+                    <Text style={styles.createAccountLink}>Create one</Text>
+                  </TouchableOpacity>
+                </View>
 
-                  <OAuthButtons onError={handleOAuthError} />
-                </Animated.View>
+                <OAuthButtons onError={handleOAuthError} />
               </Animated.View>
             </Animated.View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </AuthWrapper>
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 

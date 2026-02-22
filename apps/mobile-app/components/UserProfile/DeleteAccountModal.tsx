@@ -16,7 +16,16 @@ import Animated, {
   BounceOut,
   LinearTransition,
 } from "react-native-reanimated";
-import { COLORS } from "@/components/Layout/ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  lineHeight,
+  spring,
+} from "@/theme";
 
 interface DeleteAccountModalProps {
   visible: boolean;
@@ -51,8 +60,8 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
         <Animated.View
           entering={BounceIn.duration(500)
             .springify()
-            .damping(15)
-            .stiffness(200)}
+            .damping(spring.firm.damping)
+            .stiffness(spring.firm.stiffness)}
           layout={LinearTransition.springify()}
           style={styles.modalContent}
         >
@@ -68,7 +77,7 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
             style={styles.passwordInput}
             secureTextEntry
             placeholder="Enter your password"
-            placeholderTextColor={COLORS.textSecondary}
+            placeholderTextColor={colors.text.secondary}
             value={password}
             onChangeText={setPassword}
           />
@@ -76,7 +85,7 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
             <Animated.View
               entering={BounceIn.duration(500)
                 .springify()
-                .damping(15)
+                .damping(32)
                 .stiffness(200)}
               exiting={BounceOut.duration(300)}
             >
@@ -102,7 +111,7 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
               disabled={isDeleting}
             >
               {isDeleting ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={colors.fixed.white} />
               ) : (
                 <Text style={styles.deleteModalButtonText}>Delete Account</Text>
               )}
@@ -117,98 +126,98 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
 const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: colors.overlay.light,
     justifyContent: "center",
     alignItems: "center",
   },
   modalContent: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: colors.bg.card,
+    borderRadius: radius.xl,
+    padding: spacing["2xl"],
     width: "90%",
     maxWidth: 400,
     borderWidth: 1,
-    borderColor: COLORS.divider,
-    shadowColor: COLORS.shadow,
+    borderColor: colors.border.default,
+    shadowColor: colors.shadow.default,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
-    marginBottom: 16,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
+    marginBottom: spacing.lg,
     textAlign: "center",
   },
   dialogText: {
-    color: COLORS.textPrimary,
-    fontSize: 15,
-    fontFamily: "Poppins-Regular",
-    lineHeight: 22,
-    marginBottom: 16,
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
+    lineHeight: lineHeight.relaxed,
+    marginBottom: spacing.lg,
     textAlign: "center",
   },
   dialogSubText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontFamily: "Poppins-Regular",
-    marginBottom: 12,
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
+    marginBottom: spacing.md,
   },
   passwordInput: {
-    backgroundColor: COLORS.cardBackgroundAlt,
-    borderRadius: 12,
-    padding: 12,
-    color: COLORS.textPrimary,
-    fontSize: 15,
-    fontFamily: "Poppins-Regular",
-    marginBottom: 16,
+    backgroundColor: colors.bg.cardAlt,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
+    marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   errorText: {
-    color: COLORS.errorText,
-    fontSize: 14,
-    fontFamily: "Poppins-Regular",
-    marginBottom: 16,
+    color: colors.status.error.text,
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
+    marginBottom: spacing.lg,
     textAlign: "center",
   },
   modalButtons: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing.md,
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.border.subtle,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
     alignItems: "center",
   },
   cancelButtonText: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: "600",
-    fontFamily: "Poppins-Regular",
+    color: colors.text.primary,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
   },
   deleteModalButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: COLORS.errorText,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.status.error.text,
     alignItems: "center",
   },
   deleteModalButtonDisabled: {
     opacity: 0.7,
   },
   deleteModalButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-    fontFamily: "Poppins-Regular",
+    color: colors.fixed.white,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
   },
 });
 

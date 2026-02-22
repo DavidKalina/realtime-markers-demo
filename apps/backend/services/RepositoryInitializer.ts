@@ -7,7 +7,6 @@ import {
   UserEventDiscovery,
   UserEventRsvp,
   Filter,
-  CivicEngagement,
 } from "@realtime-markers/database";
 import { ensureDatabaseReadyForServices } from "../utils/databaseInitializer";
 
@@ -19,7 +18,6 @@ export interface RepositoryContainer {
   userEventDiscoveryRepository: Repository<UserEventDiscovery>;
   userEventRsvpRepository: Repository<UserEventRsvp>;
   filterRepository: Repository<Filter>;
-  civicEngagementRepository: Repository<CivicEngagement>;
 }
 
 export class RepositoryInitializer {
@@ -54,8 +52,6 @@ export class RepositoryInitializer {
           this.dataSource.getRepository(UserEventDiscovery),
         userEventRsvpRepository: this.dataSource.getRepository(UserEventRsvp),
         filterRepository: this.dataSource.getRepository(Filter),
-        civicEngagementRepository:
-          this.dataSource.getRepository(CivicEngagement),
       };
     }
 

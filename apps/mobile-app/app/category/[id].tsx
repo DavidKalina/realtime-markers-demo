@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
@@ -8,7 +8,6 @@ import EventListItem, {
 } from "@/components/Event/EventListItem";
 import { apiClient } from "@/services/ApiClient";
 import { Category } from "@/services/api/base/types";
-import { AuthWrapper } from "@/components/AuthWrapper";
 
 // Type for events from the API
 type EventListItemType = Omit<EventListItemProps, "onPress">;
@@ -43,6 +42,9 @@ const CategoryEventsScreen = () => {
     fetchCategory();
   }, [id]);
 
+  const nextCursorRef = useRef<string | undefined>();
+  nextCursorRef.current = nextCursor;
+
   // Fetch events for the category
   const fetchEvents = useCallback(
     async (refresh = false) => {
@@ -54,7 +56,7 @@ const CategoryEventsScreen = () => {
 
         const result = await apiClient.events.getEventsByCategory(id, {
           limit: 20,
-          cursor: refresh ? undefined : nextCursor,
+          cursor: refresh ? undefined : nextCursorRef.current,
         });
 
         if (refresh) {
@@ -75,7 +77,7 @@ const CategoryEventsScreen = () => {
         setIsLoading(false);
       }
     },
-    [id, nextCursor],
+    [id],
   );
 
   // Initial load
@@ -100,8 +102,8 @@ const CategoryEventsScreen = () => {
   );
 
   const renderEventItem = useCallback(
-    (event: EventListItemType) => (
-      <EventListItem {...event} onPress={handleEventPress} />
+    (event: EventListItemType, index: number) => (
+      <EventListItem {...event} onPress={handleEventPress} index={index} />
     ),
     [handleEventPress],
   );
@@ -116,30 +118,28 @@ const CategoryEventsScreen = () => {
   }, [fetchEvents]);
 
   return (
-    <AuthWrapper>
-      <Screen
-        isScrollable={false}
-        bannerTitle={category?.name || "Category Events"}
-        bannerDescription={`Events in ${category?.name || "this category"}`}
-        bannerEmoji={category?.emoji || "📅"}
-        showBackButton
-        onBack={handleBack}
-        noAnimation
-      >
-        <InfiniteScrollFlatList
-          data={events}
-          renderItem={renderEventItem}
-          fetchMoreData={handleLoadMore}
-          onRefresh={handleRefresh}
-          isLoading={isLoading}
-          isRefreshing={isLoading && events.length === 0}
-          hasMore={hasMore && !error}
-          error={error}
-          emptyListMessage="No events found in this category"
-          onRetry={handleRefresh}
-        />
-      </Screen>
-    </AuthWrapper>
+    <Screen
+      isScrollable={false}
+      bannerTitle={category?.name || "Category Events"}
+      bannerDescription={`Events in ${category?.name || "this category"}`}
+      bannerEmoji={category?.emoji || "📅"}
+      showBackButton
+      onBack={handleBack}
+      noAnimation
+    >
+      <InfiniteScrollFlatList
+        data={events}
+        renderItem={renderEventItem}
+        fetchMoreData={handleLoadMore}
+        onRefresh={handleRefresh}
+        isLoading={isLoading}
+        isRefreshing={isLoading && events.length === 0}
+        hasMore={hasMore && !error}
+        error={error}
+        emptyListMessage="No events found in this category"
+        onRetry={handleRefresh}
+      />
+    </Screen>
   );
 };
 

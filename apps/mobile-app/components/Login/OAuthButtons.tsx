@@ -1,5 +1,6 @@
 import React from "react";
 import { View, TouchableOpacity, Text, StyleSheet, Alert } from "react-native";
+import { colors, spacing, radius, fontSize, fontWeight } from "@/theme";
 import {
   useGoogleOAuth,
   useFacebookOAuth,
@@ -116,21 +117,21 @@ export const OAuthButtons: React.FC<OAuthButtonsProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 20,
+    marginVertical: spacing.xl,
   },
   title: {
     textAlign: "center",
-    fontSize: 16,
+    fontSize: fontSize.md,
     color: "#666",
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   buttonContainer: {
-    gap: 12,
+    gap: spacing.md,
   },
   button: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing["2xl"],
+    borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -144,8 +145,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
+    color: colors.fixed.white,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
   },
 });

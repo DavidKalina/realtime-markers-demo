@@ -1,4 +1,4 @@
-import React, { forwardRef } from "react";
+import React, { Ref } from "react";
 import {
   StyleSheet,
   TextInput,
@@ -13,9 +13,10 @@ import Animated, {
   LinearTransition,
 } from "react-native-reanimated";
 import { LucideIcon } from "lucide-react-native";
-import { COLORS } from "../Layout/ScreenLayout";
+import { colors, spacing, radius, fontSize, fontFamily } from "@/theme";
 
 interface InputProps extends Omit<TextInputProps, "style"> {
+  ref?: Ref<TextInput>;
   icon?: LucideIcon;
   rightIcon?: LucideIcon;
   onRightIconPress?: () => void;
@@ -27,94 +28,96 @@ interface InputProps extends Omit<TextInputProps, "style"> {
   onChangeText?: (text: string) => void;
 }
 
-const Input = forwardRef<TextInput, InputProps>(
-  (
-    {
-      icon: Icon,
-      rightIcon: RightIcon,
-      onRightIconPress,
-      error,
-      delay = 0,
-      style,
-      loading = false,
-      value = "",
-      onChangeText,
-      ...props
-    },
-    ref,
-  ) => {
-    const handleChangeText = (text: string) => {
-      onChangeText?.(text);
-    };
+const Input = ({
+  icon: Icon,
+  rightIcon: RightIcon,
+  onRightIconPress,
+  error,
+  delay = 0,
+  style,
+  loading = false,
+  value = "",
+  onChangeText,
+  ref,
+  ...props
+}: InputProps) => {
+  const handleChangeText = (text: string) => {
+    onChangeText?.(text);
+  };
 
-    return (
-      <Animated.View
-        entering={FadeInDown.duration(600).delay(delay).springify()}
-        layout={LinearTransition.springify()}
-        style={[styles.container, error && styles.errorContainer, style]}
-      >
-        {Icon && (
-          <View style={styles.iconContainer}>
-            <Icon size={18} color={error ? "#f97583" : "#93c5fd"} />
-          </View>
-        )}
-        <TextInput
-          ref={ref}
-          style={[styles.input, error && styles.errorInput]}
-          placeholderTextColor="#808080"
-          value={value}
-          onChangeText={handleChangeText}
-          {...props}
-        />
-        {loading ? (
-          <View style={styles.rightIconContainer}>
-            <ActivityIndicator size="small" color="#93c5fd" />
-          </View>
-        ) : (
-          RightIcon && (
-            <TouchableOpacity
-              onPress={onRightIconPress}
-              style={styles.rightIconContainer}
-              disabled={!onRightIconPress}
-            >
-              <RightIcon size={18} color={error ? "#f97583" : "#93c5fd"} />
-            </TouchableOpacity>
-          )
-        )}
-      </Animated.View>
-    );
-  },
-);
+  return (
+    <Animated.View
+      entering={FadeInDown.duration(600).delay(delay).springify()}
+      layout={LinearTransition.springify()}
+      style={[styles.container, error && styles.errorContainer, style]}
+    >
+      {Icon && (
+        <View style={styles.iconContainer}>
+          <Icon
+            size={18}
+            color={error ? colors.status.error.text : colors.accent.primary}
+          />
+        </View>
+      )}
+      <TextInput
+        ref={ref}
+        style={[styles.input, error && styles.errorInput]}
+        placeholderTextColor="#808080"
+        value={value}
+        onChangeText={handleChangeText}
+        {...props}
+      />
+      {loading ? (
+        <View style={styles.rightIconContainer}>
+          <ActivityIndicator size="small" color={colors.accent.primary} />
+        </View>
+      ) : (
+        RightIcon && (
+          <TouchableOpacity
+            onPress={onRightIconPress}
+            style={styles.rightIconContainer}
+            disabled={!onRightIconPress}
+          >
+            <RightIcon
+              size={18}
+              color={error ? colors.status.error.text : colors.accent.primary}
+            />
+          </TouchableOpacity>
+        )
+      )}
+    </Animated.View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    backgroundColor: colors.bg.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
     height: 55,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   errorContainer: {
-    borderColor: "#f97583",
+    borderColor: colors.status.error.text,
   },
   iconContainer: {
-    marginRight: 10,
+    marginRight: spacing._10,
   },
   rightIconContainer: {
-    padding: 8,
+    padding: spacing.sm,
   },
   input: {
     flex: 1,
     height: "100%",
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontFamily: "Poppins-Regular",
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
   },
   errorInput: {
-    color: "#f97583",
+    color: colors.status.error.text,
   },
 });
 

@@ -1,6 +1,6 @@
 // apps/filter-processor/src/services/FilterProcessor.ts
 import Redis from "ioredis";
-import { Filter, BoundingBox, Event, CivicEngagement } from "../types/types";
+import { Filter, BoundingBox, Event } from "../types/types";
 import { FilterMatcher } from "../handlers/FilterMatcher";
 import { ViewportProcessor } from "../handlers/ViewportProcessor";
 import { EventPublisher } from "../handlers/EventPublisher";
@@ -13,15 +13,8 @@ import { createHybridUserUpdateBatcherService } from "./HybridUserUpdateBatcherS
 import { createRedisMessageHandler } from "./RedisMessageHandler";
 import { createVectorService } from "./VectorService";
 
-// Entity Registry Integration
-import { EntityRegistry } from "./EntityRegistry";
 import { UnifiedMessageHandler } from "./UnifiedMessageHandler";
-import { LegacyEventCacheHandler as HandlerEventProcessor } from "../handlers/EventProcessor";
-import { UnifiedEntityProcessor } from "./processors/UnifiedEntityProcessor";
-import { createEntityCacheService } from "./EntityCacheService";
 import { createEventInitializationService } from "./EventInitializationService";
-import { createCivicEngagementInitializationService } from "./CivicEngagementInitializationService";
-import { FilteringStrategyFactory } from "./filtering/FilteringStrategyFactory";
 import { createUnifiedFilteringService } from "./UnifiedFilteringService";
 import { createClientConfigService } from "./ClientConfigService";
 
@@ -132,9 +125,6 @@ export function createFilterProcessor(
     unifiedSpatialCacheService,
   );
 
-  // Create Entity Registry and Unified Message Handler
-  const entityRegistry = new EntityRegistry();
-
   // Create a callback that will be set after userUpdateBatcherService is created
   // eslint-disable-next-line prefer-const
   let userDirtyCallback:
@@ -150,7 +140,7 @@ export function createFilterProcessor(
     | undefined;
 
   const unifiedMessageHandler = new UnifiedMessageHandler(
-    entityRegistry,
+    unifiedSpatialCacheService,
     redisPub,
     viewportProcessor,
     {
@@ -163,124 +153,10 @@ export function createFilterProcessor(
     },
   );
 
-  // Create entity processors using the unified system
-  const handlerEventProcessor = new HandlerEventProcessor(
-    unifiedSpatialCacheService,
-  );
-  const unifiedEntityProcessor = new UnifiedEntityProcessor(
-    unifiedSpatialCacheService,
-  );
-
-  // Create the real initialization services
+  // Create event initialization service
   const eventInitializationService = createEventInitializationService(
-    handlerEventProcessor,
+    unifiedSpatialCacheService,
     eventInitializationConfig,
-  );
-
-  const civicEngagementInitializationService =
-    createCivicEngagementInitializationService(
-      handlerEventProcessor,
-      eventInitializationConfig,
-    );
-
-  // Create entity-specific services
-  const eventEntityCacheService = createEntityCacheService(
-    "event",
-    unifiedSpatialCacheService,
-  );
-  const civicEngagementEntityCacheService = createEntityCacheService(
-    "civic_engagement",
-    unifiedSpatialCacheService,
-  );
-
-  // Create filtering strategies
-  const eventFilteringStrategy = FilteringStrategyFactory.createStrategy(
-    "event",
-    "mapmoji",
-    eventFilteringConfig,
-  );
-  const civicEngagementFilteringStrategy =
-    FilteringStrategyFactory.createStrategy("civic_engagement", "simple");
-
-  // Register entity types with the registry using the unified system
-  entityRegistry.registerEntityType(
-    {
-      type: "event",
-      displayName: "Events",
-      hasLocation: true,
-      isPublic: true,
-      supportsImages: true,
-      supportsCategories: true,
-      relevanceScoring: {
-        enabled: true,
-        weights: {
-          time: 0.3,
-          distance: 0.4,
-          popularity: 0.3,
-        },
-      },
-      filtering: {
-        supportedFilters: ["category", "date", "distance", "popularity"],
-        defaultFilters: {},
-        strategy: "mapmoji",
-      },
-      webSocket: {
-        messageTypes: {
-          add: "event:created",
-          update: "event:updated",
-          delete: "event:deleted",
-          discovered: "event:discovered",
-        },
-        redisChannels: {
-          changes: redisConfig.channels?.eventChanges || "event_changes",
-          discovered: "event_discovered",
-        },
-      },
-    },
-    unifiedEntityProcessor,
-    eventInitializationService,
-    eventEntityCacheService,
-    eventFilteringStrategy,
-  );
-
-  entityRegistry.registerEntityType(
-    {
-      type: "civic_engagement",
-      displayName: "Civic Engagements",
-      hasLocation: true,
-      isPublic: true,
-      supportsImages: false,
-      supportsCategories: true,
-      relevanceScoring: {
-        enabled: true,
-        weights: {
-          time: 0.5,
-          distance: 0.3,
-          popularity: 0.2,
-        },
-      },
-      filtering: {
-        supportedFilters: ["category", "status", "priority"],
-        defaultFilters: {},
-        strategy: "simple",
-      },
-      webSocket: {
-        messageTypes: {
-          add: "add-civic-engagement",
-          update: "update-civic-engagement",
-          delete: "delete-civic-engagement",
-          discovered: "civic_engagement_discovered",
-        },
-        redisChannels: {
-          changes: "civic_engagement_changes",
-          discovered: "civic_engagement_discovered",
-        },
-      },
-    },
-    unifiedEntityProcessor,
-    civicEngagementInitializationService,
-    civicEngagementEntityCacheService,
-    civicEngagementFilteringStrategy,
   );
 
   // Create handlers with service dependencies
@@ -292,7 +168,7 @@ export function createFilterProcessor(
   // Create client configuration service
   const clientConfigService = createClientConfigService({ redis: redisPub });
 
-  // Create unified filtering service that handles both events and civic engagements
+  // Create unified filtering service for events
   const unifiedFilteringService = createUnifiedFilteringService(
     filterMatcher,
     mapMojiFilter,
@@ -301,7 +177,6 @@ export function createFilterProcessor(
     clientConfigService,
     {
       mapMojiConfig: eventFilteringConfig.mapMojiConfig,
-      maxCivicEngagements: 100,
     },
   );
 
@@ -356,27 +231,6 @@ export function createFilterProcessor(
         );
       }
     },
-    onCivicEngagementUpdate: async (data: {
-      operation: string;
-      record: CivicEngagement;
-    }) => {
-      const result = await unifiedMessageHandler.handleEntityMessage(
-        "civic_engagement",
-        data.operation,
-        data.record,
-      );
-
-      // Log processing results for monitoring
-      if (result.success) {
-        console.log(
-          `[FilterProcessor] Civic engagement ${data.operation} processed successfully: ${result.entityId} (${result.affectedUsersCount} affected users, ${result.processingTimeMs}ms)`,
-        );
-      } else {
-        console.error(
-          `[FilterProcessor] Civic engagement ${data.operation} failed: ${result.error}`,
-        );
-      }
-    },
     onJobCreated: jobProcessingService.handleJobCreated,
     onJobUpdate: jobProcessingService.handleJobUpdate,
   };
@@ -407,9 +261,9 @@ export function createFilterProcessor(
     try {
       console.log("🚀 Initializing Filter Processor...");
 
-      // Initialize all entities using the entity registry
-      console.log("📦 Initializing entity registry...");
-      await entityRegistry.initializeAllEntities();
+      // Initialize events from backend
+      console.log("📦 Initializing events...");
+      await eventInitializationService.initializeEntities();
 
       // Subscribe to Redis channels
       console.log("🔌 Subscribing to Redis channels...");
@@ -421,10 +275,8 @@ export function createFilterProcessor(
 
       console.log("✅ Filter Processor initialized successfully:", {
         events: unifiedSpatialCacheService.getStats().spatialIndexSize,
-        civicEngagements:
-          unifiedSpatialCacheService.getStats().civicEngagementCacheSize,
         users: userStateService.getStats().totalUsers,
-        entityTypes: entityRegistry.getAllEntityTypes(),
+        entityTypes: ["event"],
       });
     } catch (error) {
       console.error("❌ Error initializing Filter Processor:", error);
@@ -447,18 +299,17 @@ export function createFilterProcessor(
     console.log("Final stats:", {
       ...stats,
       ...eventPublisher.getStats(),
-      ...eventEntityCacheService.getStats(),
+      ...unifiedSpatialCacheService.getStats(),
       ...userStateService.getStats(),
       ...relevanceScoringService.getStats(),
       ...redisMessageHandler.getStats(),
       ...eventInitializationService.getStats(),
-      ...civicEngagementInitializationService.getStats(),
       ...jobProcessingService.getStats(),
       ...userUpdateBatcherService.getStats(),
     });
 
-    // Shutdown user update batcher service
-    userUpdateBatcherService.shutdown();
+    // Shutdown user update batcher service (await final flush)
+    await userUpdateBatcherService.shutdown();
 
     // Clean up Redis connection
     await redisMessageHandler.unsubscribe();
@@ -509,12 +360,6 @@ export function createFilterProcessor(
 
         // Track viewport in UnifiedMessageHandler for affected user calculation
         unifiedMessageHandler.trackUserViewport("event", userId, viewport);
-        unifiedMessageHandler.trackUserViewport(
-          "civic_engagement",
-          userId,
-          viewport,
-        );
-
         // Mark user as dirty for batch processing
         userUpdateBatcherService.markUserAsDirty(userId, {
           reason: "viewport_change",
@@ -582,7 +427,6 @@ export function createFilterProcessor(
 
     // Clean up viewport tracking in UnifiedMessageHandler
     unifiedMessageHandler.removeUserViewport("event", userId);
-    unifiedMessageHandler.removeUserViewport("civic_engagement", userId);
 
     // Clean up user data
     userStateService.unregisterUser(userId);
@@ -625,16 +469,14 @@ export function createFilterProcessor(
     return {
       ...stats,
       ...eventPublisher.getStats(),
-      ...eventEntityCacheService.getStats(),
+      ...unifiedSpatialCacheService.getStats(),
       ...userStateService.getStats(),
       ...relevanceScoringService.getStats(),
       ...redisMessageHandler.getStats(),
       ...eventInitializationService.getStats(),
-      ...civicEngagementInitializationService.getStats(),
       ...jobProcessingService.getStats(),
       ...userUpdateBatcherService.getStats(),
       unifiedMessageHandler: unifiedMessageHandler.getMetrics(),
-      entityRegistry: entityRegistry.getAllStats(),
     };
   }
 

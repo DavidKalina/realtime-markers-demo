@@ -14,13 +14,13 @@ export interface ClientConnectionService {
   getClient: (clientId: string) => ServerWebSocket<WebSocketData> | undefined;
   getConnectedClientsCount: () => number;
   getConnectedUsersCount: () => number;
-  getUserSubscriber: (userId: string) => unknown;
   releaseUserSubscriber: (userId: string) => void;
   forwardMessageToUserClients: (userId: string, message: string) => void;
   setupUserMessageHandling: (userId: string) => void;
   getClientTypeForUser: (userId: string) => ClientType | undefined;
   cleanupClientTypes: (userId: string) => Promise<void>;
   updateClientTypesForUser: (userId: string) => Promise<void>;
+  reapZombieConnections: (maxIdleMs: number) => number;
 }
 
 export interface ClientConnectionServiceDependencies {
@@ -39,6 +39,37 @@ export function createClientConnectionService(
     (channel: string, message: string) => void
   >();
   const userIdToClientType = new Map<string, ClientType>();
+
+  // Central message router for all user channels via shared pattern subscriber
+  dependencies.redisService.onUserMessage(
+    (userId: string, channel: string, message: string) => {
+      const handler = userMessageHandlers.get(userId);
+      if (handler) {
+        handler(channel, message);
+      }
+    },
+  );
+
+  function sendToAllClients(
+    clientIds: Set<string>,
+    message: object,
+    messageType: string,
+  ): void {
+    const serialized = JSON.stringify(message);
+    for (const clientId of clientIds) {
+      const client = clients.get(clientId);
+      if (client) {
+        try {
+          client.send(serialized);
+        } catch (error) {
+          console.error(
+            `[WebSocket] Error sending ${messageType} message to client ${clientId}:`,
+            error,
+          );
+        }
+      }
+    }
+  }
 
   return {
     registerClient(ws: ServerWebSocket<WebSocketData>): void {
@@ -153,12 +184,8 @@ export function createClientConnectionService(
       return userToClients.size;
     },
 
-    getUserSubscriber(userId: string): unknown {
-      return dependencies.redisService.getUserSubscriber(userId);
-    },
-
     releaseUserSubscriber(userId: string): void {
-      dependencies.redisService.releaseUserSubscriber(userId);
+      dependencies.redisService.unsubscribeUser(userId);
       userMessageHandlers.delete(userId);
     },
 
@@ -167,8 +194,8 @@ export function createClientConnectionService(
         return; // Already set up
       }
 
-      const userSubscriber =
-        dependencies.redisService.getUserSubscriber(userId);
+      // Register this user with the shared pattern subscriber
+      dependencies.redisService.subscribeUser(userId);
 
       const messageHandler = (channel: string, message: string) => {
         console.log(
@@ -183,13 +210,6 @@ export function createClientConnectionService(
           );
           // Forward the filtered events to all clients for this user
           this.forwardMessageToUserClients(userId, message);
-        } else if (channel === `user:${userId}:filtered-civic-engagements`) {
-          console.log(
-            `[WebSocket] Processing filtered civic engagements for user ${userId}:`,
-            message,
-          );
-          // Forward the filtered civic engagements to all clients for this user
-          this.forwardMessageToUserClients(userId, message);
         } else {
           console.log(
             `[WebSocket] Ignoring message on channel ${channel} for user ${userId}`,
@@ -197,21 +217,7 @@ export function createClientConnectionService(
         }
       };
 
-      userSubscriber.on("message", messageHandler);
       userMessageHandlers.set(userId, messageHandler);
-
-      userSubscriber.on("error", (error: Error) => {
-        console.error(
-          `[WebSocket] Redis subscriber error for user ${userId}:`,
-          error,
-        );
-      });
-
-      userSubscriber.on("connect", () => {
-        console.log(
-          `[WebSocket] Redis subscriber connected for user ${userId}`,
-        );
-      });
     },
 
     forwardMessageToUserClients(userId: string, message: string): void {
@@ -238,278 +244,59 @@ export function createClientConnectionService(
             },
           );
 
-          // For deletes, send as delete-event (check this first)
+          let handledBatchUpdate = false;
+
+          // For deletes, send as delete-event
           if (parsedMessage.updates.deletes.length > 0) {
             for (const eventId of parsedMessage.updates.deletes) {
-              const deleteEventMessage = {
-                type: "delete-event",
-                id: eventId,
-                timestamp: parsedMessage.timestamp,
-              };
-
-              for (const clientId of clientIds) {
-                const client = clients.get(clientId);
-                if (client) {
-                  try {
-                    client.send(JSON.stringify(deleteEventMessage));
-                  } catch (error) {
-                    console.error(
-                      `[WebSocket] Error sending delete-event message to client ${clientId}:`,
-                      error,
-                    );
-                  }
-                }
-              }
+              sendToAllClients(
+                clientIds,
+                {
+                  type: "delete-event",
+                  id: eventId,
+                  timestamp: parsedMessage.timestamp,
+                },
+                "delete-event",
+              );
             }
-            return; // Don't continue with the original message
+            handledBatchUpdate = true;
           }
 
           // For individual updates, send as update-event
           if (parsedMessage.updates.updates.length > 0) {
             for (const event of parsedMessage.updates.updates) {
-              const updateEventMessage = {
-                type: "update-event",
-                event: event,
-                timestamp: parsedMessage.timestamp,
-              };
-
-              for (const clientId of clientIds) {
-                const client = clients.get(clientId);
-                if (client) {
-                  try {
-                    client.send(JSON.stringify(updateEventMessage));
-                  } catch (error) {
-                    console.error(
-                      `[WebSocket] Error sending update-event message to client ${clientId}:`,
-                      error,
-                    );
-                  }
-                }
-              }
+              sendToAllClients(
+                clientIds,
+                {
+                  type: "update-event",
+                  event: event,
+                  timestamp: parsedMessage.timestamp,
+                },
+                "update-event",
+              );
             }
-            return; // Don't continue with the original message
+            handledBatchUpdate = true;
           }
 
           // For viewport/all updates, send as replace-all (including empty arrays to clear markers)
-          if (
-            parsedMessage.updates.creates !== undefined &&
-            parsedMessage.updates.creates.length > 0
-          ) {
-            const replaceAllMessage = {
-              type: "replace-all",
-              events: parsedMessage.updates.creates,
-              civicEngagements: parsedMessage.civicEngagements || [],
-              timestamp: parsedMessage.timestamp,
-            };
-
+          if (parsedMessage.updates.creates !== undefined) {
             console.log(
-              `[WebSocket] Sending replace-all message with ${parsedMessage.updates.creates.length} events and ${parsedMessage.civicEngagements?.length || 0} civic engagements to ${clientIds.size} clients of user ${userId}:`,
-              {
-                userId,
-                clientCount: clientIds.size,
-                eventCount: parsedMessage.updates.creates.length,
-                civicEngagementCount:
-                  parsedMessage.civicEngagements?.length || 0,
-                topEventScores: parsedMessage.updates.creates
-                  .slice(0, 3)
-                  .map(
-                    (event: {
-                      id: string;
-                      title: string;
-                      relevanceScore?: number;
-                      scanCount?: number;
-                      saveCount?: number;
-                      rsvps?: Array<{ id: string }>;
-                    }) => ({
-                      eventId: event.id,
-                      title: event.title,
-                      relevanceScore: event.relevanceScore,
-                      popularityMetrics: {
-                        scanCount: event.scanCount,
-                        saveCount: event.saveCount || 0,
-                        rsvpCount: event.rsvps?.length || 0,
-                      },
-                    }),
-                  ),
-                topCivicEngagementScores:
-                  parsedMessage.civicEngagements
-                    ?.slice(0, 3)
-                    .map(
-                      (civicEngagement: {
-                        id: string;
-                        title: string;
-                        relevanceScore?: number;
-                        status?: string;
-                        type?: string;
-                      }) => ({
-                        civicEngagementId: civicEngagement.id,
-                        title: civicEngagement.title,
-                        relevanceScore: civicEngagement.relevanceScore,
-                        status: civicEngagement.status,
-                        type: civicEngagement.type,
-                      }),
-                    ) || [],
-                messageType: "replace-all",
-              },
+              `[WebSocket] Sending replace-all message with ${parsedMessage.updates.creates.length} events to ${clientIds.size} clients of user ${userId}`,
             );
 
-            // Send the transformed message to all clients
-            for (const clientId of clientIds) {
-              const client = clients.get(clientId);
-              if (client) {
-                try {
-                  client.send(JSON.stringify(replaceAllMessage));
-                  console.log(
-                    `[WebSocket] Successfully sent replace-all message to client ${clientId}`,
-                  );
-                } catch (error) {
-                  console.error(
-                    `[WebSocket] Error sending replace-all message to client ${clientId}:`,
-                    error,
-                  );
-                }
-              } else {
-                console.log(
-                  `[WebSocket] Client ${clientId} not found in clients map`,
-                );
-              }
-            }
-            return; // Don't continue with the original message
-          }
-
-          // For empty creates arrays, also send as replace-all to clear markers
-          if (
-            parsedMessage.updates.creates !== undefined &&
-            parsedMessage.updates.creates.length === 0
-          ) {
-            const replaceAllMessage = {
-              type: "replace-all",
-              events: [],
-              civicEngagements: parsedMessage.civicEngagements || [],
-              timestamp: parsedMessage.timestamp,
-            };
-
-            console.log(
-              `[WebSocket] Sending replace-all message with 0 events and ${parsedMessage.civicEngagements?.length || 0} civic engagements to ${clientIds.size} clients of user ${userId}:`,
+            sendToAllClients(
+              clientIds,
               {
-                userId,
-                clientCount: clientIds.size,
-                eventCount: 0,
-                civicEngagementCount:
-                  parsedMessage.civicEngagements?.length || 0,
-                topEventScores: [],
-                topCivicEngagementScores:
-                  parsedMessage.civicEngagements
-                    ?.slice(0, 3)
-                    .map(
-                      (civicEngagement: {
-                        id: string;
-                        title: string;
-                        relevanceScore?: number;
-                        status?: string;
-                        type?: string;
-                      }) => ({
-                        civicEngagementId: civicEngagement.id,
-                        title: civicEngagement.title,
-                        relevanceScore: civicEngagement.relevanceScore,
-                        status: civicEngagement.status,
-                        type: civicEngagement.type,
-                      }),
-                    ) || [],
-                messageType: "replace-all",
+                type: "replace-all",
+                events: parsedMessage.updates.creates,
+                timestamp: parsedMessage.timestamp,
               },
+              "replace-all",
             );
-
-            // Send the transformed message to all clients
-            for (const clientId of clientIds) {
-              const client = clients.get(clientId);
-              if (client) {
-                try {
-                  client.send(JSON.stringify(replaceAllMessage));
-                  console.log(
-                    `[WebSocket] Successfully sent replace-all message to client ${clientId}`,
-                  );
-                } catch (error) {
-                  console.error(
-                    `[WebSocket] Error sending replace-all message to client ${clientId}:`,
-                    error,
-                  );
-                }
-              } else {
-                console.log(
-                  `[WebSocket] Client ${clientId} not found in clients map`,
-                );
-              }
-            }
-            return; // Don't continue with the original message
+            handledBatchUpdate = true;
           }
 
-          // Handle case where there are only civic engagements (no events)
-          if (
-            parsedMessage.civicEngagements &&
-            parsedMessage.civicEngagements.length > 0 &&
-            (!parsedMessage.updates.creates ||
-              parsedMessage.updates.creates.length === 0)
-          ) {
-            const replaceAllMessage = {
-              type: "replace-all",
-              events: [],
-              civicEngagements: parsedMessage.civicEngagements,
-              timestamp: parsedMessage.timestamp,
-            };
-
-            console.log(
-              `[WebSocket] Sending replace-all message with 0 events and ${parsedMessage.civicEngagements.length} civic engagements to ${clientIds.size} clients of user ${userId}:`,
-              {
-                userId,
-                clientCount: clientIds.size,
-                eventCount: 0,
-                civicEngagementCount: parsedMessage.civicEngagements.length,
-                topEventScores: [],
-                topCivicEngagementScores: parsedMessage.civicEngagements
-                  .slice(0, 3)
-                  .map(
-                    (civicEngagement: {
-                      id: string;
-                      title: string;
-                      relevanceScore?: number;
-                      status?: string;
-                      type?: string;
-                    }) => ({
-                      civicEngagementId: civicEngagement.id,
-                      title: civicEngagement.title,
-                      relevanceScore: civicEngagement.relevanceScore,
-                      status: civicEngagement.status,
-                      type: civicEngagement.type,
-                    }),
-                  ),
-                messageType: "replace-all",
-              },
-            );
-
-            // Send the transformed message to all clients
-            for (const clientId of clientIds) {
-              const client = clients.get(clientId);
-              if (client) {
-                try {
-                  client.send(JSON.stringify(replaceAllMessage));
-                  console.log(
-                    `[WebSocket] Successfully sent replace-all message to client ${clientId}`,
-                  );
-                } catch (error) {
-                  console.error(
-                    `[WebSocket] Error sending replace-all message to client ${clientId}:`,
-                    error,
-                  );
-                }
-              } else {
-                console.log(
-                  `[WebSocket] Client ${clientId} not found in clients map`,
-                );
-              }
-            }
-            return; // Don't continue with the original message
-          }
+          if (handledBatchUpdate) return;
         }
 
         // Enhanced logging for relevance score updates
@@ -564,19 +351,12 @@ export function createClientConnectionService(
         if (client) {
           try {
             client.send(message);
-            console.log(
-              `[WebSocket] Successfully sent message to client ${clientId}`,
-            );
           } catch (error) {
             console.error(
               `[WebSocket] Error sending message to client ${clientId}:`,
               error,
             );
           }
-        } else {
-          console.log(
-            `[WebSocket] Client ${clientId} not found in clients map`,
-          );
         }
       }
     },
@@ -640,6 +420,39 @@ export function createClientConnectionService(
           error,
         );
       }
+    },
+
+    reapZombieConnections(maxIdleMs: number): number {
+      const now = Date.now();
+      const staleClients: Array<{
+        clientId: string;
+        ws: ServerWebSocket<WebSocketData>;
+      }> = [];
+
+      for (const [clientId, ws] of clients) {
+        if (now - ws.data.lastActivity > maxIdleMs) {
+          staleClients.push({ clientId, ws });
+        }
+      }
+
+      if (staleClients.length > 0) {
+        console.log(
+          `[ClientConnectionService] Reaping ${staleClients.length} zombie connections (idle > ${Math.round(maxIdleMs / 1000)}s)`,
+        );
+        for (const { ws } of staleClients) {
+          try {
+            ws.close(1000, "Idle timeout");
+          } catch {
+            // Connection may already be dead — unregister directly
+            const clientId = ws.data?.clientId;
+            if (clientId) {
+              this.unregisterClient(clientId, ws.data?.userId);
+            }
+          }
+        }
+      }
+
+      return staleClients.length;
     },
   };
 }

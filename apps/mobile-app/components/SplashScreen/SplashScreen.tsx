@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { StyleSheet, Image, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -16,17 +17,17 @@ export function AnimatedSplashScreen({
 }) {
   const opacity = useSharedValue(1);
   const scale = useSharedValue(1);
-  const logoScale = useSharedValue(1);
+  const titleScale = useSharedValue(1);
 
   useEffect(() => {
-    // Start with a subtle pulse animation for the logo
-    logoScale.value = withRepeat(
+    // Subtle pulse animation for the title
+    titleScale.value = withRepeat(
       withSequence(
         withTiming(1.05, { duration: 1000 }),
         withTiming(1, { duration: 1000 }),
       ),
-      -1, // Infinite repeat
-      true, // Reverse
+      -1,
+      true,
     );
 
     // Main exit animation
@@ -45,9 +46,9 @@ export function AnimatedSplashScreen({
     };
   });
 
-  const logoAnimatedStyle = useAnimatedStyle(() => {
+  const titleAnimatedStyle = useAnimatedStyle(() => {
     return {
-      transform: [{ scale: logoScale.value }],
+      transform: [{ scale: titleScale.value }],
     };
   });
 
@@ -56,12 +57,9 @@ export function AnimatedSplashScreen({
       style={[StyleSheet.absoluteFill, styles.splashContainer, animatedStyle]}
     >
       <View style={styles.contentContainer}>
-        <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
-          <Image
-            source={require("@/assets/images/frederick-logo.png")}
-            style={styles.splashImage}
-            resizeMode="contain"
-          />
+        <Animated.View style={[styles.titleContainer, titleAnimatedStyle]}>
+          <Text style={styles.appTitle}>Realtime</Text>
+          <Text style={styles.appTitle}>Markers</Text>
         </Animated.View>
         <Text style={styles.loadingText}>Loading map...</Text>
       </View>
@@ -71,7 +69,7 @@ export function AnimatedSplashScreen({
 
 const styles = StyleSheet.create({
   splashContainer: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.bg.primary,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1000,
@@ -80,17 +78,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  logoContainer: {
-    marginBottom: 20,
+  titleContainer: {
+    marginBottom: spacing.xl,
+    alignItems: "center",
   },
-  splashImage: {
-    width: 200,
-    height: 200,
+  appTitle: {
+    fontSize: 36,
+    fontWeight: fontWeight.bold,
+    fontFamily: fontFamily.mono,
+    color: colors.fixed.white,
+    letterSpacing: 1,
+    lineHeight: 44,
   },
   loadingText: {
-    fontSize: 16,
-    color: "#00697A",
-    fontWeight: "500",
-    marginTop: 10,
+    fontSize: fontSize.md,
+    color: "#888888",
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.medium,
+    marginTop: spacing._10,
   },
 });

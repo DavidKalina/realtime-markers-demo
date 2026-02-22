@@ -1,99 +1,55 @@
 import React, { useEffect } from "react";
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
+import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import * as Sentry from "@sentry/react-native";
 import { useFonts } from "expo-font";
 import { Stack, useNavigationContainerRef } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
-import { View } from "react-native";
+import { LogBox, View } from "react-native";
 import { isRunningInExpoGo } from "expo";
+
+// Suppress known React Native dev-only error triggered during reload
+// when Mapbox native modules send messages through the packager WebSocket.
+// LogBox handles the console.error path; the global handler catches the
+// native exception path that shows a red screen.
+LogBox.ignoreLogs([
+  "RCTPackagerConnection received message with not supported version",
+]);
+
+if (__DEV__) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const errorUtils = (global as any).ErrorUtils;
+  const originalHandler = errorUtils?.getGlobalHandler?.();
+  if (originalHandler) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    errorUtils.setGlobalHandler((error: any, isFatal: boolean) => {
+      if (
+        typeof error?.message === "string" &&
+        error.message.includes(
+          "RCTPackagerConnection received message with not supported version",
+        )
+      ) {
+        return;
+      }
+      originalHandler(error, isFatal);
+    });
+  }
+}
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
+import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
 import {
   SplashScreenProvider,
   useSplashScreen,
 } from "@/contexts/SplashScreenContext";
-import { useColorScheme } from "@/hooks/useColorScheme";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { AnimatedSplashScreen } from "@/components/SplashScreen/SplashScreen";
-
-// Configuration constants
-const SENTRY_CONFIG = {
-  dsn: "https://9c69ddf62f2bf7490416ba65f2d5dd2d@o4509054186815488.ingest.us.sentry.io/4509054187798528",
-  debug: false,
-  tracesSampleRate: 0.1,
-  enableNativeFramesTracking: !isRunningInExpoGo(),
-  sendDefaultPii: true,
-} as const;
-
-// const POSTHOG_CONFIG = {
-//   apiKey: process.env.EXPO_PUBLIC_POSTHOG_API_KEY,
-//   options: {
-//     host: "https://us.i.posthog.com",
-//   },
-// } as const;
-
-const FONT_FAMILY = {
-  // Poppins font family
-  "Poppins-Thin": require("../assets/fonts/Poppins-Thin.ttf"),
-  "Poppins-ExtraLight": require("../assets/fonts/Poppins-ExtraLight.ttf"),
-  "Poppins-Light": require("../assets/fonts/Poppins-Light.ttf"),
-  "Poppins-Regular": require("../assets/fonts/Poppins-Regular.ttf"),
-  "Poppins-Medium": require("../assets/fonts/Poppins-Medium.ttf"),
-  "Poppins-SemiBold": require("../assets/fonts/Poppins-SemiBold.ttf"),
-  "Poppins-Bold": require("../assets/fonts/Poppins-Bold.ttf"),
-  "Poppins-ExtraBold": require("../assets/fonts/Poppins-ExtraBold.ttf"),
-  "Poppins-Black": require("../assets/fonts/Poppins-Black.ttf"),
-
-  // Poppins Italic variants
-  "Poppins-ThinItalic": require("../assets/fonts/Poppins-ThinItalic.ttf"),
-  "Poppins-ExtraLightItalic": require("../assets/fonts/Poppins-ExtraLightItalic.ttf"),
-  "Poppins-LightItalic": require("../assets/fonts/Poppins-LightItalic.ttf"),
-  "Poppins-Italic": require("../assets/fonts/Poppins-Italic.ttf"),
-  "Poppins-MediumItalic": require("../assets/fonts/Poppins-MediumItalic.ttf"),
-  "Poppins-SemiBoldItalic": require("../assets/fonts/Poppins-SemiBoldItalic.ttf"),
-  "Poppins-BoldItalic": require("../assets/fonts/Poppins-BoldItalic.ttf"),
-  "Poppins-ExtraBoldItalic": require("../assets/fonts/Poppins-ExtraBoldItalic.ttf"),
-  "Poppins-BlackItalic": require("../assets/fonts/Poppins-BlackItalic.ttf"),
-} as const;
-
-const STACK_SCREEN_OPTIONS = {
-  headerShown: false,
-  animation: "fade_from_bottom" as const,
-  animationDuration: 200,
-  gestureEnabled: true,
-  gestureDirection: "horizontal" as const,
-  contentStyle: {
-    backgroundColor: "transparent",
-  },
-} as const;
-
-// Screen configurations
-const SCREEN_CONFIGS = [
-  { name: "register" },
-  { name: "login" },
-  { name: "index" },
-  { name: "scan" },
-  { name: "user" },
-  { name: "saved/index" },
-  { name: "civic-engagements/index" },
-  { name: "cluster" },
-  { name: "filter" },
-  { name: "search/index" },
-  { name: "search/list" },
-  { name: "category/[id]" },
-  { name: "details" },
-  { name: "create-civic-engagement" },
-  { name: "+not-found" },
-] as const;
+import { SENTRY_CONFIG, STACK_SCREEN_OPTIONS, SCREEN_CONFIGS } from "@/config";
 
 // Initialize Sentry
 const navigationIntegration = Sentry.reactNavigationIntegration({
@@ -139,29 +95,29 @@ function SplashScreenHandler({ children }: SplashScreenHandlerProps) {
   );
 }
 
-// App providers component
+// App providers component (dark theme only)
 function AppProviders({ children }: AppProvidersProps) {
-  const colorScheme = useColorScheme();
-
   return (
     <AuthProvider>
-      <LocationProvider>
-        <MapStyleProvider>
-          <SplashScreenProvider>
-            <ThemeProvider
-              value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-            >
-              <SplashScreenHandler>{children}</SplashScreenHandler>
-            </ThemeProvider>
-          </SplashScreenProvider>
-        </MapStyleProvider>
-      </LocationProvider>
+      <OnboardingProvider>
+        <LocationProvider>
+          <MapStyleProvider>
+            <SplashScreenProvider>
+              <ThemeProvider value={DarkTheme}>
+                <SplashScreenHandler>{children}</SplashScreenHandler>
+              </ThemeProvider>
+            </SplashScreenProvider>
+          </MapStyleProvider>
+        </LocationProvider>
+      </OnboardingProvider>
     </AuthProvider>
   );
 }
 
 // App content component
 function AppContent({ children }: AppContentProps) {
+  // Centralized auth guard — replaces per-screen <AuthWrapper>
+  useAuthGuard();
   // Set up push notification listeners
   usePushNotifications();
 
@@ -186,7 +142,10 @@ function RootLayout() {
   }, [navigationRef]);
 
   // Load fonts
-  const [fontsLoaded] = useFonts(FONT_FAMILY);
+  const [fontsLoaded] = useFonts({
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
+  });
 
   // Hide splash screen when fonts are loaded
   useEffect(() => {
@@ -205,7 +164,11 @@ function RootLayout() {
       <AppContent>
         <Stack screenOptions={STACK_SCREEN_OPTIONS}>
           {SCREEN_CONFIGS.map((screen) => (
-            <Stack.Screen key={screen.name} name={screen.name} />
+            <Stack.Screen
+              key={screen.name}
+              name={screen.name}
+              options={screen.options}
+            />
           ))}
         </Stack>
       </AppContent>

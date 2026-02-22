@@ -1,6 +1,6 @@
 // useCamera.ts - Improved version with better error handling and lifecycle management
-import { useIsFocused } from "@react-navigation/native";
 import { FlashMode, useCameraPermissions } from "expo-camera";
+import { usePathname } from "expo-router";
 import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -23,7 +23,8 @@ export const useCamera = () => {
 
   // Camera state
   const [isCapturing, setIsCapturing] = useState(false);
-  const isFocused = useIsFocused();
+  const pathname = usePathname();
+  const isFocused = pathname === "/scan";
   const cameraRef = useRef(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);

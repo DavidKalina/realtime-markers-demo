@@ -22,9 +22,6 @@ export interface ScanState {
   processingStage: ProcessingStage;
   showProcessingOverlay: boolean;
 
-  // Content type choice state
-  showContentTypeOverlay: boolean;
-
   // Upload state
   isUploading: boolean;
   uploadProgress: number;
@@ -50,8 +47,6 @@ export type ScanAction =
   | { type: "CAPTURE_ERROR"; payload: string }
   | { type: "START_PROCESSING" }
   | { type: "SET_PROCESSING_STAGE"; payload: ProcessingStage }
-  | { type: "SHOW_CONTENT_TYPE_OVERLAY" }
-  | { type: "HIDE_CONTENT_TYPE_OVERLAY" }
   | { type: "START_UPLOAD" }
   | { type: "UPLOAD_PROGRESS"; payload: number }
   | { type: "UPLOAD_SUCCESS" }
@@ -72,7 +67,6 @@ const initialState: ScanState = {
   isProcessing: false,
   processingStage: null,
   showProcessingOverlay: false,
-  showContentTypeOverlay: false,
   isUploading: false,
   uploadProgress: 0,
   uploadError: null,
@@ -120,7 +114,6 @@ function scanReducer(state: ScanState, action: ScanAction): ScanState {
         isCapturing: false,
         capturedImageUri: action.payload.uri,
         imageSource: action.payload.source,
-        showContentTypeOverlay: true,
         processingStage: "captured",
         error: null,
       };
@@ -145,18 +138,6 @@ function scanReducer(state: ScanState, action: ScanAction): ScanState {
       return {
         ...state,
         processingStage: action.payload,
-      };
-
-    case "SHOW_CONTENT_TYPE_OVERLAY":
-      return {
-        ...state,
-        showContentTypeOverlay: true,
-      };
-
-    case "HIDE_CONTENT_TYPE_OVERLAY":
-      return {
-        ...state,
-        showContentTypeOverlay: false,
       };
 
     case "START_UPLOAD":
@@ -438,13 +419,11 @@ export const useScanReducer = ({
     }
   }, [isMounted, publish]);
 
-  // Handle content type selection
+  // Process captured image as event
   const handleSelectEvent = useCallback(async () => {
     if (!isMounted.current || !state.capturedImageUri) return;
 
     try {
-      // Hide content type overlay and show processing overlay
-      dispatch({ type: "HIDE_CONTENT_TYPE_OVERLAY" });
       dispatch({ type: "START_PROCESSING" });
 
       publish(EventTypes.NOTIFICATION, {
@@ -490,27 +469,6 @@ export const useScanReducer = ({
     }
   }, [isMounted, publish, state.capturedImageUri, state.imageSource]);
 
-  const handleSelectCivicEngagement = useCallback(() => {
-    if (!isMounted.current || !state.capturedImageUri) return;
-
-    // Hide content type overlay
-    dispatch({ type: "HIDE_CONTENT_TYPE_OVERLAY" });
-
-    // Navigate to civic engagement creation with the image
-    // This will be handled by the parent component
-    publish(EventTypes.NAVIGATE_TO_CIVIC_ENGAGEMENT, {
-      timestamp: Date.now(),
-      source: "ScanScreen",
-      imageUri: state.capturedImageUri,
-      imageSource: state.imageSource,
-    });
-  }, [isMounted, publish, state.capturedImageUri, state.imageSource]);
-
-  const handleCancelContentType = useCallback(() => {
-    dispatch({ type: "HIDE_CONTENT_TYPE_OVERLAY" });
-    dispatch({ type: "RESET" });
-  }, []);
-
   // Computed values
 
   return {
@@ -526,8 +484,6 @@ export const useScanReducer = ({
     clearError,
     simulateCapture,
     handleSelectEvent,
-    handleSelectCivicEngagement,
-    handleCancelContentType,
 
     // Computed values
     isReady: state.isCameraInitialized && !state.error,

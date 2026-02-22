@@ -6,7 +6,6 @@ import {
   User,
   Event,
   Category,
-  CivicEngagement,
   Filter,
   QueryAnalytics,
   UserEventDiscovery,
@@ -25,7 +24,6 @@ export const createDataSource = (databaseUrl: string): DataSource => {
       User,
       Event,
       Category,
-      CivicEngagement,
       Filter,
       QueryAnalytics,
       UserEventDiscovery,
@@ -36,13 +34,13 @@ export const createDataSource = (databaseUrl: string): DataSource => {
     ],
     migrationsTableName: "migrations",
     migrationsRun: false, // Disable automatic migration running
-    logging: ["query", "error", "schema"], // More detailed logging
+    logging: ["error"],
     ssl: false,
-    poolSize: 20,
+    poolSize: 50,
     connectTimeoutMS: 10000, // Increase timeout for initial connection
     maxQueryExecutionTime: 1000, // Log slow queries
     extra: {
-      max: 25, // Maximum pool size
+      max: 60, // Maximum pool size
       idleTimeoutMillis: 30000, // Close idle connections after 30s
       connectionTimeoutMillis: 5000, // Longer timeout for connection
     },

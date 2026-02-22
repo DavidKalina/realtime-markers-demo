@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Plus } from "lucide-react-native";
 import React, { useCallback, useEffect } from "react";
@@ -9,17 +8,9 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { COLORS } from "../Layout/ScreenLayout";
-import { useUserLocation } from "@/contexts/LocationContext";
-
-const ANIMATION_CONFIG = {
-  damping: 15,
-  stiffness: 300,
-};
+import { colors, spacing, spring } from "@/theme";
 
 const PlusButton: React.FC = () => {
-  const router = useRouter();
-  const { userLocation } = useUserLocation();
   const scale = useSharedValue(1);
 
   const handlePress = useCallback(() => {
@@ -27,28 +18,13 @@ const PlusButton: React.FC = () => {
     cancelAnimation(scale);
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    scale.value = withSpring(0.92, ANIMATION_CONFIG);
-
-    // Navigate to create civic engagement with user's current coordinates
-    if (userLocation) {
-      const [longitude, latitude] = userLocation;
-      router.push({
-        pathname: "/create-civic-engagement",
-        params: {
-          latitude: latitude.toString(),
-          longitude: longitude.toString(),
-        },
-      });
-    } else {
-      // If no user location, navigate without coordinates
-      router.push("/create-civic-engagement");
-    }
-  }, [router, userLocation]);
+    scale.value = withSpring(0.92, spring.snappy);
+  }, [scale]);
 
   // Reset scale after animation
   useEffect(() => {
     const timer = setTimeout(() => {
-      scale.value = withSpring(1, ANIMATION_CONFIG);
+      scale.value = withSpring(1, spring.snappy);
     }, 100);
 
     return () => clearTimeout(timer);
@@ -68,7 +44,7 @@ const PlusButton: React.FC = () => {
   return (
     <Pressable onPress={handlePress}>
       <Animated.View style={[styles.container, animatedStyle]}>
-        <Plus size={20} color={COLORS.accent} />
+        <Plus size={20} color={colors.accent.primary} />
       </Animated.View>
     </Pressable>
   );
@@ -79,13 +55,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-    backgroundColor: COLORS.cardBackground,
+    paddingHorizontal: spacing._6,
+    paddingVertical: spacing._6,
+    backgroundColor: colors.bg.card,
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-    shadowColor: "#000",
+    borderColor: colors.border.medium,
+    shadowColor: colors.fixed.black,
     shadowOffset: {
       width: 0,
       height: 2,

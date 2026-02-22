@@ -1,5 +1,12 @@
-import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import React, { useCallback, useMemo } from "react";
+import { View, Text, StyleSheet } from "react-native";
+import {
+  colors,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  spacing,
+} from "@/theme";
 import { EventType } from "@/types/types";
 import EventListItem from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
@@ -12,105 +19,62 @@ interface UpcomingEventsSectionProps {
 
 const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
   events,
-  isLoading = false,
 }) => {
   const router = useRouter();
 
-  const handleEventPress = (event: EventType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push({
-      pathname: "/details" as const,
-      params: { eventId: event.id },
-    });
-  };
+  const handleEventPress = useCallback(
+    (event: EventType) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      router.push({
+        pathname: "/details" as const,
+        params: { eventId: event.id },
+      });
+    },
+    [router],
+  );
 
-  if (isLoading) {
-    return (
-      <View style={{ marginBottom: 24 }}>
-        <Text
-          style={{
-            fontSize: 20,
-            fontWeight: "600",
-            marginBottom: 12,
-            paddingHorizontal: 16,
-            fontFamily: "Poppins-Regular",
-          }}
-        >
-          Upcoming Events
-        </Text>
-        {[1, 2, 3].map((i) => (
-          <View
-            key={i}
-            style={{
-              height: 120,
-              backgroundColor: "#f0f0f0",
-              borderRadius: 16,
-              marginHorizontal: 16,
-              marginBottom: 16,
-              opacity: 0.6,
-              shadowColor: "#000",
-              shadowOffset: {
-                width: 0,
-                height: 2,
-              },
-              shadowOpacity: 0.08,
-              shadowRadius: 6,
-              elevation: 4,
-            }}
-          />
-        ))}
-      </View>
-    );
-  }
+  // Filter out past events defensively — backend should already handle this
+  const upcomingEvents = useMemo(() => {
+    const now = new Date();
+    return events.filter((event) => new Date(event.eventDate) > now);
+  }, [events]);
 
-  if (!events || events.length === 0) {
+  if (!upcomingEvents || upcomingEvents.length === 0) {
     return null;
   }
 
   return (
-    <View style={{ marginBottom: 24 }}>
-      <Text
-        style={{
-          fontSize: 20,
-          fontWeight: "600",
-          marginBottom: 12,
-          paddingHorizontal: 16,
-          fontFamily: "Poppins-Regular",
-        }}
-      >
-        Upcoming Events
-      </Text>
-      {events.map((event) => (
-        <TouchableOpacity
-          key={event.id}
-          onPress={() => handleEventPress(event)}
-          style={{
-            marginHorizontal: 16,
-            marginBottom: 16,
-            backgroundColor: "#ffffff",
-            borderRadius: 16,
-            shadowColor: "#000",
-            shadowOffset: {
-              width: 0,
-              height: 2,
-            },
-            shadowOpacity: 0.08,
-            shadowRadius: 6,
-            elevation: 4,
-            borderWidth: 1,
-            borderColor: "#f0f0f0",
-            overflow: "hidden",
-          }}
-        >
+    <View style={styles.container}>
+      <Text style={styles.title}>Upcoming Events</Text>
+      {upcomingEvents.map((event) => (
+        <View key={event.id} style={styles.itemContainer}>
           <EventListItem
             {...event}
             eventDate={new Date(event.eventDate)}
             onPress={() => handleEventPress(event)}
           />
-        </TouchableOpacity>
+        </View>
       ))}
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: spacing["2xl"],
+  },
+  title: {
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    fontFamily: fontFamily.mono,
+  },
+  itemContainer: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border.default,
+  },
+});
 
 export default UpcomingEventsSection;

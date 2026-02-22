@@ -1,5 +1,13 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import {
+  colors,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  spacing,
+  radius,
+} from "@/theme";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
@@ -16,7 +24,6 @@ interface PopularCategoriesSectionProps {
 
 const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
   categories,
-  isLoading = false,
 }) => {
   const router = useRouter();
 
@@ -28,86 +35,25 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
     });
   };
 
-  if (isLoading) {
-    return (
-      <View style={{ marginBottom: 24 }}>
-        <Text
-          style={{
-            fontSize: 20,
-            fontWeight: "600",
-            marginBottom: 12,
-            paddingHorizontal: 16,
-            fontFamily: "Poppins-Regular",
-          }}
-        >
-          Popular Categories
-        </Text>
-        <View style={styles.gridContainer}>
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <View
-              key={i}
-              style={[
-                styles.categoryItem,
-                {
-                  backgroundColor: "#f0f0f0",
-                  opacity: 0.6,
-                  shadowOpacity: 0,
-                  elevation: 0,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.iconContainer,
-                  {
-                    backgroundColor: "#e0e0e0",
-                    shadowOpacity: 0,
-                    elevation: 0,
-                  },
-                ]}
-              />
-              <View
-                style={{
-                  height: 12,
-                  backgroundColor: "#e0e0e0",
-                  borderRadius: 6,
-                  marginTop: 8,
-                  width: "60%",
-                }}
-              />
-            </View>
-          ))}
-        </View>
-      </View>
-    );
-  }
-
   if (!categories || categories.length === 0) {
     return null;
   }
 
   return (
-    <View style={{ marginBottom: 24 }}>
-      <Text
-        style={{
-          fontSize: 20,
-          fontWeight: "600",
-          marginBottom: 12,
-          paddingHorizontal: 16,
-          fontFamily: "Poppins-Regular",
-        }}
-      >
-        Popular Categories
-      </Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Popular Categories</Text>
       <View style={styles.gridContainer}>
         {categories.map((category) => (
           <TouchableOpacity
             key={category.id}
             style={styles.categoryItem}
             onPress={() => handleCategoryPress(category)}
+            activeOpacity={0.7}
           >
             <View style={styles.iconContainer}>
-              <Text style={styles.iconText}>{category.icon}</Text>
+              <Text style={styles.iconText}>
+                {category.icon || "📌"}
+              </Text>
             </View>
             <Text style={styles.categoryName} numberOfLines={2}>
               {category.name}
@@ -120,55 +66,53 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
 };
 
 const styles = StyleSheet.create({
+  container: {
+    marginBottom: spacing["2xl"],
+  },
+  title: {
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    fontFamily: fontFamily.mono,
+  },
   gridContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: 16,
-    gap: 16,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
   },
   categoryItem: {
     width: "30%",
     alignItems: "center",
-    paddingVertical: 16,
-    borderRadius: 16,
-    backgroundColor: "#ffffff",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 4,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.xl,
+    backgroundColor: colors.bg.card,
     borderWidth: 1,
-    borderColor: "#f0f0f0",
+    borderColor: colors.border.default,
   },
   iconContainer: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#007AFF",
+    backgroundColor: colors.accent.muted,
+    borderWidth: 1,
+    borderColor: colors.accent.border,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10,
-    shadowColor: "#007AFF",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: spacing.sm,
   },
   iconText: {
-    fontSize: 20,
+    fontSize: fontSize.xl,
   },
   categoryName: {
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
     textAlign: "center",
-    color: "#333",
-    fontFamily: "Poppins-Regular",
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
   },
 });
 

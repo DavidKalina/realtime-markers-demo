@@ -1,14 +1,12 @@
 // scan.tsx - Refactored to use modular components
-import { AuthWrapper } from "@/components/AuthWrapper";
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import Screen from "@/components/Layout/Screen";
-import { COLORS } from "@/components/Layout/ScreenLayout";
+import { colors, spacing, radius, fontSize, fontFamily } from "@/theme";
 import { useCamera } from "@/hooks/useCamera";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
-import { useFocusEffect } from "@react-navigation/native";
 import { CameraView } from "expo-camera";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
@@ -23,16 +21,9 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import {
   ProcessingOverlay,
   NoScansOverlay,
-  ContentTypeOverlay,
   SimulationButton,
   useScanState,
 } from "@/components/Scan";
-import { useEventBroker } from "@/hooks/useEventBroker";
-import {
-  EventTypes,
-  NavigateToCivicEngagementEvent,
-} from "@/services/EventBroker";
-import { useUserLocation } from "@/contexts/LocationContext";
 
 export default function ScanScreen() {
   const {
@@ -51,9 +42,6 @@ export default function ScanScreen() {
   const router = useRouter();
   const isMounted = useRef(true);
   const networkState = useNetworkQuality();
-  const { subscribe } = useEventBroker();
-  const { userLocation } = useUserLocation();
-
   // Navigation callback - memoized to prevent re-renders
   const navigateToJobs = useCallback(() => {
     if (!isMounted.current) {
@@ -84,9 +72,6 @@ export default function ScanScreen() {
     processingStage,
     showProcessingOverlay,
 
-    // Content type choice state
-    showContentTypeOverlay,
-
     // Scan limits
     showNoScansOverlay,
     setShowNoScansOverlay,
@@ -95,8 +80,6 @@ export default function ScanScreen() {
     handleCapture,
     handleImageSelected,
     handleSelectEvent,
-    handleSelectCivicEngagement,
-    handleCancelContentType,
     reset,
     simulateCapture,
   } = useScanState({
@@ -144,14 +127,19 @@ export default function ScanScreen() {
     }, 500);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
+  const pathname = usePathname();
+
+  // Check permission when the scan screen gains focus
+  useEffect(() => {
+    if (pathname === "/scan") {
       checkPermission();
-      return () => {
+    }
+    return () => {
+      if (pathname !== "/scan") {
         console.log("[ScanScreen] Screen unfocused");
-      };
-    }, []),
-  );
+      }
+    };
+  }, [pathname, checkPermission]);
   // Handle retry permission
   const handleRetryPermission = useCallback(async (): Promise<boolean> => {
     return await checkPermission();
@@ -176,46 +164,12 @@ export default function ScanScreen() {
     [handleImageSelected, setShowNoScansOverlay],
   );
 
-  // Handle civic engagement navigation
-  const handleCivicEngagementNavigation = useCallback(
-    (imageUri: string) => {
-      const params: Record<string, string> = {
-        imageUri: imageUri,
-      };
-
-      // Add coordinates if available
-      if (userLocation) {
-        params.latitude = userLocation[1].toString(); // latitude
-        params.longitude = userLocation[0].toString(); // longitude
-      } else {
-        console.log(
-          "[ScanScreen] No user location available, proceeding without coordinates",
-        );
-      }
-
-      router.push({
-        pathname: "/create-civic-engagement" as const,
-        params,
-      });
-    },
-    [router],
-  );
-
-  // Set up event listener for civic engagement navigation
+  // Auto-process as event when image is captured (scan is event-only)
   useEffect(() => {
-    const unsubscribe = subscribe<NavigateToCivicEngagementEvent>(
-      EventTypes.NAVIGATE_TO_CIVIC_ENGAGEMENT,
-      (event) => {
-        console.log(
-          "[ScanScreen] Received NAVIGATE_TO_CIVIC_ENGAGEMENT event:",
-          event,
-        );
-        handleCivicEngagementNavigation(event.imageUri);
-      },
-    );
-
-    return unsubscribe;
-  }, [subscribe, handleCivicEngagementNavigation]);
+    if (capturedImageUri && !isProcessing && !showProcessingOverlay) {
+      handleSelectEvent();
+    }
+  }, [capturedImageUri]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle camera permission request if needed
   if (hasPermission === false) {
@@ -243,7 +197,7 @@ export default function ScanScreen() {
         noSafeArea={false}
       >
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
+          <ActivityIndicator size="large" color={colors.accent.primary} />
           <Text style={styles.loaderText}>Checking camera permissions...</Text>
         </View>
       </Screen>
@@ -251,143 +205,127 @@ export default function ScanScreen() {
   }
 
   return (
-    <AuthWrapper>
-      <Screen
-        bannerEmoji="📸"
-        bannerTitle="Scan"
-        onBack={handleBack}
-        isScrollable={false}
-        noSafeArea={false}
-      >
-        {/* Camera container with fixed dimensions */}
-        <View style={styles.contentArea}>
-          <Animated.View
-            style={styles.cameraCard}
-            entering={FadeIn.duration(300)}
-          >
-            {isCameraActive ? (
-              <CameraView
-                ref={cameraRef}
-                style={styles.camera}
-                onCameraReady={onCameraReady}
-                flash={flashMode}
-              >
-                {/* Processing Overlay */}
-                <ProcessingOverlay
-                  isVisible={showProcessingOverlay}
-                  stage={processingStage}
-                  capturedImageUri={capturedImageUri}
-                />
+    <Screen
+      bannerEmoji="📸"
+      bannerTitle="Scan"
+      onBack={handleBack}
+      isScrollable={false}
+      noSafeArea={false}
+    >
+      {/* Camera container with fixed dimensions */}
+      <View style={styles.contentArea}>
+        <Animated.View
+          style={styles.cameraCard}
+          entering={FadeIn.duration(300)}
+        >
+          {isCameraActive ? (
+            <CameraView
+              ref={cameraRef}
+              style={styles.camera}
+              onCameraReady={onCameraReady}
+              flash={flashMode}
+            >
+              {/* Processing Overlay */}
+              <ProcessingOverlay
+                isVisible={showProcessingOverlay}
+                stage={processingStage}
+                capturedImageUri={capturedImageUri}
+              />
 
-                {/* Camera not ready indicator */}
-                {!isCameraReady && !showProcessingOverlay && (
-                  <View style={styles.cameraNotReadyOverlay}>
-                    <ActivityIndicator size="large" color="#ffffff" />
-                    <Text style={styles.cameraNotReadyText}>
-                      Initializing camera...
-                    </Text>
-                  </View>
-                )}
+              {/* Camera not ready indicator */}
+              {!isCameraReady && !showProcessingOverlay && (
+                <View style={styles.cameraNotReadyOverlay}>
+                  <ActivityIndicator size="large" color={colors.fixed.white} />
+                  <Text style={styles.cameraNotReadyText}>
+                    Initializing camera...
+                  </Text>
+                </View>
+              )}
 
-                {/* No Scans Available Overlay */}
-                <NoScansOverlay
-                  isVisible={showNoScansOverlay && !showProcessingOverlay}
-                  onDismiss={() => setShowNoScansOverlay(false)}
-                  onUpgrade={() => {
-                    // TODO: Implement upgrade flow
-                    console.log("Upgrade to Pro");
-                  }}
-                />
-              </CameraView>
-            ) : (
-              <View style={styles.cameraPlaceholder}>
-                <ActivityIndicator size="large" color={COLORS.accent} />
-                <Text style={styles.cameraPlaceholderText}>
-                  Initializing camera...
-                </Text>
-              </View>
-            )}
-          </Animated.View>
-        </View>
+              {/* No Scans Available Overlay */}
+              <NoScansOverlay
+                isVisible={showNoScansOverlay && !showProcessingOverlay}
+                onDismiss={() => setShowNoScansOverlay(false)}
+                onUpgrade={() => {
+                  // TODO: Implement upgrade flow
+                  console.log("Upgrade to Pro");
+                }}
+              />
+            </CameraView>
+          ) : (
+            <View style={styles.cameraPlaceholder}>
+              <ActivityIndicator size="large" color={colors.accent.primary} />
+              <Text style={styles.cameraPlaceholderText}>
+                Initializing camera...
+              </Text>
+            </View>
+          )}
+        </Animated.View>
+      </View>
 
-        {/* Fixed height container for controls */}
-        <View style={styles.controlsContainer}>
-          <CameraControls
-            onCapture={onCapture}
-            onImageSelected={onImageSelected}
-            isCapturing={isScanCapturing || isProcessing}
-            isReady={isCameraReady}
-            flashMode={flashMode}
-            onFlashToggle={toggleFlash}
-            disabled={!isCameraReady || isProcessing || showProcessingOverlay}
-          />
-
-          {/* Simulation button for testing in development */}
-          <SimulationButton
-            isVisible={__DEV__ && !showProcessingOverlay}
-            isMounted={isMounted}
-            onSimulateCapture={simulateCapture}
-          />
-        </View>
-
-        {/* Content Type Choice Modal */}
-        <ContentTypeOverlay
-          isVisible={showContentTypeOverlay}
-          capturedImageUri={capturedImageUri}
-          onSelectEvent={handleSelectEvent}
-          onSelectCivicEngagement={handleSelectCivicEngagement}
-          onCancel={handleCancelContentType}
+      {/* Fixed height container for controls */}
+      <View style={styles.controlsContainer}>
+        <CameraControls
+          onCapture={onCapture}
+          onImageSelected={onImageSelected}
+          isCapturing={isScanCapturing || isProcessing}
+          isReady={isCameraReady}
+          flashMode={flashMode}
+          onFlashToggle={toggleFlash}
+          disabled={!isCameraReady || isProcessing || showProcessingOverlay}
         />
-      </Screen>
-    </AuthWrapper>
+
+        {/* Simulation button for testing in development */}
+        <SimulationButton
+          isVisible={__DEV__ && !showProcessingOverlay}
+          isMounted={isMounted}
+          onSimulateCapture={simulateCapture}
+        />
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   contentArea: {
     flex: 1,
-    padding: 8,
+    padding: spacing.sm,
     minHeight: 400,
   },
   cameraCard: {
     flex: 1,
-    borderRadius: 20,
+    borderRadius: radius.xl,
     overflow: "hidden",
-    backgroundColor: COLORS.cardBackground,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    borderColor: COLORS.divider,
+    backgroundColor: colors.bg.card,
+    borderWidth: 1,
+    borderColor: colors.border.default,
   },
   camera: {
     flex: 1,
   },
   cameraNotReadyOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    backgroundColor: colors.overlay.scrim,
     justifyContent: "center",
     alignItems: "center",
   },
   cameraNotReadyText: {
-    color: COLORS.textPrimary,
-    marginTop: 16,
-    fontFamily: "Poppins-Regular",
-    fontSize: 14,
+    color: colors.text.primary,
+    marginTop: spacing.lg,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.sm,
   },
   cameraPlaceholder: {
     flex: 1,
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: colors.bg.card,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 20,
   },
   cameraPlaceholderText: {
-    color: COLORS.textSecondary,
-    marginTop: 16,
-    fontFamily: "Poppins-Regular",
-    fontSize: 14,
+    color: colors.text.secondary,
+    marginTop: spacing.lg,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.sm,
   },
   loaderContainer: {
     flex: 1,
@@ -395,30 +333,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loaderText: {
-    color: COLORS.textSecondary,
-    marginTop: 16,
-    fontFamily: "Poppins-Regular",
-    fontSize: 14,
+    color: colors.text.secondary,
+    marginTop: spacing.lg,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.sm,
   },
   controlsContainer: {
-    paddingBottom: 16,
+    paddingBottom: spacing.lg,
     position: "relative",
-  },
-  scanCountBadge: {
-    position: "absolute",
-    bottom: 8,
-    right: 16,
-    backgroundColor: COLORS.textPrimary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.accent,
-  },
-  scanCountText: {
-    color: COLORS.cardBackground,
-    fontSize: 12,
-    fontFamily: "Poppins-Regular",
-    fontWeight: "600",
   },
 });

@@ -119,7 +119,6 @@ docker-compose down -v --rmi all
 ### Step 1: Create Droplet
 
 1. **Create a new droplet:**
-
    - **Image**: Ubuntu 22.04 LTS
    - **Size**: Basic → Regular → 2GB RAM / 1 vCPU (minimum)
    - **Region**: Choose closest to your users
@@ -221,11 +220,6 @@ GOOGLE_IOS_CLIENT_ID=your_google_ios_client_id
 GOOGLE_ANDROID_CLIENT_ID=your_google_android_client_id
 FACEBOOK_CLIENT_ID=your_facebook_client_id
 FACEBOOK_CLIENT_SECRET=your_facebook_client_secret
-
-# Stripe Configuration
-STRIPE_SECRET_KEY=your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
-STRIPE_PRICE_ID=your_stripe_price_id
 
 # Image Storage Configuration
 ENABLE_IMAGE_STORAGE=false

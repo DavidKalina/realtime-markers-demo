@@ -64,5 +64,29 @@ const getUserLocalTime = (dateString: string, eventTimezone?: string) => {
   }
 };
 
+// Recurrence formatting helpers
+export const formatRecurrenceFrequency = (frequency?: string): string => {
+  if (!frequency) return "";
+  switch (frequency) {
+    case "DAILY":
+      return "Daily";
+    case "WEEKLY":
+      return "Weekly";
+    case "BIWEEKLY":
+      return "Every 2 weeks";
+    case "MONTHLY":
+      return "Monthly";
+    case "YEARLY":
+      return "Yearly";
+    default:
+      return frequency.toLowerCase();
+  }
+};
+
+export const formatRecurrenceDays = (days?: string[]): string => {
+  if (!days || days.length === 0) return "";
+  return days.join(", ");
+};
+
 // Export the function
 export { formatDate, getUserLocalTime };

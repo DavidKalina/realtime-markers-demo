@@ -10,6 +10,14 @@ import {
   Dimensions,
   Alert,
 } from "react-native";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 import * as Haptics from "expo-haptics";
 import {
   Image as LucideImage,
@@ -160,7 +168,7 @@ const AdminOriginalImageViewer: React.FC<AdminOriginalImageViewerProps> = ({
                 }}
               />
               <View style={styles.viewOverlay}>
-                <ZoomIn size={20} color="#ffffff" />
+                <ZoomIn size={20} color={colors.fixed.white} />
                 <Text style={styles.viewText}>View Full Image</Text>
               </View>
             </TouchableOpacity>
@@ -187,7 +195,7 @@ const AdminOriginalImageViewer: React.FC<AdminOriginalImageViewerProps> = ({
               style={styles.closeButton}
               activeOpacity={0.7}
             >
-              <X size={22} color="#f8f9fa" />
+              <X size={22} color={colors.text.primary} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -197,9 +205,9 @@ const AdminOriginalImageViewer: React.FC<AdminOriginalImageViewerProps> = ({
               activeOpacity={0.7}
             >
               {downloading ? (
-                <ActivityIndicator size="small" color="#f8f9fa" />
+                <ActivityIndicator size="small" color={colors.text.primary} />
               ) : (
-                <Share2 size={22} color="#f8f9fa" />
+                <Share2 size={22} color={colors.text.primary} />
               )}
             </TouchableOpacity>
           </View>
@@ -233,18 +241,18 @@ const windowHeight = Dimensions.get("window").height;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#2a2a2a",
-    borderRadius: 20,
+    backgroundColor: colors.bg.card,
+    borderRadius: radius["2xl"],
     padding: 0,
-    marginVertical: 16,
-    shadowColor: "rgba(0, 0, 0, 0.5)",
+    marginVertical: spacing.lg,
+    shadowColor: colors.overlay.light,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: colors.border.default,
   },
 
   // Gradient header
@@ -260,29 +268,29 @@ const styles = StyleSheet.create({
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.08)",
+    borderBottomColor: colors.border.default,
   },
 
   cardIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: radius.md,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginRight: spacing.lg,
     backgroundColor: "rgba(255, 152, 0, 0.15)",
     borderWidth: 1,
     borderColor: "rgba(255, 152, 0, 0.3)",
   },
 
   cardTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#f8f9fa",
-    fontFamily: "Poppins-Regular",
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
     flex: 1,
     letterSpacing: 0.5,
   },
@@ -292,9 +300,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 152, 0, 0.15)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius._10,
     borderWidth: 1,
     borderColor: "rgba(255, 152, 0, 0.3)",
   },
@@ -302,16 +310,16 @@ const styles = StyleSheet.create({
   adminText: {
     fontSize: 11,
     color: "#ff9800",
-    fontFamily: "Poppins-Regular",
-    fontWeight: "600",
-    marginLeft: 6,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
+    marginLeft: spacing._6,
     letterSpacing: 0.5,
   },
 
   // Card content
   cardContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
   },
 
   // Loading state
@@ -319,17 +327,17 @@ const styles = StyleSheet.create({
     height: 180,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 16,
+    backgroundColor: colors.border.subtle,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: colors.border.medium,
   },
 
   loadingText: {
-    color: "#a0a0a0",
-    fontFamily: "Poppins-Regular",
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
     fontSize: 13,
-    marginTop: 12,
+    marginTop: spacing.md,
   },
 
   // Error state
@@ -337,34 +345,34 @@ const styles = StyleSheet.create({
     height: 100,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 16,
+    backgroundColor: colors.border.subtle,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: colors.border.medium,
   },
 
   errorText: {
     color: "#f97583",
-    fontFamily: "Poppins-Regular",
+    fontFamily: fontFamily.mono,
     fontSize: 13,
     textAlign: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.xl,
   },
 
   // Image container
   imageContainer: {
     position: "relative",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 16,
+    backgroundColor: colors.border.subtle,
+    borderRadius: radius.xl,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: colors.border.medium,
   },
 
   thumbnail: {
     width: "100%",
     height: 220,
-    borderRadius: 16,
+    borderRadius: radius.xl,
   },
 
   viewOverlay: {
@@ -372,19 +380,19 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    paddingVertical: 12,
+    backgroundColor: colors.overlay.medium,
+    paddingVertical: spacing.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
 
   viewText: {
-    color: "#ffffff",
-    fontFamily: "Poppins-Regular",
-    fontSize: 14,
-    fontWeight: "600",
-    marginLeft: 8,
+    color: colors.fixed.white,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    marginLeft: spacing.sm,
   },
 
   // No image state
@@ -392,53 +400,53 @@ const styles = StyleSheet.create({
     height: 100,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 16,
+    backgroundColor: colors.border.subtle,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: colors.border.medium,
   },
 
   noImageText: {
-    color: "#a0a0a0",
-    fontFamily: "Poppins-Regular",
-    fontSize: 14,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.sm,
   },
 
   // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.95)",
+    backgroundColor: colors.overlay.heavy,
   },
 
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 16,
-    paddingTop: 50,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    padding: spacing.lg,
+    paddingTop: spacing._50,
+    backgroundColor: colors.overlay.light,
     zIndex: 10,
   },
 
   closeButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: radius.md,
+    backgroundColor: colors.border.subtle,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: colors.border.medium,
   },
 
   shareButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: radius.md,
+    backgroundColor: colors.border.subtle,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: colors.border.medium,
   },
 
   modalContent: {

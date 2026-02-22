@@ -1,6 +1,6 @@
 // src/services/AuthService.ts
 
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { Repository, DataSource } from "typeorm";
 import { User, UserRole } from "@realtime-markers/database";

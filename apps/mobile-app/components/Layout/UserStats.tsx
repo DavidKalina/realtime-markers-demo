@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, ViewStyle } from "react-native";
-import { COLORS } from "./ScreenLayout";
+import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 export interface StatItem {
@@ -73,50 +73,50 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     justifyContent: "space-around",
-    paddingVertical: 12,
-    paddingHorizontal: 4,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
   },
   statItem: {
     alignItems: "center",
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
   },
   statValueContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   statValue: {
-    color: COLORS.textPrimary,
-    fontSize: 20,
-    fontFamily: "Poppins-Regular",
-    fontWeight: "700",
+    color: colors.text.primary,
+    fontSize: fontSize.xl,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.bold,
     letterSpacing: 0.3,
   },
   statLabel: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontFamily: "Poppins-Regular",
+    color: colors.text.secondary,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
     opacity: 0.9,
     letterSpacing: 0.2,
   },
   badgeContainer: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
+    backgroundColor: colors.accent.primary,
+    borderRadius: spacing.sm,
+    minWidth: spacing.lg,
+    height: spacing.lg,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 4,
-    marginLeft: 6,
+    paddingHorizontal: spacing.xs,
+    marginLeft: spacing._6,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: colors.border.medium,
   },
   badgeText: {
-    color: COLORS.background,
+    color: colors.bg.primary,
     fontSize: 10,
-    fontFamily: "Poppins-Regular",
-    fontWeight: "700",
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.bold,
   },
 });
 

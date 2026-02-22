@@ -63,6 +63,10 @@ services:
       retries: 5
 
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   adminer:
     image: adminer:latest
@@ -102,6 +106,10 @@ services:
         "${REDIS_PASSWORD}",
         "--bind",
         "0.0.0.0",
+        "--maxmemory",
+        "512mb",
+        "--maxmemory-policy",
+        "allkeys-lru",
       ]
 
     restart: unless-stopped
@@ -133,10 +141,6 @@ services:
       - GOOGLE_ANDROID_CLIENT_ID=${GOOGLE_ANDROID_CLIENT_ID}
       - FACEBOOK_CLIENT_ID=${FACEBOOK_CLIENT_ID}
       - FACEBOOK_CLIENT_SECRET=${FACEBOOK_CLIENT_SECRET}
-      # Stripe configuration
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
-      - STRIPE_PRICE_ID=${STRIPE_PRICE_ID}
       # Image storage configuration
       - ENABLE_IMAGE_STORAGE=${ENABLE_IMAGE_STORAGE:-false}
       - DO_SPACE_ENDPOINT=${DO_SPACE_ENDPOINT:-https://nyc3.digitaloceanspaces.com}

@@ -1,10 +1,7 @@
 import { ViewportProcessor } from "../handlers/ViewportProcessor";
-import type {
-  EntityProcessor,
-  EntityRegistry,
-  UnifiedMessageHandler as IUnifiedMessageHandler,
-  SpatialEntity,
-} from "../types/entities";
+import { UnifiedSpatialCacheService } from "./UnifiedSpatialCacheService";
+import { Event } from "../types/types";
+
 // Minimal Redis publisher interface to avoid importing external types here
 interface MinimalRedisPublisher {
   publish: (channel: string, message: string) => Promise<number> | number;
@@ -41,7 +38,9 @@ export interface MessageProcessingResult {
   error?: string;
 }
 
-export class UnifiedMessageHandler implements IUnifiedMessageHandler {
+type EventLike = Partial<Event> & { id: string };
+
+export class UnifiedMessageHandler {
   private readonly config: Required<UnifiedMessageHandlerConfig>;
   private readonly metrics = {
     messagesProcessed: 0,
@@ -74,7 +73,7 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
   ) => void;
 
   constructor(
-    private readonly entityRegistry: EntityRegistry,
+    private readonly spatialCache: UnifiedSpatialCacheService,
     private readonly redisPub?: MinimalRedisPublisher,
     private readonly viewportProcessor?: ViewportProcessor,
     config: UnifiedMessageHandlerConfig = {},
@@ -86,8 +85,8 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
       enableWebSocketNotifications: config.enableWebSocketNotifications ?? true,
       enableViewportTracking: config.enableViewportTracking ?? true,
       maxAffectedUsersPerUpdate: config.maxAffectedUsersPerUpdate ?? 1000,
-      batchProcessingEnabled: config.batchProcessingEnabled ?? false,
-      batchSize: config.batchSize ?? 10,
+      batchProcessingEnabled: config.batchProcessingEnabled ?? true,
+      batchSize: config.batchSize ?? 50,
       batchTimeoutMs: config.batchTimeoutMs ?? 100,
     } as Required<UnifiedMessageHandlerConfig>;
 
@@ -158,15 +157,10 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
     data: unknown,
     startTime: number,
   ): Promise<MessageProcessingResult> {
-    const processor = this.entityRegistry.getProcessor(entityType);
-    if (!processor) {
-      throw new Error(`No processor found for entity type: ${entityType}`);
-    }
-
     // For DELETE operations, we need to get the affected users BEFORE processing the deletion
     // because once the entity is removed from cache, we can't determine which users had it in their viewport
     let affectedUsers = new Set<string>();
-    let entity: unknown;
+    let entity: EventLike;
     let entityId: string;
 
     if (operation.toUpperCase() === "DELETE") {
@@ -215,7 +209,7 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
       // Get affected users AFTER deletion using coordinates if available
       if (coordinates) {
         // Create a minimal entity with location for affected user calculation
-        const minimalEntity = {
+        const minimalEntity: EventLike = {
           id: entityId,
           location: {
             type: "Point" as const,
@@ -229,13 +223,9 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
             (entityData.createdAt as string) || new Date().toISOString(),
           updatedAt:
             (entityData.updatedAt as string) || new Date().toISOString(),
-        } as SpatialEntity;
+        };
 
-        affectedUsers = await this.getAffectedUsers(
-          entityType,
-          minimalEntity,
-          operation,
-        );
+        affectedUsers = await this.getAffectedUsers(minimalEntity, operation);
       } else {
         // No coordinates available, just notify creator if available
         if (entityData.creatorId && typeof entityData.creatorId === "string") {
@@ -244,24 +234,15 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
       }
     } else {
       // For CREATE and UPDATE operations, validate and normalize the full entity
-      entity = this.validateAndNormalizeEntity(
-        processor,
-        data,
-        entityType,
-        operation,
-      );
-      entityId = (entity as { id: string }).id;
+      entity = this.validateAndNormalizeEntity(data, entityType, operation);
+      entityId = entity.id;
 
       // Get affected users for CREATE and UPDATE operations
-      affectedUsers = await this.getAffectedUsers(
-        entityType,
-        entity as SpatialEntity,
-        operation,
-      );
+      affectedUsers = await this.getAffectedUsers(entity, operation);
     }
 
     // Process with retry logic
-    await this.processWithRetry(processor, operation, entity);
+    await this.processWithRetry(operation, entity);
 
     // Mark affected users as dirty if callback is provided
     if (this.onUserDirty && affectedUsers.size > 0) {
@@ -332,11 +313,10 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
   }
 
   private validateAndNormalizeEntity(
-    processor: EntityProcessor,
     data: unknown,
     entityType: string,
     operation?: string,
-  ): unknown {
+  ): Event {
     try {
       // For DELETE operations, we only need the entity ID
       if (operation?.toUpperCase() === "DELETE") {
@@ -350,18 +330,33 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
         }
 
         // For DELETE, return a minimal object with just the ID
-        return { id: entityData.id };
+        return { id: entityData.id } as Event;
       }
 
       // For CREATE and UPDATE operations, normalize and validate the full entity
-      const entity = processor.normalizeEntity(data);
+      if (typeof data !== "object" || data === null) {
+        throw new Error("Invalid event data");
+      }
 
-      // Validate the entity
-      if (!processor.validateEntity(entity)) {
+      const event = data as Event;
+
+      if (!event.id || !event.title || !event.location || !event.creatorId) {
+        throw new Error("Missing required event fields");
+      }
+
+      if (
+        !(
+          event.id &&
+          event.title &&
+          event.location &&
+          event.creatorId &&
+          event.createdAt
+        )
+      ) {
         throw new Error(`Invalid entity data for type: ${entityType}`);
       }
 
-      return entity;
+      return event;
     } catch (error) {
       console.warn(
         `[UnifiedMessageHandler] Entity validation failed for ${entityType}:`,
@@ -372,15 +367,25 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
   }
 
   private async processWithRetry(
-    processor: EntityProcessor,
     operation: string,
-    entity: unknown,
+    entity: EventLike,
   ): Promise<void> {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= this.config.maxRetries; attempt++) {
       try {
-        await processor.processEntity(operation, entity);
+        switch (operation.toUpperCase()) {
+          case "CREATE":
+          case "INSERT":
+            this.spatialCache.addEvent(entity as Event);
+            break;
+          case "UPDATE":
+            this.spatialCache.updateEvent(entity as Event);
+            break;
+          case "DELETE":
+            this.spatialCache.removeEvent(entity.id);
+            break;
+        }
         return; // Success
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -399,17 +404,10 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
   }
 
   async getAffectedUsers(
-    entityType: string,
-    entity: SpatialEntity,
+    entity: EventLike,
     operation: string,
   ): Promise<Set<string>> {
     const affectedUsers = new Set<string>();
-    const processor = this.entityRegistry.getProcessor(entityType);
-    const entityConfig = this.entityRegistry.getEntityType(entityType);
-
-    if (!processor || !entityConfig) {
-      return affectedUsers;
-    }
 
     // 1. Add entity creator for CREATE, updates, and deletes
     if (
@@ -432,30 +430,39 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
     }
 
     // 3. Find users whose viewports intersect the entity's location
+    // Events always have location (hasLocation = true)
     if (
-      entityConfig.hasLocation &&
       entity.location &&
       (operation === "CREATE" ||
         operation === "add" ||
         operation === "update" ||
         operation === "DELETE")
     ) {
-      const entityBounds = processor.getSpatialBounds(entity);
+      const coords = entity.location.coordinates;
+      const entityBounds = coords
+        ? { minX: coords[0], minY: coords[1], maxX: coords[0], maxY: coords[1] }
+        : null;
+
       if (entityBounds && this.viewportProcessor) {
         try {
           const intersectingViewportUsers =
             await this.viewportProcessor.getIntersectingViewports(entityBounds);
 
           console.log(
-            `[UnifiedMessageHandler] Found ${intersectingViewportUsers.length} users with intersecting viewports for ${operation} operation on ${entityType} ${entity.id}`,
+            `[UnifiedMessageHandler] Found ${intersectingViewportUsers.length} users with intersecting viewports for ${operation} operation on event ${entity.id}`,
           );
 
           for (const { userId } of intersectingViewportUsers) {
             // Further check: Does this user have access to this specific entity?
-            if (processor.isAccessible(entity, userId)) {
+            const isAccessible =
+              !entity.isPrivate ||
+              entity.creatorId === userId ||
+              entity.sharedWith?.some((s) => s.sharedWithId === userId);
+
+            if (isAccessible) {
               affectedUsers.add(userId);
               console.log(
-                `[UnifiedMessageHandler] Added user ${userId} to affected users for ${operation} operation on ${entityType} ${entity.id}`,
+                `[UnifiedMessageHandler] Added user ${userId} to affected users for ${operation} operation on event ${entity.id}`,
               );
             }
           }
@@ -479,7 +486,7 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
         count++;
       }
       console.warn(
-        `[UnifiedMessageHandler] Limited affected users from ${originalSize} to ${limitedUsers.size} for ${entityType} ${entity.id}`,
+        `[UnifiedMessageHandler] Limited affected users from ${originalSize} to ${limitedUsers.size} for event ${entity.id}`,
       );
       return limitedUsers;
     }
@@ -490,7 +497,7 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
   private async sendWebSocketNotifications(
     entityType: string,
     operation: string,
-    entity: unknown,
+    entity: EventLike,
     affectedUsers: Set<string>,
   ): Promise<void> {
     if (!this.redisPub) {
@@ -501,55 +508,36 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
     }
 
     try {
-      const processor = this.entityRegistry.getProcessor(entityType);
-      if (!processor) return;
-
       const opUpper = operation.toUpperCase();
 
       // Helper to choose per-user channel
-      const channelForUser = (userId: string): string => {
-        if (entityType === "civic_engagement") {
-          return `user:${userId}:filtered-civic-engagements`;
-        }
-        return `user:${userId}:filtered-events`;
-      };
+      const channelForUser = (userId: string): string =>
+        `user:${userId}:filtered-events`;
 
-      // Build payload per entity type in mobile-friendly shapes
+      // Build payload in mobile-friendly shape
       const buildPayload = (): ((userId: string) => string) => {
         const timestamp = new Date().toISOString();
 
-        if (entityType === "event") {
-          if (opUpper === "DELETE") {
-            const id = (entity as { id: string }).id;
-            return () =>
-              JSON.stringify({ type: "delete-event", id, timestamp });
-          }
-
-          const formatted = processor.formatForWebSocket(entity, operation);
-          const eventData =
-            (formatted as { data?: Record<string, unknown> }).data ||
-            (entity as Record<string, unknown>);
-          const type = opUpper === "UPDATE" ? "update-event" : "add-event";
-          return () => JSON.stringify({ type, event: eventData, timestamp });
-        }
-
-        // civic_engagement
         if (opUpper === "DELETE") {
-          const id = (entity as { id: string }).id;
-          return () =>
-            JSON.stringify({ type: "delete-civic-engagement", id, timestamp });
+          const id = entity.id;
+          return () => JSON.stringify({ type: "delete-event", id, timestamp });
         }
 
-        const formatted = processor.formatForWebSocket(entity, operation);
-        const ceData =
-          (formatted as { data?: Record<string, unknown> }).data ||
-          (entity as Record<string, unknown>);
-        const type =
-          opUpper === "UPDATE"
-            ? "update-civic-engagement"
-            : "add-civic-engagement";
-        return () =>
-          JSON.stringify({ type, civicEngagement: ceData, timestamp });
+        const ev = entity as Event;
+        const eventData = {
+          id: ev.id,
+          title: ev.title,
+          eventDate: ev.eventDate,
+          location: ev.location,
+          creatorId: ev.creatorId,
+          isPrivate: ev.isPrivate,
+          scanCount: ev.scanCount,
+          saveCount: ev.saveCount,
+          createdAt: ev.createdAt,
+          updatedAt: ev.updatedAt,
+        };
+        const type = opUpper === "UPDATE" ? "update-event" : "add-event";
+        return () => JSON.stringify({ type, event: eventData, timestamp });
       };
 
       const payloadBuilder = buildPayload();
@@ -580,7 +568,7 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
       const data = JSON.parse(message);
 
       // Extract entity type and operation from channel name
-      // Expected format: entity_type:operation (e.g., "event:created", "civic_engagement:updated")
+      // Expected format: entity_type:operation (e.g., "event:created", "event:updated")
       const [entityType, operation] = channel.split(":");
 
       if (!entityType || !operation) {
@@ -603,7 +591,7 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
    * Track user viewport for affected user calculation
    */
   trackUserViewport(
-    entityType: string,
+    _entityType: string,
     userId: string,
     viewport: {
       minX: number;
@@ -620,7 +608,7 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
   /**
    * Remove user viewport tracking
    */
-  removeUserViewport(entityType: string, userId: string): void {
+  removeUserViewport(_entityType: string, userId: string): void {
     if (this.viewportProcessor) {
       this.viewportProcessor.removeUserViewport(userId);
     }
@@ -630,24 +618,14 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
    * Get all supported entity types
    */
   getSupportedEntityTypes(): string[] {
-    return this.entityRegistry.getAllEntityTypes();
+    return ["event"];
   }
 
   /**
    * Get Redis channels to subscribe to
    */
   getRedisChannels(): string[] {
-    const channels: string[] = [];
-
-    for (const entityType of this.entityRegistry.getAllEntityTypes()) {
-      const config = this.entityRegistry.getEntityType(entityType);
-      if (config) {
-        channels.push(config.webSocket.redisChannels.changes);
-        channels.push(config.webSocket.redisChannels.discovered);
-      }
-    }
-
-    return channels;
+    return ["event_changes", "event_discovered"];
   }
 
   /**
@@ -710,8 +688,10 @@ export class UnifiedMessageHandler implements IUnifiedMessageHandler {
 
     if (processingTimeMs) {
       this.metrics.totalProcessingTimeMs += processingTimeMs;
-      this.metrics.averageProcessingTimeMs =
-        this.metrics.totalProcessingTimeMs / this.metrics.messagesProcessed;
+      if (this.metrics.messagesProcessed > 0) {
+        this.metrics.averageProcessingTimeMs =
+          this.metrics.totalProcessingTimeMs / this.metrics.messagesProcessed;
+      }
     }
 
     this.metrics.lastProcessedAt = new Date();

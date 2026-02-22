@@ -1,0 +1,21 @@
+# Local development overlay
+# Layers on top of docker-compose.http.yml to configure the web dashboard
+# with hot reload and localhost URLs for browser access.
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.http.yml -f docker-compose.local.yml up -d
+
+services:
+  web-dashboard:
+    build:
+      context: .
+      dockerfile: apps/web-dashboard/Dockerfile.dev
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - NEXT_PUBLIC_WEBSOCKET_URL=ws://localhost:8081
+    volumes:
+      - ./apps/web-dashboard:/app/apps/web-dashboard
+      - /app/apps/web-dashboard/node_modules
+      - ./packages:/app/packages
+    command: pnpm dev

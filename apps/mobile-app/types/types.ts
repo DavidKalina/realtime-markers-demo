@@ -4,8 +4,6 @@ import {
   MapboxViewport,
   EventSummary,
   UserProfile,
-  CivicEngagementSummary,
-  CivicEngagementType as CivicEngagementTypeEnum,
   EventStatus,
   RecurrenceFrequency,
   DayOfWeek,
@@ -67,12 +65,5 @@ export interface EventType extends Omit<EventSummary, "hasQrCode"> {
   isVerified?: boolean;
 }
 
-// Civic engagement type that extends the database CivicEngagementSummary
-export interface CivicEngagementType extends CivicEngagementSummary {
-  // Add mobile-specific civic engagement properties
-  distance?: string;
-  time?: string;
-}
-
 // Re-export database enums for convenience
-export { CivicEngagementTypeEnum, EventStatus, RecurrenceFrequency, DayOfWeek };
+export { EventStatus, RecurrenceFrequency, DayOfWeek };

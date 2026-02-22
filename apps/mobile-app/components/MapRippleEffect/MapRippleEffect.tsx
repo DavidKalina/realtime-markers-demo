@@ -10,7 +10,7 @@ import AnimatedReanimated, {
   cancelAnimation,
   runOnJS,
 } from "react-native-reanimated";
-import { COLORS } from "@/components/Layout/ScreenLayout";
+import { colors } from "@/theme";
 
 interface MapRippleEffectProps {
   isVisible: boolean;
@@ -136,18 +136,18 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: `${COLORS.accent}40`, // 25% opacity accent color
+    backgroundColor: `${colors.accent.primary}40`, // 25% opacity accent color
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: `${COLORS.accent}80`, // 50% opacity accent color
+    borderColor: `${colors.accent.primary}80`, // 50% opacity accent color
   },
   rippleInner: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: `${COLORS.accent}60`, // 37.5% opacity accent color
+    backgroundColor: `${colors.accent.primary}60`, // 37.5% opacity accent color
     borderWidth: 1,
-    borderColor: `${COLORS.accent}90`, // 56.25% opacity accent color
+    borderColor: `${colors.accent.primary}90`, // 56.25% opacity accent color
   },
 });

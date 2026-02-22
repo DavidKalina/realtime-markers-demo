@@ -1,8 +1,16 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { AlertTriangle } from "lucide-react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { COLORS } from "../Layout/ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  lineHeight,
+} from "@/theme";
 
 interface NoScansOverlayProps {
   isVisible: boolean;
@@ -24,7 +32,7 @@ export const NoScansOverlay: React.FC<NoScansOverlayProps> = ({
     >
       <View style={styles.noScansContent}>
         <View style={styles.noScansIconContainer}>
-          <Feather name="alert-triangle" size={32} color={COLORS.warningText} />
+          <AlertTriangle size={32} color={colors.status.warning.text} />
         </View>
         <Text style={styles.noScansTitle}>Scan Limit Reached</Text>
         <Text style={styles.noScansMessage}>
@@ -52,81 +60,81 @@ export const NoScansOverlay: React.FC<NoScansOverlayProps> = ({
 const styles = StyleSheet.create({
   noScansOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    backgroundColor: colors.overlay.heavy,
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    padding: spacing.xl,
     zIndex: 100,
   },
   noScansContent: {
     width: "100%",
     maxWidth: 340,
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: colors.bg.card,
+    borderRadius: radius.xl,
+    padding: spacing["2xl"],
     alignItems: "center",
-    shadowColor: COLORS.shadow,
+    shadowColor: colors.shadow.default,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 10,
     borderWidth: 1,
-    borderColor: COLORS.warningBorder,
+    borderColor: colors.status.warning.border,
   },
   noScansIconContainer: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: COLORS.warningBackground,
+    backgroundColor: colors.status.warning.bg,
     borderWidth: 1,
-    borderColor: COLORS.warningBorder,
+    borderColor: colors.status.warning.border,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   noScansTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 20,
-    fontWeight: "700",
-    fontFamily: "Poppins-Regular",
-    marginBottom: 8,
+    color: colors.text.primary,
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
+    fontFamily: fontFamily.mono,
+    marginBottom: spacing.sm,
     textAlign: "center",
   },
   noScansMessage: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
     textAlign: "center",
-    marginBottom: 24,
-    lineHeight: 20,
+    marginBottom: spacing["2xl"],
+    lineHeight: lineHeight.normal,
   },
   upgradeButton: {
-    backgroundColor: COLORS.accent,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    backgroundColor: colors.accent.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.md,
     width: "100%",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   upgradeButtonText: {
-    color: COLORS.textPrimary,
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "Poppins-Regular",
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
   },
   dismissButton: {
-    backgroundColor: COLORS.buttonBackground,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    backgroundColor: colors.border.subtle,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.md,
     width: "100%",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   dismissButtonText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontFamily: "Poppins-Regular",
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
   },
 });

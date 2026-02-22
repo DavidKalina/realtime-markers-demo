@@ -1,8 +1,15 @@
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View, ViewStyle } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 import BackButton from "./BackButton";
-import { COLORS } from "./ScreenLayout";
 
 interface HeaderProps {
   title: string;
@@ -19,46 +26,46 @@ const headerStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-    backgroundColor: COLORS.textPrimary,
+    borderBottomColor: colors.border.default,
+    backgroundColor: colors.text.primary,
     zIndex: 10,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
     letterSpacing: 0.5,
   },
   rightIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
+    width: spacing["4xl"],
+    height: spacing["4xl"],
+    borderRadius: radius.md,
+    backgroundColor: colors.border.subtle,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   placeholderIcon: {
-    width: 40,
-    height: 40,
+    width: spacing["4xl"],
+    height: spacing["4xl"],
   },
   titleContainer: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
+    gap: spacing.md,
   },
   titleText: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
     letterSpacing: 0.5,
   },
 });

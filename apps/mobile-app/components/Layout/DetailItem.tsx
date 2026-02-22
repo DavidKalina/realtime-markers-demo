@@ -1,7 +1,14 @@
 import React from "react";
 import { StyleSheet, Text, View, ViewStyle } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { COLORS } from "./ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontFamily,
+  lineHeight,
+} from "@/theme";
 
 interface DetailItemProps {
   icon: React.ReactNode;
@@ -43,18 +50,18 @@ const DetailItem: React.FC<DetailItemProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.buttonBackground,
+    width: spacing["4xl"],
+    height: spacing["4xl"],
+    borderRadius: radius.md,
+    backgroundColor: colors.border.subtle,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginRight: spacing.lg,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   content: {
     flex: 1,
@@ -62,15 +69,15 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    color: COLORS.textSecondary,
-    fontFamily: "Poppins-Regular",
-    marginBottom: 4,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
+    marginBottom: spacing.xs,
   },
   value: {
-    fontSize: 14,
-    color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
-    lineHeight: 20,
+    fontSize: fontSize.sm,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
+    lineHeight: lineHeight.normal,
   },
 });
 

@@ -54,7 +54,6 @@ interface EventFormData {
     longitude: number;
     address: string;
   };
-  sharedWithIds: string[];
   locationNotes: string;
   image?: File;
 }

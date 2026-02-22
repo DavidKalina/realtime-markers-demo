@@ -11,11 +11,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Wifi } from "lucide-react-native";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
-
-const ANIMATION_CONFIG = {
-  damping: 10,
-  stiffness: 200,
-};
+import { spacing, fontFamily, fontWeight, spring } from "@/theme";
 
 const PULSE_CONFIG = {
   duration: 1500,
@@ -127,8 +123,8 @@ const ConnectionIndicator: React.FC = () => {
     () => () => {
       cancelAnimation(scale);
       scale.value = withSequence(
-        withSpring(0.95, ANIMATION_CONFIG),
-        withSpring(1, ANIMATION_CONFIG),
+        withSpring(0.95, spring.soft),
+        withSpring(1, spring.soft),
       );
     },
     [],
@@ -156,7 +152,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: spacing.xs,
   },
   indicator: {
     width: 22,
@@ -167,8 +163,8 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 11,
-    fontFamily: "Poppins-Regular",
-    fontWeight: "600",
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
     letterSpacing: 0.2,
   },
 });

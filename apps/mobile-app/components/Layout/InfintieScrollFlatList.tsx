@@ -7,12 +7,12 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
+import { spacing, fontSize, fontFamily } from "@/theme";
 
-interface InfiniteScrollFlatListProps<T>
-  extends Omit<
-    FlatListProps<T>,
-    "data" | "renderItem" | "onRefresh" | "refreshing"
-  > {
+interface InfiniteScrollFlatListProps<T> extends Omit<
+  FlatListProps<T>,
+  "data" | "renderItem" | "onRefresh" | "refreshing"
+> {
   data: T[];
   renderItem: (item: T, index: number) => React.ReactElement;
   fetchMoreData: () => Promise<void>;
@@ -187,7 +187,7 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
 
 const styles = StyleSheet.create({
   footer: {
-    padding: 16,
+    padding: spacing.lg,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -195,38 +195,38 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 32,
+    padding: spacing["3xl"],
   },
   loadingText: {
-    marginTop: 8,
-    fontSize: 14,
+    marginTop: spacing.sm,
+    fontSize: fontSize.sm,
     color: "#666",
-    fontFamily: "Poppins-Regular",
+    fontFamily: fontFamily.mono,
   },
   errorText: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     color: "#e74c3c",
     textAlign: "center",
-    fontFamily: "Poppins-Regular",
+    fontFamily: fontFamily.mono,
   },
   retryText: {
-    fontSize: 14,
+    fontSize: fontSize.sm,
     color: "#3498db",
-    marginTop: 8,
+    marginTop: spacing.sm,
     textDecorationLine: "underline",
-    fontFamily: "Poppins-Regular",
+    fontFamily: fontFamily.mono,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: fontSize.md,
     color: "#666",
     textAlign: "center",
-    fontFamily: "Poppins-Regular",
+    fontFamily: fontFamily.mono,
   },
   endText: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     color: "#999",
     fontStyle: "italic",
-    fontFamily: "Poppins-Regular",
+    fontFamily: fontFamily.mono,
   },
 });
 

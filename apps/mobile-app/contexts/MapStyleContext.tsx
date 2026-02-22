@@ -36,13 +36,13 @@ const getMapStyleURL = (style: MapStyleType): string => {
     case "light":
       return MapboxGL.StyleURL.Light;
     default:
-      return MapboxGL.StyleURL.Street;
+      return MapboxGL.StyleURL.Dark;
   }
 };
 
 export const MapStyleProvider: React.FC<{ children: React.ReactNode }> =
   React.memo(({ children }) => {
-    const [currentStyle, setCurrentStyle] = useState<MapStyleType>("street");
+    const [currentStyle, setCurrentStyle] = useState<MapStyleType>("dark");
     const [isPitched, setIsPitched] = useState(false);
 
     // Memoize the style URL to prevent recalculation

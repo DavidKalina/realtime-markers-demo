@@ -6,8 +6,20 @@ import {
   EventTypes,
   NotificationEvent,
 } from "@/services/EventBroker";
-import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronRight,
+  Info,
+} from "lucide-react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   FadeInDown,
@@ -15,7 +27,15 @@ import Animated, {
   LinearTransition,
 } from "react-native-reanimated";
 import * as Crypto from "expo-crypto";
-import { COLORS } from "../Layout/ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  spring,
+} from "@/theme";
 
 interface DiscoveryIndicatorProps {
   position?:
@@ -43,10 +63,28 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
 }) => {
   const [items, setItems] = useState<IndicatorItem[]>([]);
   const { subscribe, publish } = useEventBroker();
+  const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+
+  // Track timeouts for cleanup on unmount
+  const safeTimeout = useCallback((fn: () => void, delay: number) => {
+    const timer = setTimeout(fn, delay);
+    timersRef.current.push(timer);
+    return timer;
+  }, []);
+
+  // Clear all pending timers on unmount
+  useEffect(() => {
+    return () => {
+      for (const timer of timersRef.current) {
+        clearTimeout(timer);
+      }
+      timersRef.current = [];
+    };
+  }, []);
 
   const positionStyle = useMemo(() => {
-    const baseSpacing = 4;
-    const itemSpacing = 8;
+    const baseSpacing = spacing.xs;
+    const itemSpacing = spacing.sm;
     const maxItems = 5;
 
     switch (position) {
@@ -100,7 +138,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
           const newItems = [newItem, ...(prev || [])];
 
           // Auto-dismiss after 10 seconds
-          setTimeout(() => {
+          safeTimeout(() => {
             setItems((current) => {
               if (!current) return [];
               return current.filter((item) => item.id !== newItem.id);
@@ -145,7 +183,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
           const newItems = [newItem, ...(prev || [])];
 
           // Auto-dismiss after the specified duration or default to 5 seconds
-          setTimeout(() => {
+          safeTimeout(() => {
             setItems((current) => {
               if (!current) return [];
               return current.filter((item) => item.id !== newItem.id);
@@ -162,7 +200,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
       unsubscribeDiscovery();
       unsubscribeNotification();
     };
-  }, [subscribe]);
+  }, [subscribe, safeTimeout]);
 
   const handlePress = (item: IndicatorItem) => {
     if (item.type === "discovery" && item.event?.location?.coordinates) {
@@ -178,7 +216,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
     }
 
     // Remove the item after a short delay
-    setTimeout(() => {
+    safeTimeout(() => {
       setItems((current) => current.filter((i) => i.id !== item.id));
     }, 50);
   };
@@ -188,13 +226,13 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
   ) => {
     switch (type) {
       case "success":
-        return "checkmark-circle";
+        return CheckCircle2;
       case "warning":
-        return "warning";
+        return AlertTriangle;
       case "error":
-        return "alert-circle";
+        return AlertCircle;
       default:
-        return "information-circle";
+        return Info;
     }
   };
 
@@ -203,13 +241,13 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
   ) => {
     switch (type) {
       case "success":
-        return "#4CAF50";
+        return colors.status.success.text;
       case "warning":
-        return "#FFC107";
+        return colors.status.warning.text;
       case "error":
-        return "#F44336";
+        return colors.status.error.text;
       default:
-        return "#2196F3";
+        return colors.accent.dark;
     }
   };
 
@@ -218,20 +256,20 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
     const iconColor = isNotification
       ? getNotificationColor(item.notification!.type)
       : "rgba(255, 255, 255, 0.9)";
-    const iconName = isNotification
+    const IconComponent = isNotification
       ? getNotificationIcon(item.notification!.type)
-      : "chevron-forward";
+      : ChevronRight;
 
     return (
       <Animated.View
         key={item.id}
-        style={[styles.itemContainer, index > 0 && { marginTop: 8 }]}
+        style={[styles.itemContainer, index > 0 && { marginTop: spacing.sm }]}
         entering={FadeInDown.springify()
-          .damping(15)
+          .damping(spring.firm.damping)
           .mass(0.8)
           .delay(index * 100)}
         exiting={FadeOutUp.springify()
-          .damping(15)
+          .damping(spring.firm.damping)
           .mass(0.8)
           .delay(index * 100)}
         layout={LinearTransition.springify()}
@@ -250,7 +288,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
               ]}
             >
               {isNotification ? (
-                <Ionicons name={iconName} size={20} color={iconColor} />
+                <IconComponent size={20} color={iconColor} />
               ) : (
                 <Text style={styles.emojiText}>
                   {item.event?.emoji || "🎉"}
@@ -271,11 +309,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
 
             {!isNotification && (
               <View style={styles.tapIndicator}>
-                <Ionicons
-                  name={iconName}
-                  size={16}
-                  color="rgba(255, 255, 255, 0.6)"
-                />
+                <ChevronRight size={16} color="rgba(255, 255, 255, 0.6)" />
               </View>
             )}
           </View>
@@ -312,54 +346,54 @@ const styles = StyleSheet.create({
   indicator: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 12,
-    padding: 8,
-    paddingRight: 8,
+    backgroundColor: colors.bg.card,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    paddingRight: spacing.sm,
     width: 200,
     minHeight: 40,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
-    shadowColor: COLORS.shadow,
+    borderColor: colors.border.medium,
+    shadowColor: colors.shadow.default,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
   },
   notificationIndicator: {
-    backgroundColor: COLORS.cardBackgroundAlt,
+    backgroundColor: colors.bg.cardAlt,
   },
   iconContainer: {
     width: 24,
     height: 24,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 8,
-    backgroundColor: COLORS.buttonBackground,
+    marginRight: spacing.sm,
+    backgroundColor: colors.border.subtle,
     borderWidth: 1,
-    borderColor: COLORS.buttonBorder,
+    borderColor: colors.border.medium,
   },
   titleText: {
-    color: COLORS.textPrimary,
-    fontSize: 12,
-    fontFamily: "Poppins-Regular",
-    fontWeight: "600",
+    color: colors.text.primary,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
     letterSpacing: 0.5,
   },
   messageText: {
-    color: COLORS.textSecondary,
+    color: colors.text.secondary,
     fontSize: 10,
-    fontFamily: "Poppins-Regular",
+    fontFamily: fontFamily.mono,
     marginTop: 2,
   },
   emojiText: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     textAlign: "center",
-    color: COLORS.textPrimary,
+    color: colors.text.primary,
   },
   tapIndicator: {
-    marginLeft: 4,
+    marginLeft: spacing.xs,
     justifyContent: "center",
     alignItems: "center",
   },

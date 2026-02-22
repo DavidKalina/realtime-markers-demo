@@ -1,6 +1,13 @@
 import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { COLORS } from "../Layout/ScreenLayout";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 
 interface LoadingOverlayProps {
   message?: string;
@@ -17,7 +24,7 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = React.memo(
         <View style={styles.loadingContainer}>
           <ActivityIndicator
             size="large"
-            color={COLORS.accent}
+            color={colors.accent.primary}
             style={styles.loadingSpinner}
           />
           <Text style={styles.loadingText}>{message}</Text>
@@ -35,33 +42,33 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg.primary,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 9999,
   },
   loadingContainer: {
     alignItems: "center",
-    padding: 24,
-    borderRadius: 20,
+    padding: spacing["2xl"],
+    borderRadius: radius["2xl"],
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
   },
   loadingSpinner: {
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   loadingText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.textPrimary,
-    fontFamily: "Poppins-Regular",
-    marginBottom: 8,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
+    marginBottom: spacing.sm,
   },
   loadingSubtext: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontFamily: "Poppins-Regular",
+    fontSize: fontSize.sm,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
   },
 });

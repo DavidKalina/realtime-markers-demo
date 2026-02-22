@@ -14,8 +14,6 @@ import useEventSearch from "@/hooks/useEventSearch";
 import useLandingPageData from "@/hooks/useLandingPageData";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserLocation } from "@/contexts/LocationContext";
-import { AuthWrapper } from "@/components/AuthWrapper";
-
 // Type for events from the API
 type EventType = Omit<EventListItemProps, "onPress">;
 
@@ -137,11 +135,12 @@ const SearchListScreen = () => {
   };
 
   const renderEventItem = useCallback(
-    (event: EventType) => (
+    (event: EventType, index: number) => (
       <EventListItem
         {...event}
         eventDate={new Date(event.eventDate)}
         onPress={handleEventPress}
+        index={index}
       />
     ),
     [handleEventPress],
@@ -156,64 +155,62 @@ const SearchListScreen = () => {
     }
   }, [loadMoreEvents]);
 
-  // Determine what content to show
+  // Show landing page only when there's no active search
   const showLandingPage = !searchQuery.trim() && !hasSearched;
 
   return (
-    <AuthWrapper>
-      <Screen
-        isScrollable={false}
-        bannerTitle={getBannerTitle()}
-        bannerDescription={getBannerDescription()}
-        bannerEmoji="🔍"
-        showBackButton
-        onBack={handleBack}
-        noAnimation
-      >
-        <Input
-          ref={searchInputRef}
-          icon={SearchIcon}
-          rightIcon={searchQuery !== "" ? X : undefined}
-          onRightIconPress={handleClearSearch}
-          placeholder="Search events, venues, categories..."
-          value={searchQuery}
-          onChangeText={handleSearchInput}
-          returnKeyType="search"
-          onSubmitEditing={handleSearch}
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoFocus={true}
-          loading={isSearchLoading}
-          style={{ marginHorizontal: 16, marginBottom: 16 }}
-        />
+    <Screen
+      isScrollable={false}
+      bannerTitle={getBannerTitle()}
+      bannerDescription={getBannerDescription()}
+      bannerEmoji="🔍"
+      showBackButton
+      onBack={handleBack}
+      noAnimation
+    >
+      <Input
+        ref={searchInputRef}
+        icon={SearchIcon}
+        rightIcon={searchQuery !== "" ? X : undefined}
+        onRightIconPress={handleClearSearch}
+        placeholder="Search events, venues, categories..."
+        value={searchQuery}
+        onChangeText={handleSearchInput}
+        returnKeyType="search"
+        onSubmitEditing={handleSearch}
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoFocus={true}
+        loading={isSearchLoading}
+        style={{ marginHorizontal: 16, marginBottom: 16 }}
+      />
 
-        {showLandingPage ? (
-          <LandingPageContent
-            data={landingData}
-            isLoading={isLandingLoading}
-            onRefresh={handleRefresh}
-            isRefreshing={isRefreshing}
-          />
-        ) : (
-          <InfiniteScrollFlatList
-            data={eventResults as unknown as EventType[]}
-            renderItem={renderEventItem}
-            fetchMoreData={handleLoadMore}
-            onRefresh={handleRefresh}
-            isLoading={isSearchLoading}
-            isRefreshing={isRefreshing}
-            hasMore={!searchError && eventResults.length > 0}
-            error={searchError}
-            emptyListMessage={
-              searchQuery.trim()
-                ? "No events found matching your search"
-                : "No events found"
-            }
-            onRetry={async () => await searchEvents(true)}
-          />
-        )}
-      </Screen>
-    </AuthWrapper>
+      {showLandingPage ? (
+        <LandingPageContent
+          data={landingData}
+          isLoading={isLandingLoading}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
+        />
+      ) : (
+        <InfiniteScrollFlatList
+          data={eventResults as unknown as EventType[]}
+          renderItem={renderEventItem}
+          fetchMoreData={handleLoadMore}
+          onRefresh={handleRefresh}
+          isLoading={isSearchLoading}
+          isRefreshing={isRefreshing}
+          hasMore={!searchError && eventResults.length > 0}
+          error={searchError}
+          emptyListMessage={
+            searchQuery.trim()
+              ? "No events found matching your search"
+              : "No events found"
+          }
+          onRetry={async () => await searchEvents(true)}
+        />
+      )}
+    </Screen>
   );
 };
 

@@ -209,29 +209,6 @@ export interface ClusterHubData {
   };
 }
 
-// Friend-related types
-export interface Friend {
-  id: string;
-  userId: string;
-  friendId: string;
-  status: "ACCEPTED" | "PENDING" | "REJECTED";
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface FriendRequest {
-  id: string;
-  senderId: string;
-  receiverId: string;
-  status: "PENDING" | "ACCEPTED" | "REJECTED";
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface FriendRequestCreateInput {
-  receiverId: string;
-}
-
 export interface Contact {
   name?: string;
   email?: string;
@@ -244,7 +221,6 @@ export interface Contact {
 // Notification types
 export interface NotificationData {
   eventId?: string;
-  friendId?: string;
   actionUrl?: string;
   actionText?: string;
   icon?: string;
@@ -256,7 +232,7 @@ export interface NotificationData {
 export interface Notification {
   id: string;
   userId: string;
-  type: "FRIEND_REQUEST" | "EVENT_INVITE" | "EVENT_UPDATE" | "SYSTEM";
+  type: "EVENT_INVITE" | "EVENT_UPDATE" | "SYSTEM";
   title: string;
   message: string;
   data?: NotificationData;
@@ -267,7 +243,7 @@ export interface Notification {
 
 export interface NotificationCreateInput {
   userId: string;
-  type: "FRIEND_REQUEST" | "EVENT_INVITE" | "EVENT_UPDATE" | "SYSTEM";
+  type: "EVENT_INVITE" | "EVENT_UPDATE" | "SYSTEM";
   title: string;
   message: string;
   data?: NotificationData;
@@ -355,8 +331,8 @@ export interface FilterUpdateInput {
   };
 }
 
-// Event types
-export interface EventType {
+// API-layer event type (distinct from types/types.ts EventType used across the app)
+export interface ApiEventType {
   id: string;
   title: string;
   description?: string;

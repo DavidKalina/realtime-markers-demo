@@ -51,7 +51,6 @@ interface EventFormData {
     longitude: number;
     address: string;
   };
-  sharedWithIds: string[];
   locationNotes: string;
   image?: File;
   // QR code related fields
@@ -64,12 +63,6 @@ interface EventFormData {
   recurrenceEndDate?: string;
   recurrenceInterval?: number;
   recurrenceTime?: string;
-}
-
-interface Friend {
-  id: string;
-  name: string;
-  email: string;
 }
 
 interface SelectedLocation {
@@ -88,7 +81,6 @@ export function CreateEventForm({
   selectedLocation,
   onLocationSelect,
 }: CreateEventFormProps) {
-  const [friends, setFriends] = useState<Friend[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [userCoordinates, setUserCoordinates] = useState<{
@@ -170,28 +162,6 @@ export function CreateEventForm({
     }
   };
 
-  // Fetch friends data
-  useEffect(() => {
-    const fetchFriends = async () => {
-      try {
-        const response = await apiService.getFriends();
-        if (response.data) {
-          setFriends(response.data);
-        }
-      } catch (error) {
-        console.error("Error fetching friends:", error);
-        // Fallback to mock data if API fails
-        setFriends([
-          { id: "1", name: "John Doe", email: "john@example.com" },
-          { id: "2", name: "Jane Smith", email: "jane@example.com" },
-          { id: "3", name: "Bob Johnson", email: "bob@example.com" },
-        ]);
-      }
-    };
-
-    fetchFriends();
-  }, []);
-
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -255,10 +225,6 @@ export function CreateEventForm({
       ) {
         newErrors.recurrenceDays = "Please select at least one day of the week";
       }
-    }
-
-    if (formData.isPrivate && formData.sharedWithIds.length === 0) {
-      newErrors.sharedWithIds = "Please select at least one friend to invite";
     }
 
     // Check if location is selected
@@ -380,15 +346,6 @@ export function CreateEventForm({
     onLocationSelect(null as any);
   };
 
-  const toggleFriendSelection = (friendId: string) => {
-    const updatedFormData = {
-      ...formData,
-      sharedWithIds: formData.sharedWithIds.includes(friendId)
-        ? formData.sharedWithIds.filter((id: string) => id !== friendId)
-        : [...formData.sharedWithIds, friendId],
-    };
-    onFormDataChange(updatedFormData);
-  };
 
   return (
     <div className="w-full mx-auto space-y-6">
@@ -841,41 +798,6 @@ export function CreateEventForm({
             />
           </div>
         </div>
-
-        {/* Friends Selection (for private events) */}
-        {formData.isPrivate && (
-          <div className="space-y-4">
-            <Label className="text-base font-medium flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Invite Friends
-            </Label>
-
-            <div className="grid gap-2 max-h-40 overflow-y-auto border rounded-md p-4">
-              {friends.map((friend) => (
-                <div
-                  key={friend.id}
-                  className="flex items-center space-x-2 cursor-pointer"
-                  onClick={() => toggleFriendSelection(friend.id)}
-                >
-                  <Checkbox
-                    checked={formData.sharedWithIds.includes(friend.id)}
-                    onCheckedChange={() => toggleFriendSelection(friend.id)}
-                  />
-                  <div>
-                    <p className="font-medium">{friend.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {friend.email}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {errors.sharedWithIds && (
-              <p className="text-sm text-red-500">{errors.sharedWithIds}</p>
-            )}
-          </div>
-        )}
 
         {/* Action Buttons */}
         <div className="flex gap-4 pt-4">

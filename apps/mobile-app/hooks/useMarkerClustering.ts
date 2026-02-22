@@ -1,7 +1,7 @@
 // hooks/useMarkerClustering.ts
 import { useMemo } from "react";
 import Supercluster from "supercluster";
-import type { Marker } from "@/hooks/useMapWebsocket";
+import type { Marker } from "@/types/types";
 import type { MapboxViewport } from "@/types/types";
 import type { Point as GeoJSONPoint } from "geojson";
 

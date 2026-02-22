@@ -4,8 +4,7 @@ import {
   RecurrenceFrequency,
   DayOfWeek,
 } from "../types/types";
-import { LegacyEventCacheHandler } from "../handlers/EventProcessor";
-import type { EntityInitializationService as IEntityInitializationService } from "../types/entities";
+import { UnifiedSpatialCacheService } from "./UnifiedSpatialCacheService";
 
 export interface EventInitializationServiceConfig {
   backendUrl?: string;
@@ -14,11 +13,9 @@ export interface EventInitializationServiceConfig {
   retryDelay?: number;
 }
 
-export class EventInitializationService
-  implements IEntityInitializationService
-{
+export class EventInitializationService {
   readonly entityType = "event";
-  private eventProcessor: LegacyEventCacheHandler;
+  private spatialCache: UnifiedSpatialCacheService;
   private backendUrl: string;
   private pageSize: number;
   private maxRetries: number;
@@ -35,10 +32,10 @@ export class EventInitializationService
   };
 
   constructor(
-    eventProcessor: LegacyEventCacheHandler,
+    spatialCache: UnifiedSpatialCacheService,
     config: EventInitializationServiceConfig = {},
   ) {
-    this.eventProcessor = eventProcessor;
+    this.spatialCache = spatialCache;
     this.backendUrl =
       config.backendUrl || process.env.BACKEND_URL || "http://backend:3000";
     this.pageSize = config.pageSize || 100;
@@ -268,10 +265,7 @@ export class EventInitializationService
 
       const promises = batch.map(async (event) => {
         try {
-          await this.eventProcessor.processEvent({
-            operation: "CREATE",
-            record: event,
-          });
+          this.spatialCache.addEvent(event);
           this.stats.eventsProcessed++;
         } catch (error) {
           console.error(
@@ -453,8 +447,8 @@ export class EventInitializationService
  * Factory function to create event initialization service
  */
 export function createEventInitializationService(
-  eventProcessor: LegacyEventCacheHandler,
+  spatialCache: UnifiedSpatialCacheService,
   config: EventInitializationServiceConfig = {},
 ): EventInitializationService {
-  return new EventInitializationService(eventProcessor, config);
+  return new EventInitializationService(spatialCache, config);
 }

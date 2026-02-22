@@ -1,6 +1,21 @@
 import React, { useCallback, useMemo } from "react";
-import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
-import { COLORS } from "@/components/Layout/ScreenLayout";
+import { Pressable, View, Text, StyleSheet } from "react-native";
+import Animated, {
+  FadeInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+import {
+  colors,
+  fontSize,
+  fontFamily,
+  fontWeight,
+  spacing,
+  radius,
+  lineHeight,
+} from "@/theme";
+import { spring } from "@/theme/tokens/animation";
 import EventListItemFooter from "./EventListItemFooter";
 
 export interface EventListItemProps {
@@ -15,6 +30,7 @@ export interface EventListItemProps {
   categories: { id: string; name: string }[];
   isRecurring?: boolean;
   isPrivate?: boolean;
+  index?: number;
   onPress: (event: EventListItemProps) => void;
 }
 
@@ -31,8 +47,11 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
     categories,
     isRecurring,
     isPrivate,
+    index = 0,
     onPress,
   }) => {
+    const scale = useSharedValue(1);
+
     const handlePress = useCallback(() => {
       onPress({
         id,
@@ -46,6 +65,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
         categories,
         isRecurring,
         isPrivate,
+        index,
         onPress,
       });
     }, [
@@ -60,17 +80,32 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
       categories,
       isRecurring,
       isPrivate,
+      index,
       onPress,
     ]);
+
+    const handlePressIn = useCallback(() => {
+      scale.value = withSpring(0.98, spring.snappy);
+    }, [scale]);
+
+    const handlePressOut = useCallback(() => {
+      scale.value = withSpring(1, spring.snappy);
+    }, [scale]);
+
+    const animatedScaleStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scale.value }],
+    }));
+
+    const cappedDelay = Math.min(index, 8) * 50;
 
     const styles = useMemo(
       () =>
         StyleSheet.create({
           eventItem: {
-            paddingVertical: 16,
-            paddingHorizontal: 16,
+            paddingVertical: spacing.lg,
+            paddingHorizontal: spacing.lg,
             borderBottomWidth: 1,
-            borderBottomColor: COLORS.divider,
+            borderBottomColor: colors.border.default,
           },
           eventContent: {
             flex: 1,
@@ -83,15 +118,15 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
             width: 36,
             height: 36,
             borderRadius: 18,
-            backgroundColor: COLORS.textPrimary,
+            backgroundColor: colors.text.primary,
             alignItems: "center",
             justifyContent: "center",
-            marginRight: 12,
+            marginRight: spacing.md,
             borderWidth: 1,
-            borderColor: COLORS.buttonBorder,
+            borderColor: colors.border.medium,
           },
           emoji: {
-            fontSize: 18,
+            fontSize: fontSize.lg,
           },
           titleContainer: {
             flex: 1,
@@ -100,81 +135,93 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
             flexDirection: "row",
             justifyContent: "space-between",
             alignItems: "flex-start",
-            marginBottom: 4,
+            marginBottom: spacing.xs,
           },
           titleText: {
             flex: 1,
-            color: COLORS.textPrimary,
-            fontSize: 16,
-            fontFamily: "Poppins-Regular",
-            fontWeight: "600",
+            color: colors.text.primary,
+            fontSize: fontSize.md,
+            fontFamily: fontFamily.mono,
+            fontWeight: fontWeight.semibold,
           },
           eventDescription: {
-            color: COLORS.textSecondary,
-            fontSize: 14,
-            fontFamily: "Poppins-Regular",
-            lineHeight: 20,
-            marginBottom: 4,
+            color: colors.text.secondary,
+            fontSize: fontSize.sm,
+            fontFamily: fontFamily.mono,
+            lineHeight: lineHeight.normal,
+            marginBottom: spacing.xs,
           },
           recurringBadge: {
-            backgroundColor: COLORS.accent,
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            borderRadius: 12,
+            backgroundColor: colors.accent.primary,
+            paddingHorizontal: spacing.sm,
+            paddingVertical: spacing.xs,
+            borderRadius: radius.md,
             borderWidth: 1,
-            borderColor: COLORS.buttonBorder,
-            marginLeft: 8,
+            borderColor: colors.border.medium,
+            marginLeft: spacing.sm,
           },
           recurringBadgeText: {
-            color: COLORS.cardBackground,
-            fontSize: 12,
-            fontFamily: "Poppins-Regular",
-            fontWeight: "600",
+            color: colors.bg.card,
+            fontSize: fontSize.xs,
+            fontFamily: fontFamily.mono,
+            fontWeight: fontWeight.semibold,
           },
         }),
       [],
     );
 
     return (
-      <TouchableOpacity
-        style={styles.eventItem}
-        onPress={handlePress}
-        activeOpacity={0.7}
+      <Animated.View
+        entering={FadeInUp.duration(300)
+          .delay(cappedDelay)
+          .springify()
+          .damping(spring.firm.damping)
+          .stiffness(spring.firm.stiffness)}
       >
-        <View style={styles.eventContent}>
-          <View style={styles.eventHeader}>
-            {emoji && (
-              <View style={styles.emojiContainer}>
-                <Text style={styles.emoji}>{emoji}</Text>
-              </View>
-            )}
-            <View style={styles.titleContainer}>
-              <View style={styles.titleRow}>
-                <Text style={styles.titleText} numberOfLines={1}>
-                  {title}
-                </Text>
-                {isRecurring && (
-                  <View style={styles.recurringBadge}>
-                    <Text style={styles.recurringBadgeText}>🔄 Recurring</Text>
+        <Pressable
+          onPress={handlePress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+        >
+          <Animated.View style={[styles.eventItem, animatedScaleStyle]}>
+            <View style={styles.eventContent}>
+              <View style={styles.eventHeader}>
+                {emoji && (
+                  <View style={styles.emojiContainer}>
+                    <Text style={styles.emoji}>{emoji}</Text>
                   </View>
                 )}
+                <View style={styles.titleContainer}>
+                  <View style={styles.titleRow}>
+                    <Text style={styles.titleText} numberOfLines={1}>
+                      {title}
+                    </Text>
+                    {isRecurring && (
+                      <View style={styles.recurringBadge}>
+                        <Text style={styles.recurringBadgeText}>
+                          🔄 Recurring
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  {description && (
+                    <Text style={styles.eventDescription} numberOfLines={2}>
+                      {description}
+                    </Text>
+                  )}
+                  <EventListItemFooter
+                    distance={distance}
+                    categories={categories}
+                    eventDate={eventDate}
+                    endDate={endDate}
+                    isPrivate={isPrivate}
+                  />
+                </View>
               </View>
-              {description && (
-                <Text style={styles.eventDescription} numberOfLines={2}>
-                  {description}
-                </Text>
-              )}
-              <EventListItemFooter
-                distance={distance}
-                categories={categories}
-                eventDate={eventDate}
-                endDate={endDate}
-                isPrivate={isPrivate}
-              />
             </View>
-          </View>
-        </View>
-      </TouchableOpacity>
+          </Animated.View>
+        </Pressable>
+      </Animated.View>
     );
   },
 );

@@ -10,6 +10,14 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
+import {
+  colors,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  spacing,
+  radius,
+} from "@/theme";
 import { EventType } from "@/types/types";
 import EventListItem from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
@@ -21,7 +29,7 @@ interface FeaturedEventsCarouselProps {
 }
 
 const { width: screenWidth } = Dimensions.get("window");
-const ITEM_WIDTH = screenWidth * 0.85; // 85% of screen width
+const ITEM_WIDTH = screenWidth * 0.85;
 const ITEM_SPACING = 16;
 const ITEM_MARGIN = (screenWidth - ITEM_WIDTH) / 2;
 
@@ -69,30 +77,6 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
     }
   }, []);
 
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Featured Events</Text>
-        <View style={styles.carouselContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-            pagingEnabled={false}
-            snapToInterval={ITEM_WIDTH + ITEM_SPACING}
-            decelerationRate="fast"
-          >
-            {[1, 2, 3].map((i) => (
-              <View key={i} style={[styles.itemContainer, styles.loadingItem]}>
-                <View style={styles.loadingContent} />
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-      </View>
-    );
-  }
-
   if (!events || events.length === 0) {
     return null;
   }
@@ -132,7 +116,6 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
         </ScrollView>
       </View>
 
-      {/* Pagination Indicators */}
       {events.length > 1 && (
         <View style={styles.paginationContainer}>
           {events.map((_, index) => (
@@ -153,14 +136,15 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
+    marginBottom: spacing["2xl"],
   },
   title: {
-    fontSize: 20,
-    fontWeight: "600",
-    marginBottom: 12,
-    paddingHorizontal: 16,
-    fontFamily: "Poppins-Regular",
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    fontFamily: fontFamily.mono,
   },
   carouselContainer: {
     position: "relative",
@@ -173,53 +157,28 @@ const styles = StyleSheet.create({
     marginRight: ITEM_SPACING,
   },
   cardContainer: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
+    backgroundColor: colors.bg.card,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: "#f0f0f0",
+    borderColor: colors.border.default,
     overflow: "hidden",
-  },
-  loadingItem: {
-    opacity: 0.6,
-  },
-  loadingContent: {
-    width: ITEM_WIDTH,
-    height: 140,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
   },
   paginationContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 20,
-    paddingHorizontal: 16,
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
   paginationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#e0e0e0",
-    marginHorizontal: 4,
+    backgroundColor: colors.border.accent,
+    marginHorizontal: spacing.xs,
   },
   paginationDotActive: {
-    backgroundColor: "#007AFF",
+    backgroundColor: colors.accent.primary,
     width: 24,
   },
 });

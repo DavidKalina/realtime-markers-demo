@@ -1,4 +1,3 @@
-// ActionBar.tsx - Refined with better icon styling and selection states
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import {
@@ -11,72 +10,24 @@ import {
   Camera,
   HeartIcon,
   LucideIcon,
-  MessageSquare,
   Navigation,
   SearchIcon,
   User,
 } from "lucide-react-native";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import {
-  Platform,
-  StyleProp,
-  Text,
-  TouchableOpacity,
-  View,
-  ViewStyle,
-} from "react-native";
-import {
+import React, { useCallback, useMemo } from "react";
+import { Platform, Text, TouchableOpacity, View } from "react-native";
+import Animated, {
   Easing,
+  useAnimatedStyle,
   useSharedValue,
   withSequence,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { colors } from "@/theme";
 import { styles } from "./styles";
 
-// Updated color scheme to match register/login screens
-const newColors = {
-  background: "#00697A",
-  text: "#FFFFFF",
-  accent: "#FDB813",
-  cardBackground: "#FFFFFF",
-  cardText: "#000000",
-  cardTextSecondary: "#6c757d",
-  buttonBackground: "#FFFFFF",
-  buttonText: "#00697A",
-  buttonBorder: "#DDDDDD",
-  inputBackground: "#F5F5F5",
-  errorBackground: "#FFCDD2",
-  errorText: "#B71C1C",
-  errorBorder: "#EF9A9A",
-  divider: "#E0E0E0",
-  activityIndicator: "#00697A",
-};
-
-interface ActionBarProps {
-  isStandalone?: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  animatedStyle?: any;
-  availableActions?: string[]; // Prop to control which actions are available
-}
-
-interface ActionButtonProps {
-  actionKey: string;
-  label: string;
-  icon: JSX.Element;
-  onPress: () => void;
-  isActive: boolean;
-  disabled?: boolean;
-  unreadCount?: number;
-}
-
-// Pre-define animation configurations to avoid recreating them on render
+// Pre-define animation configurations
 const BUTTON_PRESS_ANIMATION = {
   duration: 100,
   easing: Easing.bezier(0.25, 0.1, 0.25, 1),
@@ -87,72 +38,75 @@ const BUTTON_RELEASE_ANIMATION = {
   easing: Easing.bezier(0.25, 0.1, 0.25, 1),
 };
 
-// Create a separate component for each action button to properly handle hooks
-const ActionButton: React.FC<ActionButtonProps> = React.memo(
-  ({ label, icon, onPress, isActive, disabled }) => {
-    // Each button has its own scale animation
-    const scaleValue = useSharedValue(1);
+// Define route type to match expo-router's expected types
+type AppRoute = "/search" | "/scan" | "/saved" | "/user" | "/";
 
-    // Cleanup animation value on unmount
-    useEffect(() => {
-      return () => {
-        scaleValue.value = 1; // Reset the animation value
-      };
-    }, [scaleValue]);
+interface TabConfig {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  route?: AppRoute;
+  requiresLocation?: boolean;
+}
 
-    // Memoize the icon color based on active state
-    const iconColor = useMemo(
-      () => (isActive ? newColors.accent : "rgba(255, 255, 255, 0.9)"), // Municipal accent for active, semi-transparent white for inactive
-      [isActive],
+const TABS: TabConfig[] = [
+  { key: "search", label: "Search", icon: SearchIcon, route: "/search" },
+  { key: "scan", label: "Scan", icon: Camera, route: "/scan" },
+  { key: "locate", label: "Locate", icon: Navigation, requiresLocation: true },
+  { key: "saved", label: "Saved", icon: HeartIcon, route: "/saved" },
+  { key: "user", label: "Me", icon: User, route: "/user" },
+];
+
+const HIDDEN_ROUTES = ["/register", "/login"];
+
+// Map pathname to active tab key
+const getActiveTabKey = (pathname: string): string | null => {
+  if (pathname === "/") return "locate";
+  if (pathname.startsWith("/saved")) return "saved";
+  if (pathname.startsWith("/search")) return "search";
+  return TABS.find((tab) => tab.route === pathname)?.key ?? null;
+};
+
+// Separate component for each button to isolate animation shared values
+const ActionButton: React.FC<{
+  tab: TabConfig;
+  isActive: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}> = React.memo(({ tab, isActive, disabled, onPress }) => {
+  const scaleValue = useSharedValue(1);
+  const IconComponent = tab.icon;
+  const iconColor = isActive ? colors.accent.primary : colors.text.primary;
+
+  const animatedButtonStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scaleValue.value }],
+  }));
+
+  const handlePress = useCallback(() => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    }
+    scaleValue.value = withSequence(
+      withTiming(0.95, BUTTON_PRESS_ANIMATION),
+      withTiming(1, BUTTON_RELEASE_ANIMATION),
     );
+    onPress();
+  }, [onPress, scaleValue]);
 
-    // Handle button press with animation
-    const handlePress = useCallback(() => {
-      // Provide haptic feedback on button press
-      if (Platform.OS !== "web") {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
-          // Silently handle haptic errors
-        });
-      }
-
-      // Animate button - more subtle scale
-      scaleValue.value = withSequence(
-        withTiming(0.95, BUTTON_PRESS_ANIMATION),
-        withTiming(1, BUTTON_RELEASE_ANIMATION),
-      );
-
-      // Call the parent's onPress handler
-      onPress();
-    }, [onPress, scaleValue]);
-
-    // Compute button style only when active state changes
-    const buttonStyle = useMemo(
-      () => [styles.labeledActionButton, disabled && { opacity: 0.5 }],
-      [disabled],
-    );
-
-    // Create a wrapper for the icon to ensure consistent sizing
-    const iconWithWrapper = useMemo(() => {
-      // Clone the icon element to add color prop if active
-      const iconElement = React.cloneElement(icon as React.ReactElement, {
-        color: iconColor,
-        size: 20, // Slightly smaller icon size for labeled buttons
-      });
-
-      return <View style={styles.actionButtonIcon}>{iconElement}</View>;
-    }, [icon, iconColor]);
-
-    return (
-      <TouchableOpacity
-        style={buttonStyle}
-        disabled={disabled}
-        onPress={handlePress}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={`${label} button`}
-        accessibilityState={{ disabled: !!disabled, selected: isActive }}
-      >
-        {iconWithWrapper}
+  return (
+    <TouchableOpacity
+      style={[styles.labeledActionButton, disabled && styles.disabledButton]}
+      disabled={disabled}
+      onPress={handlePress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={`${tab.label} button`}
+      accessibilityState={{ disabled, selected: isActive }}
+    >
+      <Animated.View style={[styles.actionButtonInner, animatedButtonStyle]}>
+        <View style={styles.actionButtonIcon}>
+          <IconComponent size={20} color={iconColor} />
+        </View>
         <Text
           style={[
             styles.actionButtonLabel,
@@ -160,291 +114,81 @@ const ActionButton: React.FC<ActionButtonProps> = React.memo(
           ]}
           numberOfLines={1}
         >
-          {label}
+          {tab.label}
         </Text>
-      </TouchableOpacity>
-    );
-  },
-  // Custom equality function to prevent unnecessary re-renders
-  (prevProps, nextProps) => {
-    return (
-      prevProps.isActive === nextProps.isActive &&
-      prevProps.disabled === nextProps.disabled &&
-      prevProps.actionKey === nextProps.actionKey &&
-      prevProps.label === nextProps.label &&
-      prevProps.unreadCount === nextProps.unreadCount
-    );
-  },
-);
-
-// Define the tab configuration type
-interface TabConfig {
-  key: string;
-  label: string;
-  icon: LucideIcon;
-  route?: string;
-  requiresLocation?: boolean;
-  enabled: boolean;
-}
-
-// Define route type to match expo-router's expected types
-type AppRoute =
-  | "/search"
-  | "/scan"
-  | "/saved"
-  | "/user"
-  | "/"
-  | "/civic-engagements";
-
-// Define all possible tabs in a single configuration object
-const TAB_CONFIG: Record<string, TabConfig & { route?: AppRoute }> = {
-  search: {
-    key: "search",
-    label: "Search",
-    icon: SearchIcon,
-    route: "/search",
-    enabled: true,
-  },
-  scan: {
-    key: "scan",
-    label: "Scan",
-    icon: Camera,
-    route: "/scan",
-    enabled: true,
-  },
-  locate: {
-    key: "locate",
-    label: "Locate",
-    icon: Navigation,
-    requiresLocation: true,
-    enabled: true,
-  },
-  saved: {
-    key: "saved",
-    label: "Saved",
-    icon: HeartIcon,
-    route: "/saved",
-    enabled: true,
-  },
-  civic: {
-    key: "civic",
-    label: "Feedback",
-    icon: MessageSquare,
-    route: "/civic-engagements",
-    enabled: true,
-  },
-  user: {
-    key: "user",
-    label: "Me",
-    icon: User,
-    route: "/user",
-    enabled: true,
-  },
-};
-
-// Helper function to get enabled tabs
-const getEnabledTabs = (config: Record<string, TabConfig>) => {
-  return Object.values(config).filter((tab) => tab.enabled);
-};
-
-// Memoize the default available actions to prevent recalculation
-const DEFAULT_AVAILABLE_ACTIONS = getEnabledTabs(TAB_CONFIG).map(
-  (tab) => tab.key,
-);
-
-// Helper function to get the active tab key from the current path
-const getActiveTabKey = (pathname: string): string | null => {
-  // Handle root path
-  if (pathname === "/") return "locate";
-
-  // Handle saved routes
-  if (pathname.startsWith("/saved")) return "saved";
-
-  // Handle search routes
-  if (pathname.startsWith("/search")) return "search";
-
-  // Handle civic engagements routes
-  if (pathname.startsWith("/civic-engagements")) return "civic";
-
-  // Handle exact matches
-  const exactMatch = Object.entries(TAB_CONFIG).find(
-    ([, config]) => config.route === pathname,
+      </Animated.View>
+      {isActive && <View style={styles.activeIndicator} />}
+    </TouchableOpacity>
   );
-  if (exactMatch) return exactMatch[0];
+});
 
-  return null;
-};
+export const ActionBar: React.FC = React.memo(() => {
+  const pathname = usePathname();
+  const { publish } = useEventBroker();
+  const insets = useSafeAreaInsets();
+  const { userLocation } = useUserLocation();
+  const router = useRouter();
 
-export const ActionBar: React.FC<ActionBarProps> = React.memo(
-  ({ animatedStyle, availableActions = DEFAULT_AVAILABLE_ACTIONS }) => {
-    const pathname = usePathname();
+  const activeTab = useMemo(() => getActiveTabKey(pathname), [pathname]);
 
-    const activeActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-      null,
-    );
-    const { publish } = useEventBroker();
-    const [activeAction, setActiveAction] = useState<string | null>(null);
-    const insets = useSafeAreaInsets();
-    const { userLocation } = useUserLocation();
-    const router = useRouter();
+  const handleTabPress = useCallback(
+    (tab: TabConfig) => {
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      }
 
-    // Get the active tab based on the current route
-    const activeTab = useMemo(() => getActiveTabKey(pathname), [pathname]);
-
-    // Memoize the camera animation event to prevent recreation
-    const cameraAnimationEvent = useMemo(() => {
-      if (!userLocation) return null;
-      return {
-        timestamp: Date.now(),
-        source: "ActionBar",
-        coordinates: userLocation,
-        duration: 1000,
-        zoomLevel: 15,
-      };
-    }, [userLocation]);
-
-    // Handle action press with proper memoization - moved before its usage
-    const handlePress = useCallback(
-      (action: string) => {
-        // Clear any existing timeout
-        if (activeActionTimeoutRef.current) {
-          clearTimeout(activeActionTimeoutRef.current);
-          activeActionTimeoutRef.current = null;
-        }
-
-        // Trigger haptic feedback - with error handling
-        if (Platform.OS !== "web") {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {
-            // Silently handle haptic errors
-          });
-        }
-
-        // Update UI state
-        setActiveAction(action);
-
-        const tab = TAB_CONFIG[action];
-        if (!tab) return;
-
-        // Special handling for locate action
-        if (action === "locate") {
-          if (pathname === "/") {
-            // If we're on root, trigger the locate animation
-            if (cameraAnimationEvent) {
-              publish<CameraAnimateToLocationEvent>(
-                EventTypes.CAMERA_ANIMATE_TO_LOCATION,
-                cameraAnimationEvent,
-              );
-            }
-          } else {
-            // If we're not on root, navigate to root
-            router.push("/");
+      if (tab.key === "locate") {
+        if (pathname === "/") {
+          if (userLocation) {
+            publish<CameraAnimateToLocationEvent>(
+              EventTypes.CAMERA_ANIMATE_TO_LOCATION,
+              {
+                timestamp: Date.now(),
+                source: "ActionBar",
+                coordinates: userLocation,
+                duration: 1000,
+                zoomLevel: 15,
+              },
+            );
           }
-        } else if (tab.route) {
-          // Handle navigation for other tabs if route is defined
-          router.push(tab.route as AppRoute);
+        } else {
+          router.push("/");
         }
+      } else if (tab.route) {
+        router.push(tab.route);
+      }
+    },
+    [publish, userLocation, router, pathname],
+  );
 
-        // Use a ref to track and clean up the timeout
-        activeActionTimeoutRef.current = setTimeout(() => {
-          setActiveAction(null);
-          activeActionTimeoutRef.current = null;
-        }, 500);
+  const containerStyle = useMemo(
+    () => [
+      styles.bottomBar,
+      {
+        paddingTop: Platform.OS === "ios" ? insets.bottom : 0,
+        paddingBottom: Platform.OS === "ios" ? insets.bottom * 1.45 : 0,
       },
-      [publish, cameraAnimationEvent, router, pathname],
-    );
+    ],
+    [insets.bottom],
+  );
 
-    // Create individual action handlers with proper memoization
-    const actionHandlers = useMemo(() => {
-      const handlers: Record<string, () => void> = {};
-      availableActions.forEach((key) => {
-        handlers[key] = () => handlePress(key);
-      });
-      return handlers;
-    }, [handlePress, availableActions]);
+  if (HIDDEN_ROUTES.includes(pathname)) {
+    return null;
+  }
 
-    // Define all possible actions using the tab config
-    const allPossibleActions = useMemo(
-      () =>
-        Object.values(TAB_CONFIG)
-          .filter((tab) => tab.enabled)
-          .map((tab) => ({
-            key: tab.key,
-            label: tab.label,
-            icon: <tab.icon size={22} />, // Remove hardcoded color, let ActionButton handle it
-            action: actionHandlers[tab.key],
-            disabled: tab.requiresLocation && !userLocation,
-            isActive: tab.key === activeTab, // Add isActive based on current route
-          })),
-      [userLocation, actionHandlers, activeTab],
-    );
-
-    // Filter actions based on the availableActions prop - only recalculate when dependencies change
-    const scrollableActions = useMemo(() => {
-      const availableActionsSet = new Set(availableActions);
-      return allPossibleActions.filter((action) =>
-        availableActionsSet.has(action.key),
-      );
-    }, [allPossibleActions, availableActions]);
-
-    // Calculate styles based on platform and insets - only recalculate when dependencies change
-    const containerStyle = useMemo(
-      () => [
-        styles.bottomBar,
-        animatedStyle,
-        {
-          paddingTop: Platform.OS === "ios" ? insets.bottom : 0,
-          paddingBottom: Platform.OS === "ios" ? insets.bottom * 1.45 : 0,
-        },
-      ],
-      [animatedStyle, insets.bottom],
-    );
-
-    // Calculate content container style - create once
-    const contentContainerStyle = useMemo(
-      () => [
-        {
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          width: "100%",
-          paddingHorizontal: 8,
-        },
-      ],
-      [],
-    );
-
-    // Hide ActionBar on specific routes
-    const hiddenRoutes = ["/register", "/login"];
-    if (hiddenRoutes.includes(pathname)) {
-      return null;
-    }
-
-    return (
-      <View style={containerStyle}>
-        <View style={contentContainerStyle as StyleProp<ViewStyle>}>
-          {scrollableActions.map((action) => (
-            <ActionButton
-              key={action.key}
-              actionKey={action.key}
-              label={action.label}
-              icon={action.icon}
-              onPress={action.action}
-              isActive={action.isActive || activeAction === action.key}
-              disabled={action.disabled}
-            />
-          ))}
-        </View>
+  return (
+    <View style={containerStyle}>
+      <View style={styles.contentContainer}>
+        {TABS.map((tab) => (
+          <ActionButton
+            key={tab.key}
+            tab={tab}
+            isActive={activeTab === tab.key}
+            disabled={!!tab.requiresLocation && !userLocation}
+            onPress={() => handleTabPress(tab)}
+          />
+        ))}
       </View>
-    );
-  },
-  // Custom equality function to prevent unnecessary re-renders
-  (prevProps, nextProps) => {
-    return (
-      prevProps.isStandalone === nextProps.isStandalone &&
-      prevProps.animatedStyle === nextProps.animatedStyle &&
-      ((!prevProps.availableActions && !nextProps.availableActions) ||
-        prevProps.availableActions?.join(",") ===
-          nextProps.availableActions?.join(","))
-    );
-  },
-);
+    </View>
+  );
+});

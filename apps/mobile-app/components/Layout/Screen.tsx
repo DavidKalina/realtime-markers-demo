@@ -15,28 +15,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Banner from "./Banner";
 import Button from "./Button";
 import ScreenContent from "./ScreenContent";
+import { colors, spacing, radius } from "@/theme";
 import ScreenLayout from "./ScreenLayout";
 import SectionHeader from "./SectionHeader";
 import Tabs from "./Tabs";
-
-// Updated color scheme to match register/login screens
-const newColors = {
-  background: "#00697A",
-  text: "#FFFFFF",
-  accent: "#FDB813",
-  cardBackground: "#FFFFFF",
-  cardText: "#000000",
-  cardTextSecondary: "#6c757d",
-  buttonBackground: "#FFFFFF",
-  buttonText: "#00697A",
-  buttonBorder: "#DDDDDD",
-  inputBackground: "#F5F5F5",
-  errorBackground: "#FFCDD2",
-  errorText: "#B71C1C",
-  errorBorder: "#EF9A9A",
-  divider: "#E0E0E0",
-  activityIndicator: "#00697A",
-};
 
 export interface Section {
   title?: string;
@@ -149,12 +131,6 @@ const Screen = <T extends string>({
 
   const renderContent = () => (
     <ScreenContent>
-      {tabs && activeTab && onTabChange && (
-        <View style={styles.tabsWrapper}>
-          <Tabs items={tabs} activeTab={activeTab} onTabPress={onTabChange} />
-        </View>
-      )}
-
       <View
         style={[
           styles.contentContainer,
@@ -185,6 +161,11 @@ const Screen = <T extends string>({
           </View>
         ))}
       </View>
+       {tabs && activeTab && onTabChange && (
+        <View style={styles.tabsWrapper}>
+          <Tabs items={tabs} activeTab={activeTab} onTabPress={onTabChange} />
+        </View>
+      )}
     </ScreenContent>
   );
 
@@ -238,7 +219,7 @@ const Screen = <T extends string>({
           <View
             style={[
               styles.fixedFooter,
-              { paddingBottom: footerSafeArea ? insets.bottom + 12 : 12 },
+              { paddingBottom: footerSafeArea ? insets.bottom + 8 : 8 },
             ]}
           >
             {footerButtons.map((button, index) => (
@@ -286,46 +267,45 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: spacing.lg,
   },
   contentWithFooter: {
-    paddingBottom: 24, // Add padding when footer is present
+    paddingBottom: spacing["2xl"], // Add padding when footer is present
   },
   contentWrapper: {
     flex: 1,
     minHeight: 0,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing["2xl"],
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
-    marginLeft: 4,
+    marginBottom: spacing.md,
+    marginLeft: spacing.xs,
   },
   card: {
-    borderRadius: 12,
+    borderRadius: radius.md,
   },
   fixedFooter: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: newColors.background, // Updated to teal background
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)", // Updated for better contrast on teal
+    backgroundColor: colors.bg.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border.medium,
     flexDirection: "row",
-    gap: 12,
+    gap: spacing.sm,
   },
   footerButton: {
     // Remove default flex: 1 to allow custom flex values from EventDetails
   },
   tabsWrapper: {
-    marginHorizontal: -16,
     marginTop: 0,
     marginBottom: 0,
   },

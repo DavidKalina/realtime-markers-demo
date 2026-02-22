@@ -32,7 +32,7 @@ export interface HybridUserUpdateBatcherService {
     },
   ): void;
   forceProcessBatch(): Promise<void>;
-  shutdown(): void;
+  shutdown(): Promise<void>;
   getStats(): Record<string, unknown>;
   startPeriodicSweeper(): void;
 }
@@ -48,7 +48,7 @@ export function createHybridUserUpdateBatcherService(
   const {
     debounceTimeoutMs = 150,
     sweepIntervalMs = 2000,
-    maxBatchSize = 100,
+    maxBatchSize = 500,
     enableBatching = true,
   } = config;
 
@@ -57,6 +57,7 @@ export function createHybridUserUpdateBatcherService(
   const userDebounceTimers = new Map<string, NodeJS.Timeout>();
   let periodicSweeper: NodeJS.Timeout | null = null;
   let isShutdown = false;
+  let processingPromise: Promise<void> | null = null;
 
   // Stats for monitoring
   const stats = {
@@ -96,7 +97,10 @@ export function createHybridUserUpdateBatcherService(
 
     if (!enableBatching) {
       // If batching is disabled, process immediately
-      processUpdatesForUsers([userId]);
+      const promise = processUpdatesForUsers([userId]);
+      processingPromise = promise.finally(() => {
+        if (processingPromise === promise) processingPromise = null;
+      });
       return;
     }
 
@@ -117,7 +121,10 @@ export function createHybridUserUpdateBatcherService(
       // Remove from dirty set to prevent sweeper from processing again
       dirtyUserIds.delete(userId);
 
-      processUpdatesForUsers([userId]);
+      const promise = processUpdatesForUsers([userId]);
+      processingPromise = promise.finally(() => {
+        if (processingPromise === promise) processingPromise = null;
+      });
     }, debounceTimeoutMs);
 
     userDebounceTimers.set(userId, timer);
@@ -137,7 +144,7 @@ export function createHybridUserUpdateBatcherService(
     // --- Batching Part ---
     // Every sweepIntervalMs, process ALL users who are currently dirty
     periodicSweeper = setInterval(() => {
-      if (isShutdown) return;
+      if (isShutdown || processingPromise !== null) return;
 
       // Get a copy of all dirty users and process them
       const usersToProcess = Array.from(dirtyUserIds);
@@ -146,7 +153,10 @@ export function createHybridUserUpdateBatcherService(
         console.log(
           `[HybridBatcher] Sweeper processing ${usersToProcess.length} dirty users`,
         );
-        processUpdatesForUsers(usersToProcess);
+        const promise = processUpdatesForUsers(usersToProcess);
+        processingPromise = promise.finally(() => {
+          if (processingPromise === promise) processingPromise = null;
+        });
       }
     }, sweepIntervalMs);
 
@@ -187,27 +197,21 @@ export function createHybridUserUpdateBatcherService(
         // Note: Users with no filters will get MapMoji-curated events
         // The EventFilteringService handles this case properly
 
-        // 4. Get the relevant events and civic engagements (from EventCacheService)
+        // 4. Get the relevant events (from EventCacheService)
         const events = viewport
           ? eventCacheService.getEventsInViewport(viewport)
           : eventCacheService.getAllEvents();
-
-        const civicEngagements = viewport
-          ? eventCacheService.getCivicEngagementsInViewport(viewport)
-          : eventCacheService.getAllCivicEngagements();
 
         console.log(`[HybridBatcher] Processing user ${userId}:`, {
           viewport: !!viewport,
           filterCount: filters.length,
           eventCount: events.length,
-          civicEngagementCount: civicEngagements.length,
         });
 
-        // 5. Call the unified filtering service for both events and civic engagements
+        // 5. Call the unified filtering service for events
         await unifiedFilteringService.calculateAndSendDiff(
           userId,
           events,
-          civicEngagements,
           viewport,
           filters,
         );
@@ -243,8 +247,12 @@ export function createHybridUserUpdateBatcherService(
       console.log(
         `[HybridBatcher] Scheduling next batch of ${remainingUsers.length} users`,
       );
-      // Use setImmediate to avoid blocking the event loop
-      setImmediate(() => processUpdatesForUsers(remainingUsers));
+      // Use setImmediate to avoid blocking the event loop, but chain the promise
+      await new Promise<void>((resolve) => {
+        setImmediate(() => {
+          processUpdatesForUsers(remainingUsers).then(resolve, resolve);
+        });
+      });
     }
   }
 
@@ -270,7 +278,7 @@ export function createHybridUserUpdateBatcherService(
   /**
    * Shutdown the service
    */
-  function shutdown(): void {
+  async function shutdown(): Promise<void> {
     console.log("[HybridBatcher] Shutting down");
     isShutdown = true;
 
@@ -285,14 +293,21 @@ export function createHybridUserUpdateBatcherService(
       periodicSweeper = null;
     }
 
+    // Wait for any in-flight processing to complete
+    if (processingPromise) {
+      await processingPromise;
+    }
+
     // Process any remaining dirty users
+    isShutdown = false; // Temporarily allow processing for final flush
     const remainingUsers = Array.from(dirtyUserIds);
     if (remainingUsers.length > 0) {
       console.log(
         `[HybridBatcher] Processing ${remainingUsers.length} remaining users during shutdown`,
       );
-      processUpdatesForUsers(remainingUsers);
+      await processUpdatesForUsers(remainingUsers);
     }
+    isShutdown = true;
   }
 
   /**

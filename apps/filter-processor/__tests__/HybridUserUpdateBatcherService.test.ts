@@ -17,24 +17,17 @@ describe("HybridUserUpdateBatcherService", () => {
     removeEvent: ReturnType<typeof mock>;
     getEvent: ReturnType<typeof mock>;
     getAllEvents: ReturnType<typeof mock>;
-    addCivicEngagement: ReturnType<typeof mock>;
-    updateCivicEngagement: ReturnType<typeof mock>;
-    removeCivicEngagement: ReturnType<typeof mock>;
-    getCivicEngagement: ReturnType<typeof mock>;
-    getAllCivicEngagements: ReturnType<typeof mock>;
     getEntitiesInViewport: ReturnType<typeof mock>;
     addToSpatialIndex: ReturnType<typeof mock>;
     updateSpatialIndex: ReturnType<typeof mock>;
     removeFromSpatialIndex: ReturnType<typeof mock>;
     getEventsInViewport: ReturnType<typeof mock>;
-    getCivicEngagementsInViewport: ReturnType<typeof mock>;
     clearAll: ReturnType<typeof mock>;
     bulkLoad: ReturnType<typeof mock>;
     getStats: ReturnType<typeof mock>;
     verifyEventInSpatialIndex: ReturnType<typeof mock>;
     getSpatialIndex: ReturnType<typeof mock>;
     getEventCache: ReturnType<typeof mock>;
-    getCivicEngagementCache: ReturnType<typeof mock>;
   };
   let mockGetUserFilters: ReturnType<typeof mock>;
   let mockGetUserViewport: ReturnType<typeof mock>;
@@ -79,11 +72,6 @@ describe("HybridUserUpdateBatcherService", () => {
           },
         ] as Event[];
       }),
-      addCivicEngagement: mock(() => {}),
-      updateCivicEngagement: mock(() => {}),
-      removeCivicEngagement: mock(() => {}),
-      getCivicEngagement: mock(() => undefined),
-      getAllCivicEngagements: mock(() => []),
       getEntitiesInViewport: mock(() => []),
       addToSpatialIndex: mock(() => {}),
       updateSpatialIndex: mock(() => {}),
@@ -106,18 +94,15 @@ describe("HybridUserUpdateBatcherService", () => {
           },
         ] as Event[];
       }),
-      getCivicEngagementsInViewport: mock(() => []),
       clearAll: mock(() => {}),
       bulkLoad: mock(() => {}),
       getStats: mock(() => ({
         spatialIndexSize: 1,
         cacheSize: 1,
-        civicEngagementCacheSize: 0,
       })),
       verifyEventInSpatialIndex: mock(() => true),
       getSpatialIndex: mock(() => ({})),
       getEventCache: mock(() => new Map()),
-      getCivicEngagementCache: mock(() => new Map()),
     };
 
     mockGetUserFilters = mock(() => {
@@ -164,10 +149,10 @@ describe("HybridUserUpdateBatcherService", () => {
     );
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     // Clean up after each test
     if (batcherService) {
-      batcherService.shutdown();
+      await batcherService.shutdown();
     }
   });
 
@@ -198,7 +183,7 @@ describe("HybridUserUpdateBatcherService", () => {
         expect.any(Array),
       );
 
-      immediateBatcher.shutdown();
+      await immediateBatcher.shutdown();
     });
 
     test("should debounce rapid updates for the same user", async () => {
@@ -299,7 +284,7 @@ describe("HybridUserUpdateBatcherService", () => {
       expect(processedUsers).toContain("user-3");
       expect(processedUsers).toContain("user-4");
 
-      smallBatchBatcher.shutdown();
+      await smallBatchBatcher.shutdown();
     });
   });
 
@@ -351,8 +336,8 @@ describe("HybridUserUpdateBatcherService", () => {
       batcherService.markUserAsDirty("user-1");
       batcherService.markUserAsDirty("user-2");
 
-      // Shutdown
-      batcherService.shutdown();
+      // Shutdown (now async — awaits final flush)
+      await batcherService.shutdown();
 
       // Should process remaining users (may be processed by sweeper before shutdown)
       const callCount = (

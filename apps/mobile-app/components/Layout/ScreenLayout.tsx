@@ -7,48 +7,7 @@ import {
   ViewStyle,
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
-
-// Updated color scheme to match register/login screens
-const newColors = {
-  background: "#00697A",
-  text: "#FFFFFF",
-  accent: "#FDB813",
-  cardBackground: "#FFFFFF",
-  cardText: "#000000",
-  cardTextSecondary: "#6c757d",
-  buttonBackground: "#FFFFFF",
-  buttonText: "#00697A",
-  buttonBorder: "#DDDDDD",
-  inputBackground: "#F5F5F5",
-  errorBackground: "#FFCDD2",
-  errorText: "#FFFFFF",
-  errorBorder: "#EF9A9A",
-  divider: "#E0E0E0",
-  activityIndicator: "#00697A",
-};
-
-// Unified color theme
-export const COLORS = {
-  background: "#f8fafc", // Light, clean background
-  cardBackground: "#ffffff", // Pure white for cards
-  cardBackgroundAlt: "#f1f5f9", // Slightly off-white for alternate cards
-  textPrimary: "#0f172a", // Deep blue-gray for primary text
-  textSecondary: "#64748b", // Medium gray for secondary text
-  accent: "#f59e0b", // Vibrant amber/orange
-  accentDark: "#d97706", // Darker amber for hover states
-  divider: "rgba(0, 0, 0, 0.08)", // Subtle divider
-  buttonBackground: "rgba(0, 0, 0, 0.05)", // Light button background
-  buttonBorder: "rgba(0, 0, 0, 0.1)", // Subtle button border
-  shadow: "rgba(0, 0, 0, 0.1)", // Lighter shadow
-  // Warning colors
-  warningBackground: "rgba(251, 191, 36, 0.1)", // Bright yellow warning
-  warningBorder: "rgba(251, 191, 36, 0.3)",
-  warningText: "#d97706", // Warm orange warning text
-  // Error colors
-  errorBackground: "rgba(239, 68, 68, 1)", // Bright red error
-  errorBorder: "rgba(239, 68, 68, 0.3)",
-  errorText: "#FFFFFF", // Vibrant red error text
-};
+import { colors } from "@/theme";
 
 interface ScreenLayoutProps {
   children: React.ReactNode;
@@ -63,7 +22,7 @@ interface ScreenLayoutProps {
 const screenLayoutStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bg.primary,
   },
   content: {
     flex: 1,
@@ -74,7 +33,7 @@ const screenLayoutStyles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 44, // Approximate status bar height
-    backgroundColor: newColors.background, // Updated to teal background to match other components
+    backgroundColor: colors.bg.card,
     zIndex: 1,
   },
 });
@@ -105,10 +64,8 @@ const ScreenLayout: React.FC<ScreenLayoutProps> = React.memo(
     return (
       <Container style={containerStyle}>
         <StatusBar
-          barStyle={extendBannerToStatusBar ? "light-content" : "light-content"} // Updated to light-content for teal background
-          backgroundColor={
-            extendBannerToStatusBar ? newColors.background : COLORS.background // Updated to use teal background
-          }
+          barStyle="light-content"
+          backgroundColor={colors.bg.primary}
           translucent={extendBannerToStatusBar}
         />
         {extendBannerToStatusBar && (

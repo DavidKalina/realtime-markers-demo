@@ -11,6 +11,16 @@ import { createUserFilterService } from "./services/userFilterService";
 import { createClientConnectionService } from "./services/clientConnectionService";
 import { SessionManager } from "../SessionManager";
 import type { WebSocketData } from "./types/websocket";
+import type { FormattedViewport } from "./handlers/viewportHandler";
+
+// Connection reaper config
+const ZOMBIE_CHECK_INTERVAL_MS = 60_000; // Check every 60s
+const ZOMBIE_IDLE_THRESHOLD_MS = 5 * 60_000; // 5 minutes idle = zombie
+
+// Viewport debounce state — coalesces rapid panning into single Redis writes
+const VIEWPORT_DEBOUNCE_MS = 150;
+const viewportTimers = new Map<string, NodeJS.Timeout>();
+const pendingViewports = new Map<string, FormattedViewport>();
 
 // Initialize services with dependency injection
 const redisService = createRedisService();
@@ -37,8 +47,28 @@ const webSocketMessageHandler = createWebSocketMessageHandler({
       redisService.setClientType(userId, clientType),
   },
   updateViewport: async (userId: string, viewport) => {
-    await redisService.updateViewport(userId, viewport);
-    console.log(`Published viewport update for user ${userId}`);
+    // Store latest viewport and debounce the Redis write
+    pendingViewports.set(userId, viewport);
+
+    if (viewportTimers.has(userId)) {
+      clearTimeout(viewportTimers.get(userId)!);
+    }
+
+    const timer = setTimeout(() => {
+      viewportTimers.delete(userId);
+      const latestViewport = pendingViewports.get(userId);
+      pendingViewports.delete(userId);
+      if (latestViewport) {
+        redisService.updateViewport(userId, latestViewport).catch((error) => {
+          console.error(
+            `[WebSocket] Error publishing debounced viewport for user ${userId}:`,
+            error,
+          );
+        });
+      }
+    }, VIEWPORT_DEBOUNCE_MS);
+
+    viewportTimers.set(userId, timer);
   },
   getUserClients: (userId: string) =>
     clientConnectionService.getUserClients(userId),
@@ -70,21 +100,13 @@ redisService.onGlobalMessage((channel: string, message: string) => {
 async function setupRedisSubscriptions() {
   await Promise.all([
     redisService.subscribeToChannel(REDIS_CHANNELS.DISCOVERED_EVENTS, () => {}),
-    redisService.subscribeToChannel(
-      REDIS_CHANNELS.DISCOVERED_CIVIC_ENGAGEMENTS,
-      () => {},
-    ),
     redisService.subscribeToChannel(REDIS_CHANNELS.NOTIFICATIONS, () => {}),
     redisService.subscribeToChannel(REDIS_CHANNELS.LEVEL_UPDATE, () => {}),
-    redisService.subscribeToChannel(
-      REDIS_CHANNELS.CIVIC_ENGAGEMENT_CHANGES,
-      () => {},
-    ),
   ]);
 }
 
 // Run regular health checks
-setInterval(async () => {
+const healthCheckInterval = setInterval(async () => {
   await Promise.all([
     healthCheckService.checkRedisConnection(),
     healthCheckService.checkBackendConnection(),
@@ -95,6 +117,11 @@ setInterval(async () => {
     clientConnectionService.getConnectedUsersCount(),
   );
 }, SERVER_CONFIG.healthCheckInterval);
+
+// Reap zombie connections periodically
+const zombieReaperInterval = setInterval(() => {
+  clientConnectionService.reapZombieConnections(ZOMBIE_IDLE_THRESHOLD_MS);
+}, ZOMBIE_CHECK_INTERVAL_MS);
 
 // WebSocket server definition
 const server = {
@@ -159,3 +186,26 @@ async function startServer() {
 }
 
 startServer();
+
+// Graceful shutdown
+async function shutdown() {
+  console.log("[WebSocket] Graceful shutdown initiated...");
+
+  // Stop intervals and clear viewport debounce timers
+  clearInterval(healthCheckInterval);
+  clearInterval(zombieReaperInterval);
+  for (const timer of viewportTimers.values()) {
+    clearTimeout(timer);
+  }
+  viewportTimers.clear();
+  pendingViewports.clear();
+
+  // Close all Redis connections
+  await redisService.shutdown();
+
+  console.log("[WebSocket] Shutdown complete");
+  process.exit(0);
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);

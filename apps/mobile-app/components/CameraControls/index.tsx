@@ -1,7 +1,8 @@
 // CameraControls.tsx
 import React from "react";
 import { StyleSheet, View, TouchableOpacity, Platform } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Zap, ZapOff } from "lucide-react-native";
+import { colors, spacing, radius } from "@/theme";
 
 import { FlashMode } from "expo-camera";
 import { CaptureButton } from "../CaptureButton/CaptureButton";
@@ -17,6 +18,13 @@ interface CameraControlsProps {
   disabled?: boolean;
 }
 
+// Flash mode color mapping using theme tokens
+const flashColors: Record<string, string> = {
+  on: colors.status.warning.text,
+  auto: colors.accent.primary,
+  off: colors.text.secondary,
+};
+
 export const CameraControls: React.FC<CameraControlsProps> = ({
   onCapture,
   onImageSelected,
@@ -26,31 +34,8 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
   onFlashToggle,
   disabled = false,
 }) => {
-  // Get flash icon based on current mode
-  const getFlashIcon = () => {
-    switch (flashMode) {
-      case "on":
-        return "zap";
-      case "auto":
-        return "zap-off";
-      case "off":
-      default:
-        return "zap-off";
-    }
-  };
-
-  // Get flash button color based on current mode
-  const getFlashColor = () => {
-    switch (flashMode) {
-      case "on":
-        return "#ffce00"; // Yellow for on
-      case "auto":
-        return "#5cafff"; // Blue for auto
-      case "off":
-      default:
-        return "#ffffff"; // White for off
-    }
-  };
+  const FlashIcon = flashMode === "on" ? Zap : ZapOff;
+  const flashColor = flashColors[flashMode] ?? colors.text.secondary;
 
   return (
     <View style={styles.container}>
@@ -58,12 +43,12 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
         {/* Left - Flash button */}
         <View style={styles.sideContainer}>
           <TouchableOpacity
-            style={[styles.flashButton, { borderColor: getFlashColor() }]}
+            style={[styles.controlButton, { borderColor: flashColor }]}
             onPress={onFlashToggle}
             activeOpacity={0.7}
             disabled={isCapturing || disabled}
           >
-            <Feather name={getFlashIcon()} size={20} color={getFlashColor()} />
+            <FlashIcon size={20} color={flashColor} />
           </TouchableOpacity>
         </View>
 
@@ -74,7 +59,6 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
             isCapturing={isCapturing}
             isReady={isReady}
             size="normal"
-            flashMode={flashMode}
             disabled={disabled}
           />
         </View>
@@ -94,16 +78,16 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    paddingBottom: Platform.OS === "ios" ? 20 : 16,
+    paddingBottom: Platform.OS === "ios" ? spacing.xl : spacing.lg,
   },
   controlsContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
   },
   sideContainer: {
-    width: 50,
+    width: spacing._50,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -112,18 +96,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  flashButton: {
+  controlButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    borderRadius: radius.full,
+    backgroundColor: colors.bg.elevated,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1.5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
+    borderWidth: 1,
   },
 });

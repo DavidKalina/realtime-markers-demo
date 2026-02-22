@@ -1,6 +1,5 @@
 // components/Markers/ClusteredMapMarkers.tsx
 import { useEventBroker } from "@/hooks/useEventBroker";
-import { Marker } from "@/hooks/useMapWebsocket";
 import {
   ClusterFeature,
   PointFeature,
@@ -14,7 +13,8 @@ import {
   MapItemEvent,
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
-import { MapboxViewport } from "@/types/types";
+import { Marker, MapboxViewport } from "@/types/types";
+import type { MapItem, MarkerItem, ClusterItem } from "@/types/map";
 import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useMemo, useEffect } from "react";
 import Animated, {
@@ -23,31 +23,12 @@ import Animated, {
   LinearTransition,
 } from "react-native-reanimated";
 import { ClusterMarker } from "./ClusterMarker";
-import { MapMarker as EmojiMapMarker } from "./CustomMapMarker";
+import { EmojiMapMarker } from "./CustomMapMarker";
+import { spring } from "@/theme";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { markerToEvent } from "@/utils/mapUtils";
-
-// Define the map item types from the store (ideally these would be imported from a types file)
-interface BaseMapItem {
-  id: string;
-  coordinates: [number, number];
-  type: "marker" | "cluster";
-}
-
-interface MarkerItem extends BaseMapItem {
-  type: "marker";
-  data: Marker["data"];
-}
-
-interface ClusterItem extends BaseMapItem {
-  type: "cluster";
-  count: number;
-  childrenIds?: string[];
-}
-
-type MapItem = MarkerItem | ClusterItem;
 
 interface ClusteredMapMarkersProps {
   markers?: Marker[];
@@ -58,6 +39,7 @@ interface ClusteredMapMarkersProps {
 const SingleMarkerView = React.memo(
   ({
     marker,
+    isSelected,
     onPress,
     index,
   }: {
@@ -89,19 +71,21 @@ const SingleMarkerView = React.memo(
         <Animated.View
           entering={BounceIn.duration(500)
             .springify()
-            .damping(15)
-            .stiffness(200)
+            .damping(spring.firm.damping)
+            .stiffness(spring.firm.stiffness)
             .delay(index * 300)}
           exiting={BounceOut.duration(500)
             .springify()
-            .damping(15)
-            .stiffness(200)}
+            .damping(spring.firm.damping)
+            .stiffness(spring.firm.stiffness)}
           layout={LinearTransition.springify()}
         >
           <EmojiMapMarker
             event={marker}
+            isSelected={isSelected}
             isHighlighted={false}
             onPress={onPress}
+            index={index}
           />
         </Animated.View>
       </MapboxGL.MarkerView>
@@ -145,13 +129,13 @@ const ClusterView = React.memo(
         <Animated.View
           entering={BounceIn.duration(500)
             .springify()
-            .damping(15)
-            .stiffness(200)
+            .damping(spring.firm.damping)
+            .stiffness(spring.firm.stiffness)
             .delay(index * 50)}
           exiting={BounceOut.duration(500)
             .springify()
-            .damping(15)
-            .stiffness(200)}
+            .damping(spring.firm.damping)
+            .stiffness(spring.firm.stiffness)}
           layout={LinearTransition.springify()}
         >
           <ClusterMarker

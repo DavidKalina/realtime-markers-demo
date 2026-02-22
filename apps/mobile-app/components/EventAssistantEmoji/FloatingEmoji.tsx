@@ -15,10 +15,10 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import { styles } from "./emoji";
 import { getMessageEmoji } from "@/utils/messageUtils";
 
-// Simple spring configuration
+import { spring } from "@/theme";
+
 const SPRING_CONFIG = {
-  damping: 12,
-  stiffness: 100,
+  ...spring.dropdown,
   mass: 0.8,
   overshootClamping: false,
 };
@@ -33,7 +33,9 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({
   fallbackEmoji,
 }) => {
   // Get marker selection state from location store
-  const { selectedMarkerId } = useLocationStore();
+  const selectedItem = useLocationStore((state) => state.selectedItem);
+  const selectedMarkerId =
+    selectedItem?.type === "marker" ? selectedItem.id : null;
 
   // Local state for position
   const [offset, setOffset] = useState({ x: 0, y: 0 });

@@ -1,4 +1,4 @@
-import { Event, CivicEngagement, BoundingBox, Filter } from "../types/types";
+import { Event, BoundingBox, Filter } from "../types/types";
 import { FilterMatcher } from "../handlers/FilterMatcher";
 import { MapMojiFilterService } from "./MapMojiFilterService";
 import { RelevanceScoringService } from "./RelevanceScoringService";
@@ -9,7 +9,6 @@ export interface UnifiedFilteringService {
   calculateAndSendDiff(
     userId: string,
     events: Event[],
-    civicEngagements: CivicEngagement[],
     viewport: BoundingBox | null,
     filters: Filter[],
   ): Promise<void>;
@@ -22,7 +21,6 @@ export interface UnifiedFilteringServiceConfig {
     maxEvents?: number;
     enableHybridMode?: boolean;
   };
-  maxCivicEngagements?: number;
 }
 
 export function createUnifiedFilteringService(
@@ -33,7 +31,7 @@ export function createUnifiedFilteringService(
   clientConfigService: ClientConfigService,
   config: UnifiedFilteringServiceConfig = {},
 ): UnifiedFilteringService {
-  const { mapMojiConfig = {}, maxCivicEngagements = 100 } = config;
+  const { mapMojiConfig = {} } = config;
 
   // Stats for monitoring
   const stats = {
@@ -41,17 +39,15 @@ export function createUnifiedFilteringService(
     traditionalFilterApplied: 0,
     hybridFilterApplied: 0,
     totalEventsFiltered: 0,
-    totalCivicEngagementsFiltered: 0,
     unifiedMessagesSent: 0,
   };
 
   /**
-   * Calculate and send diff for both events and civic engagements in a unified message
+   * Calculate and send filtered events diff for a user based on their viewport and filters
    */
   async function calculateAndSendDiff(
     userId: string,
     events: Event[],
-    civicEngagements: CivicEngagement[],
     viewport: BoundingBox | null,
     filters: Filter[],
   ): Promise<void> {
@@ -63,9 +59,7 @@ export function createUnifiedFilteringService(
         `[UnifiedFiltering] Using client config for user ${userId}:`,
         {
           includeEvents: clientConfig.includeEvents,
-          includeCivicEngagements: clientConfig.includeCivicEngagements,
           maxEvents: clientConfig.maxEvents,
-          maxCivicEngagements: clientConfig.maxCivicEngagements,
         },
       );
 
@@ -95,26 +89,6 @@ export function createUnifiedFilteringService(
         }
       }
 
-      // Process civic engagements based on client config
-      let filteredCivicEngagements: CivicEngagement[] = [];
-      if (clientConfig.includeCivicEngagements) {
-        filteredCivicEngagements = processCivicEngagements(civicEngagements);
-
-        // Apply max civic engagements limit from client config
-        if (
-          clientConfig.maxCivicEngagements &&
-          filteredCivicEngagements.length > clientConfig.maxCivicEngagements
-        ) {
-          filteredCivicEngagements = filteredCivicEngagements.slice(
-            0,
-            clientConfig.maxCivicEngagements,
-          );
-          console.log(
-            `[UnifiedFiltering] Limited civic engagements to ${clientConfig.maxCivicEngagements} for user ${userId}`,
-          );
-        }
-      }
-
       console.log(
         `[UnifiedFiltering] Publishing unified message to user ${userId}:`,
         {
@@ -122,39 +96,25 @@ export function createUnifiedFilteringService(
           viewport: !!viewport,
           filterCount: filters.length,
           eventCount: filteredEvents.length,
-          civicEngagementCount: filteredCivicEngagements.length,
           clientConfig: {
             includeEvents: clientConfig.includeEvents,
-            includeCivicEngagements: clientConfig.includeCivicEngagements,
           },
           topEventScores: filteredEvents.slice(0, 3).map((event) => ({
             eventId: event.id,
             title: event.title,
             relevanceScore: event.relevanceScore,
           })),
-          topCivicEngagementScores: filteredCivicEngagements
-            .slice(0, 3)
-            .map((ce) => ({
-              civicEngagementId: ce.id,
-              title: ce.title,
-              relevanceScore: (
-                ce as CivicEngagement & { relevanceScore?: number }
-              ).relevanceScore,
-              status: ce.status,
-            })),
         },
       );
 
-      // Send unified message with both events and civic engagements
+      // Send filtered events to user
       await eventPublisher.publishFilteredEvents(
         userId,
         viewport ? "viewport" : "all",
         filteredEvents,
-        filteredCivicEngagements,
       );
 
       stats.totalEventsFiltered += filteredEvents.length;
-      stats.totalCivicEngagementsFiltered += filteredCivicEngagements.length;
       stats.unifiedMessagesSent++;
     } catch (error) {
       console.error(
@@ -291,31 +251,6 @@ export function createUnifiedFilteringService(
   }
 
   /**
-   * Process civic engagements
-   */
-  function processCivicEngagements(
-    civicEngagements: CivicEngagement[],
-  ): CivicEngagement[] {
-    // Basic filtering: only include civic engagements with location and not rejected
-    const filteredCivicEngagements = civicEngagements.filter(
-      (ce) => ce.location && ce.status !== "REJECTED",
-    );
-
-    // Add basic relevance scores
-    const civicEngagementsWithScores = filteredCivicEngagements.map((ce) => ({
-      ...ce,
-      relevanceScore: calculateBasicCivicEngagementScore(ce),
-    }));
-
-    // Sort by relevance score and limit
-    const limitedCivicEngagements = civicEngagementsWithScores
-      .sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0))
-      .slice(0, maxCivicEngagements);
-
-    return limitedCivicEngagements;
-  }
-
-  /**
    * Apply MapMoji filtering algorithm
    */
   async function applyMapMojiFiltering(
@@ -396,46 +331,6 @@ export function createUnifiedFilteringService(
     );
 
     return eventsWithScores;
-  }
-
-  /**
-   * Calculate basic relevance score for civic engagement
-   */
-  function calculateBasicCivicEngagementScore(
-    civicEngagement: CivicEngagement,
-  ): number {
-    let score = 0.5; // Base score
-
-    // Status-based scoring
-    switch (civicEngagement.status) {
-      case "IMPLEMENTED":
-        score += 0.3;
-        break;
-      case "APPROVED":
-        score += 0.2;
-        break;
-      case "UNDER_REVIEW":
-        score += 0.1;
-        break;
-      case "PENDING":
-        score += 0.05;
-        break;
-      case "REJECTED":
-        score -= 0.2;
-        break;
-    }
-
-    // Recency bonus (newer items get higher scores)
-    const createdAt = new Date(civicEngagement.createdAt);
-    const now = new Date();
-    const daysOld =
-      (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
-
-    if (daysOld <= 1) score += 0.2;
-    else if (daysOld <= 7) score += 0.1;
-    else if (daysOld <= 30) score += 0.05;
-
-    return Math.max(0, Math.min(1, score)); // Clamp to 0-1
   }
 
   /**
