@@ -378,9 +378,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         qrDetectedInImage: scanResult.qrCodeDetected || false,
         detectedQrData: scanResult.qrCodeData,
         originalImageUrl: originalImageUrl || undefined,
-        embedding: scanResult.embedding
-          ? JSON.stringify(scanResult.embedding)
-          : undefined,
+        embedding: scanResult.embedding || undefined,
         isRecurring: eventDetails.isRecurring || false,
         recurrenceFrequency: eventDetails.recurrenceFrequency,
         recurrenceDays: eventDetails.recurrenceDays,
@@ -548,9 +546,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         qrDetectedInImage: eventResult.qrCodeDetected || false,
         detectedQrData: eventResult.qrCodeData,
         originalImageUrl: originalImageUrl || undefined,
-        embedding: eventResult.embedding
-          ? JSON.stringify(eventResult.embedding)
-          : undefined,
+        embedding: eventResult.embedding || undefined,
         status: EventStatus.PENDING,
         hasQrCode: false,
         isOfficial: false,
