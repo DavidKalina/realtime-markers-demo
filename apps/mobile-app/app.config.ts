@@ -5,7 +5,7 @@ export default {
   expo: {
     name: "Realtime Markers",
     slug: "mobile-app",
-    version: "1.16.7",
+    version: "1.16.8",
     orientation: "portrait",
     icon: "./assets/images/frederick-logo.png",
     scheme: "myapp",
@@ -33,7 +33,7 @@ export default {
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "168",
+      buildNumber: "169",
     },
     android: {
       adaptiveIcon: {
