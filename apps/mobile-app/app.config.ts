@@ -12,10 +12,7 @@ export default {
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     updates: {
-      url: "https://u.expo.dev/ff0ebef4-f13d-442f-be77-f5818888f458",
-    },
-    runtimeVersion: {
-      policy: "appVersion",
+      enabled: false,
     },
     ios: {
       infoPlist: {
