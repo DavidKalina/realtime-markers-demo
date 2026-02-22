@@ -9,13 +9,13 @@ import Animated, {
   cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
-  withSequence,
   withSpring,
 } from "react-native-reanimated";
 import { colors, spacing, spring } from "@/theme";
 
 const DateRangeIndicator: React.FC = () => {
   const [showCalendar, setShowCalendar] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [isLocalLoading, setIsLocalLoading] = useState(false);
   const { filters, activeFilterIds, applyFilters, createFilter, clearFilters } =
     useFilterStore();
@@ -35,7 +35,7 @@ const DateRangeIndicator: React.FC = () => {
   // Sync date range on mount - start in relevant mode
   useEffect(() => {
     if (activeFilterIds.length === 0 && filters.length === 0) {
-      // Start in relevant mode (no filters applied)
+      // Start in relevant mode (MapMoji filtered)
       console.log("Starting in relevant mode (MapMoji filtered)");
     }
   }, []);
@@ -47,16 +47,29 @@ const DateRangeIndicator: React.FC = () => {
     }
   }, [showCalendar]);
 
-  const handlePress = useCallback(() => {
-    // Cancel any ongoing animations before starting new ones
+  const handlePressIn = useCallback(() => {
     cancelAnimation(scale);
+    scale.value = withSpring(0.85, spring.firm);
+  }, [scale]);
 
+  const handlePressOut = useCallback(() => {
+    cancelAnimation(scale);
+    scale.value = withSpring(1, spring.bouncy);
+  }, [scale]);
+
+  const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    scale.value = withSequence(
-      withSpring(0.92, spring.snappy),
-      withSpring(1, spring.snappy),
-    );
+    setIsClosing(false);
     setShowCalendar(true);
+  }, []);
+
+  // Close with exit animation — mark closing, let calendar animate out, then destroy
+  const handleClose = useCallback(() => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setShowCalendar(false);
+      setIsClosing(false);
+    }, 300);
   }, []);
 
   const handleDateRangeSelect = useCallback(
@@ -105,7 +118,7 @@ const DateRangeIndicator: React.FC = () => {
     return () => {
       cancelAnimation(scale);
     };
-  }, []);
+  }, [scale]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -113,9 +126,13 @@ const DateRangeIndicator: React.FC = () => {
 
   return (
     <>
-      <Pressable onPress={handlePress}>
+      <Pressable
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
         <Animated.View style={[styles.container, animatedStyle]}>
-          <Calendar size={20} color={colors.accent.primary} />
+          <Calendar size={22} color={colors.accent.primary} />
         </Animated.View>
       </Pressable>
 
@@ -123,24 +140,26 @@ const DateRangeIndicator: React.FC = () => {
         visible={showCalendar}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setShowCalendar(false)}
+        onRequestClose={handleClose}
       >
         <View style={styles.modalOverlay}>
-          <DateRangeCalendar
-            startDate={
-              filters.find((f) => activeFilterIds.includes(f.id))?.criteria
-                ?.dateRange?.start || undefined
-            }
-            endDate={
-              filters.find((f) => activeFilterIds.includes(f.id))?.criteria
-                ?.dateRange?.end || undefined
-            }
-            onDateRangeSelect={handleDateRangeSelect}
-            onClose={() => setShowCalendar(false)}
-            isLoading={isLocalLoading}
-            onClearFilters={handleClearFilters}
-            isFilteredMode={isFilteredMode}
-          />
+          {!isClosing && (
+            <DateRangeCalendar
+              startDate={
+                filters.find((f) => activeFilterIds.includes(f.id))?.criteria
+                  ?.dateRange?.start || undefined
+              }
+              endDate={
+                filters.find((f) => activeFilterIds.includes(f.id))?.criteria
+                  ?.dateRange?.end || undefined
+              }
+              onDateRangeSelect={handleDateRangeSelect}
+              onClose={handleClose}
+              isLoading={isLocalLoading}
+              onClearFilters={handleClearFilters}
+              isFilteredMode={isFilteredMode}
+            />
+          )}
         </View>
       </Modal>
     </>
@@ -153,8 +172,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing._6,
-    paddingHorizontal: spacing._6,
-    paddingVertical: spacing._6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     backgroundColor: colors.bg.card,
     borderRadius: 28,
     borderWidth: 1,
@@ -167,9 +186,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 4,
-    minWidth: 44,
-    minHeight: 44,
-    maxWidth: 120, // Fixed width to maintain consistent button dimensions
+    minWidth: 52,
+    minHeight: 52,
   },
   modalOverlay: {
     flex: 1,

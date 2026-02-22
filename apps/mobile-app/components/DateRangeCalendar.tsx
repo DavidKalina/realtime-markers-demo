@@ -272,10 +272,10 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
       style={styles.container}
       entering={SlideInDown.springify()
         .damping(spring.firm.damping)
-        .stiffness(spring.dropdown.stiffness)}
+        .stiffness(spring.firm.stiffness)}
       exiting={SlideOutDown.springify()
         .damping(spring.firm.damping)
-        .stiffness(spring.dropdown.stiffness)
+        .stiffness(spring.firm.stiffness)
         .withCallback((finished) => {
           if (finished) {
             scheduleOnRN(cleanupAnimations);

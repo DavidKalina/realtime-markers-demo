@@ -85,11 +85,11 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
     ]);
 
     const handlePressIn = useCallback(() => {
-      scale.value = withSpring(0.98, spring.snappy);
+      scale.value = withSpring(0.98, spring.firm);
     }, [scale]);
 
     const handlePressOut = useCallback(() => {
-      scale.value = withSpring(1, spring.snappy);
+      scale.value = withSpring(1, spring.firm);
     }, [scale]);
 
     const animatedScaleStyle = useAnimatedStyle(() => ({
