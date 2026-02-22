@@ -118,7 +118,10 @@ async function initializeWorker() {
   // Create the event extraction service
   const eventExtractionService = createEventExtractionService({
     categoryProcessingService,
-    locationResolutionService: createGoogleGeocodingService(openAIService),
+    locationResolutionService: createGoogleGeocodingService(
+      openAIService,
+      redisService,
+    ),
     openAIService,
     configService,
   });
@@ -134,7 +137,10 @@ async function initializeWorker() {
   eventProcessingService = createEventProcessingService({
     categoryProcessingService,
     eventSimilarityService,
-    locationResolutionService: createGoogleGeocodingService(openAIService),
+    locationResolutionService: createGoogleGeocodingService(
+      openAIService,
+      redisService,
+    ),
     imageProcessingService,
     embeddingService,
     configService,
@@ -146,7 +152,7 @@ async function initializeWorker() {
   eventService = createEventService({
     dataSource: AppDataSource,
     redisService,
-    locationService: createGoogleGeocodingService(openAIService),
+    locationService: createGoogleGeocodingService(openAIService, redisService),
     eventCacheService,
     openaiService: openAIService,
     embeddingService,

@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { find } from "geo-tz";
 import { OpenAIModel, type OpenAIService } from "./OpenAIService";
+import type { RedisService } from "./RedisService";
 import type { Point } from "geojson";
 import type { LocationResolutionResult } from "../event-processing/dto/LocationResolutionResult";
 import type { ILocationResolutionService } from "../event-processing/interfaces/ILocationResolutionService";
@@ -9,7 +10,6 @@ interface CachedLocation {
   cluesHash: string;
   address: string;
   coordinates: [number, number];
-  timestamp: number;
   confidence: number;
   timezone?: string;
   locationNotes?: string;
@@ -84,12 +84,14 @@ export interface GoogleGeocodingService extends ILocationResolutionService {
 }
 
 export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
-  private locationCache: Map<string, CachedLocation> = new Map();
-  private readonly CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days
+  private static readonly CACHE_TTL_SECONDS = 604800; // 7 days
+  private static readonly CACHE_PREFIX = "geocache:";
   private openAIService: OpenAIService;
+  private redisService: RedisService;
 
-  constructor(openAIService: OpenAIService) {
+  constructor(openAIService: OpenAIService, redisService: RedisService) {
     this.openAIService = openAIService;
+    this.redisService = redisService;
     // We use the Geocoding API key for both Geocoding and Places APIs
     if (!process.env.GOOGLE_GEOCODING_API_KEY) {
       throw new Error(
@@ -145,43 +147,6 @@ export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
       coordinates[1] >= -90 &&
       coordinates[1] <= 90
     );
-  }
-
-  private async verifyLocationWithReverseGeocoding(
-    coordinates: [number, number],
-    expectedAddress: string,
-  ): Promise<boolean> {
-    try {
-      const data = await this.makeGeocodingRequest(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${coordinates[1]},${coordinates[0]}&key=${process.env.GOOGLE_GEOCODING_API_KEY}`,
-      );
-
-      if (!data.results || data.results.length === 0) return false;
-
-      const reverseGeocodedAddress = data.results[0].formatted_address;
-      const similarity = this.calculateStringSimilarity(
-        expectedAddress.toLowerCase(),
-        reverseGeocodedAddress.toLowerCase(),
-      );
-
-      return similarity > 0.7; // 70% similarity threshold
-    } catch (error) {
-      console.error("Error in reverse geocoding verification:", error);
-      return false;
-    }
-  }
-
-  private calculateStringSimilarity(str1: string, str2: string): number {
-    const words1 = str1.split(/\s+/);
-    const words2 = str2.split(/\s+/);
-
-    const set1 = new Set(words1);
-    const set2 = new Set(words2);
-
-    const intersection = new Set([...set1].filter((x) => set2.has(x)));
-    const union = new Set([...set1, ...set2]);
-
-    return intersection.size / union.size;
   }
 
   private async searchPlaces(
@@ -496,11 +461,10 @@ export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
       userCityState,
     );
 
-    const cachedLocation = this.locationCache.get(cluesFingerprint);
-    if (
-      cachedLocation &&
-      Date.now() - cachedLocation.timestamp < this.CACHE_EXPIRY
-    ) {
+    const cacheKey = `${GoogleGeocodingServiceImpl.CACHE_PREFIX}${cluesFingerprint}`;
+    const cachedLocation =
+      await this.redisService.get<CachedLocation>(cacheKey);
+    if (cachedLocation) {
       console.warn("📍 Using cached location:", cachedLocation);
       return {
         address: cachedLocation.address,
@@ -522,7 +486,7 @@ export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
     try {
       console.warn("\n🤖 Querying LLM for location analysis...");
       const response = await this.openAIService.executeChatCompletion({
-        model: "gpt-4o" as OpenAIModel,
+        model: OpenAIModel.GPT4OMini,
         temperature: 0.1,
         response_format: { type: "json_object" },
         messages: [
@@ -615,7 +579,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
       let result;
       try {
         result = JSON.parse(response.choices[0].message.content || "{}");
-      } catch (error) {
+      } catch {
         console.warn(
           "Failed to parse LLM response as JSON, attempting to extract address from text",
         );
@@ -660,16 +624,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           throw new Error("Invalid coordinates obtained from geocoding");
         }
 
-        const reverseGeocodingVerified =
-          await this.verifyLocationWithReverseGeocoding(
-            coordinates,
-            formattedAddress,
-          );
-        confidence = 0.5 + (reverseGeocodingVerified ? 0.3 : 0);
-        console.log(
-          "Reverse Geocoding Verification:",
-          reverseGeocodingVerified ? "Passed" : "Failed",
-        );
+        confidence = 0.8;
       } else if (shouldTryPlacesApi && placesQuery) {
         // Step 2: Try Places API with user location context
         console.log("\nTrying Places API with query:", placesQuery);
@@ -806,15 +761,18 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
         coordinates[0],
       );
 
-      this.locationCache.set(cluesFingerprint, {
-        cluesHash: cluesFingerprint,
-        address: formattedAddress,
-        coordinates,
-        timestamp: Date.now(),
-        confidence,
-        timezone,
-        locationNotes,
-      });
+      await this.redisService.set(
+        cacheKey,
+        {
+          cluesHash: cluesFingerprint,
+          address: formattedAddress,
+          coordinates,
+          confidence,
+          timezone,
+          locationNotes,
+        },
+        GoogleGeocodingServiceImpl.CACHE_TTL_SECONDS,
+      );
 
       return {
         address: formattedAddress,
@@ -1373,6 +1331,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
  */
 export function createGoogleGeocodingService(
   openAIService: OpenAIService,
+  redisService: RedisService,
 ): GoogleGeocodingService {
-  return new GoogleGeocodingServiceImpl(openAIService);
+  return new GoogleGeocodingServiceImpl(openAIService, redisService);
 }

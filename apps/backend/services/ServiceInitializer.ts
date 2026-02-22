@@ -111,7 +111,10 @@ export class ServiceInitializer {
 
     const eventExtractionService = createEventExtractionService({
       categoryProcessingService,
-      locationResolutionService: createGoogleGeocodingService(openAIService),
+      locationResolutionService: createGoogleGeocodingService(
+        openAIService,
+        redisService,
+      ),
       openAIService,
       configService,
     });
@@ -119,7 +122,10 @@ export class ServiceInitializer {
     const eventProcessingService = createEventProcessingService({
       categoryProcessingService,
       eventSimilarityService,
-      locationResolutionService: createGoogleGeocodingService(openAIService),
+      locationResolutionService: createGoogleGeocodingService(
+        openAIService,
+        redisService,
+      ),
       imageProcessingService,
       embeddingService,
       configService,
@@ -130,7 +136,10 @@ export class ServiceInitializer {
     const eventService = createEventService({
       dataSource: this.dataSource,
       redisService,
-      locationService: createGoogleGeocodingService(openAIService),
+      locationService: createGoogleGeocodingService(
+        openAIService,
+        redisService,
+      ),
       eventCacheService,
       openaiService: openAIService,
       embeddingService,
@@ -160,7 +169,10 @@ export class ServiceInitializer {
         })
       : new MockEmailService();
 
-    const geocodingService = createGoogleGeocodingService(openAIService);
+    const geocodingService = createGoogleGeocodingService(
+      openAIService,
+      redisService,
+    );
 
     console.log("Services initialized successfully");
 
