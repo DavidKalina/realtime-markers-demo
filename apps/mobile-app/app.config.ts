@@ -33,7 +33,7 @@ export default {
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "167",
+      buildNumber: "168",
     },
     android: {
       adaptiveIcon: {
