@@ -25,6 +25,7 @@ const markerToEventType = (marker: Marker): EventType => {
     creator: marker.data.creator,
     scanCount: marker.data.scanCount ?? 1,
     saveCount: marker.data.saveCount ?? 0,
+    goingCount: (marker.data.goingCount as number) ?? 0,
     timezone: marker.data.timezone ?? "",
     qrUrl: marker.data.qrUrl,
     qrCodeData: marker.data.qrCodeData,

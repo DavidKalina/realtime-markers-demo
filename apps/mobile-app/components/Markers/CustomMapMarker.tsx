@@ -19,7 +19,16 @@ import Animated, {
   withRepeat,
   Easing,
 } from "react-native-reanimated";
-import { colors, fontSize, lineHeight, spacing, spring } from "@/theme";
+import {
+  colors,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  lineHeight,
+  radius,
+  spacing,
+  spring,
+} from "@/theme";
 import {
   MARKER_HEIGHT,
   MARKER_WIDTH,
@@ -285,6 +294,15 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
             <Animated.View style={[styles.rippleEffect, rippleStyle]} />
           </Animated.View>
         </TouchableOpacity>
+
+        {/* Social proof badge */}
+        {(event.data.goingCount as number) >= 3 && (
+          <View style={styles.socialProofBadge}>
+            <Text style={styles.socialProofText}>
+              {event.data.goingCount as number} going
+            </Text>
+          </View>
+        )}
       </View>
     );
   },
@@ -293,7 +311,8 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.isHighlighted === nextProps.isHighlighted &&
       prevProps.event.data.emoji === nextProps.event.data.emoji &&
-      prevProps.event.data.title === nextProps.event.data.title
+      prevProps.event.data.title === nextProps.event.data.title &&
+      prevProps.event.data.goingCount === nextProps.event.data.goingCount
     );
   },
 );
@@ -351,5 +370,22 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: "100%",
     zIndex: 1,
+  },
+  socialProofBadge: {
+    position: "absolute",
+    bottom: -12,
+    alignSelf: "center",
+    backgroundColor: colors.bg.primary,
+    paddingHorizontal: spacing._6,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border.medium,
+  },
+  socialProofText: {
+    color: colors.status.success.text,
+    fontSize: 9,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
   },
 });

@@ -40,7 +40,7 @@ export class EventPublisher {
             popularityMetrics: {
               scanCount: event.scanCount,
               saveCount: event.saveCount || 0,
-              rsvpCount: event.rsvps?.length || 0,
+              goingCount: event.goingCount ?? 0,
             },
           })),
         },
@@ -196,10 +196,14 @@ export class EventPublisher {
     }
   }
 
-  private stripSensitiveData(event: Event): Omit<Event, "embedding"> {
+  private stripSensitiveData(
+    event: Event,
+  ): Omit<Event, "embedding" | "rsvps"> & { goingCount: number } {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { embedding, ...eventWithoutEmbedding } = event;
-    return eventWithoutEmbedding;
+    const { embedding, rsvps, ...rest } = event;
+    const goingCount =
+      rsvps?.filter((r) => r.status === "GOING").length ?? 0;
+    return { ...rest, goingCount };
   }
 
   public getStats(): typeof this.stats {

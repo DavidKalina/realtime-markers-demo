@@ -56,6 +56,9 @@ export interface MarkerData {
   recurrenceTime?: string;
   recurrenceExceptions?: string[];
   entityType?: "event";
+  // Social proof counts (computed server-side)
+  goingCount?: number;
+  saveCount?: number;
   // Metadata and additional fields
   [key: string]: unknown;
 }

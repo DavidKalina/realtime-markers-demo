@@ -58,6 +58,7 @@ export interface EventListItemFooterProps {
   endDate?: string;
   isPrivate?: boolean;
   isRecurring?: boolean;
+  goingCount?: number;
 }
 
 const EventListItemFooter: React.FC<EventListItemFooterProps> = ({
@@ -67,6 +68,7 @@ const EventListItemFooter: React.FC<EventListItemFooterProps> = ({
   endDate,
   isPrivate,
   isRecurring,
+  goingCount,
 }) => {
   const timeBadgeText = useMemo(
     () => getTimeBadgeText(eventDate, endDate),
@@ -80,10 +82,11 @@ const EventListItemFooter: React.FC<EventListItemFooterProps> = ({
     if (categories?.length > 0) {
       items.push(categories[0].name);
     }
+    if (goingCount && goingCount > 0) items.push(`${goingCount} going`);
     if (isRecurring) items.push("Recurring");
     if (isPrivate) items.push("Private");
     return items;
-  }, [distance, categories, isRecurring, isPrivate]);
+  }, [distance, categories, goingCount, isRecurring, isPrivate]);
 
   return (
     <View style={styles.footer}>

@@ -176,6 +176,7 @@ export const markerToEvent = (marker: Marker): EventType => {
     scanCount: getNumber(data.scanCount),
     saveCount: getNumber(data.saveCount),
     viewCount: getNumber(data.viewCount),
+    goingCount: getNumber(data.goingCount),
     timezone: getString(data.timezone, "UTC"),
     qrUrl: data.qrUrl as string | null | undefined,
     qrCodeData: getString(data.qrCodeData),

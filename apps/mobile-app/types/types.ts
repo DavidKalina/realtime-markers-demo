@@ -51,6 +51,8 @@ export interface EventType extends Omit<EventSummary, "hasQrCode"> {
   recurrenceInterval?: number;
   recurrenceTime?: string;
   recurrenceExceptions?: string[];
+  // Social proof
+  goingCount?: number;
   // Ensure required properties from EventSummary are included
   viewCount: number;
   status: EventStatus;

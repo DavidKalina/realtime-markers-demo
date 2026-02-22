@@ -73,6 +73,8 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
         recurrenceInterval: event.recurrenceInterval,
         recurrenceTime: event.recurrenceTime,
         recurrenceExceptions: event.recurrenceExceptions,
+        goingCount: event.goingCount ?? 0,
+        saveCount: event.saveCount ?? 0,
         ...(event.metadata || {}),
       },
     };

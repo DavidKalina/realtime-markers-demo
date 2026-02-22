@@ -67,6 +67,7 @@ const EventsView: React.FC<EventsViewProps> = ({
           event.categories?.map((cat) => ({ id: cat.id, name: cat.name })) ||
           [],
         isRecurring: event.isRecurring,
+        goingCount: event.goingCount,
         onPress: () => handleEventPress(event),
       };
 
