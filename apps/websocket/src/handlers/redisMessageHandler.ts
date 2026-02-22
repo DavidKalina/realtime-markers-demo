@@ -86,7 +86,9 @@ export function handleRedisMessage(
 
     switch (channel) {
       case REDIS_CHANNELS.DISCOVERED_EVENTS: {
-        const eventData = data as DiscoveredEvent;
+        // Backend publishes { type, data: { event, timestamp } }
+        const eventPayload = data.data ?? data;
+        const eventData = eventPayload as DiscoveredEvent;
         if (!eventData.event?.creatorId) {
           console.error("Invalid discovered event data:", data);
           return;
