@@ -51,15 +51,26 @@ import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { AnimatedSplashScreen } from "@/components/SplashScreen/SplashScreen";
 import { SENTRY_CONFIG, STACK_SCREEN_OPTIONS, SCREEN_CONFIGS } from "@/config";
 
-// Initialize Sentry
-const navigationIntegration = Sentry.reactNavigationIntegration({
-  enableTimeToInitialDisplay: !isRunningInExpoGo(),
-});
+// Initialize Sentry — guarded so a native SDK failure doesn't crash the app
+let navigationIntegration: ReturnType<
+  typeof Sentry.reactNavigationIntegration
+> | null = null;
+let sentryInitialized = false;
 
-Sentry.init({
-  ...SENTRY_CONFIG,
-  integrations: [navigationIntegration],
-});
+try {
+  navigationIntegration = Sentry.reactNavigationIntegration({
+    enableTimeToInitialDisplay: !isRunningInExpoGo(),
+  });
+
+  Sentry.init({
+    ...SENTRY_CONFIG,
+    integrations: [navigationIntegration],
+  });
+
+  sentryInitialized = true;
+} catch (e) {
+  console.warn("Sentry initialization failed:", e);
+}
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -136,7 +147,7 @@ function RootLayout() {
 
   // Register navigation container with Sentry
   useEffect(() => {
-    if (navigationRef?.current) {
+    if (navigationRef?.current && navigationIntegration) {
       navigationIntegration.registerNavigationContainer(navigationRef);
     }
   }, [navigationRef]);
@@ -176,4 +187,4 @@ function RootLayout() {
   );
 }
 
-export default Sentry.wrap(RootLayout);
+export default sentryInitialized ? Sentry.wrap(RootLayout) : RootLayout;
