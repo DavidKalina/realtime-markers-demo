@@ -27,7 +27,7 @@ import {
   Shield,
 } from "lucide-react-native";
 import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import { apiClient } from "@/services/ApiClient";
 
 interface AdminOriginalImageViewerProps {
@@ -103,15 +103,17 @@ const AdminOriginalImageViewer: React.FC<AdminOriginalImageViewerProps> = ({
 
       // Download the image to a local file for sharing
       const fileName = `event-flyer-${eventId}.jpg`;
-      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+      const destination = new File(Paths.cache, fileName);
 
       // Download the image
-      const { uri } = await FileSystem.downloadAsync(imageUrl, fileUri);
+      const downloaded = await File.downloadFileAsync(imageUrl, destination, {
+        idempotent: true,
+      });
 
       // Check if sharing is available
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
-        await Sharing.shareAsync(uri);
+        await Sharing.shareAsync(downloaded.uri);
       } else {
         setError("Sharing is not available on this device");
         Alert.alert("Sharing Error", "Sharing is not available on this device");

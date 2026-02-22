@@ -12,7 +12,7 @@ import {
   UpdateEventPayload,
 } from "../base/types";
 import { EventType } from "@/types/types";
-import * as FileSystem from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import { mapEventToEventType } from "../utils/eventMapper";
 
 export class EventApiClient extends BaseApiModule {
@@ -531,40 +531,34 @@ export class EventApiClient extends BaseApiModule {
       }
 
       const fileName = `event-${eventId}-original.jpg`;
-      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+      const file = new File(Paths.cache, fileName);
 
-      const fileInfo = await FileSystem.getInfoAsync(fileUri);
-      const now = new Date().getTime();
+      const now = Date.now();
       const oneHourAgo = now - 60 * 60 * 1000;
 
       if (
-        fileInfo.exists &&
-        fileInfo.modificationTime &&
-        fileInfo.modificationTime > oneHourAgo &&
-        fileInfo.size > 1000
+        file.exists &&
+        file.modificationTime &&
+        file.modificationTime > oneHourAgo &&
+        file.size > 1000
       ) {
-        return fileUri;
+        return file.uri;
       }
 
-      if (fileInfo.exists) {
-        await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      if (file.exists) {
+        file.delete();
       }
 
-      const downloadResult = await FileSystem.downloadAsync(
+      const downloaded = await File.downloadFileAsync(
         data.originalImageUrl,
-        fileUri,
+        file,
       );
 
-      if (downloadResult.status !== 200) {
-        throw new Error(`Failed to download image: ${downloadResult.status}`);
-      }
-
-      const downloadedFileInfo = await FileSystem.getInfoAsync(fileUri);
-      if (!downloadedFileInfo.exists || downloadedFileInfo.size < 1000) {
+      if (!downloaded.exists || downloaded.size < 1000) {
         throw new Error("Downloaded file is too small to be a valid image");
       }
 
-      return fileUri;
+      return downloaded.uri;
     } catch (error) {
       console.error("Error fetching event image:", error);
       throw error;

@@ -1,7 +1,6 @@
 // useCamera.ts - Improved version with better error handling and lifecycle management
 import { FlashMode, useCameraPermissions } from "expo-camera";
 import { usePathname } from "expo-router";
-import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState } from "react-native";
@@ -267,9 +266,6 @@ export const useCamera = () => {
   const processImage = useCallback(
     async (uri: string) => {
       try {
-        // Get file info with proper type checking
-        await FileSystem.getInfoAsync(uri);
-
         // Use Image Manipulator for consistent processing
         const processed = await ImageManipulator.manipulateAsync(
           uri,

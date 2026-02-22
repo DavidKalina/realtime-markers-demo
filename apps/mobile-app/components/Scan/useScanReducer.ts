@@ -1,5 +1,6 @@
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes } from "@/services/EventBroker";
+import * as ImagePicker from "expo-image-picker";
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { Alert } from "react-native";
 import { ProcessingStage } from "./ProcessingOverlay";
@@ -390,20 +391,21 @@ export const useScanReducer = ({
     dispatch({ type: "CLEAR_ERROR" });
   }, []);
 
-  // Simulate capture for development
+  // Simulate capture for development — opens photo library to pick a real flyer image
   const simulateCapture = useCallback(async () => {
     if (!isMounted.current) return;
 
-    // For simulation, we'll create a simple data URI that can be displayed
-    // This avoids the image processing issues with external URLs
-    const sampleImageUri =
-      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjNEE5MEUyIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI0OCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5TYW1wbGUgRG9jdW1lbnQ8L3RleHQ+PC9zdmc+";
-
     try {
-      // Simulate capture success
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
       dispatch({
         type: "CAPTURE_SUCCESS",
-        payload: { uri: sampleImageUri, source: "camera" },
+        payload: { uri: result.assets[0].uri, source: "gallery" },
       });
 
       publish(EventTypes.NOTIFICATION, {
