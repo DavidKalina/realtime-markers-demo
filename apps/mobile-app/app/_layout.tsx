@@ -6,7 +6,8 @@ import { Stack, useNavigationContainerRef } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
-import { LogBox, View } from "react-native";
+import { LogBox } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { isRunningInExpoGo } from "expo";
 
 // Suppress known React Native dev-only error triggered during reload
@@ -105,11 +106,11 @@ function AppContent({ children }: AppContentProps) {
   usePushNotifications();
 
   return (
-    <View style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       {children}
       <ActionBar />
       <StatusBar style="auto" />
-    </View>
+    </GestureHandlerRootView>
   );
 }
 

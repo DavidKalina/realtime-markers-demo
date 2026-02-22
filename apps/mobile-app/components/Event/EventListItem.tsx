@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from "react";
 import { Pressable, View, Text, StyleSheet } from "react-native";
 import Animated, {
-  FadeInUp,
+  FadeIn,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -85,99 +85,21 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
     ]);
 
     const handlePressIn = useCallback(() => {
-      scale.value = withSpring(0.98, spring.firm);
+      scale.value = withSpring(0.97, spring.snappy);
     }, [scale]);
 
     const handlePressOut = useCallback(() => {
-      scale.value = withSpring(1, spring.firm);
+      scale.value = withSpring(1, spring.bouncy);
     }, [scale]);
 
     const animatedScaleStyle = useAnimatedStyle(() => ({
       transform: [{ scale: scale.value }],
     }));
 
-    const cappedDelay = Math.min(index, 8) * 50;
-
-    const styles = useMemo(
-      () =>
-        StyleSheet.create({
-          eventItem: {
-            paddingVertical: spacing.lg,
-            paddingHorizontal: spacing.lg,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border.default,
-          },
-          eventContent: {
-            flex: 1,
-          },
-          eventHeader: {
-            flexDirection: "row",
-            alignItems: "flex-start",
-          },
-          emojiContainer: {
-            width: 36,
-            height: 36,
-            borderRadius: 18,
-            backgroundColor: colors.text.primary,
-            alignItems: "center",
-            justifyContent: "center",
-            marginRight: spacing.md,
-            borderWidth: 1,
-            borderColor: colors.border.medium,
-          },
-          emoji: {
-            fontSize: fontSize.lg,
-          },
-          titleContainer: {
-            flex: 1,
-          },
-          titleRow: {
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: spacing.xs,
-          },
-          titleText: {
-            flex: 1,
-            color: colors.text.primary,
-            fontSize: fontSize.md,
-            fontFamily: fontFamily.mono,
-            fontWeight: fontWeight.semibold,
-          },
-          eventDescription: {
-            color: colors.text.secondary,
-            fontSize: fontSize.sm,
-            fontFamily: fontFamily.mono,
-            lineHeight: lineHeight.normal,
-            marginBottom: spacing.xs,
-          },
-          recurringBadge: {
-            backgroundColor: colors.accent.primary,
-            paddingHorizontal: spacing.sm,
-            paddingVertical: spacing.xs,
-            borderRadius: radius.md,
-            borderWidth: 1,
-            borderColor: colors.border.medium,
-            marginLeft: spacing.sm,
-          },
-          recurringBadgeText: {
-            color: colors.bg.card,
-            fontSize: fontSize.xs,
-            fontFamily: fontFamily.mono,
-            fontWeight: fontWeight.semibold,
-          },
-        }),
-      [],
-    );
+    const cappedDelay = Math.min(index, 8) * 30;
 
     return (
-      <Animated.View
-        entering={FadeInUp.duration(300)
-          .delay(cappedDelay)
-          .springify()
-          .damping(spring.firm.damping)
-          .stiffness(spring.firm.stiffness)}
-      >
+      <Animated.View entering={FadeIn.duration(200).delay(cappedDelay)}>
         <Pressable
           onPress={handlePress}
           onPressIn={handlePressIn}
@@ -192,32 +114,24 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
                   </View>
                 )}
                 <View style={styles.titleContainer}>
-                  <View style={styles.titleRow}>
-                    <Text style={styles.titleText} numberOfLines={1}>
-                      {title}
-                    </Text>
-                    {isRecurring && (
-                      <View style={styles.recurringBadge}>
-                        <Text style={styles.recurringBadgeText}>
-                          🔄 Recurring
-                        </Text>
-                      </View>
-                    )}
-                  </View>
+                  <Text style={styles.titleText} numberOfLines={1}>
+                    {title}
+                  </Text>
                   {description && (
-                    <Text style={styles.eventDescription} numberOfLines={2}>
+                    <Text style={styles.eventDescription} numberOfLines={1}>
                       {description}
                     </Text>
                   )}
-                  <EventListItemFooter
-                    distance={distance}
-                    categories={categories}
-                    eventDate={eventDate}
-                    endDate={endDate}
-                    isPrivate={isPrivate}
-                  />
                 </View>
               </View>
+              <EventListItemFooter
+                distance={distance}
+                categories={categories}
+                eventDate={eventDate}
+                endDate={endDate}
+                isPrivate={isPrivate}
+                isRecurring={isRecurring}
+              />
             </View>
           </Animated.View>
         </Pressable>
@@ -229,3 +143,52 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
 EventListItem.displayName = "EventListItem";
 
 export default EventListItem;
+
+const styles = StyleSheet.create({
+  eventItem: {
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.default,
+    height: 120,
+    justifyContent: "center",
+  },
+  eventContent: {
+    flex: 1,
+    justifyContent: "space-between",
+  },
+  eventHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  emojiContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.text.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.medium,
+  },
+  emoji: {
+    fontSize: fontSize.lg,
+  },
+  titleContainer: {
+    flex: 1,
+  },
+  titleText: {
+    color: colors.text.primary,
+    fontSize: fontSize.md,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
+  },
+  eventDescription: {
+    color: colors.text.secondary,
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
+    lineHeight: lineHeight.normal,
+    marginTop: 2,
+  },
+});

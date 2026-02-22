@@ -42,7 +42,7 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Popular Categories</Text>
-      <View style={styles.gridContainer}>
+      <View style={styles.listContainer}>
         {categories.map((category) => (
           <TouchableOpacity
             key={category.id}
@@ -50,10 +50,8 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
             onPress={() => handleCategoryPress(category)}
             activeOpacity={0.7}
           >
-            <View style={styles.iconContainer}>
-              <Text style={styles.iconText}>{category.icon || "📌"}</Text>
-            </View>
-            <Text style={styles.categoryName} numberOfLines={2}>
+            <Text style={styles.iconText}>{category.icon || "📌"}</Text>
+            <Text style={styles.categoryName} numberOfLines={1}>
               {category.name}
             </Text>
           </TouchableOpacity>
@@ -75,40 +73,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
   },
-  gridContainer: {
+  listContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   categoryItem: {
-    width: "30%",
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radius.xl,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.full,
     backgroundColor: colors.bg.card,
     borderWidth: 1,
     borderColor: colors.border.default,
-  },
-  iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.accent.muted,
-    borderWidth: 1,
-    borderColor: colors.accent.border,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: spacing.sm,
+    gap: spacing.sm,
   },
   iconText: {
-    fontSize: fontSize.xl,
+    fontSize: fontSize.sm,
   },
   categoryName: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.medium,
-    textAlign: "center",
     color: colors.text.secondary,
     fontFamily: fontFamily.mono,
   },

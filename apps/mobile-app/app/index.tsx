@@ -227,7 +227,7 @@ function HomeScreen() {
   const floatingDateButtonStyle = useMemo(
     () => ({
       position: "absolute" as const,
-      bottom: insets.bottom + 80,
+      bottom: insets.bottom + 60,
       right: 16,
       zIndex: 1000,
       gap: 12,

@@ -77,6 +77,11 @@ const SearchListScreen = () => {
     router.back();
   }, [router]);
 
+  const handleBackToMap = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/");
+  }, [router]);
+
   const handleEventPress = useCallback(
     (event: EventType) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -167,6 +172,19 @@ const SearchListScreen = () => {
       showBackButton
       onBack={handleBack}
       noAnimation
+      footerButtons={
+        showLandingPage
+          ? [
+              {
+                label: "Back to Map",
+                onPress: handleBackToMap,
+                variant: "outline" as const,
+                style: { flex: 1 },
+              },
+            ]
+          : []
+      }
+      footerSafeArea
     >
       <Input
         ref={searchInputRef}

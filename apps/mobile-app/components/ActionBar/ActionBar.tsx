@@ -117,7 +117,6 @@ const ActionButton: React.FC<{
           {tab.label}
         </Text>
       </Animated.View>
-      {isActive && <View style={styles.activeIndicator} />}
     </TouchableOpacity>
   );
 });

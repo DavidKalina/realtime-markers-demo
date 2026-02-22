@@ -57,6 +57,7 @@ export interface EventListItemFooterProps {
   eventDate: Date | string;
   endDate?: string;
   isPrivate?: boolean;
+  isRecurring?: boolean;
 }
 
 const EventListItemFooter: React.FC<EventListItemFooterProps> = ({
@@ -65,128 +66,66 @@ const EventListItemFooter: React.FC<EventListItemFooterProps> = ({
   eventDate,
   endDate,
   isPrivate,
+  isRecurring,
 }) => {
   const timeBadgeText = useMemo(
     () => getTimeBadgeText(eventDate, endDate),
     [eventDate, endDate],
   );
 
-  // Get up to 2 categories
-  const displayCategories = useMemo(() => {
-    return categories?.slice(0, 2);
-  }, [categories]);
-
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        eventFooter: {
-          gap: spacing.sm,
-          marginTop: spacing.sm,
-        },
-        categoriesRow: {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: spacing.sm,
-          flexWrap: "wrap",
-        },
-        footerRow: {
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: spacing.sm,
-        },
-        footerLeft: {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: spacing.sm,
-          flex: 1,
-        },
-        footerRight: {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: spacing.sm,
-        },
-        distanceText: {
-          color: colors.accent.primary,
-          fontSize: fontSize.xs,
-          fontFamily: fontFamily.mono,
-          fontWeight: fontWeight.semibold,
-        },
-        timeBadge: {
-          backgroundColor: colors.text.primary,
-          paddingHorizontal: spacing.sm,
-          paddingVertical: spacing.xs,
-          borderRadius: radius.md,
-          borderWidth: 1,
-          borderColor: colors.border.medium,
-        },
-        timeBadgeText: {
-          color: colors.bg.card,
-          fontSize: fontSize.xs,
-          fontFamily: fontFamily.mono,
-          fontWeight: fontWeight.semibold,
-        },
-        categoryBadge: {
-          backgroundColor: colors.bg.cardAlt,
-          paddingHorizontal: spacing.sm,
-          paddingVertical: spacing.xs,
-          borderRadius: radius.md,
-          borderWidth: 1,
-          borderColor: colors.border.medium,
-        },
-        categoryText: {
-          color: colors.text.secondary,
-          fontSize: 11,
-          fontFamily: fontFamily.mono,
-          fontWeight: fontWeight.medium,
-        },
-        privateBadge: {
-          backgroundColor: colors.bg.cardAlt,
-          paddingHorizontal: spacing.sm,
-          paddingVertical: spacing.xs,
-          borderRadius: radius.md,
-          borderWidth: 1,
-          borderColor: colors.border.medium,
-        },
-        privateBadgeText: {
-          color: colors.text.secondary,
-          fontSize: fontSize.xs,
-          fontFamily: fontFamily.mono,
-          fontWeight: fontWeight.semibold,
-        },
-      }),
-    [],
-  );
+  // Build the metadata line: "distance · category · recurring · private"
+  const metaItems = useMemo(() => {
+    const items: string[] = [];
+    if (distance) items.push(distance);
+    if (categories?.length > 0) {
+      items.push(categories[0].name);
+    }
+    if (isRecurring) items.push("Recurring");
+    if (isPrivate) items.push("Private");
+    return items;
+  }, [distance, categories, isRecurring, isPrivate]);
 
   return (
-    <View style={styles.eventFooter}>
-      {displayCategories && displayCategories.length > 0 && (
-        <View style={styles.categoriesRow}>
-          {displayCategories.map((category) => (
-            <View key={category.id} style={styles.categoryBadge}>
-              <Text style={styles.categoryText}>{category.name}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-      <View style={styles.footerRow}>
-        <View style={styles.footerLeft}>
-          {distance && <Text style={styles.distanceText}>{distance}</Text>}
-          {isPrivate && (
-            <View style={styles.privateBadge}>
-              <Text style={styles.privateBadgeText}>🔒 Private</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.footerRight}>
-          <View style={styles.timeBadge}>
-            <Text style={styles.timeBadgeText}>{timeBadgeText}</Text>
-          </View>
-        </View>
+    <View style={styles.footer}>
+      <Text style={styles.metaText} numberOfLines={1}>
+        {metaItems.join(" · ")}
+      </Text>
+      <View style={styles.timeBadge}>
+        <Text style={styles.timeBadgeText}>{timeBadgeText}</Text>
       </View>
     </View>
   );
 };
 
 export default EventListItemFooter;
+
+const styles = StyleSheet.create({
+  footer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: spacing.sm,
+  },
+  metaText: {
+    flex: 1,
+    color: colors.text.secondary,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.medium,
+    marginRight: spacing.sm,
+  },
+  timeBadge: {
+    backgroundColor: colors.text.primary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border.medium,
+  },
+  timeBadgeText: {
+    color: colors.bg.card,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
+  },
+});

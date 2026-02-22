@@ -8,6 +8,13 @@ import {
 } from "lucide-react-native";
 import { TextInput } from "react-native";
 import * as Haptics from "expo-haptics";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  runOnJS,
+} from "react-native-reanimated";
 import Screen from "@/components/Layout/Screen";
 import Input from "@/components/Input/Input";
 import InfiniteScrollFlatList from "@/components/Layout/InfintieScrollFlatList";
@@ -43,10 +50,43 @@ const SavedListScreen = () => {
     },
   ];
 
+  const translateX = useSharedValue(0);
+
   const handleTabPress = useCallback((tab: SavedTab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tab);
   }, []);
+
+  const switchTab = useCallback(
+    (direction: "left" | "right") => {
+      if (direction === "left" && activeTab === "personal") {
+        handleTabPress("discovered");
+      } else if (direction === "right" && activeTab === "discovered") {
+        handleTabPress("personal");
+      }
+    },
+    [activeTab, handleTabPress],
+  );
+
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-20, 20])
+    .failOffsetY([-10, 10])
+    .onUpdate((e) => {
+      translateX.value = e.translationX * 0.3;
+    })
+    .onEnd((e) => {
+      if (e.translationX < -50) {
+        runOnJS(switchTab)("left");
+      } else if (e.translationX > 50) {
+        runOnJS(switchTab)("right");
+      }
+      translateX.value = withTiming(0, { duration: 200 });
+    });
+
+  const animatedContentStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+    flex: 1,
+  }));
 
   // Search input handlers
   const handleSearchInput = useCallback((text: string) => {
@@ -135,38 +175,42 @@ const SavedListScreen = () => {
       activeTab={activeTab}
       onTabChange={handleTabPress}
     >
-      <Input
-        ref={searchInputRef}
-        icon={SearchIcon}
-        rightIcon={searchQuery !== "" ? X : undefined}
-        onRightIconPress={handleClearSearch}
-        placeholder={`Search ${activeTab === "personal" ? "your" : "discovered"} saved events...`}
-        value={searchQuery}
-        onChangeText={handleSearchInput}
-        returnKeyType="search"
-        onSubmitEditing={handleSearch}
-        autoCapitalize="none"
-        autoCorrect={false}
-        autoFocus={true}
-        loading={isLoading}
-        style={{ marginHorizontal: 16, marginBottom: 16 }}
-      />
-      <InfiniteScrollFlatList
-        data={filteredEvents}
-        renderItem={renderEventItem}
-        fetchMoreData={loadMore}
-        onRefresh={refresh}
-        isLoading={isLoading}
-        isRefreshing={isLoading && events.length === 0}
-        hasMore={hasMore && !error}
-        error={error}
-        emptyListMessage={
-          searchQuery.trim()
-            ? "No saved events found matching your search"
-            : "No saved events found"
-        }
-        onRetry={refresh}
-      />
+      <GestureDetector gesture={panGesture}>
+        <Animated.View style={animatedContentStyle}>
+          <Input
+            ref={searchInputRef}
+            icon={SearchIcon}
+            rightIcon={searchQuery !== "" ? X : undefined}
+            onRightIconPress={handleClearSearch}
+            placeholder={`Search ${activeTab === "personal" ? "your" : "discovered"} saved events...`}
+            value={searchQuery}
+            onChangeText={handleSearchInput}
+            returnKeyType="search"
+            onSubmitEditing={handleSearch}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoFocus={true}
+            loading={isLoading}
+            style={{ marginHorizontal: 16, marginBottom: 16 }}
+          />
+          <InfiniteScrollFlatList
+            data={filteredEvents}
+            renderItem={renderEventItem}
+            fetchMoreData={loadMore}
+            onRefresh={refresh}
+            isLoading={isLoading}
+            isRefreshing={isLoading && events.length === 0}
+            hasMore={hasMore && !error}
+            error={error}
+            emptyListMessage={
+              searchQuery.trim()
+                ? "No saved events found matching your search"
+                : "No saved events found"
+            }
+            onRetry={refresh}
+          />
+        </Animated.View>
+      </GestureDetector>
     </Screen>
   );
 };
