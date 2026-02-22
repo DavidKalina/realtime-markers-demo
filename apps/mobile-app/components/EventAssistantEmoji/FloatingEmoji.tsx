@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { View } from "react-native";
+import { scheduleOnRN } from "react-native-worklets";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -8,7 +9,6 @@ import Animated, {
   withSequence,
   withTiming,
   Easing,
-  runOnJS,
   cancelAnimation,
 } from "react-native-reanimated";
 import { useLocationStore } from "@/stores/useLocationStore";
@@ -68,7 +68,7 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({
         { duration: 150, easing: Easing.out(Easing.quad) },
         () => {
           // Once faded out, change the emoji
-          runOnJS(setDisplayEmoji)(emoji);
+          scheduleOnRN(setDisplayEmoji, emoji);
 
           // Then fade back in
           opacity.value = withTiming(1, {

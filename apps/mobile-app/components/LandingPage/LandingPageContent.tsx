@@ -1,5 +1,11 @@
 import React from "react";
-import { ScrollView, RefreshControl, View, Text, StyleSheet } from "react-native";
+import {
+  ScrollView,
+  RefreshControl,
+  View,
+  Text,
+  StyleSheet,
+} from "react-native";
 import {
   colors,
   fontSize,
@@ -46,7 +52,10 @@ const LandingPageSkeleton: React.FC = () => {
             <ShimmerView style={styles.skeletonLine} />
             <ShimmerView style={[styles.skeletonLine, { width: "60%" }]} />
             <ShimmerView
-              style={[styles.skeletonLine, { width: "40%", marginTop: spacing.sm }]}
+              style={[
+                styles.skeletonLine,
+                { width: "40%", marginTop: spacing.sm },
+              ]}
             />
           </View>
         </View>
@@ -73,7 +82,10 @@ const LandingPageSkeleton: React.FC = () => {
             <ShimmerView style={styles.skeletonLine} />
             <ShimmerView style={[styles.skeletonLine, { width: "70%" }]} />
             <ShimmerView
-              style={[styles.skeletonLine, { width: "50%", marginTop: spacing.sm }]}
+              style={[
+                styles.skeletonLine,
+                { width: "50%", marginTop: spacing.sm },
+              ]}
             />
           </View>
         ))}

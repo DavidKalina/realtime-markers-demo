@@ -51,9 +51,7 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
             activeOpacity={0.7}
           >
             <View style={styles.iconContainer}>
-              <Text style={styles.iconText}>
-                {category.icon || "📌"}
-              </Text>
+              <Text style={styles.iconText}>{category.icon || "📌"}</Text>
             </View>
             <Text style={styles.categoryName} numberOfLines={2}>
               {category.name}

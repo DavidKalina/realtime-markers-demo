@@ -41,6 +41,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
+import { JobProgressProvider } from "@/contexts/JobProgressContext";
 import {
   SplashScreenProvider,
   useSplashScreen,
@@ -112,13 +113,15 @@ function AppProviders({ children }: AppProvidersProps) {
     <AuthProvider>
       <OnboardingProvider>
         <LocationProvider>
-          <MapStyleProvider>
-            <SplashScreenProvider>
-              <ThemeProvider value={DarkTheme}>
-                <SplashScreenHandler>{children}</SplashScreenHandler>
-              </ThemeProvider>
-            </SplashScreenProvider>
-          </MapStyleProvider>
+          <JobProgressProvider>
+            <MapStyleProvider>
+              <SplashScreenProvider>
+                <ThemeProvider value={DarkTheme}>
+                  <SplashScreenHandler>{children}</SplashScreenHandler>
+                </ThemeProvider>
+              </SplashScreenProvider>
+            </MapStyleProvider>
+          </JobProgressProvider>
         </LocationProvider>
       </OnboardingProvider>
     </AuthProvider>

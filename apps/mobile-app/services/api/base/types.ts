@@ -167,6 +167,14 @@ export interface JobStatus {
 }
 
 export interface JobStreamMessage extends JobStatus {
+  // New pipeline fields
+  stepId?: string | null;
+  stepLabel?: string;
+  stepIndex?: number;
+  totalSteps?: number;
+  stepProgress?: number;
+  message?: string;
+  // Legacy fields (kept for backward compat)
   progressStep?: string;
   progressDetails?: {
     currentStep: string;

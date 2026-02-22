@@ -28,7 +28,7 @@ import React, {
   useState,
 } from "react";
 import { Platform, View } from "react-native";
-import { runOnJS } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Set access token at module scope (lightweight, required before MapView renders)
@@ -214,8 +214,8 @@ function HomeScreen() {
         typeof screenPointX === "number" &&
         typeof screenPointY === "number"
       ) {
-        runOnJS(setRipplePosition)({ x: screenPointX, y: screenPointY });
-        runOnJS(setShowRipple)(true);
+        scheduleOnRN(setRipplePosition, { x: screenPointX, y: screenPointY });
+        scheduleOnRN(setShowRipple, true);
       }
     }
   }, []);

@@ -1,12 +1,6 @@
 import React, { useCallback, useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import {
-  colors,
-  fontSize,
-  fontWeight,
-  fontFamily,
-  spacing,
-} from "@/theme";
+import { colors, fontSize, fontWeight, fontFamily, spacing } from "@/theme";
 import { EventType } from "@/types/types";
 import EventListItem from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";

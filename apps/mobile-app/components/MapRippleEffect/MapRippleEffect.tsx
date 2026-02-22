@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { StyleSheet } from "react-native";
+import { scheduleOnRN } from "react-native-worklets";
 import AnimatedReanimated, {
   useAnimatedStyle,
   useSharedValue,
@@ -8,7 +9,6 @@ import AnimatedReanimated, {
   withDelay,
   Easing,
   cancelAnimation,
-  runOnJS,
 } from "react-native-reanimated";
 import { colors } from "@/theme";
 
@@ -63,7 +63,7 @@ const MapRippleEffectComponent: React.FC<MapRippleEffectProps> = ({
   const handleAnimationComplete = () => {
     "worklet";
     if (onAnimationComplete) {
-      runOnJS(onAnimationComplete)();
+      scheduleOnRN(onAnimationComplete);
     }
   };
 

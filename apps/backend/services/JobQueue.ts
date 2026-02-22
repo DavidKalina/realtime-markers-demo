@@ -206,14 +206,6 @@ export class JobQueue {
     console.log(
       `[JobQueue] Published to job:${jobId}:updates, subscribers: ${publishResult}`,
     );
-
-    // Also publish to general job updates channel for WebSocket
-    await this.dependencies.redisService.publish("job_updates", {
-      type: "JOB_UPDATE",
-      data: updateMessage,
-    });
-
-    await this.publishToWebSocket(updates);
   }
 
   /**
@@ -349,23 +341,6 @@ export class JobQueue {
     }
 
     return deletedCount;
-  }
-
-  private async publishToWebSocket(jobUpdate: Partial<JobData>): Promise<void> {
-    // Publish to job-specific WebSocket channel
-    await this.dependencies.redisService.publish("websocket:job_updates", {
-      type: "JOB_PROGRESS_UPDATE",
-      data: {
-        jobId: jobUpdate.id,
-        status: jobUpdate.status,
-        progress: jobUpdate.progress,
-        progressStep: jobUpdate.progressStep,
-        progressDetails: jobUpdate.progressDetails,
-        error: jobUpdate.error,
-        result: jobUpdate.result,
-        timestamp: new Date().toISOString(),
-      },
-    });
   }
 }
 

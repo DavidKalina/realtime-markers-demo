@@ -2,6 +2,7 @@ import { useEffect, useCallback } from "react";
 import { useScanReducer } from "./useScanReducer";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useEventBroker } from "@/hooks/useEventBroker";
+import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { apiClient } from "@/services/ApiClient";
 import { EventTypes } from "@/services/EventBroker";
 import { ImageSource } from "./useScanReducer";
@@ -21,6 +22,7 @@ export const useScanState = ({
 }: UseScanStateProps) => {
   const { userLocation } = useUserLocation();
   const { publish } = useEventBroker();
+  const { trackJob } = useJobProgressContext();
 
   // Create upload function
   const uploadImageAndQueue = useCallback(
@@ -64,6 +66,9 @@ export const useScanState = ({
         });
 
         if (result.jobId && isMounted.current) {
+          // Track job progress via SSE
+          trackJob(result.jobId);
+
           // Publish job queued event
           publish(EventTypes.JOB_QUEUED, {
             timestamp: Date.now(),
@@ -91,7 +96,14 @@ export const useScanState = ({
         throw error;
       }
     },
-    [isMounted, publish, processImage, isNetworkSuitable, userLocation],
+    [
+      isMounted,
+      publish,
+      trackJob,
+      processImage,
+      isNetworkSuitable,
+      userLocation,
+    ],
   );
 
   // Use the scan reducer

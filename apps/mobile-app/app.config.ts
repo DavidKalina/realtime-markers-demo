@@ -53,7 +53,7 @@ export default {
       [
         "expo-notifications",
         {
-          icon: "./assets/images/frederick-logo.png",
+          icon: "./assets/images/logo.png",
           color: "#ffffff",
           defaultChannel: "default",
           enableBackgroundRemoteNotifications: true,
@@ -78,7 +78,7 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/images/frederick-logo.png",
+          image: "./assets/images/logo.png",
           imageWidth: 200,
           resizeMode: "contain",
           backgroundColor: "#ffffff",

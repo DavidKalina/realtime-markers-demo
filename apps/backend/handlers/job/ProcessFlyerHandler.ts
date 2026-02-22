@@ -8,17 +8,18 @@ import { isEventTemporalyRelevant } from "../../utils/isEventTemporalyRelevant";
 import type { Point } from "geojson";
 import type { MultiEventScanResult } from "../../services/EventProcessingService";
 import { EventStatus } from "@realtime-markers/database";
-import type { Event, Category } from "@realtime-markers/database";
+import type { Category } from "@realtime-markers/database";
+import {
+  createJobTracker,
+  FLYER_PIPELINE,
+  type JobTracker,
+  type FlyerStepId,
+} from "../../services/shared/JobPipeline";
+import { jobNotificationService } from "../../services/JobNotificationService";
 
 // Helper function to convert Point to [number, number]
 function pointToCoordinates(point: Point): [number, number] {
   return [point.coordinates[0], point.coordinates[1]];
-}
-
-interface ProcessedEvent extends Omit<Event, "location"> {
-  isDuplicate?: boolean;
-  confidenceScore?: number;
-  location: Point;
 }
 
 // Utility to safely parse date strings or return undefined (NULL for DB)
@@ -64,33 +65,18 @@ export class ProcessFlyerHandler extends BaseJobHandler {
     job: JobData,
     context: JobHandlerContext,
   ): Promise<void> {
+    const tracker = createJobTracker(jobId, FLYER_PIPELINE, {
+      jobQueue: context.jobQueue,
+      redisService: context.redisService,
+      notificationService: jobNotificationService,
+    });
+
     try {
-      // Start the job and update status to processing
-      await this.startJob(jobId, context, "Starting flyer processing");
+      // Step 1: Validation
+      await tracker.step("validate");
 
-      // Step 1: Validation and Setup (15% progress)
-      await this.updateJobProgress(jobId, context, {
-        progress: 15,
-        progressStep: "Validating request and checking limits",
-        progressDetails: {
-          currentStep: "1",
-          totalSteps: 6,
-          stepProgress: 100,
-          stepDescription: "Validating request and checking limits",
-        },
-      });
-
-      // Step 2: Image Retrieval (25% progress)
-      await this.updateJobProgress(jobId, context, {
-        progress: 25,
-        progressStep: "Retrieving image data",
-        progressDetails: {
-          currentStep: "2",
-          totalSteps: 6,
-          stepProgress: 100,
-          stepDescription: "Retrieving image data",
-        },
-      });
+      // Step 2: Image Retrieval
+      await tracker.step("fetch_image");
 
       // Get the image buffer from Redis
       const bufferData = await context.redisService.get<{ data: number[] }>(
@@ -103,17 +89,8 @@ export class ProcessFlyerHandler extends BaseJobHandler {
       // Convert the array back to a Buffer
       const imageBuffer = Buffer.from(bufferData.data);
 
-      // Step 3: Image Upload (35% progress)
-      await this.updateJobProgress(jobId, context, {
-        progress: 35,
-        progressStep: "Uploading image to storage",
-        progressDetails: {
-          currentStep: "3",
-          totalSteps: 6,
-          stepProgress: 100,
-          stepDescription: "Uploading image to storage",
-        },
-      });
+      // Step 3: Image Upload
+      await tracker.step("upload");
 
       // Upload image
       const originalImageUrl = await this.storageService.uploadImage(
@@ -128,17 +105,8 @@ export class ProcessFlyerHandler extends BaseJobHandler {
 
       console.log("originalImageUrl", originalImageUrl);
 
-      // Step 4: Image Processing (50% progress)
-      await this.updateJobProgress(jobId, context, {
-        progress: 50,
-        progressStep: "Analyzing image content",
-        progressDetails: {
-          currentStep: "4",
-          totalSteps: 6,
-          stepProgress: 0,
-          stepDescription: "Analyzing image content",
-        },
-      });
+      // Step 4: AI Analysis
+      await tracker.step("analyze");
 
       // Process the image using smart processing with progress callback
       const scanResult = await this.eventProcessingService.processEventFlyer(
@@ -150,25 +118,11 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         },
         // Progress callback for AI processing
         (aiProgress: number, aiStep: string) => {
-          // Map AI progress (0-100) to our step progress (50-60)
-          const mappedProgress = 50 + (aiProgress / 100) * 10;
-          const roundedProgress = Math.round(mappedProgress);
-          console.log(
-            `[ProcessFlyerHandler] AI Progress: ${aiProgress}% - ${aiStep} -> ${mappedProgress}% (rounded: ${roundedProgress}%)`,
-          );
-
-          this.updateJobProgress(jobId, context, {
-            progress: roundedProgress,
-            progressStep: `AI Processing: ${aiStep}`,
-            progressDetails: {
-              currentStep: "4",
-              totalSteps: 6,
-              stepProgress: aiProgress,
-              stepDescription: `AI Processing: ${aiStep}`,
-            },
-          }).catch((error) => {
-            console.error("Error updating AI progress:", error);
-          });
+          tracker
+            .stepProgress(aiProgress, `AI Processing: ${aiStep}`)
+            .catch((error) => {
+              console.error("Error updating AI progress:", error);
+            });
         },
       );
 
@@ -178,54 +132,24 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         isMultiEvent: "events" in scanResult ? scanResult.isMultiEvent : "N/A",
       });
 
-      // Step 4b: Image Processing Complete (60% progress)
-      await this.updateJobProgress(jobId, context, {
-        progress: 60,
-        progressStep: "Image analysis complete",
-        progressDetails: {
-          currentStep: "4",
-          totalSteps: 6,
-          stepProgress: 100,
-          stepDescription: "Image analysis complete",
-        },
-      });
-
-      console.log("[ProcessFlyerHandler] Moving to Step 5: Event Processing");
-
-      // Step 5: Event Processing (75% progress)
-      await this.updateJobProgress(jobId, context, {
-        progress: 75,
-        progressStep: "Processing event details",
-        progressDetails: {
-          currentStep: "5",
-          totalSteps: 6,
-          stepProgress: 100,
-          stepDescription: "Processing event details",
-        },
-      });
-
-      console.log(
-        "[ProcessFlyerHandler] Step 5 complete, checking for multi-event result",
-      );
+      // Step 5: Processing event details
+      await tracker.step("process");
 
       // Handle multi-event result
       if ("events" in scanResult) {
         console.log(
           `[ProcessFlyerHandler] Processing multi-event result with ${scanResult.events.length} events`,
         );
-        // Process each event from the multi-event result
         const processedEvents = await this.processMultiEventResult(
           scanResult,
           jobId,
           context,
+          tracker,
           job.data.creatorId as string | undefined,
           originalImageUrl,
         );
 
-        // Mark as completed with success for multi-event
-        await this.completeJob(
-          jobId,
-          context,
+        await tracker.complete(
           {
             events: processedEvents.map((event) => ({
               eventId: event.id,
@@ -243,25 +167,19 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         return;
       }
 
-      console.log("[ProcessFlyerHandler] Processing single event result");
-
-      // Handle single event result (existing logic)
+      // Handle single event result
       // Check confidence score
       if (scanResult.confidence < 0.75) {
         console.log(
           `[ProcessFlyerHandler] Low confidence (${scanResult.confidence}), completing with warning`,
         );
-        await this.completeJob(jobId, context, {
+        await tracker.complete({
           message: "No event detected in the image",
           confidence: scanResult.confidence,
           threshold: 0.75,
         });
         return;
       }
-
-      console.log(
-        "[ProcessFlyerHandler] Step 5 complete, checking for duplicates",
-      );
 
       // Check for duplicates
       if (scanResult.isDuplicate && scanResult.similarity.matchingEventId) {
@@ -273,9 +191,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         );
 
         if (existingEvent) {
-          await this.completeJob(
-            jobId,
-            context,
+          await tracker.complete(
             {
               eventId: existingEvent.id,
               title: existingEvent.title,
@@ -305,7 +221,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         console.log(
           "[ProcessFlyerHandler] Invalid event date, completing with error",
         );
-        await this.completeJob(jobId, context, {
+        await tracker.complete({
           message:
             dateValidation.daysFromNow !== undefined &&
             dateValidation.daysFromNow < 0
@@ -317,8 +233,6 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         });
         return;
       }
-
-      console.log("[ProcessFlyerHandler] Moving to Step 6: Event Creation");
 
       // Acquire distributed lock to prevent duplicate concurrent scans
       const fingerprint = eventFingerprint(
@@ -335,7 +249,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         console.log(
           `[ProcessFlyerHandler] Duplicate scan detected (lock exists for fingerprint ${fingerprint}), completing as duplicate`,
         );
-        await this.completeJob(jobId, context, {
+        await tracker.complete({
           message:
             "This event is already being processed by another scan. Please wait a moment.",
           isDuplicate: true,
@@ -343,17 +257,8 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         return;
       }
 
-      // Step 6: Event Creation (90% progress)
-      await this.updateJobProgress(jobId, context, {
-        progress: 90,
-        progressStep: "Creating event in database",
-        progressDetails: {
-          currentStep: "6",
-          totalSteps: 6,
-          stepProgress: 100,
-          stepDescription: "Creating event in database",
-        },
-      });
+      // Step 6: Event Creation
+      await tracker.step("save");
 
       // Create the event
       console.log(
@@ -418,9 +323,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
       }
 
       // Mark as completed with success
-      await this.completeJob(
-        jobId,
-        context,
+      await tracker.complete(
         {
           eventId: newEvent.id,
           title: eventDetails.title,
@@ -431,10 +334,8 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         newEvent.id,
       );
     } catch (error) {
-      await this.failJob(
-        jobId,
-        context,
-        error instanceof Error ? error : new Error("Unknown error"),
+      await tracker.fail(
+        error instanceof Error ? error.message : "Unknown error",
         "We encountered an error while processing your event. Please try again with a different image or contact support if the issue persists.",
       );
     } finally {
@@ -445,20 +346,24 @@ export class ProcessFlyerHandler extends BaseJobHandler {
 
   /**
    * Process multiple events from a multi-event scan result
-   * @param scanResult The multi-event scan result
-   * @param jobId The job ID
-   * @param context The job handler context
-   * @param creatorId Optional creator ID
-   * @param originalImageUrl The URL of the original image
-   * @returns Array of processed events
    */
   private async processMultiEventResult(
     scanResult: MultiEventScanResult,
     jobId: string,
     context: JobHandlerContext,
+    tracker: JobTracker<FlyerStepId>,
     creatorId?: string,
     originalImageUrl?: string | null,
-  ): Promise<ProcessedEvent[]> {
+  ): Promise<
+    Array<{
+      id: string;
+      title: string;
+      emoji: string;
+      location: Point;
+      confidenceScore?: number;
+      isDuplicate?: boolean;
+    }>
+  > {
     if (!creatorId) {
       console.warn(
         `[ProcessFlyerHandler] Skipping multi-event processing — no creatorId for job ${jobId}`,
@@ -466,7 +371,14 @@ export class ProcessFlyerHandler extends BaseJobHandler {
       return [];
     }
 
-    const processedEvents: ProcessedEvent[] = [];
+    const processedEvents: Array<{
+      id: string;
+      title: string;
+      emoji: string;
+      location: Point;
+      confidenceScore?: number;
+      isDuplicate?: boolean;
+    }> = [];
 
     for (const eventResult of scanResult.events) {
       // Skip low confidence events
@@ -485,10 +397,13 @@ export class ProcessFlyerHandler extends BaseJobHandler {
 
         if (existingEvent) {
           processedEvents.push({
-            ...existingEvent,
+            id: existingEvent.id,
+            title: existingEvent.title,
+            emoji: existingEvent.emoji,
+            location: existingEvent.location,
             isDuplicate: true,
             confidenceScore: eventResult.confidence,
-          } as ProcessedEvent);
+          });
           continue;
         }
       }
@@ -542,7 +457,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         categoryIds:
           eventResult.eventDetails.categories?.map((cat: Category) => cat.id) ||
           [],
-        creatorId: creatorId!, // Validated above — skip events without a creator
+        creatorId: creatorId,
         qrDetectedInImage: eventResult.qrCodeDetected || false,
         detectedQrData: eventResult.qrCodeData,
         originalImageUrl: originalImageUrl || undefined,
@@ -576,7 +491,13 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         );
       }
 
-      processedEvents.push(newEvent as ProcessedEvent);
+      processedEvents.push({
+        id: newEvent.id,
+        title: newEvent.title,
+        emoji: newEvent.emoji,
+        location: newEvent.location,
+        confidenceScore: eventResult.confidence,
+      });
     }
 
     return processedEvents;

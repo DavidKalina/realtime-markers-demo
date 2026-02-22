@@ -104,7 +104,9 @@ const ListItem = React.memo<{
   return (
     <ListItemComponent
       style={[styles.itemContainer]}
-      layout={LinearTransition.springify().damping(spring.firm.damping).stiffness(spring.firm.stiffness)}
+      layout={LinearTransition.springify()
+        .damping(spring.firm.damping)
+        .stiffness(spring.firm.stiffness)}
       entering={
         animated ? FadeIn.duration(300).delay(delay + index * 50) : undefined
       }

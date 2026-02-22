@@ -26,9 +26,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { scheduleOnRN } from "react-native-worklets";
 import Animated, {
   cancelAnimation,
-  runOnJS,
   SlideInDown,
   SlideOutDown,
   useSharedValue,
@@ -270,13 +270,15 @@ const DateRangeCalendar: React.FC<DateRangeCalendarProps> = ({
   return (
     <Animated.View
       style={styles.container}
-      entering={SlideInDown.springify().damping(spring.firm.damping).stiffness(spring.dropdown.stiffness)}
+      entering={SlideInDown.springify()
+        .damping(spring.firm.damping)
+        .stiffness(spring.dropdown.stiffness)}
       exiting={SlideOutDown.springify()
         .damping(spring.firm.damping)
         .stiffness(spring.dropdown.stiffness)
         .withCallback((finished) => {
           if (finished) {
-            runOnJS(cleanupAnimations)();
+            scheduleOnRN(cleanupAnimations);
           }
         })}
     >

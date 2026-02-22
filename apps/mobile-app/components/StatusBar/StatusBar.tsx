@@ -5,6 +5,7 @@ import { StatusBar as RNStatusBar, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
+import JobIndicator from "../JobIndicator/JobIndicator";
 
 const StatusBar: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -36,6 +37,7 @@ const StatusBar: React.FC = () => {
         style={styles.bannerContent}
       >
         {user && <Text style={styles.userName}>{displayName}</Text>}
+        <JobIndicator />
       </Animated.View>
 
       <View style={styles.engagementContainer}>

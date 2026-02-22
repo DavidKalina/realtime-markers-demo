@@ -669,8 +669,10 @@ export class EventSearchServiceImpl implements EventSearchService {
 
     // Featured events: high engagement, ordered by saves/views
     const featuredEvents = await fetchWithFallback((qb, tier) => {
-      qb.orderBy("event.saveCount", "DESC")
-        .addOrderBy("event.viewCount", "DESC");
+      qb.orderBy("event.saveCount", "DESC").addOrderBy(
+        "event.viewCount",
+        "DESC",
+      );
       // On the broadest tier, prefer future events first
       if (tier === 3) {
         qb.addOrderBy(
@@ -687,52 +689,62 @@ export class EventSearchServiceImpl implements EventSearchService {
 
     // Upcoming events: soonest first, with optional distance sorting
     // Always require future dates — if none exist, section is hidden on the client
-    const upcomingEvents = await fetchWithFallback((qb, tier) => {
-      if (tier === 3) {
-        qb.andWhere("event.eventDate > NOW()");
-      }
-      qb.addOrderBy("event.eventDate", "ASC");
+    const upcomingEvents = await fetchWithFallback(
+      (qb, tier) => {
+        if (tier === 3) {
+          qb.andWhere("event.eventDate > NOW()");
+        }
+        qb.addOrderBy("event.eventDate", "ASC");
 
-      if (userLat && userLng) {
-        qb.addSelect(
-          `ST_Distance(
+        if (userLat && userLng) {
+          qb.addSelect(
+            `ST_Distance(
             event.location::geography,
             ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
           )`,
-          "distance",
-        );
-        qb.setParameter("lat", userLat);
-        qb.setParameter("lng", userLng);
-        qb.addOrderBy("distance", "ASC");
-      }
-      return qb;
-    }, upcomingLimit, featuredIds);
+            "distance",
+          );
+          qb.setParameter("lat", userLat);
+          qb.setParameter("lng", userLng);
+          qb.addOrderBy("distance", "ASC");
+        }
+        return qb;
+      },
+      upcomingLimit,
+      featuredIds,
+    );
 
     // Collect all used IDs for community exclusion
     const usedIds = [...featuredIds, ...upcomingEvents.map((e) => e.id)];
 
     // Community events: recurring or upcoming events (no past one-offs)
-    const communityEvents = await fetchWithFallback((qb, tier) => {
-      // Only show events that are still relevant: recurring OR future date
-      qb.andWhere(
-        "(event.isRecurring = true OR event.eventDate > NOW())",
-      );
+    const communityEvents = await fetchWithFallback(
+      (qb, tier) => {
+        // Only show events that are still relevant: recurring OR future date
+        qb.andWhere("(event.isRecurring = true OR event.eventDate > NOW())");
 
-      // Prefer non-official, user-scanned content with images
-      if (tier <= 1) {
-        qb.andWhere("event.isOfficial = :comOfficial", { comOfficial: false });
-        qb.andWhere("event.originalImageUrl IS NOT NULL");
-      } else if (tier === 2) {
-        // Drop the image requirement
-        qb.andWhere("event.isOfficial = :comOfficial", { comOfficial: false });
-      }
-      // Tier 3: any recurring/future event not already in featured/upcoming
+        // Prefer non-official, user-scanned content with images
+        if (tier <= 1) {
+          qb.andWhere("event.isOfficial = :comOfficial", {
+            comOfficial: false,
+          });
+          qb.andWhere("event.originalImageUrl IS NOT NULL");
+        } else if (tier === 2) {
+          // Drop the image requirement
+          qb.andWhere("event.isOfficial = :comOfficial", {
+            comOfficial: false,
+          });
+        }
+        // Tier 3: any recurring/future event not already in featured/upcoming
 
-      qb.orderBy("event.isRecurring", "DESC")
-        .addOrderBy("event.saveCount", "DESC")
-        .addOrderBy("event.eventDate", "ASC");
-      return qb;
-    }, communityLimit, usedIds);
+        qb.orderBy("event.isRecurring", "DESC")
+          .addOrderBy("event.saveCount", "DESC")
+          .addOrderBy("event.eventDate", "ASC");
+        return qb;
+      },
+      communityLimit,
+      usedIds,
+    );
 
     console.log(`Found ${communityEvents.length} community events`);
 

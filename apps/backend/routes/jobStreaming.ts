@@ -1,10 +1,39 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { Redis } from "ioredis";
+import { EventEmitter } from "events";
 import type { AppContext } from "../types/context";
 import { createRedisService } from "../services/shared/RedisService";
 
 const router = new Hono<AppContext>();
+
+// Module-level shared subscriber (created once on first request)
+let sharedSubscriber: Redis | null = null;
+const jobEmitter = new EventEmitter();
+jobEmitter.setMaxListeners(200);
+
+function ensureSharedSubscriber() {
+  if (sharedSubscriber) return;
+  sharedSubscriber = new Redis({
+    host: process.env.REDIS_HOST || "localhost",
+    port: parseInt(process.env.REDIS_PORT || "6379"),
+    password: process.env.REDIS_PASSWORD || undefined,
+  });
+
+  sharedSubscriber.psubscribe("job:*:updates");
+  sharedSubscriber.on("pmessage", (_pattern, channel, message) => {
+    // "job:{id}:updates" → extract id
+    const parts = channel.split(":");
+    if (parts.length >= 3) {
+      const jobId = parts[1];
+      jobEmitter.emit(jobId, message);
+    }
+  });
+
+  sharedSubscriber.on("error", (err) => {
+    console.error("[JobStreaming] Shared subscriber error:", err);
+  });
+}
 
 // Job status streaming endpoint
 router.get("/:jobId/stream", async (c) => {
@@ -19,40 +48,25 @@ router.get("/:jobId/stream", async (c) => {
   const authHeader = c.req.header("Authorization");
   if (authHeader && authHeader.startsWith("Bearer ")) {
     token = authHeader.substring(7);
-    console.log(
-      `[Stream] Token from Authorization header: ${token.substring(0, 20)}...`,
-    );
   } else {
     // Check token query parameter
     token = c.req.query("token");
-    console.log(
-      `[Stream] Token from query param: ${token ? token.substring(0, 20) + "..." : "null"}`,
-    );
   }
 
   if (!token) {
-    console.log(`[Stream] No token provided for job ${jobId}`);
     return c.json({ error: "Unauthorized" }, 401);
   }
 
   // Validate token
   const authService = c.get("authService");
-  console.log(`[Stream] AuthService available: ${!!authService}`);
 
   let decoded: { id: string; email: string; role: string } | null;
   try {
     decoded = authService.validateToken(token);
-    console.log(
-      "[Stream] Token validation result:",
-      decoded ? `valid for user ${decoded.id}` : "invalid",
-    );
-
     if (!decoded) {
-      console.log(`[Stream] Token validation failed for job ${jobId}`);
       return c.json({ error: "Unauthorized" }, 401);
     }
 
-    // Attach user to context
     c.set("user", {
       ...decoded,
       userId: decoded.id,
@@ -62,24 +76,20 @@ router.get("/:jobId/stream", async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  // Use Hono's streamSSE
+  // Create a temporary RedisService for reading initial state
+  const tempRedis = new Redis({
+    host: process.env.REDIS_HOST || "localhost",
+    port: parseInt(process.env.REDIS_PORT || "6379"),
+    password: process.env.REDIS_PASSWORD || undefined,
+  });
+  const redisService = createRedisService(tempRedis);
+
   return streamSSE(c, async (stream) => {
-    // Create a dedicated Redis subscriber client for streaming
-    // Note: We keep direct Redis usage here since it's for streaming
-    const redisSubscriber = new Redis({
-      host: process.env.REDIS_HOST || "localhost",
-      port: parseInt(process.env.REDIS_PORT || "6379"),
-      password: process.env.REDIS_PASSWORD || undefined,
-    });
-
-    const redisService = createRedisService(redisSubscriber);
-
     try {
       // Send initial job state
       const initialData = await redisService.get(`job:${jobId}`);
 
       if (initialData) {
-        // Parse the data if it's a string
         const jobData =
           typeof initialData === "string"
             ? JSON.parse(initialData)
@@ -91,86 +101,81 @@ router.get("/:jobId/stream", async (c) => {
             data: JSON.stringify({ id: jobId, status: "unauthorized" }),
           });
           stream.close();
+          tempRedis.quit();
           return;
         }
 
         await stream.writeSSE({ data: JSON.stringify(jobData) });
+
+        // If job is already terminal, send done and close
+        if (jobData.status === "completed" || jobData.status === "failed") {
+          await stream.writeSSE({ event: "done", data: "" });
+          stream.close();
+          tempRedis.quit();
+          return;
+        }
       } else {
         await stream.writeSSE({
           data: JSON.stringify({ id: jobId, status: "not_found" }),
         });
         stream.close();
+        tempRedis.quit();
         return;
       }
 
-      // Subscribe to job update channel
-      console.log(`[Stream] Subscribing to Redis channel job:${jobId}:updates`);
-      await redisSubscriber.subscribe(`job:${jobId}:updates`);
-      console.log(`[Stream] Successfully subscribed to job:${jobId}:updates`);
+      // Done reading initial state
+      tempRedis.quit();
 
-      // Set up message handler
-      const messageHandler = async (_channel: string, message: string) => {
-        console.log(`[Stream] Received message for job ${jobId}:`, message);
+      // Ensure shared subscriber is running
+      ensureSharedSubscriber();
 
+      // Listen for updates via EventEmitter (no new Redis connection)
+      const listener = async (message: string) => {
         try {
           const parsedMessage = JSON.parse(message);
-
-          // Extract the actual job update data from the message structure
           const jobUpdate = parsedMessage.data || parsedMessage;
 
-          console.log(`[Stream] Job update for ${jobId}:`, jobUpdate);
-
-          // Send the job update to the client
           await stream.writeSSE({ data: JSON.stringify(jobUpdate) });
-          console.log(`[Stream] Sent update to client for job ${jobId}`);
 
-          // Check if job is completed or failed to close the stream
           if (
             jobUpdate.status === "completed" ||
             jobUpdate.status === "failed"
           ) {
-            console.log(
-              `[Stream] Job ${jobId} completed/failed, closing stream`,
-            );
-            setTimeout(() => {
-              redisSubscriber.quit();
-              stream.close();
-            }, 100);
+            await stream.writeSSE({ event: "done", data: "" });
           }
         } catch (e) {
           console.error(`[Stream] Error parsing message for job ${jobId}:`, e);
-          // Send the raw message if parsing fails
           await stream.writeSSE({ data: message });
         }
       };
+      jobEmitter.on(jobId, listener);
 
-      redisSubscriber.on("message", messageHandler);
-      console.log(`[Stream] Message handler attached for job ${jobId}`);
-
-      // Clean up when the stream is closed
-      c.req.raw.signal.addEventListener("abort", () => {
-        redisSubscriber.off("message", messageHandler);
-        redisSubscriber.quit();
+      // Cleanup on disconnect
+      stream.onAbort(() => {
+        jobEmitter.off(jobId, listener);
       });
 
-      // Keep the connection alive with a heartbeat
-      const heartbeatInterval = setInterval(async () => {
-        await stream.writeSSE({
-          event: "heartbeat",
-          data: "", // Empty data for a heartbeat
-        });
+      // Heartbeat
+      const heartbeat = setInterval(async () => {
+        try {
+          await stream.writeSSE({ event: "heartbeat", data: "" });
+        } catch {
+          clearInterval(heartbeat);
+        }
       }, 30000);
 
-      // Clean up the heartbeat when the stream is closed
-      c.req.raw.signal.addEventListener("abort", () => {
-        clearInterval(heartbeatInterval);
+      stream.onAbort(() => {
+        clearInterval(heartbeat);
       });
+
+      // Keep stream alive until abort
+      await new Promise(() => {});
     } catch (error) {
       console.error("Error in SSE stream:", error);
       await stream.writeSSE({
         data: JSON.stringify({ error: "Stream error" }),
       });
-      redisSubscriber.quit();
+      tempRedis.quit();
       stream.close();
     }
   });

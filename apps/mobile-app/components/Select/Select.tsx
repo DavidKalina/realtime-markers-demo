@@ -241,7 +241,9 @@ export const Select: React.FC<SelectProps> = ({
                   transform: [{ translateY: 50 }, { scale: 0.9 }],
                 })}
               exiting={SlideOutDown.duration(150)}
-              layout={Layout.springify().damping(spring.dropdown.damping).stiffness(spring.dropdown.stiffness)}
+              layout={Layout.springify()
+                .damping(spring.dropdown.damping)
+                .stiffness(spring.dropdown.stiffness)}
             >
               <View style={styles.dropdownHeader}>
                 <Text style={styles.dropdownTitle}>

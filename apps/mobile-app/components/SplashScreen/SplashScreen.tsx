@@ -1,8 +1,8 @@
 import React, { useEffect } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { scheduleOnRN } from "react-native-worklets";
 import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -34,7 +34,7 @@ export function AnimatedSplashScreen({
     scale.value = withTiming(1.1, { duration: 1000 });
     opacity.value = withTiming(0, { duration: 1200 }, (isFinished) => {
       if (isFinished) {
-        runOnJS(onAnimationFinish)();
+        scheduleOnRN(onAnimationFinish);
       }
     });
   }, []);

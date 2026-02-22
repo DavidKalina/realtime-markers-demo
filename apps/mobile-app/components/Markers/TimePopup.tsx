@@ -120,12 +120,15 @@ const TitleContent: React.FC<{
         });
       }, MARQUEE_START_PAUSE);
 
-      const doneTimer = setTimeout(() => {
-        if (!called.current) {
-          called.current = true;
-          onComplete();
-        }
-      }, MARQUEE_START_PAUSE + scrollMs + MARQUEE_END_PAUSE);
+      const doneTimer = setTimeout(
+        () => {
+          if (!called.current) {
+            called.current = true;
+            onComplete();
+          }
+        },
+        MARQUEE_START_PAUSE + scrollMs + MARQUEE_END_PAUSE,
+      );
 
       return () => {
         clearTimeout(scrollTimer);
@@ -151,9 +154,7 @@ const TitleContent: React.FC<{
   return (
     <View style={styles.marqueeClip}>
       <Animated.View style={marqueeStyle}>
-        <Text
-          style={[styles.titleText, needsMarquee && { width: titleWidth }]}
-        >
+        <Text style={[styles.titleText, needsMarquee && { width: titleWidth }]}>
           {title}
         </Text>
       </Animated.View>
@@ -377,9 +378,7 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(
         {/* Off-screen measurement text (always rendered for measuring) */}
         <Text
           style={styles.measureText}
-          onLayout={(e) =>
-            setTitleWidth(Math.ceil(e.nativeEvent.layout.width))
-          }
+          onLayout={(e) => setTitleWidth(Math.ceil(e.nativeEvent.layout.width))}
         >
           {title}
         </Text>

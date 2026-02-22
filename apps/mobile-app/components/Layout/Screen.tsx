@@ -161,7 +161,7 @@ const Screen = <T extends string>({
           </View>
         ))}
       </View>
-       {tabs && activeTab && onTabChange && (
+      {tabs && activeTab && onTabChange && (
         <View style={styles.tabsWrapper}>
           <Tabs items={tabs} activeTab={activeTab} onTabPress={onTabChange} />
         </View>
