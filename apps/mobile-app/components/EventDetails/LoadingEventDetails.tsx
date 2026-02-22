@@ -1,8 +1,22 @@
 import React from "react";
-import { AnimatedSplashScreen } from "../SplashScreen/SplashScreen";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { colors } from "@/theme";
 
 const LoadingEventDetails = () => {
-  return <AnimatedSplashScreen onAnimationFinish={() => {}} />;
+  return (
+    <View style={styles.container}>
+      <ActivityIndicator size="large" color={colors.fixed.white} />
+    </View>
+  );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.bg.primary,
+  },
+});
 
 export default LoadingEventDetails;

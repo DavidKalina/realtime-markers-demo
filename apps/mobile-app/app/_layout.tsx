@@ -42,14 +42,9 @@ import { LocationProvider } from "@/contexts/LocationContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
 import { JobProgressProvider } from "@/contexts/JobProgressContext";
-import {
-  SplashScreenProvider,
-  useSplashScreen,
-} from "@/contexts/SplashScreenContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
-import { AnimatedSplashScreen } from "@/components/SplashScreen/SplashScreen";
 import { SENTRY_CONFIG, STACK_SCREEN_OPTIONS, SCREEN_CONFIGS } from "@/config";
 
 // Initialize Sentry — guarded so a native SDK failure doesn't crash the app
@@ -77,34 +72,12 @@ try {
 SplashScreen.preventAutoHideAsync();
 
 // Types
-interface SplashScreenHandlerProps {
-  children: React.ReactNode;
-}
-
 interface AppProvidersProps {
   children: React.ReactNode;
 }
 
 interface AppContentProps {
   children: React.ReactNode;
-}
-
-// SplashScreenHandler component
-function SplashScreenHandler({ children }: SplashScreenHandlerProps) {
-  const { shouldShowSplash, setSplashAnimationFinished } = useSplashScreen();
-
-  const handleAnimationFinish = () => {
-    setSplashAnimationFinished(true);
-  };
-
-  return (
-    <>
-      {children}
-      {shouldShowSplash && (
-        <AnimatedSplashScreen onAnimationFinish={handleAnimationFinish} />
-      )}
-    </>
-  );
 }
 
 // App providers component (dark theme only)
@@ -115,11 +88,7 @@ function AppProviders({ children }: AppProvidersProps) {
         <LocationProvider>
           <JobProgressProvider>
             <MapStyleProvider>
-              <SplashScreenProvider>
-                <ThemeProvider value={DarkTheme}>
-                  <SplashScreenHandler>{children}</SplashScreenHandler>
-                </ThemeProvider>
-              </SplashScreenProvider>
+              <ThemeProvider value={DarkTheme}>{children}</ThemeProvider>
             </MapStyleProvider>
           </JobProgressProvider>
         </LocationProvider>

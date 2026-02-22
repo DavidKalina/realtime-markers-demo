@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useSegments, useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
-import { useSplashScreen } from "@/contexts/SplashScreenContext";
 
 const GUEST_SCREENS = ["login", "register"];
 const PUBLIC_SCREENS = ["onboarding", "+not-found"];
@@ -19,26 +18,8 @@ export function useAuthGuard() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const { hasCompletedOnboarding, isLoading: isOnboardingLoading } =
     useOnboarding();
-  const { registerLoadingState, unregisterLoadingState } = useSplashScreen();
   const segments = useSegments();
   const router = useRouter();
-
-  // Register auth loading state with splash screen
-  useEffect(() => {
-    if (isAuthLoading || isOnboardingLoading) {
-      registerLoadingState("auth", true);
-    } else {
-      unregisterLoadingState("auth");
-    }
-    return () => {
-      unregisterLoadingState("auth");
-    };
-  }, [
-    isAuthLoading,
-    isOnboardingLoading,
-    registerLoadingState,
-    unregisterLoadingState,
-  ]);
 
   // Handle auth redirects
   useEffect(() => {

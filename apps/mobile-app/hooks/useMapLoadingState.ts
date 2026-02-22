@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { BaseEvent, EventTypes } from "@/services/EventBroker";
 import { useEventBroker } from "@/hooks/useEventBroker";
-import { useSplashScreen } from "@/contexts/SplashScreenContext";
 
 interface UseMapLoadingStateOptions {
   isLoadingLocation: boolean;
@@ -11,30 +10,9 @@ export function useMapLoadingState({
   isLoadingLocation,
 }: UseMapLoadingStateOptions) {
   const { publish } = useEventBroker();
-  const { registerLoadingState, unregisterLoadingState } = useSplashScreen();
 
   const [isMapReady, setIsMapReady] = useState(false);
   const [isMapLoading, setIsMapLoading] = useState(true);
-
-  // Register map loading state with splash screen context
-  useEffect(() => {
-    registerLoadingState("map", isMapLoading);
-    return () => {
-      unregisterLoadingState("map");
-    };
-  }, [isMapLoading, registerLoadingState, unregisterLoadingState]);
-
-  // Register location loading state with splash screen context
-  useEffect(() => {
-    if (isLoadingLocation) {
-      registerLoadingState("location", true);
-    } else {
-      unregisterLoadingState("location");
-    }
-    return () => {
-      unregisterLoadingState("location");
-    };
-  }, [isLoadingLocation, registerLoadingState, unregisterLoadingState]);
 
   // Update map loading state when map becomes ready
   useEffect(() => {
