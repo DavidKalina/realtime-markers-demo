@@ -1,16 +1,15 @@
 import MapMojiHeader from "@/components/AnimationHeader";
 import Input from "@/components/Input/Input";
-import { OAuthButtons } from "@/components/Login/OAuthButtons";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   colors,
-  spacing,
-  radius,
+  fontFamily,
   fontSize,
   fontWeight,
-  fontFamily,
+  radius,
+  spacing,
   spring,
 } from "@/theme";
-import { useAuth } from "@/contexts/AuthContext";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
@@ -20,7 +19,6 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -37,6 +35,7 @@ import Animated, {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const RegisterScreen: React.FC = () => {
   const router = useRouter();
@@ -272,8 +271,6 @@ const RegisterScreen: React.FC = () => {
                     <Text style={styles.loginLink}>Login</Text>
                   </TouchableOpacity>
                 </View>
-
-                <OAuthButtons onError={handleOAuthError} />
               </Animated.View>
             </Animated.View>
           </Animated.View>

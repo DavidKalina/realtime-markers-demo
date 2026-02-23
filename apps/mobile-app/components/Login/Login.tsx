@@ -1,4 +1,13 @@
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  colors,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  radius,
+  spacing,
+  spring,
+} from "@/theme";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
@@ -25,18 +34,8 @@ import Animated, {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
-import {
-  colors,
-  spacing,
-  radius,
-  fontSize,
-  fontWeight,
-  fontFamily,
-  spring,
-} from "@/theme";
 import MapMojiHeader from "../AnimationHeader";
 import Input from "../Input/Input";
-import { OAuthButtons } from "./OAuthButtons";
 
 const Login: React.FC = () => {
   const router = useRouter();
@@ -507,7 +506,6 @@ const Login: React.FC = () => {
                   </TouchableOpacity>
                 </View>
 
-                <OAuthButtons onError={handleOAuthError} />
               </Animated.View>
             </Animated.View>
           </Animated.View>
