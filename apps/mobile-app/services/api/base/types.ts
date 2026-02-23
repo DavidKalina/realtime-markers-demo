@@ -88,6 +88,9 @@ export interface ApiEvent {
   recurrenceInterval?: number;
   recurrenceTime?: string;
   recurrenceExceptions?: string[];
+  // Trending fields
+  isTrending?: boolean;
+  trendingScore?: number;
 }
 
 export interface ApiDiscoveredEvent extends ApiEvent {

@@ -1,5 +1,5 @@
 import { ApiEvent, ApiDiscoveredEvent } from "../base/types";
-import { EventType, DiscoveredEventType } from "@/types/types";
+import { EventType, DiscoveredEventType, TrendingEventType } from "@/types/types";
 
 export const mapEventToEventType = (apiEvent: ApiEvent): EventType => {
   return {
@@ -56,4 +56,12 @@ export const mapDiscoveredEventToType = (
   ...mapEventToEventType(apiEvent),
   discoveredAt: apiEvent.discoveredAt,
   discoverer: apiEvent.discoverer,
+});
+
+export const mapTrendingEventToType = (
+  apiEvent: ApiEvent & { isTrending?: boolean; trendingScore?: number },
+): TrendingEventType => ({
+  ...mapEventToEventType(apiEvent),
+  isTrending: apiEvent.isTrending ?? true,
+  trendingScore: apiEvent.trendingScore,
 });

@@ -59,6 +59,7 @@ export interface MarkerData {
   // Social proof counts (computed server-side)
   goingCount?: number;
   saveCount?: number;
+  isTrending?: boolean;
   // Metadata and additional fields
   [key: string]: unknown;
 }

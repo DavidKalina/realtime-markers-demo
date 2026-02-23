@@ -112,6 +112,8 @@ export interface Event {
   }>;
   // Relevance score from MapMoji algorithm
   relevanceScore?: number;
+  // Trending indicator (computed, not stored)
+  isTrending?: boolean;
 }
 
 // Update the FilterCriteria interface

@@ -14,11 +14,12 @@ import {
   spacing,
   radius,
 } from "@/theme";
-import { EventType, DiscoveredEventType } from "@/types/types";
+import { EventType, DiscoveredEventType, TrendingEventType } from "@/types/types";
 import ShimmerView from "@/components/Layout/ShimmerView";
 import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
 import PopularCategoriesSection from "./PopularCategoriesSection";
 import JustDiscoveredSection from "./JustDiscoveredSection";
+import TrendingEventsSection from "./TrendingEventsSection";
 import CommunityEventsSection from "./CommunityEventsSection";
 import UpcomingEventsSection from "./UpcomingEventsSection";
 
@@ -33,6 +34,7 @@ interface LandingPageData {
   upcomingEvents: EventType[];
   communityEvents?: EventType[];
   justDiscoveredEvents?: DiscoveredEventType[];
+  trendingEvents?: TrendingEventType[];
   popularCategories?: Category[];
 }
 
@@ -79,6 +81,23 @@ const LandingPageSkeleton: React.FC = () => {
       {/* Just Discovered Skeleton */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Just Discovered</Text>
+        <View style={styles.skeletonCard}>
+          <View style={styles.skeletonCardInner}>
+            <ShimmerView style={styles.skeletonLine} />
+            <ShimmerView style={[styles.skeletonLine, { width: "60%" }]} />
+            <ShimmerView
+              style={[
+                styles.skeletonLine,
+                { width: "40%", marginTop: spacing.sm },
+              ]}
+            />
+          </View>
+        </View>
+      </View>
+
+      {/* Trending Skeleton */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Trending Now</Text>
         <View style={styles.skeletonCard}>
           <View style={styles.skeletonCardInner}>
             <ShimmerView style={styles.skeletonLine} />
@@ -144,6 +163,8 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
       />
 
       <JustDiscoveredSection events={data?.justDiscoveredEvents || []} />
+
+      <TrendingEventsSection events={data?.trendingEvents || []} />
 
       <CommunityEventsSection
         events={data?.communityEvents || []}

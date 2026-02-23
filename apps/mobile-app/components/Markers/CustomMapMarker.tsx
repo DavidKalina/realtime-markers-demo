@@ -303,6 +303,14 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
             </Text>
           </View>
         )}
+
+        {/* Trending badge (only when social proof badge is not shown) */}
+        {event.data.isTrending &&
+          !((event.data.goingCount as number) >= 3) && (
+            <View style={styles.trendingBadge}>
+              <Text style={styles.trendingBadgeText}>Trending</Text>
+            </View>
+          )}
       </View>
     );
   },
@@ -312,7 +320,8 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       prevProps.isHighlighted === nextProps.isHighlighted &&
       prevProps.event.data.emoji === nextProps.event.data.emoji &&
       prevProps.event.data.title === nextProps.event.data.title &&
-      prevProps.event.data.goingCount === nextProps.event.data.goingCount
+      prevProps.event.data.goingCount === nextProps.event.data.goingCount &&
+      prevProps.event.data.isTrending === nextProps.event.data.isTrending
     );
   },
 );
@@ -384,6 +393,23 @@ const styles = StyleSheet.create({
   },
   socialProofText: {
     color: colors.status.success.text,
+    fontSize: 9,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
+  },
+  trendingBadge: {
+    position: "absolute",
+    bottom: -12,
+    alignSelf: "center",
+    backgroundColor: colors.bg.primary,
+    paddingHorizontal: spacing._6,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border.medium,
+  },
+  trendingBadgeText: {
+    color: colors.accent.primary,
     fontSize: 9,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.semibold,

@@ -570,6 +570,7 @@ export const getLandingPageDataHandler: EventHandler = withErrorHandling(
     const upcomingLimit = c.req.query("upcomingLimit");
     const communityLimit = c.req.query("communityLimit");
     const discoveryLimit = c.req.query("discoveryLimit");
+    const trendingLimit = c.req.query("trendingLimit");
 
     const user = requireAuth(c);
 
@@ -582,6 +583,7 @@ export const getLandingPageDataHandler: EventHandler = withErrorHandling(
       upcomingLimit: upcomingLimit ? parseInt(upcomingLimit) : undefined,
       communityLimit: communityLimit ? parseInt(communityLimit) : undefined,
       discoveryLimit: discoveryLimit ? parseInt(discoveryLimit) : undefined,
+      trendingLimit: trendingLimit ? parseInt(trendingLimit) : undefined,
       excludeUserId: user.id,
     });
 

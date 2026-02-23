@@ -67,6 +67,12 @@ export interface EventType extends Omit<EventSummary, "hasQrCode"> {
   isVerified?: boolean;
 }
 
+// Trending event type for the "Trending Now" section
+export interface TrendingEventType extends EventType {
+  isTrending: boolean;
+  trendingScore?: number;
+}
+
 // Discovered event type for the "Just Discovered" feed
 export interface DiscoveredEventType extends EventType {
   discoveredAt: string;

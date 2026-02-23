@@ -31,6 +31,7 @@ export interface EventListItemProps {
   isRecurring?: boolean;
   isPrivate?: boolean;
   goingCount?: number;
+  isTrending?: boolean;
   index?: number;
   onPress: (event: EventListItemProps) => void;
 }
@@ -49,6 +50,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
     isRecurring,
     isPrivate,
     goingCount,
+    isTrending,
     index = 0,
     onPress,
   }) => {
@@ -68,6 +70,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
         isRecurring,
         isPrivate,
         goingCount,
+        isTrending,
         index,
         onPress,
       });
@@ -84,6 +87,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
       isRecurring,
       isPrivate,
       goingCount,
+      isTrending,
       index,
       onPress,
     ]);
@@ -136,6 +140,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
                 isPrivate={isPrivate}
                 isRecurring={isRecurring}
                 goingCount={goingCount}
+                isTrending={isTrending}
               />
             </View>
           </Animated.View>

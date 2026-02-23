@@ -55,6 +55,7 @@ export interface EventSearchService {
     upcomingLimit?: number;
     communityLimit?: number;
     discoveryLimit?: number;
+    trendingLimit?: number;
     excludeUserId?: string;
     userLat?: number;
     userLng?: number;
@@ -67,6 +68,7 @@ export interface EventSearchService {
       discoveredAt: string;
       discoverer?: { id: string; firstName?: string; avatarUrl?: string };
     })[];
+    trendingEvents: (Event & { isTrending: true; trendingScore: number })[];
   }>;
 }
 
@@ -581,6 +583,82 @@ export class EventSearchServiceImpl implements EventSearchService {
     }
   }
 
+  private async getTrendingEvents(options: {
+    limit: number;
+    threshold?: number;
+    userLat?: number;
+    userLng?: number;
+  }): Promise<(Event & { isTrending: true; trendingScore: number })[]> {
+    const { limit, threshold = 3, userLat, userLng } = options;
+
+    try {
+      const queryParams: unknown[] = [threshold, limit];
+      let geoFilter = "";
+
+      if (userLat && userLng) {
+        geoFilter = `AND ST_DWithin(e.location::geography, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography, $5)`;
+        queryParams.push(userLng, userLat, 50000);
+      }
+
+      const query = `
+        SELECT e.*,
+          COALESCE(s.save_count_24h, 0)::int as saves_24h,
+          COALESCE(v.view_count_24h, 0)::int as views_24h,
+          COALESCE(d.scan_count_24h, 0)::int as scans_24h,
+          COALESCE(r.rsvp_count_24h, 0)::int as rsvps_24h,
+          (COALESCE(s.save_count_24h,0) * 3 + COALESCE(r.rsvp_count_24h,0) * 3 + COALESCE(v.view_count_24h,0) * 1 + COALESCE(d.scan_count_24h,0) * 2)::int as trending_score
+        FROM events e
+        LEFT JOIN (SELECT event_id, COUNT(*) as save_count_24h FROM user_event_saves WHERE saved_at > NOW() - INTERVAL '24 hours' GROUP BY event_id) s ON s.event_id = e.id
+        LEFT JOIN (SELECT event_id, COUNT(*) as view_count_24h FROM user_event_views WHERE viewed_at > NOW() - INTERVAL '24 hours' GROUP BY event_id) v ON v.event_id = e.id
+        LEFT JOIN (SELECT event_id, COUNT(*) as scan_count_24h FROM user_event_discoveries WHERE discovered_at > NOW() - INTERVAL '24 hours' GROUP BY event_id) d ON d.event_id = e.id
+        LEFT JOIN (SELECT event_id, COUNT(*) as rsvp_count_24h FROM user_event_rsvps WHERE created_at > NOW() - INTERVAL '24 hours' GROUP BY event_id) r ON r.event_id = e.id
+        WHERE e.status IN ('VERIFIED', 'PENDING')
+        AND (COALESCE(s.save_count_24h,0) * 3 + COALESCE(r.rsvp_count_24h,0) * 3 + COALESCE(v.view_count_24h,0) * 1 + COALESCE(d.scan_count_24h,0) * 2) >= $1
+        ${geoFilter}
+        ORDER BY trending_score DESC
+        LIMIT $2
+      `;
+
+      const rawResults = await this.dependencies.dataSource.query(
+        query,
+        queryParams,
+      );
+
+      // Map raw results to Event objects with trending metadata
+      if (!rawResults || rawResults.length === 0) {
+        return [];
+      }
+
+      // Fetch full Event entities for the trending IDs
+      const trendingIds = rawResults.map(
+        (r: { id: string }) => r.id,
+      );
+      const scoreMap = new Map<string, number>();
+      for (const r of rawResults) {
+        scoreMap.set(r.id, parseInt(r.trending_score) || 0);
+      }
+
+      const events = await this.eventRepository
+        .createQueryBuilder("event")
+        .leftJoinAndSelect("event.categories", "category")
+        .leftJoinAndSelect("event.creator", "creator")
+        .where("event.id IN (:...ids)", { ids: trendingIds })
+        .getMany();
+
+      // Sort by trending score and attach metadata
+      return events
+        .map((event) => ({
+          ...event,
+          isTrending: true as const,
+          trendingScore: scoreMap.get(event.id) || 0,
+        }))
+        .sort((a, b) => b.trendingScore - a.trendingScore);
+    } catch (error) {
+      console.error("Error fetching trending events:", error);
+      return [];
+    }
+  }
+
   private async getJustDiscoveredEvents(options: {
     limit: number;
     excludeUserId?: string;
@@ -652,6 +730,7 @@ export class EventSearchServiceImpl implements EventSearchService {
       upcomingLimit?: number;
       communityLimit?: number;
       discoveryLimit?: number;
+      trendingLimit?: number;
       excludeUserId?: string;
       userLat?: number;
       userLng?: number;
@@ -665,19 +744,21 @@ export class EventSearchServiceImpl implements EventSearchService {
       discoveredAt: string;
       discoverer?: { id: string; firstName?: string; avatarUrl?: string };
     })[];
+    trendingEvents: (Event & { isTrending: true; trendingScore: number })[];
   }> {
     const {
       featuredLimit = 5,
       upcomingLimit = 10,
       communityLimit = 5,
       discoveryLimit = 8,
+      trendingLimit = 5,
       excludeUserId,
       userLat,
       userLng,
     } = options;
 
     // Create a cache key based on the parameters
-    const cacheKey = `landing:${featuredLimit}:${upcomingLimit}:${communityLimit}:${discoveryLimit}:${excludeUserId || "anon"}:${userLat || "null"}:${userLng || "null"}`;
+    const cacheKey = `landing:${featuredLimit}:${upcomingLimit}:${communityLimit}:${discoveryLimit}:${trendingLimit}:${excludeUserId || "anon"}:${userLat || "null"}:${userLng || "null"}`;
 
     // Check if we have cached results
     const cachedResults =
@@ -693,6 +774,10 @@ export class EventSearchServiceImpl implements EventSearchService {
           []) as (Event & {
           discoveredAt: string;
           discoverer?: { id: string; firstName?: string; avatarUrl?: string };
+        })[],
+        trendingEvents: (cachedResults.trendingEvents || []) as (Event & {
+          isTrending: true;
+          trendingScore: number;
         })[],
       };
     }
@@ -847,6 +932,15 @@ export class EventSearchServiceImpl implements EventSearchService {
 
     console.log(`Found ${justDiscoveredEvents.length} just discovered events`);
 
+    // Trending events: rapid recent engagement in last 24h
+    const trendingEvents = await this.getTrendingEvents({
+      limit: trendingLimit,
+      userLat,
+      userLng,
+    });
+
+    console.log(`Found ${trendingEvents.length} trending events`);
+
     // Popular categories: from any events that passed filters
     // Try from all non-rejected events first, only narrow if we have plenty
     const popularCategories = await this.categoryRepository
@@ -882,6 +976,7 @@ export class EventSearchServiceImpl implements EventSearchService {
       communityEvents,
       popularCategories: categories,
       justDiscoveredEvents,
+      trendingEvents,
     };
 
     console.log("Landing page result:", {
@@ -890,6 +985,7 @@ export class EventSearchServiceImpl implements EventSearchService {
       communityEventsCount: communityEvents.length,
       popularCategoriesCount: categories.length,
       justDiscoveredEventsCount: justDiscoveredEvents.length,
+      trendingEventsCount: trendingEvents.length,
     });
 
     // Cache the results

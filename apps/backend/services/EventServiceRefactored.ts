@@ -113,6 +113,7 @@ export interface EventService {
     upcomingLimit?: number;
     communityLimit?: number;
     discoveryLimit?: number;
+    trendingLimit?: number;
     excludeUserId?: string;
     userLat?: number;
     userLng?: number;
@@ -122,6 +123,10 @@ export interface EventService {
     communityEvents: EventSummary[];
     popularCategories: CategorySummary[];
     justDiscoveredEvents: DiscoveredEventItem[];
+    trendingEvents: (EventSummary & {
+      isTrending: true;
+      trendingScore: number;
+    })[];
   }>;
 
   // User engagement operations
@@ -358,6 +363,7 @@ export class EventServiceRefactored implements EventService {
     upcomingLimit?: number;
     communityLimit?: number;
     discoveryLimit?: number;
+    trendingLimit?: number;
     excludeUserId?: string;
     userLat?: number;
     userLng?: number;
@@ -367,6 +373,10 @@ export class EventServiceRefactored implements EventService {
     communityEvents: EventSummary[];
     popularCategories: CategorySummary[];
     justDiscoveredEvents: DiscoveredEventItem[];
+    trendingEvents: (EventSummary & {
+      isTrending: true;
+      trendingScore: number;
+    })[];
   }> {
     return this.searchService.getLandingPageData(options);
   }

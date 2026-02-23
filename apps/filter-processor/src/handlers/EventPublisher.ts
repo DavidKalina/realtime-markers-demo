@@ -198,11 +198,25 @@ export class EventPublisher {
 
   private stripSensitiveData(
     event: Event,
-  ): Omit<Event, "embedding" | "rsvps"> & { goingCount: number } {
+  ): Omit<Event, "embedding" | "rsvps"> & {
+    goingCount: number;
+    isTrending: boolean;
+  } {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { embedding, rsvps, ...rest } = event;
     const goingCount = rsvps?.filter((r) => r.status === "GOING").length ?? 0;
-    return { ...rest, goingCount };
+    const isTrending = this.checkTrending(event);
+    return { ...rest, goingCount, isTrending };
+  }
+
+  private checkTrending(event: Event): boolean {
+    const ageHours =
+      (Date.now() - new Date(event.createdAt).getTime()) / (1000 * 60 * 60);
+    const totalEngagement =
+      (event.saveCount ?? 0) + (event.scanCount ?? 0);
+    if (ageHours < 1) return totalEngagement >= 2;
+    const rate = totalEngagement / Math.max(ageHours, 1);
+    return rate >= 0.5;
   }
 
   public getStats(): typeof this.stats {

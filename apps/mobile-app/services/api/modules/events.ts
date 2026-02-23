@@ -12,11 +12,12 @@ import {
   RsvpStatus,
   UpdateEventPayload,
 } from "../base/types";
-import { EventType, DiscoveredEventType } from "@/types/types";
+import { EventType, DiscoveredEventType, TrendingEventType } from "@/types/types";
 import { File, Paths } from "expo-file-system";
 import {
   mapEventToEventType,
   mapDiscoveredEventToType,
+  mapTrendingEventToType,
 } from "../utils/eventMapper";
 
 export class EventApiClient extends BaseApiModule {
@@ -246,12 +247,14 @@ export class EventApiClient extends BaseApiModule {
       upcomingLimit?: number;
       communityLimit?: number;
       discoveryLimit?: number;
+      trendingLimit?: number;
     } = {},
   ): Promise<{
     featuredEvents: EventType[];
     upcomingEvents: EventType[];
     communityEvents: EventType[];
     justDiscoveredEvents: DiscoveredEventType[];
+    trendingEvents: TrendingEventType[];
     popularCategories: Array<{
       id: string;
       name: string;
@@ -271,6 +274,8 @@ export class EventApiClient extends BaseApiModule {
       queryParams.append("communityLimit", params.communityLimit.toString());
     if (params.discoveryLimit)
       queryParams.append("discoveryLimit", params.discoveryLimit.toString());
+    if (params.trendingLimit)
+      queryParams.append("trendingLimit", params.trendingLimit.toString());
 
     const url = `${this.client.baseUrl}/api/events/landing?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
@@ -279,6 +284,10 @@ export class EventApiClient extends BaseApiModule {
       upcomingEvents: ApiEvent[];
       communityEvents?: ApiEvent[];
       justDiscoveredEvents?: ApiDiscoveredEvent[];
+      trendingEvents?: (ApiEvent & {
+        isTrending?: boolean;
+        trendingScore?: number;
+      })[];
       popularCategories: Array<{
         id: string;
         name: string;
@@ -291,6 +300,7 @@ export class EventApiClient extends BaseApiModule {
       upcomingEventsCount: data.upcomingEvents?.length || 0,
       communityEventsCount: data.communityEvents?.length || 0,
       justDiscoveredEventsCount: data.justDiscoveredEvents?.length || 0,
+      trendingEventsCount: data.trendingEvents?.length || 0,
       hasCommunityEvents: !!data.communityEvents,
     });
 
@@ -301,6 +311,7 @@ export class EventApiClient extends BaseApiModule {
       justDiscoveredEvents: (data.justDiscoveredEvents || []).map(
         mapDiscoveredEventToType,
       ),
+      trendingEvents: (data.trendingEvents || []).map(mapTrendingEventToType),
       popularCategories: data.popularCategories,
     };
   }

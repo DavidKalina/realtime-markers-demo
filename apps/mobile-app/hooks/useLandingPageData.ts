@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/services/ApiClient";
-import { EventType, DiscoveredEventType } from "@/types/types";
+import { EventType, DiscoveredEventType, TrendingEventType } from "@/types/types";
 
 interface Category {
   id: string;
@@ -13,6 +13,7 @@ interface LandingPageData {
   upcomingEvents: EventType[];
   communityEvents?: EventType[];
   justDiscoveredEvents?: DiscoveredEventType[];
+  trendingEvents?: TrendingEventType[];
   popularCategories: Category[];
 }
 
@@ -23,6 +24,7 @@ interface UseLandingPageDataProps {
   upcomingLimit?: number;
   communityLimit?: number;
   discoveryLimit?: number;
+  trendingLimit?: number;
 }
 
 interface UseLandingPageDataReturn {
@@ -39,6 +41,7 @@ const useLandingPageData = ({
   upcomingLimit = 10,
   communityLimit = 5,
   discoveryLimit = 8,
+  trendingLimit = 5,
 }: UseLandingPageDataProps = {}): UseLandingPageDataReturn => {
   const [landingData, setLandingData] = useState<LandingPageData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +59,7 @@ const useLandingPageData = ({
         upcomingLimit,
         communityLimit,
         discoveryLimit,
+        trendingLimit,
       });
 
       setLandingData(data);
@@ -72,6 +76,7 @@ const useLandingPageData = ({
     upcomingLimit,
     communityLimit,
     discoveryLimit,
+    trendingLimit,
   ]);
 
   const refresh = useCallback(async () => {
