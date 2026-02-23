@@ -184,6 +184,7 @@ export const baseStyles = StyleSheet.create({
   discoveredByContent: {
     flexDirection: "row",
     alignItems: "center",
+    gap: spacing.sm,
   },
   discoveredByText: {
     fontSize: fontSize.sm,

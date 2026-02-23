@@ -22,6 +22,8 @@ import {
   lineHeight,
 } from "@/theme";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
+import TierBadge from "../Gamification/TierBadge";
+import XPProgressBar from "../Gamification/XPProgressBar";
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -94,9 +96,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         isScrollable
       >
         <View style={styles.container}>
-          {/* Stats */}
+          {/* Progress */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Your Stats</Text>
+            <Text style={styles.sectionTitle}>Your Progress</Text>
+            <View style={styles.tierRow}>
+              <TierBadge
+                tier={profileData?.currentTier || "Explorer"}
+                size="md"
+              />
+            </View>
+            <XPProgressBar
+              totalXp={profileData?.totalXp || 0}
+              currentTier={profileData?.currentTier || "Explorer"}
+            />
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>
@@ -253,6 +265,11 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  // Tier
+  tierRow: {
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
   },
   // Stats

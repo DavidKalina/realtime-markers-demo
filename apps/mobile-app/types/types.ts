@@ -80,6 +80,7 @@ export interface DiscoveredEventType extends EventType {
     id: string;
     firstName?: string;
     avatarUrl?: string;
+    currentTier?: string;
   };
 }
 

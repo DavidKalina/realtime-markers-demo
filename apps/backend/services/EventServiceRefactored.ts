@@ -31,6 +31,7 @@ import type { QueryAnalyticsService } from "./QueryAnalyticsService";
 import { createQueryAnalyticsService } from "./QueryAnalyticsService";
 import type { QueryInsights, QueryCluster } from "./QueryAnalyticsService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
+import type { GamificationService } from "./GamificationService";
 import type { CreateEventInput } from "../types/event";
 
 // Replace SearchResult with EventSummary for better type safety
@@ -245,6 +246,7 @@ export interface EventServiceDependencies {
   eventCacheService: EventCacheService;
   openaiService: OpenAIService;
   embeddingService: IEmbeddingService;
+  gamificationService?: GamificationService;
 }
 
 export class EventServiceRefactored implements EventService {
@@ -279,6 +281,7 @@ export class EventServiceRefactored implements EventService {
     this.engagementService = createUserEngagementService({
       dataSource: dependencies.dataSource,
       redisService: dependencies.redisService,
+      gamificationService: dependencies.gamificationService!,
     });
 
     this.adminService = createEventAdminService({

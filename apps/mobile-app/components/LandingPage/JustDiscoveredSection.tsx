@@ -20,6 +20,7 @@ import {
 } from "@/theme";
 import { DiscoveredEventType } from "@/types/types";
 import EventListItem from "@/components/Event/EventListItem";
+import TierBadge from "@/components/Gamification/TierBadge";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
@@ -125,13 +126,26 @@ const JustDiscoveredSection: React.FC<JustDiscoveredSectionProps> = ({
                   onPress={() => handleEventPress(event)}
                 />
                 <View style={styles.discoveryBadge}>
-                  <Text style={styles.discoveryBadgeText}>
-                    {event.discoverer?.firstName
-                      ? `Found by ${event.discoverer.firstName}`
-                      : "Found"}
-                    {" · "}
-                    {formatTimeAgo(event.discoveredAt)}
-                  </Text>
+                  <View style={styles.discoveryBadgeContent}>
+                    <Text style={styles.discoveryBadgeText}>
+                      {event.discoverer?.firstName ? `Found by ` : "Found"}
+                    </Text>
+                    {event.discoverer?.currentTier && (
+                      <TierBadge
+                        tier={event.discoverer.currentTier}
+                        size="sm"
+                      />
+                    )}
+                    {event.discoverer?.firstName && (
+                      <Text style={styles.discoveryBadgeText}>
+                        {` ${event.discoverer.firstName}`}
+                      </Text>
+                    )}
+                    <Text style={styles.discoveryBadgeText}>
+                      {" · "}
+                      {formatTimeAgo(event.discoveredAt)}
+                    </Text>
+                  </View>
                 </View>
               </View>
             </TouchableOpacity>
@@ -198,6 +212,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border.default,
+  },
+  discoveryBadgeContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 4,
   },
   discoveryBadgeText: {
     fontSize: fontSize.xs,

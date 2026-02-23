@@ -21,6 +21,7 @@ import { createAuthService } from "./AuthService";
 import { createEmailService, MockEmailService } from "./shared/EmailService";
 import { createGoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import { createJobQueue } from "./JobQueue";
+import { createGamificationService } from "./GamificationService";
 import { RepositoryInitializer } from "./RepositoryInitializer";
 import type { EventService } from "./EventServiceRefactored";
 import type { EventProcessingService } from "./EventProcessingService";
@@ -34,6 +35,7 @@ import type { EmailService } from "./shared/EmailService";
 import type { JobQueue } from "./JobQueue";
 import type { RedisService } from "./shared/RedisService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
+import type { GamificationService } from "./GamificationService";
 
 export interface ServiceContainer {
   eventService: EventService;
@@ -48,6 +50,7 @@ export interface ServiceContainer {
   jobQueue: JobQueue;
   redisService: RedisService;
   geocodingService: GoogleGeocodingService;
+  gamificationService: GamificationService;
 }
 
 export class ServiceInitializer {
@@ -133,6 +136,11 @@ export class ServiceInitializer {
     });
 
     // Initialize business services
+    const gamificationService = createGamificationService({
+      dataSource: this.dataSource,
+      redisService,
+    });
+
     const eventService = createEventService({
       dataSource: this.dataSource,
       redisService,
@@ -143,6 +151,7 @@ export class ServiceInitializer {
       eventCacheService,
       openaiService: openAIService,
       embeddingService,
+      gamificationService,
     });
 
     const userPreferencesService = createUserPreferencesService({
@@ -189,6 +198,7 @@ export class ServiceInitializer {
       jobQueue,
       redisService,
       geocodingService,
+      gamificationService,
     };
   }
 

@@ -393,6 +393,8 @@ export class AuthService {
         "createdAt",
         "scanCount",
         "saveCount",
+        "totalXp",
+        "currentTier",
       ],
     });
 
@@ -514,6 +516,8 @@ export class AuthService {
       scanCount: user.scanCount,
       saveCount: user.saveCount,
       viewCount: user.viewCount,
+      totalXp: user.totalXp,
+      currentTier: user.currentTier,
     };
   }
 

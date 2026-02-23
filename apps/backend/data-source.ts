@@ -34,6 +34,7 @@ import { RegenerateEmbeddings1710000000017 } from "./migrations/RegenerateEmbedd
 import { UserPushTokenTable1710000000022 } from "./migrations/UserPushTokenTable1710000000022";
 import { DropCivicEngagementTables1710000000023 } from "./migrations/DropCivicEngagementTables1710000000023";
 import { AddSpatialAndCompoundIndexes1710000000024 } from "./migrations/AddSpatialAndCompoundIndexes1710000000024";
+import { AddGamificationFields1710000000025 } from "./migrations/AddGamificationFields1710000000025";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -69,6 +70,7 @@ const AppDataSource = new DataSource({
     UserPushTokenTable1710000000022,
     DropCivicEngagementTables1710000000023,
     AddSpatialAndCompoundIndexes1710000000024,
+    AddGamificationFields1710000000025,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

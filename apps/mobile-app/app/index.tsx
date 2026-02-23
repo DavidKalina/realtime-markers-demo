@@ -45,7 +45,7 @@ const styles = {
     flex: 1,
   },
   statusBarSpacer: {
-    height: 80, // Match the height of the StatusBar component
+    height: 105, // Match the height of the StatusBar component (includes XP bar)
   },
 };
 

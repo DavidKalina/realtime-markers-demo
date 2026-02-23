@@ -46,6 +46,7 @@ import { JobProgressProvider } from "@/contexts/JobProgressContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
+import XPNotificationOverlay from "@/components/Gamification/XPNotificationOverlay";
 import { SENTRY_CONFIG, STACK_SCREEN_OPTIONS, SCREEN_CONFIGS } from "@/config";
 
 // Initialize Sentry — guarded so a native SDK failure doesn't crash the app
@@ -109,6 +110,7 @@ function AppContent({ children }: AppContentProps) {
     <GestureHandlerRootView style={{ flex: 1 }}>
       {children}
       <ActionBar />
+      <XPNotificationOverlay />
       <StatusBar style="auto" />
     </GestureHandlerRootView>
   );

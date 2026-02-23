@@ -9,6 +9,7 @@ import {
   UserEventView,
 } from "@realtime-markers/database";
 import type { RedisService } from "./shared/RedisService";
+import type { GamificationService } from "./GamificationService";
 
 export interface EventEngagementMetrics {
   eventId: string;
@@ -65,6 +66,7 @@ export interface UserEngagementService {
 export interface UserEngagementServiceDependencies {
   dataSource: DataSource;
   redisService: RedisService;
+  gamificationService: GamificationService;
 }
 
 export class UserEngagementServiceImpl implements UserEngagementService {
@@ -75,6 +77,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
   private userEventDiscoveryRepository: Repository<UserEventDiscovery>;
   private userEventViewRepository: Repository<UserEventView>;
   private redisService: RedisService;
+  private gamificationService: GamificationService;
 
   constructor(private dependencies: UserEngagementServiceDependencies) {
     this.eventRepository = dependencies.dataSource.getRepository(Event);
@@ -88,6 +91,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
     this.userEventViewRepository =
       dependencies.dataSource.getRepository(UserEventView);
     this.redisService = dependencies.redisService;
+    this.gamificationService = dependencies.gamificationService;
   }
 
   /**
@@ -166,13 +170,20 @@ export class UserEngagementServiceImpl implements UserEngagementService {
           // Increment the user's save count
           user.saveCount = (user.saveCount || 0) + 1;
           saved = true;
-
-          // Award XP for saving an event
         }
 
         // Save both the updated event and user
         await transactionalEntityManager.save(event);
         await transactionalEntityManager.save(user);
+
+        // Award XP for saving (not unsaving)
+        if (saved) {
+          try {
+            await this.gamificationService.awardXP(userId, 10, "save_event");
+          } catch (error) {
+            console.error("Error awarding XP for save:", error);
+          }
+        }
 
         // Publish the updated event to Redis for filter processor to recalculate popularity scores
         await this.redisService.publish("event_changes", {
@@ -361,7 +372,12 @@ export class UserEngagementServiceImpl implements UserEngagementService {
           await transactionalEntityManager.save(newRsvp);
           changeType = "RSVP_ADDED";
 
-          // Award XP for RSVPing to an event
+          // Award XP for first RSVP to an event
+          try {
+            await this.gamificationService.awardXP(userId, 15, "rsvp_event");
+          } catch (error) {
+            console.error("Error awarding XP for RSVP:", error);
+          }
         }
 
         // Get updated counts
@@ -462,9 +478,25 @@ export class UserEngagementServiceImpl implements UserEngagementService {
           });
 
           if (event) {
+            const previousScanCount = event.scanCount || 0;
             // Increment the event's scan count
-            event.scanCount = (event.scanCount || 0) + 1;
+            event.scanCount = previousScanCount + 1;
             await transactionalEntityManager.save(event);
+
+            // Award XP for scanning/discovering an event
+            try {
+              await this.gamificationService.awardXP(userId, 100, "scan_event");
+              // First-to-scan bonus: if this event had 0 scans before
+              if (previousScanCount === 0) {
+                await this.gamificationService.awardXP(
+                  userId,
+                  50,
+                  "first_scan_bonus",
+                );
+              }
+            } catch (error) {
+              console.error("Error awarding XP for scan:", error);
+            }
           }
 
           // Also increment the user's discovery count
@@ -537,6 +569,13 @@ export class UserEngagementServiceImpl implements UserEngagementService {
             // Increment the user's view count
             user.viewCount = (user.viewCount || 0) + 1;
             await transactionalEntityManager.save(user);
+
+            // Award XP for viewing an event
+            try {
+              await this.gamificationService.awardXP(userId, 5, "view_event");
+            } catch (error) {
+              console.error("Error awarding XP for view:", error);
+            }
           }
 
           // Note: We no longer increment event.viewCount since we calculate it from UserEventView table

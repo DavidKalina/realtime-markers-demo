@@ -138,6 +138,8 @@ export type UserProfile = Pick<
   | "scanCount"
   | "saveCount"
   | "viewCount"
+  | "totalXp"
+  | "currentTier"
 >;
 
 export type UserStats = Pick<
@@ -213,6 +215,7 @@ export type DiscoveredEventItem = EventSummary & {
     id: string;
     firstName?: string;
     avatarUrl?: string;
+    currentTier?: string;
   };
 };
 

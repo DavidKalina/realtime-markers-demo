@@ -630,9 +630,7 @@ export class EventSearchServiceImpl implements EventSearchService {
       }
 
       // Fetch full Event entities for the trending IDs
-      const trendingIds = rawResults.map(
-        (r: { id: string }) => r.id,
-      );
+      const trendingIds = rawResults.map((r: { id: string }) => r.id);
       const scoreMap = new Map<string, number>();
       for (const r of rawResults) {
         scoreMap.set(r.id, parseInt(r.trending_score) || 0);
@@ -715,6 +713,7 @@ export class EventSearchServiceImpl implements EventSearchService {
               id: d.user.id,
               firstName: d.user.firstName,
               avatarUrl: d.user.avatarUrl,
+              currentTier: d.user.currentTier,
             }
           : undefined,
       }));

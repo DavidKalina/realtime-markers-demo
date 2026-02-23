@@ -71,6 +71,17 @@ export class User {
   @Column({ name: "view_count", type: "integer", default: 0 })
   viewCount!: number;
 
+  @Column({ name: "total_xp", type: "integer", default: 0 })
+  totalXp!: number;
+
+  @Column({
+    name: "current_tier",
+    type: "varchar",
+    length: 20,
+    default: "Explorer",
+  })
+  currentTier!: string;
+
   @Column({ name: "weekly_scan_count", type: "integer", default: 0 })
   weeklyScanCount!: number;
 

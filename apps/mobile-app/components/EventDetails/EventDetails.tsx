@@ -35,6 +35,7 @@ import { styles } from "./styles";
 import { formatRecurrenceFrequency, formatRecurrenceDays } from "./formatters";
 import { useEventDetails } from "./useEventDetails";
 import { useEventEngagement } from "./useEventEngagement";
+import TierBadge from "../Gamification/TierBadge";
 
 interface EventDetailsProps {
   eventId: string;
@@ -478,6 +479,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
               <View style={styles.infoCard}>
                 <SectionLabel title="Discovered by" icon={Scan} />
                 <View style={styles.discoveredByContent}>
+                  {event.creator?.currentTier && (
+                    <TierBadge tier={event.creator.currentTier} size="sm" />
+                  )}
                   <Text style={styles.discoveredByText}>
                     {(() => {
                       if (event.creator?.firstName && event.creator?.lastName) {

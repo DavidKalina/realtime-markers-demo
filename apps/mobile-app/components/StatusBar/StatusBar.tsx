@@ -1,5 +1,17 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
+import {
+  colors,
+  spacing,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  radius,
+} from "@/theme";
+import {
+  getTierByName,
+  getXPProgressPercent,
+  getNextTierThreshold,
+} from "@/utils/gamification";
 import React, { useMemo } from "react";
 import { StatusBar as RNStatusBar, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,6 +34,12 @@ const StatusBar: React.FC = () => {
 
   const displayName = user?.firstName || user?.email || "";
 
+  const totalXp = user?.totalXp || 0;
+  const currentTier = user?.currentTier || "Explorer";
+  const tierInfo = getTierByName(currentTier);
+  const progressPercent = getXPProgressPercent(totalXp);
+  const nextThreshold = getNextTierThreshold(totalXp);
+
   return (
     <View style={containerStyle}>
       <RNStatusBar
@@ -34,6 +52,31 @@ const StatusBar: React.FC = () => {
         {user && <Text style={styles.userName}>{displayName}</Text>}
         <JobIndicator />
       </View>
+
+      {/* XP Progress Bar */}
+      {user && (
+        <View style={styles.xpContainer}>
+          <View style={styles.xpRow}>
+            <Text style={styles.xpTierLabel}>
+              {tierInfo.emoji} {tierInfo.name}
+            </Text>
+            <Text style={styles.xpValueLabel}>
+              {totalXp.toLocaleString()} XP
+              {nextThreshold !== null && (
+                <Text style={styles.xpNextLabel}>
+                  {" "}
+                  / {nextThreshold.toLocaleString()}
+                </Text>
+              )}
+            </Text>
+          </View>
+          <View style={styles.xpBarBg}>
+            <View
+              style={[styles.xpBarFill, { width: `${progressPercent}%` }]}
+            />
+          </View>
+        </View>
+      )}
 
       <View style={styles.engagementContainer}>
         <DiscoveryIndicator position="bottom-left" />
@@ -72,6 +115,42 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     fontFamily: fontFamily.mono,
     letterSpacing: 0.2,
+  },
+  xpContainer: {
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.sm,
+  },
+  xpRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.xs,
+  },
+  xpTierLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    color: colors.accent.primary,
+    fontFamily: fontFamily.mono,
+  },
+  xpValueLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
+  },
+  xpNextLabel: {
+    color: colors.text.disabled,
+  },
+  xpBarBg: {
+    height: 4,
+    borderRadius: radius.full,
+    backgroundColor: colors.bg.elevated,
+    overflow: "hidden",
+  },
+  xpBarFill: {
+    height: "100%",
+    borderRadius: radius.full,
+    backgroundColor: colors.accent.primary,
   },
   engagementContainer: {
     position: "absolute",
