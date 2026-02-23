@@ -42,10 +42,19 @@ export const REDIS_CONFIG = {
   host: process.env.REDIS_HOST || "localhost",
   port: parseInt(process.env.REDIS_PORT || "6379"),
   password: process.env.REDIS_PASSWORD,
+  maxRetriesPerRequest: 3,
   retryStrategy: (times: number) => {
-    // Exponential backoff with max 10s
-    return Math.min(times * 100, 10000);
+    const delay = Math.min(times * 100, 10000);
+    console.log(`[Redis] Retry attempt ${times} with delay ${delay}ms`);
+    return delay;
   },
+  reconnectOnError: (err: Error) => {
+    console.error("[Redis] reconnectOnError triggered:", err.message);
+    return true;
+  },
+  enableOfflineQueue: true,
+  connectTimeout: 10000,
+  commandTimeout: 5000,
 };
 
 export const SERVER_CONFIG = {

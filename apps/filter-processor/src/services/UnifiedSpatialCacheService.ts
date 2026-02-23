@@ -18,7 +18,7 @@ export interface UnifiedSpatialCacheService {
   }): { type: string; entities: Event[] }[];
 
   // Spatial index management
-  addToSpatialIndex(event: Event): void;
+  addToSpatialIndex(event: Event): boolean;
   updateSpatialIndex(event: Event): void;
   removeFromSpatialIndex(eventId: string): void;
   getEventsInViewport(viewport: {
@@ -36,6 +36,7 @@ export interface UnifiedSpatialCacheService {
   getStats(): {
     cacheSize: number;
     spatialIndexSize: number;
+    spatialIndexFailures: number;
   };
 
   // Verification
@@ -60,6 +61,7 @@ export function createUnifiedSpatialCacheService(
   const eventCache = new Map<string, Event>();
   const spatialIndex = new RBush<SpatialItem>();
   const spatialItemMap = new Map<string, SpatialItem>();
+  let spatialIndexFailures = 0;
 
   /**
    * Convert an event to a spatial item for the RBush index
@@ -95,9 +97,12 @@ export function createUnifiedSpatialCacheService(
     // Add to cache
     eventCache.set(event.id, event);
 
-    // Add to spatial index if enabled
+    // Add to spatial index if enabled — remove from cache on failure to prevent divergence
     if (enableSpatialIndex) {
-      addToSpatialIndex(event);
+      if (!addToSpatialIndex(event)) {
+        eventCache.delete(event.id);
+        return;
+      }
     }
 
     // Enforce cache size limit
@@ -150,18 +155,21 @@ export function createUnifiedSpatialCacheService(
   }
 
   /**
-   * Add event to spatial index
+   * Add event to spatial index. Returns true on success, false on failure.
    */
-  function addToSpatialIndex(event: Event): void {
+  function addToSpatialIndex(event: Event): boolean {
     try {
       const spatialItem = eventToSpatialItem(event);
       spatialIndex.insert(spatialItem);
       spatialItemMap.set(event.id, spatialItem);
+      return true;
     } catch (error) {
+      spatialIndexFailures++;
       console.warn(
-        `[EventCacheService] Failed to add event ${event.id} to spatial index:`,
+        `[EventCacheService] Failed to add event ${event.id} to spatial index (total failures: ${spatialIndexFailures}):`,
         error,
       );
+      return false;
     }
   }
 
@@ -169,16 +177,11 @@ export function createUnifiedSpatialCacheService(
    * Update event in spatial index
    */
   function updateSpatialIndex(event: Event): void {
-    try {
-      // Remove old entry
-      removeFromSpatialIndex(event.id);
-      // Add new entry
-      addToSpatialIndex(event);
-    } catch (error) {
-      console.warn(
-        `[EventCacheService] Failed to update event ${event.id} in spatial index:`,
-        error,
-      );
+    // Remove old entry
+    removeFromSpatialIndex(event.id);
+    // Add new entry — if it fails, remove from cache to prevent divergence
+    if (!addToSpatialIndex(event)) {
+      eventCache.delete(event.id);
     }
   }
 
@@ -289,10 +292,12 @@ export function createUnifiedSpatialCacheService(
   function getStats(): {
     cacheSize: number;
     spatialIndexSize: number;
+    spatialIndexFailures: number;
   } {
     return {
       cacheSize: eventCache.size,
       spatialIndexSize: spatialItemMap.size,
+      spatialIndexFailures,
     };
   }
 

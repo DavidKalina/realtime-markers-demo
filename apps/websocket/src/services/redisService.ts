@@ -63,18 +63,42 @@ export function createRedisService(
 ): RedisService {
   const config = dependencies.config || REDIS_CONFIG;
 
+  // Subscriber clients need special reconnectOnError to ignore benign
+  // CLIENT SETINFO errors that occur in pub/sub mode
+  const subscriberConfig = {
+    ...config,
+    reconnectOnError: (err: Error) => {
+      const message = err?.message || "";
+      const isSubscriberContextError =
+        message.includes("only (P|S)SUBSCRIBE") ||
+        message.includes("only (P|S)UNSUBSCRIBE") ||
+        message.includes("in this context");
+      const isClientSetInfo =
+        message.toLowerCase().includes("client|setinfo") ||
+        message.toLowerCase().includes("client setinfo");
+      if (isSubscriberContextError && isClientSetInfo) {
+        console.warn(
+          "[Redis] Subscriber received benign CLIENT SETINFO error; skipping reconnect",
+        );
+        return false;
+      }
+      console.error("[Redis] Subscriber reconnectOnError:", message);
+      return true;
+    },
+  };
+
   // Main publisher client
   const pubClient = new Redis(config);
 
   // Global subscriber client for system-wide channels
-  const globalSubClient = new Redis(config);
+  const globalSubClient = new Redis(subscriberConfig);
 
   // Shared pattern subscriber for all user channels
   const subscribedUsers = new Set<string>();
   let userMessageCallback:
     | ((userId: string, channel: string, message: string) => void)
     | null = null;
-  const userPatternSubClient = new Redis(config);
+  const userPatternSubClient = new Redis(subscriberConfig);
 
   // Event emitter for global messages
   const eventEmitter = new EventEmitter();
@@ -370,14 +394,22 @@ export function createRedisService(
 
 function setupErrorHandling(client: Redis, clientName: string): void {
   client.on("error", (error) => {
-    console.error(`Redis ${clientName} error:`, error);
+    console.error(`[Redis] ${clientName} error:`, error.message);
   });
 
   client.on("connect", () => {
-    console.log(`Redis ${clientName} connected successfully`);
+    console.log(`[Redis] ${clientName} connected successfully`);
   });
 
   client.on("ready", () => {
-    console.log(`Redis ${clientName} is ready to accept commands`);
+    console.log(`[Redis] ${clientName} is ready to accept commands`);
+  });
+
+  client.on("reconnecting", (delay: number) => {
+    console.log(`[Redis] ${clientName} reconnecting in ${delay}ms`);
+  });
+
+  client.on("close", () => {
+    console.warn(`[Redis] ${clientName} connection closed`);
   });
 }

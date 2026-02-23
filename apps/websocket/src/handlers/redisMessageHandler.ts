@@ -48,41 +48,8 @@ export function handleRedisMessage(
   try {
     const data = JSON.parse(message);
 
-    // Handle filtered events channel pattern (user:${userId}:filtered-events)
-    if (channel.match(/^user:.+:filtered-events$/)) {
-      console.log("[WebSocket] Received filtered events message:", data);
-
-      // Extract userId from channel name
-      const userId = channel.split(":")[1];
-      if (!userId) {
-        console.error("Could not extract userId from channel:", channel);
-        return;
-      }
-
-      console.log("[WebSocket] Forwarding filtered events to user:", userId);
-
-      // Forward the message to the user's clients
-      const userClients = dependencies.getUserClients(userId);
-      if (userClients) {
-        for (const clientId of userClients) {
-          const client = dependencies.getClient(clientId);
-          if (client) {
-            try {
-              client.send(message);
-              console.log(`Forwarded filtered events to client ${clientId}`);
-            } catch (error) {
-              console.error(
-                `Error forwarding filtered events to client ${clientId}:`,
-                error,
-              );
-            }
-          }
-        }
-      } else {
-        console.log(`No clients found for user ${userId}`);
-      }
-      return;
-    }
+    // Note: user:*:filtered-events messages are handled by the per-user
+    // pattern subscriber in clientConnectionService, not here.
 
     switch (channel) {
       case REDIS_CHANNELS.DISCOVERED_EVENTS: {
