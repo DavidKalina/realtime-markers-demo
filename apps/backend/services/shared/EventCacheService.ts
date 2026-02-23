@@ -17,6 +17,7 @@ interface LandingPageData {
   upcomingEvents: Event[];
   communityEvents?: Event[];
   popularCategories: Category[];
+  justDiscoveredEvents?: Event[];
 }
 
 export interface EventCacheService {

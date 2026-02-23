@@ -1,5 +1,11 @@
 import React from "react";
-import { ScrollView, RefreshControl, View, Text, StyleSheet } from "react-native";
+import {
+  ScrollView,
+  RefreshControl,
+  View,
+  Text,
+  StyleSheet,
+} from "react-native";
 import {
   colors,
   fontSize,
@@ -8,10 +14,11 @@ import {
   spacing,
   radius,
 } from "@/theme";
-import { EventType } from "@/types/types";
+import { EventType, DiscoveredEventType } from "@/types/types";
 import ShimmerView from "@/components/Layout/ShimmerView";
 import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
 import PopularCategoriesSection from "./PopularCategoriesSection";
+import JustDiscoveredSection from "./JustDiscoveredSection";
 import CommunityEventsSection from "./CommunityEventsSection";
 import UpcomingEventsSection from "./UpcomingEventsSection";
 
@@ -25,6 +32,7 @@ interface LandingPageData {
   featuredEvents: EventType[];
   upcomingEvents: EventType[];
   communityEvents?: EventType[];
+  justDiscoveredEvents?: DiscoveredEventType[];
   popularCategories?: Category[];
 }
 
@@ -65,6 +73,23 @@ const LandingPageSkeleton: React.FC = () => {
               <ShimmerView style={styles.categorySkeletonLabel} />
             </View>
           ))}
+        </View>
+      </View>
+
+      {/* Just Discovered Skeleton */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Just Discovered</Text>
+        <View style={styles.skeletonCard}>
+          <View style={styles.skeletonCardInner}>
+            <ShimmerView style={styles.skeletonLine} />
+            <ShimmerView style={[styles.skeletonLine, { width: "60%" }]} />
+            <ShimmerView
+              style={[
+                styles.skeletonLine,
+                { width: "40%", marginTop: spacing.sm },
+              ]}
+            />
+          </View>
         </View>
       </View>
 
@@ -117,6 +142,8 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
         categories={data?.popularCategories || []}
         isLoading={false}
       />
+
+      <JustDiscoveredSection events={data?.justDiscoveredEvents || []} />
 
       <CommunityEventsSection
         events={data?.communityEvents || []}

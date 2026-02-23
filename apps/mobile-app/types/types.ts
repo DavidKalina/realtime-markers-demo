@@ -67,5 +67,15 @@ export interface EventType extends Omit<EventSummary, "hasQrCode"> {
   isVerified?: boolean;
 }
 
+// Discovered event type for the "Just Discovered" feed
+export interface DiscoveredEventType extends EventType {
+  discoveredAt: string;
+  discoverer?: {
+    id: string;
+    firstName?: string;
+    avatarUrl?: string;
+  };
+}
+
 // Re-export database enums for convenience
 export { EventStatus, RecurrenceFrequency, DayOfWeek };

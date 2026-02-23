@@ -1,6 +1,11 @@
 import pgvector from "pgvector";
 import { Brackets, DataSource, Repository } from "typeorm";
-import type { Category, Event, Filter } from "@realtime-markers/database";
+import type {
+  Category,
+  Event,
+  Filter,
+  UserEventDiscovery,
+} from "@realtime-markers/database";
 import type { EventCacheService } from "./shared/EventCacheService";
 import type { OpenAIService } from "./shared/OpenAIService";
 import type { QueryAnalyticsService } from "./QueryAnalyticsService";
@@ -49,6 +54,8 @@ export interface EventSearchService {
     featuredLimit?: number;
     upcomingLimit?: number;
     communityLimit?: number;
+    discoveryLimit?: number;
+    excludeUserId?: string;
     userLat?: number;
     userLng?: number;
   }): Promise<{
@@ -56,6 +63,10 @@ export interface EventSearchService {
     upcomingEvents: Event[];
     communityEvents: Event[];
     popularCategories: Category[];
+    justDiscoveredEvents: (Event & {
+      discoveredAt: string;
+      discoverer?: { id: string; firstName?: string; avatarUrl?: string };
+    })[];
   }>;
 }
 
@@ -570,11 +581,78 @@ export class EventSearchServiceImpl implements EventSearchService {
     }
   }
 
+  private async getJustDiscoveredEvents(options: {
+    limit: number;
+    excludeUserId?: string;
+    userLat?: number;
+    userLng?: number;
+  }): Promise<
+    (Event & {
+      discoveredAt: string;
+      discoverer?: { id: string; firstName?: string; avatarUrl?: string };
+    })[]
+  > {
+    const { limit, excludeUserId, userLat, userLng } = options;
+
+    try {
+      const discoveryRepo = this.dependencies.dataSource.getRepository(
+        "UserEventDiscovery",
+      ) as Repository<UserEventDiscovery>;
+
+      let qb = discoveryRepo
+        .createQueryBuilder("discovery")
+        .innerJoinAndSelect("discovery.event", "event")
+        .innerJoinAndSelect("discovery.user", "discoverer")
+        .leftJoinAndSelect("event.categories", "category")
+        .where("discovery.discoveredAt > NOW() - INTERVAL '7 days'")
+        .andWhere("event.status IN (:...statuses)", {
+          statuses: ["VERIFIED", "PENDING"],
+        });
+
+      if (excludeUserId) {
+        qb = qb.andWhere("discovery.userId != :excludeUserId", {
+          excludeUserId,
+        });
+      }
+
+      if (userLat && userLng) {
+        qb = qb.andWhere(
+          "ST_DWithin(event.location::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radius)",
+          { lat: userLat, lng: userLng, radius: 10000 },
+        );
+      }
+
+      qb = qb.orderBy("discovery.discoveredAt", "DESC").limit(limit);
+
+      const discoveries = await qb.getMany();
+
+      return discoveries.map((d) => ({
+        ...d.event,
+        discoveredAt:
+          d.discoveredAt instanceof Date
+            ? d.discoveredAt.toISOString()
+            : String(d.discoveredAt),
+        discoverer: d.user
+          ? {
+              id: d.user.id,
+              firstName: d.user.firstName,
+              avatarUrl: d.user.avatarUrl,
+            }
+          : undefined,
+      }));
+    } catch (error) {
+      console.error("Error fetching just discovered events:", error);
+      return [];
+    }
+  }
+
   async getLandingPageData(
     options: {
       featuredLimit?: number;
       upcomingLimit?: number;
       communityLimit?: number;
+      discoveryLimit?: number;
+      excludeUserId?: string;
       userLat?: number;
       userLng?: number;
     } = {},
@@ -583,17 +661,23 @@ export class EventSearchServiceImpl implements EventSearchService {
     upcomingEvents: Event[];
     communityEvents: Event[];
     popularCategories: Category[];
+    justDiscoveredEvents: (Event & {
+      discoveredAt: string;
+      discoverer?: { id: string; firstName?: string; avatarUrl?: string };
+    })[];
   }> {
     const {
       featuredLimit = 5,
       upcomingLimit = 10,
       communityLimit = 5,
+      discoveryLimit = 8,
+      excludeUserId,
       userLat,
       userLng,
     } = options;
 
     // Create a cache key based on the parameters
-    const cacheKey = `landing:${featuredLimit}:${upcomingLimit}:${communityLimit}:${userLat || "null"}:${userLng || "null"}`;
+    const cacheKey = `landing:${featuredLimit}:${upcomingLimit}:${communityLimit}:${discoveryLimit}:${excludeUserId || "anon"}:${userLat || "null"}:${userLng || "null"}`;
 
     // Check if we have cached results
     const cachedResults =
@@ -605,6 +689,11 @@ export class EventSearchServiceImpl implements EventSearchService {
         upcomingEvents: cachedResults.upcomingEvents,
         communityEvents: cachedResults.communityEvents,
         popularCategories: cachedResults.popularCategories,
+        justDiscoveredEvents: (cachedResults.justDiscoveredEvents ||
+          []) as (Event & {
+          discoveredAt: string;
+          discoverer?: { id: string; firstName?: string; avatarUrl?: string };
+        })[],
       };
     }
 
@@ -748,6 +837,16 @@ export class EventSearchServiceImpl implements EventSearchService {
 
     console.log(`Found ${communityEvents.length} community events`);
 
+    // Just discovered events: recently scanned by other community members
+    const justDiscoveredEvents = await this.getJustDiscoveredEvents({
+      limit: discoveryLimit,
+      excludeUserId,
+      userLat,
+      userLng,
+    });
+
+    console.log(`Found ${justDiscoveredEvents.length} just discovered events`);
+
     // Popular categories: from any events that passed filters
     // Try from all non-rejected events first, only narrow if we have plenty
     const popularCategories = await this.categoryRepository
@@ -782,6 +881,7 @@ export class EventSearchServiceImpl implements EventSearchService {
       upcomingEvents,
       communityEvents,
       popularCategories: categories,
+      justDiscoveredEvents,
     };
 
     console.log("Landing page result:", {
@@ -789,6 +889,7 @@ export class EventSearchServiceImpl implements EventSearchService {
       upcomingEventsCount: upcomingEvents.length,
       communityEventsCount: communityEvents.length,
       popularCategoriesCount: categories.length,
+      justDiscoveredEventsCount: justDiscoveredEvents.length,
     });
 
     // Cache the results

@@ -201,8 +201,7 @@ export class EventPublisher {
   ): Omit<Event, "embedding" | "rsvps"> & { goingCount: number } {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { embedding, rsvps, ...rest } = event;
-    const goingCount =
-      rsvps?.filter((r) => r.status === "GOING").length ?? 0;
+    const goingCount = rsvps?.filter((r) => r.status === "GOING").length ?? 0;
     return { ...rest, goingCount };
   }
 

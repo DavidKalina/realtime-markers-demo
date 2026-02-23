@@ -16,6 +16,7 @@ The input is the physical world. The output is a living map of what's happening 
 ## What's Special (Protect These)
 
 ### The Scan-to-Map Pipeline
+
 The core differentiator. Camera → gpt-4o vision → structured event data → real-time map marker. No forms, no typing. Point and shoot. This is the identity of the product and should be treated as sacred.
 
 - Multi-event detection from single images (community boards)
@@ -24,9 +25,11 @@ The core differentiator. Camera → gpt-4o vision → structured event data → 
 - Sub-500ms delivery to nearby users via Redis → filter-processor → WebSocket → RBush
 
 ### Per-User Viewport Spatial Filtering
+
 Not a broadcast. Each user only receives events within their visible map bounds. Computed in real-time with RBush spatial indexing and a two-tier batching strategy (150ms debounce + 2s sweep). This is what makes the real-time feel magical without melting phones.
 
 ### Physical-to-Digital Bridge
+
 Every city has thousands of events that never touch Eventbrite or Facebook. Flyers, chalkboards, church bulletins, community boards. We digitize what others ignore.
 
 ---
@@ -38,12 +41,14 @@ Every city has thousands of events that never touch Eventbrite or Facebook. Flye
 The tagline promises progression. Deliver it.
 
 **Scanner Tiers:**
+
 - Explorer (0-10 scans) — just getting started
 - Scout (11-50 scans) — knows the neighborhood
 - Curator (51-200 scans) — trusted source
 - Ambassador (200+) — community pillar
 
 **Mechanics:**
+
 - XP earned per scan, bonus for first-to-scan an event
 - Weekly challenges ("Scan 3 flyers this week," "Discover an event in a new category")
 - Streak tracking (consecutive days/weeks with a scan)
@@ -59,11 +64,13 @@ The tagline promises progression. Deliver it.
 The single biggest driver of event attendance is knowing other people are going.
 
 **On markers:**
+
 - Show RSVP/save count: `🎵 +23 going`
 - Show friends going (when social graph exists): `🎵 3 friends saved`
 - "Trending" indicator for events with rapid engagement growth
 
 **On event details:**
+
 - Avatars of people who RSVP'd (or count if no social graph yet)
 - "X people discovered this today"
 - Scanner attribution: "Found by @sarah" with tier badge
@@ -75,6 +82,7 @@ The single biggest driver of event attendance is knowing other people are going.
 Currently, `DiscoveryIndicator` shows ephemeral toasts. Upgrade to a persistent, social feed.
 
 **Feed items:**
+
 - "12 people discovered events in [your neighborhood] today"
 - "[Name] found a free yoga class 3 blocks from you"
 - "A new event just appeared on your map" (with preview)
@@ -90,12 +98,14 @@ Currently, `DiscoveryIndicator` shows ephemeral toasts. Upgrade to a persistent,
 The hardest part of going to an event alone is being alone.
 
 **MVP:**
+
 - "Going with [name]" on RSVP
 - Invite a friend via share link (even if they don't have the app)
 - Small group formation around events
 - "David + 2 others are going" visible on event card
 
 **Later:**
+
 - Recurring crews ("Saturday morning farmers market crew")
 - Open invites ("Looking for someone to go with")
 
@@ -106,6 +116,7 @@ The hardest part of going to an event alone is being alone.
 Currently no public web experience. Every event should have a clean, shareable URL.
 
 **The page:**
+
 - Event info, map, date/time
 - "X people going" social proof
 - "Scan flyers near you" app download CTA
@@ -118,6 +129,7 @@ Currently no public web experience. Every event should have a clean, shareable U
 Replace the search landing page with curated local discovery.
 
 **Sections:**
+
 - "Tonight" — events happening in the next few hours
 - "This Weekend" — upcoming weekend events
 - "Trending Nearby" — fastest-growing events by engagement
@@ -133,6 +145,7 @@ Replace the search landing page with curated local discovery.
 Full comment systems kill small communities. Quick reactions preserve signal.
 
 **Vibe tags (tap to add):**
+
 - "Hidden gem"
 - "Bring friends"
 - "Great for solo"
@@ -148,13 +161,13 @@ Full comment systems kill small communities. Quick reactions preserve signal.
 
 ## What to Simplify / Cut
 
-| Feature | Action | Reason |
-|---------|--------|--------|
-| Date range calendar picker | Replace with Tonight / Weekend / This Week buttons | Over-engineered for how people plan |
-| Admin dashboard analytics (12-week trends, busiest times) | Deprioritize | Premature optimization; focus on consumer experience |
-| "Discovered" vs "My Events" tabs in Saved | Merge into single saved list | Confusing distinction for users |
-| Private events | Remove or hide | Adds complexity, unclear use case at this stage |
-| Map style selector (3 options) | Keep but move deeper in settings | Not a core interaction |
+| Feature                                                   | Action                                             | Reason                                               |
+| --------------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------- |
+| Date range calendar picker                                | Replace with Tonight / Weekend / This Week buttons | Over-engineered for how people plan                  |
+| Admin dashboard analytics (12-week trends, busiest times) | Deprioritize                                       | Premature optimization; focus on consumer experience |
+| "Discovered" vs "My Events" tabs in Saved                 | Merge into single saved list                       | Confusing distinction for users                      |
+| Private events                                            | Remove or hide                                     | Adds complexity, unclear use case at this stage      |
+| Map style selector (3 options)                            | Keep but move deeper in settings                   | Not a core interaction                               |
 
 ---
 
@@ -177,9 +190,11 @@ Right now we have steps 1-2. Steps 3-6 are the retention and growth loops that n
 ## Technical Notes
 
 ### What's Overbuilt (In a Good Way)
+
 The real-time infrastructure (Redis pub/sub, RBush spatial indexing, per-user viewport filtering, WebSocket with zombie reaping, two-tier batching) can handle 100x current needs. The AI pipeline (vision extraction, embedding generation, duplicate detection, multi-event scanning) is production-grade. The bottleneck is product surface area, not technical capacity.
 
 ### What Needs Engineering Work
+
 - **User entity:** Add XP, tier, streak fields
 - **New entities:** Challenge, Reaction/VibeTags, Crew/Group
 - **New service:** GamificationService (XP calculation, tier promotion, challenge tracking)
@@ -189,6 +204,7 @@ The real-time infrastructure (Redis pub/sub, RBush spatial indexing, per-user vi
 - **Discovery feed:** Aggregation queries on UserEventDiscovery by geography + time
 
 ### Stack Strengths
+
 - Bun runtime across all backend services (fast, consistent)
 - TypeORM shared package means new entities propagate everywhere
 - PostGIS + pgvector already in place for spatial + semantic queries
@@ -205,4 +221,4 @@ The real-time infrastructure (Redis pub/sub, RBush spatial indexing, per-user vi
 
 The people who scan flyers are the product. The events are the content. The map is the interface. The social proof is the engine. The third space is the outcome.
 
-*"A Third Space in Your Pocket."*
+_"A Third Space in Your Pocket."_

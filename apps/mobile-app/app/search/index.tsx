@@ -48,6 +48,7 @@ const SearchListScreen = () => {
     featuredLimit: 5,
     upcomingLimit: 10,
     communityLimit: 5,
+    discoveryLimit: 8,
   });
 
   // Track if we're showing landing page or search results

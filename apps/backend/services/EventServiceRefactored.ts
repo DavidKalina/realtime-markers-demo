@@ -10,6 +10,7 @@ import type {
   EventSummary,
   EventDetails,
   CategorySummary,
+  DiscoveredEventItem,
 } from "@realtime-markers/database";
 import type { EventLifecycleService } from "./EventLifecycleService";
 import { createEventLifecycleService } from "./EventLifecycleService";
@@ -111,6 +112,8 @@ export interface EventService {
     featuredLimit?: number;
     upcomingLimit?: number;
     communityLimit?: number;
+    discoveryLimit?: number;
+    excludeUserId?: string;
     userLat?: number;
     userLng?: number;
   }): Promise<{
@@ -118,6 +121,7 @@ export interface EventService {
     upcomingEvents: EventSummary[];
     communityEvents: EventSummary[];
     popularCategories: CategorySummary[];
+    justDiscoveredEvents: DiscoveredEventItem[];
   }>;
 
   // User engagement operations
@@ -353,6 +357,8 @@ export class EventServiceRefactored implements EventService {
     featuredLimit?: number;
     upcomingLimit?: number;
     communityLimit?: number;
+    discoveryLimit?: number;
+    excludeUserId?: string;
     userLat?: number;
     userLng?: number;
   }): Promise<{
@@ -360,6 +366,7 @@ export class EventServiceRefactored implements EventService {
     upcomingEvents: EventSummary[];
     communityEvents: EventSummary[];
     popularCategories: CategorySummary[];
+    justDiscoveredEvents: DiscoveredEventItem[];
   }> {
     return this.searchService.getLandingPageData(options);
   }

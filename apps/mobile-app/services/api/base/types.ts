@@ -90,6 +90,15 @@ export interface ApiEvent {
   recurrenceExceptions?: string[];
 }
 
+export interface ApiDiscoveredEvent extends ApiEvent {
+  discoveredAt: string;
+  discoverer?: {
+    id: string;
+    firstName?: string;
+    avatarUrl?: string;
+  };
+}
+
 export interface GetEventsParams {
   cursor?: string;
   limit?: number;

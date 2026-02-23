@@ -1,5 +1,5 @@
-import { ApiEvent } from "../base/types";
-import { EventType } from "@/types/types";
+import { ApiEvent, ApiDiscoveredEvent } from "../base/types";
+import { EventType, DiscoveredEventType } from "@/types/types";
 
 export const mapEventToEventType = (apiEvent: ApiEvent): EventType => {
   return {
@@ -49,3 +49,11 @@ export const mapEventToEventType = (apiEvent: ApiEvent): EventType => {
     recurrenceExceptions: apiEvent.recurrenceExceptions,
   };
 };
+
+export const mapDiscoveredEventToType = (
+  apiEvent: ApiDiscoveredEvent,
+): DiscoveredEventType => ({
+  ...mapEventToEventType(apiEvent),
+  discoveredAt: apiEvent.discoveredAt,
+  discoverer: apiEvent.discoverer,
+});

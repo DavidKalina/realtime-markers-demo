@@ -206,6 +206,15 @@ export type EventSummary = Pick<
   categories?: CategorySummary[];
 };
 
+export type DiscoveredEventItem = EventSummary & {
+  discoveredAt: string;
+  discoverer?: {
+    id: string;
+    firstName?: string;
+    avatarUrl?: string;
+  };
+};
+
 export type EventDetails = EventSummary & {
   locationNotes?: string;
   timezone?: string;
