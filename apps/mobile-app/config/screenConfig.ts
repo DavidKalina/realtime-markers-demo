@@ -46,6 +46,10 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
     name: "details",
     options: { animation: "slide_from_right", animationDuration: 250 },
   },
+  {
+    name: "batch-upload",
+    options: { animation: "slide_from_right", animationDuration: 250 },
+  },
   { name: "+not-found" },
 ] as const;
 export const FONT_FAMILY_PATH = "../assets/fonts/SpaceMono-Regular.ttf";

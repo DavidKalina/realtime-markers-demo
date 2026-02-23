@@ -11,6 +11,7 @@ import React, { useCallback, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
   AppState,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -275,6 +276,14 @@ export default function ScanScreen() {
           disabled={!isCameraReady || isProcessing || showProcessingOverlay}
         />
 
+        {/* Batch upload link */}
+        <Pressable
+          style={styles.batchUploadLink}
+          onPress={() => router.push("/batch-upload")}
+        >
+          <Text style={styles.batchUploadText}>Upload multiple photos</Text>
+        </Pressable>
+
         {/* Simulation button for testing in development */}
         <SimulationButton
           isVisible={__DEV__ && !showProcessingOverlay}
@@ -341,5 +350,14 @@ const styles = StyleSheet.create({
   controlsContainer: {
     paddingBottom: spacing.lg,
     position: "relative",
+  },
+  batchUploadLink: {
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+  },
+  batchUploadText: {
+    color: colors.accent.primary,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.sm,
   },
 });
