@@ -176,10 +176,16 @@ export class UserEngagementServiceImpl implements UserEngagementService {
         await transactionalEntityManager.save(event);
         await transactionalEntityManager.save(user);
 
-        // Award XP for saving (not unsaving)
+        // Award XP for saving (not unsaving) — pass the transactionalEntityManager
+        // so awardXP shares this transaction's connection and lock.
         if (saved) {
           try {
-            await this.gamificationService.awardXP(userId, 10, "save_event");
+            await this.gamificationService.awardXP(
+              userId,
+              10,
+              "save_event",
+              transactionalEntityManager,
+            );
           } catch (error) {
             console.error("Error awarding XP for save:", error);
           }
@@ -372,9 +378,15 @@ export class UserEngagementServiceImpl implements UserEngagementService {
           await transactionalEntityManager.save(newRsvp);
           changeType = "RSVP_ADDED";
 
-          // Award XP for first RSVP to an event
+          // Award XP for first RSVP to an event — pass the transactionalEntityManager
+          // so awardXP shares this transaction's connection.
           try {
-            await this.gamificationService.awardXP(userId, 15, "rsvp_event");
+            await this.gamificationService.awardXP(
+              userId,
+              15,
+              "rsvp_event",
+              transactionalEntityManager,
+            );
           } catch (error) {
             console.error("Error awarding XP for RSVP:", error);
           }
@@ -449,11 +461,12 @@ export class UserEngagementServiceImpl implements UserEngagementService {
       // Start a transaction to ensure data consistency
       await this.dependencies.dataSource.transaction(
         async (transactionalEntityManager) => {
-          // Create the discovery record
+          // Create the discovery record — use entity class so TypeORM
+          // maps property names (userId) to column names (user_id).
           await transactionalEntityManager
             .createQueryBuilder()
             .insert()
-            .into("user_event_discoveries")
+            .into(UserEventDiscovery)
             .values({
               userId,
               eventId,
@@ -483,15 +496,23 @@ export class UserEngagementServiceImpl implements UserEngagementService {
             event.scanCount = previousScanCount + 1;
             await transactionalEntityManager.save(event);
 
-            // Award XP for scanning/discovering an event
+            // Award XP for scanning/discovering an event — pass the
+            // transactionalEntityManager so awardXP shares this
+            // transaction's connection and lock.
             try {
-              await this.gamificationService.awardXP(userId, 100, "scan_event");
+              await this.gamificationService.awardXP(
+                userId,
+                100,
+                "scan_event",
+                transactionalEntityManager,
+              );
               // First-to-scan bonus: if this event had 0 scans before
               if (previousScanCount === 0) {
                 await this.gamificationService.awardXP(
                   userId,
                   50,
                   "first_scan_bonus",
+                  transactionalEntityManager,
                 );
               }
             } catch (error) {
@@ -548,11 +569,12 @@ export class UserEngagementServiceImpl implements UserEngagementService {
       // Start a transaction to ensure data consistency
       await this.dependencies.dataSource.transaction(
         async (transactionalEntityManager) => {
-          // Create the view record
+          // Create the view record — use entity class so TypeORM
+          // maps property names (userId) to column names (user_id).
           await transactionalEntityManager
             .createQueryBuilder()
             .insert()
-            .into("user_event_views")
+            .into(UserEventView)
             .values({
               userId,
               eventId,
@@ -570,9 +592,15 @@ export class UserEngagementServiceImpl implements UserEngagementService {
             user.viewCount = (user.viewCount || 0) + 1;
             await transactionalEntityManager.save(user);
 
-            // Award XP for viewing an event
+            // Award XP for viewing an event — pass the transactionalEntityManager
+            // so awardXP shares this transaction's connection and lock.
             try {
-              await this.gamificationService.awardXP(userId, 5, "view_event");
+              await this.gamificationService.awardXP(
+                userId,
+                5,
+                "view_event",
+                transactionalEntityManager,
+              );
             } catch (error) {
               console.error("Error awarding XP for view:", error);
             }

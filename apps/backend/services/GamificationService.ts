@@ -1,4 +1,4 @@
-import { DataSource } from "typeorm";
+import { DataSource, type EntityManager } from "typeorm";
 import type { RedisService, LevelUpdateMessage } from "./shared/RedisService";
 
 // Tier definitions
@@ -56,9 +56,14 @@ export class GamificationService {
     userId: string,
     amount: number,
     action: string,
+    entityManager?: EntityManager,
   ): Promise<AwardXPResult> {
+    // Use the provided entity manager (to share a transaction connection)
+    // or fall back to the dataSource for standalone calls.
+    const queryRunner = entityManager ?? this.dataSource;
+
     // Atomic increment to avoid race conditions
-    const result = await this.dataSource.query(
+    const result = await queryRunner.query(
       `UPDATE users SET total_xp = total_xp + $1 WHERE id = $2 RETURNING total_xp, current_tier`,
       [amount, userId],
     );
@@ -76,7 +81,7 @@ export class GamificationService {
 
     // Update tier if changed
     if (tierChanged) {
-      await this.dataSource.query(
+      await queryRunner.query(
         `UPDATE users SET current_tier = $1 WHERE id = $2`,
         [tier.name, userId],
       );

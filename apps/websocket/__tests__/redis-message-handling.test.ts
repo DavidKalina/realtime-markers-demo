@@ -439,6 +439,47 @@ describe("Redis Message Handling", () => {
       );
     });
 
+    it("should handle wrapped level update from backend (type + data envelope)", () => {
+      const userId = "550e8400-e29b-41d4-a716-446655440000";
+      const clientId = "client-123";
+      const mockWs = createMockWebSocket(clientId, userId);
+
+      mockConnectionHandler.getUserClients.mockReturnValue([clientId]);
+      mockConnectionHandler.getClient.mockReturnValue(mockWs);
+
+      // This is the actual format published by backend RedisService.publishMessage
+      const wrappedLevelData = {
+        type: "level-update",
+        data: {
+          userId: userId,
+          level: 1,
+          title: "Scout",
+          action: "xp_awarded",
+          amount: 100,
+          totalXp: 600,
+          timestamp: "2024-01-01T00:00:00.000Z",
+        },
+      };
+
+      handleRedisMessage(
+        REDIS_CHANNELS.LEVEL_UPDATE,
+        JSON.stringify(wrappedLevelData),
+        mockConnectionHandler as unknown as MockConnectionHandler,
+      );
+
+      expect(mockConnectionHandler.getUserClients).toHaveBeenCalledWith(userId);
+      expect(mockConnectionHandler.getClient).toHaveBeenCalledWith(clientId);
+      expect(mockWs.send).toHaveBeenCalledWith(
+        expect.stringContaining(MessageTypes.XP_AWARDED),
+      );
+
+      const sentMessage = JSON.parse(
+        (mockWs.send as jest.Mock).mock.calls[0][0],
+      );
+      expect(sentMessage.data.userId).toBe(userId);
+      expect(sentMessage.data.totalXp).toBe(600);
+    });
+
     it("should handle level update when no clients are found", () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
 

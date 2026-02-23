@@ -127,7 +127,9 @@ export function handleRedisMessage(
       }
 
       case REDIS_CHANNELS.LEVEL_UPDATE: {
-        const levelData = data as LevelUpdate;
+        // Backend publishes { type, data: { userId, level, ... } }
+        const levelPayload = data.data ?? data;
+        const levelData = levelPayload as LevelUpdate;
         if (!levelData.userId) {
           console.error("Invalid level update data:", data);
           return;
