@@ -136,13 +136,46 @@ const JobIndicator: React.FC = () => {
   const rotation = useSharedValue(0);
   const progressWidth = useSharedValue(0);
 
-  const currentJob =
-    activeJobs.length > 0 ? activeJobs[activeJobs.length - 1] : null;
-  const isActive =
-    currentJob?.status === "pending" || currentJob?.status === "processing";
-  const isCompleted = currentJob?.status === "completed";
-  const isFailed = currentJob?.status === "failed";
-  const isVisible = currentJob !== null;
+  // Partition jobs by status
+  const inFlightJobs = activeJobs.filter(
+    (j) => j.status === "pending" || j.status === "processing",
+  );
+  const completedJobs = activeJobs.filter((j) => j.status === "completed");
+  const failedJobs = activeJobs.filter((j) => j.status === "failed");
+
+  const totalJobs = activeJobs.length;
+  const inFlightCount = inFlightJobs.length;
+  const hasInFlight = inFlightCount > 0;
+
+  // Determine aggregate status
+  const isActive = hasInFlight;
+  const isCompleted = !hasInFlight && completedJobs.length > 0;
+  const isFailed =
+    !hasInFlight && failedJobs.length > 0 && completedJobs.length === 0;
+  const isVisible = totalJobs > 0;
+
+  // Compute aggregate progress across all jobs
+  const aggregateProgress =
+    totalJobs > 0
+      ? activeJobs.reduce((sum, j) => sum + (j.progress ?? 0), 0) / totalJobs
+      : 0;
+
+  // Pick display label: summarize when multiple in-flight, show single job label otherwise
+  const displayLabel = (() => {
+    if (inFlightCount > 1) {
+      return `${inFlightCount} jobs`;
+    }
+    if (inFlightCount === 1) {
+      return shortenLabel(inFlightJobs[0].stepLabel || "Processing");
+    }
+    // All terminal — show summary
+    if (completedJobs.length > 0 && failedJobs.length > 0) {
+      return `${completedJobs.length} done, ${failedJobs.length} failed`;
+    }
+    // Fallback to the most recent terminal job
+    const lastJob = activeJobs[activeJobs.length - 1];
+    return shortenLabel(lastJob?.stepLabel || "Done");
+  })();
 
   useEffect(() => {
     if (isActive) {
@@ -155,13 +188,12 @@ const JobIndicator: React.FC = () => {
   }, [isActive, rotation]);
 
   useEffect(() => {
-    const target = currentJob?.progress ?? 0;
-    progressWidth.value = withSpring(target, {
+    progressWidth.value = withSpring(aggregateProgress, {
       damping: 20,
       stiffness: 300,
       mass: 1,
     });
-  }, [currentJob?.progress, progressWidth]);
+  }, [aggregateProgress, progressWidth]);
 
   const spinStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
@@ -173,17 +205,11 @@ const JobIndicator: React.FC = () => {
 
   if (!isVisible) return null;
 
-  const activeCount = activeJobs.filter(
-    (j) => j.status === "pending" || j.status === "processing",
-  ).length;
-
   const accentColor = isFailed
     ? colors.status.error.text
     : isCompleted
       ? colors.status.success.text
       : colors.accent.primary;
-
-  const displayLabel = shortenLabel(currentJob?.stepLabel || "Processing");
 
   return (
     <Animated.View
@@ -202,9 +228,9 @@ const JobIndicator: React.FC = () => {
           <AlertCircle size={12} color={accentColor} strokeWidth={2.5} />
         )}
 
-        {activeCount > 1 && (
+        {totalJobs > 1 && (
           <Text style={[styles.badge, { color: accentColor }]}>
-            {activeCount}
+            {totalJobs}
           </Text>
         )}
 
