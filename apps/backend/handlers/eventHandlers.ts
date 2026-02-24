@@ -472,6 +472,22 @@ export const getDiscoveredEventsHandler: EventHandler = withErrorHandling(
   },
 );
 
+export const getUserEventsHandler: EventHandler = withErrorHandling(
+  async (c) => {
+    const user = requireAuth(c);
+    const limit = c.req.query("limit");
+    const cursor = c.req.query("cursor");
+    const eventService = getEventService(c);
+
+    const userEvents = await eventService.getUserEvents(user.id, {
+      limit: limit ? parseInt(limit) : undefined,
+      cursor: cursor,
+    });
+
+    return c.json(userEvents);
+  },
+);
+
 export const toggleRsvpEventHandler: EventHandler = withErrorHandling(
   async (c) => {
     const eventId = requireParam(c, "id");

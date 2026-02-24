@@ -1,20 +1,8 @@
 import React, { useCallback, useRef } from "react";
 import { useRouter } from "expo-router";
-import {
-  Search as SearchIcon,
-  X,
-  Bookmark,
-  Compass,
-} from "lucide-react-native";
+import { Search as SearchIcon, X } from "lucide-react-native";
 import { TextInput } from "react-native";
 import * as Haptics from "expo-haptics";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-  runOnJS,
-} from "react-native-reanimated";
 import Screen from "@/components/Layout/Screen";
 import Input from "@/components/Input/Input";
 import InfiniteScrollFlatList from "@/components/Layout/InfintieScrollFlatList";
@@ -23,70 +11,14 @@ import EventListItem, {
 } from "@/components/Event/EventListItem";
 import { useSavedEvents } from "@/hooks/useSavedEvents";
 import { EventType as ApiEventType } from "@/types/types";
-type SavedTab = "personal" | "discovered";
 
 const SavedListScreen = () => {
   const router = useRouter();
   const searchInputRef = useRef<TextInput>(null);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [activeTab, setActiveTab] = React.useState<SavedTab>("personal");
 
   const { events, isLoading, error, hasMore, loadMore, refresh } =
-    useSavedEvents({
-      type: activeTab,
-    });
-
-  // Tab items configuration
-  const tabItems = [
-    {
-      icon: Bookmark,
-      label: "My Events",
-      value: "personal" as SavedTab,
-    },
-    {
-      icon: Compass,
-      label: "Discovered",
-      value: "discovered" as SavedTab,
-    },
-  ];
-
-  const translateX = useSharedValue(0);
-
-  const handleTabPress = useCallback((tab: SavedTab) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActiveTab(tab);
-  }, []);
-
-  const switchTab = useCallback(
-    (direction: "left" | "right") => {
-      if (direction === "left" && activeTab === "personal") {
-        handleTabPress("discovered");
-      } else if (direction === "right" && activeTab === "discovered") {
-        handleTabPress("personal");
-      }
-    },
-    [activeTab, handleTabPress],
-  );
-
-  const panGesture = Gesture.Pan()
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-10, 10])
-    .onUpdate((e) => {
-      translateX.value = e.translationX * 0.3;
-    })
-    .onEnd((e) => {
-      if (e.translationX < -50) {
-        runOnJS(switchTab)("left");
-      } else if (e.translationX > 50) {
-        runOnJS(switchTab)("right");
-      }
-      translateX.value = withTiming(0, { duration: 200 });
-    });
-
-  const animatedContentStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-    flex: 1,
-  }));
+    useSavedEvents();
 
   // Search input handlers
   const handleSearchInput = useCallback((text: string) => {
@@ -95,7 +27,6 @@ const SavedListScreen = () => {
   }, []);
 
   const handleSearch = useCallback(async () => {
-    // TODO: Implement search functionality when backend supports it
     await refresh();
   }, [refresh]);
 
@@ -171,46 +102,39 @@ const SavedListScreen = () => {
       showBackButton
       onBack={handleBack}
       noAnimation
-      tabs={tabItems}
-      activeTab={activeTab}
-      onTabChange={handleTabPress}
     >
-      <GestureDetector gesture={panGesture}>
-        <Animated.View style={animatedContentStyle}>
-          <Input
-            ref={searchInputRef}
-            icon={SearchIcon}
-            rightIcon={searchQuery !== "" ? X : undefined}
-            onRightIconPress={handleClearSearch}
-            placeholder={`Search ${activeTab === "personal" ? "your" : "discovered"} saved events...`}
-            value={searchQuery}
-            onChangeText={handleSearchInput}
-            returnKeyType="search"
-            onSubmitEditing={handleSearch}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoFocus={true}
-            loading={isLoading}
-            style={{ marginHorizontal: 16, marginBottom: 16 }}
-          />
-          <InfiniteScrollFlatList
-            data={filteredEvents}
-            renderItem={renderEventItem}
-            fetchMoreData={loadMore}
-            onRefresh={refresh}
-            isLoading={isLoading}
-            isRefreshing={isLoading && events.length === 0}
-            hasMore={hasMore && !error}
-            error={error}
-            emptyListMessage={
-              searchQuery.trim()
-                ? "No saved events found matching your search"
-                : "No saved events found"
-            }
-            onRetry={refresh}
-          />
-        </Animated.View>
-      </GestureDetector>
+      <Input
+        ref={searchInputRef}
+        icon={SearchIcon}
+        rightIcon={searchQuery !== "" ? X : undefined}
+        onRightIconPress={handleClearSearch}
+        placeholder="Search your events..."
+        value={searchQuery}
+        onChangeText={handleSearchInput}
+        returnKeyType="search"
+        onSubmitEditing={handleSearch}
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoFocus={true}
+        loading={isLoading}
+        style={{ marginHorizontal: 16, marginBottom: 16 }}
+      />
+      <InfiniteScrollFlatList
+        data={filteredEvents}
+        renderItem={renderEventItem}
+        fetchMoreData={loadMore}
+        onRefresh={refresh}
+        isLoading={isLoading}
+        isRefreshing={isLoading && events.length === 0}
+        hasMore={hasMore && !error}
+        error={error}
+        emptyListMessage={
+          searchQuery.trim()
+            ? "No events found matching your search"
+            : "No saved or discovered events yet"
+        }
+        onRetry={refresh}
+      />
     </Screen>
   );
 };

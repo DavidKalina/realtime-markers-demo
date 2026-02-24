@@ -2,7 +2,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle, MapStyleType } from "@/contexts/MapStyleContext";
 import { useProfile } from "@/hooks/useProfile";
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   ActivityIndicator,
   Pressable,
@@ -24,6 +25,7 @@ import {
 import DeleteAccountModalComponent from "./DeleteAccountModal";
 import TierBadge from "../Gamification/TierBadge";
 import XPProgressBar from "../Gamification/XPProgressBar";
+import { useXPStore } from "@/stores/useXPStore";
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -46,6 +48,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     isDeleting,
     showDeleteDialog,
     password,
+    refetch,
     handleBack,
     handleLogout,
     handleDeleteAccount,
@@ -58,6 +61,21 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     isPitched: isPitched,
     mapStyle: currentStyle,
   });
+
+  // Consume pending XP on each focus
+  const consume = useXPStore((s) => s.consume);
+  const [pendingXP, setPendingXP] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      const result = consume();
+      setPendingXP(result.totalXP);
+      if (result.totalXP > 0) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        refetch(); // Ensure fresh totalXp from server
+      }
+    }, [refetch]),
+  );
 
   const handleMapStyleChange = (style: MapStyleType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -108,6 +126,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             <XPProgressBar
               totalXp={profileData?.totalXp || 0}
               currentTier={profileData?.currentTier || "Explorer"}
+              pendingXP={pendingXP}
             />
             <View style={styles.statsRow}>
               <View style={styles.statItem}>

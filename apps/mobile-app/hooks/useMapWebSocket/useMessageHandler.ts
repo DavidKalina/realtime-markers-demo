@@ -82,7 +82,14 @@ export function useMessageHandler({
               return;
             }
             try {
-              const newMarkers = data.events.map(convertEventToMarker);
+              const rawMarkers = data.events.map(convertEventToMarker);
+              // Deduplicate by marker ID — server may send duplicates in viewport updates
+              const seen = new Set<string>();
+              const newMarkers = rawMarkers.filter((m: Marker) => {
+                if (seen.has(m.id)) return false;
+                seen.add(m.id);
+                return true;
+              });
               console.log(
                 "[useMapWebsocket] REPLACE_ALL - Total markers:",
                 newMarkers.length,

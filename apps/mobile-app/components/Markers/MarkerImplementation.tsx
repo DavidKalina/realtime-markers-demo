@@ -279,10 +279,14 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
             // Wait for camera animation to complete, then add a longer delay before navigating
             setTimeout(() => {
               setTimeout(() => {
-                // Get the events for this cluster from the store markers
-                const clusterMarkers = storeMarkers.filter((marker) =>
-                  item.childrenIds?.includes(marker.id),
-                );
+                // Get the events for this cluster from the store markers, deduplicated
+                const seen = new Set<string>();
+                const clusterMarkers = storeMarkers.filter((marker) => {
+                  if (!item.childrenIds?.includes(marker.id)) return false;
+                  if (seen.has(marker.id)) return false;
+                  seen.add(marker.id);
+                  return true;
+                });
                 const clusterEvents = clusterMarkers.map(markerToEvent);
                 const eventsParam = encodeURIComponent(
                   JSON.stringify(clusterEvents),

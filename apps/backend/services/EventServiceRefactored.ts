@@ -167,6 +167,11 @@ export interface EventService {
     options?: { limit?: number; cursor?: string },
   ): Promise<{ events: EventSummary[]; nextCursor?: string }>;
 
+  getUserEvents(
+    userId: string,
+    options?: { limit?: number; cursor?: string },
+  ): Promise<{ events: EventSummary[]; nextCursor?: string }>;
+
   getEventEngagement(eventId: string): Promise<EventEngagementMetrics>;
 
   // Admin operations
@@ -415,6 +420,10 @@ export class EventServiceRefactored implements EventService {
 
   async getDiscoveredEventsByUser(userId: string, options = {}) {
     return this.engagementService.getDiscoveredEventsByUser(userId, options);
+  }
+
+  async getUserEvents(userId: string, options = {}) {
+    return this.engagementService.getUserEvents(userId, options);
   }
 
   async getEventEngagement(eventId: string) {

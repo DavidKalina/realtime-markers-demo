@@ -5,7 +5,6 @@ import { EventType } from "@/types/types";
 interface UseSavedEventsOptions {
   initialLimit?: number;
   autoFetch?: boolean;
-  type?: "personal" | "discovered";
 }
 
 interface UseSavedEventsResult {
@@ -23,7 +22,6 @@ interface UseSavedEventsResult {
 export const useSavedEvents = ({
   initialLimit = 10,
   autoFetch = true,
-  type = "personal",
 }: UseSavedEventsOptions = {}): UseSavedEventsResult => {
   const [events, setEvents] = useState<EventType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,81 +54,42 @@ export const useSavedEvents = ({
           setIsFetchingMore(true);
         }
 
-        // Add a cache-busting timestamp to ensure fresh data
         const timestamp = Date.now();
-        let response;
+        const response = await apiClient.events.getUserEvents({
+          limit: initialLimit,
+          cursor: refresh ? undefined : cursorRef.current,
+          _t: timestamp,
+        });
 
-        switch (type) {
-          case "personal":
-            response = await apiClient.events.getSavedEvents({
-              limit: initialLimit,
-              cursor: refresh ? undefined : cursorRef.current,
-              _t: timestamp,
-            });
-            break;
-          case "discovered":
-            response = await apiClient.events.getUserDiscoveredEvents({
-              limit: initialLimit,
-              cursor: refresh ? undefined : cursorRef.current,
-              _t: timestamp,
-            });
-            break;
-        }
+        setHasMore(!!response.nextCursor);
+        setCursor(response.nextCursor);
 
-        // Only update state if this is still the current type
-        if (type === "personal" || type === "discovered") {
-          setHasMore(!!response.nextCursor);
-          setCursor(response.nextCursor);
-
-          if (refresh) {
-            setEvents(response.events);
-          } else {
-            setEvents((prevEvents) => {
-              // Filter out duplicates based on event ID
-              const existingEventIds = new Set(
-                prevEvents.map((event) => event.id),
-              );
-              const newEvents = response.events.filter(
-                (event) => !existingEventIds.has(event.id),
-              );
-              return [...prevEvents, ...newEvents];
-            });
-          }
+        if (refresh) {
+          setEvents(response.events);
+        } else {
+          setEvents((prevEvents) => {
+            const existingEventIds = new Set(
+              prevEvents.map((event) => event.id),
+            );
+            const newEvents = response.events.filter(
+              (event) => !existingEventIds.has(event.id),
+            );
+            return [...prevEvents, ...newEvents];
+          });
         }
 
         setError(null);
       } catch (err) {
-        setError(
-          `Failed to load ${
-            type === "personal" ? "your" : "discovered"
-          } saved events. Please try again.`,
-        );
-        console.error(`Error fetching ${type} saved events:`, err);
+        setError("Failed to load your events. Please try again.");
+        console.error("Error fetching user events:", err);
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
         setIsFetchingMore(false);
       }
     },
-    [initialLimit, type],
+    [initialLimit],
   );
-
-  // Reset state when type changes
-  useEffect(() => {
-    // Clear all state immediately
-    setEvents([]);
-    setCursor(undefined);
-    setHasMore(true);
-    setError(null);
-    setIsLoading(true);
-    setIsRefreshing(false);
-    setIsFetchingMore(false);
-
-    // Then fetch new data if autoFetch is enabled
-    if (autoFetch) {
-      fetchEvents(true);
-    }
-  }, [type, autoFetch, fetchEvents]);
 
   const loadMore = useCallback(async () => {
     if (!hasMore) {

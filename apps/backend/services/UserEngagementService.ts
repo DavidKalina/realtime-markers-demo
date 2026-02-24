@@ -60,6 +60,11 @@ export interface UserEngagementService {
     options?: { limit?: number; cursor?: string },
   ): Promise<{ events: Event[]; nextCursor?: string }>;
 
+  getUserEvents(
+    userId: string,
+    options?: { limit?: number; cursor?: string },
+  ): Promise<{ events: Event[]; nextCursor?: string }>;
+
   getEventEngagement(eventId: string): Promise<EventEngagementMetrics>;
 }
 
@@ -571,7 +576,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
         async (transactionalEntityManager) => {
           // Create the view record — use entity class so TypeORM
           // maps property names (userId) to column names (user_id).
-          await transactionalEntityManager
+          const insertResult = await transactionalEntityManager
             .createQueryBuilder()
             .insert()
             .into(UserEventView)
@@ -582,27 +587,30 @@ export class UserEngagementServiceImpl implements UserEngagementService {
             .orIgnore() // Ignore if record already exists
             .execute();
 
-          // Get the user to update their view count
-          const user = await transactionalEntityManager.findOne(User, {
-            where: { id: userId },
-          });
+          // Only award XP and increment count for first-time views
+          const isNewView =
+            insertResult.identifiers.length > 0 &&
+            insertResult.identifiers[0]?.id != null;
 
-          if (user) {
-            // Increment the user's view count
-            user.viewCount = (user.viewCount || 0) + 1;
-            await transactionalEntityManager.save(user);
+          if (isNewView) {
+            const user = await transactionalEntityManager.findOne(User, {
+              where: { id: userId },
+            });
 
-            // Award XP for viewing an event — pass the transactionalEntityManager
-            // so awardXP shares this transaction's connection and lock.
-            try {
-              await this.gamificationService.awardXP(
-                userId,
-                5,
-                "view_event",
-                transactionalEntityManager,
-              );
-            } catch (error) {
-              console.error("Error awarding XP for view:", error);
+            if (user) {
+              user.viewCount = (user.viewCount || 0) + 1;
+              await transactionalEntityManager.save(user);
+
+              try {
+                await this.gamificationService.awardXP(
+                  userId,
+                  5,
+                  "view_event",
+                  transactionalEntityManager,
+                );
+              } catch (error) {
+                console.error("Error awarding XP for view:", error);
+              }
             }
           }
 
@@ -729,6 +737,123 @@ export class UserEngagementServiceImpl implements UserEngagementService {
       events,
       nextCursor,
     };
+  }
+
+  /**
+   * Get all events a user has saved or discovered, merged and deduplicated
+   */
+  async getUserEvents(
+    userId: string,
+    options: { limit?: number; cursor?: string } = {},
+  ): Promise<{ events: Event[]; nextCursor?: string }> {
+    const { limit = 10, cursor } = options;
+
+    let cursorDate: Date | undefined;
+    if (cursor) {
+      try {
+        const jsonStr = Buffer.from(cursor, "base64").toString("utf-8");
+        const cursorData = JSON.parse(jsonStr);
+        cursorDate = new Date(cursorData.interactedAt);
+      } catch (e) {
+        console.error("Invalid cursor format:", e);
+      }
+    }
+
+    // Fetch saved events
+    const savesQuery = this.dependencies.dataSource
+      .getRepository(UserEventSave)
+      .createQueryBuilder("save")
+      .leftJoinAndSelect("save.event", "event")
+      .leftJoinAndSelect("event.categories", "categories")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("save.userId = :userId", { userId });
+
+    if (cursorDate) {
+      savesQuery.andWhere("save.savedAt < :cursorDate", { cursorDate });
+    }
+
+    const saves = await savesQuery
+      .orderBy("save.savedAt", "DESC")
+      .take(limit + 1)
+      .getMany();
+
+    // Fetch discovered events (latest discovery per event)
+    let discoveriesQuery = this.dependencies.dataSource
+      .getRepository(UserEventDiscovery)
+      .createQueryBuilder("discovery")
+      .leftJoinAndSelect("discovery.event", "event")
+      .leftJoinAndSelect("event.categories", "categories")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("discovery.userId = :userId", { userId })
+      .andWhere((qb) => {
+        const subQuery = qb
+          .subQuery()
+          .select("d2.id")
+          .from(UserEventDiscovery, "d2")
+          .where("d2.userId = :userId")
+          .andWhere("d2.eventId = discovery.eventId")
+          .orderBy("d2.discoveredAt", "DESC")
+          .limit(1)
+          .getQuery();
+        return "discovery.id = " + subQuery;
+      });
+
+    if (cursorDate) {
+      discoveriesQuery = discoveriesQuery.andWhere(
+        "discovery.discoveredAt < :cursorDate",
+        { cursorDate },
+      );
+    }
+
+    const discoveries = await discoveriesQuery
+      .orderBy("discovery.discoveredAt", "DESC")
+      .take(limit + 1)
+      .getMany();
+
+    // Merge and deduplicate — keep the most recent interaction per event
+    const eventMap = new Map<
+      string,
+      { event: Event; interactedAt: Date }
+    >();
+
+    for (const save of saves) {
+      const existing = eventMap.get(save.eventId);
+      if (!existing || save.savedAt > existing.interactedAt) {
+        eventMap.set(save.eventId, {
+          event: save.event,
+          interactedAt: save.savedAt,
+        });
+      }
+    }
+
+    for (const discovery of discoveries) {
+      const existing = eventMap.get(discovery.eventId);
+      if (!existing || discovery.discoveredAt > existing.interactedAt) {
+        eventMap.set(discovery.eventId, {
+          event: discovery.event,
+          interactedAt: discovery.discoveredAt,
+        });
+      }
+    }
+
+    // Sort by most recent interaction
+    const sorted = Array.from(eventMap.values()).sort(
+      (a, b) => b.interactedAt.getTime() - a.interactedAt.getTime(),
+    );
+
+    const hasMore = sorted.length > limit;
+    const results = sorted.slice(0, limit);
+    const events = results.map((r) => r.event);
+
+    let nextCursor: string | undefined;
+    if (hasMore && results.length > 0) {
+      const lastResult = results[results.length - 1];
+      nextCursor = Buffer.from(
+        JSON.stringify({ interactedAt: lastResult.interactedAt }),
+      ).toString("base64");
+    }
+
+    return { events, nextCursor };
   }
 
   /**

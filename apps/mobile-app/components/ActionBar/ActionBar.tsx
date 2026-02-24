@@ -25,6 +25,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "@/theme";
+import { useXPStore } from "@/stores/useXPStore";
 import { styles } from "./styles";
 
 // Pre-define animation configurations
@@ -72,8 +73,9 @@ const ActionButton: React.FC<{
   tab: TabConfig;
   isActive: boolean;
   disabled: boolean;
+  showBadge?: boolean;
   onPress: () => void;
-}> = React.memo(({ tab, isActive, disabled, onPress }) => {
+}> = React.memo(({ tab, isActive, disabled, showBadge, onPress }) => {
   const scaleValue = useSharedValue(1);
   const IconComponent = tab.icon;
   const iconColor = isActive ? colors.accent.primary : colors.text.primary;
@@ -106,6 +108,7 @@ const ActionButton: React.FC<{
       <Animated.View style={[styles.actionButtonInner, animatedButtonStyle]}>
         <View style={styles.actionButtonIcon}>
           <IconComponent size={20} color={iconColor} />
+          {showBadge && <View style={styles.badgeDot} />}
         </View>
         <Text
           style={[
@@ -127,6 +130,7 @@ export const ActionBar: React.FC = React.memo(() => {
   const insets = useSafeAreaInsets();
   const { userLocation } = useUserLocation();
   const router = useRouter();
+  const hasPendingXP = useXPStore((s) => s.hasPending);
 
   const activeTab = useMemo(() => getActiveTabKey(pathname), [pathname]);
 
@@ -184,6 +188,7 @@ export const ActionBar: React.FC = React.memo(() => {
             tab={tab}
             isActive={activeTab === tab.key}
             disabled={!!tab.requiresLocation && !userLocation}
+            showBadge={tab.key === "user" && hasPendingXP}
             onPress={() => handleTabPress(tab)}
           />
         ))}

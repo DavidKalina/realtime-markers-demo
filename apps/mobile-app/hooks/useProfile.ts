@@ -3,7 +3,13 @@ import { MapStyleType, useMapStyle } from "@/contexts/MapStyleContext";
 import { apiClient, User } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from "react";
 
 // Cache TTL in milliseconds (5 minutes)
 const CACHE_TTL = 5 * 60 * 1000;
@@ -50,6 +56,7 @@ interface UseProfileReturn {
   password: string;
 
   // Actions
+  refetch: () => void;
   handleMapStyleChange: (style: MapStyleType) => Promise<void>;
   handleBack: () => void;
   handleLogout: () => void;
@@ -71,9 +78,16 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
   const [password, setPassword] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [fetchTrigger, setFetchTrigger] = useState(0);
 
   // Cache ref to track cache updates
   const cacheRef = useRef(globalCache);
+
+  /** Invalidate cache and refetch profile from server. */
+  const refetch = useCallback(() => {
+    invalidateProfileCache();
+    setFetchTrigger((n) => n + 1);
+  }, []);
 
   // Handle map style change
   const handleMapStyleChange = useCallback(
@@ -134,7 +148,7 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
       isMounted = false;
       controller.abort();
     };
-  }, []);
+  }, [fetchTrigger]);
 
   // Memoize formatted date
   const memberSince = useMemo(() => {
@@ -205,6 +219,7 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
     password,
 
     // Actions
+    refetch,
     handleMapStyleChange,
     handleBack,
     handleLogout,
