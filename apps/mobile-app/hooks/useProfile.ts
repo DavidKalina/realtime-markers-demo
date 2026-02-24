@@ -20,6 +20,11 @@ interface Cache {
 // Global cache instance
 const globalCache: Cache = {};
 
+/** Invalidate the profile cache so the next render refetches from the server. */
+export function invalidateProfileCache(): void {
+  delete globalCache.profile;
+}
+
 // Request queue to prevent concurrent requests
 let requestQueue: Promise<void> = Promise.resolve();
 const queueRequest = <T>(request: () => Promise<T>): Promise<T> => {

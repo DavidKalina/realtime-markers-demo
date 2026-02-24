@@ -77,10 +77,12 @@ export class GamificationService {
       `XP awarded: userId=${userId}, amount=${amount}, action=${action}, newTotal=${newTotalXp}`,
     );
     const tier = getTierForXP(newTotalXp);
-    const tierChanged = tier.name !== previousTier;
+    // Treat null/undefined previousTier as "Explorer" (the default tier)
+    const effectivePreviousTier = previousTier || "Explorer";
+    const tierChanged = tier.name !== effectivePreviousTier;
 
-    // Update tier if changed
-    if (tierChanged) {
+    // Update tier if changed, or if it was never set (NULL in DB)
+    if (tierChanged || !previousTier) {
       await queryRunner.query(
         `UPDATE users SET current_tier = $1 WHERE id = $2`,
         [tier.name, userId],

@@ -571,7 +571,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
             content: `LOCATION CLUES: ${cluesText}`,
           },
         ],
-        max_tokens: 150,
+        max_tokens: 500,
       });
 
       console.warn("LLM Response:", response.choices[0].message.content);

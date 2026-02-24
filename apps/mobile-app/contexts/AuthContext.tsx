@@ -1,10 +1,12 @@
 // src/contexts/AuthContext.tsx
 import { useFilterStore } from "@/stores/useFilterStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { apiClient, User, Filter } from "../services/ApiClient";
 import { oAuthService } from "../services/OAuthService";
 import { pushNotificationService } from "../services/PushNotificationService";
+import { eventBroker, EventTypes, type XPAwardedEvent, type LevelUpdateEvent } from "../services/EventBroker";
+import { invalidateProfileCache } from "../hooks/useProfile";
 
 interface AuthContextType {
   user: User | null;
@@ -134,6 +136,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     return () => {
       apiClient.removeAuthListener(authListener);
+    };
+  }, []);
+
+  // Listen for real-time XP and level updates from WebSocket
+  useEffect(() => {
+    const unsubXP = eventBroker.on<XPAwardedEvent>(
+      EventTypes.XP_AWARDED,
+      (event) => {
+        // The event payload includes totalXp from the server
+        const totalXp = (event.data as unknown as { totalXp?: number })?.totalXp;
+        if (totalXp != null) {
+          setUser((prev) => (prev ? { ...prev, totalXp } : prev));
+          invalidateProfileCache();
+        }
+      },
+    );
+    const unsubLevel = eventBroker.on<LevelUpdateEvent>(
+      EventTypes.LEVEL_UPDATE,
+      (event) => {
+        if (event.data?.action === "level_up" && event.data?.title) {
+          const totalXp = (event.data as unknown as { totalXp?: number })?.totalXp;
+          setUser((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  currentTier: event.data.title,
+                  ...(totalXp != null ? { totalXp } : {}),
+                }
+              : prev,
+          );
+          invalidateProfileCache();
+        }
+      },
+    );
+
+    return () => {
+      unsubXP();
+      unsubLevel();
     };
   }, []);
 
