@@ -57,7 +57,7 @@ const SectionLabel = memo(
   }) => (
     <View style={styles.infoCardHeader}>
       <View style={styles.infoCardIcon}>
-        <Icon size={12} color={colors.text.disabled} strokeWidth={2} />
+        <Icon size={14} color={colors.text.secondary} strokeWidth={2} />
       </View>
       <Text style={styles.infoCardTitle}>{title}</Text>
     </View>
@@ -256,7 +256,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       >
         {/* Title row: emoji + title inline */}
         <Animated.View
-          entering={FadeInDown.duration(600).delay(300).springify()}
+          entering={FadeInDown.duration(300).delay(0).springify()}
           style={styles.titleSection}
         >
           <View style={styles.eventEmojiContainer}>
@@ -265,69 +265,72 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           <Text style={styles.eventTitle}>{event.title}</Text>
         </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.duration(600).delay(400).springify()}
-          style={styles.detailsSection}
-        >
+        <View style={styles.detailsSection}>
           {/* Date & Time */}
-          <View style={styles.sectionDivider} />
-          <View style={styles.infoCard}>
-            <SectionLabel title="Date & Time" icon={Calendar} />
-            <Text style={styles.detailText}>{formattedDate}</Text>
-          </View>
+          <Animated.View entering={FadeInDown.duration(300).delay(80).springify()}>
+            <View style={styles.sectionDivider} />
+            <View style={styles.infoCard}>
+              <SectionLabel title="Date & Time" icon={Calendar} />
+              <Text style={styles.detailText}>{formattedDate}</Text>
+            </View>
+          </Animated.View>
 
           {/* Location */}
-          <View style={styles.sectionDivider} />
-          <View style={styles.infoCard}>
-            <SectionLabel title="Location" icon={MapPin} />
-            <TouchableOpacity onPress={handleOpenMaps} activeOpacity={0.7}>
-              <Text style={styles.locationAddress}>{event.address}</Text>
-              {distanceInfo && (
-                <Text style={styles.distanceText}>{distanceInfo}</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+          <Animated.View entering={FadeInDown.duration(300).delay(160).springify()}>
+            <View style={styles.sectionDivider} />
+            <View style={styles.infoCard}>
+              <SectionLabel title="Location" icon={MapPin} />
+              <TouchableOpacity onPress={handleOpenMaps} activeOpacity={0.7}>
+                <Text style={styles.locationAddress}>{event.address}</Text>
+                {distanceInfo && (
+                  <Text style={styles.distanceText}>{distanceInfo}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
 
           {/* About */}
           {event.description && (
-            <>
+            <Animated.View entering={FadeInDown.duration(300).delay(240).springify()}>
               <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="About" icon={Info} />
                 <Text style={styles.descriptionText}>{event.description}</Text>
               </View>
-            </>
+            </Animated.View>
           )}
 
           {/* Map */}
-          <View style={styles.sectionDivider} />
-          <View style={styles.infoCard}>
-            <SectionLabel title="Map" icon={MapPin} />
-            <EventMapPreview
-              emoji={event.emoji || "📍"}
-              coordinates={coordinates}
-              eventId={eventId}
-              title={event.title}
-              eventDate={
-                event.eventDate instanceof Date
-                  ? event.eventDate.toISOString()
-                  : event.eventDate
-              }
-            />
-            <View style={styles.mapCardFooter}>
-              <ActionButton
-                onPress={handleGetDirections}
-                icon={Navigation2}
-                text="Get Directions"
-                variant="outline"
-                disabled={!userLocation}
+          <Animated.View entering={FadeInDown.duration(300).delay(320).springify()}>
+            <View style={styles.sectionDivider} />
+            <View style={styles.infoCard}>
+              <SectionLabel title="Map" icon={MapPin} />
+              <EventMapPreview
+                emoji={event.emoji || "📍"}
+                coordinates={coordinates}
+                eventId={eventId}
+                title={event.title}
+                eventDate={
+                  event.eventDate instanceof Date
+                    ? event.eventDate.toISOString()
+                    : event.eventDate
+                }
               />
+              <View style={styles.mapCardFooter}>
+                <ActionButton
+                  onPress={handleGetDirections}
+                  icon={Navigation2}
+                  text="Get Directions"
+                  variant="outline"
+                  disabled={!userLocation}
+                />
+              </View>
             </View>
-          </View>
+          </Animated.View>
 
           {/* Categories */}
           {event.categories && event.categories.length > 0 && (
-            <>
+            <Animated.View entering={FadeInDown.duration(300).delay(400).springify()}>
               <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="Categories" icon={Building} />
@@ -346,12 +349,12 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                   ))}
                 </View>
               </View>
-            </>
+            </Animated.View>
           )}
 
           {/* Recurring Schedule */}
           {event.isRecurring && (
-            <>
+            <Animated.View entering={FadeInDown.duration(300).delay(480).springify()}>
               <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="Recurring" icon={Repeat} />
@@ -392,23 +395,23 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                     )}
                 </View>
               </View>
-            </>
+            </Animated.View>
           )}
 
           {/* Engagement */}
           {engagement && !engagementLoading && !engagementError && (
-            <>
+            <Animated.View entering={FadeInDown.duration(300).delay(560).springify()}>
               <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="Engagement" icon={TrendingUp} />
-                <EventEngagementDisplay engagement={engagement} delay={450} />
+                <EventEngagementDisplay engagement={engagement} delay={610} />
               </View>
-            </>
+            </Animated.View>
           )}
 
           {/* QR Code */}
           {(event.qrCodeData || event.detectedQrData || event.qrUrl) && (
-            <>
+            <Animated.View entering={FadeInDown.duration(300).delay(640).springify()}>
               <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="QR Code" icon={QrCode} />
@@ -469,12 +472,12 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                   )}
                 </View>
               </View>
-            </>
+            </Animated.View>
           )}
 
           {/* Discovered By */}
           {event.creator && (
-            <>
+            <Animated.View entering={FadeInDown.duration(300).delay(720).springify()}>
               <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="Discovered by" icon={Scan} />
@@ -496,9 +499,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                   </Text>
                 </View>
               </View>
-            </>
+            </Animated.View>
           )}
-        </Animated.View>
+        </View>
       </Screen>
     );
   },

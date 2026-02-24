@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Dimensions,
 } from "react-native";
+import Animated, { FadeInRight } from "react-native-reanimated";
 import {
   colors,
   fontSize,
@@ -70,21 +71,25 @@ const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {activeEvents.map((event) => (
-          <TouchableOpacity
+        {activeEvents.map((event, index) => (
+          <Animated.View
             key={event.id}
-            style={styles.itemContainer}
-            onPress={() => handleEventPress(event)}
-            activeOpacity={0.9}
+            entering={FadeInRight.duration(300).delay(index * 100)}
           >
-            <View style={styles.cardContainer}>
-              <EventListItem
-                {...event}
-                eventDate={new Date(event.eventDate)}
-                onPress={() => handleEventPress(event)}
-              />
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.itemContainer}
+              onPress={() => handleEventPress(event)}
+              activeOpacity={0.9}
+            >
+              <View style={styles.cardContainer}>
+                <EventListItem
+                  {...event}
+                  eventDate={new Date(event.eventDate)}
+                  onPress={() => handleEventPress(event)}
+                />
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
         ))}
       </ScrollView>
     </View>

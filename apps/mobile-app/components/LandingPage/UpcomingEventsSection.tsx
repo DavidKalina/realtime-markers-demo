@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { colors, fontSize, fontWeight, fontFamily, spacing } from "@/theme";
 import { EventType } from "@/types/types";
 import EventListItem from "@/components/Event/EventListItem";
@@ -40,14 +41,18 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Upcoming Events</Text>
-      {upcomingEvents.map((event) => (
-        <View key={event.id} style={styles.itemContainer}>
+      {upcomingEvents.map((event, index) => (
+        <Animated.View
+          key={event.id}
+          style={styles.itemContainer}
+          entering={FadeInDown.duration(300).delay(index * 60)}
+        >
           <EventListItem
             {...event}
             eventDate={new Date(event.eventDate)}
             onPress={() => handleEventPress(event)}
           />
-        </View>
+        </Animated.View>
       ))}
     </View>
   );

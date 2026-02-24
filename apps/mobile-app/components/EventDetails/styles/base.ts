@@ -69,7 +69,7 @@ export const baseStyles = StyleSheet.create({
     gap: spacing.md,
   },
   eventTitle: {
-    fontSize: fontSize.xl,
+    fontSize: fontSize["2xl"],
     fontWeight: fontWeight.bold,
     color: colors.text.primary,
     fontFamily: fontFamily.mono,
@@ -77,15 +77,15 @@ export const baseStyles = StyleSheet.create({
     flex: 1,
   },
   eventEmojiContainer: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     borderRadius: radius.md,
     backgroundColor: colors.bg.elevated,
     justifyContent: "center",
     alignItems: "center",
   },
   eventEmoji: {
-    fontSize: fontSize.xl,
+    fontSize: fontSize["2xl"],
   },
 
   // Details Section
@@ -108,16 +108,16 @@ export const baseStyles = StyleSheet.create({
   },
   detailText: {
     color: colors.text.primary,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     flex: 1,
     fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.normal,
+    lineHeight: lineHeight.relaxed,
   },
   detailTextSecondary: {
     color: colors.text.secondary,
     fontSize: fontSize.sm,
     fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.normal,
+    lineHeight: lineHeight.relaxed,
     marginTop: spacing.xs,
   },
 
@@ -127,13 +127,13 @@ export const baseStyles = StyleSheet.create({
   },
   locationAddress: {
     color: colors.text.primary,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.normal,
+    lineHeight: lineHeight.relaxed,
   },
   distanceText: {
     color: colors.accent.primary,
-    fontSize: fontSize.xs,
+    fontSize: fontSize.sm,
     fontFamily: fontFamily.mono,
     marginTop: 2,
     fontWeight: fontWeight.medium,
@@ -141,9 +141,9 @@ export const baseStyles = StyleSheet.create({
 
   // Description
   descriptionText: {
-    fontSize: fontSize.sm,
-    color: colors.text.secondary,
-    lineHeight: lineHeight.relaxed,
+    fontSize: fontSize.md,
+    color: colors.text.primary,
+    lineHeight: lineHeight.loose,
     fontFamily: fontFamily.mono,
   },
 
@@ -165,7 +165,7 @@ export const baseStyles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   categoryText: {
-    color: colors.text.secondary,
+    color: colors.text.primary,
     fontSize: fontSize.xs,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.medium,
@@ -187,7 +187,7 @@ export const baseStyles = StyleSheet.create({
     gap: spacing.sm,
   },
   discoveredByText: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     color: colors.text.primary,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.medium,

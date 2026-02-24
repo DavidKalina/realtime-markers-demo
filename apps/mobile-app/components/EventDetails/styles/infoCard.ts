@@ -1,5 +1,5 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing, fontWeight, fontFamily } from "@/theme";
+import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
 
 export const infoCardStyles = StyleSheet.create({
   infoCard: {
@@ -15,9 +15,9 @@ export const infoCardStyles = StyleSheet.create({
     marginRight: spacing._6,
   },
   infoCardTitle: {
-    fontSize: 11,
+    fontSize: fontSize.xs,
     fontWeight: fontWeight.semibold,
-    color: colors.text.disabled,
+    color: colors.text.secondary,
     fontFamily: fontFamily.mono,
     textTransform: "uppercase",
     letterSpacing: 1,

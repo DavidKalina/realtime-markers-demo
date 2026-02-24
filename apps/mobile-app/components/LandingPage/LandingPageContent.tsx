@@ -6,6 +6,7 @@ import {
   Text,
   StyleSheet,
 } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import {
   colors,
   fontSize,
@@ -13,6 +14,7 @@ import {
   fontFamily,
   spacing,
   radius,
+  duration,
 } from "@/theme";
 import { EventType, DiscoveredEventType, TrendingEventType } from "@/types/types";
 import ShimmerView from "@/components/Layout/ShimmerView";
@@ -153,29 +155,41 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
         <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
       }
     >
-      <FeaturedEventsCarousel
-        events={data?.featuredEvents || []}
-        isLoading={false}
-      />
+      <Animated.View entering={FadeInDown.duration(duration.normal).delay(0)}>
+        <FeaturedEventsCarousel
+          events={data?.featuredEvents || []}
+          isLoading={false}
+        />
+      </Animated.View>
 
-      <PopularCategoriesSection
-        categories={data?.popularCategories || []}
-        isLoading={false}
-      />
+      <Animated.View entering={FadeInDown.duration(duration.normal).delay(120)}>
+        <PopularCategoriesSection
+          categories={data?.popularCategories || []}
+          isLoading={false}
+        />
+      </Animated.View>
 
-      <JustDiscoveredSection events={data?.justDiscoveredEvents || []} />
+      <Animated.View entering={FadeInDown.duration(duration.normal).delay(240)}>
+        <JustDiscoveredSection events={data?.justDiscoveredEvents || []} />
+      </Animated.View>
 
-      <TrendingEventsSection events={data?.trendingEvents || []} />
+      <Animated.View entering={FadeInDown.duration(duration.normal).delay(360)}>
+        <TrendingEventsSection events={data?.trendingEvents || []} />
+      </Animated.View>
 
-      <CommunityEventsSection
-        events={data?.communityEvents || []}
-        isLoading={false}
-      />
+      <Animated.View entering={FadeInDown.duration(duration.normal).delay(480)}>
+        <CommunityEventsSection
+          events={data?.communityEvents || []}
+          isLoading={false}
+        />
+      </Animated.View>
 
-      <UpcomingEventsSection
-        events={data?.upcomingEvents || []}
-        isLoading={false}
-      />
+      <Animated.View entering={FadeInDown.duration(duration.normal).delay(600)}>
+        <UpcomingEventsSection
+          events={data?.upcomingEvents || []}
+          isLoading={false}
+        />
+      </Animated.View>
 
       <View style={{ height: 100 }} />
     </ScrollView>

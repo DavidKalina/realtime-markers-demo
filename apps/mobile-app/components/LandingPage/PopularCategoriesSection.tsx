@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
+import Animated, { FadeInRight } from "react-native-reanimated";
 import {
   colors,
   fontSize,
@@ -45,21 +46,23 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
     return null;
   }
 
-  const renderItem = ({ item }: { item: Category }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => handleCategoryPress(item)}
-      activeOpacity={0.7}
-    >
-      <Text style={styles.categoryName} numberOfLines={2}>
-        {titleCase(item.name)}
-      </Text>
-      {item.eventCount != null && (
-        <Text style={styles.eventCount}>
-          {item.eventCount} {item.eventCount === 1 ? "event" : "events"}
+  const renderItem = ({ item, index }: { item: Category; index: number }) => (
+    <Animated.View entering={FadeInRight.duration(300).delay(index * 80)}>
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => handleCategoryPress(item)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.categoryName} numberOfLines={2}>
+          {titleCase(item.name)}
         </Text>
-      )}
-    </TouchableOpacity>
+        {item.eventCount != null && (
+          <Text style={styles.eventCount}>
+            {item.eventCount} {item.eventCount === 1 ? "event" : "events"}
+          </Text>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
   );
 
   return (
