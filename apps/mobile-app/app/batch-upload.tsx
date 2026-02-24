@@ -1,5 +1,5 @@
-import React, { useCallback, useRef } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useMemo, useRef } from "react";
+import { Alert, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImageManipulator from "expo-image-manipulator";
 import Screen from "@/components/Layout/Screen";
@@ -7,7 +7,7 @@ import { BatchImagePicker, ImagePreviewGrid } from "@/components/BatchUpload";
 import { useUploadImage } from "@/hooks/useUploadImage";
 import { useBatchUpload } from "@/hooks/useBatchUpload";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
-import { colors, spacing, radius, fontFamily, fontSize } from "@/theme";
+import { colors, spacing, fontFamily, fontSize } from "@/theme";
 
 const MAX_IMAGES = 5;
 const PROCESSED_WIDTH = 1200;
@@ -94,6 +94,54 @@ export default function BatchUploadScreen() {
     router.replace("/");
   }, [reset, router]);
 
+  const footerButtons = useMemo(() => {
+    if (images.length === 0) return [];
+
+    if (isDone) {
+      return [
+        {
+          label: "Done",
+          onPress: handleDone,
+          variant: "primary" as const,
+          style: {
+            flex: 1,
+            backgroundColor: colors.status.success.bg,
+            borderColor: colors.status.success.bg,
+          } as ViewStyle,
+          textStyle: { color: colors.fixed.white },
+        },
+      ];
+    }
+
+    if (isUploading) {
+      return [
+        {
+          label: `Uploading ${currentIndex + 1} of ${images.length}...`,
+          onPress: () => {},
+          variant: "primary" as const,
+          style: { flex: 1 } as ViewStyle,
+          loading: true,
+        },
+      ];
+    }
+
+    return [
+      {
+        label: `Upload All (${images.length})`,
+        onPress: handleUpload,
+        variant: "primary" as const,
+        style: { flex: 1 } as ViewStyle,
+      },
+    ];
+  }, [
+    images.length,
+    isDone,
+    isUploading,
+    currentIndex,
+    handleUpload,
+    handleDone,
+  ]);
+
   return (
     <Screen
       bannerEmoji="📤"
@@ -101,48 +149,30 @@ export default function BatchUploadScreen() {
       onBack={handleBack}
       isScrollable={true}
       noSafeArea={false}
+      footerButtons={footerButtons}
+      footerSafeArea={true}
     >
       <View style={styles.content}>
-        {/* Image picker */}
         <BatchImagePicker
           currentCount={images.length}
           maxCount={MAX_IMAGES}
           onImagesPicked={addImages}
           disabled={isUploading || isDone}
+          autoOpen
         />
 
-        {/* Preview grid */}
         <ImagePreviewGrid
           images={images}
           isUploading={isUploading}
           onRemove={removeImage}
         />
 
-        {/* Status text */}
-        {isUploading && (
-          <Text style={styles.statusText}>
-            Uploading {currentIndex + 1} of {images.length}...
-          </Text>
-        )}
+        {/* Status caption */}
         {isDone && (
           <Text style={styles.statusText}>
             {completedCount} succeeded
             {failedCount > 0 ? `, ${failedCount} failed` : ""}
           </Text>
-        )}
-
-        {/* Action buttons */}
-        {!isDone && !isUploading && images.length > 0 && (
-          <Pressable style={styles.uploadButton} onPress={handleUpload}>
-            <Text style={styles.uploadButtonText}>
-              Upload All ({images.length})
-            </Text>
-          </Pressable>
-        )}
-        {isDone && (
-          <Pressable style={styles.doneButton} onPress={handleDone}>
-            <Text style={styles.doneButtonText}>Done</Text>
-          </Pressable>
         )}
       </View>
     </Screen>
@@ -153,36 +183,12 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: spacing.lg,
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   statusText: {
     color: colors.text.secondary,
     fontFamily: fontFamily.mono,
     fontSize: fontSize.sm,
     textAlign: "center",
-  },
-  uploadButton: {
-    backgroundColor: colors.accent.primary,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.md,
-    alignItems: "center",
-  },
-  uploadButtonText: {
-    color: colors.text.inverse,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.md,
-    fontWeight: "600",
-  },
-  doneButton: {
-    backgroundColor: colors.status.success.bg,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.md,
-    alignItems: "center",
-  },
-  doneButtonText: {
-    color: colors.fixed.white,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.md,
-    fontWeight: "600",
   },
 });

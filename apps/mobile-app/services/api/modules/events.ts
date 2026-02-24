@@ -259,6 +259,7 @@ export class EventApiClient extends BaseApiModule {
       id: string;
       name: string;
       icon: string;
+      eventCount?: number;
     }>;
   }> {
     const queryParams = new URLSearchParams();
@@ -292,6 +293,7 @@ export class EventApiClient extends BaseApiModule {
         id: string;
         name: string;
         icon: string;
+        eventCount?: number;
       }>;
     }>(response);
 
@@ -312,7 +314,10 @@ export class EventApiClient extends BaseApiModule {
         mapDiscoveredEventToType,
       ),
       trendingEvents: (data.trendingEvents || []).map(mapTrendingEventToType),
-      popularCategories: data.popularCategories,
+      popularCategories: data.popularCategories.map((cat) => ({
+        ...cat,
+        eventCount: cat.eventCount ?? undefined,
+      })),
     };
   }
 

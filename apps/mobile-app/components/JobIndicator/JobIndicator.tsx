@@ -160,21 +160,16 @@ const JobIndicator: React.FC = () => {
       ? activeJobs.reduce((sum, j) => sum + (j.progress ?? 0), 0) / totalJobs
       : 0;
 
-  // Pick display label: summarize when multiple in-flight, show single job label otherwise
+  // Pick display label: show the current step being worked on
   const displayLabel = (() => {
-    if (inFlightCount > 1) {
-      return `${inFlightCount} jobs`;
+    if (inFlightCount > 0) {
+      // Show the step label of the most recently active job
+      const current = inFlightJobs[inFlightJobs.length - 1];
+      return shortenLabel(current.stepLabel || "Processing");
     }
-    if (inFlightCount === 1) {
-      return shortenLabel(inFlightJobs[0].stepLabel || "Processing");
-    }
-    // All terminal — show summary
-    if (completedJobs.length > 0 && failedJobs.length > 0) {
-      return `${completedJobs.length} done, ${failedJobs.length} failed`;
-    }
-    // Fallback to the most recent terminal job
-    const lastJob = activeJobs[activeJobs.length - 1];
-    return shortenLabel(lastJob?.stepLabel || "Done");
+    if (isCompleted) return "Done";
+    if (isFailed) return "Failed";
+    return "Done";
   })();
 
   useEffect(() => {
@@ -228,12 +223,6 @@ const JobIndicator: React.FC = () => {
           <AlertCircle size={12} color={accentColor} strokeWidth={2.5} />
         )}
 
-        {totalJobs > 1 && (
-          <Text style={[styles.badge, { color: accentColor }]}>
-            {totalJobs}
-          </Text>
-        )}
-
         <MarqueeLabel text={displayLabel} color={accentColor} />
       </View>
 
@@ -252,19 +241,12 @@ const JobIndicator: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
-    flexShrink: 1,
-    maxWidth: 160,
+    width: 160,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
-  },
-  badge: {
-    fontSize: 10,
-    fontWeight: "700",
-    fontFamily: fontFamily.mono,
-    marginLeft: -2,
   },
   marqueeClip: {
     overflow: "hidden",

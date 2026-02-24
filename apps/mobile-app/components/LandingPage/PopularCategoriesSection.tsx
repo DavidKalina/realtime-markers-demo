@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
 import {
   colors,
   fontSize,
@@ -15,12 +15,18 @@ interface Category {
   id: string;
   name: string;
   icon: string;
+  eventCount?: number;
 }
 
 interface PopularCategoriesSectionProps {
   categories: Category[];
   isLoading?: boolean;
 }
+
+const CARD_WIDTH = 160;
+
+const titleCase = (str: string) =>
+  str.replace(/\b\w/g, (c) => c.toUpperCase());
 
 const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
   categories,
@@ -39,24 +45,35 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
     return null;
   }
 
+  const renderItem = ({ item }: { item: Category }) => (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => handleCategoryPress(item)}
+      activeOpacity={0.7}
+    >
+      <Text style={styles.categoryName} numberOfLines={2}>
+        {titleCase(item.name)}
+      </Text>
+      {item.eventCount != null && (
+        <Text style={styles.eventCount}>
+          {item.eventCount} {item.eventCount === 1 ? "event" : "events"}
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Popular Categories</Text>
-      <View style={styles.listContainer}>
-        {categories.map((category) => (
-          <TouchableOpacity
-            key={category.id}
-            style={styles.categoryItem}
-            onPress={() => handleCategoryPress(category)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.iconText}>{category.icon || "📌"}</Text>
-            <Text style={styles.categoryName} numberOfLines={1}>
-              {category.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <FlatList
+        data={categories}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+        ItemSeparatorComponent={() => <View style={{ width: spacing.sm }} />}
+      />
     </View>
   );
 };
@@ -73,31 +90,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
   },
-  listContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  listContent: {
     paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
   },
-  categoryItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.full,
+  card: {
+    width: CARD_WIDTH,
     backgroundColor: colors.bg.card,
     borderWidth: 1,
     borderColor: colors.border.default,
-    gap: spacing.sm,
-  },
-  iconText: {
-    fontSize: fontSize.sm,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
   categoryName: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+    fontFamily: fontFamily.mono,
+    textAlign: "center",
+    lineHeight: fontSize.md * 1.4,
+  },
+  eventCount: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.regular,
     color: colors.text.secondary,
     fontFamily: fontFamily.mono,
+    marginTop: spacing.sm,
   },
 });
 

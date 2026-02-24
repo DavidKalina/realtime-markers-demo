@@ -941,8 +941,8 @@ export class EventSearchServiceImpl implements EventSearchService {
     console.log(`Found ${trendingEvents.length} trending events`);
 
     // Popular categories: from any events that passed filters
-    // Try from all non-rejected events first, only narrow if we have plenty
-    const popularCategories = await this.categoryRepository
+    // Over-fetch to have room after dedup, then filter overlapping names
+    const popularCategoriesRaw = await this.categoryRepository
       .createQueryBuilder("category")
       .innerJoin("category.events", "event")
       .where("event.status IN (:...statuses)", {
@@ -956,14 +956,32 @@ export class EventSearchServiceImpl implements EventSearchService {
       .addGroupBy("category.name")
       .addGroupBy("category.icon")
       .orderBy("eventcount", "DESC")
-      .limit(8)
+      .limit(20)
       .getRawMany();
 
-    // Convert raw results to Category objects
-    const categories = popularCategories.map((raw) => ({
+    // Deduplicate overlapping category names (e.g. "sports" vs "sports & fitness")
+    const accepted: typeof popularCategoriesRaw = [];
+    for (const cat of popularCategoriesRaw) {
+      const normalizedName = cat.name.toLowerCase();
+      const isOverlap = accepted.some((a) => {
+        const acceptedName = a.name.toLowerCase();
+        return (
+          normalizedName.includes(acceptedName) ||
+          acceptedName.includes(normalizedName)
+        );
+      });
+      if (!isOverlap) {
+        accepted.push(cat);
+      }
+      if (accepted.length >= 6) break;
+    }
+
+    // Convert raw results to Category objects with eventCount
+    const categories = accepted.map((raw) => ({
       id: raw.id,
       name: raw.name,
       icon: raw.icon,
+      eventCount: Number(raw.eventcount) || 0,
       createdAt: new Date(),
       updatedAt: new Date(),
       events: [],

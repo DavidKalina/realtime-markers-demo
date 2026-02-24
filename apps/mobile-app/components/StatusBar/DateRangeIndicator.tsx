@@ -1,6 +1,6 @@
-import DateRangeCalendar from "@/components/DateRangeCalendar";
+import TimeRangePresets from "@/components/TimeRangePresets";
+import { eventBroker, EventTypes } from "@/services/EventBroker";
 import { useFilterStore } from "@/stores/useFilterStore";
-import { format, parseISO } from "date-fns";
 import * as Haptics from "expo-haptics";
 import { Calendar } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -14,14 +14,12 @@ import Animated, {
 import { colors, spacing, spring } from "@/theme";
 
 const DateRangeIndicator: React.FC = () => {
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
-  const [isLocalLoading, setIsLocalLoading] = useState(false);
+  const [showPresets, setShowPresets] = useState(false);
   const { filters, activeFilterIds, applyFilters, createFilter, clearFilters } =
     useFilterStore();
   const scale = useSharedValue(1);
 
-  // Determine if we're in filtered mode (has date range filter) or relevant mode (no filters)
+  // Determine if we're in filtered mode (has date range filter)
   const isFilteredMode = useMemo(() => {
     if (activeFilterIds.length === 0) return false;
 
@@ -32,20 +30,19 @@ const DateRangeIndicator: React.FC = () => {
     );
   }, [filters, activeFilterIds]);
 
+  // Derive the active preset label from the active filter's name
+  const activePresetLabel = useMemo(() => {
+    if (activeFilterIds.length === 0) return undefined;
+    const activeFilter = filters.find((f) => activeFilterIds.includes(f.id));
+    return activeFilter?.name;
+  }, [filters, activeFilterIds]);
+
   // Sync date range on mount - start in relevant mode
   useEffect(() => {
     if (activeFilterIds.length === 0 && filters.length === 0) {
-      // Start in relevant mode (MapMoji filtered)
       console.log("Starting in relevant mode (MapMoji filtered)");
     }
   }, []);
-
-  // Reset local loading state when modal closes
-  useEffect(() => {
-    if (!showCalendar) {
-      setIsLocalLoading(false);
-    }
-  }, [showCalendar]);
 
   const handlePressIn = useCallback(() => {
     cancelAnimation(scale);
@@ -59,45 +56,53 @@ const DateRangeIndicator: React.FC = () => {
 
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsClosing(false);
-    setShowCalendar(true);
+    setShowPresets(true);
   }, []);
 
-  // Close with exit animation — mark closing, let calendar animate out, then destroy
   const handleClose = useCallback(() => {
-    setIsClosing(true);
-    setTimeout(() => {
-      setShowCalendar(false);
-      setIsClosing(false);
-    }, 300);
+    setShowPresets(false);
   }, []);
 
-  const handleDateRangeSelect = useCallback(
-    async (startDate: string | null, endDate: string | null) => {
-      if (!startDate || !endDate) return;
+  const handlePresetSelect = useCallback(
+    (start: string, end: string, label: string) => {
+      // Close modal and give immediate feedback
+      setShowPresets(false);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      eventBroker.emit(EventTypes.NOTIFICATION, {
+        title: label,
+        message: "Filtering events...",
+        notificationType: "info",
+        duration: 3000,
+        timestamp: Date.now(),
+        source: "DateRangeIndicator",
+      });
 
-      setIsLocalLoading(true);
-
-      try {
-        // Create a new filter for the date range
-        const newFilter = await createFilter({
-          name: `${format(parseISO(startDate), "MMM d")} - ${format(parseISO(endDate), "MMM d")}`,
-          criteria: {
-            dateRange: { start: startDate, end: endDate },
-          },
+      // API work happens in the background
+      console.log("[DateRangeIndicator] Creating filter:", { label, start, end });
+      createFilter({
+        name: label,
+        criteria: {
+          dateRange: { start, end },
+        },
+      })
+        .then((newFilter) => {
+          console.log("[DateRangeIndicator] Filter created:", newFilter.id);
+          return applyFilters([newFilter.id]);
+        })
+        .then(() => {
+          console.log("[DateRangeIndicator] Filter applied successfully");
+        })
+        .catch((error) => {
+          console.error("[DateRangeIndicator] Filter error:", error?.message || error);
+          eventBroker.emit(EventTypes.NOTIFICATION, {
+            title: "Error",
+            message: `Failed to apply filter: ${error?.message || "Unknown error"}`,
+            notificationType: "error",
+            duration: 5000,
+            timestamp: Date.now(),
+            source: "DateRangeIndicator",
+          });
         });
-
-        // Apply the newly created filter to switch to filtered mode
-        await applyFilters([newFilter.id]);
-
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch (error) {
-        console.error("Error creating date range filter:", error);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      } finally {
-        setIsLocalLoading(false);
-        setShowCalendar(false);
-      }
     },
     [createFilter, applyFilters],
   );
@@ -105,7 +110,7 @@ const DateRangeIndicator: React.FC = () => {
   const handleClearFilters = useCallback(async () => {
     try {
       await clearFilters();
-      setShowCalendar(false);
+      setShowPresets(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error("Error clearing filters:", error);
@@ -137,29 +142,19 @@ const DateRangeIndicator: React.FC = () => {
       </Pressable>
 
       <Modal
-        visible={showCalendar}
+        visible={showPresets}
         transparent={true}
-        animationType="fade"
+        animationType="none"
         onRequestClose={handleClose}
       >
         <View style={styles.modalOverlay}>
-          {!isClosing && (
-            <DateRangeCalendar
-              startDate={
-                filters.find((f) => activeFilterIds.includes(f.id))?.criteria
-                  ?.dateRange?.start || undefined
-              }
-              endDate={
-                filters.find((f) => activeFilterIds.includes(f.id))?.criteria
-                  ?.dateRange?.end || undefined
-              }
-              onDateRangeSelect={handleDateRangeSelect}
-              onClose={handleClose}
-              isLoading={isLocalLoading}
-              onClearFilters={handleClearFilters}
-              isFilteredMode={isFilteredMode}
-            />
-          )}
+          <TimeRangePresets
+            onPresetSelect={handlePresetSelect}
+            onClose={handleClose}
+            onClearFilters={handleClearFilters}
+            isFilteredMode={isFilteredMode}
+            activePresetLabel={activePresetLabel}
+          />
         </View>
       </Modal>
     </>

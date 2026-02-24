@@ -219,9 +219,7 @@ const Button: React.FC<ButtonProps> = ({
       {!loading && Icon && (
         <Icon size={iconSize} color={getIconColor()} strokeWidth={2} />
       )}
-      <Text style={[getTextStyle(), textStyle]}>
-        {loading ? "Loading..." : title}
-      </Text>
+      <Text style={[getTextStyle(), textStyle]}>{title}</Text>
     </TouchableOpacity>
   );
 };

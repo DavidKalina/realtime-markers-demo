@@ -1,5 +1,5 @@
-import React, { useCallback } from "react";
-import { Pressable, StyleSheet, Text } from "react-native";
+import React, { useCallback, useEffect, useRef } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { colors, spacing, radius, fontFamily, fontSize } from "@/theme";
 
@@ -8,6 +8,7 @@ interface BatchImagePickerProps {
   maxCount: number;
   onImagesPicked: (uris: string[]) => void;
   disabled?: boolean;
+  autoOpen?: boolean;
 }
 
 export function BatchImagePicker({
@@ -15,8 +16,10 @@ export function BatchImagePicker({
   maxCount,
   onImagesPicked,
   disabled,
+  autoOpen,
 }: BatchImagePickerProps) {
   const remaining = maxCount - currentCount;
+  const autoOpenFired = useRef(false);
 
   const handlePick = useCallback(async () => {
     if (remaining <= 0) return;
@@ -33,18 +36,34 @@ export function BatchImagePicker({
     onImagesPicked(result.assets.map((a) => a.uri));
   }, [remaining, onImagesPicked]);
 
+  useEffect(() => {
+    if (autoOpen && !autoOpenFired.current && !disabled && remaining > 0) {
+      autoOpenFired.current = true;
+      handlePick();
+    }
+  }, [autoOpen, disabled, remaining, handlePick]);
+
+  // Compact hint when max is reached
+  if (remaining <= 0) {
+    return (
+      <View style={styles.maxReached}>
+        <Text style={styles.maxReachedText}>
+          {currentCount}/{maxCount} photos
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <Pressable
       style={[styles.button, disabled && styles.buttonDisabled]}
       onPress={handlePick}
-      disabled={disabled || remaining <= 0}
+      disabled={disabled}
     >
       <Text style={[styles.buttonText, disabled && styles.buttonTextDisabled]}>
         {currentCount === 0
           ? "Select Photos"
-          : remaining > 0
-            ? `Add More Photos (${remaining} remaining)`
-            : "Maximum photos selected"}
+          : `Add More Photos (${remaining} remaining)`}
       </Text>
     </Pressable>
   );
@@ -57,7 +76,7 @@ const styles = StyleSheet.create({
     borderColor: colors.accent.border,
     borderStyle: "dashed",
     borderRadius: radius.lg,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     alignItems: "center",
     justifyContent: "center",
@@ -72,5 +91,14 @@ const styles = StyleSheet.create({
   },
   buttonTextDisabled: {
     color: colors.text.disabled,
+  },
+  maxReached: {
+    alignItems: "center",
+    paddingVertical: spacing.xs,
+  },
+  maxReachedText: {
+    color: colors.text.disabled,
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.xs,
   },
 });
