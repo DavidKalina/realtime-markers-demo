@@ -419,11 +419,9 @@ export class UnifiedMessageHandler {
     const affectedUsers = new Set<string>();
 
     // 1. Add entity creator for CREATE, updates, and deletes
+    const op = operation.toUpperCase();
     if (
-      (operation === "CREATE" ||
-        operation === "add" ||
-        operation === "update" ||
-        operation === "delete") &&
+      (op === "CREATE" || op === "ADD" || op === "UPDATE" || op === "DELETE") &&
       entity.creatorId
     ) {
       affectedUsers.add(entity.creatorId);
@@ -442,10 +440,7 @@ export class UnifiedMessageHandler {
     // Events always have location (hasLocation = true)
     if (
       entity.location &&
-      (operation === "CREATE" ||
-        operation === "add" ||
-        operation === "update" ||
-        operation === "DELETE")
+      (op === "CREATE" || op === "ADD" || op === "UPDATE" || op === "DELETE")
     ) {
       const coords = entity.location.coordinates;
       const entityBounds = coords

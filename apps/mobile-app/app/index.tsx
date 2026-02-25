@@ -156,16 +156,14 @@ function HomeScreen() {
     [publish],
   );
 
-  // Handle user pan
+  // Handle user pan — only publish the panning event.
+  // Deselection is handled by handleMapPress (which doesn't fire for marker taps).
   const handleUserPan = useCallback(() => {
-    if (selectedItem) {
-      selectMapItem(null);
-    }
     publish<BaseEvent>(EventTypes.USER_PANNING_VIEWPORT, {
       timestamp: Date.now(),
       source: "MapPress",
     });
-  }, [selectMapItem, publish, selectedItem]);
+  }, [publish]);
 
   // Handle map press
   const handleMapPress = useCallback(() => {

@@ -164,34 +164,31 @@ const ClusterView = React.memo(
 export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
   React.memo(({ currentZoom = 14, viewport }) => {
     // Get marker data from store
-    const storeMarkers = useLocationStore((state) => state.markers);
-    const router = useRouter();
-
-    // Use the unified selection approach
-    const selectedItem = useLocationStore((state) => state.selectedItem);
+    const markers = useLocationStore((state) => state.markers);
     const selectMapItem = useLocationStore((state) => state.selectMapItem);
     const isItemSelected = useLocationStore((state) => state.isItemSelected);
-
+    const router = useRouter();
     const { publish } = useEventBroker();
-
-    // Use provided markers or fall back to store markers
-    const markers = storeMarkers;
 
     // Get clusters based on current markers, viewport, and zoom level
     const { clusters } = useMarkerClustering(markers, viewport, currentZoom);
 
-    // Memoize the handler creation to avoid recreating functions
+    // Read selectedItem imperatively from the store inside the handler
+    // so the callback identity stays stable across selection changes.
     const createMapItemPressHandler = useCallback(
       (item: MapItem) => {
         return () => {
+          const currentSelected = useLocationStore.getState().selectedItem;
+
           // SECOND TAP: already selected → navigate to details
-          if (selectedItem?.id === item.id) {
+          if (currentSelected?.id === item.id) {
             if (item.type === "marker") {
               router.push(`details?eventId=${item.id}` as never);
             } else {
               // Navigate to cluster view
               const seen = new Set<string>();
-              const clusterMarkers = storeMarkers.filter((marker) => {
+              const currentMarkers = useLocationStore.getState().markers;
+              const clusterMarkers = currentMarkers.filter((marker) => {
                 if (!item.childrenIds?.includes(marker.id)) return false;
                 if (seen.has(marker.id)) return false;
                 seen.add(marker.id);
@@ -281,14 +278,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           }
         };
       },
-      [
-        currentZoom,
-        publish,
-        selectMapItem,
-        selectedItem?.id,
-        router,
-        storeMarkers,
-      ],
+      [currentZoom, publish, selectMapItem, router],
     );
 
     // Memoize the cluster processing function with stable references
