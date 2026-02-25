@@ -19,16 +19,7 @@ import Animated, {
   withRepeat,
   Easing,
 } from "react-native-reanimated";
-import {
-  colors,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  radius,
-  spacing,
-  spring,
-} from "@/theme";
+import { colors, fontSize, lineHeight, spacing, spring } from "@/theme";
 import {
   MARKER_HEIGHT,
   MARKER_WIDTH,
@@ -36,7 +27,6 @@ import {
   SHADOW_OFFSET,
   ShadowSVG,
 } from "./MarkerSVGs";
-import { TimePopup } from "./TimePopup";
 
 // Animation configurations
 const ANIMATIONS = {
@@ -261,18 +251,6 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
 
     return (
       <View style={styles.container}>
-        {/* Time popup — only when selected */}
-        {isSelected && (
-          <Animated.View style={[styles.popupContainer]}>
-            <TimePopup
-              time={event.data.eventDate || ""}
-              endDate={event.data.endDate || ""}
-              title={event.data.title || ""}
-              index={index}
-            />
-          </Animated.View>
-        )}
-
         {/* Shadow */}
         <Animated.View style={[styles.shadowContainer, shadowStyle]}>
           {ShadowSvg}
@@ -296,24 +274,6 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
             <Animated.View style={[styles.rippleEffect, rippleStyle]} />
           </Animated.View>
         </TouchableOpacity>
-
-        {/* Social proof badge — only when selected */}
-        {isSelected && (event.data.goingCount as number) >= 3 && (
-          <View style={styles.socialProofBadge}>
-            <Text style={styles.socialProofText}>
-              {event.data.goingCount as number} going
-            </Text>
-          </View>
-        )}
-
-        {/* Trending badge — only when selected (and social proof not shown) */}
-        {isSelected &&
-          event.data.isTrending &&
-          !((event.data.goingCount as number) >= 3) && (
-            <View style={styles.trendingBadge}>
-              <Text style={styles.trendingBadgeText}>Trending</Text>
-            </View>
-          )}
       </View>
     );
   },
@@ -322,9 +282,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.isHighlighted === nextProps.isHighlighted &&
       prevProps.event.data.emoji === nextProps.event.data.emoji &&
-      prevProps.event.data.title === nextProps.event.data.title &&
-      prevProps.event.data.goingCount === nextProps.event.data.goingCount &&
-      prevProps.event.data.isTrending === nextProps.event.data.isTrending
+      prevProps.event.data.title === nextProps.event.data.title
     );
   },
 );
@@ -377,44 +335,5 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     opacity: 0.7,
     bottom: spacing.md,
-  },
-  popupContainer: {
-    position: "absolute",
-    width: "100%",
-    zIndex: 1,
-  },
-  socialProofBadge: {
-    position: "absolute",
-    bottom: -12,
-    alignSelf: "center",
-    backgroundColor: colors.bg.primary,
-    paddingHorizontal: spacing._10,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  socialProofText: {
-    color: colors.status.success.text,
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-  },
-  trendingBadge: {
-    position: "absolute",
-    bottom: -12,
-    alignSelf: "center",
-    backgroundColor: colors.bg.primary,
-    paddingHorizontal: spacing._10,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  trendingBadgeText: {
-    color: colors.accent.primary,
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
   },
 });

@@ -3,13 +3,7 @@ import { MapStyleType, useMapStyle } from "@/contexts/MapStyleContext";
 import { apiClient, User } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useRef,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 
 // Cache TTL in milliseconds (5 minutes)
 const CACHE_TTL = 5 * 60 * 1000;
@@ -56,7 +50,7 @@ interface UseProfileReturn {
   password: string;
 
   // Actions
-  refetch: () => void;
+  refetch: () => Promise<void>;
   handleMapStyleChange: (style: MapStyleType) => Promise<void>;
   handleBack: () => void;
   handleLogout: () => void;
@@ -83,10 +77,16 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
   // Cache ref to track cache updates
   const cacheRef = useRef(globalCache);
 
-  /** Invalidate cache and refetch profile from server. */
-  const refetch = useCallback(() => {
+  // Resolve callback for promise-based refetch
+  const pendingResolveRef = useRef<(() => void) | null>(null);
+
+  /** Invalidate cache and refetch profile from server. Returns a promise that resolves when fresh data arrives. */
+  const refetch = useCallback((): Promise<void> => {
     invalidateProfileCache();
     setFetchTrigger((n) => n + 1);
+    return new Promise<void>((resolve) => {
+      pendingResolveRef.current = resolve;
+    });
   }, []);
 
   // Handle map style change
@@ -131,6 +131,8 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
         if (isMounted) {
           if (profileResponse) setProfileData(profileResponse);
           setLoading(false);
+          pendingResolveRef.current?.();
+          pendingResolveRef.current = null;
         }
       } catch (error) {
         if (error instanceof Error && error.name !== "AbortError") {

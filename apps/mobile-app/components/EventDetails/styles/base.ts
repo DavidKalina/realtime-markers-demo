@@ -59,14 +59,15 @@ export const baseStyles = StyleSheet.create({
     zIndex: 10,
   },
 
-  // Title Section
+  // Hero Section (centered emoji + title + date)
   titleSection: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
-    flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+  },
+  eventEmoji: {
+    fontSize: 40,
   },
   eventTitle: {
     fontSize: fontSize["2xl"],
@@ -74,30 +75,23 @@ export const baseStyles = StyleSheet.create({
     color: colors.text.primary,
     fontFamily: fontFamily.mono,
     lineHeight: lineHeight.heading,
-    flex: 1,
+    textAlign: "center",
+    marginTop: spacing.sm,
   },
-  eventEmojiContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
-    backgroundColor: colors.bg.elevated,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  eventEmoji: {
-    fontSize: fontSize["2xl"],
+  heroDateSubtitle: {
+    fontSize: fontSize.sm,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
+    textAlign: "center",
+    marginTop: spacing.xs,
   },
 
   // Details Section
   detailsSection: {
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing["2xl"],
-  },
-
-  // Section divider
-  sectionDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border.medium,
+    gap: spacing.md,
+    paddingTop: spacing.md,
   },
 
   // Detail Rows
@@ -121,22 +115,33 @@ export const baseStyles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 
-  // Location Content
+  // Location Row (tappable card — minimal like MarkerInfoHUD)
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
   locationContent: {
     flex: 1,
   },
   locationAddress: {
     color: colors.text.primary,
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.relaxed,
-  },
-  distanceText: {
-    color: colors.accent.primary,
     fontSize: fontSize.sm,
     fontFamily: fontFamily.mono,
-    marginTop: 2,
+    fontWeight: fontWeight.semibold,
+    lineHeight: lineHeight.snug,
+  },
+  locationDistance: {
+    color: colors.text.secondary,
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
     fontWeight: fontWeight.medium,
+    marginTop: 2,
+  },
+  chevronText: {
+    fontSize: fontSize.xl,
+    color: colors.text.secondary,
+    marginLeft: spacing.xs,
   },
 
   // Description
@@ -152,23 +157,45 @@ export const baseStyles = StyleSheet.create({
     gap: spacing.sm,
   },
 
-  // Categories
-  categoriesContainer: {
+  // Categories — DNA bar
+  dnaBar: {
+    flexDirection: "row",
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+    gap: 2,
+  },
+  dnaSegment: {
+    height: "100%",
+  },
+  dnaSegmentFirst: {
+    borderTopLeftRadius: 3,
+    borderBottomLeftRadius: 3,
+  },
+  dnaSegmentLast: {
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
+  },
+  dnaLegend: {
     flexDirection: "row",
     flexWrap: "wrap",
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  dnaLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing._6,
   },
-  categoryTag: {
-    backgroundColor: colors.bg.elevated,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
+  dnaLegendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  categoryText: {
-    color: colors.text.primary,
+  dnaLegendText: {
     fontSize: fontSize.xs,
     fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.medium,
+    color: colors.text.secondary,
   },
 
   // Section Title

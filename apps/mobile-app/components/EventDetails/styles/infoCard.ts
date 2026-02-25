@@ -1,10 +1,20 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
+import {
+  colors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  fontFamily,
+} from "@/theme";
 
 export const infoCardStyles = StyleSheet.create({
   infoCard: {
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
+    backgroundColor: colors.bg.card,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    padding: spacing.lg,
   },
   infoCardHeader: {
     flexDirection: "row",

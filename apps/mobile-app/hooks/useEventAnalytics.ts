@@ -1,4 +1,5 @@
 import { EventType } from "@/types/types";
+import { useMemo } from "react";
 
 /**
  * Hook for tracking event-related analytics
@@ -139,14 +140,17 @@ export const useEventAnalytics = () => {
     });
   };
 
-  return {
-    trackEventView,
-    trackQRCodeScan,
-    trackQRCodeLinkClick,
-    trackEventSave,
-    trackMapOpen,
-    trackGetDirections,
-  };
+  return useMemo(
+    () => ({
+      trackEventView,
+      trackQRCodeScan,
+      trackQRCodeLinkClick,
+      trackEventSave,
+      trackMapOpen,
+      trackGetDirections,
+    }),
+    [],
+  );
 };
 
 export default useEventAnalytics;

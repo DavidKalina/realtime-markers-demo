@@ -16,22 +16,21 @@ const formatNumber = (num: number): string => {
 
 const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
   ({ engagement }) => {
-    const metrics = [
-      { label: "Saves", value: engagement.saveCount },
-      { label: "Scans", value: engagement.scanCount },
-      { label: "RSVPs", value: engagement.rsvpCount },
-      { label: "Total", value: engagement.totalEngagement },
+    const pills = [
+      { emoji: "\u{1F4BE}", value: engagement.saveCount, label: "saves" },
+      { emoji: "\u{1F4F8}", value: engagement.scanCount, label: "scans" },
+      { emoji: "\u{1F64B}", value: engagement.rsvpCount, label: "rsvps" },
     ];
 
     return (
       <View>
-        {/* Metrics row */}
-        <View style={styles.row}>
-          {metrics.map((metric, index) => (
-            <View key={metric.label} style={styles.metric}>
-              <Text style={styles.value}>{formatNumber(metric.value)}</Text>
-              <Text style={styles.label}>{metric.label}</Text>
-              {index < metrics.length - 1 && <View style={styles.separator} />}
+        {/* Stat pills row */}
+        <View style={styles.pillRow}>
+          {pills.map((pill) => (
+            <View key={pill.label} style={styles.pill}>
+              <Text style={styles.pillEmoji}>{pill.emoji}</Text>
+              <Text style={styles.pillValue}>{formatNumber(pill.value)}</Text>
+              <Text style={styles.pillLabel}>{pill.label}</Text>
             </View>
           ))}
         </View>
@@ -58,38 +57,36 @@ EventEngagementDisplay.displayName = "EventEngagementDisplay";
 export default EventEngagementDisplay;
 
 const styles = StyleSheet.create({
-  row: {
+  pillRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  pill: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: colors.bg.cardAlt,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: colors.border.medium,
+    gap: 4,
   },
-  metric: {
-    flex: 1,
-    alignItems: "center",
-    position: "relative",
+  pillEmoji: {
+    fontSize: fontSize.sm,
   },
-  value: {
+  pillValue: {
     fontFamily: fontFamily.mono,
-    fontSize: fontSize.lg,
+    fontSize: fontSize.sm,
     fontWeight: fontWeight.bold,
     color: colors.text.primary,
-    textAlign: "center",
   },
-  label: {
+  pillLabel: {
     fontFamily: fontFamily.mono,
     fontSize: 10,
     color: colors.text.disabled,
-    textAlign: "center",
-    marginTop: 2,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-  },
-  separator: {
-    position: "absolute",
-    right: 0,
-    top: 4,
-    bottom: 4,
-    width: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border.medium,
   },
   breakdown: {
     fontFamily: fontFamily.mono,

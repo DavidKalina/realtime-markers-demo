@@ -7,7 +7,7 @@ import { EventType } from "@/types/types";
 import { calculateDistance, formatDistance } from "@/utils/distanceUtils";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Linking, Platform } from "react-native";
 
 export const useEventDetails = (eventId: string, onBack?: () => void) => {
@@ -106,25 +106,24 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
     };
   }, [eventId, getCachedEvent, setCachedEvent]);
 
-  // Track event view when event is loaded
+  // Track event view once per eventId
+  const trackedViewRef = useRef<string | null>(null);
   useEffect(() => {
-    if (event) {
-      // Track in analytics
-      eventAnalytics.trackEventView(event);
+    if (!event || !event.id || trackedViewRef.current === event.id) return;
+    trackedViewRef.current = event.id;
 
-      // Track in backend database
-      if (apiClient.isAuthenticated()) {
-        apiClient.events.trackEventView(event.id!).catch((error) => {
-          console.error("Failed to track event view:", error);
-          // Don't show error to user - view tracking should be silent
-        });
-      }
+    eventAnalytics.trackEventView(event);
+
+    if (apiClient.isAuthenticated()) {
+      apiClient.events.trackEventView(event.id).catch((error) => {
+        console.error("Failed to track event view:", error);
+      });
     }
-  }, [event, eventAnalytics, apiClient]);
+  }, [event?.id]);
 
   // Update distance whenever user location or event coordinates change
   useEffect(() => {
-    if (!event || !event.location || !userLocation) {
+    if (!event || !event.coordinates || !userLocation) {
       setDistanceInfo(null);
       return;
     }
@@ -201,13 +200,13 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
 
   // Open the location in the native maps app
   const handleOpenMaps = () => {
-    if (!event || !event.location) return;
+    if (!event || !event.coordinates) return;
 
     try {
       // Track the map open action
       eventAnalytics.trackMapOpen(event);
 
-      const [longitude, latitude] = event.location.coordinates;
+      const [longitude, latitude] = event.coordinates;
       const url = Platform.select({
         ios: `maps:?q=${latitude},${longitude}`,
         android: `geo:${latitude},${longitude}?q=${latitude},${longitude}`,
@@ -224,13 +223,13 @@ export const useEventDetails = (eventId: string, onBack?: () => void) => {
 
   // Handle get directions (uses turn-by-turn navigation)
   const handleGetDirections = () => {
-    if (!event || !event.location || !userLocation) return;
+    if (!event || !event.coordinates || !userLocation) return;
 
     try {
       // Track the directions request
       eventAnalytics.trackGetDirections(event, userLocation);
 
-      const [longitude, latitude] = event.location.coordinates;
+      const [longitude, latitude] = event.coordinates;
       const [userLongitude, userLatitude] = userLocation;
 
       const url = Platform.select({

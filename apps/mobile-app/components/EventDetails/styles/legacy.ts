@@ -177,53 +177,6 @@ export const legacyStyles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Map preview styles
-  mapPreview: {
-    width: "100%",
-    height: "100%",
-    borderRadius: radius.md,
-    overflow: "hidden",
-  },
-  mapPreviewContainer: {
-    width: "100%",
-    height: 200,
-    backgroundColor: colors.bg.card,
-    overflow: "hidden",
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  mapPreviewFooter: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.overlay.white,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
-    flexDirection: "row",
-    justifyContent: "center",
-  },
-  mapCardFooter: {
-    marginTop: spacing.md,
-  },
-  markerContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: radius["2xl"],
-    backgroundColor: colors.fixed.white,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: colors.accent.primary,
-    zIndex: 1000,
-  },
-  markerEmoji: {
-    fontSize: fontSize["2xl"],
-  },
-
   // Private event styles
   privateEventImageOverlay: {
     position: "absolute",

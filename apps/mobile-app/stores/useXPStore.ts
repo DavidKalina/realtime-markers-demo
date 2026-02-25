@@ -34,14 +34,14 @@ export const useXPStore = create<XPStore>((set, get) => ({
   hasPending: false,
 
   addXP: (amount, action) =>
-    set((state) => {
-      state.pendingXP.push({ amount, action, timestamp: Date.now() });
-      return {
-        pendingXP: state.pendingXP,
-        totalPendingXP: state.totalPendingXP + amount,
-        hasPending: true,
-      };
-    }),
+    set((state) => ({
+      pendingXP: [
+        ...state.pendingXP,
+        { amount, action, timestamp: Date.now() },
+      ],
+      totalPendingXP: state.totalPendingXP + amount,
+      hasPending: true,
+    })),
 
   setLevelUp: (tierName, emoji) =>
     set({

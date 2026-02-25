@@ -2,12 +2,8 @@ import { formatDate } from "@/utils/dateTimeFormatting";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import {
-  Building,
-  Calendar,
-  ExternalLink,
   Info,
   MapPin,
-  Navigation2,
   QrCode,
   Repeat,
   Scan,
@@ -24,13 +20,11 @@ import {
   ViewStyle,
   TextStyle,
 } from "react-native";
-import QRCode from "react-native-qrcode-svg";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Screen from "../Layout/Screen";
 import { colors } from "@/theme";
 import { ErrorEventDetails } from "./ErrorEventDetails";
 import EventEngagementDisplay from "./EventEngagementDisplay";
-import EventMapPreview from "./EventMapPreview";
 import LoadingEventDetails from "./LoadingEventDetails";
 import { styles } from "./styles";
 import { formatRecurrenceFrequency, formatRecurrenceDays } from "./formatters";
@@ -42,6 +36,40 @@ interface EventDetailsProps {
   eventId: string;
   onBack?: () => void;
 }
+
+// Rotating palette for category chips
+const CATEGORY_COLORS = [
+  {
+    text: "#34d399",
+    bg: "rgba(52, 211, 153, 0.15)",
+    border: "rgba(52, 211, 153, 0.3)",
+  },
+  {
+    text: "#fbbf24",
+    bg: "rgba(251, 191, 36, 0.15)",
+    border: "rgba(251, 191, 36, 0.3)",
+  },
+  {
+    text: "#a78bfa",
+    bg: "rgba(167, 139, 250, 0.15)",
+    border: "rgba(167, 139, 250, 0.3)",
+  },
+  {
+    text: "#fb7185",
+    bg: "rgba(251, 113, 133, 0.15)",
+    border: "rgba(251, 113, 133, 0.3)",
+  },
+  {
+    text: "#22d3ee",
+    bg: "rgba(34, 211, 238, 0.15)",
+    border: "rgba(34, 211, 238, 0.3)",
+  },
+  {
+    text: "#fb923c",
+    bg: "rgba(251, 146, 60, 0.15)",
+    border: "rgba(251, 146, 60, 0.3)",
+  },
+] as const;
 
 // Lightweight section label
 const SectionLabel = memo(
@@ -65,81 +93,6 @@ const SectionLabel = memo(
   ),
 );
 
-// Memoize ActionButton component
-const ActionButton = memo(
-  ({
-    onPress,
-    icon: Icon,
-    text,
-    variant = "primary",
-    disabled = false,
-  }: {
-    onPress: () => void;
-    icon: React.ComponentType<{
-      size?: number | string;
-      color?: ColorValue;
-      strokeWidth?: number | string;
-    }>;
-    text: string;
-    variant?: "primary" | "secondary" | "outline";
-    disabled?: boolean;
-  }) => {
-    const getButtonStyle = () => {
-      switch (variant) {
-        case "primary":
-          return {
-            backgroundColor: colors.accent.primary,
-            borderColor: colors.accent.primary,
-            textColor: colors.fixed.white,
-          };
-        case "secondary":
-          return {
-            backgroundColor: "#059669",
-            borderColor: "#059669",
-            textColor: colors.fixed.white,
-          };
-        case "outline":
-          return {
-            backgroundColor: colors.fixed.transparent,
-            borderColor: colors.border.medium,
-            textColor: colors.text.primary,
-          };
-        default:
-          return {
-            backgroundColor: colors.accent.primary,
-            borderColor: colors.accent.primary,
-            textColor: colors.fixed.white,
-          };
-      }
-    };
-
-    const buttonStyle = getButtonStyle();
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.actionButton,
-          {
-            backgroundColor: buttonStyle.backgroundColor,
-            borderColor: buttonStyle.borderColor,
-            opacity: disabled ? 0.5 : 1,
-          },
-        ]}
-        onPress={onPress}
-        disabled={disabled}
-        activeOpacity={0.8}
-      >
-        <Icon size={18} color={buttonStyle.textColor} strokeWidth={2} />
-        <Text
-          style={[styles.actionButtonText, { color: buttonStyle.textColor }]}
-        >
-          {text}
-        </Text>
-      </TouchableOpacity>
-    );
-  },
-);
-
 // Memoize the main component
 const EventDetails: React.FC<EventDetailsProps> = memo(
   ({ eventId, onBack }) => {
@@ -148,13 +101,11 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
     const {
       handleBack,
       loading,
-      handleGetDirections,
       handleRetry,
       error,
       event,
       handleOpenMaps,
       distanceInfo,
-      userLocation,
       isRsvped,
       rsvpState,
       handleToggleRsvp,
@@ -168,11 +119,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       loading: engagementLoading,
       error: engagementError,
     } = useEventEngagement(eventId, true);
-
-    const coordinates = useMemo(() => {
-      if (!event?.coordinates) return [0, 0] as [number, number];
-      return event.coordinates as [number, number];
-    }, [event?.location]);
 
     const formattedDate = useMemo(() => {
       if (!event?.eventDate) return "";
@@ -222,7 +168,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       const shareUrl = `${webUrl}/e/${eventId}`;
       try {
         await Share.share({
-          message: `${event.emoji || "📍"} ${event.title}\n${shareUrl}`,
+          message: shareUrl,
           url: shareUrl,
         });
       } catch {
@@ -247,24 +193,52 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       {
         label: isRsvped ? "RSVP'd ✓" : "RSVP",
         onPress: () => handleToggleRsvp(),
-        variant: isRsvped ? "secondary" : "primary",
+        variant: isRsvped ? "secondary" : "ghost",
         loading: rsvpState === "loading",
-        style: { flex: 2 },
+        style: {
+          flex: 2,
+          backgroundColor: isRsvped
+            ? colors.status.success.bg
+            : colors.action.rsvpMuted,
+          borderColor: isRsvped
+            ? colors.status.success.border
+            : colors.action.rsvpBorder,
+          borderWidth: 1,
+        },
+        textStyle: {
+          color: isRsvped ? colors.fixed.white : colors.action.rsvp,
+        },
       },
       {
         label: isSaved ? "Saved ✓" : "Save",
         onPress: () => handleToggleSave(),
-        variant: isSaved ? "secondary" : "outline",
+        variant: "ghost",
         loading: savingState === "loading",
-        style: { flex: 1 },
+        style: {
+          flex: 1,
+          backgroundColor: isSaved
+            ? colors.action.saveMuted
+            : colors.action.saveMuted,
+          borderColor: colors.action.saveBorder,
+          borderWidth: 1,
+        },
+        textStyle: { color: colors.action.save },
       },
       {
         label: "Share",
         onPress: handleShare,
-        variant: "outline",
-        style: { flex: 1 },
+        variant: "ghost",
+        style: {
+          flex: 1,
+          backgroundColor: colors.action.shareMuted,
+          borderColor: colors.action.shareBorder,
+          borderWidth: 1,
+        },
+        textStyle: { color: colors.action.share },
       },
     ];
+
+    const qrUrl = event.qrUrl || event.qrCodeData || event.detectedQrData;
 
     return (
       <Screen
@@ -276,51 +250,52 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
         footerButtons={footerButtons}
         footerSafeArea={true}
       >
-        {/* Title row: emoji + title inline */}
+        {/* Hero: centered emoji + title + date subtitle */}
         <Animated.View
           entering={FadeInDown.duration(300).delay(0).springify()}
           style={styles.titleSection}
         >
-          <View style={styles.eventEmojiContainer}>
-            <Text style={styles.eventEmoji}>{event.emoji}</Text>
-          </View>
+          <Text style={styles.eventEmoji}>{event.emoji}</Text>
           <Text style={styles.eventTitle}>{event.title}</Text>
+          {formattedDate ? (
+            <Text style={styles.heroDateSubtitle}>{formattedDate}</Text>
+          ) : null}
         </Animated.View>
 
         <View style={styles.detailsSection}>
-          {/* Date & Time */}
+          {/* Location — simple tappable row */}
           <Animated.View
             entering={FadeInDown.duration(300).delay(80).springify()}
           >
-            <View style={styles.sectionDivider} />
-            <View style={styles.infoCard}>
-              <SectionLabel title="Date & Time" icon={Calendar} />
-              <Text style={styles.detailText}>{formattedDate}</Text>
-            </View>
-          </Animated.View>
-
-          {/* Location */}
-          <Animated.View
-            entering={FadeInDown.duration(300).delay(160).springify()}
-          >
-            <View style={styles.sectionDivider} />
-            <View style={styles.infoCard}>
-              <SectionLabel title="Location" icon={MapPin} />
-              <TouchableOpacity onPress={handleOpenMaps} activeOpacity={0.7}>
-                <Text style={styles.locationAddress}>{event.address}</Text>
-                {distanceInfo && (
-                  <Text style={styles.distanceText}>{distanceInfo}</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              onPress={handleOpenMaps}
+              activeOpacity={0.7}
+              style={styles.infoCard}
+            >
+              <View style={styles.locationRow}>
+                <MapPin
+                  size={20}
+                  color={colors.accent.primary}
+                  strokeWidth={2}
+                />
+                <View style={styles.locationContent}>
+                  <Text style={styles.locationAddress} numberOfLines={2}>
+                    {event.address || "View on map"}
+                  </Text>
+                  {distanceInfo && (
+                    <Text style={styles.locationDistance}>{distanceInfo}</Text>
+                  )}
+                </View>
+                <Text style={styles.chevronText}>›</Text>
+              </View>
+            </TouchableOpacity>
           </Animated.View>
 
           {/* About */}
           {event.description && (
             <Animated.View
-              entering={FadeInDown.duration(300).delay(240).springify()}
+              entering={FadeInDown.duration(300).delay(160).springify()}
             >
-              <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="About" icon={Info} />
                 <Text style={styles.descriptionText}>{event.description}</Text>
@@ -328,58 +303,58 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             </Animated.View>
           )}
 
-          {/* Map */}
-          <Animated.View
-            entering={FadeInDown.duration(300).delay(320).springify()}
-          >
-            <View style={styles.sectionDivider} />
-            <View style={styles.infoCard}>
-              <SectionLabel title="Map" icon={MapPin} />
-              <EventMapPreview
-                emoji={event.emoji || "📍"}
-                coordinates={coordinates}
-                eventId={eventId}
-                title={event.title}
-                eventDate={
-                  event.eventDate instanceof Date
-                    ? event.eventDate.toISOString()
-                    : event.eventDate
-                }
-              />
-              <View style={styles.mapCardFooter}>
-                <ActionButton
-                  onPress={handleGetDirections}
-                  icon={Navigation2}
-                  text="Get Directions"
-                  variant="outline"
-                  disabled={!userLocation}
-                />
-              </View>
-            </View>
-          </Animated.View>
-
-          {/* Categories */}
+          {/* Categories — DNA bar */}
           {event.categories && event.categories.length > 0 && (
             <Animated.View
-              entering={FadeInDown.duration(300).delay(400).springify()}
+              entering={FadeInDown.duration(300).delay(240).springify()}
             >
-              <View style={styles.sectionDivider} />
-              <View style={styles.infoCard}>
-                <SectionLabel title="Categories" icon={Building} />
-                <View style={styles.categoriesContainer}>
-                  {event.categories.map((category) => (
+              {/* Stacked bar */}
+              <View style={styles.dnaBar}>
+                {event.categories.map((category, index) => {
+                  const palette =
+                    CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+                  return (
+                    <View
+                      key={category.id}
+                      style={[
+                        styles.dnaSegment,
+                        {
+                          flex: 1,
+                          backgroundColor: palette.text,
+                        },
+                        index === 0 && styles.dnaSegmentFirst,
+                        index === event.categories!.length - 1 &&
+                          styles.dnaSegmentLast,
+                      ]}
+                    />
+                  );
+                })}
+              </View>
+              {/* Dot legend */}
+              <View style={styles.dnaLegend}>
+                {event.categories.map((category, index) => {
+                  const palette =
+                    CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+                  return (
                     <TouchableOpacity
                       key={category.id}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         router.push(`/category/${category.id}`);
                       }}
-                      style={styles.categoryTag}
+                      style={styles.dnaLegendItem}
+                      activeOpacity={0.7}
                     >
-                      <Text style={styles.categoryText}>{category.name}</Text>
+                      <View
+                        style={[
+                          styles.dnaLegendDot,
+                          { backgroundColor: palette.text },
+                        ]}
+                      />
+                      <Text style={styles.dnaLegendText}>{category.name}</Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
+                  );
+                })}
               </View>
             </Animated.View>
           )}
@@ -387,9 +362,8 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           {/* Recurring Schedule */}
           {event.isRecurring && (
             <Animated.View
-              entering={FadeInDown.duration(300).delay(480).springify()}
+              entering={FadeInDown.duration(300).delay(320).springify()}
             >
-              <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="Recurring" icon={Repeat} />
                 <View style={styles.recurringDetails}>
@@ -435,90 +409,52 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           {/* Engagement */}
           {engagement && !engagementLoading && !engagementError && (
             <Animated.View
-              entering={FadeInDown.duration(300).delay(560).springify()}
+              entering={FadeInDown.duration(300).delay(400).springify()}
             >
-              <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="Engagement" icon={TrendingUp} />
-                <EventEngagementDisplay engagement={engagement} delay={610} />
+                <EventEngagementDisplay engagement={engagement} delay={450} />
               </View>
             </Animated.View>
           )}
 
-          {/* QR Code */}
-          {(event.qrCodeData || event.detectedQrData || event.qrUrl) && (
+          {/* QR Code — compact tappable row */}
+          {qrUrl && (
             <Animated.View
-              entering={FadeInDown.duration(300).delay(640).springify()}
+              entering={FadeInDown.duration(300).delay(480).springify()}
             >
-              <View style={styles.sectionDivider} />
-              <View style={styles.infoCard}>
-                <SectionLabel title="QR Code" icon={QrCode} />
-                <View style={styles.qrContent}>
-                  {(event.qrCodeData ||
-                    event.detectedQrData ||
-                    event.qrUrl) && (
-                    <View style={styles.qrCodeWrapper}>
-                      <QRCode
-                        value={
-                          event.qrCodeData ||
-                          event.detectedQrData ||
-                          event.qrUrl ||
-                          ""
-                        }
-                        size={160}
-                        backgroundColor={colors.fixed.white}
-                        color={colors.fixed.black}
-                      />
-                    </View>
-                  )}
-
-                  {event.qrUrl && (
-                    <View style={styles.qrUrlContainer}>
-                      <Text style={styles.qrUrlLabel}>QR Code URL:</Text>
-                      <Text style={styles.qrUrlText} numberOfLines={2}>
-                        {event.qrUrl}
-                      </Text>
-                    </View>
-                  )}
-
-                  <Text style={styles.qrDescription}>
+              <TouchableOpacity
+                onPress={() => {
+                  if (qrUrl.startsWith("http")) {
+                    Linking.openURL(qrUrl);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  }
+                }}
+                activeOpacity={0.7}
+                style={styles.infoCard}
+              >
+                <View style={styles.qrRow}>
+                  <QrCode
+                    size={18}
+                    color={colors.text.secondary}
+                    strokeWidth={2}
+                  />
+                  <Text style={styles.qrRowText}>
                     {event.qrDetectedInImage
-                      ? "Detected in the original event flyer"
-                      : "Scan for additional event information"}
+                      ? "Detected in flyer"
+                      : "Scan for info"}
                   </Text>
-
-                  {(event.qrCodeData ||
-                    event.detectedQrData ||
-                    event.qrUrl) && (
-                    <ActionButton
-                      onPress={() => {
-                        const url =
-                          event.qrUrl ||
-                          event.qrCodeData ||
-                          event.detectedQrData;
-                        if (url && url.startsWith("http")) {
-                          Linking.openURL(url);
-                          Haptics.impactAsync(
-                            Haptics.ImpactFeedbackStyle.Medium,
-                          );
-                        }
-                      }}
-                      icon={ExternalLink}
-                      text="Open Link"
-                      variant="outline"
-                    />
-                  )}
+                  <Text style={styles.chevronText}>›</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             </Animated.View>
           )}
 
           {/* Discovered By */}
           {event.creator && (
             <Animated.View
-              entering={FadeInDown.duration(300).delay(720).springify()}
+              entering={FadeInDown.duration(300).delay(560).springify()}
             >
-              <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="Discovered by" icon={Scan} />
                 <View style={styles.discoveredByContent}>

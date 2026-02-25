@@ -10,51 +10,17 @@ import {
 } from "@/theme";
 
 export const qrCodeStyles = StyleSheet.create({
-  qrContent: {
+  qrRow: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: spacing.lg,
+    gap: spacing.md,
   },
-  qrCodeWrapper: {
-    padding: spacing.xl,
-    backgroundColor: colors.fixed.white,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    shadowColor: colors.fixed.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  qrUrlContainer: {
-    width: "100%",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.bg.primary,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  qrUrlLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.accent.primary,
-    fontFamily: fontFamily.mono,
-    marginBottom: spacing.xs,
-    letterSpacing: 0.5,
-  },
-  qrUrlText: {
-    fontSize: fontSize.sm,
+  qrRowText: {
+    flex: 1,
     color: colors.text.primary,
+    fontSize: fontSize.md,
     fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.tight,
-  },
-  qrDescription: {
-    color: colors.text.secondary,
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-    textAlign: "center",
-    lineHeight: lineHeight.normal,
+    lineHeight: lineHeight.relaxed,
   },
   qrSection: {
     marginHorizontal: spacing.xl,

@@ -1,13 +1,14 @@
 /* eslint-disable prefer-const */
 import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
-import { colors } from "@/theme";
+import { colors, spacing } from "@/theme";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
 import { useRouter } from "expo-router";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import StatusBar from "@/components/StatusBar/StatusBar";
 import DateRangeIndicator from "@/components/StatusBar/DateRangeIndicator";
 import PlusButton from "@/components/StatusBar/PlusButton";
+import { MarkerInfoHUD } from "@/components/Markers/MarkerInfoHUD";
 import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
 import { createCameraSettings } from "@/config/cameraConfig";
 import { useUserLocation } from "@/contexts/LocationContext";
@@ -266,15 +267,16 @@ function HomeScreen() {
     }
   }, [router, zoomLevel]);
 
+  const isMarkerSelected = selectedItem?.type === "marker";
   const floatingDateButtonStyle = useMemo(
     () => ({
       position: "absolute" as const,
-      bottom: insets.bottom + 60,
+      bottom: insets.bottom + (isMarkerSelected ? 90 : 0) + spacing.sm,
       right: 16,
       zIndex: 1000,
       gap: 12,
     }),
-    [insets.bottom],
+    [insets.bottom, isMarkerSelected],
   );
 
   // Memoize camera settings object
@@ -397,6 +399,8 @@ function HomeScreen() {
         )}
 
         {rippleEffectComponent}
+
+        <MarkerInfoHUD safeAreaBottom={insets.bottom} />
 
         {floatingButtonsSection}
       </View>

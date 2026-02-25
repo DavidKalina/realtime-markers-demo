@@ -87,6 +87,19 @@ export const colors = {
     white: "rgba(255, 255, 255, 0.95)",
   },
 
+  // Action colors (vibrant per-action tints)
+  action: {
+    rsvp: "#34d399",
+    rsvpMuted: "rgba(52, 211, 153, 0.15)",
+    rsvpBorder: "rgba(52, 211, 153, 0.35)",
+    save: "#fbbf24",
+    saveMuted: "rgba(251, 191, 36, 0.15)",
+    saveBorder: "rgba(251, 191, 36, 0.35)",
+    share: "#a78bfa",
+    shareMuted: "rgba(167, 139, 250, 0.15)",
+    shareBorder: "rgba(167, 139, 250, 0.35)",
+  },
+
   // Fixed colors (not theme-dependent)
   fixed: {
     white: "#ffffff",

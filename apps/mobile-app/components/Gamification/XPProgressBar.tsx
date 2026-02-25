@@ -1,10 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withDelay,
+  withSequence,
   Easing,
 } from "react-native-reanimated";
 import {
@@ -44,25 +45,38 @@ const XPProgressBar: React.FC<XPProgressBarProps> = ({
   const isMaxTier = nextThreshold === null;
 
   // Animated values
-  const barWidth = useSharedValue(hasGain ? previousPercent : currentPercent);
+  const barWidth = useSharedValue(currentPercent);
   const gainOpacity = useSharedValue(0);
+  const hasAnimatedRef = useRef(false);
 
   useEffect(() => {
     if (hasGain) {
-      // Animate bar from old width to new width after a short delay
-      barWidth.value = withDelay(
-        600,
-        withTiming(currentPercent, {
-          duration: 800,
+      if (!hasAnimatedRef.current) {
+        // First gain: jump to previous position, then animate to current
+        hasAnimatedRef.current = true;
+        barWidth.value = withSequence(
+          withTiming(previousPercent, { duration: 0 }),
+          withDelay(
+            600,
+            withTiming(currentPercent, {
+              duration: 800,
+              easing: Easing.out(Easing.cubic),
+            }),
+          ),
+        );
+        gainOpacity.value = 0;
+        gainOpacity.value = withDelay(1400, withTiming(1, { duration: 300 }));
+      } else {
+        // Subsequent gain (live XP): animate from current position to new target
+        barWidth.value = withTiming(currentPercent, {
+          duration: 600,
           easing: Easing.out(Easing.cubic),
-        }),
-      );
-
-      // Fade in the "+X XP" text after bar finishes
-      gainOpacity.value = withDelay(
-        1400,
-        withTiming(1, { duration: 300 }),
-      );
+        });
+      }
+    } else {
+      hasAnimatedRef.current = false;
+      barWidth.value = currentPercent;
+      gainOpacity.value = 0;
     }
   }, [hasGain, currentPercent, previousPercent]);
 

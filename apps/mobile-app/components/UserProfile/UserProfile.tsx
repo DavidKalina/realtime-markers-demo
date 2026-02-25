@@ -2,7 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle, MapStyleType } from "@/contexts/MapStyleContext";
 import { useProfile } from "@/hooks/useProfile";
 import * as Haptics from "expo-haptics";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import {
   ActivityIndicator,
@@ -62,20 +62,52 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     mapStyle: currentStyle,
   });
 
-  // Consume pending XP on each focus
+  // Consume pending XP on each focus, but only animate AFTER fresh data arrives
   const consume = useXPStore((s) => s.consume);
+  const liveHasPending = useXPStore((s) => s.hasPending);
   const [pendingXP, setPendingXP] = useState(0);
+  const isHandlingLive = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
+      setPendingXP(0);
+      let cancelled = false;
+
+      const store = useXPStore.getState();
+      if (store.hasPending) {
+        const result = consume();
+        const gained = result.totalXP;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // Wait for fresh totalXp from server before triggering animation
+        refetch().then(() => {
+          if (!cancelled) {
+            setPendingXP(gained);
+          }
+        });
+      }
+
+      return () => {
+        cancelled = true;
+      };
+    }, [consume, refetch]),
+  );
+
+  // Live XP: handle new events arriving while already on this screen
+  useEffect(() => {
+    if (liveHasPending && !isHandlingLive.current) {
+      isHandlingLive.current = true;
       const result = consume();
-      setPendingXP(result.totalXP);
       if (result.totalXP > 0) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        refetch(); // Ensure fresh totalXp from server
+        refetch().then(() => {
+          setPendingXP((prev) => prev + result.totalXP);
+          isHandlingLive.current = false;
+        });
+      } else {
+        isHandlingLive.current = false;
       }
-    }, [refetch]),
-  );
+    }
+  }, [liveHasPending, consume, refetch]);
 
   const handleMapStyleChange = (style: MapStyleType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
