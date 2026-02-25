@@ -208,10 +208,7 @@ function ZoneEncounters({
               <Text style={encounterStyles.emoji}>{event.emoji}</Text>
               <View style={encounterStyles.info}>
                 <View style={encounterStyles.topLine}>
-                  <Text
-                    style={encounterStyles.title}
-                    numberOfLines={1}
-                  >
+                  <Text style={encounterStyles.title} numberOfLines={1}>
                     {event.title}
                   </Text>
                   <Text style={encounterStyles.timeBadge}>
@@ -242,7 +239,11 @@ function getRadiusForZoom(zoom: number): number {
 // --- Main screen ---
 
 export default function AreaScanScreen() {
-  const { lat, lng, zoom } = useLocalSearchParams<{ lat: string; lng: string; zoom: string }>();
+  const { lat, lng, zoom } = useLocalSearchParams<{
+    lat: string;
+    lng: string;
+    zoom: string;
+  }>();
   const router = useRouter();
   const abortRef = useRef<{ abort: () => void } | null>(null);
   const fullTextRef = useRef("");
@@ -696,4 +697,3 @@ const encounterStyles = StyleSheet.create({
     color: colors.text.secondary,
   },
 });
-
