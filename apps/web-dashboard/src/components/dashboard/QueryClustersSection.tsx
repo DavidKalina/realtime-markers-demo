@@ -56,13 +56,13 @@ export function QueryClustersSection({ clusters }: QueryClustersSectionProps) {
                 <div className="flex items-center gap-4">
                   <div
                     className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                      cluster.needsAttention ? "bg-red-100" : "bg-blue-100"
+                      cluster.needsAttention ? "bg-red-500/20" : "bg-primary/20"
                     }`}
                   >
                     {cluster.needsAttention ? (
                       <AlertTriangle className="h-4 w-4 text-red-600" />
                     ) : (
-                      <Target className="h-4 w-4 text-blue-600" />
+                      <Target className="h-4 w-4 text-primary" />
                     )}
                   </div>
                   <div>

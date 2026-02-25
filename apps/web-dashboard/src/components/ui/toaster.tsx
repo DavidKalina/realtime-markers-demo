@@ -27,7 +27,7 @@ export function Toaster() {
                 <CheckCircle className="h-4 w-4 text-green-500" />
               )}
               {type === "error" && <XCircle className="h-4 w-4 text-red-500" />}
-              {type === "info" && <Info className="h-4 w-4 text-blue-500" />}
+              {type === "info" && <Info className="h-4 w-4 text-primary" />}
               <div className="grid gap-1">
                 {title && <ToastTitle>{title}</ToastTitle>}
                 {description && (

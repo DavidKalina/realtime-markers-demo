@@ -12,9 +12,9 @@ const Map = dynamic(
   () => import("react-map-gl/mapbox").then((mod) => ({ default: mod.default })),
   {
     loading: () => (
-      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+      <div className="w-full h-full bg-secondary flex items-center justify-center">
         <div className="text-center">
-          <div className="text-lg text-gray-600 font-space-mono">
+          <div className="text-lg text-muted-foreground font-space-mono">
             Loading map...
           </div>
         </div>
@@ -31,8 +31,8 @@ const MapMojiMarker = dynamic(
     })),
   {
     loading: () => (
-      <div className="w-12 h-12 bg-gray-300 rounded-full animate-pulse flex items-center justify-center">
-        <div className="text-gray-500 text-xs">...</div>
+      <div className="w-12 h-12 bg-muted rounded-full animate-pulse flex items-center justify-center">
+        <div className="text-muted-foreground text-xs">...</div>
       </div>
     ),
   },
@@ -261,7 +261,7 @@ export function MapPreview({
               onMove={handleViewportChange}
               onClick={handleMapClick}
               style={{ width: "100%", height: "100%" }}
-              mapStyle="mapbox://styles/mapbox/outdoors-v12"
+              mapStyle="mapbox://styles/mapbox/dark-v11"
               mapboxAccessToken={mapboxToken}
               attributionControl={false}
               pitchWithRotate={true}
@@ -281,7 +281,7 @@ export function MapPreview({
                   latitude={userLocation[1]}
                   anchor="center"
                 >
-                  <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg"></div>
+                  <div className="w-4 h-4 bg-primary rounded-full border-2 border-background shadow-lg"></div>
                 </MapboxMarker>
               )}
 
@@ -320,15 +320,15 @@ export function MapPreview({
 
           {/* Location Info */}
           {selectedLocation && (
-            <div className="p-4 bg-gray-50 rounded-lg border">
+            <div className="p-4 bg-secondary rounded-lg border">
               <h3 className="font-semibold text-lg flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
                 Selected Location
               </h3>
-              <p className="text-gray-600 text-sm mt-1">
+              <p className="text-muted-foreground text-sm mt-1">
                 {selectedLocation.name}
               </p>
-              <p className="text-gray-500 text-xs mt-1">
+              <p className="text-muted-foreground text-xs mt-1">
                 {selectedLocation.address}
               </p>
               <div className="flex items-center gap-2 mt-2">
@@ -342,7 +342,7 @@ export function MapPreview({
 
           {/* Event Preview Info */}
           {previewMarker && (
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
               <h3 className="font-semibold text-lg flex items-center gap-2">
                 {formData.isPrivate ? (
                   <EyeOff className="h-4 w-4" />
@@ -351,11 +351,11 @@ export function MapPreview({
                 )}
                 Event Preview
               </h3>
-              <p className="text-gray-600 text-sm mt-1">
+              <p className="text-muted-foreground text-sm mt-1">
                 {formData.title || "Untitled Event"}
               </p>
               {formData.description && (
-                <p className="text-gray-500 text-xs mt-1">
+                <p className="text-muted-foreground text-xs mt-1">
                   {formData.description}
                 </p>
               )}
@@ -364,7 +364,7 @@ export function MapPreview({
                   {formData.isPrivate ? "Private" : "Public"}
                 </Badge>
                 {formData.date && formData.time && (
-                  <div className="flex items-center gap-1 text-sm text-gray-500">
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
                     {new Date(
                       `${formData.date}T${formData.time}`,
@@ -376,7 +376,7 @@ export function MapPreview({
           )}
 
           {!selectedLocation && (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <MapPin className="h-12 w-12 mx-auto mb-2 opacity-50" />
               <p>Click on the map to select a location for your event</p>
             </div>

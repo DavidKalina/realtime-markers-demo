@@ -11,9 +11,9 @@ const Map = dynamic(
   () => import("react-map-gl/mapbox").then((mod) => ({ default: mod.default })),
   {
     loading: () => (
-      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+      <div className="w-full h-full bg-secondary flex items-center justify-center">
         <div className="text-center">
-          <div className="text-lg text-gray-600 font-space-mono">
+          <div className="text-lg text-muted-foreground font-space-mono">
             Loading map...
           </div>
         </div>
@@ -219,8 +219,8 @@ export const InteractiveMap = ({
 
   if (!mapboxToken) {
     return (
-      <section className="relative w-full h-screen bg-gray-100 flex items-center justify-center">
-        <div className="bg-white border border-gray-200 rounded-lg p-6 max-w-md w-full shadow-sm mx-4">
+      <section className="relative w-full h-screen bg-secondary flex items-center justify-center">
+        <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full shadow-sm mx-4">
           <div className="text-center">
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <p className="text-yellow-800 font-space-mono text-sm">
@@ -252,7 +252,7 @@ export const InteractiveMap = ({
       <div className="absolute top-4 left-4 z-50">
         <button
           onClick={handleGetLocation}
-          className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-white/95 transition-colors flex items-center gap-2 shadow-sm"
+          className="bg-card/90 backdrop-blur-sm border border-border rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-card transition-colors flex items-center gap-2 shadow-sm"
         >
           <Navigation className="h-4 w-4" />
           Use My Location
@@ -273,9 +273,9 @@ export const InteractiveMap = ({
       {/* Full-screen Mapbox map */}
       <Suspense
         fallback={
-          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+          <div className="w-full h-full bg-secondary flex items-center justify-center">
             <div className="text-center">
-              <div className="text-lg text-gray-600 font-space-mono">
+              <div className="text-lg text-muted-foreground font-space-mono">
                 Loading map...
               </div>
             </div>
@@ -287,7 +287,7 @@ export const InteractiveMap = ({
           {...viewState}
           onMove={handleViewportChange}
           style={{ width: "100%", height: "100%" }}
-          mapStyle="mapbox://styles/mapbox/outdoors-v12"
+          mapStyle="mapbox://styles/mapbox/dark-v11"
           mapboxAccessToken={mapboxToken}
           attributionControl={false}
           pitchWithRotate={true}
@@ -307,7 +307,7 @@ export const InteractiveMap = ({
               latitude={userLocation[1]}
               anchor="center"
             >
-              <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg"></div>
+              <div className="w-4 h-4 bg-primary rounded-full border-2 border-background shadow-lg"></div>
             </MapboxMarker>
           )}
 
@@ -322,7 +322,7 @@ export const InteractiveMap = ({
               <div className="relative z-20">
                 <Suspense
                   fallback={
-                    <div className="w-12 h-12 bg-gray-300 rounded-full animate-pulse"></div>
+                    <div className="w-12 h-12 bg-muted rounded-full animate-pulse"></div>
                   }
                 >
                   <MarkerFactory
@@ -338,9 +338,9 @@ export const InteractiveMap = ({
 
       {/* Loading overlay */}
       {!isMapReady && (
-        <div className="absolute inset-0 z-50 bg-gray-100 flex items-center justify-center">
+        <div className="absolute inset-0 z-50 bg-secondary flex items-center justify-center">
           <div className="text-center">
-            <div className="text-lg text-gray-600 font-space-mono">
+            <div className="text-lg text-muted-foreground font-space-mono">
               Loading map...
             </div>
           </div>

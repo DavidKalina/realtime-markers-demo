@@ -1,7 +1,7 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { StyleSheet } from "react-native";
 import { scheduleOnRN } from "react-native-worklets";
-import AnimatedReanimated, {
+import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -19,6 +19,22 @@ interface MapRippleEffectProps {
     y: number;
   };
   onAnimationComplete?: () => void;
+  zoomLevel?: number;
+}
+
+const RING_COUNT = 3;
+const RING_SIZE = 140;
+const RING_DELAY = 300;
+const RING_DURATION = 1200;
+const DEFAULT_PEAK_SCALE = 2.0;
+const RING_OPACITIES = [0.8, 0.6, 0.4];
+
+function getPeakScaleForZoom(zoom?: number): number {
+  if (zoom == null) return DEFAULT_PEAK_SCALE;
+  if (zoom >= 15) return 1.5;
+  if (zoom >= 12) return 2.0;
+  if (zoom >= 10) return 2.5;
+  return 3.0;
 }
 
 // Custom comparison function for React.memo
@@ -26,29 +42,16 @@ const arePropsEqual = (
   prevProps: MapRippleEffectProps,
   nextProps: MapRippleEffectProps,
 ): boolean => {
-  // If visibility changed, always re-render
-  if (prevProps.isVisible !== nextProps.isVisible) {
-    return false;
-  }
-
-  // If not visible, don't re-render for position changes
-  if (!nextProps.isVisible) {
-    return true;
-  }
-
-  // If visible, check if position changed
+  if (prevProps.isVisible !== nextProps.isVisible) return false;
+  if (!nextProps.isVisible) return true;
   if (
     prevProps.position.x !== nextProps.position.x ||
     prevProps.position.y !== nextProps.position.y
-  ) {
+  )
     return false;
-  }
-
-  // Check if onAnimationComplete callback changed
-  if (prevProps.onAnimationComplete !== nextProps.onAnimationComplete) {
+  if (prevProps.onAnimationComplete !== nextProps.onAnimationComplete)
     return false;
-  }
-
+  if (prevProps.zoomLevel !== nextProps.zoomLevel) return false;
   return true;
 };
 
@@ -56,9 +59,24 @@ const MapRippleEffectComponent: React.FC<MapRippleEffectProps> = ({
   isVisible,
   position,
   onAnimationComplete,
+  zoomLevel,
 }) => {
-  const scale = useSharedValue(0);
-  const opacity = useSharedValue(1);
+  // Hooks must be called at top level — one pair per ring
+  const scale0 = useSharedValue(0);
+  const opacity0 = useSharedValue(0);
+  const scale1 = useSharedValue(0);
+  const opacity1 = useSharedValue(0);
+  const scale2 = useSharedValue(0);
+  const opacity2 = useSharedValue(0);
+
+  const rings = useMemo(
+    () => [
+      { scale: scale0, opacity: opacity0 },
+      { scale: scale1, opacity: opacity1 },
+      { scale: scale2, opacity: opacity2 },
+    ],
+    [scale0, opacity0, scale1, opacity1, scale2, opacity2],
+  );
 
   const handleAnimationComplete = () => {
     "worklet";
@@ -69,59 +87,90 @@ const MapRippleEffectComponent: React.FC<MapRippleEffectProps> = ({
 
   useEffect(() => {
     if (isVisible) {
-      // Reset values
-      scale.value = 0;
-      opacity.value = 1;
+      const easing = Easing.out(Easing.cubic);
+      const peakScale = getPeakScaleForZoom(zoomLevel);
 
-      // Start animation sequence with adjusted timing and opacity
-      scale.value = withSequence(
-        withTiming(1.2, {
-          // Slightly larger scale for more impact
-          duration: 1200, // Longer duration for better visibility
-          easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-        }),
-        withTiming(0, {
-          duration: 400, // Slightly longer fade out
-          easing: Easing.bezier(0.25, 0.1, 0.25, 1),
-        }),
-      );
+      rings.forEach((ring, i) => {
+        ring.scale.value = 0;
+        ring.opacity.value = 0;
 
-      opacity.value = withSequence(
-        withTiming(0.9, { duration: 400 }), // Higher initial opacity
-        withDelay(
-          800, // Slightly longer delay
-          withTiming(0, { duration: 400 }, handleAnimationComplete), // Longer fade out
-        ),
-      );
+        const delay = i * RING_DELAY;
+        const isLast = i === RING_COUNT - 1;
+
+        ring.scale.value = withDelay(
+          delay,
+          withTiming(peakScale, { duration: RING_DURATION, easing }),
+        );
+
+        ring.opacity.value = withDelay(
+          delay,
+          withSequence(
+            withTiming(RING_OPACITIES[i], { duration: 100 }),
+            withTiming(
+              0,
+              { duration: RING_DURATION - 100 },
+              isLast ? handleAnimationComplete : undefined,
+            ),
+          ),
+        );
+      });
     }
 
     return () => {
-      cancelAnimation(scale);
-      cancelAnimation(opacity);
+      rings.forEach((ring) => {
+        cancelAnimation(ring.scale);
+        cancelAnimation(ring.opacity);
+      });
     };
-  }, [isVisible, scale, opacity]);
+  }, [isVisible]);
 
-  const animatedStyle = useAnimatedStyle(() => {
+  // Animated styles for each ring
+  const ringStyle0 = useAnimatedStyle(() => {
     "worklet";
     return {
-      position: "absolute",
-      left: position.x,
-      top: position.y,
-      transform: [
-        { translateX: -50 },
-        { translateY: -50 },
-        { scale: scale.value },
-      ],
-      opacity: opacity.value,
+      transform: [{ scale: scale0.value }],
+      opacity: opacity0.value,
     };
   });
 
+  const ringStyle1 = useAnimatedStyle(() => {
+    "worklet";
+    return {
+      transform: [{ scale: scale1.value }],
+      opacity: opacity1.value,
+    };
+  });
+
+  const ringStyle2 = useAnimatedStyle(() => {
+    "worklet";
+    return {
+      transform: [{ scale: scale2.value }],
+      opacity: opacity2.value,
+    };
+  });
+
+  const ringStyles = [ringStyle0, ringStyle1, ringStyle2];
+
   if (!isVisible) return null;
 
+  const half = RING_SIZE / 2;
+
   return (
-    <AnimatedReanimated.View style={[styles.ripple, animatedStyle]}>
-      <AnimatedReanimated.View style={styles.rippleInner} />
-    </AnimatedReanimated.View>
+    <>
+      {ringStyles.map((style, i) => (
+        <Animated.View
+          key={i}
+          style={[
+            styles.ring,
+            style,
+            {
+              left: position.x - half,
+              top: position.y - half,
+            },
+          ]}
+        />
+      ))}
+    </>
   );
 };
 
@@ -132,22 +181,13 @@ export const MapRippleEffect = React.memo(
 );
 
 const styles = StyleSheet.create({
-  ripple: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: `${colors.accent.primary}40`, // 25% opacity accent color
-    justifyContent: "center",
-    alignItems: "center",
+  ring: {
+    position: "absolute",
+    width: RING_SIZE,
+    height: RING_SIZE,
+    borderRadius: RING_SIZE / 2,
+    backgroundColor: "transparent",
     borderWidth: 2,
-    borderColor: `${colors.accent.primary}80`, // 50% opacity accent color
-  },
-  rippleInner: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: `${colors.accent.primary}60`, // 37.5% opacity accent color
-    borderWidth: 1,
-    borderColor: `${colors.accent.primary}90`, // 56.25% opacity accent color
+    borderColor: colors.accent.primary,
   },
 });

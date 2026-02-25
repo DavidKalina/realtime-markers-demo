@@ -3,6 +3,7 @@ import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { colors } from "@/theme";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
+import { useRouter } from "expo-router";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import StatusBar from "@/components/StatusBar/StatusBar";
 import DateRangeIndicator from "@/components/StatusBar/DateRangeIndicator";
@@ -52,6 +53,7 @@ const styles = {
 function HomeScreen() {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
+  const router = useRouter();
   const { publish } = useEventBroker();
   const { mapStyle, isPitched } = useMapStyle();
   const insets = useSafeAreaInsets();
@@ -214,6 +216,16 @@ function HomeScreen() {
 
   const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
   const [showRipple, setShowRipple] = useState(false);
+  const [areaScanCoords, setAreaScanCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const areaScanCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  // Sync state to ref so handleRippleComplete can read it synchronously
+  useEffect(() => {
+    areaScanCoordsRef.current = areaScanCoords;
+  }, [areaScanCoords]);
 
   // Long press handler
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -230,11 +242,27 @@ function HomeScreen() {
         scheduleOnRN(setShowRipple, true);
       }
     }
+    // Capture geo-coordinates for area scan
+    if (event?.geometry?.coordinates) {
+      const [lng, lat] = event.geometry.coordinates;
+      if (typeof lat === "number" && typeof lng === "number") {
+        scheduleOnRN(setAreaScanCoords, { lat, lng });
+      }
+    }
   }, []);
 
   const handleRippleComplete = useCallback(() => {
     setShowRipple(false);
-  }, []);
+    const coords = areaScanCoordsRef.current;
+    if (coords) {
+      areaScanCoordsRef.current = null;
+      setAreaScanCoords(null);
+      router.push({
+        pathname: "/area-scan",
+        params: { lat: String(coords.lat), lng: String(coords.lng), zoom: String(zoomLevel) },
+      });
+    }
+  }, [router, zoomLevel]);
 
   const floatingDateButtonStyle = useMemo(
     () => ({
@@ -308,9 +336,10 @@ function HomeScreen() {
         isVisible={showRipple}
         position={ripplePosition}
         onAnimationComplete={handleRippleComplete}
+        zoomLevel={zoomLevel}
       />
     );
-  }, [showRipple, ripplePosition, handleRippleComplete]);
+  }, [showRipple, ripplePosition, handleRippleComplete, zoomLevel]);
 
   // Memoize viewport rectangle component
   const viewportRectangleComponent = useMemo(

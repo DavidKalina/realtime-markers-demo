@@ -4,7 +4,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { DashboardTabs } from "./DashboardTabs";
 import { RouteLoadingIndicator } from "./RouteLoadingIndicator";
-import { LayoutWrapper } from "@/components/LayoutWrapper";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -18,7 +17,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   return (
-    <LayoutWrapper>
+    <>
       <RouteLoadingIndicator />
       <div className="container mx-auto p-8 pb-16">
         {/* Header with user info and logout */}
@@ -42,6 +41,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Page Content */}
         <div className="mt-8">{children}</div>
       </div>
-    </LayoutWrapper>
+    </>
   );
 }

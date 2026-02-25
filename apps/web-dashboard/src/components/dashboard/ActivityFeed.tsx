@@ -43,15 +43,15 @@ const getActivityIcon = (type: ActivityItem["type"]) => {
 const getActivityColor = (type: ActivityItem["type"]) => {
   switch (type) {
     case "event_scanned":
-      return "bg-blue-100 text-blue-800";
+      return "bg-primary/20 text-primary";
     case "user_registered":
-      return "bg-green-100 text-green-800";
+      return "bg-app-success/20 text-app-success";
     case "event_created":
-      return "bg-purple-100 text-purple-800";
+      return "bg-purple-500/20 text-purple-400";
     case "category_added":
-      return "bg-orange-100 text-orange-800";
+      return "bg-app-warning/20 text-app-warning";
     default:
-      return "bg-gray-100 text-gray-800";
+      return "bg-muted text-muted-foreground";
   }
 };
 

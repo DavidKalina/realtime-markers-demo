@@ -9,12 +9,17 @@ import { placesRouter } from "../routes/places";
 import { categoriesRouter } from "../routes/categories";
 import { jobStreamingRouter } from "../routes/jobStreaming";
 import { pushNotificationRouter } from "../routes/pushNotifications";
+import { areaScanRouter } from "../routes/areaScan";
+import { publicEventsRouter } from "../routes/publicEvents";
 import type { AppContext } from "../types/context";
 
 /**
  * Setup all application routes
  */
 export function setupRoutes(app: Hono<AppContext>): void {
+  // Public routes (no auth required) — must come before authenticated routes
+  app.route("/api/public/events", publicEventsRouter);
+
   // Register all route modules
   app.route("/api/events", eventsRouter);
   app.route("/api/auth", authRouter);
@@ -24,6 +29,7 @@ export function setupRoutes(app: Hono<AppContext>): void {
   app.route("/api/places", placesRouter);
   app.route("/api/categories", categoriesRouter);
   app.route("/api/push-notifications", pushNotificationRouter);
+  app.route("/api/area-scan", areaScanRouter);
 
   // Job streaming routes (must be before jobs router)
   app.route("/api/jobs", jobStreamingRouter);

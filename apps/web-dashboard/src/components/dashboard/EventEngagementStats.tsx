@@ -26,28 +26,28 @@ export function EventEngagementStats({
       label: "Saves",
       value: engagement.saveCount,
       color: "text-red-500",
-      bgColor: "bg-red-50",
+      bgColor: "bg-red-500/100/10",
     },
     {
       icon: Eye,
       label: "Views",
       value: engagement.viewCount,
-      color: "text-blue-500",
-      bgColor: "bg-blue-50",
+      color: "text-primary",
+      bgColor: "bg-primary/10",
     },
     {
       icon: TrendingUp,
       label: "Scans",
       value: engagement.scanCount,
       color: "text-green-500",
-      bgColor: "bg-green-50",
+      bgColor: "bg-green-500/100/10",
     },
     {
       icon: Users,
       label: "RSVPs",
       value: engagement.rsvpCount,
       color: "text-purple-500",
-      bgColor: "bg-purple-50",
+      bgColor: "bg-purple-500/10",
     },
   ];
 
@@ -100,7 +100,7 @@ export function EventEngagementStats({
               RSVP Breakdown
             </h4>
             <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-green-500/10 rounded-lg">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-green-600" />
                   <span className="text-sm font-medium">Going</span>
@@ -112,7 +112,7 @@ export function EventEngagementStats({
                   {engagement.goingCount}
                 </Badge>
               </div>
-              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-red-500/10 rounded-lg">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-red-600" />
                   <span className="text-sm font-medium">Not Going</span>

@@ -5,26 +5,25 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-// Color scheme matching mobile app
+// Color scheme matching mobile app dark theme
 const colors = {
-  background: "#00697A",
-  text: "#FFFFFF",
-  accent: "#FDB813",
-  cardBackground: "#FFFFFF",
-  cardText: "#000000",
-  cardTextSecondary: "#6c757d",
-  buttonBackground: "#FFFFFF",
-  buttonText: "#00697A",
-  buttonBorder: "#DDDDDD",
-  inputBackground: "#F5F5F5",
-  errorBackground: "#FFCDD2",
-  errorText: "#B71C1C",
-  errorBorder: "#EF9A9A",
-  divider: "#E0E0E0",
+  background: "#1a1a1a",
+  text: "#f8f9fa",
+  accent: "#93c5fd",
+  cardBackground: "#2a2a2a",
+  cardText: "#f8f9fa",
+  cardTextSecondary: "#a0a0a0",
+  buttonBackground: "#2a2a2a",
+  buttonText: "#93c5fd",
+  buttonBorder: "rgba(255,255,255,0.08)",
+  inputBackground: "#333333",
+  errorBackground: "rgba(220,38,38,0.15)",
+  errorText: "#fca5a5",
+  errorBorder: "rgba(220,38,38,0.3)",
+  divider: "rgba(255,255,255,0.08)",
 };
 
 export default function LoginPage() {
@@ -76,20 +75,20 @@ export default function LoginPage() {
         {/* Logo and Slogan */}
         <div className="text-center mb-8">
           <div className="inline-block mb-4">
-            <Image
-              src="/frederick-logo.svg"
-              alt="Frederick Logo"
-              width={120}
-              height={120}
-              className="w-48 h-48"
-            />
+            <div className="text-7xl">🗺️</div>
           </div>
           <h2
-            className="text-xl font-semibold tracking-wide"
+            className="text-2xl font-bold tracking-wide"
             style={{ color: colors.text }}
           >
-            Built on what matters
+            Mapmoji
           </h2>
+          <p
+            className="text-sm mt-1"
+            style={{ color: colors.cardTextSecondary }}
+          >
+            Admin Dashboard
+          </p>
         </div>
 
         {/* Login Card */}
@@ -197,7 +196,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={togglePasswordVisibility}
-                    className="p-1 hover:bg-gray-200 rounded"
+                    className="p-1 hover:bg-muted rounded"
                   >
                     {showPassword ? (
                       <EyeOff

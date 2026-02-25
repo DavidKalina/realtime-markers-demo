@@ -128,6 +128,13 @@ class ApiClient {
   async deleteEvent(id: string): Promise<{ success: boolean }> {
     return this.delete<{ success: boolean }>(`/api/events/${id}`);
   }
+
+  // Fetch a public event by ID (no auth required)
+  async getPublicEventById(id: string): Promise<Event> {
+    return this.get<Event>(`/api/public/events/${id}`, {
+      requireAuth: false,
+    });
+  }
 }
 
 // Export a singleton instance
@@ -148,6 +155,7 @@ export const api = {
   getAllEvents: () => apiClient.getAllEvents(),
   getEventById: (id: string) => apiClient.getEventById(id),
   deleteEvent: (id: string) => apiClient.deleteEvent(id),
+  getPublicEventById: (id: string) => apiClient.getPublicEventById(id),
 };
 
 export default apiClient;

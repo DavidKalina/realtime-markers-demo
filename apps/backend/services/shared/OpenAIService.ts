@@ -4,9 +4,11 @@ import type { RedisService } from "./RedisService";
 import type { OpenAICacheService } from "./OpenAICacheService";
 import type {
   ChatCompletion,
+  ChatCompletionChunk,
   ChatCompletionMessageParam,
   ChatCompletionCreateParamsNonStreaming,
 } from "openai/resources/chat/completions";
+import type { Stream } from "openai/streaming";
 
 export enum OpenAIModel {
   GPT4O = "gpt-4o",
@@ -43,6 +45,13 @@ export interface OpenAIService {
     max_tokens?: number;
     response_format?: { type: "json_object" | "text" };
   }): Promise<ChatCompletion>;
+
+  streamChatCompletion(params: {
+    model: OpenAIModel;
+    messages: ChatCompletionMessageParam[];
+    temperature?: number;
+    max_tokens?: number;
+  }): Promise<Stream<ChatCompletionChunk>>;
 
   generateEmbedding(text: string, model?: OpenAIModel): Promise<number[]>;
 
@@ -221,6 +230,18 @@ export class OpenAIServiceImpl implements OpenAIService {
       stream: false,
     };
     return this.openai.chat.completions.create(nonStreamingParams);
+  }
+
+  async streamChatCompletion(params: {
+    model: OpenAIModel;
+    messages: ChatCompletionMessageParam[];
+    temperature?: number;
+    max_tokens?: number;
+  }): Promise<Stream<ChatCompletionChunk>> {
+    return this.openai.chat.completions.create({
+      ...params,
+      stream: true,
+    });
   }
 
   // Helper method for generating embeddings with caching

@@ -17,6 +17,7 @@ import React, { memo, useMemo } from "react";
 import {
   ColorValue,
   Linking,
+  Share,
   Text,
   TouchableOpacity,
   View,
@@ -214,6 +215,21 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       return <Text>No event details available</Text>;
     }
 
+    const handleShare = async () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const webUrl =
+        process.env.EXPO_PUBLIC_WEB_URL || "https://dashboard.mapmoji.app";
+      const shareUrl = `${webUrl}/e/${eventId}`;
+      try {
+        await Share.share({
+          message: `${event.emoji || "📍"} ${event.title}\n${shareUrl}`,
+          url: shareUrl,
+        });
+      } catch {
+        // User cancelled or share failed silently
+      }
+    };
+
     const footerButtons: {
       label: string;
       onPress: () => void;
@@ -242,6 +258,12 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
         loading: savingState === "loading",
         style: { flex: 1 },
       },
+      {
+        label: "Share",
+        onPress: handleShare,
+        variant: "outline",
+        style: { flex: 1 },
+      },
     ];
 
     return (
@@ -267,7 +289,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
 
         <View style={styles.detailsSection}>
           {/* Date & Time */}
-          <Animated.View entering={FadeInDown.duration(300).delay(80).springify()}>
+          <Animated.View
+            entering={FadeInDown.duration(300).delay(80).springify()}
+          >
             <View style={styles.sectionDivider} />
             <View style={styles.infoCard}>
               <SectionLabel title="Date & Time" icon={Calendar} />
@@ -276,7 +300,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           </Animated.View>
 
           {/* Location */}
-          <Animated.View entering={FadeInDown.duration(300).delay(160).springify()}>
+          <Animated.View
+            entering={FadeInDown.duration(300).delay(160).springify()}
+          >
             <View style={styles.sectionDivider} />
             <View style={styles.infoCard}>
               <SectionLabel title="Location" icon={MapPin} />
@@ -291,7 +317,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
 
           {/* About */}
           {event.description && (
-            <Animated.View entering={FadeInDown.duration(300).delay(240).springify()}>
+            <Animated.View
+              entering={FadeInDown.duration(300).delay(240).springify()}
+            >
               <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="About" icon={Info} />
@@ -301,7 +329,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           )}
 
           {/* Map */}
-          <Animated.View entering={FadeInDown.duration(300).delay(320).springify()}>
+          <Animated.View
+            entering={FadeInDown.duration(300).delay(320).springify()}
+          >
             <View style={styles.sectionDivider} />
             <View style={styles.infoCard}>
               <SectionLabel title="Map" icon={MapPin} />
@@ -330,7 +360,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
 
           {/* Categories */}
           {event.categories && event.categories.length > 0 && (
-            <Animated.View entering={FadeInDown.duration(300).delay(400).springify()}>
+            <Animated.View
+              entering={FadeInDown.duration(300).delay(400).springify()}
+            >
               <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="Categories" icon={Building} />
@@ -354,7 +386,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
 
           {/* Recurring Schedule */}
           {event.isRecurring && (
-            <Animated.View entering={FadeInDown.duration(300).delay(480).springify()}>
+            <Animated.View
+              entering={FadeInDown.duration(300).delay(480).springify()}
+            >
               <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="Recurring" icon={Repeat} />
@@ -400,7 +434,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
 
           {/* Engagement */}
           {engagement && !engagementLoading && !engagementError && (
-            <Animated.View entering={FadeInDown.duration(300).delay(560).springify()}>
+            <Animated.View
+              entering={FadeInDown.duration(300).delay(560).springify()}
+            >
               <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="Engagement" icon={TrendingUp} />
@@ -411,7 +447,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
 
           {/* QR Code */}
           {(event.qrCodeData || event.detectedQrData || event.qrUrl) && (
-            <Animated.View entering={FadeInDown.duration(300).delay(640).springify()}>
+            <Animated.View
+              entering={FadeInDown.duration(300).delay(640).springify()}
+            >
               <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="QR Code" icon={QrCode} />
@@ -477,7 +515,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
 
           {/* Discovered By */}
           {event.creator && (
-            <Animated.View entering={FadeInDown.duration(300).delay(720).springify()}>
+            <Animated.View
+              entering={FadeInDown.duration(300).delay(720).springify()}
+            >
               <View style={styles.sectionDivider} />
               <View style={styles.infoCard}>
                 <SectionLabel title="Discovered by" icon={Scan} />

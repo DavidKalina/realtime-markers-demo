@@ -20,10 +20,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Calendar,
+  Check,
   MapPin,
   Users,
   ArrowLeft,
   Edit,
+  Share2,
   Trash2,
   Loader2,
   QrCode,
@@ -47,10 +49,18 @@ export default function EventDetailPage() {
   } = useEventEngagement(eventId);
   const { deleteEvent, isDeleting, error: deleteError } = useEventDeletion();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const handleDelete = async () => {
     await deleteEvent(eventId);
     setShowDeleteDialog(false);
+  };
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/e/${eventId}`;
+    await navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   if (loading) {
@@ -247,7 +257,7 @@ export default function EventDetailPage() {
                           href={event.qrUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 underline break-all"
+                          className="text-primary hover:text-primary/80 underline break-all"
                         >
                           {event.qrUrl}
                         </a>
@@ -318,9 +328,9 @@ export default function EventDetailPage() {
                   </div>
                   {event.maxAttendees && (
                     <div className="mt-4">
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-muted rounded-full h-2">
                         <div
-                          className="bg-blue-600 h-2 rounded-full"
+                          className="bg-primary h-2 rounded-full"
                           style={{
                             width: `${(event.attendees / event.maxAttendees) * 100}%`,
                           }}
@@ -387,7 +397,7 @@ export default function EventDetailPage() {
                           href={event.qrUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:text-blue-800 underline break-all"
+                          className="text-sm text-primary hover:text-primary/80 underline break-all"
                         >
                           View QR Code
                         </a>
@@ -407,8 +417,17 @@ export default function EventDetailPage() {
                   <Button variant="outline" className="w-full">
                     Export Attendees
                   </Button>
-                  <Button variant="outline" className="w-full">
-                    Share Event
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleShare}
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4 mr-2" />
+                    ) : (
+                      <Share2 className="h-4 w-4 mr-2" />
+                    )}
+                    {copied ? "Link Copied!" : "Share Event"}
                   </Button>
                 </CardContent>
               </Card>

@@ -36,6 +36,8 @@ import type { JobQueue } from "./JobQueue";
 import type { RedisService } from "./shared/RedisService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import type { GamificationService } from "./GamificationService";
+import { createAreaScanService } from "./AreaScanService";
+import type { AreaScanService } from "./AreaScanService";
 
 export interface ServiceContainer {
   eventService: EventService;
@@ -51,6 +53,7 @@ export interface ServiceContainer {
   redisService: RedisService;
   geocodingService: GoogleGeocodingService;
   gamificationService: GamificationService;
+  areaScanService: AreaScanService;
 }
 
 export class ServiceInitializer {
@@ -183,6 +186,12 @@ export class ServiceInitializer {
       redisService,
     );
 
+    const areaScanService = createAreaScanService({
+      dataSource: this.dataSource,
+      openAIService,
+      redisService,
+    });
+
     console.log("Services initialized successfully");
 
     return {
@@ -199,6 +208,7 @@ export class ServiceInitializer {
       redisService,
       geocodingService,
       gamificationService,
+      areaScanService,
     };
   }
 

@@ -170,9 +170,9 @@ export default function UsersPage() {
       case "ADMIN":
         return <Crown className="h-4 w-4 text-yellow-500" />;
       case "MODERATOR":
-        return <ShieldCheck className="h-4 w-4 text-blue-500" />;
+        return <ShieldCheck className="h-4 w-4 text-primary" />;
       default:
-        return <UserIcon className="h-4 w-4 text-gray-500" />;
+        return <UserIcon className="h-4 w-4 text-muted-foreground" />;
     }
   };
 

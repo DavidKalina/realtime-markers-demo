@@ -22,6 +22,7 @@ export function setupContext(
     c.set("embeddingService", services.embeddingService);
     c.set("categoryProcessingService", services.categoryProcessingService);
     c.set("emailService", services.emailService);
+    c.set("areaScanService", services.areaScanService);
     await next();
   });
 }

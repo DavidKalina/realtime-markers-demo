@@ -1,21 +1,19 @@
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { MunicipalConfigProvider } from "@/contexts/MunicipalConfigContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import { Space_Mono } from "next/font/google";
 import "./globals.css";
 
-const poppins = Poppins({
+const spaceMono = Space_Mono({
   subsets: ["latin"],
   weight: ["400", "700"],
-  variable: "--font-poppins",
+  variable: "--font-space-mono",
 });
 
 export const metadata: Metadata = {
-  title: "Municipal Dashboard",
-  description:
-    "A modern municipal services dashboard built with Next.js and shadcn/ui",
+  title: "Mapmoji",
+  description: "Mapmoji Admin Dashboard",
 };
 
 export default function RootLayout({
@@ -24,14 +22,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="min-h-screen bg-gray-50">
-      <body
-        className={`${poppins.className} min-h-screen bg-gray-50 flex flex-col`}
-      >
+    <html lang="en" className={`min-h-screen ${spaceMono.variable}`}>
+      <body className="min-h-screen flex flex-col font-space-mono">
         <ToastProvider>
-          <MunicipalConfigProvider>
-            <AuthProvider>{children}</AuthProvider>
-          </MunicipalConfigProvider>
+          <AuthProvider>{children}</AuthProvider>
           <Toaster />
         </ToastProvider>
       </body>

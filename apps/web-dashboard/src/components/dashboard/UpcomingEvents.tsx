@@ -112,7 +112,7 @@ export function UpcomingEvents({ events, className }: UpcomingEventsProps) {
 
                     {attendancePercentage !== null && (
                       <div className="flex items-center gap-2">
-                        <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                        <div className="w-16 bg-muted rounded-full h-1.5">
                           <div
                             className="bg-primary h-1.5 rounded-full"
                             style={{
