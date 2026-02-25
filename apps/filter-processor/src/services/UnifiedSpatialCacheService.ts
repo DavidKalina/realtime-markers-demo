@@ -2,22 +2,18 @@ import RBush from "rbush";
 import { Event, SpatialItem } from "../types/types";
 
 export interface UnifiedSpatialCacheService {
-  // Event management
   addEvent(event: Event): void;
   updateEvent(event: Event): void;
   removeEvent(eventId: string): void;
   getEvent(eventId: string): Event | undefined;
   getAllEvents(): Event[];
 
-  // Unified spatial operations
   getEntitiesInViewport(viewport: {
     minX: number;
     minY: number;
     maxX: number;
     maxY: number;
   }): { type: string; entities: Event[] }[];
-
-  // Spatial index management
   addToSpatialIndex(event: Event): boolean;
   updateSpatialIndex(event: Event): void;
   removeFromSpatialIndex(eventId: string): void;
@@ -27,22 +23,14 @@ export interface UnifiedSpatialCacheService {
     maxX: number;
     maxY: number;
   }): Event[];
-
-  // Bulk operations
   clearAll(): void;
   bulkLoad(events: Event[]): void;
-
-  // Stats
   getStats(): {
     cacheSize: number;
     spatialIndexSize: number;
     spatialIndexFailures: number;
   };
-
-  // Verification
   verifyEventInSpatialIndex(eventId: string, expectedEvent: Event): boolean;
-
-  // Internal access for legacy compatibility
   getSpatialIndex(): RBush<SpatialItem>;
   getEventCache(): Map<string, Event>;
 }
@@ -63,9 +51,6 @@ export function createUnifiedSpatialCacheService(
   const spatialItemMap = new Map<string, SpatialItem>();
   let spatialIndexFailures = 0;
 
-  /**
-   * Convert an event to a spatial item for the RBush index
-   */
   function eventToSpatialItem(event: Event): SpatialItem {
     // Validate location and coordinates
     if (
@@ -90,9 +75,6 @@ export function createUnifiedSpatialCacheService(
     };
   }
 
-  /**
-   * Add an event to both cache and spatial index
-   */
   function addEvent(event: Event): void {
     // Add to cache
     eventCache.set(event.id, event);
@@ -114,9 +96,6 @@ export function createUnifiedSpatialCacheService(
     }
   }
 
-  /**
-   * Update an existing event
-   */
   function updateEvent(event: Event): void {
     // Update cache
     eventCache.set(event.id, event);
@@ -127,9 +106,6 @@ export function createUnifiedSpatialCacheService(
     }
   }
 
-  /**
-   * Remove an event from both cache and spatial index
-   */
   function removeEvent(eventId: string): void {
     // Remove from cache
     eventCache.delete(eventId);
@@ -140,23 +116,14 @@ export function createUnifiedSpatialCacheService(
     }
   }
 
-  /**
-   * Get an event from cache
-   */
   function getEvent(eventId: string): Event | undefined {
     return eventCache.get(eventId);
   }
 
-  /**
-   * Get all events from cache
-   */
   function getAllEvents(): Event[] {
     return Array.from(eventCache.values());
   }
 
-  /**
-   * Add event to spatial index. Returns true on success, false on failure.
-   */
   function addToSpatialIndex(event: Event): boolean {
     try {
       const spatialItem = eventToSpatialItem(event);
@@ -173,9 +140,6 @@ export function createUnifiedSpatialCacheService(
     }
   }
 
-  /**
-   * Update event in spatial index
-   */
   function updateSpatialIndex(event: Event): void {
     // Remove old entry
     removeFromSpatialIndex(event.id);
@@ -185,9 +149,6 @@ export function createUnifiedSpatialCacheService(
     }
   }
 
-  /**
-   * Remove event from spatial index
-   */
   function removeFromSpatialIndex(eventId: string): void {
     const itemToRemove = spatialItemMap.get(eventId);
     if (itemToRemove) {
@@ -196,9 +157,6 @@ export function createUnifiedSpatialCacheService(
     }
   }
 
-  /**
-   * Get all entities in viewport
-   */
   function getEntitiesInViewport(viewport: {
     minX: number;
     minY: number;
@@ -217,9 +175,6 @@ export function createUnifiedSpatialCacheService(
     return [{ type: "event", entities: events }];
   }
 
-  /**
-   * Get events in a specific viewport
-   */
   function getEventsInViewport(viewport: {
     minX: number;
     minY: number;
@@ -237,18 +192,12 @@ export function createUnifiedSpatialCacheService(
       .filter((event): event is Event => event !== undefined);
   }
 
-  /**
-   * Clear all data
-   */
   function clearAll(): void {
     eventCache.clear();
     spatialIndex.clear();
     spatialItemMap.clear();
   }
 
-  /**
-   * Bulk load events for initialization
-   */
   function bulkLoad(events: Event[]): void {
     // Clear existing data
     clearAll();
@@ -286,9 +235,6 @@ export function createUnifiedSpatialCacheService(
     }
   }
 
-  /**
-   * Get service statistics
-   */
   function getStats(): {
     cacheSize: number;
     spatialIndexSize: number;
@@ -301,9 +247,6 @@ export function createUnifiedSpatialCacheService(
     };
   }
 
-  /**
-   * Verify that the spatial index contains the updated event data
-   */
   function verifyEventInSpatialIndex(
     eventId: string,
     expectedEvent: Event,
