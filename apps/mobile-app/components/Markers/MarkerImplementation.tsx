@@ -184,17 +184,32 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
     const createMapItemPressHandler = useCallback(
       (item: MapItem) => {
         return () => {
-          // Skip if already selected
+          // SECOND TAP: already selected → navigate to details
           if (selectedItem?.id === item.id) {
+            if (item.type === "marker") {
+              router.push(`details?eventId=${item.id}` as never);
+            } else {
+              // Navigate to cluster view
+              const seen = new Set<string>();
+              const clusterMarkers = storeMarkers.filter((marker) => {
+                if (!item.childrenIds?.includes(marker.id)) return false;
+                if (seen.has(marker.id)) return false;
+                seen.add(marker.id);
+                return true;
+              });
+              const clusterEvents = clusterMarkers.map(markerToEvent);
+              const eventsParam = encodeURIComponent(
+                JSON.stringify(clusterEvents),
+              );
+              router.push(`cluster?events=${eventsParam}` as never);
+            }
             return;
           }
 
-          // Select the item in the store
+          // FIRST TAP: select + animate camera, no navigation
           selectMapItem(item);
 
-          // Convert to the EventBroker's expected format
           if (item.type === "marker") {
-            // Create the marker event item
             const markerEventItem: EventMarkerItem = {
               id: item.id,
               type: "marker",
@@ -202,14 +217,12 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
               markerData: item.data,
             };
 
-            // Publish the unified MAP_ITEM_SELECTED event
             publish<MapItemEvent>(EventTypes.MAP_ITEM_SELECTED, {
               timestamp: Date.now(),
               source: "ClusteredMapMarkers",
               item: markerEventItem,
             });
 
-            // For backward compatibility, also publish the legacy event
             publish(EventTypes.MARKER_SELECTED, {
               timestamp: Date.now(),
               source: "ClusteredMapMarkers",
@@ -217,7 +230,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
               markerData: item.data,
             });
 
-            // Center camera on the item without changing zoom
             publish<CameraAnimateToLocationEvent>(
               EventTypes.CAMERA_ANIMATE_TO_LOCATION,
               {
@@ -225,19 +237,11 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
                 source: "ClusteredMapMarkers",
                 coordinates: item.coordinates,
                 duration: 400,
-                zoomLevel: 16, // Use a higher zoom level for markers
-                allowZoomChange: true, // Allow zoom changes
+                zoomLevel: 16,
+                allowZoomChange: true,
               },
             );
-
-            // Wait for camera animation to complete, then add a longer delay before navigating
-            setTimeout(() => {
-              setTimeout(() => {
-                router.push(`details?eventId=${item.id}` as never);
-              }, 500);
-            }, 400);
           } else {
-            // Create the cluster event item
             const clusterEventItem: EventClusterItem = {
               id: item.id,
               type: "cluster",
@@ -263,7 +267,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
               },
             });
 
-            // Center camera on the item without changing zoom
             publish<CameraAnimateToLocationEvent>(
               EventTypes.CAMERA_ANIMATE_TO_LOCATION,
               {
@@ -275,25 +278,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
                 allowZoomChange: false,
               },
             );
-
-            // Wait for camera animation to complete, then add a longer delay before navigating
-            setTimeout(() => {
-              setTimeout(() => {
-                // Get the events for this cluster from the store markers, deduplicated
-                const seen = new Set<string>();
-                const clusterMarkers = storeMarkers.filter((marker) => {
-                  if (!item.childrenIds?.includes(marker.id)) return false;
-                  if (seen.has(marker.id)) return false;
-                  seen.add(marker.id);
-                  return true;
-                });
-                const clusterEvents = clusterMarkers.map(markerToEvent);
-                const eventsParam = encodeURIComponent(
-                  JSON.stringify(clusterEvents),
-                );
-                router.push(`cluster?events=${eventsParam}` as never);
-              }, 500);
-            }, 400);
           }
         };
       },

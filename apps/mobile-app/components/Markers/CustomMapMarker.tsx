@@ -261,15 +261,17 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
 
     return (
       <View style={styles.container}>
-        {/* Time popup */}
-        <Animated.View style={[styles.popupContainer]}>
-          <TimePopup
-            time={event.data.eventDate || ""}
-            endDate={event.data.endDate || ""}
-            title={event.data.title || ""}
-            index={index}
-          />
-        </Animated.View>
+        {/* Time popup — only when selected */}
+        {isSelected && (
+          <Animated.View style={[styles.popupContainer]}>
+            <TimePopup
+              time={event.data.eventDate || ""}
+              endDate={event.data.endDate || ""}
+              title={event.data.title || ""}
+              index={index}
+            />
+          </Animated.View>
+        )}
 
         {/* Shadow */}
         <Animated.View style={[styles.shadowContainer, shadowStyle]}>
@@ -295,8 +297,8 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
           </Animated.View>
         </TouchableOpacity>
 
-        {/* Social proof badge */}
-        {(event.data.goingCount as number) >= 3 && (
+        {/* Social proof badge — only when selected */}
+        {isSelected && (event.data.goingCount as number) >= 3 && (
           <View style={styles.socialProofBadge}>
             <Text style={styles.socialProofText}>
               {event.data.goingCount as number} going
@@ -304,8 +306,9 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
           </View>
         )}
 
-        {/* Trending badge (only when social proof badge is not shown) */}
-        {event.data.isTrending &&
+        {/* Trending badge — only when selected (and social proof not shown) */}
+        {isSelected &&
+          event.data.isTrending &&
           !((event.data.goingCount as number) >= 3) && (
             <View style={styles.trendingBadge}>
               <Text style={styles.trendingBadgeText}>Trending</Text>
@@ -385,15 +388,15 @@ const styles = StyleSheet.create({
     bottom: -12,
     alignSelf: "center",
     backgroundColor: colors.bg.primary,
-    paddingHorizontal: spacing._6,
-    paddingVertical: 2,
+    paddingHorizontal: spacing._10,
+    paddingVertical: spacing.xs,
     borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.border.medium,
   },
   socialProofText: {
     color: colors.status.success.text,
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.semibold,
   },
@@ -402,15 +405,15 @@ const styles = StyleSheet.create({
     bottom: -12,
     alignSelf: "center",
     backgroundColor: colors.bg.primary,
-    paddingHorizontal: spacing._6,
-    paddingVertical: 2,
+    paddingHorizontal: spacing._10,
+    paddingVertical: spacing.xs,
     borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.border.medium,
   },
   trendingBadgeText: {
     color: colors.accent.primary,
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.semibold,
   },

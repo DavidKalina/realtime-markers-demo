@@ -37,12 +37,8 @@ const STATIC_TITLE_MS = 3000;
 const MARQUEE_MAX_WIDTH = 130;
 const CYCLE_GUARD_MS = 500;
 
-// Marker entrance: index * 300ms delay + ~500ms BounceIn
-const MARKER_STAGGER_MS = 300;
-const MARKER_ENTRANCE_MS = 500;
-// Extra breathing room + random spread after marker settles
+// Short settle delay after marker selection animation
 const POPUP_SETTLE_MS = 200;
-const POPUP_JITTER_RANGE = 300;
 
 // Curated entrance pool — organic, not zany
 const ENTRANCE_POOL = [
@@ -179,16 +175,11 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(
       Math.floor(Math.random() * ENTRANCE_POOL.length),
     ).current;
 
-    // Wait for this marker's staggered entrance to finish, then show popup
+    // Short delay so popup appears after the marker's selection scale animation settles
     useEffect(() => {
-      const markerDone = index * MARKER_STAGGER_MS + MARKER_ENTRANCE_MS;
-      const jitter = Math.floor(Math.random() * POPUP_JITTER_RANGE);
-      const timer = setTimeout(
-        () => setVisible(true),
-        markerDone + POPUP_SETTLE_MS + jitter,
-      );
+      const timer = setTimeout(() => setVisible(true), POPUP_SETTLE_MS);
       return () => clearTimeout(timer);
-    }, [index]);
+    }, []);
 
     // Callback-driven cycling
     const cycleToTitle = useCallback(() => {
