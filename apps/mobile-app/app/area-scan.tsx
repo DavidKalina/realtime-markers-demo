@@ -259,8 +259,8 @@ export default function AreaScanScreen() {
   const [pageComplete, setPageComplete] = useState(false);
 
   // Streaming refs
-  const streamTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
+  const streamTimerRef = useRef<number>(null);
+  const autoAdvanceRef = useRef<number>(null);
   const charIndexRef = useRef(0);
   const currentPageTextRef = useRef("");
 
