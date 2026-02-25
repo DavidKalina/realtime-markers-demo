@@ -216,9 +216,18 @@ export class UnifiedMessageHandler {
             coordinates,
           },
           creatorId: entityData.creatorId as string | undefined,
-          sharedWith: entityData.sharedWith as
-            | Array<{ sharedWithId: string }>
-            | undefined,
+          sharedWith: Array.isArray(entityData.sharedWith)
+            ? (
+                entityData.sharedWith as Array<{
+                  sharedWithId: string;
+                  sharedById?: string;
+                }>
+              ).map((s) => ({
+                sharedWithId: s.sharedWithId,
+                sharedById:
+                  s.sharedById ?? (entityData.creatorId as string) ?? "unknown",
+              }))
+            : undefined,
           createdAt:
             (entityData.createdAt as string) || new Date().toISOString(),
           updatedAt:
