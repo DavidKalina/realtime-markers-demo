@@ -11,6 +11,8 @@ ENV NODE_ENV=production
 # Accept build arguments for Next.js public environment variables
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ARG NEXT_PUBLIC_MAPBOX_TOKEN
+ENV NEXT_PUBLIC_MAPBOX_TOKEN=${NEXT_PUBLIC_MAPBOX_TOKEN}
 
 # Copy workspace configuration files first (these change less frequently)
 COPY pnpm-workspace.yaml ./
