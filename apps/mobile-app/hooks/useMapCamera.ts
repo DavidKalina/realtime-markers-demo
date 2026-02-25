@@ -8,7 +8,7 @@ import {
 } from "@/services/EventBroker";
 
 interface UseMapCameraProps {
-  cameraRef: React.RefObject<Camera>;
+  cameraRef: React.RefObject<Camera | null>;
 }
 
 export const useMapCamera = ({ cameraRef }: UseMapCameraProps) => {

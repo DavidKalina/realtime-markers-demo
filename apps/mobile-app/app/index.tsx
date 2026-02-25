@@ -259,7 +259,11 @@ function HomeScreen() {
       setAreaScanCoords(null);
       router.push({
         pathname: "/area-scan",
-        params: { lat: String(coords.lat), lng: String(coords.lng), zoom: String(zoomLevel) },
+        params: {
+          lat: String(coords.lat),
+          lng: String(coords.lng),
+          zoom: String(zoomLevel),
+        },
       });
     }
   }, [router, zoomLevel]);
