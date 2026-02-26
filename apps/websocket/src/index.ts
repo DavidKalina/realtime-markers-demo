@@ -18,7 +18,7 @@ const ZOMBIE_CHECK_INTERVAL_MS = 60_000; // Check every 60s
 const ZOMBIE_IDLE_THRESHOLD_MS = 5 * 60_000; // 5 minutes idle = zombie
 
 // Viewport debounce state — coalesces rapid panning into single Redis writes
-const VIEWPORT_DEBOUNCE_MS = 150;
+const VIEWPORT_DEBOUNCE_MS = 75;
 const viewportTimers = new Map<string, NodeJS.Timeout>();
 const pendingViewports = new Map<string, FormattedViewport>();
 
@@ -126,7 +126,7 @@ const zombieReaperInterval = setInterval(() => {
 // WebSocket server definition
 const server = {
   port: SERVER_CONFIG.port,
-  fetch(req: Request, server: Server): Response | Promise<Response> {
+  fetch(req: Request, server: Server<WebSocketData>): Response | Promise<Response> {
     // Handle HTTP requests for health check
     if (req.url.endsWith("/health")) {
       return healthCheckService.getHealthResponse();

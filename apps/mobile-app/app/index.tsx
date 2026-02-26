@@ -1,15 +1,12 @@
 /* eslint-disable prefer-const */
 import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
-import { colors, spacing } from "@/theme";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
-import { useNavigation, useRouter } from "expo-router";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
-import StatusBar from "@/components/StatusBar/StatusBar";
+import { MarkerInfoHUD } from "@/components/Markers/MarkerInfoHUD";
 import DateRangeIndicator from "@/components/StatusBar/DateRangeIndicator";
 import PlusButton from "@/components/StatusBar/PlusButton";
-import { MarkerInfoHUD } from "@/components/Markers/MarkerInfoHUD";
-import { ClusterInfoHUD } from "@/components/Markers/ClusterInfoHUD";
+import StatusBar from "@/components/StatusBar/StatusBar";
 import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
 import { createCameraSettings } from "@/config/cameraConfig";
 import { useUserLocation } from "@/contexts/LocationContext";
@@ -22,7 +19,9 @@ import { useMapViewport } from "@/hooks/useMapViewport";
 import { useMapWebSocket } from "@/hooks/useMapWebSocket";
 import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
+import { colors } from "@/theme";
 import MapboxGL from "@rnmapbox/maps";
+import { useNavigation, useRouter } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -31,8 +30,8 @@ import React, {
   useState,
 } from "react";
 import { Platform, View } from "react-native";
-import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { scheduleOnRN } from "react-native-worklets";
 
 // Set access token at module scope (lightweight, required before MapView renders)
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -274,7 +273,7 @@ function HomeScreenContent() {
   const floatingDateButtonStyle = useMemo(
     () => ({
       position: "absolute" as const,
-      bottom: aboveActionBar + 110,
+      bottom: aboveActionBar + 70,
       right: 16,
       zIndex: 1000,
       gap: 12,
@@ -404,7 +403,6 @@ function HomeScreenContent() {
         {rippleEffectComponent}
 
         <MarkerInfoHUD safeAreaBottom={aboveActionBar} />
-        <ClusterInfoHUD safeAreaBottom={aboveActionBar} />
 
         {floatingButtonsSection}
       </View>

@@ -52,10 +52,6 @@ const ANIMATIONS = {
     duration: 1000,
     easing: Easing.inOut(Easing.sin),
   },
-  BURST: {
-    duration: 400,
-    easing: Easing.inOut(Easing.sin),
-  },
 };
 
 interface EmojiMapMarkerProps {
@@ -76,8 +72,6 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
     const fanRotation = useSharedValue(0);
     const fanScale = useSharedValue(1);
     const pulseScale = useSharedValue(1);
-    const burstScale = useSharedValue(1);
-
     // Calculate stagger delay based on marker index
     const initialDelay = useMemo(() => index * 200, [index]);
 
@@ -98,7 +92,6 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
         cancelAnimation(fanRotation);
         cancelAnimation(fanScale);
         cancelAnimation(pulseScale);
-        cancelAnimation(burstScale);
       };
     }, []);
 
@@ -163,24 +156,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       };
     }, []);
 
-    // Occasional burst pop (UI thread only)
-    useEffect(() => {
-      burstScale.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: 8000 }), // pause
-          withTiming(1.1, ANIMATIONS.BURST),
-          withTiming(1, ANIMATIONS.BURST),
-        ),
-        -1,
-        false,
-      );
-
-      return () => {
-        cancelAnimation(burstScale);
-      };
-    }, []);
-
-    // Press handler with haptic + burst
+    // Press handler with haptic
     const handlePress = useCallback(() => {
       if (Platform.OS !== "web") {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -191,11 +167,6 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
         withSpring(isSelected ? 1 : 1.15, ANIMATIONS.SCALE_RELEASE),
       );
 
-      burstScale.value = withSequence(
-        withTiming(1.2, { duration: 200 }),
-        withTiming(1, { duration: 200 }),
-      );
-
       onPress();
     }, [isSelected, onPress]);
 
@@ -203,8 +174,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
     const markerStyle = useAnimatedStyle(() => ({
       transform: [
         {
-          scale:
-            scale.value * fanScale.value * pulseScale.value * burstScale.value,
+          scale: scale.value * fanScale.value * pulseScale.value,
         },
         { rotate: `${fanRotation.value}rad` },
       ],

@@ -85,17 +85,49 @@ export function useMessageHandler({
               const rawMarkers = data.events.map(convertEventToMarker);
               // Deduplicate by marker ID — server may send duplicates in viewport updates
               const seen = new Set<string>();
-              const newMarkers = rawMarkers.filter((m: Marker) => {
+              const incomingMarkers = rawMarkers.filter((m: Marker) => {
                 if (seen.has(m.id)) return false;
                 seen.add(m.id);
                 return true;
               });
               console.log(
                 "[useMapWebsocket] REPLACE_ALL - Total markers:",
-                newMarkers.length,
+                incomingMarkers.length,
               );
-              setMarkers(newMarkers);
-              emitMarkersUpdated(newMarkers, "replace");
+
+              // Smart diff: preserve object references for unchanged markers
+              // so React doesn't unmount/remount them (avoiding re-animation jank)
+              setMarkers((prevMarkers) => {
+                const prevMap = new Map(prevMarkers.map((m) => [m.id, m]));
+                const result: Marker[] = [];
+                for (const incoming of incomingMarkers) {
+                  const existing = prevMap.get(incoming.id);
+                  if (
+                    existing &&
+                    existing.coordinates[0] === incoming.coordinates[0] &&
+                    existing.coordinates[1] === incoming.coordinates[1] &&
+                    existing.data.emoji === incoming.data.emoji &&
+                    existing.data.title === incoming.data.title
+                  ) {
+                    // Marker unchanged — keep original reference
+                    result.push(existing);
+                  } else {
+                    result.push(incoming);
+                  }
+                }
+
+                // If nothing changed, return previous array to skip re-render
+                if (
+                  result.length === prevMarkers.length &&
+                  result.every((m, i) => m === prevMarkers[i])
+                ) {
+                  return prevMarkers;
+                }
+
+                return result;
+              });
+
+              emitMarkersUpdated(incomingMarkers, "replace");
 
               if (currentViewportRef.current) {
                 eventBroker.emit<ViewportEvent & { searching: boolean }>(
@@ -104,7 +136,7 @@ export function useMessageHandler({
                     timestamp: Date.now(),
                     source: "useMapWebSocket",
                     viewport: currentViewportRef.current,
-                    markers: newMarkers,
+                    markers: incomingMarkers,
                     searching: false,
                   },
                 );

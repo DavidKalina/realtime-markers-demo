@@ -24,8 +24,6 @@ export function useClusterAnimations(count: number, isSelected: boolean) {
   const fanRotation = useSharedValue(0);
   const fanScale = useSharedValue(1);
   const pulseScale = useSharedValue(1);
-  const burstScale = useSharedValue(1);
-
   // Set up initial animations on mount
   useEffect(() => {
     shadowOpacity.value = withTiming(0.3, ANIMATIONS.SHADOW);
@@ -40,7 +38,6 @@ export function useClusterAnimations(count: number, isSelected: boolean) {
       cancelAnimation(fanRotation);
       cancelAnimation(fanScale);
       cancelAnimation(pulseScale);
-      cancelAnimation(burstScale);
     };
   }, []);
 
@@ -114,35 +111,10 @@ export function useClusterAnimations(count: number, isSelected: boolean) {
     };
   }, [count]);
 
-  // Burst effect for very large clusters
-  useEffect(() => {
-    if (count > 15) {
-      burstScale.value = withRepeat(
-        withSequence(
-          withTiming(1.2, { duration: 400 }),
-          withTiming(1, { duration: 400 }),
-        ),
-        -1,
-        true,
-      );
-    }
-
-    return () => {
-      cancelAnimation(burstScale);
-    };
-  }, [count]);
-
   // Animated styles
   const markerStyle = useAnimatedStyle(() => ({
     transform: [
-      {
-        scale:
-          scale.value *
-          fanScale.value *
-          baseScale *
-          pulseScale.value *
-          burstScale.value,
-      },
+      { scale: scale.value * fanScale.value * baseScale * pulseScale.value },
       { rotate: `${fanRotation.value}rad` },
     ],
   }));
