@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Animated,
   Pressable,
@@ -7,10 +13,20 @@ import {
   Text,
   View,
 } from "react-native";
-import Reanimated, { FadeInDown } from "react-native-reanimated";
+import Reanimated, {
+  FadeInDown,
+  useSharedValue,
+  useAnimatedProps,
+  withTiming,
+  withDelay,
+  Easing,
+} from "react-native-reanimated";
+import Svg, { Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { colors, spacing, fontFamily } from "@/theme";
 import type { AreaScanMetadata } from "@/services/api/modules/areaScan";
+
+const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
 
 // --- Constants ---
 
@@ -138,6 +154,163 @@ export function CategoryBarChart({
           </View>
         ))}
       </View>
+    </Reanimated.View>
+  );
+}
+
+// --- Pie Chart ---
+
+const PIE_SIZE = 80;
+const PIE_RADIUS = 30;
+const PIE_STROKE = 8;
+const PIE_CIRCUMFERENCE = 2 * Math.PI * PIE_RADIUS;
+
+function PieSegment({
+  color,
+  arcLength,
+  offset,
+  index,
+}: {
+  color: string;
+  arcLength: number;
+  offset: number;
+  index: number;
+}) {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = withDelay(
+      index * 80,
+      withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) }),
+    );
+  }, []);
+
+  const animatedProps = useAnimatedProps(() => {
+    const currentArc = arcLength * progress.value;
+    return {
+      strokeDasharray: [currentArc, PIE_CIRCUMFERENCE - currentArc],
+    };
+  });
+
+  return (
+    <AnimatedCircle
+      cx={PIE_SIZE / 2}
+      cy={PIE_SIZE / 2}
+      r={PIE_RADIUS}
+      fill="none"
+      stroke={color}
+      strokeWidth={PIE_STROKE}
+      strokeLinecap="butt"
+      strokeDashoffset={-offset}
+      animatedProps={animatedProps}
+    />
+  );
+}
+
+export function CategoryPieChart({
+  breakdown,
+  colors: colorsProp,
+}: {
+  breakdown: AreaScanMetadata["categoryBreakdown"];
+  colors?: string[];
+}) {
+  const palette = colorsProp || BAR_COLORS;
+  const segments = useMemo(() => {
+    let offset = 0;
+    return breakdown.map((cat, i) => {
+      const arcLength = (cat.pct / 100) * PIE_CIRCUMFERENCE;
+      const seg = {
+        key: cat.name,
+        color: palette[i % palette.length],
+        arcLength,
+        offset,
+        index: i,
+      };
+      offset += arcLength;
+      return seg;
+    });
+  }, [breakdown, palette]);
+
+  return (
+    <Svg
+      width={PIE_SIZE}
+      height={PIE_SIZE}
+      viewBox={`0 0 ${PIE_SIZE} ${PIE_SIZE}`}
+    >
+      <Circle
+        cx={PIE_SIZE / 2}
+        cy={PIE_SIZE / 2}
+        r={PIE_RADIUS}
+        fill="none"
+        stroke={colors.border.default}
+        strokeWidth={PIE_STROKE}
+        opacity={0.3}
+      />
+      {segments.map((seg) => (
+        <PieSegment
+          key={seg.key}
+          color={seg.color}
+          arcLength={seg.arcLength}
+          offset={seg.offset}
+          index={seg.index}
+        />
+      ))}
+    </Svg>
+  );
+}
+
+// --- ZoneHero (combined header + pie) ---
+
+export function ZoneHero({
+  zoneStats,
+  dnaLabel = "AREA DNA",
+}: {
+  zoneStats: AreaScanMetadata;
+  dnaLabel?: string;
+}) {
+  const hasBreakdown = zoneStats.categoryBreakdown.length > 0;
+
+  return (
+    <Reanimated.View
+      entering={FadeInDown.duration(400)}
+      style={heroStyles.container}
+    >
+      <View style={heroStyles.headerRow}>
+        <Text style={heroStyles.emoji}>{zoneStats.topEmoji}</Text>
+        <View style={heroStyles.headerText}>
+          <Text style={heroStyles.name}>
+            {zoneStats.zoneName.toUpperCase()}
+          </Text>
+          <Text style={heroStyles.subtitle}>
+            {zoneStats.eventCount === 0
+              ? "No events nearby"
+              : `${zoneStats.eventCount} event${zoneStats.eventCount !== 1 ? "s" : ""} nearby`}
+          </Text>
+        </View>
+      </View>
+      {hasBreakdown && (
+        <View style={heroStyles.dnaSection}>
+          <Text style={heroStyles.dnaLabel}>{dnaLabel}</Text>
+          <View style={heroStyles.breakdownRow}>
+            <CategoryPieChart breakdown={zoneStats.categoryBreakdown} />
+            <View style={heroStyles.legendWrap}>
+              {zoneStats.categoryBreakdown.map((cat, i) => (
+                <View key={cat.name} style={barStyles.legendItem}>
+                  <View
+                    style={[
+                      barStyles.legendDot,
+                      { backgroundColor: BAR_COLORS[i % BAR_COLORS.length] },
+                    ]}
+                  />
+                  <Text style={barStyles.legendText}>
+                    {cat.name} {cat.pct}%
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      )}
     </Reanimated.View>
   );
 }
@@ -578,6 +751,59 @@ const barStyles = StyleSheet.create({
     fontSize: 11,
     color: colors.text.secondary,
     fontFamily: fontFamily.mono,
+  },
+});
+
+const heroStyles = StyleSheet.create({
+  container: {
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.md,
+    gap: spacing.lg,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  headerText: {
+    flex: 1,
+    gap: 3,
+  },
+  emoji: {
+    fontSize: 36,
+  },
+  name: {
+    fontSize: 20,
+    fontFamily: fontFamily.mono,
+    color: colors.accent.primary,
+    letterSpacing: 2,
+    fontWeight: "700",
+  },
+  subtitle: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
+  },
+  dnaSection: {
+    gap: 10,
+  },
+  dnaLabel: {
+    fontSize: 11,
+    fontFamily: fontFamily.mono,
+    color: colors.accent.primary,
+    letterSpacing: 1.5,
+    fontWeight: "600",
+  },
+  breakdownRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.lg,
+  },
+  legendWrap: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
   },
 });
 

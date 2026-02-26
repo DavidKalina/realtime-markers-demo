@@ -3,7 +3,11 @@ import type { Context } from "hono";
 import type { AppContext } from "../types/context";
 
 export const areaScanHandler = async (c: Context<AppContext>) => {
-  const body = await c.req.json<{ lat: number; lng: number; radius?: number }>();
+  const body = await c.req.json<{
+    lat: number;
+    lng: number;
+    radius?: number;
+  }>();
   const { lat, lng } = body;
   const radius = Math.min(body.radius ?? 2000, 15000);
 
@@ -34,41 +38,25 @@ export const areaScanHandler = async (c: Context<AppContext>) => {
         data: JSON.stringify({ ...result.zoneStats, events: result.events }),
       });
 
-      if (result.cached && result.text) {
-        // Cached result — send the full text as a single content event
-        await stream.writeSSE({ event: "content", data: result.text });
-        await stream.writeSSE({ event: "done", data: "" });
-        return;
-      }
-
-      if (!result.stream) {
-        await stream.writeSSE({ event: "content", data: "No data available." });
-        await stream.writeSSE({ event: "done", data: "" });
-        return;
-      }
-
-      // Stream LLM chunks and accumulate for caching
-      let fullText = "";
-
-      for await (const chunk of result.stream) {
-        const content = chunk.choices[0]?.delta?.content;
-        if (content) {
-          fullText += content;
-          await stream.writeSSE({ event: "content", data: content });
-        }
-      }
-
+      const text = result.text || "No data available.";
+      await stream.writeSSE({ event: "content", data: text });
       await stream.writeSSE({ event: "done", data: "" });
 
-      // Cache the result
-      const geohash = encodeGeohashSimple(lat, lng);
-      const hourBucket = Math.floor(Date.now() / (3600 * 1000));
-      const cacheKey = `area-scan:${geohash}:${hourBucket}:${radius}`;
-      await redisService.set(
-        cacheKey,
-        JSON.stringify({ zoneStats: result.zoneStats, events: result.events, text: fullText }),
-        3600,
-      );
+      // Cache the result (if not already cached)
+      if (!result.cached) {
+        const geohash = encodeGeohashSimple(lat, lng);
+        const hourBucket = Math.floor(Date.now() / (3600 * 1000));
+        const cacheKey = `area-scan:${geohash}:${hourBucket}:${radius}`;
+        await redisService.set(
+          cacheKey,
+          JSON.stringify({
+            zoneStats: result.zoneStats,
+            events: result.events,
+            text,
+          }),
+          3600,
+        );
+      }
     } catch (error) {
       console.error("[AreaScan] Stream error:", error);
       await stream.writeSSE({

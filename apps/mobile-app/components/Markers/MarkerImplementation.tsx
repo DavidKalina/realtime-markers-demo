@@ -27,18 +27,36 @@ interface ClusteredMapMarkersProps {
   viewport: MapboxViewport;
 }
 
+const DOUBLE_TAP_WINDOW = 300;
+
 const SingleMarkerView = React.memo(
   ({
     marker,
     isSelected,
-    onPress,
+    onSelect,
+    onNavigate,
     index,
   }: {
     marker: MarkerItem;
     isSelected: boolean;
-    onPress: () => void;
+    onSelect: () => void;
+    onNavigate: () => void;
     index: number;
   }) => {
+    const lastTapRef = useRef(0);
+
+    // Single tap → select (show HUD), double tap → navigate to details
+    const handlePress = useCallback(() => {
+      const now = Date.now();
+      if (now - lastTapRef.current < DOUBLE_TAP_WINDOW) {
+        lastTapRef.current = 0;
+        onNavigate();
+      } else {
+        lastTapRef.current = now;
+        onSelect();
+      }
+    }, [onSelect, onNavigate]);
+
     // Add haptic feedback for each marker's appearance
     useEffect(() => {
       if (Platform.OS === "web") return;
@@ -75,7 +93,7 @@ const SingleMarkerView = React.memo(
             event={marker}
             isSelected={isSelected}
             isHighlighted={false}
-            onPress={onPress}
+            onPress={handlePress}
             index={index}
           />
         </Animated.View>
@@ -156,33 +174,56 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
   React.memo(({ currentZoom = 14, viewport }) => {
     // Get marker data from store
     const markers = useLocationStore((state) => state.markers);
+    const selectedItem = useLocationStore((state) => state.selectedItem);
+    const selectMapItem = useLocationStore((state) => state.selectMapItem);
     const router = useRouter();
 
     // Get clusters based on current markers, viewport, and zoom level
     const { clusters } = useMarkerClustering(markers, viewport, currentZoom);
 
-    // Single tap → navigate directly
-    const createPressHandler = useCallback(
-      (type: "marker" | "cluster", id: string, coordinates: [number, number]) => {
+    // Cluster: single tap → navigate
+    const createClusterPressHandler = useCallback(
+      (coordinates: [number, number]) => {
         return () => {
-          if (type === "marker") {
-            router.push(`details?eventId=${id}` as never);
-          } else {
-            router.push(
-              `cluster?lat=${coordinates[1]}&lng=${coordinates[0]}&zoom=${currentZoom}` as never,
-            );
-          }
+          router.push(
+            `cluster?lat=${coordinates[1]}&lng=${coordinates[0]}&zoom=${currentZoom}` as never,
+          );
         };
       },
       [currentZoom, router],
     );
+
+    // Marker: single tap → select (show HUD)
+    const createMarkerSelectHandler = useCallback(
+      (item: MarkerItem) => {
+        return () => {
+          selectMapItem(item);
+        };
+      },
+      [selectMapItem],
+    );
+
+    // Marker: double tap → navigate to details
+    const createMarkerNavigateHandler = useCallback(
+      (id: string) => {
+        return () => {
+          router.push(`details?eventId=${id}` as never);
+        };
+      },
+      [router],
+    );
+
+    const selectedId = selectedItem?.id ?? null;
 
     // Memoize the cluster processing function with stable references
     const processCluster = useCallback(
       (feature: ClusterFeature | PointFeature) => {
         if (feature.properties.cluster) {
           const clusterFeature = feature as ClusterFeature;
-          const coordinates = clusterFeature.geometry.coordinates as [number, number];
+          const coordinates = clusterFeature.geometry.coordinates as [
+            number,
+            number,
+          ];
           const count = clusterFeature.properties.point_count;
           const clusterId =
             clusterFeature.properties.stableId ||
@@ -198,28 +239,38 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
               childrenIds: clusterFeature.properties.childMarkers || [],
             },
             isSelected: false,
-            onPress: createPressHandler("cluster", clusterId, coordinates),
+            onPress: createClusterPressHandler(coordinates),
           };
         } else {
           const pointFeature = feature as PointFeature;
           const markerId = pointFeature.properties.id;
-          const coordinates = pointFeature.geometry.coordinates as [number, number];
+          const coordinates = pointFeature.geometry.coordinates as [
+            number,
+            number,
+          ];
           const data = pointFeature.properties.data;
+          const markerItem: MarkerItem = {
+            id: markerId,
+            type: "marker" as const,
+            coordinates,
+            data,
+          };
 
           return {
             type: "marker" as const,
-            item: {
-              id: markerId,
-              type: "marker" as const,
-              coordinates,
-              data,
-            },
-            isSelected: false,
-            onPress: createPressHandler("marker", markerId, coordinates),
+            item: markerItem,
+            isSelected: markerId === selectedId,
+            onSelect: createMarkerSelectHandler(markerItem),
+            onNavigate: createMarkerNavigateHandler(markerId),
           };
         }
       },
-      [createPressHandler],
+      [
+        createClusterPressHandler,
+        createMarkerSelectHandler,
+        createMarkerNavigateHandler,
+        selectedId,
+      ],
     );
 
     // Process and memoize clusters for rendering with stable references
@@ -273,14 +324,16 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         type: "marker";
         item: MarkerItem;
         isSelected: boolean;
-        onPress: () => void;
+        onSelect: () => void;
+        onNavigate: () => void;
         index: number;
       }) => (
         <SingleMarkerView
           key={processed.item.id}
           marker={processed.item}
           isSelected={processed.isSelected}
-          onPress={processed.onPress}
+          onSelect={processed.onSelect}
+          onNavigate={processed.onNavigate}
           index={processed.index}
         />
       ),

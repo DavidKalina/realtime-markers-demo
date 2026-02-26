@@ -8,8 +8,7 @@ import {
   CHARS_PER_PAGE,
   splitIntoPages,
   getRadiusForZoom,
-  ZoneHeader,
-  CategoryBarChart,
+  ZoneHero,
   StatPillRow,
   ZoneEncounters,
   DialogBox,
@@ -75,11 +74,7 @@ export default function AreaScanScreen() {
       onBack={() => router.back()}
       isScrollable={false}
     >
-      {zoneStats && <ZoneHeader zoneStats={zoneStats} />}
-
-      {zoneStats && zoneStats.categoryBreakdown.length > 0 && (
-        <CategoryBarChart breakdown={zoneStats.categoryBreakdown} />
-      )}
+      {zoneStats && <ZoneHero zoneStats={zoneStats} />}
 
       {zoneStats && zoneStats.eventCount > 0 && (
         <StatPillRow zoneStats={zoneStats} />

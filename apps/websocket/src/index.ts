@@ -126,13 +126,23 @@ const zombieReaperInterval = setInterval(() => {
 // WebSocket server definition
 const server = {
   port: SERVER_CONFIG.port,
-  fetch(req: Request, server: Server<WebSocketData>): Response | Promise<Response> {
+  fetch(
+    req: Request,
+    server: Server<WebSocketData>,
+  ): Response | Promise<Response> {
     // Handle HTTP requests for health check
     if (req.url.endsWith("/health")) {
       return healthCheckService.getHealthResponse();
     }
 
-    if (server.upgrade(req)) {
+    if (
+      server.upgrade(req, {
+        data: {
+          clientId: "",
+          lastActivity: Date.now(),
+        },
+      })
+    ) {
       return new Response();
     }
     return new Response("Upgrade failed", { status: 500 });

@@ -197,6 +197,29 @@ export const baseStyles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     color: colors.text.secondary,
   },
+  categoryDnaSection: {
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
+  },
+  categoryDnaLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  categoryPieRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  categoryPieLegend: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+  },
 
   // Section Title
   sectionTitle: {

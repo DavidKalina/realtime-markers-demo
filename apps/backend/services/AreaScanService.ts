@@ -3,8 +3,6 @@ import { Event } from "@realtime-markers/database";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
 import type { RedisService } from "./shared/RedisService";
-import type { Stream } from "openai/streaming";
-import type { ChatCompletionChunk } from "openai/resources/chat/completions";
 
 // --- Geohash encoder (precision 6 ≈ 1.2 km cells) ---
 
@@ -81,7 +79,6 @@ export interface AreaScanResult {
   zoneStats: ZoneStats;
   events: ZoneEvent[];
   cached: boolean;
-  stream?: Stream<ChatCompletionChunk>;
   text?: string;
 }
 
@@ -98,161 +95,14 @@ interface NearbyEventRow {
   isRecurring: boolean;
 }
 
-// --- Zone name mappings ---
-
-const ZONE_NAME_MAP: Record<string, string[]> = {
-  music: [
-    "Melody Row",
-    "The Sound District",
-    "Rhythm Alley",
-    "The Beat Quarter",
-  ],
-  "food & drink": [
-    "The Flavor Quarter",
-    "Feast Street",
-    "The Spice Bazaar",
-    "Grub Row",
-  ],
-  food: ["The Flavor Quarter", "Feast Street", "The Spice Bazaar", "Grub Row"],
-  art: [
-    "The Canvas District",
-    "Fresco Lane",
-    "The Gallery Quarter",
-    "Pigment Row",
-  ],
-  sports: [
-    "The Arena District",
-    "Rally Field",
-    "The Stadium Quarter",
-    "Sprint Row",
-  ],
-  nightlife: [
-    "Neon Row",
-    "The After Dark District",
-    "Midnight Alley",
-    "The Glow Quarter",
-  ],
-  community: [
-    "The Commons",
-    "Gathering Square",
-    "The Town Circle",
-    "Unity Row",
-  ],
-  education: [
-    "Scholar's Row",
-    "The Academy Quarter",
-    "Lecture Lane",
-    "The Study",
-  ],
-  tech: ["The Silicon Quarter", "Byte Row", "The Code District", "Logic Lane"],
-  health: [
-    "The Wellness Quarter",
-    "Vitality Row",
-    "Remedy Lane",
-    "The Healing District",
-  ],
-  fitness: [
-    "The Training Grounds",
-    "Iron Row",
-    "The Gym District",
-    "Stamina Lane",
-  ],
-  film: [
-    "The Reel District",
-    "Cinema Row",
-    "Screenlight Lane",
-    "The Projection Quarter",
-  ],
-  theater: [
-    "Stage Row",
-    "The Curtain District",
-    "Spotlight Lane",
-    "The Drama Quarter",
-  ],
-  comedy: [
-    "The Laugh District",
-    "Punchline Row",
-    "Jest Lane",
-    "The Comedy Quarter",
-  ],
-  fashion: [
-    "Style Row",
-    "The Runway District",
-    "Couture Lane",
-    "The Thread Quarter",
-  ],
-  nature: [
-    "The Green Quarter",
-    "Canopy Row",
-    "Wildflower Lane",
-    "The Grove District",
-  ],
-  outdoors: [
-    "The Green Quarter",
-    "Trailhead Row",
-    "Summit Lane",
-    "The Expedition District",
-  ],
-  charity: [
-    "The Giving Quarter",
-    "Kindness Row",
-    "Goodwill Lane",
-    "The Heart District",
-  ],
-  business: [
-    "The Commerce Quarter",
-    "Enterprise Row",
-    "Deal Lane",
-    "The Trade District",
-  ],
-  kids: [
-    "The Playground Quarter",
-    "Wonder Row",
-    "Adventure Lane",
-    "The Fun District",
-  ],
-  family: [
-    "The Hearthstone Quarter",
-    "Kinfolk Row",
-    "Homestead Lane",
-    "The Gathering District",
-  ],
-  science: [
-    "The Discovery Quarter",
-    "Eureka Row",
-    "Lab Lane",
-    "The Research District",
-  ],
-  spirituality: [
-    "The Sanctuary Quarter",
-    "Serenity Row",
-    "Temple Lane",
-    "The Shrine District",
-  ],
-  gaming: [
-    "The Arcade Quarter",
-    "Pixel Row",
-    "Respawn Lane",
-    "The Quest District",
-  ],
-  pets: [
-    "The Pawprint Quarter",
-    "Whisker Row",
-    "Fetch Lane",
-    "The Den District",
-  ],
-  travel: [
-    "The Compass Quarter",
-    "Wanderer Row",
-    "Voyager Lane",
-    "The Expedition District",
-  ],
-};
-
 // --- Service ---
 
 export interface AreaScanService {
-  getAreaProfile(lat: number, lng: number, radius?: number): Promise<AreaScanResult>;
+  getAreaProfile(
+    lat: number,
+    lng: number,
+    radius?: number,
+  ): Promise<AreaScanResult>;
 }
 
 interface AreaScanDependencies {
@@ -275,7 +125,11 @@ class AreaScanServiceImpl implements AreaScanService {
     this.redisService = deps.redisService;
   }
 
-  async getAreaProfile(lat: number, lng: number, radius: number = RADIUS_METERS): Promise<AreaScanResult> {
+  async getAreaProfile(
+    lat: number,
+    lng: number,
+    radius: number = RADIUS_METERS,
+  ): Promise<AreaScanResult> {
     const geohash = encodeGeohash(lat, lng, 6);
     const hourBucket = Math.floor(Date.now() / (3600 * 1000));
     const cacheKey = `area-scan:${geohash}:${hourBucket}:${radius}`;
@@ -301,7 +155,7 @@ class AreaScanServiceImpl implements AreaScanService {
     // Query nearby events
     const events = await this.queryNearbyEvents(lat, lng, radius);
 
-    // Compute zone stats
+    // Compute zone stats (without zone name — LLM will generate it)
     const zoneStats = this.computeZoneStats(events);
 
     // Map to lightweight wire format
@@ -314,25 +168,43 @@ class AreaScanServiceImpl implements AreaScanService {
       categoryNames: e.categoryNames,
     }));
 
-    // Build prompt
-    const { systemPrompt, userPrompt } = this.buildPrompt(zoneStats, radius);
+    // Build prompt and generate name + vibe via LLM
+    const { systemPrompt, userPrompt } = this.buildPrompt(
+      zoneStats,
+      lat,
+      lng,
+      radius,
+    );
 
-    // Stream from LLM
-    const stream = await this.openAIService.streamChatCompletion({
+    const completion = await this.openAIService.executeChatCompletion({
       model: OpenAIModel.GPT4OMini,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      temperature: 0.7,
-      max_tokens: 80,
+      temperature: 0.9,
+      max_tokens: 120,
+      response_format: { type: "json_object" },
     });
+
+    const raw = completion.choices[0]?.message?.content || "{}";
+    let name = zoneStats.zoneName;
+    let vibe = "";
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed.name) name = parsed.name;
+      if (parsed.vibe) vibe = parsed.vibe;
+    } catch {
+      vibe = raw;
+    }
+
+    zoneStats.zoneName = name;
 
     return {
       zoneStats,
       events: zoneEvents,
       cached: false,
-      stream,
+      text: vibe,
     };
   }
 
@@ -457,9 +329,9 @@ class AreaScanServiceImpl implements AreaScanService {
     // Recurring count
     const recurringCount = events.filter((e) => e.isRecurring).length;
 
-    // Zone name
-    const dominantCategory = categoryBreakdown[0]?.name.toLowerCase() || "";
-    const zoneName = this.generateZoneName(dominantCategory, events.length);
+    // Zone name — placeholder, LLM will generate the real one
+    const dominant = categoryBreakdown[0]?.name || "Discovery";
+    const zoneName = `The ${dominant.charAt(0).toUpperCase() + dominant.slice(1)} Zone`;
 
     return {
       zoneName,
@@ -474,45 +346,45 @@ class AreaScanServiceImpl implements AreaScanService {
     };
   }
 
-  private generateZoneName(
-    dominantCategory: string,
-    eventCount: number,
-  ): string {
-    const variants = ZONE_NAME_MAP[dominantCategory];
-    if (variants) {
-      return variants[eventCount % variants.length];
-    }
-    if (dominantCategory && dominantCategory !== "uncategorized") {
-      const capitalized =
-        dominantCategory.charAt(0).toUpperCase() + dominantCategory.slice(1);
-      return `The ${capitalized} District`;
-    }
-    return "The Discovery Quarter";
-  }
-
-  private buildPrompt(zoneStats: ZoneStats, radius: number): {
+  private buildPrompt(
+    zoneStats: ZoneStats,
+    lat: number,
+    lng: number,
+    radius: number,
+  ): {
     systemPrompt: string;
     userPrompt: string;
   } {
-    const systemPrompt =
-      "One punchy sentence about this zone's vibe. Max 25 words. No greetings, no lists.";
+    const systemPrompt = `You name newly discovered zones on a living map. Each scan reveals a unique pocket of the city.
+
+Return JSON: {"name": "...", "vibe": "..."}
+
+name: A whimsical, evocative 2-4 word place name. Not generic — make it feel like a secret the scanner just uncovered. Mix poetic language with the zone's dominant flavor. Examples: "Velvet Bass Corridor", "The Saffron Drift", "Midnight Vinyl Row", "Emberglow Commons". Never use "District" or "Quarter".
+
+vibe: One vivid sentence, max 18 words. Capture what it FEELS like to stand here — sounds, energy, texture. No greetings, no lists, no "this area".`;
 
     const radiusLabel = radius >= 1000 ? `${radius / 1000} km` : `${radius} m`;
 
     if (zoneStats.eventCount === 0) {
       return {
         systemPrompt,
-        userPrompt: `No events within ${radiusLabel}. It's quiet here.`,
+        userPrompt: `Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)}. Scan radius: ${radiusLabel}. Nothing found — an undiscovered pocket. Name it something mysterious.`,
       };
     }
 
     const catSummary = zoneStats.categoryBreakdown
-      .map((c) => `${c.name} (${c.count})`)
+      .map((c) => `${c.name} ${c.pct}%`)
       .join(", ");
+
+    const timeParts: string[] = [];
+    const { morning, afternoon, evening, night } = zoneStats.timeDistribution;
+    if (evening > 0 || night > 0) timeParts.push("leans evening/night");
+    else if (morning > 0 || afternoon > 0) timeParts.push("daytime energy");
+    const timeHint = timeParts.length > 0 ? ` ${timeParts.join(", ")}.` : "";
 
     return {
       systemPrompt,
-      userPrompt: `${zoneStats.eventCount} events within ${radiusLabel}. Categories: ${catSummary}.`,
+      userPrompt: `Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)}. Scan radius: ${radiusLabel}. ${zoneStats.eventCount} events found. Mix: ${catSummary}.${timeHint}`,
     };
   }
 }

@@ -269,11 +269,11 @@ function HomeScreenContent() {
 
   // Screens render full-screen behind the ActionBar, so overlays must
   // clear the ActionBar (base height 60) plus the home-indicator safe area.
-  const aboveActionBar = insets.bottom + 10;
+  const aboveActionBar = insets.bottom;
   const floatingDateButtonStyle = useMemo(
     () => ({
       position: "absolute" as const,
-      bottom: aboveActionBar + 70,
+      bottom: aboveActionBar + 140,
       right: 16,
       zIndex: 1000,
       gap: 12,
