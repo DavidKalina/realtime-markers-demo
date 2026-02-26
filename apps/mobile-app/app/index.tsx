@@ -3,7 +3,7 @@ import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { colors, spacing } from "@/theme";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import StatusBar from "@/components/StatusBar/StatusBar";
 import DateRangeIndicator from "@/components/StatusBar/DateRangeIndicator";
@@ -51,7 +51,7 @@ const styles = {
   },
 };
 
-function HomeScreen() {
+function HomeScreenContent() {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const router = useRouter();
@@ -59,16 +59,16 @@ function HomeScreen() {
   const { mapStyle, isPitched } = useMapStyle();
   const insets = useSafeAreaInsets();
 
-  // Defer Mapbox mount by one frame to avoid a deadlock between Mapbox's
-  // legacy component descriptor registration (which holds the
-  // ComponentDescriptorRegistry mutex) and react-native-reanimated's
-  // entering layout animations (which read the same registry).
+  // Defer MapView mount by one frame so its native component descriptor
+  // registration doesn't contend with reanimated entering layout animations
+  // that fire in the first commit (same ComponentDescriptorRegistry mutex).
   // See: https://github.com/facebook/react-native/issues/53128
   const [isMapMounted, setIsMapMounted] = useState(false);
   useEffect(() => {
-    requestAnimationFrame(() => {
+    const id = requestAnimationFrame(() => {
       setIsMapMounted(true);
     });
+    return () => cancelAnimationFrame(id);
   }, []);
 
   // Defer heavy Mapbox native initialization to avoid blocking the main thread on cold start.
@@ -352,7 +352,7 @@ function HomeScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <>
       {/* Show loading overlay for both location loading and map loading */}
       {(isLoadingLocation || isMapLoading) && (
         <LoadingOverlay
@@ -404,6 +404,47 @@ function HomeScreen() {
 
         {floatingButtonsSection}
       </View>
+    </>
+  );
+}
+
+function HomeScreen() {
+  const [isReady, setIsReady] = useState(false);
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    // Wait for the screen transition animation to complete before mounting
+    // heavy content. Mounting Mapbox's MapView during a reanimated transition
+    // causes a deadlock on the ComponentDescriptorRegistry mutex.
+    // See: https://github.com/facebook/react-native/issues/53128
+    let ready = false;
+    const markReady = () => {
+      if (!ready) {
+        ready = true;
+        setIsReady(true);
+      }
+    };
+
+    const unsubscribe = navigation.addListener("transitionEnd", markReady);
+    // Fallback for the initial screen if no transition animation fires
+    const fallbackId = setTimeout(markReady, 300);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(fallbackId);
+    };
+  }, [navigation]);
+
+  return (
+    <View style={styles.container}>
+      {isReady ? (
+        <HomeScreenContent />
+      ) : (
+        <LoadingOverlay
+          message="Loading map..."
+          subMessage="Preparing your view"
+        />
+      )}
     </View>
   );
 }
