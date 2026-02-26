@@ -99,6 +99,9 @@ async function initializeServices() {
   // Setup cleanup schedule
   serviceInitializer.setupCleanupSchedule(services.jobQueue);
 
+  // Setup event import schedule (opt-in via env vars)
+  serviceInitializer.setupEventImportSchedule(services.jobQueue);
+
   console.log("All services initialized successfully");
   return services;
 }

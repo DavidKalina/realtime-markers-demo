@@ -35,6 +35,7 @@ import { UserPushTokenTable1710000000022 } from "./migrations/UserPushTokenTable
 import { DropCivicEngagementTables1710000000023 } from "./migrations/DropCivicEngagementTables1710000000023";
 import { AddSpatialAndCompoundIndexes1710000000024 } from "./migrations/AddSpatialAndCompoundIndexes1710000000024";
 import { AddGamificationFields1710000000025 } from "./migrations/AddGamificationFields1710000000025";
+import { AddExternalEventFields1710000000026 } from "./migrations/AddExternalEventFields1710000000026";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -71,6 +72,7 @@ const AppDataSource = new DataSource({
     DropCivicEngagementTables1710000000023,
     AddSpatialAndCompoundIndexes1710000000024,
     AddGamificationFields1710000000025,
+    AddExternalEventFields1710000000026,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

@@ -4,7 +4,10 @@ import type { JobNotificationService } from "../JobNotificationService";
 
 // --- Types ---
 
-export type JobType = "process_flyer" | "cleanup_outdated_events";
+export type JobType =
+  | "process_flyer"
+  | "cleanup_outdated_events"
+  | "import_external_events";
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
 export interface PipelineStep<TStepId extends string> {
@@ -77,6 +80,18 @@ export const CLEANUP_PIPELINE = definePipeline<CleanupStepId>(
     { id: "query", label: "Finding outdated events", weight: 1 },
     { id: "delete", label: "Removing events", weight: 1 },
     { id: "notify", label: "Sending notifications", weight: 1 },
+  ],
+);
+
+export type ImportStepId = "fetch" | "deduplicate" | "create" | "notify";
+
+export const IMPORT_PIPELINE = definePipeline<ImportStepId>(
+  "import_external_events",
+  [
+    { id: "fetch", label: "Fetching external events", weight: 2 },
+    { id: "deduplicate", label: "Checking for duplicates", weight: 1 },
+    { id: "create", label: "Importing events", weight: 4 },
+    { id: "notify", label: "Completing import", weight: 1 },
   ],
 );
 

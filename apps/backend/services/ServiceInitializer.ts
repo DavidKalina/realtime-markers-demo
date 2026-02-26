@@ -38,6 +38,10 @@ import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import type { GamificationService } from "./GamificationService";
 import { createAreaScanService } from "./AreaScanService";
 import type { AreaScanService } from "./AreaScanService";
+import {
+  createTicketmasterService,
+  type TicketmasterService,
+} from "./TicketmasterService";
 
 export interface ServiceContainer {
   eventService: EventService;
@@ -54,6 +58,7 @@ export interface ServiceContainer {
   geocodingService: GoogleGeocodingService;
   gamificationService: GamificationService;
   areaScanService: AreaScanService;
+  ticketmasterService: TicketmasterService | null;
 }
 
 export class ServiceInitializer {
@@ -192,6 +197,16 @@ export class ServiceInitializer {
       redisService,
     });
 
+    // Conditionally create TicketmasterService (opt-in via env var)
+    const ticketmasterApiKey = process.env.TICKETMASTER_API_KEY;
+    const ticketmasterService = ticketmasterApiKey
+      ? createTicketmasterService({ apiKey: ticketmasterApiKey })
+      : null;
+
+    if (ticketmasterService) {
+      console.log("TicketmasterService enabled for event import");
+    }
+
     console.log("Services initialized successfully");
 
     return {
@@ -209,6 +224,7 @@ export class ServiceInitializer {
       geocodingService,
       gamificationService,
       areaScanService,
+      ticketmasterService,
     };
   }
 
@@ -244,5 +260,66 @@ export class ServiceInitializer {
         lastRunDate = today;
       }
     }, 60 * 1000);
+  }
+
+  setupEventImportSchedule(jobQueue: JobQueue): void {
+    // Entirely opt-in: skip if disabled or missing config
+    if (process.env.DISABLE_EVENT_IMPORT === "true") {
+      console.log(
+        "Event import disabled via DISABLE_EVENT_IMPORT environment variable",
+      );
+      return;
+    }
+
+    const apiKey = process.env.TICKETMASTER_API_KEY;
+    const latitude = process.env.IMPORT_LATITUDE;
+    const longitude = process.env.IMPORT_LONGITUDE;
+
+    if (!apiKey || !latitude || !longitude) {
+      console.log(
+        "Event import not configured (missing TICKETMASTER_API_KEY, IMPORT_LATITUDE, or IMPORT_LONGITUDE)",
+      );
+      return;
+    }
+
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+    if (isNaN(lat) || isNaN(lng)) {
+      console.error(
+        "Event import: invalid IMPORT_LATITUDE or IMPORT_LONGITUDE values",
+      );
+      return;
+    }
+
+    const radiusKm = parseInt(process.env.IMPORT_RADIUS_KM || "50");
+    const intervalHours = parseFloat(process.env.IMPORT_INTERVAL_HOURS || "6");
+    const intervalMs = intervalHours * 60 * 60 * 1000;
+    let lastImportTime = 0;
+
+    console.log(
+      `Setting up event import schedule: lat=${lat}, lng=${lng}, radius=${radiusKm}km, interval=${intervalHours}h`,
+    );
+
+    const enqueueImport = () => {
+      const now = Date.now();
+      if (now - lastImportTime < intervalMs) return;
+      lastImportTime = now;
+
+      console.log("Enqueuing Ticketmaster event import job");
+      jobQueue.enqueue("import_external_events", {
+        latitude: lat,
+        longitude: lng,
+        radiusKm,
+      });
+    };
+
+    // Run once on startup after 30s delay (let services initialize)
+    setTimeout(() => {
+      console.log("Running initial Ticketmaster event import");
+      enqueueImport();
+    }, 30_000);
+
+    // Check every 5 minutes if interval has elapsed
+    setInterval(enqueueImport, 5 * 60 * 1000);
   }
 }
