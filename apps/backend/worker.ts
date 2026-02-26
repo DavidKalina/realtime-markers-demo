@@ -37,6 +37,7 @@ import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
 import { createEventCacheService } from "./services/shared/EventCacheService";
 import { createImageProcessingCacheService } from "./services/shared/ImageProcessingCacheService";
 import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
+import { createTicketmasterService } from "./services/TicketmasterService";
 
 // Constants
 const POLLING_INTERVAL = 1000; // 1 second
@@ -161,6 +162,16 @@ async function initializeWorker() {
   // Initialize storage service
   storageService = createStorageService();
 
+  // Conditionally create TicketmasterService (opt-in via env var)
+  const ticketmasterApiKey = process.env.TICKETMASTER_API_KEY;
+  const ticketmasterService = ticketmasterApiKey
+    ? createTicketmasterService({ apiKey: ticketmasterApiKey })
+    : null;
+
+  if (ticketmasterService) {
+    console.log("[Worker] TicketmasterService enabled");
+  }
+
   // Initialize job handler registry
   jobHandlerRegistry = new JobHandlerRegistry(
     eventProcessingService,
@@ -168,6 +179,9 @@ async function initializeWorker() {
     jobQueue,
     redisService,
     storageService,
+    ticketmasterService,
+    categoryProcessingService,
+    embeddingService,
   );
 
   console.log("Worker initialized successfully");

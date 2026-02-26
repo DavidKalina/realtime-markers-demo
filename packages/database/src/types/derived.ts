@@ -5,6 +5,7 @@ import {
   UserRole,
   Event,
   EventStatus,
+  EventSource,
   RecurrenceFrequency,
   DayOfWeek,
   Category,
@@ -448,4 +449,4 @@ export type EntityRelations<T> = {
 // ENUM EXPORTS
 // ============================================================================
 
-export { UserRole, EventStatus, RecurrenceFrequency, DayOfWeek };
+export { UserRole, EventStatus, EventSource, RecurrenceFrequency, DayOfWeek };

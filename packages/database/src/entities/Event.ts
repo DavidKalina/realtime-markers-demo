@@ -29,6 +29,11 @@ export enum EventStatus {
   EXPIRED = "EXPIRED",
 }
 
+export enum EventSource {
+  SCAN = "SCAN",
+  TICKETMASTER = "TICKETMASTER",
+}
+
 export enum RecurrenceFrequency {
   DAILY = "DAILY",
   WEEKLY = "WEEKLY",
@@ -127,6 +132,17 @@ export class Event {
 
   @Column({ name: "is_official", type: "boolean", default: false })
   isOfficial!: boolean;
+
+  @Column({
+    name: "source",
+    type: "enum",
+    enum: EventSource,
+    default: EventSource.SCAN,
+  })
+  source!: EventSource;
+
+  @Column({ name: "external_id", type: "varchar", nullable: true })
+  externalId?: string;
 
   @Column({ name: "qr_generated_at", type: "timestamptz", nullable: true })
   qrGeneratedAt?: Date;

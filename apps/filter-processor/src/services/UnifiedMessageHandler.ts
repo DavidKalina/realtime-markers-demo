@@ -349,19 +349,11 @@ export class UnifiedMessageHandler {
 
       const event = data as Event;
 
-      if (!event.id || !event.title || !event.location || !event.creatorId) {
+      if (!event.id || !event.title || !event.location) {
         throw new Error("Missing required event fields");
       }
 
-      if (
-        !(
-          event.id &&
-          event.title &&
-          event.location &&
-          event.creatorId &&
-          event.createdAt
-        )
-      ) {
+      if (!(event.id && event.title && event.location && event.createdAt)) {
         throw new Error(`Invalid entity data for type: ${entityType}`);
       }
 

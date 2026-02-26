@@ -262,6 +262,59 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           ) : null}
         </Animated.View>
 
+        {event.categories && event.categories.length > 0 && (
+          <Animated.View
+            entering={FadeInDown.duration(300).delay(240).springify()}
+          >
+            {/* Stacked bar */}
+            <View style={styles.dnaBar}>
+              {event.categories.map((category, index) => {
+                const palette = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+                return (
+                  <View
+                    key={category.id}
+                    style={[
+                      styles.dnaSegment,
+                      {
+                        flex: 1,
+                        backgroundColor: palette.text,
+                      },
+                      index === 0 && styles.dnaSegmentFirst,
+                      index === event.categories!.length - 1 &&
+                        styles.dnaSegmentLast,
+                    ]}
+                  />
+                );
+              })}
+            </View>
+            {/* Dot legend */}
+            <View style={styles.dnaLegend}>
+              {event.categories.map((category, index) => {
+                const palette = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+                return (
+                  <TouchableOpacity
+                    key={category.id}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      router.push(`/category/${category.id}`);
+                    }}
+                    style={styles.dnaLegendItem}
+                    activeOpacity={0.7}
+                  >
+                    <View
+                      style={[
+                        styles.dnaLegendDot,
+                        { backgroundColor: palette.text },
+                      ]}
+                    />
+                    <Text style={styles.dnaLegendText}>{category.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Animated.View>
+        )}
+
         <View style={styles.detailsSection}>
           {/* Location — simple tappable row */}
           <Animated.View
@@ -304,60 +357,6 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           )}
 
           {/* Categories — DNA bar */}
-          {event.categories && event.categories.length > 0 && (
-            <Animated.View
-              entering={FadeInDown.duration(300).delay(240).springify()}
-            >
-              {/* Stacked bar */}
-              <View style={styles.dnaBar}>
-                {event.categories.map((category, index) => {
-                  const palette =
-                    CATEGORY_COLORS[index % CATEGORY_COLORS.length];
-                  return (
-                    <View
-                      key={category.id}
-                      style={[
-                        styles.dnaSegment,
-                        {
-                          flex: 1,
-                          backgroundColor: palette.text,
-                        },
-                        index === 0 && styles.dnaSegmentFirst,
-                        index === event.categories!.length - 1 &&
-                          styles.dnaSegmentLast,
-                      ]}
-                    />
-                  );
-                })}
-              </View>
-              {/* Dot legend */}
-              <View style={styles.dnaLegend}>
-                {event.categories.map((category, index) => {
-                  const palette =
-                    CATEGORY_COLORS[index % CATEGORY_COLORS.length];
-                  return (
-                    <TouchableOpacity
-                      key={category.id}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        router.push(`/category/${category.id}`);
-                      }}
-                      style={styles.dnaLegendItem}
-                      activeOpacity={0.7}
-                    >
-                      <View
-                        style={[
-                          styles.dnaLegendDot,
-                          { backgroundColor: palette.text },
-                        ]}
-                      />
-                      <Text style={styles.dnaLegendText}>{category.name}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </Animated.View>
-          )}
 
           {/* Recurring Schedule */}
           {event.isRecurring && (
