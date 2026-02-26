@@ -95,6 +95,11 @@ interface NearbyEventRow {
   isRecurring: boolean;
 }
 
+export interface AreaScanFilters {
+  dateRange?: { start: string; end: string };
+  categoryIds?: string[];
+}
+
 // --- Service ---
 
 export interface AreaScanService {
@@ -102,6 +107,7 @@ export interface AreaScanService {
     lat: number,
     lng: number,
     radius?: number,
+    filters?: AreaScanFilters,
   ): Promise<AreaScanResult>;
 }
 
@@ -129,10 +135,16 @@ class AreaScanServiceImpl implements AreaScanService {
     lat: number,
     lng: number,
     radius: number = RADIUS_METERS,
+    filters?: AreaScanFilters,
   ): Promise<AreaScanResult> {
     const geohash = encodeGeohash(lat, lng, 6);
     const hourBucket = Math.floor(Date.now() / (3600 * 1000));
-    const cacheKey = `area-scan:${geohash}:${hourBucket}:${radius}`;
+    const filterHash = filters
+      ? Buffer.from(JSON.stringify(filters)).toString("base64url").slice(0, 12)
+      : "";
+    const cacheKey = filterHash
+      ? `area-scan:${geohash}:${hourBucket}:${radius}:${filterHash}`
+      : `area-scan:${geohash}:${hourBucket}:${radius}`;
 
     // Check cache
     const cached = await this.redisService.get<string>(cacheKey);
@@ -153,7 +165,7 @@ class AreaScanServiceImpl implements AreaScanService {
     }
 
     // Query nearby events
-    const events = await this.queryNearbyEvents(lat, lng, radius);
+    const events = await this.queryNearbyEvents(lat, lng, radius, filters);
 
     // Compute zone stats (without zone name — LLM will generate it)
     const zoneStats = this.computeZoneStats(events);
@@ -174,6 +186,7 @@ class AreaScanServiceImpl implements AreaScanService {
       lat,
       lng,
       radius,
+      filters,
     );
 
     const completion = await this.openAIService.executeChatCompletion({
@@ -212,10 +225,11 @@ class AreaScanServiceImpl implements AreaScanService {
     lat: number,
     lng: number,
     radius: number,
+    filters?: AreaScanFilters,
   ): Promise<NearbyEventRow[]> {
     const eventRepository = this.dataSource.getRepository(Event);
 
-    const rows: NearbyEventRow[] = await eventRepository
+    const qb = eventRepository
       .createQueryBuilder("event")
       .leftJoinAndSelect("event.categories", "category")
       .addSelect(
@@ -235,7 +249,25 @@ class AreaScanServiceImpl implements AreaScanService {
       )
       .andWhere("event.status IN (:...statuses)", {
         statuses: ["VERIFIED", "PENDING"],
-      })
+      });
+
+    if (filters?.dateRange?.start) {
+      qb.andWhere("event.eventDate >= :startDate", {
+        startDate: new Date(filters.dateRange.start + "T00:00:00.000Z"),
+      });
+    }
+    if (filters?.dateRange?.end) {
+      qb.andWhere("event.eventDate <= :endDate", {
+        endDate: new Date(filters.dateRange.end + "T23:59:59.999Z"),
+      });
+    }
+    if (filters?.categoryIds?.length) {
+      qb.andWhere("category.id IN (:...categoryIds)", {
+        categoryIds: filters.categoryIds,
+      });
+    }
+
+    const rows: NearbyEventRow[] = await qb
       .orderBy("distance", "ASC")
       .limit(MAX_EVENTS)
       .getRawAndEntities()
@@ -351,6 +383,7 @@ class AreaScanServiceImpl implements AreaScanService {
     lat: number,
     lng: number,
     radius: number,
+    filters?: AreaScanFilters,
   ): {
     systemPrompt: string;
     userPrompt: string;
@@ -382,9 +415,17 @@ vibe: One vivid sentence, max 18 words. Capture what it FEELS like to stand here
     else if (morning > 0 || afternoon > 0) timeParts.push("daytime energy");
     const timeHint = timeParts.length > 0 ? ` ${timeParts.join(", ")}.` : "";
 
+    let filterHint = "";
+    if (filters?.dateRange) {
+      filterHint += ` Filtered to: ${filters.dateRange.start} through ${filters.dateRange.end}.`;
+    }
+    if (filters?.categoryIds?.length) {
+      filterHint += ` Category filter active (${filters.categoryIds.length} selected).`;
+    }
+
     return {
       systemPrompt,
-      userPrompt: `Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)}. Scan radius: ${radiusLabel}. ${zoneStats.eventCount} events found. Mix: ${catSummary}.${timeHint}`,
+      userPrompt: `Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)}. Scan radius: ${radiusLabel}. ${zoneStats.eventCount} events found. Mix: ${catSummary}.${timeHint}${filterHint}`,
     };
   }
 }

@@ -1,15 +1,21 @@
 import { streamSSE } from "hono/streaming";
 import type { Context } from "hono";
 import type { AppContext } from "../types/context";
+import type { AreaScanFilters } from "../services/AreaScanService";
 
 export const areaScanHandler = async (c: Context<AppContext>) => {
   const body = await c.req.json<{
     lat: number;
     lng: number;
     radius?: number;
+    filters?: {
+      dateRange?: { start: string; end: string };
+      categoryIds?: string[];
+    };
   }>();
   const { lat, lng } = body;
   const radius = Math.min(body.radius ?? 2000, 15000);
+  const filters: AreaScanFilters | undefined = body.filters;
 
   if (
     typeof lat !== "number" ||
@@ -28,7 +34,12 @@ export const areaScanHandler = async (c: Context<AppContext>) => {
   const areaScanService = c.get("areaScanService");
   const redisService = c.get("redisService");
 
-  const result = await areaScanService.getAreaProfile(lat, lng, radius);
+  const result = await areaScanService.getAreaProfile(
+    lat,
+    lng,
+    radius,
+    filters,
+  );
 
   return streamSSE(c, async (stream) => {
     try {
@@ -46,7 +57,14 @@ export const areaScanHandler = async (c: Context<AppContext>) => {
       if (!result.cached) {
         const geohash = encodeGeohashSimple(lat, lng);
         const hourBucket = Math.floor(Date.now() / (3600 * 1000));
-        const cacheKey = `area-scan:${geohash}:${hourBucket}:${radius}`;
+        const filterHash = filters
+          ? Buffer.from(JSON.stringify(filters))
+              .toString("base64url")
+              .slice(0, 12)
+          : "";
+        const cacheKey = filterHash
+          ? `area-scan:${geohash}:${hourBucket}:${radius}:${filterHash}`
+          : `area-scan:${geohash}:${hourBucket}:${radius}`;
         await redisService.set(
           cacheKey,
           JSON.stringify({
