@@ -42,6 +42,8 @@ import {
   createTicketmasterService,
   type TicketmasterService,
 } from "./TicketmasterService";
+import { createVibeTagService } from "./VibeTagService";
+import type { VibeTagService } from "./VibeTagService";
 
 export interface ServiceContainer {
   eventService: EventService;
@@ -58,6 +60,7 @@ export interface ServiceContainer {
   geocodingService: GoogleGeocodingService;
   gamificationService: GamificationService;
   areaScanService: AreaScanService;
+  vibeTagService: VibeTagService;
   ticketmasterService: TicketmasterService | null;
 }
 
@@ -197,6 +200,10 @@ export class ServiceInitializer {
       redisService,
     });
 
+    const vibeTagService = createVibeTagService({
+      dataSource: this.dataSource,
+    });
+
     // Conditionally create TicketmasterService (opt-in via env var)
     const ticketmasterApiKey = process.env.TICKETMASTER_API_KEY;
     const ticketmasterService = ticketmasterApiKey
@@ -224,6 +231,7 @@ export class ServiceInitializer {
       geocodingService,
       gamificationService,
       areaScanService,
+      vibeTagService,
       ticketmasterService,
     };
   }

@@ -141,6 +141,8 @@ export type UserProfile = Pick<
   | "viewCount"
   | "totalXp"
   | "currentTier"
+  | "currentStreak"
+  | "longestStreak"
 >;
 
 export type UserStats = Pick<

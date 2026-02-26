@@ -174,6 +174,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 </Text>
                 <Text style={styles.statLabel}>Events Saved</Text>
               </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {profileData?.currentStreak || 0}
+                </Text>
+                <Text style={styles.statLabel}>Day Streak</Text>
+              </View>
             </View>
           </View>
 

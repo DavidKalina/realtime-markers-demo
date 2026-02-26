@@ -16,7 +16,11 @@ import {
   radius,
   duration,
 } from "@/theme";
-import { EventType, DiscoveredEventType, TrendingEventType } from "@/types/types";
+import {
+  EventType,
+  DiscoveredEventType,
+  TrendingEventType,
+} from "@/types/types";
 import ShimmerView from "@/components/Layout/ShimmerView";
 import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
 import PopularCategoriesSection from "./PopularCategoriesSection";
@@ -24,6 +28,9 @@ import JustDiscoveredSection from "./JustDiscoveredSection";
 import TrendingEventsSection from "./TrendingEventsSection";
 import CommunityEventsSection from "./CommunityEventsSection";
 import UpcomingEventsSection from "./UpcomingEventsSection";
+import TonightSection from "./TonightSection";
+import ThisWeekendSection from "./ThisWeekendSection";
+import NeighborhoodActivitySection from "./NeighborhoodActivitySection";
 
 interface Category {
   id: string;
@@ -39,6 +46,8 @@ interface LandingPageData {
   justDiscoveredEvents?: DiscoveredEventType[];
   trendingEvents?: TrendingEventType[];
   popularCategories?: Category[];
+  tonightEvents?: EventType[];
+  thisWeekendEvents?: EventType[];
 }
 
 interface LandingPageContentProps {
@@ -155,14 +164,30 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
         <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
       }
     >
-      <Animated.View entering={FadeInDown.duration(duration.normal).delay(0)}>
+      {/* Tonight — time-sensitive, shown first when available */}
+      {data?.tonightEvents && data.tonightEvents.length > 0 && (
+        <Animated.View entering={FadeInDown.duration(duration.normal).delay(0)}>
+          <TonightSection events={data.tonightEvents} />
+        </Animated.View>
+      )}
+
+      {/* This Weekend — shown when available */}
+      {data?.thisWeekendEvents && data.thisWeekendEvents.length > 0 && (
+        <Animated.View
+          entering={FadeInDown.duration(duration.normal).delay(60)}
+        >
+          <ThisWeekendSection events={data.thisWeekendEvents} />
+        </Animated.View>
+      )}
+
+      <Animated.View entering={FadeInDown.duration(duration.normal).delay(120)}>
         <FeaturedEventsCarousel
           events={data?.featuredEvents || []}
           isLoading={false}
         />
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.duration(duration.normal).delay(120)}>
+      <Animated.View entering={FadeInDown.duration(duration.normal).delay(180)}>
         <PopularCategoriesSection
           categories={data?.popularCategories || []}
           isLoading={false}
@@ -182,6 +207,10 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
           events={data?.communityEvents || []}
           isLoading={false}
         />
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.duration(duration.normal).delay(540)}>
+        <NeighborhoodActivitySection />
       </Animated.View>
 
       <Animated.View entering={FadeInDown.duration(duration.normal).delay(600)}>

@@ -23,6 +23,7 @@ export function setupContext(
     c.set("categoryProcessingService", services.categoryProcessingService);
     c.set("emailService", services.emailService);
     c.set("areaScanService", services.areaScanService);
+    c.set("vibeTagService", services.vibeTagService);
     await next();
   });
 }

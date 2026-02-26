@@ -149,11 +149,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const unsubXP = eventBroker.on<XPAwardedEvent>(
       EventTypes.XP_AWARDED,
       (event) => {
-        // The event payload includes totalXp from the server
-        const totalXp = (event.data as unknown as { totalXp?: number })
-          ?.totalXp;
-        if (totalXp != null) {
-          setUser((prev) => (prev ? { ...prev, totalXp } : prev));
+        if (event.data?.totalXp != null) {
+          setUser((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  totalXp: event.data.totalXp,
+                  currentTier: event.data.title || prev.currentTier,
+                }
+              : prev,
+          );
           invalidateProfileCache();
         }
       },
@@ -162,14 +167,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       EventTypes.LEVEL_UPDATE,
       (event) => {
         if (event.data?.action === "level_up" && event.data?.title) {
-          const totalXp = (event.data as unknown as { totalXp?: number })
-            ?.totalXp;
           setUser((prev) =>
             prev
               ? {
                   ...prev,
                   currentTier: event.data.title,
-                  ...(totalXp != null ? { totalXp } : {}),
+                  totalXp: event.data.totalXp ?? prev.totalXp,
                 }
               : prev,
           );

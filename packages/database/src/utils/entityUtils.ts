@@ -15,6 +15,7 @@ const ENTITY_TO_TABLE_MAPPING: Record<string, string> = {
   UserEventRsvp: "user_event_rsvps",
   UserEventSave: "user_event_saves",
   UserPushToken: "user_push_tokens",
+  EventVibeTag: "event_vibe_tags",
 };
 
 /**

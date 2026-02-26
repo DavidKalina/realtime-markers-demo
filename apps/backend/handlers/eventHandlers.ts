@@ -2,7 +2,7 @@
 
 import { Buffer } from "buffer";
 import type { CategoryProcessingService } from "../services/CategoryProcessingService";
-import { RsvpStatus } from "@realtime-markers/database";
+import { RsvpStatus, VibeTag } from "@realtime-markers/database";
 import {
   processEventFormData,
   validateEventData,
@@ -604,5 +604,69 @@ export const getLandingPageDataHandler: EventHandler = withErrorHandling(
     });
 
     return c.json(landingPageData);
+  },
+);
+
+export const getNeighborhoodActivityHandler: EventHandler = withErrorHandling(
+  async (c) => {
+    const userLat = c.req.query("lat");
+    const userLng = c.req.query("lng");
+    const limit = c.req.query("limit");
+    const user = requireAuth(c);
+
+    const eventService = getEventService(c);
+
+    const activity = await eventService.getNeighborhoodActivity({
+      userLat: userLat ? parseFloat(userLat) : undefined,
+      userLng: userLng ? parseFloat(userLng) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      excludeUserId: user.id,
+    });
+
+    return c.json({ activity });
+  },
+);
+
+// Vibe Tag handlers
+export const getVibeTagsHandler: EventHandler = withErrorHandling(async (c) => {
+  const eventId = requireParam(c, "id");
+  const user = c.get("user");
+  const vibeTagService = c.get("vibeTagService");
+
+  const tags = await vibeTagService.getTagsForEvent(eventId, user?.id);
+  return c.json({ tags });
+});
+
+export const addVibeTagHandler: EventHandler = withErrorHandling(async (c) => {
+  const eventId = requireParam(c, "id");
+  const user = requireAuth(c);
+  const tag = validateEnum(
+    await requireBodyField<string>(c, "tag"),
+    Object.values(VibeTag),
+    "tag",
+  ) as VibeTag;
+
+  const vibeTagService = c.get("vibeTagService");
+  await vibeTagService.addTag(user.id, eventId, tag);
+
+  const tags = await vibeTagService.getTagsForEvent(eventId, user.id);
+  return c.json({ tags });
+});
+
+export const removeVibeTagHandler: EventHandler = withErrorHandling(
+  async (c) => {
+    const eventId = requireParam(c, "id");
+    const user = requireAuth(c);
+    const tag = validateEnum(
+      requireParam(c, "tag"),
+      Object.values(VibeTag),
+      "tag",
+    ) as VibeTag;
+
+    const vibeTagService = c.get("vibeTagService");
+    await vibeTagService.removeTag(user.id, eventId, tag);
+
+    const tags = await vibeTagService.getTagsForEvent(eventId, user.id);
+    return c.json({ tags });
   },
 );

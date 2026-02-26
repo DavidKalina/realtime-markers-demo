@@ -14,6 +14,7 @@ import {
   UserEventRsvp,
   UserEventSave,
   UserPushToken,
+  EventVibeTag,
 } from "@realtime-markers/database";
 
 // Import all migrations explicitly
@@ -36,6 +37,8 @@ import { DropCivicEngagementTables1710000000023 } from "./migrations/DropCivicEn
 import { AddSpatialAndCompoundIndexes1710000000024 } from "./migrations/AddSpatialAndCompoundIndexes1710000000024";
 import { AddGamificationFields1710000000025 } from "./migrations/AddGamificationFields1710000000025";
 import { AddExternalEventFields1710000000026 } from "./migrations/AddExternalEventFields1710000000026";
+import { AddStreakFields1710000000027 } from "./migrations/AddStreakFields1710000000027";
+import { EventVibeTagTable1710000000028 } from "./migrations/EventVibeTagTable1710000000028";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -52,6 +55,7 @@ const AppDataSource = new DataSource({
     UserEventRsvp,
     UserEventSave,
     UserPushToken,
+    EventVibeTag,
   ],
   migrations: [
     CategoryTable1710000000000,
@@ -73,6 +77,8 @@ const AppDataSource = new DataSource({
     AddSpatialAndCompoundIndexes1710000000024,
     AddGamificationFields1710000000025,
     AddExternalEventFields1710000000026,
+    AddStreakFields1710000000027,
+    EventVibeTagTable1710000000028,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

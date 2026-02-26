@@ -1,5 +1,11 @@
 import React from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
 import Animated, { FadeInRight } from "react-native-reanimated";
 import {
   colors,
@@ -26,8 +32,7 @@ interface PopularCategoriesSectionProps {
 
 const CARD_WIDTH = 160;
 
-const titleCase = (str: string) =>
-  str.replace(/\b\w/g, (c) => c.toUpperCase());
+const titleCase = (str: string) => str.replace(/\b\w/g, (c) => c.toUpperCase());
 
 const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
   categories,

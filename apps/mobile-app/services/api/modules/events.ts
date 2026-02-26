@@ -12,7 +12,11 @@ import {
   RsvpStatus,
   UpdateEventPayload,
 } from "../base/types";
-import { EventType, DiscoveredEventType, TrendingEventType } from "@/types/types";
+import {
+  EventType,
+  DiscoveredEventType,
+  TrendingEventType,
+} from "@/types/types";
 import { File, Paths } from "expo-file-system";
 import {
   mapEventToEventType,
@@ -255,6 +259,8 @@ export class EventApiClient extends BaseApiModule {
     communityEvents: EventType[];
     justDiscoveredEvents: DiscoveredEventType[];
     trendingEvents: TrendingEventType[];
+    tonightEvents: EventType[];
+    thisWeekendEvents: EventType[];
     popularCategories: Array<{
       id: string;
       name: string;
@@ -289,6 +295,8 @@ export class EventApiClient extends BaseApiModule {
         isTrending?: boolean;
         trendingScore?: number;
       })[];
+      tonightEvents?: ApiEvent[];
+      thisWeekendEvents?: ApiEvent[];
       popularCategories: Array<{
         id: string;
         name: string;
@@ -314,6 +322,10 @@ export class EventApiClient extends BaseApiModule {
         mapDiscoveredEventToType,
       ),
       trendingEvents: (data.trendingEvents || []).map(mapTrendingEventToType),
+      tonightEvents: (data.tonightEvents || []).map(mapEventToEventType),
+      thisWeekendEvents: (data.thisWeekendEvents || []).map(
+        mapEventToEventType,
+      ),
       popularCategories: data.popularCategories.map((cat) => ({
         ...cat,
         eventCount: cat.eventCount ?? undefined,
@@ -616,5 +628,95 @@ export class EventApiClient extends BaseApiModule {
       console.error("Error fetching event image:", error);
       throw error;
     }
+  }
+
+  // Vibe Tag methods
+  async getVibeTags(eventId: string): Promise<{
+    tags: Array<{ tag: string; count: number; userHasTagged: boolean }>;
+  }> {
+    const url = `${this.client.baseUrl}/api/events/${eventId}/vibe-tags`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{
+      tags: Array<{ tag: string; count: number; userHasTagged: boolean }>;
+    }>(response);
+  }
+
+  async addVibeTag(
+    eventId: string,
+    tag: string,
+  ): Promise<{
+    tags: Array<{ tag: string; count: number; userHasTagged: boolean }>;
+  }> {
+    const url = `${this.client.baseUrl}/api/events/${eventId}/vibe-tags`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ tag }),
+    });
+    return this.handleResponse<{
+      tags: Array<{ tag: string; count: number; userHasTagged: boolean }>;
+    }>(response);
+  }
+
+  async removeVibeTag(
+    eventId: string,
+    tag: string,
+  ): Promise<{
+    tags: Array<{ tag: string; count: number; userHasTagged: boolean }>;
+  }> {
+    const url = `${this.client.baseUrl}/api/events/${eventId}/vibe-tags/${tag}`;
+    const response = await this.fetchWithAuth(url, {
+      method: "DELETE",
+    });
+    return this.handleResponse<{
+      tags: Array<{ tag: string; count: number; userHasTagged: boolean }>;
+    }>(response);
+  }
+
+  // Neighborhood Activity
+  async getNeighborhoodActivity(
+    params: {
+      userLat?: number;
+      userLng?: number;
+      limit?: number;
+    } = {},
+  ): Promise<{
+    activity: Array<{
+      type: "discovery" | "trending";
+      event: ApiEvent & {
+        discoverer?: {
+          id: string;
+          firstName?: string;
+          avatarUrl?: string;
+          currentTier?: string;
+        };
+      };
+      timestamp: string;
+      metadata?: Record<string, unknown>;
+    }>;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params.userLat !== undefined)
+      queryParams.append("lat", params.userLat.toString());
+    if (params.userLng !== undefined)
+      queryParams.append("lng", params.userLng.toString());
+    if (params.limit) queryParams.append("limit", params.limit.toString());
+
+    const url = `${this.client.baseUrl}/api/events/activity?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{
+      activity: Array<{
+        type: "discovery" | "trending";
+        event: ApiEvent & {
+          discoverer?: {
+            id: string;
+            firstName?: string;
+            avatarUrl?: string;
+            currentTier?: string;
+          };
+        };
+        timestamp: string;
+        metadata?: Record<string, unknown>;
+      }>;
+    }>(response);
   }
 }

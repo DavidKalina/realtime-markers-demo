@@ -240,6 +240,9 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
               <Text style={styles.emojiText}>{event.data.emoji}</Text>
             </View>
 
+            {/* Trending dot */}
+            {event.data.isTrending && <View style={styles.trendingDot} />}
+
             {/* Impact ripple */}
             <Animated.View style={[styles.rippleEffect, rippleStyle]} />
           </Animated.View>
@@ -252,7 +255,8 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.isHighlighted === nextProps.isHighlighted &&
       prevProps.event.data.emoji === nextProps.event.data.emoji &&
-      prevProps.event.data.title === nextProps.event.data.title
+      prevProps.event.data.title === nextProps.event.data.title &&
+      prevProps.event.data.isTrending === nextProps.event.data.isTrending
     );
   },
 );
@@ -295,6 +299,17 @@ const styles = StyleSheet.create({
     lineHeight: lineHeight.tight,
     textAlign: "center",
     padding: 2,
+  },
+  trendingDot: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#f59e0b",
+    borderWidth: 1.5,
+    borderColor: "#1a1a2e",
   },
   rippleEffect: {
     position: "absolute",

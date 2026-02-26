@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/services/ApiClient";
-import { EventType, DiscoveredEventType, TrendingEventType } from "@/types/types";
+import {
+  EventType,
+  DiscoveredEventType,
+  TrendingEventType,
+} from "@/types/types";
 
 interface Category {
   id: string;

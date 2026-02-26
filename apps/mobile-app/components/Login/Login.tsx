@@ -505,7 +505,6 @@ const Login: React.FC = () => {
                     <Text style={styles.createAccountLink}>Create one</Text>
                   </TouchableOpacity>
                 </View>
-
               </Animated.View>
             </Animated.View>
           </Animated.View>

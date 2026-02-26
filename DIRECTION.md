@@ -38,18 +38,20 @@ Every city has thousands of events that never touch Eventbrite or Facebook. Flye
 
 ## Monetization Strategy
 
-**Users are the engine. Organizations are the customer.**
+**Users are the engine. Organizations are the customer. Build the audience first, then sell access to it.**
 
 The consumer paywall model (charging per scan, gating features behind a subscription) is wrong for this product. Every friction point on scanning throttles your own network effect. The map gets valuable because people scan freely. Organizations — universities, venues, BIDs, corporate campuses — pay because they want to be visible, branded, and measured on the map that users are already populating.
 
+Monetization is deliberately sequenced last (Phase 3). Engagement and social features come first to build a retained, active user base — the thing that makes org subscriptions valuable. Charging orgs before the audience exists means selling an empty room.
+
 ### Pricing Tiers
 
-| Tier | Price | What You Get |
-| --- | --- | --- |
-| **Community** | Free | Claim your org, basic profile, events appear on map via user scans |
-| **Verified Org** | ~$99/mo | Verified badge, org page, event analytics (views, saves, RSVPs), custom category filters |
-| **Featured** | ~$299/mo | Promoted placement in discovery feeds, branded map markers, push notification inclusion for nearby users, shareable event pages with org branding |
-| **Enterprise** | ~$499+/mo | API access, multi-location support, dedicated analytics dashboard, bulk event upload, co-branded campus/district map view |
+| Tier             | Price     | What You Get                                                                                                                                      |
+| ---------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Community**    | Free      | Claim your org, basic profile, events appear on map via user scans                                                                                |
+| **Verified Org** | ~$99/mo   | Verified badge, org page, event analytics (views, saves, RSVPs), custom category filters                                                          |
+| **Featured**     | ~$299/mo  | Promoted placement in discovery feeds, branded map markers, push notification inclusion for nearby users, shareable event pages with org branding |
+| **Enterprise**   | ~$499+/mo | API access, multi-location support, dedicated analytics dashboard, bulk event upload, co-branded campus/district map view                         |
 
 ### Why Not Consumer Paywall
 
@@ -87,45 +89,9 @@ Free pilot → show analytics → convert to paid. No cold outreach needed initi
 
 ## What to Build Next
 
-### Phase 1: Organization Platform (Unlocks Revenue)
+### Phase 1: User Engagement Engine (Unlocks Retention)
 
-This is the monetization foundation. Nothing generates revenue until orgs can onboard, see value, and pay.
-
-**Organization entity + onboarding flow:**
-
-- New `Organization` entity (name, logo, description, verified status, subscription tier)
-- Claim flow: org signs up via web dashboard, links to existing events already on the map
-- Org profile page (web + mobile) showing all their events, bio, social links
-
-**Branded event badges + custom org filters:**
-
-- Events linked to a verified org show the org badge on the map marker
-- Mobile filter: "Show me only [University Name] events" or "Show me Featured orgs"
-- Org-specific category tagging (e.g., a venue can tag events as "21+", "free entry")
-
-**Organization analytics dashboard:**
-
-- Views, saves, RSVPs per event over time
-- Heat map of where viewers are located
-- Comparison across events ("Your open mic gets 3x more saves than your trivia night")
-- Exportable reports (PDF/CSV)
-
-**Shareable event web pages:**
-
-- Every event gets a clean public URL with Open Graph tags
-- Org-branded pages for verified organizations
-- "X people going" social proof + app download CTA
-- Rich previews on iMessage, Instagram, Twitter, Slack
-
-**Stripe integration for org subscriptions:**
-
-- Self-serve upgrade flow in web dashboard
-- Monthly billing with tier-based feature gating
-- Usage-based upsell triggers ("You've hit 50 events this month — upgrade for promoted placement")
-
-### Phase 2: User Engagement Engine (Unlocks Retention)
-
-Users scan for free, but they stay because it's fun. This phase builds the habit loops.
+Users scan for free, but they stay because it's fun. This phase builds the habit loops that make the map worth coming back to — and creates the audience that makes everything else possible.
 
 **Gamification system:**
 
@@ -174,7 +140,7 @@ Feed items:
 
 Implementation: New screen or section within search landing page. Pulls from `UserEventDiscovery` records, aggregated by geography and time.
 
-### Phase 3: Social & Community (Unlocks Virality)
+### Phase 2: Social & Community (Unlocks Virality)
 
 The features that turn individual users into groups and groups into community.
 
@@ -219,6 +185,42 @@ Tap-to-add tags instead of comments (comments kill small communities):
 - "Loud"
 - "Chill"
 
+### Phase 3: Organization Platform (Unlocks Revenue)
+
+With an engaged, retained user base and social dynamics driving virality, the map has an audience worth selling access to.
+
+**Organization entity + onboarding flow:**
+
+- New `Organization` entity (name, logo, description, verified status, subscription tier)
+- Claim flow: org signs up via web dashboard, links to existing events already on the map
+- Org profile page (web + mobile) showing all their events, bio, social links
+
+**Branded event badges + custom org filters:**
+
+- Events linked to a verified org show the org badge on the map marker
+- Mobile filter: "Show me only [University Name] events" or "Show me Featured orgs"
+- Org-specific category tagging (e.g., a venue can tag events as "21+", "free entry")
+
+**Organization analytics dashboard:**
+
+- Views, saves, RSVPs per event over time
+- Heat map of where viewers are located
+- Comparison across events ("Your open mic gets 3x more saves than your trivia night")
+- Exportable reports (PDF/CSV)
+
+**Shareable event web pages:**
+
+- Every event gets a clean public URL with Open Graph tags
+- Org-branded pages for verified organizations
+- "X people going" social proof + app download CTA
+- Rich previews on iMessage, Instagram, Twitter, Slack
+
+**Stripe integration for org subscriptions:**
+
+- Self-serve upgrade flow in web dashboard
+- Monthly billing with tier-based feature gating
+- Usage-based upsell triggers ("You've hit 50 events this month — upgrade for promoted placement")
+
 ---
 
 ## The Flywheel
@@ -226,28 +228,30 @@ Tap-to-add tags instead of comments (comments kill small communities):
 ```
 Users scan flyers for free (XP incentive)
     → Map gets denser with events
-        → More users download (map is useful)
-            → Organizations see audience forming
-                → Organizations pay for branded presence + filters
-                    → Org events populate map (curated, high-quality)
-                        → Map gets even more valuable
-                            → (repeat)
+        → Engagement loops keep users coming back (streaks, leaderboards, challenges)
+            → Social features turn users into groups ("Going With", crews, vibe tags)
+                → More users download (map is useful + friends are there)
+                    → Organizations see engaged audience forming
+                        → Organizations pay for branded presence + analytics
+                            → Org events populate map (curated, high-quality)
+                                → Map gets even more valuable
+                                    → (repeat)
 ```
 
-The user side is the growth engine (free, gamified, social). The org side is the revenue engine (analytics, branding, promoted placement). Neither works without the other. Build the user side first (it's mostly built), then layer in the org platform.
+The engagement loop is the foundation — users scan, level up, and come back. The social layer amplifies it — users invite friends and form groups. The org platform monetizes it — organizations pay for access to the audience that engagement and social built. Build in that order.
 
 ---
 
 ## What to Simplify / Cut
 
-| Feature | Action | Reason |
-| --- | --- | --- |
-| Consumer paywall / scan limits | Remove entirely | Don't throttle your own network effect; revenue comes from B2B |
-| Date range calendar picker | Replace with Tonight / Weekend / This Week buttons | Over-engineered for how people plan |
-| Admin dashboard analytics (12-week trends, busiest times) | Repurpose for org-facing analytics | Same queries, different audience — make it a paid feature |
-| "Discovered" vs "My Events" tabs in Saved | Merge into single saved list | Confusing distinction for users |
-| Private events | Remove or hide | Adds complexity, unclear use case at this stage |
-| Map style selector (3 options) | Keep but move deeper in settings | Not a core interaction |
+| Feature                                                   | Action                                             | Reason                                                         |
+| --------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------- |
+| Consumer paywall / scan limits                            | Remove entirely                                    | Don't throttle your own network effect; revenue comes from B2B |
+| Date range calendar picker                                | Replace with Tonight / Weekend / This Week buttons | Over-engineered for how people plan                            |
+| Admin dashboard analytics (12-week trends, busiest times) | Repurpose for org-facing analytics                 | Same queries, different audience — make it a paid feature      |
+| "Discovered" vs "My Events" tabs in Saved                 | Merge into single saved list                       | Confusing distinction for users                                |
+| Private events                                            | Remove or hide                                     | Adds complexity, unclear use case at this stage                |
+| Map style selector (3 options)                            | Keep but move deeper in settings                   | Not a core interaction                                         |
 
 ---
 
@@ -259,7 +263,22 @@ The real-time infrastructure (Redis pub/sub, RBush spatial indexing, per-user vi
 
 ### What Needs Engineering Work
 
-**Phase 1 (Org Platform):**
+**Phase 1 (Engagement):**
+
+- **User entity:** Add XP, tier, streak fields
+- **New entities:** Challenge, Reaction/VibeTags
+- **New service:** GamificationService (XP calculation, tier promotion, challenge tracking)
+- **New service:** LeaderboardService (geo-scoped rankings)
+- **Discovery feed:** Aggregation queries on UserEventDiscovery by geography + time
+- **Push notifications:** Richer triggers (friend going, trending nearby, streak reminder)
+
+**Phase 2 (Social):**
+
+- **New entities:** Crew/Group, CrewMembership
+- **New service:** CrewService (formation, invites, recurring groups)
+- **Neighborhood Pulse:** Time-bucketed event queries, engagement velocity calculations
+
+**Phase 3 (Org Platform):**
 
 - **New entity:** `Organization` (name, logo, verified, tier, stripeCustomerId, stripeSubscriptionId)
 - **New entity:** `OrganizationMembership` (userId, orgId, role)
@@ -270,21 +289,6 @@ The real-time infrastructure (Redis pub/sub, RBush spatial indexing, per-user vi
 - **New service:** `OrganizationService` (CRUD, claim flow, verification)
 - **New service:** `OrgAnalyticsService` (views, saves, RSVPs aggregated per event/org)
 - **Web app:** Public event detail pages (shareable, SEO-friendly, OG tags)
-
-**Phase 2 (Engagement):**
-
-- **User entity:** Add XP, tier, streak fields
-- **New entities:** Challenge, Reaction/VibeTags
-- **New service:** GamificationService (XP calculation, tier promotion, challenge tracking)
-- **New service:** LeaderboardService (geo-scoped rankings)
-- **Discovery feed:** Aggregation queries on UserEventDiscovery by geography + time
-- **Push notifications:** Richer triggers (friend going, trending nearby, streak reminder)
-
-**Phase 3 (Social):**
-
-- **New entities:** Crew/Group, CrewMembership
-- **New service:** CrewService (formation, invites, recurring groups)
-- **Neighborhood Pulse:** Time-bucketed event queries, engagement velocity calculations
 
 ### Stack Strengths
 
@@ -303,6 +307,6 @@ The real-time infrastructure (Redis pub/sub, RBush spatial indexing, per-user vi
 
 **A local discovery tool powered by its community of scanners — and funded by the organizations they make visible.**
 
-Two sides, one map. Users scan because it's fun (XP, social, discovery). Organizations pay because the audience is already there (analytics, branding, reach). The map is the marketplace. The scan is the transaction. The third space is the outcome.
+The engagement loop is the foundation: users scan because it's fun (XP, streaks, leaderboards), they stay because it's social (crews, vibe tags, discovery feeds), and organizations pay because the audience is already there (analytics, branding, reach). Build retention first, virality second, revenue third. The map is the marketplace. The scan is the transaction. The third space is the outcome.
 
 _"A Third Space in Your Pocket."_

@@ -324,13 +324,12 @@ export function useMessageHandler({
                 : EventTypes.XP_AWARDED;
             try {
               eventBroker.emit<LevelUpdateEvent | XPAwardedEvent>(eventType, {
-                timestamp: data.data.timestamp || Date.now(),
+                timestamp:
+                  typeof data.data.timestamp === "number"
+                    ? data.data.timestamp
+                    : Date.now(),
                 source: "useMapWebSocket",
-                data: {
-                  ...data.data,
-                  xpProgress:
-                    data.type === MessageTypes.LEVEL_UPDATE ? 0 : undefined,
-                },
+                data: data.data,
               });
             } catch (e) {
               console.error(

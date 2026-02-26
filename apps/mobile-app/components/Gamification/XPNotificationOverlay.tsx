@@ -21,7 +21,7 @@ const XPNotificationOverlay: React.FC = () => {
   const handleXPAwarded = useCallback(
     (event: XPAwardedEvent) => {
       if (event.data?.amount) {
-        addXP(event.data.amount, event.data?.action || "unknown");
+        addXP(event.data.amount, event.data.action || "unknown");
       }
     },
     [addXP],

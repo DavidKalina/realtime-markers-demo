@@ -34,6 +34,7 @@ eventsRouter.get("/by-categories", handlers.getEventsByCategoriesHandler);
 eventsRouter.get("/category/:categoryId", handlers.getEventsByCategoryHandler);
 eventsRouter.get("/search", handlers.searchEventsHandler);
 eventsRouter.get("/landing", handlers.getLandingPageDataHandler);
+eventsRouter.get("/activity", handlers.getNeighborhoodActivityHandler);
 eventsRouter.post("/process", handlers.processEventImageHandler);
 eventsRouter.get("/process/:jobId", handlers.getProcessingStatusHandler);
 eventsRouter.post("/private", handlers.createPrivateEventHandler);
@@ -48,6 +49,9 @@ eventsRouter.get("/:id/rsvped", handlers.isEventRsvpedHandler);
 eventsRouter.get("/:id/saved", handlers.isEventSavedHandler);
 eventsRouter.get("/:id/engagement", handlers.getEventEngagementHandler);
 eventsRouter.post("/:id/view", handlers.trackEventViewHandler);
+eventsRouter.get("/:id/vibe-tags", handlers.getVibeTagsHandler);
+eventsRouter.post("/:id/vibe-tags", handlers.addVibeTagHandler);
+eventsRouter.delete("/:id/vibe-tags/:tag", handlers.removeVibeTagHandler);
 eventsRouter.get("/:id", handlers.getEventByIdHandler);
 
 // Root path should be last to avoid catching other routes

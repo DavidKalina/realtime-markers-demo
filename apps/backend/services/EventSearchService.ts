@@ -56,6 +56,8 @@ export interface EventSearchService {
     communityLimit?: number;
     discoveryLimit?: number;
     trendingLimit?: number;
+    tonightLimit?: number;
+    weekendLimit?: number;
     excludeUserId?: string;
     userLat?: number;
     userLng?: number;
@@ -69,7 +71,30 @@ export interface EventSearchService {
       discoverer?: { id: string; firstName?: string; avatarUrl?: string };
     })[];
     trendingEvents: (Event & { isTrending: true; trendingScore: number })[];
+    tonightEvents: Event[];
+    thisWeekendEvents: Event[];
   }>;
+
+  getNeighborhoodActivity(options?: {
+    limit?: number;
+    userLat?: number;
+    userLng?: number;
+    excludeUserId?: string;
+  }): Promise<ActivityItem[]>;
+}
+
+export interface ActivityItem {
+  type: "discovery" | "trending";
+  event: Event & {
+    discoverer?: {
+      id: string;
+      firstName?: string;
+      avatarUrl?: string;
+      currentTier?: string;
+    };
+  };
+  timestamp: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface EventSearchServiceDependencies {
@@ -583,6 +608,163 @@ export class EventSearchServiceImpl implements EventSearchService {
     }
   }
 
+  private async getTonightEvents(options: {
+    limit?: number;
+    userLat?: number;
+    userLng?: number;
+  }): Promise<Event[]> {
+    const { limit = 5, userLat, userLng } = options;
+
+    const now = new Date();
+    const endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const qb = this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("event.status IN (:...statuses)", {
+        statuses: ["VERIFIED", "PENDING"],
+      })
+      .andWhere("event.eventDate >= :now", { now: now.toISOString() })
+      .andWhere("event.eventDate <= :endOfDay", {
+        endOfDay: endOfDay.toISOString(),
+      })
+      .orderBy("event.eventDate", "ASC")
+      .limit(limit);
+
+    if (userLat && userLng) {
+      qb.addSelect(
+        `ST_Distance(
+          event.location::geography,
+          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+        )`,
+        "distance",
+      );
+      qb.setParameter("lat", userLat);
+      qb.setParameter("lng", userLng);
+      qb.addOrderBy("distance", "ASC");
+    }
+
+    return qb.getMany();
+  }
+
+  private async getThisWeekendEvents(options: {
+    limit?: number;
+    userLat?: number;
+    userLng?: number;
+  }): Promise<Event[]> {
+    const { limit = 8, userLat, userLng } = options;
+
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+
+    // Calculate weekend boundaries
+    let weekendStart: Date;
+    if (dayOfWeek === 5 || dayOfWeek === 6 || dayOfWeek === 0) {
+      // Already weekend — start from now
+      weekendStart = now;
+    } else {
+      // Next Friday 5PM
+      const daysUntilFriday = (5 - dayOfWeek + 7) % 7 || 7;
+      weekendStart = new Date(now);
+      weekendStart.setDate(now.getDate() + daysUntilFriday);
+      weekendStart.setHours(17, 0, 0, 0);
+    }
+
+    // Sunday midnight
+    const sundayOffset = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+    const weekendEnd = new Date(now);
+    weekendEnd.setDate(now.getDate() + sundayOffset);
+    weekendEnd.setHours(23, 59, 59, 999);
+
+    const qb = this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("event.status IN (:...statuses)", {
+        statuses: ["VERIFIED", "PENDING"],
+      })
+      .andWhere("event.eventDate >= :weekendStart", {
+        weekendStart: weekendStart.toISOString(),
+      })
+      .andWhere("event.eventDate <= :weekendEnd", {
+        weekendEnd: weekendEnd.toISOString(),
+      })
+      .orderBy("event.eventDate", "ASC")
+      .limit(limit);
+
+    if (userLat && userLng) {
+      qb.addSelect(
+        `ST_Distance(
+          event.location::geography,
+          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+        )`,
+        "distance",
+      );
+      qb.setParameter("lat", userLat);
+      qb.setParameter("lng", userLng);
+      qb.addOrderBy("distance", "ASC");
+    }
+
+    return qb.getMany();
+  }
+
+  async getNeighborhoodActivity(
+    options: {
+      limit?: number;
+      userLat?: number;
+      userLng?: number;
+      excludeUserId?: string;
+    } = {},
+  ): Promise<ActivityItem[]> {
+    const { limit = 10, userLat, userLng, excludeUserId } = options;
+
+    // Fetch recent discoveries and trending events in parallel
+    const [discovered, trending] = await Promise.all([
+      this.getJustDiscoveredEvents({
+        limit: Math.ceil(limit * 0.6),
+        excludeUserId,
+        userLat,
+        userLng,
+      }),
+      this.getTrendingEvents({
+        limit: Math.ceil(limit * 0.4),
+        userLat,
+        userLng,
+      }),
+    ]);
+
+    const items: ActivityItem[] = [];
+
+    for (const d of discovered) {
+      items.push({
+        type: "discovery",
+        event: d as ActivityItem["event"],
+        timestamp: (d as Event & { discoveredAt: string }).discoveredAt,
+      });
+    }
+
+    for (const t of trending) {
+      items.push({
+        type: "trending",
+        event: t as unknown as ActivityItem["event"],
+        timestamp: t.updatedAt?.toISOString?.() || new Date().toISOString(),
+        metadata: {
+          trendingScore: (t as Event & { trendingScore: number }).trendingScore,
+        },
+      });
+    }
+
+    // Sort by recency
+    items.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    );
+
+    return items.slice(0, limit);
+  }
+
   private async getTrendingEvents(options: {
     limit: number;
     threshold?: number;
@@ -730,6 +912,8 @@ export class EventSearchServiceImpl implements EventSearchService {
       communityLimit?: number;
       discoveryLimit?: number;
       trendingLimit?: number;
+      tonightLimit?: number;
+      weekendLimit?: number;
       excludeUserId?: string;
       userLat?: number;
       userLng?: number;
@@ -744,6 +928,8 @@ export class EventSearchServiceImpl implements EventSearchService {
       discoverer?: { id: string; firstName?: string; avatarUrl?: string };
     })[];
     trendingEvents: (Event & { isTrending: true; trendingScore: number })[];
+    tonightEvents: Event[];
+    thisWeekendEvents: Event[];
   }> {
     const {
       featuredLimit = 5,
@@ -751,6 +937,8 @@ export class EventSearchServiceImpl implements EventSearchService {
       communityLimit = 5,
       discoveryLimit = 8,
       trendingLimit = 5,
+      tonightLimit = 5,
+      weekendLimit = 8,
       excludeUserId,
       userLat,
       userLng,
@@ -778,6 +966,12 @@ export class EventSearchServiceImpl implements EventSearchService {
           isTrending: true;
           trendingScore: number;
         })[],
+        tonightEvents:
+          ((cachedResults as Record<string, unknown>)
+            .tonightEvents as Event[]) || [],
+        thisWeekendEvents:
+          ((cachedResults as Record<string, unknown>)
+            .thisWeekendEvents as Event[]) || [],
       };
     }
 
@@ -921,24 +1115,40 @@ export class EventSearchServiceImpl implements EventSearchService {
 
     console.log(`Found ${communityEvents.length} community events`);
 
-    // Just discovered events: recently scanned by other community members
-    const justDiscoveredEvents = await this.getJustDiscoveredEvents({
-      limit: discoveryLimit,
-      excludeUserId,
-      userLat,
-      userLng,
-    });
+    // Fetch discovery, trending, tonight, and weekend events in parallel
+    const [
+      justDiscoveredEvents,
+      trendingEvents,
+      tonightEvents,
+      thisWeekendEvents,
+    ] = await Promise.all([
+      this.getJustDiscoveredEvents({
+        limit: discoveryLimit,
+        excludeUserId,
+        userLat,
+        userLng,
+      }),
+      this.getTrendingEvents({
+        limit: trendingLimit,
+        userLat,
+        userLng,
+      }),
+      this.getTonightEvents({
+        limit: tonightLimit,
+        userLat,
+        userLng,
+      }),
+      this.getThisWeekendEvents({
+        limit: weekendLimit,
+        userLat,
+        userLng,
+      }),
+    ]);
 
     console.log(`Found ${justDiscoveredEvents.length} just discovered events`);
-
-    // Trending events: rapid recent engagement in last 24h
-    const trendingEvents = await this.getTrendingEvents({
-      limit: trendingLimit,
-      userLat,
-      userLng,
-    });
-
     console.log(`Found ${trendingEvents.length} trending events`);
+    console.log(`Found ${tonightEvents.length} tonight events`);
+    console.log(`Found ${thisWeekendEvents.length} this weekend events`);
 
     // Popular categories: from any events that passed filters
     // Over-fetch to have room after dedup, then filter overlapping names
@@ -994,6 +1204,8 @@ export class EventSearchServiceImpl implements EventSearchService {
       popularCategories: categories,
       justDiscoveredEvents,
       trendingEvents,
+      tonightEvents,
+      thisWeekendEvents,
     };
 
     console.log("Landing page result:", {
@@ -1003,6 +1215,8 @@ export class EventSearchServiceImpl implements EventSearchService {
       popularCategoriesCount: categories.length,
       justDiscoveredEventsCount: justDiscoveredEvents.length,
       trendingEventsCount: trendingEvents.length,
+      tonightEventsCount: tonightEvents.length,
+      thisWeekendEventsCount: thisWeekendEvents.length,
     });
 
     // Cache the results

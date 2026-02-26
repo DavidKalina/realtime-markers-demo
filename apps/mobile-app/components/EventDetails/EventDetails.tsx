@@ -32,6 +32,7 @@ import { useEventDetails } from "./useEventDetails";
 import { useEventEngagement } from "./useEventEngagement";
 import TierBadge from "../Gamification/TierBadge";
 import { CategoryPieChart } from "../AreaScan/AreaScanComponents";
+import VibeTagSection from "./VibeTagSection";
 
 interface EventDetailsProps {
   eventId: string;
@@ -408,6 +409,15 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             </Animated.View>
           )}
 
+          {/* Vibe Tags */}
+          <Animated.View
+            entering={FadeInDown.duration(300).delay(440).springify()}
+          >
+            <View style={styles.infoCard}>
+              <VibeTagSection eventId={event.id} />
+            </View>
+          </Animated.View>
+
           {/* QR Code — compact tappable row */}
           {qrUrl && (
             <Animated.View
@@ -445,26 +455,44 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             <Animated.View
               entering={FadeInDown.duration(300).delay(560).springify()}
             >
-              <View style={styles.infoCard}>
-                <SectionLabel title="Discovered by" icon={Scan} />
-                <View style={styles.discoveredByContent}>
-                  {event.creator?.currentTier && (
-                    <TierBadge tier={event.creator.currentTier} size="sm" />
-                  )}
-                  <Text style={styles.discoveredByText}>
-                    {(() => {
-                      if (event.creator?.firstName && event.creator?.lastName) {
-                        return `${event.creator.firstName} ${event.creator.lastName}`;
-                      } else if (event.creator?.firstName) {
-                        return event.creator.firstName;
-                      } else if (event.creator?.lastName) {
-                        return event.creator.lastName;
-                      }
-                      return "Anonymous User";
-                    })()}
-                  </Text>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              >
+                <View style={styles.infoCard}>
+                  <SectionLabel title="Discovered by" icon={Scan} />
+                  <View style={styles.discoveredByContent}>
+                    {event.creator?.currentTier && (
+                      <TierBadge tier={event.creator.currentTier} size="sm" />
+                    )}
+                    <View>
+                      <Text style={styles.discoveredByText}>
+                        {(() => {
+                          if (
+                            event.creator?.firstName &&
+                            event.creator?.lastName
+                          ) {
+                            return `${event.creator.firstName} ${event.creator.lastName}`;
+                          } else if (event.creator?.firstName) {
+                            return event.creator.firstName;
+                          } else if (event.creator?.lastName) {
+                            return event.creator.lastName;
+                          }
+                          return "Anonymous User";
+                        })()}
+                      </Text>
+                      {event.creator?.scanCount != null &&
+                        event.creator.scanCount > 0 && (
+                          <Text style={styles.discoveredByStats}>
+                            {event.creator.scanCount} events found
+                          </Text>
+                        )}
+                    </View>
+                  </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             </Animated.View>
           )}
         </View>

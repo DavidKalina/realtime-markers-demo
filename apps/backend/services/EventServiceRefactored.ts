@@ -115,6 +115,8 @@ export interface EventService {
     communityLimit?: number;
     discoveryLimit?: number;
     trendingLimit?: number;
+    tonightLimit?: number;
+    weekendLimit?: number;
     excludeUserId?: string;
     userLat?: number;
     userLng?: number;
@@ -128,7 +130,16 @@ export interface EventService {
       isTrending: true;
       trendingScore: number;
     })[];
+    tonightEvents: EventSummary[];
+    thisWeekendEvents: EventSummary[];
   }>;
+
+  getNeighborhoodActivity(options?: {
+    limit?: number;
+    userLat?: number;
+    userLng?: number;
+    excludeUserId?: string;
+  }): Promise<import("./EventSearchService").ActivityItem[]>;
 
   // User engagement operations
   toggleSaveEvent(
@@ -372,6 +383,8 @@ export class EventServiceRefactored implements EventService {
     communityLimit?: number;
     discoveryLimit?: number;
     trendingLimit?: number;
+    tonightLimit?: number;
+    weekendLimit?: number;
     excludeUserId?: string;
     userLat?: number;
     userLng?: number;
@@ -385,8 +398,19 @@ export class EventServiceRefactored implements EventService {
       isTrending: true;
       trendingScore: number;
     })[];
+    tonightEvents: EventSummary[];
+    thisWeekendEvents: EventSummary[];
   }> {
     return this.searchService.getLandingPageData(options);
+  }
+
+  async getNeighborhoodActivity(options?: {
+    limit?: number;
+    userLat?: number;
+    userLng?: number;
+    excludeUserId?: string;
+  }) {
+    return this.searchService.getNeighborhoodActivity(options);
   }
 
   // User engagement operations - delegate to UserEngagementService

@@ -199,7 +199,10 @@ export function createTicketmasterService(
         queryParams.set("startDateTime", startDateTime);
       } else {
         // Default: from now
-        queryParams.set("startDateTime", new Date().toISOString().split(".")[0] + "Z");
+        queryParams.set(
+          "startDateTime",
+          new Date().toISOString().split(".")[0] + "Z",
+        );
       }
 
       if (endDateTime) {

@@ -12,8 +12,14 @@ import {
   getXPProgressPercent,
   getNextTierThreshold,
 } from "@/utils/gamification";
-import React, { useMemo } from "react";
-import { StatusBar as RNStatusBar, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useRef, useMemo } from "react";
+import {
+  Animated,
+  StatusBar as RNStatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
 import JobIndicator from "../JobIndicator/JobIndicator";
@@ -21,6 +27,60 @@ import JobIndicator from "../JobIndicator/JobIndicator";
 const StatusBar: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+
+  const totalXp = user?.totalXp || 0;
+  const currentTier = user?.currentTier || "Explorer";
+  const tierInfo = getTierByName(currentTier);
+  const progressPercent = getXPProgressPercent(totalXp);
+  const nextThreshold = getNextTierThreshold(totalXp);
+
+  // Animated values for smooth XP bar transitions
+  const barWidth = useRef(new Animated.Value(progressPercent)).current;
+  const barGlow = useRef(new Animated.Value(0)).current;
+  const prevTierRef = useRef(currentTier);
+
+  // Animate XP bar width when progress changes
+  useEffect(() => {
+    Animated.timing(barWidth, {
+      toValue: progressPercent,
+      duration: 600,
+      useNativeDriver: false,
+    }).start();
+
+    // Brief glow pulse on XP gain
+    Animated.sequence([
+      Animated.timing(barGlow, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+      Animated.timing(barGlow, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [progressPercent]);
+
+  // Flash tier label on rank-up
+  useEffect(() => {
+    if (prevTierRef.current !== currentTier) {
+      prevTierRef.current = currentTier;
+      // Stronger glow on tier change
+      Animated.sequence([
+        Animated.timing(barGlow, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: false,
+        }),
+        Animated.timing(barGlow, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    }
+  }, [currentTier]);
 
   const containerStyle = useMemo(
     () => [
@@ -34,11 +94,17 @@ const StatusBar: React.FC = () => {
 
   const displayName = user?.firstName || user?.email || "";
 
-  const totalXp = user?.totalXp || 0;
-  const currentTier = user?.currentTier || "Explorer";
-  const tierInfo = getTierByName(currentTier);
-  const progressPercent = getXPProgressPercent(totalXp);
-  const nextThreshold = getNextTierThreshold(totalXp);
+  const animatedBarStyle = {
+    ...styles.xpBarFill,
+    width: barWidth.interpolate({
+      inputRange: [0, 100],
+      outputRange: ["0%", "100%"],
+    }),
+    backgroundColor: barGlow.interpolate({
+      inputRange: [0, 1],
+      outputRange: [colors.accent.primary, "#f59e0b"],
+    }),
+  };
 
   return (
     <View style={containerStyle}>
@@ -71,9 +137,7 @@ const StatusBar: React.FC = () => {
             </Text>
           </View>
           <View style={styles.xpBarBg}>
-            <View
-              style={[styles.xpBarFill, { width: `${progressPercent}%` }]}
-            />
+            <Animated.View style={animatedBarStyle} />
           </View>
         </View>
       )}

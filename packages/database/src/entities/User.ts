@@ -88,6 +88,15 @@ export class User {
   @Column({ name: "last_scan_reset", type: "timestamptz", nullable: true })
   lastScanReset?: Date;
 
+  @Column({ name: "current_streak", type: "integer", default: 0 })
+  currentStreak!: number;
+
+  @Column({ name: "longest_streak", type: "integer", default: 0 })
+  longestStreak!: number;
+
+  @Column({ name: "last_scan_date", type: "date", nullable: true })
+  lastScanDate?: Date;
+
   @Column({ name: "contacts", type: "jsonb", nullable: true })
   contacts?: {
     email?: string;

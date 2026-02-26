@@ -487,7 +487,54 @@ export class UserEngagementServiceImpl implements UserEngagementService {
           if (user) {
             // Increment the user's scan count
             user.scanCount = (user.scanCount || 0) + 1;
+
+            // Update streak tracking
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (user.lastScanDate) {
+              const lastScan = new Date(user.lastScanDate);
+              lastScan.setHours(0, 0, 0, 0);
+              const diffDays = Math.round(
+                (today.getTime() - lastScan.getTime()) / (1000 * 60 * 60 * 24),
+              );
+
+              if (diffDays === 1) {
+                // Yesterday — extend streak
+                user.currentStreak = (user.currentStreak || 0) + 1;
+              } else if (diffDays === 0) {
+                // Already scanned today — no streak change
+              } else {
+                // Gap > 1 day — reset streak
+                user.currentStreak = 1;
+              }
+            } else {
+              // First ever scan
+              user.currentStreak = 1;
+            }
+
+            user.longestStreak = Math.max(
+              user.currentStreak || 0,
+              user.longestStreak || 0,
+            );
+            user.lastScanDate = today;
+
             await transactionalEntityManager.save(user);
+
+            // Bonus XP for streaks >= 3
+            if ((user.currentStreak || 0) >= 3) {
+              const streakBonus = Math.min(user.currentStreak * 10, 100);
+              try {
+                await this.gamificationService.awardXP(
+                  userId,
+                  streakBonus,
+                  "streak_bonus",
+                  transactionalEntityManager,
+                );
+              } catch (error) {
+                console.error("Error awarding streak XP:", error);
+              }
+            }
           }
 
           // Get the event to update its scan count
@@ -811,10 +858,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
       .getMany();
 
     // Merge and deduplicate — keep the most recent interaction per event
-    const eventMap = new Map<
-      string,
-      { event: Event; interactedAt: Date }
-    >();
+    const eventMap = new Map<string, { event: Event; interactedAt: Date }>();
 
     for (const save of saves) {
       const existing = eventMap.get(save.eventId);

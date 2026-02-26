@@ -247,24 +247,29 @@ export interface DiscoveryEvent extends BaseEvent {
   event: DiscoveredEventData;
 }
 
-// Add level update event interface
+// Level update event interface (matches WebSocket "level-update" messages)
 export interface LevelUpdateEvent extends BaseEvent {
   data: {
     userId: string;
     level: number;
     title: string;
-    xpProgress: number;
     action: string;
+    amount: number;
+    totalXp: number;
+    xpProgress?: number;
     timestamp: string;
   };
 }
 
-// Add XP awarded event interface
+// XP awarded event interface (matches WebSocket "xp-awarded" messages)
 export interface XPAwardedEvent extends BaseEvent {
   data: {
     userId: string;
+    level: number;
+    title: string;
+    action: string;
     amount: number;
-    reason: string;
+    totalXp: number;
     timestamp: string;
   };
 }

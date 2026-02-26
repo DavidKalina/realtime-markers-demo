@@ -246,6 +246,12 @@ export const baseStyles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     color: colors.accent.primary,
   },
+  discoveredByStats: {
+    fontSize: fontSize.xs,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
+    marginTop: 2,
+  },
 
   // Loading
   loadingContainer: {
