@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddGamificationFields1710000000025 implements MigrationInterface {
   name = "AddGamificationFields1710000000025";

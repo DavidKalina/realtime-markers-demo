@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddExternalEventFields1710000000026 implements MigrationInterface {
   name = "AddExternalEventFields1710000000026";

@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class DropCivicEngagementTables1710000000023 implements MigrationInterface {
   name = "DropCivicEngagementTables1710000000023";
