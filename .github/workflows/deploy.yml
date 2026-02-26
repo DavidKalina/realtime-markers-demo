@@ -51,8 +51,8 @@ jobs:
           tags: |
             ${{ env.IMAGE_PREFIX }}/rtm-${{ matrix.service }}:latest
             ${{ env.IMAGE_PREFIX }}/rtm-${{ matrix.service }}:${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          cache-from: type=gha,scope=${{ matrix.service }}-${{ hashFiles('pnpm-lock.yaml') }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}-${{ hashFiles('pnpm-lock.yaml') }}
           build-args: |
             NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
             NEXT_PUBLIC_MAPBOX_TOKEN=${{ vars.NEXT_PUBLIC_MAPBOX_TOKEN }}
@@ -75,7 +75,6 @@ jobs:
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
           envs: GITHUB_ACTOR,DEPLOY_TOKEN
-          script_stop: true
           script: |
             set -e
             cd /opt/realtime-markers-demo
