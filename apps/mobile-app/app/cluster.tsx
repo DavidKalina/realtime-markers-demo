@@ -1,17 +1,110 @@
-import ClusterEventsView from "@/components/ClusterEventsView/ClusterEventsView";
-import { useLocalSearchParams } from "expo-router";
-import React from "react";
-import { EventType } from "@/types/types";
+import React, { useEffect, useRef, useState } from "react";
+import { View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import Screen from "@/components/Layout/Screen";
+import { apiClient } from "@/services/ApiClient";
+import type { AreaScanMetadata } from "@/services/api/modules/areaScan";
+import {
+  CHARS_PER_PAGE,
+  splitIntoPages,
+  getRadiusForZoom,
+  ZoneHeader,
+  CategoryBarChart,
+  StatPillRow,
+  ZoneEncounters,
+  DialogBox,
+  useDialogStreamer,
+  layoutStyles,
+} from "@/components/AreaScan/AreaScanComponents";
 
-const ClusterEventsScreen = () => {
-  const { events: eventsParam } = useLocalSearchParams<{ events: string }>();
+export default function ClusterScreen() {
+  const { lat, lng, zoom } = useLocalSearchParams<{
+    lat: string;
+    lng: string;
+    zoom: string;
+  }>();
+  const router = useRouter();
+  const abortRef = useRef<{ abort: () => void } | null>(null);
+  const fullTextRef = useRef("");
 
-  // Parse the events from the query parameter
-  const events: EventType[] = eventsParam
-    ? JSON.parse(decodeURIComponent(eventsParam))
-    : [];
+  const [zoneStats, setZoneStats] = useState<AreaScanMetadata | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  return <ClusterEventsView events={events} isLoading={false} error={null} />;
-};
+  const dialog = useDialogStreamer(() => router.back());
 
-export default ClusterEventsScreen;
+  // --- Fetch ---
+  useEffect(() => {
+    if (!lat || !lng) return;
+
+    const radius = getRadiusForZoom(zoom ? parseFloat(zoom) : 12);
+
+    const handle = apiClient.areaScan.streamAreaProfile(
+      parseFloat(lat),
+      parseFloat(lng),
+      radius,
+      {
+        onMetadata: (meta) => setZoneStats(meta),
+        onContent: (chunk) => {
+          fullTextRef.current += chunk;
+        },
+        onDone: () => {
+          setIsLoading(false);
+          if (fullTextRef.current) {
+            dialog.feedPages(
+              splitIntoPages(fullTextRef.current, CHARS_PER_PAGE),
+            );
+          }
+        },
+        onError: (err) => {
+          setError(err.message);
+          setIsLoading(false);
+        },
+      },
+    );
+    abortRef.current = handle;
+
+    return () => {
+      handle.abort();
+    };
+  }, [lat, lng]);
+
+  return (
+    <Screen
+      bannerTitle="Cluster Scan"
+      onBack={() => router.back()}
+      isScrollable={false}
+    >
+      {zoneStats && <ZoneHeader zoneStats={zoneStats} />}
+
+      {zoneStats && zoneStats.categoryBreakdown.length > 0 && (
+        <CategoryBarChart breakdown={zoneStats.categoryBreakdown} />
+      )}
+
+      {zoneStats && zoneStats.eventCount > 0 && (
+        <StatPillRow zoneStats={zoneStats} />
+      )}
+
+      {zoneStats && zoneStats.events?.length > 0 ? (
+        <ZoneEncounters
+          events={zoneStats.events}
+          onEventPress={(eventId) =>
+            router.push(`/details?eventId=${eventId}` as never)
+          }
+        />
+      ) : (
+        <View style={layoutStyles.spacer} />
+      )}
+
+      <DialogBox
+        isLoading={isLoading}
+        error={error}
+        displayText={dialog.displayText}
+        showContinue={dialog.showContinue}
+        showDone={dialog.showDone}
+        blinkAnim={dialog.blinkAnim}
+        onTap={dialog.handleTap}
+      />
+    </Screen>
+  );
+}

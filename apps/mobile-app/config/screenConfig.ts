@@ -32,7 +32,7 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
   },
   {
     name: "cluster",
-    options: { animation: "slide_from_right", animationDuration: 250 },
+    options: { animation: "fade_from_bottom", animationDuration: 250 },
   },
   {
     name: "search/index",

@@ -28,7 +28,6 @@ import { spring } from "@/theme";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import { useRouter } from "expo-router";
-import { markerToEvent } from "@/utils/mapUtils";
 
 interface ClusteredMapMarkersProps {
   markers?: Marker[];
@@ -185,20 +184,10 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
             if (item.type === "marker") {
               router.push(`details?eventId=${item.id}` as never);
             } else {
-              // Navigate to cluster view
-              const seen = new Set<string>();
-              const currentMarkers = useLocationStore.getState().markers;
-              const clusterMarkers = currentMarkers.filter((marker) => {
-                if (!item.childrenIds?.includes(marker.id)) return false;
-                if (seen.has(marker.id)) return false;
-                seen.add(marker.id);
-                return true;
-              });
-              const clusterEvents = clusterMarkers.map(markerToEvent);
-              const eventsParam = encodeURIComponent(
-                JSON.stringify(clusterEvents),
+              // Navigate to cluster view with coordinates
+              router.push(
+                `cluster?lat=${item.coordinates[1]}&lng=${item.coordinates[0]}&zoom=${currentZoom}` as never,
               );
-              router.push(`cluster?events=${eventsParam}` as never);
             }
             return;
           }

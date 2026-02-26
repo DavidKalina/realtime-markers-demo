@@ -9,6 +9,7 @@ import StatusBar from "@/components/StatusBar/StatusBar";
 import DateRangeIndicator from "@/components/StatusBar/DateRangeIndicator";
 import PlusButton from "@/components/StatusBar/PlusButton";
 import { MarkerInfoHUD } from "@/components/Markers/MarkerInfoHUD";
+import { ClusterInfoHUD } from "@/components/Markers/ClusterInfoHUD";
 import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
 import { createCameraSettings } from "@/config/cameraConfig";
 import { useUserLocation } from "@/contexts/LocationContext";
@@ -267,16 +268,18 @@ function HomeScreenContent() {
     }
   }, [router, zoomLevel]);
 
-  const isMarkerSelected = selectedItem?.type === "marker";
+  // Screens render full-screen behind the ActionBar, so overlays must
+  // clear the ActionBar (base height 60) plus the home-indicator safe area.
+  const aboveActionBar = insets.bottom + 10;
   const floatingDateButtonStyle = useMemo(
     () => ({
       position: "absolute" as const,
-      bottom: insets.bottom + (isMarkerSelected ? 90 : 0) + spacing.sm,
+      bottom: aboveActionBar + 110,
       right: 16,
       zIndex: 1000,
       gap: 12,
     }),
-    [insets.bottom, isMarkerSelected],
+    [aboveActionBar],
   );
 
   // Memoize camera settings object
@@ -400,7 +403,8 @@ function HomeScreenContent() {
 
         {rippleEffectComponent}
 
-        <MarkerInfoHUD safeAreaBottom={insets.bottom} />
+        <MarkerInfoHUD safeAreaBottom={aboveActionBar} />
+        <ClusterInfoHUD safeAreaBottom={aboveActionBar} />
 
         {floatingButtonsSection}
       </View>
