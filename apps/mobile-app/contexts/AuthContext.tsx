@@ -108,7 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 }
               }
             }
-          } catch (error) {
+          } catch {
             // Profile fetch failed, auth state will be cleared by ApiClient
             setUser(null);
             setIsAuthenticated(false);
@@ -117,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setUser(null);
           setIsAuthenticated(false);
         }
-      } catch (error) {
+      } catch {
         // Auth initialization failed, auth state will be cleared by ApiClient
         setUser(null);
         setIsAuthenticated(false);
@@ -213,7 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(null);
       setIsAuthenticated(false);
       return false;
-    } catch (error) {
+    } catch {
       setUser(null);
       setIsAuthenticated(false);
       return false;
