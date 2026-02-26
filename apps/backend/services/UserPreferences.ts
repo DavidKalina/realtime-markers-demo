@@ -203,7 +203,6 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
     const filters = await this.filterRepository.find({
       where: { userId, isActive: true },
       order: { updatedAt: "DESC" },
-      cache: 60000,
     });
 
     const updatedFilters = await this.updateStaleDateRanges(filters);
@@ -436,8 +435,11 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
    */
   private async publishFilterChange(userId: string): Promise<void> {
     try {
-      // Get the active filters for the user
-      const activeFilters = await this.getActiveFilters(userId);
+      // Query active filters directly to avoid recursion through getActiveFilters → updateStaleDateRanges
+      const activeFilters = await this.filterRepository.find({
+        where: { userId, isActive: true },
+        order: { updatedAt: "DESC" },
+      });
 
       // Publish the event to Redis using RedisService with the new publishMessage method
       await this.redisService.publishMessage("filter-changes", {
