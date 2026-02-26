@@ -9,7 +9,6 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withSequence,
-  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
@@ -255,7 +254,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.semibold,
-    lineHeight: lineHeight.snug,
+    lineHeight: lineHeight.tight,
   },
   measureText: {
     position: "absolute",
