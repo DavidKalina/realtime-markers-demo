@@ -1,11 +1,16 @@
 // src/contexts/AuthContext.tsx
 import { useFilterStore } from "@/stores/useFilterStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { apiClient, User, Filter } from "../services/ApiClient";
 import { oAuthService } from "../services/OAuthService";
 import { pushNotificationService } from "../services/PushNotificationService";
-import { eventBroker, EventTypes, type XPAwardedEvent, type LevelUpdateEvent } from "../services/EventBroker";
+import {
+  eventBroker,
+  EventTypes,
+  type XPAwardedEvent,
+  type LevelUpdateEvent,
+} from "../services/EventBroker";
 import { invalidateProfileCache } from "../hooks/useProfile";
 
 interface AuthContextType {
@@ -145,7 +150,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       EventTypes.XP_AWARDED,
       (event) => {
         // The event payload includes totalXp from the server
-        const totalXp = (event.data as unknown as { totalXp?: number })?.totalXp;
+        const totalXp = (event.data as unknown as { totalXp?: number })
+          ?.totalXp;
         if (totalXp != null) {
           setUser((prev) => (prev ? { ...prev, totalXp } : prev));
           invalidateProfileCache();
@@ -156,7 +162,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       EventTypes.LEVEL_UPDATE,
       (event) => {
         if (event.data?.action === "level_up" && event.data?.title) {
-          const totalXp = (event.data as unknown as { totalXp?: number })?.totalXp;
+          const totalXp = (event.data as unknown as { totalXp?: number })
+            ?.totalXp;
           setUser((prev) =>
             prev
               ? {

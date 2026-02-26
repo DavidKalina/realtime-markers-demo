@@ -8,14 +8,9 @@ export const areaScanHandler = async (c: Context<AppContext>) => {
     lat: number;
     lng: number;
     radius?: number;
-    filters?: {
-      dateRange?: { start: string; end: string };
-      categoryIds?: string[];
-    };
   }>();
   const { lat, lng } = body;
   const radius = Math.min(body.radius ?? 2000, 15000);
-  const filters: AreaScanFilters | undefined = body.filters;
 
   if (
     typeof lat !== "number" ||
@@ -33,6 +28,36 @@ export const areaScanHandler = async (c: Context<AppContext>) => {
 
   const areaScanService = c.get("areaScanService");
   const redisService = c.get("redisService");
+  const userPreferencesService = c.get("userPreferencesService");
+  const user = c.get("user");
+
+  // Resolve filters from the user's persisted active filters
+  let filters: AreaScanFilters | undefined;
+  if (user?.userId || user?.id) {
+    const activeFilters = await userPreferencesService.getActiveFilters(
+      user.userId || user.id,
+    );
+    if (activeFilters.length > 0) {
+      // Merge date ranges from all active filters (use widest bounds)
+      const dateRanges = activeFilters
+        .map((f) => f.criteria?.dateRange)
+        .filter(
+          (dr): dr is { start?: string; end?: string } =>
+            !!dr?.start && !!dr?.end,
+        );
+
+      if (dateRanges.length > 0) {
+        const starts = dateRanges.map((d) => d.start!).sort();
+        const ends = dateRanges
+          .map((d) => d.end!)
+          .sort()
+          .reverse();
+        filters = {
+          dateRange: { start: starts[0], end: ends[0] },
+        };
+      }
+    }
+  }
 
   const result = await areaScanService.getAreaProfile(
     lat,

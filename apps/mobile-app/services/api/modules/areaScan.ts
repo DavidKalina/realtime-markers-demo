@@ -26,11 +26,6 @@ export interface AreaScanMetadata {
   }[];
 }
 
-export interface AreaScanFilterParams {
-  dateRange?: { start: string; end: string };
-  categoryIds?: string[];
-}
-
 export interface AreaScanCallbacks {
   onMetadata: (metadata: AreaScanMetadata) => void;
   onContent: (chunk: string) => void;
@@ -90,18 +85,12 @@ export class AreaScanModule extends BaseApiModule {
     lng: number,
     radius: number,
     callbacks: AreaScanCallbacks,
-    filters?: AreaScanFilterParams,
   ): { abort: () => void } {
     const abortController = new AbortController();
 
-    const body: Record<string, unknown> = { lat, lng, radius };
-    if (filters?.dateRange || filters?.categoryIds?.length) {
-      body.filters = filters;
-    }
-
     this.fetchWithAuth(`${this.client.baseUrl}/api/area-scan`, {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify({ lat, lng, radius }),
       signal: abortController.signal,
     })
       .then(async (response) => {
