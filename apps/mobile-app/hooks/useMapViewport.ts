@@ -16,12 +16,20 @@ export function useMapViewport({
   const [viewportRectangle, setViewportRectangle] =
     useState<MapboxViewport | null>(null);
 
+  // Track camera movement for clustering freeze.
+  // Uses a ref gate so we only trigger 2 state updates per gesture (start + settle).
+  const cameraMovingRef = useRef(false);
+  const [isCameraMoving, setIsCameraMoving] = useState(false);
+  const cameraSettledTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
   // Debounce the expensive updateViewport cascade (state update → EventBroker
   // broadcast → WebSocket send → re-clustering). Fires once at the start
-  // (leading) and once 300ms after the last call (trailing) — max 2 server
+  // (leading) and once 150ms after the last call (trailing) — max 2 server
   // requests per gesture vs ~4+ with throttle.
   const debouncedUpdateViewport = useRef(
-    debounce((viewport: MapboxViewport) => updateViewport(viewport), 300, {
+    debounce((viewport: MapboxViewport) => updateViewport(viewport), 150, {
       leading: true,
       trailing: true,
     }),
@@ -130,6 +138,21 @@ export function useMapViewport({
           setZoomLevel(zoomLevel);
         }
 
+        // Signal camera-moving (one state update at start of gesture)
+        if (!cameraMovingRef.current) {
+          cameraMovingRef.current = true;
+          setIsCameraMoving(true);
+        }
+        // Reset the settle timer on every frame — 200ms after the last
+        // onRegionIsChanging we consider the camera settled.
+        if (cameraSettledTimeout.current) {
+          clearTimeout(cameraSettledTimeout.current);
+        }
+        cameraSettledTimeout.current = setTimeout(() => {
+          cameraMovingRef.current = false;
+          setIsCameraMoving(false);
+        }, 200);
+
         handleMapViewportChange(feature);
       } catch (error) {
         console.error("Error handling region change:", error);
@@ -141,5 +164,6 @@ export function useMapViewport({
   return {
     viewportRectangle,
     handleRegionChanging,
+    isCameraMoving,
   };
 }

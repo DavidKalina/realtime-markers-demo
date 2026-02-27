@@ -118,10 +118,11 @@ function HomeScreenContent() {
   });
 
   // Viewport processing and region change tracking
-  const { viewportRectangle, handleRegionChanging } = useMapViewport({
-    updateViewport,
-    isPitched,
-  });
+  const { viewportRectangle, handleRegionChanging, isCameraMoving } =
+    useMapViewport({
+      updateViewport,
+      isPitched,
+    });
 
   // Create map item event utility
   const createMapItemEvent = useCallback(
@@ -201,9 +202,13 @@ function HomeScreenContent() {
   const markersComponent = useMemo(() => {
     if (!shouldRenderMarkers || !currentViewport) return null;
     return (
-      <ClusteredMapMarkers viewport={currentViewport} currentZoom={zoomLevel} />
+      <ClusteredMapMarkers
+        viewport={currentViewport}
+        currentZoom={zoomLevel}
+        isCameraMoving={isCameraMoving}
+      />
     );
-  }, [shouldRenderMarkers, currentViewport, zoomLevel]);
+  }, [shouldRenderMarkers, currentViewport, zoomLevel, isCameraMoving]);
 
   // Memoize user location layer
   const userLocationLayer = useMemo(() => {

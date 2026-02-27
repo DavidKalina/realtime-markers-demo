@@ -9,11 +9,7 @@ import { Marker, MapboxViewport } from "@/types/types";
 import type { MarkerItem, ClusterItem } from "@/types/map";
 import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useMemo, useEffect, useRef } from "react";
-import Animated, {
-  BounceIn,
-  FadeOut,
-  LinearTransition,
-} from "react-native-reanimated";
+import Animated, { BounceIn, FadeOut, ZoomIn } from "react-native-reanimated";
 import { ClusterMarker } from "./ClusterMarker";
 import { EmojiMapMarker } from "./CustomMapMarker";
 import { spring } from "@/theme";
@@ -25,6 +21,7 @@ interface ClusteredMapMarkersProps {
   markers?: Marker[];
   currentZoom?: number;
   viewport: MapboxViewport;
+  isCameraMoving?: boolean;
 }
 
 const DOUBLE_TAP_WINDOW = 300;
@@ -38,6 +35,7 @@ const SingleMarkerView = React.memo(
     index,
     seenHapticIds,
     isNew,
+    wasInCluster,
   }: {
     marker: MarkerItem;
     isSelected: boolean;
@@ -46,6 +44,7 @@ const SingleMarkerView = React.memo(
     index: number;
     seenHapticIds: React.MutableRefObject<Set<string>>;
     isNew: boolean;
+    wasInCluster: boolean;
   }) => {
     const lastTapRef = useRef(0);
 
@@ -77,17 +76,17 @@ const SingleMarkerView = React.memo(
       return () => clearTimeout(timer);
     }, [index, marker.id, seenHapticIds]);
 
-    // Only bounce in genuinely new markers (first time this ID appears on
-    // screen). Reclustering remounts use no entering animation so the marker
-    // just pops into place silently. Exit is always a brief fade — the 500ms
-    // BounceOut during reclustering was the main source of jank.
+    // Genuinely new markers → BounceIn (first time this ID appears on screen).
+    // Markers splitting out of a cluster → ZoomIn (explode effect).
+    // Reclustering remounts → no animation (silent reappearance).
     const entering = isNew
-      ? BounceIn.duration(500)
-          .springify()
+      ? BounceIn.springify()
           .damping(spring.firm.damping)
           .stiffness(spring.firm.stiffness)
           .delay(Math.min(index, 5) * 80)
-      : undefined;
+      : wasInCluster
+        ? ZoomIn.duration(200).delay(Math.min(index, 5) * 40)
+        : undefined;
 
     return (
       <MapboxGL.MarkerView
@@ -95,11 +94,7 @@ const SingleMarkerView = React.memo(
         coordinate={marker.coordinates}
         anchor={{ x: 0.5, y: 1.0 }}
       >
-        <Animated.View
-          entering={entering}
-          exiting={FadeOut.duration(150)}
-          layout={LinearTransition.springify()}
-        >
+        <Animated.View entering={entering} exiting={FadeOut.duration(150)}>
           <EmojiMapMarker
             event={marker}
             isSelected={isSelected}
@@ -122,6 +117,7 @@ const ClusterView = React.memo(
     index,
     seenHapticIds,
     isNew,
+    formedFromMerge,
   }: {
     cluster: ClusterItem;
     isSelected: boolean;
@@ -129,6 +125,7 @@ const ClusterView = React.memo(
     index: number;
     seenHapticIds: React.MutableRefObject<Set<string>>;
     isNew: boolean;
+    formedFromMerge: boolean;
   }) => {
     // Add haptic feedback for each cluster's first appearance only
     useEffect(() => {
@@ -146,13 +143,17 @@ const ClusterView = React.memo(
       return () => clearTimeout(timer);
     }, [index, cluster.id, seenHapticIds]);
 
+    // Genuinely new cluster → BounceIn.
+    // Cluster formed by merging previously-visible markers → ZoomIn (implode).
+    // Reclustering remount → no animation.
     const entering = isNew
-      ? BounceIn.duration(500)
-          .springify()
+      ? BounceIn.springify()
           .damping(spring.firm.damping)
           .stiffness(spring.firm.stiffness)
           .delay(Math.min(index, 5) * 50)
-      : undefined;
+      : formedFromMerge
+        ? ZoomIn.duration(200)
+        : undefined;
 
     return (
       <MapboxGL.MarkerView
@@ -160,11 +161,7 @@ const ClusterView = React.memo(
         coordinate={cluster.coordinates}
         anchor={{ x: 0.5, y: 0.5 }}
       >
-        <Animated.View
-          entering={entering}
-          exiting={FadeOut.duration(150)}
-          layout={LinearTransition.springify()}
-        >
+        <Animated.View entering={entering} exiting={FadeOut.duration(150)}>
           <ClusterMarker
             count={cluster.count}
             coordinates={cluster.coordinates}
@@ -184,13 +181,14 @@ const ClusterView = React.memo(
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.index === nextProps.index &&
       prevProps.seenHapticIds === nextProps.seenHapticIds &&
-      prevProps.isNew === nextProps.isNew
+      prevProps.isNew === nextProps.isNew &&
+      prevProps.formedFromMerge === nextProps.formedFromMerge
     );
   },
 );
 
 export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
-  React.memo(({ currentZoom = 14, viewport }) => {
+  React.memo(({ currentZoom = 14, viewport, isCameraMoving = false }) => {
     // Get marker data from store
     const markers = useLocationStore((state) => state.markers);
     const selectedItem = useLocationStore((state) => state.selectedItem);
@@ -224,8 +222,60 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       }
     }, [markers]);
 
-    // Get clusters based on current markers, viewport, and zoom level
-    const { clusters } = useMarkerClustering(markers, viewport, currentZoom);
+    // Track which markers were clustered vs individual in the previous pass.
+    // Read during render (stale = previous pass), updated in useEffect after.
+    // Used to detect split (cluster→markers) and merge (markers→cluster)
+    // transitions for explode/implode animations.
+    const prevClusteredMarkerIdsRef = useRef(new Set<string>());
+    const prevIndividualMarkerIdsRef = useRef(new Set<string>());
+
+    // Freeze clustering inputs while the camera is moving.
+    // Mapbox natively scrolls existing MarkerViews during pan/zoom, so we
+    // only need to re-cluster once the camera settles — eliminates mid-gesture
+    // cluster split/merge jank.
+    const frozenRef = useRef<{
+      viewport: MapboxViewport;
+      markers: Marker[];
+      zoom: number;
+    } | null>(null);
+
+    if (isCameraMoving && !frozenRef.current) {
+      // Camera just started moving — snapshot current inputs
+      frozenRef.current = { viewport, markers, zoom: currentZoom };
+    } else if (!isCameraMoving) {
+      // Camera settled — clear freeze so we use live values
+      frozenRef.current = null;
+    }
+
+    const clusterViewport = frozenRef.current?.viewport ?? viewport;
+    const clusterMarkers = frozenRef.current?.markers ?? markers;
+    const clusterZoom = frozenRef.current?.zoom ?? currentZoom;
+
+    // Get clusters based on current (or frozen) markers, viewport, and zoom level
+    const { clusters } = useMarkerClustering(
+      clusterMarkers,
+      clusterViewport,
+      clusterZoom,
+    );
+
+    // Update split/merge tracking refs after render for next pass
+    useEffect(() => {
+      const clustered = new Set<string>();
+      const individual = new Set<string>();
+      for (const feature of clusters) {
+        if (feature.properties.cluster) {
+          const childIds =
+            (feature as ClusterFeature).properties.childMarkers || [];
+          for (const id of childIds) {
+            clustered.add(id);
+          }
+        } else {
+          individual.add((feature as PointFeature).properties.id);
+        }
+      }
+      prevClusteredMarkerIdsRef.current = clustered;
+      prevIndividualMarkerIdsRef.current = individual;
+    }, [clusters]);
 
     // Cluster: single tap → navigate
     const createClusterPressHandler = useCallback(
@@ -281,6 +331,13 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
             (id) => !knownMarkerIds.current.has(id),
           );
 
+          // Cluster formed by merging previously-individual markers (zoom out)
+          const formedFromMerge =
+            !isNew &&
+            childMarkerIds.some((id) =>
+              prevIndividualMarkerIdsRef.current.has(id),
+            );
+
           return {
             type: "cluster" as const,
             item: {
@@ -293,6 +350,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
             isSelected: false,
             onPress: createClusterPressHandler(coordinates),
             isNew,
+            formedFromMerge,
           };
         } else {
           const pointFeature = feature as PointFeature;
@@ -312,6 +370,10 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           // Marker is "new" only if this ID hasn't been on screen before
           const isNew = !knownMarkerIds.current.has(markerId);
 
+          // Marker just split out of a cluster (zoom in)
+          const wasInCluster =
+            prevClusteredMarkerIdsRef.current.has(markerId);
+
           return {
             type: "marker" as const,
             item: markerItem,
@@ -319,6 +381,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
             onSelect: createMarkerSelectHandler(markerItem),
             onNavigate: createMarkerNavigateHandler(markerId),
             isNew,
+            wasInCluster,
           };
         }
       },
@@ -365,6 +428,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         onPress: () => void;
         index: number;
         isNew: boolean;
+        formedFromMerge: boolean;
       }) => (
         <ClusterView
           key={processed.item.id}
@@ -374,6 +438,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           index={processed.index}
           seenHapticIds={seenHapticIds}
           isNew={processed.isNew}
+          formedFromMerge={processed.formedFromMerge}
         />
       ),
       [],
@@ -388,6 +453,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         onNavigate: () => void;
         index: number;
         isNew: boolean;
+        wasInCluster: boolean;
       }) => (
         <SingleMarkerView
           key={processed.item.id}
@@ -398,6 +464,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           index={processed.index}
           seenHapticIds={seenHapticIds}
           isNew={processed.isNew}
+          wasInCluster={processed.wasInCluster}
         />
       ),
       [],
