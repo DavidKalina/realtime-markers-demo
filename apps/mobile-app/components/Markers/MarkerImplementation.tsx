@@ -36,12 +36,14 @@ const SingleMarkerView = React.memo(
     onSelect,
     onNavigate,
     index,
+    seenHapticIds,
   }: {
     marker: MarkerItem;
     isSelected: boolean;
     onSelect: () => void;
     onNavigate: () => void;
     index: number;
+    seenHapticIds: React.MutableRefObject<Set<string>>;
   }) => {
     const lastTapRef = useRef(0);
 
@@ -57,9 +59,11 @@ const SingleMarkerView = React.memo(
       }
     }, [onSelect, onNavigate]);
 
-    // Add haptic feedback for each marker's appearance
+    // Add haptic feedback for each marker's first appearance only
     useEffect(() => {
       if (Platform.OS === "web") return;
+      if (seenHapticIds.current.has(marker.id)) return;
+      seenHapticIds.current.add(marker.id);
 
       // Delay haptic to match the staggered animation
       const hapticDelay = Math.min(index, 5) * 80; // Match the capped stagger
@@ -69,7 +73,7 @@ const SingleMarkerView = React.memo(
       }, hapticDelay);
 
       return () => clearTimeout(timer);
-    }, [index]);
+    }, [index, marker.id, seenHapticIds]);
 
     return (
       <MapboxGL.MarkerView
@@ -109,15 +113,19 @@ const ClusterView = React.memo(
     isSelected,
     onPress,
     index,
+    seenHapticIds,
   }: {
     cluster: ClusterItem;
     isSelected: boolean;
     onPress: () => void;
     index: number;
+    seenHapticIds: React.MutableRefObject<Set<string>>;
   }) => {
-    // Add haptic feedback for each cluster's appearance
+    // Add haptic feedback for each cluster's first appearance only
     useEffect(() => {
       if (Platform.OS === "web") return;
+      if (seenHapticIds.current.has(cluster.id)) return;
+      seenHapticIds.current.add(cluster.id);
 
       // Delay haptic to match the staggered animation
       const hapticDelay = Math.min(index, 5) * 50; // Match the capped stagger
@@ -127,7 +135,7 @@ const ClusterView = React.memo(
       }, hapticDelay);
 
       return () => clearTimeout(timer);
-    }, [index]);
+    }, [index, cluster.id, seenHapticIds]);
 
     return (
       <MapboxGL.MarkerView
@@ -165,7 +173,8 @@ const ClusterView = React.memo(
       prevProps.cluster.coordinates[0] === nextProps.cluster.coordinates[0] &&
       prevProps.cluster.coordinates[1] === nextProps.cluster.coordinates[1] &&
       prevProps.isSelected === nextProps.isSelected &&
-      prevProps.index === nextProps.index
+      prevProps.index === nextProps.index &&
+      prevProps.seenHapticIds === nextProps.seenHapticIds
     );
   },
 );
@@ -177,6 +186,20 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
     const selectedItem = useLocationStore((state) => state.selectedItem);
     const selectMapItem = useLocationStore((state) => state.selectMapItem);
     const router = useRouter();
+
+    // Track which marker/cluster IDs have already triggered haptics to avoid
+    // re-firing during re-clustering caused by panning/zooming.
+    const seenHapticIds = useRef(new Set<string>());
+    const prevMarkersRef = useRef(markers);
+
+    // Clear seen IDs when the markers array reference changes (full replace
+    // from the server), so new batches of markers get haptic feedback.
+    useEffect(() => {
+      if (markers !== prevMarkersRef.current) {
+        prevMarkersRef.current = markers;
+        seenHapticIds.current.clear();
+      }
+    }, [markers]);
 
     // Get clusters based on current markers, viewport, and zoom level
     const { clusters } = useMarkerClustering(markers, viewport, currentZoom);
@@ -314,6 +337,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           isSelected={processed.isSelected}
           onPress={processed.onPress}
           index={processed.index}
+          seenHapticIds={seenHapticIds}
         />
       ),
       [],
@@ -335,6 +359,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           onSelect={processed.onSelect}
           onNavigate={processed.onNavigate}
           index={processed.index}
+          seenHapticIds={seenHapticIds}
         />
       ),
       [],

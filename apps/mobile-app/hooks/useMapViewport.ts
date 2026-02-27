@@ -1,7 +1,6 @@
-import { useCallback, useState } from "react";
-import { BaseEvent, EventTypes } from "@/services/EventBroker";
-import { useEventBroker } from "@/hooks/useEventBroker";
+import { useCallback, useRef, useState } from "react";
 import { useLocationStore } from "@/stores/useLocationStore";
+import throttle from "lodash/throttle";
 import { MapboxViewport } from "@/types/types";
 
 interface UseMapViewportOptions {
@@ -13,10 +12,19 @@ export function useMapViewport({
   updateViewport,
   isPitched,
 }: UseMapViewportOptions) {
-  const { publish } = useEventBroker();
   const { setZoomLevel } = useLocationStore();
   const [viewportRectangle, setViewportRectangle] =
     useState<MapboxViewport | null>(null);
+
+  // Throttle the expensive updateViewport cascade (state update → EventBroker
+  // broadcast → WebSocket send → re-clustering) to 4×/sec. Mapbox GPU
+  // continues rendering at 60fps; only the JS-side reactions are gated.
+  const throttledUpdateViewport = useRef(
+    throttle((viewport: MapboxViewport) => updateViewport(viewport), 250, {
+      leading: true,
+      trailing: true,
+    }),
+  ).current;
 
   const processViewportBounds = useCallback(
     (
@@ -93,14 +101,14 @@ export function useMapViewport({
         if (viewport) {
           const rectangle = calculateViewportRectangle(viewport, isPitched);
           setViewportRectangle(rectangle);
-          updateViewport(rectangle);
+          throttledUpdateViewport(rectangle);
         }
       } catch (error) {
         console.error("Error processing viewport change:", error);
       }
     },
     [
-      updateViewport,
+      throttledUpdateViewport,
       processViewportBounds,
       calculateViewportRectangle,
       isPitched,
@@ -122,15 +130,11 @@ export function useMapViewport({
         }
 
         handleMapViewportChange(feature);
-        publish<BaseEvent>(EventTypes.VIEWPORT_CHANGING, {
-          timestamp: Date.now(),
-          source: "HomeScreen",
-        });
       } catch (error) {
         console.error("Error handling region change:", error);
       }
     },
-    [handleMapViewportChange, publish, setZoomLevel],
+    [handleMapViewportChange, setZoomLevel],
   );
 
   return {

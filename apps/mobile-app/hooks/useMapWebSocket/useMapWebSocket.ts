@@ -142,11 +142,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     currentViewportRef,
   });
 
-  // Emit markers updated when markers state changes
-  useEffect(() => {
-    emitMarkersUpdated(markers, "replace");
-  }, [markers, emitMarkersUpdated]);
-
   // Connect/disconnect based on auth state
   useEffect(() => {
     if (isAuthenticated && user?.id) {
