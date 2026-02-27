@@ -150,7 +150,9 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       !isAuthenticated &&
       wsRef.current?.readyState === WebSocket.OPEN
     ) {
-      console.log("[useMapWebsocket] User logged out, closing WebSocket.");
+      if (__DEV__) {
+        console.log("[useMapWebsocket] User logged out, closing WebSocket.");
+      }
       wsRef.current.close(1000, "User logged out");
     }
 

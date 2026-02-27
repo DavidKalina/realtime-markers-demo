@@ -37,26 +37,37 @@ export function useWebSocketConnection({
         (wsRef.current.readyState === WebSocket.OPEN ||
           wsRef.current.readyState === WebSocket.CONNECTING)
       ) {
-        console.log(
-          "[useMapWebsocket] WebSocket connection already open or connecting.",
-        );
+        if (__DEV__) {
+          console.log(
+            "[useMapWebsocket] WebSocket connection already open or connecting.",
+          );
+        }
         return;
       }
 
       if (wsRef.current) {
-        console.log(
-          "[useMapWebsocket] Cleaning up previous WebSocket connection.",
-        );
+        if (__DEV__) {
+          console.log(
+            "[useMapWebsocket] Cleaning up previous WebSocket connection.",
+          );
+        }
         wsRef.current.close();
         wsRef.current = null;
       }
 
-      console.log("[useMapWebsocket] Attempting to connect to WebSocket:", url);
+      if (__DEV__) {
+        console.log(
+          "[useMapWebsocket] Attempting to connect to WebSocket:",
+          url,
+        );
+      }
       wsRef.current = new WebSocket(url);
 
       wsRef.current.onopen = () => {
         try {
-          console.log("[useMapWebsocket] WebSocket connected.");
+          if (__DEV__) {
+            console.log("[useMapWebsocket] WebSocket connected.");
+          }
           setIsConnected(true);
           setError(null);
           if (reconnectTimeoutRef.current) {
@@ -71,10 +82,12 @@ export function useWebSocketConnection({
           });
 
           if (isAuthenticated && userId) {
-            console.log(
-              "[useMapWebsocket] Sending client identification for user:",
-              userId,
-            );
+            if (__DEV__) {
+              console.log(
+                "[useMapWebsocket] Sending client identification for user:",
+                userId,
+              );
+            }
             wsRef.current?.send(
               JSON.stringify({
                 type: MessageTypes.CLIENT_IDENTIFICATION,
@@ -89,11 +102,13 @@ export function useWebSocketConnection({
           }
 
           if (currentViewportRef.current) {
-            console.log(
-              "[useMapWebsocket] Sending initial viewport update on connect.",
-            );
+            if (__DEV__) {
+              console.log(
+                "[useMapWebsocket] Sending initial viewport update on connect.",
+              );
+            }
             sendViewportUpdateToServer();
-          } else {
+          } else if (__DEV__) {
             console.log("[useMapWebsocket] No current viewport on connect.");
           }
         } catch (error) {
@@ -110,9 +125,11 @@ export function useWebSocketConnection({
 
       wsRef.current.onclose = (event) => {
         try {
-          console.log(
-            `[useMapWebsocket] WebSocket disconnected. Code: ${event.code}, Reason: ${event.reason}, Clean: ${event.wasClean}`,
-          );
+          if (__DEV__) {
+            console.log(
+              `[useMapWebsocket] WebSocket disconnected. Code: ${event.code}, Reason: ${event.reason}, Clean: ${event.wasClean}`,
+            );
+          }
           setIsConnected(false);
 
           eventBroker.emit<BaseEvent>(EventTypes.WEBSOCKET_DISCONNECTED, {
@@ -131,16 +148,20 @@ export function useWebSocketConnection({
                   30000,
                   (reconnectTimeoutRef.current ? 5000 : 1000) * 1.5,
                 );
-            console.log(
-              `[useMapWebsocket] Attempting to reconnect in ${reconnectDelay / 1000}s...`,
-            );
+            if (__DEV__) {
+              console.log(
+                `[useMapWebsocket] Attempting to reconnect in ${reconnectDelay / 1000}s...`,
+              );
+            }
             isFirstConnectionRef.current = false;
 
             reconnectTimeoutRef.current = setTimeout(() => {
-              console.log("[useMapWebsocket] Reconnecting now...");
+              if (__DEV__) {
+                console.log("[useMapWebsocket] Reconnecting now...");
+              }
               connectWebSocket();
             }, reconnectDelay);
-          } else {
+          } else if (__DEV__) {
             console.log(
               "[useMapWebsocket] WebSocket closed cleanly. No further reconnect attempts.",
             );
@@ -201,9 +222,11 @@ export function useWebSocketConnection({
 
   const cleanup = useCallback(() => {
     if (wsRef.current) {
-      console.log(
-        "[useMapWebsocket] Cleaning up WebSocket on component unmount.",
-      );
+      if (__DEV__) {
+        console.log(
+          "[useMapWebsocket] Cleaning up WebSocket on component unmount.",
+        );
+      }
       wsRef.current.onclose = null;
       wsRef.current.onerror = null;
       wsRef.current.onmessage = null;
