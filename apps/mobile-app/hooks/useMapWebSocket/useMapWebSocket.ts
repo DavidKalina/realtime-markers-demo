@@ -13,6 +13,7 @@ import type { MapWebSocketResult } from "./types";
 import { useViewportSync } from "./useViewportSync";
 import { useMessageHandler } from "./useMessageHandler";
 import { useWebSocketConnection } from "./useWebSocketConnection";
+import { MessageTypes } from "./constants";
 
 export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const [markers, setMarkers] = useState<Marker[]>([]);
@@ -172,6 +173,13 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
           "[useMapWebsocket] Force viewport update called, but no current viewport exists.",
         );
       }
+
+      // Tell the WebSocket server to re-fetch filters for this user
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          JSON.stringify({ type: MessageTypes.REFRESH_FILTERS }),
+        );
+      }
     };
 
     const unsubscribe = eventBroker.on(
@@ -179,7 +187,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       handleForceViewportUpdate,
     );
     return unsubscribe;
-  }, [updateViewport, currentViewportRef]);
+  }, [updateViewport, currentViewportRef, wsRef]);
 
   return {
     markers,

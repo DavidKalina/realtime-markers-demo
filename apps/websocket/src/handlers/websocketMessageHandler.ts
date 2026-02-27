@@ -28,6 +28,7 @@ export interface WebSocketMessageHandler {
     ws: ServerWebSocket<WebSocketData>,
     data: ViewportUpdateData,
   ) => Promise<void>;
+  handleRefreshFilters: (ws: ServerWebSocket<WebSocketData>) => Promise<void>;
   handleSessionMessage: (
     ws: ServerWebSocket<WebSocketData>,
     data: Record<string, unknown>,
@@ -94,6 +95,20 @@ export function createWebSocketMessageHandler(
       dependencies.updateHealthStats();
     },
 
+    async handleRefreshFilters(ws: ServerWebSocket<WebSocketData>) {
+      const userId = ws.data.userId;
+
+      if (!userId) {
+        console.warn(
+          `Refresh filters received from unidentified client ${ws.data.clientId}`,
+        );
+        return;
+      }
+
+      console.log(`[RefreshFilters] Re-fetching filters for user ${userId}`);
+      await dependencies.fetchUserFiltersAndPublish(userId);
+    },
+
     async handleViewportUpdate(
       ws: ServerWebSocket<WebSocketData>,
       data: ViewportUpdateData,
@@ -140,6 +155,8 @@ export function handleWebSocketMessage(
     } else if (data.type === MessageTypes.VIEWPORT_UPDATE) {
       const viewportData = data as unknown as ViewportUpdateData;
       return messageHandler.handleViewportUpdate(ws, viewportData);
+    } else if (data.type === MessageTypes.REFRESH_FILTERS) {
+      return messageHandler.handleRefreshFilters(ws);
     } else if (
       data.type === MessageTypes.CREATE_SESSION ||
       data.type === MessageTypes.JOIN_SESSION ||

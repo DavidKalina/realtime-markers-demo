@@ -6,6 +6,7 @@ export const MessageTypes = {
 
   // Viewport-related
   VIEWPORT_UPDATE: "viewport-update",
+  REFRESH_FILTERS: "refresh-filters",
 
   // New event types from filter processor
   REPLACE_ALL: "replace-all",
