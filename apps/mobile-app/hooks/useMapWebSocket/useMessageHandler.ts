@@ -47,11 +47,13 @@ export function useMessageHandler({
     (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
-        console.log(
-          "[useMapWebsocket] Received WebSocket message:",
-          data.type,
-          data,
-        );
+        if (__DEV__) {
+          console.log(
+            "[useMapWebsocket] Received WebSocket message:",
+            data.type,
+            data,
+          );
+        }
 
         if (!data || typeof data !== "object" || !data.type) {
           console.warn(
@@ -61,7 +63,9 @@ export function useMessageHandler({
           return;
         }
 
-        console.log("[useMapWebsocket] Processing message type:", data.type);
+        if (__DEV__) {
+          console.log("[useMapWebsocket] Processing message type:", data.type);
+        }
 
         switch (data.type) {
           case MessageTypes.CONNECTION_ESTABLISHED:
@@ -71,7 +75,9 @@ export function useMessageHandler({
             break;
 
           case MessageTypes.REPLACE_ALL:
-            console.log("[useMapWebsocket] Received REPLACE_ALL:", data);
+            if (__DEV__) {
+              console.log("[useMapWebsocket] Received REPLACE_ALL:", data);
+            }
             if (!Array.isArray(data.events)) {
               console.warn(
                 "[useMapWebsocket] Invalid events array in REPLACE_ALL",
@@ -90,10 +96,12 @@ export function useMessageHandler({
                 seen.add(m.id);
                 return true;
               });
-              console.log(
-                "[useMapWebsocket] REPLACE_ALL - Total markers:",
-                incomingMarkers.length,
-              );
+              if (__DEV__) {
+                console.log(
+                  "[useMapWebsocket] REPLACE_ALL - Total markers:",
+                  incomingMarkers.length,
+                );
+              }
 
               // Smart diff: preserve object references for unchanged markers
               // so React doesn't unmount/remount them (avoiding re-animation jank)
@@ -342,16 +350,23 @@ export function useMessageHandler({
           }
 
           case MessageTypes.SESSION_UPDATE: {
-            console.debug("[useMapWebsocket] Received SESSION_UPDATE:", data);
+            if (__DEV__) {
+              console.debug(
+                "[useMapWebsocket] Received SESSION_UPDATE:",
+                data,
+              );
+            }
             break;
           }
 
           default: {
-            console.debug(
-              "[useMapWebsocket] Unhandled message type:",
-              data.type,
-              data,
-            );
+            if (__DEV__) {
+              console.debug(
+                "[useMapWebsocket] Unhandled message type:",
+                data.type,
+                data,
+              );
+            }
             break;
           }
         }

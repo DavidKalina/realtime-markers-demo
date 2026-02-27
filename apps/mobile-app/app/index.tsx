@@ -349,7 +349,8 @@ function HomeScreenContent() {
 
   // Memoize viewport rectangle component
   const viewportRectangleComponent = useMemo(
-    () => <ViewportRectangle viewport={viewportRectangle} />,
+    () =>
+      __DEV__ ? <ViewportRectangle viewport={viewportRectangle} debug /> : null,
     [viewportRectangle],
   );
 

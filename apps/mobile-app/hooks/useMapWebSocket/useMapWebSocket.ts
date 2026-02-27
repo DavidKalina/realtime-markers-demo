@@ -142,11 +142,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     currentViewportRef,
   });
 
-  // Emit markers updated when markers state changes
-  useEffect(() => {
-    emitMarkersUpdated(markers, "replace");
-  }, [markers, emitMarkersUpdated]);
-
   // Connect/disconnect based on auth state
   useEffect(() => {
     if (isAuthenticated && user?.id) {
@@ -155,7 +150,9 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       !isAuthenticated &&
       wsRef.current?.readyState === WebSocket.OPEN
     ) {
-      console.log("[useMapWebsocket] User logged out, closing WebSocket.");
+      if (__DEV__) {
+        console.log("[useMapWebsocket] User logged out, closing WebSocket.");
+      }
       wsRef.current.close(1000, "User logged out");
     }
 
