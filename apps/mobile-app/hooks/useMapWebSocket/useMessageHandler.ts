@@ -12,37 +12,18 @@ import {
 } from "@/services/EventBroker";
 import { Marker, MapboxViewport } from "@/types/types";
 import { useLocationStore } from "@/stores/useLocationStore";
+import { convertEventToMarker } from "@/utils/convertEventToMarker";
 import { MessageTypes } from "./constants";
 
 interface UseMessageHandlerArgs {
-  setMarkers: React.Dispatch<React.SetStateAction<Marker[]>>;
   setClientId: React.Dispatch<React.SetStateAction<string | null>>;
   currentViewportRef: React.RefObject<MapboxViewport | null>;
-  emitMarkersUpdated: (
-    updatedMarkers: Marker[],
-    actionType: "replace" | "add" | "update" | "delete",
-  ) => void;
-  convertEventToMarker: (event: unknown) => Marker;
 }
 
 export function useMessageHandler({
-  setMarkers,
   setClientId,
   currentViewportRef,
-  emitMarkersUpdated,
-  convertEventToMarker,
 }: UseMessageHandlerArgs) {
-  const selectedItemFromStoreRef = {
-    get current() {
-      return useLocationStore.getState().selectedItem;
-    },
-  };
-  const selectMapItemFromStoreRef = {
-    get current() {
-      return useLocationStore.getState().selectMapItem;
-    },
-  };
-
   const handleWebSocketMessage = useCallback(
     (event: MessageEvent) => {
       try {
@@ -67,6 +48,8 @@ export function useMessageHandler({
           console.log("[useMapWebsocket] Processing message type:", data.type);
         }
 
+        const store = useLocationStore.getState();
+
         switch (data.type) {
           case MessageTypes.CONNECTION_ESTABLISHED:
             if (data.clientId) {
@@ -83,8 +66,7 @@ export function useMessageHandler({
                 "[useMapWebsocket] Invalid events array in REPLACE_ALL",
                 data,
               );
-              setMarkers([]);
-              emitMarkersUpdated([], "replace");
+              store.setMarkers([]);
               return;
             }
             try {
@@ -105,37 +87,54 @@ export function useMessageHandler({
 
               // Smart diff: preserve object references for unchanged markers
               // so React doesn't unmount/remount them (avoiding re-animation jank)
-              setMarkers((prevMarkers) => {
-                const prevMap = new Map(prevMarkers.map((m) => [m.id, m]));
-                const result: Marker[] = [];
-                for (const incoming of incomingMarkers) {
-                  const existing = prevMap.get(incoming.id);
-                  if (
-                    existing &&
-                    existing.coordinates[0] === incoming.coordinates[0] &&
-                    existing.coordinates[1] === incoming.coordinates[1] &&
-                    existing.data.emoji === incoming.data.emoji &&
-                    existing.data.title === incoming.data.title
-                  ) {
-                    // Marker unchanged — keep original reference
-                    result.push(existing);
-                  } else {
-                    result.push(incoming);
-                  }
-                }
-
-                // If nothing changed, return previous array to skip re-render
+              const prevMarkers = store.markers;
+              const prevMap = new Map(prevMarkers.map((m) => [m.id, m]));
+              const result: Marker[] = [];
+              for (const incoming of incomingMarkers) {
+                const existing = prevMap.get(incoming.id);
                 if (
-                  result.length === prevMarkers.length &&
-                  result.every((m, i) => m === prevMarkers[i])
+                  existing &&
+                  existing.coordinates[0] === incoming.coordinates[0] &&
+                  existing.coordinates[1] === incoming.coordinates[1] &&
+                  existing.data.emoji === incoming.data.emoji &&
+                  existing.data.title === incoming.data.title
                 ) {
-                  return prevMarkers;
+                  // Marker unchanged — keep original reference
+                  result.push(existing);
+                } else {
+                  result.push(incoming);
                 }
+              }
 
-                return result;
+              // If nothing changed, skip the store update
+              if (
+                result.length === prevMarkers.length &&
+                result.every((m, i) => m === prevMarkers[i])
+              ) {
+                // Still emit viewport changed so subscribers stay in sync
+                if (currentViewportRef.current) {
+                  eventBroker.emit<ViewportEvent & { searching: boolean }>(
+                    EventTypes.VIEWPORT_CHANGED,
+                    {
+                      timestamp: Date.now(),
+                      source: "useMapWebSocket",
+                      viewport: currentViewportRef.current,
+                      markers: prevMarkers,
+                      searching: false,
+                    },
+                  );
+                }
+                return;
+              }
+
+              store.setMarkers(result);
+
+              eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
+                timestamp: Date.now(),
+                source: "useMapWebSocket",
+                markers: result,
+                count: result.length,
               });
-
-              emitMarkersUpdated(incomingMarkers, "replace");
 
               if (currentViewportRef.current) {
                 eventBroker.emit<ViewportEvent & { searching: boolean }>(
@@ -144,7 +143,7 @@ export function useMessageHandler({
                     timestamp: Date.now(),
                     source: "useMapWebSocket",
                     viewport: currentViewportRef.current,
-                    markers: incomingMarkers,
+                    markers: result,
                     searching: false,
                   },
                 );
@@ -155,8 +154,7 @@ export function useMessageHandler({
                 e,
                 data,
               );
-              setMarkers([]);
-              emitMarkersUpdated([], "replace");
+              store.setMarkers([]);
             }
             break;
 
@@ -169,18 +167,15 @@ export function useMessageHandler({
             }
             try {
               const newMarker = convertEventToMarker(data.event);
-              setMarkers((prevMarkers) => {
-                if (!prevMarkers.some((m) => m.id === newMarker.id)) {
-                  eventBroker.emit<MarkersEvent>(EventTypes.MARKER_ADDED, {
-                    timestamp: Date.now(),
-                    source: "useMapWebSocket",
-                    markers: [newMarker],
-                    count: 1,
-                  });
-                  return [...prevMarkers, newMarker];
-                }
-                return prevMarkers;
-              });
+              if (!store.markers.some((m) => m.id === newMarker.id)) {
+                store.updateMarkers([newMarker]);
+                eventBroker.emit<MarkersEvent>(EventTypes.MARKER_ADDED, {
+                  timestamp: Date.now(),
+                  source: "useMapWebSocket",
+                  markers: [newMarker],
+                  count: 1,
+                });
+              }
             } catch (e) {
               console.error("[useMapWebsocket] Error processing ADD_EVENT:", e);
             }
@@ -196,32 +191,27 @@ export function useMessageHandler({
             }
             try {
               const updatedMarker = convertEventToMarker(data.event);
+              const existingIndex = store.markers.findIndex(
+                (m) => m.id === updatedMarker.id,
+              );
 
-              setMarkers((prevMarkers) => {
-                const existingMarkerIndex = prevMarkers.findIndex(
-                  (marker) => marker.id === updatedMarker.id,
-                );
+              store.updateMarkers([updatedMarker]);
 
-                if (existingMarkerIndex !== -1) {
-                  const newMarkers = [...prevMarkers];
-                  newMarkers[existingMarkerIndex] = updatedMarker;
-                  eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
-                    timestamp: Date.now(),
-                    source: "useMapWebSocket",
-                    markers: [updatedMarker],
-                    count: 1,
-                  });
-                  return newMarkers;
-                } else {
-                  eventBroker.emit<MarkersEvent>(EventTypes.MARKER_ADDED, {
-                    timestamp: Date.now(),
-                    source: "useMapWebSocket",
-                    markers: [updatedMarker],
-                    count: 1,
-                  });
-                  return [...prevMarkers, updatedMarker];
-                }
-              });
+              if (existingIndex !== -1) {
+                eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
+                  timestamp: Date.now(),
+                  source: "useMapWebSocket",
+                  markers: [updatedMarker],
+                  count: 1,
+                });
+              } else {
+                eventBroker.emit<MarkersEvent>(EventTypes.MARKER_ADDED, {
+                  timestamp: Date.now(),
+                  source: "useMapWebSocket",
+                  markers: [updatedMarker],
+                  count: 1,
+                });
+              }
             } catch (e) {
               console.error(
                 "[useMapWebsocket] Error processing UPDATE_EVENT:",
@@ -238,34 +228,35 @@ export function useMessageHandler({
             }
             try {
               const deletedId = data.id;
-              setMarkers((prevMarkers) => {
-                const newMarkers = prevMarkers.filter(
-                  (marker) => marker.id !== deletedId,
-                );
-                if (newMarkers.length < prevMarkers.length) {
-                  const currentSelected = selectedItemFromStoreRef.current;
-                  if (
-                    currentSelected?.type === "marker" &&
-                    deletedId === currentSelected.id
-                  ) {
-                    selectMapItemFromStoreRef.current(null);
-                    eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
-                      timestamp: Date.now(),
-                      source: "useMapWebSocket",
-                    });
-                  }
-                  eventBroker.emit<MarkersEvent>(EventTypes.MARKER_REMOVED, {
+              const markerExisted = store.markers.some(
+                (m) => m.id === deletedId,
+              );
+
+              if (markerExisted) {
+                // Check if deleted marker was selected before removing
+                const currentSelected = store.selectedItem;
+                if (
+                  currentSelected?.type === "marker" &&
+                  deletedId === currentSelected.id
+                ) {
+                  eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
                     timestamp: Date.now(),
                     source: "useMapWebSocket",
-                    markers: [
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      { id: deletedId, coordinates: [0, 0], data: {} as any },
-                    ],
-                    count: 1,
                   });
                 }
-                return newMarkers;
-              });
+
+                store.deleteMarker(deletedId);
+
+                eventBroker.emit<MarkersEvent>(EventTypes.MARKER_REMOVED, {
+                  timestamp: Date.now(),
+                  source: "useMapWebSocket",
+                  markers: [
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    { id: deletedId, coordinates: [0, 0], data: {} as any },
+                  ],
+                  count: 1,
+                });
+              }
             } catch (e) {
               console.error(
                 "[useMapWebsocket] Error processing DELETE_EVENT:",
@@ -390,13 +381,7 @@ export function useMessageHandler({
         );
       }
     },
-    [
-      convertEventToMarker,
-      setMarkers,
-      setClientId,
-      emitMarkersUpdated,
-      currentViewportRef,
-    ],
+    [setClientId, currentViewportRef],
   );
 
   return { handleWebSocketMessage };

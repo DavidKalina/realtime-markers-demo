@@ -1,9 +1,7 @@
 // stores/useLocationStore.ts - Unified selection model (legacy fields removed)
 import { create } from "zustand";
 import { EventType, MapboxViewport, Marker } from "@/types/types";
-import { markerToEvent, isValidCoordinates } from "@/utils/mapUtils";
-import { ClusterFeature } from "@/hooks/useMarkerClustering";
-import type { MapItem, MarkerItem, ClusterItem } from "@/types/map";
+import type { MapItem, MarkerItem } from "@/types/map";
 
 interface LocationStoreState {
   // Marker data
@@ -32,16 +30,10 @@ interface LocationStoreState {
   selectMapItem: (item: MapItem | null) => void;
   isItemSelected: (id: string) => boolean;
 
-  // Legacy selection methods (thin wrappers for backward compatibility)
-  selectMarker: (markerId: string | null) => void;
-  selectCluster: (cluster: ClusterFeature | null) => void;
-
   // View handlers
   setShowActions: (show: boolean) => void;
 
   // Action handlers
-  shareEvent: () => void;
-  openMaps: (location: string) => void;
   handleSelectEventFromSearch: (event: EventType) => void;
   handleSelectEventFromMap: (marker: Marker) => void;
   updateMapViewport: (viewport: MapboxViewport) => void;
@@ -81,9 +73,6 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
         ? markers.find((m) => m.id === selectedId) || null
         : null;
 
-      // Sync the events with markers
-      const newEvents = markers.map(markerToEvent);
-
       // Update the unified selection if needed
       let newSelectedItem = state.selectedItem;
       if (state.selectedItem?.type === "marker" && selectedId) {
@@ -104,12 +93,6 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
       return {
         markers,
         selectedItem: newSelectedItem,
-        // Update events derived from markers
-        events: newEvents,
-        // Update current event if needed
-        currentEvent: newSelectedMarker
-          ? markerToEvent(newSelectedMarker)
-          : null,
       };
     }),
 
@@ -172,101 +155,21 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
     return selectedItem?.id === id;
   },
 
-  // Legacy selection methods (thin wrappers delegating to selectMapItem)
-  selectMarker: (markerId) =>
-    set((state) => {
-      // Skip if trying to select the same marker that's already selected
-      if (
-        state.selectedItem?.id === markerId &&
-        state.selectedItem?.type === "marker"
-      ) {
-        return state; // No change needed
-      }
-
-      if (!markerId) {
-        return { selectedItem: null };
-      }
-
-      const selectedMarker =
-        state.markers.find((m) => m.id === markerId) || null;
-
-      const selectedItem: MarkerItem | null = selectedMarker
-        ? {
-            id: selectedMarker.id,
-            type: "marker" as const,
-            coordinates: selectedMarker.coordinates,
-            data: selectedMarker.data,
-          }
-        : null;
-
-      return { selectedItem };
-    }),
-
-  selectCluster: (cluster) =>
-    set(() => {
-      if (!cluster) {
-        return { selectedItem: null };
-      }
-
-      // Extract cluster information
-      const clusterId = `cluster-${cluster.properties.cluster_id}`;
-      const count = cluster.properties.point_count;
-      const coordinates = cluster.geometry.coordinates as [number, number];
-      const childMarkers = cluster.properties.childMarkers || [];
-
-      const selectedItem: ClusterItem = {
-        id: clusterId,
-        type: "cluster",
-        coordinates,
-        count,
-        childrenIds: childMarkers,
-      };
-
-      return { selectedItem };
-    }),
-
   // View state handlers
   setShowActions: (show: boolean) => set({ showActions: show }),
 
-  // Action handlers
-  shareEvent: () => {
-    // This function can be implemented as needed
-  },
-
-  openMaps: (location: string) => {
-    const { selectedItem, markers } = get();
-
-    if (!selectedItem || selectedItem.type !== "marker") {
-      console.warn("Cannot open maps: no current event");
-      return;
-    }
-
-    const selectedMarker = markers.find((m) => m.id === selectedItem.id);
-    if (!selectedMarker) return;
-
-    // Try to use coordinates if available, otherwise fall back to location text
-    if (
-      selectedMarker.coordinates &&
-      isValidCoordinates(selectedMarker.coordinates)
-    ) {
-      const [longitude, latitude] = selectedMarker.coordinates;
-      const url = `https://maps.google.com/?q=${latitude},${longitude}`;
-      console.log("url", url);
-      // Linking.openURL(url);
-    } else {
-      const encodedLocation = encodeURIComponent(location);
-      const url = `https://maps.google.com/?q=${encodedLocation}`;
-      console.log("url", url);
-      // Linking.openURL(url);
-    }
-  },
-
   handleSelectEventFromSearch: (event: EventType) => {
-    const { selectMarker } = get();
-
-    // Select the marker to update both marker and event state
+    const { markers, selectMapItem } = get();
     if (event.id) {
-      selectMarker(event.id);
+      const marker = markers.find((m) => m.id === event.id);
+      if (marker) {
+        selectMapItem({
+          id: marker.id,
+          type: "marker",
+          coordinates: marker.coordinates,
+          data: marker.data,
+        });
+      }
     }
   },
 

@@ -3,130 +3,77 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import {
   eventBroker,
   EventTypes,
-  MarkersEvent,
+  ViewportEvent,
   BaseEvent,
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useAuth } from "@/contexts/AuthContext";
-import { Marker } from "@/types/types";
+import { MapboxViewport } from "@/types/types";
 import type { MapWebSocketResult } from "./types";
-import { useViewportSync } from "./useViewportSync";
 import { useMessageHandler } from "./useMessageHandler";
 import { useWebSocketConnection } from "./useWebSocketConnection";
 import { MessageTypes } from "./constants";
 
 export const useMapWebSocket = (url: string): MapWebSocketResult => {
-  const [markers, setMarkers] = useState<Marker[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
 
   const { user, isAuthenticated } = useAuth();
-  const setStoreMarkers = useLocationStore.getState().setMarkers;
 
   // Stable WebSocket ref shared between viewport sync and connection hooks
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Viewport sync
-  const {
-    currentViewport,
-    currentViewportRef,
-    markersRef,
-    updateMarkersRef,
-    updateViewport,
-    sendViewportUpdateToServer,
-  } = useViewportSync(wsRef);
+  // --- Viewport sync (inlined from useViewportSync) ---
+  const [currentViewport, setCurrentViewport] =
+    useState<MapboxViewport | null>(null);
+  const currentViewportRef = useRef<MapboxViewport | null>(null);
 
-  // Keep markersRef in sync
   useEffect(() => {
-    updateMarkersRef(markers);
-  }, [markers, updateMarkersRef]);
+    currentViewportRef.current = currentViewport;
+  }, [currentViewport]);
 
-  // Sync to store
-  useEffect(() => {
-    setStoreMarkers(markers);
-  }, [markers, setStoreMarkers]);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const convertEventToMarker = useCallback((event: any): Marker => {
-    return {
-      id: event.id,
-      coordinates: event.location.coordinates,
-      data: {
-        title: event.title || "Unnamed Event",
-        emoji: event.emoji || "📍",
-        color: event.color || "red",
-        description: event.description,
-        eventDate: event.eventDate,
-        endDate: event.endDate,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        categories: event.categories?.map((c: any) => c.name || c),
-        isVerified: event.isVerified,
-        created_at: event.createdAt,
-        updated_at: event.updatedAt,
-        isPrivate: event.isPrivate,
-        status: event.status,
-        isRecurring: event.isRecurring ?? false,
-        recurrenceFrequency: event.recurrenceFrequency,
-        recurrenceDays: event.recurrenceDays,
-        recurrenceStartDate: event.recurrenceStartDate,
-        recurrenceEndDate: event.recurrenceEndDate,
-        recurrenceInterval: event.recurrenceInterval,
-        recurrenceTime: event.recurrenceTime,
-        recurrenceExceptions: event.recurrenceExceptions,
-        goingCount: event.goingCount ?? 0,
-        saveCount: event.saveCount ?? 0,
-        isTrending: event.isTrending ?? false,
-        ...(event.metadata || {}),
-      },
-    };
+  const sendViewportUpdateToServer = useCallback(() => {
+    if (
+      wsRef.current?.readyState === WebSocket.OPEN &&
+      currentViewportRef.current
+    ) {
+      const message = {
+        type: MessageTypes.VIEWPORT_UPDATE,
+        viewport: currentViewportRef.current,
+      };
+      wsRef.current.send(JSON.stringify(message));
+    }
   }, []);
 
-  // Emit marker updates
-  const emitMarkersUpdated = useCallback(
-    (
-      updatedMarkers: Marker[],
-      actionType: "replace" | "add" | "update" | "delete",
-    ) => {
-      const selectedItem = useLocationStore.getState().selectedItem;
-      const selectMapItem = useLocationStore.getState().selectMapItem;
+  const updateViewport = useCallback(
+    (viewport: MapboxViewport) => {
+      setCurrentViewport(viewport);
+      currentViewportRef.current = viewport;
 
-      const selectedId =
-        selectedItem?.type === "marker" ? selectedItem.id : null;
-      if (selectedId) {
-        const selectedMarkerExists = updatedMarkers.some(
-          (marker) => marker.id === selectedId,
-        );
-        if (
-          !selectedMarkerExists ||
-          (actionType === "delete" &&
-            updatedMarkers.find((m) => m.id === selectedId) === undefined)
-        ) {
-          selectMapItem(null);
-          eventBroker.emit<BaseEvent>(EventTypes.MARKER_DESELECTED, {
-            timestamp: Date.now(),
-            source: "useMapWebSocket",
-          });
-        }
-      }
+      // Read markers from store instead of a local ref
+      const markers = useLocationStore.getState().markers;
 
-      eventBroker.emit<MarkersEvent>(EventTypes.MARKERS_UPDATED, {
-        timestamp: Date.now(),
-        source: "useMapWebSocket",
-        markers: updatedMarkers,
-        count: updatedMarkers.length,
-      });
+      eventBroker.emit<ViewportEvent & { searching: boolean }>(
+        EventTypes.VIEWPORT_CHANGED,
+        {
+          timestamp: Date.now(),
+          source: "useMapWebSocket",
+          viewport: viewport,
+          markers: markers,
+          searching: true,
+        },
+      );
+
+      sendViewportUpdateToServer();
     },
-    [],
+    [sendViewportUpdateToServer],
   );
 
   // Message handler
   const { handleWebSocketMessage } = useMessageHandler({
-    setMarkers,
     setClientId,
     currentViewportRef,
-    emitMarkersUpdated,
-    convertEventToMarker,
   });
 
   // WebSocket connection (shares wsRef with viewport sync)
@@ -187,7 +134,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   }, [updateViewport, currentViewportRef, wsRef]);
 
   return {
-    markers,
     isConnected,
     error,
     currentViewport,

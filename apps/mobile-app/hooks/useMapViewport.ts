@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { useLocationStore } from "@/stores/useLocationStore";
-import throttle from "lodash/throttle";
+import debounce from "lodash/debounce";
 import { MapboxViewport } from "@/types/types";
 
 interface UseMapViewportOptions {
@@ -16,11 +16,12 @@ export function useMapViewport({
   const [viewportRectangle, setViewportRectangle] =
     useState<MapboxViewport | null>(null);
 
-  // Throttle the expensive updateViewport cascade (state update → EventBroker
-  // broadcast → WebSocket send → re-clustering) to 4×/sec. Mapbox GPU
-  // continues rendering at 60fps; only the JS-side reactions are gated.
-  const throttledUpdateViewport = useRef(
-    throttle((viewport: MapboxViewport) => updateViewport(viewport), 250, {
+  // Debounce the expensive updateViewport cascade (state update → EventBroker
+  // broadcast → WebSocket send → re-clustering). Fires once at the start
+  // (leading) and once 300ms after the last call (trailing) — max 2 server
+  // requests per gesture vs ~4+ with throttle.
+  const debouncedUpdateViewport = useRef(
+    debounce((viewport: MapboxViewport) => updateViewport(viewport), 300, {
       leading: true,
       trailing: true,
     }),
@@ -101,14 +102,14 @@ export function useMapViewport({
         if (viewport) {
           const rectangle = calculateViewportRectangle(viewport, isPitched);
           setViewportRectangle(rectangle);
-          throttledUpdateViewport(rectangle);
+          debouncedUpdateViewport(rectangle);
         }
       } catch (error) {
         console.error("Error processing viewport change:", error);
       }
     },
     [
-      throttledUpdateViewport,
+      debouncedUpdateViewport,
       processViewportBounds,
       calculateViewportRectangle,
       isPitched,

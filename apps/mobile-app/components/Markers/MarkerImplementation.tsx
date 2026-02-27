@@ -11,7 +11,7 @@ import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useMemo, useEffect, useRef } from "react";
 import Animated, {
   BounceIn,
-  BounceOut,
+  FadeOut,
   LinearTransition,
 } from "react-native-reanimated";
 import { ClusterMarker } from "./ClusterMarker";
@@ -37,6 +37,7 @@ const SingleMarkerView = React.memo(
     onNavigate,
     index,
     seenHapticIds,
+    isNew,
   }: {
     marker: MarkerItem;
     isSelected: boolean;
@@ -44,6 +45,7 @@ const SingleMarkerView = React.memo(
     onNavigate: () => void;
     index: number;
     seenHapticIds: React.MutableRefObject<Set<string>>;
+    isNew: boolean;
   }) => {
     const lastTapRef = useRef(0);
 
@@ -75,6 +77,18 @@ const SingleMarkerView = React.memo(
       return () => clearTimeout(timer);
     }, [index, marker.id, seenHapticIds]);
 
+    // Only bounce in genuinely new markers (first time this ID appears on
+    // screen). Reclustering remounts use no entering animation so the marker
+    // just pops into place silently. Exit is always a brief fade — the 500ms
+    // BounceOut during reclustering was the main source of jank.
+    const entering = isNew
+      ? BounceIn.duration(500)
+          .springify()
+          .damping(spring.firm.damping)
+          .stiffness(spring.firm.stiffness)
+          .delay(Math.min(index, 5) * 80)
+      : undefined;
+
     return (
       <MapboxGL.MarkerView
         key={`marker-${marker.id}`}
@@ -82,15 +96,8 @@ const SingleMarkerView = React.memo(
         anchor={{ x: 0.5, y: 1.0 }}
       >
         <Animated.View
-          entering={BounceIn.duration(500)
-            .springify()
-            .damping(spring.firm.damping)
-            .stiffness(spring.firm.stiffness)
-            .delay(Math.min(index, 5) * 80)}
-          exiting={BounceOut.duration(500)
-            .springify()
-            .damping(spring.firm.damping)
-            .stiffness(spring.firm.stiffness)}
+          entering={entering}
+          exiting={FadeOut.duration(150)}
           layout={LinearTransition.springify()}
         >
           <EmojiMapMarker
@@ -114,12 +121,14 @@ const ClusterView = React.memo(
     onPress,
     index,
     seenHapticIds,
+    isNew,
   }: {
     cluster: ClusterItem;
     isSelected: boolean;
     onPress: () => void;
     index: number;
     seenHapticIds: React.MutableRefObject<Set<string>>;
+    isNew: boolean;
   }) => {
     // Add haptic feedback for each cluster's first appearance only
     useEffect(() => {
@@ -137,6 +146,14 @@ const ClusterView = React.memo(
       return () => clearTimeout(timer);
     }, [index, cluster.id, seenHapticIds]);
 
+    const entering = isNew
+      ? BounceIn.duration(500)
+          .springify()
+          .damping(spring.firm.damping)
+          .stiffness(spring.firm.stiffness)
+          .delay(Math.min(index, 5) * 50)
+      : undefined;
+
     return (
       <MapboxGL.MarkerView
         key={cluster.id}
@@ -144,15 +161,8 @@ const ClusterView = React.memo(
         anchor={{ x: 0.5, y: 0.5 }}
       >
         <Animated.View
-          entering={BounceIn.duration(500)
-            .springify()
-            .damping(spring.firm.damping)
-            .stiffness(spring.firm.stiffness)
-            .delay(Math.min(index, 5) * 50)}
-          exiting={BounceOut.duration(500)
-            .springify()
-            .damping(spring.firm.damping)
-            .stiffness(spring.firm.stiffness)}
+          entering={entering}
+          exiting={FadeOut.duration(150)}
           layout={LinearTransition.springify()}
         >
           <ClusterMarker
@@ -166,7 +176,6 @@ const ClusterView = React.memo(
     );
   },
   (prevProps, nextProps) => {
-    // Custom comparison function to prevent unnecessary re-renders
     return (
       prevProps.cluster.id === nextProps.cluster.id &&
       prevProps.cluster.count === nextProps.cluster.count &&
@@ -174,7 +183,8 @@ const ClusterView = React.memo(
       prevProps.cluster.coordinates[1] === nextProps.cluster.coordinates[1] &&
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.index === nextProps.index &&
-      prevProps.seenHapticIds === nextProps.seenHapticIds
+      prevProps.seenHapticIds === nextProps.seenHapticIds &&
+      prevProps.isNew === nextProps.isNew
     );
   },
 );
@@ -198,6 +208,19 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       if (markers !== prevMarkersRef.current) {
         prevMarkersRef.current = markers;
         seenHapticIds.current.clear();
+      }
+    }, [markers]);
+
+    // Persistent set of all marker IDs that have ever been rendered on screen.
+    // Used to distinguish genuinely new markers (→ BounceIn) from reclustering
+    // remounts (→ no animation). Never cleared — IDs accumulate over the
+    // session so returning to a previously visited area won't re-bounce.
+    const knownMarkerIds = useRef(new Set<string>());
+
+    // Populate after each render so the NEXT reclustering sees them as known.
+    useEffect(() => {
+      for (const m of markers) {
+        knownMarkerIds.current.add(m.id);
       }
     }, [markers]);
 
@@ -251,6 +274,12 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           const clusterId =
             clusterFeature.properties.stableId ||
             `cluster-${clusterFeature.properties.cluster_id}`;
+          const childMarkerIds = clusterFeature.properties.childMarkers || [];
+
+          // Cluster is "new" only if it contains marker IDs we haven't seen
+          const isNew = childMarkerIds.some(
+            (id) => !knownMarkerIds.current.has(id),
+          );
 
           return {
             type: "cluster" as const,
@@ -259,10 +288,11 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
               type: "cluster" as const,
               coordinates,
               count,
-              childrenIds: clusterFeature.properties.childMarkers || [],
+              childrenIds: childMarkerIds,
             },
             isSelected: false,
             onPress: createClusterPressHandler(coordinates),
+            isNew,
           };
         } else {
           const pointFeature = feature as PointFeature;
@@ -279,12 +309,16 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
             data,
           };
 
+          // Marker is "new" only if this ID hasn't been on screen before
+          const isNew = !knownMarkerIds.current.has(markerId);
+
           return {
             type: "marker" as const,
             item: markerItem,
             isSelected: markerId === selectedId,
             onSelect: createMarkerSelectHandler(markerItem),
             onNavigate: createMarkerNavigateHandler(markerId),
+            isNew,
           };
         }
       },
@@ -330,6 +364,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         isSelected: boolean;
         onPress: () => void;
         index: number;
+        isNew: boolean;
       }) => (
         <ClusterView
           key={processed.item.id}
@@ -338,6 +373,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           onPress={processed.onPress}
           index={processed.index}
           seenHapticIds={seenHapticIds}
+          isNew={processed.isNew}
         />
       ),
       [],
@@ -351,6 +387,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         onSelect: () => void;
         onNavigate: () => void;
         index: number;
+        isNew: boolean;
       }) => (
         <SingleMarkerView
           key={processed.item.id}
@@ -360,6 +397,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           onNavigate={processed.onNavigate}
           index={processed.index}
           seenHapticIds={seenHapticIds}
+          isNew={processed.isNew}
         />
       ),
       [],
