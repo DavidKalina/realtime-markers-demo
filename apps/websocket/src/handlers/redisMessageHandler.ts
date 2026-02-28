@@ -10,7 +10,7 @@ import type Redis from "ioredis";
 
 export interface DiscoveredEvent {
   event: {
-    creatorId: string;
+    creatorId?: string;
     [key: string]: unknown;
   };
 }
@@ -86,7 +86,7 @@ function isPointInExpandedViewport(
 
 async function broadcastToNearbyUsers(
   event: Record<string, unknown>,
-  creatorId: string,
+  creatorId: string | undefined,
   dependencies: RedisMessageHandlerDependencies,
 ): Promise<void> {
   const coords = extractEventCoordinates(event);
@@ -194,40 +194,44 @@ export async function handleRedisMessage(
         // Backend publishes { type, data: { event, timestamp } }
         const eventPayload = data.data ?? data;
         const eventData = eventPayload as DiscoveredEvent;
-        if (!eventData.event?.creatorId) {
+        if (!eventData.event) {
           console.error("Invalid discovered event data:", data);
           return;
         }
 
-        // Send to creator with isOwnDiscovery: true
-        const creatorMessage = formatDiscoveryMessage({
-          ...eventData.event,
-          isOwnDiscovery: true,
-        });
+        // Send to creator with isOwnDiscovery: true (only if creatorId exists)
+        if (eventData.event.creatorId) {
+          const creatorMessage = formatDiscoveryMessage({
+            ...eventData.event,
+            isOwnDiscovery: true,
+          });
 
-        const userClients = dependencies.getUserClients(
-          eventData.event.creatorId,
-        );
-        if (userClients) {
-          for (const clientId of userClients) {
-            const client = dependencies.getClient(clientId);
-            if (client) {
-              try {
-                client.send(creatorMessage);
-                console.log(`Sent discovery event to client ${clientId}`);
-              } catch (error) {
-                console.error(
-                  `Error sending discovery event to client ${clientId}:`,
-                  error,
-                );
+          const userClients = dependencies.getUserClients(
+            eventData.event.creatorId,
+          );
+          if (userClients) {
+            for (const clientId of userClients) {
+              const client = dependencies.getClient(clientId);
+              if (client) {
+                try {
+                  client.send(creatorMessage);
+                  console.log(`Sent discovery event to client ${clientId}`);
+                } catch (error) {
+                  console.error(
+                    `Error sending discovery event to client ${clientId}:`,
+                    error,
+                  );
+                }
               }
             }
+          } else {
+            console.log(
+              `No clients found for user ${eventData.event.creatorId}`,
+            );
           }
-        } else {
-          console.log(`No clients found for user ${eventData.event.creatorId}`);
         }
 
-        // Broadcast to nearby users (excluding creator)
+        // Broadcast to nearby users (excluding creator if present)
         await broadcastToNearbyUsers(
           eventData.event as Record<string, unknown>,
           eventData.event.creatorId,

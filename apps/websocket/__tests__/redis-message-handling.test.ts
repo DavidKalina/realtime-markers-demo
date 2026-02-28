@@ -140,11 +140,27 @@ describe("Redis Message Handling", () => {
       );
     });
 
-    it("should handle discovered event with missing creatorId", async () => {
+    it("should handle discovered event with missing creatorId by still broadcasting to nearby users", async () => {
+      const nearbyUserId = "nearby-user-id";
+      const nearbyClientId = "nearby-client";
+      const nearbyWs = createMockWebSocket(nearbyClientId, nearbyUserId);
+
+      mockConnectionHandler.getUserClients.mockReturnValue([nearbyClientId]);
+      mockConnectionHandler.getClient.mockReturnValue(nearbyWs);
+
+      // GEORADIUS returns a nearby user's viewport
+      mockConnectionHandler.redisClient.georadius.mockResolvedValue([
+        `viewport:${nearbyUserId}`,
+      ]);
+      mockConnectionHandler.redisClient.get.mockResolvedValue(
+        JSON.stringify({ minX: -74.1, maxX: -73.9, minY: 40.6, maxY: 40.8 }),
+      );
+
       const eventData = {
         event: {
           eventId: "event-456",
           title: "Test Event",
+          location: { type: "Point", coordinates: [-74.0, 40.7] },
         },
       };
 
@@ -154,12 +170,19 @@ describe("Redis Message Handling", () => {
         mockConnectionHandler as unknown as MockConnectionHandler,
       );
 
+      // Should NOT log an error for missing creatorId
       expect(
         consoleErrors.some((error) =>
           error.includes("Invalid discovered event data"),
         ),
-      ).toBe(true);
-      expect(mockConnectionHandler.getUserClients).not.toHaveBeenCalled();
+      ).toBe(false);
+
+      // Should broadcast to nearby users
+      expect(nearbyWs.send).toHaveBeenCalled();
+      const sentMessage = JSON.parse(
+        (nearbyWs.send as jest.Mock).mock.calls[0][0],
+      );
+      expect(sentMessage.event.isOwnDiscovery).toBe(false);
     });
 
     it("should handle discovered event when no clients are found", async () => {

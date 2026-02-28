@@ -304,24 +304,6 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         );
       }
 
-      try {
-        await context.redisService.publish("discovered_events", {
-          type: "EVENT_DISCOVERED",
-          data: {
-            event: {
-              ...newEvent,
-              coordinates: pointToCoordinates(newEvent.location),
-            },
-            timestamp: new Date().toISOString(),
-          },
-        });
-      } catch (publishError) {
-        console.error(
-          `[ProcessFlyerHandler] Failed to publish event ${newEvent.id} to Redis (event saved to DB successfully):`,
-          publishError,
-        );
-      }
-
       // Mark as completed with success
       await tracker.complete(
         {
@@ -471,24 +453,6 @@ export class ProcessFlyerHandler extends BaseJobHandler {
       // Create discovery record if creator exists
       if (creatorId) {
         await this.eventService.createDiscoveryRecord(creatorId, newEvent.id);
-      }
-
-      try {
-        await context.redisService.publish("discovered_events", {
-          type: "EVENT_DISCOVERED",
-          data: {
-            event: {
-              ...newEvent,
-              coordinates: pointToCoordinates(newEvent.location),
-            },
-            timestamp: new Date().toISOString(),
-          },
-        });
-      } catch (publishError) {
-        console.error(
-          `[ProcessFlyerHandler] Failed to publish event ${newEvent.id} to Redis (event saved to DB successfully):`,
-          publishError,
-        );
       }
 
       processedEvents.push({

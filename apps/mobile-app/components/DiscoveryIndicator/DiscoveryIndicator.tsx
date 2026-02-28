@@ -6,6 +6,7 @@ import {
   EventTypes,
   NotificationEvent,
 } from "@/services/EventBroker";
+import { useFilterStore } from "@/stores/useFilterStore";
 import {
   AlertCircle,
   AlertTriangle,
@@ -121,6 +122,23 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
     const unsubscribeDiscovery = subscribe(
       EventTypes.EVENT_DISCOVERED,
       (event: DiscoveryEvent) => {
+        // Filter out events outside the active time range
+        const eventDateStr = event.event.eventDate?.split("T")[0];
+        if (eventDateStr) {
+          const { filters, activeFilterIds } = useFilterStore.getState();
+          if (activeFilterIds.length > 0) {
+            const activeFilter = filters.find((f) =>
+              activeFilterIds.includes(f.id),
+            );
+            const range = activeFilter?.criteria?.dateRange;
+            if (range?.start && range?.end) {
+              if (eventDateStr < range.start || eventDateStr > range.end) {
+                return;
+              }
+            }
+          }
+        }
+
         setItems((prev) => {
           // Don't add duplicates
           if (prev && prev.some((d) => d.id === event.event.id)) {

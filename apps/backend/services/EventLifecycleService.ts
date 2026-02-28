@@ -139,6 +139,23 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       },
     });
 
+    // Publish discovery notification for real-time broadcast
+    await this.redisService.publish("discovered_events", {
+      type: "EVENT_DISCOVERED",
+      data: {
+        event: {
+          ...this.stripEventForRedis(savedEvent),
+          coordinates: savedEvent.location?.coordinates
+            ? [
+                savedEvent.location.coordinates[0],
+                savedEvent.location.coordinates[1],
+              ]
+            : undefined,
+        },
+        timestamp: new Date().toISOString(),
+      },
+    });
+
     await this.eventCacheService.invalidateSearchCache();
 
     // Invalidate landing page cache since new official events might affect the landing page
