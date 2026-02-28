@@ -1,11 +1,12 @@
-import { REDIS_CHANNELS, MessageTypes } from "../config/constants";
+import { REDIS_CHANNELS } from "../config/constants";
 import {
   formatDiscoveryMessage,
   formatNotificationMessage,
   formatLevelUpdateMessage,
 } from "../utils/messageFormatter";
 import type { ServerWebSocket } from "bun";
-import type { WebSocketData } from "../types/websocket";
+import type { WebSocketData, ViewportData } from "../types/websocket";
+import type Redis from "ioredis";
 
 export interface DiscoveredEvent {
   event: {
@@ -36,13 +37,150 @@ export interface LevelUpdate {
 export interface RedisMessageHandlerDependencies {
   getUserClients: (userId: string) => Set<string> | undefined;
   getClient: (clientId: string) => ServerWebSocket<WebSocketData> | undefined;
+  redisClient: Redis;
 }
 
-export function handleRedisMessage(
+const VIEWPORT_EXPANSION_FACTOR = 0.5;
+const GEORADIUS_SEARCH_METERS = 50000;
+
+function extractEventCoordinates(
+  event: Record<string, unknown>,
+): [number, number] | null {
+  // Try event.coordinates (GeoJSON: [lng, lat])
+  if (Array.isArray(event.coordinates) && event.coordinates.length >= 2) {
+    return [event.coordinates[0] as number, event.coordinates[1] as number];
+  }
+  // Try event.location.coordinates (GeoJSON point)
+  const location = event.location as Record<string, unknown> | undefined;
+  if (
+    location &&
+    Array.isArray(location.coordinates) &&
+    location.coordinates.length >= 2
+  ) {
+    return [
+      location.coordinates[0] as number,
+      location.coordinates[1] as number,
+    ];
+  }
+  return null;
+}
+
+function isPointInExpandedViewport(
+  lng: number,
+  lat: number,
+  viewport: ViewportData,
+  expansionFactor: number,
+): boolean {
+  const width = viewport.maxX - viewport.minX;
+  const height = viewport.maxY - viewport.minY;
+  const expandX = width * expansionFactor;
+  const expandY = height * expansionFactor;
+
+  return (
+    lng >= viewport.minX - expandX &&
+    lng <= viewport.maxX + expandX &&
+    lat >= viewport.minY - expandY &&
+    lat <= viewport.maxY + expandY
+  );
+}
+
+async function broadcastToNearbyUsers(
+  event: Record<string, unknown>,
+  creatorId: string,
+  dependencies: RedisMessageHandlerDependencies,
+): Promise<void> {
+  const coords = extractEventCoordinates(event);
+  if (!coords) {
+    console.log(
+      "[Discovery Broadcast] No coordinates found on event, skipping",
+    );
+    return;
+  }
+
+  const [lng, lat] = coords;
+
+  try {
+    const nearbyViewportKeys = (await dependencies.redisClient.georadius(
+      "viewport:geo",
+      lng,
+      lat,
+      GEORADIUS_SEARCH_METERS,
+      "m",
+    )) as string[];
+
+    if (!nearbyViewportKeys || nearbyViewportKeys.length === 0) {
+      console.log("[Discovery Broadcast] No nearby viewports found");
+      return;
+    }
+
+    let notifiedCount = 0;
+    const formattedMessage = formatDiscoveryMessage({
+      ...event,
+      isOwnDiscovery: false,
+    });
+
+    for (const viewportKey of nearbyViewportKeys) {
+      // viewportKey format: "viewport:{userId}"
+      const userId = viewportKey.replace("viewport:", "");
+
+      // Skip the creator — they already got their own notification
+      if (userId === creatorId) continue;
+
+      // Fetch the viewport data to do precise bounds check
+      const viewportJson = await dependencies.redisClient.get(viewportKey);
+      if (!viewportJson) continue;
+
+      let viewport: ViewportData;
+      try {
+        viewport = JSON.parse(viewportJson) as ViewportData;
+      } catch {
+        continue;
+      }
+
+      if (
+        !isPointInExpandedViewport(
+          lng,
+          lat,
+          viewport,
+          VIEWPORT_EXPANSION_FACTOR,
+        )
+      ) {
+        continue;
+      }
+
+      // Send to all clients for this user
+      const userClients = dependencies.getUserClients(userId);
+      if (!userClients) continue;
+
+      for (const clientId of userClients) {
+        const client = dependencies.getClient(clientId);
+        if (client) {
+          try {
+            client.send(formattedMessage);
+            notifiedCount++;
+          } catch (error) {
+            console.error(
+              `[Discovery Broadcast] Error sending to client ${clientId}:`,
+              error,
+            );
+          }
+        }
+      }
+    }
+
+    console.log(
+      `[Discovery Broadcast] Notified ${notifiedCount} nearby clients`,
+    );
+  } catch (error) {
+    console.error("[Discovery Broadcast] Error querying nearby users:", error);
+  }
+}
+
+export async function handleRedisMessage(
   channel: string,
   message: string,
   dependencies: RedisMessageHandlerDependencies,
-): void {
+): Promise<void> {
   console.log(`Received message from ${channel}: ${message}`);
 
   try {
@@ -61,7 +199,11 @@ export function handleRedisMessage(
           return;
         }
 
-        const formattedMessage = formatDiscoveryMessage(eventData.event);
+        // Send to creator with isOwnDiscovery: true
+        const creatorMessage = formatDiscoveryMessage({
+          ...eventData.event,
+          isOwnDiscovery: true,
+        });
 
         const userClients = dependencies.getUserClients(
           eventData.event.creatorId,
@@ -71,7 +213,7 @@ export function handleRedisMessage(
             const client = dependencies.getClient(clientId);
             if (client) {
               try {
-                client.send(formattedMessage);
+                client.send(creatorMessage);
                 console.log(`Sent discovery event to client ${clientId}`);
               } catch (error) {
                 console.error(
@@ -84,6 +226,13 @@ export function handleRedisMessage(
         } else {
           console.log(`No clients found for user ${eventData.event.creatorId}`);
         }
+
+        // Broadcast to nearby users (excluding creator)
+        await broadcastToNearbyUsers(
+          eventData.event as Record<string, unknown>,
+          eventData.event.creatorId,
+          dependencies,
+        );
         break;
       }
 

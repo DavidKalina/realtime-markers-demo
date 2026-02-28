@@ -1,3 +1,5 @@
+export const MIN_ZOOM_LEVEL = 13;
+
 export interface CameraSettings {
   centerCoordinate?: [number, number];
   zoomLevel?: number;

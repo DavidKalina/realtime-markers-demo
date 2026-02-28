@@ -18,7 +18,7 @@ const ZOMBIE_CHECK_INTERVAL_MS = 60_000; // Check every 60s
 const ZOMBIE_IDLE_THRESHOLD_MS = 5 * 60_000; // 5 minutes idle = zombie
 
 // Viewport debounce state — coalesces rapid panning into single Redis writes
-const VIEWPORT_DEBOUNCE_MS = 50;
+const VIEWPORT_DEBOUNCE_MS = 25;
 const viewportTimers = new Map<string, NodeJS.Timeout>();
 const pendingViewports = new Map<string, FormattedViewport>();
 
@@ -93,6 +93,7 @@ redisService.onGlobalMessage((channel: string, message: string) => {
       clientConnectionService.getUserClients(userId),
     getClient: (clientId: string) =>
       clientConnectionService.getClient(clientId),
+    redisClient: redisService.getPubClient(),
   });
 });
 

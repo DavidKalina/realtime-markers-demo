@@ -175,6 +175,7 @@ const useEventSearch = ({
 
   // Immediate search (for submit button / return key)
   const searchEvents = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     async (reset: boolean = true) => {
       if (!searchQuery.trim()) return;
       debouncedSearch.cancel();

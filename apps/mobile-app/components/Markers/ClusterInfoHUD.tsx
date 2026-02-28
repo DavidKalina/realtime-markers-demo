@@ -34,16 +34,18 @@ export const ClusterInfoHUD: React.FC<ClusterInfoHUDProps> = React.memo(
     const isCluster = selectedItem?.type === "cluster";
     const count = isCluster ? selectedItem.count : 0;
     const coordinates = isCluster ? selectedItem.coordinates : null;
+    const childrenIds = isCluster ? selectedItem.childrenIds : undefined;
 
     const pressScale = useSharedValue(1);
 
     const navigate = useCallback(() => {
       if (!coordinates) return;
       const zoomLevel = useLocationStore.getState().zoomLevel;
+      const ids = childrenIds?.join(",") || "";
       router.push(
-        `cluster?lat=${coordinates[1]}&lng=${coordinates[0]}&zoom=${zoomLevel}` as never,
+        `cluster?lat=${coordinates[1]}&lng=${coordinates[0]}&zoom=${zoomLevel}&childrenIds=${ids}` as never,
       );
-    }, [router, coordinates]);
+    }, [router, coordinates, childrenIds]);
 
     const handlePress = useCallback(() => {
       pressScale.value = withSequence(

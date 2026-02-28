@@ -26,10 +26,11 @@ export function useMapViewport({
 
   // Debounce the expensive updateViewport cascade (state update → EventBroker
   // broadcast → WebSocket send → re-clustering). Fires once at the start
-  // (leading) and once 150ms after the last call (trailing) — max 2 server
-  // requests per gesture vs ~4+ with throttle.
+  // (leading) and once after the last call (trailing) — max 2 server
+  // requests per gesture. Tight 50ms window is affordable at zoom 13+ where
+  // marker density is low.
   const debouncedUpdateViewport = useRef(
-    debounce((viewport: MapboxViewport) => updateViewport(viewport), 150, {
+    debounce((viewport: MapboxViewport) => updateViewport(viewport), 50, {
       leading: true,
       trailing: true,
     }),
@@ -143,15 +144,16 @@ export function useMapViewport({
           cameraMovingRef.current = true;
           setIsCameraMoving(true);
         }
-        // Reset the settle timer on every frame — 200ms after the last
-        // onRegionIsChanging we consider the camera settled.
+        // Reset the settle timer on every frame — 80ms after the last
+        // onRegionIsChanging we consider the camera settled. Tighter window
+        // unfreezes clustering faster so new markers appear sooner after a pan.
         if (cameraSettledTimeout.current) {
           clearTimeout(cameraSettledTimeout.current);
         }
         cameraSettledTimeout.current = setTimeout(() => {
           cameraMovingRef.current = false;
           setIsCameraMoving(false);
-        }, 200);
+        }, 80);
 
         handleMapViewportChange(feature);
       } catch (error) {

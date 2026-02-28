@@ -12,12 +12,10 @@ import Animated, {
   cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withSequence,
   withSpring,
   withTiming,
   withRepeat,
-  Easing,
 } from "react-native-reanimated";
 import { colors, fontSize, lineHeight, spacing, spring } from "@/theme";
 import {
@@ -40,18 +38,6 @@ const ANIMATIONS = {
   SHADOW: {
     duration: 300,
   },
-  FAN_OUT: {
-    duration: 800,
-    easing: Easing.out(Easing.back(1.2)),
-  },
-  FAN_IN: {
-    duration: 600,
-    easing: Easing.in(Easing.back(1.2)),
-  },
-  PULSE: {
-    duration: 1000,
-    easing: Easing.inOut(Easing.sin),
-  },
 };
 
 interface EmojiMapMarkerProps {
@@ -63,17 +49,13 @@ interface EmojiMapMarkerProps {
 }
 
 export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
-  ({ event, isSelected, onPress, index = 0 }) => {
+  ({ event, isSelected, onPress }) => {
     // Animation values
     const scale = useSharedValue(1);
     const shadowOpacity = useSharedValue(0.3);
     const rippleScale = useSharedValue(0);
     const rippleOpacity = useSharedValue(0.8);
-    const fanRotation = useSharedValue(0);
-    const fanScale = useSharedValue(1);
     const pulseScale = useSharedValue(1);
-    // Calculate stagger delay based on marker index
-    const initialDelay = useMemo(() => index * 200, [index]);
 
     // Initial mount animations
     useEffect(() => {
@@ -89,8 +71,6 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
         cancelAnimation(shadowOpacity);
         cancelAnimation(rippleScale);
         cancelAnimation(rippleOpacity);
-        cancelAnimation(fanRotation);
-        cancelAnimation(fanScale);
         cancelAnimation(pulseScale);
       };
     }, []);
@@ -103,42 +83,6 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
         scale.value = withSpring(1, ANIMATIONS.SCALE_RELEASE);
       }
     }, [isSelected]);
-
-    // Fan-out/in animation — gentle wobble on a repeating cycle (UI thread only)
-    useEffect(() => {
-      fanRotation.value = withDelay(
-        initialDelay,
-        withRepeat(
-          withSequence(
-            withTiming(0, { duration: 4000 }), // pause
-            withTiming(0.15, ANIMATIONS.FAN_OUT),
-            withTiming(-0.15, ANIMATIONS.FAN_OUT),
-            withTiming(0, ANIMATIONS.FAN_IN),
-          ),
-          -1,
-          false,
-        ),
-      );
-
-      fanScale.value = withDelay(
-        initialDelay,
-        withRepeat(
-          withSequence(
-            withTiming(1, { duration: 4000 }), // pause
-            withTiming(1.05, ANIMATIONS.FAN_OUT),
-            withTiming(1.05, { duration: 200 }),
-            withTiming(1, ANIMATIONS.FAN_IN),
-          ),
-          -1,
-          false,
-        ),
-      );
-
-      return () => {
-        cancelAnimation(fanRotation);
-        cancelAnimation(fanScale);
-      };
-    }, [initialDelay]);
 
     // Gentle breathing pulse
     useEffect(() => {
@@ -170,13 +114,12 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       onPress();
     }, [isSelected, onPress]);
 
-    // Composite animated style — all scale/rotation factors multiplied
+    // Composite animated style — scale + breathing pulse
     const markerStyle = useAnimatedStyle(() => ({
       transform: [
         {
-          scale: scale.value * fanScale.value * pulseScale.value,
+          scale: scale.value * pulseScale.value,
         },
-        { rotate: `${fanRotation.value}rad` },
       ],
     }));
 

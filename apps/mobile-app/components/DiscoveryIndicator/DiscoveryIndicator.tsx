@@ -210,7 +210,8 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
           coordinates: item.event.location.coordinates,
           timestamp: new Date().getTime(),
           source: "discovery_indicator",
-          zoomLevel: 20,
+          zoomLevel: 16,
+          allowZoomChange: true,
         },
       );
     }
@@ -298,7 +299,11 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
 
             <View style={{ flex: 1, justifyContent: "center" }}>
               <Text style={styles.titleText} numberOfLines={1}>
-                {isNotification ? item.notification!.title : "New Discovery"}
+                {isNotification
+                  ? item.notification!.title
+                  : item.event?.isOwnDiscovery
+                    ? "Your Discovery"
+                    : "Nearby Discovery"}
               </Text>
               {isNotification && item.notification!.message && (
                 <Text style={styles.messageText} numberOfLines={1}>

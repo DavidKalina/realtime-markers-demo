@@ -158,6 +158,7 @@ export interface CameraAnimateToLocationEvent extends BaseEvent {
   duration?: number; // milliseconds
   zoomLevel?: number;
   allowZoomChange?: boolean; // Whether to allow zoom level changes during animation
+  animationMode?: "flyTo" | "easeTo"; // Default: "flyTo"
 }
 
 export interface CameraAnimateToBoundsEvent extends BaseEvent {
@@ -241,6 +242,7 @@ export interface DiscoveredEventData {
   creatorId?: string;
   createdAt: string;
   updatedAt: string;
+  isOwnDiscovery?: boolean;
 }
 
 export interface DiscoveryEvent extends BaseEvent {

@@ -109,6 +109,12 @@ export interface AreaScanService {
     radius?: number,
     filters?: AreaScanFilters,
   ): Promise<AreaScanResult>;
+
+  getClusterProfile(
+    eventIds: string[],
+    centerLat: number,
+    centerLng: number,
+  ): Promise<AreaScanResult>;
 }
 
 interface AreaScanDependencies {
@@ -219,6 +225,105 @@ class AreaScanServiceImpl implements AreaScanService {
       cached: false,
       text: vibe,
     };
+  }
+
+  async getClusterProfile(
+    eventIds: string[],
+    centerLat: number,
+    centerLng: number,
+  ): Promise<AreaScanResult> {
+    const events = await this.queryEventsByIds(eventIds, centerLat, centerLng);
+    const zoneStats = this.computeZoneStats(events);
+
+    const zoneEvents: ZoneEvent[] = events.map((e) => ({
+      id: e.id,
+      emoji: e.emoji,
+      title: e.title,
+      eventDate: new Date(e.eventDate).toISOString(),
+      distance: e.distance,
+      categoryNames: e.categoryNames,
+    }));
+
+    const { systemPrompt, userPrompt } = this.buildPrompt(
+      zoneStats,
+      centerLat,
+      centerLng,
+      0,
+    );
+
+    const completion = await this.openAIService.executeChatCompletion({
+      model: OpenAIModel.GPT4OMini,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.9,
+      max_tokens: 120,
+      response_format: { type: "json_object" },
+    });
+
+    const raw = completion.choices[0]?.message?.content || "{}";
+    let name = zoneStats.zoneName;
+    let vibe = "";
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed.name) name = parsed.name;
+      if (parsed.vibe) vibe = parsed.vibe;
+    } catch {
+      vibe = raw;
+    }
+
+    zoneStats.zoneName = name;
+
+    return {
+      zoneStats,
+      events: zoneEvents,
+      cached: false,
+      text: vibe,
+    };
+  }
+
+  private async queryEventsByIds(
+    eventIds: string[],
+    centerLat: number,
+    centerLng: number,
+  ): Promise<NearbyEventRow[]> {
+    const eventRepository = this.dataSource.getRepository(Event);
+
+    const rows: NearbyEventRow[] = await eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .addSelect(
+        `ST_Distance(
+          event.location::geography,
+          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+        )`,
+        "distance",
+      )
+      .where("event.id IN (:...eventIds)", { eventIds })
+      .andWhere("event.status IN (:...statuses)", {
+        statuses: ["VERIFIED", "PENDING"],
+      })
+      .setParameters({ lat: centerLat, lng: centerLng })
+      .orderBy("distance", "ASC")
+      .limit(MAX_EVENTS)
+      .getRawAndEntities()
+      .then(({ entities, raw }) =>
+        entities.map((e, i) => ({
+          id: e.id,
+          emoji: e.emoji || "📍",
+          title: e.title,
+          eventDate: e.eventDate,
+          distance: Math.round(parseFloat(raw[i]?.distance || "0")),
+          categoryNames: (e.categories || []).map((c) => c.name).join(", "),
+          categories: (e.categories || []).map((c) => c.name),
+          saveCount: e.saveCount ?? 0,
+          viewCount: e.viewCount ?? 0,
+          isRecurring: e.isRecurring ?? false,
+        })),
+      );
+
+    return rows;
   }
 
   private async queryNearbyEvents(
@@ -396,7 +501,12 @@ name: A whimsical, evocative 2-4 word place name. Not generic — make it feel l
 
 vibe: One vivid sentence, max 18 words. Capture what it FEELS like to stand here — sounds, energy, texture. No greetings, no lists, no "this area".`;
 
-    const radiusLabel = radius >= 1000 ? `${radius / 1000} km` : `${radius} m`;
+    const isCluster = radius === 0;
+    const radiusLabel = isCluster
+      ? "cluster"
+      : radius >= 1000
+        ? `${radius / 1000} km`
+        : `${radius} m`;
 
     if (zoneStats.eventCount === 0) {
       return {
@@ -423,9 +533,13 @@ vibe: One vivid sentence, max 18 words. Capture what it FEELS like to stand here
       filterHint += ` Category filter active (${filters.categoryIds.length} selected).`;
     }
 
+    const scopeLabel = isCluster
+      ? `Map cluster of ${zoneStats.eventCount} events.`
+      : `Scan radius: ${radiusLabel}. ${zoneStats.eventCount} events found.`;
+
     return {
       systemPrompt,
-      userPrompt: `Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)}. Scan radius: ${radiusLabel}. ${zoneStats.eventCount} events found. Mix: ${catSummary}.${timeHint}${filterHint}`,
+      userPrompt: `Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)}. ${scopeLabel} Mix: ${catSummary}.${timeHint}${filterHint}`,
     };
   }
 }

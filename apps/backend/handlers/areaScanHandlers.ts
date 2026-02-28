@@ -110,6 +110,63 @@ export const areaScanHandler = async (c: Context<AppContext>) => {
   });
 };
 
+export const clusterProfileHandler = async (c: Context<AppContext>) => {
+  const body = await c.req.json<{
+    eventIds: string[];
+    lat: number;
+    lng: number;
+  }>();
+  const { eventIds, lat, lng } = body;
+
+  if (
+    !Array.isArray(eventIds) ||
+    eventIds.length === 0 ||
+    eventIds.length > 50
+  ) {
+    return c.json(
+      { error: "eventIds must be a non-empty array with at most 50 items" },
+      400,
+    );
+  }
+
+  if (
+    typeof lat !== "number" ||
+    typeof lng !== "number" ||
+    lat < -90 ||
+    lat > 90 ||
+    lng < -180 ||
+    lng > 180
+  ) {
+    return c.json(
+      { error: "Invalid coordinates. lat: -90 to 90, lng: -180 to 180" },
+      400,
+    );
+  }
+
+  const areaScanService = c.get("areaScanService");
+
+  const result = await areaScanService.getClusterProfile(eventIds, lat, lng);
+
+  return streamSSE(c, async (stream) => {
+    try {
+      await stream.writeSSE({
+        event: "metadata",
+        data: JSON.stringify({ ...result.zoneStats, events: result.events }),
+      });
+
+      const text = result.text || "No data available.";
+      await stream.writeSSE({ event: "content", data: text });
+      await stream.writeSSE({ event: "done", data: "" });
+    } catch (error) {
+      console.error("[ClusterProfile] Stream error:", error);
+      await stream.writeSSE({
+        event: "error",
+        data: JSON.stringify({ error: "Stream error" }),
+      });
+    }
+  });
+};
+
 // Simple geohash for cache key (matches AreaScanService)
 const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
 

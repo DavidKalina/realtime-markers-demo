@@ -8,12 +8,20 @@ import type { WebSocketData } from "../src/types/websocket";
 type MockConnectionHandler = {
   getUserClients: jest.Mock;
   getClient: jest.Mock;
+  redisClient: {
+    georadius: jest.Mock;
+    get: jest.Mock;
+  };
 };
 
 // Mock ConnectionHandler
 const mockConnectionHandler: MockConnectionHandler = {
   getUserClients: jest.fn(),
   getClient: jest.fn(),
+  redisClient: {
+    georadius: jest.fn().mockResolvedValue([]),
+    get: jest.fn().mockResolvedValue(null),
+  },
 };
 
 // Mock WebSocket
@@ -99,7 +107,7 @@ describe("Redis Message Handling", () => {
   });
 
   describe("Discovered Events Channel", () => {
-    it("should handle valid discovered event and send to user clients", () => {
+    it("should handle valid discovered event and send to user clients", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
       const clientId = "client-123";
       const mockWs = createMockWebSocket(clientId, userId);
@@ -116,7 +124,7 @@ describe("Redis Message Handling", () => {
         },
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.DISCOVERED_EVENTS,
         JSON.stringify(eventData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -132,7 +140,7 @@ describe("Redis Message Handling", () => {
       );
     });
 
-    it("should handle discovered event with missing creatorId", () => {
+    it("should handle discovered event with missing creatorId", async () => {
       const eventData = {
         event: {
           eventId: "event-456",
@@ -140,7 +148,7 @@ describe("Redis Message Handling", () => {
         },
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.DISCOVERED_EVENTS,
         JSON.stringify(eventData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -154,7 +162,7 @@ describe("Redis Message Handling", () => {
       expect(mockConnectionHandler.getUserClients).not.toHaveBeenCalled();
     });
 
-    it("should handle discovered event when no clients are found", () => {
+    it("should handle discovered event when no clients are found", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
 
       mockConnectionHandler.getUserClients.mockReturnValue(null);
@@ -167,7 +175,7 @@ describe("Redis Message Handling", () => {
         },
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.DISCOVERED_EVENTS,
         JSON.stringify(eventData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -179,7 +187,7 @@ describe("Redis Message Handling", () => {
       expect(mockConnectionHandler.getClient).not.toHaveBeenCalled();
     });
 
-    it("should handle discovered event when client send fails", () => {
+    it("should handle discovered event when client send fails", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
       const clientId = "client-123";
       const mockWs = createMockWebSocket(clientId, userId);
@@ -200,7 +208,7 @@ describe("Redis Message Handling", () => {
         },
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.DISCOVERED_EVENTS,
         JSON.stringify(eventData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -212,10 +220,104 @@ describe("Redis Message Handling", () => {
         ),
       ).toBe(true);
     });
+
+    it("should broadcast to nearby users with isOwnDiscovery flags", async () => {
+      const creatorId = "creator-user-id";
+      const nearbyUserId = "nearby-user-id";
+      const creatorClientId = "creator-client";
+      const nearbyClientId = "nearby-client";
+      const creatorWs = createMockWebSocket(creatorClientId, creatorId);
+      const nearbyWs = createMockWebSocket(nearbyClientId, nearbyUserId);
+
+      // Creator clients returned first, then nearby user clients
+      mockConnectionHandler.getUserClients
+        .mockReturnValueOnce([creatorClientId]) // for creator
+        .mockReturnValueOnce([nearbyClientId]); // for nearby user
+      mockConnectionHandler.getClient
+        .mockReturnValueOnce(creatorWs) // for creator
+        .mockReturnValueOnce(nearbyWs); // for nearby user
+
+      // GEORADIUS returns both viewport keys
+      mockConnectionHandler.redisClient.georadius.mockResolvedValue([
+        `viewport:${creatorId}`,
+        `viewport:${nearbyUserId}`,
+      ]);
+      // GET for nearby user's viewport (creator is skipped)
+      mockConnectionHandler.redisClient.get.mockResolvedValue(
+        JSON.stringify({ minX: -74.1, maxX: -73.9, minY: 40.6, maxY: 40.8 }),
+      );
+
+      const eventData = {
+        event: {
+          creatorId,
+          eventId: "event-789",
+          title: "Nearby Event",
+          location: { type: "Point", coordinates: [-74.0, 40.7] },
+        },
+      };
+
+      await handleRedisMessage(
+        REDIS_CHANNELS.DISCOVERED_EVENTS,
+        JSON.stringify(eventData),
+        mockConnectionHandler as unknown as MockConnectionHandler,
+      );
+
+      // Creator gets isOwnDiscovery: true
+      const creatorMsg = JSON.parse(
+        (creatorWs.send as jest.Mock).mock.calls[0][0],
+      );
+      expect(creatorMsg.event.isOwnDiscovery).toBe(true);
+
+      // Nearby user gets isOwnDiscovery: false
+      const nearbyMsg = JSON.parse(
+        (nearbyWs.send as jest.Mock).mock.calls[0][0],
+      );
+      expect(nearbyMsg.event.isOwnDiscovery).toBe(false);
+    });
+
+    it("should not broadcast to users outside expanded viewport", async () => {
+      const creatorId = "creator-user-id";
+      const farUserId = "far-user-id";
+      const creatorClientId = "creator-client";
+      const creatorWs = createMockWebSocket(creatorClientId, creatorId);
+
+      mockConnectionHandler.getUserClients.mockReturnValue([creatorClientId]);
+      mockConnectionHandler.getClient.mockReturnValue(creatorWs);
+
+      // GEORADIUS returns the far user's viewport (within 50km radius)
+      mockConnectionHandler.redisClient.georadius.mockResolvedValue([
+        `viewport:${farUserId}`,
+      ]);
+      // But the viewport doesn't contain the event even with expansion
+      mockConnectionHandler.redisClient.get.mockResolvedValue(
+        JSON.stringify({ minX: -80.0, maxX: -79.0, minY: 30.0, maxY: 31.0 }),
+      );
+
+      const eventData = {
+        event: {
+          creatorId,
+          eventId: "event-789",
+          title: "Far Event",
+          location: { type: "Point", coordinates: [-74.0, 40.7] },
+        },
+      };
+
+      await handleRedisMessage(
+        REDIS_CHANNELS.DISCOVERED_EVENTS,
+        JSON.stringify(eventData),
+        mockConnectionHandler as unknown as MockConnectionHandler,
+      );
+
+      // Only creator should have been sent a message
+      expect(mockConnectionHandler.getUserClients).toHaveBeenCalledTimes(1);
+      expect(mockConnectionHandler.getUserClients).toHaveBeenCalledWith(
+        creatorId,
+      );
+    });
   });
 
   describe("Notifications Channel", () => {
-    it("should handle valid notification and send to user clients", () => {
+    it("should handle valid notification and send to user clients", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
       const clientId = "client-123";
       const mockWs = createMockWebSocket(clientId, userId);
@@ -232,7 +334,7 @@ describe("Redis Message Handling", () => {
         },
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         JSON.stringify(notificationData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -249,7 +351,7 @@ describe("Redis Message Handling", () => {
       expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining("info"));
     });
 
-    it("should handle notification with missing userId", () => {
+    it("should handle notification with missing userId", async () => {
       const notificationData = {
         notification: {
           title: "Test Notification",
@@ -257,7 +359,7 @@ describe("Redis Message Handling", () => {
         },
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         JSON.stringify(notificationData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -271,7 +373,7 @@ describe("Redis Message Handling", () => {
       expect(mockConnectionHandler.getUserClients).not.toHaveBeenCalled();
     });
 
-    it("should handle notification with default type when not provided", () => {
+    it("should handle notification with default type when not provided", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
       const clientId = "client-123";
       const mockWs = createMockWebSocket(clientId, userId);
@@ -287,7 +389,7 @@ describe("Redis Message Handling", () => {
         },
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         JSON.stringify(notificationData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -299,7 +401,7 @@ describe("Redis Message Handling", () => {
       expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining("info"));
     });
 
-    it("should handle notification when no clients are found", () => {
+    it("should handle notification when no clients are found", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
 
       mockConnectionHandler.getUserClients.mockReturnValue(null);
@@ -312,7 +414,7 @@ describe("Redis Message Handling", () => {
         },
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         JSON.stringify(notificationData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -325,7 +427,7 @@ describe("Redis Message Handling", () => {
   });
 
   describe("Level Update Channel", () => {
-    it("should handle valid level update and send to user clients", () => {
+    it("should handle valid level update and send to user clients", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
       const clientId = "client-123";
       const mockWs = createMockWebSocket(clientId, userId);
@@ -343,7 +445,7 @@ describe("Redis Message Handling", () => {
         timestamp: "2024-01-01T00:00:00.000Z",
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.LEVEL_UPDATE,
         JSON.stringify(levelData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -360,7 +462,7 @@ describe("Redis Message Handling", () => {
       expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining("5"));
     });
 
-    it("should handle XP awarded action with correct message type", () => {
+    it("should handle XP awarded action with correct message type", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
       const clientId = "client-123";
       const mockWs = createMockWebSocket(clientId, userId);
@@ -377,7 +479,7 @@ describe("Redis Message Handling", () => {
         totalXp: 1550,
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.LEVEL_UPDATE,
         JSON.stringify(levelData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -388,7 +490,7 @@ describe("Redis Message Handling", () => {
       );
     });
 
-    it("should handle level update with missing userId", () => {
+    it("should handle level update with missing userId", async () => {
       const levelData = {
         level: 5,
         title: "Level Up!",
@@ -397,7 +499,7 @@ describe("Redis Message Handling", () => {
         totalXp: 1500,
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.LEVEL_UPDATE,
         JSON.stringify(levelData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -411,7 +513,7 @@ describe("Redis Message Handling", () => {
       expect(mockConnectionHandler.getUserClients).not.toHaveBeenCalled();
     });
 
-    it("should handle level update with generated timestamp when not provided", () => {
+    it("should handle level update with generated timestamp when not provided", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
       const clientId = "client-123";
       const mockWs = createMockWebSocket(clientId, userId);
@@ -428,7 +530,7 @@ describe("Redis Message Handling", () => {
         totalXp: 1500,
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.LEVEL_UPDATE,
         JSON.stringify(levelData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -439,7 +541,7 @@ describe("Redis Message Handling", () => {
       );
     });
 
-    it("should handle wrapped level update from backend (type + data envelope)", () => {
+    it("should handle wrapped level update from backend (type + data envelope)", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
       const clientId = "client-123";
       const mockWs = createMockWebSocket(clientId, userId);
@@ -461,7 +563,7 @@ describe("Redis Message Handling", () => {
         },
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.LEVEL_UPDATE,
         JSON.stringify(wrappedLevelData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -480,7 +582,7 @@ describe("Redis Message Handling", () => {
       expect(sentMessage.data.totalXp).toBe(600);
     });
 
-    it("should handle level update when no clients are found", () => {
+    it("should handle level update when no clients are found", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
 
       mockConnectionHandler.getUserClients.mockReturnValue(null);
@@ -494,7 +596,7 @@ describe("Redis Message Handling", () => {
         totalXp: 1500,
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.LEVEL_UPDATE,
         JSON.stringify(levelData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -507,10 +609,10 @@ describe("Redis Message Handling", () => {
   });
 
   describe("Error Handling", () => {
-    it("should handle invalid JSON in message", () => {
+    it("should handle invalid JSON in message", async () => {
       const invalidJson = "invalid json {";
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         invalidJson,
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -523,10 +625,10 @@ describe("Redis Message Handling", () => {
       ).toBe(true);
     });
 
-    it("should handle unknown Redis channel", () => {
+    it("should handle unknown Redis channel", async () => {
       const data = { test: "data" };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         "unknown_channel",
         JSON.stringify(data),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -539,7 +641,7 @@ describe("Redis Message Handling", () => {
       ).toBe(true);
     });
 
-    it("should handle multiple clients for a user", () => {
+    it("should handle multiple clients for a user", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
       const clientId1 = "client-123";
       const clientId2 = "client-456";
@@ -562,7 +664,7 @@ describe("Redis Message Handling", () => {
         },
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         JSON.stringify(notificationData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -573,7 +675,7 @@ describe("Redis Message Handling", () => {
       expect(mockConnectionHandler.getClient).toHaveBeenCalledTimes(2);
     });
 
-    it("should handle null client from connection handler", () => {
+    it("should handle null client from connection handler", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
       const clientId = "client-123";
 
@@ -588,7 +690,7 @@ describe("Redis Message Handling", () => {
         },
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         JSON.stringify(notificationData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -600,7 +702,7 @@ describe("Redis Message Handling", () => {
   });
 
   describe("Message Format Validation", () => {
-    it("should validate discovered event message format", () => {
+    it("should validate discovered event message format", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
       const clientId = "client-123";
       const mockWs = createMockWebSocket(clientId, userId);
@@ -616,7 +718,7 @@ describe("Redis Message Handling", () => {
         },
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.DISCOVERED_EVENTS,
         JSON.stringify(eventData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -626,11 +728,14 @@ describe("Redis Message Handling", () => {
         (mockWs.send as jest.Mock).mock.calls[0][0],
       );
       expect(sentMessage.type).toBe(MessageTypes.EVENT_DISCOVERED);
-      expect(sentMessage.event).toEqual(eventData.event);
+      expect(sentMessage.event).toEqual({
+        ...eventData.event,
+        isOwnDiscovery: true,
+      });
       expect(sentMessage.timestamp).toBeDefined();
     });
 
-    it("should validate notification message format", () => {
+    it("should validate notification message format", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
       const clientId = "client-123";
       const mockWs = createMockWebSocket(clientId, userId);
@@ -647,7 +752,7 @@ describe("Redis Message Handling", () => {
         },
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.NOTIFICATIONS,
         JSON.stringify(notificationData),
         mockConnectionHandler as unknown as MockConnectionHandler,
@@ -664,7 +769,7 @@ describe("Redis Message Handling", () => {
       expect(sentMessage.source).toBe("websocket_server");
     });
 
-    it("should validate level update message format", () => {
+    it("should validate level update message format", async () => {
       const userId = "550e8400-e29b-41d4-a716-446655440000";
       const clientId = "client-123";
       const mockWs = createMockWebSocket(clientId, userId);
@@ -682,7 +787,7 @@ describe("Redis Message Handling", () => {
         timestamp: "2024-01-01T00:00:00.000Z",
       };
 
-      handleRedisMessage(
+      await handleRedisMessage(
         REDIS_CHANNELS.LEVEL_UPDATE,
         JSON.stringify(levelData),
         mockConnectionHandler as unknown as MockConnectionHandler,

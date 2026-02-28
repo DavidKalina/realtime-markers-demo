@@ -7,7 +7,6 @@ import type { AreaScanMetadata } from "@/services/api/modules/areaScan";
 import {
   CHARS_PER_PAGE,
   splitIntoPages,
-  getRadiusForZoom,
   ZoneHero,
   StatPillRow,
   ZoneEncounters,
@@ -17,10 +16,14 @@ import {
 } from "@/components/AreaScan/AreaScanComponents";
 
 export default function ClusterScreen() {
-  const { lat, lng, zoom } = useLocalSearchParams<{
+  const {
+    lat,
+    lng,
+    childrenIds: childrenIdsParam,
+  } = useLocalSearchParams<{
     lat: string;
     lng: string;
-    zoom: string;
+    childrenIds: string;
   }>();
   const router = useRouter();
   const abortRef = useRef<{ abort: () => void } | null>(null);
@@ -34,14 +37,15 @@ export default function ClusterScreen() {
 
   // --- Fetch ---
   useEffect(() => {
-    if (!lat || !lng) return;
+    if (!lat || !lng || !childrenIdsParam) return;
 
-    const radius = getRadiusForZoom(zoom ? parseFloat(zoom) : 12);
+    const eventIds = childrenIdsParam.split(",").filter(Boolean);
+    if (eventIds.length === 0) return;
 
-    const handle = apiClient.areaScan.streamAreaProfile(
+    const handle = apiClient.areaScan.streamClusterProfile(
+      eventIds,
       parseFloat(lat),
       parseFloat(lng),
-      radius,
       {
         onMetadata: (meta) => setZoneStats(meta),
         onContent: (chunk) => {
@@ -66,7 +70,7 @@ export default function ClusterScreen() {
     return () => {
       handle.abort();
     };
-  }, [lat, lng]);
+  }, [lat, lng, childrenIdsParam]);
 
   return (
     <Screen

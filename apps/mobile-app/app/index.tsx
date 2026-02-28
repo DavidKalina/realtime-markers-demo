@@ -8,9 +8,10 @@ import DateRangeIndicator from "@/components/StatusBar/DateRangeIndicator";
 import PlusButton from "@/components/StatusBar/PlusButton";
 import StatusBar from "@/components/StatusBar/StatusBar";
 import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
-import { createCameraSettings } from "@/config/cameraConfig";
+import { createCameraSettings, MIN_ZOOM_LEVEL } from "@/config/cameraConfig";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
+import { useCameraFollowMode } from "@/hooks/useCameraFollowMode";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useInitialLocation } from "@/hooks/useInitialLocation";
 import { useMapCamera } from "@/hooks/useMapCamera";
@@ -29,8 +30,9 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Platform, View } from "react-native";
+import { Platform, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Navigation } from "lucide-react-native";
 import { scheduleOnRN } from "react-native-worklets";
 
 // Set access token at module scope (lightweight, required before MapView renders)
@@ -93,6 +95,7 @@ function HomeScreenContent() {
     locationPermissionGranted,
     isLoadingLocation,
     getUserLocation,
+    startLocationTracking,
   } = useUserLocation();
 
   // WebSocket and map data
@@ -116,6 +119,17 @@ function HomeScreenContent() {
     cameraRef,
     currentViewport,
   });
+
+  // Camera follow mode — auto-tracks user location, breaks on pan
+  const { isFollowing, recenter } = useCameraFollowMode({
+    cameraRef,
+    userLocation,
+  });
+
+  // Start continuous location tracking for follow mode
+  useEffect(() => {
+    startLocationTracking();
+  }, [startLocationTracking]);
 
   // Viewport processing and region change tracking
   const { viewportRectangle, handleRegionChanging, isCameraMoving } =
@@ -274,11 +288,11 @@ function HomeScreenContent() {
 
   // Screens render full-screen behind the ActionBar, so overlays must
   // clear the ActionBar (base height 60) plus the home-indicator safe area.
-  const aboveActionBar = insets.bottom;
+  const aboveActionBar = 0;
   const floatingDateButtonStyle = useMemo(
     () => ({
       position: "absolute" as const,
-      bottom: aboveActionBar + 140,
+      bottom: aboveActionBar + 180,
       right: 16,
       zIndex: 1000,
       gap: 12,
@@ -311,7 +325,7 @@ function HomeScreenContent() {
   // Memoize static Camera props
   const cameraProps = useMemo(
     () => ({
-      minZoomLevel: 5,
+      minZoomLevel: MIN_ZOOM_LEVEL,
       animationDuration: 0,
     }),
     [],
@@ -409,6 +423,16 @@ function HomeScreenContent() {
         {rippleEffectComponent}
 
         <MarkerInfoHUD safeAreaBottom={aboveActionBar} />
+
+        {!isFollowing && (
+          <TouchableOpacity
+            style={homeScreenStyles.recenterButton}
+            onPress={recenter}
+            activeOpacity={0.7}
+          >
+            <Navigation size={22} color={colors.fixed.black} />
+          </TouchableOpacity>
+        )}
 
         {floatingButtonsSection}
       </View>

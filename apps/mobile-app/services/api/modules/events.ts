@@ -12,7 +12,11 @@ import {
   RsvpStatus,
   UpdateEventPayload,
 } from "../base/types";
-import { EventType, DiscoveredEventType, TrendingEventType } from "@/types/types";
+import {
+  EventType,
+  DiscoveredEventType,
+  TrendingEventType,
+} from "@/types/types";
 import { File, Paths } from "expo-file-system";
 import {
   mapEventToEventType,

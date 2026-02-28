@@ -252,7 +252,7 @@ export function createFilterProcessor(
   // Viewport debouncing to prevent excessive processing
   const viewportDebounceTimers = new Map<string, NodeJS.Timeout>();
   // Make this small to coalesce jitter without adding noticeable latency
-  const viewportDebounceMs = Number(process.env.VIEWPORT_DEBOUNCE_MS || 50);
+  const viewportDebounceMs = Number(process.env.VIEWPORT_DEBOUNCE_MS || 25);
 
   /**
    * Initialize the filter processor service.

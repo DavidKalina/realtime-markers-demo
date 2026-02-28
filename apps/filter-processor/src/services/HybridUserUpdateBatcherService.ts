@@ -46,8 +46,8 @@ export function createHybridUserUpdateBatcherService(
   config: HybridUserUpdateBatcherConfig = {},
 ): HybridUserUpdateBatcherService {
   const {
-    debounceTimeoutMs = 75,
-    sweepIntervalMs = 500,
+    debounceTimeoutMs = 40,
+    sweepIntervalMs = 300,
     maxBatchSize = 500,
     enableBatching = true,
   } = config;

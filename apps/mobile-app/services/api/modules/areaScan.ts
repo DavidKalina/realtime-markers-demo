@@ -114,4 +114,38 @@ export class AreaScanModule extends BaseApiModule {
       abort: () => abortController.abort(),
     };
   }
+
+  streamClusterProfile(
+    eventIds: string[],
+    lat: number,
+    lng: number,
+    callbacks: AreaScanCallbacks,
+  ): { abort: () => void } {
+    const abortController = new AbortController();
+
+    this.fetchWithAuth(`${this.client.baseUrl}/api/area-scan/cluster`, {
+      method: "POST",
+      body: JSON.stringify({ eventIds, lat, lng }),
+      signal: abortController.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.error || `Cluster profile failed: ${response.status}`,
+          );
+        }
+
+        const text = await response.text();
+        parseSSE(text, callbacks);
+      })
+      .catch((error) => {
+        if (error.name === "AbortError") return;
+        callbacks.onError(error);
+      });
+
+    return {
+      abort: () => abortController.abort(),
+    };
+  }
 }

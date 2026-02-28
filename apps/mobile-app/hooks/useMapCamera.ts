@@ -72,7 +72,7 @@ export const useMapCamera = ({ cameraRef }: UseMapCameraProps) => {
           const cameraSettings: CameraStop = {
             centerCoordinate: event.coordinates,
             animationDuration: duration,
-            animationMode: "flyTo",
+            animationMode: event.animationMode ?? "flyTo",
           };
 
           // Only include zoomLevel if explicitly allowed and provided

@@ -1,5 +1,8 @@
 import { Hono } from "hono";
-import { areaScanHandler } from "../handlers/areaScanHandlers";
+import {
+  areaScanHandler,
+  clusterProfileHandler,
+} from "../handlers/areaScanHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
@@ -22,3 +25,4 @@ areaScanRouter.use(
 );
 
 areaScanRouter.post("/", areaScanHandler);
+areaScanRouter.post("/cluster", clusterProfileHandler);
