@@ -11,6 +11,7 @@ import { jobStreamingRouter } from "../routes/jobStreaming";
 import { pushNotificationRouter } from "../routes/pushNotifications";
 import { areaScanRouter } from "../routes/areaScan";
 import { publicEventsRouter } from "../routes/publicEvents";
+import { usersRouter } from "../routes/users";
 import type { AppContext } from "../types/context";
 
 /**
@@ -30,6 +31,7 @@ export function setupRoutes(app: Hono<AppContext>): void {
   app.route("/api/categories", categoriesRouter);
   app.route("/api/push-notifications", pushNotificationRouter);
   app.route("/api/area-scan", areaScanRouter);
+  app.route("/api/users", usersRouter);
 
   // Job streaming routes (must be before jobs router)
   app.route("/api/jobs", jobStreamingRouter);

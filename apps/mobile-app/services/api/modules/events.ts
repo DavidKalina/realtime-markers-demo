@@ -286,8 +286,7 @@ export class EventApiClient extends BaseApiModule {
       queryParams.append("trendingLimit", params.trendingLimit.toString());
     if (params.radius !== undefined)
       queryParams.append("radius", params.radius.toString());
-    if (params.city)
-      queryParams.append("city", params.city);
+    if (params.city) queryParams.append("city", params.city);
 
     const url = `${this.client.baseUrl}/api/events/landing?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);

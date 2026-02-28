@@ -44,12 +44,12 @@ The consumer paywall model (charging per scan, gating features behind a subscrip
 
 ### Pricing Tiers
 
-| Tier | Price | What You Get |
-| --- | --- | --- |
-| **Community** | Free | Claim your org, basic profile, events appear on map via user scans |
-| **Verified Org** | ~$99/mo | Verified badge, org page, event analytics (views, saves, RSVPs), custom category filters |
-| **Featured** | ~$299/mo | Promoted placement in discovery feeds, branded map markers, push notification inclusion for nearby users, shareable event pages with org branding |
-| **Enterprise** | ~$499+/mo | API access, multi-location support, dedicated analytics dashboard, bulk event upload, co-branded campus/district map view |
+| Tier             | Price     | What You Get                                                                                                                                      |
+| ---------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Community**    | Free      | Claim your org, basic profile, events appear on map via user scans                                                                                |
+| **Verified Org** | ~$99/mo   | Verified badge, org page, event analytics (views, saves, RSVPs), custom category filters                                                          |
+| **Featured**     | ~$299/mo  | Promoted placement in discovery feeds, branded map markers, push notification inclusion for nearby users, shareable event pages with org branding |
+| **Enterprise**   | ~$499+/mo | API access, multi-location support, dedicated analytics dashboard, bulk event upload, co-branded campus/district map view                         |
 
 ### Why Not Consumer Paywall
 
@@ -240,14 +240,14 @@ The user side is the growth engine (free, gamified, social). The org side is the
 
 ## What to Simplify / Cut
 
-| Feature | Action | Reason |
-| --- | --- | --- |
-| Consumer paywall / scan limits | Remove entirely | Don't throttle your own network effect; revenue comes from B2B |
-| Date range calendar picker | Replace with Tonight / Weekend / This Week buttons | Over-engineered for how people plan |
-| Admin dashboard analytics (12-week trends, busiest times) | Repurpose for org-facing analytics | Same queries, different audience — make it a paid feature |
-| "Discovered" vs "My Events" tabs in Saved | Merge into single saved list | Confusing distinction for users |
-| Private events | Remove or hide | Adds complexity, unclear use case at this stage |
-| Map style selector (3 options) | Keep but move deeper in settings | Not a core interaction |
+| Feature                                                   | Action                                             | Reason                                                         |
+| --------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------- |
+| Consumer paywall / scan limits                            | Remove entirely                                    | Don't throttle your own network effect; revenue comes from B2B |
+| Date range calendar picker                                | Replace with Tonight / Weekend / This Week buttons | Over-engineered for how people plan                            |
+| Admin dashboard analytics (12-week trends, busiest times) | Repurpose for org-facing analytics                 | Same queries, different audience — make it a paid feature      |
+| "Discovered" vs "My Events" tabs in Saved                 | Merge into single saved list                       | Confusing distinction for users                                |
+| Private events                                            | Remove or hide                                     | Adds complexity, unclear use case at this stage                |
+| Map style selector (3 options)                            | Keep but move deeper in settings                   | Not a core interaction                                         |
 
 ---
 

@@ -78,7 +78,11 @@ const DateRangeIndicator: React.FC = () => {
       });
 
       // API work happens in the background
-      console.log("[DateRangeIndicator] Creating filter:", { label, start, end });
+      console.log("[DateRangeIndicator] Creating filter:", {
+        label,
+        start,
+        end,
+      });
       createFilter({
         name: label,
         criteria: {
@@ -93,7 +97,10 @@ const DateRangeIndicator: React.FC = () => {
           console.log("[DateRangeIndicator] Filter applied successfully");
         })
         .catch((error) => {
-          console.error("[DateRangeIndicator] Filter error:", error?.message || error);
+          console.error(
+            "[DateRangeIndicator] Filter error:",
+            error?.message || error,
+          );
           eventBroker.emit(EventTypes.NOTIFICATION, {
             title: "Error",
             message: `Failed to apply filter: ${error?.message || "Unknown error"}`,

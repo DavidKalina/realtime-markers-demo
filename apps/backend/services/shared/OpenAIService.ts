@@ -46,7 +46,9 @@ const DEFAULT_RATE_LIMITS: RateLimitConfig = {
 export interface ResponsesCreateParams {
   model: OpenAIModel;
   instructions?: string;
-  input: string | Array<{ role: "developer" | "user" | "assistant"; content: string }>;
+  input:
+    | string
+    | Array<{ role: "developer" | "user" | "assistant"; content: string }>;
   max_output_tokens?: number;
   reasoning?: { effort: "none" | "minimal" | "low" | "medium" | "high" };
 }

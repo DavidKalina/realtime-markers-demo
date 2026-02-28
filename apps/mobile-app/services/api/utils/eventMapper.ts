@@ -1,5 +1,9 @@
 import { ApiEvent, ApiDiscoveredEvent } from "../base/types";
-import { EventType, DiscoveredEventType, TrendingEventType } from "@/types/types";
+import {
+  EventType,
+  DiscoveredEventType,
+  TrendingEventType,
+} from "@/types/types";
 
 export const mapEventToEventType = (apiEvent: ApiEvent): EventType => {
   return {

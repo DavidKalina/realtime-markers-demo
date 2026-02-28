@@ -94,6 +94,11 @@ redisService.onGlobalMessage((channel: string, message: string) => {
     getClient: (clientId: string) =>
       clientConnectionService.getClient(clientId),
     redisClient: redisService.getPubClient(),
+    publishPushDiscovery: (msg: string) =>
+      redisService
+        .getPubClient()
+        .publish(REDIS_CHANNELS.PUSH_DISCOVERY, msg)
+        .then(() => {}),
   });
 });
 

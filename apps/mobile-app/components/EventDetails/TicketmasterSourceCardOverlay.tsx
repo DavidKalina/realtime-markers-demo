@@ -194,9 +194,21 @@ const TicketmasterSourceCardOverlay: React.FC<
                     x2="1"
                     y2="0"
                   >
-                    <Stop offset="0" stopColor={TICKETMASTER_BLUE} stopOpacity="0" />
-                    <Stop offset="0.5" stopColor={TICKETMASTER_BLUE} stopOpacity="0.12" />
-                    <Stop offset="1" stopColor={TICKETMASTER_BLUE} stopOpacity="0" />
+                    <Stop
+                      offset="0"
+                      stopColor={TICKETMASTER_BLUE}
+                      stopOpacity="0"
+                    />
+                    <Stop
+                      offset="0.5"
+                      stopColor={TICKETMASTER_BLUE}
+                      stopOpacity="0.12"
+                    />
+                    <Stop
+                      offset="1"
+                      stopColor={TICKETMASTER_BLUE}
+                      stopOpacity="0"
+                    />
                   </LinearGradient>
                 </Defs>
                 <Rect

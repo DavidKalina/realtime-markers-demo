@@ -32,8 +32,6 @@ export class AddCityToEvents1710000000029 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_events_city"`);
-    await queryRunner.query(
-      `ALTER TABLE "events" DROP COLUMN "city"`,
-    );
+    await queryRunner.query(`ALTER TABLE "events" DROP COLUMN "city"`);
   }
 }

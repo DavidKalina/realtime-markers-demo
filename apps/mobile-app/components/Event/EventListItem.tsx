@@ -6,13 +6,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import {
-  colors,
-  fontSize,
-  fontFamily,
-  fontWeight,
-  spacing,
-} from "@/theme";
+import { colors, fontSize, fontFamily, fontWeight, spacing } from "@/theme";
 import { spring } from "@/theme/tokens/animation";
 
 export interface EventListItemProps {

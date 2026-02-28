@@ -602,7 +602,9 @@ export const getLandingPageDataHandler: EventHandler = withErrorHandling(
       communityLimit: communityLimit ? parseInt(communityLimit) : undefined,
       discoveryLimit: discoveryLimit ? parseInt(discoveryLimit) : undefined,
       trendingLimit: trendingLimit ? parseInt(trendingLimit) : undefined,
-      radiusMeters: radiusMiles ? parseFloat(radiusMiles) * 1609.344 : undefined,
+      radiusMeters: radiusMiles
+        ? parseFloat(radiusMiles) * 1609.344
+        : undefined,
       city: city || undefined,
       excludeUserId: user.id,
     });

@@ -1,3 +1,5 @@
+import "@/tasks/backgroundLocationTask";
+
 import React, { useEffect } from "react";
 import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import * as Sentry from "@sentry/react-native";

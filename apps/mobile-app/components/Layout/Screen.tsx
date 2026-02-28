@@ -216,8 +216,7 @@ const Screen = <T extends string>({
             style={[
               styles.container,
               { paddingTop: BANNER_HEIGHT },
-              footerButtons.length > 0 &&
-                styles.nonScrollableContentWithFooter,
+              footerButtons.length > 0 && styles.nonScrollableContentWithFooter,
               bottomContent &&
                 footerButtons.length === 0 &&
                 styles.nonScrollableContentWithBottomContent,

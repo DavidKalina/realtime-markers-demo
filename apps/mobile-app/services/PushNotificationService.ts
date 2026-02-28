@@ -3,14 +3,26 @@ import * as Device from "expo-device";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { apiClient, DeviceInfo } from "./ApiClient";
+import { eventBroker, EventTypes } from "./EventBroker";
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    // Suppress discovery pushes when app is in foreground
+    // (the DiscoveryIndicator toast handles this via WebSocket)
+    if (notification.request.content.data?.type === "discovery") {
+      return {
+        shouldShowAlert: false,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      };
+    }
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    };
+  },
 });
 
 export class PushNotificationService {
@@ -177,12 +189,19 @@ export class PushNotificationService {
     const data = response.notification.request.content.data;
 
     // Handle different types of notifications based on data
-    if (data?.type === "event") {
+    if (data?.type === "discovery" && data.coordinates) {
+      // Animate map to the discovered event's location
+      const coordinates = data.coordinates as [number, number];
+      eventBroker.publish(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        coordinates,
+        zoomLevel: 15,
+      });
+    } else if (data?.type === "event") {
       // Navigate to event details
       console.log("Navigate to event:", data.eventId);
-      // You can use navigation here if you have access to it
     }
-    // Add more notification types as needed
   }
 
   /**

@@ -10,8 +10,6 @@ export class AddEventDigest1710000000027 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `ALTER TABLE "events" DROP COLUMN "event_digest"`,
-    );
+    await queryRunner.query(`ALTER TABLE "events" DROP COLUMN "event_digest"`);
   }
 }

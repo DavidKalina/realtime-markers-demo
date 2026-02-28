@@ -26,7 +26,7 @@ export default {
         NSAppTransportSecurity: {
           NSAllowsArbitraryLoads: false,
         },
-        UIBackgroundModes: ["remote-notification"],
+        UIBackgroundModes: ["remote-notification", "location"],
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",

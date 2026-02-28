@@ -1,4 +1,8 @@
-import type { UserProfile, CategorySummary, EventDigest } from "@realtime-markers/database";
+import type {
+  UserProfile,
+  CategorySummary,
+  EventDigest,
+} from "@realtime-markers/database";
 
 // Base API types
 export interface Location {

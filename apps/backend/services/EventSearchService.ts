@@ -594,7 +594,14 @@ export class EventSearchServiceImpl implements EventSearchService {
     radiusMeters?: number;
     city?: string;
   }): Promise<(Event & { isTrending: true; trendingScore: number })[]> {
-    const { limit, threshold = 3, userLat, userLng, radiusMeters, city: cityFilter } = options;
+    const {
+      limit,
+      threshold = 3,
+      userLat,
+      userLng,
+      radiusMeters,
+      city: cityFilter,
+    } = options;
 
     try {
       const queryParams: unknown[] = [threshold, limit];
@@ -684,7 +691,14 @@ export class EventSearchServiceImpl implements EventSearchService {
       discoverer?: { id: string; firstName?: string; avatarUrl?: string };
     })[]
   > {
-    const { limit, excludeUserId, userLat, userLng, radiusMeters, city: cityFilter } = options;
+    const {
+      limit,
+      excludeUserId,
+      userLat,
+      userLng,
+      radiusMeters,
+      city: cityFilter,
+    } = options;
 
     try {
       const discoveryRepo = this.dependencies.dataSource.getRepository(
@@ -804,7 +818,8 @@ export class EventSearchServiceImpl implements EventSearchService {
           isTrending: true;
           trendingScore: number;
         })[],
-        availableCities: ((cachedResults as Record<string, unknown>).availableCities || []) as string[],
+        availableCities: ((cachedResults as Record<string, unknown>)
+          .availableCities || []) as string[],
       };
     }
 

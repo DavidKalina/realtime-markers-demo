@@ -12,7 +12,8 @@ export type RedisChannel =
   | "filter-changes"
   | "viewport-updates"
   | `user:${string}:filtered-events`
-  | `job:${string}:updates`;
+  | `job:${string}:updates`
+  | "push:discovery";
 
 // Define base interface for messages that require timestamps
 interface TimestampedMessage {
@@ -120,6 +121,7 @@ export interface RedisService {
   hdel(key: string, field: string): Promise<void>;
   exists(key: string): Promise<boolean>;
   expire(key: string, seconds: number): Promise<void>;
+  storeDeviceLocation(userId: string, lng: number, lat: number): Promise<void>;
   getClient(): Redis;
 }
 
@@ -441,6 +443,29 @@ export class RedisServiceImpl implements RedisService {
       await this.redis.expire(key, seconds);
     } catch (error) {
       console.error(`Error setting expiration for key ${key}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Store a user's device location for background push discovery
+   */
+  async storeDeviceLocation(
+    userId: string,
+    lng: number,
+    lat: number,
+  ): Promise<void> {
+    try {
+      // Store individual location with 24h TTL
+      await this.redis.setex(
+        `user:${userId}:device-location`,
+        86400,
+        JSON.stringify({ lng, lat, timestamp: Date.now() }),
+      );
+      // Add to geo index for radius queries
+      await this.redis.geoadd("user:device-location:geo", lng, lat, userId);
+    } catch (error) {
+      console.error(`Error storing device location for user ${userId}:`, error);
       throw error;
     }
   }

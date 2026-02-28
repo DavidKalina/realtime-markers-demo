@@ -5,7 +5,7 @@ import {
   fontFamily,
   fontWeight,
   radius,
-  spacing
+  spacing,
 } from "@/theme";
 import {
   DiscoveredEventType,
@@ -128,9 +128,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
           </Animated.View>
 
           <Animated.View entering={FadeIn.duration(duration.normal).delay(80)}>
-            <JustDiscoveredSection
-              events={data?.justDiscoveredEvents || []}
-            />
+            <JustDiscoveredSection events={data?.justDiscoveredEvents || []} />
           </Animated.View>
 
           <Animated.View entering={FadeIn.duration(duration.normal).delay(160)}>

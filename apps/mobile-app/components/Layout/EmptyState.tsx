@@ -41,12 +41,8 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   const circleStyle = [
     styles.circle,
     {
-      backgroundColor: isError
-        ? colors.status.error.bg
-        : colors.accent.muted,
-      borderColor: isError
-        ? colors.status.error.text
-        : colors.accent.border,
+      backgroundColor: isError ? colors.status.error.bg : colors.accent.muted,
+      borderColor: isError ? colors.status.error.text : colors.accent.border,
     },
   ];
 

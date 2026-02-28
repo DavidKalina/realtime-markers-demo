@@ -32,7 +32,9 @@ function parseDateOrNull(dateStr?: string): Date | undefined {
 // Extract "City, ST" from an address string
 function parseCityFromAddress(address?: string): string | undefined {
   if (!address) return undefined;
-  const match = address.match(/([A-Za-z ]+),\s*([A-Z]{2})(?:\s+\d{5})?(?:,\s*[A-Z]{2,})?$/);
+  const match = address.match(
+    /([A-Za-z ]+),\s*([A-Z]{2})(?:\s+\d{5})?(?:,\s*[A-Z]{2,})?$/,
+  );
   return match ? `${match[1].trim()}, ${match[2]}` : undefined;
 }
 

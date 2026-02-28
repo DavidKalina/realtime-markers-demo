@@ -51,10 +51,7 @@ const LandingPageFilterBar: React.FC<LandingPageFilterBarProps> = ({
             activeOpacity={0.7}
           >
             <Text
-              style={[
-                styles.chipText,
-                isSelected && styles.chipTextSelected,
-              ]}
+              style={[styles.chipText, isSelected && styles.chipTextSelected]}
             >
               {distance} mi
             </Text>

@@ -1,13 +1,13 @@
 import React from "react";
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
-import Animated, { FadeInRight } from "react-native-reanimated";
 import {
-  colors,
-  fontSize,
-  fontWeight,
-  fontFamily,
-  spacing,
-} from "@/theme";
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
+import Animated, { FadeInRight } from "react-native-reanimated";
+import { colors, fontSize, fontWeight, fontFamily, spacing } from "@/theme";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
@@ -23,16 +23,9 @@ interface PopularCategoriesSectionProps {
   isLoading?: boolean;
 }
 
-const CATEGORY_COLORS = [
-  "#93c5fd",
-  "#86efac",
-  "#fcd34d",
-  "#c4b5fd",
-  "#fda4af",
-];
+const CATEGORY_COLORS = ["#93c5fd", "#86efac", "#fcd34d", "#c4b5fd", "#fda4af"];
 
-const titleCase = (str: string) =>
-  str.replace(/\b\w/g, (c) => c.toUpperCase());
+const titleCase = (str: string) => str.replace(/\b\w/g, (c) => c.toUpperCase());
 
 const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
   categories,
@@ -67,10 +60,7 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
               entering={FadeInRight.duration(200).delay(index * 50)}
             >
               <TouchableOpacity
-                style={[
-                  styles.pill,
-                  { borderColor: color + "40" },
-                ]}
+                style={[styles.pill, { borderColor: color + "40" }]}
                 onPress={() => handleCategoryPress(item)}
                 activeOpacity={0.7}
               >

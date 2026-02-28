@@ -1,4 +1,8 @@
-import { REDIS_CHANNELS } from "../config/constants";
+import {
+  REDIS_CHANNELS,
+  DISCOVERY_PUSH_RADIUS_METERS,
+  DEVICE_LOCATION_GEO_KEY,
+} from "../config/constants";
 import {
   formatDiscoveryMessage,
   formatNotificationMessage,
@@ -38,6 +42,7 @@ export interface RedisMessageHandlerDependencies {
   getUserClients: (userId: string) => Set<string> | undefined;
   getClient: (clientId: string) => ServerWebSocket<WebSocketData> | undefined;
   redisClient: Redis;
+  publishPushDiscovery: (message: string) => Promise<void>;
 }
 
 const VIEWPORT_EXPANSION_FACTOR = 0.5;
@@ -176,6 +181,88 @@ async function broadcastToNearbyUsers(
   }
 }
 
+async function pushDiscoveryToBackgroundUsers(
+  event: Record<string, unknown>,
+  creatorId: string | undefined,
+  dependencies: RedisMessageHandlerDependencies,
+): Promise<void> {
+  const coords = extractEventCoordinates(event);
+  if (!coords) return;
+
+  const [lng, lat] = coords;
+
+  try {
+    const nearbyUserIds = (await dependencies.redisClient.georadius(
+      DEVICE_LOCATION_GEO_KEY,
+      lng,
+      lat,
+      DISCOVERY_PUSH_RADIUS_METERS,
+      "m",
+    )) as string[];
+
+    if (!nearbyUserIds || nearbyUserIds.length === 0) return;
+
+    // Filter out users with active WS connections (they get the in-app toast)
+    const backgroundUserIds = nearbyUserIds.filter((userId) => {
+      const clients = dependencies.getUserClients(userId);
+      return !clients || clients.size === 0;
+    });
+
+    // Check if creator is backgrounded and should get their own push
+    const creatorIsBackgrounded =
+      creatorId &&
+      nearbyUserIds.includes(creatorId) &&
+      (() => {
+        const clients = dependencies.getUserClients(creatorId);
+        return !clients || clients.size === 0;
+      })();
+
+    // Send creator push separately with isOwnDiscovery flag
+    if (creatorIsBackgrounded) {
+      // Remove creator from the general list (they get a separate push)
+      const idx = backgroundUserIds.indexOf(creatorId);
+      if (idx !== -1) backgroundUserIds.splice(idx, 1);
+
+      await dependencies.publishPushDiscovery(
+        JSON.stringify({
+          userIds: [creatorId],
+          event: {
+            id: event.id,
+            title: event.title,
+            emoji: event.emoji,
+            coordinates: coords,
+          },
+          isOwnDiscovery: true,
+        }),
+      );
+    }
+
+    if (backgroundUserIds.length > 0) {
+      await dependencies.publishPushDiscovery(
+        JSON.stringify({
+          userIds: backgroundUserIds,
+          event: {
+            id: event.id,
+            title: event.title,
+            emoji: event.emoji,
+            coordinates: coords,
+          },
+        }),
+      );
+    }
+
+    const totalPushed =
+      backgroundUserIds.length + (creatorIsBackgrounded ? 1 : 0);
+    if (totalPushed > 0) {
+      console.log(
+        `[Discovery Push] Queued push for ${totalPushed} backgrounded users`,
+      );
+    }
+  } catch (error) {
+    console.error("[Discovery Push] Error:", error);
+  }
+}
+
 export async function handleRedisMessage(
   channel: string,
   message: string,
@@ -233,6 +320,13 @@ export async function handleRedisMessage(
 
         // Broadcast to nearby users (excluding creator if present)
         await broadcastToNearbyUsers(
+          eventData.event as Record<string, unknown>,
+          eventData.event.creatorId,
+          dependencies,
+        );
+
+        // Push to backgrounded users near the event
+        await pushDiscoveryToBackgroundUsers(
           eventData.event as Record<string, unknown>,
           eventData.event.creatorId,
           dependencies,

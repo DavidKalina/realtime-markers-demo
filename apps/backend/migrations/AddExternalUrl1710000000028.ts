@@ -10,8 +10,6 @@ export class AddExternalUrl1710000000028 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `ALTER TABLE "events" DROP COLUMN "external_url"`,
-    );
+    await queryRunner.query(`ALTER TABLE "events" DROP COLUMN "external_url"`);
   }
 }

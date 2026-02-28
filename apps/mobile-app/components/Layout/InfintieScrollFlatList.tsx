@@ -12,7 +12,14 @@ import Animated, {
   FadeIn,
   LinearTransition,
 } from "react-native-reanimated";
-import { colors, spacing, fontSize, fontFamily, spring, duration } from "@/theme";
+import {
+  colors,
+  spacing,
+  fontSize,
+  fontFamily,
+  spring,
+  duration,
+} from "@/theme";
 import EmptyState from "./EmptyState";
 
 interface InfiniteScrollFlatListProps<T> extends Omit<
@@ -31,7 +38,17 @@ interface InfiniteScrollFlatListProps<T> extends Omit<
   emptyEmoji?: string;
   emptyTitle?: string;
   emptySubtitle?: string;
-  emptyAction?: { label: string; onPress: () => void; variant?: "primary" | "secondary" | "outline" | "ghost" | "warning" | "error" };
+  emptyAction?: {
+    label: string;
+    onPress: () => void;
+    variant?:
+      | "primary"
+      | "secondary"
+      | "outline"
+      | "ghost"
+      | "warning"
+      | "error";
+  };
   loadingFooterComponent?: React.ReactElement;
   errorRetryComponent?: React.ReactElement;
   onRetry?: () => void;
@@ -107,15 +124,14 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
 
   const renderFooter = useCallback(() => {
     if (error && onRetry) {
-      const content =
-        errorRetryComponent || (
-          <View style={styles.footer}>
-            <Text style={styles.errorText}>Failed to load more items</Text>
-            <Text style={styles.retryText} onPress={onRetry}>
-              Tap to retry
-            </Text>
-          </View>
-        );
+      const content = errorRetryComponent || (
+        <View style={styles.footer}>
+          <Text style={styles.errorText}>Failed to load more items</Text>
+          <Text style={styles.retryText} onPress={onRetry}>
+            Tap to retry
+          </Text>
+        </View>
+      );
       return animated ? (
         <Animated.View entering={FadeIn.duration(duration.normal)}>
           {content}
@@ -126,13 +142,12 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
     }
 
     if (isLoading && data.length > 0) {
-      const content =
-        loadingFooterComponent || (
-          <View style={styles.footer}>
-            <ActivityIndicator size="small" />
-            <Text style={styles.loadingText}>Loading more...</Text>
-          </View>
-        );
+      const content = loadingFooterComponent || (
+        <View style={styles.footer}>
+          <ActivityIndicator size="small" />
+          <Text style={styles.loadingText}>Loading more...</Text>
+        </View>
+      );
       return animated ? (
         <Animated.View entering={FadeIn.duration(duration.normal)}>
           {content}
@@ -186,7 +201,7 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
         <View style={styles.emptyContainer}>
           <ActivityIndicator size="large" />
           <Text style={styles.loadingText}>Loading...</Text>
-        </View>
+        </View>,
       );
     }
 
@@ -215,7 +230,7 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
               Tap to retry
             </Text>
           )}
-        </View>
+        </View>,
       );
     }
 
@@ -234,7 +249,7 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
     return wrap(
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>{emptyListMessage}</Text>
-      </View>
+      </View>,
     );
   }, [
     isLoading,
@@ -267,7 +282,7 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
         return (
           <Animated.View
             entering={FadeInDown.duration(duration.normal).delay(
-              Math.min(index, 8) * 50
+              Math.min(index, 8) * 50,
             )}
           >
             {content}

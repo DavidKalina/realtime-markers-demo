@@ -115,7 +115,6 @@ export interface AreaScanService {
     centerLat: number,
     centerLng: number,
   ): Promise<AreaScanResult>;
-
 }
 
 interface AreaScanDependencies {
@@ -528,7 +527,8 @@ vibe: 2-3 short sentences, max 50 words total. Separate each sentence with a new
     const { morning, afternoon, evening, night } = zoneStats.timeDistribution;
     if (evening > 0 || night > 0) timeParts.push("leans evening/night");
     else if (morning > 0 || afternoon > 0) timeParts.push("daytime energy");
-    const timeHint = timeParts.length > 0 ? ` Timing: ${timeParts.join(", ")}.` : "";
+    const timeHint =
+      timeParts.length > 0 ? ` Timing: ${timeParts.join(", ")}.` : "";
 
     let filterHint = "";
     if (filters?.dateRange) {
@@ -545,12 +545,13 @@ vibe: 2-3 short sentences, max 50 words total. Separate each sentence with a new
     // Include up to 10 event titles so the LLM knows what's actually here
     const eventList = (events || [])
       .slice(0, 10)
-      .map((e) => `- ${e.emoji} "${e.title}" (${e.categoryNames || "Uncategorized"}, ${e.distance}m away)`)
+      .map(
+        (e) =>
+          `- ${e.emoji} "${e.title}" (${e.categoryNames || "Uncategorized"}, ${e.distance}m away)`,
+      )
       .join("\n");
 
-    const eventSection = eventList
-      ? `\n\nNearby events:\n${eventList}`
-      : "";
+    const eventSection = eventList ? `\n\nNearby events:\n${eventList}` : "";
 
     return {
       systemPrompt,

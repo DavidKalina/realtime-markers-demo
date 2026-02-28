@@ -811,10 +811,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
       .getMany();
 
     // Merge and deduplicate — keep the most recent interaction per event
-    const eventMap = new Map<
-      string,
-      { event: Event; interactedAt: Date }
-    >();
+    const eventMap = new Map<string, { event: Event; interactedAt: Date }>();
 
     for (const save of saves) {
       const existing = eventMap.get(save.eventId);

@@ -342,10 +342,7 @@ export function useMessageHandler({
 
           case MessageTypes.SESSION_UPDATE: {
             if (__DEV__) {
-              console.debug(
-                "[useMapWebsocket] Received SESSION_UPDATE:",
-                data,
-              );
+              console.debug("[useMapWebsocket] Received SESSION_UPDATE:", data);
             }
             break;
           }

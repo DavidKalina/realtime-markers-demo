@@ -11,7 +11,15 @@ import Animated, {
 } from "react-native-reanimated";
 import { Svg, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import * as Haptics from "expo-haptics";
-import { colors, radius, spacing, fontSize, fontFamily, fontWeight, spring } from "@/theme";
+import {
+  colors,
+  radius,
+  spacing,
+  fontSize,
+  fontFamily,
+  fontWeight,
+  spring,
+} from "@/theme";
 import TicketmasterSourceCardOverlay from "./TicketmasterSourceCardOverlay";
 
 const TICKETMASTER_BLUE = "#009CDE";
@@ -65,7 +73,9 @@ const TicketmasterSourceCard: React.FC<TicketmasterSourceCardProps> = ({
 
   const watermarkFontSize = useMemo(() => {
     if (cardWidth === 0) return 0;
-    const diagonal = Math.sqrt(cardWidth * cardWidth + CARD_HEIGHT * CARD_HEIGHT);
+    const diagonal = Math.sqrt(
+      cardWidth * cardWidth + CARD_HEIGHT * CARD_HEIGHT,
+    );
     const available = diagonal * 0.8;
     const size = (available / WATERMARK_CHAR_COUNT - 5) / CHAR_WIDTH_RATIO;
     return Math.min(Math.max(size, 16), 48);
@@ -91,7 +101,10 @@ const TicketmasterSourceCard: React.FC<TicketmasterSourceCardProps> = ({
         onPressOut={handlePressOut}
         onPress={handlePress}
       >
-        <Animated.View style={[cardStyles.card, pressStyle]} onLayout={onLayout}>
+        <Animated.View
+          style={[cardStyles.card, pressStyle]}
+          onLayout={onLayout}
+        >
           {/* Top row: source name + badge */}
           <View style={cardStyles.topRow}>
             <Text style={cardStyles.name}>Ticketmaster</Text>
@@ -134,9 +147,21 @@ const TicketmasterSourceCard: React.FC<TicketmasterSourceCardProps> = ({
             >
               <Defs>
                 <LinearGradient id="tmSheen" x1="0" y1="0" x2="1" y2="0">
-                  <Stop offset="0" stopColor={TICKETMASTER_BLUE} stopOpacity="0" />
-                  <Stop offset="0.5" stopColor={TICKETMASTER_BLUE} stopOpacity="0.07" />
-                  <Stop offset="1" stopColor={TICKETMASTER_BLUE} stopOpacity="0" />
+                  <Stop
+                    offset="0"
+                    stopColor={TICKETMASTER_BLUE}
+                    stopOpacity="0"
+                  />
+                  <Stop
+                    offset="0.5"
+                    stopColor={TICKETMASTER_BLUE}
+                    stopOpacity="0.07"
+                  />
+                  <Stop
+                    offset="1"
+                    stopColor={TICKETMASTER_BLUE}
+                    stopOpacity="0"
+                  />
                 </LinearGradient>
               </Defs>
               <Rect

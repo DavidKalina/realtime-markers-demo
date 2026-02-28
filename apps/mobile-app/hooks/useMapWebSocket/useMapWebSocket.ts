@@ -25,8 +25,9 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const wsRef = useRef<WebSocket | null>(null);
 
   // --- Viewport sync (inlined from useViewportSync) ---
-  const [currentViewport, setCurrentViewport] =
-    useState<MapboxViewport | null>(null);
+  const [currentViewport, setCurrentViewport] = useState<MapboxViewport | null>(
+    null,
+  );
   const currentViewportRef = useRef<MapboxViewport | null>(null);
 
   useEffect(() => {

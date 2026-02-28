@@ -27,16 +27,9 @@ interface Category {
 
 const DISTANCE_OPTIONS = [5, 10, 15, 25, 50] as const;
 
-const CATEGORY_COLORS = [
-  "#93c5fd",
-  "#86efac",
-  "#fcd34d",
-  "#c4b5fd",
-  "#fda4af",
-];
+const CATEGORY_COLORS = ["#93c5fd", "#86efac", "#fcd34d", "#c4b5fd", "#fda4af"];
 
-const titleCase = (str: string) =>
-  str.replace(/\b\w/g, (c) => c.toUpperCase());
+const titleCase = (str: string) => str.replace(/\b\w/g, (c) => c.toUpperCase());
 
 interface LandingPageBottomFiltersProps {
   selectedDistance: number;
@@ -89,10 +82,7 @@ const LandingPageBottomFilters: React.FC<LandingPageBottomFiltersProps> = ({
               activeOpacity={0.7}
             >
               <Text
-                style={[
-                  styles.chipText,
-                  isSelected && styles.chipTextSelected,
-                ]}
+                style={[styles.chipText, isSelected && styles.chipTextSelected]}
               >
                 {distance} mi
               </Text>

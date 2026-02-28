@@ -74,21 +74,33 @@ export function resolveTicketmasterCategories(
   for (const classification of classifications) {
     // Map segment
     const segmentName = classification.segment?.name;
-    if (segmentName && TM_SEGMENT_MAP[segmentName] && !seen.has(TM_SEGMENT_MAP[segmentName])) {
+    if (
+      segmentName &&
+      TM_SEGMENT_MAP[segmentName] &&
+      !seen.has(TM_SEGMENT_MAP[segmentName])
+    ) {
       seen.add(TM_SEGMENT_MAP[segmentName]);
       categories.push(TM_SEGMENT_MAP[segmentName]);
     }
 
     // Map genre
     const genreName = classification.genre?.name;
-    if (genreName && TM_GENRE_MAP[genreName] && !seen.has(TM_GENRE_MAP[genreName])) {
+    if (
+      genreName &&
+      TM_GENRE_MAP[genreName] &&
+      !seen.has(TM_GENRE_MAP[genreName])
+    ) {
       seen.add(TM_GENRE_MAP[genreName]);
       categories.push(TM_GENRE_MAP[genreName]);
     }
 
     // Map subgenre (also check the genre map)
     const subGenreName = classification.subGenre?.name;
-    if (subGenreName && TM_GENRE_MAP[subGenreName] && !seen.has(TM_GENRE_MAP[subGenreName])) {
+    if (
+      subGenreName &&
+      TM_GENRE_MAP[subGenreName] &&
+      !seen.has(TM_GENRE_MAP[subGenreName])
+    ) {
       seen.add(TM_GENRE_MAP[subGenreName]);
       categories.push(TM_GENRE_MAP[subGenreName]);
     }

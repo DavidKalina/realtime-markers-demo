@@ -304,9 +304,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                 entering={FadeInDown.duration(300).delay(80).springify()}
               >
                 <SectionLabel title="About" />
-                <Text style={styles.descriptionText}>
-                  {event.description}
-                </Text>
+                <Text style={styles.descriptionText}>{event.description}</Text>
               </Animated.View>
             )
           )}

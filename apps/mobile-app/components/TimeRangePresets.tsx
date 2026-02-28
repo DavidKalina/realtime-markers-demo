@@ -112,9 +112,7 @@ const TimeRangePresets: React.FC<TimeRangePresetsProps> = ({
     <Animated.View
       style={styles.container}
       pointerEvents="auto"
-      entering={SlideInUp.springify()
-        .damping(40)
-        .stiffness(300)}
+      entering={SlideInUp.springify().damping(40).stiffness(300)}
     >
       <View style={styles.header}>
         <TouchableOpacity onPress={handleClose} style={styles.closeButton}>

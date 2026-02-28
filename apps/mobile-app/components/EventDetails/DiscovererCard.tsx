@@ -11,7 +11,15 @@ import Animated, {
 } from "react-native-reanimated";
 import { Svg, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import * as Haptics from "expo-haptics";
-import { colors, radius, spacing, fontSize, fontFamily, fontWeight, spring } from "@/theme";
+import {
+  colors,
+  radius,
+  spacing,
+  fontSize,
+  fontFamily,
+  fontWeight,
+  spring,
+} from "@/theme";
 import { getTierByName } from "@/utils/gamification";
 import DiscovererCardOverlay from "./DiscovererCardOverlay";
 
@@ -88,7 +96,9 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
   const watermarkFontSize = useMemo(() => {
     if (cardWidth === 0) return 0;
     // The diagonal of the card gives the max line length when rotated
-    const diagonal = Math.sqrt(cardWidth * cardWidth + CARD_HEIGHT * CARD_HEIGHT);
+    const diagonal = Math.sqrt(
+      cardWidth * cardWidth + CARD_HEIGHT * CARD_HEIGHT,
+    );
     // Use ~80% of diagonal to leave breathing room
     const available = diagonal * 0.8;
     // fontSize = available / (charCount * charWidthRatio + letterSpacingChars)
@@ -126,7 +136,10 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
         onPressOut={handlePressOut}
         onPress={handlePress}
       >
-        <Animated.View style={[cardStyles.card, pressStyle]} onLayout={onLayout}>
+        <Animated.View
+          style={[cardStyles.card, pressStyle]}
+          onLayout={onLayout}
+        >
           {/* Top row: name left, tier right */}
           <View style={cardStyles.topRow}>
             <Text style={cardStyles.name}>{displayName}</Text>
@@ -178,7 +191,13 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
                   <Stop offset="1" stopColor="white" stopOpacity="0" />
                 </LinearGradient>
               </Defs>
-              <Rect x="0" y="0" width={SHEEN_WIDTH} height={CARD_HEIGHT} fill="url(#sheen)" />
+              <Rect
+                x="0"
+                y="0"
+                width={SHEEN_WIDTH}
+                height={CARD_HEIGHT}
+                fill="url(#sheen)"
+              />
             </AnimatedSvg>
           )}
         </Animated.View>
