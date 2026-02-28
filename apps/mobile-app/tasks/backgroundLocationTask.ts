@@ -36,7 +36,7 @@ TaskManager.defineTask(
     const { longitude: lng, latitude: lat } = location.coords;
 
     try {
-      const token = await SecureStore.getItemAsync("authToken");
+      const token = await SecureStore.getItemAsync("accessToken");
       if (!token) {
         console.log("[BackgroundLocation] No auth token, skipping");
         return;
