@@ -292,7 +292,7 @@ function HomeScreenContent() {
   const floatingDateButtonStyle = useMemo(
     () => ({
       position: "absolute" as const,
-      bottom: aboveActionBar + 180,
+      bottom: aboveActionBar + 140,
       right: 16,
       zIndex: 1000,
       gap: 12,
@@ -348,9 +348,18 @@ function HomeScreenContent() {
       <View style={floatingDateButtonStyle}>
         <DateRangeIndicator />
         <PlusButton />
+        {!isFollowing && (
+          <TouchableOpacity
+            style={homeScreenStyles.recenterButton}
+            onPress={recenter}
+            activeOpacity={0.7}
+          >
+            <Navigation size={22} color={colors.accent.primary} />
+          </TouchableOpacity>
+        )}
       </View>
     ),
-    [floatingDateButtonStyle],
+    [floatingDateButtonStyle, isFollowing, recenter],
   );
 
   // Memoize ripple effect component
@@ -423,16 +432,6 @@ function HomeScreenContent() {
         {rippleEffectComponent}
 
         <MarkerInfoHUD safeAreaBottom={aboveActionBar} />
-
-        {!isFollowing && (
-          <TouchableOpacity
-            style={homeScreenStyles.recenterButton}
-            onPress={recenter}
-            activeOpacity={0.7}
-          >
-            <Navigation size={22} color={colors.fixed.black} />
-          </TouchableOpacity>
-        )}
 
         {floatingButtonsSection}
       </View>

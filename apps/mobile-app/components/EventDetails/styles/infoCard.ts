@@ -1,20 +1,12 @@
 import { StyleSheet } from "react-native";
-import {
-  colors,
-  spacing,
-  radius,
-  fontSize,
-  fontWeight,
-  fontFamily,
-} from "@/theme";
+import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
 
 export const infoCardStyles = StyleSheet.create({
-  infoCard: {
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    padding: spacing.lg,
+  infoCard: {},
+  sectionDivider: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border.default,
+    paddingTop: spacing.md,
   },
   infoCardHeader: {
     flexDirection: "row",
@@ -27,10 +19,11 @@ export const infoCardStyles = StyleSheet.create({
   infoCardTitle: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
+    color: colors.text.disabled,
     fontFamily: fontFamily.mono,
     textTransform: "uppercase",
-    letterSpacing: 1,
+    letterSpacing: 1.5,
+    marginBottom: spacing.sm,
   },
   infoCardContent: {},
 });

@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
-  BounceIn,
+  FadeInUp,
   FadeOut,
   useAnimatedStyle,
   useSharedValue,
@@ -124,7 +124,7 @@ export const MarkerInfoHUD: React.FC<MarkerInfoHUDProps> = React.memo(
 
     return (
       <Animated.View
-        entering={BounceIn.duration(400)}
+        entering={FadeInUp.duration(300)}
         exiting={FadeOut.duration(200)}
         style={[styles.wrapper, { bottom: safeAreaBottom + spacing.xs }]}
         key={selectedItem.id}
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   },
   emoji: {
     fontSize: fontSize["2xl"],
-    lineHeight: lineHeight.relaxed,
+    lineHeight: lineHeight.heading,
   },
   chevron: {
     color: colors.text.secondary,

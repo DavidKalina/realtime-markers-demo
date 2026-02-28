@@ -59,39 +59,67 @@ export const baseStyles = StyleSheet.create({
     zIndex: 10,
   },
 
-  // Hero Section (centered emoji + title + date)
+  // Hero Section (emoji stacked over title, going count right)
   titleSection: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    alignItems: "center",
+    paddingBottom: spacing.sm,
   },
-  eventEmoji: {
-    fontSize: 40,
+  heroRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  heroLeft: {
+    flex: 1,
   },
   eventTitle: {
-    fontSize: fontSize["2xl"],
+    fontSize: fontSize.xl,
     fontWeight: fontWeight.bold,
     color: colors.text.primary,
     fontFamily: fontFamily.mono,
     lineHeight: lineHeight.heading,
-    textAlign: "center",
-    marginTop: spacing.sm,
   },
   heroDateSubtitle: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
     color: colors.text.secondary,
     fontFamily: fontFamily.mono,
-    textAlign: "center",
+    marginTop: 2,
+  },
+  heroRight: {
+    alignItems: "center",
+    marginLeft: spacing.lg,
+    paddingTop: spacing.xs,
+  },
+  heroGoingCount: {
+    fontSize: 28,
+    fontWeight: fontWeight.bold,
+    color: colors.accent.primary,
+    fontFamily: fontFamily.mono,
+    lineHeight: 32,
+  },
+  heroGoingLabel: {
+    fontSize: 10,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.disabled,
+    fontFamily: fontFamily.mono,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    marginTop: 2,
+  },
+  heroDistance: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
     marginTop: spacing.xs,
   },
 
   // Details Section
   detailsSection: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing["2xl"],
-    gap: spacing.md,
-    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
   },
 
   // Detail Rows

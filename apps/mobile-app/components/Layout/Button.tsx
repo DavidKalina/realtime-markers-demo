@@ -209,17 +209,16 @@ const Button: React.FC<ButtonProps> = ({
       disabled={disabled || loading}
       activeOpacity={0.7}
     >
-      {loading && (
-        <ActivityIndicator
-          size="small"
-          color={getLoadingColor()}
-          style={{ marginRight: Icon ? 0 : 8 }}
-        />
+      {loading ? (
+        <ActivityIndicator size="small" color={getLoadingColor()} />
+      ) : (
+        <>
+          {Icon && (
+            <Icon size={iconSize} color={getIconColor()} strokeWidth={2} />
+          )}
+          <Text style={[getTextStyle(), textStyle]}>{title}</Text>
+        </>
       )}
-      {!loading && Icon && (
-        <Icon size={iconSize} color={getIconColor()} strokeWidth={2} />
-      )}
-      <Text style={[getTextStyle(), textStyle]}>{title}</Text>
     </TouchableOpacity>
   );
 };

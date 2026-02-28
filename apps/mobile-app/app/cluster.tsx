@@ -14,6 +14,7 @@ import {
   useDialogStreamer,
   layoutStyles,
 } from "@/components/AreaScan/AreaScanComponents";
+import EventDnaChart from "@/components/EventDetails/EventDnaChart";
 
 export default function ClusterScreen() {
   const {
@@ -78,7 +79,15 @@ export default function ClusterScreen() {
       onBack={() => router.back()}
       isScrollable={false}
     >
-      {zoneStats && <ZoneHero zoneStats={zoneStats} dnaLabel="CLUSTER DNA" />}
+      {zoneStats && <ZoneHero zoneStats={zoneStats} />}
+
+      {zoneStats && zoneStats.categoryBreakdown.length > 0 && (
+        <EventDnaChart
+          categories={zoneStats.categoryBreakdown}
+          variant="bar"
+          label="CLUSTER DNA"
+        />
+      )}
 
       {zoneStats && zoneStats.eventCount > 0 && (
         <StatPillRow zoneStats={zoneStats} />
@@ -103,6 +112,7 @@ export default function ClusterScreen() {
         showDone={dialog.showDone}
         blinkAnim={dialog.blinkAnim}
         onTap={dialog.handleTap}
+        style={{ height: 140 }}
       />
     </Screen>
   );

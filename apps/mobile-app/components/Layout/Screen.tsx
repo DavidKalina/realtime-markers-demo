@@ -78,6 +78,9 @@ export interface ScreenProps<T extends string = string> {
     loading?: boolean;
   }[];
 
+  // Fixed bottom content (rendered between scroll area and footer)
+  bottomContent?: React.ReactNode;
+
   // Style props
   style?: ViewStyle;
   contentStyle?: ViewStyle;
@@ -101,6 +104,7 @@ const Screen = <T extends string>({
   sections = [],
   children,
   footerButtons = [],
+  bottomContent,
   style,
   contentStyle,
   noSafeArea,
@@ -199,7 +203,9 @@ const Screen = <T extends string>({
             contentContainerStyle={[
               styles.scrollContent,
               { paddingTop: BANNER_HEIGHT },
-              footerButtons.length > 0 && styles.scrollContentWithFooter,
+              footerButtons.length > 0 &&
+                !bottomContent &&
+                styles.scrollContentWithFooter,
             ]}
           >
             {renderContent()}
@@ -209,16 +215,21 @@ const Screen = <T extends string>({
             style={[
               styles.container,
               { paddingTop: BANNER_HEIGHT },
-              footerButtons.length > 0 && styles.nonScrollableContentWithFooter,
+              footerButtons.length > 0 &&
+                !bottomContent &&
+                styles.nonScrollableContentWithFooter,
             ]}
           >
             {renderContent()}
           </View>
         )}
+        {bottomContent && (
+          <View style={styles.bottomContentWrapper}>{bottomContent}</View>
+        )}
         {footerButtons.length > 0 && (
           <View
             style={[
-              styles.fixedFooter,
+              bottomContent ? styles.flexFooter : styles.fixedFooter,
               { paddingBottom: footerSafeArea ? insets.bottom + 8 : 8 },
             ]}
           >
@@ -301,6 +312,13 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border.medium,
     flexDirection: "row",
     gap: spacing.sm,
+  },
+  bottomContentWrapper: {
+    paddingBottom: spacing.lg,
+  },
+  flexFooter: {
+    backgroundColor: colors.bg.primary,
+    flexDirection: "row",
   },
   footerButton: {
     // Remove default flex: 1 to allow custom flex values from EventDetails

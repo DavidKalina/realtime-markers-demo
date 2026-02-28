@@ -12,6 +12,7 @@ import {
   StyleSheet,
   Text,
   View,
+  ViewStyle,
 } from "react-native";
 import Reanimated, {
   FadeInDown,
@@ -30,7 +31,7 @@ const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
 
 // --- Constants ---
 
-export const CHARS_PER_PAGE = 80;
+export const CHARS_PER_PAGE = 140;
 export const CHAR_DELAY_MS = 20;
 export const AUTO_ADVANCE_MS = 2500;
 export const BAR_COLORS = [
@@ -261,15 +262,7 @@ export function CategoryPieChart({
 
 // --- ZoneHero (combined header + pie) ---
 
-export function ZoneHero({
-  zoneStats,
-  dnaLabel = "AREA DNA",
-}: {
-  zoneStats: AreaScanMetadata;
-  dnaLabel?: string;
-}) {
-  const hasBreakdown = zoneStats.categoryBreakdown.length > 0;
-
+export function ZoneHero({ zoneStats }: { zoneStats: AreaScanMetadata }) {
   return (
     <Reanimated.View
       entering={FadeInDown.duration(400)}
@@ -288,29 +281,6 @@ export function ZoneHero({
           </Text>
         </View>
       </View>
-      {hasBreakdown && (
-        <View style={heroStyles.dnaSection}>
-          <Text style={heroStyles.dnaLabel}>{dnaLabel}</Text>
-          <View style={heroStyles.breakdownRow}>
-            <CategoryPieChart breakdown={zoneStats.categoryBreakdown} />
-            <View style={heroStyles.legendWrap}>
-              {zoneStats.categoryBreakdown.map((cat, i) => (
-                <View key={cat.name} style={barStyles.legendItem}>
-                  <View
-                    style={[
-                      barStyles.legendDot,
-                      { backgroundColor: BAR_COLORS[i % BAR_COLORS.length] },
-                    ]}
-                  />
-                  <Text style={barStyles.legendText}>
-                    {cat.name} {cat.pct}%
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-      )}
     </Reanimated.View>
   );
 }
@@ -583,20 +553,27 @@ export function DialogBox({
   error,
   displayText,
   showContinue,
-  showDone,
+  showDone = true,
   blinkAnim,
   onTap,
+  inline,
+  style,
 }: {
   isLoading: boolean;
   error: string | null;
   displayText: string;
   showContinue: boolean;
-  showDone: boolean;
+  showDone?: boolean;
   blinkAnim: Animated.Value;
   onTap: () => void;
+  inline?: boolean;
+  style?: ViewStyle;
 }) {
   return (
-    <Pressable onPress={onTap} style={dialogStyles.bubble}>
+    <Pressable
+      onPress={onTap}
+      style={[dialogStyles.bubble, inline && dialogStyles.bubbleInline, style]}
+    >
       {isLoading ? (
         <View style={dialogStyles.loadingRow}>
           <View style={dialogStyles.dot} />
@@ -641,6 +618,14 @@ const dialogStyles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: colors.border.medium,
     marginBottom: -spacing.lg,
+  },
+  bubbleInline: {
+    height: "auto" as unknown as number,
+    minHeight: 60,
+    borderTopWidth: 0,
+    marginBottom: 0,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   textArea: {
     flex: 1,

@@ -167,6 +167,45 @@ export const clusterProfileHandler = async (c: Context<AppContext>) => {
   });
 };
 
+export const eventInsightHandler = async (c: Context<AppContext>) => {
+  const body = await c.req.json<{ eventId: string }>();
+  const { eventId } = body;
+
+  if (!eventId || typeof eventId !== "string") {
+    return c.json({ error: "eventId is required" }, 400);
+  }
+
+  const areaScanService = c.get("areaScanService");
+  const redisService = c.get("redisService");
+
+  const result = await areaScanService.getEventInsight(eventId);
+
+  return streamSSE(c, async (stream) => {
+    try {
+      await stream.writeSSE({
+        event: "metadata",
+        data: JSON.stringify({ cached: result.cached }),
+      });
+
+      const text = result.text || "No insight available.";
+      await stream.writeSSE({ event: "content", data: text });
+      await stream.writeSSE({ event: "done", data: "" });
+
+      // Cache the result with 24h TTL
+      if (!result.cached) {
+        const cacheKey = `event-insight:${eventId}`;
+        await redisService.set(cacheKey, text, 86400);
+      }
+    } catch (error) {
+      console.error("[EventInsight] Stream error:", error);
+      await stream.writeSSE({
+        event: "error",
+        data: JSON.stringify({ error: "Stream error" }),
+      });
+    }
+  });
+};
+
 // Simple geohash for cache key (matches AreaScanService)
 const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
 

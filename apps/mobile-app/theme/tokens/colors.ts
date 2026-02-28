@@ -98,6 +98,8 @@ export const colors = {
     share: "#a78bfa",
     shareMuted: "rgba(167, 139, 250, 0.15)",
     shareBorder: "rgba(167, 139, 250, 0.35)",
+    map: "#38bdf8",
+    mapMuted: "rgba(56, 189, 248, 0.15)",
   },
 
   // Fixed colors (not theme-dependent)

@@ -75,6 +75,57 @@ function parseSSE(text: string, callbacks: AreaScanCallbacks): void {
   }
 }
 
+export interface EventInsightCallbacks {
+  onMetadata: (metadata: { cached: boolean }) => void;
+  onContent: (chunk: string) => void;
+  onDone: () => void;
+  onError: (error: Error) => void;
+}
+
+function parseEventInsightSSE(
+  text: string,
+  callbacks: EventInsightCallbacks,
+): void {
+  let currentEvent = "";
+
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed === "") {
+      currentEvent = "";
+      continue;
+    }
+    if (trimmed.startsWith("event:")) {
+      currentEvent = trimmed.slice(6).trim();
+    } else if (trimmed.startsWith("data:")) {
+      const data = trimmed.slice(trimmed.startsWith("data: ") ? 6 : 5);
+
+      switch (currentEvent) {
+        case "metadata":
+          try {
+            callbacks.onMetadata(JSON.parse(data));
+          } catch {
+            // Ignore parse errors
+          }
+          break;
+        case "content":
+          callbacks.onContent(data);
+          break;
+        case "done":
+          callbacks.onDone();
+          break;
+        case "error":
+          try {
+            const errData = JSON.parse(data);
+            callbacks.onError(new Error(errData.error || "Stream error"));
+          } catch {
+            callbacks.onError(new Error("Stream error"));
+          }
+          break;
+      }
+    }
+  }
+}
+
 export class AreaScanModule extends BaseApiModule {
   constructor(client: BaseApiClient) {
     super(client);
@@ -138,6 +189,38 @@ export class AreaScanModule extends BaseApiModule {
 
         const text = await response.text();
         parseSSE(text, callbacks);
+      })
+      .catch((error) => {
+        if (error.name === "AbortError") return;
+        callbacks.onError(error);
+      });
+
+    return {
+      abort: () => abortController.abort(),
+    };
+  }
+
+  streamEventInsight(
+    eventId: string,
+    callbacks: EventInsightCallbacks,
+  ): { abort: () => void } {
+    const abortController = new AbortController();
+
+    this.fetchWithAuth(`${this.client.baseUrl}/api/area-scan/event`, {
+      method: "POST",
+      body: JSON.stringify({ eventId }),
+      signal: abortController.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.error || `Event insight failed: ${response.status}`,
+          );
+        }
+
+        const text = await response.text();
+        parseEventInsightSSE(text, callbacks);
       })
       .catch((error) => {
         if (error.name === "AbortError") return;

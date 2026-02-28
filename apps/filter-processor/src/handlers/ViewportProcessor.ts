@@ -84,17 +84,21 @@ export class ViewportProcessor {
         "ASC", // sort by distance
       )) as [string, string][]; // Type assertion for GEORADIUS response
 
-      // Process results
-      for (const [viewportKey] of nearbyViewports) {
-        const userId = viewportKey.replace("viewport:", "");
-        const viewportData = await this.redisPub.get(viewportKey);
+      // Batch-fetch all viewport data in a single MGET instead of N sequential GETs
+      if (nearbyViewports.length > 0) {
+        const viewportKeys = nearbyViewports.map(([key]) => key);
+        const viewportDataArray = await this.redisPub.mget(...viewportKeys);
 
-        if (viewportData) {
-          const viewport = JSON.parse(viewportData);
+        for (let i = 0; i < viewportKeys.length; i++) {
+          const viewportData = viewportDataArray[i];
+          if (viewportData) {
+            const userId = viewportKeys[i].replace("viewport:", "");
+            const viewport = JSON.parse(viewportData);
 
-          // Double-check intersection (GEORADIUS is approximate)
-          if (this.boundsIntersect(eventBounds, viewport)) {
-            intersectingViewports.push({ userId, viewport });
+            // Double-check intersection (GEORADIUS is approximate)
+            if (this.boundsIntersect(eventBounds, viewport)) {
+              intersectingViewports.push({ userId, viewport });
+            }
           }
         }
       }

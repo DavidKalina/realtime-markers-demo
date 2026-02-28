@@ -1,0 +1,49 @@
+import { useEffect, useRef, useState, useCallback } from "react";
+import { apiClient } from "@/services/ApiClient";
+import {
+  useDialogStreamer,
+  splitIntoPages,
+  CHARS_PER_PAGE,
+} from "../AreaScan/AreaScanComponents";
+
+export function useEventInsight(eventId: string) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<{ abort: () => void } | null>(null);
+  const fetchedRef = useRef<string | null>(null);
+
+  const onDismiss = useCallback(() => {}, []);
+  const dialog = useDialogStreamer(onDismiss);
+
+  useEffect(() => {
+    if (!eventId || fetchedRef.current === eventId) return;
+    fetchedRef.current = eventId;
+
+    setIsLoading(true);
+    setError(null);
+
+    abortRef.current = apiClient.areaScan.streamEventInsight(eventId, {
+      onMetadata: () => {
+        // metadata received (contains { cached })
+      },
+      onContent: (text) => {
+        setIsLoading(false);
+        const pages = splitIntoPages(text, CHARS_PER_PAGE);
+        dialog.feedPages(pages);
+      },
+      onDone: () => {
+        setIsLoading(false);
+      },
+      onError: (err) => {
+        setIsLoading(false);
+        setError(err.message || "Failed to load insight");
+      },
+    });
+
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, [eventId]);
+
+  return { isLoading, error, dialog };
+}

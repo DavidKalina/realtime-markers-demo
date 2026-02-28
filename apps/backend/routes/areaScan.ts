@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import {
   areaScanHandler,
   clusterProfileHandler,
+  eventInsightHandler,
 } from "../handlers/areaScanHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -26,3 +27,4 @@ areaScanRouter.use(
 
 areaScanRouter.post("/", areaScanHandler);
 areaScanRouter.post("/cluster", clusterProfileHandler);
+areaScanRouter.post("/event", eventInsightHandler);

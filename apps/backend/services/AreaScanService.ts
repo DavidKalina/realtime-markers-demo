@@ -82,6 +82,11 @@ export interface AreaScanResult {
   text?: string;
 }
 
+export interface EventInsightResult {
+  cached: boolean;
+  text?: string;
+}
+
 interface NearbyEventRow {
   id: string;
   emoji: string;
@@ -115,6 +120,8 @@ export interface AreaScanService {
     centerLat: number,
     centerLng: number,
   ): Promise<AreaScanResult>;
+
+  getEventInsight(eventId: string): Promise<EventInsightResult>;
 }
 
 interface AreaScanDependencies {
@@ -193,6 +200,7 @@ class AreaScanServiceImpl implements AreaScanService {
       lng,
       radius,
       filters,
+      events,
     );
 
     const completion = await this.openAIService.executeChatCompletion({
@@ -201,8 +209,8 @@ class AreaScanServiceImpl implements AreaScanService {
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      temperature: 0.9,
-      max_tokens: 120,
+      temperature: 0.7,
+      max_tokens: 200,
       response_format: { type: "json_object" },
     });
 
@@ -249,6 +257,8 @@ class AreaScanServiceImpl implements AreaScanService {
       centerLat,
       centerLng,
       0,
+      undefined,
+      events,
     );
 
     const completion = await this.openAIService.executeChatCompletion({
@@ -257,8 +267,8 @@ class AreaScanServiceImpl implements AreaScanService {
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      temperature: 0.9,
-      max_tokens: 120,
+      temperature: 0.7,
+      max_tokens: 200,
       response_format: { type: "json_object" },
     });
 
@@ -281,6 +291,80 @@ class AreaScanServiceImpl implements AreaScanService {
       cached: false,
       text: vibe,
     };
+  }
+
+  async getEventInsight(eventId: string): Promise<EventInsightResult> {
+    const cacheKey = `event-insight:${eventId}`;
+
+    // Check cache
+    const cached = await this.redisService.get<string>(cacheKey);
+    if (cached) {
+      return { cached: true, text: cached };
+    }
+
+    // Fetch event with categories
+    const eventRepository = this.dataSource.getRepository(Event);
+    const event = await eventRepository.findOne({
+      where: { id: eventId },
+      relations: ["categories"],
+    });
+
+    if (!event) {
+      return { cached: false, text: "Event not found." };
+    }
+
+    const { systemPrompt, userPrompt } = this.buildEventInsightPrompt(event);
+
+    const completion = await this.openAIService.executeChatCompletion({
+      model: OpenAIModel.GPT4OMini,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 300,
+    });
+
+    const text =
+      completion.choices[0]?.message?.content || "No insight available.";
+
+    return { cached: false, text };
+  }
+
+  private buildEventInsightPrompt(event: Event): {
+    systemPrompt: string;
+    userPrompt: string;
+  } {
+    const systemPrompt = `You are a practical event guide on a living map app. When a user taps on an event, give them a concise, useful briefing: what this event is, what to expect, and tips for attending. 2-3 short sentences, max 60 words. Be direct and helpful — no greetings, no filler. Mention specifics when useful (timing tips, what to bring, who it's for).`;
+
+    const categoryNames = (event.categories || [])
+      .map((c) => c.name)
+      .join(", ");
+    const description = event.description
+      ? event.description.slice(0, 300)
+      : "";
+    const dateStr = event.eventDate
+      ? new Date(event.eventDate).toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : "";
+
+    const parts: string[] = [
+      `Title: ${event.title}`,
+      dateStr ? `Date: ${dateStr}` : "",
+      categoryNames ? `Categories: ${categoryNames}` : "",
+      event.address ? `Location: ${event.address}` : "",
+      description ? `Description: ${description}` : "",
+      event.isRecurring ? `Recurring event` : "",
+      event.viewCount ? `${event.viewCount} views` : "",
+      event.saveCount ? `${event.saveCount} saves` : "",
+    ].filter(Boolean);
+
+    return { systemPrompt, userPrompt: parts.join("\n") };
   }
 
   private async queryEventsByIds(
@@ -489,17 +573,18 @@ class AreaScanServiceImpl implements AreaScanService {
     lng: number,
     radius: number,
     filters?: AreaScanFilters,
+    events?: NearbyEventRow[],
   ): {
     systemPrompt: string;
     userPrompt: string;
   } {
-    const systemPrompt = `You name newly discovered zones on a living map. Each scan reveals a unique pocket of the city.
+    const systemPrompt = `You are a local area guide on a living event map. When a user scans a zone, you tell them what's happening nearby in a helpful, concise way.
 
 Return JSON: {"name": "...", "vibe": "..."}
 
-name: A whimsical, evocative 2-4 word place name. Not generic — make it feel like a secret the scanner just uncovered. Mix poetic language with the zone's dominant flavor. Examples: "Velvet Bass Corridor", "The Saffron Drift", "Midnight Vinyl Row", "Emberglow Commons". Never use "District" or "Quarter".
+name: A creative 2-4 word place name inspired by the dominant event types. Examples: "Live Music Row", "The Makers Corner", "Foodie Alley", "Gallery Loop". Never use "District" or "Quarter".
 
-vibe: One vivid sentence, max 18 words. Capture what it FEELS like to stand here — sounds, energy, texture. No greetings, no lists, no "this area".`;
+vibe: 2-3 short sentences, max 50 words total. Mention specific events by name when notable. Tell the user what they can do here — what to check out, what's coming up soon, or what stands out. Be direct and useful, not poetic. No greetings, no "this area has".`;
 
     const isCluster = radius === 0;
     const radiusLabel = isCluster
@@ -511,7 +596,7 @@ vibe: One vivid sentence, max 18 words. Capture what it FEELS like to stand here
     if (zoneStats.eventCount === 0) {
       return {
         systemPrompt,
-        userPrompt: `Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)}. Scan radius: ${radiusLabel}. Nothing found — an undiscovered pocket. Name it something mysterious.`,
+        userPrompt: `Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)}. Scan radius: ${radiusLabel}. Nothing found nearby. Write a short encouraging note to check back later.`,
       };
     }
 
@@ -523,7 +608,7 @@ vibe: One vivid sentence, max 18 words. Capture what it FEELS like to stand here
     const { morning, afternoon, evening, night } = zoneStats.timeDistribution;
     if (evening > 0 || night > 0) timeParts.push("leans evening/night");
     else if (morning > 0 || afternoon > 0) timeParts.push("daytime energy");
-    const timeHint = timeParts.length > 0 ? ` ${timeParts.join(", ")}.` : "";
+    const timeHint = timeParts.length > 0 ? ` Timing: ${timeParts.join(", ")}.` : "";
 
     let filterHint = "";
     if (filters?.dateRange) {
@@ -534,12 +619,22 @@ vibe: One vivid sentence, max 18 words. Capture what it FEELS like to stand here
     }
 
     const scopeLabel = isCluster
-      ? `Map cluster of ${zoneStats.eventCount} events.`
-      : `Scan radius: ${radiusLabel}. ${zoneStats.eventCount} events found.`;
+      ? `Cluster of ${zoneStats.eventCount} events.`
+      : `Radius: ${radiusLabel}. ${zoneStats.eventCount} events found.`;
+
+    // Include up to 10 event titles so the LLM knows what's actually here
+    const eventList = (events || [])
+      .slice(0, 10)
+      .map((e) => `- ${e.emoji} "${e.title}" (${e.categoryNames || "Uncategorized"}, ${e.distance}m away)`)
+      .join("\n");
+
+    const eventSection = eventList
+      ? `\n\nNearby events:\n${eventList}`
+      : "";
 
     return {
       systemPrompt,
-      userPrompt: `Coordinates: ${lat.toFixed(4)}, ${lng.toFixed(4)}. ${scopeLabel} Mix: ${catSummary}.${timeHint}${filterHint}`,
+      userPrompt: `${scopeLabel} Categories: ${catSummary}.${timeHint}${filterHint}${eventSection}`,
     };
   }
 }

@@ -15,6 +15,7 @@ import {
   useDialogStreamer,
   layoutStyles,
 } from "@/components/AreaScan/AreaScanComponents";
+import EventDnaChart from "@/components/EventDetails/EventDnaChart";
 
 export default function AreaScanScreen() {
   const { lat, lng, zoom } = useLocalSearchParams<{
@@ -76,6 +77,14 @@ export default function AreaScanScreen() {
     >
       {zoneStats && <ZoneHero zoneStats={zoneStats} />}
 
+      {zoneStats && zoneStats.categoryBreakdown.length > 0 && (
+        <EventDnaChart
+          categories={zoneStats.categoryBreakdown}
+          variant="bar"
+          label="AREA DNA"
+        />
+      )}
+
       {zoneStats && zoneStats.eventCount > 0 && (
         <StatPillRow zoneStats={zoneStats} />
       )}
@@ -99,6 +108,7 @@ export default function AreaScanScreen() {
         showDone={dialog.showDone}
         blinkAnim={dialog.blinkAnim}
         onTap={dialog.handleTap}
+        style={{ height: 140 }}
       />
     </Screen>
   );
