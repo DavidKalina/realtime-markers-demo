@@ -36,6 +36,7 @@ import { DropCivicEngagementTables1710000000023 } from "./migrations/DropCivicEn
 import { AddSpatialAndCompoundIndexes1710000000024 } from "./migrations/AddSpatialAndCompoundIndexes1710000000024";
 import { AddGamificationFields1710000000025 } from "./migrations/AddGamificationFields1710000000025";
 import { AddExternalEventFields1710000000026 } from "./migrations/AddExternalEventFields1710000000026";
+import { AddEventDigest1710000000027 } from "./migrations/AddEventDigest1710000000027";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -73,6 +74,7 @@ const AppDataSource = new DataSource({
     AddSpatialAndCompoundIndexes1710000000024,
     AddGamificationFields1710000000025,
     AddExternalEventFields1710000000026,
+    AddEventDigest1710000000027,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

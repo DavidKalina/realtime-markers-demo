@@ -15,6 +15,7 @@ import {
 } from "typeorm";
 import type { Relation } from "typeorm";
 import { type Point } from "geojson";
+import type { EventDigest } from "../types/eventDigest";
 import { Category } from "./Category";
 import { User } from "./User";
 import { UserEventDiscovery } from "./UserEventDiscovery";
@@ -153,6 +154,9 @@ export class Event {
 
   @Column({ name: "detected_qr_data", type: "text", nullable: true })
   detectedQrData?: string;
+
+  @Column({ name: "event_digest", type: "jsonb", nullable: true })
+  eventDigest?: EventDigest | null;
 
   // In Event.ts
   @Column({ name: "original_image_url", type: "text", nullable: true })

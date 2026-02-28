@@ -261,14 +261,62 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
         )}
 
         <View style={styles.detailsSection}>
-          {/* About */}
-          {event.description && (
+          {/* About / Digest */}
+          {event.eventDigest ? (
             <Animated.View
               entering={FadeInDown.duration(300).delay(80).springify()}
             >
               <SectionLabel title="About" />
-              <Text style={styles.descriptionText}>{event.description}</Text>
+              <Text style={styles.descriptionText}>
+                {event.eventDigest.summary}
+              </Text>
+
+              {event.eventDigest.cost && (
+                <>
+                  <SectionLabel title="Cost" />
+                  <Text style={styles.descriptionText}>
+                    {event.eventDigest.cost}
+                  </Text>
+                </>
+              )}
+
+              {event.eventDigest.highlights &&
+                event.eventDigest.highlights.length > 0 && (
+                  <>
+                    <SectionLabel title="Highlights" />
+                    <View style={styles.highlightsList}>
+                      {event.eventDigest.highlights.map(
+                        (item: string, i: number) => (
+                          <Text key={i} style={styles.highlightItem}>
+                            {"• "}
+                            {item}
+                          </Text>
+                        ),
+                      )}
+                    </View>
+                  </>
+                )}
+
+              {event.eventDigest.contact && (
+                <>
+                  <SectionLabel title="Contact" />
+                  <Text style={styles.descriptionText}>
+                    {event.eventDigest.contact}
+                  </Text>
+                </>
+              )}
             </Animated.View>
+          ) : (
+            event.description && (
+              <Animated.View
+                entering={FadeInDown.duration(300).delay(80).springify()}
+              >
+                <SectionLabel title="About" />
+                <Text style={styles.descriptionText}>
+                  {event.description}
+                </Text>
+              </Animated.View>
+            )
           )}
 
           {/* Recurring Schedule */}

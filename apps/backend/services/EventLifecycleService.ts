@@ -114,6 +114,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       recurrenceStartDate: input.recurrenceStartDate,
       recurrenceEndDate: input.recurrenceEndDate,
       recurrenceInterval: input.recurrenceInterval,
+      eventDigest: input.eventDigest || null,
     };
 
     // Create event instance

@@ -180,6 +180,17 @@ export const baseStyles = StyleSheet.create({
     fontFamily: fontFamily.mono,
   },
 
+  // Highlights List
+  highlightsList: {
+    gap: spacing.xs,
+  },
+  highlightItem: {
+    fontSize: fontSize.md,
+    color: colors.text.primary,
+    lineHeight: lineHeight.loose,
+    fontFamily: fontFamily.mono,
+  },
+
   // Recurring Details
   recurringDetails: {
     gap: spacing.sm,

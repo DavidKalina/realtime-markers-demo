@@ -1,6 +1,7 @@
 // services/event-processing/dto/EventExtractionResult.ts
 
 import type { Point } from "geojson";
+import type { EventDigest } from "@realtime-markers/database";
 import type { Category } from "../../../entities/Category";
 import { RecurrenceFrequency, DayOfWeek } from "../../../entities/Event";
 
@@ -109,6 +110,11 @@ export interface EventExtractionResult {
      * Recurrence interval
      */
     recurrenceInterval?: number;
+
+    /**
+     * Structured digest of the event description
+     */
+    eventDigest?: EventDigest | null;
   };
 
   /**

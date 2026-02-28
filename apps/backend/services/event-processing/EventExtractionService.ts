@@ -2,7 +2,7 @@
 
 import { parseISO } from "date-fns";
 import { format, fromZonedTime } from "date-fns-tz";
-import type { Category } from "@realtime-markers/database";
+import type { Category, EventDigest } from "@realtime-markers/database";
 import type { CategoryProcessingService } from "../CategoryProcessingService";
 import type { ConfigService } from "../shared/ConfigService";
 import { OpenAIModel, type OpenAIService } from "../shared/OpenAIService";
@@ -113,7 +113,12 @@ export class EventExtractionService implements IEventExtractionService {
            - description: Full description of the event
            - categoryNames: Array of 2-5 category names that best describe this event
            - locationClues: Array of all possible clues about the location (building codes, room numbers, logos, etc.)
-           
+           - eventDigest: A structured digest object with these fields:
+             - summary: 1-2 sentence overview of the event (required, always provide)
+             - cost: Price or admission info as a string, or null if free/unknown
+             - highlights: Array of up to 5 practical bullet-point items about the event, or null if none
+             - contact: Contact info, social media handles, or website, or null if none found
+
            Today's date is: ${currentDate}
            
            Text to extract from:
@@ -183,6 +188,19 @@ export class EventExtractionService implements IEventExtractionService {
       );
     }
 
+    // Validate and normalize eventDigest
+    let eventDigest: EventDigest | null = null;
+    if (parsedDetails.eventDigest && parsedDetails.eventDigest.summary) {
+      eventDigest = {
+        summary: parsedDetails.eventDigest.summary,
+        cost: parsedDetails.eventDigest.cost || null,
+        highlights: Array.isArray(parsedDetails.eventDigest.highlights)
+          ? parsedDetails.eventDigest.highlights.slice(0, 5)
+          : null,
+        contact: parsedDetails.eventDigest.contact || null,
+      };
+    }
+
     const eventDetails = {
       emoji:
         parsedDetails.emoji && parsedDetails.emoji.trim() !== ""
@@ -198,6 +216,7 @@ export class EventExtractionService implements IEventExtractionService {
       categories: categories,
       timezone: timezone,
       locationNotes: resolvedLocation.locationNotes || "",
+      eventDigest: eventDigest,
     };
 
     return {

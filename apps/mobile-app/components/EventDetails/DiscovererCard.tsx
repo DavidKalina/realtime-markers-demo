@@ -1,16 +1,19 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
   interpolate,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { Svg, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
-import { colors, radius, spacing, fontSize, fontFamily, fontWeight } from "@/theme";
+import * as Haptics from "expo-haptics";
+import { colors, radius, spacing, fontSize, fontFamily, fontWeight, spring } from "@/theme";
 import { getTierByName } from "@/utils/gamification";
+import DiscovererCardOverlay from "./DiscovererCardOverlay";
 
 const TIER_COLORS: Record<string, string> = {
   Explorer: "#93c5fd",
@@ -44,7 +47,9 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
   discoveryCount,
 }) => {
   const [cardWidth, setCardWidth] = useState(0);
+  const [overlayVisible, setOverlayVisible] = useState(false);
   const sheenProgress = useSharedValue(0);
+  const pressScale = useSharedValue(1);
 
   const onLayout = useCallback(
     (e: { nativeEvent: { layout: { width: number } } }) => {
@@ -69,6 +74,10 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
     );
     return { transform: [{ translateX }] };
   });
+
+  const pressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pressScale.value }],
+  }));
 
   const tierInfo = currentTier ? getTierByName(currentTier) : null;
   const tierColor = currentTier
@@ -97,63 +106,94 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
     return "Anonymous User";
   })();
 
+  const handlePressIn = useCallback(() => {
+    pressScale.value = withSpring(0.97, spring.press);
+  }, [pressScale]);
+
+  const handlePressOut = useCallback(() => {
+    pressScale.value = withSpring(1, spring.bouncy);
+  }, [pressScale]);
+
+  const handlePress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setOverlayVisible(true);
+  }, []);
+
   return (
-    <View style={cardStyles.card} onLayout={onLayout}>
-      {/* Top row: name left, tier right */}
-      <View style={cardStyles.topRow}>
-        <Text style={cardStyles.name}>{displayName}</Text>
-        {tierInfo && (
-          <Text style={[cardStyles.tierText, { color: tierColor }]}>
-            {tierInfo.emoji} {tierInfo.name}
-          </Text>
-        )}
-      </View>
+    <>
+      <Pressable
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={handlePress}
+      >
+        <Animated.View style={[cardStyles.card, pressStyle]} onLayout={onLayout}>
+          {/* Top row: name left, tier right */}
+          <View style={cardStyles.topRow}>
+            <Text style={cardStyles.name}>{displayName}</Text>
+            {tierInfo && (
+              <Text style={[cardStyles.tierText, { color: tierColor }]}>
+                {tierInfo.emoji} {tierInfo.name}
+              </Text>
+            )}
+          </View>
 
-      {/* Diagonal etched watermark */}
-      {cardWidth > 0 && (
-        <View style={cardStyles.watermarkContainer} pointerEvents="none">
-          <Text
-            style={[cardStyles.watermark, { fontSize: watermarkFontSize }]}
-            numberOfLines={1}
-          >
-            {WATERMARK_TEXT}
-          </Text>
-        </View>
-      )}
+          {/* Diagonal etched watermark */}
+          {cardWidth > 0 && (
+            <View style={cardStyles.watermarkContainer} pointerEvents="none">
+              <Text
+                style={[cardStyles.watermark, { fontSize: watermarkFontSize }]}
+                numberOfLines={1}
+              >
+                {WATERMARK_TEXT}
+              </Text>
+            </View>
+          )}
 
-      {/* Bottom row: XP + Discoveries */}
-      <View style={cardStyles.bottomRow}>
-        <View style={cardStyles.stat}>
-          <Text style={cardStyles.statValue}>
-            {(totalXp ?? 0).toLocaleString()}
-          </Text>
-          <Text style={cardStyles.statLabel}>XP</Text>
-        </View>
-        <View style={cardStyles.stat}>
-          <Text style={cardStyles.statValue}>{discoveryCount ?? 0}</Text>
-          <Text style={cardStyles.statLabel}>DISCOVERIES</Text>
-        </View>
-      </View>
+          {/* Bottom row: XP + Discoveries */}
+          <View style={cardStyles.bottomRow}>
+            <View style={cardStyles.stat}>
+              <Text style={cardStyles.statValue}>
+                {(totalXp ?? 0).toLocaleString()}
+              </Text>
+              <Text style={cardStyles.statLabel}>XP</Text>
+            </View>
+            <View style={cardStyles.stat}>
+              <Text style={cardStyles.statValue}>{discoveryCount ?? 0}</Text>
+              <Text style={cardStyles.statLabel}>DISCOVERIES</Text>
+            </View>
+          </View>
 
-      {/* Sheen overlay — single sweep */}
-      {cardWidth > 0 && (
-        <AnimatedSvg
-          style={[cardStyles.sheenOverlay, sheenStyle]}
-          width={SHEEN_WIDTH}
-          height={CARD_HEIGHT}
-          pointerEvents="none"
-        >
-          <Defs>
-            <LinearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0" stopColor="white" stopOpacity="0" />
-              <Stop offset="0.5" stopColor="white" stopOpacity="0.07" />
-              <Stop offset="1" stopColor="white" stopOpacity="0" />
-            </LinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width={SHEEN_WIDTH} height={CARD_HEIGHT} fill="url(#sheen)" />
-        </AnimatedSvg>
-      )}
-    </View>
+          {/* Sheen overlay — single sweep */}
+          {cardWidth > 0 && (
+            <AnimatedSvg
+              style={[cardStyles.sheenOverlay, sheenStyle]}
+              width={SHEEN_WIDTH}
+              height={CARD_HEIGHT}
+              pointerEvents="none"
+            >
+              <Defs>
+                <LinearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">
+                  <Stop offset="0" stopColor="white" stopOpacity="0" />
+                  <Stop offset="0.5" stopColor="white" stopOpacity="0.07" />
+                  <Stop offset="1" stopColor="white" stopOpacity="0" />
+                </LinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width={SHEEN_WIDTH} height={CARD_HEIGHT} fill="url(#sheen)" />
+            </AnimatedSvg>
+          )}
+        </Animated.View>
+      </Pressable>
+
+      <DiscovererCardOverlay
+        visible={overlayVisible}
+        onDismiss={() => setOverlayVisible(false)}
+        firstName={firstName}
+        lastName={lastName}
+        currentTier={currentTier}
+        totalXp={totalXp}
+        discoveryCount={discoveryCount}
+      />
+    </>
   );
 };
 

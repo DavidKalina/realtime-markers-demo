@@ -3,6 +3,7 @@ import type { Point } from "geojson";
 import type {
   RecurrenceFrequency,
   DayOfWeek,
+  EventDigest,
 } from "@realtime-markers/database";
 import type { CategorySummary } from "@realtime-markers/database";
 import type { SimilarityResult } from "./event-processing/dto/SimilarityResult";
@@ -42,6 +43,7 @@ interface ProcessedEventDetails {
   recurrenceStartDate?: string; // Keep as string for processing
   recurrenceEndDate?: string; // Keep as string for processing
   recurrenceInterval?: number | null;
+  eventDigest?: EventDigest | null;
 }
 
 interface ScanResult {
@@ -160,7 +162,7 @@ export class EventProcessingService {
         locationContext,
       );
 
-    // Add recurrence information to event details
+    // Add recurrence information and digest to event details
     const eventDetailsWithCategories = {
       ...extractionResult.event,
       isRecurring: visionResult.structuredData?.isRecurring,
@@ -170,6 +172,7 @@ export class EventProcessingService {
       recurrenceStartDate: visionResult.structuredData?.recurrenceStartDate,
       recurrenceEndDate: visionResult.structuredData?.recurrenceEndDate,
       recurrenceInterval: visionResult.structuredData?.recurrenceInterval,
+      eventDigest: extractionResult.event.eventDigest || null,
     };
 
     // Step 4: Generate embedding (80% of AI processing)

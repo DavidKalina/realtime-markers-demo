@@ -4,3 +4,4 @@ export * from "../entities/Event";
 
 // Export derived types
 export * from "./derived";
+export * from "./eventDigest";

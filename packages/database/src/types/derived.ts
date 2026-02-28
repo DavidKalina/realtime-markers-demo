@@ -193,6 +193,7 @@ export type EventSummary = Pick<
   | "id"
   | "title"
   | "description"
+  | "eventDigest"
   | "emoji"
   | "emojiDescription"
   | "eventDate"

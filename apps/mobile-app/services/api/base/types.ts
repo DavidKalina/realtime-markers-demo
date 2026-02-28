@@ -1,4 +1,4 @@
-import type { UserProfile, CategorySummary } from "@realtime-markers/database";
+import type { UserProfile, CategorySummary, EventDigest } from "@realtime-markers/database";
 
 // Base API types
 export interface Location {
@@ -38,6 +38,7 @@ export interface ApiEvent {
   id: string;
   title: string;
   description?: string;
+  eventDigest?: EventDigest | null;
   eventDate: string;
   endDate?: string;
   location: { type: string; coordinates: [number, number] };
