@@ -11,6 +11,7 @@ import EventListItem, {
   EventListItemProps,
 } from "@/components/Event/EventListItem";
 import LandingPageContent from "@/components/LandingPage/LandingPageContent";
+import LandingPageBottomFilters from "@/components/LandingPage/LandingPageBottomFilters";
 import useEventSearch from "@/hooks/useEventSearch";
 import useLandingPageData from "@/hooks/useLandingPageData";
 import { useLocationStore } from "@/stores/useLocationStore";
@@ -112,11 +113,6 @@ const SearchListScreen = () => {
     router.back();
   }, [router]);
 
-  const handleBackToMap = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/");
-  }, [router]);
-
   const handleEventPress = useCallback(
     (event: EventType) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -207,19 +203,18 @@ const SearchListScreen = () => {
       showBackButton
       onBack={handleBack}
       noAnimation
-      footerButtons={
-        showLandingPage
-          ? [
-              {
-                label: "Back to Map",
-                onPress: handleBackToMap,
-                variant: "outline" as const,
-                style: { flex: 1 },
-              },
-            ]
-          : []
+      bottomContent={
+        showLandingPage ? (
+          <LandingPageBottomFilters
+            selectedDistance={selectedDistance}
+            onDistanceChange={handleDistanceChange}
+            availableCities={landingData?.availableCities || []}
+            selectedCity={selectedCity}
+            onCityChange={handleCityChange}
+            categories={landingData?.popularCategories || []}
+          />
+        ) : undefined
       }
-      footerSafeArea
     >
       <Input
         ref={searchInputRef}
@@ -244,11 +239,6 @@ const SearchListScreen = () => {
           isLoading={isLandingLoading}
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
-          selectedDistance={selectedDistance}
-          onDistanceChange={handleDistanceChange}
-          selectedCity={selectedCity}
-          onCityChange={handleCityChange}
-          hasUserLocation={hasUserLocation}
         />
       ) : (
         <InfiniteScrollFlatList
@@ -260,10 +250,19 @@ const SearchListScreen = () => {
           isRefreshing={isRefreshing}
           hasMore={!searchError && eventResults.length > 0}
           error={searchError}
-          emptyListMessage={
+          emptyEmoji={searchQuery.trim() ? "🔍" : "📭"}
+          emptyTitle={
+            searchQuery.trim() ? "No results found" : "No events found"
+          }
+          emptySubtitle={
             searchQuery.trim()
-              ? "No events found matching your search"
-              : "No events found"
+              ? `Nothing matched "${searchQuery.trim()}"`
+              : "There are no events in this area yet"
+          }
+          emptyAction={
+            searchQuery.trim()
+              ? { label: "Clear Search", onPress: handleClearSearch }
+              : undefined
           }
           onRetry={async () => await searchEvents(true)}
         />

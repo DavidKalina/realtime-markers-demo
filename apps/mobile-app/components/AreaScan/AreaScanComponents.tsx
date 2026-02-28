@@ -45,20 +45,34 @@ export const BAR_COLORS = [
 // --- Helpers ---
 
 export function splitIntoPages(text: string, maxChars: number): string[] {
-  const words = text.split(/\s+/);
-  const pages: string[] = [];
-  let current = "";
+  // Split on newlines first — each line is a complete thought from the LLM
+  const lines = text
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
 
-  for (const word of words) {
-    const candidate = current ? current + " " + word : word;
-    if (candidate.length > maxChars && current) {
-      pages.push(current);
-      current = word;
+  const pages: string[] = [];
+
+  for (const line of lines) {
+    if (line.length <= maxChars) {
+      pages.push(line);
     } else {
-      current = candidate;
+      // Fallback: word-wrap lines that exceed maxChars
+      const words = line.split(/\s+/);
+      let current = "";
+      for (const word of words) {
+        const candidate = current ? current + " " + word : word;
+        if (candidate.length > maxChars && current) {
+          pages.push(current);
+          current = word;
+        } else {
+          current = candidate;
+        }
+      }
+      if (current) pages.push(current);
     }
   }
-  if (current) pages.push(current);
+
   return pages;
 }
 
@@ -410,6 +424,7 @@ export function useDialogStreamer(
   const autoAdvanceRef = useRef<number>(null);
   const charIndexRef = useRef(0);
   const currentPageTextRef = useRef("");
+  const mountedRef = useRef(true);
 
   const blinkAnim = useRef(new Animated.Value(1)).current;
 
@@ -423,6 +438,7 @@ export function useDialogStreamer(
     currentPageTextRef.current = text;
 
     const tick = () => {
+      if (!mountedRef.current) return;
       const i = charIndexRef.current;
       if (i < text.length) {
         setDisplayText(text.slice(0, i + 1));
@@ -445,6 +461,7 @@ export function useDialogStreamer(
 
   const feedPages = useCallback(
     (newPages: string[]) => {
+      if (!mountedRef.current) return;
       setPages(newPages);
       if (newPages.length > 0) {
         setPageIndex(0);
@@ -494,6 +511,7 @@ export function useDialogStreamer(
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {
+      mountedRef.current = false;
       if (streamTimerRef.current) clearTimeout(streamTimerRef.current);
       if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
     };

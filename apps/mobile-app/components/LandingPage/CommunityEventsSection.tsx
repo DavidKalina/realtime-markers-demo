@@ -62,9 +62,7 @@ const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Community Events</Text>
-      <Text style={styles.subtitle}>
-        Events discovered by the community through photo scanning
-      </Text>
+      <Text style={styles.subtitle}>Discovered by photo scanning</Text>
 
       <ScrollView
         horizontal
@@ -98,20 +96,22 @@ const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing["2xl"],
+    marginBottom: spacing.lg,
   },
   title: {
-    fontSize: fontSize.xl,
+    fontSize: 11,
     fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
+    color: colors.text.label,
     marginBottom: spacing.xs,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
+    letterSpacing: 1.5,
+    textTransform: "uppercase" as const,
   },
   subtitle: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
     color: colors.text.secondary,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
   },
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     backgroundColor: colors.bg.card,
-    borderRadius: radius.md,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.border.default,
     overflow: "hidden",

@@ -1,4 +1,4 @@
-import { formatDate } from "@/utils/dateTimeFormatting";
+import { formatDateTime } from "@/utils/dateTimeFormatting";
 import * as Haptics from "expo-haptics";
 import React, { memo, useMemo } from "react";
 import {
@@ -73,7 +73,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
         event.eventDate instanceof Date
           ? event.eventDate.toISOString()
           : event.eventDate;
-      return formatDate(dateStr, event.timezone).trim();
+      return formatDateTime(dateStr, event.timezone).trim();
     }, [event?.eventDate, event?.timezone]);
 
     const recurringEventDetails = useMemo(() => {
@@ -138,7 +138,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       loading?: boolean;
     }[] = [
       {
-        label: isRsvped ? "RSVP'd ✓" : "RSVP",
+        label: isRsvped ? "RSVP'd" : "RSVP",
         onPress: () => handleToggleRsvp(),
         variant: isRsvped ? "secondary" : "ghost",
         loading: rsvpState === "loading",
@@ -156,7 +156,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
         },
       },
       {
-        label: isSaved ? "Saved ✓" : "Save",
+        label: isSaved ? "SAVED" : "SAVE",
         onPress: () => handleToggleSave(),
         variant: "ghost",
         loading: savingState === "loading",
@@ -172,7 +172,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
         textStyle: { color: colors.action.save },
       },
       {
-        label: "Map",
+        label: "MAP",
         onPress: handleOpenMaps,
         variant: "ghost",
         style: {
@@ -185,7 +185,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
         textStyle: { color: colors.action.map },
       },
       {
-        label: "Share",
+        label: "SHARE",
         onPress: handleShare,
         variant: "ghost",
         style: {
@@ -221,36 +221,27 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           />
         }
       >
-        {/* Hero: emoji stacked over title (left), going count (right) */}
+        {/* Hero: full-width title, then date/distance info row */}
         <Animated.View
           entering={FadeInDown.duration(300).delay(0).springify()}
           style={styles.titleSection}
         >
-          <View style={styles.heroRow}>
-            <View style={styles.heroLeft}>
-              <Text style={styles.eventTitle}>
-                {event.emoji} {event.title}
-              </Text>
+          <Text style={styles.eventTitle}>
+            {event.emoji} {event.title}
+          </Text>
+          {(distanceInfo || formattedDate) && (
+            <View style={styles.heroInfoRow}>
               {formattedDate ? (
-                <Text style={styles.heroDateSubtitle}>{formattedDate}</Text>
+                <Text style={styles.heroInfoItem}>{formattedDate}</Text>
               ) : null}
+              {distanceInfo && formattedDate && (
+                <Text style={styles.heroInfoSep}>·</Text>
+              )}
+              {distanceInfo && (
+                <Text style={styles.heroInfoItem}>{distanceInfo}</Text>
+              )}
             </View>
-            {(engagement || distanceInfo) && (
-              <View style={styles.heroRight}>
-                {engagement && (
-                  <>
-                    <Text style={styles.heroGoingCount}>
-                      {engagement.goingCount}
-                    </Text>
-                    <Text style={styles.heroGoingLabel}>GOING</Text>
-                  </>
-                )}
-                {distanceInfo && (
-                  <Text style={styles.heroDistance}>{distanceInfo}</Text>
-                )}
-              </View>
-            )}
-          </View>
+          )}
         </Animated.View>
 
         {event.categories && event.categories.length > 0 && (
@@ -273,38 +264,38 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
               </Text>
 
               {event.eventDigest.cost && (
-                <>
+                <View style={styles.sectionDivider}>
                   <SectionLabel title="Cost" />
                   <Text style={styles.descriptionText}>
                     {event.eventDigest.cost}
                   </Text>
-                </>
+                </View>
               )}
 
               {event.eventDigest.highlights &&
                 event.eventDigest.highlights.length > 0 && (
-                  <>
+                  <View style={styles.sectionDivider}>
                     <SectionLabel title="Highlights" />
                     <View style={styles.highlightsList}>
                       {event.eventDigest.highlights.map(
                         (item: string, i: number) => (
                           <Text key={i} style={styles.highlightItem}>
-                            {"• "}
+                            <Text style={styles.highlightBullet}>{"·  "}</Text>
                             {item}
                           </Text>
                         ),
                       )}
                     </View>
-                  </>
+                  </View>
                 )}
 
               {event.eventDigest.contact && (
-                <>
+                <View style={styles.sectionDivider}>
                   <SectionLabel title="Contact" />
                   <Text style={styles.descriptionText}>
                     {event.eventDigest.contact}
                   </Text>
-                </>
+                </View>
               )}
             </Animated.View>
           ) : (

@@ -36,17 +36,17 @@ export const calculateDistance = (
 /**
  * Format distance in a user-friendly way
  * @param distance Distance in kilometers
- * @returns Formatted distance string
+ * @returns Formatted distance string in miles/feet
  */
 export const formatDistance = (distance: number | null): string => {
   if (distance === null) return "Unknown distance";
 
-  if (distance < 1) {
-    // Convert to meters if less than 1 km
-    const meters = Math.round(distance * 1000);
-    return `${meters} meters away`;
+  const miles = distance * 0.621371;
+
+  if (miles < 0.1) {
+    const feet = Math.round(miles * 5280);
+    return `${feet} ft away`;
   } else {
-    // Keep in km with one decimal place
-    return `${distance.toFixed(1)} km away`;
+    return `${miles.toFixed(1)} mi away`;
   }
 };

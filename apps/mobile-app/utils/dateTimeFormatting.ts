@@ -30,11 +30,7 @@ const formatDate = (dateString: string, timezone?: string) => {
     // Use the event timezone if provided, otherwise fall back to user timezone
     const effectiveTimezone = timezone || getUserTimezone();
 
-    return formatInTimeZone(
-      dateObj,
-      effectiveTimezone,
-      "EEEE, MMMM d, yyyy 'at' h:mm a (zzz)",
-    );
+    return formatInTimeZone(dateObj, effectiveTimezone, "MMM d, yyyy");
   } catch (error) {
     console.error("Error formatting date:", error);
     return dateString; // Fallback to the original string
@@ -88,5 +84,19 @@ export const formatRecurrenceDays = (days?: string[]): string => {
   return days.join(", ");
 };
 
+const formatDateTime = (dateString: string, timezone?: string) => {
+  if (!dateString) return "Date not available";
+
+  try {
+    const dateObj = parseISO(dateString);
+    const effectiveTimezone = timezone || getUserTimezone();
+
+    return formatInTimeZone(dateObj, effectiveTimezone, "MMM d, yyyy · h:mm a");
+  } catch (error) {
+    console.error("Error formatting date/time:", error);
+    return dateString;
+  }
+};
+
 // Export the function
-export { formatDate, getUserLocalTime };
+export { formatDate, formatDateTime, getUserLocalTime };

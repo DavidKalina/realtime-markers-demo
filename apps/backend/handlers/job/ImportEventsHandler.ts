@@ -104,16 +104,15 @@ export class ImportEventsHandler extends BaseJobHandler {
           const categoryIds = categories.map((c) => c.id);
 
           // Generate embedding (raw number[] — lifecycle service calls pgvector.toSql)
-          const embedding =
-            await this.embeddingService.getStructuredEmbedding({
-              title: tmEvent.title,
-              text: tmEvent.description || tmEvent.title,
-              date: tmEvent.eventDate,
-              endDate: tmEvent.endDate,
-              coordinates: [tmEvent.longitude, tmEvent.latitude],
-              address: tmEvent.address,
-              timezone: tmEvent.timezone,
-            });
+          const embedding = await this.embeddingService.getStructuredEmbedding({
+            title: tmEvent.title,
+            text: tmEvent.description || tmEvent.title,
+            date: tmEvent.eventDate,
+            endDate: tmEvent.endDate,
+            coordinates: [tmEvent.longitude, tmEvent.latitude],
+            address: tmEvent.address,
+            timezone: tmEvent.timezone,
+          });
 
           // Choose emoji based on TM segment
           const emoji = getSegmentEmoji(tmEvent.classifications);

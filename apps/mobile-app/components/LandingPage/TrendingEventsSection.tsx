@@ -82,7 +82,7 @@ const TrendingEventsSection: React.FC<TrendingEventsSectionProps> = ({
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Trending Now</Text>
-      <Text style={styles.subtitle}>Events with growing buzz nearby</Text>
+      <Text style={styles.subtitle}>Growing buzz nearby</Text>
 
       <View style={styles.carouselContainer}>
         <ScrollView
@@ -136,20 +136,22 @@ const TrendingEventsSection: React.FC<TrendingEventsSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing["2xl"],
+    marginBottom: spacing.lg,
   },
   title: {
-    fontSize: fontSize.xl,
+    fontSize: 11,
     fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
+    color: colors.text.label,
     marginBottom: spacing.xs,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
+    letterSpacing: 1.5,
+    textTransform: "uppercase" as const,
   },
   subtitle: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
     color: colors.text.secondary,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
   },
@@ -174,7 +176,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
   paginationDot: {

@@ -1,29 +1,30 @@
-import React from "react";
-import {
-  ScrollView,
-  RefreshControl,
-  View,
-  Text,
-  StyleSheet,
-} from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import ShimmerView from "@/components/Layout/ShimmerView";
 import {
   colors,
-  fontSize,
-  fontWeight,
-  fontFamily,
-  spacing,
-  radius,
   duration,
+  fontFamily,
+  fontWeight,
+  radius,
+  spacing
 } from "@/theme";
-import { EventType, DiscoveredEventType, TrendingEventType } from "@/types/types";
-import ShimmerView from "@/components/Layout/ShimmerView";
+import {
+  DiscoveredEventType,
+  EventType,
+  TrendingEventType,
+} from "@/types/types";
+import React from "react";
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import CommunityEventsSection from "./CommunityEventsSection";
 import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
-import LandingPageFilterBar from "./LandingPageFilterBar";
-import PopularCategoriesSection from "./PopularCategoriesSection";
 import JustDiscoveredSection from "./JustDiscoveredSection";
 import TrendingEventsSection from "./TrendingEventsSection";
-import CommunityEventsSection from "./CommunityEventsSection";
 import UpcomingEventsSection from "./UpcomingEventsSection";
 
 interface Category {
@@ -48,176 +49,109 @@ interface LandingPageContentProps {
   isLoading: boolean;
   onRefresh: () => Promise<void>;
   isRefreshing?: boolean;
-  selectedDistance?: number;
-  onDistanceChange?: (distance: number) => void;
-  selectedCity?: string | null;
-  onCityChange?: (city: string | null) => void;
-  hasUserLocation?: boolean;
 }
 
-const LandingPageSkeleton: React.FC = () => {
-  return (
-    <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-      {/* Featured Skeleton */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Featured Events</Text>
-        <View style={styles.skeletonCard}>
-          <View style={styles.skeletonCardInner}>
-            <ShimmerView style={styles.skeletonLine} />
-            <ShimmerView style={[styles.skeletonLine, { width: "60%" }]} />
-            <ShimmerView
-              style={[
-                styles.skeletonLine,
-                { width: "40%", marginTop: spacing.sm },
-              ]}
-            />
-          </View>
-        </View>
-      </View>
-
-      {/* Categories Skeleton */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Popular Categories</Text>
-        <View style={styles.categoriesGrid}>
-          {[1, 2, 3].map((i) => (
-            <View key={i} style={styles.categorySkeletonItem}>
-              <ShimmerView style={styles.categorySkeletonIcon} />
-              <ShimmerView style={styles.categorySkeletonLabel} />
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* Just Discovered Skeleton */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Just Discovered</Text>
-        <View style={styles.skeletonCard}>
-          <View style={styles.skeletonCardInner}>
-            <ShimmerView style={styles.skeletonLine} />
-            <ShimmerView style={[styles.skeletonLine, { width: "60%" }]} />
-            <ShimmerView
-              style={[
-                styles.skeletonLine,
-                { width: "40%", marginTop: spacing.sm },
-              ]}
-            />
-          </View>
-        </View>
-      </View>
-
-      {/* Trending Skeleton */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Trending Now</Text>
-        <View style={styles.skeletonCard}>
-          <View style={styles.skeletonCardInner}>
-            <ShimmerView style={styles.skeletonLine} />
-            <ShimmerView style={[styles.skeletonLine, { width: "60%" }]} />
-            <ShimmerView
-              style={[
-                styles.skeletonLine,
-                { width: "40%", marginTop: spacing.sm },
-              ]}
-            />
-          </View>
-        </View>
-      </View>
-
-      {/* Upcoming Skeleton */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Upcoming Events</Text>
-        {[1, 2, 3].map((i) => (
-          <View key={i} style={styles.skeletonListItem}>
-            <ShimmerView style={styles.skeletonLine} />
-            <ShimmerView style={[styles.skeletonLine, { width: "70%" }]} />
-            <ShimmerView
-              style={[
-                styles.skeletonLine,
-                { width: "50%", marginTop: spacing.sm },
-              ]}
-            />
-          </View>
-        ))}
-      </View>
-
-      <View style={{ height: 100 }} />
-    </ScrollView>
-  );
-};
+const SkeletonCard: React.FC = () => (
+  <View style={styles.skeletonCard}>
+    <View style={styles.skeletonCardInner}>
+      <ShimmerView style={styles.skeletonLine} />
+      <ShimmerView style={[styles.skeletonLine, { width: "60%" }]} />
+      <ShimmerView
+        style={[styles.skeletonLine, { width: "40%", marginTop: spacing.sm }]}
+      />
+    </View>
+  </View>
+);
 
 const LandingPageContent: React.FC<LandingPageContentProps> = ({
   data,
   isLoading,
   onRefresh,
   isRefreshing = false,
-  selectedDistance,
-  onDistanceChange,
-  selectedCity,
-  onCityChange,
-  hasUserLocation = false,
 }) => {
-  if (isLoading) {
-    return <LandingPageSkeleton />;
-  }
-
-  const showFilterBar =
-    hasUserLocation &&
-    selectedDistance !== undefined &&
-    onDistanceChange &&
-    onCityChange;
-
   return (
     <ScrollView
       style={{ flex: 1 }}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+        !isLoading ? (
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+        ) : undefined
       }
     >
-      {showFilterBar && (
-        <LandingPageFilterBar
-          selectedDistance={selectedDistance}
-          onDistanceChange={onDistanceChange}
-          availableCities={data?.availableCities || []}
-          selectedCity={selectedCity ?? null}
-          onCityChange={onCityChange}
-        />
+      {isLoading && (
+        <Animated.View exiting={FadeOut.duration(duration.fast)}>
+          {/* Featured Skeleton */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Featured Events</Text>
+            <SkeletonCard />
+          </View>
+
+          {/* Just Discovered Skeleton */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Just Discovered</Text>
+            <SkeletonCard />
+          </View>
+
+          {/* Trending Skeleton */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Trending Now</Text>
+            <SkeletonCard />
+          </View>
+
+          {/* Upcoming Skeleton */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Upcoming Events</Text>
+            {[1, 2, 3].map((i) => (
+              <View key={i} style={styles.skeletonListItem}>
+                <ShimmerView style={styles.skeletonLine} />
+                <ShimmerView style={[styles.skeletonLine, { width: "70%" }]} />
+                <ShimmerView
+                  style={[
+                    styles.skeletonLine,
+                    { width: "50%", marginTop: spacing.sm },
+                  ]}
+                />
+              </View>
+            ))}
+          </View>
+        </Animated.View>
       )}
 
-      <Animated.View entering={FadeInDown.duration(duration.normal).delay(0)}>
-        <FeaturedEventsCarousel
-          events={data?.featuredEvents || []}
-          isLoading={false}
-        />
-      </Animated.View>
+      {!isLoading && (
+        <>
+          <Animated.View entering={FadeIn.duration(duration.normal).delay(0)}>
+            <FeaturedEventsCarousel
+              events={data?.featuredEvents || []}
+              isLoading={false}
+            />
+          </Animated.View>
 
-      <Animated.View entering={FadeInDown.duration(duration.normal).delay(120)}>
-        <PopularCategoriesSection
-          categories={data?.popularCategories || []}
-          isLoading={false}
-        />
-      </Animated.View>
+          <Animated.View entering={FadeIn.duration(duration.normal).delay(80)}>
+            <JustDiscoveredSection
+              events={data?.justDiscoveredEvents || []}
+            />
+          </Animated.View>
 
-      <Animated.View entering={FadeInDown.duration(duration.normal).delay(240)}>
-        <JustDiscoveredSection events={data?.justDiscoveredEvents || []} />
-      </Animated.View>
+          <Animated.View entering={FadeIn.duration(duration.normal).delay(160)}>
+            <TrendingEventsSection events={data?.trendingEvents || []} />
+          </Animated.View>
 
-      <Animated.View entering={FadeInDown.duration(duration.normal).delay(360)}>
-        <TrendingEventsSection events={data?.trendingEvents || []} />
-      </Animated.View>
+          <Animated.View entering={FadeIn.duration(duration.normal).delay(240)}>
+            <CommunityEventsSection
+              events={data?.communityEvents || []}
+              isLoading={false}
+            />
+          </Animated.View>
 
-      <Animated.View entering={FadeInDown.duration(duration.normal).delay(480)}>
-        <CommunityEventsSection
-          events={data?.communityEvents || []}
-          isLoading={false}
-        />
-      </Animated.View>
-
-      <Animated.View entering={FadeInDown.duration(duration.normal).delay(600)}>
-        <UpcomingEventsSection
-          events={data?.upcomingEvents || []}
-          isLoading={false}
-        />
-      </Animated.View>
+          <Animated.View entering={FadeIn.duration(duration.normal).delay(320)}>
+            <UpcomingEventsSection
+              events={data?.upcomingEvents || []}
+              isLoading={false}
+            />
+          </Animated.View>
+        </>
+      )}
 
       <View style={{ height: 100 }} />
     </ScrollView>
@@ -226,15 +160,17 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: spacing["2xl"],
+    marginBottom: spacing.lg,
   },
   sectionTitle: {
-    fontSize: fontSize.xl,
+    fontSize: 11,
     fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
+    color: colors.text.label,
+    marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
+    letterSpacing: 1.5,
+    textTransform: "uppercase" as const,
   },
   skeletonCard: {
     marginHorizontal: spacing.lg,
@@ -259,31 +195,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border.default,
     gap: spacing.sm,
-  },
-  categoriesGrid: {
-    flexDirection: "row",
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-  },
-  categorySkeletonItem: {
-    width: "30%",
-    alignItems: "center",
-    paddingVertical: spacing.lg,
-    borderRadius: radius.xl,
-    backgroundColor: colors.bg.card,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  categorySkeletonIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginBottom: spacing.sm,
-  },
-  categorySkeletonLabel: {
-    height: 12,
-    borderRadius: 6,
-    width: "60%",
   },
 });
 

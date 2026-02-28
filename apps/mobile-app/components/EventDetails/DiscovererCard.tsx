@@ -264,7 +264,7 @@ const cardStyles = StyleSheet.create({
     fontSize: 10,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.semibold,
-    color: colors.text.disabled,
+    color: colors.text.secondary,
     letterSpacing: 1,
   },
   sheenOverlay: {

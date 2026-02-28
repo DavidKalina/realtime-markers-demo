@@ -54,7 +54,7 @@ const Input = ({
       {Icon && (
         <View style={styles.iconContainer}>
           <Icon
-            size={18}
+            size={16}
             color={error ? colors.status.error.text : colors.accent.primary}
           />
         </View>
@@ -79,7 +79,7 @@ const Input = ({
             disabled={!onRightIconPress}
           >
             <RightIcon
-              size={18}
+              size={16}
               color={error ? colors.status.error.text : colors.accent.primary}
             />
           </TouchableOpacity>
@@ -93,27 +93,27 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.bg.primary,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    height: 55,
+    backgroundColor: colors.bg.card,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing._10,
+    height: 44,
     borderWidth: 1,
-    borderColor: colors.border.medium,
+    borderColor: colors.border.default,
   },
   errorContainer: {
     borderColor: colors.status.error.text,
   },
   iconContainer: {
-    marginRight: spacing._10,
+    marginRight: spacing.sm,
   },
   rightIconContainer: {
-    padding: spacing.sm,
+    padding: spacing._6,
   },
   input: {
     flex: 1,
     height: "100%",
     color: colors.text.primary,
-    fontSize: fontSize.md,
+    fontSize: fontSize.sm,
     fontFamily: fontFamily.mono,
   },
   errorInput: {

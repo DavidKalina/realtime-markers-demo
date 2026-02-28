@@ -504,7 +504,7 @@ Return JSON: {"name": "...", "vibe": "..."}
 
 name: A creative 2-4 word place name inspired by the dominant event types. Examples: "Live Music Row", "The Makers Corner", "Foodie Alley", "Gallery Loop". Never use "District" or "Quarter".
 
-vibe: 2-3 short sentences, max 50 words total. Mention specific events by name when notable. Tell the user what they can do here — what to check out, what's coming up soon, or what stands out. Be direct and useful, not poetic. No greetings, no "this area has".`;
+vibe: 2-3 short sentences, max 50 words total. Separate each sentence with a newline character. Each line should be one complete thought that stands alone. Mention specific events by name when notable. Tell the user what they can do here — what to check out, what's coming up soon, or what stands out. Be direct and useful, not poetic. No greetings, no "this area has".`;
 
     const isCluster = radius === 0;
     const radiusLabel = isCluster

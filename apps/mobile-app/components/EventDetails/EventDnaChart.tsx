@@ -187,7 +187,7 @@ const dnStyles = StyleSheet.create({
   label: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
+    color: colors.text.label,
     fontFamily: fontFamily.mono,
     textTransform: "uppercase",
     letterSpacing: 1,
@@ -232,6 +232,6 @@ const dnStyles = StyleSheet.create({
   legendText: {
     fontSize: 10,
     fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
+    color: colors.text.detail,
   },
 });

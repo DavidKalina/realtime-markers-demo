@@ -32,45 +32,39 @@ const LandingPageFilterBar: React.FC<LandingPageFilterBarProps> = ({
   selectedCity,
   onCityChange,
 }) => {
-  const showCityRow = availableCities.length > 1;
+  const showCities = availableCities.length > 1;
 
   return (
-    <View style={styles.container}>
-      {/* Distance chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-      >
-        {DISTANCE_OPTIONS.map((distance) => {
-          const isSelected = selectedDistance === distance;
-          return (
-            <TouchableOpacity
-              key={distance}
-              onPress={() => onDistanceChange(distance)}
-              style={[styles.chip, isSelected && styles.chipSelected]}
-              activeOpacity={0.7}
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.row}
+      style={styles.container}
+    >
+      {DISTANCE_OPTIONS.map((distance) => {
+        const isSelected = selectedDistance === distance;
+        return (
+          <TouchableOpacity
+            key={distance}
+            onPress={() => onDistanceChange(distance)}
+            style={[styles.chip, isSelected && styles.chipSelected]}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.chipText,
+                isSelected && styles.chipTextSelected,
+              ]}
             >
-              <Text
-                style={[
-                  styles.chipText,
-                  isSelected && styles.chipTextSelected,
-                ]}
-              >
-                {distance} mi
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+              {distance} mi
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
 
-      {/* City tabs */}
-      {showCityRow && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipRow}
-        >
+      {showCities && (
+        <>
+          <View style={styles.divider} />
           <TouchableOpacity
             onPress={() => onCityChange(null)}
             style={[styles.chip, !selectedCity && styles.chipSelected]}
@@ -105,24 +99,24 @@ const LandingPageFilterBar: React.FC<LandingPageFilterBarProps> = ({
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
+        </>
       )}
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: spacing.md,
-    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
-  chipRow: {
+  row: {
     paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing._6,
+    alignItems: "center",
   },
   chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
     borderRadius: radius.full,
     backgroundColor: colors.bg.card,
     borderWidth: 1,
@@ -133,13 +127,20 @@ const styles = StyleSheet.create({
     borderColor: colors.accent.border,
   },
   chipText: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
     fontWeight: fontWeight.medium,
     fontFamily: fontFamily.mono,
     color: colors.text.secondary,
   },
   chipTextSelected: {
     color: colors.accent.primary,
+  },
+  divider: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: colors.border.accent,
+    marginHorizontal: 2,
   },
 });
 

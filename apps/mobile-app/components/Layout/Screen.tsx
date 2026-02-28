@@ -203,9 +203,10 @@ const Screen = <T extends string>({
             contentContainerStyle={[
               styles.scrollContent,
               { paddingTop: BANNER_HEIGHT },
-              footerButtons.length > 0 &&
-                !bottomContent &&
-                styles.scrollContentWithFooter,
+              footerButtons.length > 0 && styles.scrollContentWithFooter,
+              bottomContent &&
+                footerButtons.length === 0 &&
+                styles.scrollContentWithBottomContent,
             ]}
           >
             {renderContent()}
@@ -216,15 +217,25 @@ const Screen = <T extends string>({
               styles.container,
               { paddingTop: BANNER_HEIGHT },
               footerButtons.length > 0 &&
-                !bottomContent &&
                 styles.nonScrollableContentWithFooter,
+              bottomContent &&
+                footerButtons.length === 0 &&
+                styles.nonScrollableContentWithBottomContent,
             ]}
           >
             {renderContent()}
           </View>
         )}
         {bottomContent && (
-          <View style={styles.bottomContentWrapper}>{bottomContent}</View>
+          <View
+            style={
+              footerButtons.length > 0
+                ? styles.bottomContentWrapper
+                : styles.fixedBottomContent
+            }
+          >
+            {bottomContent}
+          </View>
         )}
         {footerButtons.length > 0 && (
           <View
@@ -274,7 +285,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   scrollContentWithFooter: {
-    paddingBottom: 120, // Add padding to account for fixed footer
+    paddingBottom: 120,
+  },
+  scrollContentWithBottomContent: {
+    paddingBottom: 80,
   },
   contentContainer: {
     flex: 1,
@@ -316,6 +330,15 @@ const styles = StyleSheet.create({
   bottomContentWrapper: {
     paddingBottom: spacing.lg,
   },
+  fixedBottomContent: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.bg.primary,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border.medium,
+  },
   flexFooter: {
     backgroundColor: colors.bg.primary,
     flexDirection: "row",
@@ -335,7 +358,10 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   nonScrollableContentWithFooter: {
-    paddingBottom: 120, // Add sufficient padding to account for fixed footer
+    paddingBottom: 120,
+  },
+  nonScrollableContentWithBottomContent: {
+    paddingBottom: 80,
   },
 });
 

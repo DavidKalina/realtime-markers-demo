@@ -60,15 +60,20 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing["2xl"],
+    marginBottom: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.default,
+    paddingTop: spacing.lg,
   },
   title: {
-    fontSize: fontSize.xl,
+    fontSize: 11,
     fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
+    color: colors.text.label,
+    marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
+    letterSpacing: 1.5,
+    textTransform: "uppercase" as const,
   },
   itemContainer: {
     borderTopWidth: 1,

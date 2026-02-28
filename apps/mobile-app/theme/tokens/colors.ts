@@ -13,6 +13,8 @@ export const colors = {
   text: {
     primary: "#f8f9fa",
     secondary: "#a0a0a0",
+    detail: "#b0b0b0",
+    label: "#c0c0c0",
     disabled: "#666666",
     inverse: "#1a1a1a",
   },

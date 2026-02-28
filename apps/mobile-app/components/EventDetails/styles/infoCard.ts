@@ -6,7 +6,8 @@ export const infoCardStyles = StyleSheet.create({
   sectionDivider: {
     borderTopWidth: 1,
     borderTopColor: colors.border.default,
-    paddingTop: spacing.md,
+    paddingTop: spacing.lg,
+    marginTop: spacing.xs,
   },
   infoCardHeader: {
     flexDirection: "row",
@@ -19,7 +20,7 @@ export const infoCardStyles = StyleSheet.create({
   infoCardTitle: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.semibold,
-    color: colors.text.disabled,
+    color: colors.text.label,
     fontFamily: fontFamily.mono,
     textTransform: "uppercase",
     letterSpacing: 1.5,

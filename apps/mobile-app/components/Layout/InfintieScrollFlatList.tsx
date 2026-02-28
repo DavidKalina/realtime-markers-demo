@@ -7,7 +7,13 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from "react-native";
-import { spacing, fontSize, fontFamily } from "@/theme";
+import Animated, {
+  FadeInDown,
+  FadeIn,
+  LinearTransition,
+} from "react-native-reanimated";
+import { colors, spacing, fontSize, fontFamily, spring, duration } from "@/theme";
+import EmptyState from "./EmptyState";
 
 interface InfiniteScrollFlatListProps<T> extends Omit<
   FlatListProps<T>,
@@ -22,10 +28,15 @@ interface InfiniteScrollFlatListProps<T> extends Omit<
   hasMore: boolean;
   error?: string | null;
   emptyListMessage?: string;
+  emptyEmoji?: string;
+  emptyTitle?: string;
+  emptySubtitle?: string;
+  emptyAction?: { label: string; onPress: () => void; variant?: "primary" | "secondary" | "outline" | "ghost" | "warning" | "error" };
   loadingFooterComponent?: React.ReactElement;
   errorRetryComponent?: React.ReactElement;
   onRetry?: () => void;
   onEndReachedThreshold?: number;
+  animated?: boolean;
 }
 
 const InfiniteScrollFlatList = <T extends { id: string | number }>({
@@ -38,10 +49,15 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
   hasMore,
   error,
   emptyListMessage = "No items found",
+  emptyEmoji,
+  emptyTitle,
+  emptySubtitle,
+  emptyAction,
   loadingFooterComponent,
   errorRetryComponent,
   onRetry,
   onEndReachedThreshold = 0.1,
+  animated = true,
   ...props
 }: InfiniteScrollFlatListProps<T>) => {
   const flatListRef = useRef<FlatList<T>>(null);
@@ -91,7 +107,7 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
 
   const renderFooter = useCallback(() => {
     if (error && onRetry) {
-      return (
+      const content =
         errorRetryComponent || (
           <View style={styles.footer}>
             <Text style={styles.errorText}>Failed to load more items</Text>
@@ -99,26 +115,45 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
               Tap to retry
             </Text>
           </View>
-        )
+        );
+      return animated ? (
+        <Animated.View entering={FadeIn.duration(duration.normal)}>
+          {content}
+        </Animated.View>
+      ) : (
+        content
       );
     }
 
     if (isLoading && data.length > 0) {
-      return (
+      const content =
         loadingFooterComponent || (
           <View style={styles.footer}>
             <ActivityIndicator size="small" />
             <Text style={styles.loadingText}>Loading more...</Text>
           </View>
-        )
+        );
+      return animated ? (
+        <Animated.View entering={FadeIn.duration(duration.normal)}>
+          {content}
+        </Animated.View>
+      ) : (
+        content
       );
     }
 
     if (!hasMore && data.length > 0) {
-      return (
+      const content = (
         <View style={styles.footer}>
           <Text style={styles.endText}>No more items</Text>
         </View>
+      );
+      return animated ? (
+        <Animated.View entering={FadeIn.duration(duration.normal)}>
+          {content}
+        </Animated.View>
+      ) : (
+        content
       );
     }
 
@@ -131,11 +166,23 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
     loadingFooterComponent,
     errorRetryComponent,
     onRetry,
+    animated,
   ]);
 
+  const hasRichEmptyState = !!(emptyEmoji || emptyTitle);
+
   const renderEmptyComponent = useCallback(() => {
+    const wrap = (content: React.ReactElement) =>
+      animated ? (
+        <Animated.View entering={FadeIn.duration(duration.normal)}>
+          {content}
+        </Animated.View>
+      ) : (
+        content
+      );
+
     if (isLoading && data.length === 0) {
-      return (
+      return wrap(
         <View style={styles.emptyContainer}>
           <ActivityIndicator size="large" />
           <Text style={styles.loadingText}>Loading...</Text>
@@ -144,7 +191,23 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
     }
 
     if (error) {
-      return (
+      if (hasRichEmptyState) {
+        return (
+          <EmptyState
+            emoji="😵"
+            title="Something went wrong"
+            subtitle={error}
+            variant="error"
+            animated={animated}
+            action={
+              onRetry
+                ? { label: "Try Again", onPress: onRetry, variant: "error" }
+                : undefined
+            }
+          />
+        );
+      }
+      return wrap(
         <View style={styles.emptyContainer}>
           <Text style={styles.errorText}>Something went wrong</Text>
           {onRetry && (
@@ -156,19 +219,61 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
       );
     }
 
-    return (
+    if (hasRichEmptyState) {
+      return (
+        <EmptyState
+          emoji={emptyEmoji || "📭"}
+          title={emptyTitle || emptyListMessage}
+          subtitle={emptySubtitle}
+          action={emptyAction}
+          animated={animated}
+        />
+      );
+    }
+
+    return wrap(
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>{emptyListMessage}</Text>
       </View>
     );
-  }, [isLoading, error, data.length, emptyListMessage, onRetry]);
+  }, [
+    isLoading,
+    error,
+    data.length,
+    emptyListMessage,
+    emptyEmoji,
+    emptyTitle,
+    emptySubtitle,
+    emptyAction,
+    hasRichEmptyState,
+    onRetry,
+    animated,
+  ]);
+
+  const itemLayoutAnimation = animated
+    ? LinearTransition.springify()
+        .damping(spring.firm.damping)
+        .stiffness(spring.firm.stiffness)
+    : undefined;
 
   return (
-    <FlatList
+    <Animated.FlatList
       ref={flatListRef}
       showsVerticalScrollIndicator={false}
       data={data}
-      renderItem={({ item, index }) => renderItem(item, index)}
+      renderItem={({ item, index }) => {
+        const content = renderItem(item, index);
+        if (!animated) return content;
+        return (
+          <Animated.View
+            entering={FadeInDown.duration(duration.normal).delay(
+              Math.min(index, 8) * 50
+            )}
+          >
+            {content}
+          </Animated.View>
+        );
+      }}
       keyExtractor={keyExtractor}
       onEndReached={handleFetchMore}
       onEndReachedThreshold={onEndReachedThreshold}
@@ -176,7 +281,8 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
       onRefresh={onRefresh ? handleRefresh : undefined}
       ListFooterComponent={renderFooter}
       ListEmptyComponent={renderEmptyComponent}
-      removeClippedSubviews={true}
+      itemLayoutAnimation={itemLayoutAnimation}
+      removeClippedSubviews={!animated}
       maxToRenderPerBatch={10}
       windowSize={10}
       initialNumToRender={10}
@@ -200,31 +306,31 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: spacing.sm,
     fontSize: fontSize.sm,
-    color: "#666",
+    color: colors.text.secondary,
     fontFamily: fontFamily.mono,
   },
   errorText: {
     fontSize: fontSize.sm,
-    color: "#e74c3c",
+    color: colors.status.error.text,
     textAlign: "center",
     fontFamily: fontFamily.mono,
   },
   retryText: {
     fontSize: fontSize.sm,
-    color: "#3498db",
+    color: colors.accent.primary,
     marginTop: spacing.sm,
     textDecorationLine: "underline",
     fontFamily: fontFamily.mono,
   },
   emptyText: {
     fontSize: fontSize.md,
-    color: "#666",
+    color: colors.text.secondary,
     textAlign: "center",
     fontFamily: fontFamily.mono,
   },
   endText: {
     fontSize: fontSize.xs,
-    color: "#999",
+    color: colors.text.disabled,
     fontStyle: "italic",
     fontFamily: fontFamily.mono,
   },

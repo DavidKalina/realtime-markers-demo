@@ -136,7 +136,9 @@ const CategoryEventsScreen = () => {
         isRefreshing={isLoading && events.length === 0}
         hasMore={hasMore && !error}
         error={error}
-        emptyListMessage="No events found in this category"
+        emptyEmoji={category?.emoji || "📂"}
+        emptyTitle="No events yet"
+        emptySubtitle={`There are no events in ${category?.name || "this category"} right now`}
         onRetry={handleRefresh}
       />
     </Screen>

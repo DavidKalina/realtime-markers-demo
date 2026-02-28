@@ -136,7 +136,7 @@ const EventItem: React.FC<EventItemProps> = ({
 
           {showChevron && (
             <View style={styles.chevronContainer}>
-              <ChevronRight size={16} color={colors.text.secondary} />
+              <ChevronRight size={16} color=colors.text.detail />
             </View>
           )}
         </View>
@@ -202,7 +202,7 @@ const defaultStyles = StyleSheet.create({
   },
   resultDetailText: {
     fontSize: 13,
-    color: colors.text.secondary,
+    color: colors.text.detail,
     fontFamily: fontFamily.mono,
     flex: 1,
   },

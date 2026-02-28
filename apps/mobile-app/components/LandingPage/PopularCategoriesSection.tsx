@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
 import Animated, { FadeInRight } from "react-native-reanimated";
 import {
   colors,
@@ -7,7 +7,6 @@ import {
   fontWeight,
   fontFamily,
   spacing,
-  radius,
 } from "@/theme";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -24,7 +23,13 @@ interface PopularCategoriesSectionProps {
   isLoading?: boolean;
 }
 
-const CARD_WIDTH = 160;
+const CATEGORY_COLORS = [
+  "#93c5fd",
+  "#86efac",
+  "#fcd34d",
+  "#c4b5fd",
+  "#fda4af",
+];
 
 const titleCase = (str: string) =>
   str.replace(/\b\w/g, (c) => c.toUpperCase());
@@ -46,81 +51,89 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
     return null;
   }
 
-  const renderItem = ({ item, index }: { item: Category; index: number }) => (
-    <Animated.View entering={FadeInRight.duration(300).delay(index * 80)}>
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => handleCategoryPress(item)}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.categoryName} numberOfLines={2}>
-          {titleCase(item.name)}
-        </Text>
-        {item.eventCount != null && (
-          <Text style={styles.eventCount}>
-            {item.eventCount} {item.eventCount === 1 ? "event" : "events"}
-          </Text>
-        )}
-      </TouchableOpacity>
-    </Animated.View>
-  );
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Popular Categories</Text>
-      <FlatList
-        data={categories}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
+      <Text style={styles.title}>Categories</Text>
+      <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={() => <View style={{ width: spacing.sm }} />}
-      />
+      >
+        {categories.map((item, index) => {
+          const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+          return (
+            <Animated.View
+              key={item.id}
+              entering={FadeInRight.duration(200).delay(index * 50)}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.pill,
+                  { borderColor: color + "40" },
+                ]}
+                onPress={() => handleCategoryPress(item)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.dot, { backgroundColor: color }]} />
+                <Text style={[styles.pillText, { color }]} numberOfLines={1}>
+                  {titleCase(item.name)}
+                </Text>
+                {item.eventCount != null && (
+                  <Text style={styles.pillCount}>{item.eventCount}</Text>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing["2xl"],
+    marginBottom: spacing.lg,
   },
   title: {
-    fontSize: fontSize.xl,
+    fontSize: 11,
     fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
+    color: colors.text.label,
+    marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
+    letterSpacing: 1.5,
+    textTransform: "uppercase" as const,
   },
   listContent: {
     paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
   },
-  card: {
-    width: CARD_WIDTH,
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing._6,
+    paddingHorizontal: spacing._10,
+    paddingVertical: spacing._6,
+    borderRadius: 999,
     backgroundColor: colors.bg.card,
     borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
   },
-  categoryName: {
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  pillText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
     fontFamily: fontFamily.mono,
-    textAlign: "center",
-    lineHeight: fontSize.md * 1.4,
   },
-  eventCount: {
-    fontSize: fontSize.sm,
+  pillCount: {
+    fontSize: 10,
     fontWeight: fontWeight.regular,
     color: colors.text.secondary,
     fontFamily: fontFamily.mono,
-    marginTop: spacing.sm,
+    marginLeft: 2,
   },
 });
 

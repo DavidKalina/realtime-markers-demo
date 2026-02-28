@@ -128,10 +128,17 @@ const SavedListScreen = () => {
         isRefreshing={isLoading && events.length === 0}
         hasMore={hasMore && !error}
         error={error}
-        emptyListMessage={
+        emptyEmoji={searchQuery.trim() ? "🔍" : "🔖"}
+        emptyTitle={searchQuery.trim() ? "No matches" : "No saved events yet"}
+        emptySubtitle={
           searchQuery.trim()
-            ? "No events found matching your search"
-            : "No saved or discovered events yet"
+            ? "Try a different search term"
+            : "Tap the bookmark on any event to save it here"
+        }
+        emptyAction={
+          searchQuery.trim()
+            ? { label: "Clear Search", onPress: handleClearSearch }
+            : undefined
         }
         onRetry={refresh}
       />

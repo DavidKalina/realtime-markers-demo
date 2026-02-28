@@ -173,20 +173,22 @@ const JustDiscoveredSection: React.FC<JustDiscoveredSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing["2xl"],
+    marginBottom: spacing.lg,
   },
   title: {
-    fontSize: fontSize.xl,
+    fontSize: 11,
     fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
+    color: colors.text.label,
     marginBottom: spacing.xs,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
+    letterSpacing: 1.5,
+    textTransform: "uppercase" as const,
   },
   subtitle: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
     color: colors.text.secondary,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
   },
@@ -209,9 +211,10 @@ const styles = StyleSheet.create({
   },
   discoveryBadge: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing._6,
     borderTopWidth: 1,
     borderTopColor: colors.border.default,
+    backgroundColor: colors.accent.muted,
   },
   discoveryBadgeContent: {
     flexDirection: "row",
@@ -220,15 +223,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   discoveryBadgeText: {
-    fontSize: fontSize.xs,
-    color: colors.text.secondary,
+    fontSize: 10,
+    color: colors.accent.primary,
     fontFamily: fontFamily.mono,
+    letterSpacing: 0.5,
   },
   paginationContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
   paginationDot: {

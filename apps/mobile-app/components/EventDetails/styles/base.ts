@@ -59,66 +59,42 @@ export const baseStyles = StyleSheet.create({
     zIndex: 10,
   },
 
-  // Hero Section (emoji stacked over title, going count right)
+  // Hero Section — full-width title, info row beneath
   titleSection: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
     paddingBottom: spacing.sm,
   },
-  heroRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  heroLeft: {
-    flex: 1,
-  },
   eventTitle: {
-    fontSize: fontSize.xl,
+    fontSize: fontSize["2xl"],
     fontWeight: fontWeight.bold,
     color: colors.text.primary,
     fontFamily: fontFamily.mono,
     lineHeight: lineHeight.heading,
   },
-  heroDateSubtitle: {
-    fontSize: fontSize.xs,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    marginTop: 2,
-  },
-  heroRight: {
+  heroInfoRow: {
+    flexDirection: "row",
     alignItems: "center",
-    marginLeft: spacing.lg,
-    paddingTop: spacing.xs,
+    marginTop: spacing.sm,
+    gap: spacing.sm,
   },
-  heroGoingCount: {
-    fontSize: 28,
-    fontWeight: fontWeight.bold,
-    color: colors.accent.primary,
+  heroInfoItem: {
+    fontSize: fontSize.sm,
+    color: colors.text.detail,
     fontFamily: fontFamily.mono,
-    lineHeight: 32,
-  },
-  heroGoingLabel: {
-    fontSize: 10,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.disabled,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-    marginTop: 2,
-  },
-  heroDistance: {
-    fontSize: fontSize.xs,
     fontWeight: fontWeight.medium,
+  },
+  heroInfoSep: {
+    fontSize: fontSize.sm,
     color: colors.text.secondary,
     fontFamily: fontFamily.mono,
-    marginTop: spacing.xs,
   },
 
   // Details Section
   detailsSection: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing.md,
     paddingTop: spacing.sm,
   },
 
@@ -136,7 +112,7 @@ export const baseStyles = StyleSheet.create({
     lineHeight: lineHeight.relaxed,
   },
   detailTextSecondary: {
-    color: colors.text.secondary,
+    color: colors.text.detail,
     fontSize: fontSize.sm,
     fontFamily: fontFamily.mono,
     lineHeight: lineHeight.relaxed,
@@ -160,7 +136,7 @@ export const baseStyles = StyleSheet.create({
     lineHeight: lineHeight.snug,
   },
   locationDistance: {
-    color: colors.text.secondary,
+    color: colors.text.detail,
     fontSize: fontSize.xs,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.medium,
@@ -168,7 +144,7 @@ export const baseStyles = StyleSheet.create({
   },
   chevronText: {
     fontSize: fontSize.xl,
-    color: colors.text.secondary,
+    color: colors.text.detail,
     marginLeft: spacing.xs,
   },
 
@@ -182,13 +158,18 @@ export const baseStyles = StyleSheet.create({
 
   // Highlights List
   highlightsList: {
-    gap: spacing.xs,
+    gap: spacing._6,
   },
   highlightItem: {
-    fontSize: fontSize.md,
+    fontSize: fontSize.sm,
     color: colors.text.primary,
-    lineHeight: lineHeight.loose,
+    lineHeight: lineHeight.relaxed,
     fontFamily: fontFamily.mono,
+  },
+  highlightBullet: {
+    color: colors.accent.primary,
+    fontWeight: fontWeight.bold,
+    fontSize: fontSize.sm,
   },
 
   // Recurring Details
@@ -234,7 +215,7 @@ export const baseStyles = StyleSheet.create({
   dnaLegendText: {
     fontSize: fontSize.xs,
     fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
+    color: colors.text.detail,
   },
   categoryDnaSection: {
     paddingHorizontal: spacing.xl,
@@ -243,7 +224,7 @@ export const baseStyles = StyleSheet.create({
   categoryDnaLabel: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
+    color: colors.text.label,
     fontFamily: fontFamily.mono,
     textTransform: "uppercase",
     letterSpacing: 1,
@@ -294,7 +275,7 @@ export const baseStyles = StyleSheet.create({
     alignItems: "center",
   },
   loadingText: {
-    color: colors.text.secondary,
+    color: colors.text.detail,
     marginTop: spacing.lg,
     fontSize: fontSize.md,
     fontFamily: fontFamily.mono,
@@ -309,7 +290,7 @@ export const baseStyles = StyleSheet.create({
     padding: spacing["2xl"],
   },
   errorText: {
-    color: colors.text.secondary,
+    color: colors.text.detail,
     fontSize: fontSize.md,
     fontFamily: fontFamily.mono,
     textAlign: "center",
@@ -335,7 +316,7 @@ export const baseStyles = StyleSheet.create({
     gap: spacing.xs,
   },
   saveCountText: {
-    color: colors.text.secondary,
+    color: colors.text.detail,
     fontSize: fontSize.sm,
     fontFamily: fontFamily.mono,
   },

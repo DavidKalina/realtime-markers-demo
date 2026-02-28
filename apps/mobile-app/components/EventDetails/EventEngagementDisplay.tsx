@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     fontSize: 10,
     fontWeight: fontWeight.semibold,
-    color: colors.text.disabled,
+    color: colors.text.secondary,
     textTransform: "uppercase",
     letterSpacing: 1.5,
     marginTop: 2,
