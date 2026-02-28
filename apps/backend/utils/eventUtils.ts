@@ -289,6 +289,7 @@ export function prepareCreateEventInput(
     recurrenceStartDate: data.recurrenceStartDate,
     recurrenceEndDate: data.recurrenceEndDate,
     recurrenceInterval: data.recurrenceInterval,
+    eventDigest: data.eventDigest || null,
   };
 }
 

@@ -1,4 +1,5 @@
 import { EventSource, EventStatus } from "@realtime-markers/database";
+import type { EventDigest } from "@realtime-markers/database";
 import type { JobData } from "../../services/JobQueue";
 import type { JobHandlerContext } from "./BaseJobHandler";
 import { BaseJobHandler } from "./BaseJobHandler";
@@ -117,6 +118,20 @@ export class ImportEventsHandler extends BaseJobHandler {
           // Choose emoji based on TM segment
           const emoji = getSegmentEmoji(tmEvent.classifications);
 
+          // Build a digest from the available Ticketmaster data
+          const digest: EventDigest = {
+            summary: tmEvent.description
+              ? tmEvent.description.length > 200
+                ? tmEvent.description.slice(0, 197) + "..."
+                : tmEvent.description
+              : `${tmEvent.title} at ${tmEvent.venueName || tmEvent.address || "TBA"}.`,
+            cost: null,
+            highlights: tmEvent.venueName
+              ? [`Venue: ${tmEvent.venueName}`]
+              : null,
+            contact: null,
+          };
+
           // Create event through the standard service
           await this.eventService.createEvent({
             title: tmEvent.title,
@@ -138,6 +153,7 @@ export class ImportEventsHandler extends BaseJobHandler {
             confidenceScore: 1.0,
             categoryIds,
             originalImageUrl: tmEvent.imageUrl,
+            eventDigest: digest,
             // These fields don't apply to imported events
             hasQrCode: false,
             qrDetectedInImage: false,
