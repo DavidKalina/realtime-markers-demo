@@ -89,11 +89,16 @@ jobs:
             echo "==> Pulling images..."
             docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
 
-            echo "==> Running migrations..."
+            echo "==> Waiting for postgres..."
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d postgres redis
-            sleep 10
+            until docker compose -f docker-compose.yml -f docker-compose.prod.yml exec postgres pg_isready -U postgres; do
+              echo "Postgres not ready, retrying in 2s..."
+              sleep 2
+            done
+
+            echo "==> Running migrations..."
             docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm \
-              -w /app/apps/backend backend pnpm migration:run || echo "Warning: migration step failed (non-fatal)"
+              -w /app/apps/backend backend pnpm migration:run
 
             echo "==> Starting services..."
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
