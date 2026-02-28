@@ -37,6 +37,8 @@ import { AddSpatialAndCompoundIndexes1710000000024 } from "./migrations/AddSpati
 import { AddGamificationFields1710000000025 } from "./migrations/AddGamificationFields1710000000025";
 import { AddExternalEventFields1710000000026 } from "./migrations/AddExternalEventFields1710000000026";
 import { AddEventDigest1710000000027 } from "./migrations/AddEventDigest1710000000027";
+import { AddExternalUrl1710000000028 } from "./migrations/AddExternalUrl1710000000028";
+import { AddCityToEvents1710000000029 } from "./migrations/AddCityToEvents1710000000029";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -75,6 +77,8 @@ const AppDataSource = new DataSource({
     AddGamificationFields1710000000025,
     AddExternalEventFields1710000000026,
     AddEventDigest1710000000027,
+    AddExternalUrl1710000000028,
+    AddCityToEvents1710000000029,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

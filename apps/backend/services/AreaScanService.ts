@@ -82,11 +82,6 @@ export interface AreaScanResult {
   text?: string;
 }
 
-export interface EventInsightResult {
-  cached: boolean;
-  text?: string;
-}
-
 interface NearbyEventRow {
   id: string;
   emoji: string;
@@ -121,7 +116,6 @@ export interface AreaScanService {
     centerLng: number,
   ): Promise<AreaScanResult>;
 
-  getEventInsight(eventId: string): Promise<EventInsightResult>;
 }
 
 interface AreaScanDependencies {
@@ -291,80 +285,6 @@ class AreaScanServiceImpl implements AreaScanService {
       cached: false,
       text: vibe,
     };
-  }
-
-  async getEventInsight(eventId: string): Promise<EventInsightResult> {
-    const cacheKey = `event-insight:${eventId}`;
-
-    // Check cache
-    const cached = await this.redisService.get<string>(cacheKey);
-    if (cached) {
-      return { cached: true, text: cached };
-    }
-
-    // Fetch event with categories
-    const eventRepository = this.dataSource.getRepository(Event);
-    const event = await eventRepository.findOne({
-      where: { id: eventId },
-      relations: ["categories"],
-    });
-
-    if (!event) {
-      return { cached: false, text: "Event not found." };
-    }
-
-    const { systemPrompt, userPrompt } = this.buildEventInsightPrompt(event);
-
-    const completion = await this.openAIService.executeChatCompletion({
-      model: OpenAIModel.GPT4OMini,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.7,
-      max_tokens: 300,
-    });
-
-    const text =
-      completion.choices[0]?.message?.content || "No insight available.";
-
-    return { cached: false, text };
-  }
-
-  private buildEventInsightPrompt(event: Event): {
-    systemPrompt: string;
-    userPrompt: string;
-  } {
-    const systemPrompt = `You are a practical event guide on a living map app. When a user taps on an event, give them a concise, useful briefing: what this event is, what to expect, and tips for attending. 2-3 short sentences, max 60 words. Be direct and helpful — no greetings, no filler. Mention specifics when useful (timing tips, what to bring, who it's for).`;
-
-    const categoryNames = (event.categories || [])
-      .map((c) => c.name)
-      .join(", ");
-    const description = event.description
-      ? event.description.slice(0, 300)
-      : "";
-    const dateStr = event.eventDate
-      ? new Date(event.eventDate).toLocaleDateString("en-US", {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        })
-      : "";
-
-    const parts: string[] = [
-      `Title: ${event.title}`,
-      dateStr ? `Date: ${dateStr}` : "",
-      categoryNames ? `Categories: ${categoryNames}` : "",
-      event.address ? `Location: ${event.address}` : "",
-      description ? `Description: ${description}` : "",
-      event.isRecurring ? `Recurring event` : "",
-      event.viewCount ? `${event.viewCount} views` : "",
-      event.saveCount ? `${event.saveCount} saves` : "",
-    ].filter(Boolean);
-
-    return { systemPrompt, userPrompt: parts.join("\n") };
   }
 
   private async queryEventsByIds(

@@ -87,9 +87,11 @@ export interface ParsedTicketmasterEvent {
   latitude: number;
   longitude: number;
   address: string;
+  city: string | undefined;
   imageUrl: string | undefined;
   classifications: TmClassification[];
   venueName: string | undefined;
+  url: string | undefined;
 }
 
 export interface TicketmasterService {
@@ -151,6 +153,12 @@ function parseEvent(tmEvent: TmEvent): ParsedTicketmasterEvent | null {
     if (!isNaN(parsed.getTime())) endDate = parsed;
   }
 
+  // Derive city from venue data (e.g. "Denver, CO")
+  const city =
+    venue?.city?.name && venue?.state?.stateCode
+      ? `${venue.city.name}, ${venue.state.stateCode}`
+      : undefined;
+
   return {
     externalId: tmEvent.id,
     title: tmEvent.name,
@@ -161,9 +169,11 @@ function parseEvent(tmEvent: TmEvent): ParsedTicketmasterEvent | null {
     latitude: lat,
     longitude: lng,
     address: venue ? buildAddress(venue) : "",
+    city,
     imageUrl: pickBestImage(tmEvent.images),
     classifications: tmEvent.classifications ?? [],
     venueName: venue?.name,
+    url: tmEvent.url,
   };
 }
 

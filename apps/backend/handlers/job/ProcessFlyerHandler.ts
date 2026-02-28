@@ -29,6 +29,13 @@ function parseDateOrNull(dateStr?: string): Date | undefined {
   return isNaN(date.getTime()) ? undefined : date;
 }
 
+// Extract "City, ST" from an address string
+function parseCityFromAddress(address?: string): string | undefined {
+  if (!address) return undefined;
+  const match = address.match(/([A-Za-z ]+),\s*([A-Z]{2})(?:\s+\d{5})?(?:,\s*[A-Z]{2,})?$/);
+  return match ? `${match[1].trim()}, ${match[2]}` : undefined;
+}
+
 // Generate a fingerprint for duplicate scan prevention.
 // Rounds coordinates to 3 decimal places (~111m precision) to catch
 // near-identical scans without false positives from GPS jitter.
@@ -277,6 +284,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         description: eventDetails.description,
         confidenceScore: scanResult.confidence,
         address: eventDetails.address,
+        city: parseCityFromAddress(eventDetails.address),
         locationNotes: eventDetails.locationNotes || "",
         categoryIds: eventDetails.categories?.map((cat) => cat.id),
         creatorId: job.data.creatorId as string,
@@ -436,6 +444,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         description: eventResult.eventDetails.description,
         confidenceScore: eventResult.confidence,
         address: eventResult.eventDetails.address,
+        city: parseCityFromAddress(eventResult.eventDetails.address),
         locationNotes: eventResult.eventDetails.locationNotes || "",
         categoryIds:
           eventResult.eventDetails.categories?.map((cat: Category) => cat.id) ||

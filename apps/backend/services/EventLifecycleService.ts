@@ -96,6 +96,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       location: input.location,
       status: input.status || EventStatus.PENDING,
       address: input.address,
+      city: input.city,
       locationNotes: input.locationNotes || "",
       embedding: pgvector.toSql(input.embedding),
       creatorId: input.creatorId,

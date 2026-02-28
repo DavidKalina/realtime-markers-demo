@@ -16,6 +16,7 @@ interface LandingPageData {
   justDiscoveredEvents?: DiscoveredEventType[];
   trendingEvents?: TrendingEventType[];
   popularCategories: Category[];
+  availableCities: string[];
 }
 
 interface UseLandingPageDataProps {
@@ -26,6 +27,8 @@ interface UseLandingPageDataProps {
   communityLimit?: number;
   discoveryLimit?: number;
   trendingLimit?: number;
+  radius?: number;
+  city?: string;
 }
 
 interface UseLandingPageDataReturn {
@@ -43,6 +46,8 @@ const useLandingPageData = ({
   communityLimit = 5,
   discoveryLimit = 8,
   trendingLimit = 5,
+  radius,
+  city,
 }: UseLandingPageDataProps = {}): UseLandingPageDataReturn => {
   const [landingData, setLandingData] = useState<LandingPageData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -61,6 +66,8 @@ const useLandingPageData = ({
         communityLimit,
         discoveryLimit,
         trendingLimit,
+        radius,
+        city,
       });
 
       setLandingData(data);
@@ -78,6 +85,8 @@ const useLandingPageData = ({
     communityLimit,
     discoveryLimit,
     trendingLimit,
+    radius,
+    city,
   ]);
 
   const refresh = useCallback(async () => {

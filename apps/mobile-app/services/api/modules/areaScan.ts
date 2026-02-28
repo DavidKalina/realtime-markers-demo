@@ -219,8 +219,10 @@ export class AreaScanModule extends BaseApiModule {
           );
         }
 
-        const text = await response.text();
-        parseEventInsightSSE(text, callbacks);
+        const data = await response.json();
+        callbacks.onMetadata({ cached: data.cached });
+        callbacks.onContent(data.text);
+        callbacks.onDone();
       })
       .catch((error) => {
         if (error.name === "AbortError") return;

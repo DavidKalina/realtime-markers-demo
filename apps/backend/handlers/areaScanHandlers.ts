@@ -167,7 +167,7 @@ export const clusterProfileHandler = async (c: Context<AppContext>) => {
   });
 };
 
-export const eventInsightHandler = async (c: Context<AppContext>) => {
+export const eventHypeHandler = async (c: Context<AppContext>) => {
   const body = await c.req.json<{ eventId: string }>();
   const { eventId } = body;
 
@@ -175,35 +175,24 @@ export const eventInsightHandler = async (c: Context<AppContext>) => {
     return c.json({ error: "eventId is required" }, 400);
   }
 
-  const areaScanService = c.get("areaScanService");
+  const eventHypeService = c.get("eventHypeService");
   const redisService = c.get("redisService");
 
-  const result = await areaScanService.getEventInsight(eventId);
+  try {
+    const result = await eventHypeService.getEventHype(eventId);
+    const text = result.text || "No hype available.";
 
-  return streamSSE(c, async (stream) => {
-    try {
-      await stream.writeSSE({
-        event: "metadata",
-        data: JSON.stringify({ cached: result.cached }),
-      });
-
-      const text = result.text || "No insight available.";
-      await stream.writeSSE({ event: "content", data: text });
-      await stream.writeSSE({ event: "done", data: "" });
-
-      // Cache the result with 24h TTL
-      if (!result.cached) {
-        const cacheKey = `event-insight:${eventId}`;
-        await redisService.set(cacheKey, text, 86400);
-      }
-    } catch (error) {
-      console.error("[EventInsight] Stream error:", error);
-      await stream.writeSSE({
-        event: "error",
-        data: JSON.stringify({ error: "Stream error" }),
-      });
+    // Only cache actual GPT-5 responses, not fallback text
+    if (!result.cached && result.text && result.text !== "No hype available.") {
+      const cacheKey = `event-hype:${eventId}`;
+      await redisService.set(cacheKey, text, 86400);
     }
-  });
+
+    return c.json({ text, cached: result.cached });
+  } catch (error) {
+    console.error("[EventHype] Error:", error);
+    return c.json({ error: "Failed to generate hype" }, 500);
+  }
 };
 
 // Simple geohash for cache key (matches AreaScanService)

@@ -144,6 +144,7 @@ export class ImportEventsHandler extends BaseJobHandler {
               coordinates: [tmEvent.longitude, tmEvent.latitude],
             },
             address: tmEvent.address,
+            city: tmEvent.city,
             emoji,
             embedding: embedding as unknown as string,
             source: EventSource.TICKETMASTER,
@@ -153,6 +154,7 @@ export class ImportEventsHandler extends BaseJobHandler {
             confidenceScore: 1.0,
             categoryIds,
             originalImageUrl: tmEvent.imageUrl,
+            externalUrl: tmEvent.url,
             eventDigest: digest,
             // These fields don't apply to imported events
             hasQrCode: false,

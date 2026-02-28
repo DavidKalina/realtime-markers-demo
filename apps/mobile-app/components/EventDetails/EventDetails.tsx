@@ -25,6 +25,7 @@ import { useEventInsight } from "./useEventInsight";
 import { DialogBox } from "../AreaScan/AreaScanComponents";
 import EventDnaChart from "./EventDnaChart";
 import DiscovererCard from "./DiscovererCard";
+import TicketmasterSourceCard from "./TicketmasterSourceCard";
 
 interface EventDetailsProps {
   eventId: string;
@@ -403,8 +404,8 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             </Animated.View>
           )}
 
-          {/* Discovered By */}
-          {event.creator && (
+          {/* Discovered By / Source */}
+          {event.creator ? (
             <Animated.View
               entering={FadeInDown.duration(300).delay(560).springify()}
               style={styles.sectionDivider}
@@ -418,7 +419,15 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                 discoveryCount={event.creator.discoveryCount}
               />
             </Animated.View>
-          )}
+          ) : event.source === "TICKETMASTER" ? (
+            <Animated.View
+              entering={FadeInDown.duration(300).delay(560).springify()}
+              style={styles.sectionDivider}
+            >
+              <SectionLabel title="Source" />
+              <TicketmasterSourceCard externalUrl={event.externalUrl} />
+            </Animated.View>
+          ) : null}
         </View>
       </Screen>
     );

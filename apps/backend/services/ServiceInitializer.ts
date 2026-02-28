@@ -38,6 +38,8 @@ import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import type { GamificationService } from "./GamificationService";
 import { createAreaScanService } from "./AreaScanService";
 import type { AreaScanService } from "./AreaScanService";
+import { createEventHypeService } from "./EventHypeService";
+import type { EventHypeService } from "./EventHypeService";
 import {
   createTicketmasterService,
   type TicketmasterService,
@@ -58,6 +60,7 @@ export interface ServiceContainer {
   geocodingService: GoogleGeocodingService;
   gamificationService: GamificationService;
   areaScanService: AreaScanService;
+  eventHypeService: EventHypeService;
   ticketmasterService: TicketmasterService | null;
 }
 
@@ -197,6 +200,12 @@ export class ServiceInitializer {
       redisService,
     });
 
+    const eventHypeService = createEventHypeService({
+      dataSource: this.dataSource,
+      openAIService,
+      redisService,
+    });
+
     // Conditionally create TicketmasterService (opt-in via env var)
     const ticketmasterApiKey = process.env.TICKETMASTER_API_KEY;
     const ticketmasterService = ticketmasterApiKey
@@ -224,6 +233,7 @@ export class ServiceInitializer {
       geocodingService,
       gamificationService,
       areaScanService,
+      eventHypeService,
       ticketmasterService,
     };
   }

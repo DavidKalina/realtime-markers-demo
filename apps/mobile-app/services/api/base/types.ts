@@ -71,6 +71,8 @@ export interface ApiEvent {
   detectedQrData?: string | null;
   isPrivate?: boolean;
   isOfficial?: boolean;
+  source?: string;
+  externalUrl?: string;
   shares?: { sharedWithId: string; sharedById: string }[];
   // Recurring event fields
   isRecurring?: boolean;

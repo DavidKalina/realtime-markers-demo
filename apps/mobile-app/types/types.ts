@@ -65,6 +65,8 @@ export interface EventType extends Omit<EventSummary, "hasQrCode"> {
   creatorId?: string;
   color?: string;
   isVerified?: boolean;
+  source?: string;
+  externalUrl?: string;
 }
 
 // Trending event type for the "Trending Now" section

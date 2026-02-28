@@ -31,7 +31,7 @@ const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
 
 // --- Constants ---
 
-export const CHARS_PER_PAGE = 140;
+export const CHARS_PER_PAGE = 200;
 export const CHAR_DELAY_MS = 20;
 export const AUTO_ADVANCE_MS = 2500;
 export const BAR_COLORS = [
@@ -548,6 +548,26 @@ export function useDialogStreamer(
 
 // --- DialogBox component ---
 
+function LoadingText({ text = "Generating insight" }: { text?: string }) {
+  const [dots, setDots] = useState("");
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
+    }, 400);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <View style={dialogStyles.loadingRow}>
+      <Text style={dialogStyles.loadingText}>
+        {text}
+        {dots}
+      </Text>
+    </View>
+  );
+}
+
 export function DialogBox({
   isLoading,
   error,
@@ -558,6 +578,7 @@ export function DialogBox({
   onTap,
   inline,
   style,
+  loadingText,
 }: {
   isLoading: boolean;
   error: string | null;
@@ -568,6 +589,7 @@ export function DialogBox({
   onTap: () => void;
   inline?: boolean;
   style?: ViewStyle;
+  loadingText?: string;
 }) {
   return (
     <Pressable
@@ -575,11 +597,7 @@ export function DialogBox({
       style={[dialogStyles.bubble, inline && dialogStyles.bubbleInline, style]}
     >
       {isLoading ? (
-        <View style={dialogStyles.loadingRow}>
-          <View style={dialogStyles.dot} />
-          <View style={dialogStyles.dot} />
-          <View style={dialogStyles.dot} />
-        </View>
+        <LoadingText text={loadingText} />
       ) : error ? (
         <Text style={dialogStyles.errorText}>{error}</Text>
       ) : (
@@ -654,16 +672,13 @@ const dialogStyles = StyleSheet.create({
   },
   loadingRow: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
     justifyContent: "center",
-    gap: 6,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.text.disabled,
+  loadingText: {
+    color: colors.text.secondary,
+    fontSize: 15,
+    fontFamily: fontFamily.mono,
+    fontStyle: "italic",
   },
   errorText: {
     fontSize: 14,

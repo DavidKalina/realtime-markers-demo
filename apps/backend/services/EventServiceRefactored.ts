@@ -118,6 +118,8 @@ export interface EventService {
     excludeUserId?: string;
     userLat?: number;
     userLng?: number;
+    radiusMeters?: number;
+    city?: string;
   }): Promise<{
     featuredEvents: EventSummary[];
     upcomingEvents: EventSummary[];
@@ -128,6 +130,7 @@ export interface EventService {
       isTrending: true;
       trendingScore: number;
     })[];
+    availableCities: string[];
   }>;
 
   // User engagement operations
@@ -375,6 +378,8 @@ export class EventServiceRefactored implements EventService {
     excludeUserId?: string;
     userLat?: number;
     userLng?: number;
+    radiusMeters?: number;
+    city?: string;
   }): Promise<{
     featuredEvents: EventSummary[];
     upcomingEvents: EventSummary[];
@@ -385,6 +390,7 @@ export class EventServiceRefactored implements EventService {
       isTrending: true;
       trendingScore: number;
     })[];
+    availableCities: string[];
   }> {
     return this.searchService.getLandingPageData(options);
   }

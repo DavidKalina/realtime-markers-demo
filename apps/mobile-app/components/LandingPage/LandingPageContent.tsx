@@ -19,6 +19,7 @@ import {
 import { EventType, DiscoveredEventType, TrendingEventType } from "@/types/types";
 import ShimmerView from "@/components/Layout/ShimmerView";
 import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
+import LandingPageFilterBar from "./LandingPageFilterBar";
 import PopularCategoriesSection from "./PopularCategoriesSection";
 import JustDiscoveredSection from "./JustDiscoveredSection";
 import TrendingEventsSection from "./TrendingEventsSection";
@@ -39,6 +40,7 @@ interface LandingPageData {
   justDiscoveredEvents?: DiscoveredEventType[];
   trendingEvents?: TrendingEventType[];
   popularCategories?: Category[];
+  availableCities?: string[];
 }
 
 interface LandingPageContentProps {
@@ -46,6 +48,11 @@ interface LandingPageContentProps {
   isLoading: boolean;
   onRefresh: () => Promise<void>;
   isRefreshing?: boolean;
+  selectedDistance?: number;
+  onDistanceChange?: (distance: number) => void;
+  selectedCity?: string | null;
+  onCityChange?: (city: string | null) => void;
+  hasUserLocation?: boolean;
 }
 
 const LandingPageSkeleton: React.FC = () => {
@@ -142,10 +149,21 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
   isLoading,
   onRefresh,
   isRefreshing = false,
+  selectedDistance,
+  onDistanceChange,
+  selectedCity,
+  onCityChange,
+  hasUserLocation = false,
 }) => {
   if (isLoading) {
     return <LandingPageSkeleton />;
   }
+
+  const showFilterBar =
+    hasUserLocation &&
+    selectedDistance !== undefined &&
+    onDistanceChange &&
+    onCityChange;
 
   return (
     <ScrollView
@@ -155,6 +173,16 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
         <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
       }
     >
+      {showFilterBar && (
+        <LandingPageFilterBar
+          selectedDistance={selectedDistance}
+          onDistanceChange={onDistanceChange}
+          availableCities={data?.availableCities || []}
+          selectedCity={selectedCity ?? null}
+          onCityChange={onCityChange}
+        />
+      )}
+
       <Animated.View entering={FadeInDown.duration(duration.normal).delay(0)}>
         <FeaturedEventsCarousel
           events={data?.featuredEvents || []}

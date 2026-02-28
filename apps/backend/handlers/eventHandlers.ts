@@ -587,6 +587,8 @@ export const getLandingPageDataHandler: EventHandler = withErrorHandling(
     const communityLimit = c.req.query("communityLimit");
     const discoveryLimit = c.req.query("discoveryLimit");
     const trendingLimit = c.req.query("trendingLimit");
+    const radiusMiles = c.req.query("radius");
+    const city = c.req.query("city");
 
     const user = requireAuth(c);
 
@@ -600,6 +602,8 @@ export const getLandingPageDataHandler: EventHandler = withErrorHandling(
       communityLimit: communityLimit ? parseInt(communityLimit) : undefined,
       discoveryLimit: discoveryLimit ? parseInt(discoveryLimit) : undefined,
       trendingLimit: trendingLimit ? parseInt(trendingLimit) : undefined,
+      radiusMeters: radiusMiles ? parseFloat(radiusMiles) * 1609.344 : undefined,
+      city: city || undefined,
       excludeUserId: user.id,
     });
 

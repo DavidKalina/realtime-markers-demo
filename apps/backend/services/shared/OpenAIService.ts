@@ -13,6 +13,9 @@ import type { Stream } from "openai/streaming";
 export enum OpenAIModel {
   GPT4O = "gpt-4o",
   GPT4OMini = "gpt-4o-mini",
+  GPT5 = "gpt-5",
+  GPT51 = "gpt-5.1",
+  GPT52 = "gpt-5.2",
   TextEmbedding3Small = "text-embedding-3-small",
 }
 
@@ -26,6 +29,9 @@ type RateLimitKey = `${OpenAIModel}:${"embeddings" | "chat" | "api"}`;
 const MODEL_RATE_LIMITS: Record<OpenAIModel, RateLimitConfig> = {
   [OpenAIModel.GPT4O]: { tokensPerMinute: 5000, requestsPerMinute: 500 },
   [OpenAIModel.GPT4OMini]: { tokensPerMinute: 10000, requestsPerMinute: 1000 },
+  [OpenAIModel.GPT5]: { tokensPerMinute: 5000, requestsPerMinute: 300 },
+  [OpenAIModel.GPT51]: { tokensPerMinute: 5000, requestsPerMinute: 300 },
+  [OpenAIModel.GPT52]: { tokensPerMinute: 5000, requestsPerMinute: 300 },
   [OpenAIModel.TextEmbedding3Small]: {
     tokensPerMinute: 1000000,
     requestsPerMinute: 3000,
@@ -37,14 +43,25 @@ const DEFAULT_RATE_LIMITS: RateLimitConfig = {
   requestsPerMinute: 300,
 };
 
+export interface ResponsesCreateParams {
+  model: OpenAIModel;
+  instructions?: string;
+  input: string | Array<{ role: "developer" | "user" | "assistant"; content: string }>;
+  max_output_tokens?: number;
+  reasoning?: { effort: "none" | "minimal" | "low" | "medium" | "high" };
+}
+
 export interface OpenAIService {
   executeChatCompletion(params: {
     model: OpenAIModel;
     messages: ChatCompletionMessageParam[];
     temperature?: number;
     max_tokens?: number;
+    max_completion_tokens?: number;
     response_format?: { type: "json_object" | "text" };
   }): Promise<ChatCompletion>;
+
+  executeResponse(params: ResponsesCreateParams): Promise<string>;
 
   streamChatCompletion(params: {
     model: OpenAIModel;
@@ -223,6 +240,7 @@ export class OpenAIServiceImpl implements OpenAIService {
     messages: ChatCompletionMessageParam[];
     temperature?: number;
     max_tokens?: number;
+    max_completion_tokens?: number;
     response_format?: { type: "json_object" | "text" };
   }): Promise<ChatCompletion> {
     const nonStreamingParams: ChatCompletionCreateParamsNonStreaming = {
@@ -230,6 +248,17 @@ export class OpenAIServiceImpl implements OpenAIService {
       stream: false,
     };
     return this.openai.chat.completions.create(nonStreamingParams);
+  }
+
+  async executeResponse(params: ResponsesCreateParams): Promise<string> {
+    const response = await this.openai.responses.create({
+      model: params.model,
+      instructions: params.instructions,
+      input: params.input,
+      max_output_tokens: params.max_output_tokens,
+      reasoning: params.reasoning,
+    });
+    return response.output_text;
   }
 
   async streamChatCompletion(params: {

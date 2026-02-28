@@ -59,6 +59,8 @@ export interface EventSearchService {
     excludeUserId?: string;
     userLat?: number;
     userLng?: number;
+    radiusMeters?: number;
+    city?: string;
   }): Promise<{
     featuredEvents: Event[];
     upcomingEvents: Event[];
@@ -69,6 +71,7 @@ export interface EventSearchService {
       discoverer?: { id: string; firstName?: string; avatarUrl?: string };
     })[];
     trendingEvents: (Event & { isTrending: true; trendingScore: number })[];
+    availableCities: string[];
   }>;
 }
 
@@ -588,16 +591,26 @@ export class EventSearchServiceImpl implements EventSearchService {
     threshold?: number;
     userLat?: number;
     userLng?: number;
+    radiusMeters?: number;
+    city?: string;
   }): Promise<(Event & { isTrending: true; trendingScore: number })[]> {
-    const { limit, threshold = 3, userLat, userLng } = options;
+    const { limit, threshold = 3, userLat, userLng, radiusMeters, city: cityFilter } = options;
 
     try {
       const queryParams: unknown[] = [threshold, limit];
       let geoFilter = "";
+      let cityFilterSql = "";
 
       if (userLat && userLng) {
+        const effectiveRadius = radiusMeters || 50000;
         geoFilter = `AND ST_DWithin(e.location::geography, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography, $5)`;
-        queryParams.push(userLng, userLat, 50000);
+        queryParams.push(userLng, userLat, effectiveRadius);
+      }
+
+      if (cityFilter) {
+        const cityParamIdx = queryParams.length + 1;
+        cityFilterSql = `AND e.city = $${cityParamIdx}`;
+        queryParams.push(cityFilter);
       }
 
       const query = `
@@ -615,6 +628,7 @@ export class EventSearchServiceImpl implements EventSearchService {
         WHERE e.status IN ('VERIFIED', 'PENDING')
         AND (COALESCE(s.save_count_24h,0) * 3 + COALESCE(r.rsvp_count_24h,0) * 3 + COALESCE(v.view_count_24h,0) * 1 + COALESCE(d.scan_count_24h,0) * 2) >= $1
         ${geoFilter}
+        ${cityFilterSql}
         ORDER BY trending_score DESC
         LIMIT $2
       `;
@@ -662,13 +676,15 @@ export class EventSearchServiceImpl implements EventSearchService {
     excludeUserId?: string;
     userLat?: number;
     userLng?: number;
+    radiusMeters?: number;
+    city?: string;
   }): Promise<
     (Event & {
       discoveredAt: string;
       discoverer?: { id: string; firstName?: string; avatarUrl?: string };
     })[]
   > {
-    const { limit, excludeUserId, userLat, userLng } = options;
+    const { limit, excludeUserId, userLat, userLng, radiusMeters, city: cityFilter } = options;
 
     try {
       const discoveryRepo = this.dependencies.dataSource.getRepository(
@@ -692,10 +708,15 @@ export class EventSearchServiceImpl implements EventSearchService {
       }
 
       if (userLat && userLng) {
+        const effectiveRadius = radiusMeters || 10000;
         qb = qb.andWhere(
           "ST_DWithin(event.location::geography, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, :radius)",
-          { lat: userLat, lng: userLng, radius: 10000 },
+          { lat: userLat, lng: userLng, radius: effectiveRadius },
         );
+      }
+
+      if (cityFilter) {
+        qb = qb.andWhere("event.city = :discCity", { discCity: cityFilter });
       }
 
       qb = qb.orderBy("discovery.discoveredAt", "DESC").limit(limit);
@@ -733,6 +754,8 @@ export class EventSearchServiceImpl implements EventSearchService {
       excludeUserId?: string;
       userLat?: number;
       userLng?: number;
+      radiusMeters?: number;
+      city?: string;
     } = {},
   ): Promise<{
     featuredEvents: Event[];
@@ -744,6 +767,7 @@ export class EventSearchServiceImpl implements EventSearchService {
       discoverer?: { id: string; firstName?: string; avatarUrl?: string };
     })[];
     trendingEvents: (Event & { isTrending: true; trendingScore: number })[];
+    availableCities: string[];
   }> {
     const {
       featuredLimit = 5,
@@ -754,10 +778,12 @@ export class EventSearchServiceImpl implements EventSearchService {
       excludeUserId,
       userLat,
       userLng,
+      radiusMeters,
+      city,
     } = options;
 
     // Create a cache key based on the parameters
-    const cacheKey = `landing:${featuredLimit}:${upcomingLimit}:${communityLimit}:${discoveryLimit}:${trendingLimit}:${excludeUserId || "anon"}:${userLat || "null"}:${userLng || "null"}`;
+    const cacheKey = `landing:${featuredLimit}:${upcomingLimit}:${communityLimit}:${discoveryLimit}:${trendingLimit}:${excludeUserId || "anon"}:${userLat || "null"}:${userLng || "null"}:${radiusMeters || "null"}:${city || "all"}`;
 
     // Check if we have cached results
     const cachedResults =
@@ -778,6 +804,7 @@ export class EventSearchServiceImpl implements EventSearchService {
           isTrending: true;
           trendingScore: number;
         })[],
+        availableCities: ((cachedResults as Record<string, unknown>).availableCities || []) as string[],
       };
     }
 
@@ -822,6 +849,19 @@ export class EventSearchServiceImpl implements EventSearchService {
           qb.where("event.status IN (:...statuses)", {
             statuses: ["VERIFIED", "PENDING"],
           });
+        }
+
+        // Apply radius filter when user location and radius are provided
+        if (userLat && userLng && radiusMeters) {
+          qb.andWhere(
+            "ST_DWithin(event.location::geography, ST_SetSRID(ST_MakePoint(:fwLng, :fwLat), 4326)::geography, :fwRadius)",
+            { fwLat: userLat, fwLng: userLng, fwRadius: radiusMeters },
+          );
+        }
+
+        // Apply city filter
+        if (city) {
+          qb.andWhere("event.city = :filterCity", { filterCity: city });
         }
 
         // Exclude events already used in other sections
@@ -927,6 +967,8 @@ export class EventSearchServiceImpl implements EventSearchService {
       excludeUserId,
       userLat,
       userLng,
+      radiusMeters,
+      city,
     });
 
     console.log(`Found ${justDiscoveredEvents.length} just discovered events`);
@@ -936,9 +978,40 @@ export class EventSearchServiceImpl implements EventSearchService {
       limit: trendingLimit,
       userLat,
       userLng,
+      radiusMeters,
+      city,
     });
 
     console.log(`Found ${trendingEvents.length} trending events`);
+
+    // Available cities: distinct cities for filter UI
+    // When user has location + radius, scope to that area; otherwise return all cities
+    let availableCities: string[] = [];
+    try {
+      if (userLat && userLng && radiusMeters) {
+        const cityRows = await this.dependencies.dataSource.query(
+          `SELECT DISTINCT city FROM events
+           WHERE city IS NOT NULL
+           AND status IN ('VERIFIED', 'PENDING')
+           AND event_date > NOW()
+           AND ST_DWithin(location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
+           ORDER BY city ASC`,
+          [userLng, userLat, radiusMeters],
+        );
+        availableCities = cityRows.map((r: { city: string }) => r.city);
+      } else {
+        const cityRows = await this.dependencies.dataSource.query(
+          `SELECT DISTINCT city FROM events
+           WHERE city IS NOT NULL
+           AND status IN ('VERIFIED', 'PENDING')
+           AND event_date > NOW()
+           ORDER BY city ASC`,
+        );
+        availableCities = cityRows.map((r: { city: string }) => r.city);
+      }
+    } catch (error) {
+      console.error("Error fetching available cities:", error);
+    }
 
     // Popular categories: from any events that passed filters
     // Over-fetch to have room after dedup, then filter overlapping names
@@ -994,6 +1067,7 @@ export class EventSearchServiceImpl implements EventSearchService {
       popularCategories: categories,
       justDiscoveredEvents,
       trendingEvents,
+      availableCities,
     };
 
     console.log("Landing page result:", {

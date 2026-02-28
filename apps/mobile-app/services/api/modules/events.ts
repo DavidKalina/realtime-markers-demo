@@ -252,6 +252,8 @@ export class EventApiClient extends BaseApiModule {
       communityLimit?: number;
       discoveryLimit?: number;
       trendingLimit?: number;
+      radius?: number;
+      city?: string;
     } = {},
   ): Promise<{
     featuredEvents: EventType[];
@@ -265,6 +267,7 @@ export class EventApiClient extends BaseApiModule {
       icon: string;
       eventCount?: number;
     }>;
+    availableCities: string[];
   }> {
     const queryParams = new URLSearchParams();
     if (params.userLat !== undefined)
@@ -281,6 +284,10 @@ export class EventApiClient extends BaseApiModule {
       queryParams.append("discoveryLimit", params.discoveryLimit.toString());
     if (params.trendingLimit)
       queryParams.append("trendingLimit", params.trendingLimit.toString());
+    if (params.radius !== undefined)
+      queryParams.append("radius", params.radius.toString());
+    if (params.city)
+      queryParams.append("city", params.city);
 
     const url = `${this.client.baseUrl}/api/events/landing?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);
@@ -299,6 +306,7 @@ export class EventApiClient extends BaseApiModule {
         icon: string;
         eventCount?: number;
       }>;
+      availableCities?: string[];
     }>(response);
 
     console.log("Landing page API response:", {
@@ -322,6 +330,7 @@ export class EventApiClient extends BaseApiModule {
         ...cat,
         eventCount: cat.eventCount ?? undefined,
       })),
+      availableCities: data.availableCities || [],
     };
   }
 

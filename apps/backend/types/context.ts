@@ -12,6 +12,7 @@ import type { IEmbeddingService } from "../services/event-processing/interfaces/
 import type { CategoryProcessingService } from "../services/CategoryProcessingService";
 import type { EmailService } from "../services/shared/EmailService";
 import type { AreaScanService } from "../services/AreaScanService";
+import type { EventHypeService } from "../services/EventHypeService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -27,6 +28,7 @@ export interface AppVariables {
   categoryProcessingService: CategoryProcessingService;
   emailService: EmailService;
   areaScanService: AreaScanService;
+  eventHypeService: EventHypeService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

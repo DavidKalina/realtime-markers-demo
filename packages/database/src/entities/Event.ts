@@ -85,6 +85,9 @@ export class Event {
   @Column({ type: "text", nullable: true })
   address?: string;
 
+  @Column({ type: "varchar", nullable: true })
+  city?: string;
+
   @Column({ type: "text", nullable: true, name: "location_notes" })
   locationNotes?: string;
 
@@ -144,6 +147,9 @@ export class Event {
 
   @Column({ name: "external_id", type: "varchar", nullable: true })
   externalId?: string;
+
+  @Column({ name: "external_url", type: "text", nullable: true })
+  externalUrl?: string;
 
   @Column({ name: "qr_generated_at", type: "timestamptz", nullable: true })
   qrGeneratedAt?: Date;

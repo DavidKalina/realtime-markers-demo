@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Search as SearchIcon, X } from "lucide-react-native";
 import { TextInput } from "react-native";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Screen from "@/components/Layout/Screen";
 import Input from "@/components/Input/Input";
 import InfiniteScrollFlatList from "@/components/Layout/InfintieScrollFlatList";
@@ -16,6 +17,8 @@ import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserLocation } from "@/contexts/LocationContext";
 // Type for events from the API
 type EventType = Omit<EventListItemProps, "onPress">;
+
+const DISTANCE_STORAGE_KEY = "landing_distance_preference";
 
 const SearchListScreen = () => {
   const router = useRouter();
@@ -37,6 +40,34 @@ const SearchListScreen = () => {
     hasSearched,
   } = useEventSearch({ initialMarkers: storedMarkers });
 
+  // Distance & city filter state
+  const [selectedDistance, setSelectedDistance] = useState(15);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+
+  // Load persisted distance preference
+  useEffect(() => {
+    AsyncStorage.getItem(DISTANCE_STORAGE_KEY).then((val) => {
+      if (val) {
+        const parsed = parseInt(val, 10);
+        if (!isNaN(parsed)) setSelectedDistance(parsed);
+      }
+    });
+  }, []);
+
+  const handleDistanceChange = useCallback((distance: number) => {
+    Haptics.selectionAsync();
+    setSelectedDistance(distance);
+    setSelectedCity(null);
+    AsyncStorage.setItem(DISTANCE_STORAGE_KEY, String(distance));
+  }, []);
+
+  const handleCityChange = useCallback((city: string | null) => {
+    Haptics.selectionAsync();
+    setSelectedCity(city);
+  }, []);
+
+  const hasUserLocation = !!userLocation;
+
   // Use landing page data hook
   const {
     landingData,
@@ -50,6 +81,8 @@ const SearchListScreen = () => {
     communityLimit: 5,
     discoveryLimit: 8,
     trendingLimit: 5,
+    radius: hasUserLocation ? selectedDistance : undefined,
+    city: selectedCity || undefined,
   });
 
   // Track if we're showing landing page or search results
@@ -211,6 +244,11 @@ const SearchListScreen = () => {
           isLoading={isLandingLoading}
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
+          selectedDistance={selectedDistance}
+          onDistanceChange={handleDistanceChange}
+          selectedCity={selectedCity}
+          onCityChange={handleCityChange}
+          hasUserLocation={hasUserLocation}
         />
       ) : (
         <InfiniteScrollFlatList
