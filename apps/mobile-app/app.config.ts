@@ -88,12 +88,6 @@ export default {
         },
       ],
       [
-        "expo-contacts",
-        {
-          contactsPermission: "Allow $(PRODUCT_NAME) to access your contacts.",
-        },
-      ],
-      [
         "@rnmapbox/maps",
         {
           RNMapboxMapsDownloadToken: process.env.MAPBOX_DOWNLOADS_TOKEN,

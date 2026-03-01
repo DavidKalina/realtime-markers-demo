@@ -24,7 +24,6 @@ import {
   MapPin,
   Users,
   ArrowLeft,
-  Edit,
   Share2,
   Trash2,
   Loader2,
@@ -127,10 +126,6 @@ export default function EventDetailPage() {
               <p className="text-muted-foreground">Event Details</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <Edit className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
               <AlertDialog
                 open={showDeleteDialog}
                 onOpenChange={setShowDeleteDialog}
@@ -413,10 +408,6 @@ export default function EventDetailPage() {
                   <CardTitle>Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <Button className="w-full">Send Reminder</Button>
-                  <Button variant="outline" className="w-full">
-                    Export Attendees
-                  </Button>
                   <Button
                     variant="outline"
                     className="w-full"

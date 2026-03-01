@@ -7,7 +7,6 @@ import {
   Calendar,
   Loader2,
   MapPin,
-  MessageSquare,
   Plus,
   Search,
   Users,
@@ -25,11 +24,6 @@ const tabs = [
     name: "Query Insights",
     href: "/query-insights",
     icon: Search,
-  },
-  {
-    name: "Feedback",
-    href: "/feedback",
-    icon: MessageSquare,
   },
   {
     name: "Events",

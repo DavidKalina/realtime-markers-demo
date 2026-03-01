@@ -15,13 +15,11 @@ import {
 interface NoScansOverlayProps {
   isVisible: boolean;
   onDismiss: () => void;
-  onUpgrade: () => void;
 }
 
 export const NoScansOverlay: React.FC<NoScansOverlayProps> = ({
   isVisible,
   onDismiss,
-  onUpgrade,
 }) => {
   if (!isVisible) return null;
 
@@ -36,21 +34,15 @@ export const NoScansOverlay: React.FC<NoScansOverlayProps> = ({
         </View>
         <Text style={styles.noScansTitle}>Scan Limit Reached</Text>
         <Text style={styles.noScansMessage}>
-          You've used all your weekly scans. Upgrade to Pro for unlimited scans.
+          You've used all your scans for this week. Your scans will reset next
+          week — check back soon!
         </Text>
-        <TouchableOpacity
-          style={styles.upgradeButton}
-          onPress={onUpgrade}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
-        </TouchableOpacity>
         <TouchableOpacity
           style={styles.dismissButton}
           onPress={onDismiss}
           activeOpacity={0.7}
         >
-          <Text style={styles.dismissButtonText}>Dismiss</Text>
+          <Text style={styles.dismissButtonText}>Got It</Text>
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -106,21 +98,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: spacing["2xl"],
     lineHeight: lineHeight.normal,
-  },
-  upgradeButton: {
-    backgroundColor: colors.accent.primary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radius.md,
-    width: "100%",
-    alignItems: "center",
-    marginBottom: spacing.md,
-  },
-  upgradeButtonText: {
-    color: colors.text.primary,
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
   },
   dismissButton: {
     backgroundColor: colors.border.subtle,

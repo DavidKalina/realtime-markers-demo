@@ -247,10 +247,6 @@ export default function ScanScreen() {
               <NoScansOverlay
                 isVisible={showNoScansOverlay && !showProcessingOverlay}
                 onDismiss={() => setShowNoScansOverlay(false)}
-                onUpgrade={() => {
-                  // TODO: Implement upgrade flow
-                  console.log("Upgrade to Pro");
-                }}
               />
             </CameraView>
           ) : (
