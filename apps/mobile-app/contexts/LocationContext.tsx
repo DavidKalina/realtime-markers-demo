@@ -414,6 +414,15 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({
         const hasValidCache = await loadCachedLocation();
         if (!hasValidCache) {
           await getUserLocation();
+        } else {
+          // Even with cached location, start background tracking
+          // (getUserLocation won't run, so we need to trigger it here)
+          startBackgroundLocationTracking().catch((err) =>
+            console.warn(
+              "[LocationContext] Background location setup failed:",
+              err,
+            ),
+          );
         }
       }
     };
