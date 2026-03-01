@@ -51,8 +51,8 @@ jobs:
           tags: |
             ${{ env.IMAGE_PREFIX }}/rtm-${{ matrix.service }}:latest
             ${{ env.IMAGE_PREFIX }}/rtm-${{ matrix.service }}:${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.service }}-${{ hashFiles('pnpm-lock.yaml') }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}-${{ hashFiles('pnpm-lock.yaml') }}
+          cache-from: type=registry,ref=${{ env.IMAGE_PREFIX }}/rtm-${{ matrix.service }}:cache
+          cache-to: type=registry,ref=${{ env.IMAGE_PREFIX }}/rtm-${{ matrix.service }}:cache,mode=max
           build-args: |
             NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
             NEXT_PUBLIC_MAPBOX_TOKEN=${{ vars.NEXT_PUBLIC_MAPBOX_TOKEN }}
