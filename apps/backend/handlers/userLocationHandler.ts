@@ -24,5 +24,12 @@ export async function updateLocationHandler(c: Context<AppContext>) {
   const redisService = c.get("redisService");
   await redisService.storeDeviceLocation(user.id, lng, lat);
 
+  // Fire-and-forget: check for nearby events and send push notification
+  c.get("proximityNotificationService")
+    .checkAndNotify(user.id, lat, lng)
+    .catch((err: unknown) =>
+      console.error("[ProximityNotification] check failed:", err),
+    );
+
   return c.json({ success: true });
 }

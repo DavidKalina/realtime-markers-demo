@@ -13,6 +13,7 @@ import type { CategoryProcessingService } from "../services/CategoryProcessingSe
 import type { EmailService } from "../services/shared/EmailService";
 import type { AreaScanService } from "../services/AreaScanService";
 import type { EventHypeService } from "../services/EventHypeService";
+import type { ProximityNotificationService } from "../services/ProximityNotificationService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -29,6 +30,7 @@ export interface AppVariables {
   emailService: EmailService;
   areaScanService: AreaScanService;
   eventHypeService: EventHypeService;
+  proximityNotificationService: ProximityNotificationService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

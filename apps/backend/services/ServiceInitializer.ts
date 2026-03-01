@@ -44,6 +44,8 @@ import {
   createTicketmasterService,
   type TicketmasterService,
 } from "./TicketmasterService";
+import { ProximityNotificationService } from "./ProximityNotificationService";
+import { pushNotificationService } from "./PushNotificationService";
 
 export interface ServiceContainer {
   eventService: EventService;
@@ -62,6 +64,7 @@ export interface ServiceContainer {
   areaScanService: AreaScanService;
   eventHypeService: EventHypeService;
   ticketmasterService: TicketmasterService | null;
+  proximityNotificationService: ProximityNotificationService;
 }
 
 export class ServiceInitializer {
@@ -165,6 +168,12 @@ export class ServiceInitializer {
       gamificationService,
     });
 
+    const proximityNotificationService = new ProximityNotificationService(
+      eventService,
+      pushNotificationService,
+      redisService,
+    );
+
     const userPreferencesService = createUserPreferencesService({
       dataSource: this.dataSource,
       redisService,
@@ -235,6 +244,7 @@ export class ServiceInitializer {
       areaScanService,
       eventHypeService,
       ticketmasterService,
+      proximityNotificationService,
     };
   }
 
