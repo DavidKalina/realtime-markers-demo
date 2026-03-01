@@ -13,6 +13,7 @@ import {
   UserEventSave,
   UserEventView,
   UserPushToken,
+  LlmUsageLog,
 } from "../entities";
 
 // Create the DataSource instance
@@ -31,6 +32,7 @@ export const createDataSource = (databaseUrl: string): DataSource => {
       UserEventSave,
       UserEventView,
       UserPushToken,
+      LlmUsageLog,
     ],
     migrationsTableName: "migrations",
     migrationsRun: false, // Disable automatic migration running

@@ -226,6 +226,26 @@ interface DashboardCategoryTrends {
   };
 }
 
+interface LlmCostsData {
+  summary: {
+    totalCost: number;
+    totalCalls: number;
+    totalTokens: number;
+  };
+  byModel: Array<{
+    model: string;
+    calls: number;
+    tokens: number;
+    cost: number;
+  }>;
+  daily: Array<{
+    date: string;
+    calls: number;
+    tokens: number;
+    cost: number;
+  }>;
+}
+
 interface DashboardBusiestTime {
   day: string;
   time: string;
@@ -644,6 +664,12 @@ class ApiService {
       "/api/admin/dashboard/upcoming-events",
     );
   }
+
+  async getLlmCosts(days: number = 30): Promise<ApiResponse<LlmCostsData>> {
+    return this.makeRequest<LlmCostsData>(
+      `/api/admin/dashboard/llm-costs?days=${days}`,
+    );
+  }
 }
 
 // Export a singleton instance
@@ -662,6 +688,7 @@ export type {
   Event,
   EventEngagement,
   JobStatus,
+  LlmCostsData,
   PlaceSearchParams,
   PlaceSearchResult,
 };

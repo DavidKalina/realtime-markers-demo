@@ -8,6 +8,7 @@ import {
   Category,
   UserEventDiscovery,
   UserEventRsvp,
+  LlmUsageLog,
 } from "@realtime-markers/database";
 
 export const dashboardRouter = new Hono<AppContext>();
@@ -731,6 +732,96 @@ dashboardRouter.get("/upcoming-events", async (c) => {
     return c.json(
       {
         error: "Failed to fetch upcoming events",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+});
+
+// LLM Cost Tracking Endpoint
+dashboardRouter.get("/llm-costs", async (c) => {
+  try {
+    const days = parseInt(c.req.query("days") || "30");
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const repo = AppDataSource.getRepository(LlmUsageLog);
+
+    const [summary, byModel, daily] = await Promise.all([
+      repo
+        .createQueryBuilder("log")
+        .select([
+          'COALESCE(SUM(log.estimated_cost), 0) as "totalCost"',
+          'COUNT(*)::int as "totalCalls"',
+          'COALESCE(SUM(log.total_tokens), 0)::int as "totalTokens"',
+        ])
+        .where("log.created_at >= :since", { since })
+        .getRawOne(),
+
+      repo
+        .createQueryBuilder("log")
+        .select([
+          "log.model as model",
+          "COUNT(*)::int as calls",
+          "COALESCE(SUM(log.total_tokens), 0)::int as tokens",
+          "COALESCE(SUM(log.estimated_cost), 0) as cost",
+        ])
+        .where("log.created_at >= :since", { since })
+        .groupBy("log.model")
+        .orderBy("cost", "DESC")
+        .getRawMany(),
+
+      repo
+        .createQueryBuilder("log")
+        .select([
+          "DATE(log.created_at) as date",
+          "COUNT(*)::int as calls",
+          "COALESCE(SUM(log.total_tokens), 0)::int as tokens",
+          "COALESCE(SUM(log.estimated_cost), 0) as cost",
+        ])
+        .where("log.created_at >= :since", { since })
+        .groupBy("DATE(log.created_at)")
+        .orderBy("date", "ASC")
+        .getRawMany(),
+    ]);
+
+    return c.json({
+      summary: {
+        totalCost: parseFloat(summary.totalCost) || 0,
+        totalCalls: parseInt(summary.totalCalls) || 0,
+        totalTokens: parseInt(summary.totalTokens) || 0,
+      },
+      byModel: byModel.map(
+        (row: {
+          model: string;
+          calls: string;
+          tokens: string;
+          cost: string;
+        }) => ({
+          model: row.model,
+          calls: parseInt(row.calls),
+          tokens: parseInt(row.tokens),
+          cost: parseFloat(row.cost) || 0,
+        }),
+      ),
+      daily: daily.map(
+        (row: {
+          date: string;
+          calls: string;
+          tokens: string;
+          cost: string;
+        }) => ({
+          date: row.date,
+          calls: parseInt(row.calls),
+          tokens: parseInt(row.tokens),
+          cost: parseFloat(row.cost) || 0,
+        }),
+      ),
+    });
+  } catch (error) {
+    console.error("Error fetching LLM costs:", error);
+    return c.json(
+      {
+        error: "Failed to fetch LLM costs",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       500,

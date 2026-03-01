@@ -1,5 +1,7 @@
 // src/services/OpenAIService.ts
 import { OpenAI } from "openai";
+import type { DataSource, Repository } from "typeorm";
+import { LlmUsageLog } from "@realtime-markers/database";
 import type { RedisService } from "./RedisService";
 import type { OpenAICacheService } from "./OpenAICacheService";
 import type {
@@ -43,6 +45,28 @@ const DEFAULT_RATE_LIMITS: RateLimitConfig = {
   requestsPerMinute: 300,
 };
 
+// Cost per 1M tokens (input / output) — update as pricing changes
+const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  [OpenAIModel.GPT4O]: { input: 2.5, output: 10 },
+  [OpenAIModel.GPT4OMini]: { input: 0.15, output: 0.6 },
+  [OpenAIModel.GPT5]: { input: 2.5, output: 10 },
+  [OpenAIModel.GPT51]: { input: 2.5, output: 10 },
+  [OpenAIModel.GPT52]: { input: 2.5, output: 10 },
+  [OpenAIModel.TextEmbedding3Small]: { input: 0.02, output: 0 },
+};
+
+function estimateCost(
+  model: string,
+  promptTokens: number,
+  completionTokens: number,
+): number {
+  const pricing = MODEL_PRICING[model] ?? { input: 2.5, output: 10 };
+  return (
+    (promptTokens / 1_000_000) * pricing.input +
+    (completionTokens / 1_000_000) * pricing.output
+  );
+}
+
 export interface ResponsesCreateParams {
   model: OpenAIModel;
   instructions?: string;
@@ -54,16 +78,22 @@ export interface ResponsesCreateParams {
 }
 
 export interface OpenAIService {
-  executeChatCompletion(params: {
-    model: OpenAIModel;
-    messages: ChatCompletionMessageParam[];
-    temperature?: number;
-    max_tokens?: number;
-    max_completion_tokens?: number;
-    response_format?: { type: "json_object" | "text" };
-  }): Promise<ChatCompletion>;
+  executeChatCompletion(
+    params: {
+      model: OpenAIModel;
+      messages: ChatCompletionMessageParam[];
+      temperature?: number;
+      max_tokens?: number;
+      max_completion_tokens?: number;
+      response_format?: { type: "json_object" | "text" };
+    },
+    caller?: string,
+  ): Promise<ChatCompletion>;
 
-  executeResponse(params: ResponsesCreateParams): Promise<string>;
+  executeResponse(
+    params: ResponsesCreateParams,
+    caller?: string,
+  ): Promise<string>;
 
   streamChatCompletion(params: {
     model: OpenAIModel;
@@ -72,7 +102,11 @@ export interface OpenAIService {
     max_tokens?: number;
   }): Promise<Stream<ChatCompletionChunk>>;
 
-  generateEmbedding(text: string, model?: OpenAIModel): Promise<number[]>;
+  generateEmbedding(
+    text: string,
+    model?: OpenAIModel,
+    caller?: string,
+  ): Promise<number[]>;
 
   getStats(): Promise<{
     activeRequests: Record<string, number>;
@@ -86,6 +120,7 @@ export interface OpenAIService {
 export interface OpenAIServiceDependencies {
   redisService: RedisService;
   openAICacheService: OpenAICacheService;
+  dataSource?: DataSource;
 }
 
 export class OpenAIServiceImpl implements OpenAIService {
@@ -93,6 +128,7 @@ export class OpenAIServiceImpl implements OpenAIService {
   private redisService: RedisService;
   private openAICacheService: OpenAICacheService;
   private activeRequests: Map<string, number> = new Map();
+  private llmUsageRepository: Repository<LlmUsageLog> | null = null;
 
   constructor(private dependencies: OpenAIServiceDependencies) {
     if (!process.env.OPENAI_API_KEY) {
@@ -104,12 +140,46 @@ export class OpenAIServiceImpl implements OpenAIService {
     this.redisService = dependencies.redisService;
     this.openAICacheService = dependencies.openAICacheService;
 
+    if (dependencies.dataSource) {
+      this.llmUsageRepository =
+        dependencies.dataSource.getRepository(LlmUsageLog);
+    }
+
     // Create the OpenAI instance with a custom fetch function
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
       // Use a fetch wrapper to implement rate limiting and retries
       fetch: this.createFetchWithRateLimit(),
     });
+  }
+
+  private logUsage(params: {
+    model: string;
+    operation: string;
+    caller: string;
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    durationMs: number;
+  }): void {
+    if (!this.llmUsageRepository) return;
+    const cost = estimateCost(
+      params.model,
+      params.promptTokens,
+      params.completionTokens,
+    );
+    this.llmUsageRepository
+      .save({
+        model: params.model,
+        operation: params.operation,
+        caller: params.caller,
+        promptTokens: params.promptTokens,
+        completionTokens: params.completionTokens,
+        totalTokens: params.totalTokens,
+        estimatedCost: cost,
+        durationMs: params.durationMs,
+      })
+      .catch((err) => console.error("Failed to log LLM usage:", err));
   }
 
   // Create a custom fetch function with rate limiting and retries
@@ -236,23 +306,46 @@ export class OpenAIServiceImpl implements OpenAIService {
     return stats;
   }
 
-  // Helper method for extracting model from a request payload
-  async executeChatCompletion(params: {
-    model: OpenAIModel;
-    messages: ChatCompletionMessageParam[];
-    temperature?: number;
-    max_tokens?: number;
-    max_completion_tokens?: number;
-    response_format?: { type: "json_object" | "text" };
-  }): Promise<ChatCompletion> {
+  async executeChatCompletion(
+    params: {
+      model: OpenAIModel;
+      messages: ChatCompletionMessageParam[];
+      temperature?: number;
+      max_tokens?: number;
+      max_completion_tokens?: number;
+      response_format?: { type: "json_object" | "text" };
+    },
+    caller: string = "unknown",
+  ): Promise<ChatCompletion> {
+    const start = Date.now();
     const nonStreamingParams: ChatCompletionCreateParamsNonStreaming = {
       ...params,
       stream: false,
     };
-    return this.openai.chat.completions.create(nonStreamingParams);
+    const response =
+      await this.openai.chat.completions.create(nonStreamingParams);
+    const durationMs = Date.now() - start;
+
+    if (response.usage) {
+      this.logUsage({
+        model: params.model,
+        operation: "chat_completion",
+        caller,
+        promptTokens: response.usage.prompt_tokens,
+        completionTokens: response.usage.completion_tokens,
+        totalTokens: response.usage.total_tokens,
+        durationMs,
+      });
+    }
+
+    return response;
   }
 
-  async executeResponse(params: ResponsesCreateParams): Promise<string> {
+  async executeResponse(
+    params: ResponsesCreateParams,
+    caller: string = "unknown",
+  ): Promise<string> {
+    const start = Date.now();
     const response = await this.openai.responses.create({
       model: params.model,
       instructions: params.instructions,
@@ -260,6 +353,20 @@ export class OpenAIServiceImpl implements OpenAIService {
       max_output_tokens: params.max_output_tokens,
       reasoning: params.reasoning,
     });
+    const durationMs = Date.now() - start;
+
+    if (response.usage) {
+      this.logUsage({
+        model: params.model,
+        operation: "response",
+        caller,
+        promptTokens: response.usage.input_tokens,
+        completionTokens: response.usage.output_tokens,
+        totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+        durationMs,
+      });
+    }
+
     return response.output_text;
   }
 
@@ -275,10 +382,10 @@ export class OpenAIServiceImpl implements OpenAIService {
     });
   }
 
-  // Helper method for generating embeddings with caching
   async generateEmbedding(
     text: string,
     model: OpenAIModel = OpenAIModel.TextEmbedding3Small,
+    caller: string = "unknown",
   ): Promise<number[]> {
     // Try to get from cache first
     const cachedEmbedding = await this.openAICacheService.getEmbedding(text);
@@ -286,11 +393,25 @@ export class OpenAIServiceImpl implements OpenAIService {
       return cachedEmbedding;
     }
 
+    const start = Date.now();
     const response = await this.openai.embeddings.create({
       model: model,
       input: text,
       encoding_format: "float",
     });
+    const durationMs = Date.now() - start;
+
+    if (response.usage) {
+      this.logUsage({
+        model,
+        operation: "embedding",
+        caller,
+        promptTokens: response.usage.prompt_tokens,
+        completionTokens: 0,
+        totalTokens: response.usage.total_tokens,
+        durationMs,
+      });
+    }
 
     const embedding = response.data[0].embedding;
 

@@ -5,6 +5,7 @@ import { useRoutePreloader } from "@/utils/preloadUtils";
 import {
   BarChart3,
   Calendar,
+  DollarSign,
   Loader2,
   MapPin,
   Plus,
@@ -44,6 +45,11 @@ const tabs = [
     name: "Users",
     href: "/users",
     icon: Users,
+  },
+  {
+    name: "LLM Costs",
+    href: "/llm-costs",
+    icon: DollarSign,
   },
 ];
 

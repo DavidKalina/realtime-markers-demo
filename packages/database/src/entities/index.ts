@@ -10,3 +10,4 @@ export * from "./UserEventSave";
 export * from "./UserEventView";
 export * from "./UserPushToken";
 export * from "./UserFollow";
+export * from "./LlmUsageLog";

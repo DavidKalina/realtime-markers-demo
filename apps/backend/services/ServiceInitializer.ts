@@ -104,6 +104,7 @@ export class ServiceInitializer {
     const openAIService = createOpenAIService({
       redisService,
       openAICacheService,
+      dataSource: this.dataSource,
     });
 
     const embeddingService = createEmbeddingService({
