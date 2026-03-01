@@ -9,6 +9,7 @@ import { RSVPModule } from "./api/modules/rsvp";
 import { CategoriesModule } from "./api/modules/categories";
 import { PushNotificationsModule } from "./api/modules/pushNotifications";
 import { AreaScanModule } from "./api/modules/areaScan";
+import { FollowsModule } from "./api/modules/follows";
 
 // Re-export types and enums
 export * from "./api/base/types";
@@ -20,6 +21,7 @@ export * from "./api/modules/rsvp";
 export * from "./api/modules/places";
 export * from "./api/modules/pushNotifications";
 export * from "./api/modules/areaScan";
+export * from "./api/modules/follows";
 
 class ApiClient extends BaseApiClient {
   private static instance: ApiClient | null = null;
@@ -31,6 +33,7 @@ class ApiClient extends BaseApiClient {
   private _categories: CategoriesModule | null = null;
   private _pushNotifications: PushNotificationsModule | null = null;
   private _areaScan: AreaScanModule | null = null;
+  private _follows: FollowsModule | null = null;
 
   private constructor(baseUrl: string) {
     super(baseUrl);
@@ -103,6 +106,13 @@ class ApiClient extends BaseApiClient {
       this._areaScan = new AreaScanModule(this);
     }
     return this._areaScan;
+  }
+
+  public get follows(): FollowsModule {
+    if (!this._follows) {
+      this._follows = new FollowsModule(this);
+    }
+    return this._follows;
   }
 
   override setBaseUrl(baseUrl: string): void {

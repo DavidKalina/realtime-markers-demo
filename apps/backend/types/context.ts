@@ -14,6 +14,7 @@ import type { EmailService } from "../services/shared/EmailService";
 import type { AreaScanService } from "../services/AreaScanService";
 import type { EventHypeService } from "../services/EventHypeService";
 import type { ProximityNotificationService } from "../services/ProximityNotificationService";
+import type { FollowService } from "../services/FollowService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -31,6 +32,7 @@ export interface AppVariables {
   areaScanService: AreaScanService;
   eventHypeService: EventHypeService;
   proximityNotificationService: ProximityNotificationService;
+  followService: FollowService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

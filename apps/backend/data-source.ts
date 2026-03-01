@@ -14,6 +14,7 @@ import {
   UserEventRsvp,
   UserEventSave,
   UserPushToken,
+  UserFollow,
 } from "@realtime-markers/database";
 
 // Import all migrations explicitly
@@ -39,6 +40,7 @@ import { AddExternalEventFields1710000000026 } from "./migrations/AddExternalEve
 import { AddEventDigest1710000000027 } from "./migrations/AddEventDigest1710000000027";
 import { AddExternalUrl1710000000028 } from "./migrations/AddExternalUrl1710000000028";
 import { AddCityToEvents1710000000029 } from "./migrations/AddCityToEvents1710000000029";
+import { UserFollowTable1710000000030 } from "./migrations/UserFollowTable1710000000030";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -55,6 +57,7 @@ const AppDataSource = new DataSource({
     UserEventRsvp,
     UserEventSave,
     UserPushToken,
+    UserFollow,
   ],
   migrations: [
     CategoryTable1710000000000,
@@ -79,6 +82,7 @@ const AppDataSource = new DataSource({
     AddEventDigest1710000000027,
     AddExternalUrl1710000000028,
     AddCityToEvents1710000000029,
+    UserFollowTable1710000000030,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

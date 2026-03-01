@@ -1,5 +1,11 @@
 import { Hono } from "hono";
 import { updateLocationHandler } from "../handlers/userLocationHandler";
+import {
+  toggleFollowHandler,
+  isFollowingHandler,
+  getFollowersHandler,
+  getFollowingHandler,
+} from "../handlers/followHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
@@ -21,3 +27,9 @@ usersRouter.use(
 );
 
 usersRouter.post("/location", authMiddleware, updateLocationHandler);
+
+// Follow routes
+usersRouter.post("/:userId/follow", authMiddleware, toggleFollowHandler);
+usersRouter.get("/:userId/is-following", authMiddleware, isFollowingHandler);
+usersRouter.get("/:userId/followers", getFollowersHandler);
+usersRouter.get("/:userId/following", getFollowingHandler);

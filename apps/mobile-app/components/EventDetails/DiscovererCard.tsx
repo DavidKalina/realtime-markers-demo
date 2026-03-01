@@ -38,6 +38,7 @@ const WATERMARK_CHAR_COUNT = WATERMARK_TEXT.length;
 const CHAR_WIDTH_RATIO = 0.6;
 
 interface DiscovererCardProps {
+  userId?: string;
   firstName?: string;
   lastName?: string;
   currentTier?: string;
@@ -48,6 +49,7 @@ interface DiscovererCardProps {
 const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 
 const DiscovererCard: React.FC<DiscovererCardProps> = ({
+  userId,
   firstName,
   lastName,
   currentTier,
@@ -206,6 +208,7 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
       <DiscovererCardOverlay
         visible={overlayVisible}
         onDismiss={() => setOverlayVisible(false)}
+        userId={userId}
         firstName={firstName}
         lastName={lastName}
         currentTier={currentTier}

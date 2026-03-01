@@ -15,6 +15,7 @@ import { UserEventDiscovery } from "./UserEventDiscovery";
 import { UserEventSave } from "./UserEventSave";
 import { UserEventView } from "./UserEventView";
 import { UserEventRsvp } from "./UserEventRsvp";
+import { UserFollow } from "./UserFollow";
 
 export enum UserRole {
   USER = "USER",
@@ -88,6 +89,12 @@ export class User {
   @Column({ name: "last_scan_reset", type: "timestamptz", nullable: true })
   lastScanReset?: Date;
 
+  @Column({ name: "follower_count", type: "integer", default: 0 })
+  followerCount!: number;
+
+  @Column({ name: "following_count", type: "integer", default: 0 })
+  followingCount!: number;
+
   @Column({ name: "contacts", type: "jsonb", nullable: true })
   contacts?: {
     email?: string;
@@ -113,6 +120,12 @@ export class User {
 
   @OneToMany("UserPushToken", "user")
   pushTokens!: Relation<any>[];
+
+  @OneToMany(() => UserFollow, (follow) => follow.follower)
+  following!: Relation<UserFollow>[];
+
+  @OneToMany(() => UserFollow, (follow) => follow.followedUser)
+  followers!: Relation<UserFollow>[];
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

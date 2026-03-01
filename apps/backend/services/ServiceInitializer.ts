@@ -46,6 +46,8 @@ import {
 } from "./TicketmasterService";
 import { ProximityNotificationService } from "./ProximityNotificationService";
 import { pushNotificationService } from "./PushNotificationService";
+import { createFollowService } from "./FollowService";
+import type { FollowService } from "./FollowService";
 
 export interface ServiceContainer {
   eventService: EventService;
@@ -65,6 +67,7 @@ export interface ServiceContainer {
   eventHypeService: EventHypeService;
   ticketmasterService: TicketmasterService | null;
   proximityNotificationService: ProximityNotificationService;
+  followService: FollowService;
 }
 
 export class ServiceInitializer {
@@ -174,6 +177,10 @@ export class ServiceInitializer {
       redisService,
     );
 
+    const followService = createFollowService({
+      dataSource: this.dataSource,
+    });
+
     const userPreferencesService = createUserPreferencesService({
       dataSource: this.dataSource,
       redisService,
@@ -245,6 +252,7 @@ export class ServiceInitializer {
       eventHypeService,
       ticketmasterService,
       proximityNotificationService,
+      followService,
     };
   }
 

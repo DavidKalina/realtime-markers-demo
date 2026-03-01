@@ -395,6 +395,8 @@ export class AuthService {
         "saveCount",
         "totalXp",
         "currentTier",
+        "followerCount",
+        "followingCount",
       ],
     });
 
@@ -518,6 +520,8 @@ export class AuthService {
       viewCount: user.viewCount,
       totalXp: user.totalXp,
       currentTier: user.currentTier,
+      followerCount: user.followerCount,
+      followingCount: user.followingCount,
     };
   }
 

@@ -108,6 +108,8 @@ export type UserInput = Omit<
   | "viewedEvents"
   | "rsvps"
   | "pushTokens"
+  | "following"
+  | "followers"
 >;
 
 export type UserUpdate = Partial<
@@ -122,6 +124,8 @@ export type UserUpdate = Partial<
     | "viewedEvents"
     | "rsvps"
     | "pushTokens"
+    | "following"
+    | "followers"
   >
 >;
 
@@ -141,6 +145,8 @@ export type UserProfile = Pick<
   | "viewCount"
   | "totalXp"
   | "currentTier"
+  | "followerCount"
+  | "followingCount"
 >;
 
 export type UserStats = Pick<

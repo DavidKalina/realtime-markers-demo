@@ -3,7 +3,7 @@ import { useMapStyle, MapStyleType } from "@/contexts/MapStyleContext";
 import { useProfile } from "@/hooks/useProfile";
 import * as Haptics from "expo-haptics";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import {
   ActivityIndicator,
   Pressable,
@@ -39,6 +39,7 @@ const MAP_STYLES: { key: MapStyleType; label: string }[] = [
 
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { user } = useAuth();
+  const router = useRouter();
   const { currentStyle, isPitched, togglePitch, setMapStyle } = useMapStyle();
   const {
     loading,
@@ -174,6 +175,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 </Text>
                 <Text style={styles.statLabel}>Events Saved</Text>
               </View>
+              <View style={styles.statDivider} />
+              <Pressable
+                style={styles.statItem}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/following");
+                }}
+              >
+                <Text style={styles.statValue}>
+                  {profileData?.followingCount || 0}
+                </Text>
+                <Text style={styles.statLabel}>Following</Text>
+              </Pressable>
             </View>
           </View>
 

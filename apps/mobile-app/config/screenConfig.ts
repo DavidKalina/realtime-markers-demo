@@ -47,6 +47,10 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
     options: { animation: "slide_from_right", animationDuration: 250 },
   },
   {
+    name: "following",
+    options: { animation: "slide_from_right", animationDuration: 250 },
+  },
+  {
     name: "area-scan",
     options: { animation: "fade_from_bottom", animationDuration: 250 },
   },

@@ -401,6 +401,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             >
               <SectionLabel title="Discovered by" />
               <DiscovererCard
+                userId={event.creator.id}
                 firstName={event.creator.firstName}
                 lastName={event.creator.lastName}
                 currentTier={event.creator.currentTier}
