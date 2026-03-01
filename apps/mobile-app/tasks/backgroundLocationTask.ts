@@ -24,6 +24,10 @@ TaskManager.defineTask(
     error,
   }: TaskManager.TaskManagerTaskBody<LocationTaskBody>) => {
     if (error) {
+      // kCLErrorDomain Code=0 ("location unknown") is transient — iOS retries automatically
+      if (error.code === 0) {
+        return;
+      }
       console.error("[BackgroundLocation] Task error:", error.message);
       return;
     }
