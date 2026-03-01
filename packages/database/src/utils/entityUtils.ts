@@ -16,6 +16,7 @@ const ENTITY_TO_TABLE_MAPPING: Record<string, string> = {
   UserEventSave: "user_event_saves",
   UserPushToken: "user_push_tokens",
   UserFollow: "user_follows",
+  LLMUsageLogs: "llmusagelogs",
 };
 
 /**
