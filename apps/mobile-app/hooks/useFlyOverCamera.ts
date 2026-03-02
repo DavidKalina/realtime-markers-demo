@@ -1,4 +1,5 @@
 import { useCallback, useRef, useEffect } from "react";
+import { AppState, AppStateStatus } from "react-native";
 import { Camera } from "@rnmapbox/maps";
 
 interface FlyOverOptions {
@@ -22,6 +23,9 @@ export const useFlyOverCamera = ({ cameraRef }: UseFlyOverCameraProps) => {
   const coordinatesRef = useRef<[number, number] | null>(null);
   const timeRef = useRef(0);
   const lastUpdateTimeRef = useRef(0);
+  const optionsRef = useRef<FlyOverOptions>({});
+  const wasPausedRef = useRef(false);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   // Helper function to get smooth value between min and max using sine wave
   const getSmoothValue = (
@@ -76,6 +80,7 @@ export const useFlyOverCamera = ({ cameraRef }: UseFlyOverCameraProps) => {
       } = options;
 
       coordinatesRef.current = coordinates;
+      optionsRef.current = options;
       isAnimatingRef.current = true;
       lastUpdateTimeRef.current = performance.now();
 
@@ -115,13 +120,19 @@ export const useFlyOverCamera = ({ cameraRef }: UseFlyOverCameraProps) => {
           speed * 0.7,
         );
 
-        cameraRef.current.setCamera({
-          centerCoordinate: position,
-          zoomLevel: zoom,
-          pitch: pitch,
-          heading: bearing,
-          animationDuration: 0, // No animation duration for continuous movement
-        });
+        try {
+          cameraRef.current.setCamera({
+            centerCoordinate: position,
+            zoomLevel: zoom,
+            pitch: pitch,
+            heading: bearing,
+            animationDuration: 0, // No animation duration for continuous movement
+          });
+        } catch {
+          // Camera ref may be invalidated after background — stop gracefully
+          isAnimatingRef.current = false;
+          return;
+        }
 
         animationFrameRef.current = requestAnimationFrame(animate);
       };
@@ -141,6 +152,118 @@ export const useFlyOverCamera = ({ cameraRef }: UseFlyOverCameraProps) => {
     }
     timeRef.current = 0;
   }, []);
+
+  // Pause animation (keeps time position so it can resume smoothly)
+  const pauseFlyOver = useCallback(() => {
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    isAnimatingRef.current = false;
+  }, []);
+
+  // Resume animation from where it left off
+  const resumeFlyOver = useCallback(() => {
+    if (!coordinatesRef.current || !cameraRef.current) return;
+    isAnimatingRef.current = true;
+    lastUpdateTimeRef.current = performance.now();
+
+    const {
+      minPitch = 45,
+      maxPitch = 60,
+      minZoom = 15,
+      maxZoom = 17,
+      speed = 0.5,
+    } = optionsRef.current;
+
+    const animate = (currentTime: number) => {
+      if (
+        !isAnimatingRef.current ||
+        !cameraRef.current ||
+        !coordinatesRef.current
+      )
+        return;
+
+      const deltaTime = (currentTime - lastUpdateTimeRef.current) / 1000;
+      timeRef.current += deltaTime;
+      lastUpdateTimeRef.current = currentTime;
+
+      const zoom = getSmoothValue(
+        minZoom,
+        maxZoom,
+        timeRef.current,
+        speed * 0.5,
+      );
+
+      const { position, bearing } = getOrbitPosition(
+        coordinatesRef.current,
+        timeRef.current,
+        speed,
+        zoom,
+      );
+
+      const pitch = getSmoothValue(
+        minPitch,
+        maxPitch,
+        timeRef.current,
+        speed * 0.7,
+      );
+
+      try {
+        cameraRef.current.setCamera({
+          centerCoordinate: position,
+          zoomLevel: zoom,
+          pitch: pitch,
+          heading: bearing,
+          animationDuration: 0,
+        });
+      } catch {
+        // Camera ref may be invalidated after background — stop gracefully
+        isAnimatingRef.current = false;
+        return;
+      }
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animate);
+  }, [cameraRef]);
+
+  // Pause/resume on app background/foreground transitions
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextAppState: AppStateStatus) => {
+        const wasBackground =
+          appStateRef.current === "background" ||
+          appStateRef.current === "inactive";
+        const isActive = nextAppState === "active";
+
+        if (!isActive && appStateRef.current === "active") {
+          // Going to background — pause immediately
+          if (coordinatesRef.current) {
+            wasPausedRef.current = true;
+            pauseFlyOver();
+          }
+        } else if (isActive && wasBackground && wasPausedRef.current) {
+          // Returning to foreground — resume after a brief delay to let the
+          // native MapView re-initialize its GL context
+          wasPausedRef.current = false;
+          setTimeout(() => {
+            if (coordinatesRef.current && cameraRef.current) {
+              resumeFlyOver();
+            }
+          }, 500);
+        }
+
+        appStateRef.current = nextAppState;
+      },
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, [pauseFlyOver, resumeFlyOver, cameraRef]);
 
   // Cleanup on unmount
   useEffect(() => {

@@ -1,11 +1,12 @@
 import React, { useCallback, useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { colors, fontSize, fontWeight, fontFamily, spacing } from "@/theme";
+import { colors, fontWeight, fontFamily, spacing } from "@/theme";
 import { EventType } from "@/types/types";
 import EventListItem from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import EndOfList from "@/components/Layout/EndOfList";
 
 interface UpcomingEventsSectionProps {
   events: EventType[];
@@ -44,7 +45,6 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
       {upcomingEvents.map((event, index) => (
         <Animated.View
           key={event.id}
-          style={styles.itemContainer}
           entering={FadeInDown.duration(300).delay(index * 60)}
         >
           <EventListItem
@@ -54,6 +54,7 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
           />
         </Animated.View>
       ))}
+      <EndOfList />
     </View>
   );
 };
@@ -74,10 +75,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     letterSpacing: 1.5,
     textTransform: "uppercase" as const,
-  },
-  itemContainer: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
   },
 });
 

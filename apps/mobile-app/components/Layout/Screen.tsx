@@ -286,9 +286,7 @@ const styles = StyleSheet.create({
   scrollContentWithFooter: {
     paddingBottom: 120,
   },
-  scrollContentWithBottomContent: {
-    paddingBottom: 80,
-  },
+  scrollContentWithBottomContent: {},
   contentContainer: {
     flex: 1,
     paddingVertical: spacing.lg,
@@ -359,9 +357,7 @@ const styles = StyleSheet.create({
   nonScrollableContentWithFooter: {
     paddingBottom: 120,
   },
-  nonScrollableContentWithBottomContent: {
-    paddingBottom: 80,
-  },
+  nonScrollableContentWithBottomContent: {},
 });
 
 export default Screen;

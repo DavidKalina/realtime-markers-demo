@@ -112,6 +112,7 @@ export default function ClusterScreen() {
         showDone={dialog.showDone}
         blinkAnim={dialog.blinkAnim}
         onTap={dialog.handleTap}
+        onRestart={dialog.restart}
         style={{ height: 140 }}
       />
     </Screen>

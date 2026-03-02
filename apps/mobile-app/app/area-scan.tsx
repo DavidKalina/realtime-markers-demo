@@ -108,6 +108,7 @@ export default function AreaScanScreen() {
         showDone={dialog.showDone}
         blinkAnim={dialog.blinkAnim}
         onTap={dialog.handleTap}
+        onRestart={dialog.restart}
         style={{ height: 140 }}
       />
     </Screen>

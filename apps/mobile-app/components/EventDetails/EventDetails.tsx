@@ -214,9 +214,10 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             error={insightError}
             displayText={insightDialog.displayText}
             showContinue={insightDialog.showContinue}
-            showDone={false}
+            showDone={insightDialog.showDone}
             blinkAnim={insightDialog.blinkAnim}
             onTap={insightDialog.handleTap}
+            onRestart={insightDialog.restart}
             style={{ height: 140 }}
           />
         }

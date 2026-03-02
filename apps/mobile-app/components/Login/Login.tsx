@@ -21,6 +21,8 @@ import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
+  AppStateStatus,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -187,12 +189,18 @@ const Login: React.FC = () => {
   // See: https://github.com/facebook/react-native/issues/53128
   const navigation = useNavigation();
   const [isMapMounted, setIsMapMounted] = useState(false);
+  const [isAppActive, setIsAppActive] = useState(
+    AppState.currentState === "active",
+  );
+  const mapHasMountedOnce = useRef(false);
+
   useEffect(() => {
     let mounted = false;
     const mount = () => {
       if (!mounted) {
         mounted = true;
         requestAnimationFrame(() => {
+          mapHasMountedOnce.current = true;
           setIsMapMounted(true);
         });
       }
@@ -207,6 +215,29 @@ const Login: React.FC = () => {
       clearTimeout(fallbackId);
     };
   }, [navigation]);
+
+  // Unmount/remount the MapView when the app goes to/from background.
+  // MapboxGL's native GL context can become invalid after backgrounding;
+  // unmounting ensures a clean re-initialization on resume.
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextAppState: AppStateStatus) => {
+        if (nextAppState === "active") {
+          // Small delay to let the native side fully resume before mounting
+          setTimeout(() => {
+            setIsAppActive(true);
+          }, 300);
+        } else {
+          setIsAppActive(false);
+        }
+      },
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // Simulated markers — start with 3, add one every ~2.5 seconds
   const [visibleMarkerCount, setVisibleMarkerCount] = useState(3);
@@ -225,6 +256,7 @@ const Login: React.FC = () => {
   }, [visibleMarkerCount]);
 
   const handleMapLoaded = useCallback(() => {
+    if (!isMounted.current) return;
     flyOver(FLYOVER_CENTER, {
       speed: 0.3,
       minZoom: 14.5,
@@ -313,7 +345,7 @@ const Login: React.FC = () => {
       />
 
       {/* Layer 1: Map background */}
-      {isMapMounted && (
+      {isMapMounted && isAppActive && (
         <MapboxGL.MapView
           style={StyleSheet.absoluteFill}
           styleURL={MapboxGL.StyleURL.Dark}

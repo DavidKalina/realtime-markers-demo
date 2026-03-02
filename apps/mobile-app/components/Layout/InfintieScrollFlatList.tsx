@@ -21,6 +21,7 @@ import {
   duration,
 } from "@/theme";
 import EmptyState from "./EmptyState";
+import EndOfList from "./EndOfList";
 
 interface InfiniteScrollFlatListProps<T> extends Omit<
   FlatListProps<T>,
@@ -49,6 +50,7 @@ interface InfiniteScrollFlatListProps<T> extends Omit<
       | "warning"
       | "error";
   };
+  endOfListMessage?: string;
   loadingFooterComponent?: React.ReactElement;
   errorRetryComponent?: React.ReactElement;
   onRetry?: () => void;
@@ -70,6 +72,7 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
   emptyTitle,
   emptySubtitle,
   emptyAction,
+  endOfListMessage,
   loadingFooterComponent,
   errorRetryComponent,
   onRetry,
@@ -158,17 +161,8 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
     }
 
     if (!hasMore && data.length > 0) {
-      const content = (
-        <View style={styles.footer}>
-          <Text style={styles.endText}>No more items</Text>
-        </View>
-      );
-      return animated ? (
-        <Animated.View entering={FadeIn.duration(duration.normal)}>
-          {content}
-        </Animated.View>
-      ) : (
-        content
+      return (
+        <EndOfList message={endOfListMessage} animated={animated} />
       );
     }
 
@@ -178,6 +172,7 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
     isLoading,
     hasMore,
     data.length,
+    endOfListMessage,
     loadingFooterComponent,
     errorRetryComponent,
     onRetry,
@@ -341,12 +336,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.text.secondary,
     textAlign: "center",
-    fontFamily: fontFamily.mono,
-  },
-  endText: {
-    fontSize: fontSize.xs,
-    color: colors.text.disabled,
-    fontStyle: "italic",
     fontFamily: fontFamily.mono,
   },
 });

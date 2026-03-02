@@ -19,7 +19,7 @@ import {
   radius,
 } from "@/theme";
 import { EventType } from "@/types/types";
-import EventListItem from "@/components/Event/EventListItem";
+import EventListItem, { getTimeBadge } from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
@@ -110,6 +110,30 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
                   eventDate={new Date(event.eventDate)}
                   onPress={() => handleEventPress(event)}
                 />
+                <View style={styles.cardFooter}>
+                  <Text style={styles.cardFooterText} numberOfLines={1}>
+                    {["Featured", event.categories?.[0]?.name]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </Text>
+                  {(() => {
+                    const badge = getTimeBadge(event.eventDate, event.endDate);
+                    return (
+                      <Text
+                        style={[
+                          styles.timeBadge,
+                          {
+                            color: badge.color.text,
+                            backgroundColor: badge.color.bg,
+                            borderColor: badge.color.text + "4D",
+                          },
+                        ]}
+                      >
+                        {badge.text}
+                      </Text>
+                    );
+                  })()}
+                </View>
               </View>
             </TouchableOpacity>
           ))}
@@ -164,6 +188,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border.default,
     overflow: "hidden",
+  },
+  cardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing._6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing._6,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.default,
+    backgroundColor: colors.accent.muted,
+  },
+  timeBadge: {
+    fontSize: 10,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
+    paddingHorizontal: spacing._6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: "hidden",
+    letterSpacing: 0.5,
+  },
+  cardFooterText: {
+    flex: 1,
+    fontSize: 10,
+    color: colors.accent.primary,
+    fontFamily: fontFamily.mono,
+    letterSpacing: 0.5,
   },
   paginationContainer: {
     flexDirection: "row",

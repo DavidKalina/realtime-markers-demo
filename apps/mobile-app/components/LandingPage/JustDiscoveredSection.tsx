@@ -19,8 +19,7 @@ import {
   radius,
 } from "@/theme";
 import { DiscoveredEventType } from "@/types/types";
-import EventListItem from "@/components/Event/EventListItem";
-import TierBadge from "@/components/Gamification/TierBadge";
+import EventListItem, { getTimeBadge } from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
@@ -125,27 +124,32 @@ const JustDiscoveredSection: React.FC<JustDiscoveredSectionProps> = ({
                   eventDate={new Date(event.eventDate)}
                   onPress={() => handleEventPress(event)}
                 />
-                <View style={styles.discoveryBadge}>
-                  <View style={styles.discoveryBadgeContent}>
-                    <Text style={styles.discoveryBadgeText}>
-                      {event.discoverer?.firstName ? `Found by ` : "Found"}
-                    </Text>
-                    {event.discoverer?.currentTier && (
-                      <TierBadge
-                        tier={event.discoverer.currentTier}
-                        size="sm"
-                      />
-                    )}
-                    {event.discoverer?.firstName && (
-                      <Text style={styles.discoveryBadgeText}>
-                        {` ${event.discoverer.firstName}`}
+                <View style={styles.cardFooter}>
+                  <Text style={styles.cardFooterText} numberOfLines={1}>
+                    {[
+                      event.discoverer?.firstName
+                        ? `Found by ${event.discoverer.firstName}`
+                        : "Found",
+                      formatTimeAgo(event.discoveredAt),
+                    ].join(" · ")}
+                  </Text>
+                  {(() => {
+                    const badge = getTimeBadge(event.eventDate, event.endDate);
+                    return (
+                      <Text
+                        style={[
+                          styles.timeBadge,
+                          {
+                            color: badge.color.text,
+                            backgroundColor: badge.color.bg,
+                            borderColor: badge.color.text + "4D",
+                          },
+                        ]}
+                      >
+                        {badge.text}
                       </Text>
-                    )}
-                    <Text style={styles.discoveryBadgeText}>
-                      {" · "}
-                      {formatTimeAgo(event.discoveredAt)}
-                    </Text>
-                  </View>
+                    );
+                  })()}
                 </View>
               </View>
             </TouchableOpacity>
@@ -209,20 +213,29 @@ const styles = StyleSheet.create({
     borderColor: colors.border.default,
     overflow: "hidden",
   },
-  discoveryBadge: {
+  cardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing._6,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing._6,
     borderTopWidth: 1,
     borderTopColor: colors.border.default,
     backgroundColor: colors.accent.muted,
   },
-  discoveryBadgeContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 4,
+  timeBadge: {
+    fontSize: 10,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
+    paddingHorizontal: spacing._6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: "hidden",
+    letterSpacing: 0.5,
   },
-  discoveryBadgeText: {
+  cardFooterText: {
     fontSize: 10,
     color: colors.accent.primary,
     fontFamily: fontFamily.mono,

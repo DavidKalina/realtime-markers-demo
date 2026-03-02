@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import {
   Animated,
+  LayoutChangeEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,18 +19,32 @@ import Reanimated, {
   FadeInDown,
   useSharedValue,
   useAnimatedProps,
+  useAnimatedStyle,
   withTiming,
   withDelay,
+  withRepeat,
+  interpolate,
+  cancelAnimation,
   Easing,
 } from "react-native-reanimated";
-import Svg, { Circle } from "react-native-svg";
+import Svg, {
+  Circle,
+  Defs,
+  LinearGradient,
+  Stop,
+  Rect,
+} from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { colors, spacing, fontFamily } from "@/theme";
 import type { AreaScanMetadata } from "@/services/api/modules/areaScan";
 
 const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
+const AnimatedSvg = Reanimated.createAnimatedComponent(Svg);
 
 // --- Constants ---
+
+const COLLAPSED_HEIGHT = 44;
+const SHEEN_WIDTH = 100;
 
 export const CHARS_PER_PAGE = 200;
 export const CHAR_DELAY_MS = 20;
@@ -414,6 +429,7 @@ export function useDialogStreamer(
   onDismiss: () => void,
 ): DialogStreamerState & {
   feedPages: (newPages: string[]) => void;
+  restart: () => void;
 } {
   const [pages, setPages] = useState<string[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
@@ -546,6 +562,13 @@ export function useDialogStreamer(
     }
   }, [pageComplete, pageIndex, pages, streamPage, onDismiss]);
 
+  const restart = useCallback(() => {
+    if (pages.length > 0) {
+      setPageIndex(0);
+      streamPage(pages[0]);
+    }
+  }, [pages, streamPage]);
+
   const isLastPage = pageIndex >= pages.length - 1;
   const showContinue = pageComplete && !isLastPage;
   const showDone = pageComplete && isLastPage && pages.length > 0;
@@ -561,6 +584,7 @@ export function useDialogStreamer(
     blinkAnim,
     handleTap,
     feedPages,
+    restart,
   };
 }
 
@@ -594,6 +618,7 @@ export function DialogBox({
   showDone = true,
   blinkAnim,
   onTap,
+  onRestart,
   inline,
   style,
   loadingText,
@@ -605,35 +630,263 @@ export function DialogBox({
   showDone?: boolean;
   blinkAnim: Animated.Value;
   onTap: () => void;
+  onRestart?: () => void;
   inline?: boolean;
   style?: ViewStyle;
   loadingText?: string;
 }) {
+  const targetHeight =
+    style && typeof (style as Record<string, unknown>).height === "number"
+      ? ((style as Record<string, unknown>).height as number)
+      : 95;
+  const targetHeightSV = useSharedValue(targetHeight);
+
+  const [containerMeasured, setContainerMeasured] = useState(false);
+  const containerWidthSV = useSharedValue(0);
+  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) {
+      containerWidthSV.value = w;
+      setContainerMeasured(true);
+    }
+  }, []);
+
+  const animHeight = useSharedValue(COLLAPSED_HEIGHT);
+  const sheenPos = useSharedValue(0);
+  const contentOpacity = useSharedValue(0);
+  const statusOpacity = useSharedValue(1);
+  const phase = useSharedValue(0);
+  const sheenActive = useSharedValue(1);
+
+  const [collapsed, setCollapsed] = useState(false);
+  const [statusText, setStatusText] = useState(
+    loadingText || "Generating insight",
+  );
+  const prevIsLoading = useRef<boolean | null>(null);
+
+  // Phase 0: repeating golden sheen during loading (non-inline only)
+  useEffect(() => {
+    if (inline) {
+      contentOpacity.value = 1;
+      statusOpacity.value = 0;
+      phase.value = 3;
+      return;
+    }
+    if (isLoading) {
+      animHeight.value = COLLAPSED_HEIGHT;
+      phase.value = 0;
+      contentOpacity.value = 0;
+      statusOpacity.value = 1;
+      sheenActive.value = 1;
+      setStatusText(loadingText || "Generating insight");
+      sheenPos.value = 0;
+      sheenPos.value = withRepeat(
+        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        false,
+      );
+    }
+  }, [isLoading, inline]);
+
+  // Detect isLoading true→false transition
+  useEffect(() => {
+    if (inline) {
+      prevIsLoading.current = isLoading;
+      return;
+    }
+
+    if (prevIsLoading.current === true && !isLoading) {
+      cancelAnimation(sheenPos);
+
+      if (error) {
+        // Error: skip sheen, just expand and show
+        phase.value = 3;
+        statusOpacity.value = 0;
+        animHeight.value = withTiming(targetHeightSV.value, {
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+        });
+        contentOpacity.value = withTiming(1, { duration: 200 });
+      } else {
+        // Phase 1: "Insight ready" + final sheen sweep
+        setStatusText("Insight ready");
+        phase.value = 1;
+        sheenPos.value = 0;
+        sheenPos.value = withTiming(
+          1,
+          { duration: 600, easing: Easing.inOut(Easing.ease) },
+          (finished) => {
+            if (!finished) return;
+            // Phase 2: expand + fade out status text
+            phase.value = 2;
+            sheenActive.value = 0;
+            statusOpacity.value = withTiming(0, { duration: 200 });
+            animHeight.value = withTiming(
+              targetHeightSV.value,
+              { duration: 400, easing: Easing.out(Easing.cubic) },
+              (finished2) => {
+                if (!finished2) return;
+                // Phase 3: content fade in
+                phase.value = 3;
+                contentOpacity.value = withTiming(1, { duration: 200 });
+              },
+            );
+          },
+        );
+      }
+    } else if (prevIsLoading.current === null && !isLoading) {
+      // Initial mount with isLoading=false: skip animation
+      animHeight.value = targetHeightSV.value;
+      contentOpacity.value = 1;
+      statusOpacity.value = 0;
+      phase.value = 3;
+    }
+
+    prevIsLoading.current = isLoading;
+  }, [isLoading, error, inline]);
+
+  // Animated styles
+  const animatedContainerStyle = useAnimatedStyle(() => {
+    if (inline) return {};
+    return { height: animHeight.value };
+  });
+
+  const sheenAnimStyle = useAnimatedStyle(() => {
+    if (sheenActive.value === 0) return { opacity: 0 };
+    const translateX =
+      containerWidthSV.value > 0
+        ? interpolate(
+            sheenPos.value,
+            [0, 1],
+            [-SHEEN_WIDTH, containerWidthSV.value + SHEEN_WIDTH],
+          )
+        : -SHEEN_WIDTH;
+    const opacity = interpolate(
+      sheenPos.value,
+      [0, 0.05, 0.95, 1],
+      [0, 0.8, 0.8, 0],
+    );
+    return { opacity, transform: [{ translateX }] };
+  });
+
+  const statusAnimStyle = useAnimatedStyle(() => ({
+    opacity: statusOpacity.value,
+  }));
+
+  const contentAnimStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+  }));
+
+  const handlePress = useCallback(() => {
+    if (collapsed) {
+      // Re-expand and restart streaming from the beginning
+      setCollapsed(false);
+      cancelAnimation(sheenPos);
+      sheenActive.value = 0;
+      statusOpacity.value = withTiming(0, { duration: 150 });
+      onRestart?.();
+      animHeight.value = withTiming(
+        targetHeightSV.value,
+        { duration: 350, easing: Easing.out(Easing.cubic) },
+        (fin) => {
+          if (!fin) return;
+          contentOpacity.value = withTiming(1, { duration: 200 });
+        },
+      );
+      return;
+    }
+
+    if (showDone) {
+      // Collapse instead of dismissing
+      setCollapsed(true);
+      setStatusText("Reveal insight");
+      contentOpacity.value = withTiming(0, { duration: 150 });
+      animHeight.value = withTiming(
+        COLLAPSED_HEIGHT,
+        { duration: 350, easing: Easing.out(Easing.cubic) },
+        (fin) => {
+          if (!fin) return;
+          statusOpacity.value = withTiming(1, { duration: 200 });
+        },
+      );
+      return;
+    }
+
+    // Normal: skip stream / advance page
+    onTap();
+  }, [collapsed, showDone, onTap, onRestart]);
+
   return (
-    <Pressable
-      onPress={onTap}
-      style={[dialogStyles.bubble, inline && dialogStyles.bubbleInline, style]}
+    <Reanimated.View
+      style={[
+        dialogStyles.bubble,
+        inline && dialogStyles.bubbleInline,
+        style,
+        animatedContainerStyle,
+      ]}
+      onLayout={handleLayout}
     >
-      {isLoading ? (
-        <LoadingText text={loadingText} />
-      ) : error ? (
-        <Text style={dialogStyles.errorText}>{error}</Text>
-      ) : (
-        <View style={dialogStyles.textArea}>
-          <Text style={dialogStyles.bubbleText}>{displayText}</Text>
+      {/* Loading status text (phases 0–1) */}
+      <Reanimated.View
+        style={[dialogStyles.statusOverlay, statusAnimStyle]}
+        pointerEvents="none"
+      >
+        <Text style={dialogStyles.statusText}>{statusText}</Text>
+      </Reanimated.View>
 
-          {showContinue && (
-            <Animated.Text
-              style={[dialogStyles.continueArrow, { opacity: blinkAnim }]}
-            >
-              ▼
-            </Animated.Text>
-          )}
-
-          {showDone && <Text style={dialogStyles.doneHint}>tap to close</Text>}
-        </View>
+      {/* Golden sheen sweep (phases 0–1) */}
+      {containerMeasured && (
+        <AnimatedSvg
+          style={[dialogStyles.sheenBeam, sheenAnimStyle]}
+          width={SHEEN_WIDTH}
+          height={COLLAPSED_HEIGHT}
+          pointerEvents="none"
+        >
+          <Defs>
+            <LinearGradient id="goldenSheen" x1="0" y1="0" x2="1" y2="0">
+              <Stop offset="0" stopColor="#fbbf24" stopOpacity="0" />
+              <Stop offset="0.3" stopColor="#fbbf24" stopOpacity="0.5" />
+              <Stop offset="0.5" stopColor="#fef3c7" stopOpacity="0.8" />
+              <Stop offset="0.7" stopColor="#fbbf24" stopOpacity="0.5" />
+              <Stop offset="1" stopColor="#fbbf24" stopOpacity="0" />
+            </LinearGradient>
+          </Defs>
+          <Rect
+            x="0"
+            y="0"
+            width={SHEEN_WIDTH}
+            height={COLLAPSED_HEIGHT}
+            fill="url(#goldenSheen)"
+          />
+        </AnimatedSvg>
       )}
-    </Pressable>
+
+      {/* Content (phase 3) */}
+      <Pressable onPress={handlePress} style={{ flex: 1 }}>
+        <Reanimated.View style={[{ flex: 1 }, contentAnimStyle]}>
+          {isLoading ? (
+            <LoadingText text={loadingText} />
+          ) : error ? (
+            <Text style={dialogStyles.errorText}>{error}</Text>
+          ) : (
+            <View style={dialogStyles.textArea}>
+              <Text style={dialogStyles.bubbleText}>{displayText}</Text>
+
+              {showContinue && (
+                <Animated.Text
+                  style={[dialogStyles.continueArrow, { opacity: blinkAnim }]}
+                >
+                  ▼
+                </Animated.Text>
+              )}
+              {showDone && !showContinue && (
+                <Text style={dialogStyles.doneArrow}>▲</Text>
+              )}
+            </View>
+          )}
+        </Reanimated.View>
+      </Pressable>
+    </Reanimated.View>
   );
 }
 
@@ -650,18 +903,36 @@ const dialogStyles = StyleSheet.create({
     backgroundColor: colors.bg.cardAlt,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    height: 95,
+    overflow: "hidden",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     borderTopWidth: 1,
     borderColor: colors.border.medium,
     marginBottom: -spacing.lg,
   },
   bubbleInline: {
-    height: "auto" as unknown as number,
     minHeight: 60,
     borderTopWidth: 0,
     marginBottom: 0,
     borderRadius: 12,
     borderWidth: 1,
+  },
+  statusOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  statusText: {
+    color: "#fbbf24",
+    fontSize: 13,
+    fontFamily: fontFamily.mono,
+    fontStyle: "italic",
+    letterSpacing: 1,
+  },
+  sheenBeam: {
+    position: "absolute",
+    top: 0,
+    left: 0,
   },
   textArea: {
     flex: 1,
@@ -679,14 +950,12 @@ const dialogStyles = StyleSheet.create({
     fontSize: 14,
     color: colors.accent.primary,
   },
-  doneHint: {
+  doneArrow: {
     position: "absolute",
     bottom: 0,
     right: 0,
-    fontSize: 12,
+    fontSize: 14,
     color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    fontStyle: "italic",
   },
   loadingRow: {
     flex: 1,
