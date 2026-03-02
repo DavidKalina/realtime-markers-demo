@@ -23,6 +23,7 @@ import Reanimated, {
   withTiming,
   withDelay,
   withRepeat,
+  withSequence,
   interpolate,
   cancelAnimation,
   Easing,
@@ -39,8 +40,6 @@ import { colors, spacing, fontFamily } from "@/theme";
 import type { AreaScanMetadata } from "@/services/api/modules/areaScan";
 
 const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
-const AnimatedSvg = Reanimated.createAnimatedComponent(Svg);
-
 // --- Constants ---
 
 const COLLAPSED_HEIGHT = 44;
@@ -679,11 +678,12 @@ export function DialogBox({
       statusOpacity.value = 1;
       sheenActive.value = 1;
       setStatusText(loadingText || "Generating insight");
+      cancelAnimation(sheenPos);
       sheenPos.value = 0;
       sheenPos.value = withRepeat(
-        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
         -1,
-        false,
+        true,
       );
     }
   }, [isLoading, inline]);
@@ -711,27 +711,29 @@ export function DialogBox({
         // Phase 1: "Insight ready" + final sheen sweep
         setStatusText("Insight ready");
         phase.value = 1;
-        sheenPos.value = 0;
-        sheenPos.value = withTiming(
-          1,
-          { duration: 600, easing: Easing.inOut(Easing.ease) },
-          (finished) => {
-            if (!finished) return;
-            // Phase 2: expand + fade out status text
-            phase.value = 2;
-            sheenActive.value = 0;
-            statusOpacity.value = withTiming(0, { duration: 200 });
-            animHeight.value = withTiming(
-              targetHeightSV.value,
-              { duration: 400, easing: Easing.out(Easing.cubic) },
-              (finished2) => {
-                if (!finished2) return;
-                // Phase 3: content fade in
-                phase.value = 3;
-                contentOpacity.value = withTiming(1, { duration: 200 });
-              },
-            );
-          },
+        sheenPos.value = withSequence(
+          withTiming(0, { duration: 0 }),
+          withTiming(
+            1,
+            { duration: 600, easing: Easing.inOut(Easing.ease) },
+            (finished) => {
+              if (!finished) return;
+              // Phase 2: expand + fade out status text
+              phase.value = 2;
+              sheenActive.value = 0;
+              statusOpacity.value = withTiming(0, { duration: 200 });
+              animHeight.value = withTiming(
+                targetHeightSV.value,
+                { duration: 400, easing: Easing.out(Easing.cubic) },
+                (finished2) => {
+                  if (!finished2) return;
+                  // Phase 3: content fade in
+                  phase.value = 3;
+                  contentOpacity.value = withTiming(1, { duration: 200 });
+                },
+              );
+            },
+          ),
         );
       }
     } else if (prevIsLoading.current === null && !isLoading) {
@@ -836,29 +838,32 @@ export function DialogBox({
 
       {/* Golden sheen sweep (phases 0–1) */}
       {containerMeasured && (
-        <AnimatedSvg
+        <Reanimated.View
           style={[dialogStyles.sheenBeam, sheenAnimStyle]}
-          width={SHEEN_WIDTH}
-          height={COLLAPSED_HEIGHT}
           pointerEvents="none"
         >
-          <Defs>
-            <LinearGradient id="goldenSheen" x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0" stopColor="#fbbf24" stopOpacity="0" />
-              <Stop offset="0.3" stopColor="#fbbf24" stopOpacity="0.5" />
-              <Stop offset="0.5" stopColor="#fef3c7" stopOpacity="0.8" />
-              <Stop offset="0.7" stopColor="#fbbf24" stopOpacity="0.5" />
-              <Stop offset="1" stopColor="#fbbf24" stopOpacity="0" />
-            </LinearGradient>
-          </Defs>
-          <Rect
-            x="0"
-            y="0"
+          <Svg
             width={SHEEN_WIDTH}
             height={COLLAPSED_HEIGHT}
-            fill="url(#goldenSheen)"
-          />
-        </AnimatedSvg>
+          >
+            <Defs>
+              <LinearGradient id="goldenSheen" x1="0" y1="0" x2="1" y2="0">
+                <Stop offset="0" stopColor="#fbbf24" stopOpacity="0" />
+                <Stop offset="0.3" stopColor="#fbbf24" stopOpacity="0.5" />
+                <Stop offset="0.5" stopColor="#fef3c7" stopOpacity="0.8" />
+                <Stop offset="0.7" stopColor="#fbbf24" stopOpacity="0.5" />
+                <Stop offset="1" stopColor="#fbbf24" stopOpacity="0" />
+              </LinearGradient>
+            </Defs>
+            <Rect
+              x="0"
+              y="0"
+              width={SHEEN_WIDTH}
+              height={COLLAPSED_HEIGHT}
+              fill="url(#goldenSheen)"
+            />
+          </Svg>
+        </Reanimated.View>
       )}
 
       {/* Content (phase 3) */}
