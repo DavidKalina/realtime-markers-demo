@@ -33,6 +33,8 @@ interface UseLandingPageDataProps {
   trendingLimit?: number;
   radius?: number;
   city?: string;
+  includeCategoryIds?: string[];
+  excludeCategoryIds?: string[];
 }
 
 interface UseLandingPageDataReturn {
@@ -52,6 +54,8 @@ const useLandingPageData = ({
   trendingLimit = 5,
   radius,
   city,
+  includeCategoryIds,
+  excludeCategoryIds,
 }: UseLandingPageDataProps = {}): UseLandingPageDataReturn => {
   const [landingData, setLandingData] = useState<LandingPageData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -72,6 +76,8 @@ const useLandingPageData = ({
         trendingLimit,
         radius,
         city,
+        includeCategoryIds,
+        excludeCategoryIds,
       });
 
       setLandingData(data);
@@ -91,6 +97,8 @@ const useLandingPageData = ({
     trendingLimit,
     radius,
     city,
+    includeCategoryIds,
+    excludeCategoryIds,
   ]);
 
   const refresh = useCallback(async () => {

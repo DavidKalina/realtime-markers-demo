@@ -45,6 +45,10 @@ const SearchListScreen = () => {
   const [selectedDistance, setSelectedDistance] = useState(15);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
 
+  // Category include/exclude filter state
+  const [includedCategoryIds, setIncludedCategoryIds] = useState<string[]>([]);
+  const [excludedCategoryIds, setExcludedCategoryIds] = useState<string[]>([]);
+
   // Load persisted distance preference
   useEffect(() => {
     AsyncStorage.getItem(DISTANCE_STORAGE_KEY).then((val) => {
@@ -67,6 +71,23 @@ const SearchListScreen = () => {
     setSelectedCity(city);
   }, []);
 
+  const handleCategoryFilterChange = useCallback(
+    (categoryId: string, mode: "include" | "exclude" | "none") => {
+      Haptics.selectionAsync();
+      setIncludedCategoryIds((prev) =>
+        prev
+          .filter((id) => id !== categoryId)
+          .concat(mode === "include" ? [categoryId] : []),
+      );
+      setExcludedCategoryIds((prev) =>
+        prev
+          .filter((id) => id !== categoryId)
+          .concat(mode === "exclude" ? [categoryId] : []),
+      );
+    },
+    [],
+  );
+
   const hasUserLocation = !!userLocation;
 
   // Use landing page data hook
@@ -84,6 +105,10 @@ const SearchListScreen = () => {
     trendingLimit: 5,
     radius: hasUserLocation ? selectedDistance : undefined,
     city: selectedCity || undefined,
+    includeCategoryIds:
+      includedCategoryIds.length > 0 ? includedCategoryIds : undefined,
+    excludeCategoryIds:
+      excludedCategoryIds.length > 0 ? excludedCategoryIds : undefined,
   });
 
   // Track if we're showing landing page or search results
@@ -212,6 +237,9 @@ const SearchListScreen = () => {
             selectedCity={selectedCity}
             onCityChange={handleCityChange}
             categories={landingData?.popularCategories || []}
+            includedCategoryIds={includedCategoryIds}
+            excludedCategoryIds={excludedCategoryIds}
+            onCategoryFilterChange={handleCategoryFilterChange}
           />
         ) : undefined
       }

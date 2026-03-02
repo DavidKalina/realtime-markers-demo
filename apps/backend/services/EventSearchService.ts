@@ -61,6 +61,8 @@ export interface EventSearchService {
     userLng?: number;
     radiusMeters?: number;
     city?: string;
+    includeCategoryIds?: string[];
+    excludeCategoryIds?: string[];
   }): Promise<{
     featuredEvents: Event[];
     upcomingEvents: Event[];
@@ -593,6 +595,8 @@ export class EventSearchServiceImpl implements EventSearchService {
     userLng?: number;
     radiusMeters?: number;
     city?: string;
+    includeCategoryIds?: string[];
+    excludeCategoryIds?: string[];
   }): Promise<(Event & { isTrending: true; trendingScore: number })[]> {
     const {
       limit,
@@ -601,12 +605,16 @@ export class EventSearchServiceImpl implements EventSearchService {
       userLng,
       radiusMeters,
       city: cityFilter,
+      includeCategoryIds,
+      excludeCategoryIds,
     } = options;
 
     try {
       const queryParams: unknown[] = [threshold, limit];
       let geoFilter = "";
       let cityFilterSql = "";
+      let includeCatSql = "";
+      let excludeCatSql = "";
 
       if (userLat && userLng) {
         const effectiveRadius = radiusMeters || 50000;
@@ -618,6 +626,18 @@ export class EventSearchServiceImpl implements EventSearchService {
         const cityParamIdx = queryParams.length + 1;
         cityFilterSql = `AND e.city = $${cityParamIdx}`;
         queryParams.push(cityFilter);
+      }
+
+      if (includeCategoryIds && includeCategoryIds.length > 0) {
+        const paramIdx = queryParams.length + 1;
+        includeCatSql = `AND EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = e.id AND ec.category_id = ANY($${paramIdx}))`;
+        queryParams.push(includeCategoryIds);
+      }
+
+      if (excludeCategoryIds && excludeCategoryIds.length > 0) {
+        const paramIdx = queryParams.length + 1;
+        excludeCatSql = `AND NOT EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = e.id AND ec.category_id = ANY($${paramIdx}))`;
+        queryParams.push(excludeCategoryIds);
       }
 
       const query = `
@@ -636,6 +656,8 @@ export class EventSearchServiceImpl implements EventSearchService {
         AND (COALESCE(s.save_count_24h,0) * 3 + COALESCE(r.rsvp_count_24h,0) * 3 + COALESCE(v.view_count_24h,0) * 1 + COALESCE(d.scan_count_24h,0) * 2) >= $1
         ${geoFilter}
         ${cityFilterSql}
+        ${includeCatSql}
+        ${excludeCatSql}
         ORDER BY trending_score DESC
         LIMIT $2
       `;
@@ -685,6 +707,8 @@ export class EventSearchServiceImpl implements EventSearchService {
     userLng?: number;
     radiusMeters?: number;
     city?: string;
+    includeCategoryIds?: string[];
+    excludeCategoryIds?: string[];
   }): Promise<
     (Event & {
       discoveredAt: string;
@@ -698,6 +722,8 @@ export class EventSearchServiceImpl implements EventSearchService {
       userLng,
       radiusMeters,
       city: cityFilter,
+      includeCategoryIds,
+      excludeCategoryIds,
     } = options;
 
     try {
@@ -731,6 +757,20 @@ export class EventSearchServiceImpl implements EventSearchService {
 
       if (cityFilter) {
         qb = qb.andWhere("event.city = :discCity", { discCity: cityFilter });
+      }
+
+      if (includeCategoryIds && includeCategoryIds.length > 0) {
+        qb = qb.andWhere(
+          `EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = event.id AND ec.category_id IN (:...discIncludeCatIds))`,
+          { discIncludeCatIds: includeCategoryIds },
+        );
+      }
+
+      if (excludeCategoryIds && excludeCategoryIds.length > 0) {
+        qb = qb.andWhere(
+          `NOT EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = event.id AND ec.category_id IN (:...discExcludeCatIds))`,
+          { discExcludeCatIds: excludeCategoryIds },
+        );
       }
 
       qb = qb.orderBy("discovery.discoveredAt", "DESC").limit(limit);
@@ -770,6 +810,8 @@ export class EventSearchServiceImpl implements EventSearchService {
       userLng?: number;
       radiusMeters?: number;
       city?: string;
+      includeCategoryIds?: string[];
+      excludeCategoryIds?: string[];
     } = {},
   ): Promise<{
     featuredEvents: Event[];
@@ -794,10 +836,18 @@ export class EventSearchServiceImpl implements EventSearchService {
       userLng,
       radiusMeters,
       city,
+      includeCategoryIds,
+      excludeCategoryIds,
     } = options;
 
     // Create a cache key based on the parameters
-    const cacheKey = `landing:${featuredLimit}:${upcomingLimit}:${communityLimit}:${discoveryLimit}:${trendingLimit}:${excludeUserId || "anon"}:${userLat || "null"}:${userLng || "null"}:${radiusMeters || "null"}:${city || "all"}`;
+    const includeCatKey = includeCategoryIds?.length
+      ? includeCategoryIds.sort().join(",")
+      : "none";
+    const excludeCatKey = excludeCategoryIds?.length
+      ? excludeCategoryIds.sort().join(",")
+      : "none";
+    const cacheKey = `landing:${featuredLimit}:${upcomingLimit}:${communityLimit}:${discoveryLimit}:${trendingLimit}:${excludeUserId || "anon"}:${userLat || "null"}:${userLng || "null"}:${radiusMeters || "null"}:${city || "all"}:inc=${includeCatKey}:exc=${excludeCatKey}`;
 
     // Check if we have cached results
     const cachedResults =
@@ -877,6 +927,22 @@ export class EventSearchServiceImpl implements EventSearchService {
         // Apply city filter
         if (city) {
           qb.andWhere("event.city = :filterCity", { filterCity: city });
+        }
+
+        // Include filter: events must have at least one category in the list
+        if (includeCategoryIds && includeCategoryIds.length > 0) {
+          qb.andWhere(
+            `EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = event.id AND ec.category_id IN (:...includeCatIds))`,
+            { includeCatIds: includeCategoryIds },
+          );
+        }
+
+        // Exclude filter: events must NOT have any category in the list
+        if (excludeCategoryIds && excludeCategoryIds.length > 0) {
+          qb.andWhere(
+            `NOT EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = event.id AND ec.category_id IN (:...excludeCatIds))`,
+            { excludeCatIds: excludeCategoryIds },
+          );
         }
 
         // Exclude events already used in other sections
@@ -984,6 +1050,8 @@ export class EventSearchServiceImpl implements EventSearchService {
       userLng,
       radiusMeters,
       city,
+      includeCategoryIds,
+      excludeCategoryIds,
     });
 
     console.log(`Found ${justDiscoveredEvents.length} just discovered events`);
@@ -995,6 +1063,8 @@ export class EventSearchServiceImpl implements EventSearchService {
       userLng,
       radiusMeters,
       city,
+      includeCategoryIds,
+      excludeCategoryIds,
     });
 
     console.log(`Found ${trendingEvents.length} trending events`);

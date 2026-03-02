@@ -589,10 +589,19 @@ export const getLandingPageDataHandler: EventHandler = withErrorHandling(
     const trendingLimit = c.req.query("trendingLimit");
     const radiusMiles = c.req.query("radius");
     const city = c.req.query("city");
+    const includeCategoryIdsRaw = c.req.query("includeCategoryIds");
+    const excludeCategoryIdsRaw = c.req.query("excludeCategoryIds");
 
     const user = requireAuth(c);
 
     const eventService = getEventService(c);
+
+    const includeCategoryIds = includeCategoryIdsRaw
+      ? includeCategoryIdsRaw.split(",").filter(Boolean)
+      : undefined;
+    const excludeCategoryIds = excludeCategoryIdsRaw
+      ? excludeCategoryIdsRaw.split(",").filter(Boolean)
+      : undefined;
 
     const landingPageData = await eventService.getLandingPageData({
       userLat: userLat ? parseFloat(userLat) : undefined,
@@ -607,6 +616,8 @@ export const getLandingPageDataHandler: EventHandler = withErrorHandling(
         : undefined,
       city: city || undefined,
       excludeUserId: user.id,
+      includeCategoryIds,
+      excludeCategoryIds,
     });
 
     return c.json(landingPageData);

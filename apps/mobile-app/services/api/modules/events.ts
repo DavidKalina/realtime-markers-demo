@@ -254,6 +254,8 @@ export class EventApiClient extends BaseApiModule {
       trendingLimit?: number;
       radius?: number;
       city?: string;
+      includeCategoryIds?: string[];
+      excludeCategoryIds?: string[];
     } = {},
   ): Promise<{
     featuredEvents: EventType[];
@@ -287,6 +289,16 @@ export class EventApiClient extends BaseApiModule {
     if (params.radius !== undefined)
       queryParams.append("radius", params.radius.toString());
     if (params.city) queryParams.append("city", params.city);
+    if (params.includeCategoryIds?.length)
+      queryParams.append(
+        "includeCategoryIds",
+        params.includeCategoryIds.join(","),
+      );
+    if (params.excludeCategoryIds?.length)
+      queryParams.append(
+        "excludeCategoryIds",
+        params.excludeCategoryIds.join(","),
+      );
 
     const url = `${this.client.baseUrl}/api/events/landing?${queryParams.toString()}`;
     const response = await this.fetchWithAuth(url);

@@ -380,6 +380,8 @@ export class EventServiceRefactored implements EventService {
     userLng?: number;
     radiusMeters?: number;
     city?: string;
+    includeCategoryIds?: string[];
+    excludeCategoryIds?: string[];
   }): Promise<{
     featuredEvents: EventSummary[];
     upcomingEvents: EventSummary[];
