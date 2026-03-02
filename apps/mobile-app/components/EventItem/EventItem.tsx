@@ -6,7 +6,6 @@ import {
   fontSize,
   fontWeight,
   fontFamily,
-  spring,
 } from "@/theme";
 import { Calendar, ChevronRight, MapPin } from "lucide-react-native";
 import React, { useCallback } from "react";
@@ -17,8 +16,10 @@ import Animated, {
   LinearTransition,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 
 interface EventItemProps {
   event: EventType;
@@ -45,17 +46,18 @@ const EventItem: React.FC<EventItemProps> = ({
     transform: [{ scale: scale.value }],
   }));
 
-  const handlePressIn = useCallback(() => {
-    scale.value = withSpring(0.98, spring.stiff);
-  }, []);
-
-  const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, spring.stiff);
-  }, []);
-
-  const handlePress = useCallback(() => {
+  const navigate = useCallback(() => {
     onPress(event);
   }, [event, onPress]);
+
+  const handlePress = useCallback(() => {
+    scale.value = withSequence(
+      withTiming(0.98, { duration: 80 }),
+      withTiming(1, { duration: 100 }, () => {
+        scheduleOnRN(navigate);
+      }),
+    );
+  }, [navigate, scale]);
 
   const getStyles = () => {
     switch (variant) {
@@ -82,8 +84,6 @@ const EventItem: React.FC<EventItemProps> = ({
       <TouchableOpacity
         onPress={handlePress}
         activeOpacity={1}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
       >
         <View style={styles.eventCardContent}>
           <View style={styles.emojiContainer}>

@@ -32,7 +32,7 @@ import React, {
 } from "react";
 import { Platform, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Navigation } from "lucide-react-native";
+import { Navigation, Search } from "lucide-react-native";
 import { scheduleOnRN } from "react-native-worklets";
 
 // Set access token at module scope (lightweight, required before MapView renders)
@@ -342,12 +342,24 @@ function HomeScreenContent() {
     );
   }, [isLoadingLocation]);
 
+  // Navigate to search screen
+  const handleSearchPress = useCallback(() => {
+    router.push("/search");
+  }, [router]);
+
   // Memoize floating buttons section
   const floatingButtonsSection = useMemo(
     () => (
       <View style={floatingDateButtonStyle}>
         <DateRangeIndicator />
         <PlusButton />
+        <TouchableOpacity
+          style={homeScreenStyles.recenterButton}
+          onPress={handleSearchPress}
+          activeOpacity={0.7}
+        >
+          <Search size={22} color={colors.accent.primary} />
+        </TouchableOpacity>
         {!isFollowing && (
           <TouchableOpacity
             style={homeScreenStyles.recenterButton}
@@ -359,7 +371,7 @@ function HomeScreenContent() {
         )}
       </View>
     ),
-    [floatingDateButtonStyle, isFollowing, recenter],
+    [floatingDateButtonStyle, isFollowing, recenter, handleSearchPress],
   );
 
   // Memoize ripple effect component

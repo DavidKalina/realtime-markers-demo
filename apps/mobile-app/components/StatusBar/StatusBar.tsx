@@ -35,8 +35,7 @@ const StatusBar: React.FC = () => {
   const displayName = user?.firstName || user?.email || "";
 
   const totalXp = user?.totalXp || 0;
-  const currentTier = user?.currentTier || "Explorer";
-  const tierInfo = getTierByName(currentTier);
+  const tierInfo = getTierByName(user?.currentTier || "Explorer");
   const progressPercent = getXPProgressPercent(totalXp);
   const nextThreshold = getNextTierThreshold(totalXp);
 

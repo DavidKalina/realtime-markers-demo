@@ -192,6 +192,16 @@ export class AuthService {
         "isVerified",
         "avatarUrl",
         "saveCount",
+        "totalXp",
+        "currentTier",
+        "firstName",
+        "lastName",
+        "bio",
+        "discoveryCount",
+        "scanCount",
+        "viewCount",
+        "followerCount",
+        "followingCount",
       ],
     });
 

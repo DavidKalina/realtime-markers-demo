@@ -7,28 +7,29 @@ import Animated, {
   cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
-import { colors, spacing, spring } from "@/theme";
+import { scheduleOnRN } from "react-native-worklets";
+import { colors, spacing } from "@/theme";
 
 const PlusButton: React.FC = () => {
   const scale = useSharedValue(1);
   const router = useRouter();
 
-  const handlePressIn = useCallback(() => {
-    cancelAnimation(scale);
-    scale.value = withSpring(0.85, spring.snappy);
-  }, [scale]);
-
-  const handlePressOut = useCallback(() => {
-    cancelAnimation(scale);
-    scale.value = withSpring(1, spring.bouncy);
-  }, [scale]);
+  const navigate = useCallback(() => {
+    router.push("/scan");
+  }, [router]);
 
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/scan");
-  }, [router]);
+    scale.value = withSequence(
+      withTiming(0.85, { duration: 80 }),
+      withTiming(1, { duration: 100 }, () => {
+        scheduleOnRN(navigate);
+      }),
+    );
+  }, [navigate, scale]);
 
   // Cleanup animations on unmount
   useEffect(() => {
@@ -42,11 +43,7 @@ const PlusButton: React.FC = () => {
   }));
 
   return (
-    <Pressable
-      onPress={handlePress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-    >
+    <Pressable onPress={handlePress}>
       <Animated.View style={[styles.container, animatedStyle]}>
         <Plus size={22} color={colors.accent.primary} />
       </Animated.View>

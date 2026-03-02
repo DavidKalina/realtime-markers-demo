@@ -74,10 +74,15 @@ function getServices(c: Context<AppContext>) {
  */
 export const registerHandler: AuthHandler = async (c) => {
   try {
-    const { email, password } = await c.req.json();
+    const { email, password, firstName, lastName } = await c.req.json();
     const { authService } = getServices(c);
 
-    const user = await authService.register({ email, password });
+    const user = await authService.register({
+      email,
+      password,
+      firstName,
+      lastName,
+    });
     // Log in the user right after registration
     const { tokens } = await authService.login(email, password);
 

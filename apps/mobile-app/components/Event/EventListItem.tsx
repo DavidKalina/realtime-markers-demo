@@ -4,10 +4,11 @@ import Animated, {
   FadeIn,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { colors, fontSize, fontFamily, fontWeight, spacing } from "@/theme";
-import { spring } from "@/theme/tokens/animation";
 
 export interface EventListItemProps {
   id: string;
@@ -101,7 +102,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
   }) => {
     const scale = useSharedValue(1);
 
-    const handlePress = useCallback(() => {
+    const navigate = useCallback(() => {
       onPress({
         id,
         title,
@@ -137,13 +138,14 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
       onPress,
     ]);
 
-    const handlePressIn = useCallback(() => {
-      scale.value = withSpring(0.97, spring.snappy);
-    }, [scale]);
-
-    const handlePressOut = useCallback(() => {
-      scale.value = withSpring(1, spring.bouncy);
-    }, [scale]);
+    const handlePress = useCallback(() => {
+      scale.value = withSequence(
+        withTiming(0.97, { duration: 80 }),
+        withTiming(1, { duration: 100 }, () => {
+          scheduleOnRN(navigate);
+        }),
+      );
+    }, [navigate, scale]);
 
     const animatedScaleStyle = useAnimatedStyle(() => ({
       transform: [{ scale: scale.value }],
@@ -169,11 +171,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
 
     return (
       <Animated.View entering={FadeIn.duration(200).delay(cappedDelay)}>
-        <Pressable
-          onPress={handlePress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-        >
+        <Pressable onPress={handlePress}>
           <Animated.View style={[styles.row, animatedScaleStyle]}>
             {emoji && <Text style={styles.emoji}>{emoji}</Text>}
             <View style={styles.info}>
