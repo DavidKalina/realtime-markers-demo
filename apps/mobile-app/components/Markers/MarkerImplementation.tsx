@@ -84,17 +84,10 @@ const SingleMarkerView = React.memo(
       return () => clearTimeout(timer);
     }, [newIndex, marker.id, seenHapticIds, isNew]);
 
-    // Only bounce in genuinely new markers (first time this ID appears on
-    // screen). Reclustering remounts use no entering animation so the marker
-    // just pops into place silently. Stagger uses newIndex (position among
-    // new items only) so it's stable across add/remove cycles.
-    const entering = isNew
-      ? BounceIn.springify()
-          .damping(spring.firm.damping)
-          .stiffness(spring.firm.stiffness)
-          .delay(Math.min(newIndex, 5) * 80)
-      : undefined;
-
+    const entering = BounceIn.springify()
+      .damping(spring.firm.damping)
+      .stiffness(spring.firm.stiffness)
+      .delay(Math.min(newIndex, 5) * 80);
     return (
       <MapboxGL.MarkerView
         key={`marker-${marker.id}`}
