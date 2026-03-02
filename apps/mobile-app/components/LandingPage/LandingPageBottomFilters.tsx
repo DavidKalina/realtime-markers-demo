@@ -11,7 +11,6 @@ import {
   Pressable,
   Dimensions,
 } from "react-native";
-import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SlidersHorizontal } from "lucide-react-native";
@@ -47,6 +46,12 @@ interface LandingPageBottomFiltersProps {
   selectedCity: string | null;
   onCityChange: (city: string | null) => void;
   categories: Category[];
+  includedCategoryIds: string[];
+  excludedCategoryIds: string[];
+  onCategoryFilterChange: (
+    categoryId: string,
+    mode: "include" | "exclude" | "none",
+  ) => void;
 }
 
 const LandingPageBottomFilters: React.FC<LandingPageBottomFiltersProps> = ({
@@ -56,8 +61,10 @@ const LandingPageBottomFilters: React.FC<LandingPageBottomFiltersProps> = ({
   selectedCity,
   onCityChange,
   categories,
+  includedCategoryIds,
+  excludedCategoryIds,
+  onCategoryFilterChange,
 }) => {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [sheetOpen, setSheetOpen] = useState(false);
   const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
@@ -113,29 +120,36 @@ const LandingPageBottomFilters: React.FC<LandingPageBottomFiltersProps> = ({
     }),
   ).current;
 
-  const handleCategoryPress = useCallback(
-    (category: Category) => {
-      Haptics.selectionAsync();
-      if (sheetOpen) {
-        Animated.timing(translateY, {
-          toValue: SHEET_HEIGHT,
-          duration: 250,
-          useNativeDriver: true,
-        }).start(() => {
-          setSheetOpen(false);
-          router.push({
-            pathname: "/category/[id]" as const,
-            params: { id: category.id },
-          });
-        });
-      } else {
-        router.push({
-          pathname: "/category/[id]" as const,
-          params: { id: category.id },
-        });
-      }
+  const getCategoryFilterState = useCallback(
+    (categoryId: string): "include" | "exclude" | "none" => {
+      if (includedCategoryIds.includes(categoryId)) return "include";
+      if (excludedCategoryIds.includes(categoryId)) return "exclude";
+      return "none";
     },
-    [router, sheetOpen, translateY],
+    [includedCategoryIds, excludedCategoryIds],
+  );
+
+  const handleCategoryPress = useCallback(
+    (categoryId: string) => {
+      const current = getCategoryFilterState(categoryId);
+      onCategoryFilterChange(
+        categoryId,
+        current === "include" ? "none" : "include",
+      );
+    },
+    [getCategoryFilterState, onCategoryFilterChange],
+  );
+
+  const handleCategoryLongPress = useCallback(
+    (categoryId: string) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const current = getCategoryFilterState(categoryId);
+      onCategoryFilterChange(
+        categoryId,
+        current === "exclude" ? "none" : "exclude",
+      );
+    },
+    [getCategoryFilterState, onCategoryFilterChange],
   );
 
   const handleDistanceChange = useCallback(
@@ -203,15 +217,42 @@ const LandingPageBottomFilters: React.FC<LandingPageBottomFiltersProps> = ({
           {hasCategories &&
             categories.map((cat, index) => {
               const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+              const filterState = getCategoryFilterState(cat.id);
+              const chipStyle =
+                filterState === "include"
+                  ? styles.chipIncluded
+                  : filterState === "exclude"
+                    ? styles.chipExcluded
+                    : { borderColor: color + "40" };
+              const dotColor =
+                filterState === "include"
+                  ? colors.status.success.text
+                  : filterState === "exclude"
+                    ? colors.status.error.text
+                    : color;
+              const textColor =
+                filterState === "include"
+                  ? colors.status.success.text
+                  : filterState === "exclude"
+                    ? colors.status.error.text
+                    : color;
               return (
                 <TouchableOpacity
                   key={cat.id}
-                  style={[styles.chip, { borderColor: color + "40" }]}
-                  onPress={() => handleCategoryPress(cat)}
+                  style={[styles.chip, chipStyle]}
+                  onPress={() => handleCategoryPress(cat.id)}
+                  onLongPress={() => handleCategoryLongPress(cat.id)}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.dot, { backgroundColor: color }]} />
-                  <Text style={[styles.chipText, { color }]} numberOfLines={1}>
+                  <View style={[styles.dot, { backgroundColor: dotColor }]} />
+                  <Text
+                    style={[
+                      styles.chipText,
+                      { color: textColor },
+                      filterState === "exclude" && styles.chipTextExcluded,
+                    ]}
+                    numberOfLines={1}
+                  >
                     {titleCase(cat.name)}
                   </Text>
                 </TouchableOpacity>
@@ -327,23 +368,53 @@ const LandingPageBottomFilters: React.FC<LandingPageBottomFiltersProps> = ({
               {/* Categories section */}
               {hasCategories && (
                 <>
-                  <Text style={styles.sectionLabel}>Categories</Text>
+                  <View>
+                    <Text style={styles.sectionLabel}>Categories</Text>
+                    <Text style={styles.legendHint}>
+                      Tap to include · Long-press to exclude
+                    </Text>
+                  </View>
                   <View style={styles.chipWrap}>
                     {categories.map((cat, index) => {
                       const color =
                         CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+                      const filterState = getCategoryFilterState(cat.id);
+                      const chipStyle =
+                        filterState === "include"
+                          ? styles.chipIncluded
+                          : filterState === "exclude"
+                            ? styles.chipExcluded
+                            : { borderColor: color + "40" };
+                      const dotColor =
+                        filterState === "include"
+                          ? colors.status.success.text
+                          : filterState === "exclude"
+                            ? colors.status.error.text
+                            : color;
+                      const textColor =
+                        filterState === "include"
+                          ? colors.status.success.text
+                          : filterState === "exclude"
+                            ? colors.status.error.text
+                            : color;
                       return (
                         <TouchableOpacity
                           key={cat.id}
-                          style={[styles.chip, { borderColor: color + "40" }]}
-                          onPress={() => handleCategoryPress(cat)}
+                          style={[styles.chip, chipStyle]}
+                          onPress={() => handleCategoryPress(cat.id)}
+                          onLongPress={() => handleCategoryLongPress(cat.id)}
                           activeOpacity={0.7}
                         >
                           <View
-                            style={[styles.dot, { backgroundColor: color }]}
+                            style={[styles.dot, { backgroundColor: dotColor }]}
                           />
                           <Text
-                            style={[styles.chipText, { color }]}
+                            style={[
+                              styles.chipText,
+                              { color: textColor },
+                              filterState === "exclude" &&
+                                styles.chipTextExcluded,
+                            ]}
                             numberOfLines={1}
                           >
                             {titleCase(cat.name)}
@@ -406,6 +477,17 @@ const styles = StyleSheet.create({
   chipTextSelected: {
     color: colors.accent.primary,
   },
+  chipIncluded: {
+    backgroundColor: "rgba(16, 185, 129, 0.15)",
+    borderColor: colors.status.success.border,
+  },
+  chipExcluded: {
+    backgroundColor: colors.status.error.bg,
+    borderColor: colors.status.error.border,
+  },
+  chipTextExcluded: {
+    textDecorationLine: "line-through" as const,
+  },
   dot: {
     width: 6,
     height: 6,
@@ -457,6 +539,12 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+  },
+  legendHint: {
+    fontSize: fontSize.xs,
+    fontFamily: fontFamily.mono,
+    color: colors.text.disabled,
+    marginTop: 2,
   },
   chipWrap: {
     flexDirection: "row",
