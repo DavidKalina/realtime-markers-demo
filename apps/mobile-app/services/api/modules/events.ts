@@ -152,6 +152,30 @@ export class EventApiClient extends BaseApiModule {
     };
   }
 
+  async getInitialViewport(
+    latitude: number,
+    longitude: number,
+  ): Promise<{
+    center: [number, number];
+    zoom: number;
+    hasNearbyEvents: boolean;
+    nearestEventDistance: number | null;
+  }> {
+    const queryParams = new URLSearchParams({
+      lat: latitude.toString(),
+      lng: longitude.toString(),
+    });
+
+    const url = `${this.client.baseUrl}/api/events/initial-viewport?${queryParams.toString()}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{
+      center: [number, number];
+      zoom: number;
+      hasNearbyEvents: boolean;
+      nearestEventDistance: number | null;
+    }>(response);
+  }
+
   async searchEvents(
     query: string,
     params: GetEventsParams = {},

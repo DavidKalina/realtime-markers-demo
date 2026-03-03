@@ -29,6 +29,7 @@ eventsRouter.get("/saved", handlers.getSavedEventsHandler);
 eventsRouter.get("/discovered", handlers.getDiscoveredEventsHandler);
 eventsRouter.get("/my-events", handlers.getUserEventsHandler);
 eventsRouter.get("/nearby", handlers.getNearbyEventsHandler);
+eventsRouter.get("/initial-viewport", handlers.getInitialViewportHandler);
 eventsRouter.get("/categories", handlers.getCategoriesHandler);
 eventsRouter.get("/by-categories", handlers.getEventsByCategoriesHandler);
 eventsRouter.get("/category/:categoryId", handlers.getEventsByCategoryHandler);
@@ -36,7 +37,6 @@ eventsRouter.get("/search", handlers.searchEventsHandler);
 eventsRouter.get("/landing", handlers.getLandingPageDataHandler);
 eventsRouter.post("/process", handlers.processEventImageHandler);
 eventsRouter.get("/process/:jobId", handlers.getProcessingStatusHandler);
-eventsRouter.post("/private", handlers.createPrivateEventHandler);
 eventsRouter.post("/", handlers.createEventHandler);
 
 // Dynamic routes with IDs

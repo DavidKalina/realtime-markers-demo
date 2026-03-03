@@ -3,6 +3,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import MapboxGL from "@rnmapbox/maps";
 import { DEFAULT_CAMERA_SETTINGS } from "@/config/cameraConfig";
 import { MapboxViewport } from "@/types/types";
+import { apiClient } from "@/services/ApiClient";
+
+const VIEWPORT_REQUEST_TIMEOUT_MS = 3000;
 
 interface UseInitialLocationOptions {
   userLocation: [number, number] | null;
@@ -78,10 +81,39 @@ export function useInitialLocation({
       !hasCenteredOnUserRef.current
     ) {
       hasCenteredOnUserRef.current = true;
-      cameraRef.current.setCamera({
-        ...DEFAULT_CAMERA_SETTINGS,
-        centerCoordinate: userLocation,
-      });
+
+      const fetchSmartViewport = async () => {
+        try {
+          const viewportPromise = apiClient.events.getInitialViewport(
+            userLocation[1],
+            userLocation[0],
+          );
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Viewport request timeout")),
+              VIEWPORT_REQUEST_TIMEOUT_MS,
+            ),
+          );
+
+          const viewport = await Promise.race([
+            viewportPromise,
+            timeoutPromise,
+          ]);
+
+          cameraRef.current?.setCamera({
+            centerCoordinate: viewport.center,
+            zoomLevel: viewport.zoom,
+            animationDuration: 0,
+          });
+        } catch {
+          cameraRef.current?.setCamera({
+            ...DEFAULT_CAMERA_SETTINGS,
+            centerCoordinate: userLocation,
+          });
+        }
+      };
+
+      fetchSmartViewport();
     }
   }, [userLocation, isLoadingLocation, currentViewport]);
 }

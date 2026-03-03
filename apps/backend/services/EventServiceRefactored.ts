@@ -64,6 +64,16 @@ export interface EventService {
     endDate?: Date,
   ): Promise<EventSummary[]>;
 
+  getInitialViewport(
+    lat: number,
+    lng: number,
+  ): Promise<{
+    center: [number, number];
+    zoom: number;
+    hasNearbyEvents: boolean;
+    nearestEventDistance: number | null;
+  }>;
+
   storeDetectedQRCode(
     eventId: string,
     qrCodeData: string,
@@ -326,6 +336,10 @@ export class EventServiceRefactored implements EventService {
       startDate,
       endDate,
     );
+  }
+
+  async getInitialViewport(lat: number, lng: number) {
+    return this.searchService.getInitialViewport(lat, lng);
   }
 
   async storeDetectedQRCode(eventId: string, qrCodeData: string) {

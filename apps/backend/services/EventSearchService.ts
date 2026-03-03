@@ -30,6 +30,16 @@ export interface EventSearchService {
     endDate?: Date,
   ): Promise<Event[]>;
 
+  getInitialViewport(
+    lat: number,
+    lng: number,
+  ): Promise<{
+    center: [number, number];
+    zoom: number;
+    hasNearbyEvents: boolean;
+    nearestEventDistance: number | null;
+  }>;
+
   getEventsByCategories(
     categoryIds: string[],
     options?: {
@@ -353,6 +363,77 @@ export class EventSearchServiceImpl implements EventSearchService {
     }
 
     return query.getMany();
+  }
+
+  async getInitialViewport(
+    lat: number,
+    lng: number,
+  ): Promise<{
+    center: [number, number];
+    zoom: number;
+    hasNearbyEvents: boolean;
+    nearestEventDistance: number | null;
+  }> {
+    const NEARBY_RADIUS_METERS = 40000;
+    const NEAREST_EVENT_COUNT = 5;
+    const MAX_VIEWPORT_ZOOM = 14;
+
+    // Step 1: Count events within 40km
+    const countResult = await this.dependencies.dataSource.query(
+      `SELECT COUNT(*) as count FROM events
+       WHERE status IN ('VERIFIED', 'PENDING')
+       AND ST_DWithin(location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)`,
+      [lng, lat, NEARBY_RADIUS_METERS],
+    );
+
+    const nearbyCount = parseInt(countResult[0].count, 10);
+
+    // Step 2: If events exist nearby, return user's location at zoom 14
+    if (nearbyCount > 0) {
+      return {
+        center: [lng, lat],
+        zoom: MAX_VIEWPORT_ZOOM,
+        hasNearbyEvents: true,
+        nearestEventDistance: null,
+      };
+    }
+
+    // Step 3: Find nearest events and compute their centroid
+    const centroidResult = await this.dependencies.dataSource.query(
+      `SELECT
+         ST_X(ST_Centroid(ST_Collect(sub.location::geometry))) as center_lng,
+         ST_Y(ST_Centroid(ST_Collect(sub.location::geometry))) as center_lat,
+         MIN(sub.distance) as nearest_distance
+       FROM (
+         SELECT location,
+           ST_Distance(location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) as distance
+         FROM events
+         WHERE status IN ('VERIFIED', 'PENDING')
+         AND location IS NOT NULL
+         ORDER BY location::geography <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+         LIMIT $3
+       ) sub`,
+      [lng, lat, NEAREST_EVENT_COUNT],
+    );
+
+    // Step 4: If zero events in DB, return user's location at zoom 14
+    const row = centroidResult[0];
+    if (!row || row.center_lng === null) {
+      return {
+        center: [lng, lat],
+        zoom: MAX_VIEWPORT_ZOOM,
+        hasNearbyEvents: false,
+        nearestEventDistance: null,
+      };
+    }
+
+    // Step 5: Center camera on the events cluster at zoom 14
+    return {
+      center: [parseFloat(row.center_lng), parseFloat(row.center_lat)],
+      zoom: MAX_VIEWPORT_ZOOM,
+      hasNearbyEvents: false,
+      nearestEventDistance: parseFloat(row.nearest_distance),
+    };
   }
 
   async getEventsByCategories(

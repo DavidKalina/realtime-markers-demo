@@ -49,6 +49,21 @@ export const getNearbyEventsHandler: EventHandler = withErrorHandling(
   },
 );
 
+export const getInitialViewportHandler: EventHandler = withErrorHandling(
+  async (c) => {
+    const lat = requireQueryParam(c, "lat");
+    const lng = requireQueryParam(c, "lng");
+
+    const eventService = getEventService(c);
+    const viewport = await eventService.getInitialViewport(
+      parseFloat(lat),
+      parseFloat(lng),
+    );
+
+    return c.json(viewport);
+  },
+);
+
 export const getCategoriesHandler: EventHandler = withErrorHandling(
   async (c) => {
     const eventService = getEventService(c);
