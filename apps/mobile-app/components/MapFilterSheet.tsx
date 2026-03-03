@@ -63,7 +63,7 @@ const CATEGORY_COLORS = ["#93c5fd", "#86efac", "#fcd34d", "#c4b5fd", "#fda4af"];
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const SHEET_MAX = SCREEN_HEIGHT * 0.85;
-const SHEET_MIN = SCREEN_HEIGHT * 0.35;
+const SHEET_MIN = SCREEN_HEIGHT * 0.32;
 // translateY offsets for each snap position (sheet height is always SHEET_MAX)
 const SNAP_EXPANDED = 0;
 const SNAP_COLLAPSED = SHEET_MAX - SHEET_MIN;
@@ -428,53 +428,75 @@ const MapFilterSheet: React.FC<MapFilterSheetProps> = ({
                 </Text>
               </View>
 
-              <View style={styles.chipWrap}>
-                {categories.map((cat, index) => {
-                  const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
-                  const filterState = getCategoryFilterState(cat.id);
-                  const chipStyle =
-                    filterState === "include"
-                      ? styles.chipIncluded
-                      : filterState === "exclude"
-                        ? styles.chipExcluded
-                        : { borderColor: color + "40" };
-                  const dotColor =
-                    filterState === "include"
-                      ? colors.status.success.text
-                      : filterState === "exclude"
-                        ? colors.status.error.text
-                        : color;
-                  const textColor =
-                    filterState === "include"
-                      ? colors.status.success.text
-                      : filterState === "exclude"
-                        ? colors.status.error.text
-                        : color;
-                  return (
-                    <TouchableOpacity
-                      key={cat.id}
-                      style={[styles.chip, chipStyle]}
-                      onPress={() => handleCategoryPress(cat.id)}
-                      onLongPress={() => handleCategoryLongPress(cat.id)}
-                      activeOpacity={0.7}
-                    >
-                      <View
-                        style={[styles.dot, { backgroundColor: dotColor }]}
-                      />
-                      <Text
-                        style={[
-                          styles.chipText,
-                          { color: textColor },
-                          filterState === "exclude" && styles.chipTextExcluded,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {titleCase(cat.name)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipScrollContent}
+              >
+                <View style={styles.chipRows}>
+                  {[0, 1, 2].map((row) => (
+                    <View key={row} style={styles.chipRow}>
+                      {categories
+                        .filter((_, i) => i % 3 === row)
+                        .map((cat) => {
+                          const color =
+                            CATEGORY_COLORS[
+                              categories.indexOf(cat) %
+                                CATEGORY_COLORS.length
+                            ];
+                          const filterState = getCategoryFilterState(cat.id);
+                          const chipStyle =
+                            filterState === "include"
+                              ? styles.chipIncluded
+                              : filterState === "exclude"
+                                ? styles.chipExcluded
+                                : { borderColor: color + "40" };
+                          const dotColor =
+                            filterState === "include"
+                              ? colors.status.success.text
+                              : filterState === "exclude"
+                                ? colors.status.error.text
+                                : color;
+                          const textColor =
+                            filterState === "include"
+                              ? colors.status.success.text
+                              : filterState === "exclude"
+                                ? colors.status.error.text
+                                : color;
+                          return (
+                            <TouchableOpacity
+                              key={cat.id}
+                              style={[styles.chip, chipStyle]}
+                              onPress={() => handleCategoryPress(cat.id)}
+                              onLongPress={() =>
+                                handleCategoryLongPress(cat.id)
+                              }
+                              activeOpacity={0.7}
+                            >
+                              <View
+                                style={[
+                                  styles.dot,
+                                  { backgroundColor: dotColor },
+                                ]}
+                              />
+                              <Text
+                                style={[
+                                  styles.chipText,
+                                  { color: textColor },
+                                  filterState === "exclude" &&
+                                    styles.chipTextExcluded,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {titleCase(cat.name)}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
 
             </ScrollView>
           </Animated.View>
@@ -574,9 +596,14 @@ const styles = StyleSheet.create({
   presetLabelActive: {
     color: colors.accent.primary,
   },
-  chipWrap: {
+  chipScrollContent: {
+    paddingRight: spacing.sm,
+  },
+  chipRows: {
+    gap: spacing._6,
+  },
+  chipRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: spacing._6,
   },
   chip: {

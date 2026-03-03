@@ -11,7 +11,6 @@ import EventListItem, {
   EventListItemProps,
 } from "@/components/Event/EventListItem";
 import LandingPageContent from "@/components/LandingPage/LandingPageContent";
-import LandingPageBottomFilters from "@/components/LandingPage/LandingPageBottomFilters";
 import useEventSearch from "@/hooks/useEventSearch";
 import useLandingPageData from "@/hooks/useLandingPageData";
 import useLeaderboard from "@/hooks/useLeaderboard";
@@ -46,14 +45,10 @@ const SearchListScreen = () => {
 
   // Distance & city filter state
   const [selectedDistance, setSelectedDistance] = useState(15);
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [selectedCity] = useState<string | null>(null);
 
   // Category include/exclude filter state (shared with map screen)
-  const {
-    includedCategoryIds,
-    excludedCategoryIds,
-    handleCategoryFilterChange,
-  } = useCategoryPreferences();
+  const { includedCategoryIds, excludedCategoryIds } = useCategoryPreferences();
 
   // Load persisted distance preference
   useEffect(() => {
@@ -63,18 +58,6 @@ const SearchListScreen = () => {
         if (!isNaN(parsed)) setSelectedDistance(parsed);
       }
     });
-  }, []);
-
-  const handleDistanceChange = useCallback((distance: number) => {
-    Haptics.selectionAsync();
-    setSelectedDistance(distance);
-    setSelectedCity(null);
-    AsyncStorage.setItem(DISTANCE_STORAGE_KEY, String(distance));
-  }, []);
-
-  const handleCityChange = useCallback((city: string | null) => {
-    Haptics.selectionAsync();
-    setSelectedCity(city);
   }, []);
 
   const hasUserLocation = !!userLocation;
@@ -222,21 +205,6 @@ const SearchListScreen = () => {
       showBackButton
       onBack={handleBack}
       noAnimation
-      bottomContent={
-        showLandingPage ? (
-          <LandingPageBottomFilters
-            selectedDistance={selectedDistance}
-            onDistanceChange={handleDistanceChange}
-            availableCities={landingData?.availableCities || []}
-            selectedCity={selectedCity}
-            onCityChange={handleCityChange}
-            categories={landingData?.popularCategories || []}
-            includedCategoryIds={includedCategoryIds}
-            excludedCategoryIds={excludedCategoryIds}
-            onCategoryFilterChange={handleCategoryFilterChange}
-          />
-        ) : undefined
-      }
     >
       <Input
         ref={searchInputRef}
