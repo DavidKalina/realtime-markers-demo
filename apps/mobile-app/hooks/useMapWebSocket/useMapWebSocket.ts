@@ -1,18 +1,13 @@
 // hooks/useMapWebSocket/useMapWebSocket.ts - Main orchestrator
-import { useEffect, useState, useCallback, useRef } from "react";
-import {
-  eventBroker,
-  EventTypes,
-  ViewportEvent,
-  BaseEvent,
-} from "@/services/EventBroker";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { useAuth } from "@/contexts/AuthContext";
+import { eventBroker, EventTypes, ViewportEvent } from "@/services/EventBroker";
+import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { MessageTypes } from "./constants";
 import type { MapWebSocketResult } from "./types";
 import { useMessageHandler } from "./useMessageHandler";
 import { useWebSocketConnection } from "./useWebSocketConnection";
-import { MessageTypes } from "./constants";
 
 export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const [isConnected, setIsConnected] = useState<boolean>(false);

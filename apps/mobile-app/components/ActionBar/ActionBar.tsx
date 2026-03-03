@@ -8,9 +8,9 @@ import * as Haptics from "expo-haptics";
 import { usePathname, useRouter } from "expo-router";
 import {
   Camera,
+  CompassIcon,
   HeartIcon,
   LucideIcon,
-  Navigation,
   SearchIcon,
   User,
 } from "lucide-react-native";
@@ -52,11 +52,41 @@ interface TabConfig {
 }
 
 const TABS: TabConfig[] = [
-  { key: "search", label: "Search", icon: SearchIcon, route: "/search", activeColor: colors.action.map },
-  { key: "scan", label: "Scan", icon: Camera, route: "/scan", activeColor: colors.action.rsvp },
-  { key: "locate", label: "Locate", icon: Navigation, requiresLocation: true, activeColor: colors.action.save },
-  { key: "saved", label: "Saved", icon: HeartIcon, route: "/saved", activeColor: colors.action.save },
-  { key: "user", label: "Me", icon: User, route: "/user", activeColor: colors.action.share },
+  {
+    key: "search",
+    label: "Search",
+    icon: SearchIcon,
+    route: "/search",
+    activeColor: colors.action.map,
+  },
+  {
+    key: "scan",
+    label: "Scan",
+    icon: Camera,
+    route: "/scan",
+    activeColor: colors.action.rsvp,
+  },
+  {
+    key: "locate",
+    label: "Discover",
+    icon: CompassIcon,
+    requiresLocation: true,
+    activeColor: colors.action.save,
+  },
+  {
+    key: "saved",
+    label: "Saved",
+    icon: HeartIcon,
+    route: "/saved",
+    activeColor: colors.action.save,
+  },
+  {
+    key: "user",
+    label: "Me",
+    icon: User,
+    route: "/user",
+    activeColor: colors.action.share,
+  },
 ];
 
 const HIDDEN_ROUTES = ["/register", "/login"];
@@ -109,12 +139,19 @@ const ActionButton: React.FC<{
       <Animated.View style={[styles.actionButtonInner, animatedButtonStyle]}>
         <View style={styles.actionButtonIcon}>
           <IconComponent size={20} color={iconColor} />
-          {showBadge && <View style={[styles.badgeDot, { backgroundColor: tab.activeColor }]} />}
+          {showBadge && (
+            <View
+              style={[styles.badgeDot, { backgroundColor: tab.activeColor }]}
+            />
+          )}
         </View>
         <Text
           style={[
             styles.actionButtonLabel,
-            isActive && { color: tab.activeColor, fontWeight: fontWeight.semibold },
+            isActive && {
+              color: tab.activeColor,
+              fontWeight: fontWeight.semibold,
+            },
           ]}
           numberOfLines={1}
         >
