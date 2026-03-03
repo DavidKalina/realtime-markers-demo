@@ -13,6 +13,7 @@ import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import { addDays, format } from "date-fns";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
+import type { EmailService } from "./shared/EmailService";
 
 // Create a registration-specific interface that includes password
 export interface UserRegistrationData extends Omit<UserInput, "passwordHash"> {
@@ -29,6 +30,7 @@ export interface AuthServiceDependencies {
   userPreferencesService: UserPreferencesServiceImpl;
   dataSource: DataSource;
   openAIService: OpenAIService;
+  emailService: EmailService;
 }
 
 export class AuthService {
@@ -40,14 +42,21 @@ export class AuthService {
   private userPreferencesService: UserPreferencesServiceImpl;
   private dataSource: DataSource;
   private openAIService: OpenAIService;
+  private emailService: EmailService;
 
   constructor(private dependencies: AuthServiceDependencies) {
     this.userRepository = dependencies.userRepository;
     this.userPreferencesService = dependencies.userPreferencesService;
     this.dataSource = dependencies.dataSource;
     this.openAIService = dependencies.openAIService;
-    this.jwtSecret = process.env.JWT_SECRET || "your-secret-key";
-    this.refreshSecret = process.env.REFRESH_SECRET || "your-refresh-secret";
+    this.emailService = dependencies.emailService;
+    if (!process.env.JWT_SECRET || !process.env.REFRESH_SECRET) {
+      throw new Error(
+        "JWT_SECRET and REFRESH_SECRET environment variables are required",
+      );
+    }
+    this.jwtSecret = process.env.JWT_SECRET;
+    this.refreshSecret = process.env.REFRESH_SECRET;
     this.accessTokenExpiry = "1h";
     this.refreshTokenExpiry = "7d";
   }
@@ -480,6 +489,79 @@ export class AuthService {
     // Update password
     user.passwordHash = passwordHash;
     await this.userRepository.save(user);
+
+    return true;
+  }
+
+  /**
+   * Request a password reset — generates a 6-digit code, emails it.
+   * Always succeeds silently to prevent email enumeration.
+   */
+  async requestPasswordReset(email: string): Promise<void> {
+    try {
+      const user = await this.userRepository.findOne({ where: { email } });
+      if (!user) return; // Silent — no enumeration
+
+      // Generate 6-digit code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // Hash the code before storing
+      const hashedCode = await bcrypt.hash(code, 10);
+
+      // Store hashed code + 15 min expiry
+      await this.userRepository.update(user.id, {
+        passwordResetToken: hashedCode,
+        passwordResetExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      });
+
+      await this.emailService.sendPasswordResetEmail(email, code);
+    } catch (error) {
+      console.error("Error in requestPasswordReset:", error);
+      // Swallow errors to prevent enumeration
+    }
+  }
+
+  /**
+   * Confirm password reset with email, code, and new password.
+   */
+  async confirmPasswordReset(
+    email: string,
+    code: string,
+    newPassword: string,
+  ): Promise<boolean> {
+    const user = await this.userRepository.findOne({
+      where: { email },
+      select: ["id", "passwordResetToken", "passwordResetExpiresAt"],
+    });
+
+    if (!user || !user.passwordResetToken || !user.passwordResetExpiresAt) {
+      throw new Error("Invalid or expired reset code");
+    }
+
+    // Check expiry
+    if (new Date() > user.passwordResetExpiresAt) {
+      throw new Error("Invalid or expired reset code");
+    }
+
+    // Verify code
+    const isCodeValid = await bcrypt.compare(code, user.passwordResetToken);
+    if (!isCodeValid) {
+      throw new Error("Invalid or expired reset code");
+    }
+
+    // Hash new password and clear reset fields + refresh token
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.userRepository
+      .createQueryBuilder()
+      .update(User)
+      .set({
+        passwordHash,
+        passwordResetToken: () => "NULL",
+        passwordResetExpiresAt: () => "NULL",
+        refreshToken: () => "NULL",
+      })
+      .where("id = :id", { id: user.id })
+      .execute();
 
     return true;
   }

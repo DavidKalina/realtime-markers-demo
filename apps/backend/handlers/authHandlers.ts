@@ -341,6 +341,58 @@ function getUserIdFromToken(c: Context<AppContext>): string | null {
 }
 
 /**
+ * Request a password reset (public, unauthenticated)
+ */
+export const requestPasswordResetHandler: AuthHandler = async (c) => {
+  try {
+    const { email } = await c.req.json();
+    const { authService } = getServices(c);
+
+    // Always returns 200 to prevent email enumeration
+    await authService.requestPasswordReset(email || "");
+
+    return c.json({ message: "If that email exists, a reset code was sent." });
+  } catch (err) {
+    console.error("Password reset request error:", err);
+    return c.json({ message: "If that email exists, a reset code was sent." });
+  }
+};
+
+/**
+ * Confirm password reset with code (public, unauthenticated)
+ */
+export const confirmPasswordResetHandler: AuthHandler = async (c) => {
+  try {
+    const { email, code, newPassword } = await c.req.json();
+
+    if (!email || !code || !newPassword) {
+      return c.json(
+        { error: "Email, code, and new password are required" },
+        400,
+      );
+    }
+
+    if (newPassword.length < 6) {
+      return c.json({ error: "Password must be at least 6 characters" }, 400);
+    }
+
+    const { authService } = getServices(c);
+    await authService.confirmPasswordReset(email, code, newPassword);
+
+    return c.json({ message: "Password reset successfully" });
+  } catch (error) {
+    console.error("Password reset confirm error:", error);
+    return c.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to reset password",
+      },
+      400,
+    );
+  }
+};
+
+/**
  * OAuth Google Sign-In
  */
 export const googleOAuthHandler: AuthHandler = async (c) => {

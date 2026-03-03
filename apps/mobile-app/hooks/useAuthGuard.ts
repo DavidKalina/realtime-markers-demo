@@ -3,7 +3,7 @@ import { useSegments, useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 
-const GUEST_SCREENS = ["login", "register"];
+const GUEST_SCREENS = ["login", "register", "forgot-password", "reset-password"];
 const PUBLIC_SCREENS = ["onboarding", "+not-found"];
 
 /**

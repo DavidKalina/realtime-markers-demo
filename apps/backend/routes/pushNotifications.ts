@@ -39,20 +39,3 @@ pushNotificationRouter.get(
   handlers.getUserTokensHandler,
 );
 
-// Admin routes (admin session required)
-pushNotificationRouter.post(
-  "/send",
-  authMiddleware,
-  handlers.sendNotificationHandler,
-);
-pushNotificationRouter.post(
-  "/send-to-users",
-  authMiddleware,
-  handlers.sendToUsersHandler,
-);
-pushNotificationRouter.get("/stats", authMiddleware, handlers.getStatsHandler);
-pushNotificationRouter.post(
-  "/cleanup",
-  authMiddleware,
-  handlers.cleanupTokensHandler,
-);

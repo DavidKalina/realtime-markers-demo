@@ -264,17 +264,21 @@ export class AuthModule extends BaseApiModule {
   }
 
   /**
-   * Reset password using a reset token
+   * Reset password using email, 6-digit code, and new password
    * @returns true if the password was reset successfully
    */
-  async resetPassword(token: string, newPassword: string): Promise<boolean> {
+  async resetPassword(
+    email: string,
+    code: string,
+    newPassword: string,
+  ): Promise<boolean> {
     const url = `${this.client.baseUrl}/api/auth/password-reset/confirm`;
     const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ token, newPassword }),
+      body: JSON.stringify({ email, code, newPassword }),
     });
 
     await this.handleResponse<{ message: string }>(response);

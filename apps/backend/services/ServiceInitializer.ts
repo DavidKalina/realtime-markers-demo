@@ -199,20 +199,21 @@ export class ServiceInitializer {
 
     const storageService = createStorageService();
 
+    const emailService = process.env.RESEND_API_KEY
+      ? createEmailService({
+          apiKey: process.env.RESEND_API_KEY,
+          fromEmail: process.env.EMAIL_FROM || "noreply@mail.davidkalina.com",
+          adminEmails: process.env.ADMIN_EMAILS?.split(",") || [],
+        })
+      : new MockEmailService();
+
     const authService = createAuthService({
       userRepository: repositories.userRepository,
       dataSource: this.dataSource,
       userPreferencesService,
       openAIService,
+      emailService,
     });
-
-    const emailService = process.env.RESEND_API_KEY
-      ? createEmailService({
-          apiKey: process.env.RESEND_API_KEY,
-          fromEmail: process.env.EMAIL_FROM || "noreply@mapmoji.app",
-          adminEmails: process.env.ADMIN_EMAILS?.split(",") || [],
-        })
-      : new MockEmailService();
 
     const geocodingService = createGoogleGeocodingService(
       openAIService,

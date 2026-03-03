@@ -30,6 +30,32 @@ authRouter.post("/refresh-token", handlers.refreshTokenHandler);
 authRouter.post("/oauth/google", handlers.googleOAuthHandler);
 authRouter.post("/oauth/facebook", handlers.facebookOAuthHandler);
 
+// Password reset (public, tighter rate limit)
+authRouter.post(
+  "/password-reset",
+  rateLimit({
+    maxRequests: 5,
+    windowMs: 60 * 1000,
+    keyGenerator: (c) => {
+      const ipInfo = c.get("ip");
+      return `pw-reset:${ipInfo.ip}`;
+    },
+  }),
+  handlers.requestPasswordResetHandler,
+);
+authRouter.post(
+  "/password-reset/confirm",
+  rateLimit({
+    maxRequests: 5,
+    windowMs: 60 * 1000,
+    keyGenerator: (c) => {
+      const ipInfo = c.get("ip");
+      return `pw-reset-confirm:${ipInfo.ip}`;
+    },
+  }),
+  handlers.confirmPasswordResetHandler,
+);
+
 // Protected routes (session required)
 // You can attach the middleware as a parameter for each route
 authRouter.post("/logout", authMiddleware, handlers.logoutHandler);

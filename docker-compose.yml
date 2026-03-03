@@ -156,6 +156,9 @@ services:
       - IMPORT_RADIUS_KM=${IMPORT_RADIUS_KM:-50}
       - IMPORT_INTERVAL_HOURS=${IMPORT_INTERVAL_HOURS:-6}
       - DISABLE_EVENT_IMPORT=${DISABLE_EVENT_IMPORT:-false}
+      # Email (Resend)
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@mail.davidkalina.com}
 
     # Remove port exposure - only accessible via Traefik
     # ports:

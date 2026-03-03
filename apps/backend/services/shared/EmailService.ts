@@ -17,6 +17,7 @@ export interface EmailService {
     adminName: string,
     addedBy: string,
   ): Promise<boolean>;
+  sendPasswordResetEmail(to: string, code: string): Promise<boolean>;
 }
 
 export interface EmailServiceDependencies {
@@ -136,6 +137,34 @@ export class ResendEmailService implements EmailService {
       html,
     });
   }
+
+  async sendPasswordResetEmail(to: string, code: string): Promise<boolean> {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">Password Reset</h2>
+        <p style="color: #666; line-height: 1.6;">
+          You requested a password reset. Use the code below to reset your password.
+          This code expires in 15 minutes.
+        </p>
+        <div style="background: #f9f9f9; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center;">
+          <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #333;">${code}</span>
+        </div>
+        <p style="color: #666; line-height: 1.6;">
+          If you didn't request this, you can safely ignore this email.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="color: #999; font-size: 12px;">
+          This is an automated email from Mapmoji.
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail({
+      to,
+      subject: "Your Password Reset Code",
+      html,
+    });
+  }
 }
 
 // Factory function to create email service
@@ -179,6 +208,11 @@ export class MockEmailService implements EmailService {
       adminName,
       addedBy,
     });
+    return true;
+  }
+
+  async sendPasswordResetEmail(to: string, code: string): Promise<boolean> {
+    console.log("📧 [MOCK] Password reset email:", { to, code });
     return true;
   }
 }

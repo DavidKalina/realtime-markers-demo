@@ -440,6 +440,18 @@ const Login: React.FC = () => {
                   onSubmitEditing={handleLogin}
                   delay={400}
                 />
+
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    router.push("/forgot-password");
+                  }}
+                  style={styles.forgotPasswordContainer}
+                >
+                  <Text style={styles.forgotPasswordText}>
+                    Forgot password?
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               <View style={styles.loginButtonContainer}>
@@ -575,6 +587,17 @@ const styles = StyleSheet.create({
     color: colors.accent.primary,
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
+  },
+
+  forgotPasswordContainer: {
+    alignSelf: "flex-end",
+    marginTop: -spacing.sm,
+  },
+
+  forgotPasswordText: {
+    color: colors.text.secondary,
+    fontSize: fontSize.xs,
     fontFamily: fontFamily.mono,
   },
 

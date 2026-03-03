@@ -22,6 +22,8 @@ interface ScreenConfig {
 export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
   { name: "register" },
   { name: "login" },
+  { name: "forgot-password" },
+  { name: "reset-password" },
   { name: "onboarding" },
   { name: "index" },
   { name: "scan" },

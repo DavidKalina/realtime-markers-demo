@@ -43,6 +43,7 @@ import { AddExternalUrl1710000000028 } from "./migrations/AddExternalUrl17100000
 import { AddCityToEvents1710000000029 } from "./migrations/AddCityToEvents1710000000029";
 import { UserFollowTable1710000000030 } from "./migrations/UserFollowTable1710000000030";
 import { LlmUsageLogTable1710000000031 } from "./migrations/LlmUsageLogTable1710000000031";
+import { AddPasswordResetFields1710000000032 } from "./migrations/AddPasswordResetFields1710000000032";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -87,6 +88,7 @@ const AppDataSource = new DataSource({
     AddCityToEvents1710000000029,
     UserFollowTable1710000000030,
     LlmUsageLogTable1710000000031,
+    AddPasswordResetFields1710000000032,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

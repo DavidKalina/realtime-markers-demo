@@ -141,4 +141,20 @@ export class User {
     select: false,
   })
   refreshToken?: string;
+
+  @Column({
+    name: "password_reset_token",
+    type: "varchar",
+    nullable: true,
+    select: false,
+  })
+  passwordResetToken?: string;
+
+  @Column({
+    name: "password_reset_expires_at",
+    type: "timestamptz",
+    nullable: true,
+    select: false,
+  })
+  passwordResetExpiresAt?: Date;
 }
