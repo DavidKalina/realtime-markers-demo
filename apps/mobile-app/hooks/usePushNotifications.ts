@@ -7,8 +7,6 @@ import { pushNotificationService } from "../services/PushNotificationService";
  */
 export const usePushNotifications = () => {
   useEffect(() => {
-    console.log("🔔 Setting up push notification listeners");
-
     // Set up notification listeners
     const cleanup = pushNotificationService.setupNotificationListeners();
 
@@ -36,7 +34,6 @@ export const useTestNotifications = () => {
   const checkPermissions = async () => {
     const permissions =
       await pushNotificationService.getNotificationPermissions();
-    console.log("📱 Notification permissions:", permissions);
     return permissions;
   };
 

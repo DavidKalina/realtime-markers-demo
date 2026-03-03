@@ -84,12 +84,7 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({
   // Load cached location on mount
   const loadCachedLocation = useCallback(async () => {
     try {
-      console.log("[LocationContext] Attempting to load cached location...");
       const cachedLocationStr = await AsyncStorage.getItem("cachedLocation");
-      console.log(
-        "[LocationContext] Raw cached location string:",
-        cachedLocationStr,
-      );
 
       if (cachedLocationStr) {
         try {
@@ -105,17 +100,6 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({
             typeof cachedLocation.coordinates[1] === "number" &&
             !isNaN(cachedLocation.coordinates[0]) &&
             !isNaN(cachedLocation.coordinates[1]);
-
-          console.log("[LocationContext] Parsed cached location:", {
-            hasCache: true,
-            cacheAge:
-              Math.round((Date.now() - cachedLocation.timestamp) / 1000 / 60) +
-              " minutes",
-            isValid: isCacheValid,
-            isValidCoordinates,
-            coordinates: cachedLocation.coordinates,
-            timestamp: new Date(cachedLocation.timestamp).toISOString(),
-          });
 
           if (isCacheValid && isValidCoordinates) {
             // Batch state updates together
@@ -136,12 +120,6 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({
               });
             });
             return true;
-          } else {
-            console.log("[LocationContext] Cache is invalid:", {
-              isCacheValid,
-              isValidCoordinates,
-              reason: !isCacheValid ? "Cache expired" : "Invalid coordinates",
-            });
           }
         } catch (parseError) {
           console.error(
@@ -149,10 +127,6 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({
             parseError,
           );
         }
-      } else {
-        console.log(
-          "[LocationContext] No cached location found in AsyncStorage",
-        );
       }
       return false;
     } catch (error) {
@@ -189,21 +163,9 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({
         timestamp: Date.now(),
       };
       const locationString = JSON.stringify(cachedLocation);
-      console.log("[LocationContext] Attempting to cache location:", {
-        coordinates,
-        timestamp: new Date(cachedLocation.timestamp).toISOString(),
-        stringLength: locationString.length,
-      });
 
       await AsyncStorage.setItem("cachedLocation", locationString);
 
-      // Verify the cache was written
-      const verifyCache = await AsyncStorage.getItem("cachedLocation");
-      console.log("[LocationContext] Cache verification:", {
-        success: verifyCache !== null,
-        cached: verifyCache === locationString,
-        verificationTimestamp: new Date().toISOString(),
-      });
     } catch (error) {
       console.error("[LocationContext] Error caching location:", error);
     }
@@ -213,12 +175,9 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({
   const getUserLocation = useCallback(async () => {
     try {
       setIsLoadingLocation(true);
-      console.log("[LocationContext] Requesting new location...");
-
       const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== "granted") {
-        console.log("[LocationContext] Location permission denied");
         setLocationPermissionGranted(false);
         Alert.alert(
           "Permission Denied",

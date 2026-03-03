@@ -55,14 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // Setup push notifications after successful authentication
   const setupPushNotifications = async (userId: string) => {
     try {
-      console.log("🔔 Setting up push notifications for user:", userId);
-      const success =
-        await pushNotificationService.setupPushNotifications(userId);
-      if (success) {
-        console.log("✅ Push notifications setup completed");
-      } else {
-        console.log("⚠️ Push notifications setup failed or permissions denied");
-      }
+      await pushNotificationService.setupPushNotifications(userId);
     } catch (error) {
       console.error("❌ Error setting up push notifications:", error);
     }

@@ -8,7 +8,6 @@ export async function startBackgroundLocationTracking(): Promise<boolean> {
       BACKGROUND_LOCATION_TASK,
     );
     if (isRunning) {
-      console.log("[BackgroundLocation] Already running");
       return true;
     }
 
@@ -16,14 +15,12 @@ export async function startBackgroundLocationTracking(): Promise<boolean> {
     const { status: fgStatus } =
       await Location.requestForegroundPermissionsAsync();
     if (fgStatus !== "granted") {
-      console.log("[BackgroundLocation] Foreground permission denied");
       return false;
     }
 
     // Request background permission (triggers "Allow Always" on iOS)
     const { status } = await Location.requestBackgroundPermissionsAsync();
     if (status !== "granted") {
-      console.log("[BackgroundLocation] Background permission denied");
       return false;
     }
 
@@ -39,7 +36,6 @@ export async function startBackgroundLocationTracking(): Promise<boolean> {
       },
     });
 
-    console.log("[BackgroundLocation] Started successfully");
     return true;
   } catch (error) {
     console.error("[BackgroundLocation] Failed to start:", error);
