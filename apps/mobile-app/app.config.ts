@@ -3,7 +3,7 @@ import "dotenv/config";
 
 export default {
   expo: {
-    name: "Realtime Markers",
+    name: "A Third Space",
     slug: "mobile-app",
     version: "1.19.5",
     orientation: "portrait",

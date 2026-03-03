@@ -47,7 +47,7 @@ const TIER_COLORS: Record<string, string> = {
   Ambassador: "#a78bfa",
 };
 
-const WATERMARK_TEXT = "MAPMOJI";
+const WATERMARK_TEXT = "A THIRD SPACE";
 const WATERMARK_CHAR_COUNT = WATERMARK_TEXT.length;
 const CHAR_WIDTH_RATIO = 0.6;
 

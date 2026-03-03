@@ -32,7 +32,7 @@ const TIER_COLORS: Record<string, string> = {
 
 const SHEEN_WIDTH = 140;
 const CARD_HEIGHT = 190;
-const WATERMARK_TEXT = "MAPMOJI";
+const WATERMARK_TEXT = "A THIRD SPACE";
 const WATERMARK_CHAR_COUNT = WATERMARK_TEXT.length;
 // Approximate character width ratio for SpaceMono (monospace ~0.6 of fontSize)
 const CHAR_WIDTH_RATIO = 0.6;
