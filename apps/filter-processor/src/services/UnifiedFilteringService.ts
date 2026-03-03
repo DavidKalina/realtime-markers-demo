@@ -209,7 +209,7 @@ export function createUnifiedFilteringService(
       filteredEvents = await applyMapMojiFiltering(
         events,
         undefined,
-        mapMojiConfig.maxEvents || 50,
+        mapMojiConfig.maxEvents || 250,
       );
     } else {
       // Check if filters are only lightweight (date range and/or category — no location, no semantic)
@@ -292,7 +292,7 @@ export function createUnifiedFilteringService(
     // Update MapMoji configuration for this request
     mapMojiFilter.updateConfig({
       viewportBounds: viewport,
-      maxEvents: 100,
+      maxEvents: 250,
       currentTime: new Date(),
     });
 

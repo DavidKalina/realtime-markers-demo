@@ -30,7 +30,7 @@ export class MapMojiFilterService {
   constructor(config?: Partial<FilterConfig>) {
     // Default configuration
     this.config = {
-      maxEvents: 50,
+      maxEvents: 250,
       viewportBounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
       weights: {
         timeProximity: 0.6,
