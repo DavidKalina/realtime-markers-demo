@@ -20,7 +20,7 @@ export function createClientConfigService(
   const defaultConfigs: Record<ClientType, ClientConfig> = {
     [ClientType.MOBILE]: {
       includeEvents: true,
-      maxEvents: 50,
+      maxEvents: 250,
     },
     [ClientType.DASHBOARD]: {
       includeEvents: true,
