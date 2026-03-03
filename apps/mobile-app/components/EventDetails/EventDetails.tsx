@@ -65,6 +65,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
       isLoading: insightLoading,
       error: insightError,
       dialog: insightDialog,
+      feedPending: insightFeedPending,
     } = useEventInsight(eventId);
 
     const formattedDate = useMemo(() => {
@@ -218,6 +219,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             blinkAnim={insightDialog.blinkAnim}
             onTap={insightDialog.handleTap}
             onRestart={insightDialog.restart}
+            onExpandComplete={insightFeedPending}
             style={{ height: 140 }}
           />
         }

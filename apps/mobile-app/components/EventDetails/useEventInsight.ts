@@ -11,9 +11,17 @@ export function useEventInsight(eventId: string) {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<{ abort: () => void } | null>(null);
   const fetchedRef = useRef<string | null>(null);
+  const pendingPagesRef = useRef<string[] | null>(null);
 
   const onDismiss = useCallback(() => {}, []);
   const dialog = useDialogStreamer(onDismiss);
+
+  const feedPending = useCallback(() => {
+    if (pendingPagesRef.current) {
+      dialog.feedPages(pendingPagesRef.current);
+      pendingPagesRef.current = null;
+    }
+  }, [dialog.feedPages]);
 
   useEffect(() => {
     if (!eventId || fetchedRef.current === eventId) return;
@@ -28,8 +36,7 @@ export function useEventInsight(eventId: string) {
       },
       onContent: (text) => {
         setIsLoading(false);
-        const pages = splitIntoPages(text, CHARS_PER_PAGE);
-        dialog.feedPages(pages);
+        pendingPagesRef.current = splitIntoPages(text, CHARS_PER_PAGE);
       },
       onDone: () => {
         setIsLoading(false);
@@ -45,5 +52,5 @@ export function useEventInsight(eventId: string) {
     };
   }, [eventId]);
 
-  return { isLoading, error, dialog };
+  return { isLoading, error, dialog, feedPending };
 }

@@ -4,7 +4,6 @@ import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import { MarkerInfoHUD } from "@/components/Markers/MarkerInfoHUD";
-import DateRangeIndicator from "@/components/StatusBar/DateRangeIndicator";
 import PlusButton from "@/components/StatusBar/PlusButton";
 import StatusBar from "@/components/StatusBar/StatusBar";
 import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
@@ -363,7 +362,6 @@ function HomeScreenContent() {
   const floatingButtonsSection = useMemo(
     () => (
       <View style={floatingDateButtonStyle}>
-        <DateRangeIndicator />
         <PlusButton />
         <MapFilterSheet
           categories={filterCategories}
@@ -378,7 +376,7 @@ function HomeScreenContent() {
           onPress={handleSearchPress}
           activeOpacity={0.7}
         >
-          <Search size={22} color={colors.accent.primary} />
+          <Search size={22} color={colors.action.map} />
         </TouchableOpacity>
         {!isFollowing && (
           <TouchableOpacity
@@ -386,7 +384,7 @@ function HomeScreenContent() {
             onPress={recenter}
             activeOpacity={0.7}
           >
-            <Navigation size={22} color={colors.accent.primary} />
+            <Navigation size={22} color={colors.action.save} />
           </TouchableOpacity>
         )}
       </View>

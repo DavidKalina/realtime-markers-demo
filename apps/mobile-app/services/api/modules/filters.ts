@@ -1,6 +1,6 @@
 import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
-import { Filter, FilterCreateInput, FilterUpdateInput } from "../base/types";
+import { Filter, FilterCreateInput } from "../base/types";
 import { apiClient } from "../../ApiClient";
 
 export class FiltersModule extends BaseApiModule {
@@ -19,17 +19,6 @@ export class FiltersModule extends BaseApiModule {
   }
 
   /**
-   * Get a specific filter by ID
-   * @param filterId - ID of the filter to retrieve
-   * @returns Filter object
-   */
-  async getFilterById(filterId: string): Promise<Filter> {
-    const url = `${this.client.baseUrl}/api/filters/${filterId}`;
-    const response = await this.fetchWithAuth(url);
-    return this.handleResponse<Filter>(response);
-  }
-
-  /**
    * Create a new filter
    * @param filterData - Filter data to create
    * @returns Created filter
@@ -41,37 +30,6 @@ export class FiltersModule extends BaseApiModule {
       body: JSON.stringify(filterData),
     });
     return this.handleResponse<Filter>(response);
-  }
-
-  /**
-   * Update an existing filter
-   * @param filterId - ID of the filter to update
-   * @param filterData - Updated filter data
-   * @returns Updated filter
-   */
-  async updateFilter(
-    filterId: string,
-    filterData: FilterUpdateInput,
-  ): Promise<Filter> {
-    const url = `${this.client.baseUrl}/api/filters/${filterId}`;
-    const response = await this.fetchWithAuth(url, {
-      method: "PATCH",
-      body: JSON.stringify(filterData),
-    });
-    return this.handleResponse<Filter>(response);
-  }
-
-  /**
-   * Delete a filter
-   * @param filterId - ID of the filter to delete
-   * @returns Success status
-   */
-  async deleteFilter(filterId: string): Promise<void> {
-    const url = `${this.client.baseUrl}/api/filters/${filterId}`;
-    const response = await this.fetchWithAuth(url, {
-      method: "DELETE",
-    });
-    await this.handleResponse<void>(response);
   }
 
   /**
@@ -102,29 +60,6 @@ export class FiltersModule extends BaseApiModule {
       method: "DELETE",
     });
     return this.handleResponse<{ message: string; success: boolean }>(response);
-  }
-
-  /**
-   * Get currently active filters
-   * @returns Array of active filters
-   */
-  async getActiveFilters(): Promise<Filter[]> {
-    const url = `${this.client.baseUrl}/api/filters/active`;
-    const response = await this.fetchWithAuth(url);
-    return this.handleResponse<Filter[]>(response);
-  }
-
-  /**
-   * Toggle a filter's active state
-   * @param filterId - ID of the filter to toggle
-   * @returns Updated filter
-   */
-  async toggleFilter(filterId: string): Promise<Filter> {
-    const url = `${this.client.baseUrl}/api/filters/${filterId}/toggle`;
-    const response = await this.fetchWithAuth(url, {
-      method: "POST",
-    });
-    return this.handleResponse<Filter>(response);
   }
 
   /**

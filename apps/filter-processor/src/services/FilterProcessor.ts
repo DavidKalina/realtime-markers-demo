@@ -31,12 +31,6 @@ export interface FilterProcessor {
 
   // Batch processing
   forceProcessBatch(): Promise<void>;
-  updateBatchConfig(config: {
-    debounceTimeoutMs?: number;
-    sweepIntervalMs?: number;
-    maxBatchSize?: number;
-    enableBatching?: boolean;
-  }): void;
 
   // Stats
   getStats(): Record<string, unknown>;
@@ -446,23 +440,6 @@ export function createFilterProcessor(
   }
 
   /**
-   * Update batch configuration
-   */
-  function updateBatchConfig(config: {
-    debounceTimeoutMs?: number;
-    sweepIntervalMs?: number;
-    maxBatchSize?: number;
-    enableBatching?: boolean;
-  }): void {
-    console.log("[FilterProcessor] Updating batch configuration:", config);
-    // Note: The HybridUserUpdateBatcherService doesn't support runtime config updates
-    // This would need to be implemented if needed
-    console.warn(
-      "[FilterProcessor] Runtime batch config updates not yet implemented",
-    );
-  }
-
-  /**
    * Get current statistics
    */
   function getStats(): Record<string, unknown> {
@@ -488,7 +465,6 @@ export function createFilterProcessor(
     handleInitialRequest,
     handleUserDisconnection,
     forceProcessBatch,
-    updateBatchConfig,
     getStats,
   };
 }

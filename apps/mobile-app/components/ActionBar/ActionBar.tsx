@@ -24,7 +24,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors } from "@/theme";
+import { colors, fontWeight } from "@/theme";
 import { useXPStore } from "@/stores/useXPStore";
 import { styles } from "./styles";
 
@@ -48,14 +48,15 @@ interface TabConfig {
   icon: LucideIcon;
   route?: AppRoute;
   requiresLocation?: boolean;
+  activeColor: string;
 }
 
 const TABS: TabConfig[] = [
-  { key: "search", label: "Search", icon: SearchIcon, route: "/search" },
-  { key: "scan", label: "Scan", icon: Camera, route: "/scan" },
-  { key: "locate", label: "Locate", icon: Navigation, requiresLocation: true },
-  { key: "saved", label: "Saved", icon: HeartIcon, route: "/saved" },
-  { key: "user", label: "Me", icon: User, route: "/user" },
+  { key: "search", label: "Search", icon: SearchIcon, route: "/search", activeColor: colors.action.map },
+  { key: "scan", label: "Scan", icon: Camera, route: "/scan", activeColor: colors.action.rsvp },
+  { key: "locate", label: "Locate", icon: Navigation, requiresLocation: true, activeColor: colors.action.save },
+  { key: "saved", label: "Saved", icon: HeartIcon, route: "/saved", activeColor: colors.action.save },
+  { key: "user", label: "Me", icon: User, route: "/user", activeColor: colors.action.share },
 ];
 
 const HIDDEN_ROUTES = ["/register", "/login"];
@@ -78,7 +79,7 @@ const ActionButton: React.FC<{
 }> = React.memo(({ tab, isActive, disabled, showBadge, onPress }) => {
   const scaleValue = useSharedValue(1);
   const IconComponent = tab.icon;
-  const iconColor = isActive ? colors.accent.primary : colors.text.primary;
+  const iconColor = isActive ? tab.activeColor : colors.text.primary;
 
   const animatedButtonStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scaleValue.value }],
@@ -108,12 +109,12 @@ const ActionButton: React.FC<{
       <Animated.View style={[styles.actionButtonInner, animatedButtonStyle]}>
         <View style={styles.actionButtonIcon}>
           <IconComponent size={20} color={iconColor} />
-          {showBadge && <View style={styles.badgeDot} />}
+          {showBadge && <View style={[styles.badgeDot, { backgroundColor: tab.activeColor }]} />}
         </View>
         <Text
           style={[
             styles.actionButtonLabel,
-            isActive && styles.activeActionButtonLabel,
+            isActive && { color: tab.activeColor, fontWeight: fontWeight.semibold },
           ]}
           numberOfLines={1}
         >

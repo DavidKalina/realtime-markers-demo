@@ -28,6 +28,7 @@ import Reanimated, {
   cancelAnimation,
   Easing,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import Svg, {
   Circle,
   Defs,
@@ -618,6 +619,7 @@ export function DialogBox({
   blinkAnim,
   onTap,
   onRestart,
+  onExpandComplete,
   inline,
   style,
   loadingText,
@@ -630,6 +632,7 @@ export function DialogBox({
   blinkAnim: Animated.Value;
   onTap: () => void;
   onRestart?: () => void;
+  onExpandComplete?: () => void;
   inline?: boolean;
   style?: ViewStyle;
   loadingText?: string;
@@ -663,12 +666,25 @@ export function DialogBox({
   );
   const prevIsLoading = useRef<boolean | null>(null);
 
+  const onExpandCompleteRef = useRef(onExpandComplete);
+  onExpandCompleteRef.current = onExpandComplete;
+  const fireExpandComplete = useCallback(() => {
+    onExpandCompleteRef.current?.();
+  }, []);
+
+  const onRestartRef = useRef(onRestart);
+  onRestartRef.current = onRestart;
+  const fireRestart = useCallback(() => {
+    onRestartRef.current?.();
+  }, []);
+
   // Phase 0: repeating golden sheen during loading (non-inline only)
   useEffect(() => {
     if (inline) {
       contentOpacity.value = 1;
       statusOpacity.value = 0;
       phase.value = 3;
+      if (!isLoading) fireExpandComplete();
       return;
     }
     if (isLoading) {
@@ -702,10 +718,13 @@ export function DialogBox({
         // Error: skip sheen, just expand and show
         phase.value = 3;
         statusOpacity.value = 0;
-        animHeight.value = withTiming(targetHeightSV.value, {
-          duration: 300,
-          easing: Easing.out(Easing.cubic),
-        });
+        animHeight.value = withTiming(
+          targetHeightSV.value,
+          { duration: 300, easing: Easing.out(Easing.cubic) },
+          (finished) => {
+            if (finished) scheduleOnRN(fireExpandComplete);
+          },
+        );
         contentOpacity.value = withTiming(1, { duration: 200 });
       } else {
         // Phase 1: "Insight ready" + final sheen sweep
@@ -730,6 +749,7 @@ export function DialogBox({
                   // Phase 3: content fade in
                   phase.value = 3;
                   contentOpacity.value = withTiming(1, { duration: 200 });
+                  scheduleOnRN(fireExpandComplete);
                 },
               );
             },
@@ -742,6 +762,7 @@ export function DialogBox({
       contentOpacity.value = 1;
       statusOpacity.value = 0;
       phase.value = 3;
+      fireExpandComplete();
     }
 
     prevIsLoading.current = isLoading;
@@ -786,13 +807,13 @@ export function DialogBox({
       cancelAnimation(sheenPos);
       sheenActive.value = 0;
       statusOpacity.value = withTiming(0, { duration: 150 });
-      onRestart?.();
       animHeight.value = withTiming(
         targetHeightSV.value,
         { duration: 350, easing: Easing.out(Easing.cubic) },
         (fin) => {
           if (!fin) return;
           contentOpacity.value = withTiming(1, { duration: 200 });
+          scheduleOnRN(fireRestart);
         },
       );
       return;
@@ -816,7 +837,7 @@ export function DialogBox({
 
     // Normal: skip stream / advance page
     onTap();
-  }, [collapsed, showDone, onTap, onRestart]);
+  }, [collapsed, showDone, onTap]);
 
   return (
     <Reanimated.View
@@ -842,10 +863,7 @@ export function DialogBox({
           style={[dialogStyles.sheenBeam, sheenAnimStyle]}
           pointerEvents="none"
         >
-          <Svg
-            width={SHEEN_WIDTH}
-            height={COLLAPSED_HEIGHT}
-          >
+          <Svg width={SHEEN_WIDTH} height={COLLAPSED_HEIGHT}>
             <Defs>
               <LinearGradient id="goldenSheen" x1="0" y1="0" x2="1" y2="0">
                 <Stop offset="0" stopColor="#fbbf24" stopOpacity="0" />

@@ -29,6 +29,7 @@ export default function ClusterScreen() {
   const router = useRouter();
   const abortRef = useRef<{ abort: () => void } | null>(null);
   const fullTextRef = useRef("");
+  const pendingPagesRef = useRef<string[] | null>(null);
 
   const [zoneStats, setZoneStats] = useState<AreaScanMetadata | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,8 +56,9 @@ export default function ClusterScreen() {
         onDone: () => {
           setIsLoading(false);
           if (fullTextRef.current) {
-            dialog.feedPages(
-              splitIntoPages(fullTextRef.current, CHARS_PER_PAGE),
+            pendingPagesRef.current = splitIntoPages(
+              fullTextRef.current,
+              CHARS_PER_PAGE,
             );
           }
         },
@@ -113,6 +115,12 @@ export default function ClusterScreen() {
         blinkAnim={dialog.blinkAnim}
         onTap={dialog.handleTap}
         onRestart={dialog.restart}
+        onExpandComplete={() => {
+          if (pendingPagesRef.current) {
+            dialog.feedPages(pendingPagesRef.current);
+            pendingPagesRef.current = null;
+          }
+        }}
         style={{ height: 140 }}
       />
     </Screen>

@@ -417,10 +417,10 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
   async clearActiveFilters(userId: string): Promise<boolean> {
     const userFilters = await this.getUserFilters(userId);
 
-    // Set all filters to inactive
+    // Set all filters to inactive, but keep category preferences active
     const updatedFilters = userFilters.map((filter) => ({
       ...filter,
-      isActive: false,
+      isActive: filter.name === "__category_preferences__",
     }));
 
     // Save all updates
@@ -463,10 +463,11 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
       // Get all user filters
       const userFilters = await this.getUserFilters(userId);
 
-      // Update isActive status based on filterIds
+      // Update isActive status based on filterIds, but always keep category preferences active
       const updatedFilters = userFilters.map((filter) => ({
         ...filter,
-        isActive: filterIds.includes(filter.id),
+        isActive:
+          filter.name === "__category_preferences__" || filterIds.includes(filter.id),
       }));
 
       // Save the updates
@@ -529,6 +530,7 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
 
     if (filter) {
       filter.criteria = { ...filter.criteria, ...criteria };
+      filter.isActive = true;
       await this.filterRepository.save(filter);
     } else {
       filter = this.filterRepository.create({

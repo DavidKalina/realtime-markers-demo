@@ -97,11 +97,6 @@ export class EventInitializationService {
     }
   }
 
-  clearAllEntities(): void {
-    console.log("[EventInitialization] Clearing all events");
-    // This would typically call a method on the event processor or cache service
-  }
-
   getStats(): Record<string, unknown> {
     return {
       entityType: this.entityType,
@@ -300,7 +295,7 @@ export class EventInitializationService {
     createdAt?: string;
     updated_at?: string;
     updatedAt?: string;
-    categories?: Array<{ name: string }>;
+    categories?: Array<{ id: string; name: string }>;
     embedding?: string;
     status?: string;
     isPrivate?: boolean;
@@ -411,8 +406,7 @@ export class EventInitializationService {
       createdAt: createdAt || new Date().toISOString(),
       updatedAt: updatedAt || new Date().toISOString(),
       categories:
-        event.categories?.map((cat) => ({ id: cat.name, name: cat.name })) ||
-        [],
+        event.categories?.map((cat) => ({ id: cat.id, name: cat.name })) || [],
       embedding: event.embedding,
       status: status || EventStatus.VERIFIED,
       isPrivate: event.isPrivate || false,

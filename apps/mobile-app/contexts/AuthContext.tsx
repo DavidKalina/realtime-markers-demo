@@ -2,7 +2,7 @@
 import { useFilterStore } from "@/stores/useFilterStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { apiClient, User, Filter } from "../services/ApiClient";
+import { apiClient, User } from "../services/ApiClient";
 import { oAuthService } from "../services/OAuthService";
 import { pushNotificationService } from "../services/PushNotificationService";
 import {
@@ -50,7 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(
     apiClient.isAuthenticated(),
   );
-  const { fetchFilters, applyFilters } = useFilterStore();
+  const { fetchFilters } = useFilterStore();
 
   // Setup push notifications after successful authentication
   const setupPushNotifications = async (userId: string) => {
@@ -90,23 +90,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
               // Sync filters and active filter IDs
               await fetchFilters();
-              const storedFilters =
-                await AsyncStorage.getItem("@active_filters");
-              if (storedFilters) {
-                const activeIds = JSON.parse(storedFilters);
-                await applyFilters(activeIds);
-              } else {
-                // If no stored filters, fetch and apply the oldest filter
-                const filters = await apiClient.filters.getFilters();
-                if (filters.length > 0) {
-                  const oldestFilter = filters.sort(
-                    (a: Filter, b: Filter) =>
-                      new Date(a.createdAt).getTime() -
-                      new Date(b.createdAt).getTime(),
-                  )[0];
-                  await applyFilters([oldestFilter.id]);
-                }
-              }
             }
           } catch {
             // Profile fetch failed, auth state will be cleared by ApiClient

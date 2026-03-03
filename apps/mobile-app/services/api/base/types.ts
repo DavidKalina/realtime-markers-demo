@@ -297,63 +297,23 @@ export interface NotificationOptions {
 export interface Filter {
   id: string;
   name: string;
-  description?: string;
   emoji?: string;
-  categories?: string[];
-  radius?: number;
   createdAt: string;
   updatedAt: string;
-  createdById: string;
   criteria?: {
     dateRange?: {
       start?: string;
       end?: string;
-    };
-    status?: string[];
-    location?: {
-      latitude?: number;
-      longitude?: number;
-      radius?: number;
     };
   };
 }
 
 export interface FilterCreateInput {
   name: string;
-  description?: string;
-  emoji?: string;
-  categories?: string[];
-  radius?: number;
   criteria?: {
     dateRange?: {
       start?: string;
       end?: string;
-    };
-    status?: string[];
-    location?: {
-      latitude?: number;
-      longitude?: number;
-      radius?: number;
-    };
-  };
-}
-
-export interface FilterUpdateInput {
-  name?: string;
-  description?: string;
-  emoji?: string;
-  categories?: string[];
-  radius?: number;
-  criteria?: {
-    dateRange?: {
-      start?: string;
-      end?: string;
-    };
-    status?: string[];
-    location?: {
-      latitude?: number;
-      longitude?: number;
-      radius?: number;
     };
   };
 }

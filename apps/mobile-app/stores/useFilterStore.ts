@@ -17,11 +17,8 @@ interface FilterState {
   // Actions
   fetchFilters: () => Promise<void>;
   createFilter: (filter: Partial<Filter> & { name: string }) => Promise<Filter>;
-  updateFilter: (id: string, filter: Partial<Filter>) => Promise<Filter>;
-  deleteFilter: (id: string) => Promise<void>;
   applyFilters: (filterIds: string[]) => Promise<void>;
   clearFilters: () => Promise<void>;
-  setActiveFilterIds: (ids: string[]) => void;
 }
 
 export const useFilterStore = create<FilterState>((set) => ({
@@ -36,43 +33,19 @@ export const useFilterStore = create<FilterState>((set) => ({
   fetchFilters: async () => {
     set({ isLoading: true, error: null });
     try {
-      // First fetch the filters from the API
+      // Fetch available filters from the API
       const userFilters = await apiClient.filters.getFilters();
 
-      // Then load active filters from storage
-      const storedFilters = await AsyncStorage.getItem(ACTIVE_FILTERS_KEY);
-      let activeIds: string[] = [];
-      if (storedFilters) {
-        activeIds = JSON.parse(storedFilters);
-      }
+      // Clear any stale date filters from previous sessions.
+      // Date presets (Tonight, This Weekend, etc.) are session-specific and
+      // should not persist across app launches. Category preferences are
+      // preserved by the server's clearFilters endpoint.
+      await apiClient.filters.clearFilters();
+      await AsyncStorage.removeItem(ACTIVE_FILTERS_KEY);
 
-      // Start in relevant mode by default (no filters applied)
-      // Only apply stored filters if they exist and are valid
-      if (activeIds.length > 0) {
-        // Validate that the stored filter IDs still exist
-        const validActiveIds = activeIds.filter((id) =>
-          userFilters.some((filter) => filter.id === id),
-        );
-
-        if (validActiveIds.length > 0) {
-          // Apply the valid stored filters
-          await apiClient.filters.applyFilters(validActiveIds);
-          activeIds = validActiveIds;
-          await AsyncStorage.setItem(
-            ACTIVE_FILTERS_KEY,
-            JSON.stringify(activeIds),
-          );
-        } else {
-          // Clear invalid stored filters
-          activeIds = [];
-          await AsyncStorage.removeItem(ACTIVE_FILTERS_KEY);
-        }
-      }
-
-      // Update state with both filters and active IDs
       set({
         filters: userFilters,
-        activeFilterIds: activeIds,
+        activeFilterIds: [],
       });
     } catch (err) {
       set({
@@ -98,49 +71,6 @@ export const useFilterStore = create<FilterState>((set) => ({
       console.error("Error creating filter:", err);
       set({
         error: `Failed to create filter: ${err instanceof Error ? err.message : "Unknown error"}`,
-        isLoading: false,
-      });
-      throw err;
-    }
-  },
-
-  updateFilter: async (id: string, filter: Partial<Filter>) => {
-    set({ isLoading: true, error: null });
-    try {
-      const updatedFilter = await apiClient.filters.updateFilter(id, filter);
-
-      set((state) => ({
-        filters: state.filters.map((f) =>
-          f.id === updatedFilter.id ? updatedFilter : f,
-        ),
-        isLoading: false,
-      }));
-      return updatedFilter;
-    } catch (err) {
-      console.error("Error updating filter:", err);
-      set({
-        error: `Failed to update filter: ${err instanceof Error ? err.message : "Unknown error"}`,
-        isLoading: false,
-      });
-      throw err;
-    }
-  },
-
-  deleteFilter: async (id: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      await apiClient.filters.deleteFilter(id);
-      set((state) => ({
-        filters: state.filters.filter((f) => f.id !== id),
-        activeFilterIds: state.activeFilterIds.filter(
-          (filterId) => filterId !== id,
-        ),
-        isLoading: false,
-      }));
-    } catch (err) {
-      console.error("Error deleting filter:", err);
-      set({
-        error: `Failed to delete filter: ${err instanceof Error ? err.message : "Unknown error"}`,
         isLoading: false,
       });
       throw err;
@@ -233,9 +163,5 @@ export const useFilterStore = create<FilterState>((set) => ({
     } finally {
       set({ isClearing: false });
     }
-  },
-
-  setActiveFilterIds: (ids: string[]) => {
-    set({ activeFilterIds: ids });
   },
 }));

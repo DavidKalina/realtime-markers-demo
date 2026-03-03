@@ -45,7 +45,7 @@ const PlusButton: React.FC = () => {
   return (
     <Pressable onPress={handlePress}>
       <Animated.View style={[styles.container, animatedStyle]}>
-        <Plus size={22} color={colors.accent.primary} />
+        <Plus size={22} color={colors.action.rsvp} />
       </Animated.View>
     </Pressable>
   );

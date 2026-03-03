@@ -1,5 +1,5 @@
 import { Platform, StyleSheet } from "react-native";
-import { colors, fontFamily, fontWeight, spacing } from "@/theme";
+import { colors, fontFamily, spacing } from "@/theme";
 
 export const styles = StyleSheet.create({
   bottomBar: {
@@ -50,10 +50,6 @@ export const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     marginTop: spacing.xs,
     textAlign: "center",
-  },
-  activeActionButtonLabel: {
-    color: colors.accent.primary,
-    fontWeight: fontWeight.semibold,
   },
   actionButtonIcon: {
     width: 22,
