@@ -136,6 +136,13 @@ export const useFilterStore = create<FilterState>((set) => ({
       // Remove from AsyncStorage
       await AsyncStorage.removeItem(ACTIVE_FILTERS_KEY);
 
+      // Emit event to force viewport update so the filter processor
+      // re-queries with cleared filters and sends all events back
+      eventBroker.emit(EventTypes.FORCE_VIEWPORT_UPDATE, {
+        timestamp: Date.now(),
+        source: "useFilterStore",
+      });
+
       // Emit notification event
       eventBroker.emit(EventTypes.NOTIFICATION, {
         title: "Filters Cleared",

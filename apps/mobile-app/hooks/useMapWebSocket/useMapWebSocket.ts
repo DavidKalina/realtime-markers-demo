@@ -105,19 +105,24 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   // Force viewport update listener
   useEffect(() => {
     const handleForceViewportUpdate = () => {
-      if (currentViewportRef.current) {
-        const viewport = { ...currentViewportRef.current };
-        updateViewport(viewport);
-      } else {
-        console.warn(
-          "[useMapWebsocket] Force viewport update called, but no current viewport exists.",
-        );
-      }
-
-      // Tell the WebSocket server to re-fetch filters for this user
+      // Tell the WebSocket server to re-fetch filters for this user.
+      // This must happen BEFORE the viewport update so that the filter
+      // processor receives the cleared/updated filters before it
+      // re-processes the user's viewport, avoiding a race where stale
+      // filters produce a REPLACE_ALL with the old filtered set.
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(
           JSON.stringify({ type: MessageTypes.REFRESH_FILTERS }),
+        );
+      }
+
+      if (currentViewportRef.current) {
+        // Re-send the current viewport so the filter processor
+        // re-evaluates with the updated filters.
+        sendViewportUpdateToServer();
+      } else {
+        console.warn(
+          "[useMapWebsocket] Force viewport update called, but no current viewport exists.",
         );
       }
     };
@@ -127,7 +132,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       handleForceViewportUpdate,
     );
     return unsubscribe;
-  }, [updateViewport, currentViewportRef, wsRef]);
+  }, [sendViewportUpdateToServer, currentViewportRef, wsRef]);
 
   return {
     isConnected,
