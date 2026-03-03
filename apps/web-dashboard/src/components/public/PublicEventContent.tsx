@@ -213,7 +213,7 @@ export function PublicEventContent({ eventId }: PublicEventContentProps) {
       <div className="text-center space-y-4 py-8 border-t">
         <h3 className="text-xl font-bold">Discover more events</h3>
         <p className="text-muted-foreground text-sm">
-          Download Mapmoji to discover events happening around you
+          Download A Third Space to discover events happening around you
         </p>
         <div className="flex justify-center gap-3">
           <Link
@@ -223,7 +223,7 @@ export function PublicEventContent({ eventId }: PublicEventContentProps) {
             Explore Events
           </Link>
         </div>
-        <p className="text-xs text-muted-foreground mt-6">Powered by Mapmoji</p>
+        <p className="text-xs text-muted-foreground mt-6">Powered by A Third Space</p>
       </div>
     </div>
   );

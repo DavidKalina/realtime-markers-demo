@@ -148,18 +148,20 @@ export function createUnifiedFilteringService(
         mapMojiConfig.maxEvents || 1000,
       );
     } else {
-      // Check if we have date range filters only (hybrid mode)
-      const hasDateRangeOnly = filters.every(
+      // Check if filters are only lightweight (date range and/or category — no location, no semantic)
+      const hasLightweightOnly = filters.every(
         (filter) =>
-          filter.criteria.dateRange &&
           !filter.criteria.location &&
-          !filter.semanticQuery,
+          !filter.semanticQuery &&
+          (filter.criteria.dateRange ||
+            filter.criteria.includeCategoryIds ||
+            filter.criteria.excludeCategoryIds),
       );
 
-      if (hasDateRangeOnly && mapMojiConfig.enableHybridMode !== false) {
-        // Hybrid mode: Apply MapMoji first, then date range filters
+      if (hasLightweightOnly && mapMojiConfig.enableHybridMode !== false) {
+        // Hybrid mode: Apply MapMoji first, then lightweight filters
         console.log(
-          `[UnifiedFiltering] Applying hybrid filtering for user ${userId} (MapMoji + date range)`,
+          `[UnifiedFiltering] Applying hybrid filtering for user ${userId} (MapMoji + lightweight filters)`,
         );
 
         filteredEvents = await applyHybridFiltering(
@@ -210,18 +212,20 @@ export function createUnifiedFilteringService(
         mapMojiConfig.maxEvents || 50,
       );
     } else {
-      // Check if we have date range filters only (hybrid mode)
-      const hasDateRangeOnly = filters.every(
+      // Check if filters are only lightweight (date range and/or category — no location, no semantic)
+      const hasLightweightOnly = filters.every(
         (filter) =>
-          filter.criteria.dateRange &&
           !filter.criteria.location &&
-          !filter.semanticQuery,
+          !filter.semanticQuery &&
+          (filter.criteria.dateRange ||
+            filter.criteria.includeCategoryIds ||
+            filter.criteria.excludeCategoryIds),
       );
 
-      if (hasDateRangeOnly && mapMojiConfig.enableHybridMode !== false) {
-        // Hybrid mode: Apply MapMoji first, then date range filters
+      if (hasLightweightOnly && mapMojiConfig.enableHybridMode !== false) {
+        // Hybrid mode: Apply MapMoji first, then lightweight filters
         console.log(
-          `[UnifiedFiltering] Applying hybrid filtering for all events for user ${userId} (MapMoji + date range)`,
+          `[UnifiedFiltering] Applying hybrid filtering for all events for user ${userId} (MapMoji + lightweight filters)`,
         );
 
         filteredEvents = await applyHybridFiltering(

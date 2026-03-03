@@ -270,6 +270,7 @@ export class EventApiClient extends BaseApiModule {
       eventCount?: number;
     }>;
     availableCities: string[];
+    resolvedCity?: string;
   }> {
     const queryParams = new URLSearchParams();
     if (params.userLat !== undefined)
@@ -318,6 +319,7 @@ export class EventApiClient extends BaseApiModule {
         eventCount?: number;
       }>;
       availableCities?: string[];
+      resolvedCity?: string;
     }>(response);
 
     console.log("Landing page API response:", {
@@ -342,6 +344,7 @@ export class EventApiClient extends BaseApiModule {
         eventCount: cat.eventCount ?? undefined,
       })),
       availableCities: data.availableCities || [],
+      resolvedCity: data.resolvedCity,
     };
   }
 

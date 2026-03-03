@@ -18,6 +18,8 @@ import { useMapCamera } from "@/hooks/useMapCamera";
 import { useMapLoadingState } from "@/hooks/useMapLoadingState";
 import { useMapViewport } from "@/hooks/useMapViewport";
 import { useMapWebSocket } from "@/hooks/useMapWebSocket";
+import { useCategoryPreferences } from "@/hooks/useCategoryPreferences";
+import MapFilterSheet from "@/components/MapFilterSheet";
 import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { colors } from "@/theme";
@@ -97,6 +99,16 @@ function HomeScreenContent() {
     getUserLocation,
     startLocationTracking,
   } = useUserLocation();
+
+  // Category filter preferences
+  const {
+    categories: filterCategories,
+    includedCategoryIds,
+    excludedCategoryIds,
+    hasActiveFilters,
+    handleCategoryFilterChange,
+    clearAllFilters,
+  } = useCategoryPreferences();
 
   // WebSocket and map data
   const { updateViewport, currentViewport } = useMapWebSocket(
@@ -353,6 +365,14 @@ function HomeScreenContent() {
       <View style={floatingDateButtonStyle}>
         <DateRangeIndicator />
         <PlusButton />
+        <MapFilterSheet
+          categories={filterCategories}
+          includedCategoryIds={includedCategoryIds}
+          excludedCategoryIds={excludedCategoryIds}
+          onCategoryFilterChange={handleCategoryFilterChange}
+          onClearAll={clearAllFilters}
+          hasActiveFilters={hasActiveFilters}
+        />
         <TouchableOpacity
           style={homeScreenStyles.recenterButton}
           onPress={handleSearchPress}
@@ -371,7 +391,18 @@ function HomeScreenContent() {
         )}
       </View>
     ),
-    [floatingDateButtonStyle, isFollowing, recenter, handleSearchPress],
+    [
+      floatingDateButtonStyle,
+      isFollowing,
+      recenter,
+      handleSearchPress,
+      filterCategories,
+      includedCategoryIds,
+      excludedCategoryIds,
+      hasActiveFilters,
+      handleCategoryFilterChange,
+      clearAllFilters,
+    ],
   );
 
   // Memoize ripple effect component

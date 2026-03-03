@@ -7,6 +7,7 @@ import type { EventService } from "../../services/EventServiceRefactored";
 import type { JobQueue } from "../../services/JobQueue";
 import type { RedisService } from "../../services/shared/RedisService";
 import { StorageService } from "../../services/shared/StorageService";
+import type { GoogleGeocodingService } from "../../services/shared/GoogleGeocodingService";
 import type { TicketmasterService } from "../../services/TicketmasterService";
 import type { CategoryProcessingService } from "../../services/CategoryProcessingService";
 import type { IEmbeddingService } from "../../services/event-processing/interfaces/IEmbeddingService";
@@ -20,6 +21,7 @@ export class JobHandlerRegistry {
     private readonly jobQueue: JobQueue,
     private readonly redisService: RedisService,
     private readonly storageService: StorageService,
+    private readonly geocodingService: GoogleGeocodingService,
     private readonly ticketmasterService: TicketmasterService | null = null,
     private readonly categoryProcessingService: CategoryProcessingService | null = null,
     private readonly embeddingService: IEmbeddingService | null = null,
@@ -34,6 +36,7 @@ export class JobHandlerRegistry {
         this.eventProcessingService,
         this.eventService,
         this.storageService,
+        this.geocodingService,
       ),
     );
     this.registerHandler(new CleanupEventsHandler(this.eventService));

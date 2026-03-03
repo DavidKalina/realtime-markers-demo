@@ -25,6 +25,8 @@ interface Filter {
       longitude?: number;
       radius?: number;
     };
+    includeCategoryIds?: string[];
+    excludeCategoryIds?: string[];
   };
   createdAt: Date;
   updatedAt: Date;
@@ -490,6 +492,60 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
       console.error(`Error applying filters for user ${userId}:`, error);
       return false;
     }
+  }
+
+  /**
+   * Get category preferences for a user
+   */
+  async getCategoryPreferences(
+    userId: string,
+  ): Promise<{ includeCategoryIds: string[]; excludeCategoryIds: string[] }> {
+    const filter = await this.filterRepository.findOne({
+      where: { userId, name: "__category_preferences__" },
+    });
+
+    return {
+      includeCategoryIds: filter?.criteria?.includeCategoryIds ?? [],
+      excludeCategoryIds: filter?.criteria?.excludeCategoryIds ?? [],
+    };
+  }
+
+  /**
+   * Set category preferences for a user (find-or-create)
+   */
+  async setCategoryPreferences(
+    userId: string,
+    includeCategoryIds: string[],
+    excludeCategoryIds: string[],
+  ): Promise<{ includeCategoryIds: string[]; excludeCategoryIds: string[] }> {
+    let filter = await this.filterRepository.findOne({
+      where: { userId, name: "__category_preferences__" },
+    });
+
+    const criteria = {
+      includeCategoryIds,
+      excludeCategoryIds,
+    };
+
+    if (filter) {
+      filter.criteria = { ...filter.criteria, ...criteria };
+      await this.filterRepository.save(filter);
+    } else {
+      filter = this.filterRepository.create({
+        userId,
+        name: "__category_preferences__",
+        isActive: true,
+        criteria,
+      });
+      await this.filterRepository.save(filter);
+    }
+
+    await this.publishFilterChange(userId);
+
+    return {
+      includeCategoryIds,
+      excludeCategoryIds,
+    };
   }
 
   async getFilterById(

@@ -354,7 +354,80 @@ export const clearFiltersHandler: FilterHandler = async (c) => {
   }
 };
 
-// Add this to your handlers
+/**
+ * Get category preferences for the current user
+ */
+export const getCategoryPreferencesHandler: FilterHandler = async (c) => {
+  try {
+    const user = c.get("user");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    const userPreferencesService = c.get("userPreferencesService");
+    const preferences = await userPreferencesService.getCategoryPreferences(
+      user.userId,
+    );
+
+    return c.json(preferences);
+  } catch (error) {
+    console.error("Error fetching category preferences:", error);
+    return c.json(
+      {
+        error: "Failed to fetch category preferences",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+};
+
+/**
+ * Set category preferences for the current user
+ */
+export const setCategoryPreferencesHandler: FilterHandler = async (c) => {
+  try {
+    const user = c.get("user");
+
+    if (!user || !user.userId) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    const { includeCategoryIds, excludeCategoryIds } = await c.req.json();
+
+    if (
+      !Array.isArray(includeCategoryIds) ||
+      !Array.isArray(excludeCategoryIds)
+    ) {
+      return c.json(
+        {
+          error:
+            "includeCategoryIds and excludeCategoryIds must both be arrays",
+        },
+        400,
+      );
+    }
+
+    const userPreferencesService = c.get("userPreferencesService");
+    const preferences = await userPreferencesService.setCategoryPreferences(
+      user.userId,
+      includeCategoryIds,
+      excludeCategoryIds,
+    );
+
+    return c.json(preferences);
+  } catch (error) {
+    console.error("Error setting category preferences:", error);
+    return c.json(
+      {
+        error: "Failed to set category preferences",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+};
 
 export const searchWithFilterHandler: FilterHandler = async (c) => {
   try {

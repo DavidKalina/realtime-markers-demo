@@ -128,6 +128,42 @@ export class FiltersModule extends BaseApiModule {
   }
 
   /**
+   * Get category preferences for the current user
+   */
+  async getCategoryPreferences(): Promise<{
+    includeCategoryIds: string[];
+    excludeCategoryIds: string[];
+  }> {
+    const url = `${this.client.baseUrl}/api/filters/category-preferences`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<{
+      includeCategoryIds: string[];
+      excludeCategoryIds: string[];
+    }>(response);
+  }
+
+  /**
+   * Set category preferences for the current user
+   */
+  async setCategoryPreferences(
+    includeCategoryIds: string[],
+    excludeCategoryIds: string[],
+  ): Promise<{
+    includeCategoryIds: string[];
+    excludeCategoryIds: string[];
+  }> {
+    const url = `${this.client.baseUrl}/api/filters/category-preferences`;
+    const response = await this.fetchWithAuth(url, {
+      method: "PUT",
+      body: JSON.stringify({ includeCategoryIds, excludeCategoryIds }),
+    });
+    return this.handleResponse<{
+      includeCategoryIds: string[];
+      excludeCategoryIds: string[];
+    }>(response);
+  }
+
+  /**
    * Generate an emoji for a filter based on its criteria
    * @param filterData - Filter data to generate emoji for
    * @returns Generated emoji

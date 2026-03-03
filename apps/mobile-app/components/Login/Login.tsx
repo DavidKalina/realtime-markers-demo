@@ -44,7 +44,7 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import MapboxGL from "@rnmapbox/maps";
-import MapMojiHeader from "../AnimationHeader";
+import AppHeader from "../AnimationHeader";
 import Input from "../Input/Input";
 
 // Set access token at module scope (login renders before home screen)
@@ -391,7 +391,7 @@ const Login: React.FC = () => {
         >
           {/* Header area — flex: 1 compresses when keyboard opens */}
           <View style={styles.headerArea}>
-            <MapMojiHeader />
+            <AppHeader />
           </View>
 
           {/* Form card — anchored at bottom */}

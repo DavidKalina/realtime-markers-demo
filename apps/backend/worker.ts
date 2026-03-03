@@ -38,6 +38,7 @@ import { createEventCacheService } from "./services/shared/EventCacheService";
 import { createImageProcessingCacheService } from "./services/shared/ImageProcessingCacheService";
 import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
 import { createTicketmasterService } from "./services/TicketmasterService";
+import { createGamificationService } from "./services/GamificationService";
 
 // Constants
 const POLLING_INTERVAL = 1000; // 1 second
@@ -149,6 +150,12 @@ async function initializeWorker() {
     jobQueue,
   });
 
+  // Initialize gamification service
+  const gamificationService = createGamificationService({
+    dataSource: AppDataSource,
+    redisService,
+  });
+
   // Initialize event service
   eventService = createEventService({
     dataSource: AppDataSource,
@@ -157,6 +164,7 @@ async function initializeWorker() {
     eventCacheService,
     openaiService: openAIService,
     embeddingService,
+    gamificationService,
   });
 
   // Initialize storage service
@@ -173,12 +181,18 @@ async function initializeWorker() {
   }
 
   // Initialize job handler registry
+  const geocodingService = createGoogleGeocodingService(
+    openAIService,
+    redisService,
+  );
+
   jobHandlerRegistry = new JobHandlerRegistry(
     eventProcessingService,
     eventService,
     jobQueue,
     redisService,
     storageService,
+    geocodingService,
     ticketmasterService,
     categoryProcessingService,
     embeddingService,

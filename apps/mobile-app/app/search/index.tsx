@@ -14,8 +14,11 @@ import LandingPageContent from "@/components/LandingPage/LandingPageContent";
 import LandingPageBottomFilters from "@/components/LandingPage/LandingPageBottomFilters";
 import useEventSearch from "@/hooks/useEventSearch";
 import useLandingPageData from "@/hooks/useLandingPageData";
+import useLeaderboard from "@/hooks/useLeaderboard";
+import { useCategoryPreferences } from "@/hooks/useCategoryPreferences";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserLocation } from "@/contexts/LocationContext";
+import { apiClient } from "@/services/ApiClient";
 // Type for events from the API
 type EventType = Omit<EventListItemProps, "onPress">;
 
@@ -45,9 +48,12 @@ const SearchListScreen = () => {
   const [selectedDistance, setSelectedDistance] = useState(15);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
 
-  // Category include/exclude filter state
-  const [includedCategoryIds, setIncludedCategoryIds] = useState<string[]>([]);
-  const [excludedCategoryIds, setExcludedCategoryIds] = useState<string[]>([]);
+  // Category include/exclude filter state (shared with map screen)
+  const {
+    includedCategoryIds,
+    excludedCategoryIds,
+    handleCategoryFilterChange,
+  } = useCategoryPreferences();
 
   // Load persisted distance preference
   useEffect(() => {
@@ -71,23 +77,6 @@ const SearchListScreen = () => {
     setSelectedCity(city);
   }, []);
 
-  const handleCategoryFilterChange = useCallback(
-    (categoryId: string, mode: "include" | "exclude" | "none") => {
-      Haptics.selectionAsync();
-      setIncludedCategoryIds((prev) =>
-        prev
-          .filter((id) => id !== categoryId)
-          .concat(mode === "include" ? [categoryId] : []),
-      );
-      setExcludedCategoryIds((prev) =>
-        prev
-          .filter((id) => id !== categoryId)
-          .concat(mode === "exclude" ? [categoryId] : []),
-      );
-    },
-    [],
-  );
-
   const hasUserLocation = !!userLocation;
 
   // Use landing page data hook
@@ -110,6 +99,11 @@ const SearchListScreen = () => {
     excludeCategoryIds:
       excludedCategoryIds.length > 0 ? excludedCategoryIds : undefined,
   });
+
+  // Leaderboard data (keyed off resolved city from landing page response)
+  const resolvedCity = landingData?.resolvedCity || null;
+  const { leaderboard } = useLeaderboard(resolvedCity);
+  const currentUser = apiClient.getCurrentUser();
 
   // Track if we're showing landing page or search results
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -267,6 +261,9 @@ const SearchListScreen = () => {
           isLoading={isLandingLoading}
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
+          leaderboard={leaderboard}
+          leaderboardCity={resolvedCity || undefined}
+          currentUserId={currentUser?.id}
         />
       ) : (
         <InfiniteScrollFlatList

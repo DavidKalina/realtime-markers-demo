@@ -4,6 +4,7 @@ import { BaseJobHandler } from "./BaseJobHandler";
 import type { EventProcessingService } from "../../services/EventProcessingService";
 import type { EventService } from "../../services/EventServiceRefactored";
 import { StorageService } from "../../services/shared/StorageService";
+import type { GoogleGeocodingService } from "../../services/shared/GoogleGeocodingService";
 import { isEventTemporalyRelevant } from "../../utils/isEventTemporalyRelevant";
 import type { Point } from "geojson";
 import type { MultiEventScanResult } from "../../services/EventProcessingService";
@@ -29,14 +30,6 @@ function parseDateOrNull(dateStr?: string): Date | undefined {
   return isNaN(date.getTime()) ? undefined : date;
 }
 
-// Extract "City, ST" from an address string
-function parseCityFromAddress(address?: string): string | undefined {
-  if (!address) return undefined;
-  const match = address.match(
-    /([A-Za-z ]+),\s*([A-Z]{2})(?:\s+\d{5})?(?:,\s*[A-Z]{2,})?$/,
-  );
-  return match ? `${match[1].trim()}, ${match[2]}` : undefined;
-}
 
 // Generate a fingerprint for duplicate scan prevention.
 // Rounds coordinates to 3 decimal places (~111m precision) to catch
@@ -65,6 +58,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
     private readonly eventProcessingService: EventProcessingService,
     private readonly eventService: EventService,
     private readonly storageService: StorageService,
+    private readonly geocodingService: GoogleGeocodingService,
   ) {
     super();
   }
@@ -269,6 +263,13 @@ export class ProcessFlyerHandler extends BaseJobHandler {
       // Step 6: Event Creation
       await tracker.step("save");
 
+      // Resolve city from coordinates via reverse geocoding
+      const coords = pointToCoordinates(eventDetails.location);
+      const city = await this.geocodingService.reverseGeocodeCityState(
+        coords[1],
+        coords[0],
+      );
+
       // Create the event
       console.log(
         "[ProcessFlyerHandler] Creating event with emoji:",
@@ -286,7 +287,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         description: eventDetails.description,
         confidenceScore: scanResult.confidence,
         address: eventDetails.address,
-        city: parseCityFromAddress(eventDetails.address),
+        city: city || undefined,
         locationNotes: eventDetails.locationNotes || "",
         categoryIds: eventDetails.categories?.map((cat) => cat.id),
         creatorId: job.data.creatorId as string,
@@ -429,6 +430,13 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         continue;
       }
 
+      // Resolve city from coordinates via reverse geocoding
+      const multiCoords = pointToCoordinates(eventResult.eventDetails.location);
+      const multiCity = await this.geocodingService.reverseGeocodeCityState(
+        multiCoords[1],
+        multiCoords[0],
+      );
+
       // Create the event
       console.log(
         "[ProcessFlyerHandler] Creating multi-event with emoji:",
@@ -446,7 +454,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         description: eventResult.eventDetails.description,
         confidenceScore: eventResult.confidence,
         address: eventResult.eventDetails.address,
-        city: parseCityFromAddress(eventResult.eventDetails.address),
+        city: multiCity || undefined,
         locationNotes: eventResult.eventDetails.locationNotes || "",
         categoryIds:
           eventResult.eventDetails.categories?.map((cat: Category) => cat.id) ||

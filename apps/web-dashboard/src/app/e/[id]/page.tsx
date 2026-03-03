@@ -26,14 +26,14 @@ export async function generateMetadata({
 
   if (!event) {
     return {
-      title: "Event Not Found | Mapmoji",
+      title: "Event Not Found | A Third Space",
       description: "This event could not be found.",
     };
   }
 
-  const title = `${event.emoji || ""} ${event.title} | Mapmoji`.trim();
+  const title = `${event.emoji || ""} ${event.title} | A Third Space`.trim();
   const description =
-    event.description?.slice(0, 160) || "Discover this event on Mapmoji";
+    event.description?.slice(0, 160) || "Discover this event on A Third Space";
 
   return {
     title,

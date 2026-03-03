@@ -1,0 +1,13 @@
+import { Hono } from "hono";
+import { getCityLeaderboard, getMyRank } from "../handlers/leaderboardHandlers";
+import type { AppContext } from "../types/context";
+import { authMiddleware } from "../middleware/authMiddleware";
+
+export const leaderboardRouter = new Hono<AppContext>();
+
+// Public — no auth required
+leaderboardRouter.get("/", getCityLeaderboard);
+
+// Authenticated — user's own rank
+leaderboardRouter.use("/my-rank", authMiddleware);
+leaderboardRouter.get("/my-rank", getMyRank);

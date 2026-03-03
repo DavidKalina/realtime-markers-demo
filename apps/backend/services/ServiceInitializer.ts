@@ -22,6 +22,7 @@ import { createEmailService, MockEmailService } from "./shared/EmailService";
 import { createGoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import { createJobQueue } from "./JobQueue";
 import { createGamificationService } from "./GamificationService";
+import { createLeaderboardService } from "./LeaderboardService";
 import { RepositoryInitializer } from "./RepositoryInitializer";
 import type { EventService } from "./EventServiceRefactored";
 import type { EventProcessingService } from "./EventProcessingService";
@@ -36,6 +37,7 @@ import type { JobQueue } from "./JobQueue";
 import type { RedisService } from "./shared/RedisService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import type { GamificationService } from "./GamificationService";
+import type { LeaderboardService } from "./LeaderboardService";
 import { createAreaScanService } from "./AreaScanService";
 import type { AreaScanService } from "./AreaScanService";
 import { createEventHypeService } from "./EventHypeService";
@@ -63,6 +65,7 @@ export interface ServiceContainer {
   redisService: RedisService;
   geocodingService: GoogleGeocodingService;
   gamificationService: GamificationService;
+  leaderboardService: LeaderboardService;
   areaScanService: AreaScanService;
   eventHypeService: EventHypeService;
   ticketmasterService: TicketmasterService | null;
@@ -159,6 +162,11 @@ export class ServiceInitializer {
       redisService,
     });
 
+    const leaderboardService = createLeaderboardService({
+      dataSource: this.dataSource,
+      redisService,
+    });
+
     const eventService = createEventService({
       dataSource: this.dataSource,
       redisService,
@@ -249,6 +257,7 @@ export class ServiceInitializer {
       redisService,
       geocodingService,
       gamificationService,
+      leaderboardService,
       areaScanService,
       eventHypeService,
       ticketmasterService,

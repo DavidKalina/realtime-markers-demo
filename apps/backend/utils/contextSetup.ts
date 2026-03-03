@@ -29,6 +29,7 @@ export function setupContext(
       services.proximityNotificationService,
     );
     c.set("followService", services.followService);
+    c.set("leaderboardService", services.leaderboardService);
     await next();
   });
 }

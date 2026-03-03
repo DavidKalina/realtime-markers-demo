@@ -24,6 +24,16 @@ filterRouter.use(
 );
 filterRouter.use("*", authMiddleware);
 
+// Category preference endpoints (before parameterized routes)
+filterRouter.get(
+  "/category-preferences",
+  handlers.getCategoryPreferencesHandler,
+);
+filterRouter.put(
+  "/category-preferences",
+  handlers.setCategoryPreferencesHandler,
+);
+
 // Filter CRUD endpoints
 filterRouter.get("/", handlers.getFiltersHandler);
 filterRouter.get("/active", handlers.getActiveFiltersHandler);

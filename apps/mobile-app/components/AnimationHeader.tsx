@@ -4,11 +4,11 @@ import { colors, fontSize, fontFamily, fontWeight } from "@/theme";
 
 const { width } = Dimensions.get("window");
 
-const MapMojiHeader = () => {
+const AppHeader = () => {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>MapMoji</Text>
-      <Text style={styles.subtext}>Scan. Discover. Attend.</Text>
+      <Text style={styles.text}>A Third Space</Text>
+      <Text style={styles.subtext}>in your pocket</Text>
     </View>
   );
 };
@@ -42,4 +42,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MapMojiHeader;
+export default AppHeader;

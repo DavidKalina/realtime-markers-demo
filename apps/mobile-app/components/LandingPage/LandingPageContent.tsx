@@ -24,8 +24,10 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import CommunityEventsSection from "./CommunityEventsSection";
 import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
 import JustDiscoveredSection from "./JustDiscoveredSection";
+import LeaderboardSection from "./LeaderboardSection";
 import TrendingEventsSection from "./TrendingEventsSection";
 import UpcomingEventsSection from "./UpcomingEventsSection";
+import type { LeaderboardEntry } from "@/services/ApiClient";
 
 interface Category {
   id: string;
@@ -49,6 +51,9 @@ interface LandingPageContentProps {
   isLoading: boolean;
   onRefresh: () => Promise<void>;
   isRefreshing?: boolean;
+  leaderboard?: LeaderboardEntry[];
+  leaderboardCity?: string;
+  currentUserId?: string;
 }
 
 const SkeletonCard: React.FC = () => (
@@ -68,6 +73,9 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
   isLoading,
   onRefresh,
   isRefreshing = false,
+  leaderboard,
+  leaderboardCity,
+  currentUserId,
 }) => {
   return (
     <ScrollView
@@ -96,6 +104,12 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
           {/* Trending Skeleton */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Trending Now</Text>
+            <SkeletonCard />
+          </View>
+
+          {/* Leaderboard Skeleton */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Top Scanners</Text>
             <SkeletonCard />
           </View>
 
@@ -136,13 +150,21 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
           </Animated.View>
 
           <Animated.View entering={FadeIn.duration(duration.normal).delay(240)}>
+            <LeaderboardSection
+              leaderboard={leaderboard || []}
+              currentUserId={currentUserId}
+              city={leaderboardCity}
+            />
+          </Animated.View>
+
+          <Animated.View entering={FadeIn.duration(duration.normal).delay(320)}>
             <CommunityEventsSection
               events={data?.communityEvents || []}
               isLoading={false}
             />
           </Animated.View>
 
-          <Animated.View entering={FadeIn.duration(duration.normal).delay(320)}>
+          <Animated.View entering={FadeIn.duration(duration.normal).delay(400)}>
             <UpcomingEventsSection
               events={data?.upcomingEvents || []}
               isLoading={false}

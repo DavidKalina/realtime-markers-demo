@@ -1,4 +1,4 @@
-import MapMojiHeader from "@/components/AnimationHeader";
+import AppHeader from "@/components/AnimationHeader";
 import Input from "@/components/Input/Input";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -148,7 +148,7 @@ const RegisterScreen: React.FC = () => {
             entering={FadeInDown.duration(600).delay(100).springify()}
             style={styles.contentContainer}
           >
-            <MapMojiHeader />
+            <AppHeader />
 
             <Animated.View
               entering={FadeInDown.duration(600).delay(300).springify()}

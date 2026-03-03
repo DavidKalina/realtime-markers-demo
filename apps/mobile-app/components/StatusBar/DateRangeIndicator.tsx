@@ -40,7 +40,7 @@ const DateRangeIndicator: React.FC = () => {
   // Sync date range on mount - start in relevant mode
   useEffect(() => {
     if (activeFilterIds.length === 0 && filters.length === 0) {
-      console.log("Starting in relevant mode (MapMoji filtered)");
+      console.log("Starting in relevant mode (filtered)");
     }
   }, []);
 

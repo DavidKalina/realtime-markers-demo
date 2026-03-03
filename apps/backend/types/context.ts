@@ -15,6 +15,7 @@ import type { AreaScanService } from "../services/AreaScanService";
 import type { EventHypeService } from "../services/EventHypeService";
 import type { ProximityNotificationService } from "../services/ProximityNotificationService";
 import type { FollowService } from "../services/FollowService";
+import type { LeaderboardService } from "../services/LeaderboardService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -33,6 +34,7 @@ export interface AppVariables {
   eventHypeService: EventHypeService;
   proximityNotificationService: ProximityNotificationService;
   followService: FollowService;
+  leaderboardService: LeaderboardService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

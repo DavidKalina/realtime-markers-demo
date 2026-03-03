@@ -81,7 +81,7 @@ export default function LoginPage() {
             className="text-2xl font-bold tracking-wide"
             style={{ color: colors.text }}
           >
-            Mapmoji
+            A Third Space
           </h2>
           <p
             className="text-sm mt-1"

@@ -32,7 +32,7 @@ interface OnboardingStep {
 const STEPS: OnboardingStep[] = [
   {
     emoji: "\uD83C\uDF89",
-    title: "Welcome to MapMoji!",
+    title: "Welcome to A Third Space!",
     description:
       "Discover events happening around you in real time. Your city is more alive than you think.",
   },

@@ -13,7 +13,7 @@ export function Footer({ className = "", content }: FooterProps) {
     >
       {content || (
         <span>
-          &copy; {new Date().getFullYear()} Mapmoji. All rights reserved.
+          &copy; {new Date().getFullYear()} A Third Space. All rights reserved.
         </span>
       )}
     </footer>

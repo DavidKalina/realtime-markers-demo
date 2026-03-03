@@ -12,8 +12,8 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mapmoji",
-  description: "Mapmoji Admin Dashboard",
+  title: "A Third Space",
+  description: "A Third Space Admin Dashboard",
 };
 
 export default function RootLayout({

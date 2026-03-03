@@ -603,9 +603,12 @@ export const getLandingPageDataHandler: EventHandler = withErrorHandling(
       ? excludeCategoryIdsRaw.split(",").filter(Boolean)
       : undefined;
 
+    const parsedLat = userLat ? parseFloat(userLat) : undefined;
+    const parsedLng = userLng ? parseFloat(userLng) : undefined;
+
     const landingPageData = await eventService.getLandingPageData({
-      userLat: userLat ? parseFloat(userLat) : undefined,
-      userLng: userLng ? parseFloat(userLng) : undefined,
+      userLat: parsedLat,
+      userLng: parsedLng,
       featuredLimit: featuredLimit ? parseInt(featuredLimit) : undefined,
       upcomingLimit: upcomingLimit ? parseInt(upcomingLimit) : undefined,
       communityLimit: communityLimit ? parseInt(communityLimit) : undefined,
@@ -620,6 +623,20 @@ export const getLandingPageDataHandler: EventHandler = withErrorHandling(
       excludeCategoryIds,
     });
 
-    return c.json(landingPageData);
+    // Resolve city from user coordinates for leaderboard usage
+    let resolvedCity: string | undefined;
+    if (parsedLat !== undefined && parsedLng !== undefined) {
+      try {
+        const geocodingService = c.get("geocodingService");
+        resolvedCity = await geocodingService.reverseGeocodeCityState(
+          parsedLat,
+          parsedLng,
+        );
+      } catch (err) {
+        console.error("Failed to reverse geocode city for landing page:", err);
+      }
+    }
+
+    return c.json({ ...landingPageData, resolvedCity });
   },
 );

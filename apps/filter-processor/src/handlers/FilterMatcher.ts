@@ -25,8 +25,53 @@ export class FilterMatcher {
       return false;
     }
 
-    // Event matches if it satisfies ANY filter
-    return filters.some((filter) => this.matchesSingleFilter(event, filter));
+    // Separate category-preference filters from regular filters
+    const categoryFilters = filters.filter(
+      (f) => f.criteria.includeCategoryIds || f.criteria.excludeCategoryIds,
+    );
+    const regularFilters = filters.filter(
+      (f) => !f.criteria.includeCategoryIds && !f.criteria.excludeCategoryIds,
+    );
+
+    // Category preferences: AND logic — event must pass ALL category filters
+    for (const filter of categoryFilters) {
+      if (!this.matchesCategoryFilter(event, filter.criteria)) {
+        return false;
+      }
+    }
+
+    // Regular filters: OR logic — event matches if ANY regular filter matches
+    if (regularFilters.length === 0) return true;
+    return regularFilters.some((filter) =>
+      this.matchesSingleFilter(event, filter),
+    );
+  }
+
+  private matchesCategoryFilter(
+    event: Event,
+    criteria: Filter["criteria"],
+  ): boolean {
+    const { includeCategoryIds, excludeCategoryIds } = criteria;
+    const eventCategoryIds = event.categories?.map((c) => c.id) ?? [];
+
+    // If include filter is active, event must have at least one matching category
+    if (includeCategoryIds && includeCategoryIds.length > 0) {
+      if (eventCategoryIds.length === 0) return false;
+      const hasMatch = eventCategoryIds.some((id) =>
+        includeCategoryIds.includes(id),
+      );
+      if (!hasMatch) return false;
+    }
+
+    // If exclude filter is active, event must NOT have any matching category
+    if (excludeCategoryIds && excludeCategoryIds.length > 0) {
+      const hasExcluded = eventCategoryIds.some((id) =>
+        excludeCategoryIds.includes(id),
+      );
+      if (hasExcluded) return false;
+    }
+
+    return true;
   }
 
   private matchesSingleFilter(event: Event, filter: Filter): boolean {

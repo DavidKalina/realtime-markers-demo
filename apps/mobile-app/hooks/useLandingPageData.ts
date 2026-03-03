@@ -21,6 +21,7 @@ interface LandingPageData {
   trendingEvents?: TrendingEventType[];
   popularCategories: Category[];
   availableCities: string[];
+  resolvedCity?: string;
 }
 
 interface UseLandingPageDataProps {

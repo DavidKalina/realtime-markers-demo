@@ -118,7 +118,6 @@ export interface Event {
 
 // Update the FilterCriteria interface
 export interface FilterCriteria {
-  // Remove categories, tags, keywords
   dateRange?: {
     start?: string;
     end?: string;
@@ -129,6 +128,8 @@ export interface FilterCriteria {
     longitude: number;
     radius: number; // in meters
   };
+  includeCategoryIds?: string[];
+  excludeCategoryIds?: string[];
 }
 
 // Update the Filter interface

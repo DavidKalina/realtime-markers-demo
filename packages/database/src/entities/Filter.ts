@@ -52,6 +52,8 @@ export class Filter {
       longitude?: number;
       radius?: number; // in meters
     };
+    includeCategoryIds?: string[];
+    excludeCategoryIds?: string[];
   };
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
