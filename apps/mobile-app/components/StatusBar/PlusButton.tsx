@@ -1,6 +1,7 @@
+import { colors, spacing } from "@/theme";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { Plus } from "lucide-react-native";
+import { Camera } from "lucide-react-native";
 import React, { useCallback, useEffect } from "react";
 import { Pressable, StyleSheet } from "react-native";
 import Animated, {
@@ -11,7 +12,6 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { colors, spacing } from "@/theme";
 
 const PlusButton: React.FC = () => {
   const scale = useSharedValue(1);
@@ -45,7 +45,7 @@ const PlusButton: React.FC = () => {
   return (
     <Pressable onPress={handlePress}>
       <Animated.View style={[styles.container, animatedStyle]}>
-        <Plus size={22} color={colors.action.rsvp} />
+        <Camera size={22} color={colors.action.rsvp} />
       </Animated.View>
     </Pressable>
   );

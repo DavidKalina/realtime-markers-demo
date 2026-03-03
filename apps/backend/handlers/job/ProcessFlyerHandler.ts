@@ -30,7 +30,6 @@ function parseDateOrNull(dateStr?: string): Date | undefined {
   return isNaN(date.getTime()) ? undefined : date;
 }
 
-
 // Generate a fingerprint for duplicate scan prevention.
 // Rounds coordinates to 3 decimal places (~111m precision) to catch
 // near-identical scans without false positives from GPS jitter.
@@ -121,11 +120,9 @@ export class ProcessFlyerHandler extends BaseJobHandler {
         },
         // Progress callback for AI processing
         (aiProgress: number, aiStep: string) => {
-          tracker
-            .stepProgress(aiProgress, `AI Processing: ${aiStep}`)
-            .catch((error) => {
-              console.error("Error updating AI progress:", error);
-            });
+          tracker.stepProgress(aiProgress, aiStep).catch((error) => {
+            console.error("Error updating AI progress:", error);
+          });
         },
       );
 
@@ -137,6 +134,54 @@ export class ProcessFlyerHandler extends BaseJobHandler {
 
       // Step 5: Processing event details
       await tracker.step("process");
+
+      // Stream extractions progressively so the client reveals fields one-by-one
+      if (!("events" in scanResult) && scanResult.eventDetails) {
+        const d = scanResult.eventDetails;
+        // Phase 1: emoji + title
+        await tracker.stepProgress(10, "Extracting details", {
+          emoji: d.emoji,
+          title: d.title,
+          confidence: scanResult.confidence,
+        });
+        await Bun.sleep(350);
+        // Phase 2: + date + address
+        await tracker.stepProgress(30, "Processing event info", {
+          emoji: d.emoji,
+          title: d.title,
+          date: d.date,
+          address: d.address,
+          confidence: scanResult.confidence,
+        });
+        await Bun.sleep(350);
+        // Phase 3: + categories + emojiDescription
+        await tracker.stepProgress(50, "Finalizing details", {
+          emoji: d.emoji,
+          emojiDescription: d.emojiDescription,
+          title: d.title,
+          date: d.date,
+          address: d.address,
+          categories: d.categories?.map((cat) => cat.name),
+          confidence: scanResult.confidence,
+        });
+      } else if ("events" in scanResult && scanResult.events.length > 0) {
+        const first = scanResult.events[0];
+        const d = first.eventDetails;
+        await tracker.stepProgress(10, "Extracting details", {
+          emoji: d.emoji,
+          title: d.title,
+          confidence: first.confidence,
+        });
+        await Bun.sleep(350);
+        await tracker.stepProgress(30, "Processing event info", {
+          emoji: d.emoji,
+          title: d.title,
+          date: d.date,
+          address: d.address,
+          categories: d.categories?.map((cat: Category) => cat.name),
+          confidence: first.confidence,
+        });
+      }
 
       // Handle multi-event result
       if ("events" in scanResult) {
@@ -162,7 +207,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
               confidence: event.confidenceScore,
               isDuplicate: event.isDuplicate,
             })),
-            message: `Successfully processed ${processedEvents.length} events from the flyer!`,
+            message: `${processedEvents.length} Events Created`,
             isMultiEvent: true,
           },
           processedEvents.map((e) => e.id).join(","),
@@ -202,7 +247,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
               coordinates: pointToCoordinates(existingEvent.location),
               isDuplicate: true,
               similarityScore: scanResult.similarity.score,
-              message: "Duplicate event found",
+              message: "Event already exists",
             },
             existingEvent.id,
           );
@@ -228,7 +273,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
           message:
             dateValidation.daysFromNow !== undefined &&
             dateValidation.daysFromNow < 0
-              ? "This event appears to be in the past. We only process upcoming events."
+              ? "Event is in the past"
               : dateValidation.reason,
           daysFromNow: dateValidation.daysFromNow,
           date: eventDate.toISOString(),
@@ -253,8 +298,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
           `[ProcessFlyerHandler] Duplicate scan detected (lock exists for fingerprint ${fingerprint}), completing as duplicate`,
         );
         await tracker.complete({
-          message:
-            "This event is already being processed by another scan. Please wait a moment.",
+          message: "Already processing this event",
           isDuplicate: true,
         });
         return;
@@ -323,7 +367,7 @@ export class ProcessFlyerHandler extends BaseJobHandler {
           title: eventDetails.title,
           emoji: eventDetails.emoji,
           coordinates: pointToCoordinates(newEvent.location),
-          message: "Event successfully processed and added to the database!",
+          message: "Event Created",
         },
         newEvent.id,
       );

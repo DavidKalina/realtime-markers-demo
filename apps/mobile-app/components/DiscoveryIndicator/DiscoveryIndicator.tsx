@@ -355,7 +355,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    zIndex: 1000,
+    zIndex: 1001,
   },
   wrapper: {
     width: 220,

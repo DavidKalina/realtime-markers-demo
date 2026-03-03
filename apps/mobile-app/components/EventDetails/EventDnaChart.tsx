@@ -11,15 +11,7 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { CategoryPieChart } from "../AreaScan/AreaScanComponents";
 import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
-
-const CATEGORY_COLORS = [
-  "#34d399",
-  "#fbbf24",
-  "#a78bfa",
-  "#fb7185",
-  "#22d3ee",
-  "#fb923c",
-] as const;
+import { getCategoryColor } from "@/utils/categoryColors";
 
 export interface DnaCategory {
   id?: string;
@@ -87,8 +79,7 @@ const EventDnaChart: React.FC<EventDnaChartProps> = memo(
     );
 
     const chartColors = useMemo(
-      () =>
-        categories.map((_, i) => CATEGORY_COLORS[i % CATEGORY_COLORS.length]),
+      () => categories.map((cat) => getCategoryColor(cat.name)),
       [categories],
     );
 

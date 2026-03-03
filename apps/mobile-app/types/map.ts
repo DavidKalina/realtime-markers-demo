@@ -15,6 +15,7 @@ export interface ClusterItem extends BaseMapItem {
   type: "cluster";
   count: number;
   childrenIds?: string[];
+  dominantCategory?: string;
 }
 
 export type MapItem = MarkerItem | ClusterItem;

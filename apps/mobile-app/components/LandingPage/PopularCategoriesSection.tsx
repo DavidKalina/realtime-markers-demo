@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import Animated, { FadeInRight } from "react-native-reanimated";
 import { colors, fontSize, fontWeight, fontFamily, spacing } from "@/theme";
+import { getCategoryColor } from "@/utils/categoryColors";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
@@ -22,8 +23,6 @@ interface PopularCategoriesSectionProps {
   categories: Category[];
   isLoading?: boolean;
 }
-
-const CATEGORY_COLORS = ["#93c5fd", "#86efac", "#fcd34d", "#c4b5fd", "#fda4af"];
 
 const titleCase = (str: string) => str.replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -53,7 +52,7 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
         contentContainerStyle={styles.listContent}
       >
         {categories.map((item, index) => {
-          const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+          const color = getCategoryColor(item.name);
           return (
             <Animated.View
               key={item.id}

@@ -18,6 +18,7 @@ import Animated, {
   withRepeat,
 } from "react-native-reanimated";
 import { colors, fontSize, lineHeight, spacing, spring } from "@/theme";
+import { getCategoryColorScheme } from "@/utils/categoryColors";
 import {
   MARKER_HEIGHT,
   MARKER_WIDTH,
@@ -139,28 +140,35 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
 
     // Memoized SVGs
     const ShadowSvg = useMemo(() => <ShadowSVG />, []);
-    const MarkerSvg = useMemo(
-      () => (
+    const primaryCategory = event.data.categories?.[0];
+    const MarkerSvg = useMemo(() => {
+      // Private markers keep accent styling (higher priority)
+      if (event.data.isPrivate) {
+        return (
+          <MarkerSVG
+            fill={colors.accent.primary}
+            stroke={colors.accent.dark}
+            strokeWidth="3"
+            highlightStrokeWidth="2.5"
+            circleRadius="12"
+            circleStroke={colors.accent.dark}
+            circleStrokeWidth="1"
+          />
+        );
+      }
+      const scheme = getCategoryColorScheme(primaryCategory);
+      return (
         <MarkerSVG
-          fill={
-            event.data.isPrivate ? colors.accent.primary : colors.bg.primary
-          }
-          stroke={
-            event.data.isPrivate ? colors.accent.dark : colors.fixed.white
-          }
+          fill={scheme.fill}
+          stroke={scheme.stroke}
           strokeWidth="3"
           highlightStrokeWidth="2.5"
           circleRadius="12"
-          circleStroke={
-            event.data.isPrivate
-              ? colors.accent.dark
-              : colors.brand.markerStroke
-          }
+          circleStroke={scheme.circleStroke}
           circleStrokeWidth="1"
         />
-      ),
-      [event.data.isPrivate],
-    );
+      );
+    }, [event.data.isPrivate, primaryCategory]);
 
     return (
       <View style={styles.container}>
@@ -195,7 +203,9 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.isHighlighted === nextProps.isHighlighted &&
       prevProps.event.data.emoji === nextProps.event.data.emoji &&
-      prevProps.event.data.title === nextProps.event.data.title
+      prevProps.event.data.title === nextProps.event.data.title &&
+      prevProps.event.data.categories?.[0] ===
+        nextProps.event.data.categories?.[0]
     );
   },
 );

@@ -16,7 +16,6 @@ import React, { useMemo } from "react";
 import { StatusBar as RNStatusBar, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
-import JobIndicator from "../JobIndicator/JobIndicator";
 
 const StatusBar: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -32,8 +31,6 @@ const StatusBar: React.FC = () => {
     [insets.top],
   );
 
-  const displayName = user?.firstName || user?.email || "";
-
   const totalXp = user?.totalXp || 0;
   const tierInfo = getTierByName(user?.currentTier || "Explorer");
   const progressPercent = getXPProgressPercent(totalXp);
@@ -47,10 +44,7 @@ const StatusBar: React.FC = () => {
         translucent
       />
 
-      <View style={styles.bannerContent}>
-        {user && <Text style={styles.userName}>{displayName}</Text>}
-        <JobIndicator />
-      </View>
+      <View style={styles.bannerContent} />
 
       {/* XP Progress Bar */}
       {user && (
@@ -105,15 +99,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    minHeight: spacing["5xl"],
-  },
-  userName: {
-    color: colors.fixed.white,
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 0.2,
+    paddingVertical: spacing.xs,
   },
   xpContainer: {
     paddingHorizontal: spacing.xl,

@@ -7,6 +7,7 @@ import {
 import { useLocationStore } from "@/stores/useLocationStore";
 import { Marker, MapboxViewport } from "@/types/types";
 import type { MarkerItem, ClusterItem } from "@/types/map";
+import { getDominantCategory } from "@/utils/categoryColors";
 import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useMemo, useEffect, useRef } from "react";
 import Animated, { BounceIn, FadeOut } from "react-native-reanimated";
@@ -166,6 +167,7 @@ const ClusterView = React.memo(
             coordinates={cluster.coordinates}
             onPress={onPress}
             isSelected={isSelected}
+            dominantCategory={cluster.dominantCategory}
           />
         </Animated.View>
       </MapboxGL.MarkerView>
@@ -177,6 +179,8 @@ const ClusterView = React.memo(
       prevProps.cluster.count === nextProps.cluster.count &&
       prevProps.cluster.coordinates[0] === nextProps.cluster.coordinates[0] &&
       prevProps.cluster.coordinates[1] === nextProps.cluster.coordinates[1] &&
+      prevProps.cluster.dominantCategory ===
+        nextProps.cluster.dominantCategory &&
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.index === nextProps.index &&
       prevProps.newIndex === nextProps.newIndex &&
@@ -220,6 +224,16 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       for (const m of markers) {
         knownMarkerIds.current.add(m.id);
       }
+    }, [markers]);
+
+    // Build a lookup map from marker ID → primary category for cluster coloring
+    const categoryLookup = useMemo(() => {
+      const lookup = new Map<string, string>();
+      for (const m of markers) {
+        const cat = m.data.categories?.[0];
+        if (cat) lookup.set(m.id, cat);
+      }
+      return lookup;
     }, [markers]);
 
     // At zoom 13+ marker density is low enough that mid-gesture reclustering
@@ -301,6 +315,11 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
             (id) => !knownMarkerIds.current.has(id),
           );
 
+          const dominantCategory = getDominantCategory(
+            childMarkerIds,
+            categoryLookup,
+          );
+
           return {
             type: "cluster" as const,
             item: {
@@ -309,6 +328,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
               coordinates,
               count,
               childrenIds: childMarkerIds,
+              dominantCategory: dominantCategory ?? undefined,
             },
             isSelected: false,
             onPress: createClusterPressHandler(coordinates, childMarkerIds),
@@ -347,6 +367,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         createMarkerSelectHandler,
         createMarkerNavigateHandler,
         selectedId,
+        categoryLookup,
       ],
     );
 

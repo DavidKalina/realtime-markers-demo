@@ -4,11 +4,22 @@ import { apiClient } from "@/services/ApiClient";
 
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
+export interface JobExtractions {
+  title?: string;
+  emoji?: string;
+  emojiDescription?: string;
+  date?: string;
+  address?: string;
+  categories?: string[];
+  confidence?: number;
+}
+
 export interface TrackedJob {
   jobId: string;
   status: JobStatus;
   progress: number;
   stepLabel: string;
+  extractions?: JobExtractions;
   result?: Record<string, unknown>;
   error?: string;
 }
@@ -102,6 +113,10 @@ export function useJobProgress(): UseJobProgressReturn {
             setJobs((prev) => {
               const next = new Map(prev);
               const existing = next.get(jobId);
+              const incomingExtractions =
+                data.extractions ||
+                data.progressDetails?.extractions ||
+                undefined;
               next.set(jobId, {
                 jobId,
                 status: data.status || existing?.status || "processing",
@@ -111,6 +126,9 @@ export function useJobProgress(): UseJobProgressReturn {
                   data.stepLabel ||
                   existing?.stepLabel ||
                   "Processing",
+                extractions: incomingExtractions
+                  ? { ...existing?.extractions, ...incomingExtractions }
+                  : existing?.extractions,
                 result: data.result || existing?.result,
                 error: data.error || existing?.error,
               });

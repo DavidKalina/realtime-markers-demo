@@ -19,6 +19,9 @@ import { useMapViewport } from "@/hooks/useMapViewport";
 import { useMapWebSocket } from "@/hooks/useMapWebSocket";
 import { useCategoryPreferences } from "@/hooks/useCategoryPreferences";
 import MapFilterSheet from "@/components/MapFilterSheet";
+import MapLegend from "@/components/MapLegend/MapLegend";
+import ScanProgressFAB from "@/components/ScanProgress/ScanProgressFAB";
+import ScanProgressSheet from "@/components/ScanProgress/ScanProgressSheet";
 import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { colors } from "@/theme";
@@ -32,6 +35,7 @@ import React, {
   useState,
 } from "react";
 import { Platform, TouchableOpacity, View } from "react-native";
+import RAnimated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Navigation, Search } from "lucide-react-native";
 import { scheduleOnRN } from "react-native-worklets";
@@ -243,6 +247,8 @@ function HomeScreenContent() {
     );
   }, [locationPermissionGranted]);
 
+  const [scanSheetOpen, setScanSheetOpen] = useState(false);
+
   const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
   const [showRipple, setShowRipple] = useState(false);
   const [areaScanCoords, setAreaScanCoords] = useState<{
@@ -358,39 +364,60 @@ function HomeScreenContent() {
     router.push("/search");
   }, [router]);
 
+  const handleScanFABPress = useCallback(() => {
+    setScanSheetOpen(true);
+  }, []);
+
+  const handleScanSheetDismiss = useCallback(() => {
+    setScanSheetOpen(false);
+  }, []);
+
   // Memoize floating buttons section
   const floatingButtonsSection = useMemo(
     () => (
       <View style={floatingDateButtonStyle}>
-        <PlusButton />
-        <MapFilterSheet
-          categories={filterCategories}
-          includedCategoryIds={includedCategoryIds}
-          excludedCategoryIds={excludedCategoryIds}
-          onCategoryFilterChange={handleCategoryFilterChange}
-          onClearAll={clearAllFilters}
-          hasActiveFilters={hasActiveFilters}
-        />
-        <TouchableOpacity
-          style={homeScreenStyles.recenterButton}
-          onPress={handleSearchPress}
-          activeOpacity={0.7}
-        >
-          <Search size={22} color={colors.action.map} />
-        </TouchableOpacity>
-        {!isFollowing && (
+        <ScanProgressFAB onPress={handleScanFABPress} />
+        <RAnimated.View entering={FadeInDown.springify().delay(0)}>
+          <PlusButton />
+        </RAnimated.View>
+        <RAnimated.View entering={FadeInDown.springify().delay(50)}>
+          <MapFilterSheet
+            categories={filterCategories}
+            includedCategoryIds={includedCategoryIds}
+            excludedCategoryIds={excludedCategoryIds}
+            onCategoryFilterChange={handleCategoryFilterChange}
+            onClearAll={clearAllFilters}
+            hasActiveFilters={hasActiveFilters}
+          />
+        </RAnimated.View>
+        <RAnimated.View entering={FadeInDown.springify().delay(100)}>
           <TouchableOpacity
             style={homeScreenStyles.recenterButton}
-            onPress={recenter}
+            onPress={handleSearchPress}
             activeOpacity={0.7}
           >
-            <Navigation size={22} color={colors.action.save} />
+            <Search size={22} color={colors.action.map} />
           </TouchableOpacity>
+        </RAnimated.View>
+        {!isFollowing && (
+          <RAnimated.View
+            entering={FadeInDown.springify().delay(150)}
+            exiting={FadeOutDown.springify()}
+          >
+            <TouchableOpacity
+              style={homeScreenStyles.recenterButton}
+              onPress={recenter}
+              activeOpacity={0.7}
+            >
+              <Navigation size={22} color={colors.action.save} />
+            </TouchableOpacity>
+          </RAnimated.View>
         )}
       </View>
     ),
     [
       floatingDateButtonStyle,
+      handleScanFABPress,
       isFollowing,
       recenter,
       handleSearchPress,
@@ -474,7 +501,14 @@ function HomeScreenContent() {
 
         <MarkerInfoHUD safeAreaBottom={aboveActionBar} />
 
+        <MapLegend />
+
         {floatingButtonsSection}
+
+        <ScanProgressSheet
+          visible={scanSheetOpen}
+          onDismiss={handleScanSheetDismiss}
+        />
       </View>
     </>
   );

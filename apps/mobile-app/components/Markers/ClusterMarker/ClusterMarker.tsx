@@ -19,6 +19,7 @@ import {
   ShadowSVG,
 } from "../MarkerSVGs";
 import { colors, fontFamily, lineHeight } from "@/theme";
+import { getCategoryColorScheme } from "@/utils/categoryColors";
 import { COLOR_SCHEMES, ANIMATIONS } from "./constants";
 import { useClusterAnimations } from "./useClusterAnimations";
 
@@ -29,19 +30,23 @@ interface ClusterMarkerProps {
   isSelected?: boolean;
   isHighlighted?: boolean;
   index?: number;
+  dominantCategory?: string;
 }
 
 export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
-  ({ count, onPress, isSelected = false }) => {
+  ({ count, onPress, isSelected = false, dominantCategory }) => {
     const { scale, markerStyle, shadowStyle, rippleStyle } =
       useClusterAnimations(count, isSelected);
 
-    // Memoize color scheme based on count
+    // Memoize color scheme: category-based when available, else size-based fallback
     const colorScheme = useMemo(() => {
+      if (dominantCategory) {
+        return getCategoryColorScheme(dominantCategory);
+      }
       if (count < 5) return COLOR_SCHEMES.small;
       if (count < 15) return COLOR_SCHEMES.medium;
       return COLOR_SCHEMES.large;
-    }, [count]);
+    }, [count, dominantCategory]);
 
     // Memoize formatted count
     const formattedCount = useMemo(
@@ -124,7 +129,8 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.isHighlighted === nextProps.isHighlighted &&
       prevProps.coordinates[0] === nextProps.coordinates[0] &&
-      prevProps.coordinates[1] === nextProps.coordinates[1]
+      prevProps.coordinates[1] === nextProps.coordinates[1] &&
+      prevProps.dominantCategory === nextProps.dominantCategory
     );
   },
 );

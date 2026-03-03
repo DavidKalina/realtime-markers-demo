@@ -22,6 +22,16 @@ export interface Pipeline<TStepId extends string> {
   totalWeight: number;
 }
 
+export interface JobExtractions {
+  title?: string;
+  emoji?: string;
+  emojiDescription?: string;
+  date?: string;
+  address?: string;
+  categories?: string[];
+  confidence?: number;
+}
+
 export interface JobProgressMessage {
   jobId: string;
   jobType: JobType;
@@ -32,6 +42,7 @@ export interface JobProgressMessage {
   stepIndex: number;
   totalSteps: number;
   stepProgress: number;
+  extractions?: JobExtractions;
   error?: string;
   message?: string;
   result?: JobData["result"];
@@ -99,7 +110,11 @@ export const IMPORT_PIPELINE = definePipeline<ImportStepId>(
 
 export interface JobTracker<TStepId extends string> {
   step(stepId: TStepId): Promise<void>;
-  stepProgress(progress: number, label?: string): Promise<void>;
+  stepProgress(
+    progress: number,
+    label?: string,
+    extractions?: JobExtractions,
+  ): Promise<void>;
   complete(result: JobData["result"], eventId?: string): Promise<void>;
   fail(error: string, message?: string): Promise<void>;
 }
@@ -153,6 +168,7 @@ export function createJobTracker<TStepId extends string>(
         totalSteps: msg.totalSteps,
         stepProgress: msg.stepProgress,
         stepDescription: msg.stepLabel,
+        ...(msg.extractions ? { extractions: msg.extractions } : {}),
       },
       ...(msg.result ? { result: msg.result } : {}),
       ...(msg.error ? { error: msg.error } : {}),
@@ -201,11 +217,18 @@ export function createJobTracker<TStepId extends string>(
       await publish(buildMessage({}));
     },
 
-    async stepProgress(progress: number, label?: string): Promise<void> {
+    async stepProgress(
+      progress: number,
+      label?: string,
+      extractions?: JobExtractions,
+    ): Promise<void> {
       currentStepProgress = Math.min(100, Math.max(0, progress));
       const overrides: Partial<JobProgressMessage> = {};
       if (label) {
         overrides.stepLabel = label;
+      }
+      if (extractions) {
+        overrides.extractions = extractions;
       }
       await publish(buildMessage(overrides));
     },

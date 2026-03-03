@@ -38,6 +38,7 @@ import Svg, {
 } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { colors, spacing, fontFamily } from "@/theme";
+import { CATEGORY_PALETTE } from "@/utils/categoryColors";
 import type { AreaScanMetadata } from "@/services/api/modules/areaScan";
 
 const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
@@ -49,13 +50,7 @@ const SHEEN_WIDTH = 100;
 export const CHARS_PER_PAGE = 200;
 export const CHAR_DELAY_MS = 20;
 export const AUTO_ADVANCE_MS = 2500;
-export const BAR_COLORS = [
-  "#93c5fd",
-  "#86efac",
-  "#fcd34d",
-  "#c4b5fd",
-  "#fda4af",
-];
+export const BAR_COLORS = CATEGORY_PALETTE;
 
 // --- Helpers ---
 

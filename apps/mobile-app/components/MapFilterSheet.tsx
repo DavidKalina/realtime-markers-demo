@@ -34,6 +34,7 @@ import {
   spacing,
   radius,
 } from "@/theme";
+import { getCategoryColor } from "@/utils/categoryColors";
 
 interface Category {
   id: string;
@@ -58,8 +59,6 @@ interface Preset {
   label: string;
   getRange: () => { start: string; end: string };
 }
-
-const CATEGORY_COLORS = ["#93c5fd", "#86efac", "#fcd34d", "#c4b5fd", "#fda4af"];
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const SHEET_MAX = SCREEN_HEIGHT * 0.85;
@@ -439,11 +438,7 @@ const MapFilterSheet: React.FC<MapFilterSheetProps> = ({
                       {categories
                         .filter((_, i) => i % 3 === row)
                         .map((cat) => {
-                          const color =
-                            CATEGORY_COLORS[
-                              categories.indexOf(cat) %
-                                CATEGORY_COLORS.length
-                            ];
+                          const color = getCategoryColor(cat.name);
                           const filterState = getCategoryFilterState(cat.id);
                           const chipStyle =
                             filterState === "include"
@@ -497,7 +492,6 @@ const MapFilterSheet: React.FC<MapFilterSheetProps> = ({
                   ))}
                 </View>
               </ScrollView>
-
             </ScrollView>
           </Animated.View>
         </View>
