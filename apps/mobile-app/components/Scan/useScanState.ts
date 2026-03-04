@@ -66,12 +66,5 @@ export const useScanState = ({
     }
   }, []); // Only run once on mount, not on every state change
 
-  return {
-    // Scan state from reducer
-    ...scanState,
-
-    // Computed values
-    isLoading: scanState.isCapturing || scanState.isProcessing,
-    canInteract: scanState.isReady,
-  };
+  return scanState;
 };

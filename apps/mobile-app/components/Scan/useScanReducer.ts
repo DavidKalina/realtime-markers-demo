@@ -23,11 +23,6 @@ export interface ScanState {
   processingStage: ProcessingStage;
   showProcessingOverlay: boolean;
 
-  // Upload state
-  isUploading: boolean;
-  uploadProgress: number;
-  uploadError: string | null;
-
   // Navigation state
   shouldNavigateToJobs: boolean;
 
@@ -42,21 +37,14 @@ export interface ScanState {
 export type ScanAction =
   | { type: "INITIALIZE_CAMERA" }
   | { type: "CAMERA_INITIALIZED" }
-  | { type: "CAMERA_ERROR"; payload: string }
   | { type: "START_CAPTURE" }
   | { type: "CAPTURE_SUCCESS"; payload: { uri: string; source: ImageSource } }
   | { type: "CAPTURE_ERROR"; payload: string }
   | { type: "START_PROCESSING" }
-  | { type: "SET_PROCESSING_STAGE"; payload: ProcessingStage }
-  | { type: "START_UPLOAD" }
-  | { type: "UPLOAD_PROGRESS"; payload: number }
-  | { type: "UPLOAD_SUCCESS" }
-  | { type: "UPLOAD_ERROR"; payload: string }
   | { type: "PROCESSING_SUCCESS" }
   | { type: "NAVIGATE_TO_JOBS" }
   | { type: "SET_SHOW_NO_SCANS_OVERLAY"; payload: boolean }
-  | { type: "RESET" }
-  | { type: "CLEAR_ERROR" };
+  | { type: "RESET" };
 
 // Initial state
 const initialState: ScanState = {
@@ -68,9 +56,6 @@ const initialState: ScanState = {
   isProcessing: false,
   processingStage: null,
   showProcessingOverlay: false,
-  isUploading: false,
-  uploadProgress: 0,
-  uploadError: null,
   shouldNavigateToJobs: false,
   showNoScansOverlay: false,
   error: null,
@@ -92,14 +77,6 @@ function scanReducer(state: ScanState, action: ScanAction): ScanState {
         ...state,
         isCameraInitialized: true,
         cameraError: null,
-      };
-
-    case "CAMERA_ERROR":
-      return {
-        ...state,
-        isCameraInitialized: false,
-        cameraError: action.payload,
-        error: action.payload,
       };
 
     case "START_CAPTURE":
@@ -135,43 +112,6 @@ function scanReducer(state: ScanState, action: ScanAction): ScanState {
         error: null,
       };
 
-    case "SET_PROCESSING_STAGE":
-      return {
-        ...state,
-        processingStage: action.payload,
-      };
-
-    case "START_UPLOAD":
-      return {
-        ...state,
-        isUploading: true,
-        uploadProgress: 0,
-        uploadError: null,
-        error: null,
-      };
-
-    case "UPLOAD_PROGRESS":
-      return {
-        ...state,
-        uploadProgress: action.payload,
-      };
-
-    case "UPLOAD_SUCCESS":
-      return {
-        ...state,
-        isUploading: false,
-        uploadProgress: 100,
-        uploadError: null,
-      };
-
-    case "UPLOAD_ERROR":
-      return {
-        ...state,
-        isUploading: false,
-        uploadError: action.payload,
-        error: action.payload,
-      };
-
     case "PROCESSING_SUCCESS":
       return {
         ...state,
@@ -193,14 +133,6 @@ function scanReducer(state: ScanState, action: ScanAction): ScanState {
 
     case "RESET":
       return initialState;
-
-    case "CLEAR_ERROR":
-      return {
-        ...state,
-        error: null,
-        cameraError: null,
-        uploadError: null,
-      };
 
     default:
       return state;
@@ -386,11 +318,6 @@ export const useScanReducer = ({
     dispatch({ type: "RESET" });
   }, []);
 
-  // Clear errors
-  const clearError = useCallback(() => {
-    dispatch({ type: "CLEAR_ERROR" });
-  }, []);
-
   // Simulate capture for development — opens photo library to pick a real flyer image
   const simulateCapture = useCallback(async () => {
     if (!isMounted.current) return;
@@ -471,8 +398,6 @@ export const useScanReducer = ({
     }
   }, [isMounted, publish, state.capturedImageUri, state.imageSource]);
 
-  // Computed values
-
   return {
     // State
     ...state,
@@ -483,13 +408,10 @@ export const useScanReducer = ({
     handleImageSelected,
     setShowNoScansOverlay,
     reset,
-    clearError,
     simulateCapture,
     handleSelectEvent,
 
     // Computed values
     isReady: state.isCameraInitialized && !state.error,
-    canCapture:
-      state.isCameraInitialized && !state.isCapturing && !state.isProcessing,
   };
 };

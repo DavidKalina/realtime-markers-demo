@@ -17,7 +17,7 @@ interface CaptureButtonProps {
   onPress: () => void;
   isCapturing?: boolean;
   isReady?: boolean;
-  size?: "normal" | "compact";
+  size?: "normal" | "compact" | "large";
   disabled?: boolean;
 }
 
@@ -38,8 +38,8 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
   const isMounted = useRef(true);
 
   // Determine sizes based on the size prop
-  const buttonSize = size === "compact" ? 48 : 56;
-  const innerSize = size === "compact" ? 36 : 42;
+  const buttonSize = size === "large" ? 72 : size === "compact" ? 48 : 56;
+  const innerSize = size === "large" ? 54 : size === "compact" ? 36 : 42;
 
   // Set isMounted to false when component unmounts
   useEffect(() => {
@@ -193,7 +193,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
             <Animated.View style={[styles.innerCircle, innerCircleStyle]}>
               <Animated.View style={[styles.iconContainer, iconStyle]}>
                 <Camera
-                  size={size === "compact" ? 18 : 20}
+                  size={size === "large" ? 24 : size === "compact" ? 18 : 20}
                   color={colors.bg.primary}
                 />
               </Animated.View>

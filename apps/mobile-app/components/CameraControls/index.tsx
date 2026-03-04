@@ -1,6 +1,6 @@
 // CameraControls.tsx
 import React from "react";
-import { StyleSheet, View, TouchableOpacity, Platform } from "react-native";
+import { StyleSheet, View, TouchableOpacity } from "react-native";
 import { Zap, ZapOff } from "lucide-react-native";
 import { colors, spacing, radius } from "@/theme";
 
@@ -48,7 +48,7 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
             activeOpacity={0.7}
             disabled={isCapturing || disabled}
           >
-            <FlashIcon size={20} color={flashColor} />
+            <FlashIcon size={22} color={flashColor} />
           </TouchableOpacity>
         </View>
 
@@ -58,7 +58,7 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
             onPress={onCapture}
             isCapturing={isCapturing}
             isReady={isReady}
-            size="normal"
+            size="large"
             disabled={disabled}
           />
         </View>
@@ -78,7 +78,7 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    paddingBottom: Platform.OS === "ios" ? spacing.xl : spacing.lg,
+    paddingVertical: spacing.lg,
   },
   controlsContainer: {
     flexDirection: "row",
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   sideContainer: {
-    width: spacing._50,
+    width: 60,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -97,8 +97,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   controlButton: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     borderRadius: radius.full,
     backgroundColor: colors.bg.elevated,
     justifyContent: "center",

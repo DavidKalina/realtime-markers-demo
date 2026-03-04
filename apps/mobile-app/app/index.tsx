@@ -23,8 +23,10 @@ import MapLegend from "@/components/MapLegend/MapLegend";
 import ScanProgressFAB from "@/components/ScanProgress/ScanProgressFAB";
 import ScanProgressSheet from "@/components/ScanProgress/ScanProgressSheet";
 import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
+import { useAppActive } from "@/hooks/useAppActive";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { colors } from "@/theme";
+import { BlurView } from "expo-blur";
 import MapboxGL from "@rnmapbox/maps";
 import { useNavigation, useRouter } from "expo-router";
 import React, {
@@ -34,7 +36,13 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Platform, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import RAnimated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Navigation, Search } from "lucide-react-native";
@@ -58,6 +66,14 @@ const styles = {
   },
 };
 
+const resumeStyles = StyleSheet.create({
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});
+
 function HomeScreenContent() {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
@@ -65,6 +81,7 @@ function HomeScreenContent() {
   const { publish } = useEventBroker();
   const { mapStyle, isPitched } = useMapStyle();
   const insets = useSafeAreaInsets();
+  const isAppActive = useAppActive();
 
   // Defer MapView mount by one frame so its native component descriptor
   // registration doesn't contend with reanimated entering layout animations
@@ -475,7 +492,7 @@ function HomeScreenContent() {
       {statusBarSection}
 
       <View style={styles.mapContainer}>
-        {isMapMounted && (
+        {isMapMounted && isAppActive && (
           <MapboxGL.MapView
             onTouchStart={handleUserPan}
             onPress={handleMapPress}
@@ -495,6 +512,15 @@ function HomeScreenContent() {
             {userLocationLayer}
             {viewportRectangleComponent}
           </MapboxGL.MapView>
+        )}
+
+        {/* Blur overlay while MapView is remounting after backgrounding */}
+        {isMapMounted && !isAppActive && (
+          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill}>
+            <View style={resumeStyles.center}>
+              <ActivityIndicator size="large" color={colors.accent.primary} />
+            </View>
+          </BlurView>
         )}
 
         {rippleEffectComponent}

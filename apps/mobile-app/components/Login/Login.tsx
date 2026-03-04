@@ -8,6 +8,7 @@ import {
   spacing,
   spring,
 } from "@/theme";
+import { useAppActive } from "@/hooks/useAppActive";
 import { useFlyOverCamera } from "@/hooks/useFlyOverCamera";
 import {
   MarkerSVG,
@@ -21,8 +22,6 @@ import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  AppState,
-  AppStateStatus,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -189,9 +188,7 @@ const Login: React.FC = () => {
   // See: https://github.com/facebook/react-native/issues/53128
   const navigation = useNavigation();
   const [isMapMounted, setIsMapMounted] = useState(false);
-  const [isAppActive, setIsAppActive] = useState(
-    AppState.currentState === "active",
-  );
+  const isAppActive = useAppActive();
   const mapHasMountedOnce = useRef(false);
 
   useEffect(() => {
@@ -215,29 +212,6 @@ const Login: React.FC = () => {
       clearTimeout(fallbackId);
     };
   }, [navigation]);
-
-  // Unmount/remount the MapView when the app goes to/from background.
-  // MapboxGL's native GL context can become invalid after backgrounding;
-  // unmounting ensures a clean re-initialization on resume.
-  useEffect(() => {
-    const subscription = AppState.addEventListener(
-      "change",
-      (nextAppState: AppStateStatus) => {
-        if (nextAppState === "active") {
-          // Small delay to let the native side fully resume before mounting
-          setTimeout(() => {
-            setIsAppActive(true);
-          }, 300);
-        } else {
-          setIsAppActive(false);
-        }
-      },
-    );
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
 
   // Simulated markers — start with 3, add one every ~2.5 seconds
   const [visibleMarkerCount, setVisibleMarkerCount] = useState(3);

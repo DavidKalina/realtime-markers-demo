@@ -51,7 +51,7 @@ export const ImageSelector: React.FC<ImageSelectorProps> = ({
       activeOpacity={0.7}
     >
       <View style={[styles.button, disabled && styles.buttonDisabled]}>
-        <ImageIcon size={20} color={colors.text.primary} />
+        <ImageIcon size={22} color={colors.text.primary} />
       </View>
     </TouchableOpacity>
   );
@@ -63,8 +63,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   button: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     borderRadius: radius.full,
     backgroundColor: colors.bg.elevated,
     justifyContent: "center",

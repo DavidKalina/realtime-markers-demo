@@ -1,8 +1,8 @@
-// scan.tsx - Refactored to use modular components
+// scan.tsx - Immersive full-width camera scan screen
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import Screen from "@/components/Layout/Screen";
-import { colors, spacing, radius, fontSize, fontFamily } from "@/theme";
+import { colors, spacing, fontSize, fontFamily } from "@/theme";
 import { useCamera } from "@/hooks/useCamera";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
 import { CameraView } from "expo-camera";
@@ -10,13 +10,13 @@ import { usePathname, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
-  AppState,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ArrowLeft } from "lucide-react-native";
 
 // Import new modular components
 import {
@@ -43,6 +43,8 @@ export default function ScanScreen() {
   const router = useRouter();
   const isMounted = useRef(true);
   const networkState = useNetworkQuality();
+  const insets = useSafeAreaInsets();
+
   // Navigation callback - memoized to prevent re-renders
   const navigateToJobs = useCallback(() => {
     if (!isMounted.current) {
@@ -98,35 +100,12 @@ export default function ScanScreen() {
     };
   }, [reset]);
 
-  // Handle app state changes
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (nextAppState) => {
-      if (nextAppState === "background" || nextAppState === "inactive") {
-        console.log("[ScanScreen] App going to background/inactive");
-      }
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
-
   // Back button handler
   const handleBack = useCallback(() => {
     if (!isMounted.current) return;
     reset();
     router.replace("/");
   }, [reset, router]);
-
-  // Handle camera permission granted
-  const handlePermissionGranted = useCallback(() => {
-    // Small delay to ensure camera is properly initialized
-    setTimeout(() => {
-      if (isMounted.current) {
-        // Camera will be ready automatically
-      }
-    }, 500);
-  }, []);
 
   const pathname = usePathname();
 
@@ -179,7 +158,7 @@ export default function ScanScreen() {
     );
     return (
       <CameraPermission
-        onPermissionGranted={handlePermissionGranted}
+        onPermissionGranted={() => {}}
         onRetryPermission={handleRetryPermission}
       />
     );
@@ -206,62 +185,53 @@ export default function ScanScreen() {
   }
 
   return (
-    <Screen
-      bannerEmoji="📸"
-      bannerTitle="Scan"
-      onBack={handleBack}
-      isScrollable={false}
-      noSafeArea={false}
-    >
-      {/* Camera container with fixed dimensions */}
-      <View style={styles.contentArea}>
-        <Animated.View
-          style={styles.cameraCard}
-          entering={FadeIn.duration(300)}
+    <View style={styles.container}>
+      {/* Camera fills entire screen */}
+      {isCameraActive ? (
+        <CameraView
+          ref={cameraRef}
+          style={StyleSheet.absoluteFillObject}
+          onCameraReady={onCameraReady}
+          flash={flashMode}
         >
-          {isCameraActive ? (
-            <CameraView
-              ref={cameraRef}
-              style={styles.camera}
-              onCameraReady={onCameraReady}
-              flash={flashMode}
-            >
-              {/* Processing Overlay */}
-              <ProcessingOverlay
-                isVisible={showProcessingOverlay}
-                stage={processingStage}
-                capturedImageUri={capturedImageUri}
-              />
+          {/* Processing Overlay */}
+          <ProcessingOverlay
+            isVisible={showProcessingOverlay}
+            stage={processingStage}
+            capturedImageUri={capturedImageUri}
+          />
 
-              {/* Camera not ready indicator */}
-              {!isCameraReady && !showProcessingOverlay && (
-                <View style={styles.cameraNotReadyOverlay}>
-                  <ActivityIndicator size="large" color={colors.fixed.white} />
-                  <Text style={styles.cameraNotReadyText}>
-                    Initializing camera...
-                  </Text>
-                </View>
-              )}
+          {/* No Scans Available Overlay */}
+          <NoScansOverlay
+            isVisible={showNoScansOverlay && !showProcessingOverlay}
+            onDismiss={() => setShowNoScansOverlay(false)}
+          />
+        </CameraView>
+      ) : null}
 
-              {/* No Scans Available Overlay */}
-              <NoScansOverlay
-                isVisible={showNoScansOverlay && !showProcessingOverlay}
-                onDismiss={() => setShowNoScansOverlay(false)}
-              />
-            </CameraView>
-          ) : (
-            <View style={styles.cameraPlaceholder}>
-              <ActivityIndicator size="large" color={colors.accent.primary} />
-              <Text style={styles.cameraPlaceholderText}>
-                Initializing camera...
-              </Text>
-            </View>
-          )}
-        </Animated.View>
-      </View>
+      {/* Camera not ready overlay */}
+      {(!isCameraReady || !isCameraActive) && !showProcessingOverlay && (
+        <View style={styles.cameraNotReadyOverlay}>
+          <ActivityIndicator size="large" color={colors.fixed.white} />
+          <Text style={styles.cameraNotReadyText}>Initializing camera...</Text>
+        </View>
+      )}
 
-      {/* Fixed height container for controls */}
-      <View style={styles.controlsContainer}>
+      {/* Floating back button */}
+      <Pressable
+        style={[styles.backButton, { top: insets.top + spacing.sm }]}
+        onPress={handleBack}
+      >
+        <ArrowLeft size={20} color={colors.fixed.white} />
+      </Pressable>
+
+      {/* Controls overlaid at bottom */}
+      <View
+        style={[
+          styles.controlsOverlay,
+          { paddingBottom: insets.bottom + spacing.sm },
+        ]}
+      >
         <CameraControls
           onCapture={onCapture}
           onImageSelected={onImageSelected}
@@ -287,47 +257,23 @@ export default function ScanScreen() {
           onSimulateCapture={simulateCapture}
         />
       </View>
-    </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  contentArea: {
+  container: {
     flex: 1,
-    padding: spacing.sm,
-    minHeight: 400,
-  },
-  cameraCard: {
-    flex: 1,
-    borderRadius: radius.xl,
-    overflow: "hidden",
-    backgroundColor: colors.bg.card,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  camera: {
-    flex: 1,
+    backgroundColor: colors.fixed.black,
   },
   cameraNotReadyOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.overlay.scrim,
+    backgroundColor: colors.fixed.black,
     justifyContent: "center",
     alignItems: "center",
   },
   cameraNotReadyText: {
-    color: colors.text.primary,
-    marginTop: spacing.lg,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.sm,
-  },
-  cameraPlaceholder: {
-    flex: 1,
-    backgroundColor: colors.bg.card,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cameraPlaceholderText: {
-    color: colors.text.secondary,
+    color: colors.fixed.white,
     marginTop: spacing.lg,
     fontFamily: fontFamily.mono,
     fontSize: fontSize.sm,
@@ -343,16 +289,28 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     fontSize: fontSize.sm,
   },
-  controlsContainer: {
-    paddingBottom: spacing.lg,
-    position: "relative",
+  backButton: {
+    position: "absolute",
+    left: spacing.lg,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  controlsOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   batchUploadLink: {
     alignItems: "center",
     paddingVertical: spacing.sm,
   },
   batchUploadText: {
-    color: colors.accent.primary,
+    color: colors.fixed.white,
     fontFamily: fontFamily.mono,
     fontSize: fontSize.sm,
   },
