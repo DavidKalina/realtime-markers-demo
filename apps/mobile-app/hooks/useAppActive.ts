@@ -1,31 +1,43 @@
 import { useEffect, useRef, useState } from "react";
 import { AppState, AppStateStatus } from "react-native";
 
+const SETTLE_FRAMES = 3;
+
 /**
  * Tracks whether the app is in the active (foreground) state.
- * When the app returns from background, delays the "active" signal
- * to let the native side fully resume before re-mounting heavy views
- * like MapboxGL (whose GL context can become invalid after backgrounding).
+ * When the app returns from background, waits for the render loop to
+ * actually be running (3 RAF frames) before signalling "active", so
+ * heavy native views like MapboxGL remount only after the GL context
+ * and compositor are provably ready — not after an arbitrary timeout.
  */
-export function useAppActive(resumeDelayMs = 300): boolean {
-  const [isActive, setIsActive] = useState(
-    AppState.currentState === "active",
-  );
-  const resumeTimer = useRef<ReturnType<typeof setTimeout>>();
+export function useAppActive(): boolean {
+  const [isActive, setIsActive] = useState(AppState.currentState === "active");
+  // Mutable flag lets us cancel an in-flight RAF chain without needing
+  // to track every intermediate requestAnimationFrame id.
+  const cancelled = useRef(false);
 
   useEffect(() => {
     const subscription = AppState.addEventListener(
       "change",
       (nextState: AppStateStatus) => {
-        if (resumeTimer.current) {
-          clearTimeout(resumeTimer.current);
-          resumeTimer.current = undefined;
-        }
+        // Cancel any in-flight RAF chain from a previous transition
+        cancelled.current = true;
 
         if (nextState === "active") {
-          resumeTimer.current = setTimeout(() => {
-            setIsActive(true);
-          }, resumeDelayMs);
+          cancelled.current = false;
+          const token = cancelled; // capture ref
+
+          let remaining = SETTLE_FRAMES;
+          const tick = () => {
+            if (token.current) return; // cancelled
+            remaining--;
+            if (remaining <= 0) {
+              setIsActive(true);
+            } else {
+              requestAnimationFrame(tick);
+            }
+          };
+          requestAnimationFrame(tick);
         } else {
           setIsActive(false);
         }
@@ -34,11 +46,9 @@ export function useAppActive(resumeDelayMs = 300): boolean {
 
     return () => {
       subscription.remove();
-      if (resumeTimer.current) {
-        clearTimeout(resumeTimer.current);
-      }
+      cancelled.current = true;
     };
-  }, [resumeDelayMs]);
+  }, []);
 
   return isActive;
 }

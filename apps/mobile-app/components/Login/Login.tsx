@@ -10,6 +10,7 @@ import {
 } from "@/theme";
 import { useAppActive } from "@/hooks/useAppActive";
 import { useFlyOverCamera } from "@/hooks/useFlyOverCamera";
+import { useMapMountGate } from "@/hooks/useMapMountGate";
 import {
   MarkerSVG,
   MARKER_WIDTH,
@@ -17,7 +18,7 @@ import {
 } from "@/components/Markers/MarkerSVGs";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
-import { useNavigation, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -181,37 +182,12 @@ const Login: React.FC = () => {
     cameraRef: cameraRef as React.RefObject<MapboxGL.Camera>,
   });
 
-  // Deferred map mount — mounting MapboxGL.MapView while reanimated entering
-  // animations are in-flight causes a deadlock on the ComponentDescriptorRegistry
-  // mutex. Same two-tier pattern as app/index.tsx: wait for the screen transition
-  // to finish (or a fallback timeout), then defer one more frame.
+  // Global mount gate — waits for the container's onLayout + a few RAF frames
+  // so reanimated entering animations finish before MapView registers its
+  // native component descriptor (avoids ComponentDescriptorRegistry deadlock).
   // See: https://github.com/facebook/react-native/issues/53128
-  const navigation = useNavigation();
-  const [isMapMounted, setIsMapMounted] = useState(false);
+  const { isMapSafeToMount, onContainerLayout } = useMapMountGate("login");
   const isAppActive = useAppActive();
-  const mapHasMountedOnce = useRef(false);
-
-  useEffect(() => {
-    let mounted = false;
-    const mount = () => {
-      if (!mounted) {
-        mounted = true;
-        requestAnimationFrame(() => {
-          mapHasMountedOnce.current = true;
-          setIsMapMounted(true);
-        });
-      }
-    };
-
-    const unsubscribe = navigation.addListener("transitionEnd", mount);
-    // Fallback for the initial screen if no transition animation fires
-    const fallbackId = setTimeout(mount, 600);
-
-    return () => {
-      unsubscribe();
-      clearTimeout(fallbackId);
-    };
-  }, [navigation]);
 
   // Simulated markers — start with 3, add one every ~2.5 seconds
   const [visibleMarkerCount, setVisibleMarkerCount] = useState(3);
@@ -312,14 +288,14 @@ const Login: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onLayout={onContainerLayout}>
       <StatusBar
         barStyle="light-content"
         backgroundColor={colors.fixed.black}
       />
 
       {/* Layer 1: Map background */}
-      {isMapMounted && isAppActive && (
+      {isMapSafeToMount && isAppActive && (
         <MapboxGL.MapView
           style={StyleSheet.absoluteFill}
           styleURL={MapboxGL.StyleURL.Dark}
