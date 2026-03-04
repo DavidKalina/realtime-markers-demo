@@ -112,7 +112,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
     const handleShare = async () => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const webUrl =
-        process.env.EXPO_PUBLIC_WEB_URL || "https://dashboard.A THIRD SPACE.app";
+        process.env.EXPO_PUBLIC_WEB_URL || "https://dashboard.mapmoji.app";
       const shareUrl = `${webUrl}/e/${eventId}`;
       try {
         await Share.share({
