@@ -1,10 +1,21 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { useOnboarding } from "@/contexts/OnboardingContext";
-import { useMapStyle, MapStyleType } from "@/contexts/MapStyleContext";
+import { MapStyleType, useMapStyle } from "@/contexts/MapStyleContext";
 import { useProfile } from "@/hooks/useProfile";
+import useUserStats from "@/hooks/useUserStats";
+import { useXPStore } from "@/stores/useXPStore";
+import {
+  colors,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  lineHeight,
+  radius,
+  spacing,
+} from "@/theme";
+import { getTierForXP } from "@/utils/gamification";
 import * as Haptics from "expo-haptics";
-import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -13,22 +24,10 @@ import {
   Text,
   View,
 } from "react-native";
-import Screen from "../Layout/Screen";
-import {
-  colors,
-  spacing,
-  radius,
-  fontSize,
-  fontWeight,
-  fontFamily,
-  lineHeight,
-} from "@/theme";
-import DeleteAccountModalComponent from "./DeleteAccountModal";
 import DiscovererCard from "../EventDetails/DiscovererCard";
+import Screen from "../Layout/Screen";
+import DeleteAccountModalComponent from "./DeleteAccountModal";
 import UserStatsCard from "./UserStatsCard";
-import { useXPStore } from "@/stores/useXPStore";
-import { getTierForXP } from "@/utils/gamification";
-import useUserStats from "@/hooks/useUserStats";
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -42,7 +41,6 @@ const MAP_STYLES: { key: MapStyleType; label: string }[] = [
 
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { user } = useAuth();
-  const { resetOnboarding } = useOnboarding();
   const { currentStyle, isPitched, togglePitch, setMapStyle } = useMapStyle();
   const {
     loading,
@@ -228,18 +226,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               <Text style={styles.deleteText}>Delete Account</Text>
             </Pressable>
           </View>
-
-          {/* DEV: Reset Onboarding */}
-          <Pressable
-            style={styles.signOutButton}
-            onPress={() => {
-              resetOnboarding();
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-          >
-            <Text style={styles.signOutText}>Reset Onboarding (Dev)</Text>
-          </Pressable>
-
           <View style={{ height: 100 }} />
         </View>
       </Screen>
