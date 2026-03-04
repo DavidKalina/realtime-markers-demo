@@ -16,7 +16,7 @@ export default {
     },
     ios: {
       // Icon Composer .icon directory for glass effect (SDK 54+)
-      icon: "./assets/A Third Place.icon",
+      icon: "./assets/AThirdPlace.icon",
       infoPlist: {
         CFBundleDisplayName: "A Third Space",
         ITSAppUsesNonExemptEncryption: false,
