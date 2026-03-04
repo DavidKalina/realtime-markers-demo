@@ -60,7 +60,7 @@ export default {
       [
         "expo-notifications",
         {
-          icon: "./assets/images/logo.png",
+          icon: "./assets/images/app-icon.png",
           color: "#ffffff",
           defaultChannel: "default",
           enableBackgroundRemoteNotifications: true,
@@ -85,7 +85,7 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/images/logo.png",
+          image: "./assets/images/app-icon.png",
           imageWidth: 200,
           resizeMode: "contain",
           backgroundColor: "#ffffff",

@@ -1,6 +1,6 @@
 import { colors } from "@/theme";
 import React, { useEffect } from "react";
-import { StyleSheet } from "react-native";
+import { Image, StyleSheet } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -10,7 +10,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import Svg, { Circle, Path } from "react-native-svg";
+import Svg, { Circle } from "react-native-svg";
 
 interface FloatingPinProps {
   cx: number;
@@ -84,6 +84,8 @@ const PINS = [
   { cx: 220, cy: 90, delay: 700 },
 ];
 
+const LOGO_SIZE = 120;
+
 export const MissionIllustration: React.FC<{ active: boolean }> = ({
   active,
 }) => {
@@ -107,33 +109,10 @@ export const MissionIllustration: React.FC<{ active: boolean }> = ({
 
   return (
     <Animated.View style={[styles.container, containerStyle]}>
-      <Svg width={260} height={200} viewBox="0 0 260 200">
-        <Path
-          d="M130 40 L145 70 L180 75 L155 100 L160 135 L130 118 L100 135 L105 100 L80 75 L115 70 Z"
-          fill="none"
-          stroke={colors.accent.primary}
-          strokeWidth={1.5}
-          opacity={0.3}
-        />
-        <Circle
-          cx={130}
-          cy={100}
-          r={50}
-          fill="none"
-          stroke={colors.accent.primary}
-          strokeWidth={1}
-          opacity={0.15}
-        />
-        <Circle
-          cx={130}
-          cy={100}
-          r={80}
-          fill="none"
-          stroke={colors.accent.primary}
-          strokeWidth={0.5}
-          opacity={0.1}
-        />
-      </Svg>
+      <Image
+        source={require("@/assets/images/app-icon.png")}
+        style={styles.logo}
+      />
       {PINS.map((pin, i) => (
         <FloatingPin
           key={i}
@@ -153,5 +132,10 @@ const styles = StyleSheet.create({
     height: 200,
     alignItems: "center",
     justifyContent: "center",
+  },
+  logo: {
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
+    borderRadius: 24,
   },
 });

@@ -126,22 +126,22 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   textContainer: {
-    alignItems: "center",
+    alignSelf: "stretch",
     paddingHorizontal: spacing.sm,
   },
   title: {
     fontSize: fontSize["3xl"],
     fontWeight: fontWeight.bold,
     fontFamily: fontFamily.mono,
-    color: colors.text.primary,
-    textAlign: "center",
+    color: "#ffffff",
+    textAlign: "left",
     marginBottom: spacing.md,
   },
   body: {
     fontSize: fontSize.sm,
     fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-    textAlign: "center",
+    color: "#d4d4d4",
+    textAlign: "left",
     lineHeight: lineHeight.relaxed,
   },
   bottomSpacer: {
