@@ -62,6 +62,8 @@ interface DiscovererCardOverlayProps {
   currentTier?: string;
   totalXp?: number;
   discoveryCount?: number;
+  followingCount?: number;
+  memberSince?: string;
 }
 
 const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
@@ -73,6 +75,8 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
   currentTier,
   totalXp,
   discoveryCount,
+  followingCount,
+  memberSince,
 }) => {
   const { user } = useAuth();
   const isSelf = !!(userId && user?.id && userId === user.id);
@@ -219,19 +223,32 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
                 </Text>
               </View>
 
-              {/* Bottom row */}
-              <View style={overlayStyles.bottomRow}>
-                <View style={overlayStyles.stat}>
-                  <Text style={overlayStyles.statValue}>
-                    {(totalXp ?? 0).toLocaleString()}
+              {/* Bottom section */}
+              <View style={overlayStyles.bottomSection}>
+                {memberSince && (
+                  <Text style={overlayStyles.memberSince}>
+                    Member since {memberSince}
                   </Text>
-                  <Text style={overlayStyles.statLabel}>XP</Text>
-                </View>
-                <View style={overlayStyles.stat}>
-                  <Text style={overlayStyles.statValue}>
-                    {discoveryCount ?? 0}
-                  </Text>
-                  <Text style={overlayStyles.statLabel}>DISCOVERIES</Text>
+                )}
+                <View style={overlayStyles.bottomRow}>
+                  <View style={overlayStyles.stat}>
+                    <Text style={overlayStyles.statValue}>
+                      {(totalXp ?? 0).toLocaleString()}
+                    </Text>
+                    <Text style={overlayStyles.statLabel}>XP</Text>
+                  </View>
+                  <View style={overlayStyles.stat}>
+                    <Text style={overlayStyles.statValue}>
+                      {discoveryCount ?? 0}
+                    </Text>
+                    <Text style={overlayStyles.statLabel}>DISCOVERIES</Text>
+                  </View>
+                  <View style={overlayStyles.stat}>
+                    <Text style={overlayStyles.statValue}>
+                      {followingCount ?? 0}
+                    </Text>
+                    <Text style={overlayStyles.statLabel}>FOLLOWING</Text>
+                  </View>
                 </View>
               </View>
 
@@ -352,6 +369,15 @@ const overlayStyles = StyleSheet.create({
     fontWeight: fontWeight.bold,
     color: colors.text.primary,
     letterSpacing: 1,
+  },
+  bottomSection: {
+    gap: spacing.xs,
+  },
+  memberSince: {
+    fontSize: 10,
+    fontFamily: fontFamily.mono,
+    color: colors.text.secondary,
+    letterSpacing: 0.5,
   },
   bottomRow: {
     flexDirection: "row",

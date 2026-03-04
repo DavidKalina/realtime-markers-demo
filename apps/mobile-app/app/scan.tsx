@@ -227,8 +227,8 @@ export default function ScanScreen() {
       {/* Scanner overlay — corner brackets, scan line, motion detection */}
       <ScannerOverlay
         active={isCameraReady && !showProcessingOverlay && !showNoScansOverlay}
-        topOffset={insets.top + spacing.sm + 44 + spacing.sm}
-        bottomOffset={120}
+        topOffset={insets.top + spacing.sm + 44 + spacing.md}
+        bottomOffset={150}
       />
 
       {/* Camera not ready overlay */}
@@ -274,7 +274,7 @@ export default function ScanScreen() {
 
         {/* Simulation button for testing in development */}
         <SimulationButton
-          isVisible={false}
+          isVisible={__DEV__}
           isMounted={isMounted}
           onSimulateCapture={onSimulateCapture}
         />

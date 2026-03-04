@@ -31,7 +31,7 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 const SHEEN_WIDTH = 140;
-const CARD_HEIGHT = 190;
+const CARD_HEIGHT = 210;
 const WATERMARK_TEXT = "A THIRD SPACE";
 const WATERMARK_CHAR_COUNT = WATERMARK_TEXT.length;
 // Approximate character width ratio for SpaceMono (monospace ~0.6 of fontSize)
@@ -44,6 +44,8 @@ interface DiscovererCardProps {
   currentTier?: string;
   totalXp?: number;
   discoveryCount?: number;
+  followingCount?: number;
+  memberSince?: string;
 }
 
 const AnimatedSvg = Animated.createAnimatedComponent(Svg);
@@ -55,6 +57,8 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
   currentTier,
   totalXp,
   discoveryCount,
+  followingCount,
+  memberSince,
 }) => {
   const [cardWidth, setCardWidth] = useState(0);
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -164,17 +168,30 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
             </View>
           )}
 
-          {/* Bottom row: XP + Discoveries */}
-          <View style={cardStyles.bottomRow}>
-            <View style={cardStyles.stat}>
-              <Text style={cardStyles.statValue}>
-                {(totalXp ?? 0).toLocaleString()}
+          {/* Bottom section */}
+          <View style={cardStyles.bottomSection}>
+            {memberSince && (
+              <Text style={cardStyles.memberSince}>
+                Member since {memberSince}
               </Text>
-              <Text style={cardStyles.statLabel}>XP</Text>
-            </View>
-            <View style={cardStyles.stat}>
-              <Text style={cardStyles.statValue}>{discoveryCount ?? 0}</Text>
-              <Text style={cardStyles.statLabel}>DISCOVERIES</Text>
+            )}
+            <View style={cardStyles.bottomRow}>
+              <View style={cardStyles.stat}>
+                <Text style={cardStyles.statValue}>
+                  {(totalXp ?? 0).toLocaleString()}
+                </Text>
+                <Text style={cardStyles.statLabel}>XP</Text>
+              </View>
+              <View style={cardStyles.stat}>
+                <Text style={cardStyles.statValue}>{discoveryCount ?? 0}</Text>
+                <Text style={cardStyles.statLabel}>DISCOVERIES</Text>
+              </View>
+              <View style={cardStyles.stat}>
+                <Text style={cardStyles.statValue}>
+                  {followingCount ?? 0}
+                </Text>
+                <Text style={cardStyles.statLabel}>FOLLOWING</Text>
+              </View>
             </View>
           </View>
 
@@ -214,6 +231,8 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
         currentTier={currentTier}
         totalXp={totalXp}
         discoveryCount={discoveryCount}
+        followingCount={followingCount}
+        memberSince={memberSince}
       />
     </>
   );
@@ -266,6 +285,15 @@ const cardStyles = StyleSheet.create({
     fontWeight: fontWeight.bold,
     color: colors.text.primary,
     letterSpacing: 1,
+  },
+  bottomSection: {
+    gap: spacing.xs,
+  },
+  memberSince: {
+    fontSize: 10,
+    fontFamily: fontFamily.mono,
+    color: colors.text.secondary,
+    letterSpacing: 0.5,
   },
   bottomRow: {
     flexDirection: "row",

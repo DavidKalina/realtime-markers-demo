@@ -20,6 +20,7 @@ import RAnimated, {
   FadeOut,
   cancelAnimation,
   interpolate,
+  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -27,9 +28,14 @@ import RAnimated, {
   withTiming,
   Easing,
 } from "react-native-reanimated";
-import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
+import Svg, { Defs, LinearGradient, Stop, Rect, Circle } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
+import { useEventBroker } from "@/hooks/useEventBroker";
+import {
+  CameraAnimateToLocationEvent,
+  EventTypes,
+} from "@/services/EventBroker";
 import {
   colors,
   fontSize,
@@ -46,7 +52,7 @@ const SNAP_DISMISSED = SHEET_HEIGHT;
 
 const AUTO_DISMISS_DELAY = 3000;
 const EMOJI_CIRCLE_SIZE = 80;
-const DIALOG_HEIGHT = 44;
+const DIALOG_HEIGHT = 34;
 const SHEEN_WIDTH = 100;
 
 interface ScanProgressSheetProps {
@@ -54,87 +60,97 @@ interface ScanProgressSheetProps {
   onDismiss: () => void;
 }
 
-// --- Shimmer wrapper for skeleton loaders ---
+// --- Marching-dash animation for placeholder slots ---
 
-const SHIMMER_WIDTH = 80;
+const AnimatedSvgRect = RAnimated.createAnimatedComponent(Rect);
+const AnimatedSvgCircle = RAnimated.createAnimatedComponent(Circle);
 
-function useShimmer() {
-  const pos = useSharedValue(0);
+const DASH_PATTERN = "6 4";
+const DASH_PERIOD = 10;
+const SLOT_STROKE = "rgba(255,255,255,0.18)";
+
+function useMarchingDash() {
+  const offset = useSharedValue(0);
   useEffect(() => {
-    pos.value = 0;
-    pos.value = withRepeat(
-      withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+    offset.value = withRepeat(
+      withTiming(DASH_PERIOD, { duration: 1200, easing: Easing.linear }),
       -1,
-      true,
     );
   }, []);
-  return pos;
+  return offset;
 }
 
-const ShimmerPlaceholder = React.memo(
-  ({ style, children }: { style: object; children?: React.ReactNode }) => {
-    const shimmerPos = useShimmer();
-    const [width, setWidth] = useState(0);
+// --- Emoji placeholder (animated dashed ring) ---
 
-    const shimmerStyle = useAnimatedStyle(() => {
-      if (width === 0) return { opacity: 0 };
-      const tx = interpolate(
-        shimmerPos.value,
-        [0, 1],
-        [-SHIMMER_WIDTH, width + SHIMMER_WIDTH],
-      );
-      return { opacity: 0.45, transform: [{ translateX: tx }] };
-    });
+const EMOJI_PLACEHOLDER_SIZE = 36;
 
+const EmojiPlaceholder = React.memo(() => {
+  const dashOffset = useMarchingDash();
+  const animProps = useAnimatedProps(() => ({
+    strokeDashoffset: dashOffset.value,
+  }));
+  const r = (EMOJI_PLACEHOLDER_SIZE - 1.5) / 2;
+  return (
+    <Svg width={EMOJI_PLACEHOLDER_SIZE} height={EMOJI_PLACEHOLDER_SIZE}>
+      <AnimatedSvgCircle
+        cx={EMOJI_PLACEHOLDER_SIZE / 2}
+        cy={EMOJI_PLACEHOLDER_SIZE / 2}
+        r={r}
+        stroke={SLOT_STROKE}
+        strokeWidth={1.5}
+        strokeDasharray={DASH_PATTERN}
+        fill="transparent"
+        animatedProps={animProps}
+      />
+    </Svg>
+  );
+});
+
+// --- Placeholder line (animated dashed outlined slot) ---
+
+const PlaceholderLine = React.memo(
+  ({ width: widthProp, height: h = 14 }: { width: number | string; height?: number }) => {
+    const [measured, setMeasured] = useState(0);
+    const dashOffset = useMarchingDash();
+    const animProps = useAnimatedProps(() => ({
+      strokeDashoffset: dashOffset.value,
+    }));
     const handleLayout = useCallback(
       (e: { nativeEvent: { layout: { width: number } } }) => {
         const w = e.nativeEvent.layout.width;
-        if (w > 0) setWidth(w);
+        if (w > 0) setMeasured(w);
       },
       [],
     );
-
     return (
-      <View style={[style, { overflow: "hidden" }]} onLayout={handleLayout}>
-        {children}
-        {width > 0 && (
-          <RAnimated.View
-            style={[styles.shimmerBeam, shimmerStyle]}
-            pointerEvents="none"
-          >
-            <Svg width={SHIMMER_WIDTH} height={40}>
-              <Defs>
-                <LinearGradient id="shimmer" x1="0" y1="0" x2="1" y2="0">
-                  <Stop offset="0" stopColor="#fff" stopOpacity="0" />
-                  <Stop offset="0.5" stopColor="#fff" stopOpacity="0.15" />
-                  <Stop offset="1" stopColor="#fff" stopOpacity="0" />
-                </LinearGradient>
-              </Defs>
-              <Rect
-                x="0"
-                y="0"
-                width={SHIMMER_WIDTH}
-                height={40}
-                fill="url(#shimmer)"
-              />
-            </Svg>
-          </RAnimated.View>
+      <View
+        style={
+          typeof widthProp === "number"
+            ? { width: widthProp, height: h }
+            : { width: widthProp, height: h }
+        }
+        onLayout={handleLayout}
+      >
+        {measured > 0 && (
+          <Svg width={measured} height={h} style={StyleSheet.absoluteFill}>
+            <AnimatedSvgRect
+              x={0.5}
+              y={0.5}
+              width={measured - 1}
+              height={h - 1}
+              rx={4}
+              stroke={SLOT_STROKE}
+              strokeWidth={1}
+              strokeDasharray={DASH_PATTERN}
+              fill="transparent"
+              animatedProps={animProps}
+            />
+          </Svg>
         )}
       </View>
     );
   },
 );
-
-// --- Placeholder line ---
-
-const PlaceholderLine = React.memo(({ width }: { width: number | string }) => (
-  <ShimmerPlaceholder
-    style={[
-      styles.placeholderLine,
-      typeof width === "number" ? { width } : { width },
-    ]}
-  />
-));
 
 // --- Tag pill ---
 
@@ -146,9 +162,28 @@ const TagPill = React.memo(({ label }: { label: string }) => (
   </RAnimated.View>
 ));
 
-const PlaceholderPill = React.memo(() => (
-  <ShimmerPlaceholder style={styles.placeholderPill} />
-));
+const PlaceholderPill = React.memo(() => {
+  const dashOffset = useMarchingDash();
+  const animProps = useAnimatedProps(() => ({
+    strokeDashoffset: dashOffset.value,
+  }));
+  return (
+    <Svg width={52} height={20}>
+      <AnimatedSvgRect
+        x={0.5}
+        y={0.5}
+        width={51}
+        height={19}
+        rx={8}
+        stroke={SLOT_STROKE}
+        strokeWidth={1}
+        strokeDasharray={DASH_PATTERN}
+        fill="transparent"
+        animatedProps={animProps}
+      />
+    </Svg>
+  );
+});
 
 // --- DialogBox-inspired status bar ---
 
@@ -159,12 +194,14 @@ const ScanStatusDialog = React.memo(
     isFailed,
     resultMessage,
     error,
+    bottomInset,
   }: {
     stepLabel: string;
     isCompleted: boolean;
     isFailed: boolean;
     resultMessage: string;
     error?: string;
+    bottomInset: number;
   }) => {
     const sheenPos = useSharedValue(0);
     const sheenActive = useSharedValue(0);
@@ -244,43 +281,51 @@ const ScanStatusDialog = React.memo(
         : stepLabel;
 
     return (
-      <View style={styles.dialogContainer} onLayout={handleLayout}>
-        {/* Golden sheen */}
-        {dialogWidth > 0 && (
-          <RAnimated.View
-            style={[styles.dialogSheen, sheenStyle]}
-            pointerEvents="none"
-          >
-            <Svg width={SHEEN_WIDTH} height={DIALOG_HEIGHT}>
-              <Defs>
-                <LinearGradient id="dialogSheen" x1="0" y1="0" x2="1" y2="0">
-                  <Stop offset="0" stopColor="#fbbf24" stopOpacity="0" />
-                  <Stop offset="0.3" stopColor="#fbbf24" stopOpacity="0.5" />
-                  <Stop offset="0.5" stopColor="#fef3c7" stopOpacity="0.8" />
-                  <Stop offset="0.7" stopColor="#fbbf24" stopOpacity="0.5" />
-                  <Stop offset="1" stopColor="#fbbf24" stopOpacity="0" />
-                </LinearGradient>
-              </Defs>
-              <Rect
-                x="0"
-                y="0"
-                width={SHEEN_WIDTH}
-                height={DIALOG_HEIGHT}
-                fill="url(#dialogSheen)"
-              />
-            </Svg>
-          </RAnimated.View>
-        )}
+      <View style={[styles.dialogContainer, { paddingBottom: bottomInset }]}>
+        <View style={styles.dialogContent} onLayout={handleLayout}>
+          {/* Golden sheen */}
+          {dialogWidth > 0 && (
+            <RAnimated.View
+              style={[styles.dialogSheen, sheenStyle]}
+              pointerEvents="none"
+            >
+              <Svg width={SHEEN_WIDTH} height={DIALOG_HEIGHT}>
+                <Defs>
+                  <LinearGradient
+                    id="dialogSheen"
+                    x1="0"
+                    y1="0"
+                    x2="1"
+                    y2="0"
+                  >
+                    <Stop offset="0" stopColor="#fbbf24" stopOpacity="0" />
+                    <Stop offset="0.3" stopColor="#fbbf24" stopOpacity="0.5" />
+                    <Stop offset="0.5" stopColor="#fef3c7" stopOpacity="0.8" />
+                    <Stop offset="0.7" stopColor="#fbbf24" stopOpacity="0.5" />
+                    <Stop offset="1" stopColor="#fbbf24" stopOpacity="0" />
+                  </LinearGradient>
+                </Defs>
+                <Rect
+                  x="0"
+                  y="0"
+                  width={SHEEN_WIDTH}
+                  height={DIALOG_HEIGHT}
+                  fill="url(#dialogSheen)"
+                />
+              </Svg>
+            </RAnimated.View>
+          )}
 
-        {/* Status text */}
-        <RAnimated.Text
-          key={displayText}
-          entering={FadeIn.duration(200)}
-          style={[styles.dialogText, { color: textColor }]}
-          numberOfLines={1}
-        >
-          {displayText}
-        </RAnimated.Text>
+          {/* Status text */}
+          <RAnimated.Text
+            key={displayText}
+            entering={FadeIn.duration(200)}
+            style={[styles.dialogText, { color: textColor }]}
+            numberOfLines={1}
+          >
+            {displayText}
+          </RAnimated.Text>
+        </View>
       </View>
     );
   },
@@ -294,6 +339,7 @@ const ScanProgressSheet: React.FC<ScanProgressSheetProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { activeJobs } = useJobProgressContext();
+  const { publish } = useEventBroker();
   const translateY = useRef(new Animated.Value(SNAP_DISMISSED)).current;
   const autoDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -314,15 +360,46 @@ const ScanProgressSheet: React.FC<ScanProgressSheetProps> = ({
   const isFailed = displayJob?.status === "failed";
   const isTerminal = isCompleted || isFailed;
 
+  // Check if an event was actually created
+  const result = displayJob?.result;
+  const eventCreated =
+    isCompleted &&
+    ((result?.eventId && !result?.isDuplicate) || result?.isMultiEvent);
+
+  // Only show extractions if still processing or event was created
+  const showExtractions = !isTerminal || eventCreated;
+
   // Derived extraction values
-  const emoji = extractions?.emoji;
-  const title = extractions?.title;
-  const date = extractions?.date;
-  const address = extractions?.address;
-  const categories = extractions?.categories;
+  const emoji = showExtractions ? extractions?.emoji : undefined;
+  const title = showExtractions ? extractions?.title : undefined;
+  const date = showExtractions ? extractions?.date : undefined;
+  const address = showExtractions ? extractions?.address : undefined;
+  const categories = showExtractions ? extractions?.categories : undefined;
 
   const resultMessage =
     (displayJob?.result?.message as string) || "Event Created";
+
+  // Fly-to coordinates (only for single-event results)
+  const flyToCoordinates = useMemo(
+    () =>
+      eventCreated && result?.coordinates ? result.coordinates : undefined,
+    [eventCreated, result?.coordinates],
+  );
+
+  const handleContentPress = useCallback(() => {
+    if (!flyToCoordinates) return;
+    publish<CameraAnimateToLocationEvent>(
+      EventTypes.CAMERA_ANIMATE_TO_LOCATION,
+      {
+        coordinates: flyToCoordinates,
+        timestamp: new Date().getTime(),
+        source: "scan_progress_sheet",
+        zoomLevel: 16,
+        allowZoomChange: true,
+      },
+    );
+    dismiss();
+  }, [flyToCoordinates, publish, dismiss]);
 
   // --- Auto-dismiss after completion/failure ---
   useEffect(() => {
@@ -410,7 +487,6 @@ const ScanProgressSheet: React.FC<ScanProgressSheetProps> = ({
         <Animated.View
           style={[
             styles.sheet,
-            { paddingBottom: insets.bottom + 8 },
             { transform: [{ translateY }] },
           ]}
         >
@@ -421,65 +497,79 @@ const ScanProgressSheet: React.FC<ScanProgressSheetProps> = ({
 
           {hasJobs ? (
             <>
-              {/* Side-by-side content: emoji circle + info */}
-              <View style={styles.contentRow}>
-                {/* Emoji circle */}
-                <View style={styles.emojiCircle}>
-                  {emoji ? (
-                    <RAnimated.Text
-                      key={emoji}
-                      entering={FadeIn.duration(300)}
-                      style={styles.emojiText}
-                    >
-                      {emoji}
-                    </RAnimated.Text>
-                  ) : (
-                    <View style={styles.emojiPlaceholder} />
-                  )}
-                </View>
-
-                {/* Right info column */}
-                <View style={styles.infoColumn}>
-                  {/* Title */}
-                  {title ? (
-                    <RAnimated.Text
-                      key={title}
-                      entering={FadeIn.duration(250)}
-                      style={styles.titleText}
-                      numberOfLines={2}
-                    >
-                      {title}
-                    </RAnimated.Text>
-                  ) : (
-                    <View style={styles.titlePlaceholderGroup}>
-                      <PlaceholderLine width="90%" />
-                      <PlaceholderLine width="60%" />
-                    </View>
-                  )}
-
-                  {/* Date + Address */}
-                  {date || address ? (
-                    <RAnimated.Text
-                      entering={FadeIn.duration(250)}
-                      style={styles.detailText}
-                      numberOfLines={1}
-                    >
-                      {[date, address].filter(Boolean).join("  ·  ")}
-                    </RAnimated.Text>
-                  ) : (
-                    <PlaceholderLine width="75%" />
-                  )}
-
-                  {/* Tags */}
-                  <View style={styles.tagsRow}>
-                    {tagList.length > 0
-                      ? tagList.map((tag) => <TagPill key={tag} label={tag} />)
-                      : Array.from({ length: 3 }).map((_, i) => (
-                          <PlaceholderPill key={i} />
-                        ))}
+              {showExtractions ? (
+                /* Side-by-side content: emoji circle + info */
+                <Pressable
+                  style={styles.contentRow}
+                  onPress={handleContentPress}
+                  disabled={!flyToCoordinates}
+                >
+                  {/* Emoji circle */}
+                  <View style={styles.emojiCircle}>
+                    {emoji ? (
+                      <RAnimated.Text
+                        key={emoji}
+                        entering={FadeIn.duration(300)}
+                        style={styles.emojiText}
+                      >
+                        {emoji}
+                      </RAnimated.Text>
+                    ) : (
+                      <EmojiPlaceholder />
+                    )}
                   </View>
-                </View>
-              </View>
+
+                  {/* Right info column */}
+                  <View style={styles.infoColumn}>
+                    {/* Title */}
+                    {title ? (
+                      <RAnimated.Text
+                        key={title}
+                        entering={FadeIn.duration(250)}
+                        style={styles.titleText}
+                        numberOfLines={2}
+                      >
+                        {title}
+                      </RAnimated.Text>
+                    ) : (
+                      <View style={styles.titlePlaceholderGroup}>
+                        <PlaceholderLine width="90%" height={14} />
+                        <PlaceholderLine width="60%" height={14} />
+                      </View>
+                    )}
+
+                    {/* Date + Address */}
+                    {date || address ? (
+                      <RAnimated.Text
+                        entering={FadeIn.duration(250)}
+                        style={styles.detailText}
+                        numberOfLines={1}
+                      >
+                        {[date, address].filter(Boolean).join("  ·  ")}
+                      </RAnimated.Text>
+                    ) : (
+                      <PlaceholderLine width="75%" height={12} />
+                    )}
+
+                    {/* Tags */}
+                    <View style={styles.tagsRow}>
+                      {tagList.length > 0
+                        ? tagList.map((tag) => <TagPill key={tag} label={tag} />)
+                        : Array.from({ length: 3 }).map((_, i) => (
+                            <PlaceholderPill key={i} />
+                          ))}
+                    </View>
+                  </View>
+                </Pressable>
+              ) : (
+                /* Terminal state with no event created */
+                <RAnimated.View
+                  entering={FadeIn.duration(200)}
+                  style={styles.noEventContent}
+                >
+                  <Text style={styles.noEventText}>{resultMessage}</Text>
+                </RAnimated.View>
+              )}
 
               {/* Status dialog at bottom */}
               <ScanStatusDialog
@@ -488,6 +578,7 @@ const ScanProgressSheet: React.FC<ScanProgressSheetProps> = ({
                 isFailed={isFailed}
                 resultMessage={resultMessage}
                 error={displayJob?.error}
+                bottomInset={0}
               />
             </>
           ) : (
@@ -542,9 +633,8 @@ const styles = StyleSheet.create({
   contentRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.sm,
-    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
     flex: 1,
   },
 
@@ -562,13 +652,6 @@ const styles = StyleSheet.create({
   emojiText: {
     fontSize: 36,
   },
-  emojiPlaceholder: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.border.subtle,
-  },
-
   // --- Info column ---
   infoColumn: {
     flex: 1,
@@ -582,25 +665,12 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   titlePlaceholderGroup: {
-    gap: 5,
+    gap: 4,
   },
   detailText: {
     fontSize: fontSize.xs,
     fontFamily: fontFamily.mono,
     color: colors.text.secondary,
-  },
-
-  // --- Placeholder lines ---
-  placeholderLine: {
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.border.subtle,
-  },
-  shimmerBeam: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    bottom: 0,
   },
 
   // --- Tags ---
@@ -622,19 +692,15 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     color: colors.text.secondary,
   },
-  placeholderPill: {
-    width: 52,
-    height: 20,
-    borderRadius: radius.sm,
-    backgroundColor: colors.border.subtle,
-  },
-
   // --- Status dialog (bottom bar) ---
   dialogContainer: {
-    height: DIALOG_HEIGHT,
     backgroundColor: colors.bg.cardAlt,
     borderTopWidth: 1,
     borderColor: colors.border.medium,
+    overflow: "hidden",
+  },
+  dialogContent: {
+    height: DIALOG_HEIGHT,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
@@ -649,6 +715,21 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     fontStyle: "italic",
     letterSpacing: 1,
+  },
+
+  // --- No event created state ---
+  noEventContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.xl,
+  },
+  noEventText: {
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
+    fontStyle: "italic",
+    color: colors.text.secondary,
+    textAlign: "center",
   },
 
   // --- Empty state ---

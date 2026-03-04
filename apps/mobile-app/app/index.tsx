@@ -451,20 +451,19 @@ function HomeScreenContent() {
             <Search size={22} color={colors.action.map} />
           </TouchableOpacity>
         </RAnimated.View>
-        {!isFollowing && (
-          <RAnimated.View
-            entering={FadeInDown.springify().delay(200)}
-            exiting={FadeOutDown.springify()}
+        <RAnimated.View
+          entering={FadeInDown.springify().delay(200)}
+          style={{ opacity: isFollowing ? 0 : 1 }}
+          pointerEvents={isFollowing ? "none" : "auto"}
+        >
+          <TouchableOpacity
+            style={homeScreenStyles.recenterButton}
+            onPress={recenter}
+            activeOpacity={0.7}
           >
-            <TouchableOpacity
-              style={homeScreenStyles.recenterButton}
-              onPress={recenter}
-              activeOpacity={0.7}
-            >
-              <Navigation size={22} color={colors.action.save} />
-            </TouchableOpacity>
-          </RAnimated.View>
-        )}
+            <Navigation size={22} color={colors.action.save} />
+          </TouchableOpacity>
+        </RAnimated.View>
       </View>
     ),
     [
