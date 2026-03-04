@@ -16,6 +16,7 @@ export default {
     },
     ios: {
       infoPlist: {
+        CFBundleDisplayName: "A Third Space",
         ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription:
           "Realtime Markers uses your location while the app is in use to center the map on your current position and improve address search results when scanning event flyers. Coordinates are sent to our server for better relevance.",
@@ -35,6 +36,7 @@ export default {
       buildNumber: "197",
     },
     android: {
+      label: "A Third Space",
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#ffffff",
