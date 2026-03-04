@@ -699,6 +699,13 @@ export function DialogBox({
     }
   }, [isLoading, inline]);
 
+  // Update status text when loadingText prop changes during loading
+  useEffect(() => {
+    if (isLoading && !inline && loadingText) {
+      setStatusText(loadingText);
+    }
+  }, [loadingText, isLoading, inline]);
+
   // Detect isLoading true→false transition
   useEffect(() => {
     if (inline) {

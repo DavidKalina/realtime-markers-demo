@@ -24,8 +24,10 @@ import {
 } from "@/theme";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
 import DiscovererCard from "../EventDetails/DiscovererCard";
+import UserStatsCard from "./UserStatsCard";
 import { useXPStore } from "@/stores/useXPStore";
 import { getTierForXP } from "@/utils/gamification";
+import useUserStats from "@/hooks/useUserStats";
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -56,6 +58,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     setShowDeleteDialog,
     setPassword,
   } = useProfile(onBack);
+
+  const { stats, isLoading: statsLoading } = useUserStats();
 
   const [mapSettings, setMapSettings] = useState({
     isPitched: isPitched,
@@ -138,6 +142,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             followingCount={profileData?.followingCount || 0}
             memberSince={memberSince}
           />
+
+          {/* Stats Card */}
+          <UserStatsCard stats={stats} isLoading={statsLoading} />
 
           {/* Account Info */}
           <View style={styles.section}>

@@ -31,14 +31,9 @@ export interface UseJobProgressReturn {
   dismissJob: (jobId: string) => void;
 }
 
-const AUTO_DISMISS_MS = 5000;
-
 export function useJobProgress(): UseJobProgressReturn {
   const [jobs, setJobs] = useState<Map<string, TrackedJob>>(new Map());
   const eventSourcesRef = useRef<Map<string, EventSource>>(new Map());
-  const dismissTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
-    new Map(),
-  );
 
   // Cleanup all on unmount
   useEffect(() => {
@@ -47,10 +42,6 @@ export function useJobProgress(): UseJobProgressReturn {
         es.close();
       }
       eventSourcesRef.current.clear();
-      for (const timer of dismissTimersRef.current.values()) {
-        clearTimeout(timer);
-      }
-      dismissTimersRef.current.clear();
     };
   }, []);
 
@@ -64,11 +55,6 @@ export function useJobProgress(): UseJobProgressReturn {
     if (es) {
       es.close();
       eventSourcesRef.current.delete(jobId);
-    }
-    const timer = dismissTimersRef.current.get(jobId);
-    if (timer) {
-      clearTimeout(timer);
-      dismissTimersRef.current.delete(jobId);
     }
   }, []);
 
@@ -135,12 +121,13 @@ export function useJobProgress(): UseJobProgressReturn {
               return next;
             });
 
-            // Auto-dismiss on terminal status
+            // Close SSE on terminal status (dismiss is handled by the UI)
             if (data.status === "completed" || data.status === "failed") {
-              const timer = setTimeout(() => {
-                dismissJob(jobId);
-              }, AUTO_DISMISS_MS);
-              dismissTimersRef.current.set(jobId, timer);
+              const es = eventSourcesRef.current.get(jobId);
+              if (es) {
+                es.close();
+                eventSourcesRef.current.delete(jobId);
+              }
             }
           } catch (e) {
             console.error("[useJobProgress] Error parsing SSE data:", e);

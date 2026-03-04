@@ -11,6 +11,13 @@ export interface LeaderboardEntry {
   scanCount: number;
 }
 
+export interface UserStats {
+  categoryBreakdown: { name: string; icon: string | null; count: number }[];
+  cityBreakdown: { city: string; count: number }[];
+  globalRank: number;
+  totalUsers: number;
+}
+
 export class LeaderboardModule extends BaseApiModule {
   constructor(client: BaseApiClient) {
     super(client);
@@ -30,5 +37,11 @@ export class LeaderboardModule extends BaseApiModule {
     return this.handleResponse<{ rank: number; scanCount: number } | null>(
       response,
     );
+  }
+
+  async getMyStats(): Promise<UserStats> {
+    const url = `${this.client.baseUrl}/api/users/me/stats`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<UserStats>(response);
   }
 }

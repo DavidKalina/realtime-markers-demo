@@ -6,6 +6,7 @@ import {
   getFollowersHandler,
   getFollowingHandler,
 } from "../handlers/followHandlers";
+import { getUserStats } from "../handlers/userStatsHandler";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
@@ -27,6 +28,9 @@ usersRouter.use(
 );
 
 usersRouter.post("/location", authMiddleware, updateLocationHandler);
+
+// Stats route (before /:userId to avoid param conflict)
+usersRouter.get("/me/stats", authMiddleware, getUserStats);
 
 // Follow routes
 usersRouter.post("/:userId/follow", authMiddleware, toggleFollowHandler);

@@ -4,7 +4,6 @@ import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import { MarkerInfoHUD } from "@/components/Markers/MarkerInfoHUD";
-import PlusButton from "@/components/StatusBar/PlusButton";
 import StatusBar from "@/components/StatusBar/StatusBar";
 import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
 import { createCameraSettings, MIN_ZOOM_LEVEL } from "@/config/cameraConfig";
@@ -20,9 +19,14 @@ import { useMapWebSocket } from "@/hooks/useMapWebSocket";
 import { useCategoryPreferences } from "@/hooks/useCategoryPreferences";
 import MapFilterSheet from "@/components/MapFilterSheet";
 import MapLegend from "@/components/MapLegend/MapLegend";
-import ScanProgressFAB from "@/components/ScanProgress/ScanProgressFAB";
-import ScanProgressSheet from "@/components/ScanProgress/ScanProgressSheet";
-import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
+import { DialogBox } from "@/components/AreaScan/AreaScanComponents";
+import { useScanInsight } from "@/components/ScanProgress/useScanInsight";
+import {
+  BaseEvent,
+  CameraAnimateToLocationEvent,
+  EventTypes,
+  MapItemEvent,
+} from "@/services/EventBroker";
 import { useAppActive } from "@/hooks/useAppActive";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { apiClient } from "@/services/ApiClient";
@@ -46,7 +50,7 @@ import {
 } from "react-native";
 import RAnimated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Locate, Navigation, Search } from "lucide-react-native";
+import { Locate, Navigation } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { scheduleOnRN } from "react-native-worklets";
 
@@ -73,6 +77,15 @@ const resumeStyles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+});
+
+const scanDialogStyles = StyleSheet.create({
+  container: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
 });
 
@@ -265,7 +278,23 @@ function HomeScreenContent() {
     );
   }, [locationPermissionGranted]);
 
-  const [scanSheetOpen, setScanSheetOpen] = useState(false);
+  const scanFlyToRef = useRef<[number, number] | undefined>(undefined);
+  const handleScanDismiss = useCallback(() => {
+    if (scanFlyToRef.current) {
+      publish<CameraAnimateToLocationEvent>(
+        EventTypes.CAMERA_ANIMATE_TO_LOCATION,
+        {
+          coordinates: scanFlyToRef.current,
+          timestamp: Date.now(),
+          source: "scan_dialog_box",
+          zoomLevel: 16,
+          allowZoomChange: true,
+        },
+      );
+    }
+  }, [publish]);
+  const scanInsight = useScanInsight(handleScanDismiss);
+  scanFlyToRef.current = scanInsight.flyToCoordinates;
 
   const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
   const [showRipple, setShowRipple] = useState(false);
@@ -402,26 +431,22 @@ function HomeScreenContent() {
     }
   }, [userLocation, cameraRef]);
 
-  // Navigate to search screen
-  const handleSearchPress = useCallback(() => {
-    router.push("/search");
-  }, [router]);
-
-  const handleScanFABPress = useCallback(() => {
-    setScanSheetOpen(true);
-  }, []);
-
-  const handleScanSheetDismiss = useCallback(() => {
-    setScanSheetOpen(false);
-  }, []);
-
   // Memoize floating buttons section
   const floatingButtonsSection = useMemo(
     () => (
       <View style={floatingDateButtonStyle}>
-        <ScanProgressFAB onPress={handleScanFABPress} />
-        <RAnimated.View entering={FadeInDown.springify().delay(0)}>
-          <PlusButton />
+        <RAnimated.View
+          entering={FadeInDown.springify().delay(0)}
+          style={{ opacity: isFollowing ? 0 : 1 }}
+          pointerEvents={isFollowing ? "none" : "auto"}
+        >
+          <TouchableOpacity
+            style={homeScreenStyles.recenterButton}
+            onPress={recenter}
+            activeOpacity={0.7}
+          >
+            <Navigation size={22} color={colors.action.save} />
+          </TouchableOpacity>
         </RAnimated.View>
         <RAnimated.View entering={FadeInDown.springify().delay(50)}>
           <MapFilterSheet
@@ -442,37 +467,13 @@ function HomeScreenContent() {
             <Locate size={22} color={colors.action.map} />
           </TouchableOpacity>
         </RAnimated.View>
-        <RAnimated.View entering={FadeInDown.springify().delay(150)}>
-          <TouchableOpacity
-            style={homeScreenStyles.recenterButton}
-            onPress={handleSearchPress}
-            activeOpacity={0.7}
-          >
-            <Search size={22} color={colors.action.map} />
-          </TouchableOpacity>
-        </RAnimated.View>
-        <RAnimated.View
-          entering={FadeInDown.springify().delay(200)}
-          style={{ opacity: isFollowing ? 0 : 1 }}
-          pointerEvents={isFollowing ? "none" : "auto"}
-        >
-          <TouchableOpacity
-            style={homeScreenStyles.recenterButton}
-            onPress={recenter}
-            activeOpacity={0.7}
-          >
-            <Navigation size={22} color={colors.action.save} />
-          </TouchableOpacity>
-        </RAnimated.View>
       </View>
     ),
     [
       floatingDateButtonStyle,
-      handleScanFABPress,
       isFollowing,
       recenter,
       handleFlyToNearest,
-      handleSearchPress,
       filterCategories,
       includedCategoryIds,
       excludedCategoryIds,
@@ -566,10 +567,24 @@ function HomeScreenContent() {
 
         {floatingButtonsSection}
 
-        <ScanProgressSheet
-          visible={scanSheetOpen}
-          onDismiss={handleScanSheetDismiss}
-        />
+        {scanInsight.visible && (
+          <View style={scanDialogStyles.container}>
+            <DialogBox
+              key={scanInsight.jobKey}
+              isLoading={scanInsight.isLoading}
+              error={scanInsight.error}
+              displayText={scanInsight.dialog.displayText}
+              showContinue={scanInsight.dialog.showContinue}
+              showDone={false}
+              blinkAnim={scanInsight.dialog.blinkAnim}
+              onTap={scanInsight.dialog.handleTap}
+              onRestart={scanInsight.dialog.restart}
+              onExpandComplete={scanInsight.feedPending}
+              loadingText={scanInsight.loadingText}
+              style={{ height: 100, marginBottom: 0 }}
+            />
+          </View>
+        )}
       </View>
     </>
   );
