@@ -16,7 +16,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft } from "lucide-react-native";
+import { ArrowLeft, Images } from "lucide-react-native";
 
 // Import new modular components
 import {
@@ -227,6 +227,8 @@ export default function ScanScreen() {
       {/* Scanner overlay — corner brackets, scan line, motion detection */}
       <ScannerOverlay
         active={isCameraReady && !showProcessingOverlay && !showNoScansOverlay}
+        topOffset={insets.top + spacing.sm + 44 + spacing.sm}
+        bottomOffset={120}
       />
 
       {/* Camera not ready overlay */}
@@ -237,19 +239,27 @@ export default function ScanScreen() {
         </View>
       )}
 
-      {/* Floating back button */}
+      {/* Floating back button (top-left) */}
       <Pressable
-        style={[styles.backButton, { top: insets.top + spacing.sm }]}
+        style={[styles.floatingButton, { top: insets.top + spacing.sm, left: spacing.lg }]}
         onPress={handleBack}
       >
         <ArrowLeft size={20} color={colors.fixed.white} />
+      </Pressable>
+
+      {/* Floating batch upload button (top-right) */}
+      <Pressable
+        style={[styles.floatingButton, { top: insets.top + spacing.sm, right: spacing.lg }]}
+        onPress={() => router.push("/batch-upload")}
+      >
+        <Images size={20} color={colors.fixed.white} />
       </Pressable>
 
       {/* Controls overlaid at bottom */}
       <View
         style={[
           styles.controlsOverlay,
-          { paddingBottom: insets.bottom + spacing.sm },
+          { paddingBottom: spacing.sm },
         ]}
       >
         <CameraControls
@@ -262,17 +272,9 @@ export default function ScanScreen() {
           disabled={!isCameraReady || isProcessing || showProcessingOverlay}
         />
 
-        {/* Batch upload link */}
-        <Pressable
-          style={styles.batchUploadLink}
-          onPress={() => router.push("/batch-upload")}
-        >
-          <Text style={styles.batchUploadText}>Upload multiple photos</Text>
-        </Pressable>
-
         {/* Simulation button for testing in development */}
         <SimulationButton
-          isVisible={__DEV__ && !showProcessingOverlay}
+          isVisible={false}
           isMounted={isMounted}
           onSimulateCapture={onSimulateCapture}
         />
@@ -309,9 +311,8 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     fontSize: fontSize.sm,
   },
-  backButton: {
+  floatingButton: {
     position: "absolute",
-    left: spacing.lg,
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -329,14 +330,5 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-  },
-  batchUploadLink: {
-    alignItems: "center",
-    paddingVertical: spacing.sm,
-  },
-  batchUploadText: {
-    color: colors.fixed.white,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.sm,
   },
 });

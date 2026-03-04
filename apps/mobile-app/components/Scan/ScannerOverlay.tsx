@@ -1,5 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
-import { StyleSheet, useWindowDimensions, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  LayoutChangeEvent,
+  StyleSheet,
+  View,
+} from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -14,7 +18,7 @@ import { colors, fontFamily, fontSize } from "@/theme";
 
 // --- Constants ---
 
-const BRACKET_INSET = 40;
+const BRACKET_INSET = 24;
 const BRACKET_ARM = 40;
 const BRACKET_THICKNESS = 2;
 const SCAN_LINE_DURATION = 3000;
@@ -98,11 +102,24 @@ function useScannerMotion(active: boolean) {
 
 interface ScannerOverlayProps {
   active: boolean;
+  /** Pixels from container top where the frame starts (clears back button) */
+  topOffset?: number;
+  /** Pixels from container bottom where the frame ends (clears controls) */
+  bottomOffset?: number;
 }
 
-export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({ active }) => {
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
+  active,
+  topOffset = BRACKET_INSET,
+  bottomOffset = BRACKET_INSET,
+}) => {
+  const [layout, setLayout] = useState({ width: 0, height: 0 });
   const isMounted = useRef(true);
+
+  const onContainerLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setLayout({ width, height });
+  }, []);
 
   // Shared values
   const cornerScale = useSharedValue(1);
@@ -112,13 +129,12 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({ active }) => {
   // Motion
   const { stableProgress, isStable } = useScannerMotion(active);
 
-  // Layout — bracket area centered, leaving room for bottom controls (~180px)
-  const controlsHeight = 180;
-  const areaTop = BRACKET_INSET;
-  const areaBottom = screenHeight - controlsHeight - BRACKET_INSET;
-  const areaHeight = areaBottom - areaTop;
+  // Layout — use actual container dimensions with offsets
+  const areaTop = topOffset;
+  const areaBottom = layout.height - bottomOffset;
+  const areaHeight = Math.max(0, areaBottom - areaTop);
   const areaLeft = BRACKET_INSET;
-  const areaRight = screenWidth - BRACKET_INSET;
+  const areaRight = layout.width - BRACKET_INSET;
 
   const cleanupAnimations = () => {
     cancelAnimation(cornerScale);
@@ -211,39 +227,47 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({ active }) => {
   });
 
   return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-      {/* Corner brackets container */}
-      <Animated.View
-        style={[
-          {
-            position: "absolute",
-            top: areaTop,
-            left: areaLeft,
-            right: screenWidth - areaRight,
-            height: areaHeight,
-          },
-          cornerAnimatedStyle,
-        ]}
-      >
-        {/* Top-left corner */}
-        <Animated.View style={[styles.cornerTL, cornerColorStyle]} />
-        {/* Top-right corner */}
-        <Animated.View style={[styles.cornerTR, cornerColorStyle]} />
-        {/* Bottom-left corner */}
-        <Animated.View style={[styles.cornerBL, cornerColorStyle]} />
-        {/* Bottom-right corner */}
-        <Animated.View style={[styles.cornerBR, cornerColorStyle]} />
+    <View
+      style={StyleSheet.absoluteFillObject}
+      pointerEvents="none"
+      onLayout={onContainerLayout}
+    >
+      {layout.height > 0 && (
+        <>
+          {/* Corner brackets container */}
+          <Animated.View
+            style={[
+              {
+                position: "absolute",
+                top: areaTop,
+                left: areaLeft,
+                right: layout.width - areaRight,
+                height: areaHeight,
+              },
+              cornerAnimatedStyle,
+            ]}
+          >
+            {/* Top-left corner */}
+            <Animated.View style={[styles.cornerTL, cornerColorStyle]} />
+            {/* Top-right corner */}
+            <Animated.View style={[styles.cornerTR, cornerColorStyle]} />
+            {/* Bottom-left corner */}
+            <Animated.View style={[styles.cornerBL, cornerColorStyle]} />
+            {/* Bottom-right corner */}
+            <Animated.View style={[styles.cornerBR, cornerColorStyle]} />
 
-        {/* Scan line */}
-        <Animated.View style={[styles.scanLine, scanLineStyle]} />
-      </Animated.View>
+            {/* Scan line */}
+            <Animated.View style={[styles.scanLine, scanLineStyle]} />
+          </Animated.View>
 
-      {/* Hint text */}
-      <Animated.Text
-        style={[styles.hintText, { top: areaBottom + 16 }, hintTextStyle]}
-      >
-        {isStable ? "Ready" : "Hold steady over flyer"}
-      </Animated.Text>
+          {/* Hint text */}
+          <Animated.Text
+            style={[styles.hintText, { top: areaBottom + 16 }, hintTextStyle]}
+          >
+            {isStable ? "Ready" : "Hold steady over flyer"}
+          </Animated.Text>
+        </>
+      )}
     </View>
   );
 };

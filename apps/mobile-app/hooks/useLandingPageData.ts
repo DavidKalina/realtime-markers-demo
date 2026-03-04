@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { apiClient } from "@/services/ApiClient";
 import {
   EventType,
@@ -45,6 +45,10 @@ interface UseLandingPageDataReturn {
   refresh: () => Promise<void>;
 }
 
+// Round to ~1.1 km — prevents GPS micro-drift from triggering refetches
+const stabilize = (coord: number | undefined): number | undefined =>
+  coord !== undefined ? Math.round(coord * 100) / 100 : undefined;
+
 const useLandingPageData = ({
   userLat,
   userLng,
@@ -61,15 +65,20 @@ const useLandingPageData = ({
   const [landingData, setLandingData] = useState<LandingPageData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fetchIdRef = useRef(0);
+
+  const stableLat = stabilize(userLat);
+  const stableLng = stabilize(userLng);
 
   const fetchLandingData = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current;
     try {
       setIsLoading(true);
       setError(null);
 
       const data = await apiClient.events.getLandingPageData({
-        userLat,
-        userLng,
+        userLat: stableLat,
+        userLng: stableLng,
         featuredLimit,
         upcomingLimit,
         communityLimit,
@@ -81,16 +90,21 @@ const useLandingPageData = ({
         excludeCategoryIds,
       });
 
+      if (fetchId !== fetchIdRef.current) return;
+
       setLandingData(data);
     } catch (err) {
+      if (fetchId !== fetchIdRef.current) return;
       console.error("Error fetching landing page data:", err);
       setError("Failed to load landing page data. Please try again.");
     } finally {
-      setIsLoading(false);
+      if (fetchId === fetchIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [
-    userLat,
-    userLng,
+    stableLat,
+    stableLng,
     featuredLimit,
     upcomingLimit,
     communityLimit,
@@ -106,7 +120,6 @@ const useLandingPageData = ({
     await fetchLandingData();
   }, [fetchLandingData]);
 
-  // Fetch data on mount and when dependencies change
   useEffect(() => {
     fetchLandingData();
   }, [fetchLandingData]);

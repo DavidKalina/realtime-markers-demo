@@ -25,6 +25,7 @@ import ScanProgressSheet from "@/components/ScanProgress/ScanProgressSheet";
 import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useAppActive } from "@/hooks/useAppActive";
 import { useLocationStore } from "@/stores/useLocationStore";
+import { apiClient } from "@/services/ApiClient";
 import { colors } from "@/theme";
 import { BlurView } from "expo-blur";
 import MapboxGL from "@rnmapbox/maps";
@@ -45,7 +46,8 @@ import {
 } from "react-native";
 import RAnimated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Navigation, Search } from "lucide-react-native";
+import { Locate, Navigation, Search } from "lucide-react-native";
+import * as Haptics from "expo-haptics";
 import { scheduleOnRN } from "react-native-worklets";
 
 // Set access token at module scope (lightweight, required before MapView renders)
@@ -375,6 +377,31 @@ function HomeScreenContent() {
     );
   }, [isLoadingLocation]);
 
+  // Fly to the nearest event via the backend initial-viewport endpoint
+  const flyThrottleRef = useRef(false);
+  const handleFlyToNearest = useCallback(async () => {
+    if (!userLocation || flyThrottleRef.current) return;
+    flyThrottleRef.current = true;
+    setTimeout(() => {
+      flyThrottleRef.current = false;
+    }, 2000);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const { center } = await apiClient.events.getInitialViewport(
+        userLocation[1], // lat
+        userLocation[0], // lng
+      );
+      cameraRef.current?.setCamera({
+        centerCoordinate: center,
+        zoomLevel: 15,
+        animationDuration: 1500,
+        animationMode: "flyTo",
+      });
+    } catch (err) {
+      console.error("Failed to fly to nearest event:", err);
+    }
+  }, [userLocation, cameraRef]);
+
   // Navigate to search screen
   const handleSearchPress = useCallback(() => {
     router.push("/search");
@@ -409,6 +436,15 @@ function HomeScreenContent() {
         <RAnimated.View entering={FadeInDown.springify().delay(100)}>
           <TouchableOpacity
             style={homeScreenStyles.recenterButton}
+            onPress={handleFlyToNearest}
+            activeOpacity={0.7}
+          >
+            <Locate size={22} color={colors.action.map} />
+          </TouchableOpacity>
+        </RAnimated.View>
+        <RAnimated.View entering={FadeInDown.springify().delay(150)}>
+          <TouchableOpacity
+            style={homeScreenStyles.recenterButton}
             onPress={handleSearchPress}
             activeOpacity={0.7}
           >
@@ -417,7 +453,7 @@ function HomeScreenContent() {
         </RAnimated.View>
         {!isFollowing && (
           <RAnimated.View
-            entering={FadeInDown.springify().delay(150)}
+            entering={FadeInDown.springify().delay(200)}
             exiting={FadeOutDown.springify()}
           >
             <TouchableOpacity
@@ -436,6 +472,7 @@ function HomeScreenContent() {
       handleScanFABPress,
       isFollowing,
       recenter,
+      handleFlyToNearest,
       handleSearchPress,
       filterCategories,
       includedCategoryIds,

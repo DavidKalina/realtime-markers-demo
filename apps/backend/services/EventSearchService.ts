@@ -938,41 +938,6 @@ export class EventSearchServiceImpl implements EventSearchService {
 
     console.log(`Cache miss for landing page data: ${cacheKey}`);
 
-    // If the user has a location, check if there are events nearby.
-    // If not, recenter on the nearest city that has events.
-    if (userLat && userLng) {
-      const nearestEvent = await this.dependencies.dataSource.query(
-        `SELECT city,
-                ST_X(location::geometry) as lng,
-                ST_Y(location::geometry) as lat,
-                ST_Distance(location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) as distance
-         FROM events
-         WHERE status IN ('VERIFIED', 'PENDING')
-           AND event_date > NOW()
-           AND location IS NOT NULL
-           AND city IS NOT NULL
-         ORDER BY location::geography <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
-         LIMIT 1`,
-        [userLng, userLat],
-      );
-
-      if (nearestEvent[0]) {
-        const distance = parseFloat(nearestEvent[0].distance);
-        const isOutsideRadius = radiusMeters && distance > radiusMeters;
-
-        if (isOutsideRadius || !city) {
-          // No events within the user's radius, or no city resolved —
-          // recenter on the nearest event's city
-          city = nearestEvent[0].city;
-          userLat = parseFloat(nearestEvent[0].lat);
-          userLng = parseFloat(nearestEvent[0].lng);
-          console.log(
-            `[Landing Page] Recentered to nearest city: ${city} (${distance}m away)`,
-          );
-        }
-      }
-    }
-
     // Helper: progressively relax query constraints until we have enough results.
     // Tries strict filters first (official + verified + future), then broadens.
     // excludeIds prevents the same event from appearing in multiple sections.
