@@ -8,7 +8,7 @@ import {
   radius,
 } from "@/theme";
 import {
-  getTierByName,
+  getTierForXP,
   getXPProgressPercent,
   getNextTierThreshold,
 } from "@/utils/gamification";
@@ -32,7 +32,7 @@ const StatusBar: React.FC = () => {
   );
 
   const totalXp = user?.totalXp || 0;
-  const tierInfo = getTierByName(user?.currentTier || "Explorer");
+  const tierInfo = getTierForXP(totalXp);
   const progressPercent = getXPProgressPercent(totalXp);
   const nextThreshold = getNextTierThreshold(totalXp);
 

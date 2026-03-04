@@ -13,6 +13,7 @@ import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import { addDays, format } from "date-fns";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
+import { getTierForXP } from "./GamificationService";
 import type { EmailService } from "./shared/EmailService";
 
 // Create a registration-specific interface that includes password
@@ -597,6 +598,16 @@ export class AuthService {
    * Convert User to UserProfile (removes sensitive fields)
    */
   private toUserProfile(user: User): UserProfile {
+    // Always derive tier from totalXp to self-heal stale current_tier values
+    const correctTier = getTierForXP(user.totalXp ?? 0).name;
+
+    // Fire-and-forget DB correction if stale
+    if (correctTier !== user.currentTier) {
+      this.userRepository
+        .update(user.id, { currentTier: correctTier })
+        .catch(() => {});
+    }
+
     return {
       id: user.id,
       email: user.email,
@@ -611,7 +622,7 @@ export class AuthService {
       saveCount: user.saveCount,
       viewCount: user.viewCount,
       totalXp: user.totalXp,
-      currentTier: user.currentTier,
+      currentTier: correctTier,
       followerCount: user.followerCount,
       followingCount: user.followingCount,
     };

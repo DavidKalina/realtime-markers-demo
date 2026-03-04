@@ -26,6 +26,7 @@ import DeleteAccountModalComponent from "./DeleteAccountModal";
 import TierBadge from "../Gamification/TierBadge";
 import XPProgressBar from "../Gamification/XPProgressBar";
 import { useXPStore } from "@/stores/useXPStore";
+import { getTierForXP } from "@/utils/gamification";
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -152,13 +153,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             <Text style={styles.sectionTitle}>Your Progress</Text>
             <View style={styles.tierRow}>
               <TierBadge
-                tier={profileData?.currentTier || "Explorer"}
+                tier={getTierForXP(profileData?.totalXp || 0).name}
                 size="md"
               />
             </View>
             <XPProgressBar
               totalXp={profileData?.totalXp || 0}
-              currentTier={profileData?.currentTier || "Explorer"}
+              currentTier={getTierForXP(profileData?.totalXp || 0).name}
               pendingXP={pendingXP}
             />
             <View style={styles.statsRow}>
