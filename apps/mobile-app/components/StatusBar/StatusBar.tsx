@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1000,
-    backgroundColor: colors.bg.card,
+    backgroundColor: colors.bg.primary,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.medium,
     shadowColor: "rgba(0, 0, 0, 0.3)",

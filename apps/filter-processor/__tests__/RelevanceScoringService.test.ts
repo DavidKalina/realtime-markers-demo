@@ -55,10 +55,7 @@ describe("RelevanceScoringService", () => {
     test("should create service with default config", () => {
       const service = createRelevanceScoringService();
       expect(service).toBeDefined();
-      expect(typeof service.calculateMapMojiScore).toBe("function");
-      expect(typeof service.calculateSimpleScore).toBe("function");
-      expect(typeof service.addRelevanceScoresToEvents).toBe("function");
-      expect(typeof service.updateMapMojiConfig).toBe("function");
+      expect(typeof service.scoreEvents).toBe("function");
       expect(typeof service.getStats).toBe("function");
     });
 
@@ -86,19 +83,19 @@ describe("RelevanceScoringService", () => {
     });
   });
 
-  describe("calculateTimeScore", () => {
+  describe("Time scoring (via scoreEvents)", () => {
     test("should give high score for very soon events", () => {
       const soonEvent: Event = {
         ...baseEvent,
         eventDate: new Date(currentTime.getTime() + 1 * 60 * 60 * 1000), // 1 hour from now
       };
 
-      const score = relevanceScoringService.calculateSimpleScore(
-        soonEvent,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [soonEvent],
         testViewport,
         currentTime,
       );
-      expect(score).toBeGreaterThan(0.7);
+      expect(scored.relevanceScore).toBeGreaterThan(0.7);
     });
 
     test("should give moderate score for today events", () => {
@@ -107,12 +104,12 @@ describe("RelevanceScoringService", () => {
         eventDate: new Date(currentTime.getTime() + 12 * 60 * 60 * 1000), // 12 hours from now
       };
 
-      const score = relevanceScoringService.calculateSimpleScore(
-        todayEvent,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [todayEvent],
         testViewport,
         currentTime,
       );
-      expect(score).toBeGreaterThan(0.5);
+      expect(scored.relevanceScore).toBeGreaterThan(0.5);
     });
 
     test("should give lower score for future events", () => {
@@ -121,29 +118,28 @@ describe("RelevanceScoringService", () => {
         eventDate: new Date(currentTime.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
       };
 
-      const score = relevanceScoringService.calculateSimpleScore(
-        futureEvent,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [futureEvent],
         testViewport,
         currentTime,
       );
-      expect(score).toBeLessThan(0.5);
+      expect(scored.relevanceScore).toBeLessThan(0.5);
     });
 
-    test("should give zero score for very old events", () => {
+    test("should give zero time component for very old events", () => {
       const oldEvent: Event = {
         ...baseEvent,
         eventDate: new Date(currentTime.getTime() - 48 * 60 * 60 * 1000), // 48 hours ago (beyond maxPastHours=24)
       };
 
-      const score = relevanceScoringService.calculateSimpleScore(
-        oldEvent,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [oldEvent],
         testViewport,
         currentTime,
       );
-      // The time score should be 0, but the overall score includes popularity and distance
-      // With popularity score ~0.53 and distance score ~0.8, total should be around 0.53 * 0.4 + 0.8 * 0.2 = 0.212 + 0.16 = 0.372
-      expect(score).toBeGreaterThan(0.3);
-      expect(score).toBeLessThan(0.4);
+      // Time score = 0, but popularity and distance still contribute
+      expect(scored.relevanceScore).toBeGreaterThan(0.3);
+      expect(scored.relevanceScore).toBeLessThan(0.4);
     });
 
     test("should give reduced score for recent past events", () => {
@@ -152,17 +148,17 @@ describe("RelevanceScoringService", () => {
         eventDate: new Date(currentTime.getTime() - 12 * 60 * 60 * 1000), // 12 hours ago
       };
 
-      const score = relevanceScoringService.calculateSimpleScore(
-        recentPastEvent,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [recentPastEvent],
         testViewport,
         currentTime,
       );
-      expect(score).toBeGreaterThan(0);
-      expect(score).toBeLessThan(0.5);
+      expect(scored.relevanceScore).toBeGreaterThan(0);
+      expect(scored.relevanceScore).toBeLessThan(0.5);
     });
   });
 
-  describe("calculatePopularityScore", () => {
+  describe("Popularity scoring (via scoreEvents)", () => {
     test("should give high score for popular events", () => {
       const popularEvent: Event = {
         ...baseEvent,
@@ -196,12 +192,12 @@ describe("RelevanceScoringService", () => {
         ],
       };
 
-      const score = relevanceScoringService.calculateSimpleScore(
-        popularEvent,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [popularEvent],
         testViewport,
         currentTime,
       );
-      expect(score).toBeGreaterThan(0.6);
+      expect(scored.relevanceScore).toBeGreaterThan(0.6);
     });
 
     test("should give low score for unpopular events", () => {
@@ -212,14 +208,12 @@ describe("RelevanceScoringService", () => {
         rsvps: [],
       };
 
-      const score = relevanceScoringService.calculateSimpleScore(
-        unpopularEvent,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [unpopularEvent],
         testViewport,
         currentTime,
       );
-      // With time score of 0.8 (today) + popularity score of ~0.17 + distance score of ~0.8
-      // Total should be around 0.8 * 0.4 + 0.17 * 0.4 + 0.8 * 0.2 = 0.32 + 0.068 + 0.16 = 0.548
-      expect(score).toBeGreaterThan(0.4); // Adjusted expectation
+      expect(scored.relevanceScore).toBeGreaterThan(0.4);
     });
 
     test("should handle events with missing popularity data", () => {
@@ -230,20 +224,18 @@ describe("RelevanceScoringService", () => {
         rsvps: undefined,
       };
 
-      // The service should handle undefined values gracefully
-      const score = relevanceScoringService.calculateSimpleScore(
-        eventWithMissingData,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [eventWithMissingData],
         testViewport,
         currentTime,
       );
-      // Should still return a valid number, not NaN
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
-      expect(score).not.toBeNaN();
+      expect(scored.relevanceScore).toBeGreaterThanOrEqual(0);
+      expect(scored.relevanceScore).toBeLessThanOrEqual(1);
+      expect(scored.relevanceScore).not.toBeNaN();
     });
   });
 
-  describe("calculateDistanceScore", () => {
+  describe("Distance scoring (via scoreEvents)", () => {
     test("should give high score for very close events", () => {
       const closeEvent: Event = {
         ...baseEvent,
@@ -253,12 +245,12 @@ describe("RelevanceScoringService", () => {
         },
       };
 
-      const score = relevanceScoringService.calculateSimpleScore(
-        closeEvent,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [closeEvent],
         testViewport,
         currentTime,
       );
-      expect(score).toBeGreaterThan(0.6);
+      expect(scored.relevanceScore).toBeGreaterThan(0.6);
     });
 
     test("should give moderate score for moderate distance events", () => {
@@ -270,13 +262,13 @@ describe("RelevanceScoringService", () => {
         },
       };
 
-      const score = relevanceScoringService.calculateSimpleScore(
-        moderateEvent,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [moderateEvent],
         testViewport,
         currentTime,
       );
-      expect(score).toBeGreaterThan(0.3);
-      expect(score).toBeLessThan(0.7);
+      expect(scored.relevanceScore).toBeGreaterThan(0.3);
+      expect(scored.relevanceScore).toBeLessThan(0.7);
     });
 
     test("should give low score for far events", () => {
@@ -288,103 +280,55 @@ describe("RelevanceScoringService", () => {
         },
       };
 
-      const score = relevanceScoringService.calculateSimpleScore(
-        farEvent,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [farEvent],
         testViewport,
         currentTime,
       );
-      // With time score of 0.8 + popularity score of ~0.53 + distance score of 0.2
-      // Total should be around 0.8 * 0.4 + 0.53 * 0.4 + 0.2 * 0.2 = 0.32 + 0.212 + 0.04 = 0.572
-      expect(score).toBeGreaterThan(0.4); // Adjusted expectation
+      expect(scored.relevanceScore).toBeGreaterThan(0.4);
     });
 
     test("should give default score when no viewport provided", () => {
-      const score = relevanceScoringService.calculateSimpleScore(
-        baseEvent,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [baseEvent],
         undefined,
         currentTime,
       );
-      expect(score).toBeGreaterThan(0);
-      expect(score).toBeLessThan(1);
+      expect(scored.relevanceScore).toBeGreaterThan(0);
+      expect(scored.relevanceScore).toBeLessThan(1);
     });
   });
 
-  describe("calculateSimpleScore", () => {
-    test("should calculate score within 0-1 range", () => {
-      const score = relevanceScoringService.calculateSimpleScore(
-        baseEvent,
+  describe("scoreEvents", () => {
+    test("should calculate scores within 0-1 range", () => {
+      const scored = relevanceScoringService.scoreEvents(
+        [baseEvent],
         testViewport,
         currentTime,
       );
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
+      expect(scored[0].relevanceScore).toBeGreaterThanOrEqual(0);
+      expect(scored[0].relevanceScore).toBeLessThanOrEqual(1);
     });
 
-    test("should handle events with different statuses", () => {
-      const rejectedEvent: Event = {
-        ...baseEvent,
-        status: EventStatus.REJECTED,
-      };
-      const expiredEvent: Event = { ...baseEvent, status: EventStatus.EXPIRED };
-
-      const rejectedScore = relevanceScoringService.calculateSimpleScore(
-        rejectedEvent,
+    test("should handle empty events array", () => {
+      const scored = relevanceScoringService.scoreEvents(
+        [],
         testViewport,
         currentTime,
       );
-      const expiredScore = relevanceScoringService.calculateSimpleScore(
-        expiredEvent,
-        testViewport,
-        currentTime,
-      );
-
-      // Simple scoring doesn't filter by status, so scores should be calculated
-      expect(rejectedScore).toBeGreaterThanOrEqual(0);
-      expect(expiredScore).toBeGreaterThanOrEqual(0);
+      expect(scored).toEqual([]);
     });
 
-    test("should use current time when not provided", () => {
-      const score = relevanceScoringService.calculateSimpleScore(
-        baseEvent,
-        testViewport,
-      );
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
-    });
-  });
-
-  describe("calculateMapMojiScore", () => {
-    test("should calculate score within 0-1 range", () => {
-      const score = relevanceScoringService.calculateMapMojiScore(
-        baseEvent,
+    test("should preserve original event properties", () => {
+      const scored = relevanceScoringService.scoreEvents(
+        [baseEvent],
         testViewport,
         currentTime,
       );
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
-    });
 
-    test("should give zero score for rejected events", () => {
-      const rejectedEvent: Event = {
-        ...baseEvent,
-        status: EventStatus.REJECTED,
-      };
-      const score = relevanceScoringService.calculateMapMojiScore(
-        rejectedEvent,
-        testViewport,
-        currentTime,
-      );
-      expect(score).toBe(0);
-    });
-
-    test("should give zero score for expired events", () => {
-      const expiredEvent: Event = { ...baseEvent, status: EventStatus.EXPIRED };
-      const score = relevanceScoringService.calculateMapMojiScore(
-        expiredEvent,
-        testViewport,
-        currentTime,
-      );
-      expect(score).toBe(0);
+      expect(scored[0].id).toBe(baseEvent.id);
+      expect(scored[0].title).toBe(baseEvent.title);
+      expect(scored[0].location).toEqual(baseEvent.location);
     });
 
     test("should use configured weights", () => {
@@ -394,203 +338,13 @@ describe("RelevanceScoringService", () => {
         distanceWeight: 0.1,
       });
 
-      const score = service.calculateMapMojiScore(
-        baseEvent,
+      const [scored] = service.scoreEvents(
+        [baseEvent],
         testViewport,
         currentTime,
       );
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
-    });
-
-    test("should use viewport from config when not provided", () => {
-      const configViewport: BoundingBox = {
-        minX: -74.026,
-        minY: 40.7028,
-        maxX: -73.986,
-        maxY: 40.7428,
-      };
-
-      relevanceScoringService.updateMapMojiConfig({
-        viewportBounds: configViewport,
-      });
-
-      const score = relevanceScoringService.calculateMapMojiScore(
-        baseEvent,
-        undefined,
-        currentTime,
-      );
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
-    });
-
-    test("should use current time from config when not provided", () => {
-      const configTime = new Date("2024-12-25T10:00:00Z");
-      relevanceScoringService.updateMapMojiConfig({
-        currentTime: configTime,
-      });
-
-      const score = relevanceScoringService.calculateMapMojiScore(
-        baseEvent,
-        testViewport,
-      );
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
-    });
-  });
-
-  describe("addRelevanceScoresToEvents", () => {
-    test("should add relevance scores to events using simple method", () => {
-      const events: Event[] = [baseEvent, { ...baseEvent, id: "event-2" }];
-      const scoredEvents = relevanceScoringService.addRelevanceScoresToEvents(
-        events,
-        testViewport,
-        currentTime,
-        "simple",
-      );
-
-      expect(scoredEvents).toHaveLength(2);
-      scoredEvents.forEach((event) => {
-        expect(event.relevanceScore).toBeDefined();
-        expect(event.relevanceScore).toBeGreaterThanOrEqual(0);
-        expect(event.relevanceScore).toBeLessThanOrEqual(1);
-      });
-    });
-
-    test("should add relevance scores to events using mapmoji method", () => {
-      const events: Event[] = [baseEvent, { ...baseEvent, id: "event-2" }];
-      const scoredEvents = relevanceScoringService.addRelevanceScoresToEvents(
-        events,
-        testViewport,
-        currentTime,
-        "mapmoji",
-      );
-
-      expect(scoredEvents).toHaveLength(2);
-      scoredEvents.forEach((event) => {
-        expect(event.relevanceScore).toBeDefined();
-        expect(event.relevanceScore).toBeGreaterThanOrEqual(0);
-        expect(event.relevanceScore).toBeLessThanOrEqual(1);
-      });
-    });
-
-    test("should handle empty events array", () => {
-      const scoredEvents = relevanceScoringService.addRelevanceScoresToEvents(
-        [],
-        testViewport,
-        currentTime,
-      );
-      expect(scoredEvents).toEqual([]);
-    });
-
-    test("should use simple method as default", () => {
-      const events: Event[] = [baseEvent];
-      const scoredEvents = relevanceScoringService.addRelevanceScoresToEvents(
-        events,
-        testViewport,
-        currentTime,
-      );
-
-      expect(scoredEvents).toHaveLength(1);
-      expect(scoredEvents[0].relevanceScore).toBeDefined();
-    });
-
-    test("should preserve original event properties", () => {
-      const events: Event[] = [baseEvent];
-      const scoredEvents = relevanceScoringService.addRelevanceScoresToEvents(
-        events,
-        testViewport,
-        currentTime,
-      );
-
-      expect(scoredEvents[0].id).toBe(baseEvent.id);
-      expect(scoredEvents[0].title).toBe(baseEvent.title);
-      expect(scoredEvents[0].location).toEqual(baseEvent.location);
-    });
-  });
-
-  describe("updateMapMojiConfig", () => {
-    test("should update viewport bounds", () => {
-      const newViewport: BoundingBox = {
-        minX: -74.026,
-        minY: 40.7028,
-        maxX: -73.986,
-        maxY: 40.7428,
-      };
-
-      relevanceScoringService.updateMapMojiConfig({
-        viewportBounds: newViewport,
-      });
-
-      // Test that the config was updated by checking if it affects scoring
-      const score = relevanceScoringService.calculateMapMojiScore(
-        baseEvent,
-        undefined,
-        currentTime,
-      );
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
-    });
-
-    test("should update weights", () => {
-      relevanceScoringService.updateMapMojiConfig({
-        popularityWeight: 0.8,
-        timeWeight: 0.1,
-        distanceWeight: 0.1,
-      });
-
-      const score = relevanceScoringService.calculateMapMojiScore(
-        baseEvent,
-        testViewport,
-        currentTime,
-      );
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
-    });
-
-    test("should update current time", () => {
-      const newTime = new Date("2024-12-25T10:00:00Z");
-      relevanceScoringService.updateMapMojiConfig({
-        currentTime: newTime,
-      });
-
-      const score = relevanceScoringService.calculateMapMojiScore(
-        baseEvent,
-        testViewport,
-      );
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
-    });
-
-    test("should update max events", () => {
-      relevanceScoringService.updateMapMojiConfig({
-        maxEvents: 500,
-      });
-
-      // This is an internal config, so we test it indirectly
-      const score = relevanceScoringService.calculateMapMojiScore(
-        baseEvent,
-        testViewport,
-        currentTime,
-      );
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
-    });
-
-    test("should partially update config", () => {
-      relevanceScoringService.updateMapMojiConfig({
-        popularityWeight: 0.9,
-      });
-
-      const newScore = relevanceScoringService.calculateMapMojiScore(
-        baseEvent,
-        testViewport,
-        currentTime,
-      );
-
-      // Scores should be different due to weight change
-      expect(newScore).toBeGreaterThanOrEqual(0);
-      expect(newScore).toBeLessThanOrEqual(1);
+      expect(scored.relevanceScore).toBeGreaterThanOrEqual(0);
+      expect(scored.relevanceScore).toBeLessThanOrEqual(1);
     });
   });
 
@@ -598,68 +352,26 @@ describe("RelevanceScoringService", () => {
     test("should return initial stats", () => {
       const stats = relevanceScoringService.getStats();
       expect(stats).toEqual({
-        mapMojiScoresCalculated: 0,
-        simpleScoresCalculated: 0,
         totalScoresCalculated: 0,
       });
     });
 
-    test("should track simple score calculations", () => {
-      relevanceScoringService.calculateSimpleScore(
-        baseEvent,
+    test("should track score calculations", () => {
+      relevanceScoringService.scoreEvents(
+        [baseEvent],
         testViewport,
         currentTime,
       );
 
       const stats = relevanceScoringService.getStats();
-      expect(stats.simpleScoresCalculated).toBe(1);
       expect(stats.totalScoresCalculated).toBe(1);
-      expect(stats.mapMojiScoresCalculated).toBe(0);
-    });
-
-    test("should track mapmoji score calculations", () => {
-      relevanceScoringService.calculateMapMojiScore(
-        baseEvent,
-        testViewport,
-        currentTime,
-      );
-
-      const stats = relevanceScoringService.getStats();
-      expect(stats.mapMojiScoresCalculated).toBe(1);
-      expect(stats.totalScoresCalculated).toBe(1);
-      expect(stats.simpleScoresCalculated).toBe(0);
     });
 
     test("should track batch calculations", () => {
       const events: Event[] = [baseEvent, { ...baseEvent, id: "event-2" }];
-      relevanceScoringService.addRelevanceScoresToEvents(
-        events,
-        testViewport,
-        currentTime,
-        "simple",
-      );
+      relevanceScoringService.scoreEvents(events, testViewport, currentTime);
 
       const stats = relevanceScoringService.getStats();
-      expect(stats.simpleScoresCalculated).toBe(2);
-      expect(stats.totalScoresCalculated).toBe(2);
-      expect(stats.mapMojiScoresCalculated).toBe(0);
-    });
-
-    test("should track mixed calculations", () => {
-      relevanceScoringService.calculateSimpleScore(
-        baseEvent,
-        testViewport,
-        currentTime,
-      );
-      relevanceScoringService.calculateMapMojiScore(
-        baseEvent,
-        testViewport,
-        currentTime,
-      );
-
-      const stats = relevanceScoringService.getStats();
-      expect(stats.simpleScoresCalculated).toBe(1);
-      expect(stats.mapMojiScoresCalculated).toBe(1);
       expect(stats.totalScoresCalculated).toBe(2);
     });
 
@@ -683,8 +395,8 @@ describe("RelevanceScoringService", () => {
       };
 
       expect(() => {
-        relevanceScoringService.calculateSimpleScore(
-          eventWithoutLocation,
+        relevanceScoringService.scoreEvents(
+          [eventWithoutLocation],
           testViewport,
           currentTime,
         );
@@ -700,13 +412,13 @@ describe("RelevanceScoringService", () => {
         },
       };
 
-      const score = relevanceScoringService.calculateSimpleScore(
-        eventWithInvalidCoords,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [eventWithInvalidCoords],
         testViewport,
         currentTime,
       );
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
+      expect(scored.relevanceScore).toBeGreaterThanOrEqual(0);
+      expect(scored.relevanceScore).toBeLessThanOrEqual(1);
     });
 
     test("should handle events with string dates", () => {
@@ -715,13 +427,13 @@ describe("RelevanceScoringService", () => {
         eventDate: "2024-12-25T18:00:00Z",
       };
 
-      const score = relevanceScoringService.calculateSimpleScore(
-        eventWithStringDate,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [eventWithStringDate],
         testViewport,
         currentTime,
       );
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
+      expect(scored.relevanceScore).toBeGreaterThanOrEqual(0);
+      expect(scored.relevanceScore).toBeLessThanOrEqual(1);
     });
 
     test("should handle events with missing popularity data", () => {
@@ -732,16 +444,14 @@ describe("RelevanceScoringService", () => {
         rsvps: undefined,
       };
 
-      // The service should handle undefined values gracefully
-      const score = relevanceScoringService.calculateSimpleScore(
-        eventWithMissingData,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [eventWithMissingData],
         testViewport,
         currentTime,
       );
-      // Should still return a valid number, not NaN
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
-      expect(score).not.toBeNaN();
+      expect(scored.relevanceScore).toBeGreaterThanOrEqual(0);
+      expect(scored.relevanceScore).toBeLessThanOrEqual(1);
+      expect(scored.relevanceScore).not.toBeNaN();
     });
 
     test("should handle invalid viewport bounds", () => {
@@ -752,13 +462,13 @@ describe("RelevanceScoringService", () => {
         maxY: 200,
       };
 
-      const score = relevanceScoringService.calculateSimpleScore(
-        baseEvent,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [baseEvent],
         invalidViewport,
         currentTime,
       );
-      expect(score).toBeGreaterThanOrEqual(0);
-      expect(score).toBeLessThanOrEqual(1);
+      expect(scored.relevanceScore).toBeGreaterThanOrEqual(0);
+      expect(scored.relevanceScore).toBeLessThanOrEqual(1);
     });
   });
 
@@ -800,21 +510,14 @@ describe("RelevanceScoringService", () => {
         ],
       };
 
-      const simpleScore = relevanceScoringService.calculateSimpleScore(
-        realisticEvent,
-        testViewport,
-        currentTime,
-      );
-      const mapMojiScore = relevanceScoringService.calculateMapMojiScore(
-        realisticEvent,
+      const [scored] = relevanceScoringService.scoreEvents(
+        [realisticEvent],
         testViewport,
         currentTime,
       );
 
-      expect(simpleScore).toBeGreaterThanOrEqual(0);
-      expect(simpleScore).toBeLessThanOrEqual(1);
-      expect(mapMojiScore).toBeGreaterThanOrEqual(0);
-      expect(mapMojiScore).toBeLessThanOrEqual(1);
+      expect(scored.relevanceScore).toBeGreaterThanOrEqual(0);
+      expect(scored.relevanceScore).toBeLessThanOrEqual(1);
     });
 
     test("should handle multiple events with different characteristics", () => {
@@ -842,11 +545,10 @@ describe("RelevanceScoringService", () => {
         },
       ];
 
-      const scoredEvents = relevanceScoringService.addRelevanceScoresToEvents(
+      const scoredEvents = relevanceScoringService.scoreEvents(
         events,
         testViewport,
         currentTime,
-        "simple",
       );
 
       expect(scoredEvents).toHaveLength(3);
@@ -866,28 +568,27 @@ describe("RelevanceScoringService", () => {
       const events: Event[] = [baseEvent, { ...baseEvent, id: "event-2" }];
 
       // Score individually
-      const individualScore1 = relevanceScoringService.calculateSimpleScore(
-        events[0],
+      const [individual1] = relevanceScoringService.scoreEvents(
+        [events[0]],
         testViewport,
         currentTime,
       );
-      const individualScore2 = relevanceScoringService.calculateSimpleScore(
-        events[1],
+      const [individual2] = relevanceScoringService.scoreEvents(
+        [events[1]],
         testViewport,
         currentTime,
       );
 
-      // Score in batch
-      const batchScoredEvents =
-        relevanceScoringService.addRelevanceScoresToEvents(
-          events,
-          testViewport,
-          currentTime,
-          "simple",
-        );
+      // Score in batch (new service to reset stats)
+      const freshService = createRelevanceScoringService();
+      const batchScored = freshService.scoreEvents(
+        events,
+        testViewport,
+        currentTime,
+      );
 
-      expect(batchScoredEvents[0].relevanceScore).toBe(individualScore1);
-      expect(batchScoredEvents[1].relevanceScore).toBe(individualScore2);
+      expect(batchScored[0].relevanceScore).toBe(individual1.relevanceScore);
+      expect(batchScored[1].relevanceScore).toBe(individual2.relevanceScore);
     });
   });
 });

@@ -611,20 +611,6 @@ export class UnifiedMessageHandler {
   }
 
   /**
-   * Get all supported entity types
-   */
-  getSupportedEntityTypes(): string[] {
-    return ["event"];
-  }
-
-  /**
-   * Get Redis channels to subscribe to
-   */
-  getRedisChannels(): string[] {
-    return ["event_changes", "event_discovered"];
-  }
-
-  /**
    * Get performance metrics
    */
   getMetrics(): Record<string, unknown> {

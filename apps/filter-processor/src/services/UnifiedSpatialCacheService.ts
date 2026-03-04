@@ -8,12 +8,6 @@ export interface UnifiedSpatialCacheService {
   getEvent(eventId: string): Event | undefined;
   getAllEvents(): Event[];
 
-  getEntitiesInViewport(viewport: {
-    minX: number;
-    minY: number;
-    maxX: number;
-    maxY: number;
-  }): { type: string; entities: Event[] }[];
   addToSpatialIndex(event: Event): boolean;
   updateSpatialIndex(event: Event): void;
   removeFromSpatialIndex(eventId: string): void;
@@ -155,24 +149,6 @@ export function createUnifiedSpatialCacheService(
       spatialIndex.remove(itemToRemove);
       spatialItemMap.delete(eventId);
     }
-  }
-
-  function getEntitiesInViewport(viewport: {
-    minX: number;
-    minY: number;
-    maxX: number;
-    maxY: number;
-  }): { type: string; entities: Event[] }[] {
-    if (!enableSpatialIndex) {
-      return [{ type: "event", entities: getAllEvents() }];
-    }
-
-    const spatialItems = spatialIndex.search(viewport);
-    const events: Event[] = spatialItems
-      .map((item) => item.event)
-      .filter((event): event is Event => event !== undefined);
-
-    return [{ type: "event", entities: events }];
   }
 
   function getEventsInViewport(viewport: {
@@ -323,7 +299,6 @@ export function createUnifiedSpatialCacheService(
     removeEvent,
     getEvent,
     getAllEvents,
-    getEntitiesInViewport,
     addToSpatialIndex,
     updateSpatialIndex,
     removeFromSpatialIndex,

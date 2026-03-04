@@ -621,24 +621,7 @@ export const getLandingPageDataHandler: EventHandler = withErrorHandling(
     const parsedLat = userLat ? parseFloat(userLat) : undefined;
     const parsedLng = userLng ? parseFloat(userLng) : undefined;
 
-    const landingPageData = await eventService.getLandingPageData({
-      userLat: parsedLat,
-      userLng: parsedLng,
-      featuredLimit: featuredLimit ? parseInt(featuredLimit) : undefined,
-      upcomingLimit: upcomingLimit ? parseInt(upcomingLimit) : undefined,
-      communityLimit: communityLimit ? parseInt(communityLimit) : undefined,
-      discoveryLimit: discoveryLimit ? parseInt(discoveryLimit) : undefined,
-      trendingLimit: trendingLimit ? parseInt(trendingLimit) : undefined,
-      radiusMeters: radiusMiles
-        ? parseFloat(radiusMiles) * 1609.344
-        : undefined,
-      city: city || undefined,
-      excludeUserId: user.id,
-      includeCategoryIds,
-      excludeCategoryIds,
-    });
-
-    // Resolve city from user coordinates for leaderboard usage
+    // Resolve city from user coordinates for filtering and leaderboard
     let resolvedCity: string | undefined;
     if (parsedLat !== undefined && parsedLng !== undefined) {
       try {
@@ -651,6 +634,26 @@ export const getLandingPageDataHandler: EventHandler = withErrorHandling(
         console.error("Failed to reverse geocode city for landing page:", err);
       }
     }
+
+    // Use explicit city param if provided, otherwise fall back to resolved city
+    const effectiveCity = city || resolvedCity || undefined;
+
+    const landingPageData = await eventService.getLandingPageData({
+      userLat: parsedLat,
+      userLng: parsedLng,
+      featuredLimit: featuredLimit ? parseInt(featuredLimit) : undefined,
+      upcomingLimit: upcomingLimit ? parseInt(upcomingLimit) : undefined,
+      communityLimit: communityLimit ? parseInt(communityLimit) : undefined,
+      discoveryLimit: discoveryLimit ? parseInt(discoveryLimit) : undefined,
+      trendingLimit: trendingLimit ? parseInt(trendingLimit) : undefined,
+      radiusMeters: radiusMiles
+        ? parseFloat(radiusMiles) * 1609.344
+        : undefined,
+      city: effectiveCity,
+      excludeUserId: user.id,
+      includeCategoryIds,
+      excludeCategoryIds,
+    });
 
     return c.json({ ...landingPageData, resolvedCity });
   },

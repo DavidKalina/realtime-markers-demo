@@ -1,48 +1,19 @@
 import { Event, BoundingBox } from "../types/types";
 
 export interface RelevanceScoringService {
-  // MapMoji scoring (complex algorithm)
-  calculateMapMojiScore(
-    event: Event,
-    viewport?: BoundingBox,
-    currentTime?: Date,
-  ): number;
-
-  // Simple scoring (for traditional filters)
-  calculateSimpleScore(
-    event: Event,
-    viewport?: BoundingBox,
-    currentTime?: Date,
-  ): number;
-
-  // Batch scoring
-  addRelevanceScoresToEvents(
+  scoreEvents(
     events: Event[],
     viewport?: BoundingBox,
     currentTime?: Date,
-    scoringMethod?: "mapmoji" | "simple",
   ): Event[];
 
-  // Configuration
-  updateMapMojiConfig(config: {
-    viewportBounds?: BoundingBox;
-    maxEvents?: number;
-    currentTime?: Date;
-    popularityWeight?: number;
-    timeWeight?: number;
-    distanceWeight?: number;
-  }): void;
-
-  // Stats
   getStats(): {
-    mapMojiScoresCalculated: number;
-    simpleScoresCalculated: number;
     totalScoresCalculated: number;
   };
 }
 
 export interface RelevanceScoringServiceConfig {
-  // MapMoji algorithm weights
+  // Algorithm weights
   popularityWeight?: number;
   timeWeight?: number;
   distanceWeight?: number;
@@ -87,21 +58,7 @@ export function createRelevanceScoringService(
     },
   } = config;
 
-  // Private state
-  let mapMojiConfig = {
-    viewportBounds: undefined as BoundingBox | undefined,
-    maxEvents: 1000,
-    currentTime: new Date(),
-    popularityWeight,
-    timeWeight,
-    distanceWeight,
-  };
-
-  const stats = {
-    mapMojiScoresCalculated: 0,
-    simpleScoresCalculated: 0,
-    totalScoresCalculated: 0,
-  };
+  let totalScoresCalculated = 0;
 
   /**
    * Calculate time proximity score (0-1)
@@ -180,61 +137,25 @@ export function createRelevanceScoringService(
   }
 
   /**
-   * Calculate MapMoji relevance score (complex algorithm)
+   * Score a single event
    */
-  function calculateMapMojiScore(
-    event: Event,
-    viewport?: BoundingBox,
-    currentTime?: Date,
-  ): number {
-    const time = currentTime || mapMojiConfig.currentTime;
-    const bounds = viewport || mapMojiConfig.viewportBounds;
-
-    // Basic pre-filter checks
-    const validStatus =
-      event.status !== "REJECTED" && event.status !== "EXPIRED";
-    if (!validStatus) {
-      return 0;
-    }
-
-    // Calculate component scores
-    const timeScore = calculateTimeScore(event, time);
-    const popularityScore = calculatePopularityScore(event);
-    const distanceScore = calculateDistanceScore(event, bounds);
-
-    // Apply MapMoji weights
-    const relevanceScore =
-      timeScore * mapMojiConfig.timeWeight +
-      popularityScore * mapMojiConfig.popularityWeight +
-      distanceScore * mapMojiConfig.distanceWeight;
-
-    stats.mapMojiScoresCalculated++;
-    stats.totalScoresCalculated++;
-
-    return Math.max(0, Math.min(1, relevanceScore)); // Clamp to 0-1
-  }
-
-  /**
-   * Calculate simple relevance score (for traditional filters)
-   */
-  function calculateSimpleScore(
+  function calculateScore(
     event: Event,
     viewport?: BoundingBox,
     currentTime?: Date,
   ): number {
     const time = currentTime || new Date();
 
-    // Calculate component scores
     const timeScore = calculateTimeScore(event, time);
     const popularityScore = calculatePopularityScore(event);
     const distanceScore = calculateDistanceScore(event, viewport);
 
-    // Simple weighted combination
     const relevanceScore =
-      timeScore * 0.4 + popularityScore * 0.4 + distanceScore * 0.2;
+      timeScore * timeWeight +
+      popularityScore * popularityWeight +
+      distanceScore * distanceWeight;
 
-    stats.simpleScoresCalculated++;
-    stats.totalScoresCalculated++;
+    totalScoresCalculated++;
 
     return Math.max(0, Math.min(1, relevanceScore)); // Clamp to 0-1
   }
@@ -242,59 +163,30 @@ export function createRelevanceScoringService(
   /**
    * Add relevance scores to a batch of events
    */
-  function addRelevanceScoresToEvents(
+  function scoreEvents(
     events: Event[],
     viewport?: BoundingBox,
     currentTime?: Date,
-    scoringMethod: "mapmoji" | "simple" = "simple",
   ): Event[] {
     if (events.length === 0) return events;
 
     const time = currentTime || new Date();
 
-    return events.map((event) => {
-      const relevanceScore =
-        scoringMethod === "mapmoji"
-          ? calculateMapMojiScore(event, viewport, time)
-          : calculateSimpleScore(event, viewport, time);
-
-      return {
-        ...event,
-        relevanceScore,
-      };
-    });
-  }
-
-  /**
-   * Update MapMoji configuration
-   */
-  function updateMapMojiConfig(config: {
-    viewportBounds?: BoundingBox;
-    maxEvents?: number;
-    currentTime?: Date;
-    popularityWeight?: number;
-    timeWeight?: number;
-    distanceWeight?: number;
-  }): void {
-    mapMojiConfig = { ...mapMojiConfig, ...config };
+    return events.map((event) => ({
+      ...event,
+      relevanceScore: calculateScore(event, viewport, time),
+    }));
   }
 
   /**
    * Get service statistics
    */
-  function getStats(): {
-    mapMojiScoresCalculated: number;
-    simpleScoresCalculated: number;
-    totalScoresCalculated: number;
-  } {
-    return { ...stats };
+  function getStats(): { totalScoresCalculated: number } {
+    return { totalScoresCalculated };
   }
 
   return {
-    calculateMapMojiScore,
-    calculateSimpleScore,
-    addRelevanceScoresToEvents,
-    updateMapMojiConfig,
+    scoreEvents,
     getStats,
   };
 }

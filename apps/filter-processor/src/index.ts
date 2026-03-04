@@ -176,13 +176,6 @@ async function startFilterProcessor() {
         enableViewportTracking: true,
         enableFilterTracking: true,
       },
-      relevanceScoringConfig: {
-        popularityWeight: 0.4,
-        timeWeight: 0.4,
-        distanceWeight: 0.2,
-        maxPastHours: 24,
-        maxFutureDays: 30,
-      },
     });
 
     // Initialize the processor

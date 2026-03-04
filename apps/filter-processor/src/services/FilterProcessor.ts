@@ -7,7 +7,6 @@ import { EventPublisher } from "../handlers/EventPublisher";
 import { MapMojiFilterService } from "./MapMojiFilterService";
 import { createUnifiedSpatialCacheService } from "./UnifiedSpatialCacheService";
 import { createUserStateService } from "./UserStateService";
-import { createRelevanceScoringService } from "./RelevanceScoringService";
 import { createJobProcessingService } from "./JobProcessingService";
 import { createHybridUserUpdateBatcherService } from "./HybridUserUpdateBatcherService";
 import { createRedisMessageHandler } from "./RedisMessageHandler";
@@ -47,17 +46,9 @@ export interface FilterProcessorConfig {
     enableViewportTracking?: boolean;
     enableFilterTracking?: boolean;
   };
-  relevanceScoringConfig?: {
-    popularityWeight?: number;
-    timeWeight?: number;
-    distanceWeight?: number;
-    maxPastHours?: number;
-    maxFutureDays?: number;
-  };
   eventFilteringConfig?: {
     mapMojiConfig?: {
       maxEvents?: number;
-      enableHybridMode?: boolean;
     };
   };
   redisConfig?: {
@@ -97,7 +88,6 @@ export function createFilterProcessor(
   const {
     eventCacheConfig = {},
     userStateConfig = {},
-    relevanceScoringConfig = {},
     eventFilteringConfig = {},
     redisConfig = {},
     eventInitializationConfig = {},
@@ -109,9 +99,6 @@ export function createFilterProcessor(
   const unifiedSpatialCacheService =
     createUnifiedSpatialCacheService(eventCacheConfig);
   const userStateService = createUserStateService(userStateConfig);
-  const relevanceScoringService = createRelevanceScoringService(
-    relevanceScoringConfig,
-  );
 
   // Create ViewportProcessor early since UnifiedMessageHandler needs it
   const viewportProcessor = new ViewportProcessor(
@@ -166,7 +153,6 @@ export function createFilterProcessor(
   const unifiedFilteringService = createUnifiedFilteringService(
     filterMatcher,
     mapMojiFilter,
-    relevanceScoringService,
     eventPublisher,
     clientConfigService,
     {
@@ -295,7 +281,6 @@ export function createFilterProcessor(
       ...eventPublisher.getStats(),
       ...unifiedSpatialCacheService.getStats(),
       ...userStateService.getStats(),
-      ...relevanceScoringService.getStats(),
       ...redisMessageHandler.getStats(),
       ...eventInitializationService.getStats(),
       ...jobProcessingService.getStats(),
@@ -448,7 +433,6 @@ export function createFilterProcessor(
       ...eventPublisher.getStats(),
       ...unifiedSpatialCacheService.getStats(),
       ...userStateService.getStats(),
-      ...relevanceScoringService.getStats(),
       ...redisMessageHandler.getStats(),
       ...eventInitializationService.getStats(),
       ...jobProcessingService.getStats(),

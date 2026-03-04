@@ -1160,14 +1160,21 @@ export class EventSearchServiceImpl implements EventSearchService {
       console.error("Error fetching available cities:", error);
     }
 
-    // Popular categories: from any events that passed filters
+    // Popular categories: scoped to user's city when available
     // Over-fetch to have room after dedup, then filter overlapping names
-    const popularCategoriesRaw = await this.categoryRepository
+    const categoriesQb = this.categoryRepository
       .createQueryBuilder("category")
       .innerJoin("category.events", "event")
       .where("event.status IN (:...statuses)", {
         statuses: ["VERIFIED", "PENDING"],
       })
+      .andWhere("event.event_date > NOW()");
+
+    if (city) {
+      categoriesQb.andWhere("event.city = :catCity", { catCity: city });
+    }
+
+    const popularCategoriesRaw = await categoriesQb
       .select("category.id", "id")
       .addSelect("category.name", "name")
       .addSelect("category.icon", "icon")

@@ -72,7 +72,6 @@ describe("HybridUserUpdateBatcherService", () => {
           },
         ] as Event[];
       }),
-      getEntitiesInViewport: mock(() => []),
       addToSpatialIndex: mock(() => {}),
       updateSpatialIndex: mock(() => {}),
       removeFromSpatialIndex: mock(() => {}),

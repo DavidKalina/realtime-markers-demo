@@ -1,7 +1,6 @@
 import { Event, BoundingBox, Filter } from "../types/types";
 import { FilterMatcher } from "../handlers/FilterMatcher";
 import { MapMojiFilterService } from "./MapMojiFilterService";
-import { RelevanceScoringService } from "./RelevanceScoringService";
 import { EventPublisher } from "../handlers/EventPublisher";
 import type { ClientConfigService } from "./ClientConfigService";
 
@@ -19,14 +18,12 @@ export interface UnifiedFilteringService {
 export interface UnifiedFilteringServiceConfig {
   mapMojiConfig?: {
     maxEvents?: number;
-    enableHybridMode?: boolean;
   };
 }
 
 export function createUnifiedFilteringService(
   filterMatcher: FilterMatcher,
   mapMojiFilter: MapMojiFilterService,
-  relevanceScoringService: RelevanceScoringService,
   eventPublisher: EventPublisher,
   clientConfigService: ClientConfigService,
   config: UnifiedFilteringServiceConfig = {},
@@ -36,8 +33,6 @@ export function createUnifiedFilteringService(
   // Stats for monitoring
   const stats = {
     mapMojiFilterApplied: 0,
-    traditionalFilterApplied: 0,
-    hybridFilterApplied: 0,
     totalEventsFiltered: 0,
     unifiedMessagesSent: 0,
   };
@@ -66,16 +61,7 @@ export function createUnifiedFilteringService(
       // Process events based on client config
       let filteredEvents: Event[] = [];
       if (clientConfig.includeEvents) {
-        if (viewport) {
-          filteredEvents = await processViewportEvents(
-            events,
-            viewport,
-            filters,
-            userId,
-          );
-        } else {
-          filteredEvents = await processAllEvents(events, filters, userId);
-        }
+        filteredEvents = await processEvents(events, viewport, filters, userId);
 
         // Apply max events limit from client config
         if (
@@ -126,215 +112,43 @@ export function createUnifiedFilteringService(
   }
 
   /**
-   * Process events for viewport
+   * Single pipeline: MapMoji scoring + optional FilterMatcher
    */
-  async function processViewportEvents(
+  async function processEvents(
     events: Event[],
-    viewport: BoundingBox,
+    viewport: BoundingBox | null,
     filters: Filter[],
     userId: string,
   ): Promise<Event[]> {
-    let filteredEvents: Event[];
+    const maxEvents = viewport ? mapMojiConfig.maxEvents || 1000 : 250;
 
-    if (filters.length === 0) {
-      // No custom filters - apply MapMoji algorithm for curated experience
-      console.log(
-        `[UnifiedFiltering] Applying MapMoji algorithm for user ${userId} (no custom filters)`,
-      );
-
-      filteredEvents = await applyMapMojiFiltering(
-        events,
-        viewport,
-        mapMojiConfig.maxEvents || 1000,
-      );
-    } else {
-      // Check if filters are only lightweight (date range and/or category — no location, no semantic)
-      const hasLightweightOnly = filters.every(
-        (filter) =>
-          !filter.criteria.location &&
-          !filter.semanticQuery &&
-          (filter.criteria.dateRange ||
-            filter.criteria.includeCategoryIds ||
-            filter.criteria.excludeCategoryIds),
-      );
-
-      if (hasLightweightOnly && mapMojiConfig.enableHybridMode !== false) {
-        // Hybrid mode: Apply MapMoji first, then lightweight filters
-        console.log(
-          `[UnifiedFiltering] Applying hybrid filtering for user ${userId} (MapMoji + lightweight filters)`,
-        );
-
-        filteredEvents = await applyHybridFiltering(
-          events,
-          viewport,
-          filters,
-          userId,
-        );
-        stats.hybridFilterApplied++;
-      } else {
-        // Traditional filtering mode - bypass MapMoji and use traditional filtering
-        console.log(
-          `[UnifiedFiltering] Using traditional filters for user ${userId} (${filters.length} filters)`,
-        );
-
-        filteredEvents = applyTraditionalFiltering(
-          events,
-          filters,
-          userId,
-          viewport,
-        );
-        stats.traditionalFilterApplied++;
-      }
-    }
-
-    return filteredEvents;
-  }
-
-  /**
-   * Process all events
-   */
-  async function processAllEvents(
-    events: Event[],
-    filters: Filter[],
-    userId: string,
-  ): Promise<Event[]> {
-    let filteredEvents: Event[];
-
-    if (filters.length === 0) {
-      // No custom filters - apply MapMoji algorithm for curated experience
-      console.log(
-        `[UnifiedFiltering] Applying MapMoji algorithm for all events for user ${userId} (no custom filters)`,
-      );
-
-      filteredEvents = await applyMapMojiFiltering(
-        events,
-        undefined,
-        mapMojiConfig.maxEvents || 250,
-      );
-    } else {
-      // Check if filters are only lightweight (date range and/or category — no location, no semantic)
-      const hasLightweightOnly = filters.every(
-        (filter) =>
-          !filter.criteria.location &&
-          !filter.semanticQuery &&
-          (filter.criteria.dateRange ||
-            filter.criteria.includeCategoryIds ||
-            filter.criteria.excludeCategoryIds),
-      );
-
-      if (hasLightweightOnly && mapMojiConfig.enableHybridMode !== false) {
-        // Hybrid mode: Apply MapMoji first, then lightweight filters
-        console.log(
-          `[UnifiedFiltering] Applying hybrid filtering for all events for user ${userId} (MapMoji + lightweight filters)`,
-        );
-
-        filteredEvents = await applyHybridFiltering(
-          events,
-          undefined,
-          filters,
-          userId,
-        );
-        stats.hybridFilterApplied++;
-      } else {
-        // Traditional filtering mode - bypass MapMoji and use traditional filtering
-        console.log(
-          `[UnifiedFiltering] Using traditional filters for all events for user ${userId} (${filters.length} filters)`,
-        );
-
-        filteredEvents = applyTraditionalFiltering(
-          events,
-          filters,
-          userId,
-          undefined,
-        );
-        stats.traditionalFilterApplied++;
-      }
-    }
-
-    return filteredEvents;
-  }
-
-  /**
-   * Apply MapMoji filtering algorithm
-   */
-  async function applyMapMojiFiltering(
-    events: Event[],
-    viewport?: BoundingBox,
-    maxEvents?: number,
-  ): Promise<Event[]> {
-    // Update MapMoji configuration for this request
+    // Step 1: Always run MapMoji for relevance scoring and curated sorting
     mapMojiFilter.updateConfig({
-      viewportBounds: viewport,
-      maxEvents: maxEvents,
+      viewportBounds: viewport || undefined,
+      maxEvents,
       currentTime: new Date(),
     });
 
-    // Apply MapMoji filtering (events will have relevance scores)
-    const mapMojiEvents = await mapMojiFilter.filterEvents(events);
+    const scoredEvents = await mapMojiFilter.filterEvents(events);
     stats.mapMojiFilterApplied++;
 
-    console.log(
-      `[UnifiedFiltering] MapMoji filtered ${events.length} events to ${mapMojiEvents.length}`,
-    );
+    // Step 2: If user has filters, apply FilterMatcher on top
+    let filteredEvents = scoredEvents;
+    if (filters.length > 0) {
+      filteredEvents = scoredEvents.filter((event) =>
+        filterMatcher.eventMatchesFilters(event, filters, userId),
+      );
 
-    return mapMojiEvents;
-  }
-
-  /**
-   * Apply hybrid filtering (MapMoji + date range filters)
-   */
-  async function applyHybridFiltering(
-    events: Event[],
-    viewport: BoundingBox | undefined,
-    filters: Filter[],
-    userId: string,
-  ): Promise<Event[]> {
-    // Update MapMoji configuration for this request
-    mapMojiFilter.updateConfig({
-      viewportBounds: viewport,
-      maxEvents: 250,
-      currentTime: new Date(),
-    });
-
-    // Apply MapMoji filtering first
-    const mapMojiEvents = await mapMojiFilter.filterEvents(events);
-    stats.mapMojiFilterApplied++;
-
-    // Then apply date range filters on top of MapMoji results
-    const filteredEvents = mapMojiEvents.filter((event) =>
-      filterMatcher.eventMatchesFilters(event, filters, userId),
-    );
-
-    console.log(
-      `[UnifiedFiltering] Hybrid filtered ${events.length} events to ${mapMojiEvents.length} (MapMoji) to ${filteredEvents.length} (with date range)`,
-    );
+      console.log(
+        `[UnifiedFiltering] Filtered ${events.length} → ${scoredEvents.length} (MapMoji) → ${filteredEvents.length} (with filters) for user ${userId}`,
+      );
+    } else {
+      console.log(
+        `[UnifiedFiltering] MapMoji filtered ${events.length} → ${scoredEvents.length} for user ${userId}`,
+      );
+    }
 
     return filteredEvents;
-  }
-
-  /**
-   * Apply traditional filtering
-   */
-  function applyTraditionalFiltering(
-    events: Event[],
-    filters: Filter[],
-    userId: string,
-    viewport?: BoundingBox,
-  ): Event[] {
-    // Apply traditional filters
-    const filteredEvents = events.filter((event) =>
-      filterMatcher.eventMatchesFilters(event, filters, userId),
-    );
-
-    // Add relevance scores for traditionally filtered events
-    const eventsWithScores = relevanceScoringService.addRelevanceScoresToEvents(
-      filteredEvents,
-      viewport,
-      new Date(),
-      "simple",
-    );
-
-    return eventsWithScores;
   }
 
   /**
