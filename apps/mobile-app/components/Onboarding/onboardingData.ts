@@ -3,6 +3,7 @@ import { MissionIllustration } from "./illustrations/MissionIllustration";
 import { MapIllustration } from "./illustrations/MapIllustration";
 import { ScanIllustration } from "./illustrations/ScanIllustration";
 import { DiscoverIllustration } from "./illustrations/DiscoverIllustration";
+import { EngageIllustration } from "./illustrations/EngageIllustration";
 import { LevelUpIllustration } from "./illustrations/LevelUpIllustration";
 import { LetsGoIllustration } from "./illustrations/LetsGoIllustration";
 
@@ -41,6 +42,13 @@ export const ONBOARDING_PAGES: OnboardingPageData[] = [
     title: "Find Your Scene",
     body: "Browse by category, date, or distance. From open mics to art shows — find what moves you.",
     illustration: DiscoverIllustration,
+    accentColor: "#34d399",
+  },
+  {
+    id: "engage",
+    title: "Make It Yours",
+    body: "RSVP, save, share, or pull up the map — plus every event gets an automatic AI-powered insight.",
+    illustration: EngageIllustration,
     accentColor: "#34d399",
   },
   {

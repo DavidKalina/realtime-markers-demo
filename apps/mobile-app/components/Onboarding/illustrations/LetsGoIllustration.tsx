@@ -12,6 +12,11 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
 
+// Scaled-up version of the actual marker shape from MarkerSVGs.tsx
+// Original viewBox is 48x64, we render at ~2.2x
+const PIN_W = 105;
+const PIN_H = 140;
+
 export const LetsGoIllustration: React.FC<{ active: boolean }> = ({
   active,
 }) => {
@@ -96,24 +101,46 @@ export const LetsGoIllustration: React.FC<{ active: boolean }> = ({
         </Svg>
       </Animated.View>
 
-      {/* Map pin */}
+      {/* Map marker — exact shape from MarkerSVGs.tsx */}
       <Animated.View style={[styles.pinContainer, pinStyle]}>
-        <Svg width={80} height={100} viewBox="0 0 80 100">
+        <Svg width={PIN_W} height={PIN_H} viewBox="0 0 48 64">
+          {/* Teardrop marker body */}
           <Path
-            d="M40 5C22.3 5 8 19.3 8 37c0 25 32 58 32 58s32-33 32-58c0-17.7-14.3-32-32-32z"
+            d="M24 4C13.5 4 6 12.1 6 22C6 28.5 9 34.4 13.5 39.6C17.5 44.2 24 52 24 52C24 52 30.5 44.2 34.5 39.6C39 34.4 42 28.5 42 22C42 12.1 34.5 4 24 4Z"
             fill={colors.accent.primary}
+            stroke={colors.accent.dark}
+            strokeWidth={2}
+            strokeLinejoin="round"
           />
-          <Circle cx={40} cy={37} r={14} fill={colors.bg.primary} />
+
+          {/* Highlight arc */}
+          <Path
+            d="M16 12C16 12 19 9 24 9C29 9 32 12 32 12"
+            stroke="#ffffff"
+            strokeOpacity={0.5}
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+
+          {/* Inner circle */}
+          <Circle
+            cx={24}
+            cy={22}
+            r={12}
+            fill={colors.bg.card}
+            stroke={colors.accent.dark}
+            strokeWidth={1}
+          />
         </Svg>
 
-        {/* Checkmark inside pin */}
+        {/* Checkmark inside the circle */}
         <Animated.View style={[styles.checkContainer, checkStyle]}>
-          <Svg width={20} height={20} viewBox="0 0 20 20">
+          <Svg width={28} height={28} viewBox="0 0 28 28">
             <Path
-              d="M4 10 L8 14 L16 6"
+              d="M7 14 L12 19 L21 9"
               fill="none"
               stroke={colors.accent.primary}
-              strokeWidth={2.5}
+              strokeWidth={3}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
@@ -135,11 +162,14 @@ const styles = StyleSheet.create({
     position: "absolute",
   },
   pinContainer: {
+    width: PIN_W,
+    height: PIN_H,
     alignItems: "center",
-    justifyContent: "center",
   },
   checkContainer: {
     position: "absolute",
-    top: 27,
+    // Positioned at the inner circle center: cy=22 out of 64 viewBox height
+    // Scaled: (22/64) * PIN_H ≈ 48, minus half the check icon size
+    top: (22 / 64) * PIN_H - 14,
   },
 });

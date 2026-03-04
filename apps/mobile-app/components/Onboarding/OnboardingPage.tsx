@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   textContainer: {
-    alignSelf: "stretch",
+    alignItems: "center",
     paddingHorizontal: spacing.sm,
   },
   title: {
@@ -134,14 +134,14 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.bold,
     fontFamily: fontFamily.mono,
     color: "#ffffff",
-    textAlign: "left",
+    textAlign: "center",
     marginBottom: spacing.md,
   },
   body: {
     fontSize: fontSize.sm,
     fontFamily: fontFamily.mono,
     color: "#d4d4d4",
-    textAlign: "left",
+    textAlign: "center",
     lineHeight: lineHeight.relaxed,
   },
   bottomSpacer: {

@@ -8,7 +8,6 @@ const AppHeader = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.text}>A Third Space</Text>
-      <Text style={styles.subtext}>in your pocket</Text>
     </View>
   );
 };
