@@ -153,3 +153,4 @@ GitHub Actions workflows on PRs:
 - Use CORS middleware from Hono (`hono/cors`) — not custom implementations
 - Database migrations live in `apps/backend/migrations/` and use TypeORM CLI
 - The app is **events-only** — do not add new entity types (e.g. civic engagements, private events) without explicit product direction
+- **Do not use `runOnJS` from react-native-reanimated** — it is deprecated. Use `scheduleOnRN` from `react-native-worklets` instead to call JS functions from worklet callbacks.

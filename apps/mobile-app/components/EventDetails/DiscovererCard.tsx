@@ -187,9 +187,7 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
                 <Text style={cardStyles.statLabel}>DISCOVERIES</Text>
               </View>
               <View style={cardStyles.stat}>
-                <Text style={cardStyles.statValue}>
-                  {followingCount ?? 0}
-                </Text>
+                <Text style={cardStyles.statValue}>{followingCount ?? 0}</Text>
                 <Text style={cardStyles.statLabel}>FOLLOWING</Text>
               </View>
             </View>

@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useMapStyle, MapStyleType } from "@/contexts/MapStyleContext";
 import { useProfile } from "@/hooks/useProfile";
 import * as Haptics from "expo-haptics";
@@ -41,6 +42,7 @@ const MAP_STYLES: { key: MapStyleType; label: string }[] = [
 
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { user } = useAuth();
+  const { resetOnboarding } = useOnboarding();
   const { currentStyle, isPitched, togglePitch, setMapStyle } = useMapStyle();
   const {
     loading,
@@ -226,6 +228,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               <Text style={styles.deleteText}>Delete Account</Text>
             </Pressable>
           </View>
+
+          {/* DEV: Reset Onboarding */}
+          <Pressable
+            style={styles.signOutButton}
+            onPress={() => {
+              resetOnboarding();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Text style={styles.signOutText}>Reset Onboarding (Dev)</Text>
+          </Pressable>
 
           <View style={{ height: 100 }} />
         </View>

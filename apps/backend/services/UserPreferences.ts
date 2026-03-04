@@ -467,7 +467,8 @@ Example invalid responses: "🎉" or "party" or "🎉 🎨"`;
       const updatedFilters = userFilters.map((filter) => ({
         ...filter,
         isActive:
-          filter.name === "__category_preferences__" || filterIds.includes(filter.id),
+          filter.name === "__category_preferences__" ||
+          filterIds.includes(filter.id),
       }));
 
       // Save the updates

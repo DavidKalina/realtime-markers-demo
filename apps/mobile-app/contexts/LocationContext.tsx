@@ -165,7 +165,6 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({
       const locationString = JSON.stringify(cachedLocation);
 
       await AsyncStorage.setItem("cachedLocation", locationString);
-
     } catch (error) {
       console.error("[LocationContext] Error caching location:", error);
     }

@@ -99,8 +99,7 @@ export function useScanInsight(onDismissExternal?: () => void) {
     const extractions = displayJob.extractions;
     const eventCreated =
       (result?.eventId && !result?.isDuplicate) || result?.isMultiEvent;
-    const resultMessage =
-      (result?.message as string) || "Event Created";
+    const resultMessage = (result?.message as string) || "Event Created";
 
     let text: string;
     if (eventCreated && extractions) {

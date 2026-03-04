@@ -4,12 +4,7 @@ import { useState } from "react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { LoadingSpinner } from "@/components/dashboard/LoadingSpinner";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLlmCosts } from "@/hooks/useLlmCosts";
 import {
   BarChart,
@@ -41,9 +36,7 @@ export default function LlmCostsPage() {
         {loading ? (
           <LoadingSpinner message="Loading LLM cost data..." />
         ) : error ? (
-          <div className="text-center py-12 text-muted-foreground">
-            {error}
-          </div>
+          <div className="text-center py-12 text-muted-foreground">{error}</div>
         ) : data ? (
           <div className="space-y-8">
             <div className="flex items-center justify-between">
@@ -176,10 +169,11 @@ export default function LlmCostsPage() {
                       </thead>
                       <tbody>
                         {data.byModel.map((row) => (
-                          <tr key={row.model} className="border-b last:border-0">
-                            <td className="py-3 px-4 font-mono">
-                              {row.model}
-                            </td>
+                          <tr
+                            key={row.model}
+                            className="border-b last:border-0"
+                          >
+                            <td className="py-3 px-4 font-mono">{row.model}</td>
                             <td className="py-3 px-4 text-right">
                               {row.calls.toLocaleString()}
                             </td>

@@ -241,7 +241,10 @@ export default function ScanScreen() {
 
       {/* Floating back button (top-left) */}
       <Pressable
-        style={[styles.floatingButton, { top: insets.top + spacing.sm, left: spacing.lg }]}
+        style={[
+          styles.floatingButton,
+          { top: insets.top + spacing.sm, left: spacing.lg },
+        ]}
         onPress={handleBack}
       >
         <ArrowLeft size={20} color={colors.fixed.white} />
@@ -249,19 +252,17 @@ export default function ScanScreen() {
 
       {/* Floating batch upload button (top-right) */}
       <Pressable
-        style={[styles.floatingButton, { top: insets.top + spacing.sm, right: spacing.lg }]}
+        style={[
+          styles.floatingButton,
+          { top: insets.top + spacing.sm, right: spacing.lg },
+        ]}
         onPress={() => router.push("/batch-upload")}
       >
         <Images size={20} color={colors.fixed.white} />
       </Pressable>
 
       {/* Controls overlaid at bottom */}
-      <View
-        style={[
-          styles.controlsOverlay,
-          { paddingBottom: spacing.sm },
-        ]}
-      >
+      <View style={[styles.controlsOverlay, { paddingBottom: spacing.sm }]}>
         <CameraControls
           onCapture={onCapture}
           onImageSelected={onImageSelected}

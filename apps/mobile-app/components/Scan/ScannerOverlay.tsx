@@ -1,9 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  LayoutChangeEvent,
-  StyleSheet,
-  View,
-} from "react-native";
+import { LayoutChangeEvent, StyleSheet, View } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,

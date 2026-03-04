@@ -99,4 +99,3 @@ export const getUserTokensHandler = async (c: Context<AppContext>) => {
     return c.json({ error: "Failed to get user tokens" }, 500);
   }
 };
-

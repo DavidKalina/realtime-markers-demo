@@ -161,9 +161,7 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
     }
 
     if (!hasMore && data.length > 0) {
-      return (
-        <EndOfList message={endOfListMessage} animated={animated} />
-      );
+      return <EndOfList message={endOfListMessage} animated={animated} />;
     }
 
     return null;

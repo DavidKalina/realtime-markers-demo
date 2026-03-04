@@ -8,7 +8,14 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { colors, fontSize, fontFamily, fontWeight, spacing, radius } from "@/theme";
+import {
+  colors,
+  fontSize,
+  fontFamily,
+  fontWeight,
+  spacing,
+  radius,
+} from "@/theme";
 
 export interface EventListItemProps {
   id: string;
@@ -161,7 +168,15 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
       if (isRecurring) items.push("Recurring");
       if (isPrivate) items.push("Private");
       return items.join(" · ");
-    }, [isTrending, distance, location, categories, goingCount, isRecurring, isPrivate]);
+    }, [
+      isTrending,
+      distance,
+      location,
+      categories,
+      goingCount,
+      isRecurring,
+      isPrivate,
+    ]);
 
     const cappedDelay = Math.min(index, 8) * 30;
 

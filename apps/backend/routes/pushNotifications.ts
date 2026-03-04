@@ -38,4 +38,3 @@ pushNotificationRouter.get(
   authMiddleware,
   handlers.getUserTokensHandler,
 );
-

@@ -223,7 +223,9 @@ export function PublicEventContent({ eventId }: PublicEventContentProps) {
             Explore Events
           </Link>
         </div>
-        <p className="text-xs text-muted-foreground mt-6">Powered by A Third Space</p>
+        <p className="text-xs text-muted-foreground mt-6">
+          Powered by A Third Space
+        </p>
       </div>
     </div>
   );

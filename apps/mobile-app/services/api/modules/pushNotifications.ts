@@ -67,5 +67,4 @@ export class PushNotificationsModule extends BaseApiModule {
     }>(response);
     return data.tokens;
   }
-
 }

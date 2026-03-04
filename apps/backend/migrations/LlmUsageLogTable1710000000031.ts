@@ -29,10 +29,7 @@ export class LlmUsageLogTable1710000000031 implements MigrationInterface {
             default: "CURRENT_TIMESTAMP",
           },
         ],
-        indices: [
-          { columnNames: ["created_at"] },
-          { columnNames: ["model"] },
-        ],
+        indices: [{ columnNames: ["created_at"] }, { columnNames: ["model"] }],
       }),
     );
   }
