@@ -7,7 +7,7 @@ import { useCamera } from "@/hooks/useCamera";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
 import { CameraView } from "expo-camera";
 import { usePathname, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -22,6 +22,7 @@ import { ArrowLeft } from "lucide-react-native";
 import {
   ProcessingOverlay,
   NoScansOverlay,
+  ScannerOverlay,
   SimulationButton,
   useScanState,
 } from "@/components/Scan";
@@ -144,6 +145,17 @@ export default function ScanScreen() {
     [handleImageSelected, setShowNoScansOverlay],
   );
 
+  // Shutter flash for simulate capture
+  const [showFlash, setShowFlash] = useState(false);
+
+  const onSimulateCapture = useCallback(() => {
+    setShowFlash(true);
+    setTimeout(() => {
+      setShowFlash(false);
+      simulateCapture();
+    }, 150);
+  }, [simulateCapture]);
+
   // Auto-process as event when image is captured (scan is event-only)
   useEffect(() => {
     if (capturedImageUri && !isProcessing && !showProcessingOverlay) {
@@ -194,6 +206,9 @@ export default function ScanScreen() {
           onCameraReady={onCameraReady}
           flash={flashMode}
         >
+          {/* Shutter flash overlay */}
+          {showFlash && <View style={styles.flashOverlay} />}
+
           {/* Processing Overlay */}
           <ProcessingOverlay
             isVisible={showProcessingOverlay}
@@ -208,6 +223,11 @@ export default function ScanScreen() {
           />
         </CameraView>
       ) : null}
+
+      {/* Scanner overlay — corner brackets, scan line, motion detection */}
+      <ScannerOverlay
+        active={isCameraReady && !showProcessingOverlay && !showNoScansOverlay}
+      />
 
       {/* Camera not ready overlay */}
       {(!isCameraReady || !isCameraActive) && !showProcessingOverlay && (
@@ -254,7 +274,7 @@ export default function ScanScreen() {
         <SimulationButton
           isVisible={__DEV__ && !showProcessingOverlay}
           isMounted={isMounted}
-          onSimulateCapture={simulateCapture}
+          onSimulateCapture={onSimulateCapture}
         />
       </View>
     </View>
@@ -298,6 +318,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.4)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  flashOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.fixed.white,
+    zIndex: 10,
   },
   controlsOverlay: {
     position: "absolute",

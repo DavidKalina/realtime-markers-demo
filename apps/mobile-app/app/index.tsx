@@ -149,7 +149,6 @@ function HomeScreenContent() {
     isLoadingLocation,
     getUserLocation,
     cameraRef,
-    currentViewport,
   });
 
   // Camera follow mode — auto-tracks user location, breaks on pan

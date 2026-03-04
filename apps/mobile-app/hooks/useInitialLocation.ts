@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MapboxGL from "@rnmapbox/maps";
 import { DEFAULT_CAMERA_SETTINGS } from "@/config/cameraConfig";
-import { MapboxViewport } from "@/types/types";
 import { apiClient } from "@/services/ApiClient";
+import { eventBroker, EventTypes } from "@/services/EventBroker";
 
 const VIEWPORT_REQUEST_TIMEOUT_MS = 3000;
 
@@ -12,7 +12,6 @@ interface UseInitialLocationOptions {
   isLoadingLocation: boolean;
   getUserLocation: () => void;
   cameraRef: React.RefObject<MapboxGL.Camera | null>;
-  currentViewport: MapboxViewport | null;
 }
 
 export function useInitialLocation({
@@ -20,7 +19,6 @@ export function useInitialLocation({
   isLoadingLocation,
   getUserLocation,
   cameraRef,
-  currentViewport,
 }: UseInitialLocationOptions) {
   const hasCenteredOnUserRef = useRef(false);
   const [hasRequestedInitialLocation, setHasRequestedInitialLocation] =
@@ -76,7 +74,6 @@ export function useInitialLocation({
     if (
       userLocation &&
       !isLoadingLocation &&
-      currentViewport &&
       cameraRef.current &&
       !hasCenteredOnUserRef.current
     ) {
@@ -100,6 +97,16 @@ export function useInitialLocation({
             timeoutPromise,
           ]);
 
+          // If the smart viewport moved the camera away from the user's
+          // location (no nearby events), disable follow mode so it doesn't
+          // snap the camera back to the user.
+          if (!viewport.hasNearbyEvents) {
+            eventBroker.emit(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
+              timestamp: Date.now(),
+              source: "useInitialLocation",
+            });
+          }
+
           cameraRef.current?.setCamera({
             centerCoordinate: viewport.center,
             zoomLevel: viewport.zoom,
@@ -115,5 +122,5 @@ export function useInitialLocation({
 
       fetchSmartViewport();
     }
-  }, [userLocation, isLoadingLocation, currentViewport]);
+  }, [userLocation, isLoadingLocation]);
 }

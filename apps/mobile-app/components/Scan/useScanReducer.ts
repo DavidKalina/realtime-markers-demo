@@ -1,6 +1,6 @@
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes } from "@/services/EventBroker";
-import * as ImagePicker from "expo-image-picker";
+import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { Alert } from "react-native";
 import { ProcessingStage } from "./ProcessingOverlay";
@@ -43,6 +43,7 @@ export type ScanAction =
   | { type: "START_PROCESSING" }
   | { type: "PROCESSING_SUCCESS" }
   | { type: "NAVIGATE_TO_JOBS" }
+  | { type: "START_SIMULATION" }
   | { type: "SET_SHOW_NO_SCANS_OVERLAY"; payload: boolean }
   | { type: "RESET" };
 
@@ -101,6 +102,15 @@ function scanReducer(state: ScanState, action: ScanAction): ScanState {
         ...state,
         isCapturing: false,
         error: action.payload,
+      };
+
+    case "START_SIMULATION":
+      return {
+        ...state,
+        isProcessing: true,
+        showProcessingOverlay: true,
+        processingStage: "captured",
+        isCapturing: false,
       };
 
     case "START_PROCESSING":
@@ -318,35 +328,38 @@ export const useScanReducer = ({
     dispatch({ type: "RESET" });
   }, []);
 
-  // Simulate capture for development — opens photo library to pick a real flyer image
+  // Simulate capture for development — drives the full overlay flow without any backend call
   const simulateCapture = useCallback(async () => {
     if (!isMounted.current) return;
 
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        quality: 0.8,
-      });
+      // Shutter haptic
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-      if (result.canceled || !result.assets?.[0]) return;
+      // Show "Image Captured" overlay
+      dispatch({ type: "START_SIMULATION" });
 
-      dispatch({
-        type: "CAPTURE_SUCCESS",
-        payload: { uri: result.assets[0].uri, source: "gallery" },
-      });
+      // Wait then transition to "Processing Document"
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      if (!isMounted.current) return;
+      dispatch({ type: "START_PROCESSING" });
 
-      publish(EventTypes.NOTIFICATION, {
-        timestamp: Date.now(),
-        source: "ScanScreen",
-        message: "Simulating document capture...",
-      });
+      // Wait then show success
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (!isMounted.current) return;
+      dispatch({ type: "PROCESSING_SUCCESS" });
+
+      // Wait then navigate
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (!isMounted.current) return;
+      dispatch({ type: "NAVIGATE_TO_JOBS" });
     } catch (error) {
       console.error("Simulation failed:", error);
       if (isMounted.current) {
         dispatch({ type: "CAPTURE_ERROR", payload: "simulation_failed" });
       }
     }
-  }, [isMounted, publish]);
+  }, [isMounted]);
 
   // Process captured image as event
   const handleSelectEvent = useCallback(async () => {
