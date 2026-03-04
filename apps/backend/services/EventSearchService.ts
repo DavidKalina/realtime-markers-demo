@@ -378,10 +378,11 @@ export class EventSearchServiceImpl implements EventSearchService {
     const NEAREST_EVENT_COUNT = 5;
     const MAX_VIEWPORT_ZOOM = 14;
 
-    // Step 1: Count events within 40km
+    // Step 1: Count non-expired events within 40km
     const countResult = await this.dependencies.dataSource.query(
       `SELECT COUNT(*) as count FROM events
        WHERE status IN ('VERIFIED', 'PENDING')
+       AND event_date > NOW()
        AND ST_DWithin(location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)`,
       [lng, lat, NEARBY_RADIUS_METERS],
     );
@@ -398,7 +399,7 @@ export class EventSearchServiceImpl implements EventSearchService {
       };
     }
 
-    // Step 3: Find nearest events and compute their centroid
+    // Step 3: Find nearest non-expired events and compute their centroid
     const centroidResult = await this.dependencies.dataSource.query(
       `SELECT
          ST_X(ST_Centroid(ST_Collect(sub.location::geometry))) as center_lng,
@@ -409,6 +410,7 @@ export class EventSearchServiceImpl implements EventSearchService {
            ST_Distance(location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) as distance
          FROM events
          WHERE status IN ('VERIFIED', 'PENDING')
+         AND event_date > NOW()
          AND location IS NOT NULL
          ORDER BY location::geography <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
          LIMIT $3
