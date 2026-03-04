@@ -99,7 +99,7 @@ export class Event {
   })
   location!: Point;
 
-  @Column({ name: "scan_count", type: "integer", default: 1 })
+  @Column({ name: "scan_count", type: "integer", default: 0 })
   scanCount!: number;
 
   @Column({ name: "save_count", type: "integer", default: 0 })

@@ -376,12 +376,9 @@ export class EventSearchServiceImpl implements EventSearchService {
   }> {
     const DEFAULT_ZOOM = 14;
 
-    console.log(`[InitialViewport] Request: lat=${lat}, lng=${lng}`);
-
     // Find the nearest non-expired event and move the user there
     const nearestResult = await this.dependencies.dataSource.query(
       `SELECT
-         id, title, event_date,
          ST_X(location::geometry) as event_lng,
          ST_Y(location::geometry) as event_lat,
          ST_Distance(location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) as distance
@@ -395,11 +392,9 @@ export class EventSearchServiceImpl implements EventSearchService {
     );
 
     const row = nearestResult[0];
-    console.log(`[InitialViewport] Nearest event:`, JSON.stringify(row));
 
     // No future events — fall back to user's location
     if (!row || row.event_lng === null) {
-      console.log(`[InitialViewport] No non-expired events in DB, falling back to user location`);
       return {
         center: [lng, lat],
         zoom: DEFAULT_ZOOM,
@@ -411,8 +406,6 @@ export class EventSearchServiceImpl implements EventSearchService {
     const eventLng = parseFloat(row.event_lng);
     const eventLat = parseFloat(row.event_lat);
     const distanceMeters = parseFloat(row.distance);
-
-    console.log(`[InitialViewport] Moving camera to nearest event "${row.title}" (id=${row.id}, date=${row.event_date}) at [${eventLng}, ${eventLat}], distance=${distanceMeters}m`);
 
     // Always center on the event, always disable follow mode (hasNearbyEvents: false)
     // User can tap recenter button to re-enable follow mode
