@@ -7,7 +7,7 @@ export default {
     slug: "mobile-app",
     version: "1.19.6",
     orientation: "portrait",
-    icon: "./assets/images/logo.png",
+    icon: "./assets/app-icon.png",
     scheme: "myapp",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
@@ -15,6 +15,8 @@ export default {
       enabled: false,
     },
     ios: {
+      // Icon Composer .icon directory for glass effect (SDK 54+)
+      icon: "./assets/A Third Place.icon",
       infoPlist: {
         CFBundleDisplayName: "A Third Space",
         ITSAppUsesNonExemptEncryption: false,
@@ -38,7 +40,7 @@ export default {
     android: {
       label: "A Third Space",
       adaptiveIcon: {
-        foregroundImage: "./assets/images/adaptive-icon.png",
+        foregroundImage: "./assets/images/app-icon.png",
         backgroundColor: "#ffffff",
       },
     },

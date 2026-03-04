@@ -374,67 +374,53 @@ export class EventSearchServiceImpl implements EventSearchService {
     hasNearbyEvents: boolean;
     nearestEventDistance: number | null;
   }> {
-    const NEARBY_RADIUS_METERS = 40000;
-    const NEAREST_EVENT_COUNT = 5;
-    const MAX_VIEWPORT_ZOOM = 14;
+    const DEFAULT_ZOOM = 14;
 
-    // Step 1: Count non-expired events within 40km
-    const countResult = await this.dependencies.dataSource.query(
-      `SELECT COUNT(*) as count FROM events
+    console.log(`[InitialViewport] Request: lat=${lat}, lng=${lng}`);
+
+    // Find the nearest non-expired event and move the user there
+    const nearestResult = await this.dependencies.dataSource.query(
+      `SELECT
+         id, title, event_date,
+         ST_X(location::geometry) as event_lng,
+         ST_Y(location::geometry) as event_lat,
+         ST_Distance(location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) as distance
+       FROM events
        WHERE status IN ('VERIFIED', 'PENDING')
        AND event_date > NOW()
-       AND ST_DWithin(location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)`,
-      [lng, lat, NEARBY_RADIUS_METERS],
+       AND location IS NOT NULL
+       ORDER BY location::geography <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+       LIMIT 1`,
+      [lng, lat],
     );
 
-    const nearbyCount = parseInt(countResult[0].count, 10);
+    const row = nearestResult[0];
+    console.log(`[InitialViewport] Nearest event:`, JSON.stringify(row));
 
-    // Step 2: If events exist nearby, return user's location at zoom 14
-    if (nearbyCount > 0) {
+    // No future events — fall back to user's location
+    if (!row || row.event_lng === null) {
+      console.log(`[InitialViewport] No non-expired events in DB, falling back to user location`);
       return {
         center: [lng, lat],
-        zoom: MAX_VIEWPORT_ZOOM,
-        hasNearbyEvents: true,
-        nearestEventDistance: null,
-      };
-    }
-
-    // Step 3: Find nearest non-expired events and compute their centroid
-    const centroidResult = await this.dependencies.dataSource.query(
-      `SELECT
-         ST_X(ST_Centroid(ST_Collect(sub.location::geometry))) as center_lng,
-         ST_Y(ST_Centroid(ST_Collect(sub.location::geometry))) as center_lat,
-         MIN(sub.distance) as nearest_distance
-       FROM (
-         SELECT location,
-           ST_Distance(location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) as distance
-         FROM events
-         WHERE status IN ('VERIFIED', 'PENDING')
-         AND event_date > NOW()
-         AND location IS NOT NULL
-         ORDER BY location::geography <-> ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
-         LIMIT $3
-       ) sub`,
-      [lng, lat, NEAREST_EVENT_COUNT],
-    );
-
-    // Step 4: If zero events in DB, return user's location at zoom 14
-    const row = centroidResult[0];
-    if (!row || row.center_lng === null) {
-      return {
-        center: [lng, lat],
-        zoom: MAX_VIEWPORT_ZOOM,
+        zoom: DEFAULT_ZOOM,
         hasNearbyEvents: false,
         nearestEventDistance: null,
       };
     }
 
-    // Step 5: Center camera on the events cluster at zoom 14
+    const eventLng = parseFloat(row.event_lng);
+    const eventLat = parseFloat(row.event_lat);
+    const distanceMeters = parseFloat(row.distance);
+
+    console.log(`[InitialViewport] Moving camera to nearest event "${row.title}" (id=${row.id}, date=${row.event_date}) at [${eventLng}, ${eventLat}], distance=${distanceMeters}m`);
+
+    // Always center on the event, always disable follow mode (hasNearbyEvents: false)
+    // User can tap recenter button to re-enable follow mode
     return {
-      center: [parseFloat(row.center_lng), parseFloat(row.center_lat)],
-      zoom: MAX_VIEWPORT_ZOOM,
+      center: [eventLng, eventLat],
+      zoom: DEFAULT_ZOOM,
       hasNearbyEvents: false,
-      nearestEventDistance: parseFloat(row.nearest_distance),
+      nearestEventDistance: distanceMeters,
     };
   }
 
