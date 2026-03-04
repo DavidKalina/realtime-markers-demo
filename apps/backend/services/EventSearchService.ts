@@ -1215,6 +1215,32 @@ export class EventSearchServiceImpl implements EventSearchService {
       events: [],
     })) as Category[];
 
+    // If all event sections are empty and we had geo/city filters, fall back to global results
+    const allSectionsEmpty =
+      featuredEvents.length === 0 &&
+      upcomingEvents.length === 0 &&
+      communityEvents.length === 0 &&
+      justDiscoveredEvents.length === 0 &&
+      trendingEvents.length === 0;
+
+    if (allSectionsEmpty && (userLat || userLng || city || radiusMeters)) {
+      console.log(
+        "All sections empty with geo/city filters, falling back to global results",
+      );
+      const globalResult = await this.getLandingPageData({
+        ...options,
+        userLat: undefined,
+        userLng: undefined,
+        radiusMeters: undefined,
+        city: undefined,
+      });
+      // Preserve local available cities for the filter UI
+      globalResult.availableCities = availableCities;
+      // Cache the global fallback under the original cache key
+      await this.eventCacheService.setLandingPageData(cacheKey, globalResult);
+      return globalResult;
+    }
+
     const result = {
       featuredEvents,
       upcomingEvents,
