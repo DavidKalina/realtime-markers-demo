@@ -238,7 +238,7 @@ export class ThirdSpaceScoreService {
 
     // Invalidate cache
     const cacheKey = `tss:city:${city.toLowerCase()}`;
-    await this.redisService.set(cacheKey, null, 0);
+    await this.redisService.del(cacheKey);
   }
 
   async computeAllCities(): Promise<void> {
