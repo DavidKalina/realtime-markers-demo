@@ -1,6 +1,6 @@
 // data-source.ts
 import "reflect-metadata";
-import { type DataSource } from "typeorm";
+import { DataSource } from "typeorm";
 
 // Import all entities from the shared package
 import {
