@@ -21,9 +21,7 @@ export function useClusterAnimations(count: number, isSelected: boolean) {
   const shadowOpacity = useSharedValue(0.3);
   const rippleScale = useSharedValue(0);
   const rippleOpacity = useSharedValue(0.8);
-  const fanRotation = useSharedValue(0);
-  const fanScale = useSharedValue(1);
-  const pulseScale = useSharedValue(1);
+
   // Set up initial animations on mount
   useEffect(() => {
     shadowOpacity.value = withTiming(0.3, ANIMATIONS.SHADOW);
@@ -35,9 +33,6 @@ export function useClusterAnimations(count: number, isSelected: boolean) {
       cancelAnimation(shadowOpacity);
       cancelAnimation(rippleScale);
       cancelAnimation(rippleOpacity);
-      cancelAnimation(fanRotation);
-      cancelAnimation(fanScale);
-      cancelAnimation(pulseScale);
     };
   }, []);
 
@@ -53,70 +48,27 @@ export function useClusterAnimations(count: number, isSelected: boolean) {
     }
   }, [isSelected]);
 
-  // Fanning animation effect (UI thread only — no setInterval)
-  useEffect(() => {
-    fanRotation.value = withRepeat(
-      withSequence(
-        withTiming(0.2, ANIMATIONS.FAN_OUT),
-        withTiming(-0.2, ANIMATIONS.FAN_OUT),
-        withTiming(0, ANIMATIONS.FAN_IN),
-        withTiming(0, { duration: 4000 }), // pause
-      ),
-      -1,
-      false,
-    );
-    fanScale.value = withRepeat(
-      withSequence(
-        withTiming(1.1, ANIMATIONS.FAN_OUT),
-        withTiming(1.1, { duration: 200 }),
-        withTiming(1, ANIMATIONS.FAN_IN),
-        withTiming(1, { duration: 4000 }), // pause
-      ),
-      -1,
-      false,
-    );
-
-    return () => {
-      cancelAnimation(fanRotation);
-      cancelAnimation(fanScale);
-    };
-  }, []);
-
-  // Pulsing animation for larger clusters
+  // Subtle pulse for large clusters only — single gentle loop
   useEffect(() => {
     if (count > 15) {
-      pulseScale.value = withRepeat(
+      scale.value = withRepeat(
         withSequence(
-          withTiming(1.15, { duration: 300 }),
-          withTiming(0.95, { duration: 300 }),
-          withTiming(1.1, { duration: 200 }),
-          withTiming(1, { duration: 200 }),
+          withTiming(1.04, { duration: 1500 }),
+          withTiming(1, { duration: 1500 }),
         ),
         -1,
         true,
       );
-    } else if (count > 5) {
-      pulseScale.value = withRepeat(
-        withSequence(
-          withTiming(1.08, { duration: 1000 }),
-          withTiming(1, { duration: 1000 }),
-        ),
-        -1,
-        true,
-      );
-    }
 
-    return () => {
-      cancelAnimation(pulseScale);
-    };
+      return () => {
+        cancelAnimation(scale);
+      };
+    }
   }, [count]);
 
   // Animated styles
   const markerStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: scale.value * fanScale.value * baseScale * pulseScale.value },
-      { rotate: `${fanRotation.value}rad` },
-    ],
+    transform: [{ scale: scale.value * baseScale }],
   }));
 
   const shadowStyle = useAnimatedStyle(() => ({

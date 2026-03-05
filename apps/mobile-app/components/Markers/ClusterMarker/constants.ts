@@ -1,4 +1,3 @@
-import { Easing } from "react-native-reanimated";
 import { colors, spring } from "@/theme";
 
 // Color schemes with teardrop design
@@ -46,13 +45,5 @@ export const ANIMATIONS = {
   },
   SHADOW: {
     duration: 300,
-  },
-  FAN_OUT: {
-    duration: 800,
-    easing: Easing.out(Easing.back(1.2)),
-  },
-  FAN_IN: {
-    duration: 600,
-    easing: Easing.in(Easing.back(1.2)),
   },
 };
