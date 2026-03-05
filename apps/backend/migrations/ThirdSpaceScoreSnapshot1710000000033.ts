@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { type MigrationInterface, type QueryRunner } from "typeorm";
 
 export class ThirdSpaceScoreSnapshot1710000000033 implements MigrationInterface {
   name = "ThirdSpaceScoreSnapshot1710000000033";
