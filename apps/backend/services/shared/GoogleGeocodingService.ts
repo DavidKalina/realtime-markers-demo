@@ -956,12 +956,14 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           component.types.includes("sublocality_level_2"),
       );
 
-      // Try to find state from various possible types
-      const state = addressComponents.find(
-        (component: { types: string[] }) =>
-          component.types.includes("administrative_area_level_1") ||
+      // Try to find state — prefer administrative_area_level_1 (state) over level_2 (county)
+      const state =
+        addressComponents.find((component: { types: string[] }) =>
+          component.types.includes("administrative_area_level_1"),
+        ) ||
+        addressComponents.find((component: { types: string[] }) =>
           component.types.includes("administrative_area_level_2"),
-      );
+        );
 
       if (city && state) {
         const cityState = `${city.long_name}, ${state.short_name}`;
