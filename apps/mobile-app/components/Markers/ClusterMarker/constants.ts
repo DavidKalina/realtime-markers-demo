@@ -43,7 +43,4 @@ export const ANIMATIONS = {
   RIPPLE: {
     duration: 800,
   },
-  SHADOW: {
-    duration: 300,
-  },
 };

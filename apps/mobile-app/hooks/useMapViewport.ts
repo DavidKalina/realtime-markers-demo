@@ -153,7 +153,7 @@ export function useMapViewport({
         cameraSettledTimeout.current = setTimeout(() => {
           cameraMovingRef.current = false;
           setIsCameraMoving(false);
-        }, 80);
+        }, 150);
 
         handleMapViewportChange(feature);
       } catch (error) {

@@ -15,7 +15,7 @@ import Animated, {
   withSequence,
   withSpring,
   withTiming,
-  withRepeat,
+  type SharedValue,
 } from "react-native-reanimated";
 import { colors, fontSize, lineHeight, spacing, spring } from "@/theme";
 import { getCategoryColorScheme } from "@/utils/categoryColors";
@@ -36,9 +36,15 @@ const ANIMATIONS = {
   RIPPLE: {
     duration: 800,
   },
-  SHADOW: {
-    duration: 300,
-  },
+};
+
+// Static shadow style — shadow opacity was animating 0.3→0.3 (no-op)
+const staticShadowStyle = {
+  opacity: 0.3,
+  transform: [
+    { translateX: SHADOW_OFFSET.x },
+    { translateY: SHADOW_OFFSET.y },
+  ],
 };
 
 interface EmojiMapMarkerProps {
@@ -47,36 +53,29 @@ interface EmojiMapMarkerProps {
   isHighlighted?: boolean;
   onPress: () => void;
   index?: number;
+  breathingScale?: SharedValue<number>;
 }
 
 export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
-  ({ event, isSelected, onPress }) => {
-    // Animation values
+  ({ event, isSelected, onPress, breathingScale }) => {
+    // Per-instance animation values
     const scale = useSharedValue(1);
-    const shadowOpacity = useSharedValue(0.3);
     const rippleScale = useSharedValue(0);
     const rippleOpacity = useSharedValue(0.8);
-    const pulseScale = useSharedValue(1);
 
-    // Initial mount animations
+    // Mount ripple — fire once
     useEffect(() => {
-      // Shadow fade-in
-      shadowOpacity.value = withTiming(0.3, ANIMATIONS.SHADOW);
-
-      // Ripple expanding outward
       rippleScale.value = withTiming(5, ANIMATIONS.RIPPLE);
       rippleOpacity.value = withTiming(0, ANIMATIONS.RIPPLE);
 
       return () => {
         cancelAnimation(scale);
-        cancelAnimation(shadowOpacity);
         cancelAnimation(rippleScale);
         cancelAnimation(rippleOpacity);
-        cancelAnimation(pulseScale);
       };
     }, []);
 
-    // Selection state spring
+    // Handle external deselection (e.g. tapping map background)
     useEffect(() => {
       if (isSelected) {
         scale.value = withSpring(1.15, ANIMATIONS.SCALE_RELEASE);
@@ -84,22 +83,6 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
         scale.value = withSpring(1, ANIMATIONS.SCALE_RELEASE);
       }
     }, [isSelected]);
-
-    // Gentle breathing pulse
-    useEffect(() => {
-      pulseScale.value = withRepeat(
-        withSequence(
-          withTiming(1.05, { duration: 1500 }),
-          withTiming(0.98, { duration: 1500 }),
-        ),
-        -1,
-        true,
-      );
-
-      return () => {
-        cancelAnimation(pulseScale);
-      };
-    }, []);
 
     // Press handler with haptic
     const handlePress = useCallback(() => {
@@ -113,22 +96,14 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       );
 
       onPress();
-    }, [isSelected, onPress]);
+    }, [isSelected, onPress, scale]);
 
-    // Composite animated style — scale + breathing pulse
+    // Composite animated style — scale + shared breathing pulse (from parent)
     const markerStyle = useAnimatedStyle(() => ({
       transform: [
         {
-          scale: scale.value * pulseScale.value,
+          scale: scale.value * (breathingScale?.value ?? 1),
         },
-      ],
-    }));
-
-    const shadowStyle = useAnimatedStyle(() => ({
-      opacity: shadowOpacity.value,
-      transform: [
-        { translateX: SHADOW_OFFSET.x },
-        { translateY: SHADOW_OFFSET.y },
       ],
     }));
 
@@ -172,10 +147,10 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
 
     return (
       <View style={styles.container}>
-        {/* Shadow */}
-        <Animated.View style={[styles.shadowContainer, shadowStyle]}>
+        {/* Shadow — static */}
+        <View style={[styles.shadowContainer, staticShadowStyle]}>
           {ShadowSvg}
-        </Animated.View>
+        </View>
 
         {/* Marker */}
         <TouchableOpacity

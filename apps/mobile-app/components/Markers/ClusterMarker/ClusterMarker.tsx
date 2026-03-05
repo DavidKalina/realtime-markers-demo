@@ -11,17 +11,13 @@ import Animated, {
   withSequence,
   withSpring,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
-import {
-  MARKER_HEIGHT,
-  MARKER_WIDTH,
-  MarkerSVG,
-  ShadowSVG,
-} from "../MarkerSVGs";
+import { MARKER_HEIGHT, MARKER_WIDTH, MarkerSVG, ShadowSVG } from "../MarkerSVGs";
 import { colors, fontFamily, lineHeight } from "@/theme";
 import { getCategoryColorScheme } from "@/utils/categoryColors";
 import { COLOR_SCHEMES, ANIMATIONS } from "./constants";
-import { useClusterAnimations } from "./useClusterAnimations";
+import { useClusterAnimations, staticShadowStyle } from "./useClusterAnimations";
 
 interface ClusterMarkerProps {
   count: number;
@@ -31,12 +27,13 @@ interface ClusterMarkerProps {
   isHighlighted?: boolean;
   index?: number;
   dominantCategory?: string;
+  clusterPulse?: SharedValue<number>;
 }
 
 export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
-  ({ count, onPress, isSelected = false, dominantCategory }) => {
-    const { scale, markerStyle, shadowStyle, rippleStyle } =
-      useClusterAnimations(count, isSelected);
+  ({ count, onPress, isSelected = false, dominantCategory, clusterPulse }) => {
+    const { scale, markerStyle, rippleStyle } =
+      useClusterAnimations(count, isSelected, clusterPulse);
 
     // Memoize color scheme: category-based when available, else size-based fallback
     const colorScheme = useMemo(() => {
@@ -91,9 +88,9 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
 
     return (
       <View style={styles.container}>
-        <Animated.View style={[styles.shadowContainer, shadowStyle]}>
+        <View style={[styles.shadowContainer, staticShadowStyle]}>
           {ShadowSvg}
-        </Animated.View>
+        </View>
 
         <TouchableOpacity
           onPress={handlePress}

@@ -9,8 +9,17 @@ import { Marker, MapboxViewport } from "@/types/types";
 import type { MarkerItem, ClusterItem } from "@/types/map";
 import { getDominantCategory } from "@/utils/categoryColors";
 import MapboxGL from "@rnmapbox/maps";
-import React, { useCallback, useMemo, useEffect, useRef } from "react";
-import Animated, { BounceIn, FadeOut } from "react-native-reanimated";
+import React, { useCallback, useMemo, useEffect, useRef, useState } from "react";
+import Animated, {
+  BounceIn,
+  FadeOut,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+  cancelAnimation,
+  type SharedValue,
+} from "react-native-reanimated";
 import { ClusterMarker } from "./ClusterMarker";
 import { EmojiMapMarker } from "./CustomMapMarker";
 import { spring } from "@/theme";
@@ -43,6 +52,8 @@ const SingleMarkerView = React.memo(
     staggerDelay,
     seenHapticIds,
     isNew,
+    breathingScale,
+    skipEntering,
   }: {
     marker: MarkerItem;
     isSelected: boolean;
@@ -53,6 +64,8 @@ const SingleMarkerView = React.memo(
     staggerDelay: number;
     seenHapticIds: React.MutableRefObject<Set<string>>;
     isNew: boolean;
+    breathingScale: SharedValue<number>;
+    skipEntering: boolean;
   }) => {
     const lastTapRef = useRef(0);
 
@@ -87,10 +100,12 @@ const SingleMarkerView = React.memo(
       return () => clearTimeout(timer);
     }, [newIndex, marker.id, seenHapticIds, isNew, staggerDelay]);
 
-    const entering = BounceIn.springify()
-      .damping(spring.firm.damping)
-      .stiffness(spring.firm.stiffness)
-      .delay(Math.min(newIndex, 5) * staggerDelay);
+    const entering = skipEntering
+      ? undefined
+      : BounceIn.springify()
+          .damping(spring.firm.damping)
+          .stiffness(spring.firm.stiffness)
+          .delay(Math.min(newIndex, 5) * staggerDelay);
     return (
       <MapboxGL.MarkerView
         key={`marker-${marker.id}`}
@@ -104,6 +119,7 @@ const SingleMarkerView = React.memo(
             isHighlighted={false}
             onPress={handlePress}
             index={index}
+            breathingScale={breathingScale}
           />
         </Animated.View>
       </MapboxGL.MarkerView>
@@ -123,6 +139,8 @@ const ClusterView = React.memo(
     staggerDelay,
     seenHapticIds,
     isNew,
+    clusterPulse,
+    skipEntering,
   }: {
     cluster: ClusterItem;
     isSelected: boolean;
@@ -132,6 +150,8 @@ const ClusterView = React.memo(
     staggerDelay: number;
     seenHapticIds: React.MutableRefObject<Set<string>>;
     isNew: boolean;
+    clusterPulse: SharedValue<number>;
+    skipEntering: boolean;
   }) => {
     // Add haptic feedback for each cluster's first appearance only.
     // Cap at 3 haptic fires per batch to prevent storms in dense areas.
@@ -152,12 +172,12 @@ const ClusterView = React.memo(
       return () => clearTimeout(timer);
     }, [newIndex, cluster.id, seenHapticIds, isNew, staggerDelay]);
 
-    // Always bounce clusters in — a cluster appearing (whether from new markers
-    // or reclustering) is a meaningful visual event worth animating.
-    const entering = BounceIn.springify()
-      .damping(spring.firm.damping)
-      .stiffness(spring.firm.stiffness)
-      .delay(isNew ? Math.min(newIndex, 5) * staggerDelay : 0);
+    const entering = skipEntering
+      ? undefined
+      : BounceIn.springify()
+          .damping(spring.firm.damping)
+          .stiffness(spring.firm.stiffness)
+          .delay(isNew ? Math.min(newIndex, 5) * staggerDelay : 0);
 
     return (
       <MapboxGL.MarkerView
@@ -172,6 +192,7 @@ const ClusterView = React.memo(
             onPress={onPress}
             isSelected={isSelected}
             dominantCategory={cluster.dominantCategory}
+            clusterPulse={clusterPulse}
           />
         </Animated.View>
       </MapboxGL.MarkerView>
@@ -190,7 +211,8 @@ const ClusterView = React.memo(
       prevProps.newIndex === nextProps.newIndex &&
       prevProps.staggerDelay === nextProps.staggerDelay &&
       prevProps.seenHapticIds === nextProps.seenHapticIds &&
-      prevProps.isNew === nextProps.isNew
+      prevProps.isNew === nextProps.isNew &&
+      prevProps.skipEntering === nextProps.skipEntering
     );
   },
 );
@@ -198,6 +220,34 @@ const ClusterView = React.memo(
 export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   React.memo(({ currentZoom = 14, viewport, isCameraMoving = false }) => {
+    // Single shared breathing animation for ALL markers (1 animation, N readers)
+    const breathingScale = useSharedValue(1);
+    useEffect(() => {
+      breathingScale.value = withRepeat(
+        withSequence(
+          withTiming(1.05, { duration: 1500 }),
+          withTiming(0.98, { duration: 1500 }),
+        ),
+        -1,
+        true,
+      );
+      return () => cancelAnimation(breathingScale);
+    }, []);
+
+    // Single shared pulse for ALL large clusters
+    const clusterPulse = useSharedValue(1);
+    useEffect(() => {
+      clusterPulse.value = withRepeat(
+        withSequence(
+          withTiming(1.04, { duration: 1500 }),
+          withTiming(1, { duration: 1500 }),
+        ),
+        -1,
+        true,
+      );
+      return () => cancelAnimation(clusterPulse);
+    }, []);
+
     // Get marker data from store
     const markers = useLocationStore((state) => state.markers);
     const selectedItem = useLocationStore((state) => state.selectedItem);
@@ -410,6 +460,10 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
     // isNew is false), while new ones get sequential indices for stagger.
     // Scale per-item delay so total stagger never exceeds ~300ms regardless
     // of how many markers are in the viewport.
+    // When too many items appear at once (e.g. rapid zoom-out), skip
+    // entering animations entirely to avoid overwhelming the UI thread.
+    const MAX_ANIMATED_BATCH = 15;
+
     const itemsWithNewIndex = useMemo(() => {
       let newCounter = 0;
       const tagged = visibleItems.map((item, index) => ({
@@ -418,11 +472,12 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         newIndex: item.isNew ? newCounter++ : 0,
       }));
       const newCount = newCounter;
+      const skipEntering = newCount > MAX_ANIMATED_BATCH;
       // Cap at 5 stagger slots; shrink per-slot delay when viewport is dense
       const maxSlots = Math.min(newCount, 5);
       const staggerDelay =
         maxSlots > 0 ? Math.min(80, Math.floor(300 / maxSlots)) : 0;
-      return tagged.map((item) => ({ ...item, staggerDelay }));
+      return tagged.map((item) => ({ ...item, staggerDelay, skipEntering }));
     }, [visibleItems]);
 
     // Memoize the render functions to prevent recreation
@@ -436,6 +491,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         newIndex: number;
         staggerDelay: number;
         isNew: boolean;
+        skipEntering: boolean;
       }) => (
         <ClusterView
           key={processed.item.id}
@@ -447,9 +503,11 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           staggerDelay={processed.staggerDelay}
           seenHapticIds={seenHapticIds}
           isNew={processed.isNew}
+          clusterPulse={clusterPulse}
+          skipEntering={processed.skipEntering}
         />
       ),
-      [],
+      [clusterPulse],
     );
 
     const renderMarker = useCallback(
@@ -463,6 +521,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         newIndex: number;
         staggerDelay: number;
         isNew: boolean;
+        skipEntering: boolean;
       }) => (
         <SingleMarkerView
           key={processed.item.id}
@@ -475,14 +534,63 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           staggerDelay={processed.staggerDelay}
           seenHapticIds={seenHapticIds}
           isNew={processed.isNew}
+          breathingScale={breathingScale}
+          skipEntering={processed.skipEntering}
         />
       ),
-      [],
+      [breathingScale],
+    );
+
+    // Freeze the rendered set while the camera is actively moving to prevent
+    // rapid mount/unmount churn that crashes Mapbox's native view insertion.
+    // When the camera settles, apply the new set with progressive batching.
+    const MOUNT_BATCH_SIZE = 20;
+    const frozenItemsRef = useRef(itemsWithNewIndex);
+    const [stableItems, setStableItems] = useState(itemsWithNewIndex);
+    const [renderLimit, setRenderLimit] = useState(
+      Math.min(itemsWithNewIndex.length, MOUNT_BATCH_SIZE),
+    );
+
+    useEffect(() => {
+      if (isCameraMoving) {
+        // Camera is moving — stash latest items but don't render them yet
+        frozenItemsRef.current = itemsWithNewIndex;
+        return;
+      }
+
+      // Camera stopped — apply the latest items with progressive rendering
+      frozenItemsRef.current = itemsWithNewIndex;
+      const items = itemsWithNewIndex;
+
+      setStableItems(items);
+      if (items.length <= MOUNT_BATCH_SIZE) {
+        setRenderLimit(items.length);
+      } else {
+        setRenderLimit(MOUNT_BATCH_SIZE);
+      }
+    }, [itemsWithNewIndex, isCameraMoving]);
+
+    // Progressively reveal remaining items after camera settles
+    const totalStableItems = stableItems.length;
+    useEffect(() => {
+      if (isCameraMoving) return;
+      if (renderLimit >= totalStableItems) return;
+      const frame = requestAnimationFrame(() => {
+        setRenderLimit((prev) =>
+          Math.min(prev + MOUNT_BATCH_SIZE, totalStableItems),
+        );
+      });
+      return () => cancelAnimationFrame(frame);
+    }, [renderLimit, totalStableItems, isCameraMoving]);
+
+    const visibleForRender = useMemo(
+      () => stableItems.slice(0, renderLimit),
+      [stableItems, renderLimit],
     );
 
     return (
       <>
-        {itemsWithNewIndex.map((processed) => {
+        {visibleForRender.map((processed) => {
           if (processed.type === "cluster") {
             return renderCluster(processed);
           } else {
