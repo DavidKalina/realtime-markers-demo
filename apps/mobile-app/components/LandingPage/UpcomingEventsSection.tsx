@@ -67,9 +67,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
   },
   title: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: fontWeight.semibold,
-    color: colors.text.label,
+    color: colors.text.secondary,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,

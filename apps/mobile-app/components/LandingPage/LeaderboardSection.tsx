@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Image } from "react-native";
+import { View, Text, StyleSheet, Image, Dimensions } from "react-native";
 import {
   colors,
   fontSize,
@@ -22,6 +22,10 @@ const RANK_COLORS: Record<number, string> = {
   2: "#a0a0a0", // silver
   3: "#cd7f32", // bronze
 };
+
+const { width: screenWidth } = Dimensions.get("window");
+const CARD_WIDTH = screenWidth * 0.85;
+const CARD_MARGIN = (screenWidth - CARD_WIDTH) / 2;
 
 interface ContributorsSectionProps {
   contributors: ContributorEntry[];
@@ -48,7 +52,7 @@ const ContributorsSection: React.FC<ContributorsSectionProps> = ({
       </Text>
 
       <View style={styles.listContainer}>
-        {contributors.map((entry) => {
+        {contributors.map((entry, index) => {
           const isCurrentUser = entry.userId === currentUserId;
           const rankColor = RANK_COLORS[entry.rank];
           const tierEmoji =
@@ -56,11 +60,16 @@ const ContributorsSection: React.FC<ContributorsSectionProps> = ({
           const displayName =
             [entry.firstName, entry.lastName].filter(Boolean).join(" ") ||
             "Anonymous";
+          const isLast = index === contributors.length - 1;
 
           return (
             <View
               key={entry.userId}
-              style={[styles.row, isCurrentUser && styles.rowHighlight]}
+              style={[
+                styles.row,
+                isCurrentUser && styles.rowHighlight,
+                isLast && styles.rowLast,
+              ]}
             >
               <Text
                 style={[
@@ -90,14 +99,14 @@ const ContributorsSection: React.FC<ContributorsSectionProps> = ({
                   {displayName}
                   {isCurrentUser ? " (you)" : ""}
                 </Text>
-                <Text style={styles.tier}>{entry.currentTier}</Text>
-                <Text style={styles.label}>{entry.label}</Text>
+                <Text style={styles.meta} numberOfLines={1}>
+                  {[entry.currentTier, entry.label]
+                    .filter(Boolean)
+                    .join(" \u00B7 ")}
+                </Text>
               </View>
 
-              <View style={styles.countContainer}>
-                <Text style={styles.countNumber}>{entry.contribution}</Text>
-                <Text style={styles.countLabel}>score</Text>
-              </View>
+              <Text style={styles.score}>{entry.contribution}</Text>
             </View>
           );
         })}
@@ -111,9 +120,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing["2xl"],
   },
   title: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: fontWeight.semibold,
-    color: colors.text.label,
+    color: colors.text.secondary,
     marginBottom: spacing.xs,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
@@ -128,92 +137,73 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
   },
   listContainer: {
-    marginHorizontal: spacing.lg,
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
+    marginHorizontal: CARD_MARGIN,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderRadius: radius.lg,
     overflow: "hidden",
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing._10,
-    borderBottomWidth: 1,
+    gap: spacing._10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border.default,
   },
+  rowLast: {
+    borderBottomWidth: 0,
+  },
   rowHighlight: {
-    backgroundColor: colors.accent.muted,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
   rank: {
-    width: 28,
     fontSize: fontSize.xs,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.bold,
     color: colors.text.secondary,
-    textAlign: "center",
   },
   avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    marginLeft: spacing.sm,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
   },
   avatarFallback: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    marginLeft: spacing.sm,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.bg.elevated,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarEmoji: {
-    fontSize: 14,
+    fontSize: 12,
   },
   info: {
     flex: 1,
-    marginLeft: spacing.sm,
+    gap: 2,
   },
   name: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
+    fontSize: 13,
+    fontWeight: fontWeight.semibold,
     color: colors.text.primary,
     fontFamily: fontFamily.mono,
+    lineHeight: 18,
   },
   nameHighlight: {
     color: colors.accent.primary,
   },
-  tier: {
-    fontSize: 10,
+  meta: {
+    fontSize: 11,
+    fontFamily: fontFamily.mono,
+    color: colors.text.disabled,
+    lineHeight: 16,
+  },
+  score: {
+    fontSize: 13,
+    fontWeight: fontWeight.semibold,
     color: colors.text.secondary,
     fontFamily: fontFamily.mono,
-    marginTop: 1,
-  },
-  label: {
-    fontSize: 9,
-    color: colors.accent.primary,
-    fontFamily: fontFamily.mono,
-    marginTop: 1,
-    letterSpacing: 0.3,
-  },
-  countContainer: {
-    alignItems: "center",
-    marginLeft: spacing.sm,
-  },
-  countNumber: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.bold,
-    color: colors.accent.primary,
-    fontFamily: fontFamily.mono,
-  },
-  countLabel: {
-    fontSize: 9,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 0.5,
-    textTransform: "uppercase" as const,
   },
 });
 

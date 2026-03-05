@@ -46,6 +46,39 @@ const CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
+const AnimatedSubScore: React.FC<{
+  value: number;
+  color: string;
+  delay: number;
+}> = ({ value, color, delay }) => {
+  const animated = useSharedValue(0);
+  const [displayed, setDisplayed] = useState(0);
+
+  useEffect(() => {
+    animated.value = 0;
+    animated.value = withDelay(
+      delay,
+      withTiming(value, {
+        duration: 1200,
+        easing: Easing.out(Easing.cubic),
+      }),
+    );
+  }, [value, delay, animated]);
+
+  useAnimatedReaction(
+    () => Math.round(animated.value),
+    (current) => {
+      scheduleOnRN(setDisplayed, current);
+    },
+  );
+
+  return (
+    <Text style={[styles.statValue, { color }]}>
+      {displayed}
+    </Text>
+  );
+};
+
 /**
  * Returns a green hue that darkens as the score increases.
  * 0 → light mint, 100 → rich forest green.
@@ -181,7 +214,7 @@ const ThirdSpaceScoreHero: React.FC<ThirdSpaceScoreHeroProps> = ({ score }) => {
         </View>
 
         <View style={styles.statsColumn}>
-          {SUB_SCORES.map((sub) => {
+          {SUB_SCORES.map((sub, index) => {
             const value = score.current[sub.field];
             return (
               <Pressable
@@ -195,9 +228,11 @@ const ThirdSpaceScoreHero: React.FC<ThirdSpaceScoreHeroProps> = ({ score }) => {
                   />
                   <Text style={styles.statLabel}>{sub.label}</Text>
                 </View>
-                <Text style={[styles.statValue, { color: sub.color }]}>
-                  {value}
-                </Text>
+                <AnimatedSubScore
+                  value={value}
+                  color={sub.color}
+                  delay={400 + index * 150}
+                />
               </Pressable>
             );
           })}

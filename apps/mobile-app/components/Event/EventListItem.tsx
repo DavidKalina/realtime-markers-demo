@@ -90,11 +90,30 @@ export const getTimeBadge = (
 
 const titleCase = (str: string) => str.replace(/\b\w/g, (c) => c.toUpperCase());
 
+/** True when a string is only digits (e.g. a street number with no name). */
+const isOnlyDigits = (s: string) => /^\d+$/.test(s.trim());
+
 /** Truncate a full address to just "City, State" (or return as-is if unparseable). */
 const toCityState = (location: string): string => {
   const parts = location.split(",").map((s) => s.trim());
   if (parts.length >= 3) return `${parts[parts.length - 3]}, ${parts[parts.length - 2]}`;
   if (parts.length === 2) return parts.join(", ");
+  return location;
+};
+
+/**
+ * Extract a short display label from a location string.
+ * Takes the first comma-separated segment unless it is purely numeric
+ * (e.g. a street number like "2644"), in which case it falls back to
+ * the city (second-to-last segment) or the full string.
+ */
+export const formatVenueShort = (location: string): string => {
+  const parts = location.split(",").map((s) => s.trim());
+  const first = parts[0];
+  if (!isOnlyDigits(first)) return first;
+  // Skip numeric-only first segment; prefer a city-like segment
+  if (parts.length >= 3) return parts[parts.length - 2];
+  if (parts.length === 2) return parts[1];
   return location;
 };
 
@@ -174,7 +193,7 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
 
     const metaText = useMemo(() => {
       const items: string[] = [];
-      if (location) items.push(toCityState(location));
+      if (location && !isOnlyDigits(location)) items.push(toCityState(location));
       if (distance) items.push(distance);
       if (categories?.length > 0) items.push(titleCase(categories[0].name));
       if (isRecurring) items.push("Recurring");

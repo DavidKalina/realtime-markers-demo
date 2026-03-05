@@ -1,4 +1,5 @@
 import React, { useRef, useState, useCallback } from "react";
+import { formatVenueShort } from "@/components/Event/EventListItem";
 import {
   View,
   Text,
@@ -138,7 +139,7 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
                     <Text style={styles.cardMeta} numberOfLines={1}>
                       {[
                         event.location
-                          ? event.location.split(",")[0].trim()
+                          ? formatVenueShort(event.location)
                           : null,
                         event.categories?.[0]?.name,
                       ]
@@ -176,9 +177,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing["2xl"],
   },
   title: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: fontWeight.semibold,
-    color: colors.text.label,
+    color: colors.text.secondary,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,

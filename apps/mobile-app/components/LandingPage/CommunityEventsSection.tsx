@@ -128,9 +128,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   title: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: fontWeight.semibold,
-    color: colors.text.label,
+    color: colors.text.secondary,
     marginBottom: spacing.xs,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
