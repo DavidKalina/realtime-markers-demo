@@ -10,6 +10,7 @@ import {
 } from "@realtime-markers/database";
 import type { RedisService } from "./shared/RedisService";
 import type { GamificationService } from "./GamificationService";
+import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 
 export interface EventEngagementMetrics {
   eventId: string;
@@ -72,6 +73,7 @@ export interface UserEngagementServiceDependencies {
   dataSource: DataSource;
   redisService: RedisService;
   gamificationService: GamificationService;
+  thirdSpaceScoreService?: ThirdSpaceScoreService;
 }
 
 export class UserEngagementServiceImpl implements UserEngagementService {
@@ -83,6 +85,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
   private userEventViewRepository: Repository<UserEventView>;
   private redisService: RedisService;
   private gamificationService: GamificationService;
+  private thirdSpaceScoreService?: ThirdSpaceScoreService;
 
   constructor(private dependencies: UserEngagementServiceDependencies) {
     this.eventRepository = dependencies.dataSource.getRepository(Event);
@@ -97,6 +100,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
       dependencies.dataSource.getRepository(UserEventView);
     this.redisService = dependencies.redisService;
     this.gamificationService = dependencies.gamificationService;
+    this.thirdSpaceScoreService = dependencies.thirdSpaceScoreService;
   }
 
   /**
@@ -554,6 +558,12 @@ export class UserEngagementServiceImpl implements UserEngagementService {
             userId: userId,
           },
         });
+
+        if (updatedEvent?.city) {
+          this.thirdSpaceScoreService
+            ?.refreshCityScore(updatedEvent.city)
+            .catch(() => {});
+        }
       }
     } catch (error) {
       console.error(

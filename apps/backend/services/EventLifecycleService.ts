@@ -4,6 +4,7 @@ import { Event, EventStatus, Category } from "@realtime-markers/database";
 import type { EventCacheService } from "./shared/EventCacheService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import type { RedisService } from "./shared/RedisService";
+import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 import type { CreateEventInput } from "../types/event";
 
 export interface EventLifecycleService {
@@ -31,6 +32,7 @@ export interface EventLifecycleServiceDependencies {
   eventCacheService: EventCacheService;
   locationService: GoogleGeocodingService;
   redisService: RedisService;
+  thirdSpaceScoreService?: ThirdSpaceScoreService;
 }
 
 export class EventLifecycleServiceImpl implements EventLifecycleService {
@@ -39,11 +41,13 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
   private eventCacheService: EventCacheService;
   private locationService: GoogleGeocodingService;
   private redisService: RedisService;
+  private thirdSpaceScoreService?: ThirdSpaceScoreService;
 
   constructor(private dependencies: EventLifecycleServiceDependencies) {
     this.eventCacheService = dependencies.eventCacheService;
     this.locationService = dependencies.locationService;
     this.redisService = dependencies.redisService;
+    this.thirdSpaceScoreService = dependencies.thirdSpaceScoreService;
   }
 
   // Lazy getters for repositories
@@ -162,6 +166,12 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
 
     // Invalidate landing page cache since new official events might affect the landing page
     await this.eventCacheService.invalidateLandingPageCache();
+
+    if (savedEvent.city) {
+      this.thirdSpaceScoreService
+        ?.refreshCityScore(savedEvent.city)
+        .catch(() => {});
+    }
 
     return savedEvent;
   }

@@ -5,6 +5,7 @@ import type { ThirdSpaceScoreResponse } from "@/services/api/modules/leaderboard
 interface UseThirdSpaceScoreReturn {
   score: ThirdSpaceScoreResponse | null;
   isLoading: boolean;
+  refetch: () => Promise<void>;
 }
 
 const useThirdSpaceScore = (city: string | null): UseThirdSpaceScoreReturn => {
@@ -29,7 +30,7 @@ const useThirdSpaceScore = (city: string | null): UseThirdSpaceScoreReturn => {
     fetchScore();
   }, [fetchScore]);
 
-  return { score, isLoading };
+  return { score, isLoading, refetch: fetchScore };
 };
 
 export default useThirdSpaceScore;

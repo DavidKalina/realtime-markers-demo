@@ -32,6 +32,7 @@ import { createQueryAnalyticsService } from "./QueryAnalyticsService";
 import type { QueryInsights, QueryCluster } from "./QueryAnalyticsService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
 import type { GamificationService } from "./GamificationService";
+import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 import type { CreateEventInput } from "../types/event";
 
 // Replace SearchResult with EventSummary for better type safety
@@ -265,6 +266,7 @@ export interface EventServiceDependencies {
   openaiService: OpenAIService;
   embeddingService: IEmbeddingService;
   gamificationService?: GamificationService;
+  thirdSpaceScoreService?: ThirdSpaceScoreService;
 }
 
 export class EventServiceRefactored implements EventService {
@@ -287,6 +289,7 @@ export class EventServiceRefactored implements EventService {
       eventCacheService: dependencies.eventCacheService,
       locationService: dependencies.locationService,
       redisService: dependencies.redisService,
+      thirdSpaceScoreService: dependencies.thirdSpaceScoreService,
     });
 
     this.searchService = createEventSearchService({
@@ -300,6 +303,7 @@ export class EventServiceRefactored implements EventService {
       dataSource: dependencies.dataSource,
       redisService: dependencies.redisService,
       gamificationService: dependencies.gamificationService!,
+      thirdSpaceScoreService: dependencies.thirdSpaceScoreService,
     });
 
     this.adminService = createEventAdminService({

@@ -85,7 +85,8 @@ const SearchListScreen = () => {
 
   // Third Space Score data (keyed off resolved city from landing page response)
   const resolvedCity = landingData?.resolvedCity || null;
-  const { score: thirdSpaceScore } = useThirdSpaceScore(resolvedCity);
+  const { score: thirdSpaceScore, refetch: refetchScore } =
+    useThirdSpaceScore(resolvedCity);
   const currentUser = apiClient.getCurrentUser();
 
   // Track if we're showing landing page or search results
@@ -132,12 +133,12 @@ const SearchListScreen = () => {
       if (searchQuery.trim()) {
         await searchEvents(true);
       } else {
-        await refreshLanding();
+        await Promise.all([refreshLanding(), refetchScore()]);
       }
     } finally {
       setIsRefreshing(false);
     }
-  }, [searchQuery, searchEvents, refreshLanding]);
+  }, [searchQuery, searchEvents, refreshLanding, refetchScore]);
 
   // Auto-focus the search input when the screen opens
   useEffect(() => {

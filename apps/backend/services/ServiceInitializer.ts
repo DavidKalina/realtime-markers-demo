@@ -186,6 +186,7 @@ export class ServiceInitializer {
       openaiService: openAIService,
       embeddingService,
       gamificationService,
+      thirdSpaceScoreService,
     });
 
     const proximityNotificationService = new ProximityNotificationService(
