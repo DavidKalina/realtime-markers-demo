@@ -40,6 +40,7 @@ const SingleMarkerView = React.memo(
     onNavigate,
     index,
     newIndex,
+    staggerDelay,
     seenHapticIds,
     isNew,
   }: {
@@ -49,6 +50,7 @@ const SingleMarkerView = React.memo(
     onNavigate: () => void;
     index: number;
     newIndex: number;
+    staggerDelay: number;
     seenHapticIds: React.MutableRefObject<Set<string>>;
     isNew: boolean;
   }) => {
@@ -76,19 +78,19 @@ const SingleMarkerView = React.memo(
       seenHapticIds.current.add(marker.id);
 
       // Delay haptic to match the staggered animation
-      const hapticDelay = Math.min(newIndex, 5) * 80;
+      const hapticDelay = Math.min(newIndex, 5) * staggerDelay;
 
       const timer = setTimeout(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       }, hapticDelay);
 
       return () => clearTimeout(timer);
-    }, [newIndex, marker.id, seenHapticIds, isNew]);
+    }, [newIndex, marker.id, seenHapticIds, isNew, staggerDelay]);
 
     const entering = BounceIn.springify()
       .damping(spring.firm.damping)
       .stiffness(spring.firm.stiffness)
-      .delay(Math.min(newIndex, 5) * 80);
+      .delay(Math.min(newIndex, 5) * staggerDelay);
     return (
       <MapboxGL.MarkerView
         key={`marker-${marker.id}`}
@@ -118,6 +120,7 @@ const ClusterView = React.memo(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     index,
     newIndex,
+    staggerDelay,
     seenHapticIds,
     isNew,
   }: {
@@ -126,6 +129,7 @@ const ClusterView = React.memo(
     onPress: () => void;
     index: number;
     newIndex: number;
+    staggerDelay: number;
     seenHapticIds: React.MutableRefObject<Set<string>>;
     isNew: boolean;
   }) => {
@@ -139,21 +143,21 @@ const ClusterView = React.memo(
       seenHapticIds.current.add(cluster.id);
 
       // Delay haptic to match the staggered animation
-      const hapticDelay = Math.min(newIndex, 5) * 50;
+      const hapticDelay = Math.min(newIndex, 5) * staggerDelay;
 
       const timer = setTimeout(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
       }, hapticDelay);
 
       return () => clearTimeout(timer);
-    }, [newIndex, cluster.id, seenHapticIds, isNew]);
+    }, [newIndex, cluster.id, seenHapticIds, isNew, staggerDelay]);
 
     // Always bounce clusters in — a cluster appearing (whether from new markers
     // or reclustering) is a meaningful visual event worth animating.
     const entering = BounceIn.springify()
       .damping(spring.firm.damping)
       .stiffness(spring.firm.stiffness)
-      .delay(isNew ? Math.min(newIndex, 5) * 50 : 0);
+      .delay(isNew ? Math.min(newIndex, 5) * staggerDelay : 0);
 
     return (
       <MapboxGL.MarkerView
@@ -184,6 +188,7 @@ const ClusterView = React.memo(
       prevProps.isSelected === nextProps.isSelected &&
       prevProps.index === nextProps.index &&
       prevProps.newIndex === nextProps.newIndex &&
+      prevProps.staggerDelay === nextProps.staggerDelay &&
       prevProps.seenHapticIds === nextProps.seenHapticIds &&
       prevProps.isNew === nextProps.isNew
     );
@@ -400,13 +405,21 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
     // Compute a stable newIndex for each item: position among genuinely new
     // items only. Returning/reclustered markers get newIndex 0 (unused since
     // isNew is false), while new ones get sequential indices for stagger.
+    // Scale per-item delay so total stagger never exceeds ~300ms regardless
+    // of how many markers are in the viewport.
     const itemsWithNewIndex = useMemo(() => {
       let newCounter = 0;
-      return visibleItems.map((item, index) => ({
+      const tagged = visibleItems.map((item, index) => ({
         ...item,
         index,
         newIndex: item.isNew ? newCounter++ : 0,
       }));
+      const newCount = newCounter;
+      // Cap at 5 stagger slots; shrink per-slot delay when viewport is dense
+      const maxSlots = Math.min(newCount, 5);
+      const staggerDelay =
+        maxSlots > 0 ? Math.min(80, Math.floor(300 / maxSlots)) : 0;
+      return tagged.map((item) => ({ ...item, staggerDelay }));
     }, [visibleItems]);
 
     // Memoize the render functions to prevent recreation
@@ -418,6 +431,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         onPress: () => void;
         index: number;
         newIndex: number;
+        staggerDelay: number;
         isNew: boolean;
       }) => (
         <ClusterView
@@ -427,6 +441,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           onPress={processed.onPress}
           index={processed.index}
           newIndex={processed.newIndex}
+          staggerDelay={processed.staggerDelay}
           seenHapticIds={seenHapticIds}
           isNew={processed.isNew}
         />
@@ -443,6 +458,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         onNavigate: () => void;
         index: number;
         newIndex: number;
+        staggerDelay: number;
         isNew: boolean;
       }) => (
         <SingleMarkerView
@@ -453,6 +469,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           onNavigate={processed.onNavigate}
           index={processed.index}
           newIndex={processed.newIndex}
+          staggerDelay={processed.staggerDelay}
           seenHapticIds={seenHapticIds}
           isNew={processed.isNew}
         />

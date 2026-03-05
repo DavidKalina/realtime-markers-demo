@@ -16,6 +16,7 @@ import {
   spacing,
   radius,
 } from "@/theme";
+import { getCategoryColor } from "@/utils/categoryColors";
 
 export interface EventListItemProps {
   id: string;
@@ -89,6 +90,16 @@ export const getTimeBadge = (
   }
 };
 
+const titleCase = (str: string) => str.replace(/\b\w/g, (c) => c.toUpperCase());
+
+/** Truncate a full address to just "City, State" (or return as-is if unparseable). */
+const toCityState = (location: string): string => {
+  const parts = location.split(",").map((s) => s.trim());
+  if (parts.length >= 3) return `${parts[parts.length - 3]}, ${parts[parts.length - 2]}`;
+  if (parts.length === 2) return parts.join(", ");
+  return location;
+};
+
 const EventListItem: React.FC<EventListItemProps> = React.memo(
   ({
     id,
@@ -158,25 +169,18 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
       transform: [{ scale: scale.value }],
     }));
 
+    const timeBadge = useMemo(
+      () => getTimeBadge(eventDate, endDate),
+      [eventDate, endDate],
+    );
+
     const metaText = useMemo(() => {
       const items: string[] = [];
-      if (isTrending) items.push("Trending");
-      if (distance) items.push(distance);
-      if (location) items.push(location);
-      if (categories?.length > 0) items.push(categories[0].name);
-      if (goingCount && goingCount > 0) items.push(`${goingCount} going`);
+      if (location) items.push(toCityState(location));
       if (isRecurring) items.push("Recurring");
       if (isPrivate) items.push("Private");
       return items.join(" · ");
-    }, [
-      isTrending,
-      distance,
-      location,
-      categories,
-      goingCount,
-      isRecurring,
-      isPrivate,
-    ]);
+    }, [location, isRecurring, isPrivate]);
 
     const cappedDelay = Math.min(index, 8) * 30;
 
@@ -190,12 +194,69 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
               </View>
             )}
             <View style={styles.info}>
-              <Text style={styles.title} numberOfLines={2}>
-                {title}
-              </Text>
+              <View style={styles.titleRow}>
+                <Text style={styles.title} numberOfLines={2}>
+                  {title}
+                </Text>
+                <View
+                  style={[
+                    styles.timeBadge,
+                    { backgroundColor: timeBadge.color.bg },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.timeBadgeText,
+                      { color: timeBadge.color.text },
+                    ]}
+                  >
+                    {timeBadge.text}
+                  </Text>
+                </View>
+              </View>
               <Text style={styles.meta} numberOfLines={1}>
                 {metaText}
               </Text>
+              <View style={styles.bottomRow}>
+                {categories?.length > 0 && (
+                  <View style={styles.categoryRow}>
+                    {categories.slice(0, 3).map((cat) => {
+                      const color = getCategoryColor(cat.name);
+                      return (
+                        <View
+                          key={cat.id}
+                          style={[
+                            styles.categoryBadge,
+                            { borderColor: color + "40" },
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.categoryDot,
+                              { backgroundColor: color },
+                            ]}
+                          />
+                          <Text style={[styles.categoryText, { color }]}>
+                            {titleCase(cat.name)}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+                <View style={styles.statsRow}>
+                  {distance ? (
+                    <View style={styles.distanceBadge}>
+                      <Text style={styles.distanceBadgeText}>{distance}</Text>
+                    </View>
+                  ) : null}
+                  {goingCount && goingCount > 0 ? (
+                    <Text style={styles.statText}>
+                      {goingCount} going
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
             </View>
           </Animated.View>
         </Pressable>
@@ -236,16 +297,91 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 3,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing._6,
+  },
   title: {
+    flex: 1,
     fontSize: 13,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.semibold,
     color: colors.text.primary,
   },
+  timeBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+    marginTop: 1,
+  },
+  timeBadgeText: {
+    fontSize: 9,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
   meta: {
-    flex: 1,
     fontSize: 11,
     fontFamily: fontFamily.mono,
     color: colors.text.detail,
+  },
+  bottomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing._6,
+    marginTop: 2,
+  },
+  categoryRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing._6,
+    flex: 1,
+  },
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing._6,
+  },
+  distanceBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: colors.border.medium,
+  },
+  distanceBadgeText: {
+    fontSize: 9,
+    fontWeight: fontWeight.medium,
+    fontFamily: fontFamily.mono,
+    color: colors.text.secondary,
+  },
+  statText: {
+    fontSize: 10,
+    fontFamily: fontFamily.mono,
+    color: colors.text.disabled,
+  },
+  categoryBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: spacing._6,
+    paddingVertical: 1,
+    borderRadius: radius.full,
+    backgroundColor: colors.bg.card,
+    borderWidth: 1,
+  },
+  categoryDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  categoryText: {
+    fontSize: 10,
+    fontWeight: fontWeight.medium,
+    fontFamily: fontFamily.mono,
   },
 });

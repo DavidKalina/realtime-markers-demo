@@ -173,15 +173,32 @@ const SearchListScreen = () => {
   };
 
   const renderEventItem = useCallback(
-    (event: EventType, index: number) => (
-      <EventListItem
-        {...event}
-        eventDate={new Date(event.eventDate)}
-        onPress={handleEventPress}
-        index={index}
-      />
-    ),
-    [handleEventPress],
+    (event: EventType, index: number) => {
+      let distance = event.distance || "";
+      if (!distance && userLocation && event.coordinates) {
+        const [lng, lat] = userLocation;
+        const [eLng, eLat] = event.coordinates;
+        const toRad = (d: number) => (d * Math.PI) / 180;
+        const R = 3958.8; // miles
+        const dLat = toRad(eLat - lat);
+        const dLng = toRad(eLng - lng);
+        const a =
+          Math.sin(dLat / 2) ** 2 +
+          Math.cos(toRad(lat)) * Math.cos(toRad(eLat)) * Math.sin(dLng / 2) ** 2;
+        const mi = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        distance = mi < 0.1 ? "Nearby" : `${mi.toFixed(1)} mi`;
+      }
+      return (
+        <EventListItem
+          {...event}
+          distance={distance}
+          eventDate={new Date(event.eventDate)}
+          onPress={handleEventPress}
+          index={index}
+        />
+      );
+    },
+    [handleEventPress, userLocation],
   );
 
   const handleLoadMore = useCallback(async (): Promise<void> => {
