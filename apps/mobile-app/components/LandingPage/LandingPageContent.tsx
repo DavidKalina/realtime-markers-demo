@@ -21,11 +21,11 @@ import {
   View,
 } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import AreaPulseSection from "./AreaPulseSection";
 import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
-import LeaderboardSection from "./LeaderboardSection";
+import ContributorsSection from "./LeaderboardSection";
 import WhatsHappeningSection from "./WhatsHappeningSection";
-import type { LeaderboardEntry } from "@/services/ApiClient";
+import ThirdSpaceScoreHero from "./ThirdSpaceScoreHero";
+import type { ThirdSpaceScoreResponse } from "@/services/api/modules/leaderboard";
 
 interface Category {
   id: string;
@@ -49,8 +49,7 @@ interface LandingPageContentProps {
   isLoading: boolean;
   onRefresh: () => Promise<void>;
   isRefreshing?: boolean;
-  leaderboard?: LeaderboardEntry[];
-  leaderboardCity?: string;
+  thirdSpaceScore?: ThirdSpaceScoreResponse | null;
   currentUserId?: string;
 }
 
@@ -71,8 +70,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
   isLoading,
   onRefresh,
   isRefreshing = false,
-  leaderboard,
-  leaderboardCity,
+  thirdSpaceScore,
   currentUserId,
 }) => {
   return (
@@ -87,15 +85,15 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
     >
       {isLoading && (
         <Animated.View exiting={FadeOut.duration(duration.fast)}>
-          {/* Featured Skeleton */}
+          {/* Score Skeleton */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Featured Events</Text>
+            <Text style={styles.sectionTitle}>Third Space Score</Text>
             <SkeletonCard />
           </View>
 
-          {/* Area Pulse Skeleton */}
+          {/* Contributors Skeleton */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Area Pulse</Text>
+            <Text style={styles.sectionTitle}>Contributors</Text>
             <SkeletonCard />
           </View>
 
@@ -105,9 +103,9 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
             <SkeletonCard />
           </View>
 
-          {/* Leaderboard Skeleton */}
+          {/* Featured Skeleton */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Top Scanners</Text>
+            <Text style={styles.sectionTitle}>Featured Events</Text>
             <SkeletonCard />
           </View>
         </Animated.View>
@@ -115,21 +113,24 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
 
       {!isLoading && (
         <>
-          <Animated.View entering={FadeIn.duration(duration.normal).delay(0)}>
-            <FeaturedEventsCarousel
-              events={data?.featuredEvents || []}
-              isLoading={false}
-            />
-          </Animated.View>
+          {thirdSpaceScore && (
+            <Animated.View entering={FadeIn.duration(duration.normal).delay(0)}>
+              <ThirdSpaceScoreHero score={thirdSpaceScore} />
+            </Animated.View>
+          )}
 
-          <Animated.View entering={FadeIn.duration(duration.normal).delay(80)}>
-            <AreaPulseSection
-              popularCategories={data?.popularCategories || []}
-              trendingEvents={data?.trendingEvents || []}
-              leaderboard={leaderboard || []}
-              city={leaderboardCity}
-            />
-          </Animated.View>
+          {thirdSpaceScore?.contributors &&
+            thirdSpaceScore.contributors.length > 0 && (
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(80)}
+              >
+                <ContributorsSection
+                  contributors={thirdSpaceScore.contributors}
+                  currentUserId={currentUserId}
+                  city={thirdSpaceScore.current.city}
+                />
+              </Animated.View>
+            )}
 
           <Animated.View entering={FadeIn.duration(duration.normal).delay(160)}>
             <WhatsHappeningSection
@@ -139,10 +140,9 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
           </Animated.View>
 
           <Animated.View entering={FadeIn.duration(duration.normal).delay(240)}>
-            <LeaderboardSection
-              leaderboard={leaderboard || []}
-              currentUserId={currentUserId}
-              city={leaderboardCity}
+            <FeaturedEventsCarousel
+              events={data?.featuredEvents || []}
+              isLoading={false}
             />
           </Animated.View>
         </>

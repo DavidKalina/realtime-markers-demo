@@ -11,6 +11,36 @@ export interface LeaderboardEntry {
   scanCount: number;
 }
 
+export interface ContributorEntry {
+  rank: number;
+  userId: string;
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl: string | null;
+  currentTier: string;
+  contribution: number;
+  scanCount: number;
+  label: string;
+}
+
+export interface ThirdSpaceScoreResponse {
+  current: {
+    city: string;
+    score: number;
+    vitalityScore: number;
+    discoveryScore: number;
+    diversityScore: number;
+    engagementScore: number;
+    rootednessScore: number;
+    computedAt: string;
+  };
+  previous: { score: number; computedAt: string } | null;
+  history: { score: number; computedAt: string }[];
+  delta24h: number;
+  momentum: "rising" | "steady" | "cooling";
+  contributors: ContributorEntry[];
+}
+
 export interface UserStats {
   categoryBreakdown: { name: string; icon: string | null; count: number }[];
   cityBreakdown: { city: string; count: number }[];
@@ -37,6 +67,12 @@ export class LeaderboardModule extends BaseApiModule {
     return this.handleResponse<{ rank: number; scanCount: number } | null>(
       response,
     );
+  }
+
+  async getThirdSpaceScore(city: string): Promise<ThirdSpaceScoreResponse> {
+    const url = `${this.client.baseUrl}/api/leaderboard/third-space-score?city=${encodeURIComponent(city)}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<ThirdSpaceScoreResponse>(response);
   }
 
   async getMyStats(): Promise<UserStats> {

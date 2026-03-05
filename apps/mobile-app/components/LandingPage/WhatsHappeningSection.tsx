@@ -19,7 +19,7 @@ import {
   radius,
 } from "@/theme";
 import { DiscoveredEventType, TrendingEventType } from "@/types/types";
-import EventListItem, { getTimeBadge } from "@/components/Event/EventListItem";
+import { getTimeBadge } from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
@@ -129,87 +129,60 @@ const WhatsHappeningSection: React.FC<WhatsHappeningSectionProps> = ({
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
-          {merged.map((event) => (
-            <TouchableOpacity
-              key={`${event._kind}-${event.id}`}
-              style={styles.itemContainer}
-              onPress={() => handleEventPress(event)}
-              activeOpacity={0.9}
-            >
-              <View style={styles.cardContainer}>
-                <EventListItem
-                  {...event}
-                  eventDate={new Date(event.eventDate)}
-                  isTrending={event._kind === "trending"}
-                  onPress={() => handleEventPress(event)}
-                />
-                <View style={styles.cardFooter}>
-                  <Text style={styles.cardFooterText} numberOfLines={1}>
-                    {event._kind === "trending"
-                      ? [
-                          event.goingCount && event.goingCount > 0
-                            ? `${event.goingCount} going`
-                            : null,
-                          event.categories?.[0]?.name,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")
-                      : [
-                          (event as DiscoveredEventType).discoverer?.firstName
-                            ? `Found by ${(event as DiscoveredEventType).discoverer!.firstName}`
-                            : "Found",
-                          formatTimeAgo(
-                            (event as DiscoveredEventType).discoveredAt,
-                          ),
-                        ].join(" · ")}
-                  </Text>
-                  <View style={styles.badgeRow}>
-                    <View
-                      style={[
-                        styles.typeBadge,
-                        event._kind === "trending"
-                          ? styles.typeBadgeTrending
-                          : styles.typeBadgeDiscovered,
-                      ]}
-                    >
-                      <Text
+          {merged.map((event) => {
+            const badge = getTimeBadge(event.eventDate, event.endDate);
+            const isTrending = event._kind === "trending";
+            const accentColor = isTrending ? "#fcd34d" : "#93c5fd";
+
+            return (
+              <TouchableOpacity
+                key={`${event._kind}-${event.id}`}
+                style={styles.itemContainer}
+                onPress={() => handleEventPress(event)}
+                activeOpacity={0.9}
+              >
+                <View
+                  style={[
+                    styles.cardContainer,
+                    { backgroundColor: accentColor + "08" },
+                  ]}
+                >
+                  <View style={styles.cardBody}>
+                    <View style={styles.cardHeader}>
+                      <View
                         style={[
-                          styles.typeBadgeText,
-                          event._kind === "trending"
-                            ? styles.typeBadgeTextTrending
-                            : styles.typeBadgeTextDiscovered,
+                          styles.kindDot,
+                          { backgroundColor: accentColor },
                         ]}
+                      />
+                      <Text style={[styles.kindText, { color: accentColor }]}>
+                        {isTrending ? "Trending" : "Just Found"}
+                      </Text>
+                      <Text
+                        style={[styles.timeText, { color: badge.color.text }]}
                       >
-                        {event._kind === "trending"
-                          ? "\u{1F525} Trending"
-                          : "\u2726 Just Found"}
+                        {badge.text}
                       </Text>
                     </View>
-                    {(() => {
-                      const badge = getTimeBadge(
-                        event.eventDate,
-                        event.endDate,
-                      );
-                      return (
-                        <Text
-                          style={[
-                            styles.timeBadge,
-                            {
-                              color: badge.color.text,
-                              backgroundColor: badge.color.bg,
-                              borderColor: badge.color.text + "4D",
-                            },
-                          ]}
-                        >
-                          {badge.text}
-                        </Text>
-                      );
-                    })()}
+                    <Text style={styles.cardTitle} numberOfLines={2}>
+                      {event.emoji ? `${event.emoji} ` : ""}
+                      {event.title}
+                    </Text>
+                    <Text style={styles.cardMeta} numberOfLines={1}>
+                      {[
+                        event.location
+                          ? event.location.split(",")[0].trim()
+                          : null,
+                        event.categories?.[0]?.name,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </Text>
                   </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -263,69 +236,51 @@ const styles = StyleSheet.create({
     marginRight: ITEM_SPACING,
   },
   cardContainer: {
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border.default,
     overflow: "hidden",
   },
-  cardFooter: {
-    gap: spacing._6,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing._6,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
-    backgroundColor: colors.accent.muted,
+  cardBody: {
+    flex: 1,
+    padding: spacing.md,
+    gap: spacing.xs,
   },
-  badgeRow: {
+  cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 6,
   },
-  typeBadge: {
-    paddingHorizontal: spacing._6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    borderWidth: 1,
-    overflow: "hidden",
+  kindDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  typeBadgeTrending: {
-    backgroundColor: "rgba(251, 191, 36, 0.15)",
-    borderColor: "rgba(251, 191, 36, 0.3)",
-  },
-  typeBadgeDiscovered: {
-    backgroundColor: "rgba(147, 197, 253, 0.15)",
-    borderColor: "rgba(147, 197, 253, 0.3)",
-  },
-  typeBadgeText: {
+  kindText: {
     fontSize: 10,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.semibold,
     letterSpacing: 0.5,
-  },
-  typeBadgeTextTrending: {
-    color: "#fcd34d",
-  },
-  typeBadgeTextDiscovered: {
-    color: "#93c5fd",
-  },
-  timeBadge: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    paddingHorizontal: spacing._6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    borderWidth: 1,
-    overflow: "hidden",
-    letterSpacing: 0.5,
-  },
-  cardFooterText: {
+    textTransform: "uppercase" as const,
     flex: 1,
+  },
+  timeText: {
     fontSize: 10,
-    color: colors.accent.primary,
     fontFamily: fontFamily.mono,
-    letterSpacing: 0.5,
+    fontWeight: fontWeight.medium,
+    letterSpacing: 0.3,
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+    lineHeight: 20,
+  },
+  cardMeta: {
+    fontSize: 11,
+    fontFamily: fontFamily.mono,
+    color: colors.text.secondary,
   },
   paginationContainer: {
     flexDirection: "row",

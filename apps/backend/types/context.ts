@@ -16,6 +16,7 @@ import type { EventHypeService } from "../services/EventHypeService";
 import type { ProximityNotificationService } from "../services/ProximityNotificationService";
 import type { FollowService } from "../services/FollowService";
 import type { LeaderboardService } from "../services/LeaderboardService";
+import type { ThirdSpaceScoreService } from "../services/ThirdSpaceScoreService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -35,6 +36,7 @@ export interface AppVariables {
   proximityNotificationService: ProximityNotificationService;
   followService: FollowService;
   leaderboardService: LeaderboardService;
+  thirdSpaceScoreService: ThirdSpaceScoreService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

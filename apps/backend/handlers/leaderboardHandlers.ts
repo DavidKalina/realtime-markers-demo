@@ -16,6 +16,18 @@ export const getCityLeaderboard = async (c: Context<AppContext>) => {
   return c.json(leaderboard);
 };
 
+export const getThirdSpaceScore = async (c: Context<AppContext>) => {
+  const city = c.req.query("city");
+  if (!city) {
+    return c.json({ error: "city query parameter is required" }, 400);
+  }
+
+  const thirdSpaceScoreService = c.get("thirdSpaceScoreService");
+  const score = await thirdSpaceScoreService.getCityScore(city);
+
+  return c.json(score);
+};
+
 export const getMyRank = async (c: Context<AppContext>) => {
   const city = c.req.query("city");
   if (!city) {

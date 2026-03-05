@@ -19,7 +19,7 @@ import {
   radius,
 } from "@/theme";
 import { EventType } from "@/types/types";
-import EventListItem, { getTimeBadge } from "@/components/Event/EventListItem";
+import { getTimeBadge } from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
@@ -97,46 +97,59 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
-          {events.map((event) => (
-            <TouchableOpacity
-              key={event.id}
-              style={styles.itemContainer}
-              onPress={() => handleEventPress(event)}
-              activeOpacity={0.9}
-            >
-              <View style={styles.cardContainer}>
-                <EventListItem
-                  {...event}
-                  eventDate={new Date(event.eventDate)}
-                  onPress={() => handleEventPress(event)}
-                />
-                <View style={styles.cardFooter}>
-                  <Text style={styles.cardFooterText} numberOfLines={1}>
-                    {["Featured", event.categories?.[0]?.name]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </Text>
-                  {(() => {
-                    const badge = getTimeBadge(event.eventDate, event.endDate);
-                    return (
-                      <Text
+          {events.map((event) => {
+            const badge = getTimeBadge(event.eventDate, event.endDate);
+            const accentColor = "#6ee7b7";
+
+            return (
+              <TouchableOpacity
+                key={event.id}
+                style={styles.itemContainer}
+                onPress={() => handleEventPress(event)}
+                activeOpacity={0.9}
+              >
+                <View
+                  style={[
+                    styles.cardContainer,
+                    { backgroundColor: accentColor + "08" },
+                  ]}
+                >
+                  <View style={styles.cardBody}>
+                    <View style={styles.cardHeader}>
+                      <View
                         style={[
-                          styles.timeBadge,
-                          {
-                            color: badge.color.text,
-                            backgroundColor: badge.color.bg,
-                            borderColor: badge.color.text + "4D",
-                          },
+                          styles.kindDot,
+                          { backgroundColor: accentColor },
                         ]}
+                      />
+                      <Text style={[styles.kindText, { color: accentColor }]}>
+                        Featured
+                      </Text>
+                      <Text
+                        style={[styles.timeText, { color: badge.color.text }]}
                       >
                         {badge.text}
                       </Text>
-                    );
-                  })()}
+                    </View>
+                    <Text style={styles.cardTitle} numberOfLines={2}>
+                      {event.emoji ? `${event.emoji} ` : ""}
+                      {event.title}
+                    </Text>
+                    <Text style={styles.cardMeta} numberOfLines={1}>
+                      {[
+                        event.location
+                          ? event.location.split(",")[0].trim()
+                          : null,
+                        event.categories?.[0]?.name,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -183,40 +196,51 @@ const styles = StyleSheet.create({
     marginRight: ITEM_SPACING,
   },
   cardContainer: {
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border.default,
     overflow: "hidden",
   },
-  cardFooter: {
+  cardBody: {
+    flex: 1,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  cardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing._6,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing._6,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
-    backgroundColor: colors.accent.muted,
+    gap: 6,
   },
-  timeBadge: {
+  kindDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  kindText: {
     fontSize: 10,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.semibold,
-    paddingHorizontal: spacing._6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    borderWidth: 1,
-    overflow: "hidden",
     letterSpacing: 0.5,
-  },
-  cardFooterText: {
+    textTransform: "uppercase" as const,
     flex: 1,
+  },
+  timeText: {
     fontSize: 10,
-    color: colors.accent.primary,
     fontFamily: fontFamily.mono,
-    letterSpacing: 0.5,
+    fontWeight: fontWeight.medium,
+    letterSpacing: 0.3,
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+    lineHeight: 20,
+  },
+  cardMeta: {
+    fontSize: 11,
+    fontFamily: fontFamily.mono,
+    color: colors.text.secondary,
   },
   paginationContainer: {
     flexDirection: "row",

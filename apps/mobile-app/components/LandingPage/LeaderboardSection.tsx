@@ -8,7 +8,7 @@ import {
   spacing,
   radius,
 } from "@/theme";
-import type { LeaderboardEntry } from "@/services/ApiClient";
+import type { ContributorEntry } from "@/services/api/modules/leaderboard";
 
 const TIER_EMOJI: Record<string, string> = {
   Explorer: "\u{1F9ED}",
@@ -23,18 +23,18 @@ const RANK_COLORS: Record<number, string> = {
   3: "#cd7f32", // bronze
 };
 
-interface LeaderboardSectionProps {
-  leaderboard: LeaderboardEntry[];
+interface ContributorsSectionProps {
+  contributors: ContributorEntry[];
   currentUserId?: string;
   city?: string;
 }
 
-const LeaderboardSection: React.FC<LeaderboardSectionProps> = ({
-  leaderboard,
+const ContributorsSection: React.FC<ContributorsSectionProps> = ({
+  contributors,
   currentUserId,
   city,
 }) => {
-  if (!leaderboard || leaderboard.length === 0) {
+  if (!contributors || contributors.length === 0) {
     return null;
   }
 
@@ -42,11 +42,13 @@ const LeaderboardSection: React.FC<LeaderboardSectionProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Top Scanners</Text>
-      <Text style={styles.subtitle}>{cityLabel} &middot; This Week</Text>
+      <Text style={styles.title}>Contributors</Text>
+      <Text style={styles.subtitle}>
+        {cityLabel} &middot; Growing the Garden
+      </Text>
 
       <View style={styles.listContainer}>
-        {leaderboard.map((entry) => {
+        {contributors.map((entry) => {
           const isCurrentUser = entry.userId === currentUserId;
           const rankColor = RANK_COLORS[entry.rank];
           const tierEmoji =
@@ -89,11 +91,12 @@ const LeaderboardSection: React.FC<LeaderboardSectionProps> = ({
                   {isCurrentUser ? " (you)" : ""}
                 </Text>
                 <Text style={styles.tier}>{entry.currentTier}</Text>
+                <Text style={styles.label}>{entry.label}</Text>
               </View>
 
               <View style={styles.countContainer}>
-                <Text style={styles.countNumber}>{entry.scanCount}</Text>
-                <Text style={styles.countLabel}>scans</Text>
+                <Text style={styles.countNumber}>{entry.contribution}</Text>
+                <Text style={styles.countLabel}>score</Text>
               </View>
             </View>
           );
@@ -188,6 +191,13 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     marginTop: 1,
   },
+  label: {
+    fontSize: 9,
+    color: colors.accent.primary,
+    fontFamily: fontFamily.mono,
+    marginTop: 1,
+    letterSpacing: 0.3,
+  },
   countContainer: {
     alignItems: "center",
     marginLeft: spacing.sm,
@@ -207,4 +217,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default LeaderboardSection;
+export default ContributorsSection;

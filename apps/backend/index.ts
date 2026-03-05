@@ -106,6 +106,11 @@ async function initializeServices() {
   // Setup event import schedule (opt-in via env vars)
   serviceInitializer.setupEventImportSchedule(services.jobQueue);
 
+  // Setup Third Space Score computation schedule
+  serviceInitializer.setupThirdSpaceScoreSchedule(
+    services.thirdSpaceScoreService,
+  );
+
   console.log("All services initialized successfully");
   return services;
 }

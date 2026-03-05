@@ -23,6 +23,7 @@ import { createGoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import { createJobQueue } from "./JobQueue";
 import { createGamificationService } from "./GamificationService";
 import { createLeaderboardService } from "./LeaderboardService";
+import { createThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 import { RepositoryInitializer } from "./RepositoryInitializer";
 import type { EventService } from "./EventServiceRefactored";
 import type { EventProcessingService } from "./EventProcessingService";
@@ -38,6 +39,7 @@ import type { RedisService } from "./shared/RedisService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import type { GamificationService } from "./GamificationService";
 import type { LeaderboardService } from "./LeaderboardService";
+import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 import { createAreaScanService } from "./AreaScanService";
 import type { AreaScanService } from "./AreaScanService";
 import { createEventHypeService } from "./EventHypeService";
@@ -71,6 +73,7 @@ export interface ServiceContainer {
   ticketmasterService: TicketmasterService | null;
   proximityNotificationService: ProximityNotificationService;
   followService: FollowService;
+  thirdSpaceScoreService: ThirdSpaceScoreService;
 }
 
 export class ServiceInitializer {
@@ -163,6 +166,11 @@ export class ServiceInitializer {
     });
 
     const leaderboardService = createLeaderboardService({
+      dataSource: this.dataSource,
+      redisService,
+    });
+
+    const thirdSpaceScoreService = createThirdSpaceScoreService({
       dataSource: this.dataSource,
       redisService,
     });
@@ -264,6 +272,7 @@ export class ServiceInitializer {
       ticketmasterService,
       proximityNotificationService,
       followService,
+      thirdSpaceScoreService,
     };
   }
 
@@ -360,5 +369,45 @@ export class ServiceInitializer {
 
     // Check every 5 minutes if interval has elapsed
     setInterval(enqueueImport, 5 * 60 * 1000);
+  }
+
+  setupThirdSpaceScoreSchedule(
+    thirdSpaceScoreService: ThirdSpaceScoreService,
+  ): void {
+    if (process.env.DISABLE_TSS_COMPUTATION === "true") {
+      console.log(
+        "Third Space Score computation disabled via DISABLE_TSS_COMPUTATION environment variable",
+      );
+      return;
+    }
+
+    const intervalHours = 4;
+    const intervalMs = intervalHours * 60 * 60 * 1000;
+
+    console.log(
+      `Setting up Third Space Score schedule: interval=${intervalHours}h`,
+    );
+
+    // Run once on startup after 60s delay
+    setTimeout(async () => {
+      console.log("Running initial Third Space Score computation");
+      try {
+        await thirdSpaceScoreService.computeAllCities();
+        await thirdSpaceScoreService.cleanupOldSnapshots();
+      } catch (err) {
+        console.error("Initial Third Space Score computation failed:", err);
+      }
+    }, 60_000);
+
+    // Run every 4 hours
+    setInterval(async () => {
+      console.log("Running scheduled Third Space Score computation");
+      try {
+        await thirdSpaceScoreService.computeAllCities();
+        await thirdSpaceScoreService.cleanupOldSnapshots();
+      } catch (err) {
+        console.error("Scheduled Third Space Score computation failed:", err);
+      }
+    }, intervalMs);
   }
 }

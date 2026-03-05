@@ -13,7 +13,7 @@ import EventListItem, {
 import LandingPageContent from "@/components/LandingPage/LandingPageContent";
 import useEventSearch from "@/hooks/useEventSearch";
 import useLandingPageData from "@/hooks/useLandingPageData";
-import useLeaderboard from "@/hooks/useLeaderboard";
+import useThirdSpaceScore from "@/hooks/useThirdSpaceScore";
 import { useCategoryPreferences } from "@/hooks/useCategoryPreferences";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserLocation } from "@/contexts/LocationContext";
@@ -83,9 +83,9 @@ const SearchListScreen = () => {
       excludedCategoryIds.length > 0 ? excludedCategoryIds : undefined,
   });
 
-  // Leaderboard data (keyed off resolved city from landing page response)
+  // Third Space Score data (keyed off resolved city from landing page response)
   const resolvedCity = landingData?.resolvedCity || null;
-  const { leaderboard } = useLeaderboard(resolvedCity);
+  const { score: thirdSpaceScore } = useThirdSpaceScore(resolvedCity);
   const currentUser = apiClient.getCurrentUser();
 
   // Track if we're showing landing page or search results
@@ -184,7 +184,9 @@ const SearchListScreen = () => {
         const dLng = toRad(eLng - lng);
         const a =
           Math.sin(dLat / 2) ** 2 +
-          Math.cos(toRad(lat)) * Math.cos(toRad(eLat)) * Math.sin(dLng / 2) ** 2;
+          Math.cos(toRad(lat)) *
+            Math.cos(toRad(eLat)) *
+            Math.sin(dLng / 2) ** 2;
         const mi = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         distance = mi < 0.1 ? "Nearby" : `${mi.toFixed(1)} mi`;
       }
@@ -246,8 +248,7 @@ const SearchListScreen = () => {
           isLoading={isLandingLoading}
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
-          leaderboard={leaderboard}
-          leaderboardCity={resolvedCity || undefined}
+          thirdSpaceScore={thirdSpaceScore}
           currentUserId={currentUser?.id}
         />
       ) : (
