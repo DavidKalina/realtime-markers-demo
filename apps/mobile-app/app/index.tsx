@@ -1,15 +1,21 @@
 /* eslint-disable prefer-const */
+import { DialogBox } from "@/components/AreaScan/AreaScanComponents";
 import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
+import MapFilterSheet from "@/components/MapFilterSheet";
+import MapLegend from "@/components/MapLegend/MapLegend";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import { MarkerInfoHUD } from "@/components/Markers/MarkerInfoHUD";
+import { useScanInsight } from "@/components/ScanProgress/useScanInsight";
 import StatusBar from "@/components/StatusBar/StatusBar";
 import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
 import { createCameraSettings } from "@/config/cameraConfig";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
+import { useAppActive } from "@/hooks/useAppActive";
 import { useCameraFollowMode } from "@/hooks/useCameraFollowMode";
+import { useCategoryPreferences } from "@/hooks/useCategoryPreferences";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useInitialLocation } from "@/hooks/useInitialLocation";
 import { useMapCamera } from "@/hooks/useMapCamera";
@@ -17,24 +23,20 @@ import { useMapLoadingState } from "@/hooks/useMapLoadingState";
 import { useMapMountGate } from "@/hooks/useMapMountGate";
 import { useMapViewport } from "@/hooks/useMapViewport";
 import { useMapWebSocket } from "@/hooks/useMapWebSocket";
-import { useCategoryPreferences } from "@/hooks/useCategoryPreferences";
-import MapFilterSheet from "@/components/MapFilterSheet";
-import MapLegend from "@/components/MapLegend/MapLegend";
-import { DialogBox } from "@/components/AreaScan/AreaScanComponents";
-import { useScanInsight } from "@/components/ScanProgress/useScanInsight";
+import { apiClient } from "@/services/ApiClient";
 import {
   BaseEvent,
   CameraAnimateToLocationEvent,
   EventTypes,
   MapItemEvent,
 } from "@/services/EventBroker";
-import { useAppActive } from "@/hooks/useAppActive";
 import { useLocationStore } from "@/stores/useLocationStore";
-import { apiClient } from "@/services/ApiClient";
 import { colors } from "@/theme";
-import { BlurView } from "expo-blur";
 import MapboxGL from "@rnmapbox/maps";
+import { BlurView } from "expo-blur";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
+import { Locate, Navigation } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -49,10 +51,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import RAnimated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
+import RAnimated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Locate, Navigation } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
 import { scheduleOnRN } from "react-native-worklets";
 
 // Set access token at module scope (lightweight, required before MapView renders)
@@ -96,7 +96,6 @@ function HomeScreenContent() {
   const router = useRouter();
   const { publish } = useEventBroker();
   const { mapStyle, isPitched } = useMapStyle();
-  const insets = useSafeAreaInsets();
   const isAppActive = useAppActive();
 
   // Global mount gate — waits for the container's onLayout + a few RAF frames

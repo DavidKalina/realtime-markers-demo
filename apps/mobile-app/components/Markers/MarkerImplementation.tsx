@@ -12,7 +12,6 @@ import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useMemo, useEffect, useRef, useState } from "react";
 import Animated, {
   BounceIn,
-  FadeOut,
   useSharedValue,
   withRepeat,
   withSequence,
@@ -112,7 +111,7 @@ const SingleMarkerView = React.memo(
         coordinate={marker.coordinates}
         anchor={{ x: 0.5, y: 1.0 }}
       >
-        <Animated.View entering={entering} exiting={FadeOut.duration(100)}>
+        <Animated.View entering={entering}>
           <EmojiMapMarker
             event={marker}
             isSelected={isSelected}
@@ -185,7 +184,7 @@ const ClusterView = React.memo(
         coordinate={cluster.coordinates}
         anchor={{ x: 0.5, y: 0.5 }}
       >
-        <Animated.View entering={entering} exiting={FadeOut.duration(100)}>
+        <Animated.View entering={entering}>
           <ClusterMarker
             count={cluster.count}
             coordinates={cluster.coordinates}
@@ -542,55 +541,20 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
     );
 
     // Freeze the rendered set while the camera is actively moving to prevent
-    // rapid mount/unmount churn that crashes Mapbox's native view insertion.
-    // When the camera settles, apply the new set with progressive batching.
-    const MOUNT_BATCH_SIZE = 20;
-    const frozenItemsRef = useRef(itemsWithNewIndex);
+    // rapid mount/unmount churn that crashes Mapbox's native view insertion
+    // (RNMBXMapView.insertReactSubview assertion failure).
+    // When the camera settles, render all items at once — no progressive batching.
     const [stableItems, setStableItems] = useState(itemsWithNewIndex);
-    const [renderLimit, setRenderLimit] = useState(
-      Math.min(itemsWithNewIndex.length, MOUNT_BATCH_SIZE),
-    );
 
     useEffect(() => {
-      if (isCameraMoving) {
-        // Camera is moving — stash latest items but don't render them yet
-        frozenItemsRef.current = itemsWithNewIndex;
-        return;
-      }
-
-      // Camera stopped — apply the latest items with progressive rendering
-      frozenItemsRef.current = itemsWithNewIndex;
-      const items = itemsWithNewIndex;
-
-      setStableItems(items);
-      if (items.length <= MOUNT_BATCH_SIZE) {
-        setRenderLimit(items.length);
-      } else {
-        setRenderLimit(MOUNT_BATCH_SIZE);
+      if (!isCameraMoving) {
+        setStableItems(itemsWithNewIndex);
       }
     }, [itemsWithNewIndex, isCameraMoving]);
 
-    // Progressively reveal remaining items after camera settles
-    const totalStableItems = stableItems.length;
-    useEffect(() => {
-      if (isCameraMoving) return;
-      if (renderLimit >= totalStableItems) return;
-      const frame = requestAnimationFrame(() => {
-        setRenderLimit((prev) =>
-          Math.min(prev + MOUNT_BATCH_SIZE, totalStableItems),
-        );
-      });
-      return () => cancelAnimationFrame(frame);
-    }, [renderLimit, totalStableItems, isCameraMoving]);
-
-    const visibleForRender = useMemo(
-      () => stableItems.slice(0, renderLimit),
-      [stableItems, renderLimit],
-    );
-
     return (
       <>
-        {visibleForRender.map((processed) => {
+        {stableItems.map((processed) => {
           if (processed.type === "cluster") {
             return renderCluster(processed);
           } else {
