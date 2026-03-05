@@ -6,7 +6,7 @@ import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import { MarkerInfoHUD } from "@/components/Markers/MarkerInfoHUD";
 import StatusBar from "@/components/StatusBar/StatusBar";
 import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
-import { createCameraSettings, MIN_ZOOM_LEVEL } from "@/config/cameraConfig";
+import { createCameraSettings } from "@/config/cameraConfig";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useCameraFollowMode } from "@/hooks/useCameraFollowMode";
@@ -384,7 +384,6 @@ function HomeScreenContent() {
   // Memoize static Camera props
   const cameraProps = useMemo(
     () => ({
-      minZoomLevel: MIN_ZOOM_LEVEL,
       animationDuration: 0,
     }),
     [],

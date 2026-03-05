@@ -121,10 +121,10 @@ export const clusterProfileHandler = async (c: Context<AppContext>) => {
   if (
     !Array.isArray(eventIds) ||
     eventIds.length === 0 ||
-    eventIds.length > 50
+    eventIds.length > 500
   ) {
     return c.json(
-      { error: "eventIds must be a non-empty array with at most 50 items" },
+      { error: "eventIds must be a non-empty array with at most 500 items" },
       400,
     );
   }

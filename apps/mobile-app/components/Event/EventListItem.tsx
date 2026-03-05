@@ -14,9 +14,7 @@ import {
   fontFamily,
   fontWeight,
   spacing,
-  radius,
 } from "@/theme";
-import { getCategoryColor } from "@/utils/categoryColors";
 
 export interface EventListItemProps {
   id: string;
@@ -42,11 +40,11 @@ type TimeBadgeColor = {
 };
 
 export const timeBadgeColors = {
-  live: { text: "#6ee7b7", bg: "rgba(52, 211, 153, 0.20)" },
-  soon: { text: "#fcd34d", bg: "rgba(251, 191, 36, 0.20)" },
-  today: { text: "#93c5fd", bg: "rgba(147, 197, 253, 0.18)" },
-  upcoming: { text: "#c0c0c0", bg: "rgba(255, 255, 255, 0.08)" },
-  past: { text: "#f87171", bg: "rgba(248, 113, 113, 0.18)" },
+  live: { text: "#6ee7b7", bg: "rgba(52, 211, 153, 0.12)" },
+  soon: { text: "#fcd34d", bg: "rgba(251, 191, 36, 0.12)" },
+  today: { text: "#93c5fd", bg: "rgba(147, 197, 253, 0.10)" },
+  upcoming: { text: colors.text.secondary, bg: "rgba(255, 255, 255, 0.04)" },
+  past: { text: colors.text.disabled, bg: "rgba(255, 255, 255, 0.04)" },
 } as const;
 
 export const getTimeBadge = (
@@ -76,15 +74,15 @@ export const getTimeBadge = (
   if (diffInMs < 0) {
     return { text: "Expired", color: timeBadgeColors.past };
   } else if (diffInDays > 0) {
-    const text = diffInDays === 1 ? "Tomorrow" : `Starts in ${diffInDays}d`;
+    const text = diffInDays === 1 ? "Tomorrow" : `In ${diffInDays}d`;
     return { text, color: timeBadgeColors.upcoming };
   } else if (diffInHours > 0) {
     return {
-      text: `Starts in ${diffInHours}h`,
+      text: `In ${diffInHours}h`,
       color: diffInHours <= 2 ? timeBadgeColors.soon : timeBadgeColors.today,
     };
   } else if (diffInMinutes > 0) {
-    return { text: `Starts in ${diffInMinutes}m`, color: timeBadgeColors.soon };
+    return { text: `In ${diffInMinutes}m`, color: timeBadgeColors.soon };
   } else {
     return { text: "Live Now", color: timeBadgeColors.live };
   }
@@ -177,10 +175,13 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
     const metaText = useMemo(() => {
       const items: string[] = [];
       if (location) items.push(toCityState(location));
+      if (distance) items.push(distance);
+      if (categories?.length > 0) items.push(titleCase(categories[0].name));
       if (isRecurring) items.push("Recurring");
       if (isPrivate) items.push("Private");
+      if (goingCount && goingCount > 0) items.push(`${goingCount} going`);
       return items.join(" · ");
-    }, [location, isRecurring, isPrivate]);
+    }, [location, distance, categories, isRecurring, isPrivate, goingCount]);
 
     const cappedDelay = Math.min(index, 8) * 30;
 
@@ -188,75 +189,24 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
       <Animated.View entering={FadeIn.duration(200).delay(cappedDelay)}>
         <Pressable onPress={handlePress}>
           <Animated.View style={[styles.row, animatedScaleStyle]}>
-            {emoji && (
-              <View style={styles.emojiContainer}>
-                <Text style={styles.emoji}>{emoji}</Text>
-              </View>
-            )}
+            {emoji && <Text style={styles.emoji}>{emoji}</Text>}
             <View style={styles.info}>
               <View style={styles.titleRow}>
                 <Text style={styles.title} numberOfLines={2}>
                   {title}
                 </Text>
-                <View
+                <Text
                   style={[
-                    styles.timeBadge,
-                    { backgroundColor: timeBadge.color.bg },
+                    styles.timeBadgeText,
+                    { color: timeBadge.color.text },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.timeBadgeText,
-                      { color: timeBadge.color.text },
-                    ]}
-                  >
-                    {timeBadge.text}
-                  </Text>
-                </View>
+                  {timeBadge.text}
+                </Text>
               </View>
               <Text style={styles.meta} numberOfLines={1}>
                 {metaText}
               </Text>
-              <View style={styles.bottomRow}>
-                {categories?.length > 0 && (
-                  <View style={styles.categoryRow}>
-                    {categories.slice(0, 3).map((cat) => {
-                      const color = getCategoryColor(cat.name);
-                      return (
-                        <View
-                          key={cat.id}
-                          style={[
-                            styles.categoryBadge,
-                            { borderColor: color + "40" },
-                          ]}
-                        >
-                          <View
-                            style={[
-                              styles.categoryDot,
-                              { backgroundColor: color },
-                            ]}
-                          />
-                          <Text style={[styles.categoryText, { color }]}>
-                            {titleCase(cat.name)}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
-                <View style={styles.statsRow}>
-                  {distance ? (
-                    <View style={styles.distanceBadge}>
-                      <Text style={styles.distanceBadgeText}>{distance}</Text>
-                    </View>
-                  ) : null}
-                  {goingCount && goingCount > 0 ? (
-                    <Text style={styles.statText}>
-                      {goingCount} going
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
             </View>
           </Animated.View>
         </Pressable>
@@ -272,35 +222,24 @@ export default EventListItem;
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    paddingVertical: spacing.md,
+    alignItems: "center",
+    paddingVertical: spacing._10,
     paddingHorizontal: spacing.lg,
     gap: spacing._10,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border.default,
-    minHeight: 76,
-  },
-  emojiContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.sm,
-    backgroundColor: colors.border.subtle,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    alignItems: "center",
-    justifyContent: "center",
   },
   emoji: {
     fontSize: fontSize.lg,
   },
   info: {
     flex: 1,
-    gap: 3,
+    gap: 2,
   },
   titleRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing._6,
+    alignItems: "baseline",
+    gap: spacing.sm,
   },
   title: {
     flex: 1,
@@ -308,80 +247,17 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.semibold,
     color: colors.text.primary,
-  },
-  timeBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.full,
-    marginTop: 1,
+    lineHeight: 18,
   },
   timeBadgeText: {
-    fontSize: 9,
-    fontWeight: fontWeight.semibold,
+    fontSize: 10,
     fontFamily: fontFamily.mono,
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   meta: {
     fontSize: 11,
     fontFamily: fontFamily.mono,
-    color: colors.text.detail,
-  },
-  bottomRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing._6,
-    marginTop: 2,
-  },
-  categoryRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing._6,
-    flex: 1,
-  },
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing._6,
-  },
-  distanceBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.full,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  distanceBadgeText: {
-    fontSize: 9,
-    fontWeight: fontWeight.medium,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-  },
-  statText: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
     color: colors.text.disabled,
-  },
-  categoryBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: spacing._6,
-    paddingVertical: 1,
-    borderRadius: radius.full,
-    backgroundColor: colors.bg.card,
-    borderWidth: 1,
-  },
-  categoryDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-  },
-  categoryText: {
-    fontSize: 10,
-    fontWeight: fontWeight.medium,
-    fontFamily: fontFamily.mono,
+    lineHeight: 16,
   },
 });

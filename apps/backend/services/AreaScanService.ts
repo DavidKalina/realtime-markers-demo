@@ -236,7 +236,7 @@ class AreaScanServiceImpl implements AreaScanService {
     const events = await this.queryEventsByIds(eventIds, centerLat, centerLng);
     const zoneStats = this.computeZoneStats(events);
 
-    const zoneEvents: ZoneEvent[] = events.map((e) => ({
+    const zoneEvents: ZoneEvent[] = events.slice(0, 20).map((e) => ({
       id: e.id,
       emoji: e.emoji,
       title: e.title,
