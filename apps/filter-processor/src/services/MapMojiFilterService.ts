@@ -24,8 +24,17 @@ interface EventScore {
   };
 }
 
+interface ScoreCacheEntry {
+  timeScore: number;
+  recencyScore: number;
+  cachedAt: number;
+}
+
 export class MapMojiFilterService {
   private config: FilterConfig;
+  private scoreCache = new Map<string, ScoreCacheEntry>();
+  private static readonly SCORE_CACHE_TTL_MS = 30_000; // 30 seconds
+  private static readonly SCORE_CACHE_MAX_SIZE = 5000;
 
   constructor(config?: Partial<FilterConfig>) {
     // Default configuration
@@ -179,8 +188,31 @@ export class MapMojiFilterService {
   }
 
   private scoreEvent(event: Event, currentTime: Date): EventScore {
-    const timeScore = this.calculateTimeScore(event, currentTime);
-    const recencyScore = this.calculateRecencyScore(event);
+    const now = Date.now();
+    const cached = this.scoreCache.get(event.id);
+    let timeScore: number;
+    let recencyScore: number;
+
+    if (
+      cached &&
+      now - cached.cachedAt < MapMojiFilterService.SCORE_CACHE_TTL_MS
+    ) {
+      timeScore = cached.timeScore;
+      recencyScore = cached.recencyScore;
+    } else {
+      timeScore = this.calculateTimeScore(event, currentTime);
+      recencyScore = this.calculateRecencyScore(event, currentTime);
+      this.scoreCache.set(event.id, { timeScore, recencyScore, cachedAt: now });
+
+      // Evict expired entries when cache grows too large
+      if (this.scoreCache.size > MapMojiFilterService.SCORE_CACHE_MAX_SIZE) {
+        for (const [key, entry] of this.scoreCache) {
+          if (now - entry.cachedAt >= MapMojiFilterService.SCORE_CACHE_TTL_MS) {
+            this.scoreCache.delete(key);
+          }
+        }
+      }
+    }
 
     const rawScore =
       timeScore * this.config.weights.timeProximity +
@@ -236,10 +268,10 @@ export class MapMojiFilterService {
     }
   }
 
-  private calculateRecencyScore(event: Event): number {
+  private calculateRecencyScore(event: Event, currentTime: Date): number {
     const createdAt = new Date(event.createdAt);
     const hoursOld =
-      (new Date().getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+      (currentTime.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
 
     // Newer events get higher scores
     if (hoursOld <= 1) return 1.0; // Brand new
@@ -258,6 +290,10 @@ export class MapMojiFilterService {
       (a, b) => b.rawScore - a.rawScore,
     );
 
+    // Build rank lookup map for O(1) access instead of O(n) findIndex
+    const rankMap = new Map<string, number>();
+    sortedByRawScore.forEach((se, index) => rankMap.set(se.event.id, index));
+
     // Calculate min and max raw scores for normalization
     const maxRawScore = sortedByRawScore[0].rawScore;
     const minRawScore = sortedByRawScore[sortedByRawScore.length - 1].rawScore;
@@ -265,9 +301,7 @@ export class MapMojiFilterService {
 
     // Apply different scoring strategies based on the number of events
     return scoredEvents.map((eventScore) => {
-      const rankPosition = sortedByRawScore.findIndex(
-        (se) => se.event.id === eventScore.event.id,
-      );
+      const rankPosition = rankMap.get(eventScore.event.id)!;
       const percentileRank =
         scoredEvents.length === 1
           ? 1.0

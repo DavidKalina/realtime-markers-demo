@@ -82,6 +82,27 @@ export class EventPublisher {
     }
   }
 
+  public async publishAddEvent(userId: string, event: Event): Promise<void> {
+    try {
+      const channel = `user:${userId}:filtered-events`;
+      const sanitizedEvent = this.stripSensitiveData(event);
+      const message = {
+        type: "add-event",
+        event: sanitizedEvent,
+        timestamp: new Date().toISOString(),
+      };
+
+      await this.redisPub.publish(channel, JSON.stringify(message));
+      this.stats.totalFilteredEventsPublished++;
+      this.stats.individualUpdatesPublished++;
+    } catch (error) {
+      console.error(
+        `[Publish] Error publishing add event to user ${userId}:`,
+        error,
+      );
+    }
+  }
+
   public async publishDeleteEvent(
     userId: string,
     eventId: string,

@@ -407,6 +407,9 @@ export function createFilterProcessor(
     // Clean up viewport tracking in UnifiedMessageHandler
     unifiedMessageHandler.removeUserViewport("event", userId);
 
+    // Clean up per-user diff state to prevent memory leaks
+    unifiedFilteringService.clearUserState(userId);
+
     // Clean up user data
     userStateService.unregisterUser(userId);
 

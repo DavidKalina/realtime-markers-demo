@@ -85,8 +85,8 @@ const SUPERCLUSTER_OPTIONS: Supercluster.Options<
   PointProperties,
   SuperclusterClusterPropertiesInternal
 > = {
-  radius: 80,
-  maxZoom: 16,
+  radius: 26,
+  maxZoom: 20,
   minZoom: 0,
   minPoints: 2,
   map: ((props: PointProperties): PointProperties => props) as any, // eslint-disable-line @typescript-eslint/no-explicit-any

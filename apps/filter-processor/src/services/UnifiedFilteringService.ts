@@ -12,6 +12,8 @@ export interface UnifiedFilteringService {
     filters: Filter[],
   ): Promise<void>;
 
+  clearUserState(userId: string): void;
+
   getStats(): Record<string, unknown>;
 }
 
@@ -19,6 +21,12 @@ export interface UnifiedFilteringServiceConfig {
   mapMojiConfig?: {
     maxEvents?: number;
   };
+}
+
+function computeContentHash(event: Event): string {
+  // NOTE: relevanceScore is intentionally excluded — it's a computed display value
+  // that shifts every cycle due to relative scoring, which would cause false diffs.
+  return `${event.id}:${event.updatedAt}:${event.scanCount ?? 0}:${event.saveCount ?? 0}:${event.status}`;
 }
 
 export function createUnifiedFilteringService(
@@ -30,11 +38,17 @@ export function createUnifiedFilteringService(
 ): UnifiedFilteringService {
   const { mapMojiConfig = {} } = config;
 
+  // Per-user last-sent state: userId -> Map<eventId, contentHash>
+  const userLastSentState = new Map<string, Map<string, string>>();
+
   // Stats for monitoring
   const stats = {
     mapMojiFilterApplied: 0,
     totalEventsFiltered: 0,
     unifiedMessagesSent: 0,
+    diffsSent: 0,
+    fullSendsFallback: 0,
+    noopSkipped: 0,
   };
 
   /**
@@ -75,31 +89,114 @@ export function createUnifiedFilteringService(
         }
       }
 
-      console.log(
-        `[UnifiedFiltering] Publishing unified message to user ${userId}:`,
-        {
+      // Build new state map
+      const newState = new Map<string, string>();
+      const eventById = new Map<string, Event>();
+      for (const event of filteredEvents) {
+        newState.set(event.id, computeContentHash(event));
+        eventById.set(event.id, event);
+      }
+
+      const previousState = userLastSentState.get(userId);
+
+      // First connection or no prior state: send full list
+      if (!previousState) {
+        console.log(
+          `[UnifiedFiltering] First send for user ${userId}, publishing full list (${filteredEvents.length} events)`,
+        );
+
+        await eventPublisher.publishFilteredEvents(
           userId,
-          viewport: !!viewport,
-          filterCount: filters.length,
-          eventCount: filteredEvents.length,
-          clientConfig: {
-            includeEvents: clientConfig.includeEvents,
-          },
-          topEventScores: filteredEvents.slice(0, 3).map((event) => ({
-            eventId: event.id,
-            title: event.title,
-            relevanceScore: event.relevanceScore,
-          })),
+          viewport ? "viewport" : "all",
+          filteredEvents,
+        );
+
+        userLastSentState.set(userId, newState);
+        stats.fullSendsFallback++;
+        stats.totalEventsFiltered += filteredEvents.length;
+        stats.unifiedMessagesSent++;
+        return;
+      }
+
+      // Compute diff
+      const creates: Event[] = [];
+      const updates: Event[] = [];
+      const deletes: string[] = [];
+
+      // Find creates and updates
+      for (const [eventId, hash] of newState) {
+        const previousHash = previousState.get(eventId);
+        if (!previousHash) {
+          creates.push(eventById.get(eventId)!);
+        } else if (previousHash !== hash) {
+          updates.push(eventById.get(eventId)!);
+        }
+      }
+
+      // Find deletes
+      for (const eventId of previousState.keys()) {
+        if (!newState.has(eventId)) {
+          deletes.push(eventId);
+        }
+      }
+
+      // Noop: nothing changed
+      if (creates.length === 0 && updates.length === 0 && deletes.length === 0) {
+        stats.noopSkipped++;
+        return;
+      }
+
+      const totalChanges = creates.length + updates.length + deletes.length;
+      const totalEvents = Math.max(previousState.size, newState.size, 1);
+
+      // If diff is large (>50% of events changed), fall back to full send.
+      // Sending hundreds of individual messages is worse than one batch.
+      if (totalChanges > totalEvents * 0.5) {
+        console.log(
+          `[UnifiedFiltering] Large diff for user ${userId} (${totalChanges}/${totalEvents} changes), falling back to full send`,
+        );
+
+        await eventPublisher.publishFilteredEvents(
+          userId,
+          viewport ? "viewport" : "all",
+          filteredEvents,
+        );
+
+        userLastSentState.set(userId, newState);
+        stats.fullSendsFallback++;
+        stats.totalEventsFiltered += filteredEvents.length;
+        stats.unifiedMessagesSent++;
+        return;
+      }
+
+      console.log(
+        `[UnifiedFiltering] Sending diff to user ${userId}:`,
+        {
+          creates: creates.length,
+          updates: updates.length,
+          deletes: deletes.length,
         },
       );
 
-      // Send filtered events to user
-      await eventPublisher.publishFilteredEvents(
-        userId,
-        viewport ? "viewport" : "all",
-        filteredEvents,
-      );
+      // Publish individual messages for incremental updates
+      const publishPromises: Promise<void>[] = [];
 
+      for (const event of creates) {
+        publishPromises.push(eventPublisher.publishAddEvent(userId, event));
+      }
+      for (const event of updates) {
+        publishPromises.push(eventPublisher.publishUpdateEvent(userId, event));
+      }
+      for (const eventId of deletes) {
+        publishPromises.push(eventPublisher.publishDeleteEvent(userId, eventId));
+      }
+
+      await Promise.all(publishPromises);
+
+      // Update stored state
+      userLastSentState.set(userId, newState);
+
+      stats.diffsSent++;
       stats.totalEventsFiltered += filteredEvents.length;
       stats.unifiedMessagesSent++;
     } catch (error) {
@@ -152,16 +249,25 @@ export function createUnifiedFilteringService(
   }
 
   /**
+   * Clear stored state for a user (call on disconnect to prevent memory leaks)
+   */
+  function clearUserState(userId: string): void {
+    userLastSentState.delete(userId);
+  }
+
+  /**
    * Get current statistics
    */
   function getStats(): Record<string, unknown> {
     return {
       ...stats,
+      trackedUsers: userLastSentState.size,
     };
   }
 
   return {
     calculateAndSendDiff,
+    clearUserState,
     getStats,
   };
 }
