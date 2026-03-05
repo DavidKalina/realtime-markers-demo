@@ -120,7 +120,7 @@ export class ThirdSpaceScoreService {
       ), 0) AS raw
       FROM events e
       WHERE (LOWER(e.city) = LOWER($1) OR LOWER(e.city) = LOWER($2))
-        AND e.status = 'VERIFIED'
+        AND e.status = 'PENDING'
         AND e.event_date >= NOW() - INTERVAL '30 days'`,
       [city, cityName],
     );
@@ -145,7 +145,7 @@ export class ThirdSpaceScoreService {
       JOIN event_categories ec ON ec.event_id = e.id
       JOIN categories c ON c.id = ec.category_id
       WHERE (LOWER(e.city) = LOWER($1) OR LOWER(e.city) = LOWER($2))
-        AND e.status = 'VERIFIED'
+        AND e.status = 'PENDING'
         AND e.event_date >= NOW() - INTERVAL '30 days'
       GROUP BY c.name`,
       [city, cityName],
@@ -170,7 +170,7 @@ export class ThirdSpaceScoreService {
       `SELECT COALESCE(SUM(e.save_count + e.view_count * 0.1), 0) AS raw
       FROM events e
       WHERE (LOWER(e.city) = LOWER($1) OR LOWER(e.city) = LOWER($2))
-        AND e.status = 'VERIFIED'
+        AND e.status = 'PENDING'
         AND e.event_date >= NOW() - INTERVAL '30 days'`,
       [city, cityName],
     );
@@ -181,7 +181,7 @@ export class ThirdSpaceScoreService {
       `SELECT (
         (SELECT COUNT(*)::int FROM events e
          WHERE (LOWER(e.city) = LOWER($1) OR LOWER(e.city) = LOWER($2))
-           AND e.status = 'VERIFIED'
+           AND e.status = 'PENDING'
            AND e.recurrence_frequency IS NOT NULL
            )
         +
@@ -243,7 +243,7 @@ export class ThirdSpaceScoreService {
 
   async computeAllCities(): Promise<void> {
     const rows = await this.dataSource.query(
-      `SELECT DISTINCT city FROM events WHERE city IS NOT NULL AND status = 'VERIFIED'`,
+      `SELECT DISTINCT city FROM events WHERE city IS NOT NULL AND status = 'PENDING'`,
     );
     for (const row of rows) {
       try {
