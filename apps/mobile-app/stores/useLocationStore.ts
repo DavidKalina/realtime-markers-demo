@@ -75,6 +75,10 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
 
       // Update the unified selection if needed
       let newSelectedItem = state.selectedItem;
+      // Build the final markers array — if the selected marker isn't in the
+      // incoming set (e.g. viewport shifted during a camera animation after
+      // tap), re-inject it so it stays rendered on screen.
+      let finalMarkers = markers;
       if (state.selectedItem?.type === "marker" && selectedId) {
         if (selectedExists && newSelectedMarker) {
           // Update the marker item with new data
@@ -85,13 +89,19 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
             data: newSelectedMarker.data,
           };
         } else {
-          // Clear selection if marker no longer exists
-          newSelectedItem = null;
+          // Selected marker not in incoming set — re-inject it from the
+          // previous markers array so it doesn't vanish mid-selection.
+          const prevSelected = state.markers.find((m) => m.id === selectedId);
+          if (prevSelected) {
+            finalMarkers = [...markers, prevSelected];
+          } else {
+            newSelectedItem = null;
+          }
         }
       }
 
       return {
-        markers,
+        markers: finalMarkers,
         selectedItem: newSelectedItem,
       };
     }),

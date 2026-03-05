@@ -524,7 +524,7 @@ function HomeScreenContent() {
       <View style={styles.mapContainer} onLayout={onContainerLayout}>
         {isMapSafeToMount && isAppActive && (
           <MapboxGL.MapView
-            onTouchStart={handleUserPan}
+            onTouchMove={handleUserPan}
             onPress={handleMapPress}
             onLongPress={handleMapLongPress}
             ref={mapRef}

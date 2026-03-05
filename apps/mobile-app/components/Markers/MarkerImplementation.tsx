@@ -385,13 +385,16 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
     }, [clusters, processCluster]);
 
     // Cull markers outside the viewport, with a 15% buffer to prevent
-    // edge-popping during pan/zoom gestures
+    // edge-popping during pan/zoom gestures.
+    // Always keep the selected marker visible so it doesn't vanish during
+    // camera animations triggered by tapping it.
     const visibleItems = useMemo(() => {
       const lngSpan = viewport.east - viewport.west;
       const latSpan = viewport.north - viewport.south;
       const lngBuffer = lngSpan * 0.15;
       const latBuffer = latSpan * 0.15;
       return processedClusters.filter((item) => {
+        if (item.type === "marker" && item.isSelected) return true;
         const [lng, lat] = item.item.coordinates;
         return (
           lng >= viewport.west - lngBuffer &&
