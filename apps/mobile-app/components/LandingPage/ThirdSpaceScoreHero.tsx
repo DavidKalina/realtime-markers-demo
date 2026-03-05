@@ -184,36 +184,21 @@ const ThirdSpaceScoreHero: React.FC<ThirdSpaceScoreHeroProps> = ({ score }) => {
           {SUB_SCORES.map((sub) => {
             const value = score.current[sub.field];
             return (
-              <View key={sub.field} style={styles.statRow}>
+              <Pressable
+                key={sub.field}
+                style={styles.statRow}
+                onPress={() => setActiveInfo(sub)}
+              >
                 <View style={styles.statLabelRow}>
                   <View
                     style={[styles.statDot, { backgroundColor: sub.color }]}
                   />
                   <Text style={styles.statLabel}>{sub.label}</Text>
                 </View>
-                <View style={styles.statValueRow}>
-                  <Text style={[styles.statValue, { color: sub.color }]}>
-                    {value}
-                  </Text>
-                  <Pressable
-                    onPress={() => setActiveInfo(sub)}
-                    hitSlop={8}
-                  >
-                    <View
-                      style={[
-                        styles.infoButton,
-                        { borderColor: sub.color },
-                      ]}
-                    >
-                      <Text
-                        style={[styles.infoButtonText, { color: sub.color }]}
-                      >
-                        i
-                      </Text>
-                    </View>
-                  </Pressable>
-                </View>
-              </View>
+                <Text style={[styles.statValue, { color: sub.color }]}>
+                  {value}
+                </Text>
+              </Pressable>
             );
           })}
         </View>
@@ -270,7 +255,7 @@ function buildSparkline(
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing["2xl"],
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
   },
@@ -337,26 +322,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fontFamily.mono,
     color: colors.text.secondary,
-  },
-  statValueRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  infoButton: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    opacity: 0.6,
-  },
-  infoButtonText: {
-    fontSize: 9,
-    fontWeight: fontWeight.bold,
-    fontFamily: fontFamily.mono,
-    lineHeight: 12,
   },
   statValue: {
     fontSize: fontSize.sm,

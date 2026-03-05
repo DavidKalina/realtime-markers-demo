@@ -108,7 +108,7 @@ const ContributorsSection: React.FC<ContributorsSectionProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing["2xl"],
   },
   title: {
     fontSize: 11,

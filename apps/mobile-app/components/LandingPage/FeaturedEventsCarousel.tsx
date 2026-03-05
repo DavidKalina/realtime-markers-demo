@@ -173,7 +173,7 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing["2xl"],
   },
   title: {
     fontSize: 11,
