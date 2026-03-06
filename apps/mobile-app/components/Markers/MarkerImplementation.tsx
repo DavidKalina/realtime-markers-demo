@@ -386,6 +386,8 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
               coordinates: item.coordinates,
               duration: 500,
               animationMode: "easeTo",
+              zoomLevel: 16,
+              allowZoomChange: true,
               source: "MarkerSelection",
               timestamp: Date.now(),
             },
