@@ -32,7 +32,7 @@ export interface RedisService {
   ) => void;
 
   // Viewport management
-  updateViewport: (userId: string, viewport: ViewportData) => Promise<void>;
+  updateViewport: (userId: string, viewport: ViewportData, zoom?: number) => Promise<void>;
 
   // Client type management
   setClientType: (userId: string, clientType: string) => Promise<void>;
@@ -224,6 +224,7 @@ export function createRedisService(
     async updateViewport(
       userId: string,
       viewport: ViewportData,
+      zoom?: number,
     ): Promise<void> {
       const viewportKey = `viewport:${userId}`;
       await Promise.all([
@@ -237,6 +238,7 @@ export function createRedisService(
           JSON.stringify({
             userId,
             viewport,
+            zoom,
             timestamp: new Date().toISOString(),
           }),
         ),

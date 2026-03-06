@@ -28,6 +28,19 @@ export const getThirdSpaceScore = async (c: Context<AppContext>) => {
   return c.json(score);
 };
 
+export const getThirdSpaceLeaderboard = async (c: Context<AppContext>) => {
+  const lat = c.req.query("lat");
+  const lng = c.req.query("lng");
+
+  const thirdSpaceScoreService = c.get("thirdSpaceScoreService");
+  const result = await thirdSpaceScoreService.getLeaderboard(
+    lat ? parseFloat(lat) : undefined,
+    lng ? parseFloat(lng) : undefined,
+  );
+
+  return c.json(result);
+};
+
 export const getMyRank = async (c: Context<AppContext>) => {
   const city = c.req.query("city");
   if (!city) {

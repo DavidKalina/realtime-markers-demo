@@ -21,6 +21,7 @@ const ZOMBIE_IDLE_THRESHOLD_MS = 5 * 60_000; // 5 minutes idle = zombie
 const VIEWPORT_DEBOUNCE_MS = 25;
 const viewportTimers = new Map<string, NodeJS.Timeout>();
 const pendingViewports = new Map<string, FormattedViewport>();
+const pendingZooms = new Map<string, number>();
 
 // Initialize services with dependency injection
 const redisService = createRedisService();
@@ -46,9 +47,12 @@ const webSocketMessageHandler = createWebSocketMessageHandler({
     setClientType: (userId: string, clientType: string) =>
       redisService.setClientType(userId, clientType),
   },
-  updateViewport: async (userId: string, viewport) => {
-    // Store latest viewport and debounce the Redis write
+  updateViewport: async (userId: string, viewport, zoom?: number) => {
+    // Store latest viewport (with zoom) and debounce the Redis write
     pendingViewports.set(userId, viewport);
+    if (zoom !== undefined) {
+      pendingZooms.set(userId, zoom);
+    }
 
     if (viewportTimers.has(userId)) {
       clearTimeout(viewportTimers.get(userId)!);
@@ -57,14 +61,18 @@ const webSocketMessageHandler = createWebSocketMessageHandler({
     const timer = setTimeout(() => {
       viewportTimers.delete(userId);
       const latestViewport = pendingViewports.get(userId);
+      const latestZoom = pendingZooms.get(userId);
       pendingViewports.delete(userId);
+      pendingZooms.delete(userId);
       if (latestViewport) {
-        redisService.updateViewport(userId, latestViewport).catch((error) => {
-          console.error(
-            `[WebSocket] Error publishing debounced viewport for user ${userId}:`,
-            error,
-          );
-        });
+        redisService
+          .updateViewport(userId, latestViewport, latestZoom)
+          .catch((error) => {
+            console.error(
+              `[WebSocket] Error publishing debounced viewport for user ${userId}:`,
+              error,
+            );
+          });
       }
     }, VIEWPORT_DEBOUNCE_MS);
 
@@ -215,6 +223,7 @@ async function shutdown() {
   }
   viewportTimers.clear();
   pendingViewports.clear();
+  pendingZooms.clear();
 
   // Close all Redis connections
   await redisService.shutdown();

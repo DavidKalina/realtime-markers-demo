@@ -142,6 +142,7 @@ export interface EventService {
       trendingScore: number;
     })[];
     availableCities: string[];
+    topEvents?: EventSummary[];
   }>;
 
   // User engagement operations
@@ -411,6 +412,7 @@ export class EventServiceRefactored implements EventService {
       trendingScore: number;
     })[];
     availableCities: string[];
+    topEvents?: EventSummary[];
   }> {
     return this.searchService.getLandingPageData(options);
   }

@@ -1,11 +1,21 @@
 import { useCallback, useRef, useState } from "react";
 import { useLocationStore } from "@/stores/useLocationStore";
-import debounce from "lodash/debounce";
 import { MapboxViewport } from "@/types/types";
 
 interface UseMapViewportOptions {
   updateViewport: (viewport: MapboxViewport) => void;
   isPitched: boolean;
+}
+
+/**
+ * Zoom-aware client-side debounce: at high zoom individual markers are visible
+ * so we want snappy updates; at low zoom everything is clustered so we can
+ * afford a wider debounce window, reducing WebSocket churn and re-clustering.
+ */
+function getClientDebounceMs(zoom: number): number {
+  if (zoom >= 14) return 50;
+  if (zoom >= 10) return 120;
+  return 250;
 }
 
 export function useMapViewport({
@@ -24,17 +34,43 @@ export function useMapViewport({
     null,
   );
 
-  // Debounce the expensive updateViewport cascade (state update → EventBroker
-  // broadcast → WebSocket send → re-clustering). Fires once at the start
-  // (leading) and once after the last call (trailing) — max 2 server
-  // requests per gesture. Tight 50ms window is affordable at zoom 13+ where
-  // marker density is low.
-  const debouncedUpdateViewport = useRef(
-    debounce((viewport: MapboxViewport) => updateViewport(viewport), 50, {
-      leading: true,
-      trailing: true,
-    }),
-  ).current;
+  // Zoom-aware debounce: fires once at the start (leading) and once after the
+  // last call (trailing). The debounce window scales with zoom — tight at high
+  // zoom where individual markers matter, wider at low zoom where everything
+  // is clustered.
+  const viewportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingViewportRef = useRef<MapboxViewport | null>(null);
+  const hasFiredLeadingRef = useRef(false);
+
+  const debouncedUpdateViewport = useCallback(
+    (viewport: MapboxViewport) => {
+      const zoom = useLocationStore.getState().zoomLevel;
+      const wait = getClientDebounceMs(zoom);
+
+      pendingViewportRef.current = viewport;
+
+      // Leading edge: fire immediately on first call
+      if (!hasFiredLeadingRef.current) {
+        hasFiredLeadingRef.current = true;
+        updateViewport(viewport);
+      }
+
+      // Reset trailing timer
+      if (viewportTimerRef.current) {
+        clearTimeout(viewportTimerRef.current);
+      }
+
+      viewportTimerRef.current = setTimeout(() => {
+        hasFiredLeadingRef.current = false;
+        viewportTimerRef.current = null;
+        if (pendingViewportRef.current) {
+          updateViewport(pendingViewportRef.current);
+          pendingViewportRef.current = null;
+        }
+      }, wait);
+    },
+    [updateViewport],
+  );
 
   const processViewportBounds = useCallback(
     (
@@ -144,16 +180,17 @@ export function useMapViewport({
           cameraMovingRef.current = true;
           setIsCameraMoving(true);
         }
-        // Reset the settle timer on every frame — 80ms after the last
-        // onRegionIsChanging we consider the camera settled. Tighter window
-        // unfreezes clustering faster so new markers appear sooner after a pan.
+        // Reset the settle timer on every frame — wait until pinch/pan gesture
+        // fully settles before unfreezing clustering. At low zoom (where everything
+        // is clustered) use a longer settle window to avoid rapid thrashing.
         if (cameraSettledTimeout.current) {
           clearTimeout(cameraSettledTimeout.current);
         }
+        const settleMs = typeof zoomLevel === "number" && zoomLevel < 10 ? 500 : 300;
         cameraSettledTimeout.current = setTimeout(() => {
           cameraMovingRef.current = false;
           setIsCameraMoving(false);
-        }, 150);
+        }, settleMs);
 
         handleMapViewportChange(feature);
       } catch (error) {

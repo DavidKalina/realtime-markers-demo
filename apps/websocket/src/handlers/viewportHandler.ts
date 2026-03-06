@@ -112,7 +112,9 @@ export function handleViewportUpdate(
   updateViewport: (
     userId: string,
     viewport: FormattedViewport,
+    zoom?: number,
   ) => Promise<void>,
+  zoom?: number,
 ): Promise<void> {
   const userId = ws.data.userId;
 
@@ -130,5 +132,5 @@ export function handleViewportUpdate(
     return Promise.resolve();
   }
 
-  return updateViewport(userId, validation.viewport!);
+  return updateViewport(userId, validation.viewport!, zoom);
 }

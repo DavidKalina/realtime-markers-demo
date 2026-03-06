@@ -84,6 +84,7 @@ export interface EventSearchService {
     })[];
     trendingEvents: (Event & { isTrending: true; trendingScore: number })[];
     availableCities: string[];
+    topEvents?: Event[];
   }>;
 }
 
@@ -860,6 +861,32 @@ export class EventSearchServiceImpl implements EventSearchService {
     }
   }
 
+  async getTopEvents(
+    city: string,
+    limit: number = 10,
+  ): Promise<Event[]> {
+    const cityName = city.includes(",") ? city.split(",")[0].trim() : city;
+    const qb = this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("event.status IN (:...statuses)", {
+        statuses: ["VERIFIED", "PENDING"],
+      })
+      .andWhere("event.eventDate >= NOW() - INTERVAL '30 days'")
+      .andWhere(
+        "(LOWER(event.city) = LOWER(:city) OR LOWER(event.city) = LOWER(:cityName))",
+        { city, cityName },
+      )
+      .orderBy(
+        "(COALESCE(event.saveCount, 0) + COALESCE(event.viewCount, 0))",
+        "DESC",
+      )
+      .take(limit);
+
+    return qb.getMany();
+  }
+
   async getLandingPageData(
     options: {
       featuredLimit?: number;
@@ -886,6 +913,7 @@ export class EventSearchServiceImpl implements EventSearchService {
     })[];
     trendingEvents: (Event & { isTrending: true; trendingScore: number })[];
     availableCities: string[];
+    topEvents?: Event[];
   }> {
     const {
       featuredLimit = 5,
@@ -1241,6 +1269,16 @@ export class EventSearchServiceImpl implements EventSearchService {
       return globalResult;
     }
 
+    // Top events: ranked by engagement, only when city is scoped
+    let topEvents: Event[] | undefined;
+    if (city) {
+      try {
+        topEvents = await this.getTopEvents(city, 10);
+      } catch (error) {
+        console.error("Error fetching top events:", error);
+      }
+    }
+
     const result = {
       featuredEvents,
       upcomingEvents,
@@ -1249,6 +1287,7 @@ export class EventSearchServiceImpl implements EventSearchService {
       justDiscoveredEvents,
       trendingEvents,
       availableCities,
+      ...(topEvents ? { topEvents } : {}),
     };
 
     console.log("Landing page result:", {

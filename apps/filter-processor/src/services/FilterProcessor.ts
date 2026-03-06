@@ -24,7 +24,7 @@ export interface FilterProcessor {
 
   // User management
   handleFilterChanges(userId: string, filters: Filter[]): Promise<void>;
-  handleViewportUpdate(userId: string, viewport: BoundingBox): Promise<void>;
+  handleViewportUpdate(userId: string, viewport: BoundingBox, zoom?: number): Promise<void>;
   handleInitialRequest(userId: string): Promise<void>;
   handleUserDisconnection(userId: string): void;
 
@@ -229,10 +229,18 @@ export function createFilterProcessor(
     totalFilteredEventsPublished: 0,
   };
 
-  // Viewport debouncing to prevent excessive processing
+  // Viewport debouncing to prevent excessive processing.
+  // At low zoom levels, markers are clustered so individual updates matter less —
+  // we use a longer debounce to reduce processing churn during rapid panning.
   const viewportDebounceTimers = new Map<string, NodeJS.Timeout>();
-  // Make this small to coalesce jitter without adding noticeable latency
-  const viewportDebounceMs = Number(process.env.VIEWPORT_DEBOUNCE_MS || 25);
+  const baseViewportDebounceMs = Number(process.env.VIEWPORT_DEBOUNCE_MS || 25);
+
+  function getZoomAwareDebounceMs(zoom?: number): number {
+    if (zoom === undefined) return baseViewportDebounceMs;
+    if (zoom >= 14) return baseViewportDebounceMs; // High zoom: full responsiveness
+    if (zoom >= 10) return 150; // Mid zoom: moderate debounce
+    return 500; // Low zoom: aggressive debounce, everything is clustered anyway
+  }
 
   /**
    * Initialize the filter processor service.
@@ -324,11 +332,14 @@ export function createFilterProcessor(
   async function handleViewportUpdate(
     userId: string,
     viewport: BoundingBox,
+    zoom?: number,
   ): Promise<void> {
     // Clear existing debounce timer for this user
     if (viewportDebounceTimers.has(userId)) {
       clearTimeout(viewportDebounceTimers.get(userId)!);
     }
+
+    const debounceMs = getZoomAwareDebounceMs(zoom);
 
     // Set new debounce timer
     const timer = setTimeout(async () => {
@@ -348,6 +359,7 @@ export function createFilterProcessor(
         console.log("[FilterProcessor] Viewport update processed:", {
           userId,
           viewport,
+          zoom,
         });
       } catch (error) {
         console.error(
@@ -358,14 +370,15 @@ export function createFilterProcessor(
         // Clean up timer reference
         viewportDebounceTimers.delete(userId);
       }
-    }, viewportDebounceMs);
+    }, debounceMs);
 
     viewportDebounceTimers.set(userId, timer);
 
     console.log("[FilterProcessor] Viewport update debounced:", {
       userId,
       viewport,
-      debounceMs: viewportDebounceMs,
+      debounceMs,
+      zoom,
     });
   }
 

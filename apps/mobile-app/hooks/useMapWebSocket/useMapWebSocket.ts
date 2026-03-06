@@ -4,6 +4,7 @@ import { eventBroker, EventTypes, ViewportEvent } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState } from "react-native";
 import { MessageTypes } from "./constants";
 import type { MapWebSocketResult } from "./types";
 import { useMessageHandler } from "./useMessageHandler";
@@ -37,6 +38,7 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       const message = {
         type: MessageTypes.VIEWPORT_UPDATE,
         viewport: currentViewportRef.current,
+        zoom: useLocationStore.getState().zoomLevel,
       };
       wsRef.current.send(JSON.stringify(message));
     }
@@ -101,6 +103,26 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
 
     return cleanup;
   }, [connectWebSocket, isAuthenticated, user?.id, cleanup]);
+
+  // Re-send viewport when app returns from background so the server pushes
+  // fresh data. Without this, the MapView remounts but no new markers arrive
+  // because the server thinks our viewport hasn't changed.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        // Small delay to let the WebSocket reconnect if it was dropped
+        setTimeout(() => {
+          if (
+            wsRef.current?.readyState === WebSocket.OPEN &&
+            currentViewportRef.current
+          ) {
+            sendViewportUpdateToServer();
+          }
+        }, 500);
+      }
+    });
+    return () => subscription.remove();
+  }, [sendViewportUpdateToServer, currentViewportRef, wsRef]);
 
   // Force viewport update listener
   useEffect(() => {

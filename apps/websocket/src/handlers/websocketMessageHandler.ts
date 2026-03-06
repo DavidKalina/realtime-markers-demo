@@ -17,6 +17,7 @@ export interface ViewportUpdateData {
     east: number;
     north: number;
   };
+  zoom?: number;
 }
 
 export interface WebSocketMessageHandler {
@@ -43,6 +44,7 @@ export interface WebSocketMessageHandlerDependencies {
   updateViewport: (
     userId: string,
     viewport: FormattedViewport,
+    zoom?: number,
   ) => Promise<void>;
   getUserClients: (userId: string) => Set<string> | undefined;
   addUserClient: (userId: string, clientId: string) => void;
@@ -126,6 +128,7 @@ export function createWebSocketMessageHandler(
         ws,
         data.viewport,
         dependencies.updateViewport,
+        data.zoom,
       );
     },
 

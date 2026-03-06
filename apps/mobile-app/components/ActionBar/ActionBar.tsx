@@ -9,9 +9,9 @@ import { usePathname, useRouter } from "expo-router";
 import {
   Camera,
   CompassIcon,
+  GlobeIcon,
   HeartIcon,
   LucideIcon,
-  SearchIcon,
   User,
 } from "lucide-react-native";
 import React, { useCallback, useMemo } from "react";
@@ -40,7 +40,7 @@ const BUTTON_RELEASE_ANIMATION = {
 };
 
 // Define route type to match expo-router's expected types
-type AppRoute = "/search" | "/scan" | "/saved" | "/user" | "/";
+type AppRoute = "/spaces" | "/scan" | "/saved" | "/user" | "/";
 
 interface TabConfig {
   key: string;
@@ -53,10 +53,10 @@ interface TabConfig {
 
 const TABS: TabConfig[] = [
   {
-    key: "search",
-    label: "Search",
-    icon: SearchIcon,
-    route: "/search",
+    key: "spaces",
+    label: "Spaces",
+    icon: GlobeIcon,
+    route: "/spaces",
     activeColor: colors.action.map,
   },
   {
@@ -95,7 +95,7 @@ const HIDDEN_ROUTES = ["/register", "/login"];
 const getActiveTabKey = (pathname: string): string | null => {
   if (pathname === "/") return "locate";
   if (pathname.startsWith("/saved")) return "saved";
-  if (pathname.startsWith("/search")) return "search";
+  if (pathname.startsWith("/spaces")) return "spaces";
   return TABS.find((tab) => tab.route === pathname)?.key ?? null;
 };
 

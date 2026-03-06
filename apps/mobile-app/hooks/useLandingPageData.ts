@@ -22,6 +22,7 @@ interface LandingPageData {
   popularCategories: Category[];
   availableCities: string[];
   resolvedCity?: string;
+  topEvents?: EventType[];
 }
 
 interface UseLandingPageDataProps {

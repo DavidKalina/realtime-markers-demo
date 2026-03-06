@@ -295,6 +295,7 @@ export class EventApiClient extends BaseApiModule {
     }>;
     availableCities: string[];
     resolvedCity?: string;
+    topEvents?: EventType[];
   }> {
     const queryParams = new URLSearchParams();
     if (params.userLat !== undefined)
@@ -336,6 +337,7 @@ export class EventApiClient extends BaseApiModule {
         isTrending?: boolean;
         trendingScore?: number;
       })[];
+      topEvents?: ApiEvent[];
       popularCategories: Array<{
         id: string;
         name: string;
@@ -369,6 +371,7 @@ export class EventApiClient extends BaseApiModule {
       })),
       availableCities: data.availableCities || [],
       resolvedCity: data.resolvedCity,
+      topEvents: data.topEvents?.map(mapEventToEventType),
     };
   }
 

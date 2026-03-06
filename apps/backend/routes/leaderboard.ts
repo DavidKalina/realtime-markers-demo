@@ -3,6 +3,7 @@ import {
   getCityLeaderboard,
   getMyRank,
   getThirdSpaceScore,
+  getThirdSpaceLeaderboard,
 } from "../handlers/leaderboardHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -14,6 +15,9 @@ leaderboardRouter.get("/", getCityLeaderboard);
 
 // Public — Third Space Score
 leaderboardRouter.get("/third-space-score", getThirdSpaceScore);
+
+// Public — Third Spaces leaderboard (all cities)
+leaderboardRouter.get("/third-spaces", getThirdSpaceLeaderboard);
 
 // Authenticated — user's own rank
 leaderboardRouter.use("/my-rank", authMiddleware);

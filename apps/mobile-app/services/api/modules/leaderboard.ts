@@ -41,6 +41,22 @@ export interface ThirdSpaceScoreResponse {
   contributors: ContributorEntry[];
 }
 
+export interface ThirdSpaceSummary {
+  city: string;
+  score: number;
+  momentum: "rising" | "steady" | "cooling";
+  delta24h: number;
+  eventCount: number;
+  centroid: { lat: number; lng: number };
+  distanceMiles?: number;
+  computedAt: string;
+}
+
+export interface ThirdSpacesResponse {
+  topCities: ThirdSpaceSummary[];
+  closestCities?: ThirdSpaceSummary[];
+}
+
 export interface UserStats {
   categoryBreakdown: { name: string; icon: string | null; count: number }[];
   cityBreakdown: { city: string; count: number }[];
@@ -73,6 +89,19 @@ export class LeaderboardModule extends BaseApiModule {
     const url = `${this.client.baseUrl}/api/leaderboard/third-space-score?city=${encodeURIComponent(city)}`;
     const response = await this.fetchWithAuth(url);
     return this.handleResponse<ThirdSpaceScoreResponse>(response);
+  }
+
+  async getThirdSpaces(
+    lat?: number,
+    lng?: number,
+  ): Promise<ThirdSpacesResponse> {
+    const params = new URLSearchParams();
+    if (lat !== undefined) params.append("lat", lat.toString());
+    if (lng !== undefined) params.append("lng", lng.toString());
+    const qs = params.toString();
+    const url = `${this.client.baseUrl}/api/leaderboard/third-spaces${qs ? `?${qs}` : ""}`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<ThirdSpacesResponse>(response);
   }
 
   async getMyStats(): Promise<UserStats> {

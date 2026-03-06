@@ -48,7 +48,11 @@ interface ClusteredMapMarkersProps {
 // Maximum number of MarkerView slots pre-mounted inside the MapView.
 // The native view tree never grows or shrinks past this count after initial mount,
 // preventing insertReactSubview crashes.
-const POOL_SIZE = 200;
+const MAX_POOL_SIZE = 200;
+
+// Only animate entrance for new markers when the batch is small enough
+// to feel magical rather than chaotic.
+const ANIMATION_BUDGET = 20;
 
 // Offscreen coordinate used for inactive pool slots. Latitude 90 (North Pole)
 // ensures MarkerView is never visible regardless of viewport.
@@ -96,12 +100,15 @@ const MarkerSlotContent = React.memo(
       }
     }, [onSelect, onNavigate]);
 
-    // Haptic feedback for first appearance
+    // Haptic feedback — only for genuinely new markers (from WebSocket),
+    // not for markers reappearing due to zoom/recluster.
+    const hasPlayedHaptic = useRef(false);
     useEffect(() => {
       if (Platform.OS === "web") return;
-      if (!isNew) return;
+      if (!isNew || hasPlayedHaptic.current) return;
       if (seenHapticIds.current.has(marker.id)) return;
       if (seenHapticIds.current.size >= 3) return;
+      hasPlayedHaptic.current = true;
       seenHapticIds.current.add(marker.id);
       const hapticDelay = Math.min(newIndex, 5) * staggerDelay;
       const timer = setTimeout(() => {
@@ -110,18 +117,25 @@ const MarkerSlotContent = React.memo(
       return () => clearTimeout(timer);
     }, [newIndex, marker.id, seenHapticIds, isNew, staggerDelay]);
 
-    // Entrance animation via shared values (safe — no shadow tree mutations).
-    // New markers: full pin-drop from above with bounce.
-    // Returning markers (viewport re-entry): subtle fade + scale up.
-    const dropY = useSharedValue(-30);
-    const dropScale = useSharedValue(0.2);
-    const dropOpacity = useSharedValue(0);
+    // Entrance animation — only for genuinely new markers (first time on map).
+    // Recluster/viewport re-entry: instant show, no animation (avoids popping).
+    const dropY = useSharedValue(isNew ? -30 : 0);
+    const dropScale = useSharedValue(isNew ? 0.2 : 1);
+    const dropOpacity = useSharedValue(isNew ? 0 : 1);
+    const hasAnimated = useRef(false);
+
     useEffect(() => {
+      if (hasAnimated.current) {
+        // Slot reused for a different marker — instant show, no animation
+        dropY.value = 0;
+        dropScale.value = 1;
+        dropOpacity.value = 1;
+        return;
+      }
+      hasAnimated.current = true;
+
       if (isNew) {
-        // Full pin-drop for brand new markers
-        dropY.value = -30;
-        dropScale.value = 0.2;
-        dropOpacity.value = 0;
+        // Full pin-drop for brand new markers only
         const delay = Math.min(newIndex, 5) * staggerDelay;
         dropOpacity.value = withDelay(delay, withTiming(1, { duration: 120 }));
         dropY.value = withDelay(
@@ -133,12 +147,10 @@ const MarkerSlotContent = React.memo(
           withSpring(1, { damping: 8, stiffness: 220, mass: 0.6 }),
         );
       } else {
-        // Subtle entrance for viewport re-entry / slot reuse
+        // Already-known marker — just show it
+        dropOpacity.value = 1;
         dropY.value = 0;
-        dropScale.value = 0.85;
-        dropOpacity.value = 0;
-        dropOpacity.value = withTiming(1, { duration: 200 });
-        dropScale.value = withSpring(1, { damping: 12, stiffness: 180 });
+        dropScale.value = 1;
       }
     }, [marker.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -185,12 +197,14 @@ const ClusterSlotContent = React.memo(
     staggerDelay: number;
     seenHapticIds: React.MutableRefObject<Set<string>>;
   }) => {
-    // Haptic feedback for first appearance
+    // Haptic feedback — only for genuinely new clusters, not reclustering.
+    const hasPlayedHaptic = useRef(false);
     useEffect(() => {
       if (Platform.OS === "web") return;
-      if (!isNew) return;
+      if (!isNew || hasPlayedHaptic.current) return;
       if (seenHapticIds.current.has(cluster.id)) return;
       if (seenHapticIds.current.size >= 3) return;
+      hasPlayedHaptic.current = true;
       seenHapticIds.current.add(cluster.id);
       const hapticDelay = Math.min(newIndex, 5) * staggerDelay;
       const timer = setTimeout(() => {
@@ -199,40 +213,37 @@ const ClusterSlotContent = React.memo(
       return () => clearTimeout(timer);
     }, [newIndex, cluster.id, seenHapticIds, isNew, staggerDelay]);
 
-    // Entrance animation (same pattern as markers)
-    const dropY = useSharedValue(-30);
-    const dropScale = useSharedValue(0.2);
-    const dropOpacity = useSharedValue(0);
+    // Entrance animation — only for genuinely new clusters.
+    // Recluster transitions: instant show, no animation.
+    const dropScale = useSharedValue(isNew ? 0.5 : 1);
+    const dropOpacity = useSharedValue(isNew ? 0 : 1);
+    const hasAnimated = useRef(false);
+
     useEffect(() => {
+      if (hasAnimated.current) {
+        // Slot reused — instant show
+        dropScale.value = 1;
+        dropOpacity.value = 1;
+        return;
+      }
+      hasAnimated.current = true;
+
       if (isNew) {
-        dropY.value = -30;
-        dropScale.value = 0.2;
-        dropOpacity.value = 0;
         const delay = Math.min(newIndex, 5) * staggerDelay;
-        dropOpacity.value = withDelay(delay, withTiming(1, { duration: 120 }));
-        dropY.value = withDelay(
-          delay,
-          withSpring(0, { damping: 8, stiffness: 220, mass: 0.6 }),
-        );
+        dropOpacity.value = withDelay(delay, withTiming(1, { duration: 150 }));
         dropScale.value = withDelay(
           delay,
-          withSpring(1, { damping: 8, stiffness: 220, mass: 0.6 }),
+          withSpring(1, { damping: 12, stiffness: 200 }),
         );
       } else {
-        dropY.value = 0;
-        dropScale.value = 0.85;
-        dropOpacity.value = 0;
-        dropOpacity.value = withTiming(1, { duration: 200 });
-        dropScale.value = withSpring(1, { damping: 12, stiffness: 180 });
+        dropOpacity.value = 1;
+        dropScale.value = 1;
       }
     }, [cluster.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const mountStyle = useAnimatedStyle(() => ({
       opacity: dropOpacity.value,
-      transform: [
-        { translateY: dropY.value },
-        { scale: dropScale.value },
-      ],
+      transform: [{ scale: dropScale.value }],
     }));
 
     return (
@@ -495,7 +506,9 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       });
     }, [processedClusters, viewport]);
 
-    // Tag items with stagger indices for haptic timing
+    // Tag items with stagger indices for haptic timing.
+    // When too many new markers arrive at once (e.g. rapid pan into a dense area),
+    // skip entrance animations to avoid visual chaos — the "magic" lives in small batches.
     const itemsWithNewIndex = useMemo(() => {
       let newCounter = 0;
       const tagged = visibleItems.map((item, index) => ({
@@ -504,10 +517,15 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         newIndex: item.isNew ? newCounter++ : 0,
       }));
       const newCount = newCounter;
+      const shouldAnimate = newCount <= ANIMATION_BUDGET;
       const maxSlots = Math.min(newCount, 5);
       const staggerDelay =
         maxSlots > 0 ? Math.min(80, Math.floor(300 / maxSlots)) : 0;
-      return tagged.map((item) => ({ ...item, staggerDelay }));
+      return tagged.map((item) => ({
+        ...item,
+        isNew: shouldAnimate && item.isNew,
+        staggerDelay,
+      }));
     }, [visibleItems]);
 
     // Freeze during camera movement to prevent rapid mutations
@@ -519,12 +537,20 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       }
     }, [itemsWithNewIndex, isCameraMoving]);
 
+    // Dynamic pool size — at low zoom most items are clusters so we need fewer
+    // React-managed MarkerView slots, reducing reconciliation cost.
+    const effectivePoolSize = useMemo(() => {
+      if (currentZoom >= 14) return MAX_POOL_SIZE;
+      if (currentZoom >= 10) return 50;
+      return 15;
+    }, [currentZoom]);
+
     // -----------------------------------------------------------------------
     // Build pool slot data — map each visible item to a slot, rest go offscreen
     // -----------------------------------------------------------------------
     const poolData = useMemo(() => {
       const slots: PoolSlotData[] = [];
-      const count = Math.min(stableItems.length, POOL_SIZE);
+      const count = Math.min(stableItems.length, effectivePoolSize);
 
       for (let i = 0; i < count; i++) {
         const processed = stableItems[i];
@@ -570,7 +596,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       }
 
       // Fill remaining pool slots with offscreen empty markers
-      for (let i = count; i < POOL_SIZE; i++) {
+      for (let i = count; i < effectivePoolSize; i++) {
         slots.push({
           coordinate: OFFSCREEN,
           anchor: { x: 0.5, y: 0.5 },
@@ -579,7 +605,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       }
 
       return slots;
-    }, [stableItems, breathingScale, clusterPulse]);
+    }, [stableItems, breathingScale, clusterPulse, effectivePoolSize]);
 
     return (
       <>

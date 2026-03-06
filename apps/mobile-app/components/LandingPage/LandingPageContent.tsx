@@ -25,6 +25,7 @@ import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
 import ContributorsSection from "./LeaderboardSection";
 import WhatsHappeningSection from "./WhatsHappeningSection";
 import ThirdSpaceScoreHero from "./ThirdSpaceScoreHero";
+import TopEventsSection from "./TopEventsSection";
 import type { ThirdSpaceScoreResponse } from "@/services/api/modules/leaderboard";
 
 interface Category {
@@ -42,6 +43,7 @@ interface LandingPageData {
   trendingEvents?: TrendingEventType[];
   popularCategories?: Category[];
   availableCities?: string[];
+  topEvents?: EventType[];
 }
 
 interface LandingPageContentProps {
@@ -51,6 +53,7 @@ interface LandingPageContentProps {
   isRefreshing?: boolean;
   thirdSpaceScore?: ThirdSpaceScoreResponse | null;
   currentUserId?: string;
+  topEvents?: EventType[];
 }
 
 const SkeletonCard: React.FC = () => (
@@ -72,6 +75,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
   isRefreshing = false,
   thirdSpaceScore,
   currentUserId,
+  topEvents,
 }) => {
   return (
     <ScrollView
@@ -132,14 +136,22 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
               </Animated.View>
             )}
 
-          <Animated.View entering={FadeIn.duration(duration.normal).delay(160)}>
+          {topEvents && topEvents.length > 0 && (
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(160)}
+              >
+                <TopEventsSection events={topEvents} />
+              </Animated.View>
+            )}
+
+          <Animated.View entering={FadeIn.duration(duration.normal).delay(topEvents?.length ? 240 : 160)}>
             <WhatsHappeningSection
               trendingEvents={data?.trendingEvents || []}
               justDiscoveredEvents={data?.justDiscoveredEvents || []}
             />
           </Animated.View>
 
-          <Animated.View entering={FadeIn.duration(duration.normal).delay(240)}>
+          <Animated.View entering={FadeIn.duration(duration.normal).delay(topEvents?.length ? 320 : 240)}>
             <FeaturedEventsCarousel
               events={data?.featuredEvents || []}
               isLoading={false}

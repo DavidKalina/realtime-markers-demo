@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Search as SearchIcon, X } from "lucide-react-native";
-import { TextInput } from "react-native";
+import { Search as SearchIcon, X, ChevronRight, GlobeIcon } from "lucide-react-native";
+import { Pressable, StyleSheet as RNStyleSheet, Text, TextInput, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Screen from "@/components/Layout/Screen";
@@ -14,10 +14,20 @@ import LandingPageContent from "@/components/LandingPage/LandingPageContent";
 import useEventSearch from "@/hooks/useEventSearch";
 import useLandingPageData from "@/hooks/useLandingPageData";
 import useThirdSpaceScore from "@/hooks/useThirdSpaceScore";
+import useThirdSpaces from "@/hooks/useThirdSpaces";
 import { useCategoryPreferences } from "@/hooks/useCategoryPreferences";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { apiClient } from "@/services/ApiClient";
+import {
+  colors,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  radius,
+  spacing,
+} from "@/theme";
+import type { ThirdSpaceSummary } from "@/services/api/modules/leaderboard";
 // Type for events from the API
 type EventType = Omit<EventListItemProps, "onPress">;
 
@@ -42,6 +52,12 @@ const SearchListScreen = () => {
     clearSearch,
     hasSearched,
   } = useEventSearch({ initialMarkers: storedMarkers });
+
+  // Third spaces data for city search
+  const { topCities } = useThirdSpaces(
+    userLocation?.[1],
+    userLocation?.[0],
+  );
 
   // Distance & city filter state
   const [selectedDistance, setSelectedDistance] = useState(15);
@@ -88,6 +104,27 @@ const SearchListScreen = () => {
   const { score: thirdSpaceScore, refetch: refetchScore } =
     useThirdSpaceScore(resolvedCity);
   const currentUser = apiClient.getCurrentUser();
+
+  // Filter matching cities based on search query
+  const matchingCities = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q || q.length < 2) return [];
+    return topCities.filter((c) => {
+      const cityName = c.city.toLowerCase();
+      return cityName.includes(q);
+    }).slice(0, 3);
+  }, [searchQuery, topCities]);
+
+  const handleCityPress = useCallback(
+    (city: ThirdSpaceSummary) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      router.push({
+        pathname: "/spaces/[city]" as const,
+        params: { city: city.city },
+      });
+    },
+    [router],
+  );
 
   // Track if we're showing landing page or search results
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -262,6 +299,43 @@ const SearchListScreen = () => {
           isRefreshing={isRefreshing}
           hasMore={!searchError && eventResults.length > 0}
           error={searchError}
+          ListHeaderComponent={
+            matchingCities.length > 0 ? (
+              <View style={cityStyles.container}>
+                <View style={cityStyles.headerRow}>
+                  <GlobeIcon size={12} color={colors.text.secondary} />
+                  <Text style={cityStyles.headerText}>THIRD SPACES</Text>
+                </View>
+                {matchingCities.map((city) => {
+                  const label = city.city.includes(",")
+                    ? city.city.split(",")[0].trim()
+                    : city.city;
+                  return (
+                    <Pressable
+                      key={city.city}
+                      style={({ pressed }) => [
+                        cityStyles.item,
+                        pressed && cityStyles.itemPressed,
+                      ]}
+                      onPress={() => handleCityPress(city)}
+                    >
+                      <View style={cityStyles.itemInfo}>
+                        <Text style={cityStyles.cityName}>{label}</Text>
+                        <Text style={cityStyles.cityMeta}>
+                          Score {city.score} · {city.eventCount} event
+                          {city.eventCount !== 1 ? "s" : ""}
+                        </Text>
+                      </View>
+                      <ChevronRight
+                        size={14}
+                        color={colors.text.secondary}
+                      />
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : undefined
+          }
           emptyEmoji={searchQuery.trim() ? "🔍" : "📭"}
           emptyTitle={
             searchQuery.trim() ? "No results found" : "No events found"
@@ -282,5 +356,57 @@ const SearchListScreen = () => {
     </Screen>
   );
 };
+
+const cityStyles = RNStyleSheet.create({
+  container: {
+    marginBottom: spacing.md,
+    marginHorizontal: spacing.lg,
+    backgroundColor: colors.bg.card,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    overflow: "hidden",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
+  },
+  headerText: {
+    fontSize: 10,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
+    letterSpacing: 1.2,
+  },
+  item: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.default,
+  },
+  itemPressed: {
+    backgroundColor: colors.bg.elevated,
+  },
+  itemInfo: {
+    flex: 1,
+    gap: 1,
+  },
+  cityName: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
+  },
+  cityMeta: {
+    fontSize: fontSize.xs,
+    color: colors.text.secondary,
+    fontFamily: fontFamily.mono,
+  },
+});
 
 export default SearchListScreen;

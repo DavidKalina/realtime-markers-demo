@@ -38,6 +38,22 @@ export interface ThirdSpaceScoreResponse {
   contributors: ContributorEntry[];
 }
 
+export interface ThirdSpaceSummary {
+  city: string;
+  score: number;
+  momentum: "rising" | "steady" | "cooling";
+  delta24h: number;
+  eventCount: number;
+  centroid: { lat: number; lng: number };
+  distanceMiles?: number;
+  computedAt: string;
+}
+
+export interface ThirdSpacesResponse {
+  topCities: ThirdSpaceSummary[];
+  closestCities?: ThirdSpaceSummary[];
+}
+
 function sigmoid(raw: number, k: number): number {
   return Math.round(100 * (1 - Math.exp(-raw / k)));
 }
@@ -397,6 +413,117 @@ export class ThirdSpaceScoreService {
       },
     );
   }
+
+  async getLeaderboard(
+    lat?: number,
+    lng?: number,
+  ): Promise<ThirdSpacesResponse> {
+    const cacheKey = lat && lng
+      ? `tss:leaderboard:${Math.round(lat * 10)}:${Math.round(lng * 10)}`
+      : "tss:leaderboard:global";
+    const cached = await this.redisService.get<ThirdSpacesResponse>(cacheKey);
+    if (cached) return cached;
+
+    // Latest snapshot per city
+    const snapshots = await this.dataSource.query(
+      `SELECT DISTINCT ON (LOWER(city))
+        city, score,
+        vitality_score AS "vitalityScore",
+        discovery_score AS "discoveryScore",
+        diversity_score AS "diversityScore",
+        engagement_score AS "engagementScore",
+        rootedness_score AS "rootednessScore",
+        computed_at AS "computedAt"
+       FROM third_space_score_snapshots
+       ORDER BY LOWER(city), computed_at DESC`,
+    );
+
+    // Active event count + centroid per city
+    const eventStats = await this.dataSource.query(
+      `SELECT LOWER(city) AS city_key,
+              COUNT(*)::int AS event_count,
+              AVG(ST_Y(location::geometry)) AS centroid_lat,
+              AVG(ST_X(location::geometry)) AS centroid_lng
+       FROM events
+       WHERE city IS NOT NULL
+         AND status IN ('PENDING', 'VERIFIED')
+         AND event_date >= NOW() - INTERVAL '30 days'
+       GROUP BY LOWER(city)`,
+    );
+    const statsMap = new Map<string, { eventCount: number; centroidLat: number; centroidLng: number }>();
+    for (const row of eventStats) {
+      statsMap.set(row.city_key, {
+        eventCount: row.event_count,
+        centroidLat: parseFloat(row.centroid_lat),
+        centroidLng: parseFloat(row.centroid_lng),
+      });
+    }
+
+    // Previous snapshots (~24h ago) for momentum
+    const previousSnapshots = await this.dataSource.query(
+      `SELECT DISTINCT ON (LOWER(city))
+        city, score
+       FROM third_space_score_snapshots
+       WHERE computed_at < NOW() - INTERVAL '20 hours'
+       ORDER BY LOWER(city), computed_at DESC`,
+    );
+    const prevMap = new Map<string, number>();
+    for (const row of previousSnapshots) {
+      prevMap.set(row.city.toLowerCase(), row.score);
+    }
+
+    const summaries: ThirdSpaceSummary[] = [];
+    for (const snap of snapshots) {
+      const key = snap.city.toLowerCase();
+      const stats = statsMap.get(key);
+      if (!stats || stats.eventCount === 0) continue;
+
+      const prevScore = prevMap.get(key);
+      const delta24h = prevScore !== undefined ? snap.score - prevScore : 0;
+      const momentum: "rising" | "steady" | "cooling" =
+        delta24h >= 3 ? "rising" : delta24h <= -3 ? "cooling" : "steady";
+
+      const summary: ThirdSpaceSummary = {
+        city: snap.city,
+        score: snap.score,
+        momentum,
+        delta24h,
+        eventCount: stats.eventCount,
+        centroid: { lat: stats.centroidLat, lng: stats.centroidLng },
+        computedAt: snap.computedAt,
+      };
+
+      if (lat !== undefined && lng !== undefined) {
+        summary.distanceMiles = haversineDistance(lat, lng, stats.centroidLat, stats.centroidLng);
+      }
+
+      summaries.push(summary);
+    }
+
+    const topCities = [...summaries].sort((a, b) => b.score - a.score);
+
+    const result: ThirdSpacesResponse = { topCities };
+
+    if (lat !== undefined && lng !== undefined) {
+      result.closestCities = [...summaries]
+        .sort((a, b) => (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity))
+        .slice(0, 10);
+    }
+
+    await this.redisService.set(cacheKey, result, 900); // 15-min TTL
+    return result;
+  }
+}
+
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const R = 3958.8; // miles
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 export function createThirdSpaceScoreService(

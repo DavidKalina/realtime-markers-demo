@@ -10,7 +10,7 @@ export interface RedisMessageHandler {
 
 export interface MessageHandlers {
   onFilterChanges: (userId: string, filters: Filter[]) => Promise<void>;
-  onViewportUpdate: (userId: string, viewport: BoundingBox) => Promise<void>;
+  onViewportUpdate: (userId: string, viewport: BoundingBox, zoom?: number) => Promise<void>;
   onInitialRequest: (userId: string) => Promise<void>;
   onEventUpdate: (eventData: {
     operation: string;
@@ -119,7 +119,7 @@ export function createRedisMessageHandler(
           stats.filterChangesProcessed++;
           break;
         case viewportUpdates:
-          await handlers.onViewportUpdate(data.userId, data.viewport);
+          await handlers.onViewportUpdate(data.userId, data.viewport, data.zoom);
           stats.viewportUpdatesProcessed++;
           break;
         case initialRequest:
