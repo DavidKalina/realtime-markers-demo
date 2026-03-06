@@ -1,106 +1,67 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * Module-scoped gates for safely mounting MapView on different screens.
+ * Per-mount gate for safely mounting MapView.
  *
  * The Mapbox MapView registers a native component descriptor on mount.
- * If that registration races with reanimated layout animations (which use the
- * same ComponentDescriptorRegistry mutex on Fabric), the app deadlocks.
+ * If that registration races with reanimated's animation thread (which
+ * holds the same ComponentDescriptorRegistry mutex on Fabric), the app
+ * deadlocks.
  * See: https://github.com/facebook/react-native/issues/53128
  *
- * Each gate ensures MapView only mounts after:
- *   1. The host container has completed its first layout pass (`onLayout`)
- *   2. Three animation frames have elapsed, giving reanimated time to finish
- *      scheduling any entering layout animations from the first commit.
+ * Each mount waits for:
+ *   1. The host container to complete its first layout pass (`onLayout`)
+ *   2. Several animation frames to elapse, giving reanimated time to finish
+ *      any in-flight animation work from the screen transition.
  *
- * Once a gate opens it stays open forever — re-renders, unmounts, and
- * navigating back to the screen won't re-close it.
+ * The gate re-closes on every fresh mount so navigating back to the map
+ * (e.g. from onboarding) always waits for reanimated to settle.
  */
 
-interface GateState {
-  open: boolean;
-  listeners: Array<() => void>;
-}
-
-const gates = new Map<string, GateState>();
-
-function getGate(name: string): GateState {
-  let gate = gates.get(name);
-  if (!gate) {
-    gate = { open: false, listeners: [] };
-    gates.set(name, gate);
-  }
-  return gate;
-}
-
-function openGate(name: string) {
-  const gate = getGate(name);
-  if (gate.open) return;
-  gate.open = true;
-  for (const listener of gate.listeners) {
-    listener();
-  }
-  gate.listeners = [];
-}
-
-/** Wait N requestAnimationFrame ticks, then open the gate. */
-function waitFramesThenOpen(name: string, frames: number) {
-  if (frames <= 0) {
-    openGate(name);
-    return;
-  }
-  requestAnimationFrame(() => waitFramesThenOpen(name, frames - 1));
-}
-
-const SETTLE_FRAMES = 3;
+const SETTLE_FRAMES = 5;
 const FALLBACK_TIMEOUT_MS = 5000;
 
-/**
- * Returns `{ isMapSafeToMount, onContainerLayout }`.
- *
- * - Attach `onContainerLayout` to the `<View>` wrapping the map.
- * - Render `<MapboxGL.MapView>` only when `isMapSafeToMount` is `true`.
- *
- * @param name  Unique gate name per screen (e.g. "home", "login").
- *              Each screen gets its own independent, once-only gate.
- */
-export function useMapMountGate(name = "default") {
-  const gate = getGate(name);
-  const [safe, setSafe] = useState(gate.open);
+export function useMapMountGate(_name = "default") {
+  const [safe, setSafe] = useState(false);
+  const layoutFired = useRef(false);
+  const cancelled = useRef(false);
 
+  // Reset on mount
   useEffect(() => {
-    const g = getGate(name);
-    if (g.open) {
-      setSafe(true);
-      return;
-    }
+    cancelled.current = false;
+    layoutFired.current = false;
+    setSafe(false);
 
-    const listener = () => setSafe(true);
-    g.listeners.push(listener);
-
-    // Safety fallback — if onLayout never fires (e.g. hidden screen, dev
-    // client quirk), force-open the gate after a generous timeout.
+    // Safety fallback — if onLayout never fires, force-open after timeout
     const fallback = setTimeout(() => {
-      if (!getGate(name).open) {
-        console.warn(
-          `[useMapMountGate:${name}] Fallback timeout reached — forcing gate open`,
-        );
-        openGate(name);
+      if (!cancelled.current) {
+        setSafe(true);
       }
     }, FALLBACK_TIMEOUT_MS);
 
     return () => {
+      cancelled.current = true;
       clearTimeout(fallback);
-      const current = getGate(name);
-      current.listeners = current.listeners.filter((l) => l !== listener);
     };
-  }, [name]);
+  }, []);
 
   const onContainerLayout = useCallback(() => {
-    if (getGate(name).open) return;
-    // Container has laid out → wait a few frames for reanimated to settle.
-    waitFramesThenOpen(name, SETTLE_FRAMES);
-  }, [name]);
+    if (layoutFired.current) return;
+    layoutFired.current = true;
+
+    // Wait several frames for reanimated to settle after the screen transition
+    let remaining = SETTLE_FRAMES;
+    const tick = () => {
+      if (cancelled.current) return;
+      remaining--;
+      if (remaining <= 0) {
+        setSafe(true);
+      } else {
+        requestAnimationFrame(tick);
+      }
+    };
+    requestAnimationFrame(tick);
+  }, []);
 
   return { isMapSafeToMount: safe, onContainerLayout } as const;
 }

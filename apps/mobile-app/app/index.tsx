@@ -9,7 +9,6 @@ import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import { MarkerInfoHUD } from "@/components/Markers/MarkerInfoHUD";
 import { useScanInsight } from "@/components/ScanProgress/useScanInsight";
 import StatusBar from "@/components/StatusBar/StatusBar";
-import { ViewportRectangle } from "@/components/ViewportRectangle/ViewportRectangle";
 import { createCameraSettings } from "@/config/cameraConfig";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
@@ -57,7 +56,6 @@ import RAnimated, {
   withDelay,
   withSpring,
 } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { scheduleOnRN } from "react-native-worklets";
 
 // Set access token at module scope (lightweight, required before MapView renders)
@@ -177,11 +175,10 @@ function HomeScreenContent() {
   }, [startLocationTracking]);
 
   // Viewport processing and region change tracking
-  const { viewportRectangle, handleRegionChanging, isCameraMoving } =
-    useMapViewport({
-      updateViewport,
-      isPitched,
-    });
+  const { handleRegionChanging, isCameraMoving } = useMapViewport({
+    updateViewport,
+    isPitched,
+  });
 
   // Create map item event utility
   const createMapItemEvent = useCallback(
@@ -526,13 +523,6 @@ function HomeScreenContent() {
     );
   }, [showRipple, ripplePosition, handleRippleComplete, zoomLevel]);
 
-  // Memoize viewport rectangle component
-  const viewportRectangleComponent = useMemo(
-    () =>
-      __DEV__ ? <ViewportRectangle viewport={viewportRectangle} debug /> : null,
-    [viewportRectangle],
-  );
-
   return (
     <>
       {/* Show loading overlay for both location loading and map loading */}
@@ -576,7 +566,6 @@ function HomeScreenContent() {
             />
             {markersComponent}
             {userLocationLayer}
-            {viewportRectangleComponent}
           </MapboxGL.MapView>
         )}
 

@@ -46,16 +46,15 @@ interface ClusteredMapMarkersProps {
 }
 
 // Maximum number of MarkerView slots pre-mounted inside the MapView.
-// This is the hard upper bound — the native view tree never grows or shrinks
-// past this count after initial mount, preventing insertReactSubview crashes.
-const POOL_SIZE = 120;
+// The native view tree never grows or shrinks past this count after initial mount,
+// preventing insertReactSubview crashes.
+const POOL_SIZE = 200;
 
 // Offscreen coordinate used for inactive pool slots. Latitude 90 (North Pole)
 // ensures MarkerView is never visible regardless of viewport.
 const OFFSCREEN: [number, number] = [0, 90];
 
 const DOUBLE_TAP_WINDOW = 300;
-
 // ---------------------------------------------------------------------------
 // Slot content components — rendered INSIDE a pre-mounted MarkerView slot
 // ---------------------------------------------------------------------------
@@ -111,24 +110,37 @@ const MarkerSlotContent = React.memo(
       return () => clearTimeout(timer);
     }, [newIndex, marker.id, seenHapticIds, isNew, staggerDelay]);
 
-    // Pin-drop animation via shared values (safe — no shadow tree mutations).
-    // Marker falls from above, bounces at the anchor point, and fades in.
-    const dropY = useSharedValue(isNew ? -30 : 0);
-    const dropScale = useSharedValue(isNew ? 0.2 : 1);
-    const dropOpacity = useSharedValue(isNew ? 0 : 1);
+    // Entrance animation via shared values (safe — no shadow tree mutations).
+    // New markers: full pin-drop from above with bounce.
+    // Returning markers (viewport re-entry): subtle fade + scale up.
+    const dropY = useSharedValue(-30);
+    const dropScale = useSharedValue(0.2);
+    const dropOpacity = useSharedValue(0);
     useEffect(() => {
-      if (!isNew) return;
-      const delay = Math.min(newIndex, 5) * staggerDelay;
-      dropOpacity.value = withDelay(delay, withTiming(1, { duration: 120 }));
-      dropY.value = withDelay(
-        delay,
-        withSpring(0, { damping: 8, stiffness: 220, mass: 0.6 }),
-      );
-      dropScale.value = withDelay(
-        delay,
-        withSpring(1, { damping: 8, stiffness: 220, mass: 0.6 }),
-      );
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+      if (isNew) {
+        // Full pin-drop for brand new markers
+        dropY.value = -30;
+        dropScale.value = 0.2;
+        dropOpacity.value = 0;
+        const delay = Math.min(newIndex, 5) * staggerDelay;
+        dropOpacity.value = withDelay(delay, withTiming(1, { duration: 120 }));
+        dropY.value = withDelay(
+          delay,
+          withSpring(0, { damping: 8, stiffness: 220, mass: 0.6 }),
+        );
+        dropScale.value = withDelay(
+          delay,
+          withSpring(1, { damping: 8, stiffness: 220, mass: 0.6 }),
+        );
+      } else {
+        // Subtle entrance for viewport re-entry / slot reuse
+        dropY.value = 0;
+        dropScale.value = 0.85;
+        dropOpacity.value = 0;
+        dropOpacity.value = withTiming(1, { duration: 200 });
+        dropScale.value = withSpring(1, { damping: 12, stiffness: 180 });
+      }
+    }, [marker.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const mountStyle = useAnimatedStyle(() => ({
       opacity: dropOpacity.value,
@@ -187,23 +199,33 @@ const ClusterSlotContent = React.memo(
       return () => clearTimeout(timer);
     }, [newIndex, cluster.id, seenHapticIds, isNew, staggerDelay]);
 
-    // Pin-drop animation (same as markers)
-    const dropY = useSharedValue(isNew ? -30 : 0);
-    const dropScale = useSharedValue(isNew ? 0.2 : 1);
-    const dropOpacity = useSharedValue(isNew ? 0 : 1);
+    // Entrance animation (same pattern as markers)
+    const dropY = useSharedValue(-30);
+    const dropScale = useSharedValue(0.2);
+    const dropOpacity = useSharedValue(0);
     useEffect(() => {
-      if (!isNew) return;
-      const delay = Math.min(newIndex, 5) * staggerDelay;
-      dropOpacity.value = withDelay(delay, withTiming(1, { duration: 120 }));
-      dropY.value = withDelay(
-        delay,
-        withSpring(0, { damping: 8, stiffness: 220, mass: 0.6 }),
-      );
-      dropScale.value = withDelay(
-        delay,
-        withSpring(1, { damping: 8, stiffness: 220, mass: 0.6 }),
-      );
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+      if (isNew) {
+        dropY.value = -30;
+        dropScale.value = 0.2;
+        dropOpacity.value = 0;
+        const delay = Math.min(newIndex, 5) * staggerDelay;
+        dropOpacity.value = withDelay(delay, withTiming(1, { duration: 120 }));
+        dropY.value = withDelay(
+          delay,
+          withSpring(0, { damping: 8, stiffness: 220, mass: 0.6 }),
+        );
+        dropScale.value = withDelay(
+          delay,
+          withSpring(1, { damping: 8, stiffness: 220, mass: 0.6 }),
+        );
+      } else {
+        dropY.value = 0;
+        dropScale.value = 0.85;
+        dropOpacity.value = 0;
+        dropOpacity.value = withTiming(1, { duration: 200 });
+        dropScale.value = withSpring(1, { damping: 12, stiffness: 180 });
+      }
+    }, [cluster.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const mountStyle = useAnimatedStyle(() => ({
       opacity: dropOpacity.value,
