@@ -8,15 +8,22 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { SearchIcon } from "lucide-react-native";
+import { ChevronRight, SearchIcon } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
+import Animated, { FadeIn } from "react-native-reanimated";
 import Screen from "@/components/Layout/Screen";
 import Input from "@/components/Input/Input";
 import { TopSpacesPodium, SpaceCityCard } from "@/components/ThirdSpaces";
+import ThirdSpaceScoreHero from "@/components/LandingPage/ThirdSpaceScoreHero";
+import ContributorsSection from "@/components/LandingPage/LeaderboardSection";
 import useThirdSpaces from "@/hooks/useThirdSpaces";
+import useThirdSpaceScore from "@/hooks/useThirdSpaceScore";
+import useLandingPageData from "@/hooks/useLandingPageData";
 import { useUserLocation } from "@/contexts/LocationContext";
+import { apiClient } from "@/services/ApiClient";
 import {
   colors,
+  duration,
   fontFamily,
   fontSize,
   fontWeight,
@@ -38,6 +45,24 @@ const SpacesBrowseScreen = () => {
     userLocation?.[0],
   );
 
+  // Current city score
+  const {
+    landingData,
+    isLoading: isLandingLoading,
+    refresh: refreshLanding,
+  } = useLandingPageData({
+    userLat: userLocation?.[1],
+    userLng: userLocation?.[0],
+    featuredLimit: 3,
+    upcomingLimit: 5,
+    trendingLimit: 3,
+  });
+
+  const resolvedCity = landingData?.resolvedCity || null;
+  const { score: myScore, refetch: refetchScore } =
+    useThirdSpaceScore(resolvedCity);
+  const currentUser = apiClient.getCurrentUser();
+
   const handleCityPress = useCallback(
     (city: ThirdSpaceSummary) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -57,16 +82,25 @@ const SpacesBrowseScreen = () => {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await refetch();
+      await Promise.all([refetch(), refreshLanding(), refetchScore()]);
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetch]);
+  }, [refetch, refreshLanding, refetchScore]);
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
   }, [router]);
+
+  const handleMyCityPress = useCallback(() => {
+    if (!resolvedCity) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({
+      pathname: "/spaces/[city]" as const,
+      params: { city: resolvedCity },
+    });
+  }, [router, resolvedCity]);
 
   const listCities = useMemo(() => {
     if (sortMode === "nearest" && closestCities.length > 0) {
@@ -84,8 +118,8 @@ const SpacesBrowseScreen = () => {
   return (
     <Screen
       isScrollable={false}
-      bannerTitle="Third Spaces"
-      bannerDescription="Discover the best cities for community events"
+      bannerTitle="Spaces"
+      bannerDescription="Third Space Scores for cities near you"
       showBackButton
       onBack={handleBack}
       noAnimation
@@ -109,6 +143,37 @@ const SpacesBrowseScreen = () => {
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
         }
       >
+        {/* User's current city Third Space */}
+        {myScore && (
+          <Animated.View entering={FadeIn.duration(duration.normal)}>
+            <Pressable onPress={handleMyCityPress}>
+              <ThirdSpaceScoreHero score={myScore} />
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {myScore?.contributors && myScore.contributors.length > 0 && (
+          <Animated.View
+            entering={FadeIn.duration(duration.normal).delay(80)}
+          >
+            <ContributorsSection
+              contributors={myScore.contributors}
+              currentUserId={currentUser?.id}
+              city={myScore.current.city}
+            />
+          </Animated.View>
+        )}
+
+        {resolvedCity && (
+          <Pressable style={styles.viewCityLink} onPress={handleMyCityPress}>
+            <Text style={styles.viewCityText}>
+              View full {resolvedCity.split(",")[0].trim()} page
+            </Text>
+            <ChevronRight size={14} color={colors.accent.primary} />
+          </Pressable>
+        )}
+
+        {/* Top 3 podium */}
         {!isLoading && topCities.length >= 3 && (
           <TopSpacesPodium
             cities={topCities.slice(0, 3)}
@@ -116,6 +181,7 @@ const SpacesBrowseScreen = () => {
           />
         )}
 
+        {/* Sort toggle */}
         {hasLocation && (
           <View style={styles.toggleRow}>
             <Pressable
@@ -153,6 +219,7 @@ const SpacesBrowseScreen = () => {
           </View>
         )}
 
+        {/* Ranked city list */}
         {displayList.map((city, index) => (
           <SpaceCityCard
             key={city.city}
@@ -180,6 +247,20 @@ const SpacesBrowseScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  viewCityLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing["2xl"],
+  },
+  viewCityText: {
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.semibold,
+    color: colors.accent.primary,
+  },
   toggleRow: {
     flexDirection: "row",
     marginHorizontal: spacing.lg,
