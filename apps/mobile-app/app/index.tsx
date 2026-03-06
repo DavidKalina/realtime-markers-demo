@@ -51,7 +51,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import RAnimated, { FadeInDown } from "react-native-reanimated";
+import RAnimated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { scheduleOnRN } from "react-native-worklets";
 
@@ -424,13 +429,42 @@ function HomeScreenContent() {
     }
   }, [userLocation, cameraRef]);
 
+  // Slide-up animations for floating buttons (shared values, not layout animations,
+  // to avoid ComponentDescriptorRegistry deadlock with MapView initialization).
+  const fabSlide0 = useSharedValue(20);
+  const fabOpacity0 = useSharedValue(0);
+  const fabSlide1 = useSharedValue(20);
+  const fabOpacity1 = useSharedValue(0);
+  const fabSlide2 = useSharedValue(20);
+  const fabOpacity2 = useSharedValue(0);
+  useEffect(() => {
+    const springCfg = { damping: 14, stiffness: 160 };
+    fabSlide0.value = withSpring(0, springCfg);
+    fabOpacity0.value = withSpring(1, springCfg);
+    fabSlide1.value = withDelay(50, withSpring(0, springCfg));
+    fabOpacity1.value = withDelay(50, withSpring(1, springCfg));
+    fabSlide2.value = withDelay(100, withSpring(0, springCfg));
+    fabOpacity2.value = withDelay(100, withSpring(1, springCfg));
+  }, []);
+  const fabStyle0 = useAnimatedStyle(() => ({
+    opacity: fabOpacity0.value,
+    transform: [{ translateY: fabSlide0.value }],
+  }));
+  const fabStyle1 = useAnimatedStyle(() => ({
+    opacity: fabOpacity1.value,
+    transform: [{ translateY: fabSlide1.value }],
+  }));
+  const fabStyle2 = useAnimatedStyle(() => ({
+    opacity: fabOpacity2.value,
+    transform: [{ translateY: fabSlide2.value }],
+  }));
+
   // Memoize floating buttons section
   const floatingButtonsSection = useMemo(
     () => (
       <View style={floatingDateButtonStyle}>
         <RAnimated.View
-          entering={FadeInDown.springify().delay(0)}
-          style={{ opacity: isFollowing ? 0 : 1 }}
+          style={[fabStyle0, { opacity: isFollowing ? 0 : 1 }]}
           pointerEvents={isFollowing ? "none" : "auto"}
         >
           <TouchableOpacity
@@ -441,7 +475,7 @@ function HomeScreenContent() {
             <Navigation size={22} color={colors.action.save} />
           </TouchableOpacity>
         </RAnimated.View>
-        <RAnimated.View entering={FadeInDown.springify().delay(50)}>
+        <RAnimated.View style={fabStyle1}>
           <MapFilterSheet
             categories={filterCategories}
             includedCategoryIds={includedCategoryIds}
@@ -451,7 +485,7 @@ function HomeScreenContent() {
             hasActiveFilters={hasActiveFilters}
           />
         </RAnimated.View>
-        <RAnimated.View entering={FadeInDown.springify().delay(100)}>
+        <RAnimated.View style={fabStyle2}>
           <TouchableOpacity
             style={homeScreenStyles.recenterButton}
             onPress={handleFlyToNearest}
@@ -473,6 +507,9 @@ function HomeScreenContent() {
       hasActiveFilters,
       handleCategoryFilterChange,
       clearAllFilters,
+      fabStyle0,
+      fabStyle1,
+      fabStyle2,
     ],
   );
 

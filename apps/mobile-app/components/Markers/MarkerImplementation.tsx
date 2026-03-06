@@ -1,4 +1,10 @@
 // components/Markers/ClusteredMapMarkers.tsx
+//
+// View-pool approach: pre-mount a fixed number of MarkerView slots with stable
+// keys so RNMBXMapView.insertReactSubview is only called once (on initial mount).
+// After that, we update coordinates and content on existing slots — no child
+// additions or removals on the native MapView, which avoids the Fabric legacy
+// interop assertion crash.
 import {
   ClusterFeature,
   PointFeature,
@@ -11,17 +17,18 @@ import { getDominantCategory } from "@/utils/categoryColors";
 import MapboxGL from "@rnmapbox/maps";
 import React, { useCallback, useMemo, useEffect, useRef, useState } from "react";
 import Animated, {
-  BounceIn,
+  useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withSequence,
+  withSpring,
   withTiming,
+  withDelay,
   cancelAnimation,
   type SharedValue,
 } from "react-native-reanimated";
 import { ClusterMarker } from "./ClusterMarker";
 import { EmojiMapMarker } from "./CustomMapMarker";
-import { spring } from "@/theme";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 import { useRouter } from "expo-router";
@@ -38,37 +45,47 @@ interface ClusteredMapMarkersProps {
   isCameraMoving?: boolean;
 }
 
+// Maximum number of MarkerView slots pre-mounted inside the MapView.
+// This is the hard upper bound — the native view tree never grows or shrinks
+// past this count after initial mount, preventing insertReactSubview crashes.
+const POOL_SIZE = 120;
+
+// Offscreen coordinate used for inactive pool slots. Latitude 90 (North Pole)
+// ensures MarkerView is never visible regardless of viewport.
+const OFFSCREEN: [number, number] = [0, 90];
+
 const DOUBLE_TAP_WINDOW = 300;
 
-const SingleMarkerView = React.memo(
+// ---------------------------------------------------------------------------
+// Slot content components — rendered INSIDE a pre-mounted MarkerView slot
+// ---------------------------------------------------------------------------
+
+const MarkerSlotContent = React.memo(
   ({
     marker,
     isSelected,
     onSelect,
     onNavigate,
     index,
+    breathingScale,
+    isNew,
     newIndex,
     staggerDelay,
     seenHapticIds,
-    isNew,
-    breathingScale,
-    skipEntering,
   }: {
     marker: MarkerItem;
     isSelected: boolean;
     onSelect: () => void;
     onNavigate: () => void;
     index: number;
+    breathingScale: SharedValue<number>;
+    isNew: boolean;
     newIndex: number;
     staggerDelay: number;
     seenHapticIds: React.MutableRefObject<Set<string>>;
-    isNew: boolean;
-    breathingScale: SharedValue<number>;
-    skipEntering: boolean;
   }) => {
     const lastTapRef = useRef(0);
 
-    // Single tap → select (show HUD), double tap → navigate to details
     const handlePress = useCallback(() => {
       const now = Date.now();
       if (now - lastTapRef.current < DOUBLE_TAP_WINDOW) {
@@ -80,141 +97,179 @@ const SingleMarkerView = React.memo(
       }
     }, [onSelect, onNavigate]);
 
-    // Add haptic feedback for each marker's first appearance only.
-    // Cap at 3 haptic fires per batch to prevent storms in dense areas.
+    // Haptic feedback for first appearance
     useEffect(() => {
       if (Platform.OS === "web") return;
       if (!isNew) return;
       if (seenHapticIds.current.has(marker.id)) return;
       if (seenHapticIds.current.size >= 3) return;
       seenHapticIds.current.add(marker.id);
-
-      // Delay haptic to match the staggered animation
       const hapticDelay = Math.min(newIndex, 5) * staggerDelay;
-
       const timer = setTimeout(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       }, hapticDelay);
-
       return () => clearTimeout(timer);
     }, [newIndex, marker.id, seenHapticIds, isNew, staggerDelay]);
 
-    const entering = skipEntering
-      ? undefined
-      : BounceIn.springify()
-          .damping(spring.firm.damping)
-          .stiffness(spring.firm.stiffness)
-          .delay(Math.min(newIndex, 5) * staggerDelay);
+    // Pin-drop animation via shared values (safe — no shadow tree mutations).
+    // Marker falls from above, bounces at the anchor point, and fades in.
+    const dropY = useSharedValue(isNew ? -30 : 0);
+    const dropScale = useSharedValue(isNew ? 0.2 : 1);
+    const dropOpacity = useSharedValue(isNew ? 0 : 1);
+    useEffect(() => {
+      if (!isNew) return;
+      const delay = Math.min(newIndex, 5) * staggerDelay;
+      dropOpacity.value = withDelay(delay, withTiming(1, { duration: 120 }));
+      dropY.value = withDelay(
+        delay,
+        withSpring(0, { damping: 8, stiffness: 220, mass: 0.6 }),
+      );
+      dropScale.value = withDelay(
+        delay,
+        withSpring(1, { damping: 8, stiffness: 220, mass: 0.6 }),
+      );
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const mountStyle = useAnimatedStyle(() => ({
+      opacity: dropOpacity.value,
+      transform: [
+        { translateY: dropY.value },
+        { scale: dropScale.value },
+      ],
+    }));
+
     return (
-      <MapboxGL.MarkerView
-        key={`marker-${marker.id}`}
-        coordinate={marker.coordinates}
-        anchor={{ x: 0.5, y: 1.0 }}
-      >
-        <Animated.View entering={entering}>
-          <EmojiMapMarker
-            event={marker}
-            isSelected={isSelected}
-            isHighlighted={false}
-            onPress={handlePress}
-            index={index}
-            breathingScale={breathingScale}
-          />
-        </Animated.View>
-      </MapboxGL.MarkerView>
+      <Animated.View style={mountStyle}>
+        <EmojiMapMarker
+          event={marker}
+          isSelected={isSelected}
+          isHighlighted={false}
+          onPress={handlePress}
+          index={index}
+          breathingScale={breathingScale}
+        />
+      </Animated.View>
     );
   },
 );
 
-// Component for rendering a cluster - memoized with proper prop comparison
-const ClusterView = React.memo(
+const ClusterSlotContent = React.memo(
   ({
     cluster,
     isSelected,
     onPress,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    index,
+    clusterPulse,
+    isNew,
     newIndex,
     staggerDelay,
     seenHapticIds,
-    isNew,
-    clusterPulse,
-    skipEntering,
   }: {
     cluster: ClusterItem;
     isSelected: boolean;
     onPress: () => void;
-    index: number;
+    clusterPulse: SharedValue<number>;
+    isNew: boolean;
     newIndex: number;
     staggerDelay: number;
     seenHapticIds: React.MutableRefObject<Set<string>>;
-    isNew: boolean;
-    clusterPulse: SharedValue<number>;
-    skipEntering: boolean;
   }) => {
-    // Add haptic feedback for each cluster's first appearance only.
-    // Cap at 3 haptic fires per batch to prevent storms in dense areas.
+    // Haptic feedback for first appearance
     useEffect(() => {
       if (Platform.OS === "web") return;
       if (!isNew) return;
       if (seenHapticIds.current.has(cluster.id)) return;
       if (seenHapticIds.current.size >= 3) return;
       seenHapticIds.current.add(cluster.id);
-
-      // Delay haptic to match the staggered animation
       const hapticDelay = Math.min(newIndex, 5) * staggerDelay;
-
       const timer = setTimeout(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
       }, hapticDelay);
-
       return () => clearTimeout(timer);
     }, [newIndex, cluster.id, seenHapticIds, isNew, staggerDelay]);
 
-    const entering = skipEntering
-      ? undefined
-      : BounceIn.springify()
-          .damping(spring.firm.damping)
-          .stiffness(spring.firm.stiffness)
-          .delay(isNew ? Math.min(newIndex, 5) * staggerDelay : 0);
+    // Pin-drop animation (same as markers)
+    const dropY = useSharedValue(isNew ? -30 : 0);
+    const dropScale = useSharedValue(isNew ? 0.2 : 1);
+    const dropOpacity = useSharedValue(isNew ? 0 : 1);
+    useEffect(() => {
+      if (!isNew) return;
+      const delay = Math.min(newIndex, 5) * staggerDelay;
+      dropOpacity.value = withDelay(delay, withTiming(1, { duration: 120 }));
+      dropY.value = withDelay(
+        delay,
+        withSpring(0, { damping: 8, stiffness: 220, mass: 0.6 }),
+      );
+      dropScale.value = withDelay(
+        delay,
+        withSpring(1, { damping: 8, stiffness: 220, mass: 0.6 }),
+      );
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const mountStyle = useAnimatedStyle(() => ({
+      opacity: dropOpacity.value,
+      transform: [
+        { translateY: dropY.value },
+        { scale: dropScale.value },
+      ],
+    }));
 
     return (
-      <MapboxGL.MarkerView
-        key={cluster.id}
-        coordinate={cluster.coordinates}
-        anchor={{ x: 0.5, y: 0.5 }}
-      >
-        <Animated.View entering={entering}>
-          <ClusterMarker
-            count={cluster.count}
-            coordinates={cluster.coordinates}
-            onPress={onPress}
-            isSelected={isSelected}
-            dominantCategory={cluster.dominantCategory}
-            clusterPulse={clusterPulse}
-          />
-        </Animated.View>
-      </MapboxGL.MarkerView>
-    );
-  },
-  (prevProps, nextProps) => {
-    return (
-      prevProps.cluster.id === nextProps.cluster.id &&
-      prevProps.cluster.count === nextProps.cluster.count &&
-      prevProps.cluster.coordinates[0] === nextProps.cluster.coordinates[0] &&
-      prevProps.cluster.coordinates[1] === nextProps.cluster.coordinates[1] &&
-      prevProps.cluster.dominantCategory ===
-        nextProps.cluster.dominantCategory &&
-      prevProps.isSelected === nextProps.isSelected &&
-      prevProps.index === nextProps.index &&
-      prevProps.newIndex === nextProps.newIndex &&
-      prevProps.staggerDelay === nextProps.staggerDelay &&
-      prevProps.seenHapticIds === nextProps.seenHapticIds &&
-      prevProps.isNew === nextProps.isNew &&
-      prevProps.skipEntering === nextProps.skipEntering
+      <Animated.View style={mountStyle}>
+        <ClusterMarker
+          count={cluster.count}
+          coordinates={cluster.coordinates}
+          onPress={onPress}
+          isSelected={isSelected}
+          dominantCategory={cluster.dominantCategory}
+          clusterPulse={clusterPulse}
+        />
+      </Animated.View>
     );
   },
 );
+
+// ---------------------------------------------------------------------------
+// Pool slot — a single pre-mounted MarkerView that gets reused
+// ---------------------------------------------------------------------------
+
+interface PoolSlotData {
+  coordinate: [number, number];
+  anchor: { x: number; y: number };
+  content:
+    | { type: "marker"; props: React.ComponentProps<typeof MarkerSlotContent> }
+    | { type: "cluster"; props: React.ComponentProps<typeof ClusterSlotContent> }
+    | null;
+}
+
+const PoolSlot = React.memo(
+  ({ data }: { data: PoolSlotData }) => {
+    return (
+      <MapboxGL.MarkerView
+        coordinate={data.coordinate}
+        anchor={data.anchor}
+      >
+        {data.content?.type === "marker" ? (
+          <MarkerSlotContent {...data.content.props} />
+        ) : data.content?.type === "cluster" ? (
+          <ClusterSlotContent {...data.content.props} />
+        ) : null}
+      </MapboxGL.MarkerView>
+    );
+  },
+  (prev, next) => {
+    // Only re-render if the slot data actually changed
+    if (prev.data.coordinate !== next.data.coordinate) return false;
+    if (prev.data.content === null && next.data.content === null) return true;
+    if (prev.data.content === null || next.data.content === null) return false;
+    if (prev.data.content.type !== next.data.content.type) return false;
+    // Shallow compare props object reference (reconstructed each render when data changes)
+    return prev.data.content.props === next.data.content.props;
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -253,13 +308,10 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
     const selectMapItem = useLocationStore((state) => state.selectMapItem);
     const router = useRouter();
 
-    // Track which marker/cluster IDs have already triggered haptics to avoid
-    // re-firing during re-clustering caused by panning/zooming.
+    // Track which marker/cluster IDs have already triggered haptics
     const seenHapticIds = useRef(new Set<string>());
     const prevMarkersRef = useRef(markers);
 
-    // Clear seen IDs when the markers array reference changes (full replace
-    // from the server), so new batches of markers get haptic feedback.
     useEffect(() => {
       if (markers !== prevMarkersRef.current) {
         prevMarkersRef.current = markers;
@@ -267,20 +319,16 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       }
     }, [markers]);
 
-    // Persistent set of all marker IDs that have ever been rendered on screen.
-    // Used to distinguish genuinely new markers (→ BounceIn) from reclustering
-    // remounts (→ no animation). Never cleared — IDs accumulate over the
-    // session so returning to a previously visited area won't re-bounce.
+    // Persistent set of all marker IDs ever rendered (for haptic gating)
     const knownMarkerIds = useRef(new Set<string>());
 
-    // Populate after each render so the NEXT reclustering sees them as known.
     useEffect(() => {
       for (const m of markers) {
         knownMarkerIds.current.add(m.id);
       }
     }, [markers]);
 
-    // Build a lookup map from marker ID → primary category for cluster coloring
+    // Category lookup for cluster coloring
     const categoryLookup = useMemo(() => {
       const lookup = new Map<string, string>();
       for (const m of markers) {
@@ -290,21 +338,10 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       return lookup;
     }, [markers]);
 
-    // At zoom 13+ marker density is low enough that mid-gesture reclustering
-    // no longer causes split/merge jank, so we use live values directly and
-    // let markers stream in while the camera is still moving.
-    const clusterViewport = viewport;
-    const clusterMarkers = markers;
-    const clusterZoom = currentZoom;
+    // Clustering
+    const { clusters } = useMarkerClustering(markers, viewport, currentZoom);
 
-    // Get clusters based on current (or frozen) markers, viewport, and zoom level
-    const { clusters } = useMarkerClustering(
-      clusterMarkers,
-      clusterViewport,
-      clusterZoom,
-    );
-
-    // Cluster: single tap → navigate
+    // Handlers
     const createClusterPressHandler = useCallback(
       (coordinates: [number, number], childrenIds: string[]) => {
         return () => {
@@ -317,7 +354,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       [currentZoom, router],
     );
 
-    // Marker: single tap → select (show HUD) + pan camera
     const createMarkerSelectHandler = useCallback(
       (item: MarkerItem) => {
         return () => {
@@ -337,7 +373,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       [selectMapItem],
     );
 
-    // Marker: double tap → navigate to details
     const createMarkerNavigateHandler = useCallback(
       (id: string) => {
         return () => {
@@ -349,30 +384,21 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
 
     const selectedId = selectedItem?.id ?? null;
 
-    // Memoize the cluster processing function with stable references
+    // Process clusters into renderable items
     const processCluster = useCallback(
       (feature: ClusterFeature | PointFeature) => {
         if (feature.properties.cluster) {
           const clusterFeature = feature as ClusterFeature;
-          const coordinates = clusterFeature.geometry.coordinates as [
-            number,
-            number,
-          ];
+          const coordinates = clusterFeature.geometry.coordinates as [number, number];
           const count = clusterFeature.properties.point_count;
           const clusterId =
             clusterFeature.properties.stableId ||
             `cluster-${clusterFeature.properties.cluster_id}`;
           const childMarkerIds = clusterFeature.properties.childMarkers || [];
-
-          // Cluster is "new" only if it contains marker IDs we haven't seen
           const isNew = childMarkerIds.some(
             (id) => !knownMarkerIds.current.has(id),
           );
-
-          const dominantCategory = getDominantCategory(
-            childMarkerIds,
-            categoryLookup,
-          );
+          const dominantCategory = getDominantCategory(childMarkerIds, categoryLookup);
 
           return {
             type: "cluster" as const,
@@ -391,10 +417,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         } else {
           const pointFeature = feature as PointFeature;
           const markerId = pointFeature.properties.id;
-          const coordinates = pointFeature.geometry.coordinates as [
-            number,
-            number,
-          ];
+          const coordinates = pointFeature.geometry.coordinates as [number, number];
           const data = pointFeature.properties.data;
           const markerItem: MarkerItem = {
             id: markerId,
@@ -402,8 +425,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
             coordinates,
             data,
           };
-
-          // Marker is "new" only if this ID hasn't been on screen before
           const isNew = !knownMarkerIds.current.has(markerId);
 
           return {
@@ -425,7 +446,6 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       ],
     );
 
-    // Process and memoize clusters for rendering with stable references
     const processedClusters = useMemo(() => {
       return clusters.map((feature, index) => ({
         ...processCluster(feature),
@@ -433,10 +453,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       }));
     }, [clusters, processCluster]);
 
-    // Cull markers outside the viewport, with a 15% buffer to prevent
-    // edge-popping during pan/zoom gestures.
-    // Always keep the selected marker visible so it doesn't vanish during
-    // camera animations triggered by tapping it.
+    // Viewport culling with 15% buffer
     const visibleItems = useMemo(() => {
       const lngSpan = viewport.east - viewport.west;
       const latSpan = viewport.north - viewport.south;
@@ -454,15 +471,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       });
     }, [processedClusters, viewport]);
 
-    // Compute a stable newIndex for each item: position among genuinely new
-    // items only. Returning/reclustered markers get newIndex 0 (unused since
-    // isNew is false), while new ones get sequential indices for stagger.
-    // Scale per-item delay so total stagger never exceeds ~300ms regardless
-    // of how many markers are in the viewport.
-    // When too many items appear at once (e.g. rapid zoom-out), skip
-    // entering animations entirely to avoid overwhelming the UI thread.
-    const MAX_ANIMATED_BATCH = 15;
-
+    // Tag items with stagger indices for haptic timing
     const itemsWithNewIndex = useMemo(() => {
       let newCounter = 0;
       const tagged = visibleItems.map((item, index) => ({
@@ -471,79 +480,13 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         newIndex: item.isNew ? newCounter++ : 0,
       }));
       const newCount = newCounter;
-      const skipEntering = newCount > MAX_ANIMATED_BATCH;
-      // Cap at 5 stagger slots; shrink per-slot delay when viewport is dense
       const maxSlots = Math.min(newCount, 5);
       const staggerDelay =
         maxSlots > 0 ? Math.min(80, Math.floor(300 / maxSlots)) : 0;
-      return tagged.map((item) => ({ ...item, staggerDelay, skipEntering }));
+      return tagged.map((item) => ({ ...item, staggerDelay }));
     }, [visibleItems]);
 
-    // Memoize the render functions to prevent recreation
-    const renderCluster = useCallback(
-      (processed: {
-        type: "cluster";
-        item: ClusterItem;
-        isSelected: boolean;
-        onPress: () => void;
-        index: number;
-        newIndex: number;
-        staggerDelay: number;
-        isNew: boolean;
-        skipEntering: boolean;
-      }) => (
-        <ClusterView
-          key={processed.item.id}
-          cluster={processed.item}
-          isSelected={processed.isSelected}
-          onPress={processed.onPress}
-          index={processed.index}
-          newIndex={processed.newIndex}
-          staggerDelay={processed.staggerDelay}
-          seenHapticIds={seenHapticIds}
-          isNew={processed.isNew}
-          clusterPulse={clusterPulse}
-          skipEntering={processed.skipEntering}
-        />
-      ),
-      [clusterPulse],
-    );
-
-    const renderMarker = useCallback(
-      (processed: {
-        type: "marker";
-        item: MarkerItem;
-        isSelected: boolean;
-        onSelect: () => void;
-        onNavigate: () => void;
-        index: number;
-        newIndex: number;
-        staggerDelay: number;
-        isNew: boolean;
-        skipEntering: boolean;
-      }) => (
-        <SingleMarkerView
-          key={processed.item.id}
-          marker={processed.item}
-          isSelected={processed.isSelected}
-          onSelect={processed.onSelect}
-          onNavigate={processed.onNavigate}
-          index={processed.index}
-          newIndex={processed.newIndex}
-          staggerDelay={processed.staggerDelay}
-          seenHapticIds={seenHapticIds}
-          isNew={processed.isNew}
-          breathingScale={breathingScale}
-          skipEntering={processed.skipEntering}
-        />
-      ),
-      [breathingScale],
-    );
-
-    // Freeze the rendered set while the camera is actively moving to prevent
-    // rapid mount/unmount churn that crashes Mapbox's native view insertion
-    // (RNMBXMapView.insertReactSubview assertion failure).
-    // When the camera settles, render all items at once — no progressive batching.
+    // Freeze during camera movement to prevent rapid mutations
     const [stableItems, setStableItems] = useState(itemsWithNewIndex);
 
     useEffect(() => {
@@ -552,15 +495,73 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       }
     }, [itemsWithNewIndex, isCameraMoving]);
 
+    // -----------------------------------------------------------------------
+    // Build pool slot data — map each visible item to a slot, rest go offscreen
+    // -----------------------------------------------------------------------
+    const poolData = useMemo(() => {
+      const slots: PoolSlotData[] = [];
+      const count = Math.min(stableItems.length, POOL_SIZE);
+
+      for (let i = 0; i < count; i++) {
+        const processed = stableItems[i];
+        if (processed.type === "cluster") {
+          slots.push({
+            coordinate: processed.item.coordinates,
+            anchor: { x: 0.5, y: 0.5 },
+            content: {
+              type: "cluster",
+              props: {
+                cluster: processed.item,
+                isSelected: processed.isSelected,
+                onPress: processed.onPress,
+                clusterPulse,
+                isNew: processed.isNew,
+                newIndex: processed.newIndex,
+                staggerDelay: processed.staggerDelay,
+                seenHapticIds,
+              },
+            },
+          });
+        } else {
+          slots.push({
+            coordinate: processed.item.coordinates,
+            anchor: { x: 0.5, y: 1.0 },
+            content: {
+              type: "marker",
+              props: {
+                marker: processed.item,
+                isSelected: processed.isSelected,
+                onSelect: processed.onSelect,
+                onNavigate: processed.onNavigate,
+                index: processed.index,
+                breathingScale,
+                isNew: processed.isNew,
+                newIndex: processed.newIndex,
+                staggerDelay: processed.staggerDelay,
+                seenHapticIds,
+              },
+            },
+          });
+        }
+      }
+
+      // Fill remaining pool slots with offscreen empty markers
+      for (let i = count; i < POOL_SIZE; i++) {
+        slots.push({
+          coordinate: OFFSCREEN,
+          anchor: { x: 0.5, y: 0.5 },
+          content: null,
+        });
+      }
+
+      return slots;
+    }, [stableItems, breathingScale, clusterPulse]);
+
     return (
       <>
-        {stableItems.map((processed) => {
-          if (processed.type === "cluster") {
-            return renderCluster(processed);
-          } else {
-            return renderMarker(processed);
-          }
-        })}
+        {poolData.map((slot, i) => (
+          <PoolSlot key={`pool-${i}`} data={slot} />
+        ))}
       </>
     );
   });
