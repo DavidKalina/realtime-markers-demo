@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
@@ -7,6 +7,7 @@ import { useCityInsight } from "@/components/LandingPage/useCityInsight";
 import { DialogBox } from "@/components/AreaScan/AreaScanComponents";
 import useThirdSpaceScore from "@/hooks/useThirdSpaceScore";
 import useLandingPageData from "@/hooks/useLandingPageData";
+import { useRealtimeDiscoveries } from "@/hooks/useRealtimeDiscoveries";
 import { apiClient } from "@/services/ApiClient";
 import { setFlyTo } from "@/hooks/useInitialLocation";
 
@@ -36,6 +37,26 @@ const CityDetailScreen = () => {
     trendingLimit: 5,
   });
 
+  const { realtimeDiscoveries, clearRealtime } =
+    useRealtimeDiscoveries(decodedCity);
+
+  const mergedData = useMemo(() => {
+    if (!landingData) return landingData;
+    const existingIds = new Set(
+      (landingData.justDiscoveredEvents ?? []).map((e) => e.id),
+    );
+    const newEvents = realtimeDiscoveries
+      .filter((e) => !existingIds.has(e.id))
+      .map((e) => ({ ...e, _isRealtime: true as const }));
+    return {
+      ...landingData,
+      justDiscoveredEvents: [
+        ...newEvents,
+        ...(landingData.justDiscoveredEvents ?? []),
+      ],
+    };
+  }, [landingData, realtimeDiscoveries]);
+
   const {
     isLoading: insightLoading,
     error: insightError,
@@ -49,10 +70,11 @@ const CityDetailScreen = () => {
     setIsRefreshing(true);
     try {
       await Promise.all([refreshLanding(), refetchScore()]);
+      clearRealtime();
     } finally {
       setIsRefreshing(false);
     }
-  }, [refreshLanding, refetchScore]);
+  }, [refreshLanding, refetchScore, clearRealtime]);
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -97,7 +119,7 @@ const CityDetailScreen = () => {
       }
     >
       <LandingPageContent
-        data={landingData}
+        data={mergedData}
         isLoading={isLoading}
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}

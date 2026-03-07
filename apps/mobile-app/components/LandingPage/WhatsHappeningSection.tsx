@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useMemo } from "react";
+import React, { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { formatVenueShort } from "@/components/Event/EventListItem";
 import {
   View,
@@ -11,6 +11,16 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
+import Reanimated, {
+  FadeIn,
+  LinearTransition,
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+  withDelay,
+  withRepeat,
+} from "react-native-reanimated";
 import {
   colors,
   fontSize,
@@ -25,8 +35,8 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
 type MergedEvent =
-  | (TrendingEventType & { _kind: "trending" })
-  | (DiscoveredEventType & { _kind: "discovered" });
+  | (TrendingEventType & { _kind: "trending"; _isRealtime?: boolean })
+  | (DiscoveredEventType & { _kind: "discovered"; _isRealtime?: boolean });
 
 interface WhatsHappeningSectionProps {
   trendingEvents?: TrendingEventType[];
@@ -53,6 +63,52 @@ const formatTimeAgo = (dateString: string): string => {
   return `${diffDays}d ago`;
 };
 
+/** Pulsing shimmer border for realtime items */
+const ShimmerBorder: React.FC<{ active: boolean }> = ({ active }) => {
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (!active) return;
+    opacity.value = withSequence(
+      withTiming(0.8, { duration: 200 }),
+      withRepeat(
+        withSequence(
+          withTiming(0.3, { duration: 600 }),
+          withTiming(0.8, { duration: 600 }),
+        ),
+        2,
+        true,
+      ),
+      withDelay(200, withTiming(0, { duration: 400 })),
+    );
+  }, [active, opacity]);
+
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  if (!active) return null;
+
+  return (
+    <Reanimated.View
+      style={[
+        StyleSheet.absoluteFill,
+        {
+          borderRadius: radius.lg,
+          borderWidth: 1.5,
+          borderColor: "#93c5fd",
+          shadowColor: "#93c5fd",
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.6,
+          shadowRadius: 8,
+        },
+        style,
+      ]}
+      pointerEvents="none"
+    />
+  );
+};
+
 const WhatsHappeningSection: React.FC<WhatsHappeningSectionProps> = ({
   trendingEvents = [],
   justDiscoveredEvents = [],
@@ -61,6 +117,7 @@ const WhatsHappeningSection: React.FC<WhatsHappeningSectionProps> = ({
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
+  const prevRealtimeCountRef = useRef(-1);
 
   const merged: MergedEvent[] = useMemo(() => {
     const trending: MergedEvent[] = trendingEvents.map((e) => ({
@@ -73,6 +130,17 @@ const WhatsHappeningSection: React.FC<WhatsHappeningSectionProps> = ({
     }));
     return [...trending, ...discovered];
   }, [trendingEvents, justDiscoveredEvents]);
+
+  // Haptic feedback when new realtime items arrive
+  useEffect(() => {
+    const realtimeCount = merged.filter((e) => e._isRealtime).length;
+    if (prevRealtimeCountRef.current >= 0 && realtimeCount > prevRealtimeCountRef.current) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Scroll to start to show the new item
+      scrollViewRef.current?.scrollTo({ x: 0, animated: true });
+    }
+    prevRealtimeCountRef.current = realtimeCount;
+  }, [merged]);
 
   const handleEventPress = useCallback(
     (event: MergedEvent) => {
@@ -135,53 +203,68 @@ const WhatsHappeningSection: React.FC<WhatsHappeningSectionProps> = ({
             const isTrending = event._kind === "trending";
             const accentColor = isTrending ? "#fcd34d" : "#93c5fd";
 
+            const isRealtime = !!event._isRealtime;
+            const entering = isRealtime
+              ? FadeIn.duration(350).delay(50)
+              : FadeIn.duration(300);
+
             return (
-              <TouchableOpacity
+              <Reanimated.View
                 key={`${event._kind}-${event.id}`}
-                style={styles.itemContainer}
-                onPress={() => handleEventPress(event)}
-                activeOpacity={0.9}
+                entering={entering}
+                layout={LinearTransition.duration(250)}
               >
-                <View
-                  style={[
-                    styles.cardContainer,
-                    { backgroundColor: accentColor + "08" },
-                  ]}
+                <TouchableOpacity
+                  style={styles.itemContainer}
+                  onPress={() => handleEventPress(event)}
+                  activeOpacity={0.9}
                 >
-                  <View style={styles.cardBody}>
-                    <View style={styles.cardHeader}>
-                      <View
-                        style={[
-                          styles.kindDot,
-                          { backgroundColor: accentColor },
-                        ]}
-                      />
-                      <Text style={[styles.kindText, { color: accentColor }]}>
-                        {isTrending ? "Trending" : "Just Found"}
+                  <View
+                    style={[
+                      styles.cardContainer,
+                      { backgroundColor: accentColor + "08" },
+                    ]}
+                  >
+                    <View style={styles.cardBody}>
+                      <View style={styles.cardHeader}>
+                        <View
+                          style={[
+                            styles.kindDot,
+                            { backgroundColor: accentColor },
+                          ]}
+                        />
+                        <Text style={[styles.kindText, { color: accentColor }]}>
+                          {isRealtime
+                            ? "Just Scanned"
+                            : isTrending
+                              ? "Trending"
+                              : "Just Found"}
+                        </Text>
+                        <Text
+                          style={[styles.timeText, { color: badge.color.text }]}
+                        >
+                          {badge.text}
+                        </Text>
+                      </View>
+                      <Text style={styles.cardTitle} numberOfLines={2}>
+                        {event.emoji ? `${event.emoji} ` : ""}
+                        {event.title}
                       </Text>
-                      <Text
-                        style={[styles.timeText, { color: badge.color.text }]}
-                      >
-                        {badge.text}
+                      <Text style={styles.cardMeta} numberOfLines={1}>
+                        {[
+                          event.location
+                            ? formatVenueShort(event.location)
+                            : null,
+                          event.categories?.[0]?.name,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </Text>
                     </View>
-                    <Text style={styles.cardTitle} numberOfLines={2}>
-                      {event.emoji ? `${event.emoji} ` : ""}
-                      {event.title}
-                    </Text>
-                    <Text style={styles.cardMeta} numberOfLines={1}>
-                      {[
-                        event.location
-                          ? formatVenueShort(event.location)
-                          : null,
-                        event.categories?.[0]?.name,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </Text>
+                    <ShimmerBorder active={isRealtime} />
                   </View>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </Reanimated.View>
             );
           })}
         </ScrollView>

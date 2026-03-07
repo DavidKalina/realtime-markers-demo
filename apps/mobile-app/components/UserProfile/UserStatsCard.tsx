@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   colors,
   spacing,
@@ -82,21 +82,23 @@ const UserStatsCard: React.FC<UserStatsCardProps> = ({ stats, isLoading }) => {
           <View style={styles.divider} />
           <View style={styles.chartSection}>
             <CategoryPieChart breakdown={pieBreakdown} />
-            <View style={styles.legendWrap}>
-              {pieBreakdown.map((cat, i) => (
-                <View key={cat.name} style={styles.legendItem}>
-                  <View
-                    style={[
-                      styles.legendDot,
-                      { backgroundColor: BAR_COLORS[i % BAR_COLORS.length] },
-                    ]}
-                  />
-                  <Text style={styles.legendText}>
-                    {cat.name} {cat.pct}%
-                  </Text>
-                </View>
-              ))}
-            </View>
+            <ScrollView style={styles.legendScroll} nestedScrollEnabled>
+              <View style={styles.legendWrap}>
+                {pieBreakdown.map((cat, i) => (
+                  <View key={cat.name} style={styles.legendItem}>
+                    <View
+                      style={[
+                        styles.legendDot,
+                        { backgroundColor: BAR_COLORS[i % BAR_COLORS.length] },
+                      ]}
+                    />
+                    <Text style={styles.legendText}>
+                      {cat.name} {cat.pct}%
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
           </View>
         </>
       )}
@@ -107,16 +109,18 @@ const UserStatsCard: React.FC<UserStatsCardProps> = ({ stats, isLoading }) => {
           <View style={styles.divider} />
           <View style={styles.citiesSection}>
             <Text style={styles.sectionLabel}>CITIES SCANNED</Text>
-            <View style={styles.cityPills}>
-              {stats.cityBreakdown.map((c) => (
-                <View key={c.city} style={styles.cityPill}>
-                  <Text style={styles.cityName}>
-                    {c.city.split(",")[0].trim()}
-                  </Text>
-                  <Text style={styles.cityCount}>{c.count}</Text>
-                </View>
-              ))}
-            </View>
+            <ScrollView style={styles.cityPillsScroll} nestedScrollEnabled>
+              <View style={styles.cityPills}>
+                {stats.cityBreakdown.map((c) => (
+                  <View key={c.city} style={styles.cityPill}>
+                    <Text style={styles.cityName}>
+                      {c.city.split(",")[0].trim()}
+                    </Text>
+                    <Text style={styles.cityCount}>{c.count}</Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
           </View>
         </>
       )}
@@ -188,8 +192,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.xl,
   },
-  legendWrap: {
+  legendScroll: {
     flex: 1,
+    maxHeight: 120,
+  },
+  legendWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 12,
@@ -219,6 +226,9 @@ const styles = StyleSheet.create({
     color: colors.text.label,
     fontFamily: fontFamily.mono,
     letterSpacing: 1.5,
+  },
+  cityPillsScroll: {
+    maxHeight: 120,
   },
   cityPills: {
     flexDirection: "row",

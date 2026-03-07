@@ -605,6 +605,41 @@ function LoadingText({ text = "Generating insight" }: { text?: string }) {
   );
 }
 
+function CooldownError({ message }: { message: string }) {
+  const isRateLimit = /too many|rate limit|429|cooldown/i.test(message);
+
+  const pulse = useSharedValue(0.4);
+
+  useEffect(() => {
+    if (!isRateLimit) return;
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.4, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+      ),
+      -1,
+    );
+    return () => cancelAnimation(pulse);
+  }, [isRateLimit]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    opacity: pulse.value,
+  }));
+
+  if (!isRateLimit) {
+    return <Text style={dialogStyles.errorText}>{message}</Text>;
+  }
+
+  return (
+    <View style={dialogStyles.cooldownContainer}>
+      <Reanimated.Text style={[dialogStyles.cooldownLabel, pulseStyle]}>
+        COOLDOWN ACTIVE
+      </Reanimated.Text>
+      <Text style={dialogStyles.cooldownHint}>Try again in a moment</Text>
+    </View>
+  );
+}
+
 export function DialogBox({
   isLoading,
   error,
@@ -717,11 +752,12 @@ export function DialogBox({
       cancelAnimation(sheenPos);
 
       if (error) {
-        // Error: skip sheen, just expand and show
+        // Error: skip sheen, expand to compact height and show
         phase.value = 3;
         statusOpacity.value = 0;
+        const errorHeight = COLLAPSED_HEIGHT + 20;
         animHeight.value = withTiming(
-          targetHeightSV.value,
+          errorHeight,
           { duration: 300, easing: Easing.out(Easing.cubic) },
           (finished) => {
             if (finished) scheduleOnRN(fireExpandComplete);
@@ -892,7 +928,7 @@ export function DialogBox({
           {isLoading ? (
             <LoadingText text={loadingText} />
           ) : error ? (
-            <Text style={dialogStyles.errorText}>{error}</Text>
+            <CooldownError message={error} />
           ) : (
             <View style={dialogStyles.textArea}>
               <Text style={dialogStyles.bubbleText}>{displayText}</Text>
@@ -997,6 +1033,25 @@ const dialogStyles = StyleSheet.create({
     fontSize: 14,
     color: colors.status.error.text,
     fontFamily: fontFamily.mono,
+  },
+  cooldownContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 3,
+  },
+  cooldownLabel: {
+    fontSize: 11,
+    fontFamily: fontFamily.mono,
+    fontWeight: "700",
+    color: "#90cdf4",
+    letterSpacing: 3,
+  },
+  cooldownHint: {
+    fontSize: 10,
+    fontFamily: fontFamily.mono,
+    color: colors.text.secondary,
+    letterSpacing: 1,
   },
 });
 

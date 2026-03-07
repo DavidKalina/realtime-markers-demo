@@ -243,6 +243,7 @@ export interface DiscoveredEventData {
   createdAt: string;
   updatedAt: string;
   isOwnDiscovery?: boolean;
+  city?: string;
 }
 
 export interface DiscoveryEvent extends BaseEvent {
