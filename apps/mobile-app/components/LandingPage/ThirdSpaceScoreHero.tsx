@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Svg, { Circle, Polyline } from "react-native-svg";
 import Animated, {
@@ -13,7 +13,8 @@ import Animated, {
 import { scheduleOnRN } from "react-native-worklets";
 import { ChevronRight } from "lucide-react-native";
 import {
-  colors,
+  useColors,
+  type Colors,
   fontSize,
   fontWeight,
   fontFamily,
@@ -54,6 +55,8 @@ const AnimatedSubScore: React.FC<{
   color: string;
   delay: number;
 }> = ({ value, color, delay }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const animated = useSharedValue(0);
   const [displayed, setDisplayed] = useState(0);
 
@@ -95,6 +98,8 @@ function getScoreColor(score: number): string {
 }
 
 const ThirdSpaceScoreHero: React.FC<ThirdSpaceScoreHeroProps> = ({ score, onExploreMap }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const targetScore = score.current.score;
 
   const animatedScore = useSharedValue(0);
@@ -192,7 +197,7 @@ const ThirdSpaceScoreHero: React.FC<ThirdSpaceScoreHeroProps> = ({ score, onExpl
               cx={CIRCLE_SIZE / 2}
               cy={CIRCLE_SIZE / 2}
               r={CIRCLE_RADIUS}
-              stroke={colors.border.default}
+              stroke={colors.border.accent}
               strokeWidth={STROKE_WIDTH}
               fill="none"
             />
@@ -265,8 +270,10 @@ const ThirdSpaceScoreHero: React.FC<ThirdSpaceScoreHeroProps> = ({ score, onExpl
           ]}
           onPress={onExploreMap}
         >
-          <Text style={[styles.exploreButtonText, { color: scoreColor }]}>Explore Map</Text>
-          <ChevronRight size={12} color={scoreColor} />
+          <Text style={[styles.exploreButtonText, { color: scoreColor }]}>
+            Explore map
+          </Text>
+          <ChevronRight size={14} color={scoreColor} />
         </Pressable>
       )}
 
@@ -304,7 +311,7 @@ function buildSparkline(
     .join(" ");
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     marginBottom: spacing["2xl"],
     paddingHorizontal: spacing.lg,
@@ -391,21 +398,19 @@ const styles = StyleSheet.create({
   exploreButton: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-end",
-    gap: 6,
-    backgroundColor: colors.bg.elevated,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: radius.md,
+    justifyContent: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
   },
   exploreButtonPressed: {
-    opacity: 0.7,
+    opacity: 0.6,
   },
   exploreButtonText: {
-    color: colors.text.secondary,
-    fontSize: 11,
+    fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
     fontFamily: fontFamily.mono,
+    letterSpacing: 0.5,
   },
 });
 

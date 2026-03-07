@@ -1,8 +1,8 @@
 // styles/entity.ts
 import { StyleSheet } from "react-native";
-import { colors, spacing } from "@/theme";
+import { spacing, type Colors } from "@/theme";
 
-export const entity = StyleSheet.create({
+export const createEntityStyles = (colors: Colors) => StyleSheet.create({
   entityWrapper: {
     marginRight: spacing.lg,
     alignItems: "center",

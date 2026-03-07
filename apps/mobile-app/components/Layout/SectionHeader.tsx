@@ -1,5 +1,6 @@
 import {
-  colors,
+  useColors,
+  type Colors,
   spacing,
   radius,
   fontSize,
@@ -7,7 +8,7 @@ import {
   fontFamily,
 } from "@/theme";
 import { LucideIcon } from "lucide-react-native";
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import * as Haptics from "expo-haptics";
 
@@ -24,8 +25,11 @@ export default function SectionHeader({
   title,
   actionText,
   onActionPress,
-  iconColor = colors.accent.primary,
+  iconColor,
 }: SectionHeaderProps) {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const resolvedIconColor = iconColor ?? colors.accent.primary;
   const handleActionPress = () => {
     if (onActionPress) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -36,7 +40,7 @@ export default function SectionHeader({
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionIconContainer}>
-        <Icon size={20} color={iconColor} />
+        <Icon size={20} color={resolvedIconColor} />
       </View>
       <Text style={styles.sectionTitle}>{title}</Text>
       {actionText && onActionPress && (
@@ -51,7 +55,7 @@ export default function SectionHeader({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",

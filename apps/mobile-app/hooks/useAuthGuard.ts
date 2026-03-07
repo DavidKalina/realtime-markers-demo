@@ -37,7 +37,7 @@ export function useAuthGuard() {
     if (!isAuthenticated && !isGuestScreen && !isPublicScreen) {
       router.replace("/login");
     } else if (isAuthenticated && isGuestScreen) {
-      router.replace("/");
+      router.replace("/spaces");
     } else if (
       isAuthenticated &&
       !hasCompletedOnboarding &&

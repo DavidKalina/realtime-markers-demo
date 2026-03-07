@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, TouchableOpacity, Text, StyleSheet, Alert } from "react-native";
-import { colors, spacing, radius, fontSize, fontWeight } from "@/theme";
+import { useColors, spacing, radius, fontSize, fontWeight, type Colors } from "@/theme";
 import {
   useGoogleOAuth,
   useFacebookOAuth,
@@ -17,6 +17,8 @@ export const OAuthButtons: React.FC<OAuthButtonsProps> = ({
   onSuccess,
   onError,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const {
     signInWithGoogle,
     isReady: isGoogleReady,
@@ -115,7 +117,7 @@ export const OAuthButtons: React.FC<OAuthButtonsProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     marginVertical: spacing.xl,
   },

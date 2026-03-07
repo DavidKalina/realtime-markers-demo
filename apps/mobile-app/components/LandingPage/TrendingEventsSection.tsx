@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
   NativeScrollEvent,
 } from "react-native";
 import {
-  colors,
+  useColors,
+  type Colors,
   fontSize,
   fontWeight,
   fontFamily,
@@ -36,6 +37,8 @@ const TrendingEventsSection: React.FC<TrendingEventsSectionProps> = ({
   events = [],
 }) => {
   const router = useRouter();
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -163,7 +166,7 @@ const TrendingEventsSection: React.FC<TrendingEventsSectionProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     marginBottom: spacing.lg,
   },

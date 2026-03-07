@@ -1,13 +1,13 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ChevronRight } from "lucide-react-native";
 import Svg, { Circle } from "react-native-svg";
 import {
-  colors,
+  useColors,
+  type Colors,
   fontFamily,
   fontSize,
   fontWeight,
-  radius,
   spacing,
 } from "@/theme";
 import type { ThirdSpaceSummary } from "@/services/api/modules/leaderboard";
@@ -42,6 +42,8 @@ const SpaceCityCard: React.FC<SpaceCityCardProps> = ({
   rank,
   onPress,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const momentum = MOMENTUM_ARROWS[city.momentum];
   const scoreColor = getScoreColor(city.score);
   const progress = city.score / 100;
@@ -62,7 +64,7 @@ const SpaceCityCard: React.FC<SpaceCityCardProps> = ({
             cx={CIRCLE_SIZE / 2}
             cy={CIRCLE_SIZE / 2}
             r={CIRCLE_RADIUS}
-            stroke={colors.border.default}
+            stroke={colors.border.accent}
             strokeWidth={STROKE_WIDTH}
             fill="none"
           />
@@ -113,73 +115,74 @@ const SpaceCityCard: React.FC<SpaceCityCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-  },
-  pressed: {
-    backgroundColor: colors.bg.card,
-  },
-  rank: {
-    width: 28,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.bold,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-    textAlign: "center",
-  },
-  scoreCircle: {
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  scoreLabel: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  scoreText: {
-    fontSize: 11,
-    fontWeight: fontWeight.bold,
-    fontFamily: fontFamily.mono,
-  },
-  info: {
-    flex: 1,
-    gap: 2,
-  },
-  cityName: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-  },
-  meta: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    alignItems: "center",
-  },
-  momentum: {
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    textTransform: "capitalize",
-  },
-  eventCount: {
-    fontSize: fontSize.xs,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-  },
-  distance: {
-    fontSize: fontSize.xs,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      gap: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.default,
+    },
+    pressed: {
+      backgroundColor: colors.bg.card,
+    },
+    rank: {
+      width: 28,
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      textAlign: "center",
+    },
+    scoreCircle: {
+      width: CIRCLE_SIZE,
+      height: CIRCLE_SIZE,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    scoreLabel: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    scoreText: {
+      fontSize: 11,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+    },
+    info: {
+      flex: 1,
+      gap: 2,
+    },
+    cityName: {
+      fontSize: fontSize.base,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+    },
+    meta: {
+      flexDirection: "row",
+      gap: spacing.sm,
+      alignItems: "center",
+    },
+    momentum: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      textTransform: "capitalize",
+    },
+    eventCount: {
+      fontSize: fontSize.xs,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+    },
+    distance: {
+      fontSize: fontSize.xs,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+    },
+  });
 
 export default SpaceCityCard;

@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -16,7 +22,8 @@ import { useRouter } from "expo-router";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { getTimeLeftLabel } from "@/utils/timeUtils";
 import {
-  colors,
+  useColors,
+  type Colors,
   fontFamily,
   fontSize,
   fontWeight,
@@ -34,6 +41,8 @@ const MARQUEE_GAP = 48; // px gap between the two copies
 
 export const MarkerInfoHUD: React.FC<MarkerInfoHUDProps> = React.memo(
   ({ safeAreaBottom }) => {
+    const colors = useColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const router = useRouter();
     const selectedItem = useLocationStore((s) => s.selectedItem);
 
@@ -203,95 +212,96 @@ export const MarkerInfoHUD: React.FC<MarkerInfoHUDProps> = React.memo(
   },
 );
 
-const styles = StyleSheet.create({
-  wrapper: {
-    position: "absolute",
-    left: spacing.md,
-    right: spacing.md,
-    zIndex: 100,
-  },
-  card: {
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    ...shadows.lg,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  emoji: {
-    fontSize: fontSize["2xl"],
-    lineHeight: lineHeight.heading,
-  },
-  chevron: {
-    color: colors.text.secondary,
-    fontSize: fontSize.xl,
-    lineHeight: lineHeight.relaxed,
-    marginLeft: spacing.xs,
-  },
-  titleClip: {
-    flex: 1,
-    overflow: "hidden",
-  },
-  tickerRow: {
-    flexDirection: "row",
-    flexWrap: "nowrap",
-    width: 9999,
-  },
-  title: {
-    color: colors.text.primary,
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    lineHeight: lineHeight.tight,
-  },
-  measureText: {
-    position: "absolute",
-    opacity: 0,
-    top: -9999,
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-  },
-  countdown: {
-    color: colors.text.secondary,
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.medium,
-    lineHeight: lineHeight.tight,
-  },
-  countdownExpired: {
-    color: colors.status.warning.text,
-  },
-  badge: {
-    backgroundColor: colors.bg.primary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  badgeText: {
-    color: colors.status.success.text,
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-  },
-  trendingBadge: {
-    borderColor: colors.accent.border,
-  },
-  trendingText: {
-    color: colors.accent.primary,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    wrapper: {
+      position: "absolute",
+      left: spacing.md,
+      right: spacing.md,
+      zIndex: 100,
+    },
+    card: {
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg,
+      ...shadows.lg,
+    },
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+    },
+    metaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      marginTop: spacing.md,
+    },
+    emoji: {
+      fontSize: fontSize["2xl"],
+      lineHeight: lineHeight.heading,
+    },
+    chevron: {
+      color: colors.text.secondary,
+      fontSize: fontSize.xl,
+      lineHeight: lineHeight.relaxed,
+      marginLeft: spacing.xs,
+    },
+    titleClip: {
+      flex: 1,
+      overflow: "hidden",
+    },
+    tickerRow: {
+      flexDirection: "row",
+      flexWrap: "nowrap",
+      width: 9999,
+    },
+    title: {
+      color: colors.text.primary,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      lineHeight: lineHeight.tight,
+    },
+    measureText: {
+      position: "absolute",
+      opacity: 0,
+      top: -9999,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+    },
+    countdown: {
+      color: colors.text.secondary,
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      lineHeight: lineHeight.tight,
+    },
+    countdownExpired: {
+      color: colors.status.warning.text,
+    },
+    badge: {
+      backgroundColor: colors.bg.primary,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    badgeText: {
+      color: colors.status.success.text,
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+    },
+    trendingBadge: {
+      borderColor: colors.accent.border,
+    },
+    trendingText: {
+      color: colors.accent.primary,
+    },
+  });

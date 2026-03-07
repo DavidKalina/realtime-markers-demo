@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { colors, spacing, fontSize, fontFamily, duration } from "@/theme";
+import { useColors, spacing, fontSize, fontFamily, duration, type Colors } from "@/theme";
 
 export interface EndOfListProps {
   message?: string;
@@ -12,6 +12,8 @@ const EndOfList: React.FC<EndOfListProps> = ({
   message = "You're all caught up",
   animated = true,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const Wrapper = animated ? Animated.View : View;
   const entering = animated ? FadeIn.duration(duration.normal) : undefined;
 
@@ -26,7 +28,7 @@ const EndOfList: React.FC<EndOfListProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing["3xl"],

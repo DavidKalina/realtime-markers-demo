@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { colors, spacing, radius, fontSize, fontFamily } from "@/theme";
+import { useColors, spacing, radius, fontSize, fontFamily, type Colors } from "@/theme";
 import { ImageItem } from "@/hooks/useBatchUpload";
 
 const COLUMNS = 3;
@@ -30,6 +30,8 @@ export function ImagePreviewGrid({
   isUploading,
   onRemove,
 }: ImagePreviewGridProps) {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   if (images.length === 0) return null;
 
   return (
@@ -77,7 +79,7 @@ export function ImagePreviewGrid({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     gap: spacing.sm,
   },

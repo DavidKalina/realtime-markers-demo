@@ -1,15 +1,16 @@
 import {
-  colors,
+  useColors,
   spacing,
   radius,
   fontSize,
   fontWeight,
   fontFamily,
+  type Colors,
 } from "@/theme";
 import { CameraOff, CheckCircle } from "lucide-react-native";
 import { useCameraPermissions } from "expo-camera";
 import * as Linking from "expo-linking";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
@@ -37,6 +38,8 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
   onPermissionGranted,
   onRetryPermission,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [permission, requestPermission] = useCameraPermissions();
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasSettingsOpened, setHasSettingsOpened] = useState(false);
@@ -413,7 +416,7 @@ export const CameraPermission: React.FC<CameraPermissionProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   permissionContainer: {
     flex: 1,
     backgroundColor: colors.bg.elevated,

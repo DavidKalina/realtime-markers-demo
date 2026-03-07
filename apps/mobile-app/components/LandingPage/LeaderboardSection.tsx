@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Image, Dimensions } from "react-native";
 import {
-  colors,
+  useColors,
+  type Colors,
   fontSize,
   fontWeight,
   fontFamily,
@@ -38,6 +39,9 @@ const ContributorsSection: React.FC<ContributorsSectionProps> = ({
   currentUserId,
   city,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (!contributors || contributors.length === 0) {
     return null;
   }
@@ -115,7 +119,7 @@ const ContributorsSection: React.FC<ContributorsSectionProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     marginBottom: spacing["2xl"],
   },

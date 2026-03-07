@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View } from "react-native";
 import MapboxGL from "@rnmapbox/maps";
 import { EmojiMapMarker } from "../Markers/CustomMapMarker";
-import { styles } from "./styles";
-import { colors } from "@/theme";
+import { createStyles } from "./styles";
+import { useColors } from "@/theme";
+import { useMapStyle } from "@/contexts/MapStyleContext";
 
 interface EventMapPreviewProps {
   coordinates: [number, number];
@@ -20,6 +21,10 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
   emoji,
   eventDate,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { mapStyle } = useMapStyle();
+
   return (
     <View style={styles.mapPreviewContainer}>
       <MapboxGL.MapView
@@ -30,7 +35,7 @@ const EventMapPreview: React.FC<EventMapPreviewProps> = ({
         rotateEnabled={false}
         scaleBarEnabled={false}
         style={styles.mapPreview}
-        styleURL={MapboxGL.StyleURL.Dark}
+        styleURL={mapStyle}
         logoEnabled={false}
         attributionEnabled={false}
       >

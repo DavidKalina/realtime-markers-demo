@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState, useCallback } from "react";
+import React, { memo, useEffect, useMemo, useState, useCallback } from "react";
 import { Text, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -7,32 +7,18 @@ import Animated, {
   Easing,
   cancelAnimation,
 } from "react-native-reanimated";
-import { styles } from "./styles";
+import { useColors } from "@/theme";
+import { createStyles } from "./styles";
 
 interface MessageBubbleProps {
   message: string;
   isTyping?: boolean;
 }
 
-// Memoized typing indicator component
-const TypingIndicator = memo(() => {
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        paddingVertical: 10,
-        paddingHorizontal: 14,
-      }}
-    >
-      <View style={styles.typingDot} />
-      <View style={styles.typingDot} />
-      <View style={styles.typingDot} />
-    </View>
-  );
-});
-
 export const MessageBubble: React.FC<MessageBubbleProps> = memo(
   ({ message, isTyping = false }) => {
+    const colors = useColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     // Track current message for display
     const [displayMessage, setDisplayMessage] = useState("");
 
@@ -83,7 +69,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = memo(
       <View style={styles.textWrapper}>
         <View style={styles.messageBubble}>
           {isTyping && !displayMessage ? (
-            <TypingIndicator />
+            <View
+              style={{
+                flexDirection: "row",
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+              }}
+            >
+              <View style={styles.typingDot} />
+              <View style={styles.typingDot} />
+              <View style={styles.typingDot} />
+            </View>
           ) : (
             <Animated.View style={animatedContentStyle}>
               <Text style={styles.messageText}>{displayMessage}</Text>

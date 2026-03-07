@@ -5,47 +5,34 @@ import {
   ViewportEvent,
   MarkersEvent,
   BaseEvent,
-  DiscoveryEvent,
-  LevelUpdateEvent,
-  XPAwardedEvent,
-  NotificationEvent,
 } from "@/services/EventBroker";
 import { Marker, MapboxViewport } from "@/types/types";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { convertEventToMarker } from "@/utils/convertEventToMarker";
 import { MessageTypes } from "./constants";
 
-interface UseMessageHandlerArgs {
+interface UseViewportMessageHandlerArgs {
   setClientId: React.Dispatch<React.SetStateAction<string | null>>;
   currentViewportRef: React.RefObject<MapboxViewport | null>;
 }
 
-export function useMessageHandler({
+export function useViewportMessageHandler({
   setClientId,
   currentViewportRef,
-}: UseMessageHandlerArgs) {
-  const handleWebSocketMessage = useCallback(
-    (event: MessageEvent) => {
+}: UseViewportMessageHandlerArgs) {
+  const handleViewportMessage = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (data: any) => {
       try {
-        const data = JSON.parse(event.data);
-        if (__DEV__) {
-          console.log(
-            "[useMapWebsocket] Received WebSocket message:",
-            data.type,
-            data,
-          );
-        }
-
         if (!data || typeof data !== "object" || !data.type) {
-          console.warn(
-            "[useMapWebsocket] Received invalid or typeless message data:",
-            data,
-          );
           return;
         }
 
         if (__DEV__) {
-          console.log("[useMapWebsocket] Processing message type:", data.type);
+          console.log(
+            "[useMapWebsocket] Processing viewport message:",
+            data.type,
+          );
         }
 
         const store = useLocationStore.getState();
@@ -71,7 +58,6 @@ export function useMessageHandler({
             }
             try {
               const rawMarkers = data.events.map(convertEventToMarker);
-              // Deduplicate by marker ID — server may send duplicates in viewport updates
               const seen = new Set<string>();
               const incomingMarkers = rawMarkers.filter((m: Marker) => {
                 if (seen.has(m.id)) return false;
@@ -86,7 +72,6 @@ export function useMessageHandler({
               }
 
               // Smart diff: preserve object references for unchanged markers
-              // so React doesn't unmount/remount them (avoiding re-animation jank)
               const prevMarkers = store.markers;
               const prevMap = new Map(prevMarkers.map((m) => [m.id, m]));
               const result: Marker[] = [];
@@ -99,19 +84,16 @@ export function useMessageHandler({
                   existing.data.emoji === incoming.data.emoji &&
                   existing.data.title === incoming.data.title
                 ) {
-                  // Marker unchanged — keep original reference
                   result.push(existing);
                 } else {
                   result.push(incoming);
                 }
               }
 
-              // If nothing changed, skip the store update
               if (
                 result.length === prevMarkers.length &&
                 result.every((m, i) => m === prevMarkers[i])
               ) {
-                // Still emit viewport changed so subscribers stay in sync
                 if (currentViewportRef.current) {
                   eventBroker.emit<ViewportEvent & { searching: boolean }>(
                     EventTypes.VIEWPORT_CHANGED,
@@ -233,7 +215,6 @@ export function useMessageHandler({
               );
 
               if (markerExisted) {
-                // Check if deleted marker was selected before removing
                 const currentSelected = store.selectedItem;
                 if (
                   currentSelected?.type === "marker" &&
@@ -266,80 +247,6 @@ export function useMessageHandler({
             break;
           }
 
-          case MessageTypes.EVENT_DISCOVERED: {
-            if (!data.event) {
-              console.warn(
-                "[useMapWebsocket] Missing event data in EVENT_DISCOVERED",
-              );
-              return;
-            }
-            try {
-              eventBroker.emit<DiscoveryEvent>(EventTypes.EVENT_DISCOVERED, {
-                timestamp: Date.now(),
-                source: "useMapWebSocket",
-                event: data.event,
-              });
-            } catch (e) {
-              console.error(
-                "[useMapWebsocket] Error processing EVENT_DISCOVERED:",
-                e,
-              );
-            }
-            break;
-          }
-
-          case MessageTypes.NOTIFICATION: {
-            if (!data.title || !data.message) {
-              console.warn("[useMapWebsocket] Missing notification content");
-              return;
-            }
-            try {
-              eventBroker.emit<NotificationEvent>(EventTypes.NOTIFICATION, {
-                timestamp: data.timestamp || Date.now(),
-                source: data.source || "useMapWebSocket",
-                title: data.title,
-                message: data.message,
-                notificationType: data.notificationType || "info",
-                duration: data.duration || 5000,
-              });
-            } catch (e) {
-              console.error(
-                "[useMapWebsocket] Error processing NOTIFICATION:",
-                e,
-              );
-            }
-            break;
-          }
-
-          case MessageTypes.LEVEL_UPDATE:
-          case MessageTypes.XP_AWARDED: {
-            if (!data.data || !data.data.userId) {
-              console.warn(`[useMapWebsocket] Missing data in ${data.type}`);
-              return;
-            }
-            const eventType =
-              data.type === MessageTypes.LEVEL_UPDATE
-                ? EventTypes.LEVEL_UPDATE
-                : EventTypes.XP_AWARDED;
-            try {
-              eventBroker.emit<LevelUpdateEvent | XPAwardedEvent>(eventType, {
-                timestamp: data.data.timestamp || Date.now(),
-                source: "useMapWebSocket",
-                data: {
-                  ...data.data,
-                  xpProgress:
-                    data.type === MessageTypes.LEVEL_UPDATE ? 0 : undefined,
-                },
-              });
-            } catch (e) {
-              console.error(
-                `[useMapWebsocket] Error processing ${data.type}:`,
-                e,
-              );
-            }
-            break;
-          }
-
           case MessageTypes.SESSION_UPDATE: {
             if (__DEV__) {
               console.debug("[useMapWebsocket] Received SESSION_UPDATE:", data);
@@ -350,9 +257,8 @@ export function useMessageHandler({
           default: {
             if (__DEV__) {
               console.debug(
-                "[useMapWebsocket] Unhandled message type:",
+                "[useMapWebsocket] Unhandled viewport message type:",
                 data.type,
-                data,
               );
             }
             break;
@@ -360,26 +266,13 @@ export function useMessageHandler({
         }
       } catch (err) {
         console.error(
-          "[useMapWebsocket] Error parsing WebSocket message:",
+          "[useMapWebsocket] Error processing viewport message:",
           err,
-          event.data,
-        );
-        const errorObj =
-          err instanceof Error
-            ? err
-            : new Error("Unknown error parsing WebSocket message");
-        eventBroker.emit<BaseEvent & { error: Error }>(
-          EventTypes.ERROR_OCCURRED,
-          {
-            timestamp: Date.now(),
-            source: "useMapWebSocket",
-            error: errorObj,
-          },
         );
       }
     },
     [setClientId, currentViewportRef],
   );
 
-  return { handleWebSocketMessage };
+  return { handleViewportMessage };
 }

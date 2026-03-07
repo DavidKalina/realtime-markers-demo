@@ -10,7 +10,7 @@ import Animated, {
   Easing,
   cancelAnimation,
 } from "react-native-reanimated";
-import { colors } from "@/theme";
+import { useColors, type Colors } from "@/theme";
 
 interface MapRippleEffectProps {
   isVisible: boolean;
@@ -61,6 +61,8 @@ const MapRippleEffectComponent: React.FC<MapRippleEffectProps> = ({
   onAnimationComplete,
   zoomLevel,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // Hooks must be called at top level — one pair per ring
   const scale0 = useSharedValue(0);
   const opacity0 = useSharedValue(0);
@@ -180,7 +182,7 @@ export const MapRippleEffect = React.memo(
   arePropsEqual,
 );
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   ring: {
     position: "absolute",
     width: RING_SIZE,

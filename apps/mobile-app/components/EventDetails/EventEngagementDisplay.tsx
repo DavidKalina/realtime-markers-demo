@@ -1,7 +1,7 @@
 import { EventEngagementMetrics } from "@/services/api/base/types";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { colors, spacing, fontWeight, fontFamily } from "@/theme";
+import { useColors, spacing, fontWeight, fontFamily, type Colors } from "@/theme";
 
 interface EventEngagementDisplayProps {
   engagement: EventEngagementMetrics;
@@ -18,6 +18,8 @@ const formatNumber = (num: number): string => {
 
 const EventEngagementDisplay: React.FC<EventEngagementDisplayProps> = memo(
   ({ engagement }) => {
+    const colors = useColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const stats = [
       { value: engagement.saveCount, label: "SAVES", color: STAT_COLORS[0] },
       { value: engagement.scanCount, label: "SCANS", color: STAT_COLORS[1] },
@@ -43,7 +45,7 @@ EventEngagementDisplay.displayName = "EventEngagementDisplay";
 
 export default EventEngagementDisplay;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   statsRow: {
     flexDirection: "row",
     gap: spacing.xl,

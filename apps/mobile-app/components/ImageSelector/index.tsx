@@ -1,9 +1,9 @@
 // ImageSelector.tsx
 import { Image as ImageIcon } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
-import { colors, radius } from "@/theme";
+import { useColors, radius, type Colors } from "@/theme";
 
 interface ImageSelectorProps {
   onImageSelected: (uri: string) => void;
@@ -14,6 +14,8 @@ export const ImageSelector: React.FC<ImageSelectorProps> = ({
   onImageSelected,
   disabled = false,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const pickImage = async () => {
     try {
       // Request permission first
@@ -57,7 +59,7 @@ export const ImageSelector: React.FC<ImageSelectorProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     alignItems: "center",
     justifyContent: "center",

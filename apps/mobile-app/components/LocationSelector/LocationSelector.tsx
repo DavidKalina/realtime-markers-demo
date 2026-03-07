@@ -1,8 +1,9 @@
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from "react-native";
 import { MapPin, X } from "lucide-react-native";
 import {
-  colors,
+  useColors,
+  type Colors,
   fontSize,
   fontFamily,
   fontWeight,
@@ -62,6 +63,8 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
   error,
   buttonText = "Select Location",
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -231,7 +234,7 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     width: "100%",
   },

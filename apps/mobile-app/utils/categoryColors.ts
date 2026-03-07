@@ -1,6 +1,6 @@
 // utils/categoryColors.ts - Canonical category color palette & helpers
 
-import { colors } from "@/theme";
+import type { Colors } from "@/theme";
 
 /**
  * 10-color palette chosen for dark-theme readability and hue diversity.
@@ -54,7 +54,10 @@ function darken(hex: string, factor: number): string {
 }
 
 /** MarkerSVG-compatible color scheme derived from a category name. */
-export function getCategoryColorScheme(name?: string): {
+export function getCategoryColorScheme(
+  colors: Colors,
+  name?: string,
+): {
   fill: string;
   stroke: string;
   circleStroke: string;

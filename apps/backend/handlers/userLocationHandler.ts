@@ -22,7 +22,13 @@ export async function updateLocationHandler(c: Context<AppContext>) {
   }
 
   const redisService = c.get("redisService");
-  await redisService.storeDeviceLocation(user.id, lng, lat);
+  const geocodingService = c.get("geocodingService");
+
+  // Reverse-geocode to city name instead of storing exact coordinates
+  const cityState = await geocodingService.reverseGeocodeCityState(lat, lng);
+  if (cityState) {
+    await redisService.storeUserCity(user.id, cityState);
+  }
 
   // Fire-and-forget: check for nearby events and send push notification
   c.get("proximityNotificationService")

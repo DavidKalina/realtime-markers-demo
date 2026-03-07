@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -18,7 +18,7 @@ import Animated, {
   SlideOutDown,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { colors, spring } from "@/theme";
+import { useColors, spring, type Colors } from "@/theme";
 import Input from "../Input/Input";
 
 export interface SelectOption {
@@ -55,6 +55,8 @@ export const Select: React.FC<SelectProps> = ({
   onClear,
   style,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -288,7 +290,7 @@ export const Select: React.FC<SelectProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     width: "100%",
   },

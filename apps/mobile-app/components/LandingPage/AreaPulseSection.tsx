@@ -1,12 +1,13 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import {
-  colors,
+  useColors,
   fontSize,
   fontWeight,
   fontFamily,
   spacing,
   radius,
+  type Colors,
 } from "@/theme";
 import {
   CategoryPieChart,
@@ -36,6 +37,8 @@ const AreaPulseSection: React.FC<AreaPulseSectionProps> = ({
   leaderboard,
   city,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const totalEvents = useMemo(
     () => popularCategories.reduce((sum, c) => sum + (c.eventCount || 0), 0),
     [popularCategories],
@@ -116,7 +119,7 @@ const AreaPulseSection: React.FC<AreaPulseSectionProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     marginBottom: spacing.xl,
   },

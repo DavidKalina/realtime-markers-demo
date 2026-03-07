@@ -1,5 +1,5 @@
 // import * as Haptics from "expo-haptics";
-import React from "react";
+import React, { useMemo } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,7 +17,8 @@ import Animated, {
   LinearTransition,
 } from "react-native-reanimated";
 import {
-  colors,
+  useColors,
+  type Colors,
   spacing,
   radius,
   fontSize,
@@ -46,6 +47,9 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
   onClose,
   onDelete,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <Modal
       visible={visible}
@@ -123,102 +127,103 @@ const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    backgroundColor: colors.overlay.light,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
-    padding: spacing["2xl"],
-    width: "90%",
-    maxWidth: 400,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    shadowColor: colors.shadow.default,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  modalTitle: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-    marginBottom: spacing.lg,
-    textAlign: "center",
-  },
-  dialogText: {
-    color: colors.text.primary,
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.relaxed,
-    marginBottom: spacing.lg,
-    textAlign: "center",
-  },
-  dialogSubText: {
-    color: colors.text.secondary,
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-    marginBottom: spacing.md,
-  },
-  passwordInput: {
-    backgroundColor: colors.bg.cardAlt,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    color: colors.text.primary,
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  errorText: {
-    color: colors.status.error.text,
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-    marginBottom: spacing.lg,
-    textAlign: "center",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    gap: spacing.md,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.border.subtle,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    alignItems: "center",
-  },
-  cancelButtonText: {
-    color: colors.text.primary,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-  },
-  deleteModalButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.status.error.text,
-    alignItems: "center",
-  },
-  deleteModalButtonDisabled: {
-    opacity: 0.7,
-  },
-  deleteModalButtonText: {
-    color: colors.fixed.white,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    modalContainer: {
+      flex: 1,
+      backgroundColor: colors.overlay.light,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    modalContent: {
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.xl,
+      padding: spacing["2xl"],
+      width: "90%",
+      maxWidth: 400,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      shadowColor: colors.shadow.default,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+    modalTitle: {
+      fontSize: fontSize.xl,
+      fontWeight: fontWeight.bold,
+      color: colors.text.primary,
+      fontFamily: fontFamily.mono,
+      marginBottom: spacing.lg,
+      textAlign: "center",
+    },
+    dialogText: {
+      color: colors.text.primary,
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+      lineHeight: lineHeight.relaxed,
+      marginBottom: spacing.lg,
+      textAlign: "center",
+    },
+    dialogSubText: {
+      color: colors.text.secondary,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      marginBottom: spacing.md,
+    },
+    passwordInput: {
+      backgroundColor: colors.bg.cardAlt,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      color: colors.text.primary,
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+      marginBottom: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    errorText: {
+      color: colors.status.error.text,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      marginBottom: spacing.lg,
+      textAlign: "center",
+    },
+    modalButtons: {
+      flexDirection: "row",
+      gap: spacing.md,
+    },
+    cancelButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      borderRadius: radius.md,
+      backgroundColor: colors.border.subtle,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      alignItems: "center",
+    },
+    cancelButtonText: {
+      color: colors.text.primary,
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+    },
+    deleteModalButton: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      borderRadius: radius.md,
+      backgroundColor: colors.status.error.text,
+      alignItems: "center",
+    },
+    deleteModalButtonDisabled: {
+      opacity: 0.7,
+    },
+    deleteModalButtonText: {
+      color: colors.fixed.white,
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+    },
+  });
 
 export default DeleteAccountModal;

@@ -1,11 +1,4 @@
-import {
-  colors,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  spacing,
-} from "@/theme";
+import { fontFamily, fontSize, fontWeight, lineHeight, spacing } from "@/theme";
 import React, { useEffect } from "react";
 import { Dimensions, StyleSheet, View } from "react-native";
 import Animated, {

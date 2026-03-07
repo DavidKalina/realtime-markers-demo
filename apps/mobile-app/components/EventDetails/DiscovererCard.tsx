@@ -12,13 +12,14 @@ import Animated, {
 import { Svg, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import {
-  colors,
+  useColors,
   radius,
   spacing,
   fontSize,
   fontFamily,
   fontWeight,
   spring,
+  type Colors,
 } from "@/theme";
 import { getTierByName } from "@/utils/gamification";
 import DiscovererCardOverlay from "./DiscovererCardOverlay";
@@ -60,6 +61,8 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
   followingCount,
   memberSince,
 }) => {
+  const colors = useColors();
+  const cardStyles = useMemo(() => createCardStyles(colors), [colors]);
   const [cardWidth, setCardWidth] = useState(0);
   const [overlayVisible, setOverlayVisible] = useState(false);
   const sheenProgress = useSharedValue(0);
@@ -236,7 +239,7 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
   );
 };
 
-const cardStyles = StyleSheet.create({
+const createCardStyles = (colors: Colors) => StyleSheet.create({
   card: {
     height: CARD_HEIGHT,
     width: "100%",
@@ -270,9 +273,9 @@ const cardStyles = StyleSheet.create({
   watermark: {
     fontWeight: fontWeight.bold,
     fontFamily: fontFamily.mono,
-    color: "rgba(255, 255, 255, 0.03)",
+    color: colors.border.subtle,
     letterSpacing: 5,
-    textShadowColor: "rgba(0, 0, 0, 0.6)",
+    textShadowColor: colors.shadow.light,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 0,
     transform: [{ rotate: "-18deg" }],

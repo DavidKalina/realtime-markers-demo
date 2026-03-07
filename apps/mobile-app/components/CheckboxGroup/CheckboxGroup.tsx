@@ -1,5 +1,5 @@
 import { X } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FlatList,
   Modal,
@@ -9,12 +9,13 @@ import {
   View,
 } from "react-native";
 import {
-  colors,
+  useColors,
   spacing,
   radius,
   fontSize,
   fontWeight,
   fontFamily,
+  type Colors,
 } from "@/theme";
 
 // Generic item interface that can be used for any selectable items
@@ -54,7 +55,10 @@ const DefaultItemCard = <T extends SelectableItem>({
   item: T;
   isSelected: boolean;
   onToggle: () => void;
-}) => (
+}) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  return (
   <TouchableOpacity
     onPress={onToggle}
     style={[styles.itemCard, isSelected && styles.selectedItemCard]}
@@ -69,7 +73,8 @@ const DefaultItemCard = <T extends SelectableItem>({
     </View>
     <View style={[styles.checkbox, isSelected && styles.checkboxSelected]} />
   </TouchableOpacity>
-);
+  );
+};
 
 export const CheckboxGroup = <T extends SelectableItem>({
   selectedItems,
@@ -85,6 +90,8 @@ export const CheckboxGroup = <T extends SelectableItem>({
   initialModalOpen = false,
   renderItem,
 }: CheckboxGroupProps<T>) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [isModalVisible, setIsModalVisible] = useState(initialModalOpen);
 
   const toggleItem = (item: T) => {
@@ -201,7 +208,7 @@ export const CheckboxGroup = <T extends SelectableItem>({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     width: "100%",
   },

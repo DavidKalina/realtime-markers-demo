@@ -10,7 +10,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { CategoryPieChart } from "../AreaScan/AreaScanComponents";
-import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
+import { useColors, spacing, fontSize, fontWeight, fontFamily, type Colors } from "@/theme";
 import { getCategoryColor } from "@/utils/categoryColors";
 
 export interface DnaCategory {
@@ -38,6 +38,8 @@ function AnimatedBarSegment({
   isFirst: boolean;
   isLast: boolean;
 }) {
+  const colors = useColors();
+  const dnStyles = useMemo(() => createDnStyles(colors), [colors]);
   const progress = useSharedValue(0);
 
   useEffect(() => {
@@ -67,6 +69,8 @@ function AnimatedBarSegment({
 
 const EventDnaChart: React.FC<EventDnaChartProps> = memo(
   ({ categories, variant = "chart", label = "EVENT DNA" }) => {
+    const colors = useColors();
+    const dnStyles = useMemo(() => createDnStyles(colors), [colors]);
     const router = useRouter();
 
     const breakdown = useMemo(
@@ -170,7 +174,7 @@ EventDnaChart.displayName = "EventDnaChart";
 
 export default EventDnaChart;
 
-const dnStyles = StyleSheet.create({
+const createDnStyles = (colors: Colors) => StyleSheet.create({
   container: {
     paddingHorizontal: spacing.xl,
     gap: spacing.sm,

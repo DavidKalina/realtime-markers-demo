@@ -29,13 +29,14 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Crypto from "expo-crypto";
 import {
-  colors,
+  useColors,
   spacing,
   radius,
   fontSize,
   fontWeight,
   fontFamily,
   spring,
+  type Colors,
 } from "@/theme";
 
 interface DiscoveryIndicatorProps {
@@ -62,6 +63,8 @@ interface IndicatorItem {
 const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
   position = "top-right",
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [items, setItems] = useState<IndicatorItem[]>([]);
   const { subscribe, publish } = useEventBroker();
   const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
@@ -352,7 +355,7 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     position: "absolute",
     zIndex: 1001,

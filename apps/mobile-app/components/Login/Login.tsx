@@ -1,12 +1,13 @@
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  colors,
+  useColors,
   fontFamily,
   fontSize,
   fontWeight,
   radius,
   spacing,
   spring,
+  type Colors,
 } from "@/theme";
 import { useAppActive } from "@/hooks/useAppActive";
 import { useFlyOverCamera } from "@/hooks/useFlyOverCamera";
@@ -20,7 +21,7 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -44,6 +45,7 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import MapboxGL from "@rnmapbox/maps";
+import { useMapStyle } from "@/contexts/MapStyleContext";
 import AppHeader from "../AnimationHeader";
 import Input from "../Input/Input";
 
@@ -163,8 +165,11 @@ const GradientOverlay: React.FC = React.memo(() => (
 ));
 
 const Login: React.FC = () => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { login } = useAuth();
+  const { mapStyle } = useMapStyle();
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -298,7 +303,7 @@ const Login: React.FC = () => {
       {isMapSafeToMount && isAppActive && (
         <MapboxGL.MapView
           style={StyleSheet.absoluteFill}
-          styleURL={MapboxGL.StyleURL.Dark}
+          styleURL={mapStyle}
           logoEnabled={false}
           attributionEnabled={false}
           scaleBarEnabled={false}
@@ -443,7 +448,7 @@ const Login: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.fixed.black,

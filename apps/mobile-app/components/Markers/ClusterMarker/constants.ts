@@ -1,26 +1,28 @@
-import { colors, spring } from "@/theme";
+import { spring } from "@/theme";
+import type { Colors } from "@/theme";
 
 // Color schemes with teardrop design
-export const COLOR_SCHEMES = {
-  small: {
-    fill: colors.bg.primary,
-    stroke: colors.fixed.white,
-    text: colors.text.primary,
-    circleStroke: colors.brand.markerStroke,
-  },
-  medium: {
-    fill: colors.bg.primary,
-    stroke: colors.fixed.white,
-    text: colors.text.primary,
-    circleStroke: colors.brand.markerStroke,
-  },
-  large: {
-    fill: colors.accent.primary,
-    stroke: colors.accent.dark,
-    text: colors.text.primary,
-    circleStroke: colors.accent.dark,
-  },
-};
+export const createColorSchemes = (colors: Colors) =>
+  ({
+    small: {
+      fill: colors.bg.primary,
+      stroke: colors.fixed.white,
+      text: colors.text.primary,
+      circleStroke: colors.brand.markerStroke,
+    },
+    medium: {
+      fill: colors.bg.primary,
+      stroke: colors.fixed.white,
+      text: colors.text.primary,
+      circleStroke: colors.brand.markerStroke,
+    },
+    large: {
+      fill: colors.accent.primary,
+      stroke: colors.accent.dark,
+      text: colors.text.primary,
+      circleStroke: colors.accent.dark,
+    },
+  }) as const;
 
 // Calculate marker size based on count
 export const calculateMarkerSize = (count: number) => {

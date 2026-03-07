@@ -1,4 +1,4 @@
-import { colors } from "@/theme";
+import { useColors } from "@/theme";
 import React, { useEffect } from "react";
 import { StyleSheet } from "react-native";
 import Animated, {
@@ -147,6 +147,7 @@ const ActionTile: React.FC<ActionTileProps> = ({
 export const EngageIllustration: React.FC<{ active: boolean }> = ({
   active,
 }) => {
+  const colors = useColors();
   const containerOpacity = useSharedValue(0);
   const cardScale = useSharedValue(0.95);
   const cardOpacity = useSharedValue(0);

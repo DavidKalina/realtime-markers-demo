@@ -17,7 +17,7 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
-import { colors, fontSize, lineHeight, spacing, spring } from "@/theme";
+import { fontSize, lineHeight, spacing, spring, useColors } from "@/theme";
 import { getCategoryColorScheme } from "@/utils/categoryColors";
 import {
   MARKER_HEIGHT,
@@ -58,6 +58,7 @@ interface EmojiMapMarkerProps {
 
 export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
   ({ event, isSelected, onPress, breathingScale }) => {
+    const colors = useColors();
     // Per-instance animation values
     const scale = useSharedValue(1);
     const rippleScale = useSharedValue(0);
@@ -107,10 +108,11 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
       ],
     }));
 
+    const rippleBorderColor = colors.fixed.white;
     const rippleStyle = useAnimatedStyle(() => ({
       opacity: rippleOpacity.value,
       transform: [{ scale: rippleScale.value }],
-      borderColor: colors.fixed.white,
+      borderColor: rippleBorderColor,
     }));
 
     // Memoized SVGs
@@ -131,7 +133,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
           />
         );
       }
-      const scheme = getCategoryColorScheme(primaryCategory);
+      const scheme = getCategoryColorScheme(colors, primaryCategory);
       return (
         <MarkerSVG
           fill={scheme.fill}
@@ -143,7 +145,7 @@ export const EmojiMapMarker: React.FC<EmojiMapMarkerProps> = React.memo(
           circleStrokeWidth="1"
         />
       );
-    }, [event.data.isPrivate, primaryCategory]);
+    }, [event.data.isPrivate, primaryCategory, colors]);
 
     return (
       <View style={styles.container}>
@@ -229,7 +231,7 @@ const styles = StyleSheet.create({
     width: spacing._10,
     height: spacing._10,
     borderRadius: 5,
-    backgroundColor: colors.fixed.transparent,
+    backgroundColor: "transparent",
     borderWidth: 2,
     opacity: 0.7,
     bottom: spacing.md,

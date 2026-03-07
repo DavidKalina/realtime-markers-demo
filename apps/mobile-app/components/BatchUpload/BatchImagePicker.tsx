@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { colors, spacing, radius, fontFamily, fontSize } from "@/theme";
+import { useColors, spacing, radius, fontFamily, fontSize, type Colors } from "@/theme";
 
 interface BatchImagePickerProps {
   currentCount: number;
@@ -18,6 +18,8 @@ export function BatchImagePicker({
   disabled,
   autoOpen,
 }: BatchImagePickerProps) {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const remaining = maxCount - currentCount;
   const autoOpenFired = useRef(false);
 
@@ -69,7 +71,7 @@ export function BatchImagePicker({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   button: {
     backgroundColor: colors.bg.elevated,
     borderWidth: 1,

@@ -9,11 +9,12 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import {
-  colors,
+  useColors,
   fontSize,
   fontFamily,
   fontWeight,
   spacing,
+  type Colors,
 } from "@/theme";
 
 export interface EventListItemProps {
@@ -39,18 +40,26 @@ type TimeBadgeColor = {
   bg: string;
 };
 
-export const timeBadgeColors = {
-  live: { text: "#6ee7b7", bg: "rgba(52, 211, 153, 0.12)" },
-  soon: { text: "#fcd34d", bg: "rgba(251, 191, 36, 0.12)" },
-  today: { text: "#93c5fd", bg: "rgba(147, 197, 253, 0.10)" },
-  upcoming: { text: colors.text.secondary, bg: "rgba(255, 255, 255, 0.04)" },
-  past: { text: colors.text.disabled, bg: "rgba(255, 255, 255, 0.04)" },
-} as const;
+export const getTimeBadgeColors = (colors: Colors) => ({
+  live: { text: colors.status.success.text, bg: colors.status.success.border },
+  soon: { text: colors.status.warning.text, bg: colors.status.warning.border },
+  today: { text: colors.status.info.text, bg: colors.status.info.border },
+  upcoming: { text: colors.text.secondary, bg: colors.border.subtle },
+  past: { text: colors.text.disabled, bg: colors.border.subtle },
+}) as const;
 
 export const getTimeBadge = (
   eventDate: Date | string,
   endDate?: string,
+  colors?: Colors,
 ): { text: string; color: TimeBadgeColor } => {
+  const timeBadgeColors = colors ? getTimeBadgeColors(colors) : {
+    live: { text: "#10b981", bg: "rgba(52, 211, 153, 0.12)" },
+    soon: { text: "#fcd34d", bg: "rgba(251, 191, 36, 0.12)" },
+    today: { text: "#93c5fd", bg: "rgba(147, 197, 253, 0.10)" },
+    upcoming: { text: "#8b949e", bg: "rgba(255, 255, 255, 0.04)" },
+    past: { text: "#484f58", bg: "rgba(255, 255, 255, 0.04)" },
+  };
   const now = new Date();
   const eventDateObj =
     typeof eventDate === "string" ? new Date(eventDate) : eventDate;
@@ -135,6 +144,8 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
     index = 0,
     onPress,
   }) => {
+    const colors = useColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const scale = useSharedValue(1);
 
     const navigate = useCallback(() => {
@@ -187,8 +198,8 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
     }));
 
     const timeBadge = useMemo(
-      () => getTimeBadge(eventDate, endDate),
-      [eventDate, endDate],
+      () => getTimeBadge(eventDate, endDate, colors),
+      [eventDate, endDate, colors],
     );
 
     const metaText = useMemo(() => {
@@ -238,7 +249,7 @@ EventListItem.displayName = "EventListItem";
 
 export default EventListItem;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -276,7 +287,7 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: 11,
     fontFamily: fontFamily.mono,
-    color: colors.text.disabled,
+    color: colors.text.secondary,
     lineHeight: 16,
   },
 });

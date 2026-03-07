@@ -5,11 +5,7 @@ import {
   TrendingEventType,
 } from "@/types/types";
 import React from "react";
-import {
-  RefreshControl,
-  ScrollView,
-  View,
-} from "react-native";
+import { RefreshControl, ScrollView, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
 import ContributorsSection from "./LeaderboardSection";
@@ -87,7 +83,10 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
         <>
           {thirdSpaceScore && (
             <Animated.View entering={FadeIn.duration(duration.normal).delay(0)}>
-              <ThirdSpaceScoreHero score={thirdSpaceScore} onExploreMap={onExploreMap} />
+              <ThirdSpaceScoreHero
+                score={thirdSpaceScore}
+                onExploreMap={onExploreMap}
+              />
             </Animated.View>
           )}
 
@@ -105,21 +104,29 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
             )}
 
           {topEvents && topEvents.length > 0 && (
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(160)}
-              >
-                <TopEventsSection events={topEvents} />
-              </Animated.View>
-            )}
+            <Animated.View
+              entering={FadeIn.duration(duration.normal).delay(160)}
+            >
+              <TopEventsSection events={topEvents} />
+            </Animated.View>
+          )}
 
-          <Animated.View entering={FadeIn.duration(duration.normal).delay(topEvents?.length ? 240 : 160)}>
+          <Animated.View
+            entering={FadeIn.duration(duration.normal).delay(
+              topEvents?.length ? 240 : 160,
+            )}
+          >
             <WhatsHappeningSection
               trendingEvents={data?.trendingEvents || []}
               justDiscoveredEvents={data?.justDiscoveredEvents || []}
             />
           </Animated.View>
 
-          <Animated.View entering={FadeIn.duration(duration.normal).delay(topEvents?.length ? 320 : 240)}>
+          <Animated.View
+            entering={FadeIn.duration(duration.normal).delay(
+              topEvents?.length ? 320 : 240,
+            )}
+          >
             <FeaturedEventsCarousel
               events={data?.featuredEvents || []}
               isLoading={false}

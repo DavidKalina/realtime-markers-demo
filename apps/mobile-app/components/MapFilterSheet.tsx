@@ -23,16 +23,17 @@ import {
   isSaturday,
   isSunday,
 } from "date-fns";
-import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
+import { createStyles as createHomeScreenStyles } from "@/components/homeScreenStyles";
 import { useFilterStore } from "@/stores/useFilterStore";
 import { eventBroker, EventTypes } from "@/services/EventBroker";
 import {
-  colors,
+  useColors,
   fontSize,
   fontWeight,
   fontFamily,
   spacing,
   radius,
+  type Colors,
 } from "@/theme";
 import { getCategoryColor } from "@/utils/categoryColors";
 
@@ -119,6 +120,9 @@ const MapFilterSheet: React.FC<MapFilterSheetProps> = ({
   onClearAll,
   hasActiveFilters,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const homeScreenStyles = useMemo(() => createHomeScreenStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const [sheetOpen, setSheetOpen] = useState(false);
   const translateY = useRef(new Animated.Value(SNAP_DISMISSED)).current;
@@ -500,7 +504,7 @@ const MapFilterSheet: React.FC<MapFilterSheetProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   badge: {
     position: "absolute",
     top: 10,

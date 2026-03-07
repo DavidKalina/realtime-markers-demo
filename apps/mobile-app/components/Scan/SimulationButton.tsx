@@ -1,9 +1,10 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { TouchableOpacity, Text, StyleSheet } from "react-native";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes } from "@/services/EventBroker";
 import {
-  colors,
+  useColors,
+  type Colors,
   spacing,
   radius,
   fontSize,
@@ -22,6 +23,8 @@ export const SimulationButton: React.FC<SimulationButtonProps> = ({
   isMounted,
   onSimulateCapture,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { publish } = useEventBroker();
 
   const simulateCapture = useCallback(() => {
@@ -53,20 +56,21 @@ export const SimulationButton: React.FC<SimulationButtonProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  simulationButton: {
-    backgroundColor: colors.accent.primary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radius.md,
-    width: "100%",
-    alignItems: "center",
-    marginBottom: spacing.md,
-  },
-  simulationButtonText: {
-    color: colors.text.primary,
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    simulationButton: {
+      backgroundColor: colors.accent.primary,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xl,
+      borderRadius: radius.md,
+      width: "100%",
+      alignItems: "center",
+      marginBottom: spacing.md,
+    },
+    simulationButtonText: {
+      color: colors.text.primary,
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+    },
+  });

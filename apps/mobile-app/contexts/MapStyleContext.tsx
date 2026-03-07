@@ -8,6 +8,8 @@ import React, {
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MapboxGL from "@rnmapbox/maps";
+import { useTheme } from "@/theme";
+import type { ResolvedTheme } from "@/theme";
 
 const MAP_STYLE_KEY = "@map_style_preference";
 const MAP_PITCH_KEY = "@map_pitch_preference";
@@ -40,10 +42,22 @@ const getMapStyleURL = (style: MapStyleType): string => {
   }
 };
 
+// Map the app theme to the appropriate default map style
+const themeToMapStyle = (theme: ResolvedTheme): MapStyleType =>
+  theme === "dark" ? "dark" : "street";
+
 export const MapStyleProvider: React.FC<{ children: React.ReactNode }> =
   React.memo(({ children }) => {
-    const [currentStyle, setCurrentStyle] = useState<MapStyleType>("dark");
+    const { resolvedTheme } = useTheme();
+    // Whether the user has explicitly chosen a map style (vs. following app theme)
+    const [hasExplicitStyle, setHasExplicitStyle] = useState(false);
+    const [explicitStyle, setExplicitStyle] = useState<MapStyleType>("dark");
     const [isPitched, setIsPitched] = useState(false);
+
+    // Derive current style: use explicit choice if set, otherwise follow app theme
+    const currentStyle = hasExplicitStyle
+      ? explicitStyle
+      : themeToMapStyle(resolvedTheme);
 
     // Memoize the style URL to prevent recalculation
     const mapStyle = useMemo(
@@ -55,7 +69,8 @@ export const MapStyleProvider: React.FC<{ children: React.ReactNode }> =
     const setMapStyle = useCallback(async (style: MapStyleType) => {
       try {
         await AsyncStorage.setItem(MAP_STYLE_KEY, style);
-        setCurrentStyle(style);
+        setExplicitStyle(style);
+        setHasExplicitStyle(true);
       } catch (error) {
         console.error("Error saving map style preference:", error);
       }
@@ -72,29 +87,21 @@ export const MapStyleProvider: React.FC<{ children: React.ReactNode }> =
       }
     }, [isPitched]);
 
+    // When app theme changes, reset explicit map style so the map follows the theme
+    useEffect(() => {
+      setHasExplicitStyle(false);
+    }, [resolvedTheme]);
+
     // Load saved preferences on mount
     useEffect(() => {
       let isMounted = true;
 
       const loadPreferences = async () => {
         try {
-          const [savedStyle, savedPitch] = await Promise.all([
-            AsyncStorage.getItem(MAP_STYLE_KEY),
-            AsyncStorage.getItem(MAP_PITCH_KEY),
-          ]);
+          const savedPitch = await AsyncStorage.getItem(MAP_PITCH_KEY);
 
-          if (isMounted) {
-            if (
-              savedStyle &&
-              (savedStyle === "light" ||
-                savedStyle === "dark" ||
-                savedStyle === "street")
-            ) {
-              setCurrentStyle(savedStyle as MapStyleType);
-            }
-            if (savedPitch !== null) {
-              setIsPitched(savedPitch === "true");
-            }
+          if (isMounted && savedPitch !== null) {
+            setIsPitched(savedPitch === "true");
           }
         } catch (error) {
           console.error("Error loading map preferences:", error);

@@ -1,11 +1,11 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   LinearTransition,
   SharedValue,
   useAnimatedStyle,
 } from "react-native-reanimated";
-import { colors, spacing, radius, fontFamily } from "@/theme";
+import { useColors, spacing, radius, fontFamily, type Colors } from "@/theme";
 import BackButton from "./BackButton";
 
 interface BannerProps {
@@ -21,6 +21,8 @@ export default function Banner({
   onBack,
   extendToStatusBar,
 }: BannerProps) {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const zoneBannerAnimatedStyle = useAnimatedStyle(() => ({
     paddingTop: extendToStatusBar ? 44 : 8,
     paddingBottom: 8,
@@ -53,7 +55,7 @@ export default function Banner({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   zoneBanner: {
     height: 90,
     backgroundColor: colors.bg.card,

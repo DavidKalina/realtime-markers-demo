@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -19,7 +19,7 @@ import Animated, {
   RotateInDownRight,
   BounceIn,
 } from "react-native-reanimated";
-import { colors, spacing, radius, fontFamily, fontWeight } from "@/theme";
+import { useColors, spacing, radius, fontFamily, fontWeight, type Colors } from "@/theme";
 
 interface TimePopupProps {
   time: string;
@@ -62,6 +62,8 @@ const TimeContent: React.FC<{
   };
   onComplete: () => void;
 }> = React.memo(({ timeLeft, isExpired, hourglassStyle, onComplete }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const called = useRef(false);
 
   useEffect(() => {
@@ -94,6 +96,8 @@ const TitleContent: React.FC<{
   titleWidth: number;
   onComplete: () => void;
 }> = React.memo(({ title, titleWidth, onComplete }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const translateX = useSharedValue(0);
   const called = useRef(false);
 
@@ -160,6 +164,8 @@ const TitleContent: React.FC<{
 
 export const TimePopup: React.FC<TimePopupProps> = React.memo(
   ({ time, title, endDate, index = 0 }) => {
+    const colors = useColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const [visible, setVisible] = useState(false);
     const [timeLeft, setTimeLeft] = useState<string>("");
     const [isExpired, setIsExpired] = useState(false);
@@ -407,7 +413,7 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(
   },
 );
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     position: "absolute",
     top: -50,

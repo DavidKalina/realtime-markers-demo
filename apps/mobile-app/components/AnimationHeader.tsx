@@ -1,10 +1,12 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
-import { colors, fontSize, fontFamily, fontWeight } from "@/theme";
+import { useColors, fontSize, fontFamily, fontWeight, type Colors } from "@/theme";
 
 const { width } = Dimensions.get("window");
 
 const AppHeader = () => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.container}>
       <Text style={styles.text}>A Third Space</Text>
@@ -12,7 +14,7 @@ const AppHeader = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     width: width,
     justifyContent: "center",

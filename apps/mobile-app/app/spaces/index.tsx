@@ -22,24 +22,26 @@ import {
 } from "@/components/LandingPage/Skeletons";
 import useThirdSpaces from "@/hooks/useThirdSpaces";
 import useThirdSpaceScore from "@/hooks/useThirdSpaceScore";
-import { setFlyTo } from "@/hooks/useInitialLocation";
 import useLandingPageData from "@/hooks/useLandingPageData";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { apiClient } from "@/services/ApiClient";
 import {
-  colors,
+  useColors,
   duration,
   fontFamily,
   fontSize,
   fontWeight,
   spacing,
   radius,
+  type Colors,
 } from "@/theme";
 import type { ThirdSpaceSummary } from "@/services/api/modules/leaderboard";
 
 type SortMode = "top" | "nearest";
 
 const SpacesBrowseScreen = () => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { userLocation } = useUserLocation();
   const [sortMode, setSortMode] = useState<SortMode>("top");
@@ -107,19 +109,6 @@ const SpacesBrowseScreen = () => {
     });
   }, [router, resolvedCity]);
 
-  const handleExploreMap = useCallback(() => {
-    const firstEvent = landingData?.featuredEvents?.[0] ?? landingData?.topEvents?.[0];
-    const coords: [number, number] | null = firstEvent?.coordinates
-      ?? (myScore?.centroid
-        ? [myScore.centroid.lng, myScore.centroid.lat]
-        : null);
-    if (!coords) return;
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setFlyTo(coords, 15);
-    router.navigate("/");
-  }, [router, landingData, myScore?.centroid]);
-
   const listCities = useMemo(() => {
     if (sortMode === "nearest" && closestCities.length > 0) {
       return closestCities;
@@ -172,14 +161,7 @@ const SpacesBrowseScreen = () => {
         {myScore && (
           <Animated.View entering={FadeIn.duration(duration.normal)}>
             <Pressable onPress={handleMyCityPress}>
-              <ThirdSpaceScoreHero
-                score={myScore}
-                onExploreMap={
-                  landingData?.featuredEvents?.[0] || landingData?.topEvents?.[0] || myScore.centroid
-                    ? handleExploreMap
-                    : undefined
-                }
-              />
+              <ThirdSpaceScoreHero score={myScore} />
             </Pressable>
           </Animated.View>
         )}
@@ -278,7 +260,7 @@ const SpacesBrowseScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   viewCityLink: {
     flexDirection: "row",
     alignItems: "center",

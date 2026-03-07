@@ -1,8 +1,8 @@
 // CameraControls.tsx
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, View, TouchableOpacity } from "react-native";
 import { Zap, ZapOff } from "lucide-react-native";
-import { colors, spacing, radius } from "@/theme";
+import { useColors, spacing, radius, type Colors } from "@/theme";
 
 import { FlashMode } from "expo-camera";
 import { CaptureButton } from "../CaptureButton/CaptureButton";
@@ -18,13 +18,6 @@ interface CameraControlsProps {
   disabled?: boolean;
 }
 
-// Flash mode color mapping using theme tokens
-const flashColors: Record<string, string> = {
-  on: colors.status.warning.text,
-  auto: colors.accent.primary,
-  off: colors.text.secondary,
-};
-
 export const CameraControls: React.FC<CameraControlsProps> = ({
   onCapture,
   onImageSelected,
@@ -34,6 +27,16 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
   onFlashToggle,
   disabled = false,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  // Flash mode color mapping using theme tokens
+  const flashColors: Record<string, string> = useMemo(() => ({
+    on: colors.status.warning.text,
+    auto: colors.accent.primary,
+    off: colors.text.secondary,
+  }), [colors]);
+
   const FlashIcon = flashMode === "on" ? Zap : ZapOff;
   const flashColor = flashColors[flashMode] ?? colors.text.secondary;
 
@@ -75,7 +78,7 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     width: "100%",
     paddingVertical: spacing.lg,

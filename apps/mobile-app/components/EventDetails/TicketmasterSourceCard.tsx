@@ -12,13 +12,14 @@ import Animated, {
 import { Svg, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import {
-  colors,
+  useColors,
   radius,
   spacing,
   fontSize,
   fontFamily,
   fontWeight,
   spring,
+  type Colors,
 } from "@/theme";
 import TicketmasterSourceCardOverlay from "./TicketmasterSourceCardOverlay";
 
@@ -38,6 +39,8 @@ const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 const TicketmasterSourceCard: React.FC<TicketmasterSourceCardProps> = ({
   externalUrl,
 }) => {
+  const colors = useColors();
+  const cardStyles = useMemo(() => createCardStyles(colors), [colors]);
   const [cardWidth, setCardWidth] = useState(0);
   const [overlayVisible, setOverlayVisible] = useState(false);
   const sheenProgress = useSharedValue(0);
@@ -185,7 +188,7 @@ const TicketmasterSourceCard: React.FC<TicketmasterSourceCardProps> = ({
   );
 };
 
-const cardStyles = StyleSheet.create({
+const createCardStyles = (colors: Colors) => StyleSheet.create({
   card: {
     height: CARD_HEIGHT,
     width: "100%",

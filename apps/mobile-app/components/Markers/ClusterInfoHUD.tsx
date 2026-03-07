@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   BounceIn,
@@ -12,7 +12,7 @@ import { scheduleOnRN } from "react-native-worklets";
 import { useRouter } from "expo-router";
 import { useLocationStore } from "@/stores/useLocationStore";
 import {
-  colors,
+  useColors,
   fontFamily,
   fontSize,
   fontWeight,
@@ -20,6 +20,7 @@ import {
   radius,
   shadows,
   spacing,
+  type Colors,
 } from "@/theme";
 
 interface ClusterInfoHUDProps {
@@ -28,6 +29,8 @@ interface ClusterInfoHUDProps {
 
 export const ClusterInfoHUD: React.FC<ClusterInfoHUDProps> = React.memo(
   ({ safeAreaBottom }) => {
+    const colors = useColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const router = useRouter();
     const selectedItem = useLocationStore((s) => s.selectedItem);
 
@@ -93,7 +96,7 @@ export const ClusterInfoHUD: React.FC<ClusterInfoHUDProps> = React.memo(
   },
 );
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   wrapper: {
     position: "absolute",
     left: spacing.md,

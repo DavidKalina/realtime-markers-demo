@@ -1,26 +1,24 @@
 // hooks/useMapWebSocket/useMapWebSocket.ts - Main orchestrator
-import { useAuth } from "@/contexts/AuthContext";
-import { eventBroker, EventTypes, ViewportEvent } from "@/services/EventBroker";
+import {
+  eventBroker,
+  EventTypes,
+  ViewportEvent,
+  BaseEvent,
+} from "@/services/EventBroker";
+import { webSocketService } from "@/services/WebSocketService";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { MapboxViewport } from "@/types/types";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState } from "react-native";
 import { MessageTypes } from "./constants";
 import type { MapWebSocketResult } from "./types";
-import { useMessageHandler } from "./useMessageHandler";
-import { useWebSocketConnection } from "./useWebSocketConnection";
+import { useViewportMessageHandler } from "./useMessageHandler";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const useMapWebSocket = (url: string): MapWebSocketResult => {
   const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [error, setError] = useState<Error | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
 
-  const { user, isAuthenticated } = useAuth();
-
-  // Stable WebSocket ref shared between viewport sync and connection hooks
-  const wsRef = useRef<WebSocket | null>(null);
-
-  // --- Viewport sync (inlined from useViewportSync) ---
+  // --- Viewport sync ---
   const [currentViewport, setCurrentViewport] = useState<MapboxViewport | null>(
     null,
   );
@@ -31,16 +29,13 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
   }, [currentViewport]);
 
   const sendViewportUpdateToServer = useCallback(() => {
-    if (
-      wsRef.current?.readyState === WebSocket.OPEN &&
-      currentViewportRef.current
-    ) {
+    if (webSocketService.isConnected() && currentViewportRef.current) {
       const message = {
         type: MessageTypes.VIEWPORT_UPDATE,
         viewport: currentViewportRef.current,
         zoom: useLocationStore.getState().zoomLevel,
       };
-      wsRef.current.send(JSON.stringify(message));
+      webSocketService.send(JSON.stringify(message));
     }
   }, []);
 
@@ -49,7 +44,6 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       setCurrentViewport(viewport);
       currentViewportRef.current = viewport;
 
-      // Read markers from store instead of a local ref
       const markers = useLocationStore.getState().markers;
 
       eventBroker.emit<ViewportEvent & { searching: boolean }>(
@@ -68,84 +62,59 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     [sendViewportUpdateToServer],
   );
 
-  // Message handler
-  const { handleWebSocketMessage } = useMessageHandler({
+  // Handle viewport messages from WebSocketService
+  const { handleViewportMessage } = useViewportMessageHandler({
     setClientId,
     currentViewportRef,
   });
 
-  // WebSocket connection (shares wsRef with viewport sync)
-  const { connectWebSocket, cleanup } = useWebSocketConnection({
-    wsRef,
-    url,
-    isAuthenticated,
-    userId: user?.id,
-    handleWebSocketMessage,
-    sendViewportUpdateToServer,
-    setIsConnected,
-    setError,
-    currentViewportRef,
-  });
-
-  // Connect/disconnect based on auth state
+  // Subscribe to viewport messages forwarded by WebSocketService
   useEffect(() => {
-    if (isAuthenticated && user?.id) {
-      connectWebSocket();
-    } else if (
-      !isAuthenticated &&
-      wsRef.current?.readyState === WebSocket.OPEN
-    ) {
-      if (__DEV__) {
-        console.log("[useMapWebsocket] User logged out, closing WebSocket.");
-      }
-      wsRef.current.close(1000, "User logged out");
-    }
+    const unsubscribe = eventBroker.on<BaseEvent & { data: unknown }>(
+      EventTypes.WS_VIEWPORT_MESSAGE,
+      (event) => {
+        handleViewportMessage(event.data);
+      },
+    );
+    return unsubscribe;
+  }, [handleViewportMessage]);
 
-    return cleanup;
-  }, [connectWebSocket, isAuthenticated, user?.id, cleanup]);
-
-  // Re-send viewport when app returns from background so the server pushes
-  // fresh data. Without this, the MapView remounts but no new markers arrive
-  // because the server thinks our viewport hasn't changed.
+  // Track connection state from WebSocketService
   useEffect(() => {
-    const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "active") {
-        // Small delay to let the WebSocket reconnect if it was dropped
-        setTimeout(() => {
-          if (
-            wsRef.current?.readyState === WebSocket.OPEN &&
-            currentViewportRef.current
-          ) {
-            sendViewportUpdateToServer();
-          }
-        }, 500);
+    const unsubConnect = eventBroker.on(EventTypes.WEBSOCKET_CONNECTED, () => {
+      setIsConnected(true);
+      // Send viewport on reconnect
+      if (currentViewportRef.current) {
+        setTimeout(() => sendViewportUpdateToServer(), 100);
       }
     });
-    return () => subscription.remove();
-  }, [sendViewportUpdateToServer, currentViewportRef, wsRef]);
+    const unsubDisconnect = eventBroker.on(
+      EventTypes.WEBSOCKET_DISCONNECTED,
+      () => {
+        setIsConnected(false);
+      },
+    );
+
+    // Set initial state
+    setIsConnected(webSocketService.isConnected());
+
+    return () => {
+      unsubConnect();
+      unsubDisconnect();
+    };
+  }, [sendViewportUpdateToServer]);
 
   // Force viewport update listener
   useEffect(() => {
     const handleForceViewportUpdate = () => {
-      // Tell the WebSocket server to re-fetch filters for this user.
-      // This must happen BEFORE the viewport update so that the filter
-      // processor receives the cleared/updated filters before it
-      // re-processes the user's viewport, avoiding a race where stale
-      // filters produce a REPLACE_ALL with the old filtered set.
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(
+      if (webSocketService.isConnected()) {
+        webSocketService.send(
           JSON.stringify({ type: MessageTypes.REFRESH_FILTERS }),
         );
       }
 
       if (currentViewportRef.current) {
-        // Re-send the current viewport so the filter processor
-        // re-evaluates with the updated filters.
         sendViewportUpdateToServer();
-      } else {
-        console.warn(
-          "[useMapWebsocket] Force viewport update called, but no current viewport exists.",
-        );
       }
     };
 
@@ -154,11 +123,11 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
       handleForceViewportUpdate,
     );
     return unsubscribe;
-  }, [sendViewportUpdateToServer, currentViewportRef, wsRef]);
+  }, [sendViewportUpdateToServer]);
 
   return {
     isConnected,
-    error,
+    error: null,
     currentViewport,
     updateViewport,
     clientId,

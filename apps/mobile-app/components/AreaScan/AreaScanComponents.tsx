@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { NavigationContext } from "@react-navigation/native";
 import {
   Animated,
   LayoutChangeEvent,
@@ -37,7 +38,7 @@ import Svg, {
   Rect,
 } from "react-native-svg";
 import * as Haptics from "expo-haptics";
-import { colors, spacing, fontFamily } from "@/theme";
+import { useColors, spacing, fontFamily, type Colors } from "@/theme";
 import { CATEGORY_PALETTE } from "@/utils/categoryColors";
 import type { AreaScanMetadata } from "@/services/api/modules/areaScan";
 
@@ -117,6 +118,8 @@ export function getRadiusForZoom(zoom: number): number {
 // --- Sub-components ---
 
 export function ZoneHeader({ zoneStats }: { zoneStats: AreaScanMetadata }) {
+  const colors = useColors();
+  const zoneStyles = useMemo(() => createZoneStyles(colors), [colors]);
   return (
     <Reanimated.View
       entering={FadeInDown.duration(400)}
@@ -139,6 +142,8 @@ export function CategoryBarChart({
 }: {
   breakdown: AreaScanMetadata["categoryBreakdown"];
 }) {
+  const colors = useColors();
+  const barStyles = useMemo(() => createBarStyles(colors), [colors]);
   if (breakdown.length === 0) return null;
 
   return (
@@ -239,6 +244,7 @@ export function CategoryPieChart({
   breakdown: AreaScanMetadata["categoryBreakdown"];
   colors?: string[];
 }) {
+  const themeColors = useColors();
   const palette = colorsProp || BAR_COLORS;
   const segments = useMemo(() => {
     let offset = 0;
@@ -267,7 +273,7 @@ export function CategoryPieChart({
         cy={PIE_SIZE / 2}
         r={PIE_RADIUS}
         fill="none"
-        stroke={colors.border.default}
+        stroke={themeColors.border.default}
         strokeWidth={PIE_STROKE}
         opacity={0.3}
       />
@@ -287,6 +293,8 @@ export function CategoryPieChart({
 // --- ZoneHero (combined header + pie) ---
 
 export function ZoneHero({ zoneStats }: { zoneStats: AreaScanMetadata }) {
+  const colors = useColors();
+  const heroStyles = useMemo(() => createHeroStyles(colors), [colors]);
   return (
     <Reanimated.View
       entering={FadeInDown.duration(400)}
@@ -310,6 +318,8 @@ export function ZoneHero({ zoneStats }: { zoneStats: AreaScanMetadata }) {
 }
 
 export function StatPillRow({ zoneStats }: { zoneStats: AreaScanMetadata }) {
+  const colors = useColors();
+  const pillStyles = useMemo(() => createPillStyles(colors), [colors]);
   const pills: { emoji: string; value: string; label: string }[] = [];
 
   if (zoneStats.totalViews > 0) {
@@ -366,6 +376,8 @@ export function ZoneEncounters({
   events: AreaScanMetadata["events"];
   onEventPress: (eventId: string) => void;
 }) {
+  const colors = useColors();
+  const encounterStyles = useMemo(() => createEncounterStyles(colors), [colors]);
   if (!events || events.length === 0) return null;
 
   return (
@@ -426,6 +438,23 @@ export function useDialogStreamer(
   feedPages: (newPages: string[]) => void;
   restart: () => void;
 } {
+  // Safe focus detection: useContext never throws — returns undefined outside a navigator
+  const navigation = React.useContext(NavigationContext);
+  const [isFocused, setIsFocused] = useState(true);
+
+  useEffect(() => {
+    if (!navigation) return;
+    setIsFocused(navigation.isFocused());
+    const unsubFocus = navigation.addListener("focus", () =>
+      setIsFocused(true),
+    );
+    const unsubBlur = navigation.addListener("blur", () => setIsFocused(false));
+    return () => {
+      unsubFocus();
+      unsubBlur();
+    };
+  }, [navigation]);
+
   const [pages, setPages] = useState<string[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [displayText, setDisplayText] = useState("");
@@ -436,6 +465,8 @@ export function useDialogStreamer(
   const charIndexRef = useRef(0);
   const currentPageTextRef = useRef("");
   const mountedRef = useRef(true);
+  const activeRef = useRef(true);
+  const tickFnRef = useRef<(() => void) | null>(null);
 
   const blinkAnim = useRef(new Animated.Value(1)).current;
 
@@ -449,10 +480,11 @@ export function useDialogStreamer(
     currentPageTextRef.current = text;
 
     const tick = () => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || !activeRef.current) return;
+      const pageText = currentPageTextRef.current;
       const i = charIndexRef.current;
-      if (i < text.length) {
-        setDisplayText(text.slice(0, i + 1));
+      if (i < pageText.length) {
+        setDisplayText(pageText.slice(0, i + 1));
         charIndexRef.current = i + 1;
         if (i % 4 === 0) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
@@ -467,6 +499,7 @@ export function useDialogStreamer(
       }
     };
 
+    tickFnRef.current = tick;
     streamTimerRef.current = setTimeout(tick, 60);
   }, []);
 
@@ -481,6 +514,30 @@ export function useDialogStreamer(
     },
     [streamPage],
   );
+
+  // Pause on blur, resume on focus
+  useEffect(() => {
+    const wasFocused = activeRef.current;
+    activeRef.current = isFocused;
+
+    if (!isFocused) {
+      if (streamTimerRef.current) {
+        clearTimeout(streamTimerRef.current);
+        streamTimerRef.current = null;
+      }
+      if (autoAdvanceRef.current) {
+        clearTimeout(autoAdvanceRef.current);
+        autoAdvanceRef.current = null;
+      }
+    } else if (!wasFocused) {
+      // Regained focus — resume streaming if it was interrupted mid-page
+      const text = currentPageTextRef.current;
+      const idx = charIndexRef.current;
+      if (tickFnRef.current && text && idx > 0 && idx < text.length) {
+        streamTimerRef.current = setTimeout(tickFnRef.current, CHAR_DELAY_MS);
+      }
+    }
+  }, [isFocused]);
 
   // Auto-advance
   useEffect(() => {
@@ -586,6 +643,8 @@ export function useDialogStreamer(
 // --- DialogBox component ---
 
 function LoadingText({ text = "Generating insight" }: { text?: string }) {
+  const colors = useColors();
+  const dialogStyles = useMemo(() => createDialogStyles(colors), [colors]);
   const [dots, setDots] = useState("");
 
   useEffect(() => {
@@ -606,6 +665,8 @@ function LoadingText({ text = "Generating insight" }: { text?: string }) {
 }
 
 function CooldownError({ message }: { message: string }) {
+  const colors = useColors();
+  const dialogStyles = useMemo(() => createDialogStyles(colors), [colors]);
   const isRateLimit = /too many|rate limit|429|cooldown/i.test(message);
 
   const pulse = useSharedValue(0.4);
@@ -667,6 +728,8 @@ export function DialogBox({
   style?: ViewStyle;
   loadingText?: string;
 }) {
+  const colors = useColors();
+  const dialogStyles = useMemo(() => createDialogStyles(colors), [colors]);
   const targetHeight =
     style && typeof (style as Record<string, unknown>).height === "number"
       ? ((style as Record<string, unknown>).height as number)
@@ -959,7 +1022,7 @@ export const layoutStyles = StyleSheet.create({
   },
 });
 
-const dialogStyles = StyleSheet.create({
+const createDialogStyles = (colors: Colors) => StyleSheet.create({
   bubble: {
     backgroundColor: colors.bg.cardAlt,
     paddingHorizontal: 16,
@@ -984,7 +1047,7 @@ const dialogStyles = StyleSheet.create({
     alignItems: "center",
   },
   statusText: {
-    color: "#cbd5e0",
+    color: colors.text.secondary,
     fontSize: 13,
     fontFamily: fontFamily.mono,
     fontWeight: "700",
@@ -1044,7 +1107,7 @@ const dialogStyles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fontFamily.mono,
     fontWeight: "700",
-    color: "#90cdf4",
+    color: colors.accent.primary,
     letterSpacing: 3,
   },
   cooldownHint: {
@@ -1055,7 +1118,7 @@ const dialogStyles = StyleSheet.create({
   },
 });
 
-const zoneStyles = StyleSheet.create({
+const createZoneStyles = (colors: Colors) => StyleSheet.create({
   container: {
     alignItems: "center",
     paddingTop: spacing.md,
@@ -1085,7 +1148,7 @@ const zoneStyles = StyleSheet.create({
   },
 });
 
-const barStyles = StyleSheet.create({
+const createBarStyles = (colors: Colors) => StyleSheet.create({
   container: {
     paddingHorizontal: spacing.md,
     marginTop: spacing.md,
@@ -1122,7 +1185,7 @@ const barStyles = StyleSheet.create({
   },
 });
 
-const heroStyles = StyleSheet.create({
+const createHeroStyles = (colors: Colors) => StyleSheet.create({
   container: {
     paddingTop: spacing.lg,
     paddingHorizontal: spacing.md,
@@ -1175,7 +1238,7 @@ const heroStyles = StyleSheet.create({
   },
 });
 
-const pillStyles = StyleSheet.create({
+const createPillStyles = (colors: Colors) => StyleSheet.create({
   row: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1210,7 +1273,7 @@ const pillStyles = StyleSheet.create({
   },
 });
 
-const encounterStyles = StyleSheet.create({
+const createEncounterStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flex: 1,
     minHeight: 0,

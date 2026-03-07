@@ -1,7 +1,8 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
+import { spacing, fontSize, fontWeight, fontFamily } from "@/theme";
+import type { Colors } from "@/theme";
 
-export const infoCardStyles = StyleSheet.create({
+export const createInfoCardStyles = (colors: Colors) => StyleSheet.create({
   infoCard: {},
   sectionDivider: {
     borderTopWidth: 1,

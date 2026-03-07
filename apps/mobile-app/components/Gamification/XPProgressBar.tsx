@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
@@ -9,12 +9,13 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import {
-  colors,
+  useColors,
   fontSize,
   fontFamily,
   fontWeight,
   spacing,
   radius,
+  type Colors,
 } from "@/theme";
 import {
   getNextTierThreshold,
@@ -32,6 +33,8 @@ const XPProgressBar: React.FC<XPProgressBarProps> = ({
   totalXp,
   pendingXP = 0,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const hasGain = pendingXP > 0;
 
   // Calculate the "before" state (what the bar looked like last visit)
@@ -123,7 +126,7 @@ const XPProgressBar: React.FC<XPProgressBarProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,

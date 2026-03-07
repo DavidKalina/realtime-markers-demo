@@ -1,8 +1,8 @@
-import { colors, spacing } from "@/theme";
+import { useColors, spacing, type Colors } from "@/theme";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Camera } from "lucide-react-native";
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import { Pressable, StyleSheet } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -14,6 +14,8 @@ import Animated, {
 import { scheduleOnRN } from "react-native-worklets";
 
 const PlusButton: React.FC = () => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const scale = useSharedValue(1);
   const router = useRouter();
 
@@ -51,7 +53,7 @@ const PlusButton: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",

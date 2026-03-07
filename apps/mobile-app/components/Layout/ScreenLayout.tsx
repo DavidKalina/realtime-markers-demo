@@ -7,7 +7,7 @@ import {
   ViewStyle,
 } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { colors } from "@/theme";
+import { useColors, useTheme, type Colors } from "@/theme";
 
 interface ScreenLayoutProps {
   children: React.ReactNode;
@@ -19,7 +19,7 @@ interface ScreenLayoutProps {
 }
 
 // Memoize the screen layout styles
-const screenLayoutStyles = StyleSheet.create({
+const createScreenLayoutStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg.primary,
@@ -47,24 +47,27 @@ const ScreenLayout: React.FC<ScreenLayoutProps> = React.memo(
     noAnimation = false,
     extendBannerToStatusBar = false,
   }) => {
+    const colors = useColors();
+    const { resolvedTheme } = useTheme();
+    const screenLayoutStyles = useMemo(() => createScreenLayoutStyles(colors), [colors]);
     const Container = noSafeArea ? View : SafeAreaView;
     const Content = noAnimation ? View : Animated.View;
 
     // Memoize the container and content styles
     const containerStyle = useMemo(
       () => [screenLayoutStyles.container, style],
-      [style],
+      [screenLayoutStyles.container, style],
     );
 
     const contentStyleMemo = useMemo(
       () => [screenLayoutStyles.content, contentStyle],
-      [contentStyle],
+      [screenLayoutStyles.content, contentStyle],
     );
 
     return (
       <Container style={containerStyle}>
         <StatusBar
-          barStyle="light-content"
+          barStyle={resolvedTheme === "dark" ? "light-content" : "dark-content"}
           backgroundColor={colors.bg.primary}
           translucent={extendBannerToStatusBar}
         />

@@ -1,4 +1,4 @@
-import { colors } from "@/theme";
+import { useColors } from "@/theme";
 import React, { useEffect } from "react";
 import { StyleSheet, Text } from "react-native";
 import Animated, {
@@ -110,6 +110,7 @@ const SwirlParticle: React.FC<SwirlParticleProps> = ({
 };
 
 export const ScanIllustration: React.FC<{ active: boolean }> = ({ active }) => {
+  const colors = useColors();
   const containerOpacity = useSharedValue(0);
 
   // Phase 1: Viewfinder + scan line

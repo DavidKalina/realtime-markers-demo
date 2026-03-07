@@ -1,7 +1,7 @@
 // styles/layout.ts - Update to container and innerContainer
 import { StyleSheet } from "react-native";
 import {
-  colors,
+  type Colors,
   spacing,
   radius,
   fontSize,
@@ -9,7 +9,7 @@ import {
   fontFamily,
 } from "@/theme";
 
-export const layout = StyleSheet.create({
+export const createLayout = (colors: Colors) => StyleSheet.create({
   container: {
     flex: 1,
     width: "100%", // Add full width

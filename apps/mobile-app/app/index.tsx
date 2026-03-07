@@ -1,6 +1,6 @@
 /* eslint-disable prefer-const */
 import { DialogBox } from "@/components/AreaScan/AreaScanComponents";
-import { styles as homeScreenStyles } from "@/components/homeScreenStyles";
+import { createStyles as createHomeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import MapFilterSheet from "@/components/MapFilterSheet";
 import MapLegend from "@/components/MapLegend/MapLegend";
@@ -30,7 +30,7 @@ import {
   MapItemEvent,
 } from "@/services/EventBroker";
 import { useLocationStore } from "@/stores/useLocationStore";
-import { colors } from "@/theme";
+import { useColors, type Colors } from "@/theme";
 import MapboxGL from "@rnmapbox/maps";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
@@ -62,8 +62,8 @@ import { scheduleOnRN } from "react-native-worklets";
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
 
 // Use the imported styles directly
-const styles = {
-  ...homeScreenStyles,
+const createHomeStyles = (colors: Colors) => ({
+  ...createHomeScreenStyles(colors),
   container: {
     flex: 1,
     backgroundColor: colors.fixed.black,
@@ -74,7 +74,7 @@ const styles = {
   statusBarSpacer: {
     height: 105, // Match the height of the StatusBar component (includes XP bar)
   },
-};
+});
 
 const resumeStyles = StyleSheet.create({
   center: {
@@ -94,6 +94,8 @@ const scanDialogStyles = StyleSheet.create({
 });
 
 function HomeScreenContent() {
+  const colors = useColors();
+  const styles = useMemo(() => createHomeStyles(colors), [colors]);
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const router = useRouter();
@@ -464,7 +466,7 @@ function HomeScreenContent() {
           pointerEvents={isFollowing ? "none" : "auto"}
         >
           <TouchableOpacity
-            style={homeScreenStyles.recenterButton}
+            style={styles.recenterButton}
             onPress={recenter}
             activeOpacity={0.7}
           >
@@ -483,7 +485,7 @@ function HomeScreenContent() {
         </RAnimated.View>
         <RAnimated.View style={fabStyle2}>
           <TouchableOpacity
-            style={homeScreenStyles.recenterButton}
+            style={styles.recenterButton}
             onPress={handleFlyToNearest}
             activeOpacity={0.7}
           >
@@ -609,6 +611,8 @@ function HomeScreenContent() {
 }
 
 function HomeScreen() {
+  const colors = useColors();
+  const styles = useMemo(() => createHomeStyles(colors), [colors]);
   return (
     <View style={styles.container}>
       <HomeScreenContent />

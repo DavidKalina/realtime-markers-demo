@@ -1,4 +1,4 @@
-import { colors } from "@/theme";
+import { useColors } from "@/theme";
 import React, { useEffect } from "react";
 import { StyleSheet } from "react-native";
 import Animated, {
@@ -38,6 +38,7 @@ const FilterPill: React.FC<FilterPillProps> = ({
   delay,
   active,
 }) => {
+  const colors = useColors();
   const translateX = useSharedValue(-30);
   const opacity = useSharedValue(0);
 
@@ -102,6 +103,7 @@ const EventCardSketch: React.FC<EventCardSketchProps> = ({
   detailW1,
   detailW2,
 }) => {
+  const colors = useColors();
   const translateY = useSharedValue(20);
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.95);
@@ -245,6 +247,7 @@ const EventCardSketch: React.FC<EventCardSketchProps> = ({
 export const DiscoverIllustration: React.FC<{ active: boolean }> = ({
   active,
 }) => {
+  const colors = useColors();
   const containerOpacity = useSharedValue(0);
 
   useEffect(() => {

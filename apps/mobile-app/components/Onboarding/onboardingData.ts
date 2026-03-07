@@ -1,4 +1,4 @@
-import { colors } from "@/theme";
+import type { Colors } from "@/theme";
 import { MissionIllustration } from "./illustrations/MissionIllustration";
 import { MapIllustration } from "./illustrations/MapIllustration";
 import { ScanIllustration } from "./illustrations/ScanIllustration";
@@ -15,7 +15,7 @@ export interface OnboardingPageData {
   accentColor: string;
 }
 
-export const ONBOARDING_PAGES: OnboardingPageData[] = [
+export const createOnboardingPages = (colors: Colors): OnboardingPageData[] => [
   {
     id: "mission",
     title: "A Third Space",

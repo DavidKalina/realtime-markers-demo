@@ -1,14 +1,17 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Dimensions, StyleSheet, View } from "react-native";
 import ShimmerView from "@/components/Layout/ShimmerView";
-import { colors, radius, spacing } from "@/theme";
+import { useColors, radius, spacing, type Colors } from "@/theme";
 
 const { width: screenWidth } = Dimensions.get("window");
 const CAROUSEL_WIDTH = screenWidth * 0.85;
 const CAROUSEL_MARGIN = (screenWidth - CAROUSEL_WIDTH) / 2;
 
 /* ─── ThirdSpaceScoreHero skeleton ─── */
-export const ScoreHeroSkeleton: React.FC = () => (
+export const ScoreHeroSkeleton: React.FC = () => {
+  const colors = useColors();
+  const sk = useMemo(() => createStyles(colors), [colors]);
+  return (
   <View style={sk.heroContainer}>
     <View style={sk.heroHeaderRow}>
       <View>
@@ -30,10 +33,14 @@ export const ScoreHeroSkeleton: React.FC = () => (
     </View>
     <ShimmerView style={sk.heroSparkline} />
   </View>
-);
+  );
+};
 
 /* ─── ContributorsSection skeleton ─── */
-export const ContributorsSkeleton: React.FC = () => (
+export const ContributorsSkeleton: React.FC = () => {
+  const colors = useColors();
+  const sk = useMemo(() => createStyles(colors), [colors]);
+  return (
   <View style={sk.contribContainer}>
     <ShimmerView style={sk.sectionTitleLine} />
     <ShimmerView style={sk.sectionSubtitleLine} />
@@ -51,10 +58,14 @@ export const ContributorsSkeleton: React.FC = () => (
       ))}
     </View>
   </View>
-);
+  );
+};
 
 /* ─── TopEventsSection skeleton ─── */
-export const TopEventsSkeleton: React.FC = () => (
+export const TopEventsSkeleton: React.FC = () => {
+  const colors = useColors();
+  const sk = useMemo(() => createStyles(colors), [colors]);
+  return (
   <View style={sk.topContainer}>
     <View style={sk.topHeaderRow}>
       <ShimmerView style={sk.topIcon} />
@@ -70,10 +81,14 @@ export const TopEventsSkeleton: React.FC = () => (
       </View>
     ))}
   </View>
-);
+  );
+};
 
 /* ─── Carousel skeleton (WhatsHappening / Featured) ─── */
-export const CarouselSkeleton: React.FC<{ title: string }> = ({ title }) => (
+export const CarouselSkeleton: React.FC<{ title: string }> = ({ title }) => {
+  const colors = useColors();
+  const sk = useMemo(() => createStyles(colors), [colors]);
+  return (
   <View style={sk.carouselContainer}>
     <ShimmerView style={sk.sectionTitleLine} />
     {title === "What's Happening" && (
@@ -97,10 +112,11 @@ export const CarouselSkeleton: React.FC<{ title: string }> = ({ title }) => (
       <ShimmerView style={sk.carouselDotInactive} />
     </View>
   </View>
-);
+  );
+};
 
 /* ─── Skeleton styles matched to real component dimensions ─── */
-const sk = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   /* ThirdSpaceScoreHero — matches container: marginBottom 24, paddingHorizontal 16, gap 12 */
   heroContainer: {
     marginBottom: spacing["2xl"],

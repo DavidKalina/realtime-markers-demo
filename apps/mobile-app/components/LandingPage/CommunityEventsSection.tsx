@@ -9,7 +9,8 @@ import {
 } from "react-native";
 import Animated, { FadeInRight } from "react-native-reanimated";
 import {
-  colors,
+  useColors,
+  type Colors,
   fontSize,
   fontWeight,
   fontFamily,
@@ -35,6 +36,8 @@ const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
   isLoading = false,
 }) => {
   const router = useRouter();
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const handleEventPress = useCallback(
     (event: EventType) => {
@@ -123,7 +126,7 @@ const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     marginBottom: spacing.lg,
   },

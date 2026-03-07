@@ -1,7 +1,7 @@
 import { Platform, StyleSheet } from "react-native";
-import { colors, fontFamily, spacing } from "@/theme";
+import { fontFamily, spacing, type Colors } from "@/theme";
 
-export const styles = StyleSheet.create({
+export const createStyles = (colors: Colors) => StyleSheet.create({
   bottomBar: {
     height: 60,
     backgroundColor: colors.bg.primary,

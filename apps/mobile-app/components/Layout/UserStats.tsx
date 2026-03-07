@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet, ViewStyle } from "react-native";
-import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
+import { useColors, spacing, fontSize, fontWeight, fontFamily, type Colors } from "@/theme";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 export interface StatItem {
@@ -16,12 +16,14 @@ export interface UserStatsProps {
   delay?: number;
 }
 
-const StatItem = React.memo<{
+const StatItemComponent = React.memo<{
   item: StatItem;
   index: number;
   animated: boolean;
   delay: number;
 }>(({ item, index, animated, delay }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const StatComponent = animated ? Animated.View : View;
 
   return (
@@ -54,10 +56,13 @@ const UserStats: React.FC<UserStatsProps> = ({
   animated = true,
   delay = 0,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={[styles.container, style]}>
       {items.map((item, index) => (
-        <StatItem
+        <StatItemComponent
           key={item.label}
           item={item}
           index={index}
@@ -69,7 +74,7 @@ const UserStats: React.FC<UserStatsProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flexDirection: "row",
     justifyContent: "space-around",

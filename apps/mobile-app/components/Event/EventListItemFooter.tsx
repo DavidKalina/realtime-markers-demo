@@ -1,12 +1,13 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import {
-  colors,
+  useColors,
   fontSize,
   fontFamily,
   fontWeight,
   spacing,
   radius,
+  type Colors,
 } from "@/theme";
 
 // Utility function to format time difference
@@ -72,6 +73,8 @@ const EventListItemFooter: React.FC<EventListItemFooterProps> = ({
   goingCount,
   isTrending,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const timeBadgeText = useMemo(
     () => getTimeBadgeText(eventDate, endDate),
     [eventDate, endDate],
@@ -105,7 +108,7 @@ const EventListItemFooter: React.FC<EventListItemFooterProps> = ({
 
 export default EventListItemFooter;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   footer: {
     flexDirection: "row",
     justifyContent: "space-between",

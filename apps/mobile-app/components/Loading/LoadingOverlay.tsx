@@ -1,12 +1,13 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import {
-  colors,
+  useColors,
   spacing,
   radius,
   fontSize,
   fontWeight,
   fontFamily,
+  type Colors,
 } from "@/theme";
 
 interface LoadingOverlayProps {
@@ -19,6 +20,8 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = React.memo(
     message = "Finding your location...",
     subMessage = "We'll show you events nearby",
   }) => {
+    const colors = useColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     return (
       <View style={styles.loadingOverlay}>
         <View style={styles.loadingContainer}>
@@ -35,7 +38,7 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = React.memo(
   },
 );
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   loadingOverlay: {
     position: "absolute",
     top: 0,

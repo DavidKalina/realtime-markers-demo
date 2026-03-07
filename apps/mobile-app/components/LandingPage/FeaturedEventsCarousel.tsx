@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useMemo } from "react";
 import { formatVenueShort } from "@/components/Event/EventListItem";
 import {
   View,
@@ -12,7 +12,8 @@ import {
   NativeScrollEvent,
 } from "react-native";
 import {
-  colors,
+  useColors,
+  type Colors,
   fontSize,
   fontWeight,
   fontFamily,
@@ -39,6 +40,8 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
   isLoading = false,
 }) => {
   const router = useRouter();
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -100,7 +103,7 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
         >
           {events.map((event) => {
             const badge = getTimeBadge(event.eventDate, event.endDate);
-            const accentColor = "#6ee7b7";
+            const accentColor = colors.status.success.text;
 
             return (
               <TouchableOpacity
@@ -172,7 +175,7 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     marginBottom: spacing["2xl"],
   },
@@ -199,7 +202,8 @@ const styles = StyleSheet.create({
   cardContainer: {
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border.default,
+    borderColor: colors.border.medium,
+    backgroundColor: colors.bg.card,
     overflow: "hidden",
   },
   cardBody: {

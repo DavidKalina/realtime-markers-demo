@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text, View, ViewStyle } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import {
-  colors,
+  useColors,
+  type Colors,
   spacing,
   radius,
   fontSize,
@@ -29,6 +30,8 @@ const DetailItem: React.FC<DetailItemProps> = ({
   animated = false,
   delay = 0,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const Container = animated ? Animated.View : View;
 
   return (
@@ -47,7 +50,7 @@ const DetailItem: React.FC<DetailItemProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flexDirection: "row",
     marginBottom: spacing.xl,

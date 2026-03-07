@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { StyleSheet, TouchableOpacity, View, Platform } from "react-native";
 import Animated, {
   useSharedValue,
@@ -11,7 +11,7 @@ import Animated, {
   interpolateColor,
 } from "react-native-reanimated";
 import { Camera } from "lucide-react-native";
-import { colors, spacing } from "@/theme";
+import { useColors, spacing, type Colors } from "@/theme";
 
 interface CaptureButtonProps {
   onPress: () => void;
@@ -28,6 +28,9 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
   size = "normal",
   disabled = false,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   // Animation values
   const buttonScale = useSharedValue(1);
   const colorProgress = useSharedValue(0);
@@ -205,7 +208,7 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     justifyContent: "center",
     alignItems: "center",

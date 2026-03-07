@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, TouchableOpacity, Text } from "react-native";
-import { styles } from "./styles";
+import { createStyles } from "./styles";
+import { useColors } from "@/theme";
 
 export const ErrorEventDetails = ({
   error,
@@ -9,6 +10,9 @@ export const ErrorEventDetails = ({
   error: string;
   handleRetry: () => void;
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.errorContainer}>
       <Text style={styles.errorText}>{error}</Text>

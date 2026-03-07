@@ -2,18 +2,19 @@ import AppHeader from "@/components/AnimationHeader";
 import Input from "@/components/Input/Input";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  colors,
+  useColors,
   fontFamily,
   fontSize,
   fontWeight,
   radius,
   spacing,
   spring,
+  type Colors,
 } from "@/theme";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -38,6 +39,8 @@ import Animated, {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const RegisterScreen: React.FC = () => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { register } = useAuth();
 
@@ -280,7 +283,7 @@ const RegisterScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg.primary,

@@ -1,29 +1,43 @@
-import { useAuth } from "@/contexts/AuthContext";
-import { MapStyleType, useMapStyle } from "@/contexts/MapStyleContext";
-import { useProfile } from "@/hooks/useProfile";
-import useUserStats from "@/hooks/useUserStats";
-import { useXPStore } from "@/stores/useXPStore";
-import {
-  colors,
-  fontFamily,
-  fontSize,
-  fontWeight,
-  lineHeight,
-  radius,
-  spacing,
-} from "@/theme";
-import { getTierForXP } from "@/utils/gamification";
-import * as Haptics from "expo-haptics";
-import { useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
   View,
 } from "react-native";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { useRouter } from "expo-router";
+import { useFocusEffect } from "expo-router";
+import * as Haptics from "expo-haptics";
+import { ChevronRight } from "lucide-react-native";
+import { useAuth } from "@/contexts/AuthContext";
+import { useMapStyle } from "@/contexts/MapStyleContext";
+import { useProfile } from "@/hooks/useProfile";
+import useUserStats from "@/hooks/useUserStats";
+import { useXPStore } from "@/stores/useXPStore";
+import {
+  useColors,
+  useTheme,
+  type Colors,
+  type ThemeMode,
+  duration,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  radius,
+  spacing,
+} from "@/theme";
+import { getTierForXP } from "@/utils/gamification";
 import DiscovererCard from "../EventDetails/DiscovererCard";
 import Screen from "../Layout/Screen";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
@@ -33,15 +47,20 @@ interface UserProfileProps {
   onBack?: () => void;
 }
 
-const MAP_STYLES: { key: MapStyleType; label: string }[] = [
-  { key: "dark", label: "Night" },
-  { key: "light", label: "Classic" },
-  { key: "street", label: "Street" },
+const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
+  { key: "light", label: "Light" },
+  { key: "dark", label: "Dark" },
+  { key: "system", label: "System" },
 ];
 
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const router = useRouter();
   const { user } = useAuth();
-  const { currentStyle, isPitched, togglePitch, setMapStyle } = useMapStyle();
+  const { isPitched, togglePitch } = useMapStyle();
+  const { mode: themeMode, setMode: setThemeMode } = useTheme();
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const {
     loading,
     profileData,
@@ -59,12 +78,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     setPassword,
   } = useProfile(onBack);
 
-  const { stats, isLoading: statsLoading } = useUserStats();
-
-  const [mapSettings, setMapSettings] = useState({
-    isPitched: isPitched,
-    mapStyle: currentStyle,
-  });
+  const { stats, isLoading: statsLoading, refetch: refetchStats } = useUserStats();
 
   // Consume pending XP on each focus, but only animate AFTER fresh data arrives
   const consume = useXPStore((s) => s.consume);
@@ -98,136 +112,192 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     }
   }, [liveHasPending, consume, refetch]);
 
-  const handleMapStyleChange = (style: MapStyleType) => {
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([refetch(), refetchStats()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetch, refetchStats]);
+
+  const handleThemeChange = (mode: ThemeMode) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setMapSettings((prev) => ({ ...prev, mapStyle: style }));
-    setMapStyle(style);
+    setThemeMode(mode);
   };
 
-  const handlePitchChange = (value: boolean) => {
+  const handlePitchChange = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setMapSettings((prev) => ({ ...prev, isPitched: value }));
     togglePitch();
   };
 
-  if (loading) {
-    return (
-      <Screen>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent.primary} />
-          <Text style={styles.loadingText}>Loading profile...</Text>
-        </View>
-      </Screen>
-    );
-  }
+  const handleFollowingPress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/following" as const);
+  }, [router]);
 
   return (
     <>
       <Screen
+        isScrollable={false}
         bannerTitle="Profile"
         bannerDescription="Your account and preferences"
-        showBackButton={true}
+        showBackButton
         onBack={handleBack}
-        isScrollable
+        noAnimation
       >
-        <View style={styles.container}>
-          {/* Discoverer Card */}
-          <DiscovererCard
-            userId={user?.id}
-            firstName={profileData?.firstName}
-            lastName={profileData?.lastName}
-            currentTier={getTierForXP(profileData?.totalXp || 0).name}
-            totalXp={profileData?.totalXp || 0}
-            discoveryCount={profileData?.scanCount || 0}
-            followingCount={profileData?.followingCount || 0}
-            memberSince={memberSince}
-          />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+          }
+        >
+          {loading && (
+            <Animated.View
+              exiting={FadeOut.duration(duration.fast)}
+              style={styles.loadingContainer}
+            >
+              <ActivityIndicator size="large" color={colors.accent.primary} />
+              <Text style={styles.loadingText}>Loading profile...</Text>
+            </Animated.View>
+          )}
 
-          {/* Stats Card */}
-          <UserStatsCard stats={stats} isLoading={statsLoading} />
+          {!loading && (
+            <>
+              {/* Discoverer Card */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal)}
+                style={styles.section}
+              >
+                <DiscovererCard
+                  userId={user?.id}
+                  firstName={profileData?.firstName}
+                  lastName={profileData?.lastName}
+                  currentTier={getTierForXP(profileData?.totalXp || 0).name}
+                  totalXp={profileData?.totalXp || 0}
+                  discoveryCount={profileData?.scanCount || 0}
+                  followingCount={profileData?.followingCount || 0}
+                  memberSince={memberSince}
+                />
+              </Animated.View>
 
-          {/* Account Info */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Account</Text>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoValue}>{user?.email}</Text>
-            </View>
-            {profileData?.bio ? (
-              <View style={styles.bioRow}>
-                <Text style={styles.infoLabel}>Bio</Text>
-                <Text style={styles.bioText}>{profileData.bio}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {/* Map Style */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Map Style</Text>
-            <View style={styles.stylePills}>
-              {MAP_STYLES.map(({ key, label }) => (
-                <Pressable
-                  key={key}
-                  style={[
-                    styles.stylePill,
-                    mapSettings.mapStyle === key && styles.stylePillActive,
-                  ]}
-                  onPress={() => handleMapStyleChange(key)}
-                >
-                  <Text
-                    style={[
-                      styles.stylePillText,
-                      mapSettings.mapStyle === key &&
-                        styles.stylePillTextActive,
-                    ]}
-                  >
-                    {label}
+              {/* Following link */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(80)}
+              >
+                <Pressable style={styles.linkRow} onPress={handleFollowingPress}>
+                  <Text style={styles.linkRowText}>
+                    Following ({profileData?.followingCount ?? 0})
                   </Text>
+                  <ChevronRight size={16} color={colors.accent.primary} />
                 </Pressable>
-              ))}
-            </View>
-            <View style={styles.switchRow}>
-              <View style={styles.switchLabel}>
-                <Text style={styles.switchTitle}>3D Buildings</Text>
-                <Text style={styles.switchDescription}>
-                  Tilted view with 3D buildings
-                </Text>
-              </View>
-              <Switch
-                value={mapSettings.isPitched}
-                onValueChange={handlePitchChange}
-                trackColor={{
-                  false: colors.border.medium,
-                  true: colors.accent.primary,
-                }}
-                thumbColor={colors.bg.elevated}
-              />
-            </View>
-          </View>
+              </Animated.View>
 
-          {/* Actions */}
-          <View style={styles.actions}>
-            <Pressable
-              style={styles.signOutButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                handleLogout();
-              }}
-            >
-              <Text style={styles.signOutText}>Sign Out</Text>
-            </Pressable>
-            <Pressable
-              style={styles.deleteButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowDeleteDialog(true);
-              }}
-            >
-              <Text style={styles.deleteText}>Delete Account</Text>
-            </Pressable>
-          </View>
-          <View style={{ height: 100 }} />
-        </View>
+              {/* Stats */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(160)}
+                style={styles.inlineSection}
+              >
+                <UserStatsCard stats={stats} isLoading={statsLoading} />
+              </Animated.View>
+
+              {/* Account */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(240)}
+                style={styles.inlineSection}
+              >
+                <Text style={styles.sectionLabel}>ACCOUNT</Text>
+                <View style={styles.inlineRow}>
+                  <Text style={styles.inlineRowLabel}>Email</Text>
+                  <Text style={styles.inlineRowValue} numberOfLines={1}>
+                    {user?.email}
+                  </Text>
+                </View>
+                {profileData?.bio ? (
+                  <View style={styles.inlineRow}>
+                    <Text style={styles.inlineRowLabel}>Bio</Text>
+                    <Text style={styles.inlineRowValue} numberOfLines={2}>
+                      {profileData.bio}
+                    </Text>
+                  </View>
+                ) : null}
+              </Animated.View>
+
+              {/* Appearance */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(320)}
+                style={styles.inlineSection}
+              >
+                <Text style={styles.sectionLabel}>APPEARANCE</Text>
+                <View style={styles.inlineRow}>
+                  <Text style={styles.inlineRowLabel}>Theme</Text>
+                  <View style={styles.pillGroup}>
+                    {THEME_OPTIONS.map(({ key, label }) => (
+                      <Pressable
+                        key={key}
+                        style={[
+                          styles.pill,
+                          themeMode === key && styles.pillActive,
+                        ]}
+                        onPress={() => handleThemeChange(key)}
+                      >
+                        <Text
+                          style={[
+                            styles.pillText,
+                            themeMode === key && styles.pillTextActive,
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.inlineRow}>
+                  <Text style={styles.inlineRowLabel}>3D Buildings</Text>
+                  <Switch
+                    value={isPitched}
+                    onValueChange={handlePitchChange}
+                    trackColor={{
+                      false: colors.border.medium,
+                      true: colors.accent.primary,
+                    }}
+                    thumbColor={colors.bg.elevated}
+                  />
+                </View>
+              </Animated.View>
+
+              {/* Actions */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(400)}
+                style={styles.inlineSection}
+              >
+                <Pressable
+                  style={styles.inlineAction}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    handleLogout();
+                  }}
+                >
+                  <Text style={styles.signOutText}>Sign Out</Text>
+                  <ChevronRight size={14} color={colors.text.secondary} />
+                </Pressable>
+                <Pressable
+                  style={[styles.inlineAction, styles.inlineActionLast]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowDeleteDialog(true);
+                  }}
+                >
+                  <Text style={styles.deleteText}>Delete Account</Text>
+                  <ChevronRight size={14} color={colors.status.error.text} />
+                </Pressable>
+              </Animated.View>
+            </>
+          )}
+
+          <View style={{ height: 120 }} />
+        </ScrollView>
       </Screen>
 
       <DeleteAccountModalComponent
@@ -243,162 +313,124 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: spacing["2xl"],
-  },
-  loadingText: {
-    marginTop: spacing.sm,
-    color: colors.text.secondary,
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-  },
-  container: {
-    padding: spacing.lg,
-    gap: spacing.lg,
-  },
-  section: {
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    overflow: "hidden",
-  },
-  sectionTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  // Account Info
-  infoRow: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
-  },
-  infoLabel: {
-    fontSize: fontSize.xs,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: spacing.xs,
-  },
-  infoValue: {
-    fontSize: fontSize.md,
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.medium,
-  },
-  bioRow: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
-  },
-  bioText: {
-    fontSize: fontSize.md,
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.loose,
-  },
-  // Map Style
-  stylePills: {
-    flexDirection: "row",
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-    gap: spacing.sm,
-  },
-  stylePill: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    alignItems: "center",
-    backgroundColor: colors.bg.elevated,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  stylePillActive: {
-    backgroundColor: colors.accent.muted,
-    borderColor: colors.accent.border,
-  },
-  stylePillText: {
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
-  },
-  stylePillTextActive: {
-    color: colors.accent.primary,
-  },
-  switchRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
-  },
-  switchLabel: {
-    flex: 1,
-    marginRight: spacing.lg,
-  },
-  switchTitle: {
-    fontSize: fontSize.md,
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.medium,
-    marginBottom: spacing.xs,
-  },
-  switchDescription: {
-    fontSize: fontSize.sm,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.normal,
-  },
-  // Actions
-  actions: {
-    flexDirection: "row",
-    gap: spacing.md,
-  },
-  signOutButton: {
-    flex: 1,
-    paddingVertical: spacing.lg,
-    borderRadius: radius.xl,
-    alignItems: "center",
-    backgroundColor: colors.bg.card,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  signOutText: {
-    color: colors.text.primary,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-  },
-  deleteButton: {
-    flex: 1,
-    paddingVertical: spacing.lg,
-    borderRadius: radius.xl,
-    alignItems: "center",
-    backgroundColor: colors.status.error.bg,
-    borderWidth: 1,
-    borderColor: colors.status.error.border,
-  },
-  deleteText: {
-    color: colors.status.error.text,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    loadingContainer: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: spacing["2xl"],
+    },
+    loadingText: {
+      marginTop: spacing.sm,
+      color: colors.text.secondary,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+    },
+    section: {
+      paddingHorizontal: spacing.lg,
+      marginBottom: spacing.lg,
+    },
+    // Following link row
+    linkRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing.xs,
+      paddingVertical: spacing.sm,
+      marginBottom: spacing.lg,
+    },
+    linkRowText: {
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.accent.primary,
+    },
+    // Inline sections
+    inlineSection: {
+      paddingHorizontal: spacing.lg,
+      marginBottom: spacing.xl,
+    },
+    sectionLabel: {
+      fontSize: 11,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.label,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1.5,
+      marginBottom: spacing.md,
+    },
+    inlineRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingVertical: spacing.md,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.default,
+    },
+    inlineRowLabel: {
+      fontSize: fontSize.sm,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+      marginRight: spacing.lg,
+    },
+    inlineRowValue: {
+      flex: 1,
+      fontSize: fontSize.sm,
+      color: colors.text.primary,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      textAlign: "right",
+    },
+    // Theme pills (compact)
+    pillGroup: {
+      flexDirection: "row",
+      gap: spacing.xs,
+    },
+    pill: {
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.full,
+      backgroundColor: colors.bg.elevated,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    pillActive: {
+      backgroundColor: colors.accent.muted,
+      borderColor: colors.accent.border,
+    },
+    pillText: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+    },
+    pillTextActive: {
+      color: colors.accent.primary,
+    },
+    // Inline actions
+    inlineAction: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingVertical: spacing.md,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.default,
+    },
+    inlineActionLast: {
+      borderBottomWidth: 0,
+    },
+    signOutText: {
+      color: colors.text.primary,
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.medium,
+      fontFamily: fontFamily.mono,
+    },
+    deleteText: {
+      color: colors.status.error.text,
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.medium,
+      fontFamily: fontFamily.mono,
+    },
+  });
 
 export default UserProfile;

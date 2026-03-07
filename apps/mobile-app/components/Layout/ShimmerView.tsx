@@ -7,7 +7,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import { colors } from "@/theme";
+import { useColors } from "@/theme";
 import { duration } from "@/theme/tokens/animation";
 
 interface ShimmerViewProps {
@@ -15,6 +15,7 @@ interface ShimmerViewProps {
 }
 
 const ShimmerView: React.FC<ShimmerViewProps> = React.memo(({ style }) => {
+  const colors = useColors();
   const opacity = useSharedValue(0.3);
 
   React.useEffect(() => {

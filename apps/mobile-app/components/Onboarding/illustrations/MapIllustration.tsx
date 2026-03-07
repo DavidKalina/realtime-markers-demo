@@ -1,4 +1,4 @@
-import { colors } from "@/theme";
+import { useColors } from "@/theme";
 import React, { useEffect } from "react";
 import { StyleSheet } from "react-native";
 import Animated, {
@@ -19,6 +19,7 @@ interface PinDropProps {
 }
 
 const PinDrop: React.FC<PinDropProps> = ({ x, y, delay, color, active }) => {
+  const colors = useColors();
   const translateY = useSharedValue(-40);
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.5);
@@ -70,6 +71,7 @@ const PINS = [
 ];
 
 export const MapIllustration: React.FC<{ active: boolean }> = ({ active }) => {
+  const colors = useColors();
   const phoneScale = useSharedValue(0.9);
   const phoneOpacity = useSharedValue(0);
 

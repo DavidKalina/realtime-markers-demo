@@ -1,4 +1,4 @@
-import React, { Ref } from "react";
+import React, { Ref, useMemo } from "react";
 import {
   StyleSheet,
   TextInput,
@@ -13,7 +13,7 @@ import Animated, {
   LinearTransition,
 } from "react-native-reanimated";
 import { LucideIcon } from "lucide-react-native";
-import { colors, spacing, radius, fontSize, fontFamily } from "@/theme";
+import { useColors, spacing, radius, fontSize, fontFamily, type Colors } from "@/theme";
 
 interface InputProps extends Omit<TextInputProps, "style"> {
   ref?: Ref<TextInput>;
@@ -41,6 +41,8 @@ const Input = ({
   ref,
   ...props
 }: InputProps) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const handleChangeText = (text: string) => {
     onChangeText?.(text);
   };
@@ -89,7 +91,7 @@ const Input = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",

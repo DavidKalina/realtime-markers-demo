@@ -8,7 +8,7 @@ import {
   ColorValue,
 } from "react-native";
 import {
-  colors,
+  useColors,
   spacing,
   radius,
   fontSize,
@@ -54,6 +54,8 @@ const Button: React.FC<ButtonProps> = ({
   textStyle,
   icon: Icon,
 }) => {
+  const colors = useColors();
+
   const getButtonStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
       borderRadius: radius.sm,

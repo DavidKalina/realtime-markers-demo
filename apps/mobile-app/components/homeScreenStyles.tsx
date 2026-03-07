@@ -1,14 +1,14 @@
 import { StyleSheet } from "react-native";
 import {
-  colors,
   spacing,
   radius,
   fontSize,
   fontWeight,
   fontFamily,
 } from "@/theme";
+import type { Colors } from "@/theme";
 
-export const styles = StyleSheet.create({
+export const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.fixed.black,
@@ -116,3 +116,4 @@ export const styles = StyleSheet.create({
     shadowRadius: 4,
   },
 });
+

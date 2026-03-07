@@ -13,11 +13,11 @@ import {
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Screen from "../Layout/Screen";
-import { colors } from "@/theme";
+import { useColors } from "@/theme";
 import { ErrorEventDetails } from "./ErrorEventDetails";
 import EventEngagementDisplay from "./EventEngagementDisplay";
 import LoadingEventDetails from "./LoadingEventDetails";
-import { styles } from "./styles";
+import { createStyles } from "./styles";
 import { formatRecurrenceFrequency, formatRecurrenceDays } from "./formatters";
 import { useEventDetails } from "./useEventDetails";
 import { useEventEngagement } from "./useEventEngagement";
@@ -32,13 +32,11 @@ interface EventDetailsProps {
   onBack?: () => void;
 }
 
-const SectionLabel = memo(({ title }: { title: string }) => (
-  <Text style={styles.infoCardTitle}>{title}</Text>
-));
-
 // Memoize the main component
 const EventDetails: React.FC<EventDetailsProps> = memo(
   ({ eventId, onBack }) => {
+    const colors = useColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const {
       handleBack,
       loading,
@@ -261,14 +259,14 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             <Animated.View
               entering={FadeInDown.duration(300).delay(80).springify()}
             >
-              <SectionLabel title="About" />
+              <Text style={styles.infoCardTitle}>About</Text>
               <Text style={styles.descriptionText}>
                 {event.eventDigest.summary}
               </Text>
 
               {event.eventDigest.cost && (
                 <View style={styles.sectionDivider}>
-                  <SectionLabel title="Cost" />
+                  <Text style={styles.infoCardTitle}>Cost</Text>
                   <Text style={styles.descriptionText}>
                     {event.eventDigest.cost}
                   </Text>
@@ -278,7 +276,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
               {event.eventDigest.highlights &&
                 event.eventDigest.highlights.length > 0 && (
                   <View style={styles.sectionDivider}>
-                    <SectionLabel title="Highlights" />
+                    <Text style={styles.infoCardTitle}>Highlights</Text>
                     <View style={styles.highlightsList}>
                       {event.eventDigest.highlights.map(
                         (item: string, i: number) => (
@@ -294,7 +292,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
 
               {event.eventDigest.contact && (
                 <View style={styles.sectionDivider}>
-                  <SectionLabel title="Contact" />
+                  <Text style={styles.infoCardTitle}>Contact</Text>
                   <Text style={styles.descriptionText}>
                     {event.eventDigest.contact}
                   </Text>
@@ -306,7 +304,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
               <Animated.View
                 entering={FadeInDown.duration(300).delay(80).springify()}
               >
-                <SectionLabel title="About" />
+                <Text style={styles.infoCardTitle}>About</Text>
                 <Text style={styles.descriptionText}>{event.description}</Text>
               </Animated.View>
             )
@@ -318,7 +316,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
               entering={FadeInDown.duration(300).delay(320).springify()}
               style={styles.sectionDivider}
             >
-              <SectionLabel title="Recurring" />
+              <Text style={styles.infoCardTitle}>Recurring</Text>
               <View style={styles.recurringDetails}>
                 <Text style={styles.detailText}>
                   {recurringEventDetails?.frequency}
@@ -364,7 +362,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
               entering={FadeInDown.duration(300).delay(400).springify()}
               style={styles.sectionDivider}
             >
-              <SectionLabel title="Engagement" />
+              <Text style={styles.infoCardTitle}>Engagement</Text>
               <EventEngagementDisplay engagement={engagement} delay={450} />
             </Animated.View>
           )}
@@ -402,7 +400,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
               entering={FadeInDown.duration(300).delay(560).springify()}
               style={styles.sectionDivider}
             >
-              <SectionLabel title="Discovered by" />
+              <Text style={styles.infoCardTitle}>Discovered by</Text>
               <DiscovererCard
                 userId={event.creator.id}
                 firstName={event.creator.firstName}
@@ -417,7 +415,7 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
               entering={FadeInDown.duration(300).delay(560).springify()}
               style={styles.sectionDivider}
             >
-              <SectionLabel title="Source" />
+              <Text style={styles.infoCardTitle}>Source</Text>
               <TicketmasterSourceCard externalUrl={event.externalUrl} />
             </Animated.View>
           ) : null}

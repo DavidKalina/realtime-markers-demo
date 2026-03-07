@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -13,7 +13,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Settings, CheckCircle2, AlertCircle } from "lucide-react-native";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
-import { colors, spacing, fontFamily } from "@/theme";
+import { useColors, spacing, fontFamily, type Colors } from "@/theme";
 
 // Max visible width for the label area before marquee kicks in
 const LABEL_MAX_WIDTH = 120;
@@ -52,6 +52,8 @@ function shortenLabel(raw: string): string {
 // Simple marquee label that scrolls when text overflows
 const MarqueeLabel = React.memo(
   ({ text, color }: { text: string; color: string }) => {
+    const colors = useColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const [textWidth, setTextWidth] = useState(0);
     const translateX = useSharedValue(0);
     const measured = useRef(false);
@@ -132,6 +134,8 @@ const MarqueeLabel = React.memo(
 );
 
 const JobIndicator: React.FC = () => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { activeJobs } = useJobProgressContext();
   const rotation = useSharedValue(0);
   const progressWidth = useSharedValue(0);
@@ -239,7 +243,7 @@ const JobIndicator: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     width: 160,
   },

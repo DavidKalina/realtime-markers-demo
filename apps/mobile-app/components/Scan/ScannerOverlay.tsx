@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LayoutChangeEvent, StyleSheet, View } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { DeviceMotion } from "expo-sensors";
-import { colors, fontFamily, fontSize } from "@/theme";
+import { useColors, fontFamily, fontSize, type Colors } from "@/theme";
 
 // --- Constants ---
 
@@ -21,7 +21,6 @@ const SCAN_LINE_DURATION = 3000;
 const MOTION_INTERVAL = 32; // ~30fps
 const JITTER_WINDOW = 10;
 const JITTER_THRESHOLD = 1.2; // degrees — below this = "steady"
-const STABLE_COLOR = colors.status.success.text; // #10b981
 
 // --- Motion hook ---
 
@@ -109,6 +108,9 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
   topOffset = BRACKET_INSET,
   bottomOffset = BRACKET_INSET,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const STABLE_COLOR = colors.status.success.text;
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const isMounted = useRef(true);
 
@@ -270,7 +272,7 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
 
 // --- Styles ---
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   cornerTL: {
     position: "absolute",
     top: 0,

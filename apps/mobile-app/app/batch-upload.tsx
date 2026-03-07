@@ -7,13 +7,15 @@ import { BatchImagePicker, ImagePreviewGrid } from "@/components/BatchUpload";
 import { useUploadImage } from "@/hooks/useUploadImage";
 import { useBatchUpload } from "@/hooks/useBatchUpload";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
-import { colors, spacing, fontFamily, fontSize } from "@/theme";
+import { useColors, spacing, fontFamily, fontSize, type Colors } from "@/theme";
 
 const MAX_IMAGES = 5;
 const PROCESSED_WIDTH = 1200;
 const PROCESSED_QUALITY = 0.3;
 
 export default function BatchUploadScreen() {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const networkState = useNetworkQuality();
   const uploadingRef = useRef(false);
@@ -179,7 +181,7 @@ export default function BatchUploadScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   content: {
     flex: 1,
     padding: spacing.lg,

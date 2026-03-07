@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useEffect } from "react";
+import React, { useCallback, useRef, useEffect, useMemo } from "react";
 import {
   FlatList,
   FlatListProps,
@@ -13,7 +13,8 @@ import Animated, {
   LinearTransition,
 } from "react-native-reanimated";
 import {
-  colors,
+  useColors,
+  type Colors,
   spacing,
   fontSize,
   fontFamily,
@@ -80,6 +81,8 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
   animated = true,
   ...props
 }: InfiniteScrollFlatListProps<T>) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const flatListRef = useRef<FlatList<T>>(null);
   const isLoadingMoreRef = useRef(false);
 
@@ -299,7 +302,7 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   footer: {
     padding: spacing.lg,
     alignItems: "center",

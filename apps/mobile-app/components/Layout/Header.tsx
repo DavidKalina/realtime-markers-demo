@@ -2,7 +2,8 @@ import React, { useMemo } from "react";
 import { StyleSheet, Text, View, ViewStyle } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import {
-  colors,
+  useColors,
+  type Colors,
   spacing,
   radius,
   fontSize,
@@ -21,7 +22,7 @@ interface HeaderProps {
 }
 
 // Memoize the header styles
-const headerStyles = StyleSheet.create({
+const createHeaderStyles = (colors: Colors) => StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -71,16 +72,20 @@ const headerStyles = StyleSheet.create({
 });
 
 // Memoize the right icon component
-const RightIcon = React.memo(({ icon }: { icon?: React.ReactNode }) =>
-  icon ? icon : <View style={headerStyles.placeholderIcon} />,
-);
+const RightIcon = React.memo(({ icon }: { icon?: React.ReactNode }) => {
+  const colors = useColors();
+  const headerStyles = useMemo(() => createHeaderStyles(colors), [colors]);
+  return icon ? icon : <View style={headerStyles.placeholderIcon} />;
+});
 
 const Header: React.FC<HeaderProps> = React.memo(
   ({ title, onBack, rightIcon, style, animated = true, titleContent }) => {
+    const colors = useColors();
+    const headerStyles = useMemo(() => createHeaderStyles(colors), [colors]);
     const HeaderComponent = animated ? Animated.View : View;
 
     // Memoize the header style
-    const headerStyle = useMemo(() => [headerStyles.header, style], [style]);
+    const headerStyle = useMemo(() => [headerStyles.header, style], [headerStyles, style]);
 
     return (
       <HeaderComponent

@@ -60,6 +60,9 @@ export enum EventTypes {
   // Leveling system events
   LEVEL_UPDATE = "level-update",
   XP_AWARDED = "xp-awarded",
+
+  // Internal: WebSocket viewport messages forwarded to useMapWebSocket
+  WS_VIEWPORT_MESSAGE = "ws:viewport_message",
 }
 
 // Base event interface that all event payloads should extend

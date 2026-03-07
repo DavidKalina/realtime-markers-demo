@@ -1,5 +1,5 @@
 import { ArrowLeft } from "lucide-react-native";
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
 import Animated, {
   Easing,
@@ -9,13 +9,15 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { colors, spacing, spring } from "@/theme";
+import { useColors, spacing, spring, type Colors } from "@/theme";
 
 interface BackButtonProps {
   onPress: () => void;
 }
 
 export default function BackButton({ onPress }: BackButtonProps) {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const backButtonScale = useSharedValue(1);
   const backButtonRotation = useSharedValue(0);
 
@@ -52,7 +54,7 @@ export default function BackButton({ onPress }: BackButtonProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   bannerBackButton: {
     position: "absolute",
     left: spacing.lg,

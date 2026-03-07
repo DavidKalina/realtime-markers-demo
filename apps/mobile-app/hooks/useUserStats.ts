@@ -8,6 +8,7 @@ const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 interface UseUserStatsReturn {
   stats: UserStats | null;
   isLoading: boolean;
+  refetch: () => Promise<void>;
 }
 
 const useUserStats = (): UseUserStatsReturn => {
@@ -35,11 +36,25 @@ const useUserStats = (): UseUserStatsReturn => {
     }
   }, []);
 
+  const refetch = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const data = await apiClient.leaderboard.getMyStats();
+      cachedStats = data;
+      cacheTimestamp = Date.now();
+      setStats(data);
+    } catch (err) {
+      console.error("Error fetching user stats:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
 
-  return { stats, isLoading };
+  return { stats, isLoading, refetch };
 };
 
 export default useUserStats;

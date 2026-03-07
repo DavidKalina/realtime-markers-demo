@@ -1,14 +1,15 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Button from "./Button";
 import {
-  colors,
+  useColors,
   spacing,
   fontSize,
   fontWeight,
   fontFamily,
   spring,
+  type Colors,
 } from "@/theme";
 
 interface EmptyStateAction {
@@ -36,6 +37,8 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   variant = "default",
   animated = true,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isError = variant === "error";
 
   const circleStyle = [
@@ -89,7 +92,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: "center",

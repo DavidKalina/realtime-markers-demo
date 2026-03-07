@@ -1,11 +1,14 @@
 import { useEffect, useState, useCallback } from "react";
-import { eventBroker, EventTypes, DiscoveryEvent } from "@/services/EventBroker";
+import {
+  eventBroker,
+  EventTypes,
+  DiscoveryEvent,
+} from "@/services/EventBroker";
 import { DiscoveredEventType } from "@/types/types";
 
 const MAX_REALTIME = 5;
 
-const normalizeCity = (city: string) =>
-  city.split(",")[0].trim().toLowerCase();
+const normalizeCity = (city: string) => city.split(",")[0].trim().toLowerCase();
 
 export function useRealtimeDiscoveries(cityName: string) {
   const [realtimeDiscoveries, setRealtimeDiscoveries] = useState<

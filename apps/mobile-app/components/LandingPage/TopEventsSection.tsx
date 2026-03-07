@@ -1,9 +1,10 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { TrendingUp } from "lucide-react-native";
 import {
-  colors,
+  useColors,
+  type Colors,
   fontFamily,
   fontSize,
   fontWeight,
@@ -18,6 +19,8 @@ interface TopEventsSectionProps {
 
 const TopEventsSection: React.FC<TopEventsSectionProps> = ({ events }) => {
   const router = useRouter();
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const handlePress = useCallback(
     (eventId: string) => {
@@ -90,7 +93,7 @@ const TopEventsSection: React.FC<TopEventsSectionProps> = ({ events }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     marginBottom: spacing["2xl"],
     paddingHorizontal: spacing.lg,

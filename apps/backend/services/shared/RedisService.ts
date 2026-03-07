@@ -121,7 +121,8 @@ export interface RedisService {
   hdel(key: string, field: string): Promise<void>;
   exists(key: string): Promise<boolean>;
   expire(key: string, seconds: number): Promise<void>;
-  storeDeviceLocation(userId: string, lng: number, lat: number): Promise<void>;
+  storeUserCity(userId: string, city: string): Promise<void>;
+  getUsersInCity(city: string): Promise<string[]>;
   getClient(): Redis;
 }
 
@@ -448,25 +449,39 @@ export class RedisServiceImpl implements RedisService {
   }
 
   /**
-   * Store a user's device location for background push discovery
+   * Store which city a user is currently in (for background push discovery).
+   * Maintains a per-user key and a reverse index SET per city.
    */
-  async storeDeviceLocation(
-    userId: string,
-    lng: number,
-    lat: number,
-  ): Promise<void> {
+  async storeUserCity(userId: string, city: string): Promise<void> {
     try {
-      // Store individual location with 24h TTL
-      await this.redis.setex(
-        `user:${userId}:device-location`,
-        86400,
-        JSON.stringify({ lng, lat, timestamp: Date.now() }),
-      );
-      // Add to geo index for radius queries
-      await this.redis.geoadd("user:device-location:geo", lng, lat, userId);
+      const userCityKey = `user:${userId}:city`;
+
+      // Remove user from their previous city set (if any)
+      const previousCity = await this.redis.get(userCityKey);
+      if (previousCity && previousCity !== city) {
+        await this.redis.srem(`city:${previousCity}:users`, userId);
+      }
+
+      // Store the user's current city with 24h TTL
+      await this.redis.setex(userCityKey, 86400, city);
+
+      // Add user to the city's user set
+      await this.redis.sadd(`city:${city}:users`, userId);
     } catch (error) {
-      console.error(`Error storing device location for user ${userId}:`, error);
+      console.error(`Error storing city for user ${userId}:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Get all user IDs currently in a given city.
+   */
+  async getUsersInCity(city: string): Promise<string[]> {
+    try {
+      return await this.redis.smembers(`city:${city}:users`);
+    } catch (error) {
+      console.error(`Error getting users in city ${city}:`, error);
+      return [];
     }
   }
 

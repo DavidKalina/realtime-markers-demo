@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import React, { memo, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -10,7 +10,7 @@ import Animated, {
   FadeInDown,
   LinearTransition,
 } from "react-native-reanimated";
-import { colors, spacing, fontSize, fontWeight, fontFamily } from "@/theme";
+import { useColors, spacing, fontSize, fontWeight, fontFamily, type Colors } from "@/theme";
 
 export interface TabItem<T extends string> {
   icon: React.ElementType;
@@ -32,7 +32,11 @@ const TabButton = memo<{
   label: string;
   isActive: boolean;
   onPress: () => void;
-}>(({ icon: Icon, label, isActive, onPress }) => (
+}>(({ icon: Icon, label, isActive, onPress }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  return (
   <TouchableOpacity
     style={[styles.tab, isActive && styles.activeTab]}
     onPress={onPress}
@@ -50,7 +54,8 @@ const TabButton = memo<{
     </View>
     {isActive && <View style={styles.underline} />}
   </TouchableOpacity>
-));
+  );
+});
 
 function Tabs<T extends string>({
   items,
@@ -60,6 +65,8 @@ function Tabs<T extends string>({
   animated = true,
   delay = 0,
 }: TabsProps<T>) {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const TabsComponent = animated ? Animated.View : View;
 
   return (
@@ -83,7 +90,7 @@ function Tabs<T extends string>({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   tabsContainer: {
     flexDirection: "row",
     borderBottomWidth: 1,

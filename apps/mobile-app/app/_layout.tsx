@@ -1,7 +1,11 @@
 import "@/tasks/backgroundLocationTask";
 
 import React, { useEffect } from "react";
-import { DarkTheme, ThemeProvider } from "@react-navigation/native";
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider as NavThemeProvider,
+} from "@react-navigation/native";
 import * as Sentry from "@sentry/react-native";
 import { useFonts } from "expo-font";
 import { Stack, useNavigationContainerRef } from "expo-router";
@@ -45,6 +49,8 @@ import { LocationProvider } from "@/contexts/LocationContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
 import { JobProgressProvider } from "@/contexts/JobProgressContext";
+import { WebSocketProvider } from "@/contexts/WebSocketContext";
+import { ThemeProvider, useTheme } from "@/theme";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
@@ -84,20 +90,31 @@ interface AppContentProps {
   children: React.ReactNode;
 }
 
-// App providers component (dark theme only)
+// Navigation theme bridge — reads our ThemeContext and passes to React Navigation
+function NavigationThemeBridge({ children }: { children: React.ReactNode }) {
+  const { resolvedTheme } = useTheme();
+  const navTheme = resolvedTheme === "dark" ? DarkTheme : DefaultTheme;
+  return <NavThemeProvider value={navTheme}>{children}</NavThemeProvider>;
+}
+
+// App providers component
 function AppProviders({ children }: AppProvidersProps) {
   return (
-    <AuthProvider>
-      <OnboardingProvider>
-        <LocationProvider>
-          <JobProgressProvider>
-            <MapStyleProvider>
-              <ThemeProvider value={DarkTheme}>{children}</ThemeProvider>
-            </MapStyleProvider>
-          </JobProgressProvider>
-        </LocationProvider>
-      </OnboardingProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <WebSocketProvider>
+          <OnboardingProvider>
+            <LocationProvider>
+              <JobProgressProvider>
+                <MapStyleProvider>
+                  <NavigationThemeBridge>{children}</NavigationThemeBridge>
+                </MapStyleProvider>
+              </JobProgressProvider>
+            </LocationProvider>
+          </OnboardingProvider>
+        </WebSocketProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

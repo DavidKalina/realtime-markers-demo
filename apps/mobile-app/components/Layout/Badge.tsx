@@ -1,12 +1,13 @@
 import React from "react";
 import { StyleSheet, Text, View, ViewStyle } from "react-native";
 import {
-  colors,
+  useColors,
   spacing,
   radius,
   fontSize,
   fontWeight,
   fontFamily,
+  type Colors,
 } from "@/theme";
 
 export type BadgeVariant = "default" | "success" | "warning" | "error" | "pro";
@@ -18,7 +19,7 @@ interface BadgeProps {
   style?: ViewStyle;
 }
 
-const getVariantStyles = (variant: BadgeVariant) => {
+const getVariantStyles = (variant: BadgeVariant, colors: Colors) => {
   switch (variant) {
     case "success":
       return {
@@ -59,7 +60,8 @@ const Badge: React.FC<BadgeProps> = ({
   icon,
   style,
 }) => {
-  const variantStyles = getVariantStyles(variant);
+  const colors = useColors();
+  const variantStyles = getVariantStyles(variant, colors);
 
   return (
     <View

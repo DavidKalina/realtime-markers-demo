@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,12 +11,13 @@ import {
   Alert,
 } from "react-native";
 import {
-  colors,
+  useColors,
   spacing,
   radius,
   fontSize,
   fontWeight,
   fontFamily,
+  type Colors,
 } from "@/theme";
 import * as Haptics from "expo-haptics";
 import {
@@ -39,6 +40,8 @@ const AdminOriginalImageViewer: React.FC<AdminOriginalImageViewerProps> = ({
   eventId,
   isAdmin,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -241,7 +244,7 @@ const AdminOriginalImageViewer: React.FC<AdminOriginalImageViewerProps> = ({
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     backgroundColor: colors.bg.card,
     borderRadius: radius["2xl"],

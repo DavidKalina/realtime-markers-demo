@@ -1,4 +1,4 @@
-import { colors } from "@/theme";
+import { useColors } from "@/theme";
 import React, { useEffect } from "react";
 import { StyleSheet } from "react-native";
 import Animated, {
@@ -20,6 +20,7 @@ const PIN_H = 140;
 export const LetsGoIllustration: React.FC<{ active: boolean }> = ({
   active,
 }) => {
+  const colors = useColors();
   const pinScale = useSharedValue(0);
   const pinOpacity = useSharedValue(0);
   const pulseScale = useSharedValue(1);

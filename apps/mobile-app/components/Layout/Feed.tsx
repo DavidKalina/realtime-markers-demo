@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,8 @@ import {
   ViewStyle,
 } from "react-native";
 import {
-  colors,
+  useColors,
+  type Colors,
   spacing,
   radius,
   fontSize,
@@ -54,6 +55,8 @@ const FeedItem = React.memo<{
   item: FeedItem;
   onPress?: (item: FeedItem) => void;
 }>(({ item, onPress }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const Icon = item.icon;
   const scale = useSharedValue(1);
 
@@ -122,22 +125,26 @@ const EmptyState = React.memo<{
   icon: LucideIcon;
   title: string;
   description: string;
-}>(({ icon: Icon, title, description }) => (
-  <Animated.View
-    style={styles.emptyStateContainer}
-    entering={FadeIn.duration(400).springify()}
-  >
-    <View style={styles.emptyStateIconContainer}>
-      <Icon
-        size={40}
-        color={colors.accent.primary}
-        style={styles.emptyStateIcon}
-      />
-    </View>
-    <Text style={styles.emptyStateTitle}>{title}</Text>
-    <Text style={styles.emptyStateDescription}>{description}</Text>
-  </Animated.View>
-));
+}>(({ icon: Icon, title, description }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  return (
+    <Animated.View
+      style={styles.emptyStateContainer}
+      entering={FadeIn.duration(400).springify()}
+    >
+      <View style={styles.emptyStateIconContainer}>
+        <Icon
+          size={40}
+          color={colors.accent.primary}
+          style={styles.emptyStateIcon}
+        />
+      </View>
+      <Text style={styles.emptyStateTitle}>{title}</Text>
+      <Text style={styles.emptyStateDescription}>{description}</Text>
+    </Animated.View>
+  );
+});
 
 const Feed: React.FC<FeedProps> = ({
   items,
@@ -147,6 +154,8 @@ const Feed: React.FC<FeedProps> = ({
   maxItems = 3,
   style,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const displayItems = items.slice(0, maxItems);
   const hasMore = items.length > maxItems;
 
@@ -179,7 +188,7 @@ const Feed: React.FC<FeedProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     width: "100%",
     borderRadius: radius.md,

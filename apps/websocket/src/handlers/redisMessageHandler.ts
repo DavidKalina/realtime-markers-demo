@@ -1,8 +1,4 @@
-import {
-  REDIS_CHANNELS,
-  DISCOVERY_PUSH_RADIUS_METERS,
-  DEVICE_LOCATION_GEO_KEY,
-} from "../config/constants";
+import { REDIS_CHANNELS } from "../config/constants";
 import {
   formatDiscoveryMessage,
   formatNotificationMessage,

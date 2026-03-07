@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Image, ActivityIndicator } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import {
-  colors,
+  useColors,
+  type Colors,
   spacing,
   radius,
   fontSize,
@@ -24,6 +25,9 @@ export const ProcessingOverlay: React.FC<ProcessingOverlayProps> = ({
   stage,
   capturedImageUri,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (!isVisible) return null;
 
   return (
@@ -85,63 +89,64 @@ export const ProcessingOverlay: React.FC<ProcessingOverlayProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  processingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 100,
-  },
-  processingBackgroundImage: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  processingDarkLayer: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.overlay.scrim,
-  },
-  processingCenterContent: {
-    width: "80%",
-    maxWidth: 300,
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
-    padding: spacing["2xl"],
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  processingTitle: {
-    color: colors.text.primary,
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-    marginBottom: spacing.xs,
-    textAlign: "center",
-  },
-  processingMessage: {
-    color: colors.text.secondary,
-    fontSize: fontSize.sm,
-    textAlign: "center",
-    fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.normal,
-  },
-  spinnerTop: {
-    marginTop: spacing.xl,
-  },
-  spinnerBottom: {
-    marginBottom: spacing.xl,
-  },
-  successIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.status.success.bg,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: spacing.lg,
-  },
-  successCheck: {
-    color: colors.fixed.white,
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    processingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: "center",
+      alignItems: "center",
+      zIndex: 100,
+    },
+    processingBackgroundImage: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    processingDarkLayer: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: colors.overlay.scrim,
+    },
+    processingCenterContent: {
+      width: "80%",
+      maxWidth: 300,
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.xl,
+      padding: spacing["2xl"],
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    processingTitle: {
+      color: colors.text.primary,
+      fontSize: fontSize.lg,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+      marginBottom: spacing.xs,
+      textAlign: "center",
+    },
+    processingMessage: {
+      color: colors.text.secondary,
+      fontSize: fontSize.sm,
+      textAlign: "center",
+      fontFamily: fontFamily.mono,
+      lineHeight: lineHeight.normal,
+    },
+    spinnerTop: {
+      marginTop: spacing.xl,
+    },
+    spinnerBottom: {
+      marginBottom: spacing.xl,
+    },
+    successIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.status.success.bg,
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: spacing.lg,
+    },
+    successCheck: {
+      color: colors.fixed.white,
+      fontSize: fontSize.xl,
+      fontWeight: fontWeight.bold,
+    },
+  });

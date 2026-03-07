@@ -2,18 +2,19 @@ import AppHeader from "@/components/AnimationHeader";
 import Input from "@/components/Input/Input";
 import { apiClient } from "@/services/ApiClient";
 import {
-  colors,
+  useColors,
   fontFamily,
   fontSize,
   fontWeight,
   radius,
   spacing,
   spring,
+  type Colors,
 } from "@/theme";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Eye, EyeOff, Hash, Lock } from "lucide-react-native";
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -39,6 +40,8 @@ import Animated, {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const ResetPasswordScreen: React.FC = () => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { email } = useLocalSearchParams<{ email: string }>();
 
@@ -257,7 +260,7 @@ const ResetPasswordScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bg.primary,

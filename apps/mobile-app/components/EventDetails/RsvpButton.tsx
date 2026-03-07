@@ -8,7 +8,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { colors, radius } from "@/theme";
+import { useColors, radius, type Colors } from "@/theme";
 
 interface RsvpButtonProps {
   isRsvped: boolean;
@@ -21,6 +21,8 @@ const RsvpButton: React.FC<RsvpButtonProps> = ({
   rsvpState,
   onRsvp,
 }) => {
+  const colors = useColors();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const scale = useSharedValue(1);
   const color = useSharedValue(0);
 
@@ -81,7 +83,7 @@ const RsvpButton: React.FC<RsvpButtonProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   rsvpButton: {
     width: 44,
     height: 44,

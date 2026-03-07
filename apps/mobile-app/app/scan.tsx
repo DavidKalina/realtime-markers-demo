@@ -2,12 +2,12 @@
 import { CameraControls } from "@/components/CameraControls";
 import { CameraPermission } from "@/components/CameraPermissions/CameraPermission";
 import Screen from "@/components/Layout/Screen";
-import { colors, spacing, fontSize, fontFamily } from "@/theme";
+import { useColors, spacing, fontSize, fontFamily, type Colors } from "@/theme";
 import { useCamera } from "@/hooks/useCamera";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
 import { CameraView } from "expo-camera";
 import { usePathname, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -28,6 +28,8 @@ import {
 } from "@/components/Scan";
 
 export default function ScanScreen() {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const {
     hasPermission,
     cameraRef,
@@ -284,7 +286,7 @@ export default function ScanScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.fixed.black,

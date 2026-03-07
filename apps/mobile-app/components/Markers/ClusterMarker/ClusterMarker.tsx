@@ -14,9 +14,9 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { MARKER_HEIGHT, MARKER_WIDTH, MarkerSVG, ShadowSVG } from "../MarkerSVGs";
-import { colors, fontFamily, lineHeight } from "@/theme";
+import { fontFamily, lineHeight, useColors } from "@/theme";
 import { getCategoryColorScheme } from "@/utils/categoryColors";
-import { COLOR_SCHEMES, ANIMATIONS } from "./constants";
+import { createColorSchemes, ANIMATIONS } from "./constants";
 import { useClusterAnimations, staticShadowStyle } from "./useClusterAnimations";
 
 interface ClusterMarkerProps {
@@ -32,18 +32,22 @@ interface ClusterMarkerProps {
 
 export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
   ({ count, onPress, isSelected = false, dominantCategory, clusterPulse }) => {
+    const colors = useColors();
     const { scale, markerStyle, rippleStyle } =
       useClusterAnimations(count, isSelected, clusterPulse);
+
+    const COLOR_SCHEMES = useMemo(() => createColorSchemes(colors), [colors]);
+    const dynamicStyles = useMemo(() => createDynamicStyles(colors), [colors]);
 
     // Memoize color scheme: category-based when available, else size-based fallback
     const colorScheme = useMemo(() => {
       if (dominantCategory) {
-        return getCategoryColorScheme(dominantCategory);
+        return getCategoryColorScheme(colors, dominantCategory);
       }
       if (count < 5) return COLOR_SCHEMES.small;
       if (count < 15) return COLOR_SCHEMES.medium;
       return COLOR_SCHEMES.large;
-    }, [count, dominantCategory]);
+    }, [count, dominantCategory, colors, COLOR_SCHEMES]);
 
     // Memoize formatted count
     const formattedCount = useMemo(
@@ -103,7 +107,8 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
             <View style={styles.countContainer}>
               <Text
                 style={[
-                  styles.countText,
+                  styles.countTextBase,
+                  dynamicStyles.countText,
                   {
                     fontSize: count > 99 ? 14 : count > 9 ? 16 : 18,
                     color: colorScheme.text,
@@ -114,7 +119,7 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
               </Text>
             </View>
 
-            <Animated.View style={[styles.rippleEffect, rippleStyle]} />
+            <Animated.View style={[styles.rippleEffectBase, dynamicStyles.rippleEffect, rippleStyle]} />
           </Animated.View>
         </TouchableOpacity>
       </View>
@@ -165,34 +170,42 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  countText: {
+  countTextBase: {
     fontWeight: "bold",
     fontFamily: fontFamily.mono,
     textAlign: "center",
     lineHeight: lineHeight.loose,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow.light,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.5,
-        shadowRadius: 1,
-      },
-      android: {
-        textShadowColor: colors.shadow.light,
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 1,
-      },
-    }),
   },
-  rippleEffect: {
+  rippleEffectBase: {
     position: "absolute",
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.fixed.transparent,
     borderWidth: 2,
-    borderColor: colors.fixed.white,
     opacity: 0.7,
     bottom: 12,
   },
 });
+
+const createDynamicStyles = (colors: ReturnType<typeof useColors>) =>
+  StyleSheet.create({
+    countText: {
+      ...Platform.select({
+        ios: {
+          shadowColor: colors.shadow.light,
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.5,
+          shadowRadius: 1,
+        },
+        android: {
+          textShadowColor: colors.shadow.light,
+          textShadowOffset: { width: 0, height: 1 },
+          textShadowRadius: 1,
+        },
+      }),
+    },
+    rippleEffect: {
+      backgroundColor: colors.fixed.transparent,
+      borderColor: colors.fixed.white,
+    },
+  });

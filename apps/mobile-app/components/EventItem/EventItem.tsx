@@ -1,14 +1,15 @@
 import { EventType } from "@/types/types";
 import {
-  colors,
+  useColors,
   spacing,
   radius,
   fontSize,
   fontWeight,
   fontFamily,
+  type Colors,
 } from "@/theme";
 import { Calendar, ChevronRight, MapPin } from "lucide-react-native";
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   FadeInDown,
@@ -40,6 +41,8 @@ const EventItem: React.FC<EventItemProps> = ({
   showDistance = false,
   footerContent,
 }) => {
+  const colors = useColors();
+  const allStyles = useMemo(() => createAllStyles(colors), [colors]);
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -62,11 +65,11 @@ const EventItem: React.FC<EventItemProps> = ({
   const getStyles = () => {
     switch (variant) {
       case "compact":
-        return compactStyles;
+        return allStyles.compact;
       case "featured":
-        return featuredStyles;
+        return allStyles.featured;
       default:
-        return defaultStyles;
+        return allStyles.default;
     }
   };
 
@@ -136,7 +139,7 @@ const EventItem: React.FC<EventItemProps> = ({
 
           {showChevron && (
             <View style={styles.chevronContainer}>
-              <ChevronRight size={16} color=colors.text.detail />
+              <ChevronRight size={16} color={colors.text.detail} />
             </View>
           )}
         </View>
@@ -148,7 +151,8 @@ const EventItem: React.FC<EventItemProps> = ({
   );
 };
 
-const defaultStyles = StyleSheet.create({
+const createAllStyles = (colors: Colors) => {
+  const defaultStyles = StyleSheet.create({
   eventCard: {
     backgroundColor: colors.bg.card,
     padding: spacing.md,
@@ -224,7 +228,7 @@ const defaultStyles = StyleSheet.create({
   },
 });
 
-const compactStyles = StyleSheet.create({
+  const compactStyles = StyleSheet.create({
   ...defaultStyles,
   eventCard: {
     ...defaultStyles.eventCard,
@@ -252,7 +256,7 @@ const compactStyles = StyleSheet.create({
   },
 });
 
-const featuredStyles = StyleSheet.create({
+  const featuredStyles = StyleSheet.create({
   ...defaultStyles,
   eventCard: {
     ...defaultStyles.eventCard,
@@ -279,5 +283,8 @@ const featuredStyles = StyleSheet.create({
     paddingTop: spacing.lg,
   },
 });
+
+  return { default: defaultStyles, compact: compactStyles, featured: featuredStyles };
+};
 
 export default EventItem;

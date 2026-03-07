@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -20,13 +20,14 @@ import Animated, {
 import { Svg, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import {
-  colors,
+  useColors,
   radius,
   spacing,
   fontSize,
   fontFamily,
   fontWeight,
   spring,
+  type Colors,
 } from "@/theme";
 import { getTierByName } from "@/utils/gamification";
 import { useDeviceMotionTilt } from "./useDeviceMotionTilt";
@@ -78,6 +79,8 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
   followingCount,
   memberSince,
 }) => {
+  const colors = useColors();
+  const overlayStyles = useMemo(() => createOverlayStyles(colors), [colors]);
   const { user } = useAuth();
   const isSelf = !!(userId && user?.id && userId === user.id);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -313,7 +316,7 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
   );
 };
 
-const overlayStyles = StyleSheet.create({
+const createOverlayStyles = (colors: Colors) => StyleSheet.create({
   scrim: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0, 0, 0, 0.75)",

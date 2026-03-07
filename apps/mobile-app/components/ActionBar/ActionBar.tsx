@@ -24,9 +24,9 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors, fontWeight } from "@/theme";
+import { useColors, fontWeight, type Colors } from "@/theme";
 import { useXPStore } from "@/stores/useXPStore";
-import { styles } from "./styles";
+import { createStyles } from "./styles";
 
 // Pre-define animation configurations
 const BUTTON_PRESS_ANIMATION = {
@@ -51,7 +51,7 @@ interface TabConfig {
   activeColor: string;
 }
 
-const TABS: TabConfig[] = [
+const getTabs = (colors: Colors): TabConfig[] => [
   {
     key: "spaces",
     label: "Spaces",
@@ -91,12 +91,18 @@ const TABS: TabConfig[] = [
 
 const HIDDEN_ROUTES = ["/register", "/login"];
 
+// Static route → tab key mapping (no dependency on colors)
+const ROUTE_TO_TAB: Record<string, string> = {
+  "/scan": "scan",
+  "/user": "user",
+};
+
 // Map pathname to active tab key
 const getActiveTabKey = (pathname: string): string | null => {
   if (pathname === "/") return "locate";
   if (pathname.startsWith("/saved")) return "saved";
   if (pathname.startsWith("/spaces")) return "spaces";
-  return TABS.find((tab) => tab.route === pathname)?.key ?? null;
+  return ROUTE_TO_TAB[pathname] ?? null;
 };
 
 // Separate component for each button to isolate animation shared values
@@ -107,6 +113,8 @@ const ActionButton: React.FC<{
   showBadge?: boolean;
   onPress: () => void;
 }> = React.memo(({ tab, isActive, disabled, showBadge, onPress }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const scaleValue = useSharedValue(1);
   const IconComponent = tab.icon;
   const iconColor = isActive ? tab.activeColor : colors.text.primary;
@@ -163,6 +171,9 @@ const ActionButton: React.FC<{
 });
 
 export const ActionBar: React.FC = React.memo(() => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const TABS = useMemo(() => getTabs(colors), [colors]);
   const pathname = usePathname();
   const { publish } = useEventBroker();
   const insets = useSafeAreaInsets();
@@ -210,7 +221,7 @@ export const ActionBar: React.FC = React.memo(() => {
         paddingBottom: Platform.OS === "ios" ? insets.bottom * 1.45 : 0,
       },
     ],
-    [insets.bottom],
+    [insets.bottom, styles.bottomBar],
   );
 
   if (HIDDEN_ROUTES.includes(pathname)) {

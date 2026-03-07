@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   StyleSheet,
 } from "react-native";
 import Animated, { FadeInRight } from "react-native-reanimated";
-import { colors, fontSize, fontWeight, fontFamily, spacing } from "@/theme";
+import { useColors, fontSize, fontWeight, fontFamily, spacing, type Colors } from "@/theme";
 import { getCategoryColor } from "@/utils/categoryColors";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -29,6 +29,8 @@ const titleCase = (str: string) => str.replace(/\b\w/g, (c) => c.toUpperCase());
 const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
   categories,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
 
   const handleCategoryPress = (category: Category) => {
@@ -79,7 +81,7 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     marginBottom: spacing.lg,
   },

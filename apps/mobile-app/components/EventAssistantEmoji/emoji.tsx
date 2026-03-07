@@ -1,8 +1,8 @@
 // styles/emoji.ts
 import { StyleSheet } from "react-native";
-import { colors, spacing } from "@/theme";
+import { spacing, type Colors } from "@/theme";
 
-export const styles = StyleSheet.create({
+export const createStyles = (colors: Colors) => StyleSheet.create({
   emojiWrapper: {
     marginRight: spacing.lg,
     alignItems: "center",

@@ -1,14 +1,15 @@
 import {
-  colors,
+  useColors,
   fontFamily,
   fontSize,
   fontWeight,
   radius,
   spacing,
+  type Colors,
 } from "@/theme";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Dimensions,
   SafeAreaView,
@@ -21,15 +22,15 @@ import Animated, {
   interpolate,
   interpolateColor,
   runOnJS,
+  SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
 import { OnboardingPage } from "./OnboardingPage";
-import { ONBOARDING_PAGES } from "./onboardingData";
+import { createOnboardingPages } from "./onboardingData";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const PAGE_COUNT = ONBOARDING_PAGES.length;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 
 const DOT_SIZE = 8;
@@ -37,6 +38,13 @@ const DOT_ACTIVE_WIDTH = 24;
 const SPRING_CONFIG = { damping: 32, stiffness: 200 };
 
 export const OnboardingScreen: React.FC = () => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const onboardingPages = useMemo(
+    () => createOnboardingPages(colors),
+    [colors],
+  );
+  const pageCount = onboardingPages.length;
   const [activeIndex, setActiveIndex] = useState(0);
   const { completeOnboarding } = useOnboarding();
   const router = useRouter();
@@ -50,7 +58,7 @@ export const OnboardingScreen: React.FC = () => {
 
   const goToPage = useCallback(
     (index: number) => {
-      const clamped = Math.max(0, Math.min(index, PAGE_COUNT - 1));
+      const clamped = Math.max(0, Math.min(index, pageCount - 1));
       scrollOffset.value = withSpring(clamped * SCREEN_WIDTH, SPRING_CONFIG);
       setActiveIndex(clamped);
     },
@@ -58,7 +66,7 @@ export const OnboardingScreen: React.FC = () => {
   );
 
   const handleNext = useCallback(() => {
-    if (activeIndex < PAGE_COUNT - 1) {
+    if (activeIndex < pageCount - 1) {
       goToPage(activeIndex + 1);
     } else {
       handleComplete();
@@ -79,7 +87,7 @@ export const OnboardingScreen: React.FC = () => {
       const base = activeIndex * SCREEN_WIDTH;
       const next = base - e.translationX;
       // Clamp with rubber-band effect at edges
-      const maxOffset = (PAGE_COUNT - 1) * SCREEN_WIDTH;
+      const maxOffset = (pageCount - 1) * SCREEN_WIDTH;
       if (next < 0) {
         scrollOffset.value = next * 0.3;
       } else if (next > maxOffset) {
@@ -92,7 +100,7 @@ export const OnboardingScreen: React.FC = () => {
       const delta = -e.translationX;
       let targetIndex = activeIndex;
 
-      if (delta > SWIPE_THRESHOLD && activeIndex < PAGE_COUNT - 1) {
+      if (delta > SWIPE_THRESHOLD && activeIndex < pageCount - 1) {
         targetIndex = activeIndex + 1;
       } else if (delta < -SWIPE_THRESHOLD && activeIndex > 0) {
         targetIndex = activeIndex - 1;
@@ -109,7 +117,7 @@ export const OnboardingScreen: React.FC = () => {
     transform: [{ translateX: -scrollOffset.value }],
   }));
 
-  const isLastPage = activeIndex === PAGE_COUNT - 1;
+  const isLastPage = activeIndex === pageCount - 1;
   const isFirstPage = activeIndex === 0;
 
   return (
@@ -118,7 +126,7 @@ export const OnboardingScreen: React.FC = () => {
 
       <GestureDetector gesture={panGesture}>
         <Animated.View style={[styles.pager, pagerStyle]}>
-          {ONBOARDING_PAGES.map((page, index) => (
+          {onboardingPages.map((page, index) => (
             <OnboardingPage
               key={page.id}
               page={page}
@@ -148,7 +156,7 @@ export const OnboardingScreen: React.FC = () => {
 
         {/* Dot indicator */}
         <View style={styles.dotsContainer}>
-          {ONBOARDING_PAGES.map((_, index) => (
+          {onboardingPages.map((_, index) => (
             <Dot key={index} index={index} scrollOffset={scrollOffset} />
           ))}
         </View>
@@ -170,10 +178,12 @@ export const OnboardingScreen: React.FC = () => {
 
 interface DotProps {
   index: number;
-  scrollOffset: Animated.SharedValue<number>;
+  scrollOffset: SharedValue<number>;
 }
 
 const Dot: React.FC<DotProps> = ({ index, scrollOffset }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const dotStyle = useAnimatedStyle(() => {
     const inputRange = [
       (index - 1) * SCREEN_WIDTH,
@@ -211,64 +221,67 @@ const Dot: React.FC<DotProps> = ({ index, scrollOffset }) => {
   return <Animated.View style={[styles.dot, dotStyle]} />;
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg.primary,
-  },
-  pager: {
-    flex: 1,
-    flexDirection: "row",
-    width: SCREEN_WIDTH * PAGE_COUNT,
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xl,
-    paddingTop: spacing._10,
-  },
-  skipContainer: {
-    minWidth: 80,
-  },
-  skipPlaceholder: {
-    minWidth: 80,
-  },
-  skipText: {
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  dotsContainer: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    alignItems: "center",
-  },
-  dot: {
-    height: DOT_SIZE,
-    borderRadius: DOT_SIZE / 2,
-  },
-  nextButton: {
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-    backgroundColor: colors.accent.muted,
-    borderWidth: 1,
-    borderColor: colors.accent.border,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    overflow: "hidden",
-    textAlign: "center",
-    minWidth: 80,
-  },
-  nextButtonLast: {
-    backgroundColor: colors.accent.primary,
-    borderColor: colors.accent.primary,
-    color: colors.bg.primary,
-  },
-});
+const TOTAL_PAGES = 7;
+
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bg.primary,
+    },
+    pager: {
+      flex: 1,
+      flexDirection: "row",
+      width: SCREEN_WIDTH * TOTAL_PAGES,
+    },
+    footer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: spacing.xl,
+      paddingBottom: spacing.xl,
+      paddingTop: spacing._10,
+    },
+    skipContainer: {
+      minWidth: 80,
+    },
+    skipPlaceholder: {
+      minWidth: 80,
+    },
+    skipText: {
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+    },
+    dotsContainer: {
+      flexDirection: "row",
+      gap: spacing.sm,
+      alignItems: "center",
+    },
+    dot: {
+      height: DOT_SIZE,
+      borderRadius: DOT_SIZE / 2,
+    },
+    nextButton: {
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+      backgroundColor: colors.accent.muted,
+      borderWidth: 1,
+      borderColor: colors.accent.border,
+      borderRadius: radius.md,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xl,
+      overflow: "hidden",
+      textAlign: "center",
+      minWidth: 80,
+    },
+    nextButtonLast: {
+      backgroundColor: colors.accent.primary,
+      borderColor: colors.accent.primary,
+      color: colors.bg.primary,
+    },
+  });

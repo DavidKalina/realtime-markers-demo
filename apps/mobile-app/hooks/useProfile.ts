@@ -1,5 +1,4 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { MapStyleType, useMapStyle } from "@/contexts/MapStyleContext";
 import { apiClient, User } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -51,7 +50,6 @@ interface UseProfileReturn {
 
   // Actions
   refetch: () => Promise<void>;
-  handleMapStyleChange: (style: MapStyleType) => Promise<void>;
   handleBack: () => void;
   handleLogout: () => void;
   handleDeleteAccount: () => Promise<void>;
@@ -63,7 +61,6 @@ interface UseProfileReturn {
 export const useProfile = (onBack?: () => void): UseProfileReturn => {
   const router = useRouter();
   const { logout } = useAuth();
-  const { setMapStyle } = useMapStyle();
 
   // State
   const [loading, setLoading] = useState(true);
@@ -88,15 +85,6 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
       pendingResolveRef.current = resolve;
     });
   }, []);
-
-  // Handle map style change
-  const handleMapStyleChange = useCallback(
-    async (style: MapStyleType) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await setMapStyle(style);
-    },
-    [setMapStyle],
-  );
 
   // Combined data fetching with caching and request queuing
   useEffect(() => {
@@ -222,7 +210,7 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
 
     // Actions
     refetch,
-    handleMapStyleChange,
+
     handleBack,
     handleLogout,
     handleDeleteAccount,

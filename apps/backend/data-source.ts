@@ -45,6 +45,7 @@ import { UserFollowTable1710000000030 } from "./migrations/UserFollowTable171000
 import { LlmUsageLogTable1710000000031 } from "./migrations/LlmUsageLogTable1710000000031";
 import { AddPasswordResetFields1710000000032 } from "./migrations/AddPasswordResetFields1710000000032";
 import { ThirdSpaceScoreSnapshot1710000000033 } from "./migrations/ThirdSpaceScoreSnapshot1710000000033";
+import { NormalizeTSSCityNames1710000000034 } from "./migrations/NormalizeTSSCityNames1710000000034";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -91,6 +92,7 @@ const AppDataSource = new DataSource({
     LlmUsageLogTable1710000000031,
     AddPasswordResetFields1710000000032,
     ThirdSpaceScoreSnapshot1710000000033,
+    NormalizeTSSCityNames1710000000034,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running
@@ -175,7 +177,7 @@ const initializeDatabase = async (
     try {
       await ensureDatabaseReady();
       return AppDataSource;
-    } catch (error) {
+    } catch {
       console.log(
         "Database is initialized but not ready, will retry initialization",
       );

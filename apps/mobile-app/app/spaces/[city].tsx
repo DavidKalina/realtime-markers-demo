@@ -21,8 +21,9 @@ const CityDetailScreen = () => {
     ? decodedCity.split(",")[0].trim()
     : decodedCity;
 
-  const { score: thirdSpaceScore, refetch: refetchScore } =
-    useThirdSpaceScore(decodedCity || null);
+  const { score: thirdSpaceScore, refetch: refetchScore } = useThirdSpaceScore(
+    decodedCity || null,
+  );
 
   const {
     landingData,
@@ -83,9 +84,11 @@ const CityDetailScreen = () => {
 
   const handleExploreMap = useCallback(() => {
     // Prefer a real event location over the centroid to avoid dead zones
-    const firstEvent = landingData?.featuredEvents?.[0] ?? landingData?.topEvents?.[0];
-    const coords: [number, number] | null = firstEvent?.coordinates
-      ?? (thirdSpaceScore?.centroid
+    const firstEvent =
+      landingData?.featuredEvents?.[0] ?? landingData?.topEvents?.[0];
+    const coords: [number, number] | null =
+      firstEvent?.coordinates ??
+      (thirdSpaceScore?.centroid
         ? [thirdSpaceScore.centroid.lng, thirdSpaceScore.centroid.lat]
         : null);
     if (!coords) return;
@@ -127,7 +130,9 @@ const CityDetailScreen = () => {
         currentUserId={currentUser?.id}
         topEvents={landingData?.topEvents}
         onExploreMap={
-          landingData?.featuredEvents?.[0] || landingData?.topEvents?.[0] || thirdSpaceScore?.centroid
+          landingData?.featuredEvents?.[0] ||
+          landingData?.topEvents?.[0] ||
+          thirdSpaceScore?.centroid
             ? handleExploreMap
             : undefined
         }

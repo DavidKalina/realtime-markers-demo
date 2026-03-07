@@ -1,5 +1,5 @@
-import { colors, spacing, radius, fontWeight, fontFamily } from "@/theme";
-import React, { useEffect } from "react";
+import { useColors, spacing, radius, fontWeight, fontFamily, type Colors } from "@/theme";
+import React, { useEffect, useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
@@ -10,7 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 // Domain-specific role colors (admin gold, moderator, default)
-const ROLE_COLORS = {
+const getRoleColors = (colors: Colors) => ({
   admin: {
     background: "rgba(255, 204, 0, 0.15)",
     border: "rgba(255, 204, 0, 0.3)",
@@ -26,7 +26,7 @@ const ROLE_COLORS = {
     border: colors.border.medium,
     text: colors.text.secondary,
   },
-};
+});
 
 interface ProfileFloatingEmojiProps {
   emoji: string;
@@ -43,6 +43,9 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
   isActive = false,
   role,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const ROLE_COLORS = useMemo(() => getRoleColors(colors), [colors]);
   // Animation shared values
   const floatY = useSharedValue(0);
   const scale = useSharedValue(isActive ? 1.05 : 1);
@@ -146,7 +149,7 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     alignItems: "center",
     justifyContent: "center",

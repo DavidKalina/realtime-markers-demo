@@ -1,4 +1,4 @@
-import { colors } from "@/theme";
+import { useColors } from "@/theme";
 import React, { useEffect } from "react";
 import { Image, StyleSheet } from "react-native";
 import Animated, {
@@ -20,6 +20,7 @@ interface FloatingPinProps {
 }
 
 const FloatingPin: React.FC<FloatingPinProps> = ({ cx, cy, delay, active }) => {
+  const colors = useColors();
   const translateY = useSharedValue(0);
   const opacity = useSharedValue(0);
 

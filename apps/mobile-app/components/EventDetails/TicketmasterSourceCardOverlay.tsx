@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
   Dimensions,
   Linking,
@@ -20,13 +20,14 @@ import Animated, {
 import { Svg, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import {
-  colors,
+  useColors,
   radius,
   spacing,
   fontSize,
   fontFamily,
   fontWeight,
   spring,
+  type Colors,
 } from "@/theme";
 import { useDeviceMotionTilt } from "./useDeviceMotionTilt";
 
@@ -53,6 +54,8 @@ interface TicketmasterSourceCardOverlayProps {
 const TicketmasterSourceCardOverlay: React.FC<
   TicketmasterSourceCardOverlayProps
 > = ({ visible, onDismiss, externalUrl }) => {
+  const colors = useColors();
+  const overlayStyles = useMemo(() => createOverlayStyles(colors), [colors]);
   const scrimOpacity = useSharedValue(0);
   const cardScale = useSharedValue(0.85);
   const cardOpacity = useSharedValue(0);
@@ -227,7 +230,7 @@ const TicketmasterSourceCardOverlay: React.FC<
   );
 };
 
-const overlayStyles = StyleSheet.create({
+const createOverlayStyles = (colors: Colors) => StyleSheet.create({
   scrim: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0, 0, 0, 0.75)",

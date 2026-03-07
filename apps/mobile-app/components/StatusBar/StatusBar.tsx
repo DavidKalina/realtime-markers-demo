@@ -1,6 +1,8 @@
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  colors,
+  useColors,
+  useTheme,
+  type Colors,
   spacing,
   fontSize,
   fontWeight,
@@ -18,6 +20,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
 
 const StatusBar: React.FC = () => {
+  const colors = useColors();
+  const { resolvedTheme } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
@@ -28,7 +33,7 @@ const StatusBar: React.FC = () => {
         paddingTop: insets.top,
       },
     ],
-    [insets.top],
+    [insets.top, styles],
   );
 
   const totalXp = user?.totalXp || 0;
@@ -39,7 +44,7 @@ const StatusBar: React.FC = () => {
   return (
     <View style={containerStyle}>
       <RNStatusBar
-        barStyle="light-content"
+        barStyle={resolvedTheme === "dark" ? "light-content" : "dark-content"}
         backgroundColor={colors.bg.primary}
         translucent
       />
@@ -78,71 +83,72 @@ const StatusBar: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1000,
-    backgroundColor: colors.bg.primary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.medium,
-    shadowColor: "rgba(0, 0, 0, 0.3)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: spacing.sm,
-    elevation: 4,
-  },
-  bannerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xs,
-  },
-  xpContainer: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.sm,
-  },
-  xpRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.xs,
-  },
-  xpTierLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.accent.primary,
-    fontFamily: fontFamily.mono,
-  },
-  xpValueLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-  },
-  xpNextLabel: {
-    color: colors.text.disabled,
-  },
-  xpBarBg: {
-    height: 4,
-    borderRadius: radius.full,
-    backgroundColor: colors.bg.elevated,
-    overflow: "hidden",
-  },
-  xpBarFill: {
-    height: "100%",
-    borderRadius: radius.full,
-    backgroundColor: colors.accent.primary,
-  },
-  engagementContainer: {
-    position: "absolute",
-    left: 0,
-    bottom: -20,
-    zIndex: 999,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 1000,
+      backgroundColor: colors.bg.primary,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.medium,
+      shadowColor: "rgba(0, 0, 0, 0.3)",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: spacing.sm,
+      elevation: 4,
+    },
+    bannerContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.xs,
+    },
+    xpContainer: {
+      paddingHorizontal: spacing.xl,
+      paddingBottom: spacing.sm,
+    },
+    xpRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: spacing.xs,
+    },
+    xpTierLabel: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.semibold,
+      color: colors.accent.primary,
+      fontFamily: fontFamily.mono,
+    },
+    xpValueLabel: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.medium,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+    },
+    xpNextLabel: {
+      color: colors.text.disabled,
+    },
+    xpBarBg: {
+      height: 4,
+      borderRadius: radius.full,
+      backgroundColor: colors.bg.elevated,
+      overflow: "hidden",
+    },
+    xpBarFill: {
+      height: "100%",
+      borderRadius: radius.full,
+      backgroundColor: colors.accent.primary,
+    },
+    engagementContainer: {
+      position: "absolute",
+      left: 0,
+      bottom: -20,
+      zIndex: 999,
+    },
+  });
 
 export default React.memo(StatusBar);

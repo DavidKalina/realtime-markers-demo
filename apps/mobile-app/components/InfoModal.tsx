@@ -1,14 +1,15 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import {
-  colors,
+  useColors,
   spacing,
   radius,
   fontSize,
   fontWeight,
   fontFamily,
   lineHeight,
+  type Colors,
 } from "@/theme";
 
 interface InfoModalProps {
@@ -26,6 +27,8 @@ const InfoModal: React.FC<InfoModalProps> = ({
   accentColor,
   onClose,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Modal
       visible={visible}
@@ -62,7 +65,7 @@ const InfoModal: React.FC<InfoModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: "center",

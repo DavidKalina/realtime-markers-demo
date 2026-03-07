@@ -1,5 +1,5 @@
 import { LucideIcon } from "lucide-react-native";
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Banner from "./Banner";
 import Button from "./Button";
 import ScreenContent from "./ScreenContent";
-import { colors, spacing, radius } from "@/theme";
+import { useColors, spacing, radius, type Colors } from "@/theme";
 import ScreenLayout from "./ScreenLayout";
 import SectionHeader from "./SectionHeader";
 import Tabs from "./Tabs";
@@ -113,6 +113,8 @@ const Screen = <T extends string>({
   extendBannerToStatusBar = true,
   footerSafeArea = false,
 }: ScreenProps<T>) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const scrollY = useSharedValue(0);
 
@@ -269,7 +271,7 @@ const Screen = <T extends string>({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   mainContainer: {
     flex: 1,
     position: "relative",

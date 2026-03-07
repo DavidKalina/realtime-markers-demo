@@ -1,5 +1,5 @@
 import { LucideIcon } from "lucide-react-native";
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Platform,
   RefreshControl,
@@ -20,7 +20,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import {
-  colors,
+  useColors,
+  type Colors,
   spacing,
   radius,
   fontSize,
@@ -63,18 +64,22 @@ export interface ListProps {
 export const StyledSwitch = React.memo<{
   value: boolean;
   onValueChange: (value: boolean) => void;
-}>(({ value, onValueChange }) => (
-  <View style={styles.switchContainer as ViewStyle}>
-    <Switch
-      value={value}
-      onValueChange={onValueChange}
-      trackColor={{ false: colors.border.medium, true: colors.accent.primary }}
-      thumbColor={colors.bg.primary}
-      ios_backgroundColor={colors.border.medium}
-      style={styles.switch as ViewStyle}
-    />
-  </View>
-));
+}>(({ value, onValueChange }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  return (
+    <View style={styles.switchContainer as ViewStyle}>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: colors.border.medium, true: colors.accent.primary }}
+        thumbColor={colors.bg.primary}
+        ios_backgroundColor={colors.border.medium}
+        style={styles.switch as ViewStyle}
+      />
+    </View>
+  );
+});
 
 const ListItem = React.memo<{
   item: ListItem;
@@ -83,6 +88,8 @@ const ListItem = React.memo<{
   delay: number;
   index: number;
 }>(({ item, onPress, animated, delay, index }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const Icon = item.icon;
   const scale = useSharedValue(1);
 
@@ -155,22 +162,26 @@ const EmptyState = React.memo<{
   icon: LucideIcon;
   title: string;
   description: string;
-}>(({ icon: Icon, title, description }) => (
-  <Animated.View
-    style={styles.emptyStateContainer}
-    entering={FadeIn.duration(400).springify()}
-  >
-    <View style={styles.emptyStateIconContainer}>
-      <Icon
-        size={40}
-        color={colors.accent.primary}
-        style={styles.emptyStateIcon}
-      />
-    </View>
-    <Text style={styles.emptyStateTitle}>{title}</Text>
-    <Text style={styles.emptyStateDescription}>{description}</Text>
-  </Animated.View>
-));
+}>(({ icon: Icon, title, description }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  return (
+    <Animated.View
+      style={styles.emptyStateContainer}
+      entering={FadeIn.duration(400).springify()}
+    >
+      <View style={styles.emptyStateIconContainer}>
+        <Icon
+          size={40}
+          color={colors.accent.primary}
+          style={styles.emptyStateIcon}
+        />
+      </View>
+      <Text style={styles.emptyStateTitle}>{title}</Text>
+      <Text style={styles.emptyStateDescription}>{description}</Text>
+    </Animated.View>
+  );
+});
 
 const List: React.FC<ListProps> = ({
   items,
@@ -185,6 +196,8 @@ const List: React.FC<ListProps> = ({
   refreshing = false,
   onRefresh,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const displayItems = maxItems ? items.slice(0, maxItems) : items;
   const hasMore = maxItems ? items?.length > maxItems : false;
 
@@ -240,7 +253,7 @@ const List: React.FC<ListProps> = ({
   return <View style={[styles.container, style]}>{content}</View>;
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     width: "100%",
   },

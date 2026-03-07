@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { colors, fontWeight, fontFamily, spacing } from "@/theme";
+import { useColors, fontWeight, fontFamily, spacing, type Colors } from "@/theme";
 import { EventType } from "@/types/types";
 import EventListItem from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
@@ -16,6 +16,8 @@ interface UpcomingEventsSectionProps {
 const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
   events,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
 
   const handleEventPress = useCallback(
@@ -59,7 +61,7 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     marginBottom: spacing.lg,
     borderTopWidth: 1,

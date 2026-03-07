@@ -12,7 +12,7 @@ import Animated, {
 import Svg, { Circle } from "react-native-svg";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { getCategoryColor } from "@/utils/categoryColors";
-import { colors, fontFamily, radius, spacing } from "@/theme";
+import { useColors, fontFamily, radius, spacing, type Colors } from "@/theme";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -70,6 +70,8 @@ function RingSegment({
 }
 
 function MapLegend() {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [expanded, setExpanded] = useState(false);
   const markers = useLocationStore((state) => state.markers);
   const selectedItem = useLocationStore((state) => state.selectedItem);
@@ -177,7 +179,7 @@ function MapLegend() {
 
 export default React.memo(MapLegend);
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     position: "absolute",
     top: 12,

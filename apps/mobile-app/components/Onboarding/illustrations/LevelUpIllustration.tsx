@@ -1,5 +1,5 @@
-import { colors } from "@/theme";
-import React, { useEffect } from "react";
+import { useColors, type Colors } from "@/theme";
+import React, { useEffect, useMemo } from "react";
 import { StyleSheet } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -13,6 +13,8 @@ import Svg, { Path } from "react-native-svg";
 export const LevelUpIllustration: React.FC<{ active: boolean }> = ({
   active,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const containerOpacity = useSharedValue(0);
   const barWidth = useSharedValue(0);
   const shimmerX = useSharedValue(-60);
@@ -91,7 +93,7 @@ export const LevelUpIllustration: React.FC<{ active: boolean }> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
     width: 260,
     height: 220,

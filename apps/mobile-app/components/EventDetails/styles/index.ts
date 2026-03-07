@@ -1,18 +1,20 @@
 // Barrel re-export that merges all style partials into a single `styles` object.
-// This preserves backward compatibility — existing code importing { styles } from "./styles"
+// This preserves backward compatibility — existing code importing { createStyles } from "./styles"
 // continues to work without changes.
-import { baseStyles } from "./base";
-import { infoCardStyles } from "./infoCard";
-import { buttonStyles } from "./buttons";
-import { qrCodeStyles } from "./qrCode";
-import { modalStyles } from "./modal";
-import { legacyStyles } from "./legacy";
+import type { Colors } from "@/theme";
+import { createBaseStyles } from "./base";
+import { createInfoCardStyles } from "./infoCard";
+import { createButtonStyles } from "./buttons";
+import { createQrCodeStyles } from "./qrCode";
+import { createModalStyles } from "./modal";
+import { createLegacyStyles } from "./legacy";
 
-export const styles = {
-  ...baseStyles,
-  ...infoCardStyles,
-  ...buttonStyles,
-  ...qrCodeStyles,
-  ...modalStyles,
-  ...legacyStyles,
-} as const;
+export const createStyles = (colors: Colors) =>
+  ({
+    ...createBaseStyles(colors),
+    ...createInfoCardStyles(colors),
+    ...createButtonStyles(colors),
+    ...createQrCodeStyles(colors),
+    ...createModalStyles(colors),
+    ...createLegacyStyles(colors),
+  }) as const;

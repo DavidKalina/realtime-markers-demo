@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors } from "@/theme";
+import { useColors, type Colors } from "@/theme";
 import { apiClient, type AreaScanMetadata } from "@/services/ApiClient";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -26,6 +26,8 @@ export function AreaScanBottomSheet({
   coordinates,
   onDismiss,
 }: AreaScanBottomSheetProps) {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const abortRef = useRef<{ abort: () => void } | null>(null);
@@ -165,7 +167,7 @@ export function AreaScanBottomSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.3)",

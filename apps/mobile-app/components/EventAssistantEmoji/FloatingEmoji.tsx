@@ -12,10 +12,10 @@ import Animated, {
   cancelAnimation,
 } from "react-native-reanimated";
 import { useLocationStore } from "@/stores/useLocationStore";
-import { styles } from "./emoji";
+import { createStyles } from "./emoji";
 import { getMessageEmoji } from "@/utils/messageUtils";
 
-import { spring } from "@/theme";
+import { spring, useColors } from "@/theme";
 
 const SPRING_CONFIG = {
   ...spring.dropdown,
@@ -32,6 +32,8 @@ export const FloatingEmoji: React.FC<FloatingEmojiProps> = ({
   message,
   fallbackEmoji,
 }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // Get marker selection state from location store
   const selectedItem = useLocationStore((state) => state.selectedItem);
   const selectedMarkerId =

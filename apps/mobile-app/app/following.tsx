@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -9,12 +9,13 @@ import { useFollowing } from "@/hooks/useFollowing";
 import { FollowedUser } from "@/services/api/modules/follows";
 import { getTierByName } from "@/utils/gamification";
 import {
-  colors,
+  useColors,
   spacing,
   radius,
   fontSize,
   fontFamily,
   fontWeight,
+  type Colors,
 } from "@/theme";
 
 const TIER_COLORS: Record<string, string> = {
@@ -25,6 +26,8 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 const FollowingScreen = () => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { users, isLoading, error, hasMore, loadMore, refresh, unfollowUser } =
     useFollowing();
@@ -140,7 +143,7 @@ const FollowingScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: Colors) => StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",

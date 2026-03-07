@@ -4,7 +4,7 @@ import Animated, {
   FadeInDown,
   LinearTransition,
 } from "react-native-reanimated";
-import { colors, spacing, radius } from "@/theme";
+import { useColors, spacing, radius, type Colors } from "@/theme";
 
 interface CardProps {
   children: React.ReactNode;
@@ -17,7 +17,7 @@ interface CardProps {
 }
 
 // Memoize the card styles
-const cardStyles = StyleSheet.create({
+const createCardStyles = (colors: Colors) => StyleSheet.create({
   card: {
     backgroundColor: colors.bg.card,
     borderRadius: radius["2xl"],
@@ -47,6 +47,8 @@ const Card: React.FC<CardProps> = React.memo(
     noShadow = false,
     onPress,
   }) => {
+    const colors = useColors();
+    const cardStyles = React.useMemo(() => createCardStyles(colors), [colors]);
     const CardComponent = animated ? Animated.View : View;
     const Container = onPress ? TouchableOpacity : View;
 
