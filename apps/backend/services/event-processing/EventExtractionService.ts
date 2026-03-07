@@ -117,7 +117,7 @@ export class EventExtractionService implements IEventExtractionService {
              - summary: 1-2 sentence overview of the event (required, always provide)
              - cost: Price or admission info as a string, or null if free/unknown
              - highlights: Array of up to 5 practical bullet-point items about the event, or null if none
-             - contact: Contact info, social media handles, or website, or null if none found
+             - contact: Contact info, social media handles, or website as a single plain string (not an object), or null if none found
 
            Today's date is: ${currentDate}
            
@@ -197,7 +197,14 @@ export class EventExtractionService implements IEventExtractionService {
         highlights: Array.isArray(parsedDetails.eventDigest.highlights)
           ? parsedDetails.eventDigest.highlights.slice(0, 5)
           : null,
-        contact: parsedDetails.eventDigest.contact || null,
+        contact:
+          typeof parsedDetails.eventDigest.contact === "string"
+            ? parsedDetails.eventDigest.contact
+            : parsedDetails.eventDigest.contact
+              ? Object.values(parsedDetails.eventDigest.contact)
+                  .filter(Boolean)
+                  .join(" · ")
+              : null,
       };
     }
 

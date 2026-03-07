@@ -293,9 +293,24 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
               {event.eventDigest.contact && (
                 <View style={styles.sectionDivider}>
                   <Text style={styles.infoCardTitle}>Contact</Text>
-                  <Text style={styles.descriptionText}>
-                    {event.eventDigest.contact}
-                  </Text>
+                  {typeof event.eventDigest.contact === "string" ? (
+                    <Text style={styles.descriptionText}>
+                      {event.eventDigest.contact}
+                    </Text>
+                  ) : (
+                    <>
+                      {event.eventDigest.contact.phone && (
+                        <Text style={styles.descriptionText}>
+                          {event.eventDigest.contact.phone}
+                        </Text>
+                      )}
+                      {event.eventDigest.contact.website && (
+                        <Text style={styles.descriptionText}>
+                          {event.eventDigest.contact.website}
+                        </Text>
+                      )}
+                    </>
+                  )}
                 </View>
               )}
             </Animated.View>

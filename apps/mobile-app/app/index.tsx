@@ -34,7 +34,7 @@ import { useColors, type Colors } from "@/theme";
 import MapboxGL from "@rnmapbox/maps";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { Locate, Navigation } from "lucide-react-native";
 import React, {
   useCallback,
@@ -99,6 +99,8 @@ function HomeScreenContent() {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const router = useRouter();
+  const pathname = usePathname();
+  const isFocused = pathname === "/" || pathname === "/index";
   const { publish } = useEventBroker();
   const { mapStyle, isPitched } = useMapStyle();
   const isAppActive = useAppActive();
@@ -290,7 +292,7 @@ function HomeScreenContent() {
       );
     }
   }, [publish]);
-  const scanInsight = useScanInsight(handleScanDismiss);
+  const scanInsight = useScanInsight(handleScanDismiss, isFocused);
   scanFlyToRef.current = scanInsight.flyToCoordinates;
 
   const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });

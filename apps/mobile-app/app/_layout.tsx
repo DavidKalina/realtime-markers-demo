@@ -52,8 +52,10 @@ import { JobProgressProvider } from "@/contexts/JobProgressContext";
 import { WebSocketProvider } from "@/contexts/WebSocketContext";
 import { ThemeProvider, useTheme } from "@/theme";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
+import { useBootRedirect } from "@/hooks/useBootRedirect";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
+import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import XPNotificationOverlay from "@/components/Gamification/XPNotificationOverlay";
 import { SENTRY_CONFIG, STACK_SCREEN_OPTIONS, SCREEN_CONFIGS } from "@/config";
 
@@ -120,16 +122,21 @@ function AppProviders({ children }: AppProvidersProps) {
 
 // App content component
 function AppContent({ children }: AppContentProps) {
-  // Centralized auth guard — replaces per-screen <AuthWrapper>
   useAuthGuard();
-  // Set up push notification listeners
+  const { isBoot } = useBootRedirect();
   usePushNotifications();
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       {children}
-      <ActionBar />
-      <XPNotificationOverlay />
+      {!isBoot && <ActionBar />}
+      {!isBoot && <XPNotificationOverlay />}
+      {isBoot && (
+        <LoadingOverlay
+          message="Loading..."
+          subMessage="Setting things up"
+        />
+      )}
       <StatusBar style="auto" />
     </GestureHandlerRootView>
   );

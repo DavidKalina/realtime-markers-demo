@@ -133,7 +133,6 @@ export class ThirdSpaceScoreService {
 
   async computeAndStoreScore(city: string): Promise<void> {
     city = normalizeCity(city);
-    const cityName = city.includes(",") ? city.split(",")[0].trim() : city;
 
     // 1. Vitality: Active events weighted by recency
     const vitalityRows = await this.dataSource.query(
@@ -146,10 +145,10 @@ export class ThirdSpaceScoreService {
         END
       ), 0) AS raw
       FROM events e
-      WHERE (LOWER(e.city) = LOWER($1) OR LOWER(e.city) = LOWER($2))
+      WHERE LOWER(e.city) = LOWER($1)
         AND e.status IN ('PENDING', 'VERIFIED')
         AND e.event_date >= NOW() - INTERVAL '30 days'`,
-      [city, cityName],
+      [city],
     );
     const vitalityRaw = parseFloat(vitalityRows[0]?.raw || "0");
 
@@ -159,9 +158,9 @@ export class ThirdSpaceScoreService {
       `SELECT COUNT(*)::int AS raw
       FROM user_event_discoveries ued
       JOIN events e ON e.id = ued.event_id
-      WHERE (LOWER(e.city) = LOWER($1) OR LOWER(e.city) = LOWER($3))
+      WHERE LOWER(e.city) = LOWER($1)
         AND ued.discovered_at >= $2`,
-      [city, weekStart.toISOString(), cityName],
+      [city, weekStart.toISOString()],
     );
     const discoveryRaw = parseInt(discoveryRows[0]?.raw || "0");
 
@@ -171,11 +170,11 @@ export class ThirdSpaceScoreService {
       FROM events e
       JOIN event_categories ec ON ec.event_id = e.id
       JOIN categories c ON c.id = ec.category_id
-      WHERE (LOWER(e.city) = LOWER($1) OR LOWER(e.city) = LOWER($2))
+      WHERE LOWER(e.city) = LOWER($1)
         AND e.status IN ('PENDING', 'VERIFIED')
         AND e.event_date >= NOW() - INTERVAL '30 days'
       GROUP BY c.name`,
-      [city, cityName],
+      [city],
     );
     let diversityRaw = 0;
     if (diversityRows.length > 0) {
@@ -196,10 +195,10 @@ export class ThirdSpaceScoreService {
     const engagementRows = await this.dataSource.query(
       `SELECT COALESCE(SUM(e.save_count + e.view_count * 0.1), 0) AS raw
       FROM events e
-      WHERE (LOWER(e.city) = LOWER($1) OR LOWER(e.city) = LOWER($2))
+      WHERE LOWER(e.city) = LOWER($1)
         AND e.status IN ('PENDING', 'VERIFIED')
         AND e.event_date >= NOW() - INTERVAL '30 days'`,
-      [city, cityName],
+      [city],
     );
     const engagementRaw = parseFloat(engagementRows[0]?.raw || "0");
 
@@ -207,7 +206,7 @@ export class ThirdSpaceScoreService {
     const rootednessRows = await this.dataSource.query(
       `SELECT (
         (SELECT COUNT(*)::int FROM events e
-         WHERE (LOWER(e.city) = LOWER($1) OR LOWER(e.city) = LOWER($2))
+         WHERE LOWER(e.city) = LOWER($1)
            AND e.status IN ('PENDING', 'VERIFIED')
            AND e.recurrence_frequency IS NOT NULL
            )
@@ -215,11 +214,11 @@ export class ThirdSpaceScoreService {
         (SELECT COUNT(DISTINCT u.id)::int FROM users u
          JOIN user_event_discoveries ued ON ued.user_id = u.id
          JOIN events e ON e.id = ued.event_id
-         WHERE (LOWER(e.city) = LOWER($1) OR LOWER(e.city) = LOWER($2))
+         WHERE LOWER(e.city) = LOWER($1)
            AND u.current_tier IN ('Curator', 'Ambassador')
            AND ued.discovered_at >= NOW() - INTERVAL '30 days')
       ) AS raw`,
-      [city, cityName],
+      [city],
     );
     const rootednessRaw = parseInt(rootednessRows[0]?.raw || "0");
 
@@ -361,16 +360,15 @@ export class ThirdSpaceScoreService {
     const contributors = await this.getContributors(city, contributorLimit);
 
     // Centroid of active events in this city
-    const cityName = city.includes(",") ? city.split(",")[0].trim() : city;
     const centroidRows = await this.dataSource.query(
       `SELECT AVG(ST_Y(location::geometry)) AS lat,
               AVG(ST_X(location::geometry)) AS lng
        FROM events
-       WHERE (LOWER(city) = LOWER($1) OR LOWER(city) = LOWER($2))
+       WHERE LOWER(city) = LOWER($1)
          AND status IN ('PENDING', 'VERIFIED')
          AND event_date >= NOW() - INTERVAL '30 days'
          AND location IS NOT NULL`,
-      [city, cityName],
+      [city],
     );
     const centroid = centroidRows[0]?.lat
       ? {
@@ -403,7 +401,6 @@ export class ThirdSpaceScoreService {
     city: string,
     limit: number,
   ): Promise<ContributorEntry[]> {
-    const cityName = city.includes(",") ? city.split(",")[0].trim() : city;
     const weekStart = getWeekStartUTC();
 
     const rows = await this.dataSource.query(
@@ -420,12 +417,12 @@ export class ThirdSpaceScoreService {
       JOIN events e ON e.id = ued.event_id
       JOIN users u ON u.id = ued.user_id
       LEFT JOIN event_categories ec ON ec.event_id = e.id
-      WHERE (LOWER(e.city) = LOWER($1) OR LOWER(e.city) = LOWER($3))
+      WHERE LOWER(e.city) = LOWER($1)
         AND ued.discovered_at >= $2
       GROUP BY u.id, u.first_name, u.last_name, u.avatar_url, u.current_tier
       ORDER BY (COUNT(ued.id) * 2 + COUNT(DISTINCT ec.category_id) * 5 + COUNT(DISTINCT CASE WHEN e.recurrence_frequency IS NOT NULL  THEN e.id END) * 3) DESC
-      LIMIT $4`,
-      [city, weekStart.toISOString(), cityName, limit],
+      LIMIT $3`,
+      [city, weekStart.toISOString(), limit],
     );
 
     return rows.map(

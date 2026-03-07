@@ -66,6 +66,7 @@ const SpacesBrowseScreen = () => {
   });
 
   const resolvedCity = landingData?.resolvedCity || null;
+
   const { score: myScore, isLoading: isScoreLoading, refetch: refetchScore } =
     useThirdSpaceScore(resolvedCity);
   const currentUser = apiClient.getCurrentUser();

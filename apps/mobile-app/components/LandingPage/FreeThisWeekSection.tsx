@@ -1,5 +1,8 @@
 import React, { useRef, useState, useCallback, useMemo } from "react";
-import { formatVenueShort } from "@/components/Event/EventListItem";
+import {
+  formatVenueShort,
+  getTimeBadge,
+} from "@/components/Event/EventListItem";
 import {
   View,
   Text,
@@ -14,20 +17,17 @@ import {
 import {
   useColors,
   type Colors,
-  fontSize,
   fontWeight,
   fontFamily,
   spacing,
   radius,
 } from "@/theme";
 import { EventType } from "@/types/types";
-import { getTimeBadge } from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
-interface FeaturedEventsCarouselProps {
+interface FreeThisWeekSectionProps {
   events: EventType[];
-  isLoading?: boolean;
 }
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -35,9 +35,8 @@ const ITEM_WIDTH = screenWidth * 0.85;
 const ITEM_SPACING = 16;
 const ITEM_MARGIN = (screenWidth - ITEM_WIDTH) / 2;
 
-const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
+const FreeThisWeekSection: React.FC<FreeThisWeekSectionProps> = ({
   events,
-  isLoading = false,
 }) => {
   const router = useRouter();
   const colors = useColors();
@@ -45,6 +44,15 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
+
+  const activeEvents = useMemo(() => {
+    const now = new Date();
+    return (events || []).filter((e) => {
+      const end = e.endDate ? new Date(e.endDate) : null;
+      if (end && end > now) return true;
+      return new Date(e.eventDate) >= now;
+    });
+  }, [events]);
 
   const handleEventPress = useCallback(
     (event: EventType) => {
@@ -81,13 +89,13 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
     }
   }, []);
 
-  if (!events || events.length === 0) {
+  if (activeEvents.length === 0) {
     return null;
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Featured Events</Text>
+      <Text style={styles.title}>Free This Week</Text>
 
       <View style={styles.carouselContainer}>
         <ScrollView
@@ -101,7 +109,7 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
-          {events.map((event) => {
+          {activeEvents.map((event) => {
             const badge = getTimeBadge(event.eventDate, event.endDate);
             const accentColor = colors.status.success.text;
 
@@ -124,7 +132,7 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
                         ]}
                       />
                       <Text style={[styles.kindText, { color: accentColor }]}>
-                        Featured
+                        Free
                       </Text>
                       <Text
                         style={[styles.timeText, { color: badge.color.text }]}
@@ -154,9 +162,9 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
         </ScrollView>
       </View>
 
-      {events.length > 1 && (
+      {activeEvents.length > 1 && (
         <View style={styles.paginationContainer}>
-          {events.map((_, index) => (
+          {activeEvents.map((_, index) => (
             <TouchableOpacity
               key={index}
               style={[
@@ -172,93 +180,94 @@ const FeaturedEventsCarousel: React.FC<FeaturedEventsCarouselProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    marginBottom: spacing["2xl"],
-  },
-  title: {
-    fontSize: 12,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 1.5,
-    textTransform: "uppercase" as const,
-  },
-  carouselContainer: {
-    position: "relative",
-  },
-  scrollContent: {
-    paddingHorizontal: ITEM_MARGIN,
-  },
-  itemContainer: {
-    width: ITEM_WIDTH,
-    marginRight: ITEM_SPACING,
-  },
-  cardContainer: {
-    overflow: "hidden",
-  },
-  cardBody: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xs,
-    gap: spacing.xs,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  kindDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  kindText: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    letterSpacing: 0.5,
-    textTransform: "uppercase" as const,
-    flex: 1,
-  },
-  timeText: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.medium,
-    letterSpacing: 0.3,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-    lineHeight: 20,
-  },
-  cardMeta: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-  },
-  paginationContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  paginationDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border.subtle,
-    marginHorizontal: 3,
-  },
-  paginationDotActive: {
-    backgroundColor: colors.text.secondary,
-    width: 16,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      marginBottom: spacing["2xl"],
+    },
+    title: {
+      fontSize: 12,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      marginBottom: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1.5,
+      textTransform: "uppercase" as const,
+    },
+    carouselContainer: {
+      position: "relative",
+    },
+    scrollContent: {
+      paddingHorizontal: ITEM_MARGIN,
+    },
+    itemContainer: {
+      width: ITEM_WIDTH,
+      marginRight: ITEM_SPACING,
+    },
+    cardContainer: {
+      overflow: "hidden",
+    },
+    cardBody: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xs,
+      gap: spacing.xs,
+    },
+    cardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    kindDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    kindText: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      letterSpacing: 0.5,
+      textTransform: "uppercase" as const,
+      flex: 1,
+    },
+    timeText: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      letterSpacing: 0.3,
+    },
+    cardTitle: {
+      fontSize: 14,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+      lineHeight: 20,
+    },
+    cardMeta: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    paginationContainer: {
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems: "center",
+      marginTop: spacing.sm,
+      paddingHorizontal: spacing.lg,
+    },
+    paginationDot: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: colors.border.subtle,
+      marginHorizontal: 3,
+    },
+    paginationDotActive: {
+      backgroundColor: colors.text.secondary,
+      width: 16,
+    },
+  });
 
-export default FeaturedEventsCarousel;
+export default FreeThisWeekSection;

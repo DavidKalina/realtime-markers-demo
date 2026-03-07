@@ -296,6 +296,9 @@ export class EventApiClient extends BaseApiModule {
     availableCities: string[];
     resolvedCity?: string;
     topEvents?: EventType[];
+    happeningTodayEvents: EventType[];
+    freeThisWeekEvents: EventType[];
+    weeklyRegularEvents: EventType[];
   }> {
     const queryParams = new URLSearchParams();
     if (params.userLat !== undefined)
@@ -338,6 +341,9 @@ export class EventApiClient extends BaseApiModule {
         trendingScore?: number;
       })[];
       topEvents?: ApiEvent[];
+      happeningTodayEvents?: ApiEvent[];
+      freeThisWeekEvents?: ApiEvent[];
+      weeklyRegularEvents?: ApiEvent[];
       popularCategories: Array<{
         id: string;
         name: string;
@@ -372,6 +378,15 @@ export class EventApiClient extends BaseApiModule {
       availableCities: data.availableCities || [],
       resolvedCity: data.resolvedCity,
       topEvents: data.topEvents?.map(mapEventToEventType),
+      happeningTodayEvents: (data.happeningTodayEvents || []).map(
+        mapEventToEventType,
+      ),
+      freeThisWeekEvents: (data.freeThisWeekEvents || []).map(
+        mapEventToEventType,
+      ),
+      weeklyRegularEvents: (data.weeklyRegularEvents || []).map(
+        mapEventToEventType,
+      ),
     };
   }
 

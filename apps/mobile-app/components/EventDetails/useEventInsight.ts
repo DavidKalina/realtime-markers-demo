@@ -6,7 +6,7 @@ import {
   CHARS_PER_PAGE,
 } from "../AreaScan/AreaScanComponents";
 
-export function useEventInsight(eventId: string) {
+export function useEventInsight(eventId: string, active: boolean = true) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<{ abort: () => void } | null>(null);
@@ -14,7 +14,7 @@ export function useEventInsight(eventId: string) {
   const pendingPagesRef = useRef<string[] | null>(null);
 
   const onDismiss = useCallback(() => {}, []);
-  const dialog = useDialogStreamer(onDismiss);
+  const dialog = useDialogStreamer(onDismiss, active);
 
   const feedPending = useCallback(() => {
     if (pendingPagesRef.current) {

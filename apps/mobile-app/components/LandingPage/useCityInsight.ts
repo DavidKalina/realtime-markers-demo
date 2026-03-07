@@ -7,7 +7,7 @@ import {
 
 const CITY_CHARS_PER_PAGE = 110;
 
-export function useCityInsight(city: string | null) {
+export function useCityInsight(city: string | null, active: boolean = true) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<{ abort: () => void } | null>(null);
@@ -15,7 +15,7 @@ export function useCityInsight(city: string | null) {
   const pendingPagesRef = useRef<string[] | null>(null);
 
   const onDismiss = useCallback(() => {}, []);
-  const dialog = useDialogStreamer(onDismiss);
+  const dialog = useDialogStreamer(onDismiss, active);
 
   const feedPending = useCallback(() => {
     if (pendingPagesRef.current) {

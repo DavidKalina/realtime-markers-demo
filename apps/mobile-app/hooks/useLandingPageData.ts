@@ -23,6 +23,9 @@ interface LandingPageData {
   availableCities: string[];
   resolvedCity?: string;
   topEvents?: EventType[];
+  happeningTodayEvents?: EventType[];
+  freeThisWeekEvents?: EventType[];
+  weeklyRegularEvents?: EventType[];
 }
 
 interface UseLandingPageDataProps {

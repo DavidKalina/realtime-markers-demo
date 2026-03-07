@@ -61,7 +61,7 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
               entering={FadeInRight.duration(200).delay(index * 50)}
             >
               <TouchableOpacity
-                style={[styles.pill, { borderColor: color + "40" }]}
+                style={styles.pill}
                 onPress={() => handleCategoryPress(item)}
                 activeOpacity={0.7}
               >
@@ -106,8 +106,6 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     paddingHorizontal: spacing._10,
     paddingVertical: spacing._6,
     borderRadius: 999,
-    backgroundColor: colors.bg.card,
-    borderWidth: 1,
   },
   dot: {
     width: 6,

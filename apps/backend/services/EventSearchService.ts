@@ -861,10 +861,7 @@ export class EventSearchServiceImpl implements EventSearchService {
     }
   }
 
-  async getTopEvents(
-    city: string,
-    limit: number = 10,
-  ): Promise<Event[]> {
+  async getTopEvents(city: string, limit: number = 10): Promise<Event[]> {
     const cityName = city.includes(",") ? city.split(",")[0].trim() : city;
     const qb = this.eventRepository
       .createQueryBuilder("event")
@@ -914,6 +911,9 @@ export class EventSearchServiceImpl implements EventSearchService {
     trendingEvents: (Event & { isTrending: true; trendingScore: number })[];
     availableCities: string[];
     topEvents?: Event[];
+    happeningTodayEvents: Event[];
+    freeThisWeekEvents: Event[];
+    weeklyRegularEvents: Event[];
   }> {
     const {
       featuredLimit = 5,
@@ -961,6 +961,15 @@ export class EventSearchServiceImpl implements EventSearchService {
         })[],
         availableCities: ((cachedResults as unknown as Record<string, unknown>)
           .availableCities || []) as string[],
+        happeningTodayEvents: ((
+          cachedResults as unknown as Record<string, unknown>
+        ).happeningTodayEvents || []) as Event[],
+        freeThisWeekEvents: ((
+          cachedResults as unknown as Record<string, unknown>
+        ).freeThisWeekEvents || []) as Event[],
+        weeklyRegularEvents: ((
+          cachedResults as unknown as Record<string, unknown>
+        ).weeklyRegularEvents || []) as Event[],
       };
     }
 
@@ -1189,6 +1198,105 @@ export class EventSearchServiceImpl implements EventSearchService {
       console.error("Error fetching available cities:", error);
     }
 
+    // Happening today: events starting or ongoing today
+    const happeningTodayQb = this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("event.status IN (:...htStatuses)", {
+        htStatuses: ["VERIFIED", "PENDING"],
+      })
+      .andWhere("event.eventDate >= DATE_TRUNC('day', NOW())")
+      .andWhere("event.eventDate < DATE_TRUNC('day', NOW()) + INTERVAL '1 day'")
+      .andWhere("(event.endDate > NOW() OR event.eventDate >= NOW())")
+      .orderBy("event.eventDate", "ASC")
+      .limit(8);
+
+    if (city) {
+      happeningTodayQb.andWhere("event.city = :htCity", { htCity: city });
+    }
+    if (includeCategoryIds && includeCategoryIds.length > 0) {
+      happeningTodayQb.andWhere(
+        `EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = event.id AND ec.category_id IN (:...htIncCatIds))`,
+        { htIncCatIds: includeCategoryIds },
+      );
+    }
+    if (excludeCategoryIds && excludeCategoryIds.length > 0) {
+      happeningTodayQb.andWhere(
+        `NOT EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = event.id AND ec.category_id IN (:...htExcCatIds))`,
+        { htExcCatIds: excludeCategoryIds },
+      );
+    }
+
+    const happeningTodayEvents = await happeningTodayQb.getMany();
+
+    // Free this week: events with no cost in the next 7 days
+    const freeThisWeekQb = this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("event.status IN (:...ftwStatuses)", {
+        ftwStatuses: ["VERIFIED", "PENDING"],
+      })
+      .andWhere("(event.endDate > NOW() OR event.eventDate >= NOW())")
+      .andWhere(
+        "event.eventDate < DATE_TRUNC('day', NOW()) + INTERVAL '7 days'",
+      )
+      .andWhere(
+        "(event.event_digest IS NULL OR event.event_digest->>'cost' IS NULL OR LOWER(event.event_digest->>'cost') LIKE '%free%')",
+      )
+      .orderBy("event.eventDate", "ASC")
+      .limit(6);
+
+    if (city) {
+      freeThisWeekQb.andWhere("event.city = :ftwCity", { ftwCity: city });
+    }
+    if (includeCategoryIds && includeCategoryIds.length > 0) {
+      freeThisWeekQb.andWhere(
+        `EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = event.id AND ec.category_id IN (:...ftwIncCatIds))`,
+        { ftwIncCatIds: includeCategoryIds },
+      );
+    }
+    if (excludeCategoryIds && excludeCategoryIds.length > 0) {
+      freeThisWeekQb.andWhere(
+        `NOT EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = event.id AND ec.category_id IN (:...ftwExcCatIds))`,
+        { ftwExcCatIds: excludeCategoryIds },
+      );
+    }
+
+    const freeThisWeekEvents = await freeThisWeekQb.getMany();
+
+    // Weekly regulars: recurring events ordered by popularity
+    const weeklyRegularsQb = this.eventRepository
+      .createQueryBuilder("event")
+      .leftJoinAndSelect("event.categories", "category")
+      .leftJoinAndSelect("event.creator", "creator")
+      .where("event.status IN (:...wrStatuses)", {
+        wrStatuses: ["VERIFIED", "PENDING"],
+      })
+      .andWhere("event.isRecurring = true")
+      .orderBy("event.saveCount", "DESC")
+      .addOrderBy("event.eventDate", "ASC")
+      .limit(6);
+
+    if (city) {
+      weeklyRegularsQb.andWhere("event.city = :wrCity", { wrCity: city });
+    }
+    if (includeCategoryIds && includeCategoryIds.length > 0) {
+      weeklyRegularsQb.andWhere(
+        `EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = event.id AND ec.category_id IN (:...wrIncCatIds))`,
+        { wrIncCatIds: includeCategoryIds },
+      );
+    }
+    if (excludeCategoryIds && excludeCategoryIds.length > 0) {
+      weeklyRegularsQb.andWhere(
+        `NOT EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = event.id AND ec.category_id IN (:...wrExcCatIds))`,
+        { wrExcCatIds: excludeCategoryIds },
+      );
+    }
+
+    const weeklyRegularEvents = await weeklyRegularsQb.getMany();
+
     // Popular categories: scoped to user's city when available
     // Over-fetch to have room after dedup, then filter overlapping names
     const categoriesQb = this.categoryRepository
@@ -1287,6 +1395,9 @@ export class EventSearchServiceImpl implements EventSearchService {
       justDiscoveredEvents,
       trendingEvents,
       availableCities,
+      happeningTodayEvents,
+      freeThisWeekEvents,
+      weeklyRegularEvents,
       ...(topEvents ? { topEvents } : {}),
     };
 

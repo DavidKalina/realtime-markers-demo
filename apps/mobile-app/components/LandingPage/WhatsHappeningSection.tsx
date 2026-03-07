@@ -95,13 +95,14 @@ const ShimmerBorder: React.FC<{ active: boolean }> = ({ active }) => {
       style={[
         StyleSheet.absoluteFill,
         {
-          borderRadius: radius.lg,
-          borderWidth: 1.5,
-          borderColor: "#93c5fd",
+          borderRadius: 0,
+          borderWidth: 0,
+          borderLeftWidth: 2,
+          borderLeftColor: "#93c5fd",
           shadowColor: "#93c5fd",
           shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.6,
-          shadowRadius: 8,
+          shadowOpacity: 0.3,
+          shadowRadius: 4,
         },
         style,
       ]}
@@ -223,10 +224,7 @@ const WhatsHappeningSection: React.FC<WhatsHappeningSectionProps> = ({
                   activeOpacity={0.9}
                 >
                   <View
-                    style={[
-                      styles.cardContainer,
-                      { backgroundColor: accentColor + "08" },
-                    ]}
+                    style={styles.cardContainer}
                   >
                     <View style={styles.cardBody}>
                       <View style={styles.cardHeader}>
@@ -307,7 +305,7 @@ const createStyles = (colors: Colors) => StyleSheet.create({
   },
   subtitle: {
     fontSize: fontSize.xs,
-    color: colors.text.secondary,
+    color: colors.text.disabled,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
@@ -323,14 +321,12 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     marginRight: ITEM_SPACING,
   },
   cardContainer: {
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border.default,
     overflow: "hidden",
   },
   cardBody: {
     flex: 1,
-    padding: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
     gap: spacing.xs,
   },
   cardHeader: {
@@ -377,15 +373,15 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   paginationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.border.accent,
-    marginHorizontal: spacing.xs,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border.subtle,
+    marginHorizontal: 3,
   },
   paginationDotActive: {
-    backgroundColor: colors.accent.primary,
-    width: 24,
+    backgroundColor: colors.text.secondary,
+    width: 16,
   },
 });
 

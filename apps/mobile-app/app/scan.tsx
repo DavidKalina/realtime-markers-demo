@@ -10,11 +10,14 @@ import { usePathname, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
+  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import * as ImageManipulator from "expo-image-manipulator";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, Images } from "lucide-react-native";
 
@@ -47,6 +50,80 @@ export default function ScanScreen() {
   const isMounted = useRef(true);
   const networkState = useNetworkQuality();
   const insets = useSafeAreaInsets();
+
+  // Auto-crop image to scanner overlay guide rails
+  const BRACKET_INSET = 24;
+  const scanTopOffset = insets.top + spacing.sm + 44 + spacing.md;
+  const scanBottomOffset = 150;
+
+  const processImageWithCrop = useCallback(
+    async (uri: string) => {
+      try {
+        const { width: screenW, height: screenH } = Dimensions.get("window");
+
+        // Scanner overlay region on screen
+        const scanLeft = BRACKET_INSET;
+        const scanRight = screenW - BRACKET_INSET;
+        const scanTop = scanTopOffset;
+        const scanBottom = screenH - scanBottomOffset;
+
+        // Normalize to 0-1 ratios relative to screen
+        const ratioX = scanLeft / screenW;
+        const ratioY = scanTop / screenH;
+        const ratioW = (scanRight - scanLeft) / screenW;
+        const ratioH = (scanBottom - scanTop) / screenH;
+
+        // Get actual image dimensions
+        const { width: imgW, height: imgH } = await new Promise<{
+          width: number;
+          height: number;
+        }>((resolve, reject) => {
+          Image.getSize(
+            uri,
+            (width, height) => resolve({ width, height }),
+            reject,
+          );
+        });
+
+        // CameraView uses cover mode — calculate visible portion of image
+        const screenAspect = screenW / screenH;
+        const imageAspect = imgW / imgH;
+
+        let visibleOriginX = 0;
+        let visibleOriginY = 0;
+        let visibleW = imgW;
+        let visibleH = imgH;
+
+        if (imageAspect > screenAspect) {
+          // Image wider than screen — horizontally cropped
+          visibleW = imgH * screenAspect;
+          visibleOriginX = (imgW - visibleW) / 2;
+        } else {
+          // Image taller than screen — vertically cropped
+          visibleH = imgW / screenAspect;
+          visibleOriginY = (imgH - visibleH) / 2;
+        }
+
+        // Map screen ratios to image pixel coordinates
+        const originX = Math.round(visibleOriginX + ratioX * visibleW);
+        const originY = Math.round(visibleOriginY + ratioY * visibleH);
+        const cropW = Math.round(ratioW * visibleW);
+        const cropH = Math.round(ratioH * visibleH);
+
+        const cropped = await ImageManipulator.manipulateAsync(
+          uri,
+          [{ crop: { originX, originY, width: cropW, height: cropH } }],
+          { format: ImageManipulator.SaveFormat.JPEG },
+        );
+
+        return processImage(cropped.uri);
+      } catch (error) {
+        console.error("[ScanScreen] Auto-crop failed, falling back:", error);
+        return processImage(uri);
+      }
+    },
+    [processImage, scanTopOffset],
+  );
 
   // Navigation callback - memoized to prevent re-renders
   const navigateToJobs = useCallback(() => {
@@ -89,7 +166,7 @@ export default function ScanScreen() {
     reset,
     simulateCapture,
   } = useScanState({
-    processImage,
+    processImage: processImageWithCrop,
     isNetworkSuitable,
     isMounted,
     onNavigateToJobs: navigateToJobs,
@@ -229,8 +306,8 @@ export default function ScanScreen() {
       {/* Scanner overlay — corner brackets, scan line, motion detection */}
       <ScannerOverlay
         active={isCameraReady && !showProcessingOverlay && !showNoScansOverlay}
-        topOffset={insets.top + spacing.sm + 44 + spacing.md}
-        bottomOffset={150}
+        topOffset={scanTopOffset}
+        bottomOffset={scanBottomOffset}
       />
 
       {/* Camera not ready overlay */}

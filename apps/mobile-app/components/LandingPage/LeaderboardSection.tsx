@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet, Image, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Image } from "react-native";
 import {
   useColors,
   type Colors,
@@ -7,7 +7,6 @@ import {
   fontWeight,
   fontFamily,
   spacing,
-  radius,
 } from "@/theme";
 import type { ContributorEntry } from "@/services/api/modules/leaderboard";
 
@@ -23,10 +22,6 @@ const RANK_COLORS: Record<number, string> = {
   2: "#a0a0a0", // silver
   3: "#cd7f32", // bronze
 };
-
-const { width: screenWidth } = Dimensions.get("window");
-const CARD_WIDTH = screenWidth * 0.85;
-const CARD_MARGIN = (screenWidth - CARD_WIDTH) / 2;
 
 interface ContributorsSectionProps {
   contributors: ContributorEntry[];
@@ -135,22 +130,18 @@ const createStyles = (colors: Colors) => StyleSheet.create({
   },
   subtitle: {
     fontSize: fontSize.xs,
-    color: colors.text.secondary,
+    color: colors.text.disabled,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
   },
   listContainer: {
-    marginHorizontal: CARD_MARGIN,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    borderRadius: radius.lg,
-    overflow: "hidden",
+    paddingHorizontal: spacing.lg,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
     gap: spacing._10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border.default,
@@ -159,7 +150,7 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     borderBottomWidth: 0,
   },
   rowHighlight: {
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    opacity: 1,
   },
   rank: {
     fontSize: fontSize.xs,

@@ -44,7 +44,7 @@ export default function Banner({
         </View>
 
         <View style={styles.centerSection}>
-          <Text style={styles.zoneBannerName}>{name}</Text>
+          <Text style={styles.zoneBannerName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{name}</Text>
         </View>
 
         <View style={styles.rightSection}>

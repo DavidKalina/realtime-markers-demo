@@ -151,17 +151,11 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
   },
-  categoryPill: {
-    backgroundColor: colors.accent.muted,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 1,
-    borderRadius: radius.sm,
-  },
+  categoryPill: {},
   categoryText: {
     fontSize: 10,
     fontFamily: fontFamily.mono,
-    color: colors.accent.primary,
-    fontWeight: fontWeight.semibold,
+    color: colors.text.disabled,
   },
   dateText: {
     fontSize: 10,

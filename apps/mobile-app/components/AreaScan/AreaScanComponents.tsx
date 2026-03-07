@@ -5,7 +5,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { NavigationContext } from "@react-navigation/native";
 import {
   Animated,
   LayoutChangeEvent,
@@ -377,7 +376,10 @@ export function ZoneEncounters({
   onEventPress: (eventId: string) => void;
 }) {
   const colors = useColors();
-  const encounterStyles = useMemo(() => createEncounterStyles(colors), [colors]);
+  const encounterStyles = useMemo(
+    () => createEncounterStyles(colors),
+    [colors],
+  );
   if (!events || events.length === 0) return null;
 
   return (
@@ -434,26 +436,12 @@ export interface DialogStreamerState {
 
 export function useDialogStreamer(
   onDismiss: () => void,
+  /** When false, streaming and haptics are paused. Defaults to true. */
+  active: boolean = true,
 ): DialogStreamerState & {
   feedPages: (newPages: string[]) => void;
   restart: () => void;
 } {
-  // Safe focus detection: useContext never throws — returns undefined outside a navigator
-  const navigation = React.useContext(NavigationContext);
-  const [isFocused, setIsFocused] = useState(true);
-
-  useEffect(() => {
-    if (!navigation) return;
-    setIsFocused(navigation.isFocused());
-    const unsubFocus = navigation.addListener("focus", () =>
-      setIsFocused(true),
-    );
-    const unsubBlur = navigation.addListener("blur", () => setIsFocused(false));
-    return () => {
-      unsubFocus();
-      unsubBlur();
-    };
-  }, [navigation]);
 
   const [pages, setPages] = useState<string[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
@@ -471,6 +459,7 @@ export function useDialogStreamer(
   const blinkAnim = useRef(new Animated.Value(1)).current;
 
   const streamPage = useCallback((text: string) => {
+    if (!mountedRef.current || !activeRef.current) return;
     if (streamTimerRef.current) clearTimeout(streamTimerRef.current);
     if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
 
@@ -505,7 +494,7 @@ export function useDialogStreamer(
 
   const feedPages = useCallback(
     (newPages: string[]) => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || !activeRef.current) return;
       setPages(newPages);
       if (newPages.length > 0) {
         setPageIndex(0);
@@ -515,12 +504,12 @@ export function useDialogStreamer(
     [streamPage],
   );
 
-  // Pause on blur, resume on focus
+  // Pause when inactive, resume when active
   useEffect(() => {
-    const wasFocused = activeRef.current;
-    activeRef.current = isFocused;
+    const wasActive = activeRef.current;
+    activeRef.current = active;
 
-    if (!isFocused) {
+    if (!active) {
       if (streamTimerRef.current) {
         clearTimeout(streamTimerRef.current);
         streamTimerRef.current = null;
@@ -529,18 +518,19 @@ export function useDialogStreamer(
         clearTimeout(autoAdvanceRef.current);
         autoAdvanceRef.current = null;
       }
-    } else if (!wasFocused) {
-      // Regained focus — resume streaming if it was interrupted mid-page
+    } else if (!wasActive) {
+      // Re-activated — resume streaming if it was interrupted mid-page
       const text = currentPageTextRef.current;
       const idx = charIndexRef.current;
       if (tickFnRef.current && text && idx > 0 && idx < text.length) {
         streamTimerRef.current = setTimeout(tickFnRef.current, CHAR_DELAY_MS);
       }
     }
-  }, [isFocused]);
+  }, [active]);
 
   // Auto-advance
   useEffect(() => {
+    if (!active) return;
     if (pageComplete && pageIndex < pages.length - 1) {
       autoAdvanceRef.current = setTimeout(() => {
         const next = pageIndex + 1;
@@ -551,7 +541,7 @@ export function useDialogStreamer(
         if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
       };
     }
-  }, [pageComplete, pageIndex, pages, streamPage]);
+  }, [active, pageComplete, pageIndex, pages, streamPage]);
 
   // Blinking ▼
   useEffect(() => {
@@ -1022,312 +1012,318 @@ export const layoutStyles = StyleSheet.create({
   },
 });
 
-const createDialogStyles = (colors: Colors) => StyleSheet.create({
-  bubble: {
-    backgroundColor: colors.bg.cardAlt,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    overflow: "hidden",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderTopWidth: 1,
-    borderColor: colors.border.medium,
-    marginBottom: -spacing.lg,
-  },
-  bubbleInline: {
-    minHeight: 60,
-    borderTopWidth: 0,
-    marginBottom: 0,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  statusOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  statusText: {
-    color: colors.text.secondary,
-    fontSize: 13,
-    fontFamily: fontFamily.mono,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 2,
-  },
-  sheenBeam: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-  },
-  textArea: {
-    flex: 1,
-  },
-  bubbleText: {
-    color: colors.text.primary,
-    fontSize: 15,
-    lineHeight: 23,
-    fontFamily: fontFamily.mono,
-  },
-  continueArrow: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    fontSize: 14,
-    color: colors.accent.primary,
-  },
-  doneArrow: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    fontSize: 14,
-    color: colors.text.secondary,
-  },
-  loadingRow: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  loadingText: {
-    color: colors.text.secondary,
-    fontSize: 15,
-    fontFamily: fontFamily.mono,
-    fontStyle: "italic",
-  },
-  errorText: {
-    fontSize: 14,
-    color: colors.status.error.text,
-    fontFamily: fontFamily.mono,
-  },
-  cooldownContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 3,
-  },
-  cooldownLabel: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    fontWeight: "700",
-    color: colors.accent.primary,
-    letterSpacing: 3,
-  },
-  cooldownHint: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-    letterSpacing: 1,
-  },
-});
+const createDialogStyles = (colors: Colors) =>
+  StyleSheet.create({
+    bubble: {
+      backgroundColor: colors.bg.cardAlt,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      overflow: "hidden",
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      borderTopWidth: 1,
+      borderColor: colors.border.medium,
+      marginBottom: -spacing.lg,
+    },
+    bubbleInline: {
+      minHeight: 60,
+      borderTopWidth: 0,
+      marginBottom: 0,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
+    statusOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    statusText: {
+      color: colors.text.secondary,
+      fontSize: 13,
+      fontFamily: fontFamily.mono,
+      fontWeight: "700",
+      textTransform: "uppercase",
+      letterSpacing: 2,
+    },
+    sheenBeam: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+    },
+    textArea: {
+      flex: 1,
+    },
+    bubbleText: {
+      color: colors.text.primary,
+      fontSize: 15,
+      lineHeight: 23,
+      fontFamily: fontFamily.mono,
+    },
+    continueArrow: {
+      position: "absolute",
+      bottom: 0,
+      right: 0,
+      fontSize: 14,
+      color: colors.accent.primary,
+    },
+    doneArrow: {
+      position: "absolute",
+      bottom: 0,
+      right: 0,
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    loadingRow: {
+      flex: 1,
+      justifyContent: "center",
+    },
+    loadingText: {
+      color: colors.text.secondary,
+      fontSize: 15,
+      fontFamily: fontFamily.mono,
+      fontStyle: "italic",
+    },
+    errorText: {
+      fontSize: 14,
+      color: colors.status.error.text,
+      fontFamily: fontFamily.mono,
+    },
+    cooldownContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      gap: 3,
+    },
+    cooldownLabel: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      fontWeight: "700",
+      color: colors.accent.primary,
+      letterSpacing: 3,
+    },
+    cooldownHint: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      letterSpacing: 1,
+    },
+  });
 
-const createZoneStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    alignItems: "center",
-    paddingTop: spacing.md,
-    paddingHorizontal: spacing.md,
-    gap: 6,
-  },
-  emoji: {
-    fontSize: 32,
-  },
-  name: {
-    fontSize: 24,
-    fontFamily: fontFamily.mono,
-    color: colors.accent.primary,
-    letterSpacing: 2,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  divider: {
-    width: "60%",
-    height: 1,
-    backgroundColor: colors.accent.muted,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-  },
-});
+const createZoneStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      alignItems: "center",
+      paddingTop: spacing.md,
+      paddingHorizontal: spacing.md,
+      gap: 6,
+    },
+    emoji: {
+      fontSize: 32,
+    },
+    name: {
+      fontSize: 24,
+      fontFamily: fontFamily.mono,
+      color: colors.accent.primary,
+      letterSpacing: 2,
+      fontWeight: "700",
+      textAlign: "center",
+    },
+    divider: {
+      width: "60%",
+      height: 1,
+      backgroundColor: colors.accent.muted,
+    },
+    subtitle: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+    },
+  });
 
-const createBarStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.md,
-    gap: 8,
-  },
-  bar: {
-    flexDirection: "row",
-    height: 8,
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  segment: {
-    height: 8,
-  },
-  legend: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: 11,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-  },
-});
+const createBarStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      paddingHorizontal: spacing.md,
+      marginTop: spacing.md,
+      gap: 8,
+    },
+    bar: {
+      flexDirection: "row",
+      height: 8,
+      borderRadius: 4,
+      overflow: "hidden",
+    },
+    segment: {
+      height: 8,
+    },
+    legend: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 10,
+    },
+    legendItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    legendDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    legendText: {
+      fontSize: 11,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+    },
+  });
 
-const createHeroStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    paddingTop: spacing.lg,
-    paddingHorizontal: spacing.md,
-    gap: spacing.lg,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  headerText: {
-    flex: 1,
-    gap: 3,
-  },
-  emoji: {
-    fontSize: 36,
-  },
-  name: {
-    fontSize: 20,
-    fontFamily: fontFamily.mono,
-    color: colors.accent.primary,
-    letterSpacing: 2,
-    fontWeight: "700",
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-  },
-  dnaSection: {
-    gap: 10,
-  },
-  dnaLabel: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    color: colors.accent.primary,
-    letterSpacing: 1.5,
-    fontWeight: "600",
-  },
-  breakdownRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.lg,
-  },
-  legendWrap: {
-    flex: 1,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-});
+const createHeroStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      paddingTop: spacing.lg,
+      paddingHorizontal: spacing.md,
+      gap: spacing.lg,
+    },
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    headerText: {
+      flex: 1,
+      gap: 3,
+    },
+    emoji: {
+      fontSize: 36,
+    },
+    name: {
+      fontSize: 20,
+      fontFamily: fontFamily.mono,
+      color: colors.accent.primary,
+      letterSpacing: 2,
+      fontWeight: "700",
+    },
+    subtitle: {
+      fontSize: 14,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+    },
+    dnaSection: {
+      gap: 10,
+    },
+    dnaLabel: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.accent.primary,
+      letterSpacing: 1.5,
+      fontWeight: "600",
+    },
+    breakdownRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.lg,
+    },
+    legendWrap: {
+      flex: 1,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 10,
+    },
+  });
 
-const createPillStyles = (colors: Colors) => StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.md,
-    gap: 8,
-  },
-  pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.bg.cardAlt,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  pillEmoji: {
-    fontSize: 12,
-  },
-  pillValue: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-  },
-  pillLabel: {
-    fontSize: 11,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-  },
-});
+const createPillStyles = (colors: Colors) =>
+  StyleSheet.create({
+    row: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      paddingHorizontal: spacing.md,
+      marginTop: spacing.md,
+      gap: 8,
+    },
+    pill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: colors.bg.cardAlt,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    pillEmoji: {
+      fontSize: 12,
+    },
+    pillValue: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: colors.text.primary,
+      fontFamily: fontFamily.mono,
+    },
+    pillLabel: {
+      fontSize: 11,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+    },
+  });
 
-const createEncounterStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    minHeight: 0,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.md,
-  },
-  header: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-    letterSpacing: 1.5,
-    marginBottom: 8,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: colors.border.default,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    gap: 8,
-  },
-  emoji: {
-    fontSize: 20,
-  },
-  info: {
-    flex: 1,
-    gap: 2,
-  },
-  topLine: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  title: {
-    flex: 1,
-    fontSize: 13,
-    fontFamily: fontFamily.mono,
-    color: colors.text.primary,
-  },
-  timeBadge: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-    backgroundColor: colors.bg.cardAlt,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  subtitle: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-  },
-});
+const createEncounterStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      minHeight: 0,
+      paddingHorizontal: spacing.md,
+      marginTop: spacing.md,
+    },
+    header: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      letterSpacing: 1.5,
+      marginBottom: 8,
+    },
+    separator: {
+      height: 1,
+      backgroundColor: colors.border.default,
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 8,
+      gap: 8,
+    },
+    emoji: {
+      fontSize: 20,
+    },
+    info: {
+      flex: 1,
+      gap: 2,
+    },
+    topLine: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    title: {
+      flex: 1,
+      fontSize: 13,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+    },
+    timeBadge: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      backgroundColor: colors.bg.cardAlt,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+      overflow: "hidden",
+    },
+    subtitle: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+  });

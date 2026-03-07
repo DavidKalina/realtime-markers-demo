@@ -14,10 +14,16 @@ import {
   ContributorsSkeleton,
   TopEventsSkeleton,
   CarouselSkeleton,
+  ListSkeleton,
 } from "./Skeletons";
 import WhatsHappeningSection from "./WhatsHappeningSection";
 import ThirdSpaceScoreHero from "./ThirdSpaceScoreHero";
 import TopEventsSection from "./TopEventsSection";
+import HappeningTodaySection from "./HappeningTodaySection";
+import PopularCategoriesSection from "./PopularCategoriesSection";
+import FreeThisWeekSection from "./FreeThisWeekSection";
+import WeeklyRegularsSection from "./WeeklyRegularsSection";
+import CommunityEventsSection from "./CommunityEventsSection";
 import type { ThirdSpaceScoreResponse } from "@/services/api/modules/leaderboard";
 
 interface Category {
@@ -36,6 +42,9 @@ interface LandingPageData {
   popularCategories?: Category[];
   availableCities?: string[];
   topEvents?: EventType[];
+  happeningTodayEvents?: EventType[];
+  freeThisWeekEvents?: EventType[];
+  weeklyRegularEvents?: EventType[];
 }
 
 interface LandingPageContentProps {
@@ -73,6 +82,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
         <Animated.View exiting={FadeOut.duration(duration.fast)}>
           <ScoreHeroSkeleton />
           <ContributorsSkeleton />
+          <ListSkeleton />
           <TopEventsSkeleton />
           <CarouselSkeleton title="What's Happening" />
           <CarouselSkeleton title="Featured Events" />
@@ -103,30 +113,63 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
               </Animated.View>
             )}
 
+          {data?.happeningTodayEvents &&
+            data.happeningTodayEvents.length > 0 && (
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(160)}
+              >
+                <HappeningTodaySection events={data.happeningTodayEvents} />
+              </Animated.View>
+            )}
+
+          {data?.popularCategories && data.popularCategories.length > 0 && (
+            <Animated.View
+              entering={FadeIn.duration(duration.normal).delay(240)}
+            >
+              <PopularCategoriesSection categories={data.popularCategories} />
+            </Animated.View>
+          )}
+
           {topEvents && topEvents.length > 0 && (
             <Animated.View
-              entering={FadeIn.duration(duration.normal).delay(160)}
+              entering={FadeIn.duration(duration.normal).delay(320)}
             >
               <TopEventsSection events={topEvents} />
             </Animated.View>
           )}
 
-          <Animated.View
-            entering={FadeIn.duration(duration.normal).delay(
-              topEvents?.length ? 240 : 160,
-            )}
-          >
+          {data?.freeThisWeekEvents && data.freeThisWeekEvents.length > 0 && (
+            <Animated.View
+              entering={FadeIn.duration(duration.normal).delay(400)}
+            >
+              <FreeThisWeekSection events={data.freeThisWeekEvents} />
+            </Animated.View>
+          )}
+
+          <Animated.View entering={FadeIn.duration(duration.normal).delay(480)}>
             <WhatsHappeningSection
               trendingEvents={data?.trendingEvents || []}
               justDiscoveredEvents={data?.justDiscoveredEvents || []}
             />
           </Animated.View>
 
-          <Animated.View
-            entering={FadeIn.duration(duration.normal).delay(
-              topEvents?.length ? 320 : 240,
-            )}
-          >
+          {data?.weeklyRegularEvents && data.weeklyRegularEvents.length > 0 && (
+            <Animated.View
+              entering={FadeIn.duration(duration.normal).delay(560)}
+            >
+              <WeeklyRegularsSection events={data.weeklyRegularEvents} />
+            </Animated.View>
+          )}
+
+          {data?.communityEvents && data.communityEvents.length > 0 && (
+            <Animated.View
+              entering={FadeIn.duration(duration.normal).delay(640)}
+            >
+              <CommunityEventsSection events={data.communityEvents} />
+            </Animated.View>
+          )}
+
+          <Animated.View entering={FadeIn.duration(duration.normal).delay(720)}>
             <FeaturedEventsCarousel
               events={data?.featuredEvents || []}
               isLoading={false}

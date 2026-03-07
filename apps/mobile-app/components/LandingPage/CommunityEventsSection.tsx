@@ -2,12 +2,9 @@ import React, { useCallback, useMemo } from "react";
 import {
   View,
   Text,
-  ScrollView,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
-  Dimensions,
 } from "react-native";
-import Animated, { FadeInRight } from "react-native-reanimated";
 import {
   useColors,
   type Colors,
@@ -15,42 +12,33 @@ import {
   fontWeight,
   fontFamily,
   spacing,
-  radius,
 } from "@/theme";
 import { EventType } from "@/types/types";
-import EventListItem, { getTimeBadge } from "@/components/Event/EventListItem";
+import { getTimeBadge } from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
 
 interface CommunityEventsSectionProps {
   events?: EventType[];
   isLoading?: boolean;
 }
 
-const { width: screenWidth } = Dimensions.get("window");
-const ITEM_WIDTH = screenWidth * 0.75;
-const ITEM_SPACING = 12;
-
 const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
   events = [],
-  isLoading = false,
 }) => {
   const router = useRouter();
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const handleEventPress = useCallback(
-    (event: EventType) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const handlePress = useCallback(
+    (eventId: string) => {
       router.push({
         pathname: "/details" as const,
-        params: { eventId: event.id },
+        params: { eventId },
       });
     },
     [router],
   );
 
-  // Only show recurring events or events with a future date
   const activeEvents = useMemo(() => {
     const now = new Date();
     return events.filter(
@@ -65,130 +53,86 @@ const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Community Events</Text>
-      <Text style={styles.subtitle}>Discovered by photo scanning</Text>
+      {activeEvents.map((event) => {
+        const badge = getTimeBadge(event.eventDate, event.endDate);
+        const scanLabel =
+          event.scanCount && event.scanCount > 0
+            ? `Scanned ${event.scanCount}x`
+            : null;
+        const categoryName = event.categories?.[0]?.name;
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {activeEvents.map((event, index) => (
-          <Animated.View
+        return (
+          <Pressable
             key={event.id}
-            entering={FadeInRight.duration(300).delay(index * 100)}
+            style={({ pressed }) => [
+              styles.item,
+              pressed && styles.itemPressed,
+            ]}
+            onPress={() => handlePress(event.id)}
           >
-            <TouchableOpacity
-              style={styles.itemContainer}
-              onPress={() => handleEventPress(event)}
-              activeOpacity={0.9}
-            >
-              <View style={styles.cardContainer}>
-                <EventListItem
-                  {...event}
-                  eventDate={new Date(event.eventDate)}
-                  onPress={() => handleEventPress(event)}
-                />
-                <View style={styles.cardFooter}>
-                  <Text style={styles.cardFooterText} numberOfLines={1}>
-                    {[
-                      event.scanCount && event.scanCount > 0
-                        ? `Scanned ${event.scanCount}x`
-                        : "Community",
-                      event.categories?.[0]?.name,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </Text>
-                  {(() => {
-                    const badge = getTimeBadge(event.eventDate, event.endDate);
-                    return (
-                      <Text
-                        style={[
-                          styles.timeBadge,
-                          {
-                            color: badge.color.text,
-                            backgroundColor: badge.color.bg,
-                            borderColor: badge.color.text + "4D",
-                          },
-                        ]}
-                      >
-                        {badge.text}
-                      </Text>
-                    );
-                  })()}
-                </View>
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
-        ))}
-      </ScrollView>
+            <View style={styles.eventInfo}>
+              <Text style={styles.eventName} numberOfLines={1}>
+                {event.emoji ? `${event.emoji} ` : ""}
+                {event.title}
+              </Text>
+              <Text style={styles.eventMeta} numberOfLines={1}>
+                {[scanLabel, categoryName].filter(Boolean).join(" · ")}
+              </Text>
+            </View>
+            <Text style={[styles.timeBadgeText, { color: badge.color.text }]}>
+              {badge.text}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 };
 
 const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing["2xl"],
+    paddingHorizontal: spacing.lg,
   },
   title: {
-    fontSize: 12,
+    fontSize: fontSize.xs,
     fontWeight: fontWeight.semibold,
     color: colors.text.secondary,
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.lg,
     fontFamily: fontFamily.mono,
     letterSpacing: 1.5,
     textTransform: "uppercase" as const,
+    marginBottom: spacing.md,
   },
-  subtitle: {
-    fontSize: fontSize.xs,
-    color: colors.text.secondary,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.mono,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.lg,
-  },
-  itemContainer: {
-    width: ITEM_WIDTH,
-    marginRight: ITEM_SPACING,
-  },
-  cardContainer: {
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    overflow: "hidden",
-  },
-  cardFooter: {
+  item: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing._6,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing._6,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
-    backgroundColor: colors.accent.muted,
+    gap: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border.default,
   },
-  timeBadge: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    paddingHorizontal: spacing._6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    borderWidth: 1,
-    overflow: "hidden",
-    letterSpacing: 0.5,
+  itemPressed: {
+    opacity: 0.6,
   },
-  cardFooterText: {
+  eventInfo: {
     flex: 1,
-    fontSize: 10,
-    color: colors.accent.primary,
+    gap: 2,
+  },
+  eventName: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.text.primary,
     fontFamily: fontFamily.mono,
-    letterSpacing: 0.5,
+  },
+  eventMeta: {
+    fontSize: 11,
+    fontFamily: fontFamily.mono,
+    color: colors.text.secondary,
+  },
+  timeBadgeText: {
+    fontSize: 10,
+    fontFamily: fontFamily.mono,
+    letterSpacing: 0.2,
   },
 });
 
