@@ -56,8 +56,9 @@ export default function ScanScreen() {
   const scanTopOffset = insets.top + spacing.sm + 44 + spacing.md;
   const scanBottomOffset = 150;
 
-  const processImageWithCrop = useCallback(
-    async (uri: string) => {
+  // Crop a camera image to the scanner overlay guide rails
+  const cropToGuideRails = useCallback(
+    async (uri: string): Promise<string> => {
       try {
         const { width: screenW, height: screenH } = Dimensions.get("window");
 
@@ -116,13 +117,13 @@ export default function ScanScreen() {
           { format: ImageManipulator.SaveFormat.JPEG },
         );
 
-        return processImage(cropped.uri);
+        return cropped.uri;
       } catch (error) {
         console.error("[ScanScreen] Auto-crop failed, falling back:", error);
-        return processImage(uri);
+        return uri;
       }
     },
-    [processImage, scanTopOffset],
+    [scanTopOffset],
   );
 
   // Navigation callback - memoized to prevent re-renders
@@ -166,7 +167,7 @@ export default function ScanScreen() {
     reset,
     simulateCapture,
   } = useScanState({
-    processImage: processImageWithCrop,
+    processImage,
     isNetworkSuitable,
     isMounted,
     onNavigateToJobs: navigateToJobs,
@@ -205,13 +206,18 @@ export default function ScanScreen() {
     return await checkPermission();
   }, [checkPermission]);
 
-  // Handle capture with proper error handling
+  // Handle capture with auto-crop to guide rails
   const onCapture = useCallback(async () => {
-    const result = await handleCapture(takePicture);
+    const croppedTakePicture = async () => {
+      const uri = await takePicture();
+      if (!uri) return uri;
+      return cropToGuideRails(uri);
+    };
+    const result = await handleCapture(croppedTakePicture);
     if (result?.error === "no_scans") {
       setShowNoScansOverlay(true);
     }
-  }, [handleCapture, takePicture, setShowNoScansOverlay]);
+  }, [handleCapture, takePicture, cropToGuideRails, setShowNoScansOverlay]);
 
   // Handle image selection with proper error handling
   const onImageSelected = useCallback(
