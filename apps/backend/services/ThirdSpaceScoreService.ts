@@ -69,6 +69,19 @@ function getWeekStartUTC(): Date {
   return monday;
 }
 
+function normalizeCity(city: string): string {
+  // Ensure consistent "City, ST" formatting
+  const parts = city.split(",").map((p) => p.trim());
+  // Title-case each part: "frederick" → "Frederick", "CO" stays "CO"
+  const normalized = parts.map((part) => {
+    if (part.length <= 2) return part.toUpperCase(); // state abbreviations
+    return part
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  });
+  return normalized.join(", ");
+}
+
 function assignLabel(
   scanCount: number,
   uniqueCategories: number,
@@ -94,6 +107,7 @@ export class ThirdSpaceScoreService {
     city: string,
     contributorLimit: number = 10,
   ): Promise<ThirdSpaceScoreResponse> {
+    city = normalizeCity(city);
     const cacheKey = `tss:city:${city.toLowerCase()}`;
     const cached =
       await this.redisService.get<ThirdSpaceScoreResponse>(cacheKey);
@@ -101,28 +115,26 @@ export class ThirdSpaceScoreService {
       return cached;
     }
 
-    // Check DB for recent snapshot (< 4h old)
+    // Check DB for recent snapshot (< 4h old); if none, compute on-demand
     const recentSnapshot = await this.dataSource.query(
-      `SELECT * FROM third_space_score_snapshots
+      `SELECT 1 FROM third_space_score_snapshots
        WHERE LOWER(city) = LOWER($1) AND computed_at > NOW() - INTERVAL '4 hours'
-       ORDER BY computed_at DESC LIMIT 1`,
+       LIMIT 1`,
       [city],
     );
 
-    if (recentSnapshot.length > 0) {
-      const response = await this.buildResponse(city, contributorLimit);
-      await this.redisService.set(cacheKey, response, 14400); // 4h TTL
-      return response;
+    if (recentSnapshot.length === 0) {
+      await this.computeAndStoreScore(city);
     }
 
-    // Compute on-demand if no recent snapshot
-    await this.computeAndStoreScore(city);
+    // Always build from the latest snapshot in DB
     const response = await this.buildResponse(city, contributorLimit);
-    await this.redisService.set(cacheKey, response, 14400);
+    await this.redisService.set(cacheKey, response, 900); // 15-min TTL
     return response;
   }
 
   async computeAndStoreScore(city: string): Promise<void> {
+    city = normalizeCity(city);
     const cityName = city.includes(",") ? city.split(",")[0].trim() : city;
 
     // 1. Vitality: Active events weighted by recency
@@ -259,10 +271,16 @@ export class ThirdSpaceScoreService {
   }
 
   async refreshCityScore(city: string): Promise<void> {
+    city = normalizeCity(city);
     const debounceKey = `tss:debounce:${city.toLowerCase()}`;
     const alreadyQueued = await this.redisService.get(debounceKey);
     if (alreadyQueued) return;
     await this.redisService.set(debounceKey, "1", 60);
+
+    // Invalidate caches *before* computing so concurrent reads don't serve stale data
+    const cacheKey = `tss:city:${city.toLowerCase()}`;
+    await this.redisService.del(cacheKey);
+
     await this.computeAndStoreScore(city);
   }
 

@@ -520,18 +520,11 @@ export class UnifiedMessageHandler {
         }
 
         const ev = entity as Event;
-        const eventData = {
-          id: ev.id,
-          title: ev.title,
-          eventDate: ev.eventDate,
-          location: ev.location,
-          creatorId: ev.creatorId,
-          isPrivate: ev.isPrivate,
-          scanCount: ev.scanCount,
-          saveCount: ev.saveCount,
-          createdAt: ev.createdAt,
-          updatedAt: ev.updatedAt,
-        };
+        // Include all display-critical fields so mobile markers render
+        // correctly on first paint (emoji, categories, color, etc.).
+        // Only strip embedding and rsvps (same as EventPublisher).
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { embedding, rsvps, ...eventData } = ev;
         const type = opUpper === "UPDATE" ? "update-event" : "add-event";
         return () => JSON.stringify({ type, event: eventData, timestamp });
       };
