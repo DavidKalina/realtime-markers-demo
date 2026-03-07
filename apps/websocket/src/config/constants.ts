@@ -76,5 +76,3 @@ export const REDIS_CHANNELS = {
   PUSH_DISCOVERY: "push:discovery",
 } as const;
 
-export const DISCOVERY_PUSH_RADIUS_METERS = 2000;
-export const DEVICE_LOCATION_GEO_KEY = "user:device-location:geo";

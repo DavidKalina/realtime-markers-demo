@@ -182,24 +182,24 @@ async function pushDiscoveryToBackgroundUsers(
   creatorId: string | undefined,
   dependencies: RedisMessageHandlerDependencies,
 ): Promise<void> {
-  const coords = extractEventCoordinates(event);
-  if (!coords) return;
+  const city = event.city as string | undefined;
+  if (!city) {
+    console.log("[Discovery Push] No city on event, skipping background push");
+    return;
+  }
 
-  const [lng, lat] = coords;
+  const coords = extractEventCoordinates(event);
 
   try {
-    const nearbyUserIds = (await dependencies.redisClient.georadius(
-      DEVICE_LOCATION_GEO_KEY,
-      lng,
-      lat,
-      DISCOVERY_PUSH_RADIUS_METERS,
-      "m",
-    )) as string[];
+    const cityUserIds = await dependencies.redisClient.smembers(
+      `city:${city}:users`,
+    );
 
-    if (!nearbyUserIds || nearbyUserIds.length === 0) return;
+    if (!cityUserIds || cityUserIds.length === 0) return;
 
     // Filter out users with active WS connections (they get the in-app toast)
-    const backgroundUserIds = nearbyUserIds.filter((userId) => {
+    const backgroundUserIds = cityUserIds.filter((userId) => {
+      if (userId === creatorId) return false;
       const clients = dependencies.getUserClients(userId);
       return !clients || clients.size === 0;
     });
@@ -207,7 +207,7 @@ async function pushDiscoveryToBackgroundUsers(
     // Check if creator is backgrounded and should get their own push
     const creatorIsBackgrounded =
       creatorId &&
-      nearbyUserIds.includes(creatorId) &&
+      cityUserIds.includes(creatorId) &&
       (() => {
         const clients = dependencies.getUserClients(creatorId);
         return !clients || clients.size === 0;
@@ -215,10 +215,6 @@ async function pushDiscoveryToBackgroundUsers(
 
     // Send creator push separately with isOwnDiscovery flag
     if (creatorIsBackgrounded) {
-      // Remove creator from the general list (they get a separate push)
-      const idx = backgroundUserIds.indexOf(creatorId);
-      if (idx !== -1) backgroundUserIds.splice(idx, 1);
-
       await dependencies.publishPushDiscovery(
         JSON.stringify({
           userIds: [creatorId],
@@ -251,7 +247,7 @@ async function pushDiscoveryToBackgroundUsers(
       backgroundUserIds.length + (creatorIsBackgrounded ? 1 : 0);
     if (totalPushed > 0) {
       console.log(
-        `[Discovery Push] Queued push for ${totalPushed} backgrounded users`,
+        `[Discovery Push] Queued push for ${totalPushed} backgrounded users in ${city}`,
       );
     }
   } catch (error) {
