@@ -247,7 +247,6 @@ export class ServiceInitializer {
     const cityHypeService = createCityHypeService({
       openAIService,
       redisService,
-      thirdSpaceScoreService,
     });
 
     // Conditionally create TicketmasterService (opt-in via env var)
