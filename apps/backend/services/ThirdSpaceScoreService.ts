@@ -75,9 +75,7 @@ function normalizeCity(city: string): string {
   // Title-case each part: "frederick" → "Frederick", "CO" stays "CO"
   const normalized = parts.map((part) => {
     if (part.length <= 2) return part.toUpperCase(); // state abbreviations
-    return part
-      .toLowerCase()
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return part.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   });
   return normalized.join(", ");
 }
@@ -375,7 +373,10 @@ export class ThirdSpaceScoreService {
       [city, cityName],
     );
     const centroid = centroidRows[0]?.lat
-      ? { lat: parseFloat(centroidRows[0].lat), lng: parseFloat(centroidRows[0].lng) }
+      ? {
+          lat: parseFloat(centroidRows[0].lat),
+          lng: parseFloat(centroidRows[0].lng),
+        }
       : null;
 
     return {
@@ -454,9 +455,10 @@ export class ThirdSpaceScoreService {
     lat?: number,
     lng?: number,
   ): Promise<ThirdSpacesResponse> {
-    const cacheKey = lat && lng
-      ? `tss:leaderboard:${Math.round(lat * 10)}:${Math.round(lng * 10)}`
-      : "tss:leaderboard:global";
+    const cacheKey =
+      lat && lng
+        ? `tss:leaderboard:${Math.round(lat * 10)}:${Math.round(lng * 10)}`
+        : "tss:leaderboard:global";
     const cached = await this.redisService.get<ThirdSpacesResponse>(cacheKey);
     if (cached) return cached;
 
@@ -486,7 +488,10 @@ export class ThirdSpaceScoreService {
          AND event_date >= NOW() - INTERVAL '30 days'
        GROUP BY LOWER(city)`,
     );
-    const statsMap = new Map<string, { eventCount: number; centroidLat: number; centroidLng: number }>();
+    const statsMap = new Map<
+      string,
+      { eventCount: number; centroidLat: number; centroidLng: number }
+    >();
     for (const row of eventStats) {
       statsMap.set(row.city_key, {
         eventCount: row.event_count,
@@ -530,7 +535,12 @@ export class ThirdSpaceScoreService {
       };
 
       if (lat !== undefined && lng !== undefined) {
-        summary.distanceMiles = haversineDistance(lat, lng, stats.centroidLat, stats.centroidLng);
+        summary.distanceMiles = haversineDistance(
+          lat,
+          lng,
+          stats.centroidLat,
+          stats.centroidLng,
+        );
       }
 
       summaries.push(summary);
@@ -542,7 +552,10 @@ export class ThirdSpaceScoreService {
 
     if (lat !== undefined && lng !== undefined) {
       result.closestCities = [...summaries]
-        .sort((a, b) => (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity))
+        .sort(
+          (a, b) =>
+            (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity),
+        )
         .slice(0, 10);
     }
 
@@ -551,7 +564,12 @@ export class ThirdSpaceScoreService {
   }
 }
 
-function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+function haversineDistance(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
   const toRad = (d: number) => (d * Math.PI) / 180;
   const R = 3958.8; // miles
   const dLat = toRad(lat2 - lat1);
