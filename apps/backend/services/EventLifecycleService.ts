@@ -81,6 +81,21 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       }
     }
 
+    // If city is not provided, reverse-geocode it from coordinates
+    if (!input.city && input.location) {
+      try {
+        const cityState = await this.locationService.reverseGeocodeCityState(
+          input.location.coordinates[1],
+          input.location.coordinates[0],
+        );
+        if (cityState) {
+          input.city = cityState;
+        }
+      } catch (error) {
+        console.error("Error determining city:", error);
+      }
+    }
+
     let categories: Category[] = [];
     if (input.categoryIds?.length) {
       categories = await this.categoryRepo.find({
