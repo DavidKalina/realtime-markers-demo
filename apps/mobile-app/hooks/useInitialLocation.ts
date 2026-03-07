@@ -7,6 +7,18 @@ import { eventBroker, EventTypes } from "@/services/EventBroker";
 
 const VIEWPORT_REQUEST_TIMEOUT_MS = 3000;
 
+// Module-level pending flyTo — set synchronously before navigation so there
+// are no React render-cycle races.  Consumed once by useInitialLocation.
+let pendingFlyTo: { center: [number, number]; zoom: number } | null = null;
+
+/**
+ * Call this from any screen *before* navigating to "/" to guarantee the map
+ * flies to the given coordinates instead of running the default viewport logic.
+ */
+export function setFlyTo(center: [number, number], zoom = 15) {
+  pendingFlyTo = { center, zoom };
+}
+
 interface UseInitialLocationOptions {
   userLocation: [number, number] | null;
   isLoadingLocation: boolean;
@@ -69,6 +81,29 @@ export function useInitialLocation({
     hasRequestedInitialLocation,
   ]);
 
+  // Check for a pending flyTo on every render (set synchronously before navigation).
+  // This runs outside useEffect so it's available before any async API calls.
+  useEffect(() => {
+    if (!pendingFlyTo || !cameraRef.current) return;
+
+    const flyTo = pendingFlyTo;
+    pendingFlyTo = null;
+
+    // Mark as centered so the cold-start effect doesn't also fire
+    hasCenteredOnUserRef.current = true;
+
+    eventBroker.emit(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
+      timestamp: Date.now(),
+      source: "useInitialLocation:flyTo",
+    });
+    cameraRef.current.setCamera({
+      centerCoordinate: flyTo.center,
+      zoomLevel: flyTo.zoom,
+      animationDuration: 1500,
+      animationMode: "flyTo",
+    });
+  });
+
   // Update camera position only once when user location becomes available
   useEffect(() => {
     if (
@@ -85,6 +120,7 @@ export function useInitialLocation({
             userLocation[1],
             userLocation[0],
           );
+
           const timeoutPromise = new Promise<never>((_, reject) =>
             setTimeout(
               () => reject(new Error("Viewport request timeout")),

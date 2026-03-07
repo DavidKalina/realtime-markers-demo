@@ -24,6 +24,7 @@ export function setupContext(
     c.set("emailService", services.emailService);
     c.set("areaScanService", services.areaScanService);
     c.set("eventHypeService", services.eventHypeService);
+    c.set("cityHypeService", services.cityHypeService);
     c.set(
       "proximityNotificationService",
       services.proximityNotificationService,

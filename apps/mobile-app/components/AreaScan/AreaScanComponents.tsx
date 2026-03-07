@@ -868,11 +868,11 @@ export function DialogBox({
           <Svg width={SHEEN_WIDTH} height={COLLAPSED_HEIGHT}>
             <Defs>
               <LinearGradient id="goldenSheen" x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor="#fbbf24" stopOpacity="0" />
-                <Stop offset="0.3" stopColor="#fbbf24" stopOpacity="0.5" />
-                <Stop offset="0.5" stopColor="#fef3c7" stopOpacity="0.8" />
-                <Stop offset="0.7" stopColor="#fbbf24" stopOpacity="0.5" />
-                <Stop offset="1" stopColor="#fbbf24" stopOpacity="0" />
+                <Stop offset="0" stopColor="#a0aec0" stopOpacity="0" />
+                <Stop offset="0.3" stopColor="#cbd5e0" stopOpacity="0.5" />
+                <Stop offset="0.5" stopColor="#f7fafc" stopOpacity="0.8" />
+                <Stop offset="0.7" stopColor="#cbd5e0" stopOpacity="0.5" />
+                <Stop offset="1" stopColor="#a0aec0" stopOpacity="0" />
               </LinearGradient>
             </Defs>
             <Rect
@@ -948,11 +948,12 @@ const dialogStyles = StyleSheet.create({
     alignItems: "center",
   },
   statusText: {
-    color: "#fbbf24",
+    color: "#cbd5e0",
     fontSize: 13,
     fontFamily: fontFamily.mono,
-    fontStyle: "italic",
-    letterSpacing: 1,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 2,
   },
   sheenBeam: {
     position: "absolute",

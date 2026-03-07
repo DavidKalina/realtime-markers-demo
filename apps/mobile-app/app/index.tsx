@@ -175,7 +175,7 @@ function HomeScreenContent() {
   }, [startLocationTracking]);
 
   // Viewport processing and region change tracking
-  const { handleRegionChanging, isCameraMoving } = useMapViewport({
+  const { handleRegionChanging } = useMapViewport({
     updateViewport,
     isPitched,
   });
@@ -261,10 +261,9 @@ function HomeScreenContent() {
       <ClusteredMapMarkers
         viewport={currentViewport}
         currentZoom={zoomLevel}
-        isCameraMoving={isCameraMoving}
       />
     );
-  }, [shouldRenderMarkers, currentViewport, zoomLevel, isCameraMoving]);
+  }, [shouldRenderMarkers, currentViewport, zoomLevel]);
 
   // Memoize user location layer
   const userLocationLayer = useMemo(() => {

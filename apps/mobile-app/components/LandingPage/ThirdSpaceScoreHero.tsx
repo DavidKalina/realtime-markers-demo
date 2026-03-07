@@ -11,18 +11,21 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
+import { ChevronRight } from "lucide-react-native";
 import {
   colors,
   fontSize,
   fontWeight,
   fontFamily,
   spacing,
+  radius,
 } from "@/theme";
 import type { ThirdSpaceScoreResponse } from "@/services/api/modules/leaderboard";
 import InfoModal from "@/components/InfoModal";
 
 interface ThirdSpaceScoreHeroProps {
   score: ThirdSpaceScoreResponse;
+  onExploreMap?: () => void;
 }
 
 const SUB_SCORES = [
@@ -91,7 +94,7 @@ function getScoreColor(score: number): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-const ThirdSpaceScoreHero: React.FC<ThirdSpaceScoreHeroProps> = ({ score }) => {
+const ThirdSpaceScoreHero: React.FC<ThirdSpaceScoreHeroProps> = ({ score, onExploreMap }) => {
   const targetScore = score.current.score;
 
   const animatedScore = useSharedValue(0);
@@ -254,6 +257,19 @@ const ThirdSpaceScoreHero: React.FC<ThirdSpaceScoreHeroProps> = ({ score }) => {
         </View>
       )}
 
+      {onExploreMap && (
+        <Pressable
+          style={({ pressed }) => [
+            styles.exploreButton,
+            pressed && styles.exploreButtonPressed,
+          ]}
+          onPress={onExploreMap}
+        >
+          <Text style={[styles.exploreButtonText, { color: scoreColor }]}>Explore Map</Text>
+          <ChevronRight size={12} color={scoreColor} />
+        </Pressable>
+      )}
+
       <InfoModal
         visible={activeInfo !== null}
         title={activeInfo?.label ?? ""}
@@ -371,6 +387,25 @@ const styles = StyleSheet.create({
   },
   sparklineContainer: {
     height: 28,
+  },
+  exploreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-end",
+    gap: 6,
+    backgroundColor: colors.bg.elevated,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.md,
+  },
+  exploreButtonPressed: {
+    opacity: 0.7,
+  },
+  exploreButtonText: {
+    color: colors.text.secondary,
+    fontSize: 11,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
   },
 });
 

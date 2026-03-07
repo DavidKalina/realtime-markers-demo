@@ -39,6 +39,7 @@ export interface ThirdSpaceScoreResponse {
   delta24h: number;
   momentum: "rising" | "steady" | "cooling";
   contributors: ContributorEntry[];
+  centroid: { lat: number; lng: number } | null;
 }
 
 export interface ThirdSpaceSummary {

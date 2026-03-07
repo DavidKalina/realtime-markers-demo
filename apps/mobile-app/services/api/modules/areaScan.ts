@@ -200,6 +200,40 @@ export class AreaScanModule extends BaseApiModule {
     };
   }
 
+  streamCityInsight(
+    city: string,
+    callbacks: EventInsightCallbacks,
+  ): { abort: () => void } {
+    const abortController = new AbortController();
+
+    this.fetchWithAuth(`${this.client.baseUrl}/api/area-scan/city`, {
+      method: "POST",
+      body: JSON.stringify({ city }),
+      signal: abortController.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.error || `City insight failed: ${response.status}`,
+          );
+        }
+
+        const data = await response.json();
+        callbacks.onMetadata({ cached: data.cached });
+        callbacks.onContent(data.text);
+        callbacks.onDone();
+      })
+      .catch((error) => {
+        if (error.name === "AbortError") return;
+        callbacks.onError(error);
+      });
+
+    return {
+      abort: () => abortController.abort(),
+    };
+  }
+
   streamEventInsight(
     eventId: string,
     callbacks: EventInsightCallbacks,

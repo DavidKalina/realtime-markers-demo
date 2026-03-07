@@ -26,14 +26,6 @@ export function useMapViewport({
   const [viewportRectangle, setViewportRectangle] =
     useState<MapboxViewport | null>(null);
 
-  // Track camera movement for clustering freeze.
-  // Uses a ref gate so we only trigger 2 state updates per gesture (start + settle).
-  const cameraMovingRef = useRef(false);
-  const [isCameraMoving, setIsCameraMoving] = useState(false);
-  const cameraSettledTimeout = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-
   // Zoom-aware debounce: fires once at the start (leading) and once after the
   // last call (trailing). The debounce window scales with zoom — tight at high
   // zoom where individual markers matter, wider at low zoom where everything
@@ -175,23 +167,6 @@ export function useMapViewport({
           setZoomLevel(zoomLevel);
         }
 
-        // Signal camera-moving (one state update at start of gesture)
-        if (!cameraMovingRef.current) {
-          cameraMovingRef.current = true;
-          setIsCameraMoving(true);
-        }
-        // Reset the settle timer on every frame — wait until pinch/pan gesture
-        // fully settles before unfreezing clustering. At low zoom (where everything
-        // is clustered) use a longer settle window to avoid rapid thrashing.
-        if (cameraSettledTimeout.current) {
-          clearTimeout(cameraSettledTimeout.current);
-        }
-        const settleMs = typeof zoomLevel === "number" && zoomLevel < 10 ? 500 : 300;
-        cameraSettledTimeout.current = setTimeout(() => {
-          cameraMovingRef.current = false;
-          setIsCameraMoving(false);
-        }, settleMs);
-
         handleMapViewportChange(feature);
       } catch (error) {
         console.error("Error handling region change:", error);
@@ -203,6 +178,5 @@ export function useMapViewport({
   return {
     viewportRectangle,
     handleRegionChanging,
-    isCameraMoving,
   };
 }

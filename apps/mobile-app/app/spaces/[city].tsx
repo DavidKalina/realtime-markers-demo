@@ -3,9 +3,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
 import LandingPageContent from "@/components/LandingPage/LandingPageContent";
+import { useCityInsight } from "@/components/LandingPage/useCityInsight";
+import { DialogBox } from "@/components/AreaScan/AreaScanComponents";
 import useThirdSpaceScore from "@/hooks/useThirdSpaceScore";
 import useLandingPageData from "@/hooks/useLandingPageData";
 import { apiClient } from "@/services/ApiClient";
+import { setFlyTo } from "@/hooks/useInitialLocation";
 
 const CityDetailScreen = () => {
   const { city } = useLocalSearchParams<{ city: string }>();
@@ -33,6 +36,13 @@ const CityDetailScreen = () => {
     trendingLimit: 5,
   });
 
+  const {
+    isLoading: insightLoading,
+    error: insightError,
+    dialog: insightDialog,
+    feedPending: insightFeedPending,
+  } = useCityInsight(decodedCity || null);
+
   const currentUser = apiClient.getCurrentUser();
 
   const handleRefresh = useCallback(async () => {
@@ -49,6 +59,20 @@ const CityDetailScreen = () => {
     router.back();
   }, [router]);
 
+  const handleExploreMap = useCallback(() => {
+    // Prefer a real event location over the centroid to avoid dead zones
+    const firstEvent = landingData?.featuredEvents?.[0] ?? landingData?.topEvents?.[0];
+    const coords: [number, number] | null = firstEvent?.coordinates
+      ?? (thirdSpaceScore?.centroid
+        ? [thirdSpaceScore.centroid.lng, thirdSpaceScore.centroid.lat]
+        : null);
+    if (!coords) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setFlyTo(coords, 15);
+    router.navigate("/");
+  }, [router, landingData, thirdSpaceScore?.centroid]);
+
   return (
     <Screen
       isScrollable={false}
@@ -57,6 +81,20 @@ const CityDetailScreen = () => {
       showBackButton
       onBack={handleBack}
       noAnimation
+      bottomContent={
+        <DialogBox
+          isLoading={insightLoading}
+          error={insightError}
+          displayText={insightDialog.displayText}
+          showContinue={insightDialog.showContinue}
+          showDone={insightDialog.showDone}
+          blinkAnim={insightDialog.blinkAnim}
+          onTap={insightDialog.handleTap}
+          onRestart={insightDialog.restart}
+          onExpandComplete={insightFeedPending}
+          style={{ height: 105, marginBottom: 0 }}
+        />
+      }
     >
       <LandingPageContent
         data={landingData}
@@ -66,6 +104,11 @@ const CityDetailScreen = () => {
         thirdSpaceScore={thirdSpaceScore}
         currentUserId={currentUser?.id}
         topEvents={landingData?.topEvents}
+        onExploreMap={
+          landingData?.featuredEvents?.[0] || landingData?.topEvents?.[0] || thirdSpaceScore?.centroid
+            ? handleExploreMap
+            : undefined
+        }
       />
     </Screen>
   );

@@ -10,14 +10,19 @@ import {
 import { useRouter } from "expo-router";
 import { ChevronRight, SearchIcon } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import Screen from "@/components/Layout/Screen";
 import Input from "@/components/Input/Input";
 import { TopSpacesPodium, SpaceCityCard } from "@/components/ThirdSpaces";
 import ThirdSpaceScoreHero from "@/components/LandingPage/ThirdSpaceScoreHero";
 import ContributorsSection from "@/components/LandingPage/LeaderboardSection";
+import {
+  ScoreHeroSkeleton,
+  ContributorsSkeleton,
+} from "@/components/LandingPage/Skeletons";
 import useThirdSpaces from "@/hooks/useThirdSpaces";
 import useThirdSpaceScore from "@/hooks/useThirdSpaceScore";
+import { setFlyTo } from "@/hooks/useInitialLocation";
 import useLandingPageData from "@/hooks/useLandingPageData";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { apiClient } from "@/services/ApiClient";
@@ -59,7 +64,7 @@ const SpacesBrowseScreen = () => {
   });
 
   const resolvedCity = landingData?.resolvedCity || null;
-  const { score: myScore, refetch: refetchScore } =
+  const { score: myScore, isLoading: isScoreLoading, refetch: refetchScore } =
     useThirdSpaceScore(resolvedCity);
   const currentUser = apiClient.getCurrentUser();
 
@@ -101,6 +106,19 @@ const SpacesBrowseScreen = () => {
       params: { city: resolvedCity },
     });
   }, [router, resolvedCity]);
+
+  const handleExploreMap = useCallback(() => {
+    const firstEvent = landingData?.featuredEvents?.[0] ?? landingData?.topEvents?.[0];
+    const coords: [number, number] | null = firstEvent?.coordinates
+      ?? (myScore?.centroid
+        ? [myScore.centroid.lng, myScore.centroid.lat]
+        : null);
+    if (!coords) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setFlyTo(coords, 15);
+    router.navigate("/");
+  }, [router, landingData, myScore?.centroid]);
 
   const listCities = useMemo(() => {
     if (sortMode === "nearest" && closestCities.length > 0) {
@@ -144,10 +162,24 @@ const SpacesBrowseScreen = () => {
         }
       >
         {/* User's current city Third Space */}
+        {!myScore && (isLandingLoading || isScoreLoading) && (
+          <Animated.View exiting={FadeOut.duration(duration.fast)}>
+            <ScoreHeroSkeleton />
+            <ContributorsSkeleton />
+          </Animated.View>
+        )}
+
         {myScore && (
           <Animated.View entering={FadeIn.duration(duration.normal)}>
             <Pressable onPress={handleMyCityPress}>
-              <ThirdSpaceScoreHero score={myScore} />
+              <ThirdSpaceScoreHero
+                score={myScore}
+                onExploreMap={
+                  landingData?.featuredEvents?.[0] || landingData?.topEvents?.[0] || myScore.centroid
+                    ? handleExploreMap
+                    : undefined
+                }
+              />
             </Pressable>
           </Animated.View>
         )}

@@ -36,6 +36,7 @@ export interface ThirdSpaceScoreResponse {
   delta24h: number;
   momentum: "rising" | "steady" | "cooling";
   contributors: ContributorEntry[];
+  centroid: { lat: number; lng: number } | null;
 }
 
 export interface ThirdSpaceSummary {
@@ -343,6 +344,22 @@ export class ThirdSpaceScoreService {
     // Contributors
     const contributors = await this.getContributors(city, contributorLimit);
 
+    // Centroid of active events in this city
+    const cityName = city.includes(",") ? city.split(",")[0].trim() : city;
+    const centroidRows = await this.dataSource.query(
+      `SELECT AVG(ST_Y(location::geometry)) AS lat,
+              AVG(ST_X(location::geometry)) AS lng
+       FROM events
+       WHERE (LOWER(city) = LOWER($1) OR LOWER(city) = LOWER($2))
+         AND status IN ('PENDING', 'VERIFIED')
+         AND event_date >= NOW() - INTERVAL '30 days'
+         AND location IS NOT NULL`,
+      [city, cityName],
+    );
+    const centroid = centroidRows[0]?.lat
+      ? { lat: parseFloat(centroidRows[0].lat), lng: parseFloat(centroidRows[0].lng) }
+      : null;
+
     return {
       current: {
         city: current.city,
@@ -359,6 +376,7 @@ export class ThirdSpaceScoreService {
       delta24h,
       momentum,
       contributors,
+      centroid,
     };
   }
 

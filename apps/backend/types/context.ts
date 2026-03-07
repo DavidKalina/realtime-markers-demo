@@ -13,6 +13,7 @@ import type { CategoryProcessingService } from "../services/CategoryProcessingSe
 import type { EmailService } from "../services/shared/EmailService";
 import type { AreaScanService } from "../services/AreaScanService";
 import type { EventHypeService } from "../services/EventHypeService";
+import type { CityHypeService } from "../services/CityHypeService";
 import type { ProximityNotificationService } from "../services/ProximityNotificationService";
 import type { FollowService } from "../services/FollowService";
 import type { LeaderboardService } from "../services/LeaderboardService";
@@ -33,6 +34,7 @@ export interface AppVariables {
   emailService: EmailService;
   areaScanService: AreaScanService;
   eventHypeService: EventHypeService;
+  cityHypeService: CityHypeService;
   proximityNotificationService: ProximityNotificationService;
   followService: FollowService;
   leaderboardService: LeaderboardService;

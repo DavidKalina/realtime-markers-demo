@@ -15,7 +15,7 @@ import { Marker, MapboxViewport } from "@/types/types";
 import type { MarkerItem, ClusterItem } from "@/types/map";
 import { getDominantCategory } from "@/utils/categoryColors";
 import MapboxGL from "@rnmapbox/maps";
-import React, { useCallback, useMemo, useEffect, useRef, useState } from "react";
+import React, { useCallback, useMemo, useEffect, useRef } from "react";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -42,13 +42,12 @@ interface ClusteredMapMarkersProps {
   markers?: Marker[];
   currentZoom?: number;
   viewport: MapboxViewport;
-  isCameraMoving?: boolean;
 }
 
 // Maximum number of MarkerView slots pre-mounted inside the MapView.
 // The native view tree never grows or shrinks past this count after initial mount,
 // preventing insertReactSubview crashes.
-const MAX_POOL_SIZE = 200;
+const MAX_POOL_SIZE = 50;
 
 // Only animate entrance for new markers when the batch is small enough
 // to feel magical rather than chaotic.
@@ -305,35 +304,48 @@ const PoolSlot = React.memo(
 // ---------------------------------------------------------------------------
 
 export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  React.memo(({ currentZoom = 14, viewport, isCameraMoving = false }) => {
-    // Single shared breathing animation for ALL markers (1 animation, N readers)
+  React.memo(({ currentZoom = 14, viewport }) => {
+    // Zoom tier: high (14+) = full animations, mid (10-13) = subtle, low (<10) = static
+    const isHighZoom = currentZoom >= 14;
+    const isMidZoom = currentZoom >= 10 && currentZoom < 14;
+
+    // Breathing animation — only at high zoom for that alive, Pokemon Go feel
     const breathingScale = useSharedValue(1);
     useEffect(() => {
-      breathingScale.value = withRepeat(
-        withSequence(
-          withTiming(1.05, { duration: 1500 }),
-          withTiming(0.98, { duration: 1500 }),
-        ),
-        -1,
-        true,
-      );
+      if (isHighZoom) {
+        breathingScale.value = withRepeat(
+          withSequence(
+            withTiming(1.05, { duration: 1500 }),
+            withTiming(0.98, { duration: 1500 }),
+          ),
+          -1,
+          true,
+        );
+      } else {
+        cancelAnimation(breathingScale);
+        breathingScale.value = withTiming(1, { duration: 200 });
+      }
       return () => cancelAnimation(breathingScale);
-    }, []);
+    }, [isHighZoom]);
 
-    // Single shared pulse for ALL large clusters
+    // Cluster pulse — high zoom only
     const clusterPulse = useSharedValue(1);
     useEffect(() => {
-      clusterPulse.value = withRepeat(
-        withSequence(
-          withTiming(1.04, { duration: 1500 }),
-          withTiming(1, { duration: 1500 }),
-        ),
-        -1,
-        true,
-      );
+      if (isHighZoom) {
+        clusterPulse.value = withRepeat(
+          withSequence(
+            withTiming(1.04, { duration: 1500 }),
+            withTiming(1, { duration: 1500 }),
+          ),
+          -1,
+          true,
+        );
+      } else {
+        cancelAnimation(clusterPulse);
+        clusterPulse.value = withTiming(1, { duration: 200 });
+      }
       return () => cancelAnimation(clusterPulse);
-    }, []);
+    }, [isHighZoom]);
 
     // Get marker data from store
     const markers = useLocationStore((state) => state.markers);
@@ -506,10 +518,22 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       });
     }, [processedClusters, viewport]);
 
-    // Tag items with stagger indices for haptic timing.
-    // When too many new markers arrive at once (e.g. rapid pan into a dense area),
-    // skip entrance animations to avoid visual chaos — the "magic" lives in small batches.
+    // Tag items with stagger indices for entrance animations + haptics.
+    // High zoom: full pin-drop animations with stagger (magical, responsive)
+    // Mid zoom: entrance animations with tighter budget (mildly dynamic)
+    // Low zoom: no entrance animations (static, just data updates)
     const itemsWithNewIndex = useMemo(() => {
+      // Low zoom — completely static, no entrance animations
+      if (!isHighZoom && !isMidZoom) {
+        return visibleItems.map((item, index) => ({
+          ...item,
+          index,
+          newIndex: 0,
+          isNew: false,
+          staggerDelay: 0,
+        }));
+      }
+
       let newCounter = 0;
       const tagged = visibleItems.map((item, index) => ({
         ...item,
@@ -517,7 +541,9 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         newIndex: item.isNew ? newCounter++ : 0,
       }));
       const newCount = newCounter;
-      const shouldAnimate = newCount <= ANIMATION_BUDGET;
+      // High zoom: generous budget for that magical feel; mid zoom: tighter
+      const budget = isHighZoom ? ANIMATION_BUDGET : 8;
+      const shouldAnimate = newCount <= budget;
       const maxSlots = Math.min(newCount, 5);
       const staggerDelay =
         maxSlots > 0 ? Math.min(80, Math.floor(300 / maxSlots)) : 0;
@@ -526,22 +552,18 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         isNew: shouldAnimate && item.isNew,
         staggerDelay,
       }));
-    }, [visibleItems]);
+    }, [visibleItems, isHighZoom, isMidZoom]);
 
-    // Freeze during camera movement to prevent rapid mutations
-    const [stableItems, setStableItems] = useState(itemsWithNewIndex);
-
-    useEffect(() => {
-      if (!isCameraMoving) {
-        setStableItems(itemsWithNewIndex);
-      }
-    }, [itemsWithNewIndex, isCameraMoving]);
+    // Use items directly — the debounced viewport in useMapViewport already
+    // throttles how often clustering input changes. Freezing during camera
+    // movement caused a batch-update stutter when the camera settled.
+    const stableItems = itemsWithNewIndex;
 
     // Dynamic pool size — at low zoom most items are clusters so we need fewer
     // React-managed MarkerView slots, reducing reconciliation cost.
     const effectivePoolSize = useMemo(() => {
       if (currentZoom >= 14) return MAX_POOL_SIZE;
-      if (currentZoom >= 10) return 50;
+      if (currentZoom >= 10) return 30;
       return 15;
     }, [currentZoom]);
 

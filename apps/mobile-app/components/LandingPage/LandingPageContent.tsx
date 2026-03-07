@@ -1,12 +1,4 @@
-import ShimmerView from "@/components/Layout/ShimmerView";
-import {
-  colors,
-  duration,
-  fontFamily,
-  fontWeight,
-  radius,
-  spacing,
-} from "@/theme";
+import { duration } from "@/theme";
 import {
   DiscoveredEventType,
   EventType,
@@ -16,13 +8,17 @@ import React from "react";
 import {
   RefreshControl,
   ScrollView,
-  StyleSheet,
-  Text,
   View,
 } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
 import ContributorsSection from "./LeaderboardSection";
+import {
+  ScoreHeroSkeleton,
+  ContributorsSkeleton,
+  TopEventsSkeleton,
+  CarouselSkeleton,
+} from "./Skeletons";
 import WhatsHappeningSection from "./WhatsHappeningSection";
 import ThirdSpaceScoreHero from "./ThirdSpaceScoreHero";
 import TopEventsSection from "./TopEventsSection";
@@ -54,19 +50,8 @@ interface LandingPageContentProps {
   thirdSpaceScore?: ThirdSpaceScoreResponse | null;
   currentUserId?: string;
   topEvents?: EventType[];
+  onExploreMap?: () => void;
 }
-
-const SkeletonCard: React.FC = () => (
-  <View style={styles.skeletonCard}>
-    <View style={styles.skeletonCardInner}>
-      <ShimmerView style={styles.skeletonLine} />
-      <ShimmerView style={[styles.skeletonLine, { width: "60%" }]} />
-      <ShimmerView
-        style={[styles.skeletonLine, { width: "40%", marginTop: spacing.sm }]}
-      />
-    </View>
-  </View>
-);
 
 const LandingPageContent: React.FC<LandingPageContentProps> = ({
   data,
@@ -76,6 +61,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
   thirdSpaceScore,
   currentUserId,
   topEvents,
+  onExploreMap,
 }) => {
   return (
     <ScrollView
@@ -89,29 +75,11 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
     >
       {isLoading && (
         <Animated.View exiting={FadeOut.duration(duration.fast)}>
-          {/* Score Skeleton */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Third Space Score</Text>
-            <SkeletonCard />
-          </View>
-
-          {/* Contributors Skeleton */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Contributors</Text>
-            <SkeletonCard />
-          </View>
-
-          {/* What's Happening Skeleton */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>What's Happening</Text>
-            <SkeletonCard />
-          </View>
-
-          {/* Featured Skeleton */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Featured Events</Text>
-            <SkeletonCard />
-          </View>
+          <ScoreHeroSkeleton />
+          <ContributorsSkeleton />
+          <TopEventsSkeleton />
+          <CarouselSkeleton title="What's Happening" />
+          <CarouselSkeleton title="Featured Events" />
         </Animated.View>
       )}
 
@@ -119,7 +87,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
         <>
           {thirdSpaceScore && (
             <Animated.View entering={FadeIn.duration(duration.normal).delay(0)}>
-              <ThirdSpaceScoreHero score={thirdSpaceScore} />
+              <ThirdSpaceScoreHero score={thirdSpaceScore} onExploreMap={onExploreMap} />
             </Animated.View>
           )}
 
@@ -164,45 +132,5 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  section: {
-    marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 1.5,
-    textTransform: "uppercase" as const,
-  },
-  skeletonCard: {
-    marginHorizontal: spacing.lg,
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    overflow: "hidden",
-  },
-  skeletonCardInner: {
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  skeletonLine: {
-    height: 14,
-    borderRadius: 4,
-    width: "80%",
-  },
-  skeletonListItem: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
-    gap: spacing.sm,
-  },
-});
 
 export default LandingPageContent;

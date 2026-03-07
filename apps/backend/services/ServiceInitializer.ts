@@ -44,6 +44,8 @@ import { createAreaScanService } from "./AreaScanService";
 import type { AreaScanService } from "./AreaScanService";
 import { createEventHypeService } from "./EventHypeService";
 import type { EventHypeService } from "./EventHypeService";
+import { createCityHypeService } from "./CityHypeService";
+import type { CityHypeService } from "./CityHypeService";
 import {
   createTicketmasterService,
   type TicketmasterService,
@@ -70,6 +72,7 @@ export interface ServiceContainer {
   leaderboardService: LeaderboardService;
   areaScanService: AreaScanService;
   eventHypeService: EventHypeService;
+  cityHypeService: CityHypeService;
   ticketmasterService: TicketmasterService | null;
   proximityNotificationService: ProximityNotificationService;
   followService: FollowService;
@@ -241,6 +244,12 @@ export class ServiceInitializer {
       redisService,
     });
 
+    const cityHypeService = createCityHypeService({
+      openAIService,
+      redisService,
+      thirdSpaceScoreService,
+    });
+
     // Conditionally create TicketmasterService (opt-in via env var)
     const ticketmasterApiKey = process.env.TICKETMASTER_API_KEY;
     const ticketmasterService = ticketmasterApiKey
@@ -270,6 +279,7 @@ export class ServiceInitializer {
       leaderboardService,
       areaScanService,
       eventHypeService,
+      cityHypeService,
       ticketmasterService,
       proximityNotificationService,
       followService,

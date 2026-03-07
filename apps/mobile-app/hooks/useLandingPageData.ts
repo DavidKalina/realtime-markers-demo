@@ -64,7 +64,7 @@ const useLandingPageData = ({
   excludeCategoryIds,
 }: UseLandingPageDataProps = {}): UseLandingPageDataReturn => {
   const [landingData, setLandingData] = useState<LandingPageData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const fetchIdRef = useRef(0);
 

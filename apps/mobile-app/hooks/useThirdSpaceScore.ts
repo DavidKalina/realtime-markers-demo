@@ -10,7 +10,7 @@ interface UseThirdSpaceScoreReturn {
 
 const useThirdSpaceScore = (city: string | null): UseThirdSpaceScoreReturn => {
   const [score, setScore] = useState<ThirdSpaceScoreResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchScore = useCallback(async () => {
     if (!city) return;

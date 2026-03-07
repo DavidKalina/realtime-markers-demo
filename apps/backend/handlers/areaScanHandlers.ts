@@ -195,6 +195,33 @@ export const eventHypeHandler = async (c: Context<AppContext>) => {
   }
 };
 
+export const cityHypeHandler = async (c: Context<AppContext>) => {
+  const body = await c.req.json<{ city: string }>();
+  const { city } = body;
+
+  if (!city || typeof city !== "string") {
+    return c.json({ error: "city is required" }, 400);
+  }
+
+  const cityHypeService = c.get("cityHypeService");
+  const redisService = c.get("redisService");
+
+  try {
+    const result = await cityHypeService.getCityHype(city);
+    const text = result.text || "No city insight available.";
+
+    if (!result.cached && result.text && result.text !== "No city insight available.") {
+      const cacheKey = `city-hype:${city}`;
+      await redisService.set(cacheKey, text, 86400);
+    }
+
+    return c.json({ text, cached: result.cached });
+  } catch (error) {
+    console.error("[CityHype] Error:", error);
+    return c.json({ error: "Failed to generate city insight" }, 500);
+  }
+};
+
 // Simple geohash for cache key (matches AreaScanService)
 const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
 

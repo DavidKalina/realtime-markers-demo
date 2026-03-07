@@ -3,6 +3,7 @@ import {
   areaScanHandler,
   clusterProfileHandler,
   eventHypeHandler,
+  cityHypeHandler,
 } from "../handlers/areaScanHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -28,3 +29,4 @@ areaScanRouter.use(
 areaScanRouter.post("/", areaScanHandler);
 areaScanRouter.post("/cluster", clusterProfileHandler);
 areaScanRouter.post("/event", eventHypeHandler);
+areaScanRouter.post("/city", cityHypeHandler);
