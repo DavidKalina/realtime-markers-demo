@@ -147,7 +147,6 @@ function AppContent({ children }: AppContentProps) {
   const pathname = usePathname();
   const isMapScreen = pathname === "/" || pathname === "/index";
   const jobSheetOpen = useJobSheetStore((s) => s.isOpen);
-  const { activeJobs } = useJobProgressContext();
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -155,7 +154,7 @@ function AppContent({ children }: AppContentProps) {
       {!isBoot && <ActionBar />}
       {!isBoot && <XPNotificationOverlay />}
       {!isBoot && <JobSheetAutoOpen />}
-      {!isBoot && isMapScreen && jobSheetOpen && activeJobs.length > 0 && (
+      {!isBoot && isMapScreen && jobSheetOpen && (
         <JobTrackerBottomSheet />
       )}
       {isBoot && (

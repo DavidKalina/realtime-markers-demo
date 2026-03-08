@@ -97,9 +97,8 @@ function HomeScreenContent() {
   const router = useRouter();
   const { publish } = useEventBroker();
   const { mapStyle, isPitched } = useMapStyle();
-  const { activeJobs, activeCount } = useJobProgressContext();
+  const { activeCount } = useJobProgressContext();
   const openJobSheet = useJobSheetStore((s) => s.open);
-  const hasJobs = activeJobs.length > 0;
   const hasInFlight = activeCount > 0;
   const isAppActive = useAppActive();
 
@@ -502,17 +501,15 @@ function HomeScreenContent() {
             <Locate size={22} color={colors.action.map} />
           </TouchableOpacity>
         </RAnimated.View>
-        {hasJobs && (
-          <RAnimated.View style={[fabStyle3, jobPulseStyle]}>
-            <TouchableOpacity
-              style={styles.recenterButton}
-              onPress={openJobSheet}
-              activeOpacity={0.7}
-            >
-              <ClipboardList size={22} color={colors.accent.primary} />
-            </TouchableOpacity>
-          </RAnimated.View>
-        )}
+        <RAnimated.View style={[fabStyle3, hasInFlight ? jobPulseStyle : undefined]}>
+          <TouchableOpacity
+            style={styles.recenterButton}
+            onPress={openJobSheet}
+            activeOpacity={0.7}
+          >
+            <ClipboardList size={22} color={colors.accent.primary} />
+          </TouchableOpacity>
+        </RAnimated.View>
       </View>
     ),
     [
@@ -526,7 +523,7 @@ function HomeScreenContent() {
       hasActiveFilters,
       handleCategoryFilterChange,
       clearAllFilters,
-      hasJobs,
+      hasInFlight,
       openJobSheet,
       fabStyle0,
       fabStyle1,

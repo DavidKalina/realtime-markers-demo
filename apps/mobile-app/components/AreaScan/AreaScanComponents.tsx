@@ -36,6 +36,7 @@ import Svg, {
   Stop,
   Rect,
 } from "react-native-svg";
+import { useFocusEffect } from "expo-router";
 import { useDialogStreamStore } from "@/stores/useDialogStreamStore";
 import { useColors, spacing, fontFamily, type Colors } from "@/theme";
 import { CATEGORY_PALETTE } from "@/utils/categoryColors";
@@ -449,12 +450,14 @@ export function useDialogStreamer(): DialogStreamerState & {
 
   const blinkAnim = useRef(new Animated.Value(1)).current;
 
-  // Cancel streaming on unmount
-  useEffect(() => {
-    return () => {
-      cancel();
-    };
-  }, [cancel]);
+  // Cancel streaming when screen loses focus (screens don't unmount in a stack)
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        cancel();
+      };
+    }, [cancel]),
+  );
 
   // Blinking ▼ indicator
   const isLastPage = pageIndex >= pages.length - 1;

@@ -223,9 +223,10 @@ export function JobTrackerBottomSheet() {
     (j) => j.status === "pending" || j.status === "processing",
   ).length;
 
-  // Dynamic sheet height
+  // Dynamic sheet height (at least 1 row height for empty state)
+  const contentRows = Math.max(jobCount, 1);
   const sheetHeight = Math.min(
-    HANDLE_HEIGHT + HEADER_HEIGHT + ROW_HEIGHT * jobCount + insets.bottom + 16,
+    HANDLE_HEIGHT + HEADER_HEIGHT + ROW_HEIGHT * contentRows + insets.bottom + 16,
     MAX_SHEET_HEIGHT,
   );
 
@@ -295,9 +296,11 @@ export function JobTrackerBottomSheet() {
   ).current;
 
   const headerText =
-    inFlightCount > 0
-      ? `Processing ${inFlightCount} job${inFlightCount !== 1 ? "s" : ""}`
-      : `${jobCount} job${jobCount !== 1 ? "s" : ""}`;
+    jobCount === 0
+      ? "Scan jobs"
+      : inFlightCount > 0
+        ? `Processing ${inFlightCount} job${inFlightCount !== 1 ? "s" : ""}`
+        : `${jobCount} job${jobCount !== 1 ? "s" : ""}`;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -325,15 +328,23 @@ export function JobTrackerBottomSheet() {
           style={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {activeJobs.map((job) => (
-            <JobRow
-              key={job.jobId}
-              job={job}
-              onDismiss={handleDismissJob}
-              onFlyTo={handleFlyTo}
-              colors={colors}
-            />
-          ))}
+          {jobCount === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateHint}>
+                Go to the scan screen to submit a new job
+              </Text>
+            </View>
+          ) : (
+            activeJobs.map((job) => (
+              <JobRow
+                key={job.jobId}
+                job={job}
+                onDismiss={handleDismissJob}
+                onFlyTo={handleFlyTo}
+                colors={colors}
+              />
+            ))
+          )}
         </ScrollView>
       </Animated.View>
     </View>
@@ -430,6 +441,17 @@ const createStyles = (colors: Colors) =>
     },
     progressText: {
       fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    emptyState: {
+      height: ROW_HEIGHT,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: spacing.md,
+    },
+    emptyStateHint: {
+      fontSize: 13,
       fontFamily: fontFamily.mono,
       color: colors.text.secondary,
     },

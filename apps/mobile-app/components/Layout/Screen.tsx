@@ -12,6 +12,7 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import Banner from "./Banner";
 import Button from "./Button";
 import ScreenContent from "./ScreenContent";
@@ -96,7 +97,7 @@ export interface ScreenProps<T extends string = string> {
 
 const Screen = <T extends string>({
   bannerTitle,
-  showBackButton = true,
+  showBackButton,
   onBack,
   tabs,
   activeTab,
@@ -113,6 +114,8 @@ const Screen = <T extends string>({
   extendBannerToStatusBar = true,
   footerSafeArea = false,
 }: ScreenProps<T>) => {
+  const router = useRouter();
+  const resolvedShowBackButton = showBackButton ?? router.canGoBack();
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
@@ -186,7 +189,7 @@ const Screen = <T extends string>({
       extendBannerToStatusBar={extendBannerToStatusBar}
     >
       <View style={mainContainerStyle}>
-        {(bannerTitle || showBackButton) && (
+        {(bannerTitle || resolvedShowBackButton) && (
           <View style={styles.fixedBannerWrapper}>
             <Banner
               name={bannerTitle || ""}

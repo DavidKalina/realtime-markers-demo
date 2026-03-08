@@ -3,13 +3,11 @@ import React, { useMemo } from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
 import Animated, {
   Easing,
-  useAnimatedStyle,
   useSharedValue,
   withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { useRouter } from "expo-router";
 import { useColors, spacing, spring, type Colors } from "@/theme";
 
 interface BackButtonProps {
@@ -17,21 +15,10 @@ interface BackButtonProps {
 }
 
 export default function BackButton({ onPress }: BackButtonProps) {
-  const router = useRouter();
-  const canGoBack = router.canGoBack();
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const backButtonScale = useSharedValue(1);
   const backButtonRotation = useSharedValue(0);
-
-  const backButtonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: backButtonScale.value },
-      { rotate: `${backButtonRotation.value}rad` },
-    ],
-  }));
-
-  if (!canGoBack) return null;
 
   const handlePress = () => {
     backButtonScale.value = withSequence(
@@ -47,7 +34,7 @@ export default function BackButton({ onPress }: BackButtonProps) {
   };
 
   return (
-    <Animated.View style={[styles.bannerBackButton, backButtonAnimatedStyle]}>
+    <Animated.View style={[styles.bannerBackButton]}>
       <TouchableOpacity
         onPress={handlePress}
         style={styles.backButtonTouchable}
@@ -59,32 +46,33 @@ export default function BackButton({ onPress }: BackButtonProps) {
   );
 }
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  bannerBackButton: {
-    position: "absolute",
-    left: spacing.lg,
-    top: 0,
-    bottom: 0,
-    width: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backButtonTouchable: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.15)",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    shadowColor: colors.fixed.black,
-    shadowOffset: {
-      width: 0,
-      height: 2,
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    bannerBackButton: {
+      position: "absolute",
+      left: spacing.lg,
+      top: 0,
+      bottom: 0,
+      width: 44,
+      alignItems: "center",
+      justifyContent: "center",
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-});
+    backButtonTouchable: {
+      width: 36,
+      height: 36,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(0,0,0,0.15)",
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      shadowColor: colors.fixed.black,
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 3,
+      elevation: 3,
+    },
+  });
