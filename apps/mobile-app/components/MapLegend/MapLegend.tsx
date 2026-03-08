@@ -73,7 +73,8 @@ function MapLegend() {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [expanded, setExpanded] = useState(false);
-  const markers = useLocationStore((state) => state.markers);
+  const visibleCategoryCounts = useLocationStore((state) => state.visibleCategoryCounts);
+  const visibleMarkerTotal = useLocationStore((state) => state.visibleMarkerTotal);
   const selectedItem = useLocationStore((state) => state.selectedItem);
 
   // Collapse when a marker is selected or the map is tapped
@@ -82,12 +83,7 @@ function MapLegend() {
   }, [selectedItem]);
 
   const activeCategories = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const m of markers) {
-      const cat = m.data.categories?.[0];
-      if (cat) counts.set(cat, (counts.get(cat) || 0) + 1);
-    }
-    return Array.from(counts.entries())
+    return Object.entries(visibleCategoryCounts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, MAX_CATEGORIES)
       .map(([name, count]) => ({
@@ -95,12 +91,9 @@ function MapLegend() {
         count,
         color: getCategoryColor(name),
       }));
-  }, [markers]);
+  }, [visibleCategoryCounts]);
 
-  const total = useMemo(
-    () => activeCategories.reduce((sum, c) => sum + c.count, 0),
-    [activeCategories],
-  );
+  const total = visibleMarkerTotal;
 
   const segments = useMemo(() => {
     let offset = 0;

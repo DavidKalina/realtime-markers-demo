@@ -554,6 +554,49 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       }));
     }, [visibleItems, isHighZoom, isMidZoom]);
 
+    // Sync visible marker stats to store for MapLegend.
+    // Uses a ref to skip store writes when counts haven't changed,
+    // avoiding unnecessary MapLegend re-renders during panning.
+    const setVisibleMarkerStats = useLocationStore(
+      (state) => state.setVisibleMarkerStats,
+    );
+    const prevStatsRef = useRef<{ counts: Record<string, number>; total: number }>({
+      counts: {},
+      total: 0,
+    });
+    useEffect(() => {
+      const counts: Record<string, number> = {};
+      let total = 0;
+      for (const item of itemsWithNewIndex) {
+        if (item.type === "marker") {
+          total += 1;
+          const cat = item.item.data.categories?.[0];
+          if (cat) counts[cat] = (counts[cat] || 0) + 1;
+        } else {
+          total += item.item.count;
+          for (const childId of item.item.childrenIds) {
+            const cat = categoryLookup.get(childId);
+            if (cat) counts[cat] = (counts[cat] || 0) + 1;
+          }
+        }
+      }
+
+      // Skip store write if nothing changed
+      const prev = prevStatsRef.current;
+      if (prev.total === total) {
+        const keys = Object.keys(counts);
+        const prevKeys = Object.keys(prev.counts);
+        if (
+          keys.length === prevKeys.length &&
+          keys.every((k) => counts[k] === prev.counts[k])
+        ) {
+          return;
+        }
+      }
+      prevStatsRef.current = { counts, total };
+      setVisibleMarkerStats(counts, total);
+    }, [itemsWithNewIndex, categoryLookup, setVisibleMarkerStats]);
+
     // Use items directly — the debounced viewport in useMapViewport already
     // throttles how often clustering input changes. Freezing during camera
     // movement caused a batch-update stutter when the camera settled.

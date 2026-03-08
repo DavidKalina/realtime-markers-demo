@@ -10,7 +10,7 @@ import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
-import LandingPageContent from "@/components/LandingPage/LandingPageContent";
+import CityDetailContent from "@/components/LandingPage/CityDetailContent";
 import { useCityInsight } from "@/components/LandingPage/useCityInsight";
 import { DialogBox } from "@/components/AreaScan/AreaScanComponents";
 import useThirdSpaceScore from "@/hooks/useThirdSpaceScore";
@@ -139,7 +139,7 @@ const CityDetailScreen = () => {
       }
     >
       <View style={{ flex: 1 }}>
-        <LandingPageContent
+        <CityDetailContent
           data={mergedData}
           isLoading={isLoading}
           onRefresh={handleRefresh}
