@@ -1,5 +1,9 @@
 import type { DataSource } from "typeorm";
-import { Itinerary, ItineraryItem, ItineraryStatus } from "@realtime-markers/database";
+import {
+  Itinerary,
+  ItineraryItem,
+  ItineraryStatus,
+} from "@realtime-markers/database";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
@@ -84,7 +88,10 @@ class ItineraryServiceImpl implements ItineraryService {
     this.geocodingService = deps.geocodingService;
   }
 
-  async create(userId: string, input: CreateItineraryInput): Promise<Itinerary> {
+  async create(
+    userId: string,
+    input: CreateItineraryInput,
+  ): Promise<Itinerary> {
     const itineraryRepo = this.dataSource.getRepository(Itinerary);
     const itemRepo = this.dataSource.getRepository(ItineraryItem);
 
@@ -109,7 +116,11 @@ class ItineraryServiceImpl implements ItineraryService {
       const llmResult = await this.generateWithLLM(input, events);
 
       // Geocode non-event items
-      const geocodedMap = await this.geocodeItems(llmResult.items, events, input.city);
+      const geocodedMap = await this.geocodeItems(
+        llmResult.items,
+        events,
+        input.city,
+      );
 
       // Save items with geocoded data
       const items = llmResult.items.map((item, idx) => {
@@ -249,7 +260,10 @@ class ItineraryServiceImpl implements ItineraryService {
         cityCenter = { lat, lng };
       }
     } catch {
-      console.warn("[ItineraryService] Failed to geocode city center for:", city);
+      console.warn(
+        "[ItineraryService] Failed to geocode city center for:",
+        city,
+      );
     }
 
     // Build geocoding promises
@@ -362,6 +376,7 @@ PLANNING RULES:
 - For non-event stops, set eventId to null
 - Estimated costs should be realistic
 - Times should be in 24h format (e.g., "14:00")
+- "description" MUST be a single short sentence (max 10 words). Do NOT write long descriptions — the detail goes in whyThisStop and proTip instead
 
 Respond ONLY with valid JSON matching this schema:
 {
