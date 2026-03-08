@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
   FadeIn,
@@ -13,6 +13,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Settings, CheckCircle2, AlertCircle } from "lucide-react-native";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
+import { useJobSheetStore } from "@/stores/useJobSheetStore";
 import { useColors, spacing, fontFamily, type Colors } from "@/theme";
 
 // Max visible width for the label area before marquee kicks in
@@ -137,6 +138,7 @@ const JobIndicator: React.FC = () => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { activeJobs } = useJobProgressContext();
+  const openSheet = useJobSheetStore((s) => s.open);
   const rotation = useSharedValue(0);
   const progressWidth = useSharedValue(0);
 
@@ -211,35 +213,37 @@ const JobIndicator: React.FC = () => {
       : colors.accent.primary;
 
   return (
-    <Animated.View
-      entering={FadeIn.springify()}
-      exiting={FadeOut.springify()}
-      style={styles.container}
-    >
-      <View style={styles.row}>
-        {isActive ? (
-          <Animated.View style={spinStyle}>
-            <Settings size={12} color={accentColor} strokeWidth={2.5} />
-          </Animated.View>
-        ) : isCompleted ? (
-          <CheckCircle2 size={12} color={accentColor} strokeWidth={2.5} />
-        ) : (
-          <AlertCircle size={12} color={accentColor} strokeWidth={2.5} />
-        )}
+    <Pressable onPress={openSheet}>
+      <Animated.View
+        entering={FadeIn.springify()}
+        exiting={FadeOut.springify()}
+        style={styles.container}
+      >
+        <View style={styles.row}>
+          {isActive ? (
+            <Animated.View style={spinStyle}>
+              <Settings size={12} color={accentColor} strokeWidth={2.5} />
+            </Animated.View>
+          ) : isCompleted ? (
+            <CheckCircle2 size={12} color={accentColor} strokeWidth={2.5} />
+          ) : (
+            <AlertCircle size={12} color={accentColor} strokeWidth={2.5} />
+          )}
 
-        <MarqueeLabel text={displayLabel} color={accentColor} />
-      </View>
+          <MarqueeLabel text={displayLabel} color={accentColor} />
+        </View>
 
-      <View style={styles.progressTrack}>
-        <Animated.View
-          style={[
-            styles.progressBar,
-            progressBarStyle,
-            { backgroundColor: accentColor },
-          ]}
-        />
-      </View>
-    </Animated.View>
+        <View style={styles.progressTrack}>
+          <Animated.View
+            style={[
+              styles.progressBar,
+              progressBarStyle,
+              { backgroundColor: accentColor },
+            ]}
+          />
+        </View>
+      </Animated.View>
+    </Pressable>
   );
 };
 

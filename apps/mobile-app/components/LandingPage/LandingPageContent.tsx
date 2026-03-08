@@ -1,11 +1,25 @@
-import { duration } from "@/theme";
+import { duration, spacing, useColors } from "@/theme";
 import {
   DiscoveredEventType,
   EventType,
   TrendingEventType,
 } from "@/types/types";
 import React from "react";
-import { RefreshControl, ScrollView, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+
+const SectionDivider: React.FC = () => {
+  const colors = useColors();
+  return (
+    <View
+      style={{
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: colors.border.default,
+        marginHorizontal: spacing.lg,
+        marginBottom: spacing.lg,
+      }}
+    />
+  );
+};
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import FeaturedEventsCarousel from "./FeaturedEventsCarousel";
 import ContributorsSection from "./LeaderboardSection";
@@ -110,6 +124,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
                   currentUserId={currentUserId}
                   city={thirdSpaceScore.current.city}
                 />
+                <SectionDivider />
               </Animated.View>
             )}
 
@@ -119,6 +134,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
                 entering={FadeIn.duration(duration.normal).delay(160)}
               >
                 <HappeningTodaySection events={data.happeningTodayEvents} />
+                <SectionDivider />
               </Animated.View>
             )}
 
@@ -127,6 +143,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
               entering={FadeIn.duration(duration.normal).delay(240)}
             >
               <PopularCategoriesSection categories={data.popularCategories} />
+              <SectionDivider />
             </Animated.View>
           )}
 
@@ -135,6 +152,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
               entering={FadeIn.duration(duration.normal).delay(320)}
             >
               <TopEventsSection events={topEvents} />
+              <SectionDivider />
             </Animated.View>
           )}
 
@@ -143,6 +161,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
               entering={FadeIn.duration(duration.normal).delay(400)}
             >
               <FreeThisWeekSection events={data.freeThisWeekEvents} />
+              <SectionDivider />
             </Animated.View>
           )}
 
@@ -151,6 +170,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
               trendingEvents={data?.trendingEvents || []}
               justDiscoveredEvents={data?.justDiscoveredEvents || []}
             />
+            <SectionDivider />
           </Animated.View>
 
           {data?.weeklyRegularEvents && data.weeklyRegularEvents.length > 0 && (
@@ -158,6 +178,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
               entering={FadeIn.duration(duration.normal).delay(560)}
             >
               <WeeklyRegularsSection events={data.weeklyRegularEvents} />
+              <SectionDivider />
             </Animated.View>
           )}
 
@@ -166,6 +187,7 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
               entering={FadeIn.duration(duration.normal).delay(640)}
             >
               <CommunityEventsSection events={data.communityEvents} />
+              <SectionDivider />
             </Animated.View>
           )}
 

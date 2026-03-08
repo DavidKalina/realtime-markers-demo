@@ -23,7 +23,7 @@ function formatEventDate(raw: string): string {
   }
 }
 
-export function useScanInsight(onDismissExternal?: () => void, active: boolean = true) {
+export function useScanInsight(onDismissExternal?: () => void) {
   const { activeJobs, dismissJob } = useJobProgressContext();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export function useScanInsight(onDismissExternal?: () => void, active: boolean =
     }
   }, [dismissJob]);
 
-  const dialog = useDialogStreamer(handleDismiss, active);
+  const dialog = useDialogStreamer(handleDismiss);
 
   const feedPending = useCallback(() => {
     if (pendingPagesRef.current) {

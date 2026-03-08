@@ -1,5 +1,4 @@
 /* eslint-disable prefer-const */
-import { DialogBox } from "@/components/AreaScan/AreaScanComponents";
 import { createStyles as createHomeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import MapFilterSheet from "@/components/MapFilterSheet";
@@ -7,7 +6,6 @@ import MapLegend from "@/components/MapLegend/MapLegend";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
 import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import { MarkerInfoHUD } from "@/components/Markers/MarkerInfoHUD";
-import { useScanInsight } from "@/components/ScanProgress/useScanInsight";
 import StatusBar from "@/components/StatusBar/StatusBar";
 import { createCameraSettings } from "@/config/cameraConfig";
 import { useUserLocation } from "@/contexts/LocationContext";
@@ -29,13 +27,15 @@ import {
   EventTypes,
   MapItemEvent,
 } from "@/services/EventBroker";
+import { useJobProgressContext } from "@/contexts/JobProgressContext";
+import { useJobSheetStore } from "@/stores/useJobSheetStore";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useColors, type Colors } from "@/theme";
 import MapboxGL from "@rnmapbox/maps";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
-import { usePathname, useRouter } from "expo-router";
-import { Locate, Navigation } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { ClipboardList, Locate, Navigation } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -51,10 +51,14 @@ import {
   View,
 } from "react-native";
 import RAnimated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withRepeat,
+  withSequence,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 
@@ -84,14 +88,6 @@ const resumeStyles = StyleSheet.create({
   },
 });
 
-const scanDialogStyles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-});
 
 function HomeScreenContent() {
   const colors = useColors();
@@ -99,10 +95,12 @@ function HomeScreenContent() {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const router = useRouter();
-  const pathname = usePathname();
-  const isFocused = pathname === "/" || pathname === "/index";
   const { publish } = useEventBroker();
   const { mapStyle, isPitched } = useMapStyle();
+  const { activeJobs, activeCount } = useJobProgressContext();
+  const openJobSheet = useJobSheetStore((s) => s.open);
+  const hasJobs = activeJobs.length > 0;
+  const hasInFlight = activeCount > 0;
   const isAppActive = useAppActive();
 
   // Global mount gate — waits for the container's onLayout + a few RAF frames
@@ -277,23 +275,6 @@ function HomeScreenContent() {
     );
   }, [locationPermissionGranted]);
 
-  const scanFlyToRef = useRef<[number, number] | undefined>(undefined);
-  const handleScanDismiss = useCallback(() => {
-    if (scanFlyToRef.current) {
-      publish<CameraAnimateToLocationEvent>(
-        EventTypes.CAMERA_ANIMATE_TO_LOCATION,
-        {
-          coordinates: scanFlyToRef.current,
-          timestamp: Date.now(),
-          source: "scan_dialog_box",
-          zoomLevel: 16,
-          allowZoomChange: true,
-        },
-      );
-    }
-  }, [publish]);
-  const scanInsight = useScanInsight(handleScanDismiss, isFocused);
-  scanFlyToRef.current = scanInsight.flyToCoordinates;
 
   const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
   const [showRipple, setShowRipple] = useState(false);
@@ -437,6 +418,8 @@ function HomeScreenContent() {
   const fabOpacity1 = useSharedValue(0);
   const fabSlide2 = useSharedValue(20);
   const fabOpacity2 = useSharedValue(0);
+  const fabSlide3 = useSharedValue(20);
+  const fabOpacity3 = useSharedValue(0);
   useEffect(() => {
     const springCfg = { damping: 14, stiffness: 160 };
     fabSlide0.value = withSpring(0, springCfg);
@@ -445,6 +428,8 @@ function HomeScreenContent() {
     fabOpacity1.value = withDelay(50, withSpring(1, springCfg));
     fabSlide2.value = withDelay(100, withSpring(0, springCfg));
     fabOpacity2.value = withDelay(100, withSpring(1, springCfg));
+    fabSlide3.value = withDelay(150, withSpring(0, springCfg));
+    fabOpacity3.value = withDelay(150, withSpring(1, springCfg));
   }, []);
   const fabStyle0 = useAnimatedStyle(() => ({
     opacity: fabOpacity0.value,
@@ -457,6 +442,29 @@ function HomeScreenContent() {
   const fabStyle2 = useAnimatedStyle(() => ({
     opacity: fabOpacity2.value,
     transform: [{ translateY: fabSlide2.value }],
+  }));
+  const fabStyle3 = useAnimatedStyle(() => ({
+    opacity: fabOpacity3.value,
+    transform: [{ translateY: fabSlide3.value }],
+  }));
+
+  // Subtle pulse on jobs FAB when work is in-flight
+  const jobPulse = useSharedValue(1);
+  useEffect(() => {
+    if (hasInFlight) {
+      jobPulse.value = withRepeat(
+        withSequence(
+          withTiming(1.15, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+      );
+    } else {
+      jobPulse.value = withTiming(1, { duration: 300 });
+    }
+  }, [hasInFlight, jobPulse]);
+  const jobPulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: jobPulse.value }],
   }));
 
   // Memoize floating buttons section
@@ -494,6 +502,17 @@ function HomeScreenContent() {
             <Locate size={22} color={colors.action.map} />
           </TouchableOpacity>
         </RAnimated.View>
+        {hasJobs && (
+          <RAnimated.View style={[fabStyle3, jobPulseStyle]}>
+            <TouchableOpacity
+              style={styles.recenterButton}
+              onPress={openJobSheet}
+              activeOpacity={0.7}
+            >
+              <ClipboardList size={22} color={colors.accent.primary} />
+            </TouchableOpacity>
+          </RAnimated.View>
+        )}
       </View>
     ),
     [
@@ -507,9 +526,13 @@ function HomeScreenContent() {
       hasActiveFilters,
       handleCategoryFilterChange,
       clearAllFilters,
+      hasJobs,
+      openJobSheet,
       fabStyle0,
       fabStyle1,
       fabStyle2,
+      fabStyle3,
+      jobPulseStyle,
     ],
   );
 
@@ -589,24 +612,6 @@ function HomeScreenContent() {
 
         {floatingButtonsSection}
 
-        {scanInsight.visible && (
-          <View style={scanDialogStyles.container}>
-            <DialogBox
-              key={scanInsight.jobKey}
-              isLoading={scanInsight.isLoading}
-              error={scanInsight.error}
-              displayText={scanInsight.dialog.displayText}
-              showContinue={scanInsight.dialog.showContinue}
-              showDone={false}
-              blinkAnim={scanInsight.dialog.blinkAnim}
-              onTap={scanInsight.dialog.handleTap}
-              onRestart={scanInsight.dialog.restart}
-              onExpandComplete={scanInsight.feedPending}
-              loadingText={scanInsight.loadingText}
-              style={{ height: 100, marginBottom: 0 }}
-            />
-          </View>
-        )}
       </View>
     </>
   );

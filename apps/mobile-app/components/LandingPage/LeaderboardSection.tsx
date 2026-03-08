@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet, Image } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import {
   useColors,
   type Colors,
@@ -79,17 +79,6 @@ const ContributorsSection: React.FC<ContributorsSectionProps> = ({
                 #{entry.rank}
               </Text>
 
-              {entry.avatarUrl ? (
-                <Image
-                  source={{ uri: entry.avatarUrl }}
-                  style={styles.avatar}
-                />
-              ) : (
-                <View style={styles.avatarFallback}>
-                  <Text style={styles.avatarEmoji}>{tierEmoji}</Text>
-                </View>
-              )}
-
               <View style={styles.info}>
                 <Text
                   style={[styles.name, isCurrentUser && styles.nameHighlight]}
@@ -99,7 +88,7 @@ const ContributorsSection: React.FC<ContributorsSectionProps> = ({
                   {isCurrentUser ? " (you)" : ""}
                 </Text>
                 <Text style={styles.meta} numberOfLines={1}>
-                  {[entry.currentTier, entry.label]
+                  {[`${tierEmoji} ${entry.currentTier}`, entry.label]
                     .filter(Boolean)
                     .join(" \u00B7 ")}
                 </Text>
@@ -116,7 +105,7 @@ const ContributorsSection: React.FC<ContributorsSectionProps> = ({
 
 const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
-    marginBottom: spacing["2xl"],
+    marginBottom: spacing["3xl"],
   },
   title: {
     fontSize: 12,
@@ -157,22 +146,6 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.bold,
     color: colors.text.secondary,
-  },
-  avatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-  },
-  avatarFallback: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.bg.elevated,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarEmoji: {
-    fontSize: 12,
   },
   info: {
     flex: 1,

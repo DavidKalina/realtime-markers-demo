@@ -2,6 +2,7 @@ import React, { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useRouter } from "expo-router";
+import { ChevronRight } from "lucide-react-native";
 import {
   useColors,
   type Colors,
@@ -48,7 +49,7 @@ const HappeningTodaySection: React.FC<HappeningTodaySectionProps> = ({
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Happening Today</Text>
-      {activeEvents.map((event) => {
+      {activeEvents.map((event, index) => {
         const badge = getTimeBadge(event.eventDate, event.endDate);
         const firstCat = event.categories?.[0];
         const categoryName = firstCat
@@ -56,16 +57,19 @@ const HappeningTodaySection: React.FC<HappeningTodaySectionProps> = ({
             ? firstCat
             : firstCat.name
           : null;
+        const isLast = index === activeEvents.length - 1;
 
         return (
           <Pressable
             key={event.id}
             style={({ pressed }) => [
               styles.item,
+              isLast && styles.itemLast,
               pressed && styles.itemPressed,
             ]}
             onPress={() => handlePress(event.id)}
           >
+            <Text style={styles.emoji}>{event.emoji || "📌"}</Text>
             <View style={styles.eventInfo}>
               <Text style={styles.eventName} numberOfLines={1}>
                 {event.title}
@@ -74,6 +78,7 @@ const HappeningTodaySection: React.FC<HappeningTodaySectionProps> = ({
                 {[badge.text, categoryName].filter(Boolean).join(" · ")}
               </Text>
             </View>
+            <ChevronRight size={16} color={colors.text.secondary} />
           </Pressable>
         );
       })}
@@ -84,7 +89,7 @@ const HappeningTodaySection: React.FC<HappeningTodaySectionProps> = ({
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
     container: {
-      marginBottom: spacing["2xl"],
+      marginBottom: spacing["3xl"],
       paddingHorizontal: spacing.lg,
     },
     sectionTitle: {
@@ -97,14 +102,26 @@ const createStyles = (colors: Colors) =>
       textTransform: "uppercase",
     },
     item: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
       paddingVertical: spacing.sm + 2,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border.default,
     },
+    itemLast: {
+      borderBottomWidth: 0,
+    },
     itemPressed: {
       opacity: 0.6,
     },
+    emoji: {
+      fontSize: 18,
+      width: 28,
+      textAlign: "center" as const,
+    },
     eventInfo: {
+      flex: 1,
       gap: 2,
     },
     eventName: {

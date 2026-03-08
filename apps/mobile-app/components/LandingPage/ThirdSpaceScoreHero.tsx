@@ -313,7 +313,7 @@ function buildSparkline(
 
 const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
-    marginBottom: spacing["2xl"],
+    marginBottom: spacing["3xl"],
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
   },

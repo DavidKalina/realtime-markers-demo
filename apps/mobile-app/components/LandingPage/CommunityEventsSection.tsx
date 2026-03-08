@@ -53,26 +53,28 @@ const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Community Events</Text>
-      {activeEvents.map((event) => {
+      {activeEvents.map((event, index) => {
         const badge = getTimeBadge(event.eventDate, event.endDate);
         const scanLabel =
           event.scanCount && event.scanCount > 0
             ? `Scanned ${event.scanCount}x`
             : null;
         const categoryName = event.categories?.[0]?.name;
+        const isLast = index === activeEvents.length - 1;
 
         return (
           <Pressable
             key={event.id}
             style={({ pressed }) => [
               styles.item,
+              isLast && styles.itemLast,
               pressed && styles.itemPressed,
             ]}
             onPress={() => handlePress(event.id)}
           >
+            <Text style={styles.emoji}>{event.emoji || "🌱"}</Text>
             <View style={styles.eventInfo}>
               <Text style={styles.eventName} numberOfLines={1}>
-                {event.emoji ? `${event.emoji} ` : ""}
                 {event.title}
               </Text>
               <Text style={styles.eventMeta} numberOfLines={1}>
@@ -91,7 +93,7 @@ const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
 
 const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
-    marginBottom: spacing["2xl"],
+    marginBottom: spacing["3xl"],
     paddingHorizontal: spacing.lg,
   },
   title: {
@@ -111,8 +113,16 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border.default,
   },
+  itemLast: {
+    borderBottomWidth: 0,
+  },
   itemPressed: {
     opacity: 0.6,
+  },
+  emoji: {
+    fontSize: 18,
+    width: 28,
+    textAlign: "center" as const,
   },
   eventInfo: {
     flex: 1,

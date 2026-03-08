@@ -291,7 +291,7 @@ const WhatsHappeningSection: React.FC<WhatsHappeningSectionProps> = ({
 
 const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
-    marginBottom: spacing["2xl"],
+    marginBottom: spacing["3xl"],
   },
   title: {
     fontSize: 12,
@@ -322,11 +322,15 @@ const createStyles = (colors: Colors) => StyleSheet.create({
   },
   cardContainer: {
     overflow: "hidden",
+    backgroundColor: colors.bg.card,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    height: 120,
   },
   cardBody: {
     flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xs,
+    padding: spacing.md,
     gap: spacing.xs,
   },
   cardHeader: {

@@ -1,6 +1,6 @@
 import "@/tasks/backgroundLocationTask";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   DarkTheme,
   DefaultTheme,
@@ -51,12 +51,16 @@ import { MapStyleProvider } from "@/contexts/MapStyleContext";
 import { JobProgressProvider } from "@/contexts/JobProgressContext";
 import { WebSocketProvider } from "@/contexts/WebSocketContext";
 import { ThemeProvider, useTheme } from "@/theme";
+import { usePathname } from "expo-router";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useBootRedirect } from "@/hooks/useBootRedirect";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import XPNotificationOverlay from "@/components/Gamification/XPNotificationOverlay";
+import { JobTrackerBottomSheet } from "@/components/AreaScan/AreaScanBottomSheet";
+import { useJobSheetStore } from "@/stores/useJobSheetStore";
+import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { SENTRY_CONFIG, STACK_SCREEN_OPTIONS, SCREEN_CONFIGS } from "@/config";
 
 // Initialize Sentry — guarded so a native SDK failure doesn't crash the app
@@ -121,21 +125,41 @@ function AppProviders({ children }: AppProvidersProps) {
 }
 
 // App content component
+function JobSheetAutoOpen() {
+  const { activeJobs } = useJobProgressContext();
+  const { isOpen, open } = useJobSheetStore();
+  const prevCount = useRef(0);
+
+  useEffect(() => {
+    if (activeJobs.length > prevCount.current && !isOpen) {
+      open();
+    }
+    prevCount.current = activeJobs.length;
+  }, [activeJobs.length, isOpen, open]);
+
+  return null;
+}
+
 function AppContent({ children }: AppContentProps) {
   useAuthGuard();
   const { isBoot } = useBootRedirect();
   usePushNotifications();
+  const pathname = usePathname();
+  const isMapScreen = pathname === "/" || pathname === "/index";
+  const jobSheetOpen = useJobSheetStore((s) => s.isOpen);
+  const { activeJobs } = useJobProgressContext();
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       {children}
       {!isBoot && <ActionBar />}
       {!isBoot && <XPNotificationOverlay />}
+      {!isBoot && <JobSheetAutoOpen />}
+      {!isBoot && isMapScreen && jobSheetOpen && activeJobs.length > 0 && (
+        <JobTrackerBottomSheet />
+      )}
       {isBoot && (
-        <LoadingOverlay
-          message="Loading..."
-          subMessage="Setting things up"
-        />
+        <LoadingOverlay message="Loading..." subMessage="Setting things up" />
       )}
       <StatusBar style="auto" />
     </GestureHandlerRootView>

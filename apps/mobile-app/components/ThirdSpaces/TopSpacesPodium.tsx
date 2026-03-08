@@ -70,9 +70,16 @@ const PodiumItem: React.FC<PodiumItemProps> = ({ city, rank, onPress }) => {
       ]}
       onPress={() => onPress(city)}
     >
-      {/* Rank badge */}
-      <View style={[styles.rankBadge, { borderColor: rankColor }]}>
-        <Text style={[styles.rankText, { color: rankColor }]}>{rank}</Text>
+      {/* Medal badge */}
+      <View
+        style={[
+          styles.rankBadge,
+          { borderColor: rankColor, backgroundColor: rankColor + "18" },
+        ]}
+      >
+        <Text style={[styles.rankText, { color: rankColor }]}>
+          {rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉"}
+        </Text>
       </View>
 
       {/* Score circle */}
@@ -202,17 +209,15 @@ const createStyles = (colors: Colors) =>
       backgroundColor: colors.bg.cardAlt,
     },
     rankBadge: {
-      width: 22,
-      height: 22,
-      borderRadius: 11,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
       borderWidth: 1.5,
       justifyContent: "center",
       alignItems: "center",
     },
     rankText: {
-      fontSize: 11,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
+      fontSize: 12,
     },
     circleLabelWrap: {
       flex: 1,

@@ -74,22 +74,24 @@ const WeeklyRegularsSection: React.FC<WeeklyRegularsSectionProps> = ({
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Weekly Regulars</Text>
-      {events.map((event) => {
+      {events.map((event, index) => {
         const recurrence = getRecurrenceLabel(event);
         const categoryName = event.categories?.[0]?.name;
+        const isLast = index === events.length - 1;
 
         return (
           <Pressable
             key={event.id}
             style={({ pressed }) => [
               styles.item,
+              isLast && styles.itemLast,
               pressed && styles.itemPressed,
             ]}
             onPress={() => handlePress(event.id)}
           >
+            <Text style={styles.emoji}>{event.emoji || "🔁"}</Text>
             <View style={styles.eventInfo}>
               <Text style={styles.eventName} numberOfLines={1}>
-                {event.emoji ? `${event.emoji} ` : ""}
                 {event.title}
               </Text>
               <Text style={styles.eventMeta} numberOfLines={1}>
@@ -106,7 +108,7 @@ const WeeklyRegularsSection: React.FC<WeeklyRegularsSectionProps> = ({
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
     container: {
-      marginBottom: spacing["2xl"],
+      marginBottom: spacing["3xl"],
       paddingHorizontal: spacing.lg,
     },
     title: {
@@ -119,12 +121,23 @@ const createStyles = (colors: Colors) =>
       marginBottom: spacing.md,
     },
     item: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
       paddingVertical: spacing.sm + 2,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border.default,
     },
+    itemLast: {
+      borderBottomWidth: 0,
+    },
     itemPressed: {
       opacity: 0.6,
+    },
+    emoji: {
+      fontSize: 18,
+      width: 28,
+      textAlign: "center" as const,
     },
     eventInfo: {
       flex: 1,

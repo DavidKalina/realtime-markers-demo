@@ -7,7 +7,7 @@ import {
   StyleSheet,
 } from "react-native";
 import Animated, { FadeInRight } from "react-native-reanimated";
-import { useColors, fontSize, fontWeight, fontFamily, spacing, type Colors } from "@/theme";
+import { useColors, fontSize, fontWeight, fontFamily, spacing, radius, type Colors } from "@/theme";
 import { getCategoryColor } from "@/utils/categoryColors";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -61,7 +61,13 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
               entering={FadeInRight.duration(200).delay(index * 50)}
             >
               <TouchableOpacity
-                style={styles.pill}
+                style={[
+                  styles.pill,
+                  {
+                    backgroundColor: color + "12",
+                    borderColor: color + "30",
+                  },
+                ]}
                 onPress={() => handleCategoryPress(item)}
                 activeOpacity={0.7}
               >
@@ -103,9 +109,10 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing._6,
-    paddingHorizontal: spacing._10,
-    paddingVertical: spacing._6,
-    borderRadius: 999,
+    paddingHorizontal: spacing._10 + 2,
+    paddingVertical: spacing._6 + 2,
+    borderRadius: radius.lg,
+    borderWidth: 1,
   },
   dot: {
     width: 6,

@@ -36,7 +36,7 @@ import Svg, {
   Stop,
   Rect,
 } from "react-native-svg";
-import * as Haptics from "expo-haptics";
+import { useDialogStreamStore } from "@/stores/useDialogStreamStore";
 import { useColors, spacing, fontFamily, type Colors } from "@/theme";
 import { CATEGORY_PALETTE } from "@/utils/categoryColors";
 import type { AreaScanMetadata } from "@/services/api/modules/areaScan";
@@ -436,116 +436,28 @@ export interface DialogStreamerState {
 
 export function useDialogStreamer(
   onDismiss: () => void,
-  /** When false, streaming and haptics are paused. Defaults to true. */
-  active: boolean = true,
 ): DialogStreamerState & {
   feedPages: (newPages: string[]) => void;
   restart: () => void;
 } {
-
-  const [pages, setPages] = useState<string[]>([]);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [displayText, setDisplayText] = useState("");
-  const [pageComplete, setPageComplete] = useState(false);
-
-  const streamTimerRef = useRef<number>(null);
-  const autoAdvanceRef = useRef<number>(null);
-  const charIndexRef = useRef(0);
-  const currentPageTextRef = useRef("");
-  const mountedRef = useRef(true);
-  const activeRef = useRef(true);
-  const tickFnRef = useRef<(() => void) | null>(null);
-
+  const store = useDialogStreamStore();
   const blinkAnim = useRef(new Animated.Value(1)).current;
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
 
-  const streamPage = useCallback((text: string) => {
-    if (!mountedRef.current || !activeRef.current) return;
-    if (streamTimerRef.current) clearTimeout(streamTimerRef.current);
-    if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
-
-    setDisplayText("");
-    setPageComplete(false);
-    charIndexRef.current = 0;
-    currentPageTextRef.current = text;
-
-    const tick = () => {
-      if (!mountedRef.current || !activeRef.current) return;
-      const pageText = currentPageTextRef.current;
-      const i = charIndexRef.current;
-      if (i < pageText.length) {
-        setDisplayText(pageText.slice(0, i + 1));
-        charIndexRef.current = i + 1;
-        if (i % 4 === 0) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
-            () => {},
-          );
-        }
-        streamTimerRef.current = setTimeout(tick, CHAR_DELAY_MS);
-      } else {
-        setPageComplete(true);
-        streamTimerRef.current = null;
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-      }
+  // Cancel streaming on unmount
+  useEffect(() => {
+    return () => {
+      store.cancel();
     };
-
-    tickFnRef.current = tick;
-    streamTimerRef.current = setTimeout(tick, 60);
   }, []);
 
-  const feedPages = useCallback(
-    (newPages: string[]) => {
-      if (!mountedRef.current || !activeRef.current) return;
-      setPages(newPages);
-      if (newPages.length > 0) {
-        setPageIndex(0);
-        streamPage(newPages[0]);
-      }
-    },
-    [streamPage],
-  );
+  // Blinking ▼ indicator
+  const { pageComplete, pageIndex, pages } = store;
+  const isLastPage = pageIndex >= pages.length - 1;
 
-  // Pause when inactive, resume when active
   useEffect(() => {
-    const wasActive = activeRef.current;
-    activeRef.current = active;
-
-    if (!active) {
-      if (streamTimerRef.current) {
-        clearTimeout(streamTimerRef.current);
-        streamTimerRef.current = null;
-      }
-      if (autoAdvanceRef.current) {
-        clearTimeout(autoAdvanceRef.current);
-        autoAdvanceRef.current = null;
-      }
-    } else if (!wasActive) {
-      // Re-activated — resume streaming if it was interrupted mid-page
-      const text = currentPageTextRef.current;
-      const idx = charIndexRef.current;
-      if (tickFnRef.current && text && idx > 0 && idx < text.length) {
-        streamTimerRef.current = setTimeout(tickFnRef.current, CHAR_DELAY_MS);
-      }
-    }
-  }, [active]);
-
-  // Auto-advance
-  useEffect(() => {
-    if (!active) return;
-    if (pageComplete && pageIndex < pages.length - 1) {
-      autoAdvanceRef.current = setTimeout(() => {
-        const next = pageIndex + 1;
-        setPageIndex(next);
-        streamPage(pages[next]);
-      }, AUTO_ADVANCE_MS);
-      return () => {
-        if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
-      };
-    }
-  }, [active, pageComplete, pageIndex, pages, streamPage]);
-
-  // Blinking ▼
-  useEffect(() => {
-    if (pageComplete && pageIndex < pages.length - 1) {
+    if (pageComplete && !isLastPage) {
       const anim = Animated.loop(
         Animated.sequence([
           Animated.timing(blinkAnim, {
@@ -566,67 +478,28 @@ export function useDialogStreamer(
     blinkAnim.setValue(1);
   }, [pageComplete, pageIndex, pages.length, blinkAnim]);
 
-  // Cleanup timers on unmount
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-      if (streamTimerRef.current) clearTimeout(streamTimerRef.current);
-      if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
-    };
-  }, []);
+  const feedPages = useCallback(
+    (newPages: string[]) => {
+      store.feedPages(newPages, onDismissRef.current);
+    },
+    [store.feedPages],
+  );
 
-  const handleTap = useCallback(() => {
-    if (autoAdvanceRef.current) {
-      clearTimeout(autoAdvanceRef.current);
-      autoAdvanceRef.current = null;
-    }
-
-    if (streamTimerRef.current) {
-      clearTimeout(streamTimerRef.current);
-      streamTimerRef.current = null;
-      setDisplayText(currentPageTextRef.current);
-      setPageComplete(true);
-      charIndexRef.current = currentPageTextRef.current.length;
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-      return;
-    }
-
-    if (pageComplete && pageIndex < pages.length - 1) {
-      const next = pageIndex + 1;
-      setPageIndex(next);
-      streamPage(pages[next]);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      return;
-    }
-
-    if (pageComplete && pageIndex >= pages.length - 1 && pages.length > 0) {
-      onDismiss();
-    }
-  }, [pageComplete, pageIndex, pages, streamPage, onDismiss]);
-
-  const restart = useCallback(() => {
-    if (pages.length > 0) {
-      setPageIndex(0);
-      streamPage(pages[0]);
-    }
-  }, [pages, streamPage]);
-
-  const isLastPage = pageIndex >= pages.length - 1;
   const showContinue = pageComplete && !isLastPage;
   const showDone = pageComplete && isLastPage && pages.length > 0;
 
   return {
     pages,
     pageIndex,
-    displayText,
+    displayText: store.displayText,
     pageComplete,
     isLastPage,
     showContinue,
     showDone,
     blinkAnim,
-    handleTap,
+    handleTap: store.handleTap,
     feedPages,
-    restart,
+    restart: store.restart,
   };
 }
 

@@ -13,18 +13,13 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import Screen from "@/components/Layout/Screen";
 import Input from "@/components/Input/Input";
-import { TopSpacesPodium, SpaceCityCard } from "@/components/ThirdSpaces";
+import { SpaceCityCard } from "@/components/ThirdSpaces";
 import ThirdSpaceScoreHero from "@/components/LandingPage/ThirdSpaceScoreHero";
-import ContributorsSection from "@/components/LandingPage/LeaderboardSection";
-import {
-  ScoreHeroSkeleton,
-  ContributorsSkeleton,
-} from "@/components/LandingPage/Skeletons";
+import { ScoreHeroSkeleton } from "@/components/LandingPage/Skeletons";
 import useThirdSpaces from "@/hooks/useThirdSpaces";
 import useThirdSpaceScore from "@/hooks/useThirdSpaceScore";
 import useLandingPageData from "@/hooks/useLandingPageData";
 import { useUserLocation } from "@/contexts/LocationContext";
-import { apiClient } from "@/services/ApiClient";
 import {
   useColors,
   duration,
@@ -69,8 +64,6 @@ const SpacesBrowseScreen = () => {
 
   const { score: myScore, isLoading: isScoreLoading, refetch: refetchScore } =
     useThirdSpaceScore(resolvedCity);
-  const currentUser = apiClient.getCurrentUser();
-
   const handleCityPress = useCallback(
     (city: ThirdSpaceSummary) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -117,9 +110,7 @@ const SpacesBrowseScreen = () => {
     return topCities;
   }, [sortMode, topCities, closestCities]);
 
-  // Cities to show in the list (skip top 3 if showing "top" sort)
-  const listStartIndex = sortMode === "top" ? 3 : 0;
-  const displayList = listCities.slice(listStartIndex);
+  const displayList = listCities;
 
   const hasLocation = !!userLocation;
 
@@ -155,7 +146,6 @@ const SpacesBrowseScreen = () => {
         {!myScore && (isLandingLoading || isScoreLoading) && (
           <Animated.View exiting={FadeOut.duration(duration.fast)}>
             <ScoreHeroSkeleton />
-            <ContributorsSkeleton />
           </Animated.View>
         )}
 
@@ -167,33 +157,19 @@ const SpacesBrowseScreen = () => {
           </Animated.View>
         )}
 
-        {myScore?.contributors && myScore.contributors.length > 0 && (
-          <Animated.View
-            entering={FadeIn.duration(duration.normal).delay(80)}
-          >
-            <ContributorsSection
-              contributors={myScore.contributors}
-              currentUserId={currentUser?.id}
-              city={myScore.current.city}
-            />
-          </Animated.View>
-        )}
-
         {resolvedCity && (
-          <Pressable style={styles.viewCityLink} onPress={handleMyCityPress}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.viewCityLink,
+              pressed && styles.viewCityLinkPressed,
+            ]}
+            onPress={handleMyCityPress}
+          >
             <Text style={styles.viewCityText}>
               View full {resolvedCity.split(",")[0].trim()} page
             </Text>
             <ChevronRight size={14} color={colors.accent.primary} />
           </Pressable>
-        )}
-
-        {/* Top 3 podium */}
-        {!isLoading && topCities.length >= 3 && (
-          <TopSpacesPodium
-            cities={topCities.slice(0, 3)}
-            onCityPress={handleCityPress}
-          />
         )}
 
         {/* Sort toggle */}
@@ -239,9 +215,7 @@ const SpacesBrowseScreen = () => {
           <SpaceCityCard
             key={city.city}
             city={city}
-            rank={
-              sortMode === "top" ? listStartIndex + index + 1 : index + 1
-            }
+            rank={index + 1}
             onPress={handleCityPress}
           />
         ))}
@@ -268,12 +242,17 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     justifyContent: "center",
     gap: spacing.xs,
     paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
     marginBottom: spacing["2xl"],
+  },
+  viewCityLinkPressed: {
+    opacity: 0.6,
   },
   viewCityText: {
     fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
     fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
+    letterSpacing: 0.5,
     color: colors.accent.primary,
   },
   toggleRow: {

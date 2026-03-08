@@ -119,94 +119,95 @@ const AreaPulseSection: React.FC<AreaPulseSectionProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    marginBottom: spacing.xl,
-  },
-  title: {
-    fontSize: 12,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 1.5,
-    textTransform: "uppercase" as const,
-  },
-  subtitle: {
-    fontSize: fontSize.xs,
-    color: colors.text.secondary,
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.mono,
-  },
-  card: {
-    marginHorizontal: spacing.lg,
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    overflow: "hidden",
-    padding: spacing.xl,
-    gap: spacing.xl,
-  },
-  statRow: {
-    flexDirection: "row",
-    gap: spacing._10,
-  },
-  statCard: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: spacing.lg,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    backgroundColor: colors.bg.cardAlt,
-    gap: 2,
-  },
-  statValue: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
-    fontFamily: fontFamily.mono,
-  },
-  statLabel: {
-    fontSize: 10,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 0.8,
-    textTransform: "uppercase" as const,
-    marginTop: 2,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border.default,
-  },
-  chartSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xl,
-  },
-  legendWrap: {
-    flex: 1,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: 11,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      marginBottom: spacing.xl,
+    },
+    title: {
+      fontSize: 12,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      marginBottom: spacing.xs,
+      paddingHorizontal: spacing.lg,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1.5,
+      textTransform: "uppercase" as const,
+    },
+    subtitle: {
+      fontSize: fontSize.xs,
+      color: colors.text.secondary,
+      marginBottom: spacing.md,
+      paddingHorizontal: spacing.lg,
+      fontFamily: fontFamily.mono,
+    },
+    card: {
+      marginHorizontal: spacing.lg,
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      overflow: "hidden",
+      padding: spacing.xl,
+      gap: spacing.xl,
+    },
+    statRow: {
+      flexDirection: "row",
+      gap: spacing._10,
+    },
+    statCard: {
+      flex: 1,
+      alignItems: "center",
+      paddingVertical: spacing.lg,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      backgroundColor: colors.bg.cardAlt,
+      gap: 2,
+    },
+    statValue: {
+      fontSize: fontSize.xl,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+    },
+    statLabel: {
+      fontSize: 10,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 0.8,
+      textTransform: "uppercase" as const,
+      marginTop: 2,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.border.default,
+    },
+    chartSection: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.xl,
+    },
+    legendWrap: {
+      flex: 1,
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 12,
+    },
+    legendItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    legendDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    legendText: {
+      fontSize: 11,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+    },
+  });
 
 export default AreaPulseSection;

@@ -18,6 +18,12 @@ interface SpaceCityCardProps {
   onPress: (city: ThirdSpaceSummary) => void;
 }
 
+const MEDAL_COLORS: Record<number, string> = {
+  1: "#fbbf24", // gold
+  2: "#a3a3a3", // silver
+  3: "#cd7f32", // bronze
+};
+
 const MOMENTUM_ARROWS: Record<string, { arrow: string; color: string }> = {
   rising: { arrow: "\u2191", color: "#4ade80" },
   steady: { arrow: "\u2192", color: "#a3a3a3" },
@@ -56,7 +62,20 @@ const SpaceCityCard: React.FC<SpaceCityCardProps> = ({
       style={({ pressed }) => [styles.container, pressed && styles.pressed]}
       onPress={() => onPress(city)}
     >
-      <Text style={styles.rank}>#{rank}</Text>
+      <Text
+        style={[
+          styles.rank,
+          MEDAL_COLORS[rank] && { color: MEDAL_COLORS[rank] },
+        ]}
+      >
+        {rank <= 3
+          ? rank === 1
+            ? "🥇"
+            : rank === 2
+              ? "🥈"
+              : "🥉"
+          : `#${rank}`}
+      </Text>
 
       <View style={styles.scoreCircle}>
         <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>

@@ -55,12 +55,14 @@ const TopEventsSection: React.FC<TopEventsSectionProps> = ({ events }) => {
               day: "numeric",
             })
           : null;
+        const isLast = index === events.length - 1;
 
         return (
           <Pressable
             key={event.id}
             style={({ pressed }) => [
               styles.item,
+              isLast && styles.itemLast,
               pressed && styles.itemPressed,
             ]}
             onPress={() => handlePress(event.id)}
@@ -69,6 +71,9 @@ const TopEventsSection: React.FC<TopEventsSectionProps> = ({ events }) => {
               <Text style={styles.rankText}>{index + 1}</Text>
             </View>
 
+            {event.emoji && (
+              <Text style={styles.emoji}>{event.emoji}</Text>
+            )}
             <View style={styles.eventInfo}>
               <Text style={styles.eventName} numberOfLines={1}>
                 {event.title}
@@ -95,7 +100,7 @@ const TopEventsSection: React.FC<TopEventsSectionProps> = ({ events }) => {
 
 const createStyles = (colors: Colors) => StyleSheet.create({
   container: {
-    marginBottom: spacing["2xl"],
+    marginBottom: spacing["3xl"],
     paddingHorizontal: spacing.lg,
   },
   headerRow: {
@@ -120,6 +125,9 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border.default,
   },
+  itemLast: {
+    borderBottomWidth: 0,
+  },
   itemPressed: {
     backgroundColor: colors.bg.card,
   },
@@ -136,6 +144,9 @@ const createStyles = (colors: Colors) => StyleSheet.create({
     fontWeight: fontWeight.bold,
     fontFamily: fontFamily.mono,
     color: colors.text.primary,
+  },
+  emoji: {
+    fontSize: 18,
   },
   eventInfo: {
     flex: 1,
