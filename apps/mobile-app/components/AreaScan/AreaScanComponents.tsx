@@ -775,8 +775,8 @@ export function DialogBox({
         { duration: 350, easing: Easing.out(Easing.cubic) },
         (fin) => {
           if (!fin) return;
-          contentOpacity.value = withTiming(1, { duration: 200 });
           scheduleOnRN(fireRestart);
+          contentOpacity.value = withDelay(50, withTiming(1, { duration: 200 }));
         },
       );
       return;

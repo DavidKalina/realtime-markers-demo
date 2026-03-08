@@ -21,12 +21,7 @@ import { useMapMountGate } from "@/hooks/useMapMountGate";
 import { useMapViewport } from "@/hooks/useMapViewport";
 import { useMapWebSocket } from "@/hooks/useMapWebSocket";
 import { apiClient } from "@/services/ApiClient";
-import {
-  BaseEvent,
-  CameraAnimateToLocationEvent,
-  EventTypes,
-  MapItemEvent,
-} from "@/services/EventBroker";
+import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { useJobSheetStore } from "@/stores/useJobSheetStore";
 import { useLocationStore } from "@/stores/useLocationStore";
@@ -87,7 +82,6 @@ const resumeStyles = StyleSheet.create({
     alignItems: "center",
   },
 });
-
 
 function HomeScreenContent() {
   const colors = useColors();
@@ -259,10 +253,7 @@ function HomeScreenContent() {
   const markersComponent = useMemo(() => {
     if (!shouldRenderMarkers || !currentViewport) return null;
     return (
-      <ClusteredMapMarkers
-        viewport={currentViewport}
-        currentZoom={zoomLevel}
-      />
+      <ClusteredMapMarkers viewport={currentViewport} currentZoom={zoomLevel} />
     );
   }, [shouldRenderMarkers, currentViewport, zoomLevel]);
 
@@ -273,7 +264,6 @@ function HomeScreenContent() {
       <MapboxGL.LocationPuck puckBearingEnabled={true} puckBearing="heading" />
     );
   }, [locationPermissionGranted]);
-
 
   const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
   const [showRipple, setShowRipple] = useState(false);
@@ -453,7 +443,10 @@ function HomeScreenContent() {
     if (hasInFlight) {
       jobPulse.value = withRepeat(
         withSequence(
-          withTiming(1.15, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1.15, {
+            duration: 800,
+            easing: Easing.inOut(Easing.ease),
+          }),
           withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
         ),
         -1,
@@ -501,7 +494,9 @@ function HomeScreenContent() {
             <Locate size={22} color={colors.action.map} />
           </TouchableOpacity>
         </RAnimated.View>
-        <RAnimated.View style={[fabStyle3, hasInFlight ? jobPulseStyle : undefined]}>
+        <RAnimated.View
+          style={[fabStyle3, hasInFlight ? jobPulseStyle : undefined]}
+        >
           <TouchableOpacity
             style={styles.recenterButton}
             onPress={openJobSheet}
@@ -608,7 +603,6 @@ function HomeScreenContent() {
         <MapLegend />
 
         {floatingButtonsSection}
-
       </View>
     </>
   );
