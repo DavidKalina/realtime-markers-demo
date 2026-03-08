@@ -13,7 +13,7 @@ import { areaScanRouter } from "../routes/areaScan";
 import { publicEventsRouter } from "../routes/publicEvents";
 import { usersRouter } from "../routes/users";
 import { leaderboardRouter } from "../routes/leaderboard";
-import { itineraryRouter } from "../routes/itineraries";
+import { itineraryRouter, publicItineraryRouter } from "../routes/itineraries";
 import type { AppContext } from "../types/context";
 
 /**
@@ -22,6 +22,7 @@ import type { AppContext } from "../types/context";
 export function setupRoutes(app: Hono<AppContext>): void {
   // Public routes (no auth required) — must come before authenticated routes
   app.route("/api/public/events", publicEventsRouter);
+  app.route("/api/public/itineraries", publicItineraryRouter);
 
   // Register all route modules
   app.route("/api/events", eventsRouter);

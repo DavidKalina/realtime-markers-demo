@@ -101,6 +101,46 @@ export const getItineraryHandler = async (c: Context<AppContext>) => {
   return c.json(itinerary);
 };
 
+export const shareItineraryHandler = async (c: Context<AppContext>) => {
+  const user = c.get("user");
+  if (!user?.userId && !user?.id) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  const userId = user.userId || user.id;
+
+  const id = c.req.param("id");
+  if (!id) {
+    return c.json({ error: "id is required" }, 400);
+  }
+
+  const itineraryService = c.get("itineraryService");
+  const shareToken = await itineraryService.generateShareToken(id, userId);
+
+  if (!shareToken) {
+    return c.json({ error: "Itinerary not found" }, 404);
+  }
+
+  return c.json({ shareToken });
+};
+
+export const getSharedItineraryHandler = async (c: Context<AppContext>) => {
+  const shareToken = c.req.param("shareToken");
+  if (!shareToken) {
+    return c.json({ error: "shareToken is required" }, 400);
+  }
+
+  const itineraryService = c.get("itineraryService");
+  const itinerary = await itineraryService.getByShareToken(shareToken);
+
+  if (!itinerary) {
+    return c.json({ error: "Itinerary not found" }, 404);
+  }
+
+  // Strip userId for public response
+  const { userId, ...safeItinerary } = itinerary as any;
+  return c.json(safeItinerary);
+};
+
 export const deleteItineraryHandler = async (c: Context<AppContext>) => {
   const user = c.get("user");
   if (!user?.userId && !user?.id) {

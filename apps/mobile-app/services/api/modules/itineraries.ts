@@ -89,4 +89,12 @@ export class ItinerariesModule extends BaseApiModule {
     );
     await this.handleResponse(response);
   }
+
+  async share(id: string): Promise<{ shareToken: string }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/itineraries/${id}/share`,
+      { method: "POST" },
+    );
+    return this.handleResponse<{ shareToken: string }>(response);
+  }
 }

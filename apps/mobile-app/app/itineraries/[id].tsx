@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -26,6 +27,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
 import ItineraryTimeline from "@/components/Itinerary/ItineraryTimeline";
+
 import { apiClient } from "@/services/ApiClient";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
 import {
@@ -123,6 +125,35 @@ const ItineraryDetailScreen = () => {
       },
     ]);
   }, [id, router]);
+
+  const handleShare = useCallback(async () => {
+    if (!id || !itinerary) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      const { shareToken } = await apiClient.itineraries.share(id);
+      const webUrl =
+        process.env.EXPO_PUBLIC_WEB_URL || "https://dashboard.mapmoji.app";
+      const shareUrl = `${webUrl}/i/${shareToken}`;
+
+      const items = (itinerary.items ?? []).sort(
+        (a, b) => a.sortOrder - b.sortOrder,
+      );
+      const stopList = items
+        .slice(0, 5)
+        .map((item) => `${item.emoji || "\u{1F4CD}"} ${item.title}`)
+        .join("\n");
+      const moreText =
+        items.length > 5 ? `\n...and ${items.length - 5} more stops` : "";
+
+      await Share.share({
+        message: `${itinerary.title}\n${itinerary.city} · ${formatDate(itinerary.plannedDate)}\n\n${stopList}${moreText}\n\n${shareUrl}`,
+        url: shareUrl,
+      });
+    } catch (err) {
+      console.error("[ItineraryDetail] Failed to share:", err);
+    }
+  }, [id, itinerary]);
 
   const handleStartItinerary = useCallback(() => {
     if (!itinerary) return;
@@ -321,6 +352,8 @@ const ItineraryDetailScreen = () => {
           style={styles.divider}
         />
 
+        {/* TODO: Map preview — revisit once city-level geocoding is stored on the itinerary */}
+
         {/* ── Timeline ── */}
         <ItineraryTimeline items={items} />
 
@@ -334,6 +367,13 @@ const ItineraryDetailScreen = () => {
             onPress={handleStartItinerary}
           >
             <Text style={styles.startButtonText}>Start Itinerary</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [styles.shareButton, pressed && styles.shareButtonPressed]}
+            onPress={handleShare}
+          >
+            <Text style={styles.shareButtonText}>Share</Text>
           </Pressable>
 
           <Pressable style={styles.deleteButton} onPress={handleDelete}>
@@ -489,6 +529,25 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontSize: 13,
       color: "#86efac",
+      fontWeight: fontWeight.bold,
+      textTransform: "uppercase",
+      letterSpacing: 1.5,
+    },
+    shareButton: {
+      backgroundColor: "rgba(147, 197, 253, 0.12)",
+      borderWidth: 1,
+      borderColor: "rgba(147, 197, 253, 0.3)",
+      paddingVertical: 14,
+      alignItems: "center",
+      borderRadius: radius.md,
+    },
+    shareButtonPressed: {
+      backgroundColor: "rgba(147, 197, 253, 0.2)",
+    },
+    shareButtonText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 13,
+      color: "#93c5fd",
       fontWeight: fontWeight.bold,
       textTransform: "uppercase",
       letterSpacing: 1.5,

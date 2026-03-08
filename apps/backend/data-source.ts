@@ -50,6 +50,7 @@ import { ThirdSpaceScoreSnapshot1710000000033 } from "./migrations/ThirdSpaceSco
 import { NormalizeTSSCityNames1710000000034 } from "./migrations/NormalizeTSSCityNames1710000000034";
 import { ItineraryTables1710000000035 } from "./migrations/ItineraryTables1710000000035";
 import { AddItineraryItemGeoData1710000000036 } from "./migrations/AddItineraryItemGeoData1710000000036";
+import { AddItineraryShareToken1710000000037 } from "./migrations/AddItineraryShareToken1710000000037";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -101,6 +102,7 @@ const AppDataSource = new DataSource({
     NormalizeTSSCityNames1710000000034,
     ItineraryTables1710000000035,
     AddItineraryItemGeoData1710000000036,
+    AddItineraryShareToken1710000000037,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

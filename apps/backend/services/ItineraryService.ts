@@ -63,6 +63,8 @@ export interface ItineraryService {
   listByUser(userId: string, limit?: number): Promise<Itinerary[]>;
   getById(id: string, userId: string): Promise<Itinerary | null>;
   deleteById(id: string, userId: string): Promise<boolean>;
+  generateShareToken(id: string, userId: string): Promise<string | null>;
+  getByShareToken(shareToken: string): Promise<Itinerary | null>;
 }
 
 interface ItineraryServiceDeps {
@@ -174,6 +176,27 @@ class ItineraryServiceImpl implements ItineraryService {
       .getRepository(Itinerary)
       .delete({ id, userId });
     return (result.affected ?? 0) > 0;
+  }
+
+  async generateShareToken(id: string, userId: string): Promise<string | null> {
+    const repo = this.dataSource.getRepository(Itinerary);
+    const itinerary = await repo.findOne({ where: { id, userId } });
+    if (!itinerary) return null;
+
+    // Return existing token if already shared
+    if (itinerary.shareToken) return itinerary.shareToken;
+
+    const shareToken = crypto.randomUUID();
+    await repo.update({ id }, { shareToken });
+    return shareToken;
+  }
+
+  async getByShareToken(shareToken: string): Promise<Itinerary | null> {
+    return this.dataSource.getRepository(Itinerary).findOne({
+      where: { shareToken, status: ItineraryStatus.READY },
+      relations: ["items"],
+      order: { items: { sortOrder: "ASC" } },
+    });
   }
 
   private async fetchCityEvents(

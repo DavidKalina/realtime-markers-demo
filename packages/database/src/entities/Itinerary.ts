@@ -64,6 +64,10 @@ export class Itinerary {
   })
   status!: ItineraryStatus;
 
+  @Index({ unique: true })
+  @Column({ name: "share_token", type: "uuid", nullable: true })
+  shareToken?: string;
+
   @OneToMany(() => ItineraryItem, (item) => item.itinerary, { cascade: true })
   items!: Relation<ItineraryItem[]>;
 

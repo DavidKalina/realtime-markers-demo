@@ -4,6 +4,8 @@ import {
   listItinerariesHandler,
   getItineraryHandler,
   deleteItineraryHandler,
+  shareItineraryHandler,
+  getSharedItineraryHandler,
 } from "../handlers/itineraryHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -14,19 +16,45 @@ export const itineraryRouter = new Hono<AppContext>();
 
 itineraryRouter.use("*", ip());
 itineraryRouter.use("*", authMiddleware);
-itineraryRouter.use(
+
+const readRateLimit = rateLimit({
+  maxRequests: 120,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  keyGenerator: (c) => {
+    const user = c.get("user");
+    return `itinerary-read:${user?.userId || user?.id || "anon"}`;
+  },
+});
+
+const writeRateLimit = rateLimit({
+  maxRequests: 20,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  keyGenerator: (c) => {
+    const user = c.get("user");
+    return `itinerary-write:${user?.userId || user?.id || "anon"}`;
+  },
+});
+
+itineraryRouter.get("/", readRateLimit, listItinerariesHandler);
+itineraryRouter.get("/:id", readRateLimit, getItineraryHandler);
+itineraryRouter.post("/", writeRateLimit, createItineraryHandler);
+itineraryRouter.post("/:id/share", writeRateLimit, shareItineraryHandler);
+itineraryRouter.delete("/:id", writeRateLimit, deleteItineraryHandler);
+
+// Public shared itinerary router (no auth)
+export const publicItineraryRouter = new Hono<AppContext>();
+
+publicItineraryRouter.use("*", ip());
+publicItineraryRouter.use(
   "*",
   rateLimit({
-    maxRequests: 20,
-    windowMs: 60 * 60 * 1000, // 1 hour
+    maxRequests: 30,
+    windowMs: 60 * 1000,
     keyGenerator: (c) => {
-      const user = c.get("user");
-      return `itinerary:${user?.userId || user?.id || "anon"}`;
+      const ipInfo = c.get("ip");
+      return `public-itinerary:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
     },
   }),
 );
 
-itineraryRouter.post("/", createItineraryHandler);
-itineraryRouter.get("/", listItinerariesHandler);
-itineraryRouter.get("/:id", getItineraryHandler);
-itineraryRouter.delete("/:id", deleteItineraryHandler);
+publicItineraryRouter.get("/:shareToken", getSharedItineraryHandler);
