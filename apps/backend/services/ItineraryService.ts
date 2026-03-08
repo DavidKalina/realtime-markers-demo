@@ -372,7 +372,7 @@ Respond ONLY with valid JSON matching this schema:
       "startTime": "14:00",
       "endTime": "15:30",
       "title": "Stop name",
-      "description": "What to do here and why it's great",
+      "description": "One concise sentence — what to do here",
       "emoji": "single emoji",
       "estimatedCost": 15.00,
       "venueName": "Venue Name",

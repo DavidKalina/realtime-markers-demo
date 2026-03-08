@@ -154,21 +154,27 @@ export default function ItineraryDialogBox({
     }
   }, []);
 
-  // Initial sheen animation
+  // Periodic sheen to draw attention while collapsed
   useEffect(() => {
-    sheenPos.value = 0;
-    sheenPos.value = withRepeat(
-      withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-      3,
-      true,
-    );
+    if (phase !== "collapsed") return;
 
-    // Auto-expand after sheen
-    const timer = setTimeout(() => {
-      expandToForm();
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, []);
+    const runSheen = () => {
+      sheenActive.value = 1;
+      sheenPos.value = 0;
+      sheenPos.value = withRepeat(
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+        2,
+        true,
+      );
+    };
+
+    // Initial sheen
+    runSheen();
+
+    // Repeat every 6 seconds
+    const interval = setInterval(runSheen, 6000);
+    return () => clearInterval(interval);
+  }, [phase]);
 
   // Watch job progress for status text updates and completion
   useEffect(() => {

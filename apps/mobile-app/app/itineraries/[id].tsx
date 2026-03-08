@@ -136,18 +136,8 @@ const ItineraryDetailScreen = () => {
         process.env.EXPO_PUBLIC_WEB_URL || "https://dashboard.mapmoji.app";
       const shareUrl = `${webUrl}/i/${shareToken}`;
 
-      const items = (itinerary.items ?? []).sort(
-        (a, b) => a.sortOrder - b.sortOrder,
-      );
-      const stopList = items
-        .slice(0, 5)
-        .map((item) => `${item.emoji || "\u{1F4CD}"} ${item.title}`)
-        .join("\n");
-      const moreText =
-        items.length > 5 ? `\n...and ${items.length - 5} more stops` : "";
-
       await Share.share({
-        message: `${itinerary.title}\n${itinerary.city} · ${formatDate(itinerary.plannedDate)}\n\n${stopList}${moreText}\n\n${shareUrl}`,
+        message: shareUrl,
         url: shareUrl,
       });
     } catch (err) {
