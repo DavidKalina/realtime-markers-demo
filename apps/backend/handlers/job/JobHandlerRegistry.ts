@@ -11,6 +11,8 @@ import type { GoogleGeocodingService } from "../../services/shared/GoogleGeocodi
 import type { TicketmasterService } from "../../services/TicketmasterService";
 import type { CategoryProcessingService } from "../../services/CategoryProcessingService";
 import type { IEmbeddingService } from "../../services/event-processing/interfaces/IEmbeddingService";
+import { GenerateItineraryHandler } from "./GenerateItineraryHandler";
+import type { ItineraryService } from "../../services/ItineraryService";
 
 export class JobHandlerRegistry {
   private handlers: Map<string, JobHandler> = new Map();
@@ -25,6 +27,7 @@ export class JobHandlerRegistry {
     private readonly ticketmasterService: TicketmasterService | null = null,
     private readonly categoryProcessingService: CategoryProcessingService | null = null,
     private readonly embeddingService: IEmbeddingService | null = null,
+    private readonly itineraryService: ItineraryService | null = null,
   ) {
     this.registerHandlers();
   }
@@ -40,6 +43,13 @@ export class JobHandlerRegistry {
       ),
     );
     this.registerHandler(new CleanupEventsHandler(this.eventService));
+
+    // Register itinerary handler
+    if (this.itineraryService) {
+      this.registerHandler(
+        new GenerateItineraryHandler(this.itineraryService),
+      );
+    }
 
     // Conditionally register import handler (opt-in via TICKETMASTER_API_KEY)
     if (

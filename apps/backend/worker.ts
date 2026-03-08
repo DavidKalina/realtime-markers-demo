@@ -186,6 +186,15 @@ async function initializeWorker() {
     redisService,
   );
 
+  // Initialize itinerary service
+  const { createItineraryService } = await import(
+    "./services/ItineraryService"
+  );
+  const itineraryService = createItineraryService({
+    dataSource: AppDataSource,
+    openAIService,
+  });
+
   jobHandlerRegistry = new JobHandlerRegistry(
     eventProcessingService,
     eventService,
@@ -196,6 +205,7 @@ async function initializeWorker() {
     ticketmasterService,
     categoryProcessingService,
     embeddingService,
+    itineraryService,
   );
 
   console.log("Worker initialized successfully");

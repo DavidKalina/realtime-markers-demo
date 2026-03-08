@@ -11,8 +11,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
 import CityDetailContent from "@/components/LandingPage/CityDetailContent";
-import { useCityInsight } from "@/components/LandingPage/useCityInsight";
-import { DialogBox } from "@/components/AreaScan/AreaScanComponents";
+import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
 import useThirdSpaceScore from "@/hooks/useThirdSpaceScore";
 import useLandingPageData from "@/hooks/useLandingPageData";
 import { useRealtimeDiscoveries } from "@/hooks/useRealtimeDiscoveries";
@@ -23,6 +22,7 @@ const CityDetailScreen = () => {
   const { city } = useLocalSearchParams<{ city: string }>();
   const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showItinerary, setShowItinerary] = useState(true);
 
   const decodedCity = city ? decodeURIComponent(city) : "";
   const cityLabel = decodedCity.includes(",")
@@ -75,13 +75,6 @@ const CityDetailScreen = () => {
     };
   }, [landingData, realtimeDiscoveries]);
 
-  const {
-    isLoading: insightLoading,
-    error: insightError,
-    dialog: insightDialog,
-    feedPending: insightFeedPending,
-  } = useCityInsight(decodedCity || null);
-
   const currentUser = apiClient.getCurrentUser();
 
   const handleRefresh = useCallback(async () => {
@@ -124,18 +117,13 @@ const CityDetailScreen = () => {
       onBack={handleBack}
       noAnimation
       bottomContent={
-        <DialogBox
-          isLoading={insightLoading}
-          error={insightError}
-          displayText={insightDialog.displayText}
-          showContinue={insightDialog.showContinue}
-          showDone={insightDialog.showDone}
-          blinkAnim={insightDialog.blinkAnim}
-          onTap={insightDialog.handleTap}
-          onRestart={insightDialog.restart}
-          onExpandComplete={insightFeedPending}
-          style={{ height: 105, marginBottom: 0 }}
-        />
+        showItinerary ? (
+          <ItineraryDialogBox
+            city={decodedCity}
+            style={{ height: 105, marginBottom: 0 }}
+            onDismiss={() => setShowItinerary(false)}
+          />
+        ) : undefined
       }
     >
       <View style={{ flex: 1 }}>

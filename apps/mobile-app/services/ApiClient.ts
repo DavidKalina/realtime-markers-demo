@@ -11,6 +11,7 @@ import { PushNotificationsModule } from "./api/modules/pushNotifications";
 import { AreaScanModule } from "./api/modules/areaScan";
 import { FollowsModule } from "./api/modules/follows";
 import { LeaderboardModule } from "./api/modules/leaderboard";
+import { ItinerariesModule } from "./api/modules/itineraries";
 
 // Re-export types and enums
 export * from "./api/base/types";
@@ -24,6 +25,7 @@ export * from "./api/modules/pushNotifications";
 export * from "./api/modules/areaScan";
 export * from "./api/modules/follows";
 export * from "./api/modules/leaderboard";
+export * from "./api/modules/itineraries";
 
 class ApiClient extends BaseApiClient {
   private static instance: ApiClient | null = null;
@@ -37,6 +39,7 @@ class ApiClient extends BaseApiClient {
   private _areaScan: AreaScanModule | null = null;
   private _follows: FollowsModule | null = null;
   private _leaderboard: LeaderboardModule | null = null;
+  private _itineraries: ItinerariesModule | null = null;
 
   private constructor(baseUrl: string) {
     super(baseUrl);
@@ -123,6 +126,13 @@ class ApiClient extends BaseApiClient {
       this._leaderboard = new LeaderboardModule(this);
     }
     return this._leaderboard;
+  }
+
+  public get itineraries(): ItinerariesModule {
+    if (!this._itineraries) {
+      this._itineraries = new ItinerariesModule(this);
+    }
+    return this._itineraries;
   }
 
   override setBaseUrl(baseUrl: string): void {

@@ -16,6 +16,8 @@ import {
   UserPushToken,
   UserFollow,
   LlmUsageLog,
+  Itinerary,
+  ItineraryItem,
 } from "@realtime-markers/database";
 
 // Import all migrations explicitly
@@ -46,6 +48,8 @@ import { LlmUsageLogTable1710000000031 } from "./migrations/LlmUsageLogTable1710
 import { AddPasswordResetFields1710000000032 } from "./migrations/AddPasswordResetFields1710000000032";
 import { ThirdSpaceScoreSnapshot1710000000033 } from "./migrations/ThirdSpaceScoreSnapshot1710000000033";
 import { NormalizeTSSCityNames1710000000034 } from "./migrations/NormalizeTSSCityNames1710000000034";
+import { ItineraryTables1710000000035 } from "./migrations/ItineraryTables1710000000035";
+import { AddItineraryItemGeoData1710000000036 } from "./migrations/AddItineraryItemGeoData1710000000036";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -64,6 +68,8 @@ const AppDataSource = new DataSource({
     UserPushToken,
     UserFollow,
     LlmUsageLog,
+    Itinerary,
+    ItineraryItem,
   ],
   migrations: [
     CategoryTable1710000000000,
@@ -93,6 +99,8 @@ const AppDataSource = new DataSource({
     AddPasswordResetFields1710000000032,
     ThirdSpaceScoreSnapshot1710000000033,
     NormalizeTSSCityNames1710000000034,
+    ItineraryTables1710000000035,
+    AddItineraryItemGeoData1710000000036,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

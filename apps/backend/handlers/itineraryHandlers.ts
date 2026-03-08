@@ -1,0 +1,124 @@
+import type { Context } from "hono";
+import type { AppContext } from "../types/context";
+
+export const createItineraryHandler = async (c: Context<AppContext>) => {
+  const user = c.get("user");
+  if (!user?.userId && !user?.id) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  const userId = user.userId || user.id;
+
+  const body = await c.req.json<{
+    city: string;
+    plannedDate: string;
+    budgetMin?: number;
+    budgetMax?: number;
+    durationHours: number;
+    activityTypes?: string[];
+    stopCount?: number;
+    categoryNames?: string[];
+  }>();
+
+  if (!body.city || typeof body.city !== "string") {
+    return c.json({ error: "city is required" }, 400);
+  }
+  if (!body.plannedDate || !/^\d{4}-\d{2}-\d{2}$/.test(body.plannedDate)) {
+    return c.json({ error: "plannedDate must be YYYY-MM-DD" }, 400);
+  }
+  if (
+    typeof body.durationHours !== "number" ||
+    body.durationHours < 0.5 ||
+    body.durationHours > 24
+  ) {
+    return c.json({ error: "durationHours must be between 0.5 and 24" }, 400);
+  }
+
+  const jobQueue = c.get("jobQueue");
+
+  try {
+    const jobId = await jobQueue.enqueue("generate_itinerary", {
+      userId,
+      creatorId: userId,
+      city: body.city,
+      plannedDate: body.plannedDate,
+      budgetMin: body.budgetMin ?? 0,
+      budgetMax: body.budgetMax ?? 0,
+      durationHours: body.durationHours,
+      activityTypes: body.activityTypes ?? [],
+      stopCount: body.stopCount ?? 0,
+      categoryNames: body.categoryNames ?? [],
+    });
+
+    return c.json(
+      {
+        jobId,
+        streamUrl: `/api/jobs/${jobId}/stream`,
+      },
+      202,
+    );
+  } catch (error) {
+    console.error("[Itinerary] Failed to enqueue job:", error);
+    return c.json({ error: "Failed to start itinerary generation" }, 500);
+  }
+};
+
+export const listItinerariesHandler = async (c: Context<AppContext>) => {
+  const user = c.get("user");
+  if (!user?.userId && !user?.id) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  const userId = user.userId || user.id;
+
+  const limit = parseInt(c.req.query("limit") || "20");
+  const itineraryService = c.get("itineraryService");
+
+  const itineraries = await itineraryService.listByUser(
+    userId,
+    Math.min(limit, 50),
+  );
+  return c.json(itineraries);
+};
+
+export const getItineraryHandler = async (c: Context<AppContext>) => {
+  const user = c.get("user");
+  if (!user?.userId && !user?.id) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  const userId = user.userId || user.id;
+
+  const id = c.req.param("id");
+  if (!id) {
+    return c.json({ error: "id is required" }, 400);
+  }
+
+  const itineraryService = c.get("itineraryService");
+  const itinerary = await itineraryService.getById(id, userId);
+
+  if (!itinerary) {
+    return c.json({ error: "Itinerary not found" }, 404);
+  }
+
+  return c.json(itinerary);
+};
+
+export const deleteItineraryHandler = async (c: Context<AppContext>) => {
+  const user = c.get("user");
+  if (!user?.userId && !user?.id) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  const userId = user.userId || user.id;
+
+  const id = c.req.param("id");
+  if (!id) {
+    return c.json({ error: "id is required" }, 400);
+  }
+
+  const itineraryService = c.get("itineraryService");
+  const deleted = await itineraryService.deleteById(id, userId);
+
+  if (!deleted) {
+    return c.json({ error: "Itinerary not found" }, 404);
+  }
+
+  return c.json({ success: true });
+};

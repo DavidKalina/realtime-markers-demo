@@ -12,6 +12,7 @@ import {
   GlobeIcon,
   HeartIcon,
   LucideIcon,
+  Route,
   User,
 } from "lucide-react-native";
 import React, { useCallback, useMemo } from "react";
@@ -26,6 +27,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, fontWeight, type Colors } from "@/theme";
 import { useXPStore } from "@/stores/useXPStore";
+import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
 import { createStyles } from "./styles";
 
 // Pre-define animation configurations
@@ -40,7 +42,7 @@ const BUTTON_RELEASE_ANIMATION = {
 };
 
 // Define route type to match expo-router's expected types
-type AppRoute = "/spaces" | "/scan" | "/saved" | "/user" | "/";
+type AppRoute = "/spaces" | "/scan" | "/saved" | "/itineraries" | "/user" | "/";
 
 interface TabConfig {
   key: string;
@@ -81,6 +83,13 @@ const getTabs = (colors: Colors): TabConfig[] => [
     activeColor: colors.action.save,
   },
   {
+    key: "itineraries",
+    label: "Plans",
+    icon: Route,
+    route: "/itineraries",
+    activeColor: colors.accent.primary,
+  },
+  {
     key: "user",
     label: "Me",
     icon: User,
@@ -102,6 +111,7 @@ const getActiveTabKey = (pathname: string): string | null => {
   if (pathname === "/") return "locate";
   if (pathname.startsWith("/saved")) return "saved";
   if (pathname.startsWith("/spaces")) return "spaces";
+  if (pathname.startsWith("/itineraries")) return "itineraries";
   return ROUTE_TO_TAB[pathname] ?? null;
 };
 
@@ -180,6 +190,8 @@ export const ActionBar: React.FC = React.memo(() => {
   const { userLocation } = useUserLocation();
   const router = useRouter();
   const hasPendingXP = useXPStore((s) => s.hasPending);
+  const hasItineraryReady = useItineraryJobStore((s) => s.hasReady);
+  const isItineraryGenerating = useItineraryJobStore((s) => !!s.activeJobId);
 
   const activeTab = useMemo(() => getActiveTabKey(pathname), [pathname]);
 
@@ -207,6 +219,9 @@ export const ActionBar: React.FC = React.memo(() => {
           router.push("/");
         }
       } else if (tab.route) {
+        if (tab.key === "itineraries" && hasItineraryReady) {
+          useItineraryJobStore.getState().clearReady();
+        }
         router.push(tab.route);
       }
     },
@@ -237,7 +252,10 @@ export const ActionBar: React.FC = React.memo(() => {
             tab={tab}
             isActive={activeTab === tab.key}
             disabled={!!tab.requiresLocation && !userLocation}
-            showBadge={tab.key === "user" && hasPendingXP}
+            showBadge={
+              (tab.key === "user" && hasPendingXP) ||
+              (tab.key === "itineraries" && (hasItineraryReady || isItineraryGenerating))
+            }
             onPress={() => handleTabPress(tab)}
           />
         ))}

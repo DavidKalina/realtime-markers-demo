@@ -32,6 +32,7 @@ export function setupContext(
     c.set("followService", services.followService);
     c.set("leaderboardService", services.leaderboardService);
     c.set("thirdSpaceScoreService", services.thirdSpaceScoreService);
+    c.set("itineraryService", services.itineraryService);
     await next();
   });
 }

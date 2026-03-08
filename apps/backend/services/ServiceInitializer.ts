@@ -54,6 +54,8 @@ import { ProximityNotificationService } from "./ProximityNotificationService";
 import { pushNotificationService } from "./PushNotificationService";
 import { createFollowService } from "./FollowService";
 import type { FollowService } from "./FollowService";
+import { createItineraryService } from "./ItineraryService";
+import type { ItineraryService } from "./ItineraryService";
 
 export interface ServiceContainer {
   eventService: EventService;
@@ -77,6 +79,7 @@ export interface ServiceContainer {
   proximityNotificationService: ProximityNotificationService;
   followService: FollowService;
   thirdSpaceScoreService: ThirdSpaceScoreService;
+  itineraryService: ItineraryService;
 }
 
 export class ServiceInitializer {
@@ -249,6 +252,12 @@ export class ServiceInitializer {
       redisService,
     });
 
+    const itineraryService = createItineraryService({
+      dataSource: this.dataSource,
+      openAIService,
+      geocodingService,
+    });
+
     // Conditionally create TicketmasterService (opt-in via env var)
     const ticketmasterApiKey = process.env.TICKETMASTER_API_KEY;
     const ticketmasterService = ticketmasterApiKey
@@ -283,6 +292,7 @@ export class ServiceInitializer {
       proximityNotificationService,
       followService,
       thirdSpaceScoreService,
+      itineraryService,
     };
   }
 

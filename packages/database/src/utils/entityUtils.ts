@@ -17,6 +17,8 @@ const ENTITY_TO_TABLE_MAPPING: Record<string, string> = {
   UserPushToken: "user_push_tokens",
   UserFollow: "user_follows",
   LlmUsageLog: "llm_usage_logs",
+  Itinerary: "itineraries",
+  ItineraryItem: "itinerary_items",
 };
 
 /**
