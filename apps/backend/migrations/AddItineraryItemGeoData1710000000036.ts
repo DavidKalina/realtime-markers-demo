@@ -1,8 +1,6 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import type { MigrationInterface, QueryRunner } from "typeorm";
 
-export class AddItineraryItemGeoData1710000000036
-  implements MigrationInterface
-{
+export class AddItineraryItemGeoData1710000000036 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE "itinerary_items"

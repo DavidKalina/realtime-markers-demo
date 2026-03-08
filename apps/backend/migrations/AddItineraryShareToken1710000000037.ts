@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddItineraryShareToken1710000000037 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
