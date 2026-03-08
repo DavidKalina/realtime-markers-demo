@@ -6,7 +6,10 @@ import {
 } from "@realtime-markers/database";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
-import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
+import type {
+  GoogleGeocodingService,
+  VerifiedVenue,
+} from "./shared/GoogleGeocodingService";
 
 export interface CreateItineraryInput {
   city: string;
@@ -112,41 +115,68 @@ class ItineraryServiceImpl implements ItineraryService {
       // Fetch events in the city for that date
       const events = await this.fetchCityEvents(input.city, input.plannedDate);
 
-      // Build and call LLM
-      const llmResult = await this.generateWithLLM(input, events);
+      // Geocode city center early — needed for venue search and proximity bias
+      let cityCenter: { lat: number; lng: number } | undefined;
+      try {
+        const [lng, lat] = await this.geocodingService.geocodeAddress(
+          input.city,
+        );
+        if (lat !== 0 || lng !== 0) {
+          cityCenter = { lat, lng };
+        }
+      } catch {
+        console.warn(
+          "[ItineraryService] Failed to geocode city center for:",
+          input.city,
+        );
+      }
 
-      // Geocode non-event items
-      const geocodedMap = await this.geocodeItems(
+      // Pre-fetch verified venues from Google Places
+      const verifiedVenues = cityCenter
+        ? await this.fetchVerifiedVenues(input, input.city, cityCenter)
+        : [];
+
+      // Build and call LLM with events + verified venues
+      const llmResult = await this.generateWithLLM(
+        input,
+        events,
+        verifiedVenues,
+      );
+
+      // Validate and enrich items — verify venues, drop hallucinations
+      const validatedItems = await this.validateAndEnrichItems(
         llmResult.items,
         events,
+        verifiedVenues,
         input.city,
+        cityCenter,
       );
 
       // Save items with geocoded data
-      const items = llmResult.items.map((item, idx) => {
-        const geo = geocodedMap.get(idx);
-        return itemRepo.create({
+      const items = validatedItems.map((vi, idx) =>
+        itemRepo.create({
           itineraryId: itinerary.id,
           sortOrder: idx,
-          startTime: item.startTime,
-          endTime: item.endTime,
-          title: item.title,
-          description: item.description,
-          emoji: item.emoji,
-          estimatedCost: item.estimatedCost ?? undefined,
-          venueName: item.venueName ?? undefined,
-          venueAddress: geo?.canonicalAddress ?? item.venueAddress ?? undefined,
-          eventId: item.eventId ?? undefined,
-          travelNote: item.travelNote ?? undefined,
-          venueCategory: item.venueCategory ?? undefined,
-          whyThisStop: item.whyThisStop ?? undefined,
-          proTip: item.proTip ?? undefined,
-          latitude: geo?.latitude ?? undefined,
-          longitude: geo?.longitude ?? undefined,
-          googlePlaceId: geo?.googlePlaceId ?? undefined,
-          googleRating: geo?.googleRating ?? undefined,
-        });
-      });
+          startTime: vi.item.startTime,
+          endTime: vi.item.endTime,
+          title: vi.item.title,
+          description: vi.item.description,
+          emoji: vi.item.emoji,
+          estimatedCost: vi.item.estimatedCost ?? undefined,
+          venueName: vi.item.venueName ?? undefined,
+          venueAddress:
+            vi.geo?.canonicalAddress ?? vi.item.venueAddress ?? undefined,
+          eventId: vi.item.eventId ?? undefined,
+          travelNote: vi.item.travelNote ?? undefined,
+          venueCategory: vi.item.venueCategory ?? undefined,
+          whyThisStop: vi.item.whyThisStop ?? undefined,
+          proTip: vi.item.proTip ?? undefined,
+          latitude: vi.geo?.latitude ?? undefined,
+          longitude: vi.geo?.longitude ?? undefined,
+          googlePlaceId: vi.geo?.googlePlaceId ?? undefined,
+          googleRating: vi.geo?.googleRating ?? undefined,
+        }),
+      );
       await itemRepo.save(items);
 
       // Update itinerary with title, summary, and READY status
@@ -244,103 +274,214 @@ class ItineraryServiceImpl implements ItineraryService {
     );
   }
 
-  private async geocodeItems(
-    items: LLMItineraryItem[],
-    events: CityEvent[],
+  private async fetchVerifiedVenues(
+    input: CreateItineraryInput,
     city: string,
-  ): Promise<Map<number, GeocodedData>> {
-    const result = new Map<number, GeocodedData>();
-    const eventMap = new Map(events.map((e) => [e.id, e]));
+    cityCenter: { lat: number; lng: number },
+  ): Promise<VerifiedVenue[]> {
+    // Map activity types / categories to Google Places search terms
+    const searchTerms = new Set<string>();
+    const typeMap: Record<string, string[]> = {
+      food: ["restaurants", "cafes"],
+      dining: ["restaurants", "cafes"],
+      nightlife: ["bars", "nightlife"],
+      culture: ["museums", "galleries"],
+      outdoors: ["parks", "outdoor activities"],
+      arts: ["galleries", "theaters"],
+      music: ["live music venues"],
+      shopping: ["shopping"],
+    };
 
-    // Get city center coordinates for proximity bias
-    let cityCenter: { lat: number; lng: number } | undefined;
-    try {
-      const [lng, lat] = await this.geocodingService.geocodeAddress(city);
-      if (lat !== 0 || lng !== 0) {
-        cityCenter = { lat, lng };
+    for (const activity of input.activityTypes) {
+      const mapped = typeMap[activity.toLowerCase()];
+      if (mapped) {
+        mapped.forEach((t) => searchTerms.add(t));
       }
-    } catch {
-      console.warn(
-        "[ItineraryService] Failed to geocode city center for:",
-        city,
-      );
     }
 
-    // Build geocoding promises
-    const promises: Promise<void>[] = items.map(async (item, idx) => {
-      // Event-linked items: use coordinates from DB
-      if (item.eventId) {
-        const event = eventMap.get(item.eventId);
-        if (event?.latitude != null && event?.longitude != null) {
-          result.set(idx, {
-            latitude: Number(event.latitude),
-            longitude: Number(event.longitude),
-            googlePlaceId: null,
-            googleRating: null,
-            canonicalAddress: null,
-          });
-          return;
+    for (const cat of input.categoryNames) {
+      const mapped = typeMap[cat.toLowerCase()];
+      if (mapped) {
+        mapped.forEach((t) => searchTerms.add(t));
+      }
+    }
+
+    // Fallback if nothing mapped
+    if (searchTerms.size === 0) {
+      searchTerms.add("popular attractions");
+      searchTerms.add("things to do");
+    }
+
+    // Limit to 4 parallel searches
+    const terms = [...searchTerms].slice(0, 4);
+    const results = await Promise.allSettled(
+      terms.map((term) =>
+        this.geocodingService.searchPlacesByCategory(term, city, cityCenter, 5),
+      ),
+    );
+
+    // Flatten and deduplicate by placeId
+    const seen = new Set<string>();
+    const venues: VerifiedVenue[] = [];
+    for (const r of results) {
+      if (r.status !== "fulfilled") continue;
+      for (const venue of r.value) {
+        if (!seen.has(venue.placeId)) {
+          seen.add(venue.placeId);
+          venues.push(venue);
         }
       }
+    }
 
-      // LLM-suggested venues: try Places search, then fallback to geocoding
-      const searchQuery = item.venueName
-        ? `${item.venueName} ${city}`
-        : item.venueAddress
-          ? `${item.venueAddress} ${city}`
-          : null;
+    console.log(
+      `[ItineraryService] Fetched ${venues.length} verified venues for ${city}`,
+    );
+    return venues;
+  }
 
-      if (!searchQuery) return;
+  private async validateAndEnrichItems(
+    items: LLMItineraryItem[],
+    events: CityEvent[],
+    verifiedVenues: VerifiedVenue[],
+    city: string,
+    cityCenter?: { lat: number; lng: number },
+  ): Promise<{ item: LLMItineraryItem; geo: GeocodedData | null }[]> {
+    const eventMap = new Map(events.map((e) => [e.id, e]));
+    const venueByName = new Map(
+      verifiedVenues.map((v) => [v.name.toLowerCase(), v]),
+    );
 
-      try {
-        const placeResult = await this.geocodingService.searchPlaceForFrontend(
-          searchQuery,
-          cityCenter,
-        );
-
-        if (placeResult.success && placeResult.place) {
-          const [lng, lat] = placeResult.place.coordinates;
-          result.set(idx, {
-            latitude: lat,
-            longitude: lng,
-            googlePlaceId: placeResult.place.placeId,
-            googleRating: placeResult.place.rating ?? null,
-            canonicalAddress: placeResult.place.address,
-          });
-          return;
+    const results: ({
+      item: LLMItineraryItem;
+      geo: GeocodedData | null;
+    } | null)[] = await Promise.all(
+      items.map(async (item) => {
+        // Event-linked items: use DB coordinates
+        if (item.eventId) {
+          const event = eventMap.get(item.eventId);
+          if (event?.latitude != null && event?.longitude != null) {
+            return {
+              item,
+              geo: {
+                latitude: Number(event.latitude),
+                longitude: Number(event.longitude),
+                googlePlaceId: null,
+                googleRating: null,
+                canonicalAddress: event.address,
+              },
+            };
+          }
+          // eventId was validated earlier — if no coords, keep with null geo
+          return { item, geo: null };
         }
-      } catch {
-        // Fall through to address geocoding
-      }
 
-      // Fallback: geocode the address directly
-      if (item.venueAddress) {
+        // Venue items: try fuzzy match against pre-fetched verified venues
+        if (item.venueName) {
+          const matched = venueByName.get(item.venueName.toLowerCase());
+          if (matched) {
+            const [lng, lat] = matched.coordinates;
+            return {
+              item,
+              geo: {
+                latitude: lat,
+                longitude: lng,
+                googlePlaceId: matched.placeId,
+                googleRating: matched.rating ?? null,
+                canonicalAddress: matched.address,
+              },
+            };
+          }
+        }
+
+        // Not in pre-fetched list: verify via Google Places
+        const searchQuery = item.venueName
+          ? `${item.venueName} ${city}`
+          : item.venueAddress
+            ? `${item.venueAddress} ${city}`
+            : null;
+
+        if (!searchQuery) return { item, geo: null };
+
         try {
-          const [lng, lat] = await this.geocodingService.geocodeAddress(
-            `${item.venueAddress}, ${city}`,
-          );
-          if (lat !== 0 || lng !== 0) {
-            result.set(idx, {
-              latitude: lat,
-              longitude: lng,
-              googlePlaceId: null,
-              googleRating: null,
-              canonicalAddress: null,
-            });
+          const placeResult =
+            await this.geocodingService.searchPlaceForFrontend(
+              searchQuery,
+              cityCenter,
+            );
+
+          if (placeResult.success && placeResult.place) {
+            // Check business status — drop closed venues
+            if (
+              placeResult.place.businessStatus === "CLOSED_PERMANENTLY" ||
+              placeResult.place.businessStatus === "CLOSED_TEMPORARILY"
+            ) {
+              console.log(
+                `[ItineraryService] Dropping closed venue: "${item.venueName}" (${placeResult.place.businessStatus})`,
+              );
+              return null;
+            }
+
+            const [lng, lat] = placeResult.place.coordinates;
+            return {
+              item,
+              geo: {
+                latitude: lat,
+                longitude: lng,
+                googlePlaceId: placeResult.place.placeId,
+                googleRating: placeResult.place.rating ?? null,
+                canonicalAddress: placeResult.place.address,
+              },
+            };
           }
         } catch {
-          // Graceful failure — item keeps null coordinates
+          // Fall through to address geocoding
         }
-      }
-    });
 
-    await Promise.allSettled(promises);
-    return result;
+        // Fallback: geocode the address directly — venue may be real but not found via text search
+        if (item.venueAddress) {
+          try {
+            const [lng, lat] = await this.geocodingService.geocodeAddress(
+              `${item.venueAddress}, ${city}`,
+            );
+            if (lat !== 0 || lng !== 0) {
+              console.log(
+                `[ItineraryService] Venue "${item.venueName}" not found via Places API, using geocoded address`,
+              );
+              return {
+                item,
+                geo: {
+                  latitude: lat,
+                  longitude: lng,
+                  googlePlaceId: null,
+                  googleRating: null,
+                  canonicalAddress: null,
+                },
+              };
+            }
+          } catch {
+            // Graceful failure
+          }
+        }
+
+        // Keep the item even without coordinates rather than dropping it
+        console.log(
+          `[ItineraryService] Could not verify venue: "${item.venueName || item.venueAddress}" — keeping with no coordinates`,
+        );
+        return { item, geo: null };
+      }),
+    );
+
+    // Filter out dropped items
+    return results.filter(
+      (r): r is { item: LLMItineraryItem; geo: GeocodedData | null } =>
+        r !== null,
+    );
   }
 
   private async generateWithLLM(
     input: CreateItineraryInput,
     events: CityEvent[],
+    verifiedVenues: VerifiedVenue[] = [],
   ): Promise<LLMItineraryResponse> {
     const eventList =
       events.length > 0
@@ -350,7 +491,17 @@ class ItineraryServiceImpl implements ItineraryService {
                 `- [${e.id}] ${e.emoji || ""} "${e.title}" (${e.address || "N/A"}) | ${new Date(e.eventDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}${e.endDate ? ` – ${new Date(e.endDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : ""} | Categories: ${e.categories || "General"}`,
             )
             .join("\n")
-        : "No events found for this date. Create a suggested itinerary based on general knowledge of the city.";
+        : "No scanned events for this date. Focus the itinerary on town staples — beloved local restaurants, iconic landmarks, popular parks, and must-visit spots that locals swear by.";
+
+    const venueList =
+      verifiedVenues.length > 0
+        ? verifiedVenues
+            .map(
+              (v) =>
+                `- "${v.name}" (${v.address}) | Rating: ${v.rating ?? "N/A"} | Type: ${v.types.slice(0, 3).join(", ")}`,
+            )
+            .join("\n")
+        : "No pre-verified venues available. Suggest well-known, permanent local favorites instead.";
 
     const budgetRange =
       input.budgetMax > 0
@@ -359,10 +510,13 @@ class ItineraryServiceImpl implements ItineraryService {
 
     const systemPrompt = `You are an expert local guide with insider knowledge of ${input.city}. Create a personalized, premium itinerary that feels like advice from a well-connected friend who knows all the best spots.
 
-SOURCING RULES:
-- Prioritize events from the provided list when they match the user's preferences
-- Fill remaining slots with real, well-known venues — restaurants, cafes, parks, attractions, etc.
-- NEVER invent fictional venues. Every suggestion must be a real, verifiable place.
+SOURCING RULES (STRICT):
+- EVENTS (concerts, shows, games, markets, pop-ups, etc.): ONLY use events from the EVENTS list below. Do NOT invent or suggest any event not on this list.
+- VENUES (restaurants, cafes, parks, museums, landmarks, etc.): You may suggest year-round, always-available venues. Pick from the VERIFIED VENUES list when possible, but you may suggest other well-known, permanent establishments too.
+- NEVER invent one-off happenings, seasonal events, or time-specific activities that aren't on the EVENTS list.
+- Use the EXACT name and address from the lists when referencing them.
+- If there are no scanned events, build the itinerary entirely from town staples — beloved local restaurants, iconic landmarks, popular parks, and must-visit spots. This is a great itinerary, not a consolation prize.
+- If not enough options exist, create FEWER stops — never pad with fake events.
 - Use FULL street addresses including city and state (e.g., "123 Main St, Austin, TX")
 
 PLANNING RULES:
@@ -407,8 +561,11 @@ Duration: ${input.durationHours} hours
 Budget: ${budgetRange}
 Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${input.categoryNames.length > 0 ? `\nFocus categories: ${input.categoryNames.join(", ")}` : ""}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}
 
-Available events on this date:
-${eventList}`;
+EVENTS (use ONLY these for event-type stops):
+${eventList}
+
+VERIFIED VENUES in ${input.city} (prefer these for non-event stops):
+${venueList}`;
 
     const responseText = await this.openAIService.executeResponse(
       {

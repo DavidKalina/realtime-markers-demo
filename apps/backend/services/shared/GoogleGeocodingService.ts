@@ -15,6 +15,17 @@ interface CachedLocation {
   locationNotes?: string;
 }
 
+export interface VerifiedVenue {
+  name: string;
+  address: string;
+  coordinates: [number, number];
+  placeId: string;
+  types: string[];
+  rating?: number;
+  userRatingsTotal?: number;
+  businessStatus?: string;
+}
+
 export interface GoogleGeocodingService extends ILocationResolutionService {
   getTimezoneFromCoordinates(lat: number, lng: number): Promise<string>;
   resolveLocation(
@@ -41,10 +52,17 @@ export interface GoogleGeocodingService extends ILocationResolutionService {
       types: string[];
       rating?: number;
       userRatingsTotal?: number;
+      businessStatus?: string;
       distance?: number;
       locationNotes?: string;
     };
   }>;
+  searchPlacesByCategory(
+    category: string,
+    city: string,
+    cityCenter: { lat: number; lng: number },
+    maxResults?: number,
+  ): Promise<VerifiedVenue[]>;
   searchCityState(
     query: string,
     userCoordinates?: { lat: number; lng: number },
@@ -162,6 +180,7 @@ export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
     types: string[];
     rating?: number;
     userRatingsTotal?: number;
+    businessStatus?: string;
     locationNotes?: string;
   } | null> {
     try {
@@ -230,7 +249,7 @@ export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": process.env.GOOGLE_GEOCODING_API_KEY || "",
           "X-Goog-FieldMask":
-            "places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.id",
+            "places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.id,places.businessStatus",
         },
         body: JSON.stringify(requestBody),
       });
@@ -338,6 +357,7 @@ export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
         types: result.types,
         rating: result.rating,
         userRatingsTotal: result.userRatingCount,
+        businessStatus: result.businessStatus,
         locationNotes,
       };
     } catch (error) {
@@ -1068,6 +1088,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           types: placesResult.types,
           rating: placesResult.rating,
           userRatingsTotal: placesResult.userRatingsTotal,
+          businessStatus: placesResult.businessStatus,
           distance,
           locationNotes: placesResult.locationNotes,
         },
@@ -1079,6 +1100,83 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
         error:
           error instanceof Error ? error.message : "Unknown error occurred",
       };
+    }
+  }
+
+  public async searchPlacesByCategory(
+    category: string,
+    city: string,
+    cityCenter: { lat: number; lng: number },
+    maxResults = 5,
+  ): Promise<VerifiedVenue[]> {
+    try {
+      const url = "https://places.googleapis.com/v1/places:searchText";
+      const requestBody = {
+        textQuery: `${category} in ${city}`,
+        locationBias: {
+          circle: {
+            center: {
+              latitude: cityCenter.lat,
+              longitude: cityCenter.lng,
+            },
+            radius: 15000.0,
+          },
+        },
+      };
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": process.env.GOOGLE_GEOCODING_API_KEY || "",
+          "X-Goog-FieldMask":
+            "places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.id,places.businessStatus",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        console.error(
+          `[searchPlacesByCategory] Places API failed for "${category}":`,
+          response.statusText,
+        );
+        return [];
+      }
+
+      const data = await response.json();
+      if (!data.places || data.places.length === 0) return [];
+
+      const venues: VerifiedVenue[] = [];
+      for (const place of data.places) {
+        if (venues.length >= maxResults) break;
+
+        // Skip closed businesses
+        if (
+          place.businessStatus === "CLOSED_PERMANENTLY" ||
+          place.businessStatus === "CLOSED_TEMPORARILY"
+        ) {
+          continue;
+        }
+
+        venues.push({
+          name: place.displayName.text,
+          address: place.formattedAddress,
+          coordinates: [place.location.longitude, place.location.latitude],
+          placeId: place.id,
+          types: place.types || [],
+          rating: place.rating,
+          userRatingsTotal: place.userRatingCount,
+          businessStatus: place.businessStatus,
+        });
+      }
+
+      return venues;
+    } catch (error) {
+      console.error(
+        `[searchPlacesByCategory] Error for "${category}" in ${city}:`,
+        error,
+      );
+      return [];
     }
   }
 
