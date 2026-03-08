@@ -975,106 +975,71 @@ export class EventSearchServiceImpl implements EventSearchService {
 
     console.log(`Cache miss for landing page data: ${cacheKey}`);
 
-    // Helper: progressively relax query constraints until we have enough results.
-    // Tries strict filters first (official + verified + future), then broadens.
+    // Direct query helper — no progressive fallback.
+    // Returns verified/pending future events matching the current filters.
     // excludeIds prevents the same event from appearing in multiple sections.
-    const fetchWithFallback = async (
+    const fetchEvents = async (
       buildQuery: (
         qb: ReturnType<typeof this.eventRepository.createQueryBuilder>,
-        tier: number,
       ) => ReturnType<typeof this.eventRepository.createQueryBuilder>,
       limit: number,
       excludeIds: string[] = [],
     ): Promise<Event[]> => {
-      // Tier 0: official + verified + future dates
-      // Tier 1: any official status + verified + future dates
-      // Tier 2: any status + future dates
-      // Tier 3: any status + any date (ordered so future events come first)
-      for (let tier = 0; tier <= 3; tier++) {
-        const qb = this.eventRepository
-          .createQueryBuilder("event")
-          .leftJoinAndSelect("event.categories", "category")
-          .leftJoinAndSelect("event.creator", "creator");
+      const qb = this.eventRepository
+        .createQueryBuilder("event")
+        .leftJoinAndSelect("event.categories", "category")
+        .leftJoinAndSelect("event.creator", "creator");
 
-        // Apply tier-based filters
-        if (tier === 0) {
-          qb.where("event.isOfficial = :isOfficial", { isOfficial: true });
-          qb.andWhere("event.status = :status", { status: "VERIFIED" });
-          qb.andWhere("event.eventDate > NOW()");
-        } else if (tier === 1) {
-          qb.where("event.status = :status", { status: "VERIFIED" });
-          qb.andWhere("event.eventDate > NOW()");
-        } else if (tier === 2) {
-          qb.where("event.status IN (:...statuses)", {
-            statuses: ["VERIFIED", "PENDING"],
-          });
-          qb.andWhere("event.eventDate > NOW()");
-        } else {
-          // Tier 3: all events, prefer future dates
-          qb.where("event.status IN (:...statuses)", {
-            statuses: ["VERIFIED", "PENDING"],
-          });
-        }
+      qb.where("event.status IN (:...statuses)", {
+        statuses: ["VERIFIED", "PENDING"],
+      });
+      qb.andWhere("event.eventDate > NOW()");
 
-        // Apply radius filter when user location and radius are provided
-        if (userLat && userLng && radiusMeters) {
-          qb.andWhere(
-            "ST_DWithin(event.location::geography, ST_SetSRID(ST_MakePoint(:fwLng, :fwLat), 4326)::geography, :fwRadius)",
-            { fwLat: userLat, fwLng: userLng, fwRadius: radiusMeters },
-          );
-        }
-
-        // Apply city filter
-        if (city) {
-          qb.andWhere("event.city = :filterCity", { filterCity: city });
-        }
-
-        // Include filter: events must have at least one category in the list
-        if (includeCategoryIds && includeCategoryIds.length > 0) {
-          qb.andWhere(
-            `EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = event.id AND ec.category_id IN (:...includeCatIds))`,
-            { includeCatIds: includeCategoryIds },
-          );
-        }
-
-        // Exclude filter: events must NOT have any category in the list
-        if (excludeCategoryIds && excludeCategoryIds.length > 0) {
-          qb.andWhere(
-            `NOT EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = event.id AND ec.category_id IN (:...excludeCatIds))`,
-            { excludeCatIds: excludeCategoryIds },
-          );
-        }
-
-        // Exclude events already used in other sections
-        if (excludeIds.length > 0) {
-          qb.andWhere("event.id NOT IN (:...excludeIds)", { excludeIds });
-        }
-
-        const finalQb = buildQuery(qb, tier);
-        finalQb.limit(limit);
-
-        const results = await finalQb.getMany();
-        if (results.length > 0) {
-          return results;
-        }
+      // Apply radius filter when user location and radius are provided
+      if (userLat && userLng && radiusMeters) {
+        qb.andWhere(
+          "ST_DWithin(event.location::geography, ST_SetSRID(ST_MakePoint(:fwLng, :fwLat), 4326)::geography, :fwRadius)",
+          { fwLat: userLat, fwLng: userLng, fwRadius: radiusMeters },
+        );
       }
-      return [];
+
+      // Apply city filter
+      if (city) {
+        qb.andWhere("event.city = :filterCity", { filterCity: city });
+      }
+
+      // Include filter: events must have at least one category in the list
+      if (includeCategoryIds && includeCategoryIds.length > 0) {
+        qb.andWhere(
+          `EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = event.id AND ec.category_id IN (:...includeCatIds))`,
+          { includeCatIds: includeCategoryIds },
+        );
+      }
+
+      // Exclude filter: events must NOT have any category in the list
+      if (excludeCategoryIds && excludeCategoryIds.length > 0) {
+        qb.andWhere(
+          `NOT EXISTS (SELECT 1 FROM event_categories ec WHERE ec.event_id = event.id AND ec.category_id IN (:...excludeCatIds))`,
+          { excludeCatIds: excludeCategoryIds },
+        );
+      }
+
+      // Exclude events already used in other sections
+      if (excludeIds.length > 0) {
+        qb.andWhere("event.id NOT IN (:...excludeIds)", { excludeIds });
+      }
+
+      const finalQb = buildQuery(qb);
+      finalQb.limit(limit);
+
+      return finalQb.getMany();
     };
 
     // Featured events: high engagement, ordered by saves/views
-    const featuredEvents = await fetchWithFallback((qb, tier) => {
-      qb.orderBy("event.saveCount", "DESC").addOrderBy(
-        "event.viewCount",
-        "DESC",
-      );
-      // On the broadest tier, prefer future events first
-      if (tier === 3) {
-        qb.addOrderBy(
-          "CASE WHEN event.eventDate > NOW() THEN 0 ELSE 1 END",
-          "ASC",
-        );
-      }
-      qb.addOrderBy("event.eventDate", "ASC");
+    const featuredEvents = await fetchEvents((qb) => {
+      qb.orderBy("event.saveCount", "DESC")
+        .addOrderBy("event.viewCount", "DESC")
+        .addOrderBy("event.eventDate", "ASC");
       return qb;
     }, featuredLimit);
 
@@ -1082,12 +1047,8 @@ export class EventSearchServiceImpl implements EventSearchService {
     const featuredIds = featuredEvents.map((e) => e.id);
 
     // Upcoming events: soonest first, with optional distance sorting
-    // Always require future dates — if none exist, section is hidden on the client
-    const upcomingEvents = await fetchWithFallback(
-      (qb, tier) => {
-        if (tier === 3) {
-          qb.andWhere("event.eventDate > NOW()");
-        }
+    const upcomingEvents = await fetchEvents(
+      (qb) => {
         qb.addOrderBy("event.eventDate", "ASC");
 
         if (userLat && userLng) {
@@ -1111,25 +1072,13 @@ export class EventSearchServiceImpl implements EventSearchService {
     // Collect all used IDs for community exclusion
     const usedIds = [...featuredIds, ...upcomingEvents.map((e) => e.id)];
 
-    // Community events: recurring or upcoming events (no past one-offs)
-    const communityEvents = await fetchWithFallback(
-      (qb, tier) => {
-        // Only show events that are still relevant: recurring OR future date
+    // Community events: recurring or upcoming, non-official user-scanned content
+    const communityEvents = await fetchEvents(
+      (qb) => {
         qb.andWhere("(event.isRecurring = true OR event.eventDate > NOW())");
-
-        // Prefer non-official, user-scanned content with images
-        if (tier <= 1) {
-          qb.andWhere("event.isOfficial = :comOfficial", {
-            comOfficial: false,
-          });
-          qb.andWhere("event.originalImageUrl IS NOT NULL");
-        } else if (tier === 2) {
-          // Drop the image requirement
-          qb.andWhere("event.isOfficial = :comOfficial", {
-            comOfficial: false,
-          });
-        }
-        // Tier 3: any recurring/future event not already in featured/upcoming
+        qb.andWhere("event.isOfficial = :comOfficial", {
+          comOfficial: false,
+        });
 
         qb.orderBy("event.isRecurring", "DESC")
           .addOrderBy("event.saveCount", "DESC")
@@ -1350,32 +1299,6 @@ export class EventSearchServiceImpl implements EventSearchService {
       updatedAt: new Date(),
       events: [],
     })) as Category[];
-
-    // If all event sections are empty and we had geo/city filters, fall back to global results
-    const allSectionsEmpty =
-      featuredEvents.length === 0 &&
-      upcomingEvents.length === 0 &&
-      communityEvents.length === 0 &&
-      justDiscoveredEvents.length === 0 &&
-      trendingEvents.length === 0;
-
-    if (allSectionsEmpty && (userLat || userLng || city || radiusMeters)) {
-      console.log(
-        "All sections empty with geo/city filters, falling back to global results",
-      );
-      const globalResult = await this.getLandingPageData({
-        ...options,
-        userLat: undefined,
-        userLng: undefined,
-        radiusMeters: undefined,
-        city: undefined,
-      });
-      // Preserve local available cities for the filter UI
-      globalResult.availableCities = availableCities;
-      // Cache the global fallback under the original cache key
-      await this.eventCacheService.setLandingPageData(cacheKey, globalResult);
-      return globalResult;
-    }
 
     // Top events: ranked by engagement, only when city is scoped
     let topEvents: Event[] | undefined;

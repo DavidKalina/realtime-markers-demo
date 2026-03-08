@@ -14,8 +14,7 @@ export function useCityInsight(city: string | null) {
   const fetchedRef = useRef<string | null>(null);
   const pendingPagesRef = useRef<string[] | null>(null);
 
-  const onDismiss = useCallback(() => {}, []);
-  const dialog = useDialogStreamer(onDismiss);
+  const dialog = useDialogStreamer();
 
   const feedPending = useCallback(() => {
     if (pendingPagesRef.current) {

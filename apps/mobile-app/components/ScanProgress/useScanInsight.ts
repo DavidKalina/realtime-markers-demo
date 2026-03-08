@@ -55,7 +55,7 @@ export function useScanInsight(onDismissExternal?: () => void) {
     }
   }, [dismissJob]);
 
-  const dialog = useDialogStreamer(handleDismiss);
+  const dialog = useDialogStreamer();
 
   const feedPending = useCallback(() => {
     if (pendingPagesRef.current) {

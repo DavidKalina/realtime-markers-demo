@@ -9,6 +9,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { useRouter } from "expo-router";
 import { useColors, spacing, spring, type Colors } from "@/theme";
 
 interface BackButtonProps {
@@ -16,10 +17,21 @@ interface BackButtonProps {
 }
 
 export default function BackButton({ onPress }: BackButtonProps) {
+  const router = useRouter();
+  const canGoBack = router.canGoBack();
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const backButtonScale = useSharedValue(1);
   const backButtonRotation = useSharedValue(0);
+
+  const backButtonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: backButtonScale.value },
+      { rotate: `${backButtonRotation.value}rad` },
+    ],
+  }));
+
+  if (!canGoBack) return null;
 
   const handlePress = () => {
     backButtonScale.value = withSequence(
@@ -33,13 +45,6 @@ export default function BackButton({ onPress }: BackButtonProps) {
     );
     onPress();
   };
-
-  const backButtonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: backButtonScale.value },
-      { rotate: `${backButtonRotation.value}rad` },
-    ],
-  }));
 
   return (
     <Animated.View style={[styles.bannerBackButton, backButtonAnimatedStyle]}>

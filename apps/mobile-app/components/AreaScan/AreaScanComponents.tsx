@@ -434,26 +434,29 @@ export interface DialogStreamerState {
   handleTap: () => void;
 }
 
-export function useDialogStreamer(
-  onDismiss: () => void,
-): DialogStreamerState & {
+export function useDialogStreamer(): DialogStreamerState & {
   feedPages: (newPages: string[]) => void;
   restart: () => void;
 } {
-  const store = useDialogStreamStore();
+  const pages = useDialogStreamStore((s) => s.pages);
+  const pageIndex = useDialogStreamStore((s) => s.pageIndex);
+  const pageComplete = useDialogStreamStore((s) => s.pageComplete);
+  const displayText = useDialogStreamStore((s) => s.displayText);
+  const feedPagesFn = useDialogStreamStore((s) => s.feedPages);
+  const handleTap = useDialogStreamStore((s) => s.handleTap);
+  const restart = useDialogStreamStore((s) => s.restart);
+  const cancel = useDialogStreamStore((s) => s.cancel);
+
   const blinkAnim = useRef(new Animated.Value(1)).current;
-  const onDismissRef = useRef(onDismiss);
-  onDismissRef.current = onDismiss;
 
   // Cancel streaming on unmount
   useEffect(() => {
     return () => {
-      store.cancel();
+      cancel();
     };
-  }, []);
+  }, [cancel]);
 
   // Blinking ▼ indicator
-  const { pageComplete, pageIndex, pages } = store;
   const isLastPage = pageIndex >= pages.length - 1;
 
   useEffect(() => {
@@ -478,28 +481,21 @@ export function useDialogStreamer(
     blinkAnim.setValue(1);
   }, [pageComplete, pageIndex, pages.length, blinkAnim]);
 
-  const feedPages = useCallback(
-    (newPages: string[]) => {
-      store.feedPages(newPages, onDismissRef.current);
-    },
-    [store.feedPages],
-  );
-
   const showContinue = pageComplete && !isLastPage;
   const showDone = pageComplete && isLastPage && pages.length > 0;
 
   return {
     pages,
     pageIndex,
-    displayText: store.displayText,
+    displayText,
     pageComplete,
     isLastPage,
     showContinue,
     showDone,
     blinkAnim,
-    handleTap: store.handleTap,
-    feedPages,
-    restart: store.restart,
+    handleTap,
+    feedPages: feedPagesFn,
+    restart,
   };
 }
 

@@ -32,7 +32,7 @@ export default function AreaScanScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const dialog = useDialogStreamer(() => router.back());
+  const dialog = useDialogStreamer();
 
   // --- Fetch ---
   useEffect(() => {

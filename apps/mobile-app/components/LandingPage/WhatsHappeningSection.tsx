@@ -95,14 +95,13 @@ const ShimmerBorder: React.FC<{ active: boolean }> = ({ active }) => {
       style={[
         StyleSheet.absoluteFill,
         {
-          borderRadius: 0,
-          borderWidth: 0,
-          borderLeftWidth: 2,
-          borderLeftColor: "#93c5fd",
+          borderRadius: radius.lg,
+          borderWidth: 1.5,
+          borderColor: "#93c5fd",
           shadowColor: "#93c5fd",
           shadowOffset: { width: 0, height: 0 },
           shadowOpacity: 0.3,
-          shadowRadius: 4,
+          shadowRadius: 6,
         },
         style,
       ]}
@@ -224,7 +223,13 @@ const WhatsHappeningSection: React.FC<WhatsHappeningSectionProps> = ({
                   activeOpacity={0.9}
                 >
                   <View
-                    style={styles.cardContainer}
+                    style={[
+                      styles.cardContainer,
+                      isRealtime && {
+                        borderColor: accentColor + "40",
+                        backgroundColor: colors.bg.cardAlt,
+                      },
+                    ]}
                   >
                     <View style={styles.cardBody}>
                       <View style={styles.cardHeader}>
@@ -236,10 +241,10 @@ const WhatsHappeningSection: React.FC<WhatsHappeningSectionProps> = ({
                         />
                         <Text style={[styles.kindText, { color: accentColor }]}>
                           {isRealtime
-                            ? "Just Scanned"
+                            ? "Just Discovered"
                             : isTrending
                               ? "Trending"
-                              : "Just Found"}
+                              : "New Contribution"}
                         </Text>
                         <Text
                           style={[styles.timeText, { color: badge.color.text }]}

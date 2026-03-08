@@ -62,8 +62,11 @@ const SpacesBrowseScreen = () => {
 
   const resolvedCity = landingData?.resolvedCity || null;
 
-  const { score: myScore, isLoading: isScoreLoading, refetch: refetchScore } =
-    useThirdSpaceScore(resolvedCity);
+  const {
+    score: myScore,
+    isLoading: isScoreLoading,
+    refetch: refetchScore,
+  } = useThirdSpaceScore(resolvedCity);
   const handleCityPress = useCallback(
     (city: ThirdSpaceSummary) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -166,7 +169,7 @@ const SpacesBrowseScreen = () => {
             onPress={handleMyCityPress}
           >
             <Text style={styles.viewCityText}>
-              View full {resolvedCity.split(",")[0].trim()} page
+              View {resolvedCity.split(",")[0].trim()}'s page
             </Text>
             <ChevronRight size={14} color={colors.accent.primary} />
           </Pressable>
@@ -235,68 +238,69 @@ const SpacesBrowseScreen = () => {
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  viewCityLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-    marginBottom: spacing["2xl"],
-  },
-  viewCityLinkPressed: {
-    opacity: 0.6,
-  },
-  viewCityText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 0.5,
-    color: colors.accent.primary,
-  },
-  toggleRow: {
-    flexDirection: "row",
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.lg,
-    padding: 2,
-  },
-  toggleButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg - 2,
-    alignItems: "center",
-  },
-  toggleActive: {
-    backgroundColor: colors.bg.elevated,
-  },
-  toggleText: {
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
-  },
-  toggleTextActive: {
-    color: colors.text.primary,
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: spacing["2xl"],
-    gap: spacing.sm,
-  },
-  emptyTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.bold,
-    color: colors.text.primary,
-  },
-  emptySubtitle: {
-    fontSize: fontSize.sm,
-    color: colors.text.secondary,
-    textAlign: "center",
-    paddingHorizontal: spacing["2xl"],
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    viewCityLink: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing.xs,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.lg,
+      marginBottom: spacing["2xl"],
+    },
+    viewCityLinkPressed: {
+      opacity: 0.6,
+    },
+    viewCityText: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 0.5,
+      color: colors.accent.primary,
+    },
+    toggleRow: {
+      flexDirection: "row",
+      marginHorizontal: spacing.lg,
+      marginBottom: spacing.lg,
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.lg,
+      padding: 2,
+    },
+    toggleButton: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.lg - 2,
+      alignItems: "center",
+    },
+    toggleActive: {
+      backgroundColor: colors.bg.elevated,
+    },
+    toggleText: {
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+    },
+    toggleTextActive: {
+      color: colors.text.primary,
+    },
+    emptyState: {
+      alignItems: "center",
+      paddingVertical: spacing["2xl"],
+      gap: spacing.sm,
+    },
+    emptyTitle: {
+      fontSize: fontSize.lg,
+      fontWeight: fontWeight.bold,
+      color: colors.text.primary,
+    },
+    emptySubtitle: {
+      fontSize: fontSize.sm,
+      color: colors.text.secondary,
+      textAlign: "center",
+      paddingHorizontal: spacing["2xl"],
+    },
+  });
 
 export default SpacesBrowseScreen;

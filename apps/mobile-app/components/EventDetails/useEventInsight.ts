@@ -13,8 +13,7 @@ export function useEventInsight(eventId: string) {
   const fetchedRef = useRef<string | null>(null);
   const pendingPagesRef = useRef<string[] | null>(null);
 
-  const onDismiss = useCallback(() => {}, []);
-  const dialog = useDialogStreamer(onDismiss);
+  const dialog = useDialogStreamer();
 
   const feedPending = useCallback(() => {
     if (pendingPagesRef.current) {

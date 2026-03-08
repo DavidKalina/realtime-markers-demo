@@ -11,7 +11,6 @@ let streamTimer: ReturnType<typeof setTimeout> | null = null;
 let autoAdvanceTimer: ReturnType<typeof setTimeout> | null = null;
 let charIndex = 0;
 let currentPageText = "";
-let currentOnDismiss: (() => void) | null = null;
 
 // --- Store types ---
 
@@ -20,7 +19,7 @@ interface DialogStreamState {
   pageIndex: number;
   displayText: string;
   pageComplete: boolean;
-  feedPages: (pages: string[], onDismiss?: () => void) => void;
+  feedPages: (pages: string[]) => void;
   handleTap: () => void;
   restart: () => void;
   cancel: () => void;
@@ -87,9 +86,8 @@ export const useDialogStreamStore = create<DialogStreamState>((set, get) => ({
   displayText: "",
   pageComplete: false,
 
-  feedPages: (pages, onDismiss) => {
+  feedPages: (pages) => {
     clearTimers();
-    currentOnDismiss = onDismiss ?? null;
     if (pages.length > 0) {
       set({ pages, pageIndex: 0, displayText: "", pageComplete: false });
       startStreaming(set, get, pages[0]);
@@ -134,12 +132,6 @@ export const useDialogStreamStore = create<DialogStreamState>((set, get) => ({
       set({ pageIndex: next });
       startStreaming(set, get, pages[next]);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      return;
-    }
-
-    // Last page complete — dismiss
-    if (pageComplete && pageIndex >= pages.length - 1 && pages.length > 0) {
-      currentOnDismiss?.();
     }
   },
 
@@ -155,7 +147,6 @@ export const useDialogStreamStore = create<DialogStreamState>((set, get) => ({
     clearTimers();
     charIndex = 0;
     currentPageText = "";
-    currentOnDismiss = null;
     set({ pages: [], pageIndex: 0, displayText: "", pageComplete: false });
   },
 }));

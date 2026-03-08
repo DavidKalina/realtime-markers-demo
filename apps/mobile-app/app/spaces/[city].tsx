@@ -1,4 +1,12 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { View } from "react-native";
+
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
@@ -41,6 +49,15 @@ const CityDetailScreen = () => {
   const { realtimeDiscoveries, clearRealtime } =
     useRealtimeDiscoveries(decodedCity);
 
+  // Haptic when new realtime events arrive
+  const prevCountRef = useRef(0);
+  useEffect(() => {
+    if (realtimeDiscoveries.length > prevCountRef.current) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    prevCountRef.current = realtimeDiscoveries.length;
+  }, [realtimeDiscoveries]);
+
   const mergedData = useMemo(() => {
     if (!landingData) return landingData;
     const existingIds = new Set(
@@ -79,7 +96,7 @@ const CityDetailScreen = () => {
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
+    router.navigate("/spaces" as const);
   }, [router]);
 
   const handleExploreMap = useCallback(() => {
@@ -121,22 +138,24 @@ const CityDetailScreen = () => {
         />
       }
     >
-      <LandingPageContent
-        data={mergedData}
-        isLoading={isLoading}
-        onRefresh={handleRefresh}
-        isRefreshing={isRefreshing}
-        thirdSpaceScore={thirdSpaceScore}
-        currentUserId={currentUser?.id}
-        topEvents={landingData?.topEvents}
-        onExploreMap={
-          landingData?.featuredEvents?.[0] ||
-          landingData?.topEvents?.[0] ||
-          thirdSpaceScore?.centroid
-            ? handleExploreMap
-            : undefined
-        }
-      />
+      <View style={{ flex: 1 }}>
+        <LandingPageContent
+          data={mergedData}
+          isLoading={isLoading}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
+          thirdSpaceScore={thirdSpaceScore}
+          currentUserId={currentUser?.id}
+          topEvents={landingData?.topEvents}
+          onExploreMap={
+            landingData?.featuredEvents?.[0] ||
+            landingData?.topEvents?.[0] ||
+            thirdSpaceScore?.centroid
+              ? handleExploreMap
+              : undefined
+          }
+        />
+      </View>
     </Screen>
   );
 };

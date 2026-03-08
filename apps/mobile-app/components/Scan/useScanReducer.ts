@@ -349,10 +349,10 @@ export const useScanReducer = ({
       if (!isMounted.current) return;
       dispatch({ type: "PROCESSING_SUCCESS" });
 
-      // Wait then navigate
+      // Wait then reset for next scan
       await new Promise((resolve) => setTimeout(resolve, 1500));
       if (!isMounted.current) return;
-      dispatch({ type: "NAVIGATE_TO_JOBS" });
+      dispatch({ type: "RESET" });
     } catch (error) {
       console.error("Simulation failed:", error);
       if (isMounted.current) {
@@ -391,13 +391,13 @@ export const useScanReducer = ({
         message: "Document processed successfully!",
       });
 
-      // Wait 1.5 seconds to show success state
+      // Wait 1.5 seconds to show success state, then reset for next scan
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       if (!isMounted.current) return;
 
-      // Navigate to jobs
-      dispatch({ type: "NAVIGATE_TO_JOBS" });
+      // Reset to camera-ready state so user can scan another flyer
+      dispatch({ type: "RESET" });
     } catch (error) {
       console.error("Event processing failed:", error);
       if (isMounted.current) {

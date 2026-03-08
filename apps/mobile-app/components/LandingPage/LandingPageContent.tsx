@@ -1,11 +1,12 @@
-import { duration, spacing, useColors } from "@/theme";
+import { duration, fontSize, fontFamily, spacing, useColors } from "@/theme";
 import {
   DiscoveredEventType,
   EventType,
   TrendingEventType,
 } from "@/types/types";
 import React from "react";
-import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 
 const SectionDivider: React.FC = () => {
   const colors = useColors();
@@ -82,6 +83,15 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
   topEvents,
   onExploreMap,
 }) => {
+  const colors = useColors();
+  const router = useRouter();
+  const isEmpty = !!data && !data.featuredEvents?.length &&
+    !data.upcomingEvents?.length &&
+    !data.communityEvents?.length &&
+    !data.justDiscoveredEvents?.length &&
+    !data.trendingEvents?.length &&
+    !data.happeningTodayEvents?.length &&
+    !topEvents?.length;
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -124,9 +134,31 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
                   currentUserId={currentUserId}
                   city={thirdSpaceScore.current.city}
                 />
-                <SectionDivider />
+                {!isEmpty && <SectionDivider />}
               </Animated.View>
             )}
+
+          {isEmpty && (
+            <Animated.View
+              entering={FadeIn.duration(duration.normal).delay(160)}
+              style={styles.emptyContainer}
+            >
+              <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
+                No events yet
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: colors.text.secondary }]}>
+                Be the first to scan a flyer and put this city on the map.
+              </Text>
+              <Pressable
+                onPress={() => router.navigate("/spaces")}
+                style={[styles.emptyButton, { borderColor: colors.border.default }]}
+              >
+                <Text style={[styles.emptyButtonText, { color: colors.text.primary }]}>
+                  Browse other cities
+                </Text>
+              </Pressable>
+            </Animated.View>
+          )}
 
           {data?.happeningTodayEvents &&
             data.happeningTodayEvents.length > 0 && (
@@ -204,5 +236,38 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
     </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.xl,
+    paddingTop: 80,
+  },
+  emptyTitle: {
+    fontSize: fontSize.lg,
+    fontFamily: fontFamily.mono,
+    marginBottom: spacing.sm,
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  emptyButton: {
+    marginTop: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  emptyButtonText: {
+    fontSize: fontSize.sm,
+    fontFamily: fontFamily.mono,
+  },
+});
 
 export default LandingPageContent;
