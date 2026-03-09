@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Pressable,
   ScrollView,
@@ -54,7 +60,6 @@ function CollapsibleSection({
 }) {
   const expanded = useSharedValue(defaultExpanded ? 1 : 0);
   const contentHeight = useSharedValue(0);
-  const [measured, setMeasured] = useState(false);
   const sStyles = useMemo(() => collapsibleStyles(colors), [colors]);
 
   const toggle = useCallback(() => {
@@ -67,18 +72,20 @@ function CollapsibleSection({
 
   const onContentLayout = useCallback((e: LayoutChangeEvent) => {
     const h = e.nativeEvent.layout.height;
-    if (h > 0 && !measured) {
+    if (h > 0) {
       contentHeight.value = h;
-      setMeasured(true);
     }
-  }, [measured]);
+  }, []);
 
   const chevronStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${expanded.value * 90}deg` }],
   }));
 
   const bodyStyle = useAnimatedStyle(() => {
-    if (contentHeight.value === 0) return { height: 0, opacity: 0 };
+    // Before measurement, show at natural height if default-expanded
+    if (contentHeight.value === 0) {
+      return expanded.value === 1 ? { opacity: 1 } : { height: 0, opacity: 0 };
+    }
     const h = interpolate(expanded.value, [0, 1], [0, contentHeight.value]);
     return { height: h, opacity: expanded.value };
   });
@@ -92,25 +99,19 @@ function CollapsibleSection({
         </Reanimated.View>
       </Pressable>
 
-      {/* Hidden measure pass — renders children off-screen to get natural height */}
-      {!measured && (
-        <View
-          style={sStyles.measure}
-          onLayout={onContentLayout}
-          pointerEvents="none"
-        >
-          <View style={sStyles.content}>{children}</View>
-        </View>
-      )}
+      {/* Always-present invisible measure — ensures contentHeight is known even when collapsed */}
+      <View
+        style={sStyles.measure}
+        onLayout={onContentLayout}
+        pointerEvents="none"
+      >
+        <View style={sStyles.content}>{children}</View>
+      </View>
 
-      {/* Animated clip container */}
-      {measured && (
-        <Reanimated.View style={[sStyles.bodyClip, bodyStyle]}>
-          <View style={{ height: contentHeight.value }}>
-            <View style={sStyles.content}>{children}</View>
-          </View>
-        </Reanimated.View>
-      )}
+      {/* Animated clip container — always rendered, no conditional swap */}
+      <Reanimated.View style={[sStyles.bodyClip, bodyStyle]}>
+        <View style={sStyles.content}>{children}</View>
+      </Reanimated.View>
     </View>
   );
 }
@@ -118,7 +119,7 @@ function CollapsibleSection({
 const collapsibleStyles = (colors: Colors) =>
   StyleSheet.create({
     wrapper: {
-      marginTop: spacing.md,
+      marginTop: spacing.sm,
     },
     header: {
       flexDirection: "row",
@@ -175,8 +176,13 @@ function BudgetSlider({
   const onTrackLayout = useCallback((e: LayoutChangeEvent) => {
     trackWidth.current = e.nativeEvent.layout.width;
     // Measure absolute X so touches are relative to the track
-    (e.target as unknown as { measureInWindow: (cb: (x: number) => void) => void })
-      .measureInWindow((x: number) => { trackX.current = x; });
+    (
+      e.target as unknown as {
+        measureInWindow: (cb: (x: number) => void) => void;
+      }
+    ).measureInWindow((x: number) => {
+      trackX.current = x;
+    });
   }, []);
 
   const clampToStep = useCallback((pageX: number) => {
@@ -187,13 +193,16 @@ function BudgetSlider({
     return Math.max(BUDGET_MIN, Math.min(BUDGET_MAX, stepped));
   }, []);
 
-  const handleTouch = useCallback((e: GestureResponderEvent) => {
-    const next = clampToStep(e.nativeEvent.pageX);
-    if (next !== value) {
-      Haptics.selectionAsync();
-      onChange(next);
-    }
-  }, [value, onChange, clampToStep]);
+  const handleTouch = useCallback(
+    (e: GestureResponderEvent) => {
+      const next = clampToStep(e.nativeEvent.pageX);
+      if (next !== value) {
+        Haptics.selectionAsync();
+        onChange(next);
+      }
+    },
+    [value, onChange, clampToStep],
+  );
 
   return (
     <View style={bStyles.wrapper}>
@@ -215,7 +224,7 @@ function BudgetSlider({
         />
       </View>
       <View style={bStyles.labels}>
-        <Text style={bStyles.labelText}>${BUDGET_MIN}</Text>
+        <Text style={bStyles.labelText}>Free</Text>
         <Text style={bStyles.labelText}>${BUDGET_MAX}</Text>
       </View>
     </View>
@@ -271,6 +280,20 @@ const budgetSliderStyles = (colors: Colors) =>
     },
   });
 
+// Map dominant condition string to emoji
+function conditionEmoji(condition: string): string {
+  const c = condition.toLowerCase();
+  if (c.includes("thunder")) return "\u26C8\uFE0F";
+  if (c.includes("snow") || c.includes("sleet")) return "\u2744\uFE0F";
+  if (c.includes("rain") || c.includes("drizzle") || c.includes("shower"))
+    return "\uD83C\uDF27\uFE0F";
+  if (c.includes("fog") || c.includes("mist")) return "\uD83C\uDF2B\uFE0F";
+  if (c.includes("partly") || c.includes("partial")) return "\u26C5";
+  if (c.includes("cloud") || c.includes("overcast")) return "\u2601\uFE0F";
+  if (c.includes("clear") || c.includes("sunny")) return "\u2600\uFE0F";
+  return "\uD83C\uDF24\uFE0F";
+}
+
 const COLLAPSED_HEIGHT = 44;
 const SHEEN_WIDTH = 100;
 const EXPANDED_FORM_HEIGHT = 620;
@@ -282,6 +305,7 @@ const GREEN_MUTED = "rgba(134, 239, 172, 0.12)";
 
 const ACTIVITY_OPTIONS = [
   { label: "Food", value: "food", emoji: "\u{1F37D}\uFE0F" },
+  { label: "Coffee", value: "coffee", emoji: "\u2615" },
   { label: "Music", value: "music", emoji: "\u{1F3B5}" },
   { label: "Art", value: "art", emoji: "\u{1F3A8}" },
   { label: "Outdoors", value: "outdoors", emoji: "\u{1F333}" },
@@ -293,10 +317,10 @@ const ACTIVITY_OPTIONS = [
 
 const STOP_COUNT_OPTIONS = [
   { label: "Auto", value: 0 },
+  { label: "1", value: 1 },
+  { label: "2", value: 2 },
   { label: "3", value: 3 },
-  { label: "5", value: 5 },
-  { label: "7", value: 7 },
-  { label: "10", value: 10 },
+  { label: "4", value: 4 },
 ];
 
 const DURATION_OPTIONS = [
@@ -306,7 +330,7 @@ const DURATION_OPTIONS = [
   { label: "Full day", value: 10 },
 ];
 
-const BUDGET_MIN = 10;
+const BUDGET_MIN = 0;
 const BUDGET_MAX = 200;
 const BUDGET_STEP = 5;
 
@@ -337,8 +361,12 @@ export default function ItineraryDialogBox({
   const [durationHours, setDurationHours] = useState(4);
   const [stopCount, setStopCount] = useState(0); // 0 = auto
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
-  const [availableCategories, setAvailableCategories] = useState<Category[]>([]);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(new Set());
+  const [availableCategories, setAvailableCategories] = useState<Category[]>(
+    [],
+  );
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [result, setResult] = useState<ItineraryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -536,14 +564,19 @@ export default function ItineraryDialogBox({
   const handleReExpand = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     statusOpacity.value = withTiming(0, { duration: 150 });
-    const targetH = resultRef.current ? EXPANDED_RESULT_HEIGHT : EXPANDED_FORM_HEIGHT;
+    const targetH = resultRef.current
+      ? EXPANDED_RESULT_HEIGHT
+      : EXPANDED_FORM_HEIGHT;
     animHeight.value = withTiming(
       targetH,
       { duration: 350, easing: Easing.out(Easing.cubic) },
       (finished) => {
         if (finished) {
           scheduleOnRN(setReExpandPhaseCb);
-          contentOpacity.value = withDelay(50, withTiming(1, { duration: 200 }));
+          contentOpacity.value = withDelay(
+            50,
+            withTiming(1, { duration: 200 }),
+          );
         }
       },
     );
@@ -554,7 +587,9 @@ export default function ItineraryDialogBox({
     apiClient.categories
       .getCategories()
       .then((cats) => setAvailableCategories(cats))
-      .catch((err) => console.warn("[ItineraryDialogBox] Failed to load categories:", err));
+      .catch((err) =>
+        console.warn("[ItineraryDialogBox] Failed to load categories:", err),
+      );
   }, []);
 
   const toggleActivity = useCallback((value: string) => {
@@ -586,75 +621,96 @@ export default function ItineraryDialogBox({
       catNames: categoryNames,
       budget: budgetMax,
     });
-  }, [durationHours, stopCount, selectedActivities, selectedCategoryIds, availableCategories, budgetMax, fireGenerate]);
+  }, [
+    durationHours,
+    stopCount,
+    selectedActivities,
+    selectedCategoryIds,
+    availableCategories,
+    budgetMax,
+    fireGenerate,
+  ]);
 
   // Fire-and-forget generate with explicit params (avoids stale closure from setState)
-  const fireGenerate = useCallback(async (params: {
-    duration: number;
-    stops: number;
-    activities: string[];
-    catNames: string[];
-    budget: number;
-  }) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setPhase("generating");
-    setError(null);
-    setStatusText("Crafting your day...");
+  const fireGenerate = useCallback(
+    async (params: {
+      duration: number;
+      stops: number;
+      activities: string[];
+      catNames: string[];
+      budget: number;
+    }) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setPhase("generating");
+      setError(null);
+      setStatusText("Crafting your day...");
 
-    contentOpacity.value = withTiming(0, { duration: 150 });
-    statusOpacity.value = withDelay(150, withTiming(1, { duration: 200 }));
-    sheenActive.value = 1;
-    sheenPos.value = 0;
-    sheenPos.value = withRepeat(
-      withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true,
-    );
-    animHeight.value = withTiming(COLLAPSED_HEIGHT, {
-      duration: 300,
-      easing: Easing.out(Easing.cubic),
-    });
-
-    try {
-      const { jobId } = await apiClient.itineraries.create({
-        city,
-        plannedDate,
-        budgetMin: 0,
-        budgetMax: params.budget,
-        durationHours: params.duration,
-        activityTypes: params.activities,
-        stopCount: params.stops || undefined,
-        categoryNames: params.catNames.length > 0 ? params.catNames : undefined,
-      });
-      setActiveJobId(jobId);
-      trackJob(jobId);
-      itineraryJobStore.startJob(jobId);
-    } catch (err) {
-      cancelAnimation(sheenPos);
-      sheenActive.value = 0;
-      setError(err instanceof Error ? err.message : "Failed to generate");
-      setPhase("form");
-      statusOpacity.value = withTiming(0, { duration: 150 });
-      animHeight.value = withTiming(EXPANDED_FORM_HEIGHT, {
+      contentOpacity.value = withTiming(0, { duration: 150 });
+      statusOpacity.value = withDelay(150, withTiming(1, { duration: 200 }));
+      sheenActive.value = 1;
+      sheenPos.value = 0;
+      sheenPos.value = withRepeat(
+        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        true,
+      );
+      animHeight.value = withTiming(COLLAPSED_HEIGHT, {
         duration: 300,
         easing: Easing.out(Easing.cubic),
       });
-      contentOpacity.value = withDelay(150, withTiming(1, { duration: 200 }));
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  }, [city, plannedDate, trackJob]);
+
+      try {
+        const { jobId } = await apiClient.itineraries.create({
+          city,
+          plannedDate,
+          budgetMin: 0,
+          budgetMax: params.budget,
+          durationHours: params.duration,
+          activityTypes: params.activities,
+          stopCount: params.stops || undefined,
+          categoryNames:
+            params.catNames.length > 0 ? params.catNames : undefined,
+        });
+        setActiveJobId(jobId);
+        trackJob(jobId);
+        itineraryJobStore.startJob(jobId);
+      } catch (err) {
+        cancelAnimation(sheenPos);
+        sheenActive.value = 0;
+        setError(err instanceof Error ? err.message : "Failed to generate");
+        setPhase("form");
+        statusOpacity.value = withTiming(0, { duration: 150 });
+        animHeight.value = withTiming(EXPANDED_FORM_HEIGHT, {
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+        });
+        contentOpacity.value = withDelay(150, withTiming(1, { duration: 200 }));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    },
+    [city, plannedDate, trackJob],
+  );
 
   const handleSurpriseMe = useCallback(() => {
-    const randomDuration = DURATION_OPTIONS[Math.floor(Math.random() * DURATION_OPTIONS.length)].value;
+    const randomDuration =
+      DURATION_OPTIONS[Math.floor(Math.random() * DURATION_OPTIONS.length)]
+        .value;
     const randomStops = [3, 4, 5, 6][Math.floor(Math.random() * 4)];
-    const shuffledActivities = [...ACTIVITY_OPTIONS].sort(() => Math.random() - 0.5);
-    const randomActivities = shuffledActivities.slice(0, 2 + Math.floor(Math.random() * 2)).map((a) => a.value);
+    const shuffledActivities = [...ACTIVITY_OPTIONS].sort(
+      () => Math.random() - 0.5,
+    );
+    const randomActivities = shuffledActivities
+      .slice(0, 2 + Math.floor(Math.random() * 2))
+      .map((a) => a.value);
     const randomBudget = [30, 50, 75, 100][Math.floor(Math.random() * 4)];
 
     let randomCatNames: string[] = [];
     if (availableCategories.length > 0) {
       const shuffled = [...availableCategories].sort(() => Math.random() - 0.5);
-      const count = Math.min(2 + Math.floor(Math.random() * 2), shuffled.length);
+      const count = Math.min(
+        2 + Math.floor(Math.random() * 2),
+        shuffled.length,
+      );
       randomCatNames = shuffled.slice(0, count).map((c) => c.name);
     }
 
@@ -684,7 +740,10 @@ export default function ItineraryDialogBox({
       (fin) => {
         if (fin) {
           scheduleOnRN(setPhaseFormCb);
-          contentOpacity.value = withDelay(50, withTiming(1, { duration: 200 }));
+          contentOpacity.value = withDelay(
+            50,
+            withTiming(1, { duration: 200 }),
+          );
         }
       },
     );
@@ -702,7 +761,11 @@ export default function ItineraryDialogBox({
           ? "Today"
           : i === 1
             ? "Tomorrow"
-            : d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+            : d.toLocaleDateString("en-US", {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              });
       options.push({ label, value });
     }
     return options;
@@ -723,7 +786,11 @@ export default function ItineraryDialogBox({
             [-SHEEN_WIDTH, containerWidthSV.value + SHEEN_WIDTH],
           )
         : -SHEEN_WIDTH;
-    const opacity = interpolate(sheenPos.value, [0, 0.05, 0.95, 1], [0, 0.8, 0.8, 0]);
+    const opacity = interpolate(
+      sheenPos.value,
+      [0, 0.05, 0.95, 1],
+      [0, 0.8, 0.8, 0],
+    );
     return { opacity, transform: [{ translateX }] };
   });
 
@@ -745,14 +812,20 @@ export default function ItineraryDialogBox({
         style={StyleSheet.absoluteFill}
         onPress={phase === "collapsed" ? handleReExpand : undefined}
       >
-        <Reanimated.View style={[styles.statusOverlay, statusAnimStyle]} pointerEvents="none">
+        <Reanimated.View
+          style={[styles.statusOverlay, statusAnimStyle]}
+          pointerEvents="none"
+        >
           <Text style={styles.statusText}>{statusText}</Text>
         </Reanimated.View>
       </Pressable>
 
       {/* Sheen sweep */}
       {containerMeasured && (
-        <Reanimated.View style={[styles.sheenBeam, sheenAnimStyle]} pointerEvents="none">
+        <Reanimated.View
+          style={[styles.sheenBeam, sheenAnimStyle]}
+          pointerEvents="none"
+        >
           <Svg width={SHEEN_WIDTH} height={COLLAPSED_HEIGHT}>
             <Defs>
               <LinearGradient id="itSheen" x1="0" y1="0" x2="1" y2="0">
@@ -763,28 +836,36 @@ export default function ItineraryDialogBox({
                 <Stop offset="1" stopColor="#86efac" stopOpacity="0" />
               </LinearGradient>
             </Defs>
-            <Rect x="0" y="0" width={SHEEN_WIDTH} height={COLLAPSED_HEIGHT} fill="url(#itSheen)" />
+            <Rect
+              x="0"
+              y="0"
+              width={SHEEN_WIDTH}
+              height={COLLAPSED_HEIGHT}
+              fill="url(#itSheen)"
+            />
           </Svg>
-        </Reanimated.View>
-      )}
-
-      {/* Floating dismiss button — always visible above scroll */}
-      {(phase === "form" || phase === "result") && (
-        <Reanimated.View style={[styles.floatingDismiss, contentAnimStyle]} pointerEvents="box-none">
-          <Pressable onPress={handleDismiss} style={styles.dismissButton}>
-            <Text style={styles.dismissText}>✕</Text>
-          </Pressable>
         </Reanimated.View>
       )}
 
       {/* Content */}
       <Reanimated.View style={[{ flex: 1 }, contentAnimStyle]}>
+        {/* Inline header with dismiss */}
+        {(phase === "form" || phase === "result") && (
+          <View style={styles.headerRow}>
+            <Text style={styles.headerTitle}>
+              {phase === "result" ? "Your Plan" : "Plan Your Day"}
+            </Text>
+            <Pressable onPress={handleDismiss} style={styles.dismissButton}>
+              <Text style={styles.dismissText}>✕</Text>
+            </Pressable>
+          </View>
+        )}
+
         {phase === "form" && (
           <ScrollView
             showsVerticalScrollIndicator={false}
             bounces={false}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingTop: 36 }}
           >
             {/* Date — expanded by default */}
             <CollapsibleSection title="When?" defaultExpanded colors={colors}>
@@ -796,13 +877,21 @@ export default function ItineraryDialogBox({
                 {dateOptions.map((opt) => (
                   <Pressable
                     key={opt.value}
-                    style={[styles.pill, plannedDate === opt.value && styles.pillActive]}
+                    style={[
+                      styles.pill,
+                      plannedDate === opt.value && styles.pillActive,
+                    ]}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setPlannedDate(opt.value);
                     }}
                   >
-                    <Text style={[styles.pillText, plannedDate === opt.value && styles.pillTextActive]}>
+                    <Text
+                      style={[
+                        styles.pillText,
+                        plannedDate === opt.value && styles.pillTextActive,
+                      ]}
+                    >
                       {opt.label}
                     </Text>
                   </Pressable>
@@ -816,7 +905,10 @@ export default function ItineraryDialogBox({
                 {DURATION_OPTIONS.map((opt) => (
                   <Pressable
                     key={opt.value}
-                    style={[styles.segment, durationHours === opt.value && styles.segmentActive]}
+                    style={[
+                      styles.segment,
+                      durationHours === opt.value && styles.segmentActive,
+                    ]}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setDurationHours(opt.value);
@@ -841,7 +933,10 @@ export default function ItineraryDialogBox({
                 {STOP_COUNT_OPTIONS.map((opt) => (
                   <Pressable
                     key={opt.value}
-                    style={[styles.segment, stopCount === opt.value && styles.segmentActive]}
+                    style={[
+                      styles.segment,
+                      stopCount === opt.value && styles.segmentActive,
+                    ]}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setStopCount(opt.value);
@@ -861,8 +956,15 @@ export default function ItineraryDialogBox({
             </CollapsibleSection>
 
             {/* Budget */}
-            <CollapsibleSection title={`Budget · $${budgetMax}`} colors={colors}>
-              <BudgetSlider value={budgetMax} onChange={setBudgetMax} colors={colors} />
+            <CollapsibleSection
+              title={`Budget · ${budgetMax === 0 ? "Free" : `$${budgetMax}`}`}
+              colors={colors}
+            >
+              <BudgetSlider
+                value={budgetMax}
+                onChange={setBudgetMax}
+                colors={colors}
+              />
             </CollapsibleSection>
 
             {/* Activities — expanded by default */}
@@ -877,7 +979,12 @@ export default function ItineraryDialogBox({
                       onPress={() => toggleActivity(opt.value)}
                     >
                       <Text style={styles.chipEmoji}>{opt.emoji}</Text>
-                      <Text style={[styles.chipLabel, isSelected && styles.chipLabelActive]}>
+                      <Text
+                        style={[
+                          styles.chipLabel,
+                          isSelected && styles.chipLabelActive,
+                        ]}
+                      >
                         {opt.label}
                       </Text>
                     </Pressable>
@@ -902,8 +1009,15 @@ export default function ItineraryDialogBox({
                         style={[styles.chip, isSelected && styles.chipActive]}
                         onPress={() => toggleCategory(cat.id)}
                       >
-                        {cat.icon && <Text style={styles.chipEmoji}>{cat.icon}</Text>}
-                        <Text style={[styles.chipLabel, isSelected && styles.chipLabelActive]}>
+                        {cat.icon && (
+                          <Text style={styles.chipEmoji}>{cat.icon}</Text>
+                        )}
+                        <Text
+                          style={[
+                            styles.chipLabel,
+                            isSelected && styles.chipLabelActive,
+                          ]}
+                        >
                           {cat.name}
                         </Text>
                       </Pressable>
@@ -913,9 +1027,7 @@ export default function ItineraryDialogBox({
               </CollapsibleSection>
             )}
 
-            {error && (
-              <Text style={styles.errorText}>{error}</Text>
-            )}
+            {error && <Text style={styles.errorText}>{error}</Text>}
           </ScrollView>
         )}
 
@@ -932,16 +1044,21 @@ export default function ItineraryDialogBox({
         )}
 
         {phase === "result" && result && (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            bounces
-            contentContainerStyle={{ paddingTop: 36 }}
-          >
+          <ScrollView showsVerticalScrollIndicator={false} bounces>
             <Text style={styles.resultTitle}>{result.title}</Text>
             {result.summary && (
               <Text style={styles.resultSummary}>{result.summary}</Text>
             )}
-            <ItineraryTimeline items={result.items} />
+            {result.forecast && (
+              <View style={styles.forecastChip}>
+                <Text style={styles.forecastText}>
+                  {conditionEmoji(result.forecast.dominantCondition)}{" "}
+                  {result.forecast.tempLowF}–{result.forecast.tempHighF}°F{" "}
+                  {result.forecast.dominantCondition}
+                </Text>
+              </View>
+            )}
+            <ItineraryTimeline items={result.items} forecast={result.forecast} />
             <Pressable style={styles.resetButton} onPress={handleReset}>
               <Text style={styles.resetButtonText}>Build another</Text>
             </Pressable>
@@ -985,11 +1102,25 @@ const createStyles = (colors: Colors) =>
       left: 0,
       zIndex: 1,
     },
-    floatingDismiss: {
-      position: "absolute",
-      top: 10,
-      right: 8,
-      zIndex: 10,
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingBottom: 8,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 6,
+      elevation: 4,
+      zIndex: 5,
+    },
+    headerTitle: {
+      fontFamily: fontFamily.mono,
+      fontSize: 13,
+      color: colors.text.secondary,
+      fontWeight: "700",
+      textTransform: "uppercase",
+      letterSpacing: 1.5,
     },
     dismissButton: {
       width: 28,
@@ -1104,8 +1235,12 @@ const createStyles = (colors: Colors) =>
       flexDirection: "row",
       gap: 8,
       paddingTop: spacing.sm,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border.subtle,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 6,
+      elevation: 4,
+      zIndex: 5,
     },
     generateButton: {
       flex: 1,
@@ -1145,6 +1280,21 @@ const createStyles = (colors: Colors) =>
       fontSize: fontSize.md,
       color: colors.text.primary,
       fontWeight: "700",
+    },
+    forecastChip: {
+      alignSelf: "flex-start",
+      borderWidth: 1,
+      borderColor: "rgba(253, 186, 116, 0.25)",
+      borderRadius: radius.full,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      marginBottom: spacing.sm,
+    },
+    forecastText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 11,
+      fontWeight: "700",
+      color: "#f9a8d4",
     },
     resultSummary: {
       fontFamily: fontFamily.mono,

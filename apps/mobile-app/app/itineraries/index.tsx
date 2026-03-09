@@ -32,32 +32,25 @@ import {
   type Colors,
 } from "@/theme";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
+import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 
-const getDateBadge = (
-  plannedDate: string,
+const getStatusBadge = (
+  item: ItineraryResponse,
+  activeItineraryId: string | null,
   colors: Colors,
-): { text: string; color: { text: string; bg: string } } => {
-  const now = new Date();
-  const date = new Date(plannedDate + "T00:00:00");
-  const diffMs = date.getTime() - now.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  const badgeColors = {
-    live: { text: colors.status.success.text, bg: colors.status.success.border },
-    soon: { text: colors.status.warning.text, bg: colors.status.warning.border },
-    today: { text: colors.status.info.text, bg: colors.status.info.border },
-    upcoming: { text: colors.text.secondary, bg: colors.border.subtle },
-    past: { text: colors.text.disabled, bg: colors.border.subtle },
-  };
-
-  if (diffDays < 0) return { text: "Past", color: badgeColors.past };
-  if (diffDays === 0) return { text: "Today", color: badgeColors.live };
-  if (diffDays === 1) return { text: "Tomorrow", color: badgeColors.soon };
-  if (diffDays <= 7) return { text: `In ${diffDays}d`, color: badgeColors.today };
-  return {
-    text: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    color: badgeColors.upcoming,
-  };
+): { text: string; color: string } => {
+  if (item.id === activeItineraryId) {
+    const total = item.items.length;
+    const checked = item.items.filter((i) => i.checkedInAt).length;
+    if (checked === total && total > 0) {
+      return { text: "Complete", color: colors.status.success.text };
+    }
+    return {
+      text: `${checked}/${total} stops`,
+      color: colors.status.success.text,
+    };
+  }
+  return { text: item.city, color: colors.text.secondary };
 };
 
 // --- List Item ---
@@ -65,14 +58,16 @@ const getDateBadge = (
 interface ItineraryListItemProps {
   item: ItineraryResponse;
   index: number;
+  activeItineraryId: string | null;
   onPress: (id: string) => void;
 }
 
 const ItineraryListItem: React.FC<ItineraryListItemProps> = React.memo(
-  ({ item, index, onPress }) => {
+  ({ item, index, activeItineraryId, onPress }) => {
     const colors = useColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const scale = useSharedValue(1);
+    const isActive = item.id === activeItineraryId;
 
     const navigate = useCallback(() => {
       onPress(item.id);
@@ -91,14 +86,13 @@ const ItineraryListItem: React.FC<ItineraryListItemProps> = React.memo(
       transform: [{ scale: scale.value }],
     }));
 
-    const dateBadge = useMemo(
-      () => getDateBadge(item.plannedDate, colors),
-      [item.plannedDate, colors],
+    const statusBadge = useMemo(
+      () => getStatusBadge(item, activeItineraryId, colors),
+      [item, activeItineraryId, colors],
     );
 
     const meta = useMemo(() => {
       const parts: string[] = [];
-      parts.push(item.city);
       parts.push(`${item.durationHours}h`);
       const stops = (item.items ?? []).length;
       if (stops > 0) parts.push(`${stops} stops`);
@@ -130,10 +124,13 @@ const ItineraryListItem: React.FC<ItineraryListItemProps> = React.memo(
                 <Text style={styles.title} numberOfLines={1}>
                   {item.title || "Untitled Plan"}
                 </Text>
+                {isActive && (
+                  <View style={styles.activeDot} />
+                )}
                 <Text
-                  style={[styles.dateBadge, { color: dateBadge.color.text }]}
+                  style={[styles.statusBadge, { color: statusBadge.color }]}
                 >
-                  {dateBadge.text}
+                  {statusBadge.text}
                 </Text>
               </View>
               <Text style={styles.meta} numberOfLines={1}>
@@ -211,6 +208,7 @@ const ItinerariesListScreen = () => {
   const isGenerating = useItineraryJobStore((s) => !!s.activeJobId);
   const hasReady = useItineraryJobStore((s) => s.hasReady);
   const clearReady = useItineraryJobStore((s) => s.clearReady);
+  const activeItineraryId = useActiveItineraryStore((s) => s.itinerary?.id ?? null);
 
   const [itineraries, setItineraries] = useState<ItineraryResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -262,9 +260,14 @@ const ItinerariesListScreen = () => {
 
   const renderItem = useCallback(
     ({ item, index }: { item: ItineraryResponse; index: number }) => (
-      <ItineraryListItem item={item} index={index} onPress={handlePress} />
+      <ItineraryListItem
+        item={item}
+        index={index}
+        activeItineraryId={activeItineraryId}
+        onPress={handlePress}
+      />
     ),
-    [handlePress],
+    [handlePress, activeItineraryId],
   );
 
   const renderEmpty = useCallback(() => {
@@ -344,7 +347,13 @@ const createStyles = (colors: Colors) =>
       color: colors.text.primary,
       lineHeight: 18,
     },
-    dateBadge: {
+    activeDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.status.success.text,
+    },
+    statusBadge: {
       fontSize: 10,
       fontFamily: fontFamily.mono,
       letterSpacing: 0.2,

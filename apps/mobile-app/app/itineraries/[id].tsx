@@ -27,6 +27,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
 import ItineraryTimeline from "@/components/Itinerary/ItineraryTimeline";
+import ItineraryMapPreview from "@/components/Itinerary/ItineraryMapPreview";
 
 import { apiClient } from "@/services/ApiClient";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
@@ -480,8 +481,6 @@ const ItineraryDetailScreen = () => {
           style={styles.divider}
         />
 
-        {/* TODO: Map preview — revisit once city-level geocoding is stored on the itinerary */}
-
         {/* ── Check-in progress bar ── */}
         {isThisActive && totalStops > 0 && (
           <Animated.View
@@ -515,6 +514,17 @@ const ItineraryDetailScreen = () => {
           onCheckin={isThisActive ? handleManualCheckin : undefined}
         />
 
+        {/* ── Map Preview ── */}
+        <Animated.View
+          entering={FadeInDown.delay(700)
+            .duration(450)
+            .easing(Easing.out(Easing.cubic))}
+          style={styles.mapPreviewSection}
+        >
+          <Text style={styles.mapPreviewLabel}>ROUTE MAP</Text>
+          <ItineraryMapPreview items={items} city={itinerary.city} />
+        </Animated.View>
+
         {/* ── Actions ── */}
         <Animated.View
           entering={FadeInDown.delay(600)
@@ -524,55 +534,70 @@ const ItineraryDetailScreen = () => {
         >
           {isThisActive ? (
             <>
+              <View style={styles.buttonRow}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.navigateButton,
+                    styles.rowButton,
+                    pressed && styles.navigateButtonPressed,
+                  ]}
+                  onPress={handleNavigate}
+                >
+                  <Text style={styles.navigateButtonText}>Navigate</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.endButton,
+                    styles.rowButton,
+                    pressed && styles.endButtonPressed,
+                  ]}
+                  onPress={handleDeactivate}
+                >
+                  <Text style={styles.endButtonText}>End</Text>
+                </Pressable>
+              </View>
               <Pressable
                 style={({ pressed }) => [
-                  styles.navigateButton,
-                  pressed && styles.navigateButtonPressed,
+                  styles.shareButton,
+                  pressed && styles.shareButtonPressed,
                 ]}
-                onPress={handleNavigate}
+                onPress={handleShare}
               >
-                <Text style={styles.navigateButtonText}>Navigate</Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.endButton,
-                  pressed && styles.endButtonPressed,
-                ]}
-                onPress={handleDeactivate}
-              >
-                <Text style={styles.endButtonText}>End Itinerary</Text>
+                <Text style={styles.shareButtonText}>Share</Text>
               </Pressable>
             </>
           ) : (
-            <Pressable
-              style={({ pressed }) => [
-                styles.startButton,
-                pressed && styles.startButtonPressed,
-                isActivating && styles.startButtonDisabled,
-              ]}
-              onPress={handleActivate}
-              disabled={isActivating}
-            >
-              <Text style={styles.startButtonText}>
-                {isActivating ? "Activating..." : "Start Itinerary"}
-              </Text>
-            </Pressable>
-          )}
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.shareButton,
-              pressed && styles.shareButtonPressed,
-            ]}
-            onPress={handleShare}
-          >
-            <Text style={styles.shareButtonText}>Share</Text>
-          </Pressable>
-
-          {!isThisActive && (
-            <Pressable style={styles.deleteButton} onPress={handleDelete}>
-              <Text style={styles.deleteButtonText}>Delete</Text>
-            </Pressable>
+            <>
+              <View style={styles.buttonRow}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.startButton,
+                    styles.rowButton,
+                    pressed && styles.startButtonPressed,
+                    isActivating && styles.startButtonDisabled,
+                  ]}
+                  onPress={handleActivate}
+                  disabled={isActivating}
+                >
+                  <Text style={styles.startButtonText}>
+                    {isActivating ? "Activating..." : "Start"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.shareButton,
+                    styles.rowButton,
+                    pressed && styles.shareButtonPressed,
+                  ]}
+                  onPress={handleShare}
+                >
+                  <Text style={styles.shareButtonText}>Share</Text>
+                </Pressable>
+              </View>
+              <Pressable style={styles.deleteButton} onPress={handleDelete}>
+                <Text style={styles.deleteButtonText}>Delete</Text>
+              </Pressable>
+            </>
           )}
         </Animated.View>
       </ScrollView>
@@ -709,6 +734,17 @@ const createStyles = (colors: Colors) =>
       marginTop: spacing.md,
       gap: 6,
     },
+    mapPreviewSection: {
+      marginTop: spacing.lg,
+      gap: spacing.sm,
+    },
+    mapPreviewLabel: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.label,
+      letterSpacing: 1,
+    },
     progressLabelRow: {
       flexDirection: "row",
       justifyContent: "space-between",
@@ -743,6 +779,13 @@ const createStyles = (colors: Colors) =>
     actions: {
       gap: spacing.sm,
       marginTop: spacing.md,
+    },
+    buttonRow: {
+      flexDirection: "row",
+      gap: spacing.sm,
+    },
+    rowButton: {
+      flex: 1,
     },
     startButton: {
       backgroundColor: "rgba(134, 239, 172, 0.12)",
@@ -829,7 +872,7 @@ const createStyles = (colors: Colors) =>
     deleteButtonText: {
       fontFamily: fontFamily.mono,
       fontSize: 11,
-      color: colors.text.disabled,
+      color: "#fca5a5",
       fontWeight: fontWeight.semibold,
       textTransform: "uppercase",
       letterSpacing: 1,

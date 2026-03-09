@@ -26,6 +26,7 @@ import {
   type Colors,
 } from "@/theme";
 import type { ItineraryItemResponse } from "@/services/api/modules/itineraries";
+import { useFlyOverCamera } from "@/hooks/useFlyOverCamera";
 
 // Well-known city centers for fallback (avoids geocoding API call)
 const CITY_COORDS: Record<string, [number, number]> = {
@@ -158,6 +159,9 @@ export default function ItineraryMapPreview({
   const [revealedStops, setRevealedStops] = useState<Set<number>>(new Set());
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
+  // Orbital fly-over for single-stop itineraries
+  const { flyOver, stopFlyOver } = useFlyOverCamera({ cameraRef });
+
   // Filter to items that have coordinates
   const geoItems = useMemo(
     () =>
@@ -235,11 +239,38 @@ export default function ItineraryMapPreview({
     setIsPlaying(true);
     setRevealedStops(new Set());
     setCurrentStopIndex(-1);
+    stopFlyOver(); // stop any previous orbital
 
     // Hide play overlay
     overlayOpacity.value = withTiming(0, { duration: 300 });
 
-    // Scripted camera sequence
+    // --- Single stop: orbital drone mode ---
+    if (geoItems.length === 1) {
+      const item = geoItems[0];
+      const lng = Number(item.longitude!);
+      const lat = Number(item.latitude!);
+
+      // Reveal marker and label
+      setRevealedStops(new Set([0]));
+      setCurrentStopIndex(0);
+      labelOpacity.value = withTiming(1, { duration: 300 });
+
+      // Start orbiting after a brief initial fly-in
+      const orbitTimeout = setTimeout(() => {
+        flyOver([lng, lat], {
+          minPitch: 45,
+          maxPitch: 60,
+          minZoom: 15,
+          maxZoom: 17,
+          speed: 0.4,
+        });
+      }, 600);
+      timeoutsRef.current.push(orbitTimeout);
+
+      return;
+    }
+
+    // --- Multi-stop: scripted camera sequence ---
     const DWELL_MS = 2200; // time spent at each stop
     const FLY_MS = 1800; // camera fly duration
 
@@ -301,11 +332,14 @@ export default function ItineraryMapPreview({
       timeoutsRef.current.push(replayTimeout);
     }, totalDuration);
     timeoutsRef.current.push(endTimeout);
-  }, [geoItems, bounds]);
+  }, [geoItems, bounds, flyOver, stopFlyOver]);
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => clearTimeouts();
+    return () => {
+      clearTimeouts();
+      stopFlyOver();
+    };
   }, []);
 
   // Need at least a city center or geocoded stops to show anything
@@ -406,7 +440,11 @@ export default function ItineraryMapPreview({
               {revealedStops.size > 0 ? "\u{1F504}" : "\u{25B6}\uFE0F"}
             </Text>
             <Text style={s.playText}>
-              {revealedStops.size > 0 ? "Replay" : "Preview Route"}
+              {revealedStops.size > 0
+                ? "Replay"
+                : geoItems.length === 1
+                  ? "Drone View"
+                  : "Preview Route"}
             </Text>
           </Pressable>
         ) : (

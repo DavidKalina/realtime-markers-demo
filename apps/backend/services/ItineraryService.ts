@@ -670,9 +670,9 @@ class ItineraryServiceImpl implements ItineraryService {
         : null;
 
     const budgetRange =
-      input.budgetMax > 0
-        ? `$${input.budgetMin}–$${input.budgetMax}`
-        : "No budget constraint";
+      input.budgetMin === 0 && input.budgetMax === 0
+        ? "Free only ($0 — no paid activities)"
+        : `$${input.budgetMin}–$${input.budgetMax}`;
 
     const hasTrails = trailList !== null;
     const trailInstructions = hasTrails
