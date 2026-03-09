@@ -4,9 +4,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type LayoutChangeEvent,
+  type GestureResponderEvent,
   type ViewStyle,
 } from "react-native";
 import Reanimated, {
@@ -37,6 +37,239 @@ import type { Category } from "@/services/api/base/types";
 import { useJobProgress } from "@/hooks/useJobProgress";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
 import ItineraryTimeline from "./ItineraryTimeline";
+
+/* ── Collapsible section ─────────────────────────────────── */
+const COLLAPSE_DURATION = 250;
+
+function CollapsibleSection({
+  title,
+  defaultExpanded = false,
+  colors,
+  children,
+}: {
+  title: string;
+  defaultExpanded?: boolean;
+  colors: Colors;
+  children: React.ReactNode;
+}) {
+  const expanded = useSharedValue(defaultExpanded ? 1 : 0);
+  const contentHeight = useSharedValue(0);
+  const [measured, setMeasured] = useState(false);
+  const sStyles = useMemo(() => collapsibleStyles(colors), [colors]);
+
+  const toggle = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    expanded.value = withTiming(expanded.value === 1 ? 0 : 1, {
+      duration: COLLAPSE_DURATION,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, []);
+
+  const onContentLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0 && !measured) {
+      contentHeight.value = h;
+      setMeasured(true);
+    }
+  }, [measured]);
+
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${expanded.value * 90}deg` }],
+  }));
+
+  const bodyStyle = useAnimatedStyle(() => {
+    if (contentHeight.value === 0) return { height: 0, opacity: 0 };
+    const h = interpolate(expanded.value, [0, 1], [0, contentHeight.value]);
+    return { height: h, opacity: expanded.value };
+  });
+
+  return (
+    <View style={sStyles.wrapper}>
+      <Pressable onPress={toggle} style={sStyles.header}>
+        <Text style={sStyles.label}>{title}</Text>
+        <Reanimated.View style={chevronStyle}>
+          <Text style={sStyles.chevron}>›</Text>
+        </Reanimated.View>
+      </Pressable>
+
+      {/* Hidden measure pass — renders children off-screen to get natural height */}
+      {!measured && (
+        <View
+          style={sStyles.measure}
+          onLayout={onContentLayout}
+          pointerEvents="none"
+        >
+          <View style={sStyles.content}>{children}</View>
+        </View>
+      )}
+
+      {/* Animated clip container */}
+      {measured && (
+        <Reanimated.View style={[sStyles.bodyClip, bodyStyle]}>
+          <View style={{ height: contentHeight.value }}>
+            <View style={sStyles.content}>{children}</View>
+          </View>
+        </Reanimated.View>
+      )}
+    </View>
+  );
+}
+
+const collapsibleStyles = (colors: Colors) =>
+  StyleSheet.create({
+    wrapper: {
+      marginTop: spacing.md,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: 4,
+    },
+    label: {
+      fontFamily: fontFamily.mono,
+      fontSize: 11,
+      color: colors.text.secondary,
+      textTransform: "uppercase",
+      letterSpacing: 1.5,
+    },
+    chevron: {
+      fontFamily: fontFamily.mono,
+      fontSize: 16,
+      color: colors.text.secondary,
+      fontWeight: "700",
+    },
+    measure: {
+      position: "absolute",
+      opacity: 0,
+      left: 0,
+      right: 0,
+    },
+    bodyClip: {
+      overflow: "hidden",
+    },
+    content: {
+      marginTop: 6,
+    },
+  });
+
+/* ── Budget slider ───────────────────────────────────────── */
+const SLIDER_TRACK_HEIGHT = 6;
+const SLIDER_THUMB_SIZE = 24;
+
+function BudgetSlider({
+  value,
+  onChange,
+  colors,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  colors: Colors;
+}) {
+  const trackWidth = useRef(0);
+  const trackX = useRef(0);
+  const bStyles = useMemo(() => budgetSliderStyles(colors), [colors]);
+
+  const fraction = (value - BUDGET_MIN) / (BUDGET_MAX - BUDGET_MIN);
+
+  const onTrackLayout = useCallback((e: LayoutChangeEvent) => {
+    trackWidth.current = e.nativeEvent.layout.width;
+    // Measure absolute X so touches are relative to the track
+    (e.target as unknown as { measureInWindow: (cb: (x: number) => void) => void })
+      .measureInWindow((x: number) => { trackX.current = x; });
+  }, []);
+
+  const clampToStep = useCallback((pageX: number) => {
+    const relX = pageX - trackX.current;
+    const pct = Math.max(0, Math.min(1, relX / trackWidth.current));
+    const raw = BUDGET_MIN + pct * (BUDGET_MAX - BUDGET_MIN);
+    const stepped = Math.round(raw / BUDGET_STEP) * BUDGET_STEP;
+    return Math.max(BUDGET_MIN, Math.min(BUDGET_MAX, stepped));
+  }, []);
+
+  const handleTouch = useCallback((e: GestureResponderEvent) => {
+    const next = clampToStep(e.nativeEvent.pageX);
+    if (next !== value) {
+      Haptics.selectionAsync();
+      onChange(next);
+    }
+  }, [value, onChange, clampToStep]);
+
+  return (
+    <View style={bStyles.wrapper}>
+      <View
+        style={bStyles.track}
+        onLayout={onTrackLayout}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={handleTouch}
+        onResponderMove={handleTouch}
+      >
+        <View style={bStyles.trackBg} />
+        <View style={[bStyles.trackFill, { width: `${fraction * 100}%` }]} />
+        <View
+          style={[
+            bStyles.thumb,
+            { left: `${fraction * 100}%`, marginLeft: -SLIDER_THUMB_SIZE / 2 },
+          ]}
+        />
+      </View>
+      <View style={bStyles.labels}>
+        <Text style={bStyles.labelText}>${BUDGET_MIN}</Text>
+        <Text style={bStyles.labelText}>${BUDGET_MAX}</Text>
+      </View>
+    </View>
+  );
+}
+
+const budgetSliderStyles = (colors: Colors) =>
+  StyleSheet.create({
+    wrapper: {
+      paddingVertical: 8,
+    },
+    track: {
+      height: SLIDER_THUMB_SIZE,
+      justifyContent: "center",
+      marginHorizontal: SLIDER_THUMB_SIZE / 2,
+    },
+    trackBg: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      height: SLIDER_TRACK_HEIGHT,
+      borderRadius: SLIDER_TRACK_HEIGHT / 2,
+      backgroundColor: colors.bg.elevated,
+      top: (SLIDER_THUMB_SIZE - SLIDER_TRACK_HEIGHT) / 2,
+    },
+    trackFill: {
+      position: "absolute",
+      left: 0,
+      height: SLIDER_TRACK_HEIGHT,
+      borderRadius: SLIDER_TRACK_HEIGHT / 2,
+      backgroundColor: GREEN_ACCENT,
+      top: (SLIDER_THUMB_SIZE - SLIDER_TRACK_HEIGHT) / 2,
+    },
+    thumb: {
+      position: "absolute",
+      width: SLIDER_THUMB_SIZE,
+      height: SLIDER_THUMB_SIZE,
+      borderRadius: SLIDER_THUMB_SIZE / 2,
+      backgroundColor: GREEN_ACCENT,
+      borderWidth: 2,
+      borderColor: colors.bg.card,
+    },
+    labels: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginTop: 4,
+    },
+    labelText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 10,
+      color: colors.text.disabled,
+      letterSpacing: 0.5,
+    },
+  });
 
 const COLLAPSED_HEIGHT = 44;
 const SHEEN_WIDTH = 100;
@@ -73,6 +306,10 @@ const DURATION_OPTIONS = [
   { label: "Full day", value: 10 },
 ];
 
+const BUDGET_MIN = 10;
+const BUDGET_MAX = 200;
+const BUDGET_STEP = 5;
+
 type Phase = "collapsed" | "form" | "generating" | "result";
 
 interface ItineraryDialogBoxProps {
@@ -96,7 +333,7 @@ export default function ItineraryDialogBox({
   const [plannedDate, setPlannedDate] = useState(() => {
     return new Date().toISOString().split("T")[0];
   });
-  const [budgetMax, setBudgetMax] = useState("50");
+  const [budgetMax, setBudgetMax] = useState(50);
   const [durationHours, setDurationHours] = useState(4);
   const [stopCount, setStopCount] = useState(0); // 0 = auto
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
@@ -357,7 +594,7 @@ export default function ItineraryDialogBox({
     stops: number;
     activities: string[];
     catNames: string[];
-    budget: string;
+    budget: number;
   }) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setPhase("generating");
@@ -383,7 +620,7 @@ export default function ItineraryDialogBox({
         city,
         plannedDate,
         budgetMin: 0,
-        budgetMax: parseFloat(params.budget) || 0,
+        budgetMax: params.budget,
         durationHours: params.duration,
         activityTypes: params.activities,
         stopCount: params.stops || undefined,
@@ -412,7 +649,7 @@ export default function ItineraryDialogBox({
     const randomStops = [3, 4, 5, 6][Math.floor(Math.random() * 4)];
     const shuffledActivities = [...ACTIVITY_OPTIONS].sort(() => Math.random() - 0.5);
     const randomActivities = shuffledActivities.slice(0, 2 + Math.floor(Math.random() * 2)).map((a) => a.value);
-    const randomBudget = String([30, 50, 75, 100][Math.floor(Math.random() * 4)]);
+    const randomBudget = [30, 50, 75, 100][Math.floor(Math.random() * 4)];
 
     let randomCatNames: string[] = [];
     if (availableCategories.length > 0) {
@@ -549,117 +786,109 @@ export default function ItineraryDialogBox({
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingTop: 36 }}
           >
-            {/* Date */}
-            <Text style={styles.sectionLabel}>When?</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.pillRow}
-            >
-              {dateOptions.map((opt) => (
-                <Pressable
-                  key={opt.value}
-                  style={[styles.pill, plannedDate === opt.value && styles.pillActive]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setPlannedDate(opt.value);
-                  }}
-                >
-                  <Text style={[styles.pillText, plannedDate === opt.value && styles.pillTextActive]}>
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-
-            {/* Duration */}
-            <Text style={styles.sectionLabel}>How long?</Text>
-            <View style={styles.segmentRow}>
-              {DURATION_OPTIONS.map((opt) => (
-                <Pressable
-                  key={opt.value}
-                  style={[styles.segment, durationHours === opt.value && styles.segmentActive]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setDurationHours(opt.value);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.segmentText,
-                      durationHours === opt.value && styles.segmentTextActive,
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            {/* Stops */}
-            <Text style={styles.sectionLabel}>How many stops?</Text>
-            <View style={styles.segmentRow}>
-              {STOP_COUNT_OPTIONS.map((opt) => (
-                <Pressable
-                  key={opt.value}
-                  style={[styles.segment, stopCount === opt.value && styles.segmentActive]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setStopCount(opt.value);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.segmentText,
-                      stopCount === opt.value && styles.segmentTextActive,
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            {/* Budget */}
-            <Text style={styles.sectionLabel}>Budget</Text>
-            <View style={styles.budgetRow}>
-              <Text style={styles.budgetCurrency}>$</Text>
-              <TextInput
-                style={styles.budgetInput}
-                value={budgetMax}
-                onChangeText={setBudgetMax}
-                keyboardType="numeric"
-                placeholder="50"
-                placeholderTextColor={colors.text.disabled}
-                maxLength={5}
-              />
-              <Text style={styles.budgetLabel}>max</Text>
-            </View>
-
-            {/* Activities */}
-            <Text style={styles.sectionLabel}>Vibes</Text>
-            <View style={styles.activityGrid}>
-              {ACTIVITY_OPTIONS.map((opt) => {
-                const isSelected = selectedActivities.includes(opt.value);
-                return (
+            {/* Date — expanded by default */}
+            <CollapsibleSection title="When?" defaultExpanded colors={colors}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.pillRow}
+              >
+                {dateOptions.map((opt) => (
                   <Pressable
                     key={opt.value}
-                    style={[styles.chip, isSelected && styles.chipActive]}
-                    onPress={() => toggleActivity(opt.value)}
+                    style={[styles.pill, plannedDate === opt.value && styles.pillActive]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setPlannedDate(opt.value);
+                    }}
                   >
-                    <Text style={styles.chipEmoji}>{opt.emoji}</Text>
-                    <Text style={[styles.chipLabel, isSelected && styles.chipLabelActive]}>
+                    <Text style={[styles.pillText, plannedDate === opt.value && styles.pillTextActive]}>
                       {opt.label}
                     </Text>
                   </Pressable>
-                );
-              })}
-            </View>
+                ))}
+              </ScrollView>
+            </CollapsibleSection>
+
+            {/* Duration */}
+            <CollapsibleSection title="How long?" colors={colors}>
+              <View style={styles.segmentRow}>
+                {DURATION_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt.value}
+                    style={[styles.segment, durationHours === opt.value && styles.segmentActive]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setDurationHours(opt.value);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentText,
+                        durationHours === opt.value && styles.segmentTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </CollapsibleSection>
+
+            {/* Stops */}
+            <CollapsibleSection title="How many stops?" colors={colors}>
+              <View style={styles.segmentRow}>
+                {STOP_COUNT_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt.value}
+                    style={[styles.segment, stopCount === opt.value && styles.segmentActive]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setStopCount(opt.value);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentText,
+                        stopCount === opt.value && styles.segmentTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </CollapsibleSection>
+
+            {/* Budget */}
+            <CollapsibleSection title={`Budget · $${budgetMax}`} colors={colors}>
+              <BudgetSlider value={budgetMax} onChange={setBudgetMax} colors={colors} />
+            </CollapsibleSection>
+
+            {/* Activities — expanded by default */}
+            <CollapsibleSection title="Vibes" defaultExpanded colors={colors}>
+              <View style={styles.activityGrid}>
+                {ACTIVITY_OPTIONS.map((opt) => {
+                  const isSelected = selectedActivities.includes(opt.value);
+                  return (
+                    <Pressable
+                      key={opt.value}
+                      style={[styles.chip, isSelected && styles.chipActive]}
+                      onPress={() => toggleActivity(opt.value)}
+                    >
+                      <Text style={styles.chipEmoji}>{opt.emoji}</Text>
+                      <Text style={[styles.chipLabel, isSelected && styles.chipLabelActive]}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </CollapsibleSection>
 
             {/* Categories from DB */}
             {availableCategories.length > 0 && (
-              <>
-                <Text style={styles.sectionLabel}>Categories</Text>
+              <CollapsibleSection title="Categories" colors={colors}>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -681,22 +910,25 @@ export default function ItineraryDialogBox({
                     );
                   })}
                 </ScrollView>
-              </>
+              </CollapsibleSection>
             )}
 
             {error && (
               <Text style={styles.errorText}>{error}</Text>
             )}
+          </ScrollView>
+        )}
 
-            {/* Generate */}
-            <Pressable style={styles.generateButton} onPress={handleGenerate}>
-              <Text style={styles.generateButtonText}>Build My Plan</Text>
-            </Pressable>
-
+        {/* Fixed footer buttons */}
+        {phase === "form" && (
+          <View style={styles.footerRow}>
             <Pressable style={styles.surpriseButton} onPress={handleSurpriseMe}>
               <Text style={styles.surpriseButtonText}>Surprise Me</Text>
             </Pressable>
-          </ScrollView>
+            <Pressable style={styles.generateButton} onPress={handleGenerate}>
+              <Text style={styles.generateButtonText}>Build My Plan</Text>
+            </Pressable>
+          </View>
         )}
 
         {phase === "result" && result && (
@@ -779,7 +1011,6 @@ const createStyles = (colors: Colors) =>
       textTransform: "uppercase",
       letterSpacing: 1.5,
       marginBottom: 6,
-      marginTop: spacing.md,
     },
     pillRow: {
       flexDirection: "row",
@@ -832,37 +1063,6 @@ const createStyles = (colors: Colors) =>
     segmentTextActive: {
       color: GREEN_ACCENT,
     },
-    budgetRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.bg.elevated,
-      borderRadius: radius.md,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 4,
-      gap: 4,
-    },
-    budgetCurrency: {
-      fontFamily: fontFamily.mono,
-      fontSize: fontSize.lg,
-      color: GREEN_ACCENT,
-      fontWeight: "700",
-    },
-    budgetInput: {
-      fontFamily: fontFamily.mono,
-      fontSize: fontSize.lg,
-      color: colors.text.primary,
-      minWidth: 50,
-      paddingVertical: 2,
-      fontWeight: "700",
-    },
-    budgetLabel: {
-      fontFamily: fontFamily.mono,
-      fontSize: 11,
-      color: colors.text.disabled,
-      marginLeft: "auto",
-      textTransform: "uppercase",
-      letterSpacing: 1,
-    },
     activityGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -900,15 +1100,21 @@ const createStyles = (colors: Colors) =>
       color: colors.status.error.text,
       marginTop: spacing.sm,
     },
+    footerRow: {
+      flexDirection: "row",
+      gap: 8,
+      paddingTop: spacing.sm,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border.subtle,
+    },
     generateButton: {
+      flex: 1,
       backgroundColor: GREEN_MUTED,
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: "rgba(134, 239, 172, 0.25)",
       paddingVertical: 10,
       alignItems: "center",
-      marginTop: spacing.lg,
-      marginBottom: spacing.sm,
     },
     generateButtonText: {
       fontFamily: fontFamily.mono,
@@ -919,12 +1125,12 @@ const createStyles = (colors: Colors) =>
       letterSpacing: 1,
     },
     surpriseButton: {
+      flex: 1,
       borderWidth: 1,
       borderColor: "rgba(134, 239, 172, 0.25)",
       borderRadius: radius.md,
       paddingVertical: 10,
       alignItems: "center",
-      marginBottom: spacing.sm,
     },
     surpriseButtonText: {
       fontFamily: fontFamily.mono,
