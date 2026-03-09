@@ -40,7 +40,7 @@ const SUB_SCORES = [
 const MOMENTUM_CONFIG = {
   rising: { arrow: "\u2191", color: "#4ade80" },
   steady: { arrow: "\u2192", color: "#a3a3a3" },
-  cooling: { arrow: "\u2193", color: "#f87171" },
+  cooling: { arrow: "\u2193", color: "#7dd3fc" },
 };
 
 const CIRCLE_SIZE = 120;

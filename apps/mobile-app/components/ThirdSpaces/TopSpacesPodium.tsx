@@ -20,7 +20,7 @@ interface TopSpacesPodiumProps {
 const MOMENTUM_ARROWS: Record<string, { arrow: string; color: string }> = {
   rising: { arrow: "\u2191", color: "#4ade80" },
   steady: { arrow: "\u2192", color: "#a3a3a3" },
-  cooling: { arrow: "\u2193", color: "#f87171" },
+  cooling: { arrow: "\u2193", color: "#7dd3fc" },
 };
 
 const RANK_COLORS = ["#fbbf24", "#a3a3a3", "#cd7f32"]; // gold, silver, bronze
