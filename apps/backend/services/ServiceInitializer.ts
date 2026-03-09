@@ -56,6 +56,10 @@ import { createFollowService } from "./FollowService";
 import type { FollowService } from "./FollowService";
 import { createItineraryService } from "./ItineraryService";
 import type { ItineraryService } from "./ItineraryService";
+import { createOverpassService } from "./shared/OverpassService";
+import { createWeatherService } from "./shared/WeatherService";
+import { createItineraryCheckinService } from "./ItineraryCheckinService";
+import type { ItineraryCheckinService } from "./ItineraryCheckinService";
 
 export interface ServiceContainer {
   eventService: EventService;
@@ -80,6 +84,7 @@ export interface ServiceContainer {
   followService: FollowService;
   thirdSpaceScoreService: ThirdSpaceScoreService;
   itineraryService: ItineraryService;
+  itineraryCheckinService: ItineraryCheckinService;
 }
 
 export class ServiceInitializer {
@@ -252,10 +257,21 @@ export class ServiceInitializer {
       redisService,
     });
 
+    const overpassService = createOverpassService({ redisService });
+    const weatherService = createWeatherService({ redisService });
+
     const itineraryService = createItineraryService({
       dataSource: this.dataSource,
       openAIService,
       geocodingService,
+      overpassService,
+      weatherService,
+    });
+
+    const itineraryCheckinService = createItineraryCheckinService({
+      dataSource: this.dataSource,
+      pushService: pushNotificationService,
+      redisService,
     });
 
     // Conditionally create TicketmasterService (opt-in via env var)
@@ -293,6 +309,7 @@ export class ServiceInitializer {
       followService,
       thirdSpaceScoreService,
       itineraryService,
+      itineraryCheckinService,
     };
   }
 

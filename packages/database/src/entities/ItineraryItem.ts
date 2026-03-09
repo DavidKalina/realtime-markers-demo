@@ -43,13 +43,24 @@ export class ItineraryItem {
   @Column({ type: "varchar", length: 10, nullable: true })
   emoji?: string;
 
-  @Column({ name: "estimated_cost", type: "numeric", precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: "estimated_cost",
+    type: "numeric",
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   estimatedCost?: number;
 
   @Column({ name: "venue_name", type: "varchar", length: 500, nullable: true })
   venueName?: string;
 
-  @Column({ name: "venue_address", type: "varchar", length: 500, nullable: true })
+  @Column({
+    name: "venue_address",
+    type: "varchar",
+    length: 500,
+    nullable: true,
+  })
   venueAddress?: string;
 
   @Column({ name: "event_id", type: "uuid", nullable: true })
@@ -68,13 +79,29 @@ export class ItineraryItem {
   @Column({ type: "numeric", precision: 10, scale: 7, nullable: true })
   longitude?: number;
 
-  @Column({ name: "google_place_id", type: "varchar", length: 255, nullable: true })
+  @Column({
+    name: "google_place_id",
+    type: "varchar",
+    length: 255,
+    nullable: true,
+  })
   googlePlaceId?: string;
 
-  @Column({ name: "google_rating", type: "numeric", precision: 2, scale: 1, nullable: true })
+  @Column({
+    name: "google_rating",
+    type: "numeric",
+    precision: 2,
+    scale: 1,
+    nullable: true,
+  })
   googleRating?: number;
 
-  @Column({ name: "venue_category", type: "varchar", length: 100, nullable: true })
+  @Column({
+    name: "venue_category",
+    type: "varchar",
+    length: 100,
+    nullable: true,
+  })
   venueCategory?: string;
 
   @Column({ name: "why_this_stop", type: "text", nullable: true })
@@ -82,4 +109,7 @@ export class ItineraryItem {
 
   @Column({ name: "pro_tip", type: "text", nullable: true })
   proTip?: string;
+
+  @Column({ name: "checked_in_at", type: "timestamptz", nullable: true })
+  checkedInAt?: Date;
 }

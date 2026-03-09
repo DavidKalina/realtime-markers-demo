@@ -192,11 +192,20 @@ export class PushNotificationService {
     if (data?.type === "discovery" && data.coordinates) {
       // Animate map to the discovered event's location
       const coordinates = data.coordinates as [number, number];
-      eventBroker.publish(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
+      eventBroker.emit(EventTypes.CAMERA_ANIMATE_TO_LOCATION, {
         timestamp: Date.now(),
         source: "PushNotification",
         coordinates,
         zoomLevel: 15,
+      });
+    } else if (data?.type === "itinerary_checkin" && data.itineraryId) {
+      // User auto-checked in at an itinerary stop
+      eventBroker.emit(EventTypes.ITINERARY_CHECKIN, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        itineraryId: data.itineraryId as string,
+        itemId: data.itemId as string,
+        completed: data.completed as boolean,
       });
     } else if (data?.type === "follow_activity" && data.eventId) {
       // A followed user saved/rsvp'd/scanned an event

@@ -5,6 +5,8 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -16,6 +18,7 @@ import { UserEventSave } from "./UserEventSave";
 import { UserEventView } from "./UserEventView";
 import { UserEventRsvp } from "./UserEventRsvp";
 import { UserFollow } from "./UserFollow";
+import { Itinerary } from "./Itinerary";
 
 export enum UserRole {
   USER = "USER",
@@ -126,6 +129,13 @@ export class User {
 
   @OneToMany(() => UserFollow, (follow) => follow.followedUser)
   followers!: Relation<UserFollow>[];
+
+  @Column({ name: "active_itinerary_id", type: "uuid", nullable: true })
+  activeItineraryId?: string;
+
+  @ManyToOne(() => Itinerary, { onDelete: "SET NULL", nullable: true })
+  @JoinColumn({ name: "active_itinerary_id" })
+  activeItinerary?: Relation<Itinerary>;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

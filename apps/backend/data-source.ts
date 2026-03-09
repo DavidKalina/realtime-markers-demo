@@ -18,6 +18,7 @@ import {
   LlmUsageLog,
   Itinerary,
   ItineraryItem,
+  ItineraryCheckin,
 } from "@realtime-markers/database";
 
 // Import all migrations explicitly
@@ -51,6 +52,9 @@ import { NormalizeTSSCityNames1710000000034 } from "./migrations/NormalizeTSSCit
 import { ItineraryTables1710000000035 } from "./migrations/ItineraryTables1710000000035";
 import { AddItineraryItemGeoData1710000000036 } from "./migrations/AddItineraryItemGeoData1710000000036";
 import { AddItineraryShareToken1710000000037 } from "./migrations/AddItineraryShareToken1710000000037";
+import { AddItineraryCheckins1710000000038 } from "./migrations/AddItineraryCheckins1710000000038";
+import { ItineraryCheckinsTable1710000000039 } from "./migrations/ItineraryCheckinsTable1710000000039";
+import { AddItineraryForecast1710000000040 } from "./migrations/AddItineraryForecast1710000000040";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -71,6 +75,7 @@ const AppDataSource = new DataSource({
     LlmUsageLog,
     Itinerary,
     ItineraryItem,
+    ItineraryCheckin,
   ],
   migrations: [
     CategoryTable1710000000000,
@@ -103,6 +108,9 @@ const AppDataSource = new DataSource({
     ItineraryTables1710000000035,
     AddItineraryItemGeoData1710000000036,
     AddItineraryShareToken1710000000037,
+    AddItineraryCheckins1710000000038,
+    ItineraryCheckinsTable1710000000039,
+    AddItineraryForecast1710000000040,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

@@ -141,6 +141,81 @@ export const getSharedItineraryHandler = async (c: Context<AppContext>) => {
   return c.json(safeItinerary);
 };
 
+export const activateItineraryHandler = async (c: Context<AppContext>) => {
+  const user = c.get("user");
+  if (!user?.userId && !user?.id) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  const userId = user.userId || user.id;
+
+  const id = c.req.param("id");
+  if (!id) {
+    return c.json({ error: "id is required" }, 400);
+  }
+
+  const checkinService = c.get("itineraryCheckinService");
+  const activated = await checkinService.activateItinerary(userId, id);
+
+  if (!activated) {
+    return c.json({ error: "Itinerary not found or not ready" }, 404);
+  }
+
+  return c.json({ success: true });
+};
+
+export const deactivateItineraryHandler = async (c: Context<AppContext>) => {
+  const user = c.get("user");
+  if (!user?.userId && !user?.id) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  const userId = user.userId || user.id;
+
+  const checkinService = c.get("itineraryCheckinService");
+  await checkinService.deactivateItinerary(userId);
+
+  return c.json({ success: true });
+};
+
+export const getActiveItineraryHandler = async (c: Context<AppContext>) => {
+  const user = c.get("user");
+  if (!user?.userId && !user?.id) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  const userId = user.userId || user.id;
+
+  const checkinService = c.get("itineraryCheckinService");
+  const itinerary = await checkinService.getActiveItinerary(userId);
+
+  if (!itinerary) {
+    return c.json({ active: false });
+  }
+
+  return c.json({ active: true, itinerary });
+};
+
+export const checkinItineraryItemHandler = async (c: Context<AppContext>) => {
+  const user = c.get("user");
+  if (!user?.userId && !user?.id) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  const userId = user.userId || user.id;
+
+  const id = c.req.param("id");
+  const itemId = c.req.param("itemId");
+  if (!id || !itemId) {
+    return c.json({ error: "id and itemId are required" }, 400);
+  }
+
+  const checkinService = c.get("itineraryCheckinService");
+  const result = await checkinService.manualCheckin(userId, id, itemId);
+
+  if (!result.success) {
+    return c.json({ error: "Item not found" }, 404);
+  }
+
+  return c.json({ success: true, checkedInAt: result.checkedInAt });
+};
+
 export const deleteItineraryHandler = async (c: Context<AppContext>) => {
   const user = c.get("user");
   if (!user?.userId && !user?.id) {

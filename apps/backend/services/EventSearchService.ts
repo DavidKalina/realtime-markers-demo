@@ -875,10 +875,11 @@ export class EventSearchServiceImpl implements EventSearchService {
         "(LOWER(event.city) = LOWER(:city) OR LOWER(event.city) = LOWER(:cityName))",
         { city, cityName },
       )
-      .orderBy(
-        "(COALESCE(event.saveCount, 0) + COALESCE(event.viewCount, 0))",
-        "DESC",
+      .addSelect(
+        'COALESCE("event"."save_count", 0) + COALESCE("event"."view_count", 0)',
+        "popularity",
       )
+      .orderBy("popularity", "DESC")
       .take(limit);
 
     return qb.getMany();

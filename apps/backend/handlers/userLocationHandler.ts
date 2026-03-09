@@ -37,5 +37,12 @@ export async function updateLocationHandler(c: Context<AppContext>) {
       console.error("[ProximityNotification] check failed:", err),
     );
 
+  // Fire-and-forget: check for itinerary stop proximity and auto-checkin
+  c.get("itineraryCheckinService")
+    .checkAndNotify(user.id, lat, lng)
+    .catch((err: unknown) =>
+      console.error("[ItineraryCheckin] check failed:", err),
+    );
+
   return c.json({ success: true });
 }

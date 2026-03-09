@@ -52,6 +52,7 @@ const ACTIVITY_OPTIONS = [
   { label: "Music", value: "music", emoji: "\u{1F3B5}" },
   { label: "Art", value: "art", emoji: "\u{1F3A8}" },
   { label: "Outdoors", value: "outdoors", emoji: "\u{1F333}" },
+  { label: "Boarding", value: "boarding", emoji: "\u{1F6F9}" },
   { label: "Nightlife", value: "nightlife", emoji: "\u{1F378}" },
   { label: "Sports", value: "sports", emoji: "\u26BD" },
   { label: "Culture", value: "culture", emoji: "\u{1F3DB}\uFE0F" },

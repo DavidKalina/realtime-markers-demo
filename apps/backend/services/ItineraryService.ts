@@ -10,6 +10,8 @@ import type {
   GoogleGeocodingService,
   VerifiedVenue,
 } from "./shared/GoogleGeocodingService";
+import type { OverpassService, Trail } from "./shared/OverpassService";
+import type { WeatherService, DayForecast } from "./shared/WeatherService";
 
 export interface CreateItineraryInput {
   city: string;
@@ -78,17 +80,23 @@ interface ItineraryServiceDeps {
   dataSource: DataSource;
   openAIService: OpenAIService;
   geocodingService: GoogleGeocodingService;
+  overpassService: OverpassService;
+  weatherService: WeatherService;
 }
 
 class ItineraryServiceImpl implements ItineraryService {
   private dataSource: DataSource;
   private openAIService: OpenAIService;
   private geocodingService: GoogleGeocodingService;
+  private overpassService: OverpassService;
+  private weatherService: WeatherService;
 
   constructor(deps: ItineraryServiceDeps) {
     this.dataSource = deps.dataSource;
     this.openAIService = deps.openAIService;
     this.geocodingService = deps.geocodingService;
+    this.overpassService = deps.overpassService;
+    this.weatherService = deps.weatherService;
   }
 
   async create(
@@ -115,7 +123,7 @@ class ItineraryServiceImpl implements ItineraryService {
       // Fetch events in the city for that date
       const events = await this.fetchCityEvents(input.city, input.plannedDate);
 
-      // Geocode city center early — needed for venue search and proximity bias
+      // Geocode city center early — needed for venue search, weather, and trails
       let cityCenter: { lat: number; lng: number } | undefined;
       try {
         const [lng, lat] = await this.geocodingService.geocodeAddress(
@@ -123,12 +131,23 @@ class ItineraryServiceImpl implements ItineraryService {
         );
         if (lat !== 0 || lng !== 0) {
           cityCenter = { lat, lng };
+        } else {
+          console.warn(
+            "[ItineraryService] Google geocoding returned [0,0] for:",
+            input.city,
+          );
         }
-      } catch {
+      } catch (err) {
         console.warn(
-          "[ItineraryService] Failed to geocode city center for:",
+          "[ItineraryService] Google geocoding threw for:",
           input.city,
+          err,
         );
+      }
+
+      // Fallback: Open-Meteo free geocoding (no API key needed)
+      if (!cityCenter) {
+        cityCenter = await this.geocodeCityFallback(input.city);
       }
 
       // Pre-fetch verified venues from Google Places
@@ -136,11 +155,39 @@ class ItineraryServiceImpl implements ItineraryService {
         ? await this.fetchVerifiedVenues(input, input.city, cityCenter)
         : [];
 
-      // Build and call LLM with events + verified venues
+      // Fetch paved trails if activity types include boarding or outdoors
+      const trailActivities = ["boarding", "outdoors", "skating"];
+      const wantsTrails = input.activityTypes.some((a) =>
+        trailActivities.includes(a.toLowerCase()),
+      );
+      const trails =
+        wantsTrails && cityCenter
+          ? await this.overpassService.fetchPavedTrails(
+              cityCenter.lat,
+              cityCenter.lng,
+            )
+          : [];
+
+      // Fetch weather forecast and past venues in parallel
+      const [forecast, previousVenues] = await Promise.all([
+        cityCenter
+          ? this.weatherService.getForecast(
+              cityCenter.lat,
+              cityCenter.lng,
+              input.plannedDate,
+            )
+          : Promise.resolve(null),
+        this.fetchPreviousVenues(userId, input.city),
+      ]);
+
+      // Build and call LLM with events + verified venues + trails + context
       const llmResult = await this.generateWithLLM(
         input,
         events,
         verifiedVenues,
+        trails,
+        forecast,
+        previousVenues,
       );
 
       // Validate and enrich items — verify venues, drop hallucinations
@@ -150,6 +197,7 @@ class ItineraryServiceImpl implements ItineraryService {
         verifiedVenues,
         input.city,
         cityCenter,
+        trails,
       );
 
       // Save items with geocoded data
@@ -179,9 +227,10 @@ class ItineraryServiceImpl implements ItineraryService {
       );
       await itemRepo.save(items);
 
-      // Update itinerary with title, summary, and READY status
+      // Update itinerary with title, summary, forecast, and READY status
       itinerary.title = llmResult.title;
       itinerary.summary = llmResult.summary;
+      itinerary.forecast = forecast as Record<string, unknown> | undefined;
       itinerary.status = ItineraryStatus.READY;
       await itineraryRepo.save(itinerary);
 
@@ -240,6 +289,38 @@ class ItineraryServiceImpl implements ItineraryService {
     });
   }
 
+  private async geocodeCityFallback(
+    city: string,
+  ): Promise<{ lat: number; lng: number } | undefined> {
+    try {
+      const params = new URLSearchParams({
+        name: city,
+        count: "1",
+        language: "en",
+        format: "json",
+      });
+      const response = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?${params}`,
+        { signal: AbortSignal.timeout(5000) },
+      );
+      if (!response.ok) return undefined;
+
+      const data = (await response.json()) as {
+        results?: { latitude: number; longitude: number; name: string }[];
+      };
+      const result = data.results?.[0];
+      if (result) {
+        console.log(
+          `[ItineraryService] Fallback geocoded "${city}" → ${result.name} (${result.latitude}, ${result.longitude})`,
+        );
+        return { lat: result.latitude, lng: result.longitude };
+      }
+    } catch (err) {
+      console.error("[ItineraryService] Fallback geocoding failed:", err);
+    }
+    return undefined;
+  }
+
   private async fetchCityEvents(
     city: string,
     date: string,
@@ -287,6 +368,8 @@ class ItineraryServiceImpl implements ItineraryService {
       nightlife: ["bars", "nightlife"],
       culture: ["museums", "galleries"],
       outdoors: ["parks", "outdoor activities"],
+      boarding: ["cafes", "parks", "juice bars"],
+      skating: ["cafes", "parks", "juice bars"],
       arts: ["galleries", "theaters"],
       music: ["live music venues"],
       shopping: ["shopping"],
@@ -339,17 +422,51 @@ class ItineraryServiceImpl implements ItineraryService {
     return venues;
   }
 
+  private async fetchPreviousVenues(
+    userId: string,
+    city: string,
+  ): Promise<string[]> {
+    try {
+      const rows: { venue_name: string }[] = await this.dataSource.query(
+        `
+        SELECT DISTINCT ii.venue_name
+        FROM itinerary_items ii
+        JOIN itineraries i ON i.id = ii.itinerary_id
+        WHERE i.user_id = $1
+          AND LOWER(i.city) = LOWER($2)
+          AND i.status = 'READY'
+          AND ii.venue_name IS NOT NULL
+        ORDER BY ii.venue_name
+        LIMIT 100
+        `,
+        [userId, city],
+      );
+      const venues = rows.map((r) => r.venue_name);
+      if (venues.length > 0) {
+        console.log(
+          `[ItineraryService] Found ${venues.length} previously used venues in ${city} for user`,
+        );
+      }
+      return venues;
+    } catch (err) {
+      console.error("[ItineraryService] Failed to fetch previous venues:", err);
+      return [];
+    }
+  }
+
   private async validateAndEnrichItems(
     items: LLMItineraryItem[],
     events: CityEvent[],
     verifiedVenues: VerifiedVenue[],
     city: string,
     cityCenter?: { lat: number; lng: number },
+    trails: Trail[] = [],
   ): Promise<{ item: LLMItineraryItem; geo: GeocodedData | null }[]> {
     const eventMap = new Map(events.map((e) => [e.id, e]));
     const venueByName = new Map(
       verifiedVenues.map((v) => [v.name.toLowerCase(), v]),
     );
+    const trailByName = new Map(trails.map((t) => [t.name.toLowerCase(), t]));
 
     const results: ({
       item: LLMItineraryItem;
@@ -373,6 +490,23 @@ class ItineraryServiceImpl implements ItineraryService {
           }
           // eventId was validated earlier — if no coords, keep with null geo
           return { item, geo: null };
+        }
+
+        // Trail items: match against OSM trail data
+        if (item.venueCategory === "trail" && item.venueName) {
+          const matchedTrail = trailByName.get(item.venueName.toLowerCase());
+          if (matchedTrail) {
+            return {
+              item,
+              geo: {
+                latitude: matchedTrail.center[1],
+                longitude: matchedTrail.center[0],
+                googlePlaceId: null,
+                googleRating: null,
+                canonicalAddress: null,
+              },
+            };
+          }
         }
 
         // Venue items: try fuzzy match against pre-fetched verified venues
@@ -482,6 +616,9 @@ class ItineraryServiceImpl implements ItineraryService {
     input: CreateItineraryInput,
     events: CityEvent[],
     verifiedVenues: VerifiedVenue[] = [],
+    trails: Trail[] = [],
+    forecast: DayForecast | null = null,
+    previousVenues: string[] = [],
   ): Promise<LLMItineraryResponse> {
     const eventList =
       events.length > 0
@@ -503,10 +640,51 @@ class ItineraryServiceImpl implements ItineraryService {
             .join("\n")
         : "No pre-verified venues available. Suggest well-known, permanent local favorites instead.";
 
+    const trailList =
+      trails.length > 0
+        ? trails
+            .map((t) => {
+              const km = (t.lengthMeters / 1000).toFixed(1);
+              const mi = (t.lengthMeters / 1609.34).toFixed(1);
+              const extras = [
+                t.smoothness ? `smoothness: ${t.smoothness}` : null,
+                t.lit !== null ? (t.lit ? "lit at night" : "unlit") : null,
+                t.incline ? `incline: ${t.incline}` : null,
+              ]
+                .filter(Boolean)
+                .join(", ");
+              return `- "${t.name}" | ${km}km (${mi}mi) | Surface: ${t.surface} | Type: ${t.highway}${extras ? ` | ${extras}` : ""} | Center: ${t.center[1].toFixed(5)},${t.center[0].toFixed(5)}`;
+            })
+            .join("\n")
+        : null;
+
+    // Build weather summary for the LLM
+    const weatherSummary = forecast
+      ? this.formatWeatherForPrompt(forecast)
+      : null;
+
+    // Build anti-repetition exclusion list
+    const exclusionList =
+      previousVenues.length > 0
+        ? previousVenues.map((v) => `"${v}"`).join(", ")
+        : null;
+
     const budgetRange =
       input.budgetMax > 0
         ? `$${input.budgetMin}–$${input.budgetMax}`
         : "No budget constraint";
+
+    const hasTrails = trailList !== null;
+    const trailInstructions = hasTrails
+      ? `
+TRAIL RULES (for boarding/skating/outdoor itineraries):
+- TRAILS listed below are real paved paths verified from OpenStreetMap — use their EXACT names.
+- Incorporate trails as stops or as travel between stops. A trail can BE the destination (venueCategory: "trail").
+- For trail stops: set venueName to the trail name, venueAddress to the nearest cross street or area, and include the trail's surface and distance in the description.
+- For boarding between stops: mention the trail in travelNote (e.g., "15 min longboard via Ladybird Lake Trail").
+- Suggest grabbing coffee/food near trail entry points — that's the vibe.
+- If the user wants boarding, make trails a CORE part of the itinerary, not an afterthought.`
+      : "";
 
     const systemPrompt = `You are an expert local guide with insider knowledge of ${input.city}. Create a personalized, premium itinerary that feels like advice from a well-connected friend who knows all the best spots.
 
@@ -518,7 +696,7 @@ SOURCING RULES (STRICT):
 - If there are no scanned events, build the itinerary entirely from town staples — beloved local restaurants, iconic landmarks, popular parks, and must-visit spots. This is a great itinerary, not a consolation prize.
 - If not enough options exist, create FEWER stops — never pad with fake events.
 - Use FULL street addresses including city and state (e.g., "123 Main St, Austin, TX")
-
+${trailInstructions}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt the itinerary to the forecast. Rain or storms → prefer indoor stops during those hours. Extreme heat → outdoor activities in morning/evening, shade and AC midday. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9", "Rain likely after 3pm, grab a window seat and enjoy it").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous itineraries: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives. The whole point is discovering something new each time.\n` : ""}
 PLANNING RULES:
 - Stay within the time budget (${input.durationHours} hours)
 - Stay within the spending budget (${budgetRange})
@@ -548,7 +726,7 @@ Respond ONLY with valid JSON matching this schema:
       "venueAddress": "123 Main St, City, ST",
       "eventId": "uuid-or-null",
       "travelNote": "10 min walk from previous stop",
-      "venueCategory": "cafe|restaurant|bar|park|museum|gallery|market|venue|attraction|other",
+      "venueCategory": "cafe|restaurant|bar|park|museum|gallery|market|venue|attraction|trail|other",
       "whyThisStop": "One sentence on why this stop is special or a hidden gem",
       "proTip": "Insider tip: best seat, what to order, timing trick, etc."
     }
@@ -565,7 +743,7 @@ EVENTS (use ONLY these for event-type stops):
 ${eventList}
 
 VERIFIED VENUES in ${input.city} (prefer these for non-event stops):
-${venueList}`;
+${venueList}${trailList ? `\n\nPAVED TRAILS near ${input.city} (real OpenStreetMap data — use exact names):\n${trailList}` : ""}${forecast ? `\n\nWEATHER FORECAST for ${input.plannedDate}:\n${this.formatHourlyForPrompt(forecast)}` : ""}`;
 
     const responseText = await this.openAIService.executeResponse(
       {
@@ -621,6 +799,66 @@ ${venueList}`;
     }
 
     return parsed;
+  }
+
+  private formatWeatherForPrompt(forecast: DayForecast): string {
+    const lines: string[] = [];
+    lines.push(
+      `- Overall: ${forecast.dominantCondition}, ${forecast.tempLowF}–${forecast.tempHighF}°F`,
+    );
+    lines.push(`- Sunrise: ${forecast.sunrise}, Sunset: ${forecast.sunset}`);
+
+    if (forecast.precipProbabilityMax > 40) {
+      lines.push(
+        `- Rain probability: up to ${forecast.precipProbabilityMax}% — plan indoor alternatives for wet hours`,
+      );
+    }
+    if (forecast.uvIndexMax >= 7) {
+      lines.push(
+        `- UV Index: ${forecast.uvIndexMax} (HIGH) — shade and sunscreen recommended`,
+      );
+    }
+    if (forecast.tempHighF >= 95) {
+      lines.push(
+        "- Extreme heat — prioritize morning/evening outdoor activities, AC midday",
+      );
+    }
+    if (forecast.tempLowF <= 35) {
+      lines.push("- Cold conditions — suggest warm indoor venues, hot drinks");
+    }
+
+    // Check for high wind (bad for boarding)
+    const maxWind = Math.max(
+      ...forecast.hourly
+        .filter((h) => h.hour >= 8 && h.hour <= 20)
+        .map((h) => h.windGustsMph),
+    );
+    if (maxWind >= 25) {
+      lines.push(
+        `- Wind gusts up to ${maxWind} mph — not ideal for boarding/skating, suggest sheltered routes or indoor alternatives`,
+      );
+    }
+
+    return lines.join("\n");
+  }
+
+  private formatHourlyForPrompt(forecast: DayForecast): string {
+    // Only show hours 7am-11pm to keep prompt concise
+    return forecast.hourly
+      .filter((h) => h.hour >= 7 && h.hour <= 23)
+      .map((h) => {
+        const time = `${String(h.hour).padStart(2, "0")}:00`;
+        const parts = [
+          `${h.tempF}°F`,
+          h.condition,
+          h.precipProbability > 20 ? `${h.precipProbability}% rain` : null,
+          h.windSpeedMph > 10 ? `wind ${h.windSpeedMph}mph` : null,
+        ]
+          .filter(Boolean)
+          .join(", ");
+        return `${time}: ${parts}`;
+      })
+      .join("\n");
   }
 }
 

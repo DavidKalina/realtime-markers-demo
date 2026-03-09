@@ -81,6 +81,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               // Setup push notifications after successful authentication
               await setupPushNotifications(userProfile.id);
 
+              // Load active itinerary if user is walking one
+              const { useActiveItineraryStore } =
+                await import("@/stores/useActiveItineraryStore");
+              useActiveItineraryStore.getState().loadActive();
+
               // Sync filters and active filter IDs
               await fetchFilters();
             }

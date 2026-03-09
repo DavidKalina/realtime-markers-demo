@@ -30,6 +30,8 @@ import ItineraryTimeline from "@/components/Itinerary/ItineraryTimeline";
 
 import { apiClient } from "@/services/ApiClient";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
+import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
+import { eventBroker, EventTypes } from "@/services/EventBroker";
 import {
   useColors,
   fontFamily,
@@ -70,7 +72,9 @@ const AnimatedNumber: React.FC<{
 
   return (
     <Text style={[{ color }, style]}>
-      {prefix}{displayed}{suffix}
+      {prefix}
+      {displayed}
+      {suffix}
     </Text>
   );
 };
@@ -89,6 +93,19 @@ const ItineraryDetailScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Active itinerary store
+  const activeItinerary = useActiveItineraryStore((s) => s.itinerary);
+  const activateItinerary = useActiveItineraryStore((s) => s.activate);
+  const deactivateItinerary = useActiveItineraryStore((s) => s.deactivate);
+  const markCheckedIn = useActiveItineraryStore((s) => s.markCheckedIn);
+  const isActivating = useActiveItineraryStore((s) => s.isLoading);
+
+  const isThisActive = activeItinerary?.id === id;
+
+  // Use active store's items if this itinerary is active (has live checkin data)
+  const displayItinerary =
+    isThisActive && activeItinerary ? activeItinerary : itinerary;
+
   useEffect(() => {
     if (!id) return;
     apiClient.itineraries
@@ -100,6 +117,27 @@ const ItineraryDetailScreen = () => {
       })
       .finally(() => setIsLoading(false));
   }, [id]);
+
+  // Listen for check-in events from push notifications
+  useEffect(() => {
+    const handler = (data: {
+      itineraryId: string;
+      itemId: string;
+      completed: boolean;
+    }) => {
+      if (data.itineraryId === id) {
+        markCheckedIn(data.itemId, new Date().toISOString());
+        Haptics.notificationAsync(
+          data.completed
+            ? Haptics.NotificationFeedbackType.Success
+            : Haptics.NotificationFeedbackType.Warning,
+        );
+      }
+    };
+
+    const unsub = eventBroker.on(EventTypes.ITINERARY_CHECKIN, handler);
+    return unsub;
+  }, [id, markCheckedIn]);
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -145,17 +183,53 @@ const ItineraryDetailScreen = () => {
     }
   }, [id, itinerary]);
 
-  const handleStartItinerary = useCallback(() => {
+  const handleActivate = useCallback(async () => {
+    if (!itinerary) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const success = await activateItinerary(itinerary);
+    if (success) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  }, [itinerary, activateItinerary]);
+
+  const handleDeactivate = useCallback(() => {
+    Alert.alert("End itinerary?", "You can restart it later.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "End",
+        onPress: async () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          await deactivateItinerary();
+        },
+      },
+    ]);
+  }, [deactivateItinerary]);
+
+  const handleManualCheckin = useCallback(
+    async (itemId: string) => {
+      if (!id) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      try {
+        const result = await apiClient.itineraries.checkin(id, itemId);
+        if (result.success && result.checkedInAt) {
+          markCheckedIn(itemId, result.checkedInAt);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      } catch (err) {
+        console.error("[ItineraryDetail] Manual checkin failed:", err);
+      }
+    },
+    [id, markCheckedIn],
+  );
+
+  const handleNavigate = useCallback(() => {
     if (!itinerary) return;
 
     const sortedItems = (itinerary.items ?? [])
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .filter((item) => item.venueAddress || item.venueName || item.title);
 
-    if (sortedItems.length === 0) {
-      Alert.alert("No stops", "This itinerary has no addressable stops.");
-      return;
-    }
+    if (sortedItems.length === 0) return;
 
     const stopLabel = (item: (typeof sortedItems)[0]) => {
       if (item.latitude && item.longitude) {
@@ -173,7 +247,9 @@ const ItineraryDetailScreen = () => {
 
     const openAppleMapsStop = (index: number) => {
       const label = stopLabels[index];
-      Linking.openURL(`https://maps.apple.com/?daddr=${encodeURIComponent(label)}&dirflg=w`);
+      Linking.openURL(
+        `https://maps.apple.com/?daddr=${encodeURIComponent(label)}&dirflg=w`,
+      );
     };
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -184,11 +260,14 @@ const ItineraryDetailScreen = () => {
           options: [
             "Cancel",
             `Full Route (${stopLabels.length} stops)`,
-            ...sortedItems.map((item) => `${item.emoji || "\u{1F4CD}"} ${item.title}`),
+            ...sortedItems.map(
+              (item) => `${item.emoji || "\u{1F4CD}"} ${item.title}`,
+            ),
           ],
           cancelButtonIndex: 0,
           title: "Navigate",
-          message: "Full route opens in Google Maps. Individual stops open in Apple Maps.",
+          message:
+            "Full route opens in Google Maps. Individual stops open in Apple Maps.",
         },
         (buttonIndex) => {
           if (buttonIndex === 1) openGoogleMapsRoute();
@@ -213,7 +292,13 @@ const ItineraryDetailScreen = () => {
 
   if (isLoading) {
     return (
-      <Screen isScrollable={false} bannerTitle="Itinerary" showBackButton onBack={handleBack} noAnimation>
+      <Screen
+        isScrollable={false}
+        bannerTitle="Itinerary"
+        showBackButton
+        onBack={handleBack}
+        noAnimation
+      >
         <View style={styles.centered}>
           <ActivityIndicator color={colors.accent.primary} />
         </View>
@@ -223,7 +308,13 @@ const ItineraryDetailScreen = () => {
 
   if (error || !itinerary) {
     return (
-      <Screen isScrollable={false} bannerTitle="Itinerary" showBackButton onBack={handleBack} noAnimation>
+      <Screen
+        isScrollable={false}
+        bannerTitle="Itinerary"
+        showBackButton
+        onBack={handleBack}
+        noAnimation
+      >
         <View style={styles.centered}>
           <Text style={styles.errorText}>{error || "Not found"}</Text>
         </View>
@@ -233,15 +324,23 @@ const ItineraryDetailScreen = () => {
 
   // --- Computed values ---
 
-  const items = itinerary.items ?? [];
-  const totalCost = items.reduce((sum, i) => sum + (Number(i.estimatedCost) || 0), 0);
-  const firstTime = items.length > 0
-    ? formatTime(items.sort((a, b) => a.sortOrder - b.sortOrder)[0].startTime)
-    : null;
-  const lastItem = items.length > 0
-    ? items.sort((a, b) => a.sortOrder - b.sortOrder)[items.length - 1]
-    : null;
-  const lastTime = lastItem ? formatTime(lastItem.endTime) : null;
+  const items = displayItinerary?.items ?? [];
+  const totalCost = items.reduce(
+    (sum, i) => sum + (Number(i.estimatedCost) || 0),
+    0,
+  );
+  const sortedForStats = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
+  const firstTime =
+    sortedForStats.length > 0 ? formatTime(sortedForStats[0].startTime) : null;
+  const lastTime =
+    sortedForStats.length > 0
+      ? formatTime(sortedForStats[sortedForStats.length - 1].endTime)
+      : null;
+
+  // Check-in progress
+  const checkedInCount = items.filter((i) => i.checkedInAt).length;
+  const totalStops = items.length;
+  const progressPct = totalStops > 0 ? checkedInCount / totalStops : 0;
 
   return (
     <Screen
@@ -262,7 +361,9 @@ const ItineraryDetailScreen = () => {
         >
           {/* Title block */}
           <Animated.View
-            entering={FadeInDown.delay(100).duration(450).easing(Easing.out(Easing.cubic))}
+            entering={FadeInDown.delay(100)
+              .duration(450)
+              .easing(Easing.out(Easing.cubic))}
           >
             <Text style={styles.heroTitle}>{itinerary.title}</Text>
             <View style={styles.heroLabelRow}>
@@ -270,14 +371,18 @@ const ItineraryDetailScreen = () => {
                 <Text style={styles.heroLabelText}>ITINERARY</Text>
               </View>
               <Text style={styles.heroDot}> · </Text>
-              <Text style={styles.heroDate}>{formatDate(itinerary.plannedDate)}</Text>
+              <Text style={styles.heroDate}>
+                {formatDate(itinerary.plannedDate)}
+              </Text>
             </View>
           </Animated.View>
 
           {/* Summary */}
           {itinerary.summary && (
             <Animated.View
-              entering={FadeInDown.delay(200).duration(450).easing(Easing.out(Easing.cubic))}
+              entering={FadeInDown.delay(200)
+                .duration(450)
+                .easing(Easing.out(Easing.cubic))}
             >
               <Text style={styles.heroSummary}>{itinerary.summary}</Text>
             </Animated.View>
@@ -285,17 +390,29 @@ const ItineraryDetailScreen = () => {
 
           {/* Stat chips — compact horizontal row */}
           <Animated.View
-            entering={FadeInDown.delay(300).duration(450).easing(Easing.out(Easing.cubic))}
+            entering={FadeInDown.delay(300)
+              .duration(450)
+              .easing(Easing.out(Easing.cubic))}
             style={styles.chipRow}
           >
             {firstTime && lastTime && (
-              <View style={[styles.statChip, { borderColor: "rgba(147, 197, 253, 0.25)" }]}>
+              <View
+                style={[
+                  styles.statChip,
+                  { borderColor: "rgba(147, 197, 253, 0.25)" },
+                ]}
+              >
                 <Text style={[styles.statChipValue, { color: STAT_COLORS[0] }]}>
                   {firstTime} – {lastTime}
                 </Text>
               </View>
             )}
-            <View style={[styles.statChip, { borderColor: "rgba(134, 239, 172, 0.25)" }]}>
+            <View
+              style={[
+                styles.statChip,
+                { borderColor: "rgba(134, 239, 172, 0.25)" },
+              ]}
+            >
               <AnimatedNumber
                 value={items.length}
                 suffix=" stops"
@@ -305,7 +422,12 @@ const ItineraryDetailScreen = () => {
               />
             </View>
             {totalCost > 0 && (
-              <View style={[styles.statChip, { borderColor: "rgba(196, 181, 253, 0.25)" }]}>
+              <View
+                style={[
+                  styles.statChip,
+                  { borderColor: "rgba(196, 181, 253, 0.25)" },
+                ]}
+              >
                 <AnimatedNumber
                   value={totalCost}
                   prefix="~$"
@@ -315,12 +437,28 @@ const ItineraryDetailScreen = () => {
                 />
               </View>
             )}
+            {displayItinerary?.forecast && (
+              <View
+                style={[
+                  styles.statChip,
+                  { borderColor: "rgba(253, 186, 116, 0.25)" },
+                ]}
+              >
+                <Text style={[styles.statChipValue, { color: STAT_COLORS[4] }]}>
+                  {displayItinerary.forecast.tempLowF}–
+                  {displayItinerary.forecast.tempHighF}°F{" "}
+                  {displayItinerary.forecast.dominantCondition}
+                </Text>
+              </View>
+            )}
           </Animated.View>
 
           {/* Vibe tags */}
           {itinerary.activityTypes && itinerary.activityTypes.length > 0 && (
             <Animated.View
-              entering={FadeInDown.delay(400).duration(400).easing(Easing.out(Easing.cubic))}
+              entering={FadeInDown.delay(400)
+                .duration(400)
+                .easing(Easing.out(Easing.cubic))}
               style={styles.vibeRow}
             >
               {itinerary.activityTypes.map((vibe, i) => (
@@ -344,31 +482,98 @@ const ItineraryDetailScreen = () => {
 
         {/* TODO: Map preview — revisit once city-level geocoding is stored on the itinerary */}
 
+        {/* ── Check-in progress bar ── */}
+        {isThisActive && totalStops > 0 && (
+          <Animated.View
+            entering={FadeInDown.delay(500)
+              .duration(400)
+              .easing(Easing.out(Easing.cubic))}
+            style={styles.progressSection}
+          >
+            <View style={styles.progressLabelRow}>
+              <Text style={styles.progressLabel}>PROGRESS</Text>
+              <Text style={styles.progressCount}>
+                {checkedInCount}/{totalStops} stops
+              </Text>
+            </View>
+            <View style={styles.progressBarBg}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: `${Math.round(progressPct * 100)}%` },
+                ]}
+              />
+            </View>
+          </Animated.View>
+        )}
+
         {/* ── Timeline ── */}
-        <ItineraryTimeline items={items} />
+        <ItineraryTimeline
+          items={items}
+          forecast={displayItinerary?.forecast}
+          isActive={isThisActive}
+          onCheckin={isThisActive ? handleManualCheckin : undefined}
+        />
 
         {/* ── Actions ── */}
         <Animated.View
-          entering={FadeInDown.delay(600).duration(400).easing(Easing.out(Easing.cubic))}
+          entering={FadeInDown.delay(600)
+            .duration(400)
+            .easing(Easing.out(Easing.cubic))}
           style={styles.actions}
         >
-          <Pressable
-            style={({ pressed }) => [styles.startButton, pressed && styles.startButtonPressed]}
-            onPress={handleStartItinerary}
-          >
-            <Text style={styles.startButtonText}>Start Itinerary</Text>
-          </Pressable>
+          {isThisActive ? (
+            <>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.navigateButton,
+                  pressed && styles.navigateButtonPressed,
+                ]}
+                onPress={handleNavigate}
+              >
+                <Text style={styles.navigateButtonText}>Navigate</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.endButton,
+                  pressed && styles.endButtonPressed,
+                ]}
+                onPress={handleDeactivate}
+              >
+                <Text style={styles.endButtonText}>End Itinerary</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Pressable
+              style={({ pressed }) => [
+                styles.startButton,
+                pressed && styles.startButtonPressed,
+                isActivating && styles.startButtonDisabled,
+              ]}
+              onPress={handleActivate}
+              disabled={isActivating}
+            >
+              <Text style={styles.startButtonText}>
+                {isActivating ? "Activating..." : "Start Itinerary"}
+              </Text>
+            </Pressable>
+          )}
 
           <Pressable
-            style={({ pressed }) => [styles.shareButton, pressed && styles.shareButtonPressed]}
+            style={({ pressed }) => [
+              styles.shareButton,
+              pressed && styles.shareButtonPressed,
+            ]}
             onPress={handleShare}
           >
             <Text style={styles.shareButtonText}>Share</Text>
           </Pressable>
 
-          <Pressable style={styles.deleteButton} onPress={handleDelete}>
-            <Text style={styles.deleteButtonText}>Delete</Text>
-          </Pressable>
+          {!isThisActive && (
+            <Pressable style={styles.deleteButton} onPress={handleDelete}>
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </Pressable>
+          )}
         </Animated.View>
       </ScrollView>
     </Screen>
@@ -499,6 +704,41 @@ const createStyles = (colors: Colors) =>
       marginVertical: spacing.lg,
     },
 
+    // ── Progress ──
+    progressSection: {
+      marginTop: spacing.md,
+      gap: 6,
+    },
+    progressLabelRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    progressLabel: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.label,
+      letterSpacing: 1,
+    },
+    progressCount: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: "#22c55e",
+    },
+    progressBarBg: {
+      height: 4,
+      backgroundColor: colors.bg.elevated,
+      borderRadius: 2,
+      overflow: "hidden",
+    },
+    progressBarFill: {
+      height: 4,
+      backgroundColor: "#22c55e",
+      borderRadius: 2,
+    },
+
     // ── Actions ──
     actions: {
       gap: spacing.sm,
@@ -515,10 +755,50 @@ const createStyles = (colors: Colors) =>
     startButtonPressed: {
       backgroundColor: "rgba(134, 239, 172, 0.2)",
     },
+    startButtonDisabled: {
+      opacity: 0.5,
+    },
     startButtonText: {
       fontFamily: fontFamily.mono,
       fontSize: 13,
       color: "#86efac",
+      fontWeight: fontWeight.bold,
+      textTransform: "uppercase",
+      letterSpacing: 1.5,
+    },
+    navigateButton: {
+      backgroundColor: "rgba(134, 239, 172, 0.12)",
+      borderWidth: 1,
+      borderColor: "rgba(134, 239, 172, 0.3)",
+      paddingVertical: 14,
+      alignItems: "center",
+      borderRadius: radius.md,
+    },
+    navigateButtonPressed: {
+      backgroundColor: "rgba(134, 239, 172, 0.2)",
+    },
+    navigateButtonText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 13,
+      color: "#86efac",
+      fontWeight: fontWeight.bold,
+      textTransform: "uppercase",
+      letterSpacing: 1.5,
+    },
+    endButton: {
+      borderWidth: 1,
+      borderColor: "rgba(252, 165, 165, 0.3)",
+      paddingVertical: 14,
+      alignItems: "center",
+      borderRadius: radius.md,
+    },
+    endButtonPressed: {
+      backgroundColor: "rgba(252, 165, 165, 0.08)",
+    },
+    endButtonText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 13,
+      color: "#fca5a5",
       fontWeight: fontWeight.bold,
       textTransform: "uppercase",
       letterSpacing: 1.5,

@@ -61,6 +61,9 @@ export enum EventTypes {
   LEVEL_UPDATE = "level-update",
   XP_AWARDED = "xp-awarded",
 
+  // Itinerary checkin events
+  ITINERARY_CHECKIN = "itinerary:checkin",
+
   // Internal: WebSocket viewport messages forwarded to useMapWebSocket
   WS_VIEWPORT_MESSAGE = "ws:viewport_message",
 }

@@ -19,6 +19,7 @@ const ENTITY_TO_TABLE_MAPPING: Record<string, string> = {
   LlmUsageLog: "llm_usage_logs",
   Itinerary: "itineraries",
   ItineraryItem: "itinerary_items",
+  ItineraryCheckin: "itinerary_checkins",
 };
 
 /**

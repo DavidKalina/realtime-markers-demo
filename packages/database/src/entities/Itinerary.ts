@@ -68,6 +68,9 @@ export class Itinerary {
   @Column({ name: "share_token", type: "uuid", nullable: true })
   shareToken?: string;
 
+  @Column({ type: "jsonb", nullable: true })
+  forecast?: Record<string, unknown>;
+
   @OneToMany(() => ItineraryItem, (item) => item.itinerary, { cascade: true })
   items!: Relation<ItineraryItem[]>;
 
