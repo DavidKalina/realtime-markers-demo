@@ -463,8 +463,8 @@ export function ScanningAnimation({
   const isAppActive = useAppActive();
 
   // Looping camera: cycle heading 0→360 and oscillate pitch
-  const [heading, setHeading] = useState(0);
-  const [pitch, setPitch] = useState(50);
+  // Uses imperative setCamera to avoid 60fps React re-renders
+  const cameraRef = useRef<MapboxGL.Camera>(null);
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -484,8 +484,11 @@ export function ScanningAnimation({
       // Oscillate pitch between 40 and 65
       const newPitch = 52.5 + 12.5 * Math.sin(t * 0.4);
 
-      setHeading(newHeading);
-      setPitch(newPitch);
+      cameraRef.current?.setCamera({
+        heading: newHeading,
+        pitch: newPitch,
+        animationDuration: 0,
+      });
       raf = requestAnimationFrame(tick);
     };
 
@@ -532,10 +535,11 @@ export function ScanningAnimation({
           pitchEnabled={true}
         >
           <MapboxGL.Camera
+            ref={cameraRef}
             centerCoordinate={coordinate}
             zoomLevel={15}
-            pitch={pitch}
-            heading={heading}
+            pitch={50}
+            heading={0}
             animationDuration={0}
           />
         </MapboxGL.MapView>
@@ -561,7 +565,7 @@ export function ScanningAnimation({
           <Reanimated.View style={[scanStyles.ring, ringStyle]} />
           <View style={scanStyles.centerDot} />
         </View>
-        <Text style={scanStyles.label}>Scanning area...</Text>
+        {/* Label removed — DialogBox shows scanning status */}
       </View>
     </View>
   );

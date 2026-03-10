@@ -98,6 +98,7 @@ export class EventAdminServiceImpl implements EventAdminService {
     const eventsToDelete = await this.eventRepo
       .createQueryBuilder("event")
       .where("event.eventDate < :cutoffDate", { cutoffDate })
+      .andWhere("event.isRecurring = false") // Never delete recurring events
       .andWhere("event.status IN (:...statuses)", {
         statuses: [EventStatus.PENDING, EventStatus.REJECTED],
       })

@@ -160,20 +160,23 @@ const SpacesBrowseScreen = () => {
           </Animated.View>
         )}
 
-        {resolvedCity && (
-          <Pressable
-            style={({ pressed }) => [
-              styles.viewCityLink,
-              pressed && styles.viewCityLinkPressed,
-            ]}
-            onPress={handleMyCityPress}
-          >
-            <Text style={styles.viewCityText}>
-              View {resolvedCity.split(",")[0].trim()}'s page
-            </Text>
-            <ChevronRight size={14} color={colors.accent.primary} />
-          </Pressable>
-        )}
+        {/* Reserve space to prevent layout shift — invisible while loading */}
+        <View style={!resolvedCity ? styles.viewCityLinkPlaceholder : undefined}>
+          {resolvedCity && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.viewCityLink,
+                pressed && styles.viewCityLinkPressed,
+              ]}
+              onPress={handleMyCityPress}
+            >
+              <Text style={styles.viewCityText}>
+                View {resolvedCity.split(",")[0].trim()}'s page
+              </Text>
+              <ChevronRight size={14} color={colors.accent.primary} />
+            </Pressable>
+          )}
+        </View>
 
         {/* Sort toggle */}
         {hasLocation && (
@@ -183,7 +186,10 @@ const SpacesBrowseScreen = () => {
                 styles.toggleButton,
                 sortMode === "top" && styles.toggleActive,
               ]}
-              onPress={() => setSortMode("top")}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSortMode("top");
+              }}
             >
               <Text
                 style={[
@@ -199,7 +205,10 @@ const SpacesBrowseScreen = () => {
                 styles.toggleButton,
                 sortMode === "nearest" && styles.toggleActive,
               ]}
-              onPress={() => setSortMode("nearest")}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSortMode("nearest");
+              }}
             >
               <Text
                 style={[
@@ -248,6 +257,9 @@ const createStyles = (colors: Colors) =>
       paddingVertical: spacing.sm,
       borderRadius: radius.lg,
       marginBottom: spacing["2xl"],
+    },
+    viewCityLinkPlaceholder: {
+      height: spacing.sm * 2 + 18 + spacing["2xl"],
     },
     viewCityLinkPressed: {
       opacity: 0.6,

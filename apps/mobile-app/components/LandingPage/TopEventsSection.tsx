@@ -12,12 +12,14 @@ import {
   spacing,
 } from "@/theme";
 import type { EventType } from "@/types/types";
+import { filterExpiredEvents } from "./filterExpiredEvents";
 
 interface TopEventsSectionProps {
   events: EventType[];
 }
 
-const TopEventsSection: React.FC<TopEventsSectionProps> = ({ events }) => {
+const TopEventsSection: React.FC<TopEventsSectionProps> = ({ events: rawEvents }) => {
+  const events = useMemo(() => filterExpiredEvents(rawEvents), [rawEvents]);
   const router = useRouter();
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);

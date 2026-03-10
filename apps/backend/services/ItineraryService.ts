@@ -21,7 +21,6 @@ export interface CreateItineraryInput {
   durationHours: number;
   activityTypes: string[];
   stopCount: number; // 0 = let LLM decide
-  categoryNames: string[]; // real DB category names for filtering
 }
 
 interface LLMItineraryItem {
@@ -155,18 +154,35 @@ class ItineraryServiceImpl implements ItineraryService {
         ? await this.fetchVerifiedVenues(input, input.city, cityCenter)
         : [];
 
-      // Fetch paved trails if activity types include boarding or outdoors
-      const trailActivities = ["boarding", "outdoors", "skating"];
-      const wantsTrails = input.activityTypes.some((a) =>
-        trailActivities.includes(a.toLowerCase()),
+      // Fetch trails based on activity type
+      const lowerActivities = input.activityTypes.map((a) => a.toLowerCase());
+      const wantsPaved = lowerActivities.some((a) =>
+        ["boarding", "skating", "outdoors"].includes(a),
       );
-      const trails =
-        wantsTrails && cityCenter
-          ? await this.overpassService.fetchPavedTrails(
-              cityCenter.lat,
-              cityCenter.lng,
-            )
-          : [];
+      const wantsHiking = lowerActivities.some((a) =>
+        ["hiking", "walking", "outdoors"].includes(a),
+      );
+
+      let trails: Trail[] = [];
+      if (cityCenter && (wantsPaved || wantsHiking)) {
+        const [pavedTrails, hikingTrails] = await Promise.all([
+          wantsPaved
+            ? this.overpassService.fetchPavedTrails(cityCenter.lat, cityCenter.lng)
+            : Promise.resolve([]),
+          wantsHiking
+            ? this.overpassService.fetchHikingTrails(cityCenter.lat, cityCenter.lng)
+            : Promise.resolve([]),
+        ]);
+
+        // Merge and deduplicate by OSM ID
+        const seen = new Set<number>();
+        for (const t of [...pavedTrails, ...hikingTrails]) {
+          if (!seen.has(t.id)) {
+            seen.add(t.id);
+            trails.push(t);
+          }
+        }
+      }
 
       // Fetch weather forecast and past venues in parallel
       const [forecast, previousVenues] = await Promise.all([
@@ -370,6 +386,8 @@ class ItineraryServiceImpl implements ItineraryService {
       outdoors: ["parks", "outdoor activities"],
       boarding: ["cafes", "parks", "juice bars"],
       skating: ["cafes", "parks", "juice bars"],
+      hiking: ["parks", "nature reserves", "trailheads"],
+      walking: ["parks", "cafes", "gardens"],
       arts: ["galleries", "theaters"],
       music: ["live music venues"],
       shopping: ["shopping"],
@@ -377,13 +395,6 @@ class ItineraryServiceImpl implements ItineraryService {
 
     for (const activity of input.activityTypes) {
       const mapped = typeMap[activity.toLowerCase()];
-      if (mapped) {
-        mapped.forEach((t) => searchTerms.add(t));
-      }
-    }
-
-    for (const cat of input.categoryNames) {
-      const mapped = typeMap[cat.toLowerCase()];
       if (mapped) {
         mapped.forEach((t) => searchTerms.add(t));
       }
@@ -633,10 +644,42 @@ class ItineraryServiceImpl implements ItineraryService {
     const venueList =
       verifiedVenues.length > 0
         ? verifiedVenues
-            .map(
-              (v) =>
-                `- "${v.name}" (${v.address}) | Rating: ${v.rating ?? "N/A"} | Type: ${v.types.slice(0, 3).join(", ")}`,
-            )
+            .map((v) => {
+              const parts = [
+                `"${v.name}" (${v.address})`,
+                `Rating: ${v.rating ?? "N/A"}`,
+              ];
+              if (v.priceLevel) {
+                const priceLabelMap: Record<string, string> = {
+                  PRICE_LEVEL_FREE: "Free",
+                  PRICE_LEVEL_INEXPENSIVE: "$",
+                  PRICE_LEVEL_MODERATE: "$$",
+                  PRICE_LEVEL_EXPENSIVE: "$$$",
+                  PRICE_LEVEL_VERY_EXPENSIVE: "$$$$",
+                };
+                parts.push(
+                  `Price: ${priceLabelMap[v.priceLevel] ?? v.priceLevel}`,
+                );
+              }
+              if (v.primaryType) {
+                parts.push(`Type: ${v.primaryType}`);
+              } else {
+                parts.push(`Type: ${v.types.slice(0, 3).join(", ")}`);
+              }
+              if (v.openingHours && v.openingHours.length > 0) {
+                // Find the hours for the planned day
+                const dayOfWeek = new Date(
+                  input.plannedDate + "T12:00:00",
+                ).toLocaleDateString("en-US", { weekday: "long" });
+                const dayHours = v.openingHours.find((h) =>
+                  h.startsWith(dayOfWeek),
+                );
+                if (dayHours) {
+                  parts.push(`Hours: ${dayHours}`);
+                }
+              }
+              return `- ${parts.join(" | ")}`;
+            })
             .join("\n")
         : "No pre-verified venues available. Suggest well-known, permanent local favorites instead.";
 
@@ -677,13 +720,14 @@ class ItineraryServiceImpl implements ItineraryService {
     const hasTrails = trailList !== null;
     const trailInstructions = hasTrails
       ? `
-TRAIL RULES (for boarding/skating/outdoor itineraries):
-- TRAILS listed below are real paved paths verified from OpenStreetMap — use their EXACT names.
+TRAIL RULES (for boarding/hiking/walking/outdoor itineraries):
+- TRAILS listed below are real paths verified from OpenStreetMap — use their EXACT names.
 - Incorporate trails as stops or as travel between stops. A trail can BE the destination (venueCategory: "trail").
 - For trail stops: set venueName to the trail name, venueAddress to the nearest cross street or area, and include the trail's surface and distance in the description.
 - For boarding between stops: mention the trail in travelNote (e.g., "15 min longboard via Ladybird Lake Trail").
+- For hiking/walking: pick trails with appropriate surface and length for the duration. A 2-hour hike needs a longer trail than a 30-minute stroll. Mention the surface type (dirt, gravel, paved) so the user knows what footwear to expect.
 - Suggest grabbing coffee/food near trail entry points — that's the vibe.
-- If the user wants boarding, make trails a CORE part of the itinerary, not an afterthought.`
+- If the user wants boarding, hiking, or walking, make trails a CORE part of the itinerary, not an afterthought.`
       : "";
 
     const systemPrompt = `You are an expert local guide with insider knowledge of ${input.city}. Create a personalized, premium itinerary that feels like advice from a well-connected friend who knows all the best spots.
@@ -693,6 +737,13 @@ SOURCING RULES (STRICT):
 - VENUES (restaurants, cafes, parks, museums, landmarks, etc.): You may suggest year-round, always-available venues. Pick from the VERIFIED VENUES list when possible, but you may suggest other well-known, permanent establishments too.
 - NEVER invent one-off happenings, seasonal events, or time-specific activities that aren't on the EVENTS list.
 - Use the EXACT name and address from the lists when referencing them.
+
+HOURS & SCHEDULING (CRITICAL):
+- Verified venues include their hours for the planned day. NEVER schedule a stop when the venue is CLOSED.
+- If a venue shows "Closed" for the planned day, DO NOT include it at all (e.g., Chick-fil-A on Sunday).
+- Match venue type to time of day: breakfast/brunch spots in the morning, lunch spots midday, dinner/bar spots in the evening. Don't suggest a breakfast diner at 8pm or a nightclub at 10am.
+- If hours are provided, ensure the stop's startTime falls within the venue's open hours.
+- Price levels are shown when available ($, $$, $$$, $$$$). Factor these into the budget — don't fill a $30 budget with $$$ restaurants.
 - If there are no scanned events, build the itinerary entirely from town staples — beloved local restaurants, iconic landmarks, popular parks, and must-visit spots. This is a great itinerary, not a consolation prize.
 - If not enough options exist, create FEWER stops — never pad with fake events.
 - Use FULL street addresses including city and state (e.g., "123 Main St, Austin, TX")
@@ -700,7 +751,7 @@ ${trailInstructions}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\
 PLANNING RULES:
 - Stay within the time budget (${input.durationHours} hours)
 - Stay within the spending budget (${budgetRange})
-- Match the activity preferences: ${input.activityTypes.join(", ") || "any"}${input.categoryNames.length > 0 ? `\n- Focus on these categories: ${input.categoryNames.join(", ")}` : ""}
+- Match the activity preferences: ${input.activityTypes.join(", ") || "any"}
 - ${input.stopCount > 0 ? `Include EXACTLY ${input.stopCount} stops` : "Choose the right number of stops for the duration"}
 - Include travel/transition notes between stops
 - Every stop MUST have a DIFFERENT venue — never repeat the same place
@@ -737,7 +788,7 @@ Respond ONLY with valid JSON matching this schema:
 Date: ${input.plannedDate}
 Duration: ${input.durationHours} hours
 Budget: ${budgetRange}
-Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${input.categoryNames.length > 0 ? `\nFocus categories: ${input.categoryNames.join(", ")}` : ""}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}
+Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}
 
 EVENTS (use ONLY these for event-type stops):
 ${eventList}

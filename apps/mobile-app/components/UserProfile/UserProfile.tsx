@@ -136,6 +136,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     router.push("/following" as const);
   }, [router]);
 
+  const handleSavedPress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/saved" as const);
+  }, [router]);
+
   return (
     <>
       <Screen
@@ -181,15 +186,20 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 />
               </Animated.View>
 
-              {/* Following link */}
+              {/* Following & Saved */}
               <Animated.View
                 entering={FadeIn.duration(duration.normal).delay(80)}
+                style={styles.inlineSection}
               >
-                <Pressable style={styles.linkRow} onPress={handleFollowingPress}>
-                  <Text style={styles.linkRowText}>
+                <Pressable style={styles.inlineAction} onPress={handleFollowingPress}>
+                  <Text style={styles.inlineRowLabel}>
                     Following ({profileData?.followingCount ?? 0})
                   </Text>
-                  <ChevronRight size={16} color={colors.accent.primary} />
+                  <ChevronRight size={14} color={colors.text.secondary} />
+                </Pressable>
+                <Pressable style={[styles.inlineAction, styles.inlineActionLast]} onPress={handleSavedPress}>
+                  <Text style={styles.inlineRowLabel}>Saved Events</Text>
+                  <ChevronRight size={14} color={colors.text.secondary} />
                 </Pressable>
               </Animated.View>
 
@@ -330,21 +340,6 @@ const createStyles = (colors: Colors) =>
     section: {
       paddingHorizontal: spacing.lg,
       marginBottom: spacing.lg,
-    },
-    // Following link row
-    linkRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: spacing.xs,
-      paddingVertical: spacing.sm,
-      marginBottom: spacing.lg,
-    },
-    linkRowText: {
-      fontSize: fontSize.sm,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.accent.primary,
     },
     // Inline sections
     inlineSection: {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -100,8 +100,6 @@ const ItineraryDetailScreen = () => {
   const deactivateItinerary = useActiveItineraryStore((s) => s.deactivate);
   const markCheckedIn = useActiveItineraryStore((s) => s.markCheckedIn);
   const isActivating = useActiveItineraryStore((s) => s.isLoading);
-
-  const scrollRef = useRef<ScrollView>(null);
 
   const isThisActive = activeItinerary?.id === id;
 
@@ -354,7 +352,6 @@ const ItineraryDetailScreen = () => {
       noAnimation
     >
       <ScrollView
-        ref={scrollRef}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
@@ -515,7 +512,6 @@ const ItineraryDetailScreen = () => {
           forecast={displayItinerary?.forecast}
           isActive={isThisActive}
           onCheckin={isThisActive ? handleManualCheckin : undefined}
-          scrollRef={scrollRef}
         />
 
         {/* ── Map Preview ── */}

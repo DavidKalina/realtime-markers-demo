@@ -34,6 +34,7 @@ import { DiscoveredEventType, TrendingEventType } from "@/types/types";
 import { getTimeBadge } from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { filterExpiredEvents } from "./filterExpiredEvents";
 
 type MergedEvent =
   | (TrendingEventType & { _kind: "trending"; _isRealtime?: boolean })
@@ -123,11 +124,11 @@ const WhatsHappeningSection: React.FC<WhatsHappeningSectionProps> = ({
   const prevRealtimeCountRef = useRef(-1);
 
   const merged: MergedEvent[] = useMemo(() => {
-    const trending: MergedEvent[] = trendingEvents.map((e) => ({
+    const trending: MergedEvent[] = filterExpiredEvents(trendingEvents).map((e) => ({
       ...e,
       _kind: "trending" as const,
     }));
-    const discovered: MergedEvent[] = justDiscoveredEvents.map((e) => ({
+    const discovered: MergedEvent[] = filterExpiredEvents(justDiscoveredEvents).map((e) => ({
       ...e,
       _kind: "discovered" as const,
     }));

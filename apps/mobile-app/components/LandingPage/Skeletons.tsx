@@ -14,7 +14,7 @@ export const ScoreHeroSkeleton: React.FC = () => {
   return (
     <View style={sk.heroContainer}>
       <View style={sk.heroHeaderRow}>
-        <View>
+        <View style={sk.heroCityBlock}>
           <ShimmerView style={sk.heroCityLine} />
           <ShimmerView style={sk.heroLabelLine} />
         </View>
@@ -31,7 +31,6 @@ export const ScoreHeroSkeleton: React.FC = () => {
           ))}
         </View>
       </View>
-      <ShimmerView style={sk.heroSparkline} />
     </View>
   );
 };
@@ -141,21 +140,25 @@ export const CarouselSkeleton: React.FC<{ title: string }> = ({ title }) => {
 /* ─── Skeleton styles matched to real component dimensions ─── */
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
-    /* ThirdSpaceScoreHero — matches container: marginBottom 24, paddingHorizontal 16, gap 12 */
+    /* ThirdSpaceScoreHero — measured: 385×220, inner width 353 */
     heroContainer: {
-      marginBottom: spacing["2xl"],
+      height: 220,
+      marginBottom: spacing["3xl"],
       paddingHorizontal: spacing.lg,
       gap: spacing.md,
     },
     heroHeaderRow: {
+      height: 47,
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "flex-start",
     },
-    heroCityLine: { width: 120, height: 18, borderRadius: 4 },
-    heroLabelLine: { width: 140, height: 12, borderRadius: 4, marginTop: 2 },
+    heroCityBlock: { width: 125, height: 47 },
+    heroCityLine: { width: 120, height: 22, borderRadius: 4 },
+    heroLabelLine: { width: 140, height: 14, borderRadius: 4, marginTop: 4 },
     heroMomentum: { width: 80, height: 14, borderRadius: 4 },
     heroTopRow: {
+      height: 121,
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.lg,
@@ -169,7 +172,6 @@ const createStyles = (colors: Colors) =>
     },
     heroStatLabel: { width: 70, height: 11, borderRadius: 3 },
     heroStatValue: { width: 24, height: 14, borderRadius: 3 },
-    heroSparkline: { height: 28, borderRadius: 4, width: "100%" },
 
     /* ContributorsSection — matches container: marginBottom 24 */
     contribContainer: { marginBottom: spacing["2xl"] },

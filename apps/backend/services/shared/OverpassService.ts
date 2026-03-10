@@ -20,6 +20,12 @@ export interface OverpassService {
     radiusMeters?: number,
     maxResults?: number,
   ): Promise<Trail[]>;
+  fetchHikingTrails(
+    lat: number,
+    lng: number,
+    radiusMeters?: number,
+    maxResults?: number,
+  ): Promise<Trail[]>;
   fetchTrailById(wayId: number): Promise<Trail | null>;
 }
 
@@ -41,6 +47,21 @@ const GOOD_SURFACES = new Set([
 
 // Smoothness values that won't wreck your wheels
 const GOOD_SMOOTHNESS = new Set(["excellent", "good", "intermediate"]);
+
+// Surfaces suitable for hiking/walking (broader than boarding)
+const HIKING_SURFACES = new Set([
+  ...GOOD_SURFACES,
+  "gravel",
+  "fine_gravel",
+  "compacted",
+  "dirt",
+  "earth",
+  "ground",
+  "grass",
+  "sand",
+  "wood",
+  "unpaved",
+]);
 
 class OverpassServiceImpl implements OverpassService {
   private redisService: RedisService;
@@ -114,7 +135,74 @@ out geom;
     return trails;
   }
 
-  private parseTrails(data: OverpassResponse, maxResults: number): Trail[] {
+  async fetchHikingTrails(
+    lat: number,
+    lng: number,
+    radiusMeters = 8000,
+    maxResults = 20,
+  ): Promise<Trail[]> {
+    const cacheKey = `hiking-trails:${lat.toFixed(3)}:${lng.toFixed(3)}:${radiusMeters}`;
+    const client = this.redisService.getClient();
+
+    const cached = await client.get(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {
+        // Corrupted cache, refetch
+      }
+    }
+
+    // Query Overpass for hiking/walking paths — broader surface types and includes named paths/tracks
+    const query = `
+[out:json][timeout:15];
+(
+  way["highway"~"path|footway|track|bridleway"]["sac_scale"](around:${radiusMeters},${lat},${lng});
+  way["highway"~"path|footway|track"]["name"]["surface"](around:${radiusMeters},${lat},${lng});
+  way["highway"~"cycleway|path|footway|pedestrian"]["surface"~"gravel|fine_gravel|compacted|dirt|earth|ground|unpaved|wood"](around:${radiusMeters},${lat},${lng});
+);
+out geom;
+`;
+
+    let data: OverpassResponse;
+    try {
+      const response = await fetch(OVERPASS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `data=${encodeURIComponent(query)}`,
+        signal: AbortSignal.timeout(20000),
+      });
+
+      if (!response.ok) {
+        console.error(`[OverpassService] Hiking API returned ${response.status}`);
+        return [];
+      }
+
+      data = (await response.json()) as OverpassResponse;
+    } catch (err) {
+      console.error("[OverpassService] Hiking fetch failed:", err);
+      return [];
+    }
+
+    const trails = this.parseTrails(data, maxResults, HIKING_SURFACES, false);
+
+    if (trails.length > 0) {
+      await client.setex(cacheKey, CACHE_TTL, JSON.stringify(trails));
+    }
+
+    console.log(
+      `[OverpassService] Found ${trails.length} hiking trails near ${lat.toFixed(3)},${lng.toFixed(3)}`,
+    );
+
+    return trails;
+  }
+
+  private parseTrails(
+    data: OverpassResponse,
+    maxResults: number,
+    allowedSurfaces: Set<string> = GOOD_SURFACES,
+    requireSmooth = true,
+  ): Trail[] {
     const trails: Trail[] = [];
 
     for (const element of data.elements) {
@@ -124,11 +212,12 @@ out geom;
       const surface = tags.surface || "";
       const smoothness = tags.smoothness || null;
 
-      // Skip if surface isn't longboard-friendly
-      if (!GOOD_SURFACES.has(surface)) continue;
+      // Skip if surface isn't in the allowed set (allow missing surface for hiking trails)
+      if (surface && !allowedSurfaces.has(surface)) continue;
 
-      // Skip if explicitly marked as bad smoothness
+      // Skip if explicitly marked as bad smoothness (only enforced for boarding trails)
       if (
+        requireSmooth &&
         smoothness &&
         !GOOD_SMOOTHNESS.has(smoothness) &&
         smoothness !== "very_good"

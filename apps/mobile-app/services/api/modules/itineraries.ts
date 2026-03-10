@@ -73,7 +73,7 @@ export interface CreateItineraryParams {
   durationHours: number;
   activityTypes?: string[];
   stopCount?: number;
-  categoryNames?: string[];
+  ritualId?: string;
 }
 
 export class ItinerariesModule extends BaseApiModule {

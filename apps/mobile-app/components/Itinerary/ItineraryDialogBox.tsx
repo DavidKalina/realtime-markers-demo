@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type LayoutChangeEvent,
   type GestureResponderEvent,
@@ -39,7 +40,7 @@ import {
 } from "@/theme";
 import { apiClient } from "@/services/ApiClient";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
-import type { Category } from "@/services/api/base/types";
+import type { RitualResponse } from "@/services/api/modules/rituals";
 import { useJobProgress } from "@/hooks/useJobProgress";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
 import ItineraryTimeline from "./ItineraryTimeline";
@@ -310,6 +311,8 @@ const ACTIVITY_OPTIONS = [
   { label: "Art", value: "art", emoji: "\u{1F3A8}" },
   { label: "Outdoors", value: "outdoors", emoji: "\u{1F333}" },
   { label: "Boarding", value: "boarding", emoji: "\u{1F6F9}" },
+  { label: "Hiking", value: "hiking", emoji: "\u{1F97E}" },
+  { label: "Walking", value: "walking", emoji: "\u{1F6B6}" },
   { label: "Nightlife", value: "nightlife", emoji: "\u{1F378}" },
   { label: "Sports", value: "sports", emoji: "\u26BD" },
   { label: "Culture", value: "culture", emoji: "\u{1F3DB}\uFE0F" },
@@ -361,15 +364,16 @@ export default function ItineraryDialogBox({
   const [durationHours, setDurationHours] = useState(4);
   const [stopCount, setStopCount] = useState(0); // 0 = auto
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
-  const [availableCategories, setAvailableCategories] = useState<Category[]>(
-    [],
-  );
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(
-    new Set(),
-  );
   const [result, setResult] = useState<ItineraryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const resultScrollRef = useRef<ScrollView>(null);
+
+  // Rituals
+  const [rituals, setRituals] = useState<RitualResponse[]>([]);
+  const [activeRitualId, setActiveRitualId] = useState<string | null>(null);
+  const [showSaveRitual, setShowSaveRitual] = useState(false);
+  const [ritualName, setRitualName] = useState("");
 
   // Job progress streaming
   const { activeJobs, trackJob } = useJobProgress();
@@ -378,19 +382,12 @@ export default function ItineraryDialogBox({
     ? activeJobs.find((j) => j.jobId === activeJobId)
     : null;
 
-  // Stable callbacks for scheduleOnRN — must not capture closures
   const setPhaseFormCb = useCallback(() => setPhase("form"), []);
-  const setPhaseCollapsedCb = useCallback(() => setPhase("collapsed"), []);
   const setPhaseResultCb = useCallback(() => setPhase("result"), []);
 
-  // Ref for onDismiss so worklet-scheduled callback stays stable
   const onDismissRef = useRef(onDismiss);
   onDismissRef.current = onDismiss;
-  const fireDismissCb = useCallback(() => {
-    onDismissRef.current?.();
-  }, []);
 
-  // Refs for values needed inside worklet-scheduled callbacks
   const resultRef = useRef<ItineraryResponse | null>(null);
   resultRef.current = result;
 
@@ -582,13 +579,13 @@ export default function ItineraryDialogBox({
     );
   }, [setReExpandPhaseCb]);
 
-  // Load real categories from DB
+  // Load rituals
   useEffect(() => {
-    apiClient.categories
-      .getCategories()
-      .then((cats) => setAvailableCategories(cats))
+    apiClient.rituals
+      .list()
+      .then((r) => setRituals(r))
       .catch((err) =>
-        console.warn("[ItineraryDialogBox] Failed to load categories:", err),
+        console.warn("[ItineraryDialogBox] Failed to load rituals:", err),
       );
   }, []);
 
@@ -599,35 +596,67 @@ export default function ItineraryDialogBox({
     );
   }, []);
 
-  const toggleCategory = useCallback((id: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedCategoryIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+  const applyRitual = useCallback(
+    (ritual: RitualResponse) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setActiveRitualId(ritual.id);
+      setBudgetMax(Number(ritual.budgetMax));
+      setDurationHours(Number(ritual.durationHours));
+      setStopCount(ritual.stopCount);
+      setSelectedActivities(ritual.activityTypes);
+    },
+    [],
+  );
+
+  const handleSaveRitual = useCallback(async () => {
+    if (!ritualName.trim()) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Pick emoji from first selected activity, or default
+    const firstActivity = selectedActivities[0];
+    const emoji =
+      ACTIVITY_OPTIONS.find((a) => a.value === firstActivity)?.emoji || "🔁";
+
+    try {
+      const ritual = await apiClient.rituals.create({
+        name: ritualName.trim(),
+        emoji,
+        budgetMin: 0,
+        budgetMax: budgetMax,
+        durationHours,
+        activityTypes: selectedActivities,
+        stopCount,
+      });
+      setRituals((prev) => [ritual, ...prev]);
+      setShowSaveRitual(false);
+      setRitualName("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      console.error("[ItineraryDialogBox] Failed to save ritual:", err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }, [
+    ritualName,
+    budgetMax,
+    durationHours,
+    selectedActivities,
+    stopCount,
+  ]);
 
   const handleGenerate = useCallback(() => {
-    const categoryNames = availableCategories
-      .filter((c) => selectedCategoryIds.has(c.id))
-      .map((c) => c.name);
-
     fireGenerate({
       duration: durationHours,
       stops: stopCount,
       activities: selectedActivities,
-      catNames: categoryNames,
       budget: budgetMax,
+      ritualId: activeRitualId ?? undefined,
     });
   }, [
     durationHours,
     stopCount,
     selectedActivities,
-    selectedCategoryIds,
-    availableCategories,
     budgetMax,
+    activeRitualId,
     fireGenerate,
   ]);
 
@@ -637,8 +666,8 @@ export default function ItineraryDialogBox({
       duration: number;
       stops: number;
       activities: string[];
-      catNames: string[];
       budget: number;
+      ritualId?: string;
     }) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setPhase("generating");
@@ -668,8 +697,7 @@ export default function ItineraryDialogBox({
           durationHours: params.duration,
           activityTypes: params.activities,
           stopCount: params.stops || undefined,
-          categoryNames:
-            params.catNames.length > 0 ? params.catNames : undefined,
+          ritualId: params.ritualId,
         });
         setActiveJobId(jobId);
         trackJob(jobId);
@@ -704,16 +732,6 @@ export default function ItineraryDialogBox({
       .map((a) => a.value);
     const randomBudget = [30, 50, 75, 100][Math.floor(Math.random() * 4)];
 
-    let randomCatNames: string[] = [];
-    if (availableCategories.length > 0) {
-      const shuffled = [...availableCategories].sort(() => Math.random() - 0.5);
-      const count = Math.min(
-        2 + Math.floor(Math.random() * 2),
-        shuffled.length,
-      );
-      randomCatNames = shuffled.slice(0, count).map((c) => c.name);
-    }
-
     // Update form visuals (won't matter since it collapses, but keeps state consistent)
     setDurationHours(randomDuration);
     setStopCount(randomStops);
@@ -724,10 +742,9 @@ export default function ItineraryDialogBox({
       duration: randomDuration,
       stops: randomStops,
       activities: randomActivities,
-      catNames: randomCatNames,
       budget: randomBudget,
     });
-  }, [availableCategories, fireGenerate]);
+  }, [fireGenerate]);
 
   const handleReset = useCallback(() => {
     setResult(null);
@@ -867,6 +884,45 @@ export default function ItineraryDialogBox({
             bounces={false}
             keyboardShouldPersistTaps="handled"
           >
+            {/* Ritual shelf */}
+            {rituals.length > 0 && (
+              <View style={styles.ritualShelf}>
+                <Text style={styles.ritualShelfLabel}>RITUALS</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.ritualPillRow}
+                >
+                  {rituals.map((r) => (
+                    <Pressable
+                      key={r.id}
+                      style={[
+                        styles.ritualPill,
+                        activeRitualId === r.id && styles.ritualPillActive,
+                      ]}
+                      onPress={() => applyRitual(r)}
+                    >
+                      <Text style={styles.ritualPillEmoji}>{r.emoji}</Text>
+                      <Text
+                        style={[
+                          styles.ritualPillText,
+                          activeRitualId === r.id &&
+                            styles.ritualPillTextActive,
+                        ]}
+                      >
+                        {r.name}
+                      </Text>
+                      {r.usageCount > 0 && (
+                        <Text style={styles.ritualUsageCount}>
+                          {r.usageCount}×
+                        </Text>
+                      )}
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
             {/* Date — expanded by default */}
             <CollapsibleSection title="When?" defaultExpanded colors={colors}>
               <ScrollView
@@ -993,41 +1049,53 @@ export default function ItineraryDialogBox({
               </View>
             </CollapsibleSection>
 
-            {/* Categories from DB */}
-            {availableCategories.length > 0 && (
-              <CollapsibleSection title="Categories" colors={colors}>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.pillRow}
-                >
-                  {availableCategories.map((cat) => {
-                    const isSelected = selectedCategoryIds.has(cat.id);
-                    return (
-                      <Pressable
-                        key={cat.id}
-                        style={[styles.chip, isSelected && styles.chipActive]}
-                        onPress={() => toggleCategory(cat.id)}
-                      >
-                        {cat.icon && (
-                          <Text style={styles.chipEmoji}>{cat.icon}</Text>
-                        )}
-                        <Text
-                          style={[
-                            styles.chipLabel,
-                            isSelected && styles.chipLabelActive,
-                          ]}
-                        >
-                          {cat.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              </CollapsibleSection>
-            )}
-
             {error && <Text style={styles.errorText}>{error}</Text>}
+
+            {/* Save as ritual inline */}
+            {!showSaveRitual ? (
+              <Pressable
+                style={styles.saveRitualToggle}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowSaveRitual(true);
+                }}
+              >
+                <Text style={styles.saveRitualToggleText}>Save as ritual</Text>
+              </Pressable>
+            ) : (
+              <View style={styles.saveRitualRow}>
+                <TextInput
+                  style={styles.saveRitualInput}
+                  placeholder="Ritual name..."
+                  placeholderTextColor={colors.text.disabled}
+                  value={ritualName}
+                  onChangeText={setRitualName}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveRitual}
+                  maxLength={50}
+                />
+                <Pressable
+                  style={[
+                    styles.saveRitualButton,
+                    !ritualName.trim() && styles.saveRitualButtonDisabled,
+                  ]}
+                  onPress={handleSaveRitual}
+                  disabled={!ritualName.trim()}
+                >
+                  <Text style={styles.saveRitualButtonText}>Save</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.saveRitualCancel}
+                  onPress={() => {
+                    setShowSaveRitual(false);
+                    setRitualName("");
+                  }}
+                >
+                  <Text style={styles.dismissText}>✕</Text>
+                </Pressable>
+              </View>
+            )}
           </ScrollView>
         )}
 
@@ -1044,7 +1112,11 @@ export default function ItineraryDialogBox({
         )}
 
         {phase === "result" && result && (
-          <ScrollView showsVerticalScrollIndicator={false} bounces>
+          <ScrollView
+            ref={resultScrollRef}
+            showsVerticalScrollIndicator={false}
+            bounces
+          >
             <Text style={styles.resultTitle}>{result.title}</Text>
             {result.summary && (
               <Text style={styles.resultSummary}>{result.summary}</Text>
@@ -1058,7 +1130,11 @@ export default function ItineraryDialogBox({
                 </Text>
               </View>
             )}
-            <ItineraryTimeline items={result.items} forecast={result.forecast} />
+            <ItineraryTimeline
+              items={result.items}
+              forecast={result.forecast}
+              scrollRef={resultScrollRef}
+            />
             <Pressable style={styles.resetButton} onPress={handleReset}>
               <Text style={styles.resetButtonText}>Build another</Text>
             </Pressable>
@@ -1234,7 +1310,7 @@ const createStyles = (colors: Colors) =>
     footerRow: {
       flexDirection: "row",
       gap: 8,
-      paddingTop: spacing.sm,
+      paddingTop: spacing.md,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: -4 },
       shadowOpacity: 0.15,
@@ -1320,5 +1396,114 @@ const createStyles = (colors: Colors) =>
       fontWeight: "600",
       textTransform: "uppercase",
       letterSpacing: 1,
+    },
+    /* ── Ritual shelf ─── */
+    ritualShelf: {
+      marginBottom: spacing.md,
+      paddingBottom: spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.subtle,
+    },
+    ritualShelfLabel: {
+      fontFamily: fontFamily.mono,
+      fontSize: 11,
+      color: colors.text.secondary,
+      textTransform: "uppercase",
+      letterSpacing: 1.5,
+      marginBottom: 6,
+    },
+    ritualPillRow: {
+      flexDirection: "row",
+      gap: 6,
+    },
+    ritualPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: radius.full,
+      backgroundColor: colors.bg.elevated,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      gap: 4,
+    },
+    ritualPillActive: {
+      backgroundColor: GREEN_MUTED,
+      borderColor: "rgba(134, 239, 172, 0.4)",
+    },
+    ritualPillEmoji: {
+      fontSize: 13,
+    },
+    ritualPillText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 12,
+      color: colors.text.secondary,
+      fontWeight: "600",
+    },
+    ritualPillTextActive: {
+      color: GREEN_ACCENT,
+    },
+    ritualUsageCount: {
+      fontFamily: fontFamily.mono,
+      fontSize: 10,
+      color: colors.text.disabled,
+    },
+    /* ── Save as ritual ─── */
+    saveRitualToggle: {
+      paddingVertical: 8,
+      alignItems: "center",
+      marginTop: spacing.lg,
+    },
+    saveRitualToggleText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 11,
+      color: GREEN_ACCENT,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+    saveRitualRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginTop: spacing.lg,
+    },
+    saveRitualInput: {
+      flex: 1,
+      height: 34,
+      borderRadius: radius.md,
+      backgroundColor: colors.bg.elevated,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      paddingHorizontal: 10,
+      fontFamily: fontFamily.mono,
+      fontSize: 12,
+      color: colors.text.primary,
+    },
+    saveRitualButton: {
+      backgroundColor: GREEN_MUTED,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: "rgba(134, 239, 172, 0.25)",
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+    },
+    saveRitualButtonDisabled: {
+      opacity: 0.4,
+    },
+    saveRitualButtonText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 11,
+      color: GREEN_ACCENT,
+      fontWeight: "700",
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    saveRitualCancel: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: colors.bg.elevated,
+      alignItems: "center",
+      justifyContent: "center",
     },
   });

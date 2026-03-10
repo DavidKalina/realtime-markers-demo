@@ -23,6 +23,7 @@ import { DiscoveredEventType } from "@/types/types";
 import EventListItem, { getTimeBadge } from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { filterExpiredEvents } from "./filterExpiredEvents";
 
 interface JustDiscoveredSectionProps {
   events?: DiscoveredEventType[];
@@ -49,11 +50,12 @@ const formatTimeAgo = (dateString: string): string => {
 };
 
 const JustDiscoveredSection: React.FC<JustDiscoveredSectionProps> = ({
-  events = [],
+  events: rawEvents = [],
 }) => {
   const router = useRouter();
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const events = useMemo(() => filterExpiredEvents(rawEvents), [rawEvents]);
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;

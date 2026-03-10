@@ -7,6 +7,7 @@ import EventListItem from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import EndOfList from "@/components/Layout/EndOfList";
+import { filterExpiredEvents } from "./filterExpiredEvents";
 
 interface UpcomingEventsSectionProps {
   events: EventType[];
@@ -32,10 +33,7 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
   );
 
   // Filter out past events defensively — backend should already handle this
-  const upcomingEvents = useMemo(() => {
-    const now = new Date();
-    return events.filter((event) => new Date(event.eventDate) > now);
-  }, [events]);
+  const upcomingEvents = useMemo(() => filterExpiredEvents(events), [events]);
 
   if (!upcomingEvents || upcomingEvents.length === 0) {
     return null;

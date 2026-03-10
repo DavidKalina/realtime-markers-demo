@@ -870,7 +870,7 @@ export class EventSearchServiceImpl implements EventSearchService {
       .where("event.status IN (:...statuses)", {
         statuses: ["VERIFIED", "PENDING"],
       })
-      .andWhere("event.eventDate >= NOW() - INTERVAL '30 days'")
+      .andWhere("(event.isRecurring = true OR event.eventDate >= NOW() - INTERVAL '30 days')")
       .andWhere(
         "(LOWER(event.city) = LOWER(:city) OR LOWER(event.city) = LOWER(:cityName))",
         { city, cityName },
@@ -976,6 +976,25 @@ export class EventSearchServiceImpl implements EventSearchService {
 
     console.log(`Cache miss for landing page data: ${cacheKey}`);
 
+    // Resolve the city's timezone from its events (most common timezone).
+    // Falls back to UTC if no events or no timezone data.
+    let cityTimezone = "UTC";
+    if (city) {
+      try {
+        const tzResult = await this.dependencies.dataSource.query(
+          `SELECT timezone, COUNT(*) as cnt FROM events
+           WHERE city = $1 AND timezone IS NOT NULL AND status IN ('VERIFIED', 'PENDING')
+           GROUP BY timezone ORDER BY cnt DESC LIMIT 1`,
+          [city],
+        );
+        if (tzResult.length > 0 && tzResult[0].timezone) {
+          cityTimezone = tzResult[0].timezone;
+        }
+      } catch {
+        // Silently fall back to UTC
+      }
+    }
+
     // Direct query helper — no progressive fallback.
     // Returns verified/pending future events matching the current filters.
     // excludeIds prevents the same event from appearing in multiple sections.
@@ -994,7 +1013,7 @@ export class EventSearchServiceImpl implements EventSearchService {
       qb.where("event.status IN (:...statuses)", {
         statuses: ["VERIFIED", "PENDING"],
       });
-      qb.andWhere("event.eventDate > NOW()");
+      qb.andWhere("(event.isRecurring = true OR event.eventDate > NOW())");
 
       // Apply radius filter when user location and radius are provided
       if (userLat && userLng && radiusMeters) {
@@ -1128,7 +1147,7 @@ export class EventSearchServiceImpl implements EventSearchService {
           `SELECT DISTINCT city FROM events
            WHERE city IS NOT NULL
            AND status IN ('VERIFIED', 'PENDING')
-           AND event_date > NOW()
+           AND (is_recurring = true OR event_date > NOW())
            AND ST_DWithin(location::geography, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
            ORDER BY city ASC`,
           [userLng, userLat, radiusMeters],
@@ -1139,7 +1158,7 @@ export class EventSearchServiceImpl implements EventSearchService {
           `SELECT DISTINCT city FROM events
            WHERE city IS NOT NULL
            AND status IN ('VERIFIED', 'PENDING')
-           AND event_date > NOW()
+           AND (is_recurring = true OR event_date > NOW())
            ORDER BY city ASC`,
         );
         availableCities = cityRows.map((r: { city: string }) => r.city);
@@ -1148,7 +1167,7 @@ export class EventSearchServiceImpl implements EventSearchService {
       console.error("Error fetching available cities:", error);
     }
 
-    // Happening today: events starting or ongoing today
+    // Happening today: events starting or ongoing today (in the city's timezone)
     const happeningTodayQb = this.eventRepository
       .createQueryBuilder("event")
       .leftJoinAndSelect("event.categories", "category")
@@ -1156,8 +1175,14 @@ export class EventSearchServiceImpl implements EventSearchService {
       .where("event.status IN (:...htStatuses)", {
         htStatuses: ["VERIFIED", "PENDING"],
       })
-      .andWhere("event.eventDate >= DATE_TRUNC('day', NOW())")
-      .andWhere("event.eventDate < DATE_TRUNC('day', NOW()) + INTERVAL '1 day'")
+      .andWhere(
+        "event.eventDate AT TIME ZONE :htTz >= DATE_TRUNC('day', NOW() AT TIME ZONE :htTz)",
+        { htTz: cityTimezone },
+      )
+      .andWhere(
+        "event.eventDate AT TIME ZONE :htTz2 < DATE_TRUNC('day', NOW() AT TIME ZONE :htTz2) + INTERVAL '1 day'",
+        { htTz2: cityTimezone },
+      )
       .andWhere("(event.endDate > NOW() OR event.eventDate >= NOW())")
       .orderBy("event.eventDate", "ASC")
       .limit(8);
@@ -1180,7 +1205,7 @@ export class EventSearchServiceImpl implements EventSearchService {
 
     const happeningTodayEvents = await happeningTodayQb.getMany();
 
-    // Free this week: events with no cost in the next 7 days
+    // Free this week: events with no cost in the next 7 days (in the city's timezone)
     const freeThisWeekQb = this.eventRepository
       .createQueryBuilder("event")
       .leftJoinAndSelect("event.categories", "category")
@@ -1190,7 +1215,8 @@ export class EventSearchServiceImpl implements EventSearchService {
       })
       .andWhere("(event.endDate > NOW() OR event.eventDate >= NOW())")
       .andWhere(
-        "event.eventDate < DATE_TRUNC('day', NOW()) + INTERVAL '7 days'",
+        "event.eventDate AT TIME ZONE :ftwTz < DATE_TRUNC('day', NOW() AT TIME ZONE :ftwTz) + INTERVAL '7 days'",
+        { ftwTz: cityTimezone },
       )
       .andWhere(
         "(event.event_digest IS NULL OR event.event_digest->>'cost' IS NULL OR LOWER(event.event_digest->>'cost') LIKE '%free%')",
@@ -1255,7 +1281,7 @@ export class EventSearchServiceImpl implements EventSearchService {
       .where("event.status IN (:...statuses)", {
         statuses: ["VERIFIED", "PENDING"],
       })
-      .andWhere("event.event_date > NOW()");
+      .andWhere("(event.is_recurring = true OR event.event_date > NOW())");
 
     if (city) {
       categoriesQb.andWhere("event.city = :catCity", { catCity: city });

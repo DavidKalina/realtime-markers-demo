@@ -60,35 +60,92 @@ export const createBaseStyles = (colors: Colors) =>
       zIndex: 10,
     },
 
-    // Hero Section — full-width title, info row beneath
-    titleSection: {
+    // ── Hero (itinerary-style header) ──
+    hero: {
       paddingHorizontal: spacing.xl,
-      paddingTop: spacing.lg,
-      paddingBottom: spacing.sm,
+      paddingTop: spacing.xs,
+      gap: spacing.md,
     },
-    eventTitle: {
-      fontSize: fontSize["2xl"],
+    heroTitle: {
+      fontSize: 22,
       fontWeight: fontWeight.bold,
-      color: colors.text.primary,
       fontFamily: fontFamily.mono,
-      lineHeight: lineHeight.heading,
+      color: colors.text.primary,
+      lineHeight: 28,
     },
-    heroInfoRow: {
+    heroLabelRow: {
       flexDirection: "row",
       alignItems: "center",
-      marginTop: spacing.sm,
-      gap: spacing.sm,
+      marginTop: 4,
+      gap: 2,
     },
-    heroInfoItem: {
-      fontSize: fontSize.sm,
-      color: colors.text.detail,
+    heroLabelPill: {
+      backgroundColor: "rgba(147, 197, 253, 0.1)",
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: radius.full,
+    },
+    heroLabelText: {
+      fontSize: 9,
+      fontWeight: fontWeight.bold,
+      color: "#93c5fd",
       fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.medium,
+      letterSpacing: 1.5,
     },
-    heroInfoSep: {
-      fontSize: fontSize.sm,
+    heroDot: {
+      fontSize: 11,
+      color: colors.text.disabled,
+      fontFamily: fontFamily.mono,
+    },
+    heroDate: {
+      fontSize: 11,
+      fontWeight: fontWeight.semibold,
       color: colors.text.secondary,
       fontFamily: fontFamily.mono,
+    },
+    heroSummary: {
+      fontSize: 13,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      color: colors.text.secondary,
+      lineHeight: 20,
+    },
+    chipRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+    },
+    statChip: {
+      borderWidth: 1,
+      borderRadius: radius.full,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    statChipValue: {
+      fontSize: 11,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+    },
+    vibePill: {
+      borderWidth: 1,
+      borderRadius: radius.full,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+    },
+    vibeText: {
+      fontSize: 10,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+      textTransform: "lowercase",
+      letterSpacing: 0.5,
+    },
+
+    // ── Divider ──
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border.default,
+      marginVertical: spacing.lg,
+      marginHorizontal: spacing.xl,
     },
 
     // Details Section
@@ -176,70 +233,6 @@ export const createBaseStyles = (colors: Colors) =>
     // Recurring Details
     recurringDetails: {
       gap: spacing.sm,
-    },
-
-    // Categories — DNA bar
-    dnaBar: {
-      flexDirection: "row",
-      height: 6,
-      borderRadius: 3,
-      overflow: "hidden",
-      gap: 2,
-    },
-    dnaSegment: {
-      height: "100%",
-    },
-    dnaSegmentFirst: {
-      borderTopLeftRadius: 3,
-      borderBottomLeftRadius: 3,
-    },
-    dnaSegmentLast: {
-      borderTopRightRadius: 3,
-      borderBottomRightRadius: 3,
-    },
-    dnaLegend: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: spacing.md,
-      marginTop: spacing.sm,
-    },
-    dnaLegendItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing._6,
-    },
-    dnaLegendDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-    },
-    dnaLegendText: {
-      fontSize: fontSize.xs,
-      fontFamily: fontFamily.mono,
-      color: colors.text.detail,
-    },
-    categoryDnaSection: {
-      paddingHorizontal: spacing.xl,
-      gap: spacing.sm,
-    },
-    categoryDnaLabel: {
-      fontSize: fontSize.xs,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.label,
-      fontFamily: fontFamily.mono,
-      textTransform: "uppercase",
-      letterSpacing: 1,
-    },
-    categoryPieRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.md,
-    },
-    categoryPieLegend: {
-      flex: 1,
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: spacing.md,
     },
 
     // Section Title

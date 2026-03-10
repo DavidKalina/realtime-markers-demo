@@ -16,7 +16,7 @@ export const createItineraryHandler = async (c: Context<AppContext>) => {
     durationHours: number;
     activityTypes?: string[];
     stopCount?: number;
-    categoryNames?: string[];
+    ritualId?: string;
   }>();
 
   if (!body.city || typeof body.city !== "string") {
@@ -46,8 +46,15 @@ export const createItineraryHandler = async (c: Context<AppContext>) => {
       durationHours: body.durationHours,
       activityTypes: body.activityTypes ?? [],
       stopCount: body.stopCount ?? 0,
-      categoryNames: body.categoryNames ?? [],
     });
+
+    // Record ritual usage if this itinerary was created from one
+    if (body.ritualId) {
+      const ritualService = c.get("itineraryRitualService");
+      ritualService.recordUsage(body.ritualId, userId).catch((err) => {
+        console.warn("[Itinerary] Failed to record ritual usage:", err);
+      });
+    }
 
     return c.json(
       {

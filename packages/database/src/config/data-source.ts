@@ -16,6 +16,7 @@ import {
   LlmUsageLog,
   Itinerary,
   ItineraryItem,
+  ItineraryRitual,
 } from "../entities";
 
 // Create the DataSource instance
@@ -37,6 +38,7 @@ export const createDataSource = (databaseUrl: string): DataSource => {
       LlmUsageLog,
       Itinerary,
       ItineraryItem,
+      ItineraryRitual,
     ],
     migrationsTableName: "migrations",
     migrationsRun: false, // Disable automatic migration running

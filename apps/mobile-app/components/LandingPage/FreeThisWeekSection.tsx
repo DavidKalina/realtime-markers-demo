@@ -26,6 +26,7 @@ import {
 import { EventType } from "@/types/types";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { filterExpiredEvents } from "./filterExpiredEvents";
 
 interface FreeThisWeekSectionProps {
   events: EventType[];
@@ -46,14 +47,10 @@ const FreeThisWeekSection: React.FC<FreeThisWeekSectionProps> = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
 
-  const activeEvents = useMemo(() => {
-    const now = new Date();
-    return (events || []).filter((e) => {
-      const end = e.endDate ? new Date(e.endDate) : null;
-      if (end && end > now) return true;
-      return new Date(e.eventDate) >= now;
-    });
-  }, [events]);
+  const activeEvents = useMemo(
+    () => filterExpiredEvents(events || []),
+    [events],
+  );
 
   const handleEventPress = useCallback(
     (event: EventType) => {

@@ -13,6 +13,7 @@ import {
 } from "@/theme";
 import type { EventType } from "@/types/types";
 import { getTimeBadge } from "@/components/Event/EventListItem";
+import { filterExpiredEvents } from "./filterExpiredEvents";
 
 interface HappeningTodaySectionProps {
   events: EventType[];
@@ -25,14 +26,7 @@ const HappeningTodaySection: React.FC<HappeningTodaySectionProps> = ({
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const activeEvents = useMemo(() => {
-    const now = new Date();
-    return events.filter((e) => {
-      const end = e.endDate ? new Date(e.endDate) : null;
-      if (end && end > now) return true;
-      return new Date(e.eventDate) >= now;
-    });
-  }, [events]);
+  const activeEvents = useMemo(() => filterExpiredEvents(events), [events]);
 
   const handlePress = useCallback(
     (eventId: string) => {

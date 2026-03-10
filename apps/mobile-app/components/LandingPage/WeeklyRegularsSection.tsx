@@ -15,6 +15,7 @@ import {
 } from "@/theme";
 import { EventType } from "@/types/types";
 import { useRouter } from "expo-router";
+import { filterExpiredEvents } from "./filterExpiredEvents";
 
 interface WeeklyRegularsSectionProps {
   events?: EventType[];
@@ -51,11 +52,12 @@ const getRecurrenceLabel = (event: EventType): string => {
 };
 
 const WeeklyRegularsSection: React.FC<WeeklyRegularsSectionProps> = ({
-  events = [],
+  events: rawEvents = [],
 }) => {
   const router = useRouter();
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const events = useMemo(() => filterExpiredEvents(rawEvents), [rawEvents]);
 
   const handlePress = useCallback(
     (eventId: string) => {

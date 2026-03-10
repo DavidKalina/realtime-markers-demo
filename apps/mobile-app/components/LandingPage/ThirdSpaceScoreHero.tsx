@@ -175,7 +175,7 @@ const ThirdSpaceScoreHero: React.FC<ThirdSpaceScoreHeroProps> = ({ score, onExpl
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.cityText}>{cityLabel}</Text>
-          <Text style={styles.label}>THIRD SPACE SCORE</Text>
+          <Text style={styles.label}>ADVENTURE SCORE</Text>
         </View>
         <Animated.Text
           style={[

@@ -19,6 +19,7 @@ import {
   Itinerary,
   ItineraryItem,
   ItineraryCheckin,
+  ItineraryRitual,
 } from "@realtime-markers/database";
 
 // Import all migrations explicitly
@@ -55,6 +56,7 @@ import { AddItineraryShareToken1710000000037 } from "./migrations/AddItinerarySh
 import { AddItineraryCheckins1710000000038 } from "./migrations/AddItineraryCheckins1710000000038";
 import { ItineraryCheckinsTable1710000000039 } from "./migrations/ItineraryCheckinsTable1710000000039";
 import { AddItineraryForecast1710000000040 } from "./migrations/AddItineraryForecast1710000000040";
+import { ItineraryRitualsTable1710000000041 } from "./migrations/ItineraryRitualsTable1710000000041";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -76,6 +78,7 @@ const AppDataSource = new DataSource({
     Itinerary,
     ItineraryItem,
     ItineraryCheckin,
+    ItineraryRitual,
   ],
   migrations: [
     CategoryTable1710000000000,
@@ -111,6 +114,7 @@ const AppDataSource = new DataSource({
     AddItineraryCheckins1710000000038,
     ItineraryCheckinsTable1710000000039,
     AddItineraryForecast1710000000040,
+    ItineraryRitualsTable1710000000041,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

@@ -11,7 +11,7 @@ import {
   ViewStyle,
   TextStyle,
 } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeInRight, Easing } from "react-native-reanimated";
 import Screen from "../Layout/Screen";
 import { useColors } from "@/theme";
 import { ErrorEventDetails } from "./ErrorEventDetails";
@@ -23,9 +23,9 @@ import { useEventDetails } from "./useEventDetails";
 import { useEventEngagement } from "./useEventEngagement";
 import { useEventInsight } from "./useEventInsight";
 import { DialogBox } from "../AreaScan/AreaScanComponents";
-import EventDnaChart from "./EventDnaChart";
 import DiscovererCard from "./DiscovererCard";
 import TicketmasterSourceCard from "./TicketmasterSourceCard";
+import { getCategoryColor } from "@/utils/categoryColors";
 
 interface EventDetailsProps {
   eventId: string;
@@ -222,36 +222,124 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
           />
         }
       >
-        {/* Hero: full-width title, then date/distance info row */}
+        {/* ── Hero Section ── */}
         <Animated.View
-          entering={FadeInDown.duration(300).delay(0).springify()}
-          style={styles.titleSection}
+          entering={FadeInDown.duration(450).easing(Easing.out(Easing.cubic))}
+          style={styles.hero}
         >
-          <Text style={styles.eventTitle}>
-            {event.emoji} {event.title}
-          </Text>
-          {(distanceInfo || formattedDate) && (
-            <View style={styles.heroInfoRow}>
-              {formattedDate ? (
-                <Text style={styles.heroInfoItem}>{formattedDate}</Text>
-              ) : null}
-              {distanceInfo && formattedDate && (
-                <Text style={styles.heroInfoSep}>·</Text>
-              )}
-              {distanceInfo && (
-                <Text style={styles.heroInfoItem}>{distanceInfo}</Text>
+          {/* Title */}
+          <Animated.View
+            entering={FadeInDown.delay(100)
+              .duration(450)
+              .easing(Easing.out(Easing.cubic))}
+          >
+            <Text style={styles.heroTitle}>
+              {event.emoji} {event.title}
+            </Text>
+            <View style={styles.heroLabelRow}>
+              <View style={styles.heroLabelPill}>
+                <Text style={styles.heroLabelText}>EVENT</Text>
+              </View>
+              {formattedDate && (
+                <>
+                  <Text style={styles.heroDot}> · </Text>
+                  <Text style={styles.heroDate}>{formattedDate}</Text>
+                </>
               )}
             </View>
+          </Animated.View>
+
+          {/* Summary */}
+          {event.eventDigest?.summary && (
+            <Animated.View
+              entering={FadeInDown.delay(200)
+                .duration(450)
+                .easing(Easing.out(Easing.cubic))}
+            >
+              <Text style={styles.heroSummary}>{event.eventDigest.summary}</Text>
+            </Animated.View>
+          )}
+
+          {/* Stat chips */}
+          <Animated.View
+            entering={FadeInDown.delay(300)
+              .duration(450)
+              .easing(Easing.out(Easing.cubic))}
+            style={styles.chipRow}
+          >
+            {distanceInfo && (
+              <View
+                style={[
+                  styles.statChip,
+                  { borderColor: "rgba(147, 197, 253, 0.25)" },
+                ]}
+              >
+                <Text style={[styles.statChipValue, { color: "#93c5fd" }]}>
+                  {distanceInfo}
+                </Text>
+              </View>
+            )}
+            {event.eventDigest?.cost && (
+              <View
+                style={[
+                  styles.statChip,
+                  { borderColor: "rgba(134, 239, 172, 0.25)" },
+                ]}
+              >
+                <Text style={[styles.statChipValue, { color: "#86efac" }]}>
+                  {event.eventDigest.cost}
+                </Text>
+              </View>
+            )}
+            {event.address && (
+              <View
+                style={[
+                  styles.statChip,
+                  { borderColor: "rgba(196, 181, 253, 0.25)" },
+                ]}
+              >
+                <Text style={[styles.statChipValue, { color: "#c4b5fd" }]}>
+                  {event.address}
+                </Text>
+              </View>
+            )}
+          </Animated.View>
+
+          {/* Category chips */}
+          {event.categories && event.categories.length > 0 && (
+            <Animated.View
+              entering={FadeInDown.delay(400)
+                .duration(400)
+                .easing(Easing.out(Easing.cubic))}
+              style={styles.chipRow}
+            >
+              {event.categories.map((cat, i) => {
+                const color = getCategoryColor(cat.name);
+                return (
+                  <Animated.View
+                    key={cat.id ?? cat.name}
+                    entering={FadeInRight.delay(450 + i * 60).duration(350)}
+                    style={[
+                      styles.vibePill,
+                      {
+                        borderColor: `${color}33`,
+                        backgroundColor: `${color}14`,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.vibeText, { color }]}>{cat.name}</Text>
+                  </Animated.View>
+                );
+              })}
+            </Animated.View>
           )}
         </Animated.View>
 
-        {event.categories && event.categories.length > 0 && (
-          <Animated.View
-            entering={FadeInDown.duration(300).delay(240).springify()}
-          >
-            <EventDnaChart categories={event.categories} variant="bar" />
-          </Animated.View>
-        )}
+        {/* ── Divider ── */}
+        <Animated.View
+          entering={FadeInDown.delay(500).duration(400)}
+          style={styles.divider}
+        />
 
         <View style={styles.detailsSection}>
           {/* About / Digest */}
@@ -259,23 +347,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             <Animated.View
               entering={FadeInDown.duration(300).delay(80).springify()}
             >
-              <Text style={styles.infoCardTitle}>About</Text>
-              <Text style={styles.descriptionText}>
-                {event.eventDigest.summary}
-              </Text>
-
-              {event.eventDigest.cost && (
-                <View style={styles.sectionDivider}>
-                  <Text style={styles.infoCardTitle}>Cost</Text>
-                  <Text style={styles.descriptionText}>
-                    {event.eventDigest.cost}
-                  </Text>
-                </View>
-              )}
-
               {event.eventDigest.highlights &&
                 event.eventDigest.highlights.length > 0 && (
-                  <View style={styles.sectionDivider}>
+                  <View>
                     <Text style={styles.infoCardTitle}>Highlights</Text>
                     <View style={styles.highlightsList}>
                       {event.eventDigest.highlights.map(

@@ -23,6 +23,7 @@ import { TrendingEventType } from "@/types/types";
 import EventListItem, { getTimeBadge } from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { filterExpiredEvents } from "./filterExpiredEvents";
 
 interface TrendingEventsSectionProps {
   events?: TrendingEventType[];
@@ -34,11 +35,12 @@ const ITEM_SPACING = 16;
 const ITEM_MARGIN = (screenWidth - ITEM_WIDTH) / 2;
 
 const TrendingEventsSection: React.FC<TrendingEventsSectionProps> = ({
-  events = [],
+  events: rawEvents = [],
 }) => {
   const router = useRouter();
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const events = useMemo(() => filterExpiredEvents(rawEvents), [rawEvents]);
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;

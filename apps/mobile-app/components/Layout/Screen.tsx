@@ -1,6 +1,7 @@
 import { LucideIcon } from "lucide-react-native";
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
+  LayoutChangeEvent,
   Pressable,
   StyleSheet,
   View,
@@ -9,7 +10,10 @@ import {
 } from "react-native";
 import Animated, {
   useAnimatedScrollHandler,
+  useAnimatedStyle,
   useSharedValue,
+  withTiming,
+  Easing,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -120,6 +124,19 @@ const Screen = <T extends string>({
   const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const scrollY = useSharedValue(0);
+  const bottomContentHeight = useSharedValue(0);
+
+  const onBottomContentLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    bottomContentHeight.value = withTiming(h, {
+      duration: 300,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, []);
+
+  const bottomPaddingStyle = useAnimatedStyle(() => ({
+    paddingBottom: bottomContentHeight.value,
+  }));
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -209,29 +226,28 @@ const Screen = <T extends string>({
               styles.scrollContent,
               { paddingTop: BANNER_HEIGHT },
               footerButtons.length > 0 && styles.scrollContentWithFooter,
-              bottomContent &&
-                footerButtons.length === 0 &&
-                styles.scrollContentWithBottomContent,
             ]}
           >
             {renderContent()}
+            {bottomContent && footerButtons.length === 0 && (
+              <Animated.View style={bottomPaddingStyle} />
+            )}
           </Animated.ScrollView>
         ) : (
-          <View
+          <Animated.View
             style={[
               styles.container,
               { paddingTop: BANNER_HEIGHT },
               footerButtons.length > 0 && styles.nonScrollableContentWithFooter,
-              bottomContent &&
-                footerButtons.length === 0 &&
-                styles.nonScrollableContentWithBottomContent,
+              bottomContent && footerButtons.length === 0 && bottomPaddingStyle,
             ]}
           >
             {renderContent()}
-          </View>
+          </Animated.View>
         )}
         {bottomContent && (
           <View
+            onLayout={onBottomContentLayout}
             style={
               footerButtons.length > 0
                 ? styles.bottomContentWrapper
@@ -291,7 +307,6 @@ const createStyles = (colors: Colors) => StyleSheet.create({
   scrollContentWithFooter: {
     paddingBottom: 120,
   },
-  scrollContentWithBottomContent: {},
   contentContainer: {
     flex: 1,
     paddingVertical: spacing.lg,
@@ -362,7 +377,6 @@ const createStyles = (colors: Colors) => StyleSheet.create({
   nonScrollableContentWithFooter: {
     paddingBottom: 120,
   },
-  nonScrollableContentWithBottomContent: {},
 });
 
 export default Screen;

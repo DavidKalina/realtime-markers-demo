@@ -14,6 +14,7 @@ import { publicEventsRouter } from "../routes/publicEvents";
 import { usersRouter } from "../routes/users";
 import { leaderboardRouter } from "../routes/leaderboard";
 import { itineraryRouter, publicItineraryRouter } from "../routes/itineraries";
+import { itineraryRitualRouter } from "../routes/itineraryRituals";
 import type { AppContext } from "../types/context";
 
 /**
@@ -37,6 +38,7 @@ export function setupRoutes(app: Hono<AppContext>): void {
   app.route("/api/users", usersRouter);
   app.route("/api/leaderboard", leaderboardRouter);
   app.route("/api/itineraries", itineraryRouter);
+  app.route("/api/rituals", itineraryRitualRouter);
 
   // Job streaming routes (must be before jobs router)
   app.route("/api/jobs", jobStreamingRouter);

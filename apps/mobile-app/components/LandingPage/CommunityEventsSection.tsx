@@ -16,6 +16,7 @@ import {
 import { EventType } from "@/types/types";
 import { getTimeBadge } from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
+import { filterExpiredEvents } from "./filterExpiredEvents";
 
 interface CommunityEventsSectionProps {
   events?: EventType[];
@@ -39,12 +40,7 @@ const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
     [router],
   );
 
-  const activeEvents = useMemo(() => {
-    const now = new Date();
-    return events.filter(
-      (event) => event.isRecurring || new Date(event.eventDate) > now,
-    );
-  }, [events]);
+  const activeEvents = useMemo(() => filterExpiredEvents(events), [events]);
 
   if (!activeEvents || activeEvents.length === 0) {
     return null;

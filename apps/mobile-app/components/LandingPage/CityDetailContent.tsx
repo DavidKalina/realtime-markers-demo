@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
+  LayoutChangeEvent,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -38,6 +39,7 @@ import type { ThirdSpaceScoreResponse } from "@/services/api/modules/leaderboard
 import ThirdSpaceScoreHero from "./ThirdSpaceScoreHero";
 import PopularCategoriesSection from "./PopularCategoriesSection";
 import { ScoreHeroSkeleton } from "./Skeletons";
+import { filterExpiredEvents } from "./filterExpiredEvents";
 
 /* ─── Types ─── */
 
@@ -219,6 +221,55 @@ const EventRow: React.FC<EventRowProps> = ({
   );
 };
 
+/* ─── Hero crossfade ─── */
+
+const HeroCrossfade: React.FC<{
+  isLoading: boolean;
+  thirdSpaceScore?: ThirdSpaceScoreResponse | null;
+  onExploreMap?: () => void;
+}> = ({ isLoading, thirdSpaceScore, onExploreMap }) => {
+  const [skeletonHeight, setSkeletonHeight] = useState(0);
+
+  const onSkeletonLayout = useCallback((e: LayoutChangeEvent) => {
+    setSkeletonHeight(e.nativeEvent.layout.height);
+  }, []);
+
+  // While loading, render skeleton normally (unpositioned)
+  if (isLoading) {
+    return (
+      <View onLayout={onSkeletonLayout}>
+        <ScoreHeroSkeleton />
+      </View>
+    );
+  }
+
+  // Transition: overlap skeleton and hero in a fixed-height container
+  // so the skeleton fades out while the hero fades in — no layout jump
+  if (thirdSpaceScore) {
+    return (
+      <View style={skeletonHeight > 0 ? { minHeight: skeletonHeight } : undefined}>
+        {skeletonHeight > 0 && (
+          <Animated.View
+            exiting={FadeOut.duration(duration.normal)}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          >
+            <ScoreHeroSkeleton />
+          </Animated.View>
+        )}
+        <Animated.View entering={FadeIn.duration(duration.normal).delay(80)}>
+          <ThirdSpaceScoreHero
+            score={thirdSpaceScore}
+            onExploreMap={onExploreMap}
+          />
+        </Animated.View>
+      </View>
+    );
+  }
+
+  return null;
+};
+
 /* ─── Main component ─── */
 
 const CityDetailContent: React.FC<CityDetailContentProps> = ({
@@ -252,46 +303,38 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
     setActiveTab(tab);
   }, []);
 
-  // Memoize active "today" events
-  const activeToday = useMemo(() => {
-    if (!data?.happeningTodayEvents) return [];
-    const now = new Date();
-    return data.happeningTodayEvents.filter((e) => {
-      const end = e.endDate ? new Date(e.endDate) : null;
-      if (end && end > now) return true;
-      return new Date(e.eventDate) >= now;
-    });
-  }, [data?.happeningTodayEvents]);
+  // Memoize active events — aggressively filter out expired
+  const activeToday = useMemo(
+    () => filterExpiredEvents(data?.happeningTodayEvents || []),
+    [data?.happeningTodayEvents],
+  );
 
-  const activeFree = useMemo(() => {
-    if (!data?.freeThisWeekEvents) return [];
-    const now = new Date();
-    return data.freeThisWeekEvents.filter((e) => {
-      const end = e.endDate ? new Date(e.endDate) : null;
-      if (end && end > now) return true;
-      return new Date(e.eventDate) >= now;
-    });
-  }, [data?.freeThisWeekEvents]);
+  const activeFree = useMemo(
+    () => filterExpiredEvents(data?.freeThisWeekEvents || []),
+    [data?.freeThisWeekEvents],
+  );
 
-  const activeCommunity = useMemo(() => {
-    if (!data?.communityEvents) return [];
-    const now = new Date();
-    return data.communityEvents.filter(
-      (event) => event.isRecurring || new Date(event.eventDate) > now,
-    );
-  }, [data?.communityEvents]);
+  const activeCommunity = useMemo(
+    () => filterExpiredEvents(data?.communityEvents || []),
+    [data?.communityEvents],
+  );
 
-  // Merge trending + discovered into a unified list
+  const activeWeekly = useMemo(
+    () => filterExpiredEvents(data?.weeklyRegularEvents || []),
+    [data?.weeklyRegularEvents],
+  );
+
+  // Merge trending + discovered into a unified list (filter expired)
   const discoverEvents = useMemo((): (EventType & {
     _badge: string;
     _badgeColor: string;
   })[] => {
-    const trending = (data?.trendingEvents || []).map((e) => ({
+    const trending = filterExpiredEvents(data?.trendingEvents || []).map((e) => ({
       ...(e as EventType),
       _badge: "Trending",
       _badgeColor: "#fcd34d",
     }));
-    const discovered = (data?.justDiscoveredEvents || []).map((e) => ({
+    const discovered = filterExpiredEvents(data?.justDiscoveredEvents || []).map((e) => ({
       ...(e as EventType),
       _badge: "New",
       _badgeColor: "#93c5fd",
@@ -299,10 +342,10 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
     return [...trending, ...discovered];
   }, [data?.trendingEvents, data?.justDiscoveredEvents]);
 
-  // Combined events for the "top" tab: top events + featured
+  // Combined events for the "top" tab: top events + featured (filter expired)
   const topTabEvents = useMemo(() => {
-    const top = topEvents || [];
-    const featured = data?.featuredEvents || [];
+    const top = filterExpiredEvents(topEvents || []);
+    const featured = filterExpiredEvents(data?.featuredEvents || []);
     const topIds = new Set(top.map((e) => e.id));
     const extra = featured.filter((e) => !topIds.has(e.id));
     return { ranked: top, featured: extra };
@@ -325,7 +368,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
       today:
         activeToday.length +
         activeFree.length +
-        (data?.weeklyRegularEvents?.length || 0),
+        activeWeekly.length,
       discover: discoverEvents.length + activeCommunity.length,
       leaderboard: thirdSpaceScore?.contributors?.length || 0,
     }),
@@ -333,7 +376,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
       topTabEvents,
       activeToday,
       activeFree,
-      data?.weeklyRegularEvents,
+      activeWeekly,
       discoverEvents,
       activeCommunity,
       thirdSpaceScore?.contributors,
@@ -384,7 +427,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
   const renderTodayTab = () => {
     const hasToday = activeToday.length > 0;
     const hasFree = activeFree.length > 0;
-    const hasWeekly = (data?.weeklyRegularEvents?.length || 0) > 0;
+    const hasWeekly = activeWeekly.length > 0;
 
     if (!hasToday && !hasFree && !hasWeekly) {
       return renderEmptyTab("Nothing happening today");
@@ -429,12 +472,12 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
           <>
             {(hasToday || hasFree) && <View style={styles.subSectionDivider} />}
             <Text style={styles.subSectionTitle}>WEEKLY REGULARS</Text>
-            {data!.weeklyRegularEvents!.map((event, index) => (
+            {activeWeekly.map((event, index) => (
               <EventRow
                 key={event.id}
                 event={event}
                 onPress={handleEventPress}
-                isLast={index === data!.weeklyRegularEvents!.length - 1}
+                isLast={index === activeWeekly.length - 1}
                 subtitle={getRecurrenceLabel(event)}
                 colors={colors}
                 styles={styles}
@@ -576,24 +619,15 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
         ) : undefined
       }
     >
-      {/* Loading skeleton */}
-      {isLoading && (
-        <Animated.View exiting={FadeOut.duration(duration.fast)}>
-          <ScoreHeroSkeleton />
-        </Animated.View>
-      )}
+      {/* Hero crossfade — skeleton and real hero overlap to avoid layout jump */}
+      <HeroCrossfade
+        isLoading={isLoading}
+        thirdSpaceScore={thirdSpaceScore}
+        onExploreMap={onExploreMap}
+      />
 
       {!isLoading && (
         <>
-          {/* Hero */}
-          {thirdSpaceScore && (
-            <Animated.View entering={FadeIn.duration(duration.normal)}>
-              <ThirdSpaceScoreHero
-                score={thirdSpaceScore}
-                onExploreMap={onExploreMap}
-              />
-            </Animated.View>
-          )}
 
           {/* Categories pills */}
           {data?.popularCategories && data.popularCategories.length > 0 && (

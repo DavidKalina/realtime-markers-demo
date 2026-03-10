@@ -10,7 +10,6 @@ import {
   Camera,
   CompassIcon,
   GlobeIcon,
-  HeartIcon,
   LucideIcon,
   Route,
   User,
@@ -42,7 +41,7 @@ const BUTTON_RELEASE_ANIMATION = {
 };
 
 // Define route type to match expo-router's expected types
-type AppRoute = "/spaces" | "/scan" | "/saved" | "/itineraries" | "/user" | "/";
+type AppRoute = "/spaces" | "/scan" | "/itineraries" | "/user" | "/";
 
 interface TabConfig {
   key: string;
@@ -75,14 +74,7 @@ const getTabs = (colors: Colors): TabConfig[] => [
     requiresLocation: true,
     activeColor: colors.action.save,
   },
-  {
-    key: "saved",
-    label: "Saved",
-    icon: HeartIcon,
-    route: "/saved",
-    activeColor: colors.action.save,
-  },
-  {
+{
     key: "itineraries",
     label: "Plans",
     icon: Route,
@@ -109,7 +101,6 @@ const ROUTE_TO_TAB: Record<string, string> = {
 // Map pathname to active tab key
 const getActiveTabKey = (pathname: string): string | null => {
   if (pathname === "/") return "locate";
-  if (pathname.startsWith("/saved")) return "saved";
   if (pathname.startsWith("/spaces")) return "spaces";
   if (pathname.startsWith("/itineraries")) return "itineraries";
   return ROUTE_TO_TAB[pathname] ?? null;

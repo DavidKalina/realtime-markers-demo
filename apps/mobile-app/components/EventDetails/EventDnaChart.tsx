@@ -1,16 +1,9 @@
-import React, { memo, useEffect, useMemo } from "react";
+import React, { memo, useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withDelay,
-  withTiming,
-  Easing,
-} from "react-native-reanimated";
+import Animated, { FadeInRight } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { CategoryPieChart } from "../AreaScan/AreaScanComponents";
-import { useColors, spacing, fontSize, fontWeight, fontFamily, type Colors } from "@/theme";
+import { useColors, spacing, fontSize, fontWeight, fontFamily, radius, type Colors } from "@/theme";
 import { getCategoryColor } from "@/utils/categoryColors";
 
 export interface DnaCategory {
@@ -25,146 +18,52 @@ interface EventDnaChartProps {
   label?: string;
 }
 
-function AnimatedBarSegment({
-  color,
-  flex,
-  index,
-  isFirst,
-  isLast,
-}: {
-  color: string;
-  flex: number;
-  index: number;
-  isFirst: boolean;
-  isLast: boolean;
-}) {
-  const colors = useColors();
-  const dnStyles = useMemo(() => createDnStyles(colors), [colors]);
-  const progress = useSharedValue(0);
-
-  useEffect(() => {
-    progress.value = withDelay(
-      index * 80,
-      withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }),
-    );
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    flex: flex * progress.value,
-    opacity: progress.value,
-  }));
-
-  return (
-    <Animated.View
-      style={[
-        dnStyles.barSegment,
-        { backgroundColor: color },
-        isFirst && dnStyles.barSegmentFirst,
-        isLast && dnStyles.barSegmentLast,
-        animatedStyle,
-      ]}
-    />
-  );
-}
-
 const EventDnaChart: React.FC<EventDnaChartProps> = memo(
-  ({ categories, variant = "chart", label = "EVENT DNA" }) => {
+  ({ categories, label = "EVENT DNA" }) => {
     const colors = useColors();
-    const dnStyles = useMemo(() => createDnStyles(colors), [colors]);
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const router = useRouter();
 
-    const breakdown = useMemo(
-      () =>
-        categories.map((cat) => ({
-          name: cat.name,
-          pct: cat.pct ?? Math.round(100 / categories.length),
-        })),
-      [categories],
-    );
-
-    const chartColors = useMemo(
-      () => categories.map((cat) => getCategoryColor(cat.name)),
-      [categories],
-    );
-
-    const renderLegendItem = (
-      category: DnaCategory,
-      index: number,
-      showPct: boolean,
-    ) => {
-      const pct = breakdown[index].pct;
-      const content = (
-        <>
-          <View
-            style={[
-              dnStyles.legendDot,
-              { backgroundColor: chartColors[index] },
-            ]}
-          />
-          <Text style={dnStyles.legendText}>
-            {category.name}
-            {showPct ? ` ${pct}%` : ""}
-          </Text>
-        </>
-      );
-
-      if (category.id) {
-        return (
-          <TouchableOpacity
-            key={category.id ?? category.name}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push(`/category/${category.id}`);
-            }}
-            style={dnStyles.legendItem}
-            activeOpacity={0.7}
-          >
-            {content}
-          </TouchableOpacity>
-        );
-      }
-
-      return (
-        <View key={category.name} style={dnStyles.legendItem}>
-          {content}
-        </View>
-      );
-    };
-
     return (
-      <View style={dnStyles.container}>
-        <Text style={dnStyles.label}>{label}</Text>
-        {variant === "chart" ? (
-          <View>
-            <View style={dnStyles.pieRow}>
-              <CategoryPieChart
-                breakdown={breakdown}
-                colors={[...chartColors]}
-              />
-            </View>
-            <View style={dnStyles.legend}>
-              {categories.map((cat, i) => renderLegendItem(cat, i, true))}
-            </View>
-          </View>
-        ) : (
-          <View>
-            <View style={dnStyles.bar}>
-              {categories.map((cat, index) => (
-                <AnimatedBarSegment
-                  key={cat.id ?? cat.name}
-                  color={chartColors[index]}
-                  flex={breakdown[index].pct}
-                  index={index}
-                  isFirst={index === 0}
-                  isLast={index === categories.length - 1}
-                />
-              ))}
-            </View>
-            <View style={dnStyles.legend}>
-              {categories.map((cat, i) => renderLegendItem(cat, i, true))}
-            </View>
-          </View>
-        )}
+      <View style={styles.container}>
+        <Text style={styles.label}>{label}</Text>
+        <View style={styles.chipRow}>
+          {categories.map((cat, i) => {
+            const color = getCategoryColor(cat.name);
+            const chip = (
+              <Animated.View
+                key={cat.id ?? cat.name}
+                entering={FadeInRight.delay(i * 60).duration(350)}
+                style={[
+                  styles.chip,
+                  {
+                    borderColor: `${color}33`,
+                    backgroundColor: `${color}14`,
+                  },
+                ]}
+              >
+                <Text style={[styles.chipText, { color }]}>{cat.name}</Text>
+              </Animated.View>
+            );
+
+            if (cat.id) {
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push(`/category/${cat.id}`);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  {chip}
+                </TouchableOpacity>
+              );
+            }
+
+            return chip;
+          })}
+        </View>
       </View>
     );
   },
@@ -174,59 +73,36 @@ EventDnaChart.displayName = "EventDnaChart";
 
 export default EventDnaChart;
 
-const createDnStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.xl,
-    gap: spacing.sm,
-  },
-  label: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.label,
-    fontFamily: fontFamily.mono,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  pieRow: {
-    alignItems: "center",
-  },
-  bar: {
-    flexDirection: "row",
-    height: 6,
-    borderRadius: 3,
-    overflow: "hidden",
-    gap: 2,
-  },
-  barSegment: {
-    height: "100%",
-  },
-  barSegmentFirst: {
-    borderTopLeftRadius: 3,
-    borderBottomLeftRadius: 3,
-  },
-  barSegmentLast: {
-    borderTopRightRadius: 3,
-    borderBottomRightRadius: 3,
-  },
-  legend: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  legendDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  legendText: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    color: colors.text.detail,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      paddingHorizontal: spacing.xl,
+      gap: spacing.sm,
+    },
+    label: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.label,
+      fontFamily: fontFamily.mono,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+    chipRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+    },
+    chip: {
+      borderWidth: 1,
+      borderRadius: radius.full,
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+    },
+    chipText: {
+      fontSize: 10,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+      textTransform: "lowercase",
+      letterSpacing: 0.5,
+    },
+  });

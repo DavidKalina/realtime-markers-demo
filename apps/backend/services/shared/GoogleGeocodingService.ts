@@ -24,6 +24,9 @@ export interface VerifiedVenue {
   rating?: number;
   userRatingsTotal?: number;
   businessStatus?: string;
+  priceLevel?: string;
+  openingHours?: string[];
+  primaryType?: string;
 }
 
 export interface GoogleGeocodingService extends ILocationResolutionService {
@@ -1130,7 +1133,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           "Content-Type": "application/json",
           "X-Goog-Api-Key": process.env.GOOGLE_GEOCODING_API_KEY || "",
           "X-Goog-FieldMask":
-            "places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.id,places.businessStatus",
+            "places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.id,places.businessStatus,places.currentOpeningHours,places.priceLevel,places.primaryTypeDisplayName",
         },
         body: JSON.stringify(requestBody),
       });
@@ -1158,6 +1161,10 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           continue;
         }
 
+        // Extract weekday opening hours text (e.g. "Monday: 9:00 AM – 5:00 PM")
+        const openingHours: string[] | undefined =
+          place.currentOpeningHours?.weekdayDescriptions ?? undefined;
+
         venues.push({
           name: place.displayName.text,
           address: place.formattedAddress,
@@ -1167,6 +1174,9 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           rating: place.rating,
           userRatingsTotal: place.userRatingCount,
           businessStatus: place.businessStatus,
+          priceLevel: place.priceLevel ?? undefined,
+          openingHours,
+          primaryType: place.primaryTypeDisplayName?.text ?? undefined,
         });
       }
 

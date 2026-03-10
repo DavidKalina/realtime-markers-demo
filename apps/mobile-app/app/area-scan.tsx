@@ -108,7 +108,8 @@ export default function AreaScanScreen() {
               pendingPagesRef.current = null;
             }
           }}
-          style={{ height: 140, marginBottom: 0 }}
+          loadingText="Scanning area"
+          style={{ height: 140, marginBottom: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 }}
         />
       }
     >
