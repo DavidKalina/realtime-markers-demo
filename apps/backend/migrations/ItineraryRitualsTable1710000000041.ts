@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class ItineraryRitualsTable1710000000041 implements MigrationInterface {
   name = "ItineraryRitualsTable1710000000041";
