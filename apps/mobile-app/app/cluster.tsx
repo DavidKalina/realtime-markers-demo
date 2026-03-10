@@ -10,6 +10,9 @@ import {
   ZoneHero,
   StatPillRow,
   ZoneEncounters,
+  ZoneTrails,
+  AreaTabBar,
+  ScanningAnimation,
   DialogBox,
   useDialogStreamer,
   layoutStyles,
@@ -34,6 +37,7 @@ export default function ClusterScreen() {
   const [zoneStats, setZoneStats] = useState<AreaScanMetadata | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"events" | "trails">("events");
 
   const dialog = useDialogStreamer();
 
@@ -75,12 +79,36 @@ export default function ClusterScreen() {
     };
   }, [lat, lng, childrenIdsParam]);
 
+  const eventCount = zoneStats?.events?.length ?? 0;
+  const trailCount = zoneStats?.trails?.length ?? 0;
+
   return (
     <Screen
       bannerTitle="Cluster Scan"
       onBack={() => router.back()}
       isScrollable={false}
+      bottomContent={
+        <DialogBox
+          isLoading={isLoading}
+          error={error}
+          displayText={dialog.displayText}
+          showContinue={dialog.showContinue}
+          showDone={dialog.showDone}
+          blinkAnim={dialog.blinkAnim}
+          onTap={dialog.handleTap}
+          onRestart={dialog.restart}
+          onExpandComplete={() => {
+            if (pendingPagesRef.current) {
+              dialog.feedPages(pendingPagesRef.current);
+              pendingPagesRef.current = null;
+            }
+          }}
+          style={{ height: 140, marginBottom: 0 }}
+        />
+      }
     >
+      {isLoading && !zoneStats && <ScanningAnimation />}
+
       {zoneStats && <ZoneHero zoneStats={zoneStats} />}
 
       {zoneStats && zoneStats.categoryBreakdown.length > 0 && (
@@ -95,34 +123,32 @@ export default function ClusterScreen() {
         <StatPillRow zoneStats={zoneStats} />
       )}
 
-      {zoneStats && zoneStats.events?.length > 0 ? (
+      {zoneStats && (eventCount > 0 || trailCount > 0) && (
+        <AreaTabBar
+          activeTab={activeTab}
+          onTabPress={setActiveTab}
+          eventCount={eventCount}
+          trailCount={trailCount}
+        />
+      )}
+
+      {zoneStats && activeTab === "events" && eventCount > 0 ? (
         <ZoneEncounters
           events={zoneStats.events}
           onEventPress={(eventId) =>
             router.push(`/details?eventId=${eventId}` as never)
           }
         />
-      ) : (
-        <View style={layoutStyles.spacer} />
-      )}
-
-      <DialogBox
-        isLoading={isLoading}
-        error={error}
-        displayText={dialog.displayText}
-        showContinue={dialog.showContinue}
-        showDone={dialog.showDone}
-        blinkAnim={dialog.blinkAnim}
-        onTap={dialog.handleTap}
-        onRestart={dialog.restart}
-        onExpandComplete={() => {
-          if (pendingPagesRef.current) {
-            dialog.feedPages(pendingPagesRef.current);
-            pendingPagesRef.current = null;
+      ) : zoneStats && activeTab === "trails" && trailCount > 0 ? (
+        <ZoneTrails
+          trails={zoneStats.trails}
+          onTrailPress={(trail) =>
+            router.push(`/trail?id=${trail.id}` as never)
           }
-        }}
-        style={{ height: 140 }}
-      />
+        />
+      ) : (
+        !isLoading && <View style={layoutStyles.spacer} />
+      )}
     </Screen>
   );
 }

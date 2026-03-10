@@ -20,6 +20,7 @@ import type { LeaderboardService } from "../services/LeaderboardService";
 import type { ThirdSpaceScoreService } from "../services/ThirdSpaceScoreService";
 import type { ItineraryService } from "../services/ItineraryService";
 import type { ItineraryCheckinService } from "../services/ItineraryCheckinService";
+import type { OverpassService } from "../services/shared/OverpassService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -43,6 +44,7 @@ export interface AppVariables {
   thirdSpaceScoreService: ThirdSpaceScoreService;
   itineraryService: ItineraryService;
   itineraryCheckinService: ItineraryCheckinService;
+  overpassService: OverpassService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

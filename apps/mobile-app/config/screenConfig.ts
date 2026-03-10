@@ -76,6 +76,10 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
     name: "itineraries/[id]",
     options: { animation: "slide_from_right", animationDuration: 250 },
   },
+  {
+    name: "trail",
+    options: { animation: "slide_from_right", animationDuration: 250 },
+  },
 { name: "+not-found" },
 ] as const;
 export const FONT_FAMILY_PATH = "../assets/fonts/SpaceMono-Regular.ttf";

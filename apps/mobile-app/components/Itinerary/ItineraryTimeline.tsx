@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedReaction,
@@ -72,6 +72,7 @@ interface ItineraryTimelineProps {
   forecast?: DayForecast;
   isActive?: boolean;
   onCheckin?: (itemId: string) => void;
+  scrollRef?: React.RefObject<ScrollView>;
 }
 
 // --- Animated cost counter ---
@@ -370,6 +371,7 @@ export default function ItineraryTimeline({
   forecast,
   isActive,
   onCheckin,
+  scrollRef,
 }: ItineraryTimelineProps) {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -389,6 +391,19 @@ export default function ItineraryTimeline({
   const [revealedCount, setRevealedCount] = useState(0);
   const [showTotal, setShowTotal] = useState(false);
 
+  // Track layout positions of each stop for auto-scrolling
+  const stopLayoutsRef = useRef<Record<number, { y: number; height: number }>>(
+    {},
+  );
+  const containerOffsetRef = useRef(0);
+
+  const handleStopLayout = useCallback(
+    (idx: number, y: number, height: number) => {
+      stopLayoutsRef.current[idx] = { y, height };
+    },
+    [],
+  );
+
   // Kick off the chain: reveal the first stop after a short initial delay
   useEffect(() => {
     if (sorted.length > 0 && revealedCount === 0) {
@@ -399,6 +414,19 @@ export default function ItineraryTimeline({
 
   const handleStopRevealed = useCallback(
     (idx: number) => {
+      // Auto-scroll to show the bottom of the just-revealed stop
+      if (scrollRef?.current) {
+        const layout = stopLayoutsRef.current[idx];
+        if (layout) {
+          const targetY =
+            containerOffsetRef.current + layout.y + layout.height;
+          scrollRef.current.scrollTo({
+            y: Math.max(0, targetY - 200),
+            animated: true,
+          });
+        }
+      }
+
       // Reveal the next stop in the chain
       if (idx + 1 < sorted.length) {
         setRevealedCount(idx + 2); // +2 because revealedCount is 1-indexed
@@ -407,7 +435,7 @@ export default function ItineraryTimeline({
         setShowTotal(true);
       }
     },
-    [sorted.length],
+    [sorted.length, scrollRef],
   );
 
   // Total row animation
@@ -432,21 +460,33 @@ export default function ItineraryTimeline({
   }));
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      onLayout={(e) => {
+        containerOffsetRef.current = e.nativeEvent.layout.y;
+      }}
+    >
       {sorted.map((item, idx) => (
-        <TimelineStop
+        <View
           key={item.id}
-          item={item}
-          index={idx}
-          isFirst={idx === 0}
-          isLast={idx === sorted.length - 1}
-          stopColor={STOP_COLORS[idx % STOP_COLORS.length]}
-          isRevealed={revealedCount > idx}
-          onRevealComplete={() => handleStopRevealed(idx)}
-          isActive={isActive}
-          onCheckin={onCheckin}
-          weather={getHourlyForTime(forecast, item.startTime)}
-        />
+          onLayout={(e) => {
+            const { y, height } = e.nativeEvent.layout;
+            handleStopLayout(idx, y, height);
+          }}
+        >
+          <TimelineStop
+            item={item}
+            index={idx}
+            isFirst={idx === 0}
+            isLast={idx === sorted.length - 1}
+            stopColor={STOP_COLORS[idx % STOP_COLORS.length]}
+            isRevealed={revealedCount > idx}
+            onRevealComplete={() => handleStopRevealed(idx)}
+            isActive={isActive}
+            onCheckin={onCheckin}
+            weather={getHourlyForTime(forecast, item.startTime)}
+          />
+        </View>
       ))}
 
       {/* Total */}

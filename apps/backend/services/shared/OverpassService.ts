@@ -18,7 +18,9 @@ export interface OverpassService {
     lat: number,
     lng: number,
     radiusMeters?: number,
+    maxResults?: number,
   ): Promise<Trail[]>;
+  fetchTrailById(wayId: number): Promise<Trail | null>;
 }
 
 interface OverpassServiceDeps {
@@ -51,6 +53,7 @@ class OverpassServiceImpl implements OverpassService {
     lat: number,
     lng: number,
     radiusMeters = 5000,
+    maxResults = 20,
   ): Promise<Trail[]> {
     const cacheKey = `trails:${lat.toFixed(3)}:${lng.toFixed(3)}:${radiusMeters}`;
     const client = this.redisService.getClient();
@@ -97,7 +100,7 @@ out geom;
       return [];
     }
 
-    const trails = this.parseTrails(data);
+    const trails = this.parseTrails(data, maxResults);
 
     // Cache results
     if (trails.length > 0) {
@@ -111,7 +114,7 @@ out geom;
     return trails;
   }
 
-  private parseTrails(data: OverpassResponse): Trail[] {
+  private parseTrails(data: OverpassResponse, maxResults: number): Trail[] {
     const trails: Trail[] = [];
 
     for (const element of data.elements) {
@@ -177,7 +180,67 @@ out geom;
     // Sort by length descending — best trails first
     return [...byName.values()]
       .sort((a, b) => b.lengthMeters - a.lengthMeters)
-      .slice(0, 20);
+      .slice(0, maxResults);
+  }
+
+  async fetchTrailById(wayId: number): Promise<Trail | null> {
+    const cacheKey = `trail:${wayId}`;
+    const client = this.redisService.getClient();
+
+    const cached = await client.get(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {
+        // Corrupted cache, refetch
+      }
+    }
+
+    const query = `[out:json][timeout:10];way(${wayId});out geom;`;
+
+    try {
+      const response = await fetch(OVERPASS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `data=${encodeURIComponent(query)}`,
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (!response.ok) {
+        console.error(`[OverpassService] API returned ${response.status} for way ${wayId}`);
+        return null;
+      }
+
+      const data = (await response.json()) as OverpassResponse;
+      const element = data.elements.find((e) => e.type === "way" && e.id === wayId);
+      if (!element || !element.geometry || element.geometry.length < 2) return null;
+
+      const tags = element.tags || {};
+      const geometry: [number, number][] = element.geometry.map(
+        (node: { lon: number; lat: number }) => [node.lon, node.lat],
+      );
+      const lengthMeters = this.calculatePathLength(geometry);
+      const midIdx = Math.floor(geometry.length / 2);
+
+      const trail: Trail = {
+        id: element.id,
+        name: tags.name || tags.ref || `Paved ${tags.highway || "path"}`,
+        surface: tags.surface || "paved",
+        smoothness: tags.smoothness || null,
+        highway: tags.highway || "path",
+        lit: tags.lit === "yes" ? true : tags.lit === "no" ? false : null,
+        incline: tags.incline || null,
+        lengthMeters: Math.round(lengthMeters),
+        geometry,
+        center: geometry[midIdx],
+      };
+
+      await client.setex(cacheKey, CACHE_TTL, JSON.stringify(trail));
+      return trail;
+    } catch (err) {
+      console.error(`[OverpassService] fetchTrailById failed for ${wayId}:`, err);
+      return null;
+    }
   }
 
   private calculatePathLength(coords: [number, number][]): number {

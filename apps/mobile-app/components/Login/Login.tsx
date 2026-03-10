@@ -515,7 +515,7 @@ const createStyles = (colors: Colors) => StyleSheet.create({
   },
 
   loginButtonText: {
-    color: colors.text.primary,
+    color: colors.accent.primary,
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
     fontFamily: fontFamily.mono,
@@ -533,7 +533,7 @@ const createStyles = (colors: Colors) => StyleSheet.create({
   },
 
   createAccountText: {
-    color: colors.text.secondary,
+    color: "rgba(134, 239, 172, 0.6)",
     fontSize: fontSize.sm,
     fontFamily: fontFamily.mono,
   },
@@ -551,7 +551,7 @@ const createStyles = (colors: Colors) => StyleSheet.create({
   },
 
   forgotPasswordText: {
-    color: colors.text.secondary,
+    color: "rgba(134, 239, 172, 0.6)",
     fontSize: fontSize.xs,
     fontFamily: fontFamily.mono,
   },

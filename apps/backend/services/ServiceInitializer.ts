@@ -57,6 +57,7 @@ import type { FollowService } from "./FollowService";
 import { createItineraryService } from "./ItineraryService";
 import type { ItineraryService } from "./ItineraryService";
 import { createOverpassService } from "./shared/OverpassService";
+import type { OverpassService } from "./shared/OverpassService";
 import { createWeatherService } from "./shared/WeatherService";
 import { createItineraryCheckinService } from "./ItineraryCheckinService";
 import type { ItineraryCheckinService } from "./ItineraryCheckinService";
@@ -85,6 +86,7 @@ export interface ServiceContainer {
   thirdSpaceScoreService: ThirdSpaceScoreService;
   itineraryService: ItineraryService;
   itineraryCheckinService: ItineraryCheckinService;
+  overpassService: OverpassService;
 }
 
 export class ServiceInitializer {
@@ -240,10 +242,13 @@ export class ServiceInitializer {
       redisService,
     );
 
+    const overpassService = createOverpassService({ redisService });
+
     const areaScanService = createAreaScanService({
       dataSource: this.dataSource,
       openAIService,
       redisService,
+      overpassService,
     });
 
     const eventHypeService = createEventHypeService({
@@ -256,8 +261,6 @@ export class ServiceInitializer {
       openAIService,
       redisService,
     });
-
-    const overpassService = createOverpassService({ redisService });
     const weatherService = createWeatherService({ redisService });
 
     const itineraryService = createItineraryService({
@@ -310,6 +313,7 @@ export class ServiceInitializer {
       thirdSpaceScoreService,
       itineraryService,
       itineraryCheckinService,
+      overpassService,
     };
   }
 

@@ -34,6 +34,7 @@ export function setupContext(
     c.set("thirdSpaceScoreService", services.thirdSpaceScoreService);
     c.set("itineraryService", services.itineraryService);
     c.set("itineraryCheckinService", services.itineraryCheckinService);
+    c.set("overpassService", services.overpassService);
     await next();
   });
 }

@@ -3,6 +3,7 @@ import { Event } from "@realtime-markers/database";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
 import type { RedisService } from "./shared/RedisService";
+import type { OverpassService } from "./shared/OverpassService";
 
 // --- Geohash encoder (precision 6 ≈ 1.2 km cells) ---
 
@@ -75,9 +76,20 @@ export interface ZoneEvent {
   categoryNames: string;
 }
 
+export interface ZoneTrail {
+  id: number;
+  name: string;
+  surface: string;
+  lengthMeters: number;
+  lit: boolean | null;
+  geometry: [number, number][];
+  center: [number, number];
+}
+
 export interface AreaScanResult {
   zoneStats: ZoneStats;
   events: ZoneEvent[];
+  trails: ZoneTrail[];
   cached: boolean;
   text?: string;
 }
@@ -121,20 +133,23 @@ interface AreaScanDependencies {
   dataSource: DataSource;
   openAIService: OpenAIService;
   redisService: RedisService;
+  overpassService: OverpassService;
 }
 
-const RADIUS_METERS = 2000;
+const RADIUS_METERS = 16093;
 const MAX_EVENTS = 25;
 
 class AreaScanServiceImpl implements AreaScanService {
   private dataSource: DataSource;
   private openAIService: OpenAIService;
   private redisService: RedisService;
+  private overpassService: OverpassService;
 
   constructor(deps: AreaScanDependencies) {
     this.dataSource = deps.dataSource;
     this.openAIService = deps.openAIService;
     this.redisService = deps.redisService;
+    this.overpassService = deps.overpassService;
   }
 
   async getAreaProfile(
@@ -161,6 +176,7 @@ class AreaScanServiceImpl implements AreaScanService {
           return {
             zoneStats: parsed.zoneStats,
             events: parsed.events || [],
+            trails: parsed.trails || [],
             cached: true,
             text: parsed.text,
           };
@@ -170,13 +186,16 @@ class AreaScanServiceImpl implements AreaScanService {
       }
     }
 
-    // Query nearby events
-    const events = await this.queryNearbyEvents(lat, lng, radius, filters);
+    // Query nearby events and trails in parallel
+    const [events, rawTrails] = await Promise.all([
+      this.queryNearbyEvents(lat, lng, radius, filters),
+      this.overpassService.fetchPavedTrails(lat, lng, Math.max(radius, 3000), 5),
+    ]);
 
     // Compute zone stats (without zone name — LLM will generate it)
     const zoneStats = this.computeZoneStats(events);
 
-    // Map to lightweight wire format
+    // Map to lightweight wire formats
     const zoneEvents: ZoneEvent[] = events.map((e) => ({
       id: e.id,
       emoji: e.emoji,
@@ -184,6 +203,16 @@ class AreaScanServiceImpl implements AreaScanService {
       eventDate: new Date(e.eventDate).toISOString(),
       distance: e.distance,
       categoryNames: e.categoryNames,
+    }));
+
+    const zoneTrails: ZoneTrail[] = rawTrails.map((t) => ({
+      id: t.id,
+      name: t.name,
+      surface: t.surface,
+      lengthMeters: t.lengthMeters,
+      lit: t.lit,
+      geometry: t.geometry,
+      center: t.center,
     }));
 
     // Build prompt and generate name + vibe via LLM
@@ -194,6 +223,7 @@ class AreaScanServiceImpl implements AreaScanService {
       radius,
       filters,
       events,
+      zoneTrails,
     );
 
     const completion = await this.openAIService.executeChatCompletion({
@@ -223,6 +253,7 @@ class AreaScanServiceImpl implements AreaScanService {
     return {
       zoneStats,
       events: zoneEvents,
+      trails: zoneTrails,
       cached: false,
       text: vibe,
     };
@@ -233,7 +264,10 @@ class AreaScanServiceImpl implements AreaScanService {
     centerLat: number,
     centerLng: number,
   ): Promise<AreaScanResult> {
-    const events = await this.queryEventsByIds(eventIds, centerLat, centerLng);
+    const [events, rawTrails] = await Promise.all([
+      this.queryEventsByIds(eventIds, centerLat, centerLng),
+      this.overpassService.fetchPavedTrails(centerLat, centerLng, 3000, 5),
+    ]);
     const zoneStats = this.computeZoneStats(events);
 
     const zoneEvents: ZoneEvent[] = events.slice(0, 20).map((e) => ({
@@ -245,6 +279,16 @@ class AreaScanServiceImpl implements AreaScanService {
       categoryNames: e.categoryNames,
     }));
 
+    const zoneTrails: ZoneTrail[] = rawTrails.map((t) => ({
+      id: t.id,
+      name: t.name,
+      surface: t.surface,
+      lengthMeters: t.lengthMeters,
+      lit: t.lit,
+      geometry: t.geometry,
+      center: t.center,
+    }));
+
     const { systemPrompt, userPrompt } = this.buildPrompt(
       zoneStats,
       centerLat,
@@ -252,6 +296,7 @@ class AreaScanServiceImpl implements AreaScanService {
       0,
       undefined,
       events,
+      zoneTrails,
     );
 
     const completion = await this.openAIService.executeChatCompletion({
@@ -281,6 +326,7 @@ class AreaScanServiceImpl implements AreaScanService {
     return {
       zoneStats,
       events: zoneEvents,
+      trails: zoneTrails,
       cached: false,
       text: vibe,
     };
@@ -493,17 +539,18 @@ class AreaScanServiceImpl implements AreaScanService {
     radius: number,
     filters?: AreaScanFilters,
     events?: NearbyEventRow[],
+    trails?: ZoneTrail[],
   ): {
     systemPrompt: string;
     userPrompt: string;
   } {
-    const systemPrompt = `You are a local area guide on a living event map. When a user scans a zone, you tell them what's happening nearby in a helpful, concise way.
+    const systemPrompt = `You are a local area guide on a living event map. When a user scans a zone, you tell them what's happening nearby in a helpful, concise way. This includes both events and nearby paved trails suitable for walking, biking, or skating.
 
 Return JSON: {"name": "...", "vibe": "..."}
 
-name: A creative 2-4 word place name inspired by the dominant event types. Examples: "Live Music Row", "The Makers Corner", "Foodie Alley", "Gallery Loop". Never use "District" or "Quarter".
+name: A creative 2-4 word place name inspired by the dominant event types and nearby trails. Examples: "Live Music Row", "The Makers Corner", "Foodie Alley", "Gallery Loop", "Lakeside Trail Hub". Never use "District" or "Quarter".
 
-vibe: 2-3 short sentences, max 50 words total. Separate each sentence with a newline character. Each line should be one complete thought that stands alone. Mention specific events by name when notable. Tell the user what they can do here — what to check out, what's coming up soon, or what stands out. Be direct and useful, not poetic. No greetings, no "this area has".`;
+vibe: 2-3 short sentences, max 50 words total. Separate each sentence with a newline character. Each line should be one complete thought that stands alone. Mention specific events by name when notable. If trails are nearby, mention the best one briefly. Tell the user what they can do here — what to check out, what's coming up soon, or what stands out. Be direct and useful, not poetic. No greetings, no "this area has".`;
 
     const isCluster = radius === 0;
     const radiusLabel = isCluster
@@ -553,9 +600,18 @@ vibe: 2-3 short sentences, max 50 words total. Separate each sentence with a new
 
     const eventSection = eventList ? `\n\nNearby events:\n${eventList}` : "";
 
+    const trailList = (trails || [])
+      .slice(0, 5)
+      .map(
+        (t) =>
+          `- 🛤️ "${t.name}" (${t.surface}, ${t.lengthMeters}m${t.lit ? ", lit" : ""})`,
+      )
+      .join("\n");
+    const trailSection = trailList ? `\n\nNearby trails:\n${trailList}` : "";
+
     return {
       systemPrompt,
-      userPrompt: `${scopeLabel} Categories: ${catSummary}.${timeHint}${filterHint}${eventSection}`,
+      userPrompt: `${scopeLabel} Categories: ${catSummary}.${timeHint}${filterHint}${eventSection}${trailSection}`,
     };
   }
 }

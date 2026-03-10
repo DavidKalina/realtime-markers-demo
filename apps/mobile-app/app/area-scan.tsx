@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Screen from "@/components/Layout/Screen";
@@ -11,6 +11,9 @@ import {
   ZoneHero,
   StatPillRow,
   ZoneEncounters,
+  ZoneTrails,
+  AreaTabBar,
+  ScanningAnimation,
   DialogBox,
   useDialogStreamer,
   layoutStyles,
@@ -31,8 +34,18 @@ export default function AreaScanScreen() {
   const [zoneStats, setZoneStats] = useState<AreaScanMetadata | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState<"events" | "trails">("events");
 
   const dialog = useDialogStreamer();
+
+  // Minimum animation display time
+  useEffect(() => {
+    const timer = setTimeout(() => setMinTimeElapsed(true), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const showScanAnimation = isLoading || !minTimeElapsed;
 
   // --- Fetch ---
   useEffect(() => {
@@ -71,15 +84,44 @@ export default function AreaScanScreen() {
     };
   }, [lat, lng]);
 
+  const eventCount = zoneStats?.events?.length ?? 0;
+  const trailCount = zoneStats?.trails?.length ?? 0;
+
   return (
     <Screen
       bannerTitle="Area Scan"
       onBack={() => router.back()}
       isScrollable={false}
+      bottomContent={
+        <DialogBox
+          isLoading={showScanAnimation}
+          error={error}
+          displayText={dialog.displayText}
+          showContinue={dialog.showContinue}
+          showDone={dialog.showDone}
+          blinkAnim={dialog.blinkAnim}
+          onTap={dialog.handleTap}
+          onRestart={dialog.restart}
+          onExpandComplete={() => {
+            if (pendingPagesRef.current) {
+              dialog.feedPages(pendingPagesRef.current);
+              pendingPagesRef.current = null;
+            }
+          }}
+          style={{ height: 140, marginBottom: 0 }}
+        />
+      }
     >
-      {zoneStats && <ZoneHero zoneStats={zoneStats} />}
+      {showScanAnimation && (
+        <ScanningAnimation
+          lat={parseFloat(lat || "0")}
+          lng={parseFloat(lng || "0")}
+        />
+      )}
 
-      {zoneStats && zoneStats.categoryBreakdown.length > 0 && (
+      {!showScanAnimation && zoneStats && <ZoneHero zoneStats={zoneStats} />}
+
+      {!showScanAnimation && zoneStats && zoneStats.categoryBreakdown.length > 0 && (
         <EventDnaChart
           categories={zoneStats.categoryBreakdown}
           variant="bar"
@@ -87,38 +129,36 @@ export default function AreaScanScreen() {
         />
       )}
 
-      {zoneStats && zoneStats.eventCount > 0 && (
+      {!showScanAnimation && zoneStats && zoneStats.eventCount > 0 && (
         <StatPillRow zoneStats={zoneStats} />
       )}
 
-      {zoneStats && zoneStats.events?.length > 0 ? (
+      {!showScanAnimation && zoneStats && (eventCount > 0 || trailCount > 0) && (
+        <AreaTabBar
+          activeTab={activeTab}
+          onTabPress={setActiveTab}
+          eventCount={eventCount}
+          trailCount={trailCount}
+        />
+      )}
+
+      {!showScanAnimation && zoneStats && activeTab === "events" && eventCount > 0 ? (
         <ZoneEncounters
           events={zoneStats.events}
           onEventPress={(eventId) =>
             router.push(`/details?eventId=${eventId}` as never)
           }
         />
-      ) : (
-        <View style={layoutStyles.spacer} />
-      )}
-
-      <DialogBox
-        isLoading={isLoading}
-        error={error}
-        displayText={dialog.displayText}
-        showContinue={dialog.showContinue}
-        showDone={dialog.showDone}
-        blinkAnim={dialog.blinkAnim}
-        onTap={dialog.handleTap}
-        onRestart={dialog.restart}
-        onExpandComplete={() => {
-          if (pendingPagesRef.current) {
-            dialog.feedPages(pendingPagesRef.current);
-            pendingPagesRef.current = null;
+      ) : !showScanAnimation && zoneStats && activeTab === "trails" && trailCount > 0 ? (
+        <ZoneTrails
+          trails={zoneStats.trails}
+          onTrailPress={(trail) =>
+            router.push(`/trail?id=${trail.id}` as never)
           }
-        }}
-        style={{ height: 140 }}
-      />
+        />
+      ) : (
+        !showScanAnimation && !isLoading && <View style={layoutStyles.spacer} />
+      )}
     </Screen>
   );
 }

@@ -37,9 +37,21 @@ import Svg, {
   Rect,
 } from "react-native-svg";
 import { useFocusEffect } from "expo-router";
+import MapboxGL from "@rnmapbox/maps";
 import { useDialogStreamStore } from "@/stores/useDialogStreamStore";
-import { useColors, spacing, fontFamily, type Colors } from "@/theme";
+import {
+  useColors,
+  spacing,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  radius,
+  type Colors,
+} from "@/theme";
 import { CATEGORY_PALETTE } from "@/utils/categoryColors";
+import { useMapMountGate } from "@/hooks/useMapMountGate";
+import { useAppActive } from "@/hooks/useAppActive";
+import { useMapStyle } from "@/contexts/MapStyleContext";
 import type { AreaScanMetadata } from "@/services/api/modules/areaScan";
 
 const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
@@ -108,11 +120,8 @@ export function formatRelativeTime(dateStr: string): string {
   return `${Math.floor(months / 12)}y`;
 }
 
-export function getRadiusForZoom(zoom: number): number {
-  if (zoom >= 15) return 500;
-  if (zoom >= 12) return 2000;
-  if (zoom >= 10) return 5000;
-  return 15000;
+export function getRadiusForZoom(_zoom: number): number {
+  return 16093; // 10 miles
 }
 
 // --- Sub-components ---
@@ -295,22 +304,37 @@ export function CategoryPieChart({
 export function ZoneHero({ zoneStats }: { zoneStats: AreaScanMetadata }) {
   const colors = useColors();
   const heroStyles = useMemo(() => createHeroStyles(colors), [colors]);
+
+  const trailCount = zoneStats.trails?.length ?? 0;
+  const parts: string[] = [];
+  if (zoneStats.eventCount > 0) {
+    parts.push(
+      `${zoneStats.eventCount} event${zoneStats.eventCount !== 1 ? "s" : ""}`,
+    );
+  }
+  if (trailCount > 0) {
+    parts.push(`${trailCount} trail${trailCount !== 1 ? "s" : ""}`);
+  }
+  const subtitle = parts.length > 0 ? parts.join(" · ") + " nearby" : "Nothing nearby";
+
+  // Pick emoji: if trails dominate and no events, show trail emoji
+  const emoji =
+    zoneStats.eventCount === 0 && trailCount > 0
+      ? "\u{1F6E4}\u{FE0F}"
+      : zoneStats.topEmoji;
+
   return (
     <Reanimated.View
       entering={FadeInDown.duration(400)}
       style={heroStyles.container}
     >
       <View style={heroStyles.headerRow}>
-        <Text style={heroStyles.emoji}>{zoneStats.topEmoji}</Text>
+        <Text style={heroStyles.emoji}>{emoji}</Text>
         <View style={heroStyles.headerText}>
           <Text style={heroStyles.name}>
             {zoneStats.zoneName.toUpperCase()}
           </Text>
-          <Text style={heroStyles.subtitle}>
-            {zoneStats.eventCount === 0
-              ? "No events nearby"
-              : `${zoneStats.eventCount} event${zoneStats.eventCount !== 1 ? "s" : ""} nearby`}
-          </Text>
+          <Text style={heroStyles.subtitle}>{subtitle}</Text>
         </View>
       </View>
     </Reanimated.View>
@@ -385,10 +409,9 @@ export function ZoneEncounters({
 
   return (
     <Reanimated.View
-      entering={FadeInDown.duration(400).delay(600)}
+      entering={FadeInDown.duration(400)}
       style={encounterStyles.container}
     >
-      <Text style={encounterStyles.header}>ZONE ENCOUNTERS</Text>
       <ScrollView showsVerticalScrollIndicator={false}>
         {events.map((event, i) => (
           <View key={event.id}>
@@ -411,6 +434,230 @@ export function ZoneEncounters({
                   {event.categoryNames.split(",")[0]?.trim() || "Event"}
                   {" · "}
                   {event.distance}m
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+        ))}
+      </ScrollView>
+    </Reanimated.View>
+  );
+}
+
+// --- Scanning animation (shown while loading) ---
+
+export function ScanningAnimation({
+  lat,
+  lng,
+}: {
+  lat: number;
+  lng: number;
+}) {
+  const colors = useColors();
+  const { mapStyle } = useMapStyle();
+  const scanStyles = useMemo(() => createScanStyles(colors), [colors]);
+  const coordinate: [number, number] = useMemo(() => [lng, lat], [lng, lat]);
+
+  const { isMapSafeToMount, onContainerLayout } =
+    useMapMountGate("area-scan-loading");
+  const isAppActive = useAppActive();
+
+  // Looping camera: cycle heading 0→360 and oscillate pitch
+  const [heading, setHeading] = useState(0);
+  const [pitch, setPitch] = useState(50);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    let raf: number;
+    let last = performance.now();
+    let t = 0;
+
+    const tick = (now: number) => {
+      if (!isMounted.current) return;
+      const dt = (now - last) / 1000;
+      last = now;
+      t += dt;
+
+      // Full rotation every ~24s
+      const newHeading = (t * 15) % 360;
+      // Oscillate pitch between 40 and 65
+      const newPitch = 52.5 + 12.5 * Math.sin(t * 0.4);
+
+      setHeading(newHeading);
+      setPitch(newPitch);
+      raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => {
+      isMounted.current = false;
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  // Pulsing ring overlay
+  const ringScale = useSharedValue(0.6);
+  useEffect(() => {
+    ringScale.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2000, easing: Easing.out(Easing.cubic) }),
+        withTiming(0.6, { duration: 2000, easing: Easing.in(Easing.cubic) }),
+      ),
+      -1,
+    );
+    return () => cancelAnimation(ringScale);
+  }, []);
+
+  const ringStyle = useAnimatedStyle(() => ({
+    transform: [
+      { rotateX: "60deg" },
+      { scale: ringScale.value },
+    ],
+    opacity: interpolate(ringScale.value, [0.6, 1], [0.5, 0]),
+  }));
+
+  return (
+    <View style={scanStyles.container} onLayout={onContainerLayout}>
+      {isMapSafeToMount && isAppActive && (
+        <MapboxGL.MapView
+          style={StyleSheet.absoluteFill}
+          styleURL={mapStyle}
+          logoEnabled={false}
+          attributionEnabled={false}
+          scaleBarEnabled={false}
+          scrollEnabled={false}
+          zoomEnabled={false}
+          rotateEnabled={true}
+          pitchEnabled={true}
+        >
+          <MapboxGL.Camera
+            centerCoordinate={coordinate}
+            zoomLevel={15}
+            pitch={pitch}
+            heading={heading}
+            animationDuration={0}
+          />
+        </MapboxGL.MapView>
+      )}
+
+      {/* Gradient overlay */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Svg width="100%" height="100%" preserveAspectRatio="none">
+          <Defs>
+            <LinearGradient id="scanGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={colors.bg.primary} stopOpacity="0.4" />
+              <Stop offset="0.5" stopColor={colors.bg.primary} stopOpacity="0.2" />
+              <Stop offset="1" stopColor={colors.bg.primary} stopOpacity="0.7" />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#scanGrad)" />
+        </Svg>
+      </View>
+
+      {/* Pulsing ring + label */}
+      <View style={scanStyles.overlay} pointerEvents="none">
+        <View style={scanStyles.pulseAnchor}>
+          <Reanimated.View style={[scanStyles.ring, ringStyle]} />
+          <View style={scanStyles.centerDot} />
+        </View>
+        <Text style={scanStyles.label}>Scanning area...</Text>
+      </View>
+    </View>
+  );
+}
+
+// --- Tab bar for switching between Events and Trails ---
+
+type AreaTab = "events" | "trails";
+
+export function AreaTabBar({
+  activeTab,
+  onTabPress,
+  eventCount,
+  trailCount,
+}: {
+  activeTab: AreaTab;
+  onTabPress: (tab: AreaTab) => void;
+  eventCount: number;
+  trailCount: number;
+}) {
+  const colors = useColors();
+  const tabStyles = useMemo(() => createTabStyles(colors), [colors]);
+
+  const tabs: { key: AreaTab; label: string; count: number }[] = [
+    { key: "events", label: "Events", count: eventCount },
+    { key: "trails", label: "Trails", count: trailCount },
+  ];
+
+  return (
+    <View style={tabStyles.tabBar}>
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.key;
+        return (
+          <Pressable
+            key={tab.key}
+            style={[tabStyles.tabButton, isActive && tabStyles.tabButtonActive]}
+            onPress={() => onTabPress(tab.key)}
+          >
+            <Text
+              style={[tabStyles.tabText, isActive && tabStyles.tabTextActive]}
+            >
+              {tab.label}
+            </Text>
+            {tab.count > 0 && (
+              <Text
+                style={[
+                  tabStyles.tabCount,
+                  isActive && tabStyles.tabCountActive,
+                ]}
+              >
+                {tab.count}
+              </Text>
+            )}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export function ZoneTrails({
+  trails,
+  onTrailPress,
+}: {
+  trails: AreaScanMetadata["trails"];
+  onTrailPress?: (trail: AreaScanMetadata["trails"][number]) => void;
+}) {
+  const colors = useColors();
+  const trailStyles = useMemo(() => createTrailStyles(colors), [colors]);
+  if (!trails || trails.length === 0) return null;
+
+  return (
+    <Reanimated.View
+      entering={FadeInDown.duration(400)}
+      style={trailStyles.container}
+    >
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {trails.map((trail, i) => (
+          <View key={trail.id}>
+            {i > 0 && <View style={trailStyles.separator} />}
+            <Pressable
+              style={trailStyles.row}
+              onPress={() => onTrailPress?.(trail)}
+            >
+              <Text style={trailStyles.emoji}>🛤️</Text>
+              <View style={trailStyles.info}>
+                <Text style={trailStyles.title} numberOfLines={1}>
+                  {trail.name}
+                </Text>
+                <Text style={trailStyles.subtitle} numberOfLines={1}>
+                  {trail.surface}
+                  {" · "}
+                  {trail.lengthMeters >= 1000
+                    ? `${(trail.lengthMeters / 1000).toFixed(1)} km`
+                    : `${trail.lengthMeters}m`}
+                  {trail.lit ? " · lit" : ""}
                 </Text>
               </View>
             </Pressable>
@@ -1196,6 +1443,137 @@ const createEncounterStyles = (colors: Colors) =>
     subtitle: {
       fontSize: 11,
       fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+  });
+
+const createTrailStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      minHeight: 0,
+      paddingHorizontal: spacing.md,
+    },
+    header: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      letterSpacing: 1.5,
+      marginBottom: 8,
+    },
+    separator: {
+      height: 1,
+      backgroundColor: colors.border.default,
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 8,
+      gap: 8,
+    },
+    emoji: {
+      fontSize: 20,
+    },
+    info: {
+      flex: 1,
+      gap: 2,
+    },
+    title: {
+      fontSize: 13,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+    },
+    subtitle: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+  });
+
+const createScanStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      overflow: "hidden",
+      marginHorizontal: -spacing.md,
+      marginTop: -spacing.lg,
+      marginBottom: -160,
+    },
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    pulseAnchor: {
+      alignItems: "center",
+      justifyContent: "center",
+      width: 140,
+      height: 140,
+    },
+    ring: {
+      position: "absolute",
+      width: 140,
+      height: 140,
+      borderRadius: 70,
+      borderWidth: 2,
+      borderColor: colors.accent.primary,
+    },
+    centerDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: colors.accent.primary,
+    },
+    label: {
+      marginTop: 20,
+      fontSize: 12,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+      letterSpacing: 2,
+      textTransform: "uppercase",
+      fontWeight: "700",
+    },
+  });
+
+const createTabStyles = (colors: Colors) =>
+  StyleSheet.create({
+    tabBar: {
+      flexDirection: "row",
+      marginHorizontal: spacing.md,
+      marginTop: spacing.md,
+      marginBottom: spacing.sm,
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.lg,
+      padding: 2,
+    },
+    tabButton: {
+      flex: 1,
+      flexDirection: "row",
+      paddingVertical: spacing.sm,
+      borderRadius: radius.lg - 2,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 4,
+    },
+    tabButtonActive: {
+      backgroundColor: colors.bg.elevated,
+    },
+    tabText: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+    },
+    tabTextActive: {
+      color: colors.text.primary,
+    },
+    tabCount: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      color: colors.text.disabled,
+    },
+    tabCountActive: {
       color: colors.text.secondary,
     },
   });

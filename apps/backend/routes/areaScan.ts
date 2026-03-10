@@ -4,6 +4,7 @@ import {
   clusterProfileHandler,
   eventHypeHandler,
   cityHypeHandler,
+  trailDetailHandler,
 } from "../handlers/areaScanHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -30,3 +31,4 @@ areaScanRouter.post("/", areaScanHandler);
 areaScanRouter.post("/cluster", clusterProfileHandler);
 areaScanRouter.post("/event", eventHypeHandler);
 areaScanRouter.post("/city", cityHypeHandler);
+areaScanRouter.get("/trail/:id", trailDetailHandler);

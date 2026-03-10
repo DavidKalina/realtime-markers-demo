@@ -24,6 +24,15 @@ export interface AreaScanMetadata {
     distance: number;
     categoryNames: string;
   }[];
+  trails: {
+    id: number;
+    name: string;
+    surface: string;
+    lengthMeters: number;
+    lit: boolean | null;
+    geometry: [number, number][];
+    center: [number, number];
+  }[];
 }
 
 export interface AreaScanCallbacks {
@@ -232,6 +241,26 @@ export class AreaScanModule extends BaseApiModule {
     return {
       abort: () => abortController.abort(),
     };
+  }
+
+  async fetchTrailDetail(trailId: number): Promise<{
+    id: number;
+    name: string;
+    surface: string;
+    lengthMeters: number;
+    lit: boolean | null;
+    geometry: [number, number][];
+    center: [number, number];
+  } | null> {
+    try {
+      const response = await this.fetchWithAuth(
+        `${this.client.baseUrl}/api/area-scan/trail/${trailId}`,
+      );
+      if (!response.ok) return null;
+      return response.json();
+    } catch {
+      return null;
+    }
   }
 
   streamEventInsight(

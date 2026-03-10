@@ -10,7 +10,7 @@ export const areaScanHandler = async (c: Context<AppContext>) => {
     radius?: number;
   }>();
   const { lat, lng } = body;
-  const radius = Math.min(body.radius ?? 2000, 15000);
+  const radius = Math.min(body.radius ?? 16093, 16093);
 
   if (
     typeof lat !== "number" ||
@@ -68,10 +68,14 @@ export const areaScanHandler = async (c: Context<AppContext>) => {
 
   return streamSSE(c, async (stream) => {
     try {
-      // Send metadata first (includes events array)
+      // Send metadata first (includes events and trails arrays)
       await stream.writeSSE({
         event: "metadata",
-        data: JSON.stringify({ ...result.zoneStats, events: result.events }),
+        data: JSON.stringify({
+          ...result.zoneStats,
+          events: result.events,
+          trails: result.trails,
+        }),
       });
 
       const text = result.text || "No data available.";
@@ -95,6 +99,7 @@ export const areaScanHandler = async (c: Context<AppContext>) => {
           JSON.stringify({
             zoneStats: result.zoneStats,
             events: result.events,
+            trails: result.trails,
             text,
           }),
           3600,
@@ -151,7 +156,11 @@ export const clusterProfileHandler = async (c: Context<AppContext>) => {
     try {
       await stream.writeSSE({
         event: "metadata",
-        data: JSON.stringify({ ...result.zoneStats, events: result.events }),
+        data: JSON.stringify({
+          ...result.zoneStats,
+          events: result.events,
+          trails: result.trails,
+        }),
       });
 
       const text = result.text || "No data available.";
@@ -220,6 +229,22 @@ export const cityHypeHandler = async (c: Context<AppContext>) => {
     console.error("[CityHype] Error:", error);
     return c.json({ error: "Failed to generate city insight" }, 500);
   }
+};
+
+export const trailDetailHandler = async (c: Context<AppContext>) => {
+  const wayId = Number(c.req.param("id"));
+  if (!wayId || isNaN(wayId)) {
+    return c.json({ error: "Invalid trail ID" }, 400);
+  }
+
+  const overpassService = c.get("overpassService");
+  const trail = await overpassService.fetchTrailById(wayId);
+
+  if (!trail) {
+    return c.json({ error: "Trail not found" }, 404);
+  }
+
+  return c.json(trail);
 };
 
 // Simple geohash for cache key (matches AreaScanService)
