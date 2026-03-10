@@ -12,28 +12,28 @@ export const lightColors: Colors = {
 
   // Text colors
   text: {
-    primary: "#111111",
-    secondary: "#555555",
-    detail: "#444444",
-    label: "#333333",
-    disabled: "#999999",
+    primary: "#0a0a0a",
+    secondary: "#404040",
+    detail: "#3a3a3a",
+    label: "#2a2a2a",
+    disabled: "#8a8a8a",
     inverse: "#ffffff",
   },
 
   // Accent colors
   accent: {
-    primary: "#2563eb",
-    dark: "#1d4ed8",
-    muted: "rgba(37, 99, 235, 0.12)",
-    border: "rgba(37, 99, 235, 0.35)",
+    primary: "#059669",
+    dark: "#047857",
+    muted: "rgba(5, 150, 105, 0.12)",
+    border: "rgba(5, 150, 105, 0.35)",
   },
 
   // Border / divider colors
   border: {
-    default: "rgba(0, 0, 0, 0.12)",
-    subtle: "rgba(0, 0, 0, 0.06)",
-    medium: "rgba(0, 0, 0, 0.18)",
-    accent: "rgba(0, 0, 0, 0.28)",
+    default: "rgba(0, 0, 0, 0.15)",
+    subtle: "rgba(0, 0, 0, 0.08)",
+    medium: "rgba(0, 0, 0, 0.22)",
+    accent: "rgba(0, 0, 0, 0.32)",
   },
 
   // Status colors
@@ -54,17 +54,17 @@ export const lightColors: Colors = {
       border: "#059669",
     },
     info: {
-      text: "#1d4ed8",
-      bg: "rgba(37, 99, 235, 0.1)",
-      border: "rgba(37, 99, 235, 0.35)",
+      text: "#047857",
+      bg: "rgba(5, 150, 105, 0.1)",
+      border: "rgba(5, 150, 105, 0.35)",
     },
   },
 
   // Connection / location indicator colors
   connection: {
-    dot: "#2563eb",
+    dot: "#059669",
     dotBorder: "#ffffff",
-    pulse: "rgba(37, 99, 235, 0.3)",
+    pulse: "rgba(5, 150, 105, 0.3)",
   },
 
   // Brand colors (for markers, clusters)

@@ -354,7 +354,7 @@ export default function ItineraryDialogBox({
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [phase, setPhase] = useState<Phase>("collapsed");
-  const [statusText, setStatusText] = useState("Plan your day");
+  const [statusText, setStatusText] = useState("Plan your adventure");
 
   // Form state
   const [plannedDate, setPlannedDate] = useState(() => {
@@ -393,7 +393,7 @@ export default function ItineraryDialogBox({
 
   const setCollapsedStatusCb = useCallback(() => {
     setPhase("collapsed");
-    setStatusText(resultRef.current ? "View itinerary" : "Plan your day");
+    setStatusText(resultRef.current ? "View itinerary" : "Plan your adventure");
   }, []);
 
   const setReExpandPhaseCb = useCallback(() => {
@@ -870,7 +870,7 @@ export default function ItineraryDialogBox({
         {(phase === "form" || phase === "result") && (
           <View style={styles.headerRow}>
             <Text style={styles.headerTitle}>
-              {phase === "result" ? "Your Plan" : "Plan Your Day"}
+              {phase === "result" ? "Your Plan" : "Plan Your Adventure"}
             </Text>
             <Pressable onPress={handleDismiss} style={styles.dismissButton}>
               <Text style={styles.dismissText}>✕</Text>

@@ -42,97 +42,11 @@ export interface AreaScanCallbacks {
   onError: (error: Error) => void;
 }
 
-function parseSSE(text: string, callbacks: AreaScanCallbacks): void {
-  let currentEvent = "";
-
-  for (const line of text.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed === "") {
-      currentEvent = "";
-      continue;
-    }
-    if (trimmed.startsWith("event:")) {
-      currentEvent = trimmed.slice(6).trim();
-    } else if (trimmed.startsWith("data:")) {
-      // Preserve leading spaces in data (LLM tokens like " the")
-      const data = trimmed.slice(trimmed.startsWith("data: ") ? 6 : 5);
-
-      switch (currentEvent) {
-        case "metadata":
-          try {
-            callbacks.onMetadata(JSON.parse(data));
-          } catch {
-            // Ignore parse errors
-          }
-          break;
-        case "content":
-          callbacks.onContent(data);
-          break;
-        case "done":
-          callbacks.onDone();
-          break;
-        case "error":
-          try {
-            const errData = JSON.parse(data);
-            callbacks.onError(new Error(errData.error || "Stream error"));
-          } catch {
-            callbacks.onError(new Error("Stream error"));
-          }
-          break;
-      }
-    }
-  }
-}
-
 export interface EventInsightCallbacks {
   onMetadata: (metadata: { cached: boolean }) => void;
   onContent: (chunk: string) => void;
   onDone: () => void;
   onError: (error: Error) => void;
-}
-
-function parseEventInsightSSE(
-  text: string,
-  callbacks: EventInsightCallbacks,
-): void {
-  let currentEvent = "";
-
-  for (const line of text.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed === "") {
-      currentEvent = "";
-      continue;
-    }
-    if (trimmed.startsWith("event:")) {
-      currentEvent = trimmed.slice(6).trim();
-    } else if (trimmed.startsWith("data:")) {
-      const data = trimmed.slice(trimmed.startsWith("data: ") ? 6 : 5);
-
-      switch (currentEvent) {
-        case "metadata":
-          try {
-            callbacks.onMetadata(JSON.parse(data));
-          } catch {
-            // Ignore parse errors
-          }
-          break;
-        case "content":
-          callbacks.onContent(data);
-          break;
-        case "done":
-          callbacks.onDone();
-          break;
-        case "error":
-          try {
-            const errData = JSON.parse(data);
-            callbacks.onError(new Error(errData.error || "Stream error"));
-          } catch {
-            callbacks.onError(new Error("Stream error"));
-          }
-          break;
-      }
-    }
-  }
 }
 
 export class AreaScanModule extends BaseApiModule {
@@ -161,9 +75,10 @@ export class AreaScanModule extends BaseApiModule {
           );
         }
 
-        // RN fetch doesn't support ReadableStream — read full text then parse SSE
-        const text = await response.text();
-        parseSSE(text, callbacks);
+        const data = await response.json();
+        callbacks.onMetadata(data);
+        callbacks.onContent(data.text);
+        callbacks.onDone();
       })
       .catch((error) => {
         if (error.name === "AbortError") return;
@@ -196,8 +111,10 @@ export class AreaScanModule extends BaseApiModule {
           );
         }
 
-        const text = await response.text();
-        parseSSE(text, callbacks);
+        const data = await response.json();
+        callbacks.onMetadata(data);
+        callbacks.onContent(data.text);
+        callbacks.onDone();
       })
       .catch((error) => {
         if (error.name === "AbortError") return;

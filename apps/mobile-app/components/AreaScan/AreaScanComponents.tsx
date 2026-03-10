@@ -485,6 +485,8 @@ export function ScanningAnimation({
       const newPitch = 52.5 + 12.5 * Math.sin(t * 0.4);
 
       cameraRef.current?.setCamera({
+        centerCoordinate: coordinate,
+        zoomLevel: 15,
         heading: newHeading,
         pitch: newPitch,
         animationDuration: 0,
@@ -827,6 +829,7 @@ export function DialogBox({
   inline,
   style,
   loadingText,
+  startCollapsed,
 }: {
   isLoading: boolean;
   error: string | null;
@@ -840,6 +843,7 @@ export function DialogBox({
   inline?: boolean;
   style?: ViewStyle;
   loadingText?: string;
+  startCollapsed?: boolean;
 }) {
   const colors = useColors();
   const dialogStyles = useMemo(() => createDialogStyles(colors), [colors]);
@@ -866,9 +870,9 @@ export function DialogBox({
   const phase = useSharedValue(0);
   const sheenActive = useSharedValue(1);
 
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(!!startCollapsed);
   const [statusText, setStatusText] = useState(
-    loadingText || "Generating insight",
+    startCollapsed ? "Tap for insight" : loadingText || "Generating insight",
   );
   const prevIsLoading = useRef<boolean | null>(null);
 
@@ -971,12 +975,20 @@ export function DialogBox({
         );
       }
     } else if (prevIsLoading.current === null && !isLoading) {
-      // Initial mount with isLoading=false: skip animation
-      animHeight.value = targetHeightSV.value;
-      contentOpacity.value = 1;
-      statusOpacity.value = 0;
-      phase.value = 3;
-      fireExpandComplete();
+      if (startCollapsed) {
+        // Stay collapsed until user taps
+        animHeight.value = COLLAPSED_HEIGHT;
+        contentOpacity.value = 0;
+        statusOpacity.value = 1;
+        phase.value = 0;
+      } else {
+        // Initial mount with isLoading=false: skip animation
+        animHeight.value = targetHeightSV.value;
+        contentOpacity.value = 1;
+        statusOpacity.value = 0;
+        phase.value = 3;
+        fireExpandComplete();
+      }
     }
 
     prevIsLoading.current = isLoading;
@@ -1014,7 +1026,17 @@ export function DialogBox({
     opacity: contentOpacity.value,
   }));
 
+  const idleRef = useRef(!!startCollapsed);
+
   const handlePress = useCallback(() => {
+    if (collapsed && idleRef.current) {
+      // First tap from idle state: trigger fetch, stay collapsed for loading sheen
+      idleRef.current = false;
+      setCollapsed(false);
+      onTap();
+      return;
+    }
+
     if (collapsed) {
       // Re-expand and restart streaming from the beginning
       setCollapsed(false);

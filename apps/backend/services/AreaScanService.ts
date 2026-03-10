@@ -550,7 +550,7 @@ Return JSON: {"name": "...", "vibe": "..."}
 
 name: A creative 2-4 word place name inspired by the dominant event types and nearby trails. Examples: "Live Music Row", "The Makers Corner", "Foodie Alley", "Gallery Loop", "Lakeside Trail Hub". Never use "District" or "Quarter".
 
-vibe: 2-3 short sentences, max 50 words total. Separate each sentence with a newline character. Each line should be one complete thought that stands alone. Mention specific events by name when notable. If trails are nearby, mention the best one briefly. Tell the user what they can do here — what to check out, what's coming up soon, or what stands out. Be direct and useful, not poetic. No greetings, no "this area has".`;
+vibe: Write exactly 2-3 nuggets, one per line, separated by a single newline. Each line MUST be between 95 and 110 characters — this is a hard UI constraint. Shorter lines waste space, longer lines get cut off. Each line should be one complete, standalone thought. Mention specific events by name when notable. If trails are nearby, mention the best one briefly. Tell the user what they can do here — what to check out, what's coming up soon, or what stands out. Be direct and useful, not poetic. No greetings, no "this area has". Plain text only — no markdown, no asterisks, no bullet points, no formatting.`;
 
     const isCluster = radius === 0;
     const radiusLabel = isCluster

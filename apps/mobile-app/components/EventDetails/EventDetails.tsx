@@ -1,6 +1,6 @@
 import { formatDateTime } from "@/utils/dateTimeFormatting";
 import * as Haptics from "expo-haptics";
-import React, { memo, useMemo } from "react";
+import React, { memo, useCallback, useMemo } from "react";
 import {
   Linking,
   Share,
@@ -62,9 +62,19 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
     const {
       isLoading: insightLoading,
       error: insightError,
+      idle: insightIdle,
       dialog: insightDialog,
       feedPending: insightFeedPending,
+      fetchInsight,
     } = useEventInsight(eventId);
+
+    const handleInsightTap = useCallback(() => {
+      if (insightIdle) {
+        fetchInsight();
+      } else {
+        insightDialog.handleTap();
+      }
+    }, [insightIdle, fetchInsight, insightDialog.handleTap]);
 
     const formattedDate = useMemo(() => {
       if (!event?.eventDate) return "";
@@ -215,9 +225,10 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
             showContinue={insightDialog.showContinue}
             showDone={insightDialog.showDone}
             blinkAnim={insightDialog.blinkAnim}
-            onTap={insightDialog.handleTap}
+            onTap={handleInsightTap}
             onRestart={insightDialog.restart}
             onExpandComplete={insightFeedPending}
+            startCollapsed={insightIdle}
             style={{ height: 140 }}
           />
         }

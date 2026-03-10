@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
@@ -11,11 +12,13 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, {
   Easing,
-  FadeIn,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { Settings } from "lucide-react-native";
@@ -62,12 +65,24 @@ interface ItineraryListItemProps {
   onPress: (id: string) => void;
 }
 
+const STAGGER_MS = 50;
+const SPRING_CONFIG = { damping: 18, stiffness: 160, mass: 0.8 };
+
 const ItineraryListItem: React.FC<ItineraryListItemProps> = React.memo(
   ({ item, index, activeItineraryId, onPress }) => {
     const colors = useColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const scale = useSharedValue(1);
+    const entrance = useSharedValue(0);
     const isActive = item.id === activeItineraryId;
+
+    useEffect(() => {
+      const delay = Math.min(index, 10) * STAGGER_MS;
+      entrance.value = withDelay(
+        delay,
+        withSpring(1, SPRING_CONFIG),
+      );
+    }, []);
 
     const navigate = useCallback(() => {
       onPress(item.id);
@@ -82,7 +97,15 @@ const ItineraryListItem: React.FC<ItineraryListItemProps> = React.memo(
       );
     }, [navigate, scale]);
 
-    const animatedScaleStyle = useAnimatedStyle(() => ({
+    const entranceStyle = useAnimatedStyle(() => ({
+      opacity: interpolate(entrance.value, [0, 0.5, 1], [0, 0.6, 1]),
+      transform: [
+        { translateY: interpolate(entrance.value, [0, 1], [24, 0]) },
+        { scale: interpolate(entrance.value, [0, 1], [0.97, 1]) },
+      ],
+    }));
+
+    const pressStyle = useAnimatedStyle(() => ({
       transform: [{ scale: scale.value }],
     }));
 
@@ -112,12 +135,10 @@ const ItineraryListItem: React.FC<ItineraryListItemProps> = React.memo(
       return "🗺️";
     }, [item.items]);
 
-    const cappedDelay = Math.min(index, 8) * 30;
-
     return (
-      <Animated.View entering={FadeIn.duration(200).delay(cappedDelay)}>
+      <Animated.View style={entranceStyle}>
         <Pressable onPress={handlePress}>
-          <Animated.View style={[styles.row, animatedScaleStyle]}>
+          <Animated.View style={[styles.row, pressStyle]}>
             <Text style={styles.emoji}>{firstEmoji}</Text>
             <View style={styles.info}>
               <View style={styles.titleRow}>
@@ -210,19 +231,35 @@ const ItinerariesListScreen = () => {
   const clearReady = useItineraryJobStore((s) => s.clearReady);
   const activeItineraryId = useActiveItineraryStore((s) => s.itinerary?.id ?? null);
 
+  const PAGE_SIZE = 20;
   const [itineraries, setItineraries] = useState<ItineraryResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const cursorRef = useRef<string | null>(null);
+  const hasMoreRef = useRef(true);
 
-  const fetchItineraries = useCallback(async () => {
+  const fetchItineraries = useCallback(async (cursor?: string) => {
     try {
-      const data = await apiClient.itineraries.list(50);
-      setItineraries(data.filter((it) => it.status !== "GENERATING"));
+      const { data, nextCursor } = await apiClient.itineraries.list(
+        PAGE_SIZE,
+        cursor,
+      );
+      const filtered = data.filter((it) => it.status !== "GENERATING");
+      cursorRef.current = nextCursor;
+      hasMoreRef.current = nextCursor !== null;
+
+      if (cursor) {
+        setItineraries((prev) => [...prev, ...filtered]);
+      } else {
+        setItineraries(filtered);
+      }
     } catch (err) {
       console.error("[Itineraries] Failed to fetch:", err);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
+      setIsLoadingMore(false);
     }
   }, []);
 
@@ -239,8 +276,16 @@ const ItinerariesListScreen = () => {
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
+    cursorRef.current = null;
+    hasMoreRef.current = true;
     fetchItineraries();
   }, [fetchItineraries]);
+
+  const handleLoadMore = useCallback(() => {
+    if (!hasMoreRef.current || isLoadingMore || isLoading) return;
+    setIsLoadingMore(true);
+    fetchItineraries(cursorRef.current ?? undefined);
+  }, [fetchItineraries, isLoadingMore, isLoading]);
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -298,7 +343,17 @@ const ItinerariesListScreen = () => {
         renderItem={renderItem}
         ListHeaderComponent={isGenerating ? <GeneratingRow /> : null}
         ListEmptyComponent={renderEmpty}
+        ListFooterComponent={
+          isLoadingMore ? (
+            <ActivityIndicator
+              style={{ paddingVertical: spacing.lg }}
+              color={colors.text.secondary}
+            />
+          ) : null
+        }
         contentContainerStyle={styles.list}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}

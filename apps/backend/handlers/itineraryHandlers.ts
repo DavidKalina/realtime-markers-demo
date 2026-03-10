@@ -77,13 +77,15 @@ export const listItinerariesHandler = async (c: Context<AppContext>) => {
   const userId = user.userId || user.id;
 
   const limit = parseInt(c.req.query("limit") || "20");
+  const cursor = c.req.query("cursor") || undefined;
   const itineraryService = c.get("itineraryService");
 
-  const itineraries = await itineraryService.listByUser(
+  const result = await itineraryService.listByUser(
     userId,
     Math.min(limit, 50),
+    cursor,
   );
-  return c.json(itineraries);
+  return c.json(result);
 };
 
 export const getItineraryHandler = async (c: Context<AppContext>) => {

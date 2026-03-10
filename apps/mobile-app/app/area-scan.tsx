@@ -1,13 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import Screen from "@/components/Layout/Screen";
-import { apiClient } from "@/services/ApiClient";
-import type { AreaScanMetadata } from "@/services/api/modules/areaScan";
 import {
-  CHARS_PER_PAGE,
-  splitIntoPages,
-  getRadiusForZoom,
   ZoneHero,
   StatPillRow,
   ZoneEncounters,
@@ -15,9 +10,9 @@ import {
   AreaTabBar,
   ScanningAnimation,
   DialogBox,
-  useDialogStreamer,
   layoutStyles,
 } from "@/components/AreaScan/AreaScanComponents";
+import { useAreaInsight } from "@/components/AreaScan/useAreaInsight";
 import EventDnaChart from "@/components/EventDetails/EventDnaChart";
 
 export default function AreaScanScreen() {
@@ -27,17 +22,20 @@ export default function AreaScanScreen() {
     zoom: string;
   }>();
   const router = useRouter();
-  const abortRef = useRef<{ abort: () => void } | null>(null);
-  const fullTextRef = useRef("");
-  const pendingPagesRef = useRef<string[] | null>(null);
 
-  const [zoneStats, setZoneStats] = useState<AreaScanMetadata | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<"events" | "trails">("events");
 
-  const dialog = useDialogStreamer();
+  const { zoneStats, isLoading, error, dialog, feedPending, refeedOnFocus } =
+    useAreaInsight(lat, lng, zoom);
+
+  // Re-feed dialog pages when returning from a sub-screen (e.g. trail detail)
+  // because useFocusEffect cleanup in useDialogStreamer cancels the stream on blur
+  useFocusEffect(
+    useCallback(() => {
+      refeedOnFocus();
+    }, [refeedOnFocus]),
+  );
 
   // Minimum animation display time
   useEffect(() => {
@@ -46,43 +44,6 @@ export default function AreaScanScreen() {
   }, []);
 
   const showScanAnimation = isLoading || !minTimeElapsed;
-
-  // --- Fetch ---
-  useEffect(() => {
-    if (!lat || !lng) return;
-
-    const radius = getRadiusForZoom(zoom ? parseFloat(zoom) : 12);
-
-    const handle = apiClient.areaScan.streamAreaProfile(
-      parseFloat(lat),
-      parseFloat(lng),
-      radius,
-      {
-        onMetadata: (meta) => setZoneStats(meta),
-        onContent: (chunk) => {
-          fullTextRef.current += chunk;
-        },
-        onDone: () => {
-          setIsLoading(false);
-          if (fullTextRef.current) {
-            pendingPagesRef.current = splitIntoPages(
-              fullTextRef.current,
-              CHARS_PER_PAGE,
-            );
-          }
-        },
-        onError: (err) => {
-          setError(err.message);
-          setIsLoading(false);
-        },
-      },
-    );
-    abortRef.current = handle;
-
-    return () => {
-      handle.abort();
-    };
-  }, [lat, lng]);
 
   const eventCount = zoneStats?.events?.length ?? 0;
   const trailCount = zoneStats?.trails?.length ?? 0;
@@ -102,21 +63,16 @@ export default function AreaScanScreen() {
           blinkAnim={dialog.blinkAnim}
           onTap={dialog.handleTap}
           onRestart={dialog.restart}
-          onExpandComplete={() => {
-            if (pendingPagesRef.current) {
-              dialog.feedPages(pendingPagesRef.current);
-              pendingPagesRef.current = null;
-            }
-          }}
+          onExpandComplete={feedPending}
           loadingText="Scanning area"
           style={{ height: 140, marginBottom: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 }}
         />
       }
     >
-      {showScanAnimation && (
+      {showScanAnimation && lat && lng && (
         <ScanningAnimation
-          lat={parseFloat(lat || "0")}
-          lng={parseFloat(lng || "0")}
+          lat={parseFloat(lat)}
+          lng={parseFloat(lng)}
         />
       )}
 

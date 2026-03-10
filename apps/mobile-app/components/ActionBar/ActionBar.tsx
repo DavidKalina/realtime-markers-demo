@@ -24,7 +24,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useColors, fontWeight, type Colors } from "@/theme";
+import { useColors, fontWeight } from "@/theme";
 import { useXPStore } from "@/stores/useXPStore";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
 import { createStyles } from "./styles";
@@ -49,44 +49,38 @@ interface TabConfig {
   icon: LucideIcon;
   route?: AppRoute;
   requiresLocation?: boolean;
-  activeColor: string;
 }
 
-const getTabs = (colors: Colors): TabConfig[] => [
+const TABS: TabConfig[] = [
   {
     key: "spaces",
     label: "Spaces",
     icon: GlobeIcon,
     route: "/spaces",
-    activeColor: colors.action.map,
   },
   {
     key: "scan",
     label: "Scan",
     icon: Camera,
     route: "/scan",
-    activeColor: colors.action.rsvp,
   },
   {
     key: "locate",
     label: "Discover",
     icon: CompassIcon,
     requiresLocation: true,
-    activeColor: colors.action.save,
   },
-{
+  {
     key: "itineraries",
     label: "Plans",
     icon: Route,
     route: "/itineraries",
-    activeColor: colors.accent.primary,
   },
   {
     key: "user",
     label: "Me",
     icon: User,
     route: "/user",
-    activeColor: colors.action.share,
   },
 ];
 
@@ -118,7 +112,7 @@ const ActionButton: React.FC<{
   const styles = useMemo(() => createStyles(colors), [colors]);
   const scaleValue = useSharedValue(1);
   const IconComponent = tab.icon;
-  const iconColor = isActive ? tab.activeColor : colors.text.primary;
+  const iconColor = isActive ? colors.accent.primary : colors.text.primary;
 
   const animatedButtonStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scaleValue.value }],
@@ -149,16 +143,14 @@ const ActionButton: React.FC<{
         <View style={styles.actionButtonIcon}>
           <IconComponent size={20} color={iconColor} />
           {showBadge && (
-            <View
-              style={[styles.badgeDot, { backgroundColor: tab.activeColor }]}
-            />
+            <View style={styles.badgeDot} />
           )}
         </View>
         <Text
           style={[
             styles.actionButtonLabel,
             isActive && {
-              color: tab.activeColor,
+              color: colors.accent.primary,
               fontWeight: fontWeight.semibold,
             },
           ]}
@@ -174,7 +166,6 @@ const ActionButton: React.FC<{
 export const ActionBar: React.FC = React.memo(() => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const TABS = useMemo(() => getTabs(colors), [colors]);
   const pathname = usePathname();
   const { publish } = useEventBroker();
   const insets = useSafeAreaInsets();

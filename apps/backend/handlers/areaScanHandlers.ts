@@ -1,4 +1,3 @@
-import { streamSSE } from "hono/streaming";
 import type { Context } from "hono";
 import type { AppContext } from "../types/context";
 import type { AreaScanFilters } from "../services/AreaScanService";
@@ -59,60 +58,51 @@ export const areaScanHandler = async (c: Context<AppContext>) => {
     }
   }
 
-  const result = await areaScanService.getAreaProfile(
-    lat,
-    lng,
-    radius,
-    filters,
-  );
+  try {
+    const result = await areaScanService.getAreaProfile(
+      lat,
+      lng,
+      radius,
+      filters,
+    );
 
-  return streamSSE(c, async (stream) => {
-    try {
-      // Send metadata first (includes events and trails arrays)
-      await stream.writeSSE({
-        event: "metadata",
-        data: JSON.stringify({
-          ...result.zoneStats,
+    const text = result.text || "No data available.";
+
+    // Cache the result (if not already cached)
+    if (!result.cached) {
+      const geohash = encodeGeohashSimple(lat, lng);
+      const hourBucket = Math.floor(Date.now() / (3600 * 1000));
+      const filterHash = filters
+        ? Buffer.from(JSON.stringify(filters))
+            .toString("base64url")
+            .slice(0, 12)
+        : "";
+      const cacheKey = filterHash
+        ? `area-scan:${geohash}:${hourBucket}:${radius}:${filterHash}`
+        : `area-scan:${geohash}:${hourBucket}:${radius}`;
+      await redisService.set(
+        cacheKey,
+        JSON.stringify({
+          zoneStats: result.zoneStats,
           events: result.events,
           trails: result.trails,
+          text,
         }),
-      });
-
-      const text = result.text || "No data available.";
-      await stream.writeSSE({ event: "content", data: text });
-      await stream.writeSSE({ event: "done", data: "" });
-
-      // Cache the result (if not already cached)
-      if (!result.cached) {
-        const geohash = encodeGeohashSimple(lat, lng);
-        const hourBucket = Math.floor(Date.now() / (3600 * 1000));
-        const filterHash = filters
-          ? Buffer.from(JSON.stringify(filters))
-              .toString("base64url")
-              .slice(0, 12)
-          : "";
-        const cacheKey = filterHash
-          ? `area-scan:${geohash}:${hourBucket}:${radius}:${filterHash}`
-          : `area-scan:${geohash}:${hourBucket}:${radius}`;
-        await redisService.set(
-          cacheKey,
-          JSON.stringify({
-            zoneStats: result.zoneStats,
-            events: result.events,
-            trails: result.trails,
-            text,
-          }),
-          3600,
-        );
-      }
-    } catch (error) {
-      console.error("[AreaScan] Stream error:", error);
-      await stream.writeSSE({
-        event: "error",
-        data: JSON.stringify({ error: "Stream error" }),
-      });
+        3600,
+      );
     }
-  });
+
+    return c.json({
+      ...result.zoneStats,
+      events: result.events,
+      trails: result.trails,
+      text,
+      cached: result.cached,
+    });
+  } catch (error) {
+    console.error("[AreaScan] Error:", error);
+    return c.json({ error: "Failed to scan area" }, 500);
+  }
 };
 
 export const clusterProfileHandler = async (c: Context<AppContext>) => {
@@ -150,30 +140,21 @@ export const clusterProfileHandler = async (c: Context<AppContext>) => {
 
   const areaScanService = c.get("areaScanService");
 
-  const result = await areaScanService.getClusterProfile(eventIds, lat, lng);
+  try {
+    const result = await areaScanService.getClusterProfile(eventIds, lat, lng);
+    const text = result.text || "No data available.";
 
-  return streamSSE(c, async (stream) => {
-    try {
-      await stream.writeSSE({
-        event: "metadata",
-        data: JSON.stringify({
-          ...result.zoneStats,
-          events: result.events,
-          trails: result.trails,
-        }),
-      });
-
-      const text = result.text || "No data available.";
-      await stream.writeSSE({ event: "content", data: text });
-      await stream.writeSSE({ event: "done", data: "" });
-    } catch (error) {
-      console.error("[ClusterProfile] Stream error:", error);
-      await stream.writeSSE({
-        event: "error",
-        data: JSON.stringify({ error: "Stream error" }),
-      });
-    }
-  });
+    return c.json({
+      ...result.zoneStats,
+      events: result.events,
+      trails: result.trails,
+      text,
+      cached: result.cached,
+    });
+  } catch (error) {
+    console.error("[ClusterProfile] Error:", error);
+    return c.json({ error: "Failed to generate cluster profile" }, 500);
+  }
 };
 
 export const eventHypeHandler = async (c: Context<AppContext>) => {

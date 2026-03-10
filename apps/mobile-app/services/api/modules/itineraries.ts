@@ -95,11 +95,21 @@ export class ItinerariesModule extends BaseApiModule {
     return this.handleResponse<{ jobId: string; streamUrl: string }>(response);
   }
 
-  async list(limit = 20): Promise<ItineraryResponse[]> {
+  async list(
+    limit = 20,
+    cursor?: string,
+  ): Promise<{ data: ItineraryResponse[]; nextCursor: string | null }> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (cursor) params.set("cursor", cursor);
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries?limit=${limit}`,
+      `${this.client.baseUrl}/api/itineraries?${params}`,
     );
-    return this.handleResponse<ItineraryResponse[]>(response);
+    const json = await response.json();
+    // Handle both paginated { data, nextCursor } and legacy array responses
+    if (Array.isArray(json)) {
+      return { data: json, nextCursor: null };
+    }
+    return json;
   }
 
   async getById(id: string): Promise<ItineraryResponse> {

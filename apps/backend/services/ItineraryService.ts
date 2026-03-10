@@ -1,4 +1,4 @@
-import type { DataSource } from "typeorm";
+import { type DataSource, LessThan } from "typeorm";
 import {
   Itinerary,
   ItineraryItem,
@@ -68,7 +68,11 @@ interface GeocodedData {
 
 export interface ItineraryService {
   create(userId: string, input: CreateItineraryInput): Promise<Itinerary>;
-  listByUser(userId: string, limit?: number): Promise<Itinerary[]>;
+  listByUser(
+    userId: string,
+    limit?: number,
+    cursor?: string,
+  ): Promise<{ data: Itinerary[]; nextCursor: string | null }>;
   getById(id: string, userId: string): Promise<Itinerary | null>;
   deleteById(id: string, userId: string): Promise<boolean>;
   generateShareToken(id: string, userId: string): Promise<string | null>;
@@ -260,13 +264,30 @@ class ItineraryServiceImpl implements ItineraryService {
     }
   }
 
-  async listByUser(userId: string, limit = 20): Promise<Itinerary[]> {
-    return this.dataSource.getRepository(Itinerary).find({
-      where: { userId },
+  async listByUser(
+    userId: string,
+    limit = 20,
+    cursor?: string,
+  ): Promise<{ data: Itinerary[]; nextCursor: string | null }> {
+    const where: Record<string, unknown> = { userId };
+    if (cursor) {
+      where.createdAt = LessThan(new Date(cursor));
+    }
+
+    const rows = await this.dataSource.getRepository(Itinerary).find({
+      where,
       order: { createdAt: "DESC" },
-      take: limit,
+      take: limit + 1,
       relations: ["items"],
     });
+
+    const hasMore = rows.length > limit;
+    const data = hasMore ? rows.slice(0, limit) : rows;
+    const nextCursor = hasMore
+      ? data[data.length - 1].createdAt.toISOString()
+      : null;
+
+    return { data, nextCursor };
   }
 
   async getById(id: string, userId: string): Promise<Itinerary | null> {
