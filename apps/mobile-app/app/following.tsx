@@ -107,7 +107,6 @@ const FollowingScreen = () => {
     <>
       <Screen
         isScrollable={false}
-        bannerTitle="Following"
         bannerEmoji="👥"
         showBackButton
         onBack={handleBack}

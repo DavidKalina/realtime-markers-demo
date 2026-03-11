@@ -138,6 +138,8 @@ interface AreaScanDependencies {
 
 const RADIUS_METERS = 16093;
 const MAX_EVENTS = 25;
+const TRAIL_SEARCH_RADIUS = 3000; // 3 km — keep trail results local to the scan center
+const MAX_TRAILS = 5;
 
 class AreaScanServiceImpl implements AreaScanService {
   private dataSource: DataSource;
@@ -187,9 +189,10 @@ class AreaScanServiceImpl implements AreaScanService {
     }
 
     // Query nearby events and trails in parallel
+    // Fetch more trails than needed so we can re-rank by proximity
     const [events, rawTrails] = await Promise.all([
       this.queryNearbyEvents(lat, lng, radius, filters),
-      this.overpassService.fetchPavedTrails(lat, lng, Math.max(radius, 3000), 5),
+      this.overpassService.fetchPavedTrails(lat, lng, TRAIL_SEARCH_RADIUS, 15),
     ]);
 
     // Compute zone stats (without zone name — LLM will generate it)
@@ -205,15 +208,7 @@ class AreaScanServiceImpl implements AreaScanService {
       categoryNames: e.categoryNames,
     }));
 
-    const zoneTrails: ZoneTrail[] = rawTrails.map((t) => ({
-      id: t.id,
-      name: t.name,
-      surface: t.surface,
-      lengthMeters: t.lengthMeters,
-      lit: t.lit,
-      geometry: t.geometry,
-      center: t.center,
-    }));
+    const zoneTrails = this.rankTrailsByProximity(rawTrails, lat, lng, MAX_TRAILS);
 
     // Build prompt and generate name + vibe via LLM
     const { systemPrompt, userPrompt } = this.buildPrompt(
@@ -266,7 +261,7 @@ class AreaScanServiceImpl implements AreaScanService {
   ): Promise<AreaScanResult> {
     const [events, rawTrails] = await Promise.all([
       this.queryEventsByIds(eventIds, centerLat, centerLng),
-      this.overpassService.fetchPavedTrails(centerLat, centerLng, 3000, 5),
+      this.overpassService.fetchPavedTrails(centerLat, centerLng, TRAIL_SEARCH_RADIUS, 15),
     ]);
     const zoneStats = this.computeZoneStats(events);
 
@@ -279,15 +274,7 @@ class AreaScanServiceImpl implements AreaScanService {
       categoryNames: e.categoryNames,
     }));
 
-    const zoneTrails: ZoneTrail[] = rawTrails.map((t) => ({
-      id: t.id,
-      name: t.name,
-      surface: t.surface,
-      lengthMeters: t.lengthMeters,
-      lit: t.lit,
-      geometry: t.geometry,
-      center: t.center,
-    }));
+    const zoneTrails = this.rankTrailsByProximity(rawTrails, centerLat, centerLng, MAX_TRAILS);
 
     const { systemPrompt, userPrompt } = this.buildPrompt(
       zoneStats,
@@ -530,6 +517,43 @@ class AreaScanServiceImpl implements AreaScanService {
       avgDistance,
       recurringCount,
     };
+  }
+
+  /**
+   * Re-rank trails by distance from scan center, breaking ties with length.
+   * This ensures each area scan returns the trails closest to *that* location
+   * rather than always surfacing the same long regional trails.
+   */
+  private rankTrailsByProximity(
+    trails: { id: number; name: string; surface: string; lengthMeters: number; lit: boolean | null; geometry: [number, number][]; center: [number, number] }[],
+    lat: number,
+    lng: number,
+    limit: number,
+  ): ZoneTrail[] {
+    return trails
+      .map((t) => {
+        const [cLng, cLat] = t.center;
+        const dLat = ((cLat - lat) * Math.PI) / 180;
+        const dLng = ((cLng - lng) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) ** 2 +
+          Math.cos((lat * Math.PI) / 180) *
+            Math.cos((cLat * Math.PI) / 180) *
+            Math.sin(dLng / 2) ** 2;
+        const distMeters = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return { trail: t, distMeters };
+      })
+      .sort((a, b) => a.distMeters - b.distMeters || b.trail.lengthMeters - a.trail.lengthMeters)
+      .slice(0, limit)
+      .map(({ trail: t }) => ({
+        id: t.id,
+        name: t.name,
+        surface: t.surface,
+        lengthMeters: t.lengthMeters,
+        lit: t.lit,
+        geometry: t.geometry,
+        center: t.center,
+      }));
   }
 
   private buildPrompt(

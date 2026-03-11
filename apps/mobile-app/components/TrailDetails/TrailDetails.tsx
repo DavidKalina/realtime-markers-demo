@@ -241,7 +241,6 @@ const TrailDetails: React.FC<TrailDetailsProps> = ({ trail, onBack }) => {
 
   return (
     <Screen
-      bannerTitle="Trail"
       bannerEmoji="🛤️"
       showBackButton
       onBack={onBack}

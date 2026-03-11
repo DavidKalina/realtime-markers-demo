@@ -72,6 +72,7 @@ interface ItineraryTimelineProps {
   forecast?: DayForecast;
   isActive?: boolean;
   onCheckin?: (itemId: string) => void;
+  onItemPress?: (item: ItineraryItemResponse) => void;
   scrollRef?: React.RefObject<ScrollView>;
 }
 
@@ -116,6 +117,7 @@ interface TimelineStopProps {
   onRevealComplete: () => void;
   isActive?: boolean;
   onCheckin?: (itemId: string) => void;
+  onItemPress?: (item: ItineraryItemResponse) => void;
   weather?: HourlyForecast | null;
 }
 
@@ -134,6 +136,7 @@ const TimelineStop = React.memo(
     onRevealComplete,
     isActive,
     onCheckin,
+    onItemPress,
     weather,
   }: TimelineStopProps) => {
     const colors = useColors();
@@ -317,46 +320,53 @@ const TimelineStop = React.memo(
 
           {/* Content */}
           <Animated.View style={[styles.content, contentAnimStyle]}>
-            <View style={styles.statRow}>
-              <Text style={styles.timeText}>
-                {formatTime(item.startTime)} – {formatTime(item.endTime)}
-              </Text>
-              <View style={styles.statRight}>
-                {cost > 0 && isRevealed && (
-                  <AnimatedCost value={cost} startDelay={200} />
-                )}
-                {weather && (
-                  <Text style={styles.weatherText}>
-                    {weatherEmoji(weather.weatherCode)} {weather.tempF}°
+            <Pressable
+              onPress={() => onItemPress?.(item)}
+              style={({ pressed }) => pressed && { opacity: 0.7 }}
+            >
+              <View style={{ gap: 3 }}>
+                <View style={styles.statRow}>
+                  <Text style={styles.timeText}>
+                    {formatTime(item.startTime)} – {formatTime(item.endTime)}
+                  </Text>
+                  <View style={styles.statRight}>
+                    {cost > 0 && isRevealed && (
+                      <AnimatedCost value={cost} startDelay={200} />
+                    )}
+                    {weather && (
+                      <Text style={styles.weatherText}>
+                        {weatherEmoji(weather.weatherCode)} {weather.tempF}°
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                <Text style={styles.itemTitle}>{item.title}</Text>
+
+                {item.description && (
+                  <Text style={styles.itemDesc} numberOfLines={2}>
+                    {item.description}
                   </Text>
                 )}
+
+                {item.venueName && (
+                  <Text style={styles.venueText} numberOfLines={1}>
+                    {item.venueName}
+                    {item.venueAddress ? ` · ${item.venueAddress}` : ""}
+                  </Text>
+                )}
+
+                {item.eventId && (
+                  <Text style={[styles.eventTag, { color: stopColor }]}>
+                    From scanned event
+                  </Text>
+                )}
+
+                {isCheckedIn && (
+                  <Text style={styles.checkedInTag}>{"\u2705"} Checked in</Text>
+                )}
               </View>
-            </View>
-
-            <Text style={styles.itemTitle}>{item.title}</Text>
-
-            {item.description && (
-              <Text style={styles.itemDesc} numberOfLines={2}>
-                {item.description}
-              </Text>
-            )}
-
-            {item.venueName && (
-              <Text style={styles.venueText} numberOfLines={1}>
-                {item.venueName}
-                {item.venueAddress ? ` · ${item.venueAddress}` : ""}
-              </Text>
-            )}
-
-            {item.eventId && (
-              <Text style={[styles.eventTag, { color: stopColor }]}>
-                From scanned event
-              </Text>
-            )}
-
-            {isCheckedIn && (
-              <Text style={styles.checkedInTag}>{"\u2705"} Checked in</Text>
-            )}
+            </Pressable>
           </Animated.View>
         </View>
       </View>
@@ -371,6 +381,7 @@ export default function ItineraryTimeline({
   forecast,
   isActive,
   onCheckin,
+  onItemPress,
   scrollRef,
 }: ItineraryTimelineProps) {
   const colors = useColors();
@@ -484,6 +495,7 @@ export default function ItineraryTimeline({
             onRevealComplete={() => handleStopRevealed(idx)}
             isActive={isActive}
             onCheckin={onCheckin}
+            onItemPress={onItemPress}
             weather={getHourlyForTime(forecast, item.startTime)}
           />
         </View>

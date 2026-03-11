@@ -120,7 +120,6 @@ const CategoryEventsScreen = () => {
   return (
     <Screen
       isScrollable={false}
-      bannerTitle={category?.name || "Category Events"}
       bannerDescription={`Events in ${category?.name || "this category"}`}
       bannerEmoji={category?.emoji || "📅"}
       showBackButton

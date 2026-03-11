@@ -10,7 +10,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type LayoutChangeEvent,
   type GestureResponderEvent,
@@ -333,6 +332,14 @@ const DURATION_OPTIONS = [
   { label: "Full day", value: 10 },
 ];
 
+const TIME_HOURS = Array.from({ length: 18 }, (_, i) => i + 5); // 5am – 10pm
+
+function formatHour(h: number): string {
+  if (h === 0) return "12am";
+  if (h === 12) return "12pm";
+  return h < 12 ? `${h}am` : `${h - 12}pm`;
+}
+
 const BUDGET_MIN = 0;
 const BUDGET_MAX = 200;
 const BUDGET_STEP = 5;
@@ -364,6 +371,9 @@ export default function ItineraryDialogBox({
   const [durationHours, setDurationHours] = useState(4);
   const [stopCount, setStopCount] = useState(0); // 0 = auto
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
+  const [useCustomTime, setUseCustomTime] = useState(false);
+  const [startHour, setStartHour] = useState(9);
+  const [endHour, setEndHour] = useState(13);
   const [result, setResult] = useState<ItineraryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -372,8 +382,6 @@ export default function ItineraryDialogBox({
   // Rituals
   const [rituals, setRituals] = useState<RitualResponse[]>([]);
   const [activeRitualId, setActiveRitualId] = useState<string | null>(null);
-  const [showSaveRitual, setShowSaveRitual] = useState(false);
-  const [ritualName, setRitualName] = useState("");
 
   // Job progress streaming
   const { activeJobs, trackJob } = useJobProgress();
@@ -608,57 +616,6 @@ export default function ItineraryDialogBox({
     [],
   );
 
-  const handleSaveRitual = useCallback(async () => {
-    if (!ritualName.trim()) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    // Pick emoji from first selected activity, or default
-    const firstActivity = selectedActivities[0];
-    const emoji =
-      ACTIVITY_OPTIONS.find((a) => a.value === firstActivity)?.emoji || "🔁";
-
-    try {
-      const ritual = await apiClient.rituals.create({
-        name: ritualName.trim(),
-        emoji,
-        budgetMin: 0,
-        budgetMax: budgetMax,
-        durationHours,
-        activityTypes: selectedActivities,
-        stopCount,
-      });
-      setRituals((prev) => [ritual, ...prev]);
-      setShowSaveRitual(false);
-      setRitualName("");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err) {
-      console.error("[ItineraryDialogBox] Failed to save ritual:", err);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  }, [
-    ritualName,
-    budgetMax,
-    durationHours,
-    selectedActivities,
-    stopCount,
-  ]);
-
-  const handleGenerate = useCallback(() => {
-    fireGenerate({
-      duration: durationHours,
-      stops: stopCount,
-      activities: selectedActivities,
-      budget: budgetMax,
-      ritualId: activeRitualId ?? undefined,
-    });
-  }, [
-    durationHours,
-    stopCount,
-    selectedActivities,
-    budgetMax,
-    activeRitualId,
-    fireGenerate,
-  ]);
 
   // Fire-and-forget generate with explicit params (avoids stale closure from setState)
   const fireGenerate = useCallback(
@@ -668,6 +625,8 @@ export default function ItineraryDialogBox({
       activities: string[];
       budget: number;
       ritualId?: string;
+      startTime?: string;
+      endTime?: string;
     }) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setPhase("generating");
@@ -698,6 +657,8 @@ export default function ItineraryDialogBox({
           activityTypes: params.activities,
           stopCount: params.stops || undefined,
           ritualId: params.ritualId,
+          ...(params.startTime && { startTime: params.startTime }),
+          ...(params.endTime && { endTime: params.endTime }),
         });
         setActiveJobId(jobId);
         trackJob(jobId);
@@ -718,6 +679,33 @@ export default function ItineraryDialogBox({
     },
     [city, plannedDate, trackJob],
   );
+
+  const handleGenerate = useCallback(() => {
+    const duration = useCustomTime
+      ? Math.max(1, endHour - startHour)
+      : durationHours;
+    fireGenerate({
+      duration,
+      stops: stopCount,
+      activities: selectedActivities,
+      budget: budgetMax,
+      ritualId: activeRitualId ?? undefined,
+      ...(useCustomTime && {
+        startTime: `${String(startHour).padStart(2, "0")}:00`,
+        endTime: `${String(endHour).padStart(2, "0")}:00`,
+      }),
+    });
+  }, [
+    durationHours,
+    stopCount,
+    selectedActivities,
+    budgetMax,
+    activeRitualId,
+    useCustomTime,
+    startHour,
+    endHour,
+    fireGenerate,
+  ]);
 
   const handleSurpriseMe = useCallback(() => {
     const randomDuration =
@@ -952,10 +940,107 @@ export default function ItineraryDialogBox({
                     </Text>
                   </Pressable>
                 ))}
+                <Pressable
+                  style={[styles.pill, useCustomTime && styles.pillActive]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setUseCustomTime((prev) => !prev);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.pillText,
+                      useCustomTime && styles.pillTextActive,
+                    ]}
+                  >
+                    {useCustomTime
+                      ? `${formatHour(startHour)} – ${formatHour(endHour)}`
+                      : "Set times"}
+                  </Text>
+                </Pressable>
               </ScrollView>
+
+              {/* Inline time pickers */}
+              {useCustomTime && (
+                <View style={styles.timePickerSection}>
+                  <View style={styles.timeRow}>
+                    <Text style={styles.timeLabel}>Start</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.pillRow}
+                    >
+                      {TIME_HOURS.filter((h) => h < endHour).map((h) => (
+                        <Pressable
+                          key={h}
+                          style={[
+                            styles.timePill,
+                            startHour === h && styles.timePillActive,
+                          ]}
+                          onPress={() => {
+                            Haptics.impactAsync(
+                              Haptics.ImpactFeedbackStyle.Light,
+                            );
+                            setStartHour(h);
+                            if (h >= endHour) setEndHour(h + 1);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.timePillText,
+                              startHour === h && styles.timePillTextActive,
+                            ]}
+                          >
+                            {formatHour(h)}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  <View style={styles.timeRow}>
+                    <Text style={styles.timeLabel}>End</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.pillRow}
+                    >
+                      {TIME_HOURS.filter((h) => h > startHour).map((h) => (
+                        <Pressable
+                          key={h}
+                          style={[
+                            styles.timePill,
+                            endHour === h && styles.timePillActive,
+                          ]}
+                          onPress={() => {
+                            Haptics.impactAsync(
+                              Haptics.ImpactFeedbackStyle.Light,
+                            );
+                            setEndHour(h);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.timePillText,
+                              endHour === h && styles.timePillTextActive,
+                            ]}
+                          >
+                            {formatHour(h)}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  <Text style={styles.timeSummary}>
+                    {Math.max(1, endHour - startHour)}h window
+                  </Text>
+                </View>
+              )}
             </CollapsibleSection>
 
-            {/* Duration */}
+            {/* Duration — hidden when custom time is set */}
+            {!useCustomTime && (
             <CollapsibleSection title="How long?" colors={colors}>
               <View style={styles.segmentRow}>
                 {DURATION_OPTIONS.map((opt) => (
@@ -982,6 +1067,7 @@ export default function ItineraryDialogBox({
                 ))}
               </View>
             </CollapsibleSection>
+            )}
 
             {/* Stops */}
             <CollapsibleSection title="How many stops?" colors={colors}>
@@ -1050,52 +1136,6 @@ export default function ItineraryDialogBox({
             </CollapsibleSection>
 
             {error && <Text style={styles.errorText}>{error}</Text>}
-
-            {/* Save as ritual inline */}
-            {!showSaveRitual ? (
-              <Pressable
-                style={styles.saveRitualToggle}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setShowSaveRitual(true);
-                }}
-              >
-                <Text style={styles.saveRitualToggleText}>Save as ritual</Text>
-              </Pressable>
-            ) : (
-              <View style={styles.saveRitualRow}>
-                <TextInput
-                  style={styles.saveRitualInput}
-                  placeholder="Ritual name..."
-                  placeholderTextColor={colors.text.disabled}
-                  value={ritualName}
-                  onChangeText={setRitualName}
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={handleSaveRitual}
-                  maxLength={50}
-                />
-                <Pressable
-                  style={[
-                    styles.saveRitualButton,
-                    !ritualName.trim() && styles.saveRitualButtonDisabled,
-                  ]}
-                  onPress={handleSaveRitual}
-                  disabled={!ritualName.trim()}
-                >
-                  <Text style={styles.saveRitualButtonText}>Save</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.saveRitualCancel}
-                  onPress={() => {
-                    setShowSaveRitual(false);
-                    setRitualName("");
-                  }}
-                >
-                  <Text style={styles.dismissText}>✕</Text>
-                </Pressable>
-              </View>
-            )}
           </ScrollView>
         )}
 
@@ -1448,62 +1488,49 @@ const createStyles = (colors: Colors) =>
       fontSize: 10,
       color: colors.text.disabled,
     },
-    /* ── Save as ritual ─── */
-    saveRitualToggle: {
-      paddingVertical: 8,
-      alignItems: "center",
-      marginTop: spacing.lg,
+    /* ── Time picker ─── */
+    timePickerSection: {
+      marginTop: spacing.sm,
+      gap: 8,
     },
-    saveRitualToggleText: {
-      fontFamily: fontFamily.mono,
-      fontSize: 11,
-      color: GREEN_ACCENT,
-      textTransform: "uppercase",
-      letterSpacing: 1,
-    },
-    saveRitualRow: {
+    timeRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
-      marginTop: spacing.lg,
+      gap: 8,
     },
-    saveRitualInput: {
-      flex: 1,
-      height: 34,
-      borderRadius: radius.md,
+    timeLabel: {
+      fontFamily: fontFamily.mono,
+      fontSize: 10,
+      color: colors.text.disabled,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+      width: 36,
+    },
+    timePill: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: radius.full,
       backgroundColor: colors.bg.elevated,
       borderWidth: 1,
       borderColor: colors.border.default,
-      paddingHorizontal: 10,
-      fontFamily: fontFamily.mono,
-      fontSize: 12,
-      color: colors.text.primary,
     },
-    saveRitualButton: {
+    timePillActive: {
       backgroundColor: GREEN_MUTED,
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.25)",
-      paddingHorizontal: 12,
-      paddingVertical: 7,
+      borderColor: "rgba(134, 239, 172, 0.4)",
     },
-    saveRitualButtonDisabled: {
-      opacity: 0.4,
-    },
-    saveRitualButtonText: {
+    timePillText: {
       fontFamily: fontFamily.mono,
       fontSize: 11,
-      color: GREEN_ACCENT,
-      fontWeight: "700",
-      textTransform: "uppercase",
-      letterSpacing: 0.5,
+      color: colors.text.secondary,
     },
-    saveRitualCancel: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      backgroundColor: colors.bg.elevated,
-      alignItems: "center",
-      justifyContent: "center",
+    timePillTextActive: {
+      color: GREEN_ACCENT,
+    },
+    timeSummary: {
+      fontFamily: fontFamily.mono,
+      fontSize: 10,
+      color: colors.text.disabled,
+      textAlign: "right",
+      letterSpacing: 0.5,
     },
   });

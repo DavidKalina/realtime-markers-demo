@@ -120,7 +120,6 @@ const SpacesBrowseScreen = () => {
   return (
     <Screen
       isScrollable={false}
-      bannerTitle="Spaces"
       bannerDescription="Third Space Scores for cities near you"
       showBackButton
       onBack={handleBack}

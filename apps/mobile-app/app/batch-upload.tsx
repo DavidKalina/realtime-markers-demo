@@ -147,7 +147,6 @@ export default function BatchUploadScreen() {
   return (
     <Screen
       bannerEmoji="📤"
-      bannerTitle="Batch Upload"
       onBack={handleBack}
       isScrollable={true}
       noSafeArea={false}

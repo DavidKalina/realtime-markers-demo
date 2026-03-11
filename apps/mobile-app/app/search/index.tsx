@@ -219,7 +219,6 @@ const SearchListScreen = () => {
   return (
     <Screen
       isScrollable={false}
-      bannerTitle={getBannerTitle()}
       bannerDescription={getBannerDescription()}
       bannerEmoji="🔍"
       showBackButton

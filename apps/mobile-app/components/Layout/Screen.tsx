@@ -51,7 +51,6 @@ export interface TabItem<T extends string> {
 
 export interface ScreenProps<T extends string = string> {
   // Banner props
-  bannerTitle?: string;
   bannerDescription?: string;
   bannerEmoji?: string;
   showBackButton?: boolean;
@@ -100,7 +99,6 @@ export interface ScreenProps<T extends string = string> {
 }
 
 const Screen = <T extends string>({
-  bannerTitle,
   showBackButton,
   onBack,
   tabs,
@@ -206,12 +204,10 @@ const Screen = <T extends string>({
       extendBannerToStatusBar={extendBannerToStatusBar}
     >
       <View style={mainContainerStyle}>
-        {(bannerTitle || resolvedShowBackButton) && (
+        {resolvedShowBackButton && (
           <View style={styles.fixedBannerWrapper}>
             <Banner
-              name={bannerTitle || ""}
               onBack={handleBack}
-              scrollY={scrollY}
               extendToStatusBar={extendBannerToStatusBar}
             />
           </View>

@@ -268,7 +268,6 @@ export default function ScanScreen() {
     );
     return (
       <Screen
-        bannerTitle="Scan Document"
         showBackButton={false}
         isScrollable={false}
         noSafeArea={false}

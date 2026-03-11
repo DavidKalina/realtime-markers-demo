@@ -17,6 +17,8 @@ export const createItineraryHandler = async (c: Context<AppContext>) => {
     activityTypes?: string[];
     stopCount?: number;
     ritualId?: string;
+    startTime?: string;
+    endTime?: string;
   }>();
 
   if (!body.city || typeof body.city !== "string") {
@@ -46,6 +48,8 @@ export const createItineraryHandler = async (c: Context<AppContext>) => {
       durationHours: body.durationHours,
       activityTypes: body.activityTypes ?? [],
       stopCount: body.stopCount ?? 0,
+      ...(body.startTime && { startTime: body.startTime }),
+      ...(body.endTime && { endTime: body.endTime }),
     });
 
     // Record ritual usage if this itinerary was created from one

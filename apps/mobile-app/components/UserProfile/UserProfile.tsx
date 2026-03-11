@@ -145,7 +145,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     <>
       <Screen
         isScrollable={false}
-        bannerTitle="Profile"
         bannerDescription="Your account and preferences"
         showBackButton
         onBack={handleBack}

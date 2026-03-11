@@ -50,7 +50,6 @@ export default function AreaScanScreen() {
 
   return (
     <Screen
-      bannerTitle="Area Scan"
       onBack={() => router.back()}
       isScrollable={false}
       bottomContent={

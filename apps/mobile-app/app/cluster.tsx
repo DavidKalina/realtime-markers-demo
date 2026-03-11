@@ -84,7 +84,6 @@ export default function ClusterScreen() {
 
   return (
     <Screen
-      bannerTitle="Cluster Scan"
       onBack={() => router.back()}
       isScrollable={false}
       bottomContent={

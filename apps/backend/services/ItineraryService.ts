@@ -21,6 +21,8 @@ export interface CreateItineraryInput {
   durationHours: number;
   activityTypes: string[];
   stopCount: number; // 0 = let LLM decide
+  startTime?: string; // HH:MM (24h) — optional fixed start
+  endTime?: string; // HH:MM (24h) — optional fixed end
 }
 
 interface LLMItineraryItem {
@@ -805,11 +807,17 @@ Respond ONLY with valid JSON matching this schema:
   ]
 }`;
 
+    const timeConstraint = input.startTime && input.endTime
+      ? `\nTime window: ${input.startTime} – ${input.endTime} (schedule all stops within this window)`
+      : input.startTime
+        ? `\nStart time: ${input.startTime} (begin the itinerary at this time)`
+        : "";
+
     const userPrompt = `City: ${input.city}
 Date: ${input.plannedDate}
 Duration: ${input.durationHours} hours
 Budget: ${budgetRange}
-Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}
+Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}${timeConstraint}
 
 EVENTS (use ONLY these for event-type stops):
 ${eventList}

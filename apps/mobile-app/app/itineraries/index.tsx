@@ -1,6 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   StyleSheet,
@@ -12,6 +19,7 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, {
   Easing,
+  FadeIn,
   interpolate,
   useAnimatedStyle,
   useSharedValue,
@@ -21,7 +29,8 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { Settings } from "lucide-react-native";
+import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
+import { Settings, Trash2 } from "lucide-react-native";
 import { scheduleOnRN } from "react-native-worklets";
 import Screen from "@/components/Layout/Screen";
 import { apiClient } from "@/services/ApiClient";
@@ -63,25 +72,40 @@ interface ItineraryListItemProps {
   index: number;
   activeItineraryId: string | null;
   onPress: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
 const STAGGER_MS = 50;
 const SPRING_CONFIG = { damping: 18, stiffness: 160, mass: 0.8 };
 
+const DELETE_ACTION_WIDTH = 80;
+
+const RenderDeleteAction = React.memo(
+  ({ onDelete, colors }: { onDelete: () => void; colors: Colors }) => {
+    const styles = useMemo(() => createStyles(colors), [colors]);
+    return (
+      <Pressable onPress={onDelete} style={styles.deleteAction}>
+        <Trash2 size={20} color="#fff" strokeWidth={2} />
+        <Text style={styles.deleteText}>Delete</Text>
+      </Pressable>
+    );
+  },
+);
+
+RenderDeleteAction.displayName = "RenderDeleteAction";
+
 const ItineraryListItem: React.FC<ItineraryListItemProps> = React.memo(
-  ({ item, index, activeItineraryId, onPress }) => {
+  ({ item, index, activeItineraryId, onPress, onDelete }) => {
     const colors = useColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
+    const swipeableRef = useRef<any>(null);
     const scale = useSharedValue(1);
     const entrance = useSharedValue(0);
     const isActive = item.id === activeItineraryId;
 
     useEffect(() => {
       const delay = Math.min(index, 10) * STAGGER_MS;
-      entrance.value = withDelay(
-        delay,
-        withSpring(1, SPRING_CONFIG),
-      );
+      entrance.value = withDelay(delay, withSpring(1, SPRING_CONFIG));
     }, []);
 
     const navigate = useCallback(() => {
@@ -96,6 +120,25 @@ const ItineraryListItem: React.FC<ItineraryListItemProps> = React.memo(
         }),
       );
     }, [navigate, scale]);
+
+    const handleDelete = useCallback(() => {
+      swipeableRef.current?.close();
+      onDelete(item.id);
+    }, [item.id, onDelete]);
+
+    const renderRightActions = useCallback(
+      () => <RenderDeleteAction onDelete={handleDelete} colors={colors} />,
+      [handleDelete, colors],
+    );
+
+    const handleSwipeOpen = useCallback(
+      (direction: "left" | "right") => {
+        if (direction === "right") {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+      },
+      [],
+    );
 
     const entranceStyle = useAnimatedStyle(() => ({
       opacity: interpolate(entrance.value, [0, 0.5, 1], [0, 0.6, 1]),
@@ -137,29 +180,37 @@ const ItineraryListItem: React.FC<ItineraryListItemProps> = React.memo(
 
     return (
       <Animated.View style={entranceStyle}>
-        <Pressable onPress={handlePress}>
-          <Animated.View style={[styles.row, pressStyle]}>
-            <Text style={styles.emoji}>{firstEmoji}</Text>
-            <View style={styles.info}>
-              <View style={styles.titleRow}>
-                <Text style={styles.title} numberOfLines={1}>
-                  {item.title || "Untitled Plan"}
-                </Text>
-                {isActive && (
-                  <View style={styles.activeDot} />
-                )}
-                <Text
-                  style={[styles.statusBadge, { color: statusBadge.color }]}
-                >
-                  {statusBadge.text}
+        <ReanimatedSwipeable
+          ref={swipeableRef}
+          renderRightActions={renderRightActions}
+          rightThreshold={DELETE_ACTION_WIDTH}
+          overshootRight={false}
+          onSwipeableWillOpen={handleSwipeOpen}
+        >
+          <Pressable onPress={handlePress}>
+            <Animated.View
+              style={[styles.row, { backgroundColor: colors.bg.primary }, pressStyle]}
+            >
+              <Text style={styles.emoji}>{firstEmoji}</Text>
+              <View style={styles.info}>
+                <View style={styles.titleRow}>
+                  <Text style={styles.title} numberOfLines={1}>
+                    {item.title || "Untitled Plan"}
+                  </Text>
+                  {isActive && <View style={styles.activeDot} />}
+                  <Text
+                    style={[styles.statusBadge, { color: statusBadge.color }]}
+                  >
+                    {statusBadge.text}
+                  </Text>
+                </View>
+                <Text style={styles.meta} numberOfLines={1}>
+                  {meta}
                 </Text>
               </View>
-              <Text style={styles.meta} numberOfLines={1}>
-                {meta}
-              </Text>
-            </View>
-          </Animated.View>
-        </Pressable>
+            </Animated.View>
+          </Pressable>
+        </ReanimatedSwipeable>
       </Animated.View>
     );
   },
@@ -211,7 +262,13 @@ const GeneratingRow: React.FC = React.memo(() => {
           {stepLabel || "Generating..."}
         </Text>
         <View style={styles.genTrack}>
-          <Animated.View style={[styles.genBar, barStyle, { backgroundColor: colors.accent.primary }]} />
+          <Animated.View
+            style={[
+              styles.genBar,
+              barStyle,
+              { backgroundColor: colors.accent.primary },
+            ]}
+          />
         </View>
       </View>
     </Animated.View>
@@ -229,7 +286,9 @@ const ItinerariesListScreen = () => {
   const isGenerating = useItineraryJobStore((s) => !!s.activeJobId);
   const hasReady = useItineraryJobStore((s) => s.hasReady);
   const clearReady = useItineraryJobStore((s) => s.clearReady);
-  const activeItineraryId = useActiveItineraryStore((s) => s.itinerary?.id ?? null);
+  const activeItineraryId = useActiveItineraryStore(
+    (s) => s.itinerary?.id ?? null,
+  );
 
   const PAGE_SIZE = 20;
   const [itineraries, setItineraries] = useState<ItineraryResponse[]>([]);
@@ -303,6 +362,39 @@ const ItinerariesListScreen = () => {
     [router],
   );
 
+  const handleDelete = useCallback(
+    (id: string) => {
+      const itinerary = itineraries.find((it) => it.id === id);
+      const isActiveItem = id === activeItineraryId;
+      const title = itinerary?.title || "this itinerary";
+
+      Alert.alert(
+        "Delete itinerary",
+        `Are you sure you want to delete "${title}"?${isActiveItem ? " This is your active itinerary." : ""}`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Success,
+              );
+              setItineraries((prev) => prev.filter((it) => it.id !== id));
+              try {
+                await apiClient.itineraries.deleteById(id);
+              } catch (err) {
+                console.error("[Itineraries] Failed to delete:", err);
+                fetchItineraries();
+              }
+            },
+          },
+        ],
+      );
+    },
+    [itineraries, activeItineraryId, fetchItineraries],
+  );
+
   const renderItem = useCallback(
     ({ item, index }: { item: ItineraryResponse; index: number }) => (
       <ItineraryListItem
@@ -310,9 +402,10 @@ const ItinerariesListScreen = () => {
         index={index}
         activeItineraryId={activeItineraryId}
         onPress={handlePress}
+        onDelete={handleDelete}
       />
     ),
-    [handlePress, activeItineraryId],
+    [handlePress, handleDelete, activeItineraryId],
   );
 
   const renderEmpty = useCallback(() => {
@@ -331,7 +424,6 @@ const ItinerariesListScreen = () => {
   return (
     <Screen
       isScrollable={false}
-      bannerTitle="Plans"
       bannerDescription="Your itineraries"
       showBackButton
       onBack={handleBack}
@@ -477,5 +569,18 @@ const createStyles = (colors: Colors) =>
     genBar: {
       height: 3,
       borderRadius: 1.5,
+    },
+    deleteAction: {
+      width: DELETE_ACTION_WIDTH,
+      backgroundColor: colors.status.error.text,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 4,
+    },
+    deleteText: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: "#fff",
     },
   });

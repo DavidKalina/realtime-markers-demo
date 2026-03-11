@@ -4,12 +4,14 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   Share,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import Animated, {
@@ -30,7 +32,10 @@ import ItineraryTimeline from "@/components/Itinerary/ItineraryTimeline";
 import ItineraryMapPreview from "@/components/Itinerary/ItineraryMapPreview";
 
 import { apiClient } from "@/services/ApiClient";
-import type { ItineraryResponse } from "@/services/api/modules/itineraries";
+import type {
+  ItineraryResponse,
+  ItineraryItemResponse,
+} from "@/services/api/modules/itineraries";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { eventBroker, EventTypes } from "@/services/EventBroker";
 import {
@@ -280,6 +285,60 @@ const ItineraryDetailScreen = () => {
     }
   }, [itinerary]);
 
+  // Item detail modal
+  const [selectedItem, setSelectedItem] = useState<ItineraryItemResponse | null>(
+    null,
+  );
+
+  const handleItemPress = useCallback((item: ItineraryItemResponse) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedItem(item);
+  }, []);
+
+  // Save as ritual
+  const [showSaveRitual, setShowSaveRitual] = useState(false);
+  const [ritualName, setRitualName] = useState("");
+
+  const ACTIVITY_EMOJI: Record<string, string> = {
+    food: "\u{1F37D}\uFE0F",
+    coffee: "\u2615",
+    music: "\u{1F3B5}",
+    art: "\u{1F3A8}",
+    outdoors: "\u{1F333}",
+    boarding: "\u{1F6F9}",
+    hiking: "\u{1F97E}",
+    walking: "\u{1F6B6}",
+    nightlife: "\u{1F378}",
+    sports: "\u26BD",
+    culture: "\u{1F3DB}\uFE0F",
+  };
+
+  const handleSaveRitual = useCallback(async () => {
+    if (!ritualName.trim() || !itinerary) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    const emoji =
+      ACTIVITY_EMOJI[itinerary.activityTypes?.[0]] || "\u{1F501}";
+
+    try {
+      await apiClient.rituals.create({
+        name: ritualName.trim(),
+        emoji,
+        budgetMin: 0,
+        budgetMax: itinerary.budgetMax,
+        durationHours: itinerary.durationHours,
+        activityTypes: itinerary.activityTypes,
+        stopCount: itinerary.items.length,
+      });
+      setShowSaveRitual(false);
+      setRitualName("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      console.error("[ItineraryDetail] Failed to save ritual:", err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }, [ritualName, itinerary]);
+
   const formatDate = useCallback((dateStr: string) => {
     const date = new Date(dateStr + "T00:00:00");
     return date.toLocaleDateString("en-US", {
@@ -295,7 +354,6 @@ const ItineraryDetailScreen = () => {
     return (
       <Screen
         isScrollable={false}
-        bannerTitle="Itinerary"
         showBackButton
         onBack={handleBack}
         noAnimation
@@ -311,7 +369,6 @@ const ItineraryDetailScreen = () => {
     return (
       <Screen
         isScrollable={false}
-        bannerTitle="Itinerary"
         showBackButton
         onBack={handleBack}
         noAnimation
@@ -346,7 +403,6 @@ const ItineraryDetailScreen = () => {
   return (
     <Screen
       isScrollable={false}
-      bannerTitle={itinerary.city}
       showBackButton
       onBack={handleBack}
       noAnimation
@@ -454,15 +510,15 @@ const ItineraryDetailScreen = () => {
             )}
           </Animated.View>
 
-          {/* Vibe tags */}
-          {itinerary.activityTypes && itinerary.activityTypes.length > 0 && (
-            <Animated.View
-              entering={FadeInDown.delay(400)
-                .duration(400)
-                .easing(Easing.out(Easing.cubic))}
-              style={styles.vibeRow}
-            >
-              {itinerary.activityTypes.map((vibe, i) => (
+          {/* Vibe tags + save as ritual */}
+          <Animated.View
+            entering={FadeInDown.delay(400)
+              .duration(400)
+              .easing(Easing.out(Easing.cubic))}
+            style={styles.vibeAndRitualRow}
+          >
+            <View style={styles.vibeRow}>
+              {(itinerary.activityTypes ?? []).map((vibe, i) => (
                 <Animated.View
                   key={vibe}
                   entering={FadeInRight.delay(450 + i * 60).duration(350)}
@@ -471,8 +527,20 @@ const ItineraryDetailScreen = () => {
                   <Text style={styles.vibeText}>{vibe}</Text>
                 </Animated.View>
               ))}
-            </Animated.View>
-          )}
+            </View>
+            <Pressable
+              style={({ pressed }) => [
+                styles.saveRitualToggle,
+                pressed && styles.saveRitualTogglePressed,
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowSaveRitual(true);
+              }}
+            >
+              <Text style={styles.saveRitualToggleText}>Save as ritual</Text>
+            </Pressable>
+          </Animated.View>
         </Animated.View>
 
         {/* ── Divider ── */}
@@ -512,6 +580,7 @@ const ItineraryDetailScreen = () => {
           forecast={displayItinerary?.forecast}
           isActive={isThisActive}
           onCheckin={isThisActive ? handleManualCheckin : undefined}
+          onItemPress={handleItemPress}
         />
 
         {/* ── Map Preview ── */}
@@ -599,8 +668,209 @@ const ItineraryDetailScreen = () => {
               </Pressable>
             </>
           )}
+
         </Animated.View>
       </ScrollView>
+
+      {/* Save as ritual modal */}
+      <Modal
+        visible={showSaveRitual}
+        transparent
+        animationType="none"
+        onRequestClose={() => {
+          setShowSaveRitual(false);
+          setRitualName("");
+        }}
+      >
+        <Pressable
+          style={styles.ritualModalBackdrop}
+          onPress={() => {
+            setShowSaveRitual(false);
+            setRitualName("");
+          }}
+        >
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            style={styles.ritualModalBackdropFill}
+          />
+          <Animated.View
+            entering={FadeInDown.duration(250).easing(Easing.out(Easing.cubic))}
+            style={styles.ritualModalCard}
+          >
+            <Pressable>
+              <View style={styles.ritualModalAccent} />
+              <Text style={styles.ritualModalTitle}>Save as Ritual</Text>
+              <Text style={styles.ritualModalDescription}>
+                Save this itinerary's settings as a reusable ritual template.
+              </Text>
+              <TextInput
+                style={styles.ritualModalInput}
+                placeholder="Ritual name..."
+                placeholderTextColor={colors.text.disabled}
+                value={ritualName}
+                onChangeText={setRitualName}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={handleSaveRitual}
+                maxLength={50}
+              />
+              <View style={styles.ritualModalActions}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.ritualModalCancel,
+                    pressed && styles.ritualModalCancelPressed,
+                  ]}
+                  onPress={() => {
+                    setShowSaveRitual(false);
+                    setRitualName("");
+                  }}
+                >
+                  <Text style={styles.ritualModalCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.ritualModalSave,
+                    pressed && styles.ritualModalSavePressed,
+                    !ritualName.trim() && styles.ritualModalSaveDisabled,
+                  ]}
+                  onPress={handleSaveRitual}
+                  disabled={!ritualName.trim()}
+                >
+                  <Text style={styles.ritualModalSaveText}>Save</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      </Modal>
+
+      {/* Item detail modal */}
+      <Modal
+        visible={!!selectedItem}
+        transparent
+        animationType="none"
+        onRequestClose={() => setSelectedItem(null)}
+      >
+        <Pressable
+          style={styles.ritualModalBackdrop}
+          onPress={() => setSelectedItem(null)}
+        >
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            style={styles.ritualModalBackdropFill}
+          />
+          {selectedItem && (
+            <Animated.View
+              entering={FadeInDown.duration(250).easing(
+                Easing.out(Easing.cubic),
+              )}
+              style={styles.itemDetailCard}
+            >
+              <Pressable>
+                {/* Green accent bar */}
+                <View style={styles.itemDetailAccent} />
+
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingBottom: spacing.lg }}
+                >
+                  {/* Header */}
+                  <View style={styles.itemDetailHeader}>
+                    <View style={styles.itemDetailEmojiCircle}>
+                      <Text style={styles.itemDetailEmoji}>
+                        {selectedItem.emoji || "\u{1F4CD}"}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.itemDetailTitle}>
+                        {selectedItem.title}
+                      </Text>
+                      <Text style={styles.itemDetailTime}>
+                        {formatTime(selectedItem.startTime)} –{" "}
+                        {formatTime(selectedItem.endTime)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Description */}
+                  {selectedItem.description && (
+                    <Text style={styles.itemDetailDesc}>
+                      {selectedItem.description}
+                    </Text>
+                  )}
+
+                  {/* Why this stop */}
+                  {selectedItem.whyThisStop && (
+                    <View style={styles.itemDetailSection}>
+                      <Text style={styles.itemDetailSectionLabel}>
+                        WHY THIS STOP
+                      </Text>
+                      <Text style={styles.itemDetailSectionText}>
+                        {selectedItem.whyThisStop}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Pro tip */}
+                  {selectedItem.proTip && (
+                    <View style={styles.itemDetailProTip}>
+                      <Text style={styles.itemDetailProTipLabel}>PRO TIP</Text>
+                      <Text style={styles.itemDetailProTipText}>
+                        {selectedItem.proTip}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Venue info */}
+                  {(selectedItem.venueName || selectedItem.venueAddress) && (
+                    <View style={styles.itemDetailSection}>
+                      <Text style={styles.itemDetailSectionLabel}>VENUE</Text>
+                      {selectedItem.venueName && (
+                        <Text style={styles.itemDetailVenueName}>
+                          {selectedItem.venueName}
+                        </Text>
+                      )}
+                      {selectedItem.venueAddress && (
+                        <Text style={styles.itemDetailSectionText}>
+                          {selectedItem.venueAddress}
+                        </Text>
+                      )}
+                      {selectedItem.venueCategory && (
+                        <Text style={styles.itemDetailMeta}>
+                          {selectedItem.venueCategory}
+                        </Text>
+                      )}
+                      {selectedItem.googleRating != null && (
+                        <Text style={styles.itemDetailMeta}>
+                          {"\u2B50"} {selectedItem.googleRating} on Google
+                        </Text>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Cost + travel chips */}
+                  <View style={styles.itemDetailChipRow}>
+                    {Number(selectedItem.estimatedCost) > 0 && (
+                      <View style={styles.itemDetailChipGreen}>
+                        <Text style={styles.itemDetailChipGreenText}>
+                          ~${Number(selectedItem.estimatedCost)}
+                        </Text>
+                      </View>
+                    )}
+                    {selectedItem.travelNote && (
+                      <View style={styles.itemDetailChip}>
+                        <Text style={styles.itemDetailChipText}>
+                          {selectedItem.travelNote}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </ScrollView>
+              </Pressable>
+            </Animated.View>
+          )}
+        </Pressable>
+      </Modal>
     </Screen>
   );
 };
@@ -704,6 +974,7 @@ const createStyles = (colors: Colors) =>
       flexDirection: "row",
       flexWrap: "wrap",
       gap: 6,
+      flex: 1,
     },
     vibePill: {
       backgroundColor: "rgba(249, 168, 212, 0.08)",
@@ -876,5 +1147,284 @@ const createStyles = (colors: Colors) =>
       fontWeight: fontWeight.semibold,
       textTransform: "uppercase",
       letterSpacing: 1,
+    },
+
+    // ── Vibe + ritual row ──
+    vibeAndRitualRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-end",
+      gap: spacing.sm,
+    },
+
+    // ── Save as ritual ──
+    saveRitualToggle: {
+      flexShrink: 0,
+      paddingVertical: 2,
+    },
+    saveRitualTogglePressed: {
+      opacity: 0.6,
+    },
+    saveRitualToggleText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 10,
+      color: "#86efac",
+      fontWeight: fontWeight.semibold,
+      textDecorationLine: "underline",
+    },
+
+    // ── Ritual modal ──
+    ritualModalBackdrop: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    ritualModalBackdropFill: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: colors.overlay.light,
+    },
+    ritualModalCard: {
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.xl,
+      padding: spacing["2xl"],
+      width: "85%",
+      maxWidth: 360,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      shadowColor: colors.fixed.black,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.25,
+      shadowRadius: 20,
+      elevation: 10,
+    },
+    ritualModalAccent: {
+      height: 3,
+      borderRadius: 2,
+      width: 32,
+      marginBottom: spacing.md,
+      backgroundColor: "#86efac",
+    },
+    ritualModalTitle: {
+      fontSize: fontSize.lg,
+      fontWeight: fontWeight.bold,
+      color: colors.text.primary,
+      fontFamily: fontFamily.mono,
+      marginBottom: spacing.xs,
+    },
+    ritualModalDescription: {
+      fontSize: fontSize.sm,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+      lineHeight: 20,
+      marginBottom: spacing.lg,
+    },
+    ritualModalInput: {
+      height: 42,
+      borderRadius: radius.md,
+      backgroundColor: colors.bg.elevated,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      paddingHorizontal: spacing.md,
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+      color: colors.text.primary,
+      marginBottom: spacing.lg,
+    },
+    ritualModalActions: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      gap: spacing.sm,
+    },
+    ritualModalCancel: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      backgroundColor: colors.bg.elevated,
+    },
+    ritualModalCancelPressed: {
+      opacity: 0.7,
+    },
+    ritualModalCancelText: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+    },
+    ritualModalSave: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radius.md,
+      backgroundColor: "rgba(134, 239, 172, 0.15)",
+      borderWidth: 1,
+      borderColor: "rgba(134, 239, 172, 0.3)",
+    },
+    ritualModalSavePressed: {
+      backgroundColor: "rgba(134, 239, 172, 0.25)",
+    },
+    ritualModalSaveDisabled: {
+      opacity: 0.4,
+    },
+    ritualModalSaveText: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: "#86efac",
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+
+    // ── Item detail modal ──
+    itemDetailCard: {
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.xl,
+      padding: spacing["2xl"],
+      width: "90%",
+      maxWidth: 380,
+      maxHeight: "80%",
+      borderWidth: 1,
+      borderColor: "rgba(134, 239, 172, 0.2)",
+      shadowColor: colors.fixed.black,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.25,
+      shadowRadius: 20,
+      elevation: 10,
+    },
+    itemDetailAccent: {
+      height: 3,
+      borderRadius: 2,
+      width: 32,
+      marginBottom: spacing.md,
+      backgroundColor: "#86efac",
+    },
+    itemDetailHeader: {
+      flexDirection: "row",
+      gap: spacing.md,
+      alignItems: "center",
+      marginBottom: spacing.md,
+    },
+    itemDetailEmojiCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: "rgba(134, 239, 172, 0.1)",
+      borderWidth: 1,
+      borderColor: "rgba(134, 239, 172, 0.2)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    itemDetailEmoji: {
+      fontSize: 22,
+    },
+    itemDetailTitle: {
+      fontSize: fontSize.lg,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+      lineHeight: 22,
+    },
+    itemDetailTime: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: "#86efac",
+      marginTop: 2,
+    },
+    itemDetailDesc: {
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      color: colors.text.secondary,
+      lineHeight: 20,
+      marginBottom: spacing.md,
+    },
+    itemDetailSection: {
+      marginBottom: spacing.md,
+      gap: 4,
+    },
+    itemDetailSectionLabel: {
+      fontSize: 9,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: "#86efac",
+      letterSpacing: 1.5,
+      marginBottom: 2,
+    },
+    itemDetailSectionText: {
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      color: colors.text.primary,
+      lineHeight: 20,
+    },
+    itemDetailProTip: {
+      marginBottom: spacing.md,
+      gap: 4,
+      backgroundColor: "rgba(134, 239, 172, 0.06)",
+      borderWidth: 1,
+      borderColor: "rgba(134, 239, 172, 0.15)",
+      borderRadius: radius.md,
+      padding: spacing.md,
+    },
+    itemDetailProTipLabel: {
+      fontSize: 9,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: "#86efac",
+      letterSpacing: 1.5,
+    },
+    itemDetailProTipText: {
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      color: colors.text.primary,
+      lineHeight: 20,
+    },
+    itemDetailVenueName: {
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+    },
+    itemDetailMeta: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      color: colors.text.detail,
+      marginTop: 2,
+    },
+    itemDetailChipRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: spacing.xs,
+    },
+    itemDetailChipGreen: {
+      borderWidth: 1,
+      borderColor: "rgba(134, 239, 172, 0.3)",
+      backgroundColor: "rgba(134, 239, 172, 0.08)",
+      borderRadius: radius.full,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    itemDetailChipGreenText: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: "#86efac",
+    },
+    itemDetailChip: {
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      borderRadius: radius.full,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    itemDetailChipText: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
     },
   });

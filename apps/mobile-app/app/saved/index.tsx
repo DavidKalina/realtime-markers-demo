@@ -97,7 +97,6 @@ const SavedListScreen = () => {
   return (
     <Screen
       isScrollable={false}
-      bannerTitle="Saved"
       bannerEmoji="🔖"
       showBackButton
       onBack={handleBack}

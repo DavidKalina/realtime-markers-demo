@@ -111,7 +111,6 @@ const CityDetailScreen = () => {
   return (
     <Screen
       isScrollable={false}
-      bannerTitle={cityLabel}
       bannerDescription="Third Space Score & Events"
       showBackButton
       onBack={handleBack}

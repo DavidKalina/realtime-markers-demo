@@ -33,7 +33,7 @@ const createScreenLayoutStyles = (colors: Colors) => StyleSheet.create({
     left: 0,
     right: 0,
     height: 44, // Approximate status bar height
-    backgroundColor: colors.bg.card,
+    backgroundColor: colors.bg.primary,
     zIndex: 1,
   },
 });
