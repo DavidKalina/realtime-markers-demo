@@ -260,7 +260,9 @@ export function CreateItineraryForm({
           <div className="flex items-center justify-between p-3 bg-secondary rounded-lg border">
             <div>
               <p className="font-medium">
-                {selectedUser.displayName || selectedUser.email}
+                {selectedUser.firstName
+                  ? `${selectedUser.firstName} ${selectedUser.lastName || ""}`.trim()
+                  : selectedUser.email}
               </p>
               <p className="text-sm text-muted-foreground">
                 {selectedUser.email}
@@ -304,7 +306,9 @@ export function CreateItineraryForm({
                     }}
                   >
                     <p className="text-sm font-medium">
-                      {user.displayName || "No name"}
+                      {user.firstName
+                        ? `${user.firstName} ${user.lastName || ""}`.trim()
+                        : "No name"}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {user.email}
