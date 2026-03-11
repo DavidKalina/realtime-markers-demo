@@ -7,7 +7,6 @@ import dynamic from "next/dynamic";
 import { useCallback, useState } from "react";
 import type { ViewState } from "react-map-gl/mapbox";
 import { Marker as MapboxMarker, Source, Layer } from "react-map-gl/mapbox";
-import type { FillLayer } from "react-map-gl/mapbox";
 import type { ItineraryItemFormData } from "./CreateItineraryForm";
 
 const Map = dynamic(
@@ -55,7 +54,7 @@ function createCircleGeoJSON(
   };
 }
 
-const circleFillStyle: FillLayer = {
+const circleFillStyle = {
   id: "check-in-radius-fill",
   type: "fill",
   paint: {
@@ -71,7 +70,6 @@ export function ItineraryMapPreview({
   onMapClick,
   className = "",
 }: ItineraryMapPreviewProps) {
-  const mapRef = useRef<MapRef>(null);
   const [viewState, setViewState] = useState({
     longitude: -74.006,
     latitude: 40.7128,
@@ -144,7 +142,6 @@ export function ItineraryMapPreview({
       <CardContent>
         <div className="relative h-[500px] rounded-lg overflow-hidden border">
           <Map
-            ref={mapRef}
             {...viewState}
             onMove={handleViewportChange}
             onClick={handleMapClick}
