@@ -56,7 +56,7 @@ function createCircleGeoJSON(
 
 const circleFillStyle = {
   id: "check-in-radius-fill",
-  type: "fill",
+  type: "fill" as const,
   paint: {
     "fill-color": "#3b82f6",
     "fill-opacity": 0.12,
