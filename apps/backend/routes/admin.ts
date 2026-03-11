@@ -6,6 +6,7 @@ import { adminAuthMiddleware } from "../middleware/adminMiddleware";
 import { ip } from "../middleware/ip";
 import { rateLimit } from "../middleware/rateLimit";
 import { UserRole } from "@realtime-markers/database";
+import { adminCreateItineraryHandler } from "../handlers/adminItineraryHandlers";
 import {
   getQueryInsightsHandler,
   getPopularQueriesHandler,
@@ -156,6 +157,9 @@ adminRouter.post("/recalculate-counts", async (c) => {
     );
   }
 });
+
+// Itinerary Management
+adminRouter.post("/itineraries", adminCreateItineraryHandler);
 
 // Query Analytics Endpoints
 adminRouter.get("/analytics/queries/insights", getQueryInsightsHandler);

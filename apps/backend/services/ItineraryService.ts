@@ -68,6 +68,20 @@ interface GeocodedData {
   canonicalAddress: string | null;
 }
 
+export interface PopularStop {
+  venueName: string;
+  venueCategory: string | null;
+  emoji: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  googlePlaceId: string | null;
+  googleRating: number | null;
+  frequency: number;
+  completions: number;
+  completionRate: number;
+  score: number;
+}
+
 export interface ItineraryService {
   create(userId: string, input: CreateItineraryInput): Promise<Itinerary>;
   listByUser(
@@ -79,6 +93,7 @@ export interface ItineraryService {
   deleteById(id: string, userId: string): Promise<boolean>;
   generateShareToken(id: string, userId: string): Promise<string | null>;
   getByShareToken(shareToken: string): Promise<Itinerary | null>;
+  getPopularStops(city: string, limit?: number): Promise<PopularStop[]>;
 }
 
 interface ItineraryServiceDeps {
@@ -879,6 +894,70 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${input.city} (real OpenStreetM
     }
 
     return parsed;
+  }
+
+  async getPopularStops(
+    city: string,
+    limit = 15,
+  ): Promise<PopularStop[]> {
+    const rows: {
+      venue_name: string;
+      venue_category: string | null;
+      emoji: string | null;
+      latitude: string | null;
+      longitude: string | null;
+      google_place_id: string | null;
+      google_rating: string | null;
+      frequency: string;
+      completions: string;
+    }[] = await this.dataSource.query(
+      `
+      SELECT
+        ii.venue_name,
+        MODE() WITHIN GROUP (ORDER BY ii.venue_category) AS venue_category,
+        MODE() WITHIN GROUP (ORDER BY ii.emoji) AS emoji,
+        AVG(ii.latitude)::numeric(10,7) AS latitude,
+        AVG(ii.longitude)::numeric(10,7) AS longitude,
+        MODE() WITHIN GROUP (ORDER BY ii.google_place_id) AS google_place_id,
+        MAX(ii.google_rating) AS google_rating,
+        COUNT(*)::int AS frequency,
+        COUNT(ii.checked_in_at)::int AS completions
+      FROM itinerary_items ii
+      JOIN itineraries i ON i.id = ii.itinerary_id
+      WHERE LOWER(i.city) = LOWER($1)
+        AND i.status = 'READY'
+        AND ii.venue_name IS NOT NULL
+      GROUP BY COALESCE(ii.google_place_id, LOWER(ii.venue_name))
+        , ii.venue_name
+      HAVING COUNT(*) >= 2
+      ORDER BY
+        COUNT(*)::float
+        * POWER(COUNT(ii.checked_in_at)::float / GREATEST(COUNT(*), 1), 2)
+        DESC
+      LIMIT $2
+      `,
+      [city, limit],
+    );
+
+    return rows.map((r) => {
+      const frequency = Number(r.frequency);
+      const completions = Number(r.completions);
+      const completionRate = frequency > 0 ? completions / frequency : 0;
+      return {
+        venueName: r.venue_name,
+        venueCategory: r.venue_category,
+        emoji: r.emoji,
+        latitude: r.latitude ? Number(r.latitude) : null,
+        longitude: r.longitude ? Number(r.longitude) : null,
+        googlePlaceId: r.google_place_id,
+        googleRating: r.google_rating ? Number(r.google_rating) : null,
+        frequency,
+        completions,
+        completionRate: Math.round(completionRate * 100) / 100,
+        score:
+          Math.round(frequency * completionRate * completionRate * 100) / 100,
+      };
+    });
   }
 
   private formatWeatherForPrompt(forecast: DayForecast): string {

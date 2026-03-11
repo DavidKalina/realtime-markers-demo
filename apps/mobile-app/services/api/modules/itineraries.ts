@@ -178,4 +178,33 @@ export class ItinerariesModule extends BaseApiModule {
       response,
     );
   }
+
+  async getPopularStops(
+    city: string,
+    limit = 15,
+  ): Promise<PopularStop[]> {
+    const params = new URLSearchParams({
+      city: encodeURIComponent(city),
+      limit: String(limit),
+    });
+    const response = await fetch(
+      `${this.client.baseUrl}/api/public/itineraries/popular-stops?${params}`,
+    );
+    const json = await this.handleResponse<{ data: PopularStop[] }>(response);
+    return json.data;
+  }
+}
+
+export interface PopularStop {
+  venueName: string;
+  venueCategory: string | null;
+  emoji: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  googlePlaceId: string | null;
+  googleRating: number | null;
+  frequency: number;
+  completions: number;
+  completionRate: number;
+  score: number;
 }

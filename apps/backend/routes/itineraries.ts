@@ -10,6 +10,7 @@ import {
   deactivateItineraryHandler,
   getActiveItineraryHandler,
   checkinItineraryItemHandler,
+  getPopularStopsHandler,
 } from "../handlers/itineraryHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -69,4 +70,5 @@ publicItineraryRouter.use(
   }),
 );
 
+publicItineraryRouter.get("/popular-stops", getPopularStopsHandler);
 publicItineraryRouter.get("/:shareToken", getSharedItineraryHandler);

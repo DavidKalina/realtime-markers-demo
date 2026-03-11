@@ -36,6 +36,7 @@ import type {
   TrendingEventType,
 } from "@/types/types";
 import type { ThirdSpaceScoreResponse } from "@/services/api/modules/leaderboard";
+import type { PopularStop } from "@/hooks/usePopularStops";
 import ThirdSpaceScoreHero from "./ThirdSpaceScoreHero";
 import PopularCategoriesSection from "./PopularCategoriesSection";
 import { ScoreHeroSkeleton } from "./Skeletons";
@@ -64,12 +65,13 @@ interface LandingPageData {
   weeklyRegularEvents?: EventType[];
 }
 
-type TabKey = "top" | "today" | "discover" | "leaderboard";
+type TabKey = "top" | "today" | "discover" | "spots" | "leaderboard";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "top", label: "Top" },
   { key: "today", label: "Today" },
   { key: "discover", label: "Discover" },
+  { key: "spots", label: "Spots" },
   { key: "leaderboard", label: "People" },
 ];
 
@@ -78,6 +80,7 @@ interface CityDetailContentProps {
   isLoading: boolean;
   onRefresh: () => Promise<void>;
   isRefreshing?: boolean;
+  popularStops?: PopularStop[];
   thirdSpaceScore?: ThirdSpaceScoreResponse | null;
   currentUserId?: string;
   topEvents?: EventType[];
@@ -272,6 +275,19 @@ const HeroCrossfade: React.FC<{
 
 /* ─── Main component ─── */
 
+const CATEGORY_EMOJI: Record<string, string> = {
+  cafe: "\u2615",
+  restaurant: "\u{1F37D}",
+  bar: "\u{1F378}",
+  park: "\u{1F333}",
+  museum: "\u{1F3DB}",
+  gallery: "\u{1F5BC}",
+  market: "\u{1F6D2}",
+  trail: "\u{1F6B6}",
+  attraction: "\u{1F3A0}",
+  venue: "\u{1F3A4}",
+};
+
 const CityDetailContent: React.FC<CityDetailContentProps> = ({
   data,
   isLoading,
@@ -280,6 +296,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
   thirdSpaceScore,
   currentUserId,
   topEvents,
+  popularStops,
   onExploreMap,
 }) => {
   const colors = useColors();
@@ -370,6 +387,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
         activeFree.length +
         activeWeekly.length,
       discover: discoverEvents.length + activeCommunity.length,
+      spots: popularStops?.length || 0,
       leaderboard: thirdSpaceScore?.contributors?.length || 0,
     }),
     [
@@ -379,6 +397,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
       activeWeekly,
       discoverEvents,
       activeCommunity,
+      popularStops,
       thirdSpaceScore?.contributors,
     ],
   );
@@ -391,6 +410,8 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
         return renderTodayTab();
       case "discover":
         return renderDiscoverTab();
+      case "spots":
+        return renderSpotsTab();
       case "leaderboard":
         return renderLeaderboardTab();
     }
@@ -533,6 +554,51 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
             ))}
           </>
         )}
+      </View>
+    );
+  };
+
+  const renderSpotsTab = () => {
+    if (!popularStops || popularStops.length === 0) {
+      return renderEmptyTab("No popular spots yet");
+    }
+
+    return (
+      <View style={styles.tabContent}>
+        <Text style={styles.subSectionTitle}>WHERE PEOPLE ACTUALLY GO</Text>
+        {popularStops.map((stop, index) => {
+          const emoji =
+            stop.emoji ||
+            (stop.venueCategory
+              ? CATEGORY_EMOJI[stop.venueCategory] || "\u{1F4CD}"
+              : "\u{1F4CD}");
+          const pct = Math.round(stop.completionRate * 100);
+          const isLast = index === popularStops.length - 1;
+
+          return (
+            <View
+              key={`${stop.venueName}-${index}`}
+              style={[styles.eventRow, isLast && styles.eventRowLast]}
+            >
+              <View style={styles.rankBadge}>
+                <Text style={styles.rankText}>{index + 1}</Text>
+              </View>
+              <View style={styles.eventInfo}>
+                <Text style={styles.eventName} numberOfLines={1}>
+                  {stop.venueName}
+                </Text>
+                <Text style={styles.eventMeta} numberOfLines={1}>
+                  {emoji}{" "}
+                  {stop.venueCategory || "spot"}
+                  {stop.googleRating
+                    ? ` \u00B7 ${stop.googleRating}\u2605`
+                    : ""}
+                  {` \u00B7 ${stop.frequency}x planned \u00B7 ${pct}% went`}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
       </View>
     );
   };

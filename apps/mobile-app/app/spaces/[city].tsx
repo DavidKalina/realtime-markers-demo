@@ -17,6 +17,7 @@ import useLandingPageData from "@/hooks/useLandingPageData";
 import { useRealtimeDiscoveries } from "@/hooks/useRealtimeDiscoveries";
 import { apiClient } from "@/services/ApiClient";
 import { setFlyTo } from "@/hooks/useInitialLocation";
+import usePopularStops from "@/hooks/usePopularStops";
 
 const CityDetailScreen = () => {
   const { city } = useLocalSearchParams<{ city: string }>();
@@ -49,6 +50,9 @@ const CityDetailScreen = () => {
   const { realtimeDiscoveries, clearRealtime } =
     useRealtimeDiscoveries(decodedCity);
 
+  const { stops: popularStops, refetch: refetchStops } =
+    usePopularStops(decodedCity || null);
+
   // Haptic when new realtime events arrive
   const prevCountRef = useRef(0);
   useEffect(() => {
@@ -80,12 +84,12 @@ const CityDetailScreen = () => {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([refreshLanding(), refetchScore()]);
+      await Promise.all([refreshLanding(), refetchScore(), refetchStops()]);
       clearRealtime();
     } finally {
       setIsRefreshing(false);
     }
-  }, [refreshLanding, refetchScore, clearRealtime]);
+  }, [refreshLanding, refetchScore, refetchStops, clearRealtime]);
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -133,6 +137,7 @@ const CityDetailScreen = () => {
           isRefreshing={isRefreshing}
           thirdSpaceScore={thirdSpaceScore}
           currentUserId={currentUser?.id}
+          popularStops={popularStops}
           topEvents={landingData?.topEvents}
           onExploreMap={
             landingData?.featuredEvents?.[0] ||

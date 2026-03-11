@@ -9,6 +9,7 @@ import {
   Loader2,
   MapPin,
   Plus,
+  Route,
   Search,
   Users,
 } from "lucide-react";
@@ -45,6 +46,11 @@ const tabs = [
     name: "Users",
     href: "/users",
     icon: Users,
+  },
+  {
+    name: "Itineraries",
+    href: "/itineraries/create",
+    icon: Route,
   },
   {
     name: "LLM Costs",

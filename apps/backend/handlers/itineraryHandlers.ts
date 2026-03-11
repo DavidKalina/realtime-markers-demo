@@ -250,3 +250,19 @@ export const deleteItineraryHandler = async (c: Context<AppContext>) => {
 
   return c.json({ success: true });
 };
+
+export const getPopularStopsHandler = async (c: Context<AppContext>) => {
+  const city = c.req.query("city");
+  if (!city || typeof city !== "string") {
+    return c.json({ error: "city query parameter is required" }, 400);
+  }
+
+  const limit = Math.min(parseInt(c.req.query("limit") || "15", 10), 30);
+  const itineraryService = c.get("itineraryService");
+  const stops = await itineraryService.getPopularStops(
+    decodeURIComponent(city),
+    limit,
+  );
+
+  return c.json({ data: stops });
+};
