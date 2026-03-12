@@ -1,6 +1,8 @@
 import React, {
+  forwardRef,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -40,27 +42,46 @@ import {
 import { apiClient } from "@/services/ApiClient";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
 import type { RitualResponse } from "@/services/api/modules/rituals";
+import { useRouter } from "expo-router";
 import { useJobProgress } from "@/hooks/useJobProgress";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
+import useThirdSpaces from "@/hooks/useThirdSpaces";
+import { useUserLocation } from "@/contexts/LocationContext";
 import ItineraryTimeline from "./ItineraryTimeline";
 
 /* ── Collapsible section ─────────────────────────────────── */
 const COLLAPSE_DURATION = 250;
 
-function CollapsibleSection({
-  title,
-  defaultExpanded = false,
-  colors,
-  children,
-}: {
-  title: string;
-  defaultExpanded?: boolean;
-  colors: Colors;
-  children: React.ReactNode;
-}) {
+interface CollapsibleSectionHandle {
+  expand: () => void;
+}
+
+const CollapsibleSection = forwardRef<
+  CollapsibleSectionHandle,
+  {
+    title: string;
+    defaultExpanded?: boolean;
+    colors: Colors;
+    children: React.ReactNode;
+  }
+>(function CollapsibleSection(
+  { title, defaultExpanded = false, colors, children },
+  ref,
+) {
   const expanded = useSharedValue(defaultExpanded ? 1 : 0);
   const contentHeight = useSharedValue(0);
   const sStyles = useMemo(() => collapsibleStyles(colors), [colors]);
+
+  useImperativeHandle(ref, () => ({
+    expand: () => {
+      if (expanded.value < 1) {
+        expanded.value = withTiming(1, {
+          duration: COLLAPSE_DURATION,
+          easing: Easing.out(Easing.cubic),
+        });
+      }
+    },
+  }));
 
   const toggle = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -114,7 +135,7 @@ function CollapsibleSection({
       </Reanimated.View>
     </View>
   );
-}
+});
 
 const collapsibleStyles = (colors: Colors) =>
   StyleSheet.create({
@@ -347,21 +368,64 @@ const BUDGET_STEP = 5;
 type Phase = "collapsed" | "form" | "generating" | "result";
 
 interface ItineraryDialogBoxProps {
-  city: string;
+  city?: string;
   style?: ViewStyle;
   onDismiss?: () => void;
+  /** Start expanded in form mode (used on itineraries list screen) */
+  defaultExpanded?: boolean;
 }
 
 export default function ItineraryDialogBox({
-  city,
+  city: cityProp,
   style,
   onDismiss,
+  defaultExpanded = false,
 }: ItineraryDialogBoxProps) {
   const colors = useColors();
+  const router = useRouter();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const [phase, setPhase] = useState<Phase>("collapsed");
+  const [phase, setPhase] = useState<Phase>(
+    defaultExpanded ? "form" : "collapsed",
+  );
   const [statusText, setStatusText] = useState("Plan your adventure");
+
+  // City state — chip picker when no city prop provided
+  const { userLocation } = useUserLocation();
+  const { closestCities, topCities } = useThirdSpaces(
+    cityProp ? undefined : userLocation?.[1],
+    cityProp ? undefined : userLocation?.[0],
+  );
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const city = cityProp ?? selectedCity ?? "";
+
+  // Build deduplicated city list: closest first, then top
+  const cityOptions = useMemo(() => {
+    if (cityProp) return [];
+    const seen = new Set<string>();
+    const result: { city: string; label: string; distanceMiles?: number }[] =
+      [];
+    for (const c of closestCities) {
+      if (!seen.has(c.city)) {
+        seen.add(c.city);
+        const shortName = c.city.split(",")[0].trim();
+        result.push({
+          city: c.city,
+          label: c.distanceMiles
+            ? `${shortName} · ${Math.round(c.distanceMiles)}mi`
+            : shortName,
+          distanceMiles: c.distanceMiles,
+        });
+      }
+    }
+    for (const c of topCities) {
+      if (!seen.has(c.city)) {
+        seen.add(c.city);
+        result.push({ city: c.city, label: c.city.split(",")[0].trim() });
+      }
+    }
+    return result.slice(0, 10);
+  }, [cityProp, closestCities, topCities]);
 
   // Form state
   const [plannedDate, setPlannedDate] = useState(() => {
@@ -378,6 +442,12 @@ export default function ItineraryDialogBox({
   const [error, setError] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const resultScrollRef = useRef<ScrollView>(null);
+
+  // Section refs for auto-expand
+  const howLongRef = useRef<CollapsibleSectionHandle>(null);
+  const stopsRef = useRef<CollapsibleSectionHandle>(null);
+  const budgetRef = useRef<CollapsibleSectionHandle>(null);
+  const vibesRef = useRef<CollapsibleSectionHandle>(null);
 
   // Rituals
   const [rituals, setRituals] = useState<RitualResponse[]>([]);
@@ -409,11 +479,13 @@ export default function ItineraryDialogBox({
   }, []);
 
   // Animation shared values
-  const animHeight = useSharedValue(COLLAPSED_HEIGHT);
+  const animHeight = useSharedValue(
+    defaultExpanded ? EXPANDED_FORM_HEIGHT : COLLAPSED_HEIGHT,
+  );
   const sheenPos = useSharedValue(0);
-  const contentOpacity = useSharedValue(0);
-  const statusOpacity = useSharedValue(1);
-  const sheenActive = useSharedValue(1);
+  const contentOpacity = useSharedValue(defaultExpanded ? 1 : 0);
+  const statusOpacity = useSharedValue(defaultExpanded ? 0 : 1);
+  const sheenActive = useSharedValue(defaultExpanded ? 0 : 1);
   const [containerMeasured, setContainerMeasured] = useState(false);
   const containerWidthSV = useSharedValue(0);
 
@@ -568,21 +640,37 @@ export default function ItineraryDialogBox({
 
   const handleReExpand = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    statusOpacity.value = withTiming(0, { duration: 150 });
-    const targetH = resultRef.current
-      ? EXPANDED_RESULT_HEIGHT
-      : EXPANDED_FORM_HEIGHT;
-    animHeight.value = withTiming(
-      targetH,
-      { duration: 350, easing: Easing.out(Easing.cubic) },
-      (finished) => {
-        if (finished) {
-          scheduleOnRN(setReExpandPhaseCb);
-          contentOpacity.value = withDelay(
-            50,
-            withTiming(1, { duration: 200 }),
-          );
-        }
+
+    // Stop any in-progress sheen and pick up from its current position
+    cancelAnimation(sheenPos);
+    const current = sheenPos.value;
+    const remaining = 1 - current;
+    const duration = Math.max(150, remaining * 600);
+
+    sheenActive.value = 1;
+    sheenPos.value = withTiming(
+      1,
+      { duration, easing: Easing.inOut(Easing.ease) },
+      (fin) => {
+        if (!fin) return;
+        sheenActive.value = 0;
+        statusOpacity.value = withTiming(0, { duration: 150 });
+        const targetH = resultRef.current
+          ? EXPANDED_RESULT_HEIGHT
+          : EXPANDED_FORM_HEIGHT;
+        animHeight.value = withTiming(
+          targetH,
+          { duration: 350, easing: Easing.out(Easing.cubic) },
+          (finished) => {
+            if (finished) {
+              scheduleOnRN(setReExpandPhaseCb);
+              contentOpacity.value = withDelay(
+                50,
+                withTiming(1, { duration: 200 }),
+              );
+            }
+          },
+        );
       },
     );
   }, [setReExpandPhaseCb]);
@@ -604,18 +692,14 @@ export default function ItineraryDialogBox({
     );
   }, []);
 
-  const applyRitual = useCallback(
-    (ritual: RitualResponse) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      setActiveRitualId(ritual.id);
-      setBudgetMax(Number(ritual.budgetMax));
-      setDurationHours(Number(ritual.durationHours));
-      setStopCount(ritual.stopCount);
-      setSelectedActivities(ritual.activityTypes);
-    },
-    [],
-  );
-
+  const applyRitual = useCallback((ritual: RitualResponse) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setActiveRitualId(ritual.id);
+    setBudgetMax(Number(ritual.budgetMax));
+    setDurationHours(Number(ritual.durationHours));
+    setStopCount(ritual.stopCount);
+    setSelectedActivities(ritual.activityTypes);
+  }, []);
 
   // Fire-and-forget generate with explicit params (avoids stale closure from setState)
   const fireGenerate = useCallback(
@@ -681,6 +765,10 @@ export default function ItineraryDialogBox({
   );
 
   const handleGenerate = useCallback(() => {
+    if (!city) {
+      setError("Please select a city");
+      return;
+    }
     const duration = useCustomTime
       ? Math.max(1, endHour - startHour)
       : durationHours;
@@ -708,6 +796,10 @@ export default function ItineraryDialogBox({
   ]);
 
   const handleSurpriseMe = useCallback(() => {
+    if (!city) {
+      setError("Please select a city");
+      return;
+    }
     const randomDuration =
       DURATION_OPTIONS[Math.floor(Math.random() * DURATION_OPTIONS.length)]
         .value;
@@ -872,6 +964,41 @@ export default function ItineraryDialogBox({
             bounces={false}
             keyboardShouldPersistTaps="handled"
           >
+            {/* City picker — shown when no city prop */}
+            {!cityProp && cityOptions.length > 0 && (
+              <View style={styles.cityInputSection}>
+                <Text style={styles.sectionLabel}>Where?</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.pillRow}
+                >
+                  {cityOptions.map((opt) => (
+                    <Pressable
+                      key={opt.city}
+                      style={[
+                        styles.pill,
+                        selectedCity === opt.city && styles.pillActive,
+                      ]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedCity(opt.city);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.pillText,
+                          selectedCity === opt.city && styles.pillTextActive,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
             {/* Ritual shelf */}
             {rituals.length > 0 && (
               <View style={styles.ritualShelf}>
@@ -928,6 +1055,7 @@ export default function ItineraryDialogBox({
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setPlannedDate(opt.value);
+                      howLongRef.current?.expand();
                     }}
                   >
                     <Text
@@ -940,8 +1068,49 @@ export default function ItineraryDialogBox({
                     </Text>
                   </Pressable>
                 ))}
+              </ScrollView>
+            </CollapsibleSection>
+
+            {/* Duration */}
+            <CollapsibleSection ref={howLongRef} title="How long?" colors={colors}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.pillRow}
+              >
+                {DURATION_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt.value}
+                    style={[
+                      styles.pill,
+                      !useCustomTime &&
+                        durationHours === opt.value &&
+                        styles.pillActive,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setUseCustomTime(false);
+                      setDurationHours(opt.value);
+                      stopsRef.current?.expand();
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.pillText,
+                        !useCustomTime &&
+                          durationHours === opt.value &&
+                          styles.pillTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                ))}
                 <Pressable
-                  style={[styles.pill, useCustomTime && styles.pillActive]}
+                  style={[
+                    styles.pill,
+                    useCustomTime && styles.pillActive,
+                  ]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setUseCustomTime((prev) => !prev);
@@ -1017,6 +1186,7 @@ export default function ItineraryDialogBox({
                               Haptics.ImpactFeedbackStyle.Light,
                             );
                             setEndHour(h);
+                            stopsRef.current?.expand();
                           }}
                         >
                           <Text
@@ -1039,66 +1209,42 @@ export default function ItineraryDialogBox({
               )}
             </CollapsibleSection>
 
-            {/* Duration — hidden when custom time is set */}
-            {!useCustomTime && (
-            <CollapsibleSection title="How long?" colors={colors}>
-              <View style={styles.segmentRow}>
-                {DURATION_OPTIONS.map((opt) => (
-                  <Pressable
-                    key={opt.value}
-                    style={[
-                      styles.segment,
-                      durationHours === opt.value && styles.segmentActive,
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setDurationHours(opt.value);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.segmentText,
-                        durationHours === opt.value && styles.segmentTextActive,
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </CollapsibleSection>
-            )}
-
             {/* Stops */}
-            <CollapsibleSection title="How many stops?" colors={colors}>
-              <View style={styles.segmentRow}>
+            <CollapsibleSection ref={stopsRef} title="How many stops?" colors={colors}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.pillRow}
+              >
                 {STOP_COUNT_OPTIONS.map((opt) => (
                   <Pressable
                     key={opt.value}
                     style={[
-                      styles.segment,
-                      stopCount === opt.value && styles.segmentActive,
+                      styles.pill,
+                      stopCount === opt.value && styles.pillActive,
                     ]}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setStopCount(opt.value);
+                      budgetRef.current?.expand();
                     }}
                   >
                     <Text
                       style={[
-                        styles.segmentText,
-                        stopCount === opt.value && styles.segmentTextActive,
+                        styles.pillText,
+                        stopCount === opt.value && styles.pillTextActive,
                       ]}
                     >
                       {opt.label}
                     </Text>
                   </Pressable>
                 ))}
-              </View>
+              </ScrollView>
             </CollapsibleSection>
 
             {/* Budget */}
             <CollapsibleSection
+              ref={budgetRef}
               title={`Budget · ${budgetMax === 0 ? "Free" : `$${budgetMax}`}`}
               colors={colors}
             >
@@ -1175,9 +1321,17 @@ export default function ItineraryDialogBox({
               forecast={result.forecast}
               scrollRef={resultScrollRef}
             />
-            <Pressable style={styles.resetButton} onPress={handleReset}>
-              <Text style={styles.resetButtonText}>Build another</Text>
-            </Pressable>
+            <View style={styles.resultFooterRow}>
+              <Pressable style={styles.resetButton} onPress={handleReset}>
+                <Text style={styles.resetButtonText}>Build another</Text>
+              </Pressable>
+              <Pressable
+                style={styles.viewButton}
+                onPress={() => router.push(`/itineraries/${result.id}` as const)}
+              >
+                <Text style={styles.viewButtonText}>View Itinerary</Text>
+              </Pressable>
+            </View>
           </ScrollView>
         )}
       </Reanimated.View>
@@ -1420,20 +1574,42 @@ const createStyles = (colors: Colors) =>
       marginBottom: spacing.sm,
       lineHeight: 19,
     },
+    resultFooterRow: {
+      flexDirection: "row",
+      gap: 8,
+      marginTop: spacing.lg,
+      marginBottom: spacing.sm,
+    },
     resetButton: {
+      flex: 1,
       borderWidth: 1,
       borderColor: colors.border.accent,
       borderRadius: radius.md,
       paddingVertical: 10,
       alignItems: "center",
-      marginTop: spacing.lg,
-      marginBottom: spacing.sm,
     },
     resetButtonText: {
       fontFamily: fontFamily.mono,
       fontSize: 12,
       color: colors.text.secondary,
       fontWeight: "600",
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+    viewButton: {
+      flex: 1,
+      backgroundColor: GREEN_MUTED,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: "rgba(134, 239, 172, 0.25)",
+      paddingVertical: 10,
+      alignItems: "center",
+    },
+    viewButtonText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 12,
+      color: GREEN_ACCENT,
+      fontWeight: "700",
       textTransform: "uppercase",
       letterSpacing: 1,
     },
@@ -1532,5 +1708,12 @@ const createStyles = (colors: Colors) =>
       color: colors.text.disabled,
       textAlign: "right",
       letterSpacing: 0.5,
+    },
+    /* ── City input ─── */
+    cityInputSection: {
+      marginBottom: spacing.sm,
+      paddingBottom: spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.subtle,
     },
   });

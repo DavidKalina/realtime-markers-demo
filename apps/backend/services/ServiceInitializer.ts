@@ -272,6 +272,7 @@ export class ServiceInitializer {
       geocodingService,
       overpassService,
       weatherService,
+      gamificationService,
     });
 
     const itineraryRitualService = createItineraryRitualService({

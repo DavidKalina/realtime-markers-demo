@@ -57,6 +57,7 @@ import { AddItineraryCheckins1710000000038 } from "./migrations/AddItineraryChec
 import { ItineraryCheckinsTable1710000000039 } from "./migrations/ItineraryCheckinsTable1710000000039";
 import { AddItineraryForecast1710000000040 } from "./migrations/AddItineraryForecast1710000000040";
 import { ItineraryRitualsTable1710000000041 } from "./migrations/ItineraryRitualsTable1710000000041";
+import { AddItineraryRatingAndCompletion1710000000050 } from "./migrations/AddItineraryRatingAndCompletion1710000000050";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -115,6 +116,7 @@ const AppDataSource = new DataSource({
     ItineraryCheckinsTable1710000000039,
     AddItineraryForecast1710000000040,
     ItineraryRitualsTable1710000000041,
+    AddItineraryRatingAndCompletion1710000000050,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  LayoutChangeEvent,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -9,13 +8,13 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { ChevronRight } from "lucide-react-native";
 import Animated, {
   FadeIn,
   FadeOut,
   LinearTransition,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
 import {
   useColors,
   duration,
@@ -85,6 +84,7 @@ interface CityDetailContentProps {
   currentUserId?: string;
   topEvents?: EventType[];
   onExploreMap?: () => void;
+  onSearch?: () => void;
 }
 
 /* ─── Tier emoji for leaderboard ─── */
@@ -168,10 +168,7 @@ const EventRow: React.FC<EventRowProps> = ({
 
   const meta = subtitle
     ? subtitle
-    : [
-        event.location ? formatVenueShort(event.location) : null,
-        categoryName,
-      ]
+    : [event.location ? formatVenueShort(event.location) : null, categoryName]
         .filter(Boolean)
         .join(" \u00B7 ");
 
@@ -231,42 +228,18 @@ const HeroCrossfade: React.FC<{
   thirdSpaceScore?: ThirdSpaceScoreResponse | null;
   onExploreMap?: () => void;
 }> = ({ isLoading, thirdSpaceScore, onExploreMap }) => {
-  const [skeletonHeight, setSkeletonHeight] = useState(0);
-
-  const onSkeletonLayout = useCallback((e: LayoutChangeEvent) => {
-    setSkeletonHeight(e.nativeEvent.layout.height);
-  }, []);
-
-  // While loading, render skeleton normally (unpositioned)
   if (isLoading) {
-    return (
-      <View onLayout={onSkeletonLayout}>
-        <ScoreHeroSkeleton />
-      </View>
-    );
+    return <ScoreHeroSkeleton />;
   }
 
-  // Transition: overlap skeleton and hero in a fixed-height container
-  // so the skeleton fades out while the hero fades in — no layout jump
   if (thirdSpaceScore) {
     return (
-      <View style={skeletonHeight > 0 ? { minHeight: skeletonHeight } : undefined}>
-        {skeletonHeight > 0 && (
-          <Animated.View
-            exiting={FadeOut.duration(duration.normal)}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          >
-            <ScoreHeroSkeleton />
-          </Animated.View>
-        )}
-        <Animated.View entering={FadeIn.duration(duration.normal).delay(80)}>
-          <ThirdSpaceScoreHero
-            score={thirdSpaceScore}
-            onExploreMap={onExploreMap}
-          />
-        </Animated.View>
-      </View>
+      <Animated.View entering={FadeIn.duration(duration.normal)}>
+        <ThirdSpaceScoreHero
+          score={thirdSpaceScore}
+          onExploreMap={onExploreMap}
+        />
+      </Animated.View>
     );
   }
 
@@ -298,6 +271,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
   topEvents,
   popularStops,
   onExploreMap,
+  onSearch,
 }) => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -346,12 +320,16 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
     _badge: string;
     _badgeColor: string;
   })[] => {
-    const trending = filterExpiredEvents(data?.trendingEvents || []).map((e) => ({
-      ...(e as EventType),
-      _badge: "Trending",
-      _badgeColor: "#fcd34d",
-    }));
-    const discovered = filterExpiredEvents(data?.justDiscoveredEvents || []).map((e) => ({
+    const trending = filterExpiredEvents(data?.trendingEvents || []).map(
+      (e) => ({
+        ...(e as EventType),
+        _badge: "Trending",
+        _badgeColor: "#fcd34d",
+      }),
+    );
+    const discovered = filterExpiredEvents(
+      data?.justDiscoveredEvents || [],
+    ).map((e) => ({
       ...(e as EventType),
       _badge: "New",
       _badgeColor: "#93c5fd",
@@ -382,10 +360,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
   const tabCounts = useMemo(
     () => ({
       top: topTabEvents.ranked.length + topTabEvents.featured.length,
-      today:
-        activeToday.length +
-        activeFree.length +
-        activeWeekly.length,
+      today: activeToday.length + activeFree.length + activeWeekly.length,
       discover: discoverEvents.length + activeCommunity.length,
       spots: popularStops?.length || 0,
       leaderboard: thirdSpaceScore?.contributors?.length || 0,
@@ -423,8 +398,18 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
       return renderEmptyTab("No top events yet");
     }
     const allEvents = [
-      ...ranked.map((e, i) => ({ event: e, rank: i + 1, badge: undefined as string | undefined, badgeColor: undefined as string | undefined })),
-      ...featured.map((e) => ({ event: e, rank: undefined as number | undefined, badge: "Featured", badgeColor: "#10b981" })),
+      ...ranked.map((e, i) => ({
+        event: e,
+        rank: i + 1,
+        badge: undefined as string | undefined,
+        badgeColor: undefined as string | undefined,
+      })),
+      ...featured.map((e) => ({
+        event: e,
+        rank: undefined as number | undefined,
+        badge: "Featured",
+        badgeColor: "#10b981",
+      })),
     ];
     return (
       <View style={styles.tabContent}>
@@ -464,7 +449,9 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
                 key={event.id}
                 event={event}
                 onPress={handleEventPress}
-                isLast={!hasFree && !hasWeekly && index === activeToday.length - 1}
+                isLast={
+                  !hasFree && !hasWeekly && index === activeToday.length - 1
+                }
                 colors={colors}
                 styles={styles}
               />
@@ -588,8 +575,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
                   {stop.venueName}
                 </Text>
                 <Text style={styles.eventMeta} numberOfLines={1}>
-                  {emoji}{" "}
-                  {stop.venueCategory || "spot"}
+                  {emoji} {stop.venueCategory || "spot"}
                   {stop.googleRating
                     ? ` \u00B7 ${stop.googleRating}\u2605`
                     : ""}
@@ -624,10 +610,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
           return (
             <View
               key={entry.userId}
-              style={[
-                styles.eventRow,
-                isLast && styles.eventRowLast,
-              ]}
+              style={[styles.eventRow, isLast && styles.eventRowLast]}
             >
               <Text
                 style={[
@@ -675,16 +658,8 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
     </View>
   );
 
-  return (
-    <ScrollView
-      style={{ flex: 1 }}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        !isLoading ? (
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        ) : undefined
-      }
-    >
+  const scrollContent = (
+    <>
       {/* Hero crossfade — skeleton and real hero overlap to avoid layout jump */}
       <HeroCrossfade
         isLoading={isLoading}
@@ -694,15 +669,12 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
 
       {!isLoading && (
         <>
-
           {/* Categories pills */}
           {data?.popularCategories && data.popularCategories.length > 0 && (
             <Animated.View
               entering={FadeIn.duration(duration.normal).delay(80)}
             >
-              <PopularCategoriesSection
-                categories={data.popularCategories}
-              />
+              <PopularCategoriesSection categories={data.popularCategories} />
             </Animated.View>
           )}
 
@@ -712,16 +684,11 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
               entering={FadeIn.duration(duration.normal).delay(160)}
               style={styles.emptyContainer}
             >
-              <Text
-                style={[styles.emptyTitle, { color: colors.text.primary }]}
-              >
+              <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
                 No events yet
               </Text>
               <Text
-                style={[
-                  styles.emptySubtitle,
-                  { color: colors.text.secondary },
-                ]}
+                style={[styles.emptySubtitle, { color: colors.text.secondary }]}
               >
                 Be the first to scan a flyer and put this city on the map.
               </Text>
@@ -801,6 +768,32 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
       )}
 
       <View style={{ height: 120 }} />
+    </>
+  );
+
+  if (onSearch) {
+    return (
+      <PullToActionScrollView
+        onSearch={onSearch}
+        onRefresh={onRefresh}
+        isRefreshing={isRefreshing}
+      >
+        {scrollContent}
+      </PullToActionScrollView>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={{ flex: 1 }}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        !isLoading ? (
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+        ) : undefined
+      }
+    >
+      {scrollContent}
     </ScrollView>
   );
 };

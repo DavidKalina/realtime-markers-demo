@@ -1,4 +1,4 @@
-import { type DataSource, LessThan } from "typeorm";
+import { type DataSource, Not, IsNull, LessThan } from "typeorm";
 import {
   Itinerary,
   ItineraryItem,
@@ -12,6 +12,7 @@ import type {
 } from "./shared/GoogleGeocodingService";
 import type { OverpassService, Trail } from "./shared/OverpassService";
 import type { WeatherService, DayForecast } from "./shared/WeatherService";
+import type { GamificationService } from "./GamificationService";
 
 export interface CreateItineraryInput {
   city: string;
@@ -94,6 +95,13 @@ export interface ItineraryService {
   generateShareToken(id: string, userId: string): Promise<string | null>;
   getByShareToken(shareToken: string): Promise<Itinerary | null>;
   getPopularStops(city: string, limit?: number): Promise<PopularStop[]>;
+  rateItinerary(
+    id: string,
+    userId: string,
+    rating: number,
+    comment?: string,
+  ): Promise<Itinerary | null>;
+  listCompleted(userId: string, limit?: number): Promise<Itinerary[]>;
 }
 
 interface ItineraryServiceDeps {
@@ -102,6 +110,7 @@ interface ItineraryServiceDeps {
   geocodingService: GoogleGeocodingService;
   overpassService: OverpassService;
   weatherService: WeatherService;
+  gamificationService?: GamificationService;
 }
 
 class ItineraryServiceImpl implements ItineraryService {
@@ -110,6 +119,7 @@ class ItineraryServiceImpl implements ItineraryService {
   private geocodingService: GoogleGeocodingService;
   private overpassService: OverpassService;
   private weatherService: WeatherService;
+  private gamificationService?: GamificationService;
 
   constructor(deps: ItineraryServiceDeps) {
     this.dataSource = deps.dataSource;
@@ -117,6 +127,7 @@ class ItineraryServiceImpl implements ItineraryService {
     this.geocodingService = deps.geocodingService;
     this.overpassService = deps.overpassService;
     this.weatherService = deps.weatherService;
+    this.gamificationService = deps.gamificationService;
   }
 
   async create(
@@ -186,22 +197,44 @@ class ItineraryServiceImpl implements ItineraryService {
 
       let trails: Trail[] = [];
       if (cityCenter && (wantsPaved || wantsHiking)) {
-        const [pavedTrails, hikingTrails] = await Promise.all([
-          wantsPaved
-            ? this.overpassService.fetchPavedTrails(cityCenter.lat, cityCenter.lng)
-            : Promise.resolve([]),
-          wantsHiking
-            ? this.overpassService.fetchHikingTrails(cityCenter.lat, cityCenter.lng)
-            : Promise.resolve([]),
-        ]);
+        try {
+          const [pavedResult, hikingResult] = await Promise.allSettled([
+            wantsPaved
+              ? this.overpassService.fetchPavedTrails(
+                  cityCenter.lat,
+                  cityCenter.lng,
+                )
+              : Promise.resolve([]),
+            wantsHiking
+              ? this.overpassService.fetchHikingTrails(
+                  cityCenter.lat,
+                  cityCenter.lng,
+                )
+              : Promise.resolve([]),
+          ]);
 
-        // Merge and deduplicate by OSM ID
-        const seen = new Set<number>();
-        for (const t of [...pavedTrails, ...hikingTrails]) {
-          if (!seen.has(t.id)) {
-            seen.add(t.id);
-            trails.push(t);
+          const pavedTrails =
+            pavedResult.status === "fulfilled" ? pavedResult.value : [];
+          const hikingTrails =
+            hikingResult.status === "fulfilled" ? hikingResult.value : [];
+
+          if (pavedResult.status === "rejected") {
+            console.warn("[ItineraryService] Paved trail fetch failed:", pavedResult.reason?.message ?? pavedResult.reason);
           }
+          if (hikingResult.status === "rejected") {
+            console.warn("[ItineraryService] Hiking trail fetch failed:", hikingResult.reason?.message ?? hikingResult.reason);
+          }
+
+          // Merge and deduplicate by OSM ID
+          const seen = new Set<number>();
+          for (const t of [...pavedTrails, ...hikingTrails]) {
+            if (!seen.has(t.id)) {
+              seen.add(t.id);
+              trails.push(t);
+            }
+          }
+        } catch (err) {
+          console.warn("[ItineraryService] Trail fetch failed, continuing without trails:", err);
         }
       }
 
@@ -340,6 +373,48 @@ class ItineraryServiceImpl implements ItineraryService {
       where: { shareToken, status: ItineraryStatus.READY },
       relations: ["items"],
       order: { items: { sortOrder: "ASC" } },
+    });
+  }
+
+  async rateItinerary(
+    id: string,
+    userId: string,
+    rating: number,
+    comment?: string,
+  ): Promise<Itinerary | null> {
+    if (rating < 1 || rating > 5 || !Number.isInteger(rating)) {
+      return null;
+    }
+
+    const repo = this.dataSource.getRepository(Itinerary);
+    const itinerary = await repo.findOne({
+      where: { id, userId },
+    });
+
+    if (!itinerary || !itinerary.completedAt) return null;
+
+    itinerary.rating = rating;
+    if (comment) itinerary.ratingComment = comment;
+    await repo.save(itinerary);
+
+    // Award XP for rating
+    if (this.gamificationService) {
+      try {
+        await this.gamificationService.awardXP(userId, 25, "rate_itinerary");
+      } catch (err) {
+        console.error("[ItineraryService] Failed to award XP for rating:", err);
+      }
+    }
+
+    return itinerary;
+  }
+
+  async listCompleted(userId: string, limit = 20): Promise<Itinerary[]> {
+    return this.dataSource.getRepository(Itinerary).find({
+      where: { userId, completedAt: Not(IsNull()) },
+      relations: ["items"],
+      order: { completedAt: "DESC" },
+      take: limit,
     });
   }
 
@@ -822,11 +897,12 @@ Respond ONLY with valid JSON matching this schema:
   ]
 }`;
 
-    const timeConstraint = input.startTime && input.endTime
-      ? `\nTime window: ${input.startTime} – ${input.endTime} (schedule all stops within this window)`
-      : input.startTime
-        ? `\nStart time: ${input.startTime} (begin the itinerary at this time)`
-        : "";
+    const timeConstraint =
+      input.startTime && input.endTime
+        ? `\nTime window: ${input.startTime} – ${input.endTime} (schedule all stops within this window)`
+        : input.startTime
+          ? `\nStart time: ${input.startTime} (begin the itinerary at this time)`
+          : "";
 
     const userPrompt = `City: ${input.city}
 Date: ${input.plannedDate}
@@ -896,10 +972,7 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${input.city} (real OpenStreetM
     return parsed;
   }
 
-  async getPopularStops(
-    city: string,
-    limit = 15,
-  ): Promise<PopularStop[]> {
+  async getPopularStops(city: string, limit = 15): Promise<PopularStop[]> {
     const rows: {
       venue_name: string;
       venue_category: string | null;

@@ -28,6 +28,7 @@ import { scheduleOnRN } from "react-native-worklets";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
+import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
 import ItineraryTimeline from "@/components/Itinerary/ItineraryTimeline";
 import ItineraryMapPreview from "@/components/Itinerary/ItineraryMapPreview";
 
@@ -149,6 +150,17 @@ const ItineraryDetailScreen = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
   }, [router]);
+
+  const handleSearch = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/search" as const);
+  }, [router]);
+
+  const handleRefresh = useCallback(async () => {
+    if (!id) return;
+    const data = await apiClient.itineraries.getById(id);
+    setItinerary(data);
+  }, [id]);
 
   const handleDelete = useCallback(async () => {
     if (!id) return;
@@ -286,9 +298,8 @@ const ItineraryDetailScreen = () => {
   }, [itinerary]);
 
   // Item detail modal
-  const [selectedItem, setSelectedItem] = useState<ItineraryItemResponse | null>(
-    null,
-  );
+  const [selectedItem, setSelectedItem] =
+    useState<ItineraryItemResponse | null>(null);
 
   const handleItemPress = useCallback((item: ItineraryItemResponse) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -317,8 +328,7 @@ const ItineraryDetailScreen = () => {
     if (!ritualName.trim() || !itinerary) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    const emoji =
-      ACTIVITY_EMOJI[itinerary.activityTypes?.[0]] || "\u{1F501}";
+    const emoji = ACTIVITY_EMOJI[itinerary.activityTypes?.[0]] || "\u{1F501}";
 
     try {
       await apiClient.rituals.create({
@@ -401,16 +411,8 @@ const ItineraryDetailScreen = () => {
   const progressPct = totalStops > 0 ? checkedInCount / totalStops : 0;
 
   return (
-    <Screen
-      isScrollable={false}
-      showBackButton
-      onBack={handleBack}
-      noAnimation
-    >
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+    <Screen isScrollable={false} showBackButton onBack={handleBack} noAnimation>
+      <PullToActionScrollView onSearch={handleSearch} onRefresh={handleRefresh} contentContainerStyle={styles.scrollPadding}>
         {/* ── Hero Section ── */}
         <Animated.View
           entering={FadeIn.duration(500).easing(Easing.out(Easing.cubic))}
@@ -668,9 +670,8 @@ const ItineraryDetailScreen = () => {
               </Pressable>
             </>
           )}
-
         </Animated.View>
-      </ScrollView>
+      </PullToActionScrollView>
 
       {/* Save as ritual modal */}
       <Modal
@@ -886,6 +887,10 @@ function formatTime(time24: string): string {
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
+    scrollPadding: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.xl * 3,
+    },
     content: {
       paddingHorizontal: spacing.lg,
       paddingBottom: spacing.xl * 3,

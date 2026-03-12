@@ -39,10 +39,22 @@ export class Itinerary {
   @Column({ name: "planned_date", type: "date" })
   plannedDate!: string;
 
-  @Column({ name: "budget_min", type: "numeric", precision: 10, scale: 2, default: 0 })
+  @Column({
+    name: "budget_min",
+    type: "numeric",
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
   budgetMin!: number;
 
-  @Column({ name: "budget_max", type: "numeric", precision: 10, scale: 2, default: 0 })
+  @Column({
+    name: "budget_max",
+    type: "numeric",
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
   budgetMax!: number;
 
   @Column({ name: "duration_hours", type: "numeric", precision: 4, scale: 1 })
@@ -70,6 +82,15 @@ export class Itinerary {
 
   @Column({ type: "jsonb", nullable: true })
   forecast?: Record<string, unknown>;
+
+  @Column({ type: "smallint", nullable: true })
+  rating?: number;
+
+  @Column({ name: "rating_comment", type: "text", nullable: true })
+  ratingComment?: string;
+
+  @Column({ name: "completed_at", type: "timestamptz", nullable: true })
+  completedAt?: Date;
 
   @OneToMany(() => ItineraryItem, (item) => item.itinerary, { cascade: true })
   items!: Relation<ItineraryItem[]>;

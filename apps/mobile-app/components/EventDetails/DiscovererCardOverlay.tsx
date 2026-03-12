@@ -42,8 +42,8 @@ const OVERLAY_CARD_HEIGHT = OVERLAY_CARD_WIDTH / CARD_ASPECT;
 const SHEEN_WIDTH = 140;
 
 const TIER_COLORS: Record<string, string> = {
-  Explorer: "#93c5fd",
-  Scout: "#34d399",
+  Explorer: "#4ade80",
+  Scout: "#60a5fa",
   Curator: "#fbbf24",
   Ambassador: "#a78bfa",
 };
@@ -63,8 +63,12 @@ interface DiscovererCardOverlayProps {
   currentTier?: string;
   totalXp?: number;
   discoveryCount?: number;
+  scanCount?: number;
+  saveCount?: number;
+  viewCount?: number;
   followingCount?: number;
   memberSince?: string;
+  weeklyScanCount?: number;
 }
 
 const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
@@ -76,8 +80,12 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
   currentTier,
   totalXp,
   discoveryCount,
+  scanCount,
+  saveCount,
+  viewCount,
   followingCount,
   memberSince,
+  weeklyScanCount,
 }) => {
   const colors = useColors();
   const overlayStyles = useMemo(() => createOverlayStyles(colors), [colors]);
@@ -226,6 +234,22 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
                 </Text>
               </View>
 
+              {/* Weekly badge */}
+              {weeklyScanCount != null && weeklyScanCount > 0 && (
+                <View
+                  style={[
+                    overlayStyles.weeklyBadge,
+                    { borderColor: tierColor },
+                  ]}
+                >
+                  <Text
+                    style={[overlayStyles.weeklyText, { color: tierColor }]}
+                  >
+                    {weeklyScanCount} this week
+                  </Text>
+                </View>
+              )}
+
               {/* Bottom section */}
               <View style={overlayStyles.bottomSection}>
                 {memberSince && (
@@ -235,22 +259,36 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
                 )}
                 <View style={overlayStyles.bottomRow}>
                   <View style={overlayStyles.stat}>
-                    <Text style={overlayStyles.statValue}>
+                    <Text
+                      style={[overlayStyles.statValue, { color: tierColor }]}
+                    >
                       {(totalXp ?? 0).toLocaleString()}
                     </Text>
                     <Text style={overlayStyles.statLabel}>XP</Text>
                   </View>
                   <View style={overlayStyles.stat}>
                     <Text style={overlayStyles.statValue}>
-                      {discoveryCount ?? 0}
+                      {scanCount ?? 0}
                     </Text>
-                    <Text style={overlayStyles.statLabel}>DISCOVERIES</Text>
+                    <Text style={overlayStyles.statLabel}>SCANS</Text>
                   </View>
                   <View style={overlayStyles.stat}>
                     <Text style={overlayStyles.statValue}>
-                      {followingCount ?? 0}
+                      {discoveryCount ?? 0}
                     </Text>
-                    <Text style={overlayStyles.statLabel}>FOLLOWING</Text>
+                    <Text style={overlayStyles.statLabel}>FINDS</Text>
+                  </View>
+                  <View style={overlayStyles.stat}>
+                    <Text style={overlayStyles.statValue}>
+                      {saveCount ?? 0}
+                    </Text>
+                    <Text style={overlayStyles.statLabel}>SAVES</Text>
+                  </View>
+                  <View style={overlayStyles.stat}>
+                    <Text style={overlayStyles.statValue}>
+                      {viewCount ?? 0}
+                    </Text>
+                    <Text style={overlayStyles.statLabel}>VIEWS</Text>
                   </View>
                 </View>
               </View>
@@ -382,9 +420,21 @@ const createOverlayStyles = (colors: Colors) => StyleSheet.create({
     color: colors.text.secondary,
     letterSpacing: 0.5,
   },
+  weeklyBadge: {
+    alignSelf: "flex-end",
+    borderWidth: 1,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  weeklyText: {
+    fontSize: 10,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
+  },
   bottomRow: {
     flexDirection: "row",
-    gap: spacing.xl,
+    justifyContent: "space-between",
   },
   followButton: {
     marginTop: spacing.md,

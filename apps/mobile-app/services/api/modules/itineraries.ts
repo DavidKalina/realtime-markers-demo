@@ -62,6 +62,9 @@ export interface ItineraryResponse {
   status: "GENERATING" | "READY" | "FAILED";
   items: ItineraryItemResponse[];
   forecast?: DayForecast;
+  rating?: number;
+  ratingComment?: string;
+  completedAt?: string;
   createdAt: string;
 }
 
@@ -179,10 +182,31 @@ export class ItinerariesModule extends BaseApiModule {
     );
   }
 
-  async getPopularStops(
-    city: string,
-    limit = 15,
-  ): Promise<PopularStop[]> {
+  async rate(
+    id: string,
+    rating: number,
+    comment?: string,
+  ): Promise<{ success: boolean; rating: number }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/itineraries/${id}/rate`,
+      {
+        method: "POST",
+        body: JSON.stringify({ rating, ...(comment && { comment }) }),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse<{ success: boolean; rating: number }>(response);
+  }
+
+  async listCompleted(limit = 20): Promise<{ data: ItineraryResponse[] }> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/itineraries/completed?${params}`,
+    );
+    return this.handleResponse<{ data: ItineraryResponse[] }>(response);
+  }
+
+  async getPopularStops(city: string, limit = 15): Promise<PopularStop[]> {
     const params = new URLSearchParams({
       city: encodeURIComponent(city),
       limit: String(limit),

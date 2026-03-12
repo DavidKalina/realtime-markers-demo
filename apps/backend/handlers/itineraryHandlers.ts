@@ -251,6 +251,57 @@ export const deleteItineraryHandler = async (c: Context<AppContext>) => {
   return c.json({ success: true });
 };
 
+export const rateItineraryHandler = async (c: Context<AppContext>) => {
+  const user = c.get("user");
+  if (!user?.userId && !user?.id) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  const userId = user.userId || user.id;
+
+  const id = c.req.param("id");
+  if (!id) {
+    return c.json({ error: "id is required" }, 400);
+  }
+
+  const body = await c.req.json<{ rating: number; comment?: string }>();
+  if (
+    typeof body.rating !== "number" ||
+    body.rating < 1 ||
+    body.rating > 5 ||
+    !Number.isInteger(body.rating)
+  ) {
+    return c.json({ error: "rating must be an integer between 1 and 5" }, 400);
+  }
+
+  const itineraryService = c.get("itineraryService");
+  const result = await itineraryService.rateItinerary(
+    id,
+    userId,
+    body.rating,
+    body.comment,
+  );
+
+  if (!result) {
+    return c.json({ error: "Itinerary not found or not completed" }, 404);
+  }
+
+  return c.json({ success: true, rating: result.rating });
+};
+
+export const listCompletedHandler = async (c: Context<AppContext>) => {
+  const user = c.get("user");
+  if (!user?.userId && !user?.id) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  const userId = user.userId || user.id;
+
+  const limit = Math.min(parseInt(c.req.query("limit") || "20", 10), 50);
+  const itineraryService = c.get("itineraryService");
+  const data = await itineraryService.listCompleted(userId, limit);
+
+  return c.json({ data });
+};
+
 export const getPopularStopsHandler = async (c: Context<AppContext>) => {
   const city = c.req.query("city");
   if (!city || typeof city !== "string") {

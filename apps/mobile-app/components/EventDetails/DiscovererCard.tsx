@@ -25,14 +25,14 @@ import { getTierByName } from "@/utils/gamification";
 import DiscovererCardOverlay from "./DiscovererCardOverlay";
 
 const TIER_COLORS: Record<string, string> = {
-  Explorer: "#93c5fd",
-  Scout: "#34d399",
+  Explorer: "#4ade80",
+  Scout: "#60a5fa",
   Curator: "#fbbf24",
   Ambassador: "#a78bfa",
 };
 
 const SHEEN_WIDTH = 140;
-const CARD_HEIGHT = 210;
+const CARD_HEIGHT = 230;
 const WATERMARK_TEXT = "A THIRD SPACE";
 const WATERMARK_CHAR_COUNT = WATERMARK_TEXT.length;
 // Approximate character width ratio for SpaceMono (monospace ~0.6 of fontSize)
@@ -45,8 +45,12 @@ interface DiscovererCardProps {
   currentTier?: string;
   totalXp?: number;
   discoveryCount?: number;
+  scanCount?: number;
+  saveCount?: number;
+  viewCount?: number;
   followingCount?: number;
   memberSince?: string;
+  weeklyScanCount?: number;
 }
 
 const AnimatedSvg = Animated.createAnimatedComponent(Svg);
@@ -58,8 +62,12 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
   currentTier,
   totalXp,
   discoveryCount,
+  scanCount,
+  saveCount,
+  viewCount,
   followingCount,
   memberSince,
+  weeklyScanCount,
 }) => {
   const colors = useColors();
   const cardStyles = useMemo(() => createCardStyles(colors), [colors]);
@@ -171,6 +179,17 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
             </View>
           )}
 
+          {/* Weekly badge */}
+          {weeklyScanCount != null && weeklyScanCount > 0 && (
+            <View
+              style={[cardStyles.weeklyBadge, { borderColor: tierColor }]}
+            >
+              <Text style={[cardStyles.weeklyText, { color: tierColor }]}>
+                {weeklyScanCount} this week
+              </Text>
+            </View>
+          )}
+
           {/* Bottom section */}
           <View style={cardStyles.bottomSection}>
             {memberSince && (
@@ -180,18 +199,26 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
             )}
             <View style={cardStyles.bottomRow}>
               <View style={cardStyles.stat}>
-                <Text style={cardStyles.statValue}>
+                <Text style={[cardStyles.statValue, { color: tierColor }]}>
                   {(totalXp ?? 0).toLocaleString()}
                 </Text>
                 <Text style={cardStyles.statLabel}>XP</Text>
               </View>
               <View style={cardStyles.stat}>
-                <Text style={cardStyles.statValue}>{discoveryCount ?? 0}</Text>
-                <Text style={cardStyles.statLabel}>DISCOVERIES</Text>
+                <Text style={cardStyles.statValue}>{scanCount ?? 0}</Text>
+                <Text style={cardStyles.statLabel}>SCANS</Text>
               </View>
               <View style={cardStyles.stat}>
-                <Text style={cardStyles.statValue}>{followingCount ?? 0}</Text>
-                <Text style={cardStyles.statLabel}>FOLLOWING</Text>
+                <Text style={cardStyles.statValue}>{discoveryCount ?? 0}</Text>
+                <Text style={cardStyles.statLabel}>FINDS</Text>
+              </View>
+              <View style={cardStyles.stat}>
+                <Text style={cardStyles.statValue}>{saveCount ?? 0}</Text>
+                <Text style={cardStyles.statLabel}>SAVES</Text>
+              </View>
+              <View style={cardStyles.stat}>
+                <Text style={cardStyles.statValue}>{viewCount ?? 0}</Text>
+                <Text style={cardStyles.statLabel}>VIEWS</Text>
               </View>
             </View>
           </View>
@@ -231,9 +258,13 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
         lastName={lastName}
         currentTier={currentTier}
         totalXp={totalXp}
+        scanCount={scanCount}
         discoveryCount={discoveryCount}
+        saveCount={saveCount}
+        viewCount={viewCount}
         followingCount={followingCount}
         memberSince={memberSince}
+        weeklyScanCount={weeklyScanCount}
       />
     </>
   );
@@ -296,9 +327,21 @@ const createCardStyles = (colors: Colors) => StyleSheet.create({
     color: colors.text.secondary,
     letterSpacing: 0.5,
   },
+  weeklyBadge: {
+    alignSelf: "flex-end",
+    borderWidth: 1,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  weeklyText: {
+    fontSize: 10,
+    fontWeight: fontWeight.semibold,
+    fontFamily: fontFamily.mono,
+  },
   bottomRow: {
     flexDirection: "row",
-    gap: spacing.xl,
+    justifyContent: "space-between",
   },
   stat: {
     flexDirection: "row",

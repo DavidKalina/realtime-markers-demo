@@ -11,6 +11,8 @@ import {
   getActiveItineraryHandler,
   checkinItineraryItemHandler,
   getPopularStopsHandler,
+  rateItineraryHandler,
+  listCompletedHandler,
 } from "../handlers/itineraryHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -41,12 +43,14 @@ const writeRateLimit = rateLimit({
 });
 
 itineraryRouter.get("/", readRateLimit, listItinerariesHandler);
+itineraryRouter.get("/completed", readRateLimit, listCompletedHandler);
 itineraryRouter.get("/active", readRateLimit, getActiveItineraryHandler);
 itineraryRouter.get("/:id", readRateLimit, getItineraryHandler);
 itineraryRouter.post("/", writeRateLimit, createItineraryHandler);
 itineraryRouter.post("/deactivate", writeRateLimit, deactivateItineraryHandler);
 itineraryRouter.post("/:id/share", writeRateLimit, shareItineraryHandler);
 itineraryRouter.post("/:id/activate", writeRateLimit, activateItineraryHandler);
+itineraryRouter.post("/:id/rate", writeRateLimit, rateItineraryHandler);
 itineraryRouter.post(
   "/:id/items/:itemId/checkin",
   writeRateLimit,

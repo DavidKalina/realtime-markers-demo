@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
 import InfiniteScrollFlatList from "@/components/Layout/InfintieScrollFlatList";
+import { usePullToAction } from "@/hooks/usePullToAction";
 import EventListItem, {
   EventListItemProps,
 } from "@/components/Event/EventListItem";
@@ -117,6 +118,17 @@ const CategoryEventsScreen = () => {
     await fetchEvents(true);
   }, [fetchEvents]);
 
+  const handleSearch = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/search" as const);
+  }, [router]);
+
+  const { pullIndicator, scrollProps } = usePullToAction({
+    onSearch: handleSearch,
+    onRefresh: handleRefresh,
+    isRefreshing: isLoading && events.length === 0,
+  });
+
   return (
     <Screen
       isScrollable={false}
@@ -130,7 +142,6 @@ const CategoryEventsScreen = () => {
         data={events}
         renderItem={renderEventItem}
         fetchMoreData={handleLoadMore}
-        onRefresh={handleRefresh}
         isLoading={isLoading}
         isRefreshing={isLoading && events.length === 0}
         hasMore={hasMore && !error}
@@ -139,6 +150,8 @@ const CategoryEventsScreen = () => {
         emptyTitle="No events yet"
         emptySubtitle={`There are no events in ${category?.name || "this category"} right now`}
         onRetry={handleRefresh}
+        ListHeaderComponent={pullIndicator}
+        {...scrollProps}
       />
     </Screen>
   );

@@ -8,8 +8,6 @@ import React, {
 import {
   ActivityIndicator,
   Pressable,
-  RefreshControl,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -38,10 +36,14 @@ import {
   spacing,
 } from "@/theme";
 import { getTierForXP } from "@/utils/gamification";
+import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import DiscovererCard from "../EventDetails/DiscovererCard";
 import Screen from "../Layout/Screen";
+import PullToActionScrollView from "../Layout/PullToActionScrollView";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
 import UserStatsCard from "./UserStatsCard";
+import ActiveQuestBanner from "./ActiveQuestBanner";
+import RecentCompletions from "./RecentCompletions";
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -78,7 +80,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     setPassword,
   } = useProfile(onBack);
 
-  const { stats, isLoading: statsLoading, refetch: refetchStats } = useUserStats();
+  const {
+    stats,
+    isLoading: statsLoading,
+    refetch: refetchStats,
+  } = useUserStats();
+
+  const completionsRefetchRef = useRef<(() => Promise<void>) | null>(null);
 
   // Consume pending XP on each focus, but only animate AFTER fresh data arrives
   const consume = useXPStore((s) => s.consume);
@@ -115,7 +123,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([refetch(), refetchStats()]);
+      await Promise.all([
+        refetch(),
+        refetchStats(),
+        useActiveItineraryStore.getState().refresh(),
+        completionsRefetchRef.current?.(),
+      ]);
     } finally {
       setIsRefreshing(false);
     }
@@ -141,6 +154,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     router.push("/saved" as const);
   }, [router]);
 
+  const handleSearch = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/search" as const);
+  }, [router]);
+
   return (
     <>
       <Screen
@@ -150,11 +168,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         onBack={handleBack}
         noAnimation
       >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
-          }
+        <PullToActionScrollView
+          onSearch={handleSearch}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
         >
           {loading && (
             <Animated.View
@@ -179,24 +196,50 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   lastName={profileData?.lastName}
                   currentTier={getTierForXP(profileData?.totalXp || 0).name}
                   totalXp={profileData?.totalXp || 0}
-                  discoveryCount={profileData?.scanCount || 0}
+                  scanCount={profileData?.scanCount || 0}
+                  discoveryCount={profileData?.discoveryCount || 0}
+                  saveCount={profileData?.saveCount || 0}
+                  viewCount={profileData?.viewCount || 0}
                   followingCount={profileData?.followingCount || 0}
                   memberSince={memberSince}
+                  weeklyScanCount={stats?.weeklyScanCount}
                 />
               </Animated.View>
 
-              {/* Following & Saved */}
+              {/* Active Quest Banner */}
               <Animated.View
                 entering={FadeIn.duration(duration.normal).delay(80)}
                 style={styles.inlineSection}
               >
-                <Pressable style={styles.inlineAction} onPress={handleFollowingPress}>
+                <ActiveQuestBanner />
+              </Animated.View>
+
+              {/* Recent Completions (rate unrated) */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(160)}
+                style={styles.inlineSection}
+              >
+                <RecentCompletions onRefetchRef={completionsRefetchRef} />
+              </Animated.View>
+
+              {/* Following & Saved */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(240)}
+                style={styles.inlineSection}
+              >
+                <Pressable
+                  style={styles.inlineAction}
+                  onPress={handleFollowingPress}
+                >
                   <Text style={styles.inlineRowLabel}>
                     Following ({profileData?.followingCount ?? 0})
                   </Text>
                   <ChevronRight size={14} color={colors.text.secondary} />
                 </Pressable>
-                <Pressable style={[styles.inlineAction, styles.inlineActionLast]} onPress={handleSavedPress}>
+                <Pressable
+                  style={[styles.inlineAction, styles.inlineActionLast]}
+                  onPress={handleSavedPress}
+                >
                   <Text style={styles.inlineRowLabel}>Saved Events</Text>
                   <ChevronRight size={14} color={colors.text.secondary} />
                 </Pressable>
@@ -204,7 +247,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
               {/* Stats */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(160)}
+                entering={FadeIn.duration(duration.normal).delay(320)}
                 style={styles.inlineSection}
               >
                 <UserStatsCard stats={stats} isLoading={statsLoading} />
@@ -212,7 +255,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
               {/* Account */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(240)}
+                entering={FadeIn.duration(duration.normal).delay(400)}
                 style={styles.inlineSection}
               >
                 <Text style={styles.sectionLabel}>ACCOUNT</Text>
@@ -234,7 +277,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
               {/* Appearance */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(320)}
+                entering={FadeIn.duration(duration.normal).delay(480)}
                 style={styles.inlineSection}
               >
                 <Text style={styles.sectionLabel}>APPEARANCE</Text>
@@ -278,7 +321,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
               {/* Actions */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(400)}
+                entering={FadeIn.duration(duration.normal).delay(560)}
                 style={styles.inlineSection}
               >
                 <Pressable
@@ -306,7 +349,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           )}
 
           <View style={{ height: 120 }} />
-        </ScrollView>
+        </PullToActionScrollView>
       </Screen>
 
       <DeleteAccountModalComponent

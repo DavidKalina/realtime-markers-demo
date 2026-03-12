@@ -1,18 +1,11 @@
 import React, { useCallback, useMemo, useState } from "react";
-import {
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { ChevronRight, SearchIcon } from "lucide-react-native";
+import { ChevronRight } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import Screen from "@/components/Layout/Screen";
-import Input from "@/components/Input/Input";
+import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
 import { SpaceCityCard } from "@/components/ThirdSpaces";
 import ThirdSpaceScoreHero from "@/components/LandingPage/ThirdSpaceScoreHero";
 import { ScoreHeroSkeleton } from "@/components/LandingPage/Skeletons";
@@ -47,7 +40,6 @@ const SpacesBrowseScreen = () => {
     userLocation?.[0],
   );
 
-  // Current city score
   const {
     landingData,
     isLoading: isLandingLoading,
@@ -67,6 +59,7 @@ const SpacesBrowseScreen = () => {
     isLoading: isScoreLoading,
     refetch: refetchScore,
   } = useThirdSpaceScore(resolvedCity);
+
   const handleCityPress = useCallback(
     (city: ThirdSpaceSummary) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -92,11 +85,6 @@ const SpacesBrowseScreen = () => {
     }
   }, [refetch, refreshLanding, refetchScore]);
 
-  const handleBack = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
-  }, [router]);
-
   const handleMyCityPress = useCallback(() => {
     if (!resolvedCity) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -121,28 +109,12 @@ const SpacesBrowseScreen = () => {
     <Screen
       isScrollable={false}
       bannerDescription="Third Space Scores for cities near you"
-      showBackButton
-      onBack={handleBack}
       noAnimation
     >
-      <Pressable onPress={handleSearchFocus}>
-        <View pointerEvents="none">
-          <Input
-            icon={SearchIcon}
-            placeholder="Search events, venues, categories..."
-            value=""
-            onChangeText={() => {}}
-            editable={false}
-            style={{ marginHorizontal: spacing.lg, marginBottom: spacing.lg }}
-          />
-        </View>
-      </Pressable>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
-        }
+      <PullToActionScrollView
+        onSearch={handleSearchFocus}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
       >
         {/* User's current city Third Space */}
         {!myScore && (isLandingLoading || isScoreLoading) && (
@@ -159,8 +131,10 @@ const SpacesBrowseScreen = () => {
           </Animated.View>
         )}
 
-        {/* Reserve space to prevent layout shift — invisible while loading */}
-        <View style={!resolvedCity ? styles.viewCityLinkPlaceholder : undefined}>
+        {/* Reserve space to prevent layout shift */}
+        <View
+          style={!resolvedCity ? styles.viewCityLinkPlaceholder : undefined}
+        >
           {resolvedCity && (
             <Pressable
               style={({ pressed }) => [
@@ -241,7 +215,7 @@ const SpacesBrowseScreen = () => {
         )}
 
         <View style={{ height: 120 }} />
-      </ScrollView>
+      </PullToActionScrollView>
     </Screen>
   );
 };

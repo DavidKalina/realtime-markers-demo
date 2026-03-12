@@ -15,7 +15,9 @@ interface ScreenConfig {
   name: string;
   options?: Pick<
     NativeStackNavigationOptions,
-    "animation" | "animationDuration"
+    | "animation"
+    | "animationDuration"
+    | "presentation"
   >;
 }
 
@@ -38,7 +40,7 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
   },
   {
     name: "search/index",
-    options: { animation: "fade", animationDuration: 150 },
+    options: { presentation: "modal" },
   },
   {
     name: "category/[id]",
@@ -80,6 +82,6 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
     name: "trail",
     options: { animation: "slide_from_right", animationDuration: 250 },
   },
-{ name: "+not-found" },
+  { name: "+not-found" },
 ] as const;
 export const FONT_FAMILY_PATH = "../assets/fonts/SpaceMono-Regular.ttf";

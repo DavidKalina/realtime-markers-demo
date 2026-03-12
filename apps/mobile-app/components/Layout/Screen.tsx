@@ -1,5 +1,5 @@
 import { LucideIcon } from "lucide-react-native";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
   LayoutChangeEvent,
   Pressable,
@@ -220,7 +220,7 @@ const Screen = <T extends string>({
             style={styles.scrollView}
             contentContainerStyle={[
               styles.scrollContent,
-              { paddingTop: BANNER_HEIGHT },
+              resolvedShowBackButton && { paddingTop: BANNER_HEIGHT },
               footerButtons.length > 0 && styles.scrollContentWithFooter,
             ]}
           >
@@ -233,7 +233,7 @@ const Screen = <T extends string>({
           <Animated.View
             style={[
               styles.container,
-              { paddingTop: BANNER_HEIGHT },
+              resolvedShowBackButton && { paddingTop: BANNER_HEIGHT },
               footerButtons.length > 0 && styles.nonScrollableContentWithFooter,
               bottomContent && footerButtons.length === 0 && bottomPaddingStyle,
             ]}
@@ -286,93 +286,91 @@ const Screen = <T extends string>({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  mainContainer: {
-    flex: 1,
-    position: "relative",
-  },
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  scrollContentWithFooter: {
-    paddingBottom: 120,
-  },
-  contentContainer: {
-    flex: 1,
-    paddingVertical: spacing.lg,
-  },
-  contentWithFooter: {
-    paddingBottom: spacing["2xl"], // Add padding when footer is present
-  },
-  contentWrapper: {
-    flex: 1,
-    minHeight: 0,
-  },
-  section: {
-    marginBottom: spacing["2xl"],
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.md,
-    marginLeft: spacing.xs,
-  },
-  card: {
-    borderRadius: radius.md,
-  },
-  fixedFooter: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.bg.primary,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border.medium,
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  bottomContentWrapper: {
-    paddingBottom: spacing.lg,
-  },
-  fixedBottomContent: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.bg.primary,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border.medium,
-  },
-  flexFooter: {
-    backgroundColor: colors.bg.primary,
-    flexDirection: "row",
-  },
-  footerButton: {
-    // Remove default flex: 1 to allow custom flex values from EventDetails
-  },
-  tabsWrapper: {
-    marginTop: 0,
-    marginBottom: 0,
-  },
-  fixedBannerWrapper: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-  },
-  nonScrollableContentWithFooter: {
-    paddingBottom: 120,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    mainContainer: {
+      flex: 1,
+      position: "relative",
+    },
+    container: {
+      flex: 1,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      flexGrow: 1,
+    },
+    scrollContentWithFooter: {
+      paddingBottom: 120,
+    },
+    contentContainer: {
+      flex: 1,
+      paddingVertical: spacing.lg,
+    },
+    contentWithFooter: {
+      paddingBottom: spacing["2xl"], // Add padding when footer is present
+    },
+    contentWrapper: {
+      flex: 1,
+      minHeight: 0,
+    },
+    section: {
+      marginBottom: spacing["2xl"],
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: spacing.md,
+      marginLeft: spacing.xs,
+    },
+    card: {
+      borderRadius: radius.md,
+    },
+    fixedFooter: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: colors.bg.primary,
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.sm,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border.medium,
+      flexDirection: "row",
+      gap: spacing.sm,
+    },
+    bottomContentWrapper: {
+      paddingBottom: spacing.lg,
+    },
+    fixedBottomContent: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+    },
+    flexFooter: {
+      backgroundColor: colors.bg.primary,
+      flexDirection: "row",
+    },
+    footerButton: {
+      // Remove default flex: 1 to allow custom flex values from EventDetails
+    },
+    tabsWrapper: {
+      marginTop: 0,
+      marginBottom: 0,
+    },
+    fixedBannerWrapper: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 10,
+    },
+    nonScrollableContentWithFooter: {
+      paddingBottom: 120,
+    },
+  });
 
 export default Screen;

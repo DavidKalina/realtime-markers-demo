@@ -26,9 +26,6 @@ const CityDetailScreen = () => {
   const [showItinerary, setShowItinerary] = useState(true);
 
   const decodedCity = city ? decodeURIComponent(city) : "";
-  const cityLabel = decodedCity.includes(",")
-    ? decodedCity.split(",")[0].trim()
-    : decodedCity;
 
   const { score: thirdSpaceScore, refetch: refetchScore } = useThirdSpaceScore(
     decodedCity || null,
@@ -50,8 +47,9 @@ const CityDetailScreen = () => {
   const { realtimeDiscoveries, clearRealtime } =
     useRealtimeDiscoveries(decodedCity);
 
-  const { stops: popularStops, refetch: refetchStops } =
-    usePopularStops(decodedCity || null);
+  const { stops: popularStops, refetch: refetchStops } = usePopularStops(
+    decodedCity || null,
+  );
 
   // Haptic when new realtime events arrive
   const prevCountRef = useRef(0);
@@ -91,9 +89,9 @@ const CityDetailScreen = () => {
     }
   }, [refreshLanding, refetchScore, refetchStops, clearRealtime]);
 
-  const handleBack = useCallback(() => {
+  const handleSearch = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.navigate("/spaces" as const);
+    router.push("/search" as const);
   }, [router]);
 
   const handleExploreMap = useCallback(() => {
@@ -116,8 +114,6 @@ const CityDetailScreen = () => {
     <Screen
       isScrollable={false}
       bannerDescription="Third Space Score & Events"
-      showBackButton
-      onBack={handleBack}
       noAnimation
       bottomContent={
         showItinerary ? (
@@ -139,6 +135,7 @@ const CityDetailScreen = () => {
           currentUserId={currentUser?.id}
           popularStops={popularStops}
           topEvents={landingData?.topEvents}
+          onSearch={handleSearch}
           onExploreMap={
             landingData?.featuredEvents?.[0] ||
             landingData?.topEvents?.[0] ||

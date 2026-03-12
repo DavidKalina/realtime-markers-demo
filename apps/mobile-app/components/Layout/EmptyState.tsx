@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Button from "./Button";
 import {
@@ -25,6 +25,7 @@ export interface EmptyStateProps {
   action?: EmptyStateAction;
   variant?: "default" | "error";
   animated?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
 const STAGGER_DELAY = 80;
@@ -36,6 +37,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   action,
   variant = "default",
   animated = true,
+  style,
 }) => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -61,7 +63,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   const Wrapper = animated ? Animated.View : View;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       <Wrapper entering={entering(0)} style={styles.element}>
         <View style={circleStyle}>
           <Text style={styles.emoji}>{emoji}</Text>

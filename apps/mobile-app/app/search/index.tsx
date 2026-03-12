@@ -1,101 +1,58 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Search as SearchIcon, X } from "lucide-react-native";
-import { TextInput } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useRouter } from "expo-router";
+import {
+  ChevronDown,
+  Compass,
+  MapPin,
+  Music,
+  Search as SearchIcon,
+  Ticket,
+  X,
+} from "lucide-react-native";
 import * as Haptics from "expo-haptics";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import Screen from "@/components/Layout/Screen";
 import Input from "@/components/Input/Input";
 import InfiniteScrollFlatList from "@/components/Layout/InfintieScrollFlatList";
 import EventListItem, {
   EventListItemProps,
 } from "@/components/Event/EventListItem";
-import LandingPageContent from "@/components/LandingPage/LandingPageContent";
 import useEventSearch from "@/hooks/useEventSearch";
-import useLandingPageData from "@/hooks/useLandingPageData";
-import useThirdSpaceScore from "@/hooks/useThirdSpaceScore";
-import { useCategoryPreferences } from "@/hooks/useCategoryPreferences";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useUserLocation } from "@/contexts/LocationContext";
-import { apiClient } from "@/services/ApiClient";
-// Type for events from the API
+import {
+  useColors,
+  fontFamily,
+  fontSize,
+  fontWeight,
+  spacing,
+  radius,
+  type Colors,
+} from "@/theme";
+
 type EventType = Omit<EventListItemProps, "onPress">;
 
-const DISTANCE_STORAGE_KEY = "landing_distance_preference";
-
-const SearchListScreen = () => {
+const SearchScreen = () => {
   const router = useRouter();
-  const { filter } = useLocalSearchParams<{ filter?: string }>();
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const searchInputRef = useRef<TextInput>(null);
   const storedMarkers = useLocationStore((state) => state.markers);
   const { userLocation } = useUserLocation();
 
-  // Use our custom hook for search functionality
   const {
     searchQuery,
     setSearchQuery,
     eventResults,
-    isLoading: isSearchLoading,
-    error: searchError,
+    isLoading,
+    error,
     searchEvents,
     handleLoadMore: loadMoreEvents,
     clearSearch,
     hasSearched,
   } = useEventSearch({ initialMarkers: storedMarkers });
 
-  // Distance & city filter state
-  const [selectedDistance, setSelectedDistance] = useState(15);
-  const [selectedCity] = useState<string | null>(null);
-
-  // Category include/exclude filter state (shared with map screen)
-  const { includedCategoryIds, excludedCategoryIds } = useCategoryPreferences();
-
-  // Load persisted distance preference
-  useEffect(() => {
-    AsyncStorage.getItem(DISTANCE_STORAGE_KEY).then((val) => {
-      if (val) {
-        const parsed = parseInt(val, 10);
-        if (!isNaN(parsed)) setSelectedDistance(parsed);
-      }
-    });
-  }, []);
-
-  const hasUserLocation = !!userLocation;
-
-  // Use landing page data hook
-  const {
-    landingData,
-    isLoading: isLandingLoading,
-    refresh: refreshLanding,
-  } = useLandingPageData({
-    userLat: userLocation?.[1], // latitude is second element
-    userLng: userLocation?.[0], // longitude is first element
-    featuredLimit: 5,
-    upcomingLimit: 10,
-    communityLimit: 5,
-    discoveryLimit: 8,
-    trendingLimit: 5,
-    radius: hasUserLocation ? selectedDistance : undefined,
-    city: selectedCity || undefined,
-    includeCategoryIds:
-      includedCategoryIds.length > 0 ? includedCategoryIds : undefined,
-    excludeCategoryIds:
-      excludedCategoryIds.length > 0 ? excludedCategoryIds : undefined,
-  });
-
-  // Third Space Score data (keyed off resolved city from landing page response)
-  const resolvedCity = landingData?.resolvedCity || null;
-  const { score: thirdSpaceScore, refetch: refetchScore } =
-    useThirdSpaceScore(resolvedCity);
-  const currentUser = apiClient.getCurrentUser();
-
-  // Track if we're showing landing page or search results
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // Search input handlers
   const handleSearchInput = useCallback(
     (text: string) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setSearchQuery(text);
     },
     [setSearchQuery],
@@ -111,11 +68,6 @@ const SearchListScreen = () => {
     searchInputRef.current?.focus();
   }, [clearSearch]);
 
-  const handleBack = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
-  }, [router]);
-
   const handleEventPress = useCallback(
     (event: EventType) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -127,51 +79,13 @@ const SearchListScreen = () => {
     [router],
   );
 
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      if (searchQuery.trim()) {
-        await searchEvents(true);
-      } else {
-        await Promise.all([refreshLanding(), refetchScore()]);
-      }
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [searchQuery, searchEvents, refreshLanding, refetchScore]);
+  const handleLoadMore = useCallback(async (): Promise<void> => {
+    await loadMoreEvents();
+  }, [loadMoreEvents]);
 
-  // Auto-focus the search input when the screen opens
   useEffect(() => {
-    setTimeout(() => {
-      searchInputRef.current?.focus();
-    }, 500);
+    setTimeout(() => searchInputRef.current?.focus(), 300);
   }, []);
-
-  const getBannerTitle = () => {
-    switch (filter) {
-      case "nearby":
-        return "Nearby Events";
-      case "upcoming":
-        return "Upcoming Events";
-      case "popular":
-        return "Popular Events";
-      default:
-        return "Search";
-    }
-  };
-
-  const getBannerDescription = () => {
-    switch (filter) {
-      case "nearby":
-        return "Events happening near you";
-      case "upcoming":
-        return "Events coming up soon";
-      case "popular":
-        return "Most popular events";
-      default:
-        return "Find events, venues, and categories";
-    }
-  };
 
   const renderEventItem = useCallback(
     (event: EventType, index: number) => {
@@ -180,7 +94,7 @@ const SearchListScreen = () => {
         const [lng, lat] = userLocation;
         const [eLng, eLat] = event.coordinates;
         const toRad = (d: number) => (d * Math.PI) / 180;
-        const R = 3958.8; // miles
+        const R = 3958.8;
         const dLat = toRad(eLat - lat);
         const dLng = toRad(eLng - lng);
         const a =
@@ -204,27 +118,10 @@ const SearchListScreen = () => {
     [handleEventPress, userLocation],
   );
 
-  const handleLoadMore = useCallback(async (): Promise<void> => {
-    try {
-      await loadMoreEvents();
-    } catch (error) {
-      console.error("Error loading more events:", error);
-      throw error; // Re-throw to let InfiniteScrollFlatList handle the error
-    }
-  }, [loadMoreEvents]);
-
-  // Show landing page only when there's no active search
-  const showLandingPage = !searchQuery.trim() && !hasSearched;
+  const showResults = hasSearched || !!searchQuery.trim();
 
   return (
-    <Screen
-      isScrollable={false}
-      bannerDescription={getBannerDescription()}
-      bannerEmoji="🔍"
-      showBackButton
-      onBack={handleBack}
-      noAnimation
-    >
+    <View style={styles.container}>
       <Input
         ref={searchInputRef}
         icon={SearchIcon}
@@ -237,38 +134,27 @@ const SearchListScreen = () => {
         onSubmitEditing={handleSearch}
         autoCapitalize="none"
         autoCorrect={false}
-        autoFocus={true}
-        loading={isSearchLoading}
-        style={{ marginHorizontal: 16, marginBottom: 16 }}
+        loading={isLoading}
+        style={styles.searchInput}
       />
 
-      {showLandingPage ? (
-        <LandingPageContent
-          data={landingData}
-          isLoading={isLandingLoading}
-          onRefresh={handleRefresh}
-          isRefreshing={isRefreshing}
-          thirdSpaceScore={thirdSpaceScore}
-          currentUserId={currentUser?.id}
-        />
-      ) : (
+      {showResults ? (
         <InfiniteScrollFlatList
           data={eventResults as unknown as EventType[]}
           renderItem={renderEventItem}
           fetchMoreData={handleLoadMore}
-          onRefresh={handleRefresh}
-          isLoading={isSearchLoading}
-          isRefreshing={isRefreshing}
-          hasMore={!searchError && eventResults.length > 0}
-          error={searchError}
-          emptyEmoji={searchQuery.trim() ? "🔍" : "📭"}
+          isLoading={isLoading}
+          isRefreshing={false}
+          hasMore={!error && eventResults.length > 0}
+          error={error}
+          emptyEmoji="🔍"
           emptyTitle={
-            searchQuery.trim() ? "No results found" : "No events found"
+            searchQuery.trim() ? "No results found" : "Start typing to search"
           }
           emptySubtitle={
             searchQuery.trim()
               ? `Nothing matched "${searchQuery.trim()}"`
-              : "There are no events in this area yet"
+              : "Search for events, venues, and categories"
           }
           emptyAction={
             searchQuery.trim()
@@ -277,9 +163,159 @@ const SearchListScreen = () => {
           }
           onRetry={async () => await searchEvents(true)}
         />
+      ) : (
+        <View style={styles.emptyState}>
+          <View style={styles.iconRing}>
+            <SearchIcon size={32} color={colors.accent.primary} />
+          </View>
+          <Text style={styles.emptyTitle}>Find your next adventure</Text>
+          <Text style={styles.emptySubtitle}>
+            Search by event name, venue, or category
+          </Text>
+
+          <View style={styles.suggestions}>
+            <Text style={styles.suggestionsLabel}>TRY SEARCHING FOR</Text>
+            <View style={styles.chips}>
+              {[
+                { icon: Music, label: "Concerts" },
+                { icon: Ticket, label: "Comedy" },
+                { icon: MapPin, label: "Food & Drink" },
+                { icon: Compass, label: "Outdoors" },
+              ].map((item) => (
+                <Pressable
+                  key={item.label}
+                  style={({ pressed }) => [
+                    styles.chip,
+                    pressed && styles.chipPressed,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSearchQuery(item.label);
+                    searchEvents(true);
+                  }}
+                >
+                  <item.icon size={14} color={colors.text.secondary} />
+                  <Text style={styles.chipText}>{item.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.dismissButton,
+              pressed && styles.dismissPressed,
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.back();
+            }}
+          >
+            <ChevronDown size={16} color={colors.text.secondary} />
+            <Text style={styles.dismissText}>Swipe or tap to dismiss</Text>
+          </Pressable>
+        </View>
       )}
-    </Screen>
+    </View>
   );
 };
 
-export default SearchListScreen;
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bg.primary,
+      paddingTop: spacing.lg,
+    },
+    searchInput: {
+      marginHorizontal: spacing.lg,
+      marginBottom: spacing.md,
+    },
+    emptyState: {
+      flex: 1,
+      alignItems: "center",
+      paddingTop: spacing["2xl"] * 2,
+      paddingHorizontal: spacing["2xl"],
+    },
+    iconRing: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: colors.accent.muted,
+      borderWidth: 1,
+      borderColor: colors.accent.border,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: spacing.xl,
+    },
+    emptyTitle: {
+      fontSize: fontSize.xl,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+      marginBottom: spacing.sm,
+    },
+    emptySubtitle: {
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      textAlign: "center",
+      lineHeight: 20,
+    },
+    suggestions: {
+      marginTop: spacing["2xl"] * 1.5,
+      alignItems: "center",
+      width: "100%",
+    },
+    suggestionsLabel: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.disabled,
+      letterSpacing: 1.5,
+      marginBottom: spacing.md,
+    },
+    chips: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "center",
+      gap: spacing.sm,
+    },
+    chip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.xs,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+    },
+    chipPressed: {
+      opacity: 0.6,
+    },
+    chipText: {
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    dismissButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing.xs,
+      marginTop: "auto",
+      paddingBottom: spacing["2xl"] * 2,
+    },
+    dismissPressed: {
+      opacity: 0.5,
+    },
+    dismissText: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+    },
+  });
+
+export default SearchScreen;

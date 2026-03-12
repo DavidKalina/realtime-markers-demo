@@ -188,11 +188,16 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
       console.error("[ItineraryCheckin] Failed to send push:", err);
     }
 
-    // Auto-deactivate when complete
+    // Auto-deactivate and mark completed when complete
     if (remaining === 0) {
-      await this.dataSource
-        .getRepository(User)
-        .update({ id: userId }, { activeItineraryId: undefined });
+      await Promise.all([
+        this.dataSource
+          .getRepository(User)
+          .update({ id: userId }, { activeItineraryId: undefined }),
+        this.dataSource
+          .getRepository(Itinerary)
+          .update({ id: user.activeItineraryId }, { completedAt: now }),
+      ]);
       console.log(
         `[ItineraryCheckin] User ${userId} completed itinerary ${user.activeItineraryId}`,
       );
@@ -282,6 +287,28 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
         checkedInAt: now,
       });
     await this.dataSource.getRepository(ItineraryCheckin).save(checkinRecord);
+
+    // Check if all items are now done — mark itinerary completed + deactivate
+    const remaining = await this.dataSource.getRepository(ItineraryItem).count({
+      where: {
+        itineraryId,
+        checkedInAt: IsNull(),
+      },
+    });
+
+    if (remaining === 0) {
+      await Promise.all([
+        this.dataSource
+          .getRepository(Itinerary)
+          .update({ id: itineraryId }, { completedAt: now }),
+        this.dataSource
+          .getRepository(User)
+          .update({ id: userId }, { activeItineraryId: undefined }),
+      ]);
+      console.log(
+        `[ItineraryCheckin] User ${userId} completed itinerary ${itineraryId} via manual checkin`,
+      );
+    }
 
     return { success: true, checkedInAt: now };
   }
