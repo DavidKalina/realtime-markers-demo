@@ -63,6 +63,10 @@ import type { OverpassService } from "./shared/OverpassService";
 import { createWeatherService } from "./shared/WeatherService";
 import { createItineraryCheckinService } from "./ItineraryCheckinService";
 import type { ItineraryCheckinService } from "./ItineraryCheckinService";
+import { createBadgeService } from "./BadgeService";
+import type { BadgeService } from "./BadgeService";
+import { createAdventureScoreService } from "./AdventureScoreService";
+import type { AdventureScoreService } from "./AdventureScoreService";
 
 export interface ServiceContainer {
   eventService: EventService;
@@ -90,6 +94,8 @@ export interface ServiceContainer {
   itineraryCheckinService: ItineraryCheckinService;
   itineraryRitualService: ItineraryRitualService;
   overpassService: OverpassService;
+  badgeService: BadgeService;
+  adventureScoreService: AdventureScoreService;
 }
 
 export class ServiceInitializer {
@@ -279,10 +285,23 @@ export class ServiceInitializer {
       dataSource: this.dataSource,
     });
 
+    const adventureScoreService = createAdventureScoreService({
+      dataSource: this.dataSource,
+      redisService,
+    });
+
+    const badgeService = createBadgeService({
+      dataSource: this.dataSource,
+      gamificationService,
+      redisService,
+    });
+
     const itineraryCheckinService = createItineraryCheckinService({
       dataSource: this.dataSource,
       pushService: pushNotificationService,
       redisService,
+      gamificationService,
+      badgeService,
     });
 
     // Conditionally create TicketmasterService (opt-in via env var)
@@ -323,6 +342,8 @@ export class ServiceInitializer {
       itineraryCheckinService,
       itineraryRitualService,
       overpassService,
+      badgeService,
+      adventureScoreService,
     };
   }
 

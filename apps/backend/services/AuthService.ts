@@ -625,6 +625,8 @@ export class AuthService {
       currentTier: correctTier,
       followerCount: user.followerCount,
       followingCount: user.followingCount,
+      currentStreak: user.currentStreak ?? 0,
+      longestStreak: user.longestStreak ?? 0,
     };
   }
 

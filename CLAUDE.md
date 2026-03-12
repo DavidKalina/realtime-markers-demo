@@ -4,11 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Product framing: "Scan a flyer → it appears on the map in real time → you level up."**
+**Product framing: "Track how much you touch grass."**
 
-This is a **full-stack geolocation/event discovery app** built around a scan→AI→map pipeline: mobile camera captures a flyer → gpt-4o extracts event data → job queue → PostgreSQL → Redis pub/sub → WebSocket → real-time map markers. It is a **pnpm monorepo** with 5 apps and 1 shared package. All backend services use **Bun** as the runtime.
+This is a **personal adventure app** that helps introverts and planners discover things to do, plan outings, and track their real-world progress. The core pipeline: **Discover → Plan → Go → Check-in → Progress → Discover more.** It is a **pnpm monorepo** with 5 apps and 1 shared package. All backend services use **Bun** as the runtime.
 
-The codebase is **events-only**. Civic engagement functionality has been fully removed.
+The codebase is **events-only**. Do not add new content types (volunteering, national parks, etc.) without explicit product direction.
+
+## Product Philosophy
+
+- **Solve loneliness from the bottom up** — the app serves individuals trying to get out more, not a social network
+- **Snow globe design** — every screen is a diorama of the user's real-world effort. Animations, colors, visual hierarchy, and data all tell the story of their progress. The app should feel like looking into a microcosm of your adventures.
+- **Addicted to progress, not the app** — retention comes from making real-world action feel rewarding (streaks, badges, scores), not from infinite scroll or social comparison
+- **Three pillars**: Discovery (scan, area scan, city scores) → Planning (itinerary builder) → Progress (game loop)
+- **No aggregator trap** — the differentiator is scanned ad-hoc events Google doesn't have. Don't dilute with API-imported mainstream content.
+
+## Current Priorities
+
+1. **Game loop** — streaks, category-themed expertise badges, personal adventure score. This is the #1 gap.
+2. **Polish existing features** — tighten the discovery→planning→progress pipeline, refine UI/UX
+3. **Do NOT build**: new content types, social feed, competitive leaderboards, monetization features, B2B tooling
 
 ## Common Commands
 
@@ -123,7 +137,7 @@ Next.js 14 App Router. Uses Mapbox GL for map visualization, Recharts for analyt
 
 ### Mobile App (`apps/mobile-app/`)
 
-Expo Router with `app/` directory for screens. Uses `@rnmapbox/maps`, Zustand stores, and Expo modules (camera, location, haptics, notifications). Core screens: `index` (map), `scan` (camera → flyer processing), `search`, `saved`, `user`.
+Expo Router with `app/` directory for screens. Uses `@rnmapbox/maps`, Zustand stores, and Expo modules (camera, location, haptics, notifications). Core screens: `index` (map), `scan` (camera → flyer processing), `itineraries` (plan & track adventures), `spaces` (city scores), `area-scan`, `search`, `saved`, `user`. The itinerary system is the centerpiece — AI-generated plans with geofenced check-ins, completion tracking, ratings, rituals, and sharing.
 
 ### Shared Database Package (`packages/database/`)
 
@@ -152,5 +166,14 @@ GitHub Actions workflows on PRs:
 - Backend handlers follow Hono's context pattern (`c.req`, `c.json()`, etc.)
 - Use CORS middleware from Hono (`hono/cors`) — not custom implementations
 - Database migrations live in `apps/backend/migrations/` and use TypeORM CLI
+- **When adding a new entity or migration**, update ALL of these files:
+  1. `packages/database/src/entities/` — create the entity file
+  2. `packages/database/src/entities/index.ts` — export the entity
+  3. `packages/database/src/config/data-source.ts` — add entity to the `entities` array
+  4. `packages/database/src/utils/entityUtils.ts` — add to `ENTITY_TO_TABLE_MAPPING`
+  5. `apps/backend/data-source.ts` — add entity to `entities` array AND migration to `migrations` array
 - The app is **events-only** — do not add new entity types (e.g. civic engagements, private events) without explicit product direction
 - **Do not use `runOnJS` from react-native-reanimated** — it is deprecated. Use `scheduleOnRN` from `react-native-worklets` instead to call JS functions from worklet callbacks.
+- **Itinerary completion is the primary XP event** — check-ins and completions should be the biggest XP rewards, not scanning
+- **No social features** — following/social feed is deprioritized. Do not invest in social graph features.
+- **Game loop elements** (streaks, badges, adventure score) should reward real-world action, not app usage

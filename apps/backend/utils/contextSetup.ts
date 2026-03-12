@@ -36,6 +36,8 @@ export function setupContext(
     c.set("itineraryCheckinService", services.itineraryCheckinService);
     c.set("itineraryRitualService", services.itineraryRitualService);
     c.set("overpassService", services.overpassService);
+    c.set("badgeService", services.badgeService);
+    c.set("adventureScoreService", services.adventureScoreService);
     await next();
   });
 }

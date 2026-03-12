@@ -1,12 +1,10 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
-  ActivityIndicator,
   Dimensions,
   Modal,
   Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import Animated, {
@@ -31,9 +29,6 @@ import {
 } from "@/theme";
 import { getTierByName } from "@/utils/gamification";
 import { useDeviceMotionTilt } from "./useDeviceMotionTilt";
-import { useAuth } from "@/contexts/AuthContext";
-import { apiClient } from "@/services/ApiClient";
-import { invalidateProfileCache } from "@/hooks/useProfile";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_ASPECT = 1.586; // Credit card ratio
@@ -57,7 +52,6 @@ const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 interface DiscovererCardOverlayProps {
   visible: boolean;
   onDismiss: () => void;
-  userId?: string;
   firstName?: string;
   lastName?: string;
   currentTier?: string;
@@ -66,7 +60,6 @@ interface DiscovererCardOverlayProps {
   scanCount?: number;
   saveCount?: number;
   viewCount?: number;
-  followingCount?: number;
   memberSince?: string;
   weeklyScanCount?: number;
 }
@@ -74,7 +67,6 @@ interface DiscovererCardOverlayProps {
 const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
   visible,
   onDismiss,
-  userId,
   firstName,
   lastName,
   currentTier,
@@ -83,16 +75,11 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
   scanCount,
   saveCount,
   viewCount,
-  followingCount,
   memberSince,
   weeklyScanCount,
 }) => {
   const colors = useColors();
   const overlayStyles = useMemo(() => createOverlayStyles(colors), [colors]);
-  const { user } = useAuth();
-  const isSelf = !!(userId && user?.id && userId === user.id);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followLoading, setFollowLoading] = useState(false);
   const scrimOpacity = useSharedValue(0);
   const cardScale = useSharedValue(0.85);
   const cardOpacity = useSharedValue(0);
@@ -125,31 +112,7 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
     scrimOpacity.value = withTiming(1, { duration: 300 });
     cardScale.value = withSpring(1, spring.firm);
     cardOpacity.value = withTiming(1, { duration: 200 });
-
-    if (userId && !isSelf) {
-      apiClient.follows
-        .isFollowing(userId)
-        .then((res) => setIsFollowing(res.following))
-        .catch(() => {});
-    }
-  }, [scrimOpacity, cardScale, cardOpacity, userId, isSelf]);
-
-  const handleToggleFollow = useCallback(async () => {
-    if (!userId || followLoading) return;
-    setFollowLoading(true);
-    const prev = isFollowing;
-    setIsFollowing(!prev);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      const res = await apiClient.follows.toggleFollow(userId);
-      setIsFollowing(res.following);
-      invalidateProfileCache();
-    } catch {
-      setIsFollowing(prev);
-    } finally {
-      setFollowLoading(false);
-    }
-  }, [userId, followLoading, isFollowing]);
+  }, [scrimOpacity, cardScale, cardOpacity]);
 
   const handleDismiss = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -318,36 +281,6 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
             </View>
           </Animated.View>
 
-          {/* Follow button — below card */}
-          {userId && !isSelf && (
-            <TouchableOpacity
-              style={[
-                overlayStyles.followButton,
-                isFollowing && overlayStyles.followingButton,
-              ]}
-              onPress={handleToggleFollow}
-              activeOpacity={0.7}
-              disabled={followLoading}
-            >
-              {followLoading ? (
-                <ActivityIndicator
-                  size="small"
-                  color={
-                    isFollowing ? colors.text.secondary : colors.text.primary
-                  }
-                />
-              ) : (
-                <Text
-                  style={[
-                    overlayStyles.followButtonText,
-                    isFollowing && overlayStyles.followingButtonText,
-                  ]}
-                >
-                  {isFollowing ? "FOLLOWING" : "FOLLOW"}
-                </Text>
-              )}
-            </TouchableOpacity>
-          )}
         </Animated.View>
       </View>
     </Modal>
@@ -435,31 +368,6 @@ const createOverlayStyles = (colors: Colors) => StyleSheet.create({
   bottomRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-  },
-  followButton: {
-    marginTop: spacing.md,
-    paddingVertical: 10,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.text.primary,
-    alignSelf: "center",
-    minWidth: 140,
-    alignItems: "center",
-  },
-  followingButton: {
-    borderColor: colors.text.secondary,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-  },
-  followButtonText: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.bold,
-    color: colors.text.primary,
-    letterSpacing: 1.5,
-  },
-  followingButtonText: {
-    color: colors.text.secondary,
   },
   stat: {
     flexDirection: "row",

@@ -17,6 +17,7 @@ import {
   Itinerary,
   ItineraryItem,
   ItineraryRitual,
+  UserBadge,
 } from "../entities";
 
 // Create the DataSource instance
@@ -39,6 +40,7 @@ export const createDataSource = (databaseUrl: string): DataSource => {
       Itinerary,
       ItineraryItem,
       ItineraryRitual,
+      UserBadge,
     ],
     migrationsTableName: "migrations",
     migrationsRun: false, // Disable automatic migration running

@@ -48,7 +48,6 @@ interface DiscovererCardProps {
   scanCount?: number;
   saveCount?: number;
   viewCount?: number;
-  followingCount?: number;
   memberSince?: string;
   weeklyScanCount?: number;
 }
@@ -65,7 +64,6 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
   scanCount,
   saveCount,
   viewCount,
-  followingCount,
   memberSince,
   weeklyScanCount,
 }) => {
@@ -253,7 +251,6 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
       <DiscovererCardOverlay
         visible={overlayVisible}
         onDismiss={() => setOverlayVisible(false)}
-        userId={userId}
         firstName={firstName}
         lastName={lastName}
         currentTier={currentTier}
@@ -262,7 +259,6 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
         discoveryCount={discoveryCount}
         saveCount={saveCount}
         viewCount={viewCount}
-        followingCount={followingCount}
         memberSince={memberSince}
         weeklyScanCount={weeklyScanCount}
       />
