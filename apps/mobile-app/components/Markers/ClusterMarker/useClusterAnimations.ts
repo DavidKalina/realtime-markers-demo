@@ -13,10 +13,7 @@ import { SHADOW_OFFSET } from "../MarkerSVGs";
 // Static shadow style — shadow opacity was animating 0.3→0.3 (no-op)
 export const staticShadowStyle = {
   opacity: 0.3,
-  transform: [
-    { translateX: SHADOW_OFFSET.x },
-    { translateY: SHADOW_OFFSET.y },
-  ],
+  transform: [{ translateX: SHADOW_OFFSET.x }, { translateY: SHADOW_OFFSET.y }],
 };
 
 export function useClusterAnimations(

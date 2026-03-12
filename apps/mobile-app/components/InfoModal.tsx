@@ -65,65 +65,66 @@ const InfoModal: React.FC<InfoModalProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  backdropFill: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.overlay.light,
-  },
-  card: {
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
-    padding: spacing["2xl"],
-    width: "85%",
-    maxWidth: 360,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    shadowColor: colors.fixed.black,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  accentBar: {
-    height: 3,
-    borderRadius: 2,
-    width: 32,
-    marginBottom: spacing.md,
-  },
-  title: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.bold,
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-    marginBottom: spacing.sm,
-  },
-  body: {
-    fontSize: fontSize.sm,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.relaxed,
-    marginBottom: spacing.xl,
-  },
-  dismissButton: {
-    alignSelf: "flex-end",
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    backgroundColor: colors.bg.elevated,
-  },
-  dismissText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-    color: colors.text.primary,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    backdropFill: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: colors.overlay.light,
+    },
+    card: {
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.xl,
+      padding: spacing["2xl"],
+      width: "85%",
+      maxWidth: 360,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      shadowColor: colors.fixed.black,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.25,
+      shadowRadius: 20,
+      elevation: 10,
+    },
+    accentBar: {
+      height: 3,
+      borderRadius: 2,
+      width: 32,
+      marginBottom: spacing.md,
+    },
+    title: {
+      fontSize: fontSize.lg,
+      fontWeight: fontWeight.bold,
+      color: colors.text.primary,
+      fontFamily: fontFamily.mono,
+      marginBottom: spacing.sm,
+    },
+    body: {
+      fontSize: fontSize.sm,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+      lineHeight: lineHeight.relaxed,
+      marginBottom: spacing.xl,
+    },
+    dismissButton: {
+      alignSelf: "flex-end",
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      backgroundColor: colors.bg.elevated,
+    },
+    dismissText: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+    },
+  });
 
 export default InfoModal;

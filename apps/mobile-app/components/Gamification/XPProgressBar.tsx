@@ -126,62 +126,63 @@ const XPProgressBar: React.FC<XPProgressBarProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
-  },
-  labelRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.sm,
-  },
-  xpText: {
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.bold,
-    color: colors.accent.primary,
-    fontFamily: fontFamily.mono,
-  },
-  nextTierText: {
-    fontSize: fontSize.xs,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-  },
-  maxTierText: {
-    fontSize: fontSize.xs,
-    color: colors.status.success.text,
-    fontFamily: fontFamily.mono,
-  },
-  barBackground: {
-    height: 8,
-    borderRadius: radius.full,
-    backgroundColor: colors.bg.elevated,
-    overflow: "hidden",
-  },
-  barFill: {
-    height: "100%",
-    borderRadius: radius.full,
-    backgroundColor: colors.accent.primary,
-  },
-  bottomRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: spacing.xs,
-    minHeight: 16,
-  },
-  thresholdText: {
-    fontSize: 10,
-    color: colors.text.disabled,
-    fontFamily: fontFamily.mono,
-  },
-  gainText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.accent.primary,
-    fontFamily: fontFamily.mono,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.lg,
+    },
+    labelRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: spacing.sm,
+    },
+    xpText: {
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.bold,
+      color: colors.accent.primary,
+      fontFamily: fontFamily.mono,
+    },
+    nextTierText: {
+      fontSize: fontSize.xs,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+    },
+    maxTierText: {
+      fontSize: fontSize.xs,
+      color: colors.status.success.text,
+      fontFamily: fontFamily.mono,
+    },
+    barBackground: {
+      height: 8,
+      borderRadius: radius.full,
+      backgroundColor: colors.bg.elevated,
+      overflow: "hidden",
+    },
+    barFill: {
+      height: "100%",
+      borderRadius: radius.full,
+      backgroundColor: colors.accent.primary,
+    },
+    bottomRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginTop: spacing.xs,
+      minHeight: 16,
+    },
+    thresholdText: {
+      fontSize: 10,
+      color: colors.text.disabled,
+      fontFamily: fontFamily.mono,
+    },
+    gainText: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.semibold,
+      color: colors.accent.primary,
+      fontFamily: fontFamily.mono,
+    },
+  });
 
 export default XPProgressBar;

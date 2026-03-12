@@ -1,10 +1,5 @@
 import React, { useCallback, useMemo } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-} from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import {
   useColors,
   type Colors,
@@ -87,59 +82,60 @@ const CommunityEventsSection: React.FC<CommunityEventsSectionProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    marginBottom: spacing["3xl"],
-    paddingHorizontal: spacing.lg,
-  },
-  title: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 1.5,
-    textTransform: "uppercase" as const,
-    marginBottom: spacing.md,
-  },
-  item: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border.default,
-  },
-  itemLast: {
-    borderBottomWidth: 0,
-  },
-  itemPressed: {
-    opacity: 0.6,
-  },
-  emoji: {
-    fontSize: 18,
-    width: 28,
-    textAlign: "center" as const,
-  },
-  eventInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  eventName: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-  },
-  eventMeta: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-  },
-  timeBadgeText: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 0.2,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      marginBottom: spacing["3xl"],
+      paddingHorizontal: spacing.lg,
+    },
+    title: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1.5,
+      textTransform: "uppercase" as const,
+      marginBottom: spacing.md,
+    },
+    item: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      paddingVertical: spacing.sm + 2,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.default,
+    },
+    itemLast: {
+      borderBottomWidth: 0,
+    },
+    itemPressed: {
+      opacity: 0.6,
+    },
+    emoji: {
+      fontSize: 18,
+      width: 28,
+      textAlign: "center" as const,
+    },
+    eventInfo: {
+      flex: 1,
+      gap: 2,
+    },
+    eventName: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+      fontFamily: fontFamily.mono,
+    },
+    eventMeta: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    timeBadgeText: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 0.2,
+    },
+  });
 
 export default CommunityEventsSection;

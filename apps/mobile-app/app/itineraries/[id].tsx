@@ -412,7 +412,11 @@ const ItineraryDetailScreen = () => {
 
   return (
     <Screen isScrollable={false} showBackButton onBack={handleBack} noAnimation>
-      <PullToActionScrollView onSearch={handleSearch} onRefresh={handleRefresh} contentContainerStyle={styles.scrollPadding}>
+      <PullToActionScrollView
+        onSearch={handleSearch}
+        onRefresh={handleRefresh}
+        contentContainerStyle={styles.scrollPadding}
+      >
         {/* ── Hero Section ── */}
         <Animated.View
           entering={FadeIn.duration(500).easing(Easing.out(Easing.cubic))}

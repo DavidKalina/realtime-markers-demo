@@ -7,6 +7,7 @@ import {
 } from "@realtime-markers/database";
 import type { GamificationService } from "./GamificationService";
 import type { RedisService } from "./shared/RedisService";
+import type { PushNotificationService } from "./PushNotificationService";
 
 // ── Badge definitions ──────────────────────────────────────────────────────
 export interface BadgeDefinition {
@@ -33,7 +34,10 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     emoji: "\u2615",
     description: "Check in at 10 cafes or coffee shops",
     threshold: 10,
-    criteria: { type: "category", categories: ["cafe", "coffee_shop", "coffee", "bakery"] },
+    criteria: {
+      type: "category",
+      categories: ["cafe", "coffee_shop", "coffee", "bakery"],
+    },
   },
   {
     id: "trail_blazer",
@@ -41,7 +45,16 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     emoji: "\uD83E\uDD7E",
     description: "Check in at 5 trails or hiking spots",
     threshold: 5,
-    criteria: { type: "category", categories: ["trail", "hiking", "park", "nature_reserve", "national_park"] },
+    criteria: {
+      type: "category",
+      categories: [
+        "trail",
+        "hiking",
+        "park",
+        "nature_reserve",
+        "national_park",
+      ],
+    },
   },
   {
     id: "night_owl",
@@ -57,7 +70,16 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     emoji: "\uD83C\uDFA8",
     description: "5 museum or gallery check-ins",
     threshold: 5,
-    criteria: { type: "category", categories: ["museum", "art_gallery", "gallery", "theater", "performing_arts"] },
+    criteria: {
+      type: "category",
+      categories: [
+        "museum",
+        "art_gallery",
+        "gallery",
+        "theater",
+        "performing_arts",
+      ],
+    },
   },
   {
     id: "foodie",
@@ -65,7 +87,10 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     emoji: "\uD83C\uDF7D\uFE0F",
     description: "10 restaurant check-ins",
     threshold: 10,
-    criteria: { type: "category", categories: ["restaurant", "food", "dining", "brunch", "bar", "pub"] },
+    criteria: {
+      type: "category",
+      categories: ["restaurant", "food", "dining", "brunch", "bar", "pub"],
+    },
   },
   {
     id: "early_bird",
@@ -123,6 +148,7 @@ export interface BadgeServiceDeps {
   dataSource: DataSource;
   gamificationService: GamificationService;
   redisService: RedisService;
+  pushService: PushNotificationService;
 }
 
 export interface UserBadgeWithDef {
@@ -139,11 +165,13 @@ export class BadgeService {
   private dataSource: DataSource;
   private gamificationService: GamificationService;
   private redisService: RedisService;
+  private pushService: PushNotificationService;
 
   constructor(deps: BadgeServiceDeps) {
     this.dataSource = deps.dataSource;
     this.gamificationService = deps.gamificationService;
     this.redisService = deps.redisService;
+    this.pushService = deps.pushService;
   }
 
   /**
@@ -228,6 +256,23 @@ export class BadgeService {
           },
         });
 
+        // Send push notification for badge unlock
+        try {
+          await this.pushService.sendToUser(userId, {
+            title: `${def.emoji} Badge Unlocked!`,
+            body: `You earned "${def.name}" — ${def.description}`,
+            sound: "default",
+            data: {
+              type: "badge_unlocked",
+              badgeId: def.id,
+              badgeName: def.name,
+              badgeEmoji: def.emoji,
+            },
+          });
+        } catch (err) {
+          console.error(`[BadgeService] Failed to send badge push:`, err);
+        }
+
         console.log(
           `[BadgeService] User ${userId} unlocked badge: ${def.name} ${def.emoji}`,
         );
@@ -248,7 +293,11 @@ export class BadgeService {
         return this.countCategoryCheckins(userId, criteria.categories);
 
       case "time":
-        return this.countTimeCheckins(userId, criteria.direction, criteria.hour);
+        return this.countTimeCheckins(
+          userId,
+          criteria.direction,
+          criteria.hour,
+        );
 
       case "day":
         return this.countDayCheckins(userId, criteria.days);

@@ -1,6 +1,13 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, ViewStyle } from "react-native";
-import { useColors, spacing, fontSize, fontWeight, fontFamily, type Colors } from "@/theme";
+import {
+  useColors,
+  spacing,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  type Colors,
+} from "@/theme";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 export interface StatItem {
@@ -74,55 +81,56 @@ const UserStats: React.FC<UserStatsProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xs,
-  },
-  statItem: {
-    alignItems: "center",
-    flex: 1,
-    paddingHorizontal: spacing.md,
-  },
-  statValueContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacing.xs,
-  },
-  statValue: {
-    color: colors.text.primary,
-    fontSize: fontSize.xl,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 0.3,
-  },
-  statLabel: {
-    color: colors.text.secondary,
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    opacity: 0.9,
-    letterSpacing: 0.2,
-  },
-  badgeContainer: {
-    backgroundColor: colors.accent.primary,
-    borderRadius: spacing.sm,
-    minWidth: spacing.lg,
-    height: spacing.lg,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: spacing.xs,
-    marginLeft: spacing._6,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  badgeText: {
-    color: colors.bg.primary,
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.bold,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: "row",
+      justifyContent: "space-around",
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xs,
+    },
+    statItem: {
+      alignItems: "center",
+      flex: 1,
+      paddingHorizontal: spacing.md,
+    },
+    statValueContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: spacing.xs,
+    },
+    statValue: {
+      color: colors.text.primary,
+      fontSize: fontSize.xl,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      letterSpacing: 0.3,
+    },
+    statLabel: {
+      color: colors.text.secondary,
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      opacity: 0.9,
+      letterSpacing: 0.2,
+    },
+    badgeContainer: {
+      backgroundColor: colors.accent.primary,
+      borderRadius: spacing.sm,
+      minWidth: spacing.lg,
+      height: spacing.lg,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: spacing.xs,
+      marginLeft: spacing._6,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    badgeText: {
+      color: colors.bg.primary,
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+    },
+  });
 
 export default UserStats;

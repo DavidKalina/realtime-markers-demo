@@ -155,10 +155,7 @@ const MarkerSlotContent = React.memo(
 
     const mountStyle = useAnimatedStyle(() => ({
       opacity: dropOpacity.value,
-      transform: [
-        { translateY: dropY.value },
-        { scale: dropScale.value },
-      ],
+      transform: [{ translateY: dropY.value }, { scale: dropScale.value }],
     }));
 
     return (
@@ -269,17 +266,17 @@ interface PoolSlotData {
   anchor: { x: number; y: number };
   content:
     | { type: "marker"; props: React.ComponentProps<typeof MarkerSlotContent> }
-    | { type: "cluster"; props: React.ComponentProps<typeof ClusterSlotContent> }
+    | {
+        type: "cluster";
+        props: React.ComponentProps<typeof ClusterSlotContent>;
+      }
     | null;
 }
 
 const PoolSlot = React.memo(
   ({ data }: { data: PoolSlotData }) => {
     return (
-      <MapboxGL.MarkerView
-        coordinate={data.coordinate}
-        anchor={data.anchor}
-      >
+      <MapboxGL.MarkerView coordinate={data.coordinate} anchor={data.anchor}>
         {data.content?.type === "marker" ? (
           <MarkerSlotContent {...data.content.props} />
         ) : data.content?.type === "cluster" ? (
@@ -436,7 +433,10 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       (feature: ClusterFeature | PointFeature) => {
         if (feature.properties.cluster) {
           const clusterFeature = feature as ClusterFeature;
-          const coordinates = clusterFeature.geometry.coordinates as [number, number];
+          const coordinates = clusterFeature.geometry.coordinates as [
+            number,
+            number,
+          ];
           const count = clusterFeature.properties.point_count;
           const clusterId =
             clusterFeature.properties.stableId ||
@@ -445,7 +445,10 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           const isNew = childMarkerIds.some(
             (id) => !knownMarkerIds.current.has(id),
           );
-          const dominantCategory = getDominantCategory(childMarkerIds, categoryLookup);
+          const dominantCategory = getDominantCategory(
+            childMarkerIds,
+            categoryLookup,
+          );
 
           return {
             type: "cluster" as const,
@@ -464,7 +467,10 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
         } else {
           const pointFeature = feature as PointFeature;
           const markerId = pointFeature.properties.id;
-          const coordinates = pointFeature.geometry.coordinates as [number, number];
+          const coordinates = pointFeature.geometry.coordinates as [
+            number,
+            number,
+          ];
           const data = pointFeature.properties.data;
           const markerItem: MarkerItem = {
             id: markerId,
@@ -560,7 +566,10 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
     const setVisibleMarkerStats = useLocationStore(
       (state) => state.setVisibleMarkerStats,
     );
-    const prevStatsRef = useRef<{ counts: Record<string, number>; total: number }>({
+    const prevStatsRef = useRef<{
+      counts: Record<string, number>;
+      total: number;
+    }>({
       counts: {},
       total: 0,
     });

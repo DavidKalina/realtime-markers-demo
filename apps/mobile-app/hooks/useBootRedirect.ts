@@ -52,7 +52,14 @@ export function useBootRedirect() {
 
   // Timeout: if location never arrives, fall back to /spaces
   useEffect(() => {
-    if (done || !authReady || !isAuthenticated || !hasCompletedOnboarding || hasLocation) return;
+    if (
+      done ||
+      !authReady ||
+      !isAuthenticated ||
+      !hasCompletedOnboarding ||
+      hasLocation
+    )
+      return;
     const timer = setTimeout(() => {
       if (fetching.current) return;
       setDone(true);

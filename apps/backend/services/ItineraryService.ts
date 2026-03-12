@@ -24,6 +24,7 @@ export interface CreateItineraryInput {
   stopCount: number; // 0 = let LLM decide
   startTime?: string; // HH:MM (24h) — optional fixed start
   endTime?: string; // HH:MM (24h) — optional fixed end
+  intention?: string; // recharge | explore | socialize | move | learn | treat_yourself
 }
 
 interface LLMItineraryItem {
@@ -146,6 +147,7 @@ class ItineraryServiceImpl implements ItineraryService {
       budgetMax: input.budgetMax,
       durationHours: input.durationHours,
       activityTypes: input.activityTypes,
+      intention: input.intention,
       status: ItineraryStatus.GENERATING,
     });
     await itineraryRepo.save(itinerary);
@@ -219,10 +221,16 @@ class ItineraryServiceImpl implements ItineraryService {
             hikingResult.status === "fulfilled" ? hikingResult.value : [];
 
           if (pavedResult.status === "rejected") {
-            console.warn("[ItineraryService] Paved trail fetch failed:", pavedResult.reason?.message ?? pavedResult.reason);
+            console.warn(
+              "[ItineraryService] Paved trail fetch failed:",
+              pavedResult.reason?.message ?? pavedResult.reason,
+            );
           }
           if (hikingResult.status === "rejected") {
-            console.warn("[ItineraryService] Hiking trail fetch failed:", hikingResult.reason?.message ?? hikingResult.reason);
+            console.warn(
+              "[ItineraryService] Hiking trail fetch failed:",
+              hikingResult.reason?.message ?? hikingResult.reason,
+            );
           }
 
           // Merge and deduplicate by OSM ID
@@ -234,7 +242,10 @@ class ItineraryServiceImpl implements ItineraryService {
             }
           }
         } catch (err) {
-          console.warn("[ItineraryService] Trail fetch failed, continuing without trails:", err);
+          console.warn(
+            "[ItineraryService] Trail fetch failed, continuing without trails:",
+            err,
+          );
         }
       }
 
@@ -258,6 +269,7 @@ class ItineraryServiceImpl implements ItineraryService {
         trails,
         forecast,
         previousVenues,
+        input.intention,
       );
 
       // Validate and enrich items — verify venues, drop hallucinations
@@ -743,6 +755,7 @@ class ItineraryServiceImpl implements ItineraryService {
     trails: Trail[] = [],
     forecast: DayForecast | null = null,
     previousVenues: string[] = [],
+    intention?: string,
   ): Promise<LLMItineraryResponse> {
     const eventList =
       events.length > 0
@@ -830,6 +843,25 @@ class ItineraryServiceImpl implements ItineraryService {
         ? "Free only ($0 — no paid activities)"
         : `$${input.budgetMin}–$${input.budgetMax}`;
 
+    // Build intention context for the LLM
+    const intentionPromptMap: Record<string, string> = {
+      recharge:
+        "INTENTION: Recharge — solo-friendly, quiet cafes, nature spots, morning hours, gentle pacing. Prioritize calm, restorative venues. Avoid loud/crowded spots.",
+      explore:
+        "INTENTION: Explore — new neighborhoods, variety of venue types, hidden gems, discovery-weighted. Prioritize places off the beaten path the user hasn't tried.",
+      socialize:
+        "INTENTION: Socialize — lively spots, communal seating, evening-friendly, breweries/bars/social venues. Prioritize places with great atmosphere for meeting people.",
+      move: "INTENTION: Move — trails, outdoor activities, physical movement, longer walking routes. Prioritize active venues and connect stops with scenic walks or trails.",
+      learn:
+        "INTENTION: Learn — museums, bookstores, galleries, cultural venues, historical landmarks. Prioritize educational and culturally enriching stops.",
+      treat_yourself:
+        "INTENTION: Treat Yourself — great food, scenic spots, nice coffee, premium experiences. Prioritize quality over quantity. Make it feel special and indulgent.",
+    };
+    const intentionBlock =
+      intention && intentionPromptMap[intention]
+        ? `\n${intentionPromptMap[intention]}\n`
+        : "";
+
     const hasTrails = trailList !== null;
     const trailInstructions = hasTrails
       ? `
@@ -860,7 +892,7 @@ HOURS & SCHEDULING (CRITICAL):
 - If there are no scanned events, build the itinerary entirely from town staples — beloved local restaurants, iconic landmarks, popular parks, and must-visit spots. This is a great itinerary, not a consolation prize.
 - If not enough options exist, create FEWER stops — never pad with fake events.
 - Use FULL street addresses including city and state (e.g., "123 Main St, Austin, TX")
-${trailInstructions}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt the itinerary to the forecast. Rain or storms → prefer indoor stops during those hours. Extreme heat → outdoor activities in morning/evening, shade and AC midday. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9", "Rain likely after 3pm, grab a window seat and enjoy it").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous itineraries: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives. The whole point is discovering something new each time.\n` : ""}
+${trailInstructions}${intentionBlock}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt the itinerary to the forecast. Rain or storms → prefer indoor stops during those hours. Extreme heat → outdoor activities in morning/evening, shade and AC midday. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9", "Rain likely after 3pm, grab a window seat and enjoy it").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous itineraries: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives. The whole point is discovering something new each time.\n` : ""}
 PLANNING RULES:
 - Stay within the time budget (${input.durationHours} hours)
 - Stay within the spending budget (${budgetRange})
@@ -908,7 +940,7 @@ Respond ONLY with valid JSON matching this schema:
 Date: ${input.plannedDate}
 Duration: ${input.durationHours} hours
 Budget: ${budgetRange}
-Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}${timeConstraint}
+Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${intention ? `\nIntention: ${intention.replace("_", " ")}` : ""}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}${timeConstraint}
 
 EVENTS (use ONLY these for event-type stops):
 ${eventList}

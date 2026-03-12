@@ -15,9 +15,7 @@ interface ScreenConfig {
   name: string;
   options?: Pick<
     NativeStackNavigationOptions,
-    | "animation"
-    | "animationDuration"
-    | "presentation"
+    "animation" | "animationDuration" | "presentation"
   >;
 }
 

@@ -13,7 +13,14 @@ import Animated, {
   LinearTransition,
 } from "react-native-reanimated";
 import { LucideIcon } from "lucide-react-native";
-import { useColors, spacing, radius, fontSize, fontFamily, type Colors } from "@/theme";
+import {
+  useColors,
+  spacing,
+  radius,
+  fontSize,
+  fontFamily,
+  type Colors,
+} from "@/theme";
 
 interface InputProps extends Omit<TextInputProps, "style"> {
   ref?: Ref<TextInput>;
@@ -91,36 +98,37 @@ const Input = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing._10,
-    height: 44,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  errorContainer: {
-    borderColor: colors.status.error.text,
-  },
-  iconContainer: {
-    marginRight: spacing.sm,
-  },
-  rightIconContainer: {
-    padding: spacing._6,
-  },
-  input: {
-    flex: 1,
-    height: "100%",
-    color: colors.text.primary,
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-  },
-  errorInput: {
-    color: colors.status.error.text,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.sm,
+      paddingHorizontal: spacing._10,
+      height: 44,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+    },
+    errorContainer: {
+      borderColor: colors.status.error.text,
+    },
+    iconContainer: {
+      marginRight: spacing.sm,
+    },
+    rightIconContainer: {
+      padding: spacing._6,
+    },
+    input: {
+      flex: 1,
+      height: "100%",
+      color: colors.text.primary,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+    },
+    errorInput: {
+      color: colors.status.error.text,
+    },
+  });
 
 export default Input;

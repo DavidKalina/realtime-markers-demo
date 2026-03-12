@@ -57,6 +57,7 @@ export interface ItineraryResponse {
   budgetMax: number;
   durationHours: number;
   activityTypes: string[];
+  intention?: string;
   title?: string;
   summary?: string;
   status: "GENERATING" | "READY" | "FAILED";
@@ -79,6 +80,7 @@ export interface CreateItineraryParams {
   ritualId?: string;
   startTime?: string; // HH:MM (24h)
   endTime?: string; // HH:MM (24h)
+  intention?: string;
 }
 
 export class ItinerariesModule extends BaseApiModule {

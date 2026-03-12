@@ -168,91 +168,92 @@ const TrendingEventsSection: React.FC<TrendingEventsSectionProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    marginBottom: spacing.lg,
-  },
-  title: {
-    fontSize: 12,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 1.5,
-    textTransform: "uppercase" as const,
-  },
-  subtitle: {
-    fontSize: fontSize.xs,
-    color: colors.text.secondary,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.mono,
-  },
-  carouselContainer: {
-    position: "relative",
-  },
-  scrollContent: {
-    paddingHorizontal: ITEM_MARGIN,
-  },
-  itemContainer: {
-    width: ITEM_WIDTH,
-    marginRight: ITEM_SPACING,
-  },
-  cardContainer: {
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    overflow: "hidden",
-  },
-  cardFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing._6,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing._6,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
-    backgroundColor: colors.accent.muted,
-  },
-  timeBadge: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    paddingHorizontal: spacing._6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    borderWidth: 1,
-    overflow: "hidden",
-    letterSpacing: 0.5,
-  },
-  cardFooterText: {
-    flex: 1,
-    fontSize: 10,
-    color: colors.accent.primary,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 0.5,
-  },
-  paginationContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  paginationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.border.accent,
-    marginHorizontal: spacing.xs,
-  },
-  paginationDotActive: {
-    backgroundColor: colors.accent.primary,
-    width: 24,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      marginBottom: spacing.lg,
+    },
+    title: {
+      fontSize: 12,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      marginBottom: spacing.xs,
+      paddingHorizontal: spacing.lg,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1.5,
+      textTransform: "uppercase" as const,
+    },
+    subtitle: {
+      fontSize: fontSize.xs,
+      color: colors.text.secondary,
+      marginBottom: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      fontFamily: fontFamily.mono,
+    },
+    carouselContainer: {
+      position: "relative",
+    },
+    scrollContent: {
+      paddingHorizontal: ITEM_MARGIN,
+    },
+    itemContainer: {
+      width: ITEM_WIDTH,
+      marginRight: ITEM_SPACING,
+    },
+    cardContainer: {
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      overflow: "hidden",
+    },
+    cardFooter: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: spacing._6,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing._6,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.default,
+      backgroundColor: colors.accent.muted,
+    },
+    timeBadge: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      paddingHorizontal: spacing._6,
+      paddingVertical: 2,
+      borderRadius: 10,
+      borderWidth: 1,
+      overflow: "hidden",
+      letterSpacing: 0.5,
+    },
+    cardFooterText: {
+      flex: 1,
+      fontSize: 10,
+      color: colors.accent.primary,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 0.5,
+    },
+    paginationContainer: {
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems: "center",
+      marginTop: spacing.sm,
+      paddingHorizontal: spacing.lg,
+    },
+    paginationDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.border.accent,
+      marginHorizontal: spacing.xs,
+    },
+    paginationDotActive: {
+      backgroundColor: colors.accent.primary,
+      width: 24,
+    },
+  });
 
 export default TrendingEventsSection;

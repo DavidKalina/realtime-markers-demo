@@ -16,6 +16,7 @@ import type { GamificationService } from "./GamificationService";
 import type { BadgeService } from "./BadgeService";
 
 const CHECKIN_RADIUS_METERS = 75;
+const COMPLETION_MILESTONES = [5, 10, 25, 50, 100];
 const THROTTLE_TTL = 60; // 1 minute between proximity checks for checkins
 
 // Streak milestone XP bonuses
@@ -260,15 +261,45 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
           "itinerary_completion",
         );
       } catch (err) {
-        console.error(
-          "[ItineraryCheckin] Failed to award completion XP:",
-          err,
-        );
+        console.error("[ItineraryCheckin] Failed to award completion XP:", err);
       }
 
       console.log(
         `[ItineraryCheckin] User ${userId} completed itinerary ${user.activeItineraryId}`,
       );
+
+      // Check for completion milestones
+      this.checkCompletionMilestone(userId).catch((err) => {
+        console.error("[ItineraryCheckin] Milestone check failed:", err);
+      });
+    }
+  }
+
+  private async checkCompletionMilestone(userId: string): Promise<void> {
+    const result = await this.dataSource.query(
+      `SELECT COUNT(*) as count FROM itineraries WHERE user_id = $1 AND completed_at IS NOT NULL`,
+      [userId],
+    );
+    const completedCount = Number(result[0]?.count ?? 0);
+
+    if (COMPLETION_MILESTONES.includes(completedCount)) {
+      try {
+        await this.pushService.sendToUser(userId, {
+          title: "Milestone reached!",
+          body: `You've completed ${completedCount} itineraries! Keep exploring.`,
+          sound: "default",
+          data: {
+            type: "milestone",
+            milestoneType: "completions",
+            count: completedCount,
+          },
+        });
+        console.log(
+          `[ItineraryCheckin] User ${userId} hit completion milestone: ${completedCount}`,
+        );
+      } catch (err) {
+        console.error("[ItineraryCheckin] Failed to send milestone push:", err);
+      }
     }
   }
 
@@ -395,15 +426,17 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
           "itinerary_completion",
         );
       } catch (err) {
-        console.error(
-          "[ItineraryCheckin] Failed to award completion XP:",
-          err,
-        );
+        console.error("[ItineraryCheckin] Failed to award completion XP:", err);
       }
 
       console.log(
         `[ItineraryCheckin] User ${userId} completed itinerary ${itineraryId} via manual checkin`,
       );
+
+      // Check for completion milestones
+      this.checkCompletionMilestone(userId).catch((err) => {
+        console.error("[ItineraryCheckin] Milestone check failed:", err);
+      });
     }
 
     return { success: true, checkedInAt: now };

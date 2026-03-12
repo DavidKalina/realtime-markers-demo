@@ -75,4 +75,3 @@ export const REDIS_CHANNELS = {
   VIEWPORT_UPDATES: "viewport-updates",
   PUSH_DISCOVERY: "push:discovery",
 } as const;
-

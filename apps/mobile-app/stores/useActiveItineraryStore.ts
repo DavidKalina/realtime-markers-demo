@@ -2,11 +2,18 @@ import { create } from "zustand";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
 import { apiClient } from "@/services/ApiClient";
 
+export interface CompletionData {
+  itinerary: ItineraryResponse;
+  completedAt: string;
+}
+
 interface ActiveItineraryStore {
   /** The currently active itinerary (being walked) */
   itinerary: ItineraryResponse | null;
   /** Loading state for activate/deactivate */
   isLoading: boolean;
+  /** Data for the completion celebration overlay */
+  completionData: CompletionData | null;
 
   /** Activate an itinerary for check-in tracking */
   activate: (itinerary: ItineraryResponse) => Promise<boolean>;
@@ -14,6 +21,8 @@ interface ActiveItineraryStore {
   deactivate: () => Promise<void>;
   /** Mark a specific item as checked in (from push notification or manual) */
   markCheckedIn: (itemId: string, checkedInAt: string) => void;
+  /** Dismiss the completion celebration */
+  dismissCompletion: () => void;
   /** Refresh the active itinerary from server */
   refresh: () => Promise<void>;
   /** Load active itinerary on app start */
@@ -26,6 +35,7 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
   (set, get) => ({
     itinerary: null,
     isLoading: false,
+    completionData: null,
 
     activate: async (itinerary) => {
       set({ isLoading: true });
@@ -62,22 +72,24 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
         item.id === itemId ? { ...item, checkedInAt } : item,
       );
 
-      // Check if all items are now checked in
       const allChecked = updatedItems.every((item) => item.checkedInAt);
-
-      set({
-        itinerary: { ...itinerary, items: updatedItems },
-        // Auto-clear if fully complete (server already deactivated)
-        ...(allChecked ? {} : {}),
-      });
+      const updatedItinerary = { ...itinerary, items: updatedItems };
 
       if (allChecked) {
-        // Delay clear so completion UI can show
-        setTimeout(() => {
-          set({ itinerary: null });
-        }, 5000);
+        // Set completion data for the celebration overlay
+        set({
+          completionData: {
+            itinerary: updatedItinerary,
+            completedAt: new Date().toISOString(),
+          },
+          itinerary: null,
+        });
+      } else {
+        set({ itinerary: updatedItinerary });
       }
     },
+
+    dismissCompletion: () => set({ completionData: null }),
 
     refresh: async () => {
       const { itinerary } = get();
@@ -102,6 +114,7 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
       }
     },
 
-    clear: () => set({ itinerary: null, isLoading: false }),
+    clear: () =>
+      set({ itinerary: null, isLoading: false, completionData: null }),
   }),
 );

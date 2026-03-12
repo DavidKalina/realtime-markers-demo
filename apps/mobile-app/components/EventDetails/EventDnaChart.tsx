@@ -3,7 +3,15 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInRight } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { useColors, spacing, fontSize, fontWeight, fontFamily, radius, type Colors } from "@/theme";
+import {
+  useColors,
+  spacing,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  radius,
+  type Colors,
+} from "@/theme";
 import { getCategoryColor } from "@/utils/categoryColors";
 
 export interface DnaCategory {

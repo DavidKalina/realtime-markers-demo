@@ -53,28 +53,29 @@ const PlusButton: React.FC = () => {
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.bg.card,
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    shadowColor: colors.fixed.black,
-    shadowOffset: {
-      width: 0,
-      height: 2,
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      backgroundColor: colors.bg.card,
+      borderRadius: 28,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      shadowColor: colors.fixed.black,
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 4,
+      minWidth: 52,
+      minHeight: 52,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-    minWidth: 52,
-    minHeight: 52,
-  },
-});
+  });
 
 export default React.memo(PlusButton);

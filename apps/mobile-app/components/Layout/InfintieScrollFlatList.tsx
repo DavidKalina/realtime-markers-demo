@@ -302,43 +302,44 @@ const InfiniteScrollFlatList = <T extends { id: string | number }>({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  footer: {
-    padding: spacing.lg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing["3xl"],
-  },
-  loadingText: {
-    marginTop: spacing.sm,
-    fontSize: fontSize.sm,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-  },
-  errorText: {
-    fontSize: fontSize.sm,
-    color: colors.status.error.text,
-    textAlign: "center",
-    fontFamily: fontFamily.mono,
-  },
-  retryText: {
-    fontSize: fontSize.sm,
-    color: colors.accent.primary,
-    marginTop: spacing.sm,
-    textDecorationLine: "underline",
-    fontFamily: fontFamily.mono,
-  },
-  emptyText: {
-    fontSize: fontSize.md,
-    color: colors.text.secondary,
-    textAlign: "center",
-    fontFamily: fontFamily.mono,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    footer: {
+      padding: spacing.lg,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    emptyContainer: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: spacing["3xl"],
+    },
+    loadingText: {
+      marginTop: spacing.sm,
+      fontSize: fontSize.sm,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+    },
+    errorText: {
+      fontSize: fontSize.sm,
+      color: colors.status.error.text,
+      textAlign: "center",
+      fontFamily: fontFamily.mono,
+    },
+    retryText: {
+      fontSize: fontSize.sm,
+      color: colors.accent.primary,
+      marginTop: spacing.sm,
+      textDecorationLine: "underline",
+      fontFamily: fontFamily.mono,
+    },
+    emptyText: {
+      fontSize: fontSize.md,
+      color: colors.text.secondary,
+      textAlign: "center",
+      fontFamily: fontFamily.mono,
+    },
+  });
 
 export default InfiniteScrollFlatList;

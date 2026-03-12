@@ -26,6 +26,10 @@ export default {
           "Realtime Markers may access your location in the background to support location-based flyer scanning and event discovery. Your coordinates are securely sent to our server to improve results.",
         NSLocationAlwaysUsageDescription:
           "Realtime Markers may access your location in the background to support location-based flyer scanning and event discovery. Your coordinates are securely sent to our server to improve results.",
+        NSCalendarsUsageDescription:
+          "A Third Space can add your planned adventures to your calendar so you never miss an outing.",
+        NSCalendarsWriteOnlyAccessUsageDescription:
+          "A Third Space can add your planned adventures to your calendar so you never miss an outing.",
         NSCameraUsageDescription:
           "Realtime Markers needs camera access to scan event flyers. Images are processed on our server and may be stored to display event details to other users.",
         NSAppTransportSecurity: {

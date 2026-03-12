@@ -24,7 +24,11 @@ export interface FilterProcessor {
 
   // User management
   handleFilterChanges(userId: string, filters: Filter[]): Promise<void>;
-  handleViewportUpdate(userId: string, viewport: BoundingBox, zoom?: number): Promise<void>;
+  handleViewportUpdate(
+    userId: string,
+    viewport: BoundingBox,
+    zoom?: number,
+  ): Promise<void>;
   handleInitialRequest(userId: string): Promise<void>;
   handleUserDisconnection(userId: string): void;
 

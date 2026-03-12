@@ -58,6 +58,8 @@ import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import XPNotificationOverlay from "@/components/Gamification/XPNotificationOverlay";
+import CalendarPrompt from "@/components/Itinerary/CalendarPrompt";
+import CompletionCelebration from "@/components/Gamification/CompletionCelebration";
 import { JobTrackerBottomSheet } from "@/components/AreaScan/AreaScanBottomSheet";
 import { useJobSheetStore } from "@/stores/useJobSheetStore";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
@@ -153,10 +155,10 @@ function AppContent({ children }: AppContentProps) {
       {children}
       {!isBoot && <ActionBar />}
       {!isBoot && <XPNotificationOverlay />}
+      {!isBoot && <CalendarPrompt />}
+      {!isBoot && <CompletionCelebration />}
       {!isBoot && <JobSheetAutoOpen />}
-      {!isBoot && isMapScreen && jobSheetOpen && (
-        <JobTrackerBottomSheet />
-      )}
+      {!isBoot && isMapScreen && jobSheetOpen && <JobTrackerBottomSheet />}
       {isBoot && (
         <LoadingOverlay message="Loading..." subMessage="Setting things up" />
       )}

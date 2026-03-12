@@ -230,101 +230,102 @@ const TicketmasterSourceCardOverlay: React.FC<
   );
 };
 
-const createOverlayStyles = (colors: Colors) => StyleSheet.create({
-  scrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-  },
-  centerContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cardFace: {
-    width: OVERLAY_CARD_WIDTH,
-    height: OVERLAY_CARD_HEIGHT,
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: TICKETMASTER_BLUE,
-    padding: spacing.md,
-    overflow: "hidden",
-    justifyContent: "space-between",
-  },
-  topRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  badge: {
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    color: TICKETMASTER_BLUE,
-  },
-  watermarkContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  watermark: {
-    fontWeight: fontWeight.bold,
-    fontFamily: fontFamily.mono,
-    color: "rgba(0, 156, 222, 0.04)",
-    letterSpacing: 5,
-    textShadowColor: "rgba(0, 0, 0, 0.6)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 0,
-    transform: [{ rotate: "-18deg" }],
-  },
-  name: {
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.bold,
-    color: TICKETMASTER_BLUE,
-    letterSpacing: 1,
-  },
-  bottomRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  ctaButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: TICKETMASTER_BLUE,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-  },
-  ctaText: {
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.bold,
-    color: colors.fixed.white,
-    letterSpacing: 0.5,
-  },
-  ctaChevron: {
-    fontSize: fontSize.lg,
-    color: colors.fixed.white,
-    fontWeight: fontWeight.bold,
-  },
-  sourceLabel: {
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.disabled,
-    letterSpacing: 1,
-  },
-  sheenOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-  },
-});
+const createOverlayStyles = (colors: Colors) =>
+  StyleSheet.create({
+    scrim: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0, 0, 0, 0.75)",
+    },
+    centerContainer: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    cardFace: {
+      width: OVERLAY_CARD_WIDTH,
+      height: OVERLAY_CARD_HEIGHT,
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: TICKETMASTER_BLUE,
+      padding: spacing.md,
+      overflow: "hidden",
+      justifyContent: "space-between",
+    },
+    topRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    badge: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: TICKETMASTER_BLUE,
+    },
+    watermarkContainer: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    watermark: {
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: "rgba(0, 156, 222, 0.04)",
+      letterSpacing: 5,
+      textShadowColor: "rgba(0, 0, 0, 0.6)",
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 0,
+      transform: [{ rotate: "-18deg" }],
+    },
+    name: {
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: TICKETMASTER_BLUE,
+      letterSpacing: 1,
+    },
+    bottomRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    ctaButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: TICKETMASTER_BLUE,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.md,
+    },
+    ctaText: {
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: colors.fixed.white,
+      letterSpacing: 0.5,
+    },
+    ctaChevron: {
+      fontSize: fontSize.lg,
+      color: colors.fixed.white,
+      fontWeight: fontWeight.bold,
+    },
+    sourceLabel: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.disabled,
+      letterSpacing: 1,
+    },
+    sheenOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+    },
+  });
 
 export default TicketmasterSourceCardOverlay;

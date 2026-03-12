@@ -174,7 +174,9 @@ out geom;
       });
 
       if (!response.ok) {
-        console.error(`[OverpassService] Hiking API returned ${response.status}`);
+        console.error(
+          `[OverpassService] Hiking API returned ${response.status}`,
+        );
         return [];
       }
 
@@ -296,13 +298,18 @@ out geom;
       });
 
       if (!response.ok) {
-        console.error(`[OverpassService] API returned ${response.status} for way ${wayId}`);
+        console.error(
+          `[OverpassService] API returned ${response.status} for way ${wayId}`,
+        );
         return null;
       }
 
       const data = (await response.json()) as OverpassResponse;
-      const element = data.elements.find((e) => e.type === "way" && e.id === wayId);
-      if (!element || !element.geometry || element.geometry.length < 2) return null;
+      const element = data.elements.find(
+        (e) => e.type === "way" && e.id === wayId,
+      );
+      if (!element || !element.geometry || element.geometry.length < 2)
+        return null;
 
       const tags = element.tags || {};
       const geometry: [number, number][] = element.geometry.map(
@@ -327,7 +334,10 @@ out geom;
       await client.setex(cacheKey, CACHE_TTL, JSON.stringify(trail));
       return trail;
     } catch (err) {
-      console.error(`[OverpassService] fetchTrailById failed for ${wayId}:`, err);
+      console.error(
+        `[OverpassService] fetchTrailById failed for ${wayId}:`,
+        err,
+      );
       return null;
     }
   }

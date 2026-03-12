@@ -19,24 +19,25 @@ interface ScreenLayoutProps {
 }
 
 // Memoize the screen layout styles
-const createScreenLayoutStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg.primary,
-  },
-  content: {
-    flex: 1,
-  },
-  statusBarBackground: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 44, // Approximate status bar height
-    backgroundColor: colors.bg.primary,
-    zIndex: 1,
-  },
-});
+const createScreenLayoutStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bg.primary,
+    },
+    content: {
+      flex: 1,
+    },
+    statusBarBackground: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 44, // Approximate status bar height
+      backgroundColor: colors.bg.primary,
+      zIndex: 1,
+    },
+  });
 
 const ScreenLayout: React.FC<ScreenLayoutProps> = React.memo(
   ({
@@ -49,7 +50,10 @@ const ScreenLayout: React.FC<ScreenLayoutProps> = React.memo(
   }) => {
     const colors = useColors();
     const { resolvedTheme } = useTheme();
-    const screenLayoutStyles = useMemo(() => createScreenLayoutStyles(colors), [colors]);
+    const screenLayoutStyles = useMemo(
+      () => createScreenLayoutStyles(colors),
+      [colors],
+    );
     const Container = noSafeArea ? View : SafeAreaView;
     const Content = noAnimation ? View : Animated.View;
 

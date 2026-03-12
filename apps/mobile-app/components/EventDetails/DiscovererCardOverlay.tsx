@@ -280,118 +280,118 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
               </AnimatedSvg>
             </View>
           </Animated.View>
-
         </Animated.View>
       </View>
     </Modal>
   );
 };
 
-const createOverlayStyles = (colors: Colors) => StyleSheet.create({
-  scrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-  },
-  centerContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cardFace: {
-    width: OVERLAY_CARD_WIDTH,
-    height: OVERLAY_CARD_HEIGHT,
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    padding: spacing.md,
-    overflow: "hidden",
-    justifyContent: "space-between",
-  },
-  topRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  tierText: {
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-  },
-  watermarkContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  watermark: {
-    fontWeight: fontWeight.bold,
-    fontFamily: fontFamily.mono,
-    color: "rgba(255, 255, 255, 0.03)",
-    letterSpacing: 5,
-    textShadowColor: "rgba(0, 0, 0, 0.6)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 0,
-    transform: [{ rotate: "-18deg" }],
-  },
-  name: {
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.bold,
-    color: colors.text.primary,
-    letterSpacing: 1,
-  },
-  bottomSection: {
-    gap: spacing.xs,
-  },
-  memberSince: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-    letterSpacing: 0.5,
-  },
-  weeklyBadge: {
-    alignSelf: "flex-end",
-    borderWidth: 1,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  weeklyText: {
-    fontSize: 10,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-  },
-  bottomRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  stat: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 4,
-  },
-  statValue: {
-    fontSize: fontSize.lg,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.bold,
-    color: colors.text.primary,
-  },
-  statLabel: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.disabled,
-    letterSpacing: 1,
-  },
-  sheenOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-  },
-});
+const createOverlayStyles = (colors: Colors) =>
+  StyleSheet.create({
+    scrim: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0, 0, 0, 0.75)",
+    },
+    centerContainer: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    cardFace: {
+      width: OVERLAY_CARD_WIDTH,
+      height: OVERLAY_CARD_HEIGHT,
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      padding: spacing.md,
+      overflow: "hidden",
+      justifyContent: "space-between",
+    },
+    topRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    tierText: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+    },
+    watermarkContainer: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    watermark: {
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: "rgba(255, 255, 255, 0.03)",
+      letterSpacing: 5,
+      textShadowColor: "rgba(0, 0, 0, 0.6)",
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 0,
+      transform: [{ rotate: "-18deg" }],
+    },
+    name: {
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: colors.text.primary,
+      letterSpacing: 1,
+    },
+    bottomSection: {
+      gap: spacing.xs,
+    },
+    memberSince: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      letterSpacing: 0.5,
+    },
+    weeklyBadge: {
+      alignSelf: "flex-end",
+      borderWidth: 1,
+      borderRadius: radius.full,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+    },
+    weeklyText: {
+      fontSize: 10,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+    },
+    bottomRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    stat: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: 4,
+    },
+    statValue: {
+      fontSize: fontSize.lg,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: colors.text.primary,
+    },
+    statLabel: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.disabled,
+      letterSpacing: 1,
+    },
+    sheenOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+    },
+  });
 
 export default DiscovererCardOverlay;

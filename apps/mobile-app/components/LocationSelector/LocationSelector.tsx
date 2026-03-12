@@ -234,116 +234,117 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    width: "100%",
-  },
-  button: {
-    backgroundColor: colors.border.subtle,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing._14,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-  buttonText: {
-    color: colors.text.primary,
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-  },
-  buttonIcon: {
-    opacity: 0.7,
-  },
-  coordinatesText: {
-    color: colors.text.secondary,
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    marginTop: 2,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: colors.bg.primary,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-  },
-  modalTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius["2xl"],
-    backgroundColor: colors.border.subtle,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  searchContainer: {
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-  },
-  listContent: {
-    padding: spacing.lg,
-  },
-  locationItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-  },
-  selectedLocationItem: {
-    backgroundColor: colors.border.subtle,
-  },
-  locationIcon: {
-    marginRight: spacing.md,
-  },
-  locationContent: {
-    flex: 1,
-  },
-  locationName: {
-    color: colors.text.primary,
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-  },
-  locationAddress: {
-    color: colors.text.secondary,
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    marginTop: 2,
-  },
-  selectedText: {
-    color: colors.accent.primary,
-  },
-  dismissButtonContainer: {
-    padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
-  },
-  dismissButton: {
-    backgroundColor: colors.accent.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing._14,
-    alignItems: "center",
-  },
-  dismissButtonText: {
-    color: colors.fixed.black,
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      width: "100%",
+    },
+    button: {
+      backgroundColor: colors.border.subtle,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing._14,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing.sm,
+    },
+    buttonText: {
+      color: colors.text.primary,
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+    },
+    buttonIcon: {
+      opacity: 0.7,
+    },
+    coordinatesText: {
+      color: colors.text.secondary,
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      marginTop: 2,
+    },
+    modalContainer: {
+      flex: 1,
+      backgroundColor: colors.bg.primary,
+    },
+    modalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.default,
+    },
+    modalTitle: {
+      fontSize: fontSize.lg,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+      fontFamily: fontFamily.mono,
+    },
+    closeButton: {
+      width: 40,
+      height: 40,
+      borderRadius: radius["2xl"],
+      backgroundColor: colors.border.subtle,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    searchContainer: {
+      padding: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.default,
+    },
+    listContent: {
+      padding: spacing.lg,
+    },
+    locationItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.default,
+    },
+    selectedLocationItem: {
+      backgroundColor: colors.border.subtle,
+    },
+    locationIcon: {
+      marginRight: spacing.md,
+    },
+    locationContent: {
+      flex: 1,
+    },
+    locationName: {
+      color: colors.text.primary,
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+    },
+    locationAddress: {
+      color: colors.text.secondary,
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      marginTop: 2,
+    },
+    selectedText: {
+      color: colors.accent.primary,
+    },
+    dismissButtonContainer: {
+      padding: spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.default,
+    },
+    dismissButton: {
+      backgroundColor: colors.accent.primary,
+      borderRadius: radius.md,
+      paddingVertical: spacing._14,
+      alignItems: "center",
+    },
+    dismissButtonText: {
+      color: colors.fixed.black,
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+    },
+  });

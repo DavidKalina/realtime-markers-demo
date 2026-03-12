@@ -72,7 +72,10 @@ export const StyledSwitch = React.memo<{
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: colors.border.medium, true: colors.accent.primary }}
+        trackColor={{
+          false: colors.border.medium,
+          true: colors.accent.primary,
+        }}
         thumbColor={colors.bg.primary}
         ios_backgroundColor={colors.border.medium}
         style={styles.switch as ViewStyle}
@@ -253,142 +256,143 @@ const List: React.FC<ListProps> = ({
   return <View style={[styles.container, style]}>{content}</View>;
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    width: "100%",
-  },
-  scrollContent: {
-    paddingBottom: spacing.sm,
-  },
-  itemsContainer: {
-    width: "100%",
-    borderRadius: radius.md,
-    overflow: "hidden",
-  },
-  itemContainer: {
-    width: "100%",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
-  },
-  item: {
-    width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xs,
-  },
-  activeItem: {
-    // Remove background color, keep only the text color change
-  },
-  itemIconContainer: {
-    width: spacing["3xl"],
-    height: spacing["3xl"],
-    borderRadius: spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: spacing._10,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.04)",
-  },
-  itemIcon: {
-    marginRight: 0,
-  },
-  itemContent: {
-    flex: 1,
-    paddingRight: 2,
-  },
-  itemTitle: {
-    color: colors.text.primary,
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.medium,
-    marginBottom: 1,
-    letterSpacing: 0.1,
-  },
-  activeItemTitle: {
-    color: colors.accent.primary,
-    fontWeight: fontWeight.bold,
-  },
-  itemDescription: {
-    color: colors.text.secondary,
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    marginBottom: 1,
-    lineHeight: 15,
-    opacity: 0.8,
-  },
-  badgeContainer: {
-    backgroundColor: colors.accent.primary,
-    borderRadius: spacing._6,
-    minWidth: spacing.lg,
-    height: spacing.lg,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: spacing.xs,
-    marginLeft: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  badgeText: {
-    color: colors.bg.primary,
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.bold,
-  },
-  viewAllContainer: {
-    marginTop: spacing.sm,
-    marginHorizontal: spacing.xs,
-    paddingHorizontal: spacing.xs,
-  },
-  emptyStateContainer: {
-    padding: spacing["3xl"],
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.xl,
-    margin: spacing.lg,
-  },
-  emptyStateIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: spacing["4xl"],
-    backgroundColor: "rgba(147, 197, 253, 0.1)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.accent.border,
-  },
-  emptyStateIcon: {
-    opacity: 0.9,
-  },
-  emptyStateTitle: {
-    color: colors.text.primary,
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    marginBottom: spacing.sm,
-    textAlign: "center",
-    letterSpacing: 0.3,
-  },
-  emptyStateDescription: {
-    color: colors.text.secondary,
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    textAlign: "center",
-    opacity: 0.7,
-    lineHeight: lineHeight.relaxed,
-    letterSpacing: 0.2,
-  },
-  switchContainer: {
-    height: spacing.xl,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: spacing.sm,
-  } as ViewStyle,
-  switch: {
-    transform: [{ scale: Platform.select({ ios: 0.7, android: 0.8 }) }],
-  } as ViewStyle,
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      width: "100%",
+    },
+    scrollContent: {
+      paddingBottom: spacing.sm,
+    },
+    itemsContainer: {
+      width: "100%",
+      borderRadius: radius.md,
+      overflow: "hidden",
+    },
+    itemContainer: {
+      width: "100%",
+      borderBottomWidth: 1,
+      borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    },
+    item: {
+      width: "100%",
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.xs,
+    },
+    activeItem: {
+      // Remove background color, keep only the text color change
+    },
+    itemIconContainer: {
+      width: spacing["3xl"],
+      height: spacing["3xl"],
+      borderRadius: spacing.lg,
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: spacing._10,
+      borderWidth: 1,
+      borderColor: "rgba(255, 255, 255, 0.04)",
+    },
+    itemIcon: {
+      marginRight: 0,
+    },
+    itemContent: {
+      flex: 1,
+      paddingRight: 2,
+    },
+    itemTitle: {
+      color: colors.text.primary,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      marginBottom: 1,
+      letterSpacing: 0.1,
+    },
+    activeItemTitle: {
+      color: colors.accent.primary,
+      fontWeight: fontWeight.bold,
+    },
+    itemDescription: {
+      color: colors.text.secondary,
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      marginBottom: 1,
+      lineHeight: 15,
+      opacity: 0.8,
+    },
+    badgeContainer: {
+      backgroundColor: colors.accent.primary,
+      borderRadius: spacing._6,
+      minWidth: spacing.lg,
+      height: spacing.lg,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: spacing.xs,
+      marginLeft: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    badgeText: {
+      color: colors.bg.primary,
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+    },
+    viewAllContainer: {
+      marginTop: spacing.sm,
+      marginHorizontal: spacing.xs,
+      paddingHorizontal: spacing.xs,
+    },
+    emptyStateContainer: {
+      padding: spacing["3xl"],
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.xl,
+      margin: spacing.lg,
+    },
+    emptyStateIconContainer: {
+      width: 60,
+      height: 60,
+      borderRadius: spacing["4xl"],
+      backgroundColor: "rgba(147, 197, 253, 0.1)",
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: spacing.xl,
+      borderWidth: 1,
+      borderColor: colors.accent.border,
+    },
+    emptyStateIcon: {
+      opacity: 0.9,
+    },
+    emptyStateTitle: {
+      color: colors.text.primary,
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      marginBottom: spacing.sm,
+      textAlign: "center",
+      letterSpacing: 0.3,
+    },
+    emptyStateDescription: {
+      color: colors.text.secondary,
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      textAlign: "center",
+      opacity: 0.7,
+      lineHeight: lineHeight.relaxed,
+      letterSpacing: 0.2,
+    },
+    switchContainer: {
+      height: spacing.xl,
+      justifyContent: "center",
+      alignItems: "center",
+      marginLeft: spacing.sm,
+    } as ViewStyle,
+    switch: {
+      transform: [{ scale: Platform.select({ ios: 0.7, android: 0.8 }) }],
+    } as ViewStyle,
+  });
 
 export default List;

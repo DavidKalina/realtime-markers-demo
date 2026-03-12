@@ -315,7 +315,8 @@ export function ZoneHero({ zoneStats }: { zoneStats: AreaScanMetadata }) {
   if (trailCount > 0) {
     parts.push(`${trailCount} trail${trailCount !== 1 ? "s" : ""}`);
   }
-  const subtitle = parts.length > 0 ? parts.join(" · ") + " nearby" : "Nothing nearby";
+  const subtitle =
+    parts.length > 0 ? parts.join(" · ") + " nearby" : "Nothing nearby";
 
   // Pick emoji: if trails dominate and no events, show trail emoji
   const emoji =
@@ -446,13 +447,7 @@ export function ZoneEncounters({
 
 // --- Scanning animation (shown while loading) ---
 
-export function ScanningAnimation({
-  lat,
-  lng,
-}: {
-  lat: number;
-  lng: number;
-}) {
+export function ScanningAnimation({ lat, lng }: { lat: number; lng: number }) {
   const colors = useColors();
   const { mapStyle } = useMapStyle();
   const scanStyles = useMemo(() => createScanStyles(colors), [colors]);
@@ -515,10 +510,7 @@ export function ScanningAnimation({
   }, []);
 
   const ringStyle = useAnimatedStyle(() => ({
-    transform: [
-      { rotateX: "60deg" },
-      { scale: ringScale.value },
-    ],
+    transform: [{ rotateX: "60deg" }, { scale: ringScale.value }],
     opacity: interpolate(ringScale.value, [0.6, 1], [0.5, 0]),
   }));
 
@@ -552,9 +544,21 @@ export function ScanningAnimation({
         <Svg width="100%" height="100%" preserveAspectRatio="none">
           <Defs>
             <LinearGradient id="scanGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={colors.bg.primary} stopOpacity="0.4" />
-              <Stop offset="0.5" stopColor={colors.bg.primary} stopOpacity="0.2" />
-              <Stop offset="1" stopColor={colors.bg.primary} stopOpacity="0.7" />
+              <Stop
+                offset="0"
+                stopColor={colors.bg.primary}
+                stopOpacity="0.4"
+              />
+              <Stop
+                offset="0.5"
+                stopColor={colors.bg.primary}
+                stopOpacity="0.2"
+              />
+              <Stop
+                offset="1"
+                stopColor={colors.bg.primary}
+                stopOpacity="0.7"
+              />
             </LinearGradient>
           </Defs>
           <Rect x="0" y="0" width="100%" height="100%" fill="url(#scanGrad)" />
@@ -1049,7 +1053,10 @@ export function DialogBox({
         (fin) => {
           if (!fin) return;
           scheduleOnRN(fireRestart);
-          contentOpacity.value = withDelay(50, withTiming(1, { duration: 200 }));
+          contentOpacity.value = withDelay(
+            50,
+            withTiming(1, { duration: 200 }),
+          );
         },
       );
       return;

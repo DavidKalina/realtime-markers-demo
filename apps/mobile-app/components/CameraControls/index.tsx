@@ -31,11 +31,14 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Flash mode color mapping using theme tokens
-  const flashColors: Record<string, string> = useMemo(() => ({
-    on: colors.status.warning.text,
-    auto: colors.accent.primary,
-    off: colors.text.secondary,
-  }), [colors]);
+  const flashColors: Record<string, string> = useMemo(
+    () => ({
+      on: colors.status.warning.text,
+      auto: colors.accent.primary,
+      off: colors.text.secondary,
+    }),
+    [colors],
+  );
 
   const FlashIcon = flashMode === "on" ? Zap : ZapOff;
   const flashColor = flashColors[flashMode] ?? colors.text.secondary;
@@ -78,34 +81,35 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    width: "100%",
-    paddingVertical: spacing.lg,
-  },
-  controlsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-  },
-  sideContainer: {
-    width: 60,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  controlButton: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.full,
-    backgroundColor: colors.bg.elevated,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      width: "100%",
+      paddingVertical: spacing.lg,
+    },
+    controlsContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: spacing.lg,
+    },
+    sideContainer: {
+      width: 60,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    controlButton: {
+      width: 48,
+      height: 48,
+      borderRadius: radius.full,
+      backgroundColor: colors.bg.elevated,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+    },
+  });

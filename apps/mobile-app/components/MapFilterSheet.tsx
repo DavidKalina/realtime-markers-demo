@@ -122,7 +122,10 @@ const MapFilterSheet: React.FC<MapFilterSheetProps> = ({
 }) => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const homeScreenStyles = useMemo(() => createHomeScreenStyles(colors), [colors]);
+  const homeScreenStyles = useMemo(
+    () => createHomeScreenStyles(colors),
+    [colors],
+  );
   const insets = useSafeAreaInsets();
   const [sheetOpen, setSheetOpen] = useState(false);
   const translateY = useRef(new Animated.Value(SNAP_DISMISSED)).current;
@@ -504,156 +507,157 @@ const MapFilterSheet: React.FC<MapFilterSheetProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  badge: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.action.share,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  sheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: SHEET_MAX,
-    backgroundColor: colors.bg.card,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 10,
-  },
-  handleArea: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.text.secondary,
-  },
-  sheetScroll: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  sheetScrollInner: {
-    paddingBottom: 20,
-    gap: spacing.md,
-  },
-  sectionLabel: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  legendHint: {
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    color: colors.text.disabled,
-    marginTop: 2,
-  },
-  presetRow: {
-    gap: spacing.sm,
-  },
-  presetButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radius.full,
-    backgroundColor: colors.border.subtle,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  presetButtonActive: {
-    backgroundColor: colors.accent.muted,
-    borderColor: colors.accent.border,
-  },
-  presetLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-  },
-  presetLabelActive: {
-    color: colors.accent.primary,
-  },
-  chipScrollContent: {
-    paddingRight: spacing.sm,
-  },
-  chipRows: {
-    gap: spacing._6,
-  },
-  chipRow: {
-    flexDirection: "row",
-    gap: spacing._6,
-  },
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing._6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: radius.full,
-    backgroundColor: colors.bg.card,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  chipIncluded: {
-    backgroundColor: "rgba(16, 185, 129, 0.15)",
-    borderColor: colors.status.success.border,
-  },
-  chipExcluded: {
-    backgroundColor: colors.status.error.bg,
-    borderColor: colors.status.error.border,
-  },
-  chipText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
-    fontFamily: fontFamily.mono,
-    color: colors.text.disabled,
-  },
-  chipTextExcluded: {
-    textDecorationLine: "line-through" as const,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  clearButton: {
-    position: "absolute",
-    right: 20,
-    top: 8,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.status.error.border,
-    backgroundColor: colors.status.error.bg,
-  },
-  clearButtonText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
-    fontFamily: fontFamily.mono,
-    color: colors.status.error.text,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    badge: {
+      position: "absolute",
+      top: 10,
+      right: 10,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.action.share,
+    },
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0,0,0,0.3)",
+    },
+    sheet: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: SHEET_MAX,
+      backgroundColor: colors.bg.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: -3 },
+      shadowOpacity: 0.3,
+      shadowRadius: 5,
+      elevation: 10,
+    },
+    handleArea: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+    },
+    handle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: colors.text.secondary,
+    },
+    sheetScroll: {
+      flex: 1,
+      paddingHorizontal: 20,
+    },
+    sheetScrollInner: {
+      paddingBottom: 20,
+      gap: spacing.md,
+    },
+    sectionLabel: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    legendHint: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+      marginTop: 2,
+    },
+    presetRow: {
+      gap: spacing.sm,
+    },
+    presetButton: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      borderRadius: radius.full,
+      backgroundColor: colors.border.subtle,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    presetButtonActive: {
+      backgroundColor: colors.accent.muted,
+      borderColor: colors.accent.border,
+    },
+    presetLabel: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.medium,
+      color: colors.text.primary,
+      fontFamily: fontFamily.mono,
+    },
+    presetLabelActive: {
+      color: colors.accent.primary,
+    },
+    chipScrollContent: {
+      paddingRight: spacing.sm,
+    },
+    chipRows: {
+      gap: spacing._6,
+    },
+    chipRow: {
+      flexDirection: "row",
+      gap: spacing._6,
+    },
+    chip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing._6,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 3,
+      borderRadius: radius.full,
+      backgroundColor: colors.bg.card,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+    },
+    chipIncluded: {
+      backgroundColor: "rgba(16, 185, 129, 0.15)",
+      borderColor: colors.status.success.border,
+    },
+    chipExcluded: {
+      backgroundColor: colors.status.error.bg,
+      borderColor: colors.status.error.border,
+    },
+    chipText: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.medium,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+    },
+    chipTextExcluded: {
+      textDecorationLine: "line-through" as const,
+    },
+    dot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    clearButton: {
+      position: "absolute",
+      right: 20,
+      top: 8,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.status.error.border,
+      backgroundColor: colors.status.error.bg,
+    },
+    clearButtonText: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.medium,
+      fontFamily: fontFamily.mono,
+      color: colors.status.error.text,
+    },
+  });
 
 export default MapFilterSheet;

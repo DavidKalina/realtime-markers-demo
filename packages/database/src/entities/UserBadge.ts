@@ -31,6 +31,10 @@ export class UserBadge {
   @Column({ type: "integer", default: 0 })
   progress!: number;
 
-  @CreateDateColumn({ name: "unlocked_at", type: "timestamptz", nullable: true })
+  @CreateDateColumn({
+    name: "unlocked_at",
+    type: "timestamptz",
+    nullable: true,
+  })
   unlockedAt?: Date;
 }

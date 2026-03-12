@@ -208,7 +208,12 @@ class AreaScanServiceImpl implements AreaScanService {
       categoryNames: e.categoryNames,
     }));
 
-    const zoneTrails = this.rankTrailsByProximity(rawTrails, lat, lng, MAX_TRAILS);
+    const zoneTrails = this.rankTrailsByProximity(
+      rawTrails,
+      lat,
+      lng,
+      MAX_TRAILS,
+    );
 
     // Build prompt and generate name + vibe via LLM
     const { systemPrompt, userPrompt } = this.buildPrompt(
@@ -261,7 +266,12 @@ class AreaScanServiceImpl implements AreaScanService {
   ): Promise<AreaScanResult> {
     const [events, rawTrails] = await Promise.all([
       this.queryEventsByIds(eventIds, centerLat, centerLng),
-      this.overpassService.fetchPavedTrails(centerLat, centerLng, TRAIL_SEARCH_RADIUS, 15),
+      this.overpassService.fetchPavedTrails(
+        centerLat,
+        centerLng,
+        TRAIL_SEARCH_RADIUS,
+        15,
+      ),
     ]);
     const zoneStats = this.computeZoneStats(events);
 
@@ -274,7 +284,12 @@ class AreaScanServiceImpl implements AreaScanService {
       categoryNames: e.categoryNames,
     }));
 
-    const zoneTrails = this.rankTrailsByProximity(rawTrails, centerLat, centerLng, MAX_TRAILS);
+    const zoneTrails = this.rankTrailsByProximity(
+      rawTrails,
+      centerLat,
+      centerLng,
+      MAX_TRAILS,
+    );
 
     const { systemPrompt, userPrompt } = this.buildPrompt(
       zoneStats,
@@ -525,7 +540,15 @@ class AreaScanServiceImpl implements AreaScanService {
    * rather than always surfacing the same long regional trails.
    */
   private rankTrailsByProximity(
-    trails: { id: number; name: string; surface: string; lengthMeters: number; lit: boolean | null; geometry: [number, number][]; center: [number, number] }[],
+    trails: {
+      id: number;
+      name: string;
+      surface: string;
+      lengthMeters: number;
+      lit: boolean | null;
+      geometry: [number, number][];
+      center: [number, number];
+    }[],
     lat: number,
     lng: number,
     limit: number,
@@ -540,10 +563,15 @@ class AreaScanServiceImpl implements AreaScanService {
           Math.cos((lat * Math.PI) / 180) *
             Math.cos((cLat * Math.PI) / 180) *
             Math.sin(dLng / 2) ** 2;
-        const distMeters = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distMeters =
+          6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return { trail: t, distMeters };
       })
-      .sort((a, b) => a.distMeters - b.distMeters || b.trail.lengthMeters - a.trail.lengthMeters)
+      .sort(
+        (a, b) =>
+          a.distMeters - b.distMeters ||
+          b.trail.lengthMeters - a.trail.lengthMeters,
+      )
       .slice(0, limit)
       .map(({ trail: t }) => ({
         id: t.id,

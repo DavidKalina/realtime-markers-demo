@@ -38,6 +38,7 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         stopCount,
         startTime,
         endTime,
+        intention,
       } = job.data as {
         userId: string;
         city: string;
@@ -49,6 +50,7 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         stopCount: number;
         startTime?: string;
         endTime?: string;
+        intention?: string;
       };
 
       await tracker.step("fetch_events");
@@ -67,6 +69,7 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         stopCount,
         startTime,
         endTime,
+        intention,
       });
 
       await tracker.stepProgress(90, "Itinerary generated");
@@ -79,8 +82,7 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         itemCount: itinerary.items?.length ?? 0,
       });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Unknown error";
+      const message = error instanceof Error ? error.message : "Unknown error";
       console.error("[GenerateItineraryHandler] Failed:", message);
       await tracker.fail(message, "Failed to generate itinerary");
     }

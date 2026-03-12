@@ -19,12 +19,7 @@ import Reanimated, {
   Easing,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  Settings,
-  ChevronRight,
-  AlertCircle,
-  X,
-} from "lucide-react-native";
+import { Settings, ChevronRight, AlertCircle, X } from "lucide-react-native";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import {
   CameraAnimateToLocationEvent,
@@ -56,11 +51,10 @@ function JobRow({
   const rotation = useSharedValue(0);
   const progressWidth = useSharedValue(0);
 
-  const isInFlight =
-    job.status === "pending" || job.status === "processing";
+  const isInFlight = job.status === "pending" || job.status === "processing";
   const eventId =
     job.status === "completed"
-      ? (job.result?.eventId as string) ?? (job.result?.id as string) ?? null
+      ? ((job.result?.eventId as string) ?? (job.result?.id as string) ?? null)
       : null;
   // Backend calls tracker.complete() even for rejected images (no event detected).
   // Treat completed-without-eventId as a rejection.
@@ -192,15 +186,8 @@ function JobRow({
               strokeWidth={2}
             />
           ) : isFailed ? (
-            <Pressable
-              onPress={() => onDismiss(job.jobId)}
-              hitSlop={8}
-            >
-              <X
-                size={16}
-                color={colors.text.secondary}
-                strokeWidth={2}
-              />
+            <Pressable onPress={() => onDismiss(job.jobId)} hitSlop={8}>
+              <X size={16} color={colors.text.secondary} strokeWidth={2} />
             </Pressable>
           ) : null}
         </View>
@@ -226,7 +213,11 @@ export function JobTrackerBottomSheet() {
   // Dynamic sheet height (at least 1 row height for empty state)
   const contentRows = Math.max(jobCount, 1);
   const sheetHeight = Math.min(
-    HANDLE_HEIGHT + HEADER_HEIGHT + ROW_HEIGHT * contentRows + insets.bottom + 16,
+    HANDLE_HEIGHT +
+      HEADER_HEIGHT +
+      ROW_HEIGHT * contentRows +
+      insets.bottom +
+      16,
     MAX_SHEET_HEIGHT,
   );
 

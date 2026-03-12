@@ -338,6 +338,15 @@ const ACTIVITY_OPTIONS = [
   { label: "Culture", value: "culture", emoji: "\u{1F3DB}\uFE0F" },
 ];
 
+const INTENTION_OPTIONS = [
+  { label: "Recharge", value: "recharge", emoji: "\u{1F9D8}" },
+  { label: "Explore", value: "explore", emoji: "\u{1F9ED}" },
+  { label: "Socialize", value: "socialize", emoji: "\u{1F37B}" },
+  { label: "Move", value: "move", emoji: "\u{1F3C3}" },
+  { label: "Learn", value: "learn", emoji: "\u{1F4DA}" },
+  { label: "Treat Yourself", value: "treat_yourself", emoji: "\u{1F48E}" },
+];
+
 const STOP_COUNT_OPTIONS = [
   { label: "Auto", value: 0 },
   { label: "1", value: 1 },
@@ -435,6 +444,9 @@ export default function ItineraryDialogBox({
   const [durationHours, setDurationHours] = useState(4);
   const [stopCount, setStopCount] = useState(0); // 0 = auto
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
+  const [selectedIntention, setSelectedIntention] = useState<string | null>(
+    null,
+  );
   const [useCustomTime, setUseCustomTime] = useState(false);
   const [startHour, setStartHour] = useState(9);
   const [endHour, setEndHour] = useState(13);
@@ -448,6 +460,7 @@ export default function ItineraryDialogBox({
   const stopsRef = useRef<CollapsibleSectionHandle>(null);
   const budgetRef = useRef<CollapsibleSectionHandle>(null);
   const vibesRef = useRef<CollapsibleSectionHandle>(null);
+  const intentionRef = useRef<CollapsibleSectionHandle>(null);
 
   // Rituals
   const [rituals, setRituals] = useState<RitualResponse[]>([]);
@@ -711,6 +724,7 @@ export default function ItineraryDialogBox({
       ritualId?: string;
       startTime?: string;
       endTime?: string;
+      intention?: string;
     }) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setPhase("generating");
@@ -741,6 +755,7 @@ export default function ItineraryDialogBox({
           activityTypes: params.activities,
           stopCount: params.stops || undefined,
           ritualId: params.ritualId,
+          ...(params.intention && { intention: params.intention }),
           ...(params.startTime && { startTime: params.startTime }),
           ...(params.endTime && { endTime: params.endTime }),
         });
@@ -778,6 +793,7 @@ export default function ItineraryDialogBox({
       activities: selectedActivities,
       budget: budgetMax,
       ritualId: activeRitualId ?? undefined,
+      intention: selectedIntention ?? undefined,
       ...(useCustomTime && {
         startTime: `${String(startHour).padStart(2, "0")}:00`,
         endTime: `${String(endHour).padStart(2, "0")}:00`,
@@ -789,6 +805,7 @@ export default function ItineraryDialogBox({
     selectedActivities,
     budgetMax,
     activeRitualId,
+    selectedIntention,
     useCustomTime,
     startHour,
     endHour,
@@ -1072,7 +1089,11 @@ export default function ItineraryDialogBox({
             </CollapsibleSection>
 
             {/* Duration */}
-            <CollapsibleSection ref={howLongRef} title="How long?" colors={colors}>
+            <CollapsibleSection
+              ref={howLongRef}
+              title="How long?"
+              colors={colors}
+            >
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -1107,10 +1128,7 @@ export default function ItineraryDialogBox({
                   </Pressable>
                 ))}
                 <Pressable
-                  style={[
-                    styles.pill,
-                    useCustomTime && styles.pillActive,
-                  ]}
+                  style={[styles.pill, useCustomTime && styles.pillActive]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setUseCustomTime((prev) => !prev);
@@ -1210,7 +1228,11 @@ export default function ItineraryDialogBox({
             </CollapsibleSection>
 
             {/* Stops */}
-            <CollapsibleSection ref={stopsRef} title="How many stops?" colors={colors}>
+            <CollapsibleSection
+              ref={stopsRef}
+              title="How many stops?"
+              colors={colors}
+            >
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -1281,6 +1303,46 @@ export default function ItineraryDialogBox({
               </View>
             </CollapsibleSection>
 
+            {/* Intention */}
+            <CollapsibleSection
+              ref={intentionRef}
+              title="Intention"
+              colors={colors}
+            >
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.pillRow}
+              >
+                {INTENTION_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt.value}
+                    style={[
+                      styles.chip,
+                      selectedIntention === opt.value && styles.chipActive,
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedIntention((prev) =>
+                        prev === opt.value ? null : opt.value,
+                      );
+                    }}
+                  >
+                    <Text style={styles.chipEmoji}>{opt.emoji}</Text>
+                    <Text
+                      style={[
+                        styles.chipLabel,
+                        selectedIntention === opt.value &&
+                          styles.chipLabelActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </CollapsibleSection>
+
             {error && <Text style={styles.errorText}>{error}</Text>}
           </ScrollView>
         )}
@@ -1327,7 +1389,9 @@ export default function ItineraryDialogBox({
               </Pressable>
               <Pressable
                 style={styles.viewButton}
-                onPress={() => router.push(`/itineraries/${result.id}` as const)}
+                onPress={() =>
+                  router.push(`/itineraries/${result.id}` as const)
+                }
               >
                 <Text style={styles.viewButtonText}>View Itinerary</Text>
               </Pressable>

@@ -1,7 +1,14 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { useColors, spacing, fontSize, fontFamily, duration, type Colors } from "@/theme";
+import {
+  useColors,
+  spacing,
+  fontSize,
+  fontFamily,
+  duration,
+  type Colors,
+} from "@/theme";
 
 export interface EndOfListProps {
   message?: string;
@@ -28,27 +35,28 @@ const EndOfList: React.FC<EndOfListProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing["3xl"],
-    alignItems: "center",
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  line: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border.default,
-  },
-  text: {
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    color: colors.text.disabled,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      paddingVertical: spacing.xl,
+      paddingHorizontal: spacing["3xl"],
+      alignItems: "center",
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+    },
+    line: {
+      flex: 1,
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border.default,
+    },
+    text: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+    },
+  });
 
 export default EndOfList;

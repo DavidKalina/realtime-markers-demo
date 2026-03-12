@@ -83,34 +83,35 @@ const RsvpButton: React.FC<RsvpButtonProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  rsvpButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.lg,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: colors.shadow.default,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  buttonContent: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  loading: {
-    opacity: 0.7,
-  },
-  rsvpButtonPressed: {
-    // Add any styles for pressed state if needed
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    rsvpButton: {
+      width: 44,
+      height: 44,
+      borderRadius: radius.lg,
+      justifyContent: "center",
+      alignItems: "center",
+      shadowColor: colors.shadow.default,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      elevation: 5,
+    },
+    buttonContent: {
+      width: "100%",
+      height: "100%",
+      justifyContent: "center",
+      alignItems: "center",
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    loading: {
+      opacity: 0.7,
+    },
+    rsvpButtonPressed: {
+      // Add any styles for pressed state if needed
+    },
+  });
 
 export default React.memo(RsvpButton);

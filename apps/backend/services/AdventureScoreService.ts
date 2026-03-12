@@ -41,14 +41,19 @@ export class AdventureScoreService {
   }
 
   private async compute(userId: string): Promise<AdventureScoreResponse> {
-    const [activityRaw, consistencyRaw, diversityRaw, completionRaw, discoveryRaw] =
-      await Promise.all([
-        this.computeActivity(userId),
-        this.computeConsistency(userId),
-        this.computeDiversity(userId),
-        this.computeCompletion(userId),
-        this.computeDiscovery(userId),
-      ]);
+    const [
+      activityRaw,
+      consistencyRaw,
+      diversityRaw,
+      completionRaw,
+      discoveryRaw,
+    ] = await Promise.all([
+      this.computeActivity(userId),
+      this.computeConsistency(userId),
+      this.computeDiversity(userId),
+      this.computeCompletion(userId),
+      this.computeDiscovery(userId),
+    ]);
 
     // Normalize via sigmoid with tuned k values
     const activityScore = sigmoid(activityRaw, 15);

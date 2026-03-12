@@ -164,7 +164,10 @@ const AdventureScoreCard: React.FC<AdventureScoreCardProps> = ({
               <View key={factor.key} style={styles.factorRow}>
                 <View style={styles.factorLabelRow}>
                   <View
-                    style={[styles.factorDot, { backgroundColor: factor.color }]}
+                    style={[
+                      styles.factorDot,
+                      { backgroundColor: factor.color },
+                    ]}
                   />
                   <Text style={styles.factorLabel}>{factor.label}</Text>
                 </View>

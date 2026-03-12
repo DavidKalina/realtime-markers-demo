@@ -56,7 +56,12 @@ const StreakBanner: React.FC<StreakBannerProps> = ({
           </Text>
         </View>
         {currentStreak > 0 && (
-          <Text style={[styles.flame, { opacity: Math.min(1, 0.5 + currentStreak * 0.1) }]}>
+          <Text
+            style={[
+              styles.flame,
+              { opacity: Math.min(1, 0.5 + currentStreak * 0.1) },
+            ]}
+          >
             {currentStreak >= 7 ? "\uD83D\uDD25" : "\u26FA"}
           </Text>
         )}

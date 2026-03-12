@@ -1,7 +1,13 @@
 import { EventEngagementMetrics } from "@/services/api/base/types";
 import { memo, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { useColors, spacing, fontWeight, fontFamily, type Colors } from "@/theme";
+import {
+  useColors,
+  spacing,
+  fontWeight,
+  fontFamily,
+  type Colors,
+} from "@/theme";
 
 interface EventEngagementDisplayProps {
   engagement: EventEngagementMetrics;
@@ -45,28 +51,29 @@ EventEngagementDisplay.displayName = "EventEngagementDisplay";
 
 export default EventEngagementDisplay;
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  statsRow: {
-    flexDirection: "row",
-    gap: spacing.xl,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  statNumber: {
-    fontFamily: fontFamily.mono,
-    fontSize: 28,
-    fontWeight: fontWeight.bold,
-    lineHeight: 32,
-  },
-  statLabel: {
-    fontFamily: fontFamily.mono,
-    fontSize: 10,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-    marginTop: 2,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    statsRow: {
+      flexDirection: "row",
+      gap: spacing.xl,
+    },
+    statItem: {
+      flex: 1,
+      alignItems: "center",
+    },
+    statNumber: {
+      fontFamily: fontFamily.mono,
+      fontSize: 28,
+      fontWeight: fontWeight.bold,
+      lineHeight: 32,
+    },
+    statLabel: {
+      fontFamily: fontFamily.mono,
+      fontSize: 10,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      textTransform: "uppercase",
+      letterSpacing: 1.5,
+      marginTop: 2,
+    },
+  });

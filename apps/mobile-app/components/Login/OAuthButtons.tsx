@@ -1,6 +1,13 @@
 import React, { useMemo } from "react";
 import { View, TouchableOpacity, Text, StyleSheet, Alert } from "react-native";
-import { useColors, spacing, radius, fontSize, fontWeight, type Colors } from "@/theme";
+import {
+  useColors,
+  spacing,
+  radius,
+  fontSize,
+  fontWeight,
+  type Colors,
+} from "@/theme";
 import {
   useGoogleOAuth,
   useFacebookOAuth,
@@ -117,38 +124,39 @@ export const OAuthButtons: React.FC<OAuthButtonsProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    marginVertical: spacing.xl,
-  },
-  title: {
-    textAlign: "center",
-    fontSize: fontSize.md,
-    color: "#666",
-    marginBottom: spacing.xl,
-  },
-  buttonContainer: {
-    gap: spacing.md,
-  },
-  button: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing["2xl"],
-    borderRadius: radius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  googleButton: {
-    backgroundColor: "#4285F4",
-  },
-  facebookButton: {
-    backgroundColor: "#1877F2",
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: colors.fixed.white,
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      marginVertical: spacing.xl,
+    },
+    title: {
+      textAlign: "center",
+      fontSize: fontSize.md,
+      color: "#666",
+      marginBottom: spacing.xl,
+    },
+    buttonContainer: {
+      gap: spacing.md,
+    },
+    button: {
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing["2xl"],
+      borderRadius: radius.sm,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    googleButton: {
+      backgroundColor: "#4285F4",
+    },
+    facebookButton: {
+      backgroundColor: "#1877F2",
+    },
+    disabledButton: {
+      opacity: 0.6,
+    },
+    buttonText: {
+      color: colors.fixed.white,
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.semibold,
+    },
+  });

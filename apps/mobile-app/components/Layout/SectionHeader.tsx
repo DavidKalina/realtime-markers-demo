@@ -55,40 +55,41 @@ export default function SectionHeader({
   );
 }
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacing.md,
-    marginLeft: spacing.xs,
-  },
-  sectionIconContainer: {
-    width: 36,
-    height: 36,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.border.default,
-    borderRadius: radius.md,
-  },
-  sectionTitle: {
-    fontSize: fontSize.lg,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.bold,
-    color: colors.text.primary,
-    marginLeft: spacing.md,
-    letterSpacing: 0.3,
-  },
-  sectionActionButton: {
-    marginLeft: "auto",
-    backgroundColor: colors.border.medium,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing._6,
-    borderRadius: radius.sm,
-  },
-  sectionActionText: {
-    color: colors.accent.primary,
-    fontSize: 13,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    sectionHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: spacing.md,
+      marginLeft: spacing.xs,
+    },
+    sectionIconContainer: {
+      width: 36,
+      height: 36,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: colors.border.default,
+      borderRadius: radius.md,
+    },
+    sectionTitle: {
+      fontSize: fontSize.lg,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: colors.text.primary,
+      marginLeft: spacing.md,
+      letterSpacing: 0.3,
+    },
+    sectionActionButton: {
+      marginLeft: "auto",
+      backgroundColor: colors.border.medium,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing._6,
+      borderRadius: radius.sm,
+    },
+    sectionActionText: {
+      color: colors.accent.primary,
+      fontSize: 13,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+    },
+  });

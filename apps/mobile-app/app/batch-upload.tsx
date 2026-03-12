@@ -180,16 +180,17 @@ export default function BatchUploadScreen() {
   );
 }
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  content: {
-    flex: 1,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  statusText: {
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.sm,
-    textAlign: "center",
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    content: {
+      flex: 1,
+      padding: spacing.lg,
+      gap: spacing.md,
+    },
+    statusText: {
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+      textAlign: "center",
+    },
+  });

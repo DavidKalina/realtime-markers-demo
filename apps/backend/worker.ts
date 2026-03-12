@@ -187,15 +187,12 @@ async function initializeWorker() {
   );
 
   // Initialize itinerary service
-  const { createItineraryService } = await import(
-    "./services/ItineraryService"
-  );
-  const { createOverpassService } = await import(
-    "./services/shared/OverpassService"
-  );
-  const { createWeatherService } = await import(
-    "./services/shared/WeatherService"
-  );
+  const { createItineraryService } =
+    await import("./services/ItineraryService");
+  const { createOverpassService } =
+    await import("./services/shared/OverpassService");
+  const { createWeatherService } =
+    await import("./services/shared/WeatherService");
   const overpassService = createOverpassService({ redisService });
   const weatherService = createWeatherService({ redisService });
   const itineraryService = createItineraryService({

@@ -118,9 +118,7 @@ const FreeThisWeekSection: React.FC<FreeThisWeekSectionProps> = ({
                 onPress={() => handleEventPress(event)}
                 activeOpacity={0.9}
               >
-                <View
-                  style={styles.cardContainer}
-                >
+                <View style={styles.cardContainer}>
                   <View style={styles.cardBody}>
                     <View style={styles.cardHeader}>
                       <View

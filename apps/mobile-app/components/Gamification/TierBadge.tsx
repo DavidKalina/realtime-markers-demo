@@ -1,12 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import {
-  fontSize,
-  fontFamily,
-  fontWeight,
-  spacing,
-  radius,
-} from "@/theme";
+import { fontSize, fontFamily, fontWeight, spacing, radius } from "@/theme";
 import { getTierByName } from "@/utils/gamification";
 
 interface TierBadgeProps {

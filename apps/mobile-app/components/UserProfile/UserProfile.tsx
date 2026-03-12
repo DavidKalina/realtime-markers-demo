@@ -216,7 +216,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               </Animated.View>
 
               {/* Adventure Streak */}
-              {(profileData?.currentStreak || profileData?.longestStreak) ? (
+              {profileData?.currentStreak || profileData?.longestStreak ? (
                 <Animated.View
                   entering={FadeIn.duration(duration.normal).delay(160)}
                   style={styles.inlineSection}
