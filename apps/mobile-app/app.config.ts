@@ -5,7 +5,7 @@ export default {
   expo: {
     name: "A Third Space",
     slug: "mobile-app",
-    version: "1.22.3",
+    version: "1.22.4",
     orientation: "portrait",
     icon: "./assets/app-icon.png",
     scheme: "myapp",
@@ -39,7 +39,7 @@ export default {
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "224",
+      buildNumber: "225",
     },
     android: {
       label: "A Third Space",
