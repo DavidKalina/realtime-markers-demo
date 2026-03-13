@@ -73,7 +73,7 @@ interface ItineraryTimelineProps {
   isActive?: boolean;
   onCheckin?: (itemId: string) => void;
   onItemPress?: (item: ItineraryItemResponse) => void;
-  scrollRef?: React.RefObject<ScrollView>;
+  scrollRef?: React.RefObject<ScrollView | null>;
 }
 
 // --- Animated cost counter ---

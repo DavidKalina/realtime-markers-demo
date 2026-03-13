@@ -42,6 +42,8 @@ import {
   type Colors,
 } from "@/theme";
 import { apiClient } from "@/services/ApiClient";
+import { pushNotificationService } from "@/services/PushNotificationService";
+import { useAuth } from "@/contexts/AuthContext";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
 import type { RitualResponse } from "@/services/api/modules/rituals";
 import type { NearbyPlace } from "@/services/api/modules/places";
@@ -394,6 +396,7 @@ export interface AnchorStopInput {
 interface NearbyPlacesInput {
   lat: number;
   lng: number;
+  zoom?: number;
 }
 
 interface ItineraryDialogBoxProps {
@@ -451,6 +454,7 @@ export default function ItineraryDialogBox({
 }: ItineraryDialogBoxProps) {
   const colors = useColors();
   const router = useRouter();
+  const { user } = useAuth();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [phase, setPhase] = useState<Phase>(
@@ -599,7 +603,6 @@ export default function ItineraryDialogBox({
   const howLongRef = useRef<CollapsibleSectionHandle>(null);
   const stopsRef = useRef<CollapsibleSectionHandle>(null);
   const budgetRef = useRef<CollapsibleSectionHandle>(null);
-  const vibesRef = useRef<CollapsibleSectionHandle>(null);
   const intentionRef = useRef<CollapsibleSectionHandle>(null);
 
   // Rituals
@@ -624,7 +627,9 @@ export default function ItineraryDialogBox({
 
   const setCollapsedStatusCb = useCallback(() => {
     setPhase("collapsed");
-    setStatusText(resultRef.current.val ? "View itinerary" : "Plan your adventure");
+    setStatusText(
+      resultRef.current.val ? "View itinerary" : "Plan your adventure",
+    );
   }, []);
 
   const setReExpandPhaseCb = useCallback(() => {
@@ -659,7 +664,10 @@ export default function ItineraryDialogBox({
     const prev = prevNearbyRef.current;
     prevNearbyRef.current = nearbyPlaces ?? null;
 
-    if (nearbyPlaces && (!prev || prev.lat !== nearbyPlaces.lat || prev.lng !== nearbyPlaces.lng)) {
+    if (
+      nearbyPlaces &&
+      (!prev || prev.lat !== nearbyPlaces.lat || prev.lng !== nearbyPlaces.lng)
+    ) {
       // Reset state up-front so the animation callback can't clobber fetch results
       setNearbyResults([]);
       setNearbyLoading(true);
@@ -681,10 +689,23 @@ export default function ItineraryDialogBox({
         },
       );
 
-      // Fetch nearby places
+      // Fetch nearby places — scale radius with zoom level so low-zoom
+      // long-presses cast a wider net (max 5000m at zoom ≤6, 200m at zoom ≥16).
+      const zoom = nearbyPlaces.zoom ?? 16;
+      const radius = Math.round(
+        Math.min(
+          5000,
+          Math.max(200, 200 * Math.pow(2, Math.max(0, 16 - zoom) / 2)),
+        ),
+      );
       let cancelled = false;
       apiClient.places
-        .searchNearby(nearbyPlaces.lat, nearbyPlaces.lng, 200, 8)
+        .searchNearby(
+          nearbyPlaces.lat,
+          nearbyPlaces.lng,
+          radius,
+          zoom >= 14 ? 8 : zoom >= 10 ? 12 : 16,
+        )
         .then((res) => {
           if (!cancelled && res.success) {
             setNearbyResults(res.places);
@@ -695,7 +716,9 @@ export default function ItineraryDialogBox({
           if (!cancelled) setNearbyLoading(false);
         });
 
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     } else if (!nearbyPlaces && prev) {
       // Exiting nearby phase — go to collapsed
       cancelAnimation(animHeight);
@@ -763,6 +786,13 @@ export default function ItineraryDialogBox({
             onItineraryResult(itinerary.items);
           }
 
+          // Prompt for notification permission after first itinerary creation
+          if (user?.id) {
+            pushNotificationService
+              .setupPushNotifications(user.id)
+              .catch(() => {});
+          }
+
           // Expand to show result
           cancelAnimation(sheenPos);
           setStatusText("Your itinerary is ready");
@@ -825,22 +855,6 @@ export default function ItineraryDialogBox({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   }, [trackedJob?.status, trackedJob?.stepLabel, activeJobId]);
-
-  const expandToForm = useCallback(() => {
-    cancelAnimation(sheenPos);
-    sheenActive.value = 0;
-    statusOpacity.value = withTiming(0, { duration: 200 });
-    animHeight.value = withTiming(
-      EXPANDED_FORM_HEIGHT,
-      { duration: 400, easing: Easing.out(Easing.cubic) },
-      (finished) => {
-        if (finished) {
-          scheduleOnRN(setPhaseFormCb);
-          contentOpacity.value = withTiming(1, { duration: 250 });
-        }
-      },
-    );
-  }, [setPhaseFormCb]);
 
   const handleDismiss = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1208,7 +1222,9 @@ export default function ItineraryDialogBox({
             {nearbyLoading ? (
               <View style={styles.nearbyLoadingRow}>
                 <ActivityIndicator size="small" color={colors.accent.primary} />
-                <Text style={styles.nearbyLoadingText}>Finding nearby places...</Text>
+                <Text style={styles.nearbyLoadingText}>
+                  Finding nearby places...
+                </Text>
               </View>
             ) : nearbyResults.length === 0 ? (
               <Text style={styles.nearbyEmptyText}>No places found nearby</Text>
@@ -1235,7 +1251,8 @@ export default function ItineraryDialogBox({
                       )}
                       {place.rating != null && (
                         <Text style={styles.nearbyRating}>
-                          {"★"}{place.rating.toFixed(1)}
+                          {"★"}
+                          {place.rating.toFixed(1)}
                         </Text>
                       )}
                       {place.distance != null && (
@@ -1292,7 +1309,10 @@ export default function ItineraryDialogBox({
                       <Text style={styles.searchResultName} numberOfLines={1}>
                         {searchResult.name}
                       </Text>
-                      <Text style={styles.searchResultAddress} numberOfLines={1}>
+                      <Text
+                        style={styles.searchResultAddress}
+                        numberOfLines={1}
+                      >
                         {searchResult.address}
                       </Text>
                     </View>
@@ -1346,7 +1366,9 @@ export default function ItineraryDialogBox({
                           style={styles.anchorChipRemove}
                           onPress={(e) => {
                             e.stopPropagation();
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            Haptics.impactAsync(
+                              Haptics.ImpactFeedbackStyle.Medium,
+                            );
                             onAnchorRemove(a.id);
                           }}
                           hitSlop={6}

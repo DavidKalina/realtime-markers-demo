@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
 import { Alert } from "react-native";
 import * as Notifications from "expo-notifications";
+import { formatInTimeZone } from "date-fns-tz";
 import { calendarService } from "@/services/CalendarService";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
+import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
 
 /**
@@ -130,7 +132,7 @@ export default function CalendarPrompt() {
 
 async function promptCalendar(itinerary: ItineraryResponse) {
   // Don't prompt if the planned date is today (already happening)
-  const today = new Date().toISOString().split("T")[0];
+  const today = formatInTimeZone(new Date(), getUserTimezone(), "yyyy-MM-dd");
   if (itinerary.plannedDate === today) return;
 
   // Don't prompt if already added to calendar

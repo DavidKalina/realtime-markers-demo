@@ -38,7 +38,26 @@ export class PushNotificationService {
   }
 
   /**
+   * Register token if permissions are already granted (no prompt).
+   * Returns true if token was registered, false if permission not yet granted.
+   */
+  async registerIfAlreadyGranted(userId: string): Promise<boolean> {
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== "granted") return false;
+      return this.registerToken(userId);
+    } catch (error) {
+      console.error("❌ Error checking notification permissions:", error);
+      return false;
+    }
+  }
+
+  /**
    * Request notification permissions and register token with backend
+   */
+  /**
+   * Request notification permissions and register token with backend.
+   * This shows the system permission prompt if not yet granted.
    */
   async setupPushNotifications(userId: string): Promise<boolean> {
     try {
@@ -52,6 +71,18 @@ export class PushNotificationService {
         return false;
       }
 
+      return this.registerToken(userId);
+    } catch (error) {
+      console.error("❌ Error setting up push notifications:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Internal: get push token and register with backend (assumes permission already granted).
+   */
+  private async registerToken(userId: string): Promise<boolean> {
+    try {
       console.log("✅ Notification permissions granted");
 
       // Get the token - use project ID from app config or environment

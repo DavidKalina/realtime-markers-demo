@@ -128,9 +128,9 @@ function HomeScreenContent() {
   const nearbyPlacesInput = useMemo(
     () =>
       pendingAnchor
-        ? { lat: pendingAnchor.coordinates[1], lng: pendingAnchor.coordinates[0] }
+        ? { lat: pendingAnchor.coordinates[1], lng: pendingAnchor.coordinates[0], zoom: zoomLevel }
         : null,
-    [pendingAnchor],
+    [pendingAnchor, zoomLevel],
   );
 
   // Reverse geocode city from first anchor

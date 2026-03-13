@@ -52,10 +52,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const { fetchFilters } = useFilterStore();
 
-  // Setup push notifications after successful authentication
+  // Re-register push token if permission was already granted (no prompt).
+  // The actual permission prompt is deferred to a contextual moment (e.g. first scan).
   const setupPushNotifications = async (userId: string) => {
     try {
-      await pushNotificationService.setupPushNotifications(userId);
+      await pushNotificationService.registerIfAlreadyGranted(userId);
     } catch (error) {
       console.error("❌ Error setting up push notifications:", error);
     }

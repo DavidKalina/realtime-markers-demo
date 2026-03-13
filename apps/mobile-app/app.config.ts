@@ -5,7 +5,7 @@ export default {
   expo: {
     name: "A Third Space",
     slug: "mobile-app",
-    version: "1.22.1",
+    version: "1.22.2",
     orientation: "portrait",
     icon: "./assets/app-icon.png",
     scheme: "myapp",
@@ -39,7 +39,7 @@ export default {
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "222",
+      buildNumber: "223",
     },
     android: {
       label: "A Third Space",
@@ -114,6 +114,13 @@ export default {
           cameraPermission:
             "Allow $(PRODUCT_NAME) to access your camera to take photos of event flyers",
           recordAudioAndroid: false,
+        },
+      ],
+      [
+        "expo-calendar",
+        {
+          calendarPermission:
+            "A Third Space can add your planned adventures to your calendar so you never miss an outing.",
         },
       ],
     ],

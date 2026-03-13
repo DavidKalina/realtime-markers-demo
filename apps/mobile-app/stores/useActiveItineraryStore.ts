@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
 import { apiClient } from "@/services/ApiClient";
+import { startBackgroundLocationTracking } from "@/hooks/useBackgroundLocation";
 
 export interface CompletionData {
   itinerary: ItineraryResponse;
@@ -43,6 +44,9 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
         const { success } = await apiClient.itineraries.activate(itinerary.id);
         if (success) {
           set({ itinerary, isLoading: false });
+          // Start background location tracking when user activates an itinerary
+          // (contextual moment — they're about to go out)
+          startBackgroundLocationTracking().catch(() => {});
           return true;
         }
         set({ isLoading: false });

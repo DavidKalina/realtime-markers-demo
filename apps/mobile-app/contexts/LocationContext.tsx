@@ -13,7 +13,7 @@ import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes, BaseEvent } from "@/services/EventBroker";
 import MapboxGL from "@rnmapbox/maps";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { startBackgroundLocationTracking } from "@/hooks/useBackgroundLocation";
+
 
 // Define the event types
 interface UserLocationEvent extends BaseEvent {
@@ -187,14 +187,6 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({
       }
 
       setLocationPermissionGranted(true);
-
-      // Start background location tracking (fire-and-forget)
-      startBackgroundLocationTracking().catch((err) =>
-        console.warn(
-          "[LocationContext] Background location setup failed:",
-          err,
-        ),
-      );
 
       // Create a timeout promise
       const timeoutPromise = new Promise((_, reject) => {
@@ -372,15 +364,6 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({
         const hasValidCache = await loadCachedLocation();
         if (!hasValidCache) {
           await getUserLocation();
-        } else {
-          // Even with cached location, start background tracking
-          // (getUserLocation won't run, so we need to trigger it here)
-          startBackgroundLocationTracking().catch((err) =>
-            console.warn(
-              "[LocationContext] Background location setup failed:",
-              err,
-            ),
-          );
         }
       }
     };
