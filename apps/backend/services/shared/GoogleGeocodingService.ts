@@ -1482,100 +1482,73 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
             radius: Math.min(Math.max(radius, 50), 5000),
           },
         },
-        includedTypes: [
-          // Outdoors & nature
-          "park",
-          "city_park",
-          "state_park",
-          "national_park",
-          "hiking_area",
-          "dog_park",
-          "playground",
-          "garden",
-          "botanical_garden",
-          "campground",
-          "ski_resort",
-          "marina",
-          "beach",
-          "nature_preserve",
-          "scenic_spot",
-          "picnic_ground",
-          "barbecue_area",
-          // Culture & entertainment
-          "museum",
-          "art_gallery",
-          "art_museum",
-          "history_museum",
-          "performing_arts_theater",
-          "movie_theater",
-          "amusement_park",
-          "aquarium",
-          "zoo",
-          "tourist_attraction",
-          "cultural_center",
-          "cultural_landmark",
-          "historical_landmark",
-          "live_music_venue",
-          "comedy_club",
-          "concert_hall",
-          "visitor_center",
-          "planetarium",
-          // Food & drink
-          "restaurant",
-          "cafe",
-          "bar",
-          "bakery",
-          "ice_cream_shop",
-          "coffee_shop",
-          "brewery",
-          "brewpub",
-          "winery",
-          "beer_garden",
-          "gastropub",
-          "food_court",
-          // Community & learning
-          "library",
-          "community_center",
-          "book_store",
-          "market",
-          "farmers_market",
-          "flea_market",
-          // Sports & activities
-          "gym",
-          "fitness_center",
-          "sports_complex",
-          "sports_activity_location",
-          "sports_club",
-          "adventure_sports_center",
-          "amusement_center",
-          "stadium",
-          "arena",
-          "golf_course",
-          "bowling_alley",
-          "ice_skating_rink",
-          "skateboard_park",
-          "swimming_pool",
-          "tennis_court",
-          "athletic_field",
-          "go_karting_venue",
-          "paintball_center",
-          "miniature_golf_course",
-          "water_park",
-          "video_arcade",
-          "cycling_park",
-          // Nightlife & events
-          "night_club",
-          "event_venue",
-          "convention_center",
-          "wedding_venue",
-          // Wellness
-          "spa",
-          "yoga_studio",
-          "wellness_center",
+        excludedTypes: [
+          // Automotive
+          "car_dealer",
+          "car_rental",
+          "car_repair",
+          "car_wash",
+          "gas_station",
+          "parking",
+          // Finance
+          "accounting",
+          "atm",
+          "bank",
+          // Health & medical
+          "chiropractor",
+          "dental_clinic",
+          "dentist",
+          "doctor",
+          "drugstore",
+          "hospital",
+          "medical_center",
+          "medical_clinic",
+          "medical_lab",
+          "pharmacy",
+          "physiotherapist",
+          // Services
+          "cemetery",
+          "funeral_home",
+          "insurance_agency",
+          "lawyer",
+          "locksmith",
+          "real_estate_agency",
+          "plumber",
+          "electrician",
+          "roofing_contractor",
+          "moving_company",
+          "storage",
+          // Government
+          "courthouse",
+          "post_office",
+          "fire_station",
+          "police",
+          // Education (schools, not libraries)
+          "preschool",
+          "primary_school",
+          "secondary_school",
+          // Transportation
+          "bus_station",
+          "bus_stop",
+          "train_station",
+          "subway_station",
+          "taxi_stand",
+          // Housing
+          "apartment_building",
+          "apartment_complex",
+          "condominium_complex",
         ],
         maxResultCount: Math.min(maxResults, 20),
         rankPreference: "DISTANCE",
       };
+
+      console.log("[searchNearby] Request:", JSON.stringify({
+        lat,
+        lng,
+        radius: requestBody.locationRestriction.circle.radius,
+        maxResultCount: requestBody.maxResultCount,
+        includedTypesCount: requestBody.includedTypes.length,
+      }));
 
       const response = await fetch(url, {
         method: "POST",
@@ -1590,14 +1563,23 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
       });
 
       if (!response.ok) {
+        const errorBody = await response.text();
         console.error(
           "[searchNearby] Places API failed:",
+          response.status,
           response.statusText,
+          errorBody,
         );
         return { success: false, error: "Places API request failed", places: [] };
       }
 
       const data = await response.json();
+      console.log("[searchNearby] Response:", JSON.stringify({
+        placesCount: data.places?.length ?? 0,
+        firstPlace: data.places?.[0]?.displayName?.text,
+        error: data.error,
+      }));
+
       if (!data.places || data.places.length === 0) {
         return { success: true, places: [] };
       }
