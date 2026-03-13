@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import type { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddItineraryIntention1710000000053 implements MigrationInterface {
   name = "AddItineraryIntention1710000000053";
