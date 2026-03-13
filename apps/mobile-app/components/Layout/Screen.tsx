@@ -160,8 +160,11 @@ const Screen = <T extends string>({
       <View
         style={[
           styles.contentContainer,
-          !isScrollable && styles.contentWrapper,
-          footerButtons.length > 0 && styles.contentWithFooter,
+          !isScrollable ? styles.contentWrapper : undefined,
+          footerButtons.length > 0 ? styles.contentWithFooter : undefined,
+          bottomContent && footerButtons.length === 0
+            ? { paddingBottom: 0 }
+            : undefined,
         ]}
       >
         {children}
@@ -235,9 +238,15 @@ const Screen = <T extends string>({
           <Animated.View
             style={[
               styles.container,
-              resolvedShowBackButton && { paddingTop: BANNER_HEIGHT },
-              footerButtons.length > 0 && styles.nonScrollableContentWithFooter,
-              bottomContent && footerButtons.length === 0 && bottomPaddingStyle,
+              resolvedShowBackButton
+                ? { paddingTop: BANNER_HEIGHT }
+                : undefined,
+              footerButtons.length > 0
+                ? styles.nonScrollableContentWithFooter
+                : undefined,
+              bottomContent && footerButtons.length === 0
+                ? bottomPaddingStyle
+                : undefined,
             ]}
           >
             {renderContent()}

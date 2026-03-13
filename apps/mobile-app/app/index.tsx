@@ -22,7 +22,7 @@ import { useMapMountGate } from "@/hooks/useMapMountGate";
 import { useMapViewport } from "@/hooks/useMapViewport";
 import { useMapWebSocket } from "@/hooks/useMapWebSocket";
 import { apiClient } from "@/services/ApiClient";
-import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
+import { BaseEvent, CameraAnimateToLocationEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { useJobSheetStore } from "@/stores/useJobSheetStore";
 import { useLocationStore } from "@/stores/useLocationStore";
@@ -332,11 +332,21 @@ function HomeScreenContent() {
       const id = addAnchor(coords);
       if (id) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        publish<CameraAnimateToLocationEvent>(
+          EventTypes.CAMERA_ANIMATE_TO_LOCATION,
+          {
+            timestamp: Date.now(),
+            source: "AnchorDrop",
+            coordinates: [coords.lng, coords.lat],
+            duration: 800,
+            animationMode: "easeTo",
+          },
+        );
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
     },
-    [addAnchor],
+    [addAnchor, publish],
   );
 
   // Long press handler — drops anchor pin (pin has its own ripple)
@@ -369,8 +379,19 @@ function HomeScreenContent() {
         rating: place.rating,
       });
       setPendingAnchor(null);
+      // Animate camera to the selected place
+      publish<CameraAnimateToLocationEvent>(
+        EventTypes.CAMERA_ANIMATE_TO_LOCATION,
+        {
+          timestamp: Date.now(),
+          source: "NearbySelect",
+          coordinates: place.coordinates,
+          duration: 800,
+          animationMode: "easeTo",
+        },
+      );
     },
-    [pendingAnchorId, updateAnchor, setPendingAnchor],
+    [pendingAnchorId, updateAnchor, setPendingAnchor, publish],
   );
 
   const handleNearbyKeepPin = useCallback(() => {
@@ -759,21 +780,23 @@ function HomeScreenContent() {
 
         {floatingButtonsSection}
 
-        <ItineraryDialogBox
-          city={anchorCity ?? undefined}
-          anchorStops={anchorAnchors.length > 0 ? anchorAnchors : undefined}
-          onDismiss={handleAnchorDismiss}
-          onItineraryResult={handleItineraryResult}
-          nearbyPlaces={nearbyPlacesInput}
-          onNearbySelect={handleNearbySelect}
-          onNearbyKeepPin={handleNearbyKeepPin}
-          onNearbyDismiss={handleNearbyDismiss}
-          onFlyTo={handleSearchFlyTo}
-          onSearchPlaceAnchor={handleSearchPlaceAnchor}
-          onAnchorEdit={handleAnchorEdit}
-          onAnchorRemove={handleAnchorRemove}
-          style={planBannerStyles.dialogBox}
-        />
+        {!selectedItem && (
+          <ItineraryDialogBox
+            city={anchorCity ?? undefined}
+            anchorStops={anchorAnchors.length > 0 ? anchorAnchors : undefined}
+            onDismiss={handleAnchorDismiss}
+            onItineraryResult={handleItineraryResult}
+            nearbyPlaces={nearbyPlacesInput}
+            onNearbySelect={handleNearbySelect}
+            onNearbyKeepPin={handleNearbyKeepPin}
+            onNearbyDismiss={handleNearbyDismiss}
+            onFlyTo={handleSearchFlyTo}
+            onSearchPlaceAnchor={handleSearchPlaceAnchor}
+            onAnchorEdit={handleAnchorEdit}
+            onAnchorRemove={handleAnchorRemove}
+            style={planBannerStyles.dialogBox}
+          />
+        )}
       </View>
     </>
   );

@@ -341,10 +341,18 @@ const Login: React.FC = () => {
         </MapboxGL.MapView>
       )}
 
-      {/* Layer 2: Gradient overlay */}
+      {/* Layer 2: Blur overlay — softens the flyover map */}
+      <BlurView
+        intensity={15}
+        tint="dark"
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+
+      {/* Layer 3: Gradient overlay */}
       <GradientOverlay />
 
-      {/* Layer 3: Foreground content */}
+      {/* Layer 4: Foreground content */}
       <SafeAreaView style={styles.foreground}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}

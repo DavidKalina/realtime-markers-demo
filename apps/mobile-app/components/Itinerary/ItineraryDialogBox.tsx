@@ -501,13 +501,11 @@ export default function ItineraryDialogBox({
     return result.slice(0, 10);
   }, [cityProp, closestCities, topCities]);
 
-  // Form state
-  const [plannedDate, setPlannedDate] = useState(() => {
-    return new Date().toISOString().split("T")[0];
-  });
-  const [budgetMax, setBudgetMax] = useState(50);
-  const [durationHours, setDurationHours] = useState(4);
-  const [stopCount, setStopCount] = useState(0); // 0 = auto
+  // Form state — no defaults so user must pick each via auto-expand flow
+  const [plannedDate, setPlannedDate] = useState<string | null>(null);
+  const [budgetMax, setBudgetMax] = useState(0);
+  const [durationHours, setDurationHours] = useState<number | null>(null);
+  const [stopCount, setStopCount] = useState<number | null>(null);
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
   const [selectedIntention, setSelectedIntention] = useState<string | null>(
     null,
@@ -619,6 +617,7 @@ export default function ItineraryDialogBox({
   const howLongRef = useRef<CollapsibleSectionHandle>(null);
   const stopsRef = useRef<CollapsibleSectionHandle>(null);
   const budgetRef = useRef<CollapsibleSectionHandle>(null);
+  const vibesRef = useRef<CollapsibleSectionHandle>(null);
   const intentionRef = useRef<CollapsibleSectionHandle>(null);
 
   // Rituals
@@ -760,19 +759,21 @@ export default function ItineraryDialogBox({
     const runSheen = () => {
       sheenActive.value = 1;
       sheenPos.value = 0;
-      sheenPos.value = withRepeat(
-        withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-        2,
-        true,
-      );
+      sheenPos.value = withTiming(1, {
+        duration: 1800,
+        easing: Easing.inOut(Easing.ease),
+      });
     };
 
-    // Initial sheen
-    runSheen();
+    // Initial sheen after a short delay
+    const initialTimeout = setTimeout(runSheen, 1500);
 
-    // Repeat every 6 seconds
-    const interval = setInterval(runSheen, 6000);
-    return () => clearInterval(interval);
+    // Repeat every 15 seconds
+    const interval = setInterval(runSheen, 15000);
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
   }, [phase]);
 
   // Watch job progress for status text updates and completion
@@ -993,7 +994,7 @@ export default function ItineraryDialogBox({
       try {
         const { jobId } = await apiClient.itineraries.create({
           city: city || undefined,
-          plannedDate,
+          plannedDate: plannedDate ?? new Date().toISOString().split("T")[0],
           budgetMin: 0,
           budgetMax: params.budget,
           durationHours: params.duration,
@@ -1044,10 +1045,10 @@ export default function ItineraryDialogBox({
     }
     const duration = useCustomTime
       ? Math.max(1, endHour - startHour)
-      : durationHours;
+      : (durationHours ?? 4);
     fireGenerate({
       duration,
-      stops: stopCount,
+      stops: stopCount ?? 0,
       activities: selectedActivities,
       budget: budgetMax,
       ritualId: activeRitualId ?? undefined,
@@ -1316,12 +1317,8 @@ export default function ItineraryDialogBox({
         )}
 
         {phase === "form" && (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Search bar — map anchor planning mode */}
+          <>
+            {/* Search bar — fixed above scroll */}
             {canSearch && (
               <View style={styles.searchSection}>
                 <TextInput
@@ -1376,6 +1373,11 @@ export default function ItineraryDialogBox({
               </View>
             )}
 
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+              keyboardShouldPersistTaps="handled"
+            >
             {/* Anchor stop chips — shown when anchors are provided */}
             {anchorStops && anchorStops.length > 0 && (
               <View style={styles.anchorChipsRow}>
@@ -1709,13 +1711,16 @@ export default function ItineraryDialogBox({
             >
               <BudgetSlider
                 value={budgetMax}
-                onChange={setBudgetMax}
+                onChange={(v) => {
+                  setBudgetMax(v);
+                  vibesRef.current?.expand();
+                }}
                 colors={colors}
               />
             </CollapsibleSection>
 
-            {/* Activities — expanded by default */}
-            <CollapsibleSection title="Vibes" defaultExpanded colors={colors}>
+            {/* Activities */}
+            <CollapsibleSection ref={vibesRef} title="Vibes" colors={colors}>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -1785,7 +1790,8 @@ export default function ItineraryDialogBox({
             </CollapsibleSection>
 
             {error && <Text style={styles.errorText}>{error}</Text>}
-          </ScrollView>
+            </ScrollView>
+          </>
         )}
 
         {/* Fixed footer buttons */}
