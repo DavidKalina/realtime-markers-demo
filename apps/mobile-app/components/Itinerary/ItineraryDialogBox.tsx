@@ -501,11 +501,13 @@ export default function ItineraryDialogBox({
     return result.slice(0, 10);
   }, [cityProp, closestCities, topCities]);
 
-  // Form state — no defaults so user must pick each via auto-expand flow
-  const [plannedDate, setPlannedDate] = useState<string | null>(null);
-  const [budgetMax, setBudgetMax] = useState(0);
-  const [durationHours, setDurationHours] = useState<number | null>(null);
-  const [stopCount, setStopCount] = useState<number | null>(null);
+  // Form state
+  const [plannedDate, setPlannedDate] = useState(() => {
+    return new Date().toISOString().split("T")[0];
+  });
+  const [budgetMax, setBudgetMax] = useState(50);
+  const [durationHours, setDurationHours] = useState(4);
+  const [stopCount, setStopCount] = useState(0); // 0 = auto
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
   const [selectedIntention, setSelectedIntention] = useState<string | null>(
     null,
@@ -938,17 +940,9 @@ export default function ItineraryDialogBox({
 
   const toggleActivity = useCallback((value: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedActivities((prev) => {
-      const wasEmpty = prev.length === 0;
-      const next = prev.includes(value)
-        ? prev.filter((v) => v !== value)
-        : [...prev, value];
-      // Auto-expand intention section when first vibe is selected
-      if (wasEmpty && next.length > 0) {
-        intentionRef.current?.expand();
-      }
-      return next;
-    });
+    setSelectedActivities((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
+    );
   }, []);
 
   const applyRitual = useCallback((ritual: RitualResponse) => {
@@ -994,7 +988,7 @@ export default function ItineraryDialogBox({
       try {
         const { jobId } = await apiClient.itineraries.create({
           city: city || undefined,
-          plannedDate: plannedDate ?? new Date().toISOString().split("T")[0],
+          plannedDate,
           budgetMin: 0,
           budgetMax: params.budget,
           durationHours: params.duration,
@@ -1045,10 +1039,10 @@ export default function ItineraryDialogBox({
     }
     const duration = useCustomTime
       ? Math.max(1, endHour - startHour)
-      : (durationHours ?? 4);
+      : durationHours;
     fireGenerate({
       duration,
-      stops: stopCount ?? 0,
+      stops: stopCount,
       activities: selectedActivities,
       budget: budgetMax,
       ritualId: activeRitualId ?? undefined,
@@ -1248,13 +1242,18 @@ export default function ItineraryDialogBox({
             <View style={styles.nearbyContent}>
               {nearbyLoading ? (
                 <View style={styles.nearbyLoadingRow}>
-                  <ActivityIndicator size="small" color={colors.accent.primary} />
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.accent.primary}
+                  />
                   <Text style={styles.nearbyLoadingText}>
                     Finding nearby places...
                   </Text>
                 </View>
               ) : nearbyResults.length === 0 ? (
-                <Text style={styles.nearbyEmptyText}>No places found nearby</Text>
+                <Text style={styles.nearbyEmptyText}>
+                  No places found nearby
+                </Text>
               ) : (
                 <ScrollView
                   horizontal
@@ -1262,41 +1261,40 @@ export default function ItineraryDialogBox({
                   contentContainerStyle={styles.nearbyScrollContent}
                 >
                   {nearbyResults.map((place) => {
-                    const isSelected =
-                      selectedNearbyPlaceId === place.placeId;
+                    const isSelected = selectedNearbyPlaceId === place.placeId;
                     return (
-                    <Pressable
-                      key={place.placeId}
-                      style={[
-                        styles.nearbyCard,
-                        isSelected && styles.nearbyCardSelected,
-                      ]}
-                      onPress={() => handleNearbySelectInternal(place)}
-                    >
-                      <Text style={styles.nearbyName} numberOfLines={1}>
-                        {place.name}
-                      </Text>
-                      <View style={styles.nearbySubRow}>
-                        {place.primaryType && (
-                          <Text style={styles.nearbyType} numberOfLines={1}>
-                            {place.primaryType}
-                          </Text>
-                        )}
-                        {place.rating != null && (
-                          <Text style={styles.nearbyRating}>
-                            {"★"}
-                            {place.rating.toFixed(1)}
-                          </Text>
-                        )}
-                        {place.distance != null && (
-                          <Text style={styles.nearbyDistance}>
-                            {place.distance < 1000
-                              ? `${place.distance}m`
-                              : `${(place.distance / 1000).toFixed(1)}km`}
-                          </Text>
-                        )}
-                      </View>
-                    </Pressable>
+                      <Pressable
+                        key={place.placeId}
+                        style={[
+                          styles.nearbyCard,
+                          isSelected && styles.nearbyCardSelected,
+                        ]}
+                        onPress={() => handleNearbySelectInternal(place)}
+                      >
+                        <Text style={styles.nearbyName} numberOfLines={1}>
+                          {place.name}
+                        </Text>
+                        <View style={styles.nearbySubRow}>
+                          {place.primaryType && (
+                            <Text style={styles.nearbyType} numberOfLines={1}>
+                              {place.primaryType}
+                            </Text>
+                          )}
+                          {place.rating != null && (
+                            <Text style={styles.nearbyRating}>
+                              {"★"}
+                              {place.rating.toFixed(1)}
+                            </Text>
+                          )}
+                          {place.distance != null && (
+                            <Text style={styles.nearbyDistance}>
+                              {place.distance < 1000
+                                ? `${place.distance}m`
+                                : `${(place.distance / 1000).toFixed(1)}km`}
+                            </Text>
+                          )}
+                        </View>
+                      </Pressable>
                     );
                   })}
                 </ScrollView>
@@ -1378,73 +1376,149 @@ export default function ItineraryDialogBox({
               bounces={false}
               keyboardShouldPersistTaps="handled"
             >
-            {/* Anchor stop chips — shown when anchors are provided */}
-            {anchorStops && anchorStops.length > 0 && (
-              <View style={styles.anchorChipsRow}>
-                <Text style={styles.sectionLabel}>Pinned stops</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.anchorChipsScroll}
-                >
-                  {anchorStops.map((a, idx) => (
-                    <Pressable
-                      key={a.id}
-                      style={styles.anchorChip}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        onAnchorEdit?.(a.id);
-                      }}
-                    >
-                      <Text style={styles.anchorChipNumber}>{idx + 1}</Text>
-                      <Text style={styles.anchorChipText} numberOfLines={1}>
-                        {a.label || `Pin ${idx + 1}`}
-                      </Text>
-                      {onAnchorRemove && (
-                        <Pressable
-                          style={styles.anchorChipRemove}
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            Haptics.impactAsync(
-                              Haptics.ImpactFeedbackStyle.Medium,
-                            );
-                            onAnchorRemove(a.id);
-                          }}
-                          hitSlop={6}
+              {/* Anchor stop chips — shown when anchors are provided */}
+              {anchorStops && anchorStops.length > 0 && (
+                <View style={styles.anchorChipsRow}>
+                  <Text style={styles.sectionLabel}>Pinned stops</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.anchorChipsScroll}
+                  >
+                    {anchorStops.map((a, idx) => (
+                      <Pressable
+                        key={a.id}
+                        style={styles.anchorChip}
+                        onPress={() => {
+                          Haptics.impactAsync(
+                            Haptics.ImpactFeedbackStyle.Light,
+                          );
+                          onAnchorEdit?.(a.id);
+                        }}
+                      >
+                        <Text style={styles.anchorChipNumber}>{idx + 1}</Text>
+                        <Text style={styles.anchorChipText} numberOfLines={1}>
+                          {a.label || `Pin ${idx + 1}`}
+                        </Text>
+                        {onAnchorRemove && (
+                          <Pressable
+                            style={styles.anchorChipRemove}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              Haptics.impactAsync(
+                                Haptics.ImpactFeedbackStyle.Medium,
+                              );
+                              onAnchorRemove(a.id);
+                            }}
+                            hitSlop={6}
+                          >
+                            <Text style={styles.anchorChipRemoveText}>✕</Text>
+                          </Pressable>
+                        )}
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              {/* City picker — shown when no city prop and no anchor stops */}
+              {!cityProp && !hasAnchors && cityOptions.length > 0 && (
+                <View style={styles.cityInputSection}>
+                  <Text style={styles.sectionLabel}>Where?</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.pillRow}
+                  >
+                    {cityOptions.map((opt) => (
+                      <Pressable
+                        key={opt.city}
+                        style={[
+                          styles.pill,
+                          selectedCity === opt.city && styles.pillActive,
+                        ]}
+                        onPress={() => {
+                          Haptics.impactAsync(
+                            Haptics.ImpactFeedbackStyle.Light,
+                          );
+                          setSelectedCity(opt.city);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.pillText,
+                            selectedCity === opt.city && styles.pillTextActive,
+                          ]}
                         >
-                          <Text style={styles.anchorChipRemoveText}>✕</Text>
-                        </Pressable>
-                      )}
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-            {/* City picker — shown when no city prop and no anchor stops */}
-            {!cityProp && !hasAnchors && cityOptions.length > 0 && (
-              <View style={styles.cityInputSection}>
-                <Text style={styles.sectionLabel}>Where?</Text>
+                          {opt.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Ritual shelf */}
+              {rituals.length > 0 && (
+                <View style={styles.ritualShelf}>
+                  <Text style={styles.ritualShelfLabel}>RITUALS</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.ritualPillRow}
+                  >
+                    {rituals.map((r) => (
+                      <Pressable
+                        key={r.id}
+                        style={[
+                          styles.ritualPill,
+                          activeRitualId === r.id && styles.ritualPillActive,
+                        ]}
+                        onPress={() => applyRitual(r)}
+                      >
+                        <Text style={styles.ritualPillEmoji}>{r.emoji}</Text>
+                        <Text
+                          style={[
+                            styles.ritualPillText,
+                            activeRitualId === r.id &&
+                              styles.ritualPillTextActive,
+                          ]}
+                        >
+                          {r.name}
+                        </Text>
+                        {r.usageCount > 0 && (
+                          <Text style={styles.ritualUsageCount}>
+                            {r.usageCount}×
+                          </Text>
+                        )}
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Date — expanded by default */}
+              <CollapsibleSection title="When?" defaultExpanded colors={colors}>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.pillRow}
                 >
-                  {cityOptions.map((opt) => (
+                  {dateOptions.map((opt) => (
                     <Pressable
-                      key={opt.city}
+                      key={opt.value}
                       style={[
                         styles.pill,
-                        selectedCity === opt.city && styles.pillActive,
+                        plannedDate === opt.value && styles.pillActive,
                       ]}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setSelectedCity(opt.city);
+                        setPlannedDate(opt.value);
                       }}
                     >
                       <Text
                         style={[
                           styles.pillText,
-                          selectedCity === opt.city && styles.pillTextActive,
+                          plannedDate === opt.value && styles.pillTextActive,
                         ]}
                       >
                         {opt.label}
@@ -1452,344 +1526,274 @@ export default function ItineraryDialogBox({
                     </Pressable>
                   ))}
                 </ScrollView>
-              </View>
-            )}
+              </CollapsibleSection>
 
-            {/* Ritual shelf */}
-            {rituals.length > 0 && (
-              <View style={styles.ritualShelf}>
-                <Text style={styles.ritualShelfLabel}>RITUALS</Text>
+              {/* Duration */}
+              <CollapsibleSection
+                ref={howLongRef}
+                title="How long?"
+                defaultExpanded
+                colors={colors}
+              >
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.ritualPillRow}
+                  contentContainerStyle={styles.pillRow}
                 >
-                  {rituals.map((r) => (
+                  {DURATION_OPTIONS.map((opt) => (
                     <Pressable
-                      key={r.id}
+                      key={opt.value}
                       style={[
-                        styles.ritualPill,
-                        activeRitualId === r.id && styles.ritualPillActive,
+                        styles.pill,
+                        !useCustomTime &&
+                          durationHours === opt.value &&
+                          styles.pillActive,
                       ]}
-                      onPress={() => applyRitual(r)}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setUseCustomTime(false);
+                        setDurationHours(opt.value);
+                      }}
                     >
-                      <Text style={styles.ritualPillEmoji}>{r.emoji}</Text>
                       <Text
                         style={[
-                          styles.ritualPillText,
-                          activeRitualId === r.id &&
-                            styles.ritualPillTextActive,
+                          styles.pillText,
+                          !useCustomTime &&
+                            durationHours === opt.value &&
+                            styles.pillTextActive,
                         ]}
                       >
-                        {r.name}
+                        {opt.label}
                       </Text>
-                      {r.usageCount > 0 && (
-                        <Text style={styles.ritualUsageCount}>
-                          {r.usageCount}×
-                        </Text>
-                      )}
+                    </Pressable>
+                  ))}
+                  <Pressable
+                    style={[styles.pill, useCustomTime && styles.pillActive]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setUseCustomTime((prev) => !prev);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.pillText,
+                        useCustomTime && styles.pillTextActive,
+                      ]}
+                    >
+                      {useCustomTime
+                        ? `${formatHour(startHour)} – ${formatHour(endHour)}`
+                        : "Set times"}
+                    </Text>
+                  </Pressable>
+                </ScrollView>
+
+                {/* Inline time pickers */}
+                {useCustomTime && (
+                  <View style={styles.timePickerSection}>
+                    <View style={styles.timeRow}>
+                      <Text style={styles.timeLabel}>Start</Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.pillRow}
+                      >
+                        {TIME_HOURS.filter((h) => h < endHour).map((h) => (
+                          <Pressable
+                            key={h}
+                            style={[
+                              styles.timePill,
+                              startHour === h && styles.timePillActive,
+                            ]}
+                            onPress={() => {
+                              Haptics.impactAsync(
+                                Haptics.ImpactFeedbackStyle.Light,
+                              );
+                              setStartHour(h);
+                              if (h >= endHour) setEndHour(h + 1);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.timePillText,
+                                startHour === h && styles.timePillTextActive,
+                              ]}
+                            >
+                              {formatHour(h)}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                    </View>
+
+                    <View style={styles.timeRow}>
+                      <Text style={styles.timeLabel}>End</Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.pillRow}
+                      >
+                        {TIME_HOURS.filter((h) => h > startHour).map((h) => (
+                          <Pressable
+                            key={h}
+                            style={[
+                              styles.timePill,
+                              endHour === h && styles.timePillActive,
+                            ]}
+                            onPress={() => {
+                              Haptics.impactAsync(
+                                Haptics.ImpactFeedbackStyle.Light,
+                              );
+                              setEndHour(h);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.timePillText,
+                                endHour === h && styles.timePillTextActive,
+                              ]}
+                            >
+                              {formatHour(h)}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                    </View>
+
+                    <Text style={styles.timeSummary}>
+                      {Math.max(1, endHour - startHour)}h window
+                    </Text>
+                  </View>
+                )}
+              </CollapsibleSection>
+
+              {/* Stops */}
+              <CollapsibleSection
+                ref={stopsRef}
+                title="How many stops?"
+                defaultExpanded
+                colors={colors}
+              >
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.pillRow}
+                >
+                  {STOP_COUNT_OPTIONS.map((opt) => (
+                    <Pressable
+                      key={opt.value}
+                      style={[
+                        styles.pill,
+                        stopCount === opt.value && styles.pillActive,
+                      ]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setStopCount(opt.value);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.pillText,
+                          stopCount === opt.value && styles.pillTextActive,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
                     </Pressable>
                   ))}
                 </ScrollView>
-              </View>
-            )}
+              </CollapsibleSection>
 
-            {/* Date — expanded by default */}
-            <CollapsibleSection title="When?" defaultExpanded colors={colors}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.pillRow}
-              >
-                {dateOptions.map((opt) => (
-                  <Pressable
-                    key={opt.value}
-                    style={[
-                      styles.pill,
-                      plannedDate === opt.value && styles.pillActive,
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setPlannedDate(opt.value);
-                      howLongRef.current?.expand();
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.pillText,
-                        plannedDate === opt.value && styles.pillTextActive,
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </CollapsibleSection>
-
-            {/* Duration */}
-            <CollapsibleSection
-              ref={howLongRef}
-              title="How long?"
-              colors={colors}
-            >
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.pillRow}
-              >
-                {DURATION_OPTIONS.map((opt) => (
-                  <Pressable
-                    key={opt.value}
-                    style={[
-                      styles.pill,
-                      !useCustomTime &&
-                        durationHours === opt.value &&
-                        styles.pillActive,
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setUseCustomTime(false);
-                      setDurationHours(opt.value);
-                      stopsRef.current?.expand();
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.pillText,
-                        !useCustomTime &&
-                          durationHours === opt.value &&
-                          styles.pillTextActive,
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                ))}
-                <Pressable
-                  style={[styles.pill, useCustomTime && styles.pillActive]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setUseCustomTime((prev) => !prev);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.pillText,
-                      useCustomTime && styles.pillTextActive,
-                    ]}
-                  >
-                    {useCustomTime
-                      ? `${formatHour(startHour)} – ${formatHour(endHour)}`
-                      : "Set times"}
-                  </Text>
-                </Pressable>
-              </ScrollView>
-
-              {/* Inline time pickers */}
-              {useCustomTime && (
-                <View style={styles.timePickerSection}>
-                  <View style={styles.timeRow}>
-                    <Text style={styles.timeLabel}>Start</Text>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.pillRow}
-                    >
-                      {TIME_HOURS.filter((h) => h < endHour).map((h) => (
-                        <Pressable
-                          key={h}
-                          style={[
-                            styles.timePill,
-                            startHour === h && styles.timePillActive,
-                          ]}
-                          onPress={() => {
-                            Haptics.impactAsync(
-                              Haptics.ImpactFeedbackStyle.Light,
-                            );
-                            setStartHour(h);
-                            if (h >= endHour) setEndHour(h + 1);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.timePillText,
-                              startHour === h && styles.timePillTextActive,
-                            ]}
-                          >
-                            {formatHour(h)}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </ScrollView>
-                  </View>
-
-                  <View style={styles.timeRow}>
-                    <Text style={styles.timeLabel}>End</Text>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.pillRow}
-                    >
-                      {TIME_HOURS.filter((h) => h > startHour).map((h) => (
-                        <Pressable
-                          key={h}
-                          style={[
-                            styles.timePill,
-                            endHour === h && styles.timePillActive,
-                          ]}
-                          onPress={() => {
-                            Haptics.impactAsync(
-                              Haptics.ImpactFeedbackStyle.Light,
-                            );
-                            setEndHour(h);
-                            stopsRef.current?.expand();
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.timePillText,
-                              endHour === h && styles.timePillTextActive,
-                            ]}
-                          >
-                            {formatHour(h)}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </ScrollView>
-                  </View>
-
-                  <Text style={styles.timeSummary}>
-                    {Math.max(1, endHour - startHour)}h window
-                  </Text>
-                </View>
-              )}
-            </CollapsibleSection>
-
-            {/* Stops */}
-            <CollapsibleSection
-              ref={stopsRef}
-              title="How many stops?"
-              colors={colors}
-            >
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.pillRow}
-              >
-                {STOP_COUNT_OPTIONS.map((opt) => (
-                  <Pressable
-                    key={opt.value}
-                    style={[
-                      styles.pill,
-                      stopCount === opt.value && styles.pillActive,
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setStopCount(opt.value);
-                      budgetRef.current?.expand();
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.pillText,
-                        stopCount === opt.value && styles.pillTextActive,
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </CollapsibleSection>
-
-            {/* Budget */}
-            <CollapsibleSection
-              ref={budgetRef}
-              title={`Budget · ${budgetMax === 0 ? "Free" : `$${budgetMax}`}`}
-              colors={colors}
-            >
-              <BudgetSlider
-                value={budgetMax}
-                onChange={(v) => {
-                  setBudgetMax(v);
-                  vibesRef.current?.expand();
-                }}
+              {/* Budget */}
+              <CollapsibleSection
+                ref={budgetRef}
+                title={`Budget · ${budgetMax === 0 ? "Free" : `$${budgetMax}`}`}
+                defaultExpanded
                 colors={colors}
-              />
-            </CollapsibleSection>
-
-            {/* Activities */}
-            <CollapsibleSection ref={vibesRef} title="Vibes" colors={colors}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.activityScroll}
               >
-                {ACTIVITY_OPTIONS.map((opt) => {
-                  const isSelected = selectedActivities.includes(opt.value);
-                  return (
+                <BudgetSlider
+                  value={budgetMax}
+                  onChange={setBudgetMax}
+                  colors={colors}
+                />
+              </CollapsibleSection>
+
+              {/* Activities */}
+              <CollapsibleSection
+                ref={vibesRef}
+                title="Vibes"
+                defaultExpanded
+                colors={colors}
+              >
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.activityScroll}
+                >
+                  {ACTIVITY_OPTIONS.map((opt) => {
+                    const isSelected = selectedActivities.includes(opt.value);
+                    return (
+                      <Pressable
+                        key={opt.value}
+                        style={[styles.chip, isSelected && styles.chipActive]}
+                        onPress={() => toggleActivity(opt.value)}
+                      >
+                        <Text style={styles.chipEmoji}>{opt.emoji}</Text>
+                        <Text
+                          style={[
+                            styles.chipLabel,
+                            isSelected && styles.chipLabelActive,
+                          ]}
+                        >
+                          {opt.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </CollapsibleSection>
+
+              {/* Intention */}
+              <CollapsibleSection
+                ref={intentionRef}
+                title="Intention"
+                defaultExpanded
+                colors={colors}
+              >
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.pillRow}
+                >
+                  {INTENTION_OPTIONS.map((opt) => (
                     <Pressable
                       key={opt.value}
-                      style={[styles.chip, isSelected && styles.chipActive]}
-                      onPress={() => toggleActivity(opt.value)}
+                      style={[
+                        styles.chip,
+                        selectedIntention === opt.value && styles.chipActive,
+                      ]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedIntention((prev) =>
+                          prev === opt.value ? null : opt.value,
+                        );
+                      }}
                     >
                       <Text style={styles.chipEmoji}>{opt.emoji}</Text>
                       <Text
                         style={[
                           styles.chipLabel,
-                          isSelected && styles.chipLabelActive,
+                          selectedIntention === opt.value &&
+                            styles.chipLabelActive,
                         ]}
                       >
                         {opt.label}
                       </Text>
                     </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </CollapsibleSection>
+                  ))}
+                </ScrollView>
+              </CollapsibleSection>
 
-            {/* Intention */}
-            <CollapsibleSection
-              ref={intentionRef}
-              title="Intention"
-              colors={colors}
-            >
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.pillRow}
-              >
-                {INTENTION_OPTIONS.map((opt) => (
-                  <Pressable
-                    key={opt.value}
-                    style={[
-                      styles.chip,
-                      selectedIntention === opt.value && styles.chipActive,
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setSelectedIntention((prev) =>
-                        prev === opt.value ? null : opt.value,
-                      );
-                    }}
-                  >
-                    <Text style={styles.chipEmoji}>{opt.emoji}</Text>
-                    <Text
-                      style={[
-                        styles.chipLabel,
-                        selectedIntention === opt.value &&
-                          styles.chipLabelActive,
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </CollapsibleSection>
-
-            {error && <Text style={styles.errorText}>{error}</Text>}
+              {error && <Text style={styles.errorText}>{error}</Text>}
             </ScrollView>
           </>
         )}
@@ -1829,9 +1833,7 @@ export default function ItineraryDialogBox({
                     ),
                   );
                   const endH = Math.max(
-                    ...items.map((i) =>
-                      parseInt(i.endTime.split(":")[0], 10),
-                    ),
+                    ...items.map((i) => parseInt(i.endTime.split(":")[0], 10)),
                   );
                   const rel = f.hourly.filter(
                     (h) => h.hour >= startH && h.hour <= endH,
