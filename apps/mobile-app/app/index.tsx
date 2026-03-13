@@ -8,6 +8,7 @@ import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
 import { MarkerInfoHUD } from "@/components/Markers/MarkerInfoHUD";
 import StatusBar from "@/components/StatusBar/StatusBar";
 import { createCameraSettings } from "@/config/cameraConfig";
+import { useRouter } from "expo-router";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useAppActive } from "@/hooks/useAppActive";
@@ -29,8 +30,7 @@ import { useColors, type Colors } from "@/theme";
 import MapboxGL from "@rnmapbox/maps";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
-import { ClipboardList, Locate, Navigation } from "lucide-react-native";
+import { ClipboardList, Navigation, Radar } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -56,6 +56,10 @@ import RAnimated, {
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
+import AnchorMarkers from "@/components/Markers/AnchorMarkers";
+import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
+import { useAnchorPlanStore } from "@/stores/useAnchorPlanStore";
+import type { NearbyPlace } from "@/services/api/modules/places";
 
 // Set access token at module scope (lightweight, required before MapView renders)
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -83,6 +87,16 @@ const resumeStyles = StyleSheet.create({
   },
 });
 
+const planBannerStyles = StyleSheet.create({
+  dialogBox: {
+    position: "absolute",
+    bottom: 16,
+    left: 0,
+    right: 0,
+    zIndex: 1001,
+  },
+});
+
 function HomeScreenContent() {
   const colors = useColors();
   const styles = useMemo(() => createHomeStyles(colors), [colors]);
@@ -95,6 +109,45 @@ function HomeScreenContent() {
   const openJobSheet = useJobSheetStore((s) => s.open);
   const hasInFlight = activeCount > 0;
   const isAppActive = useAppActive();
+
+  // Anchor planning
+  const anchorAnchors = useAnchorPlanStore((s) => s.anchors);
+  const anchorCity = useAnchorPlanStore((s) => s.city);
+  const addAnchor = useAnchorPlanStore((s) => s.addAnchor);
+  const updateAnchor = useAnchorPlanStore((s) => s.updateAnchor);
+  const removeAnchor = useAnchorPlanStore((s) => s.removeAnchor);
+  const pendingAnchorId = useAnchorPlanStore((s) => s.pendingAnchorId);
+  const setPendingAnchor = useAnchorPlanStore((s) => s.setPendingAnchor);
+  const exitPlanMode = useAnchorPlanStore((s) => s.exitPlanMode);
+
+  // Pending anchor's coordinates (for the nearby picker inside ItineraryDialogBox)
+  const pendingAnchor = useMemo(
+    () => anchorAnchors.find((a) => a.id === pendingAnchorId) ?? null,
+    [anchorAnchors, pendingAnchorId],
+  );
+  const nearbyPlacesInput = useMemo(
+    () =>
+      pendingAnchor
+        ? { lat: pendingAnchor.coordinates[1], lng: pendingAnchor.coordinates[0] }
+        : null,
+    [pendingAnchor],
+  );
+
+  // Reverse geocode city from first anchor
+  useEffect(() => {
+    if (anchorAnchors.length !== 1) return;
+    const [lng, lat] = anchorAnchors[0].coordinates;
+    apiClient.places
+      .searchCityState({ query: "", coordinates: { lat, lng } })
+      .then((res) => {
+        if (res.success && res.cityState) {
+          useAnchorPlanStore
+            .getState()
+            .setCity(`${res.cityState.city}, ${res.cityState.state}`);
+        }
+      })
+      .catch(() => {});
+  }, [anchorAnchors.length === 1 ? anchorAnchors[0]?.id : null]);
 
   // Global mount gate — waits for the container's onLayout + a few RAF frames
   // so reanimated entering animations finish before MapView registers its
@@ -267,24 +320,27 @@ function HomeScreenContent() {
 
   const [ripplePosition, setRipplePosition] = useState({ x: 0, y: 0 });
   const [showRipple, setShowRipple] = useState(false);
-  const [areaScanCoords, setAreaScanCoords] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
-  const areaScanCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
-  // Sync state to ref so handleRippleComplete can read it synchronously
-  useEffect(() => {
-    areaScanCoordsRef.current = areaScanCoords;
-  }, [areaScanCoords]);
+  // Anchor-mode add handler (called from worklet via scheduleOnRN)
+  const handleAddAnchor = useCallback(
+    (coords: { lat: number; lng: number }) => {
+      const id = addAnchor(coords);
+      if (id) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
+    },
+    [addAnchor],
+  );
 
-  // Long press handler
+  // Long press handler — drops anchor pin + ripple effect
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleMapLongPress = useCallback((event: any) => {
     "worklet";
+    // Ripple effect
     if (event?.properties) {
       const { screenPointX, screenPointY } = event.properties;
-
       if (
         typeof screenPointX === "number" &&
         typeof screenPointY === "number"
@@ -293,31 +349,62 @@ function HomeScreenContent() {
         scheduleOnRN(setShowRipple, true);
       }
     }
-    // Capture geo-coordinates for area scan
+    // Drop anchor pin
     if (event?.geometry?.coordinates) {
       const [lng, lat] = event.geometry.coordinates;
       if (typeof lat === "number" && typeof lng === "number") {
-        scheduleOnRN(setAreaScanCoords, { lat, lng });
+        scheduleOnRN(handleAddAnchor, { lat, lng });
       }
     }
   }, []);
 
   const handleRippleComplete = useCallback(() => {
     setShowRipple(false);
-    const coords = areaScanCoordsRef.current;
-    if (coords) {
-      areaScanCoordsRef.current = null;
-      setAreaScanCoords(null);
-      router.push({
-        pathname: "/area-scan",
-        params: {
-          lat: String(coords.lat),
-          lng: String(coords.lng),
-          zoom: String(zoomLevel),
-        },
+  }, []);
+
+  // Nearby places sheet callbacks
+  const handleNearbySelect = useCallback(
+    (place: NearbyPlace) => {
+      if (!pendingAnchorId) return;
+      updateAnchor(pendingAnchorId, {
+        coordinates: place.coordinates,
+        label: place.name,
+        address: place.address,
+        placeId: place.placeId,
+        primaryType: place.primaryType,
+        rating: place.rating,
       });
+      setPendingAnchor(null);
+    },
+    [pendingAnchorId, updateAnchor, setPendingAnchor],
+  );
+
+  const handleNearbyKeepPin = useCallback(() => {
+    setPendingAnchor(null);
+  }, [setPendingAnchor]);
+
+  const handleNearbyDismiss = useCallback(() => {
+    if (pendingAnchorId) {
+      removeAnchor(pendingAnchorId);
     }
-  }, [router, zoomLevel]);
+    setPendingAnchor(null);
+  }, [pendingAnchorId, removeAnchor, setPendingAnchor]);
+
+  // Edit an existing anchor — re-open the nearby picker
+  const handleAnchorEdit = useCallback(
+    (anchorId: string) => {
+      setPendingAnchor(anchorId);
+    },
+    [setPendingAnchor],
+  );
+
+  // Remove an anchor stop
+  const handleAnchorRemove = useCallback(
+    (anchorId: string) => {
+      removeAnchor(anchorId);
+    },
+    [removeAnchor],
+  );
 
   // Screens render full-screen behind the ActionBar, so overlays must
   // clear the ActionBar (base height 60) plus the home-indicator safe area.
@@ -374,30 +461,34 @@ function HomeScreenContent() {
     );
   }, [isLoadingLocation]);
 
-  // Fly to the nearest event via the backend initial-viewport endpoint
-  const flyThrottleRef = useRef(false);
-  const handleFlyToNearest = useCallback(async () => {
-    if (!userLocation || flyThrottleRef.current) return;
-    flyThrottleRef.current = true;
-    setTimeout(() => {
-      flyThrottleRef.current = false;
-    }, 2000);
+  // Scan Area FAB — ripple from button center, then navigate to area-scan
+  const scanAreaRef = useRef<View>(null);
+  const handleScanArea = useCallback(async () => {
+    // Trigger ripple from the button's screen position
+    scanAreaRef.current?.measureInWindow((x, y, width, height) => {
+      setRipplePosition({ x: x + width / 2, y: y + height / 2 });
+      setShowRipple(true);
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Capture map center now, navigate after ripple plays
+    let navUrl: string | null = null;
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const { center } = await apiClient.events.getInitialViewport(
-        userLocation[1], // lat
-        userLocation[0], // lng
-      );
-      cameraRef.current?.setCamera({
-        centerCoordinate: center,
-        zoomLevel: 15,
-        animationDuration: 1500,
-        animationMode: "flyTo",
-      });
-    } catch (err) {
-      console.error("Failed to fly to nearest event:", err);
+      const center = await mapRef.current?.getCenter();
+      const zoom = await mapRef.current?.getZoom();
+      if (center) {
+        const [lng, lat] = center;
+        navUrl = `/area-scan?lat=${lat}&lng=${lng}&zoom=${Math.round(zoom ?? zoomLevel)}`;
+      }
+    } catch {
+      if (userLocation) {
+        navUrl = `/area-scan?lat=${userLocation[1]}&lng=${userLocation[0]}&zoom=${zoomLevel}`;
+      }
     }
-  }, [userLocation, cameraRef]);
+    if (navUrl) {
+      const url = navUrl;
+      setTimeout(() => router.push(url), 600);
+    }
+  }, [userLocation, zoomLevel, router]);
 
   // Slide-up animations for floating buttons (shared values, not layout animations,
   // to avoid ComponentDescriptorRegistry deadlock with MapView initialization).
@@ -436,7 +527,6 @@ function HomeScreenContent() {
     opacity: fabOpacity3.value,
     transform: [{ translateY: fabSlide3.value }],
   }));
-
   // Subtle pulse on jobs FAB when work is in-flight
   const jobPulse = useSharedValue(1);
   useEffect(() => {
@@ -458,6 +548,75 @@ function HomeScreenContent() {
   const jobPulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: jobPulse.value }],
   }));
+
+  // Handle itinerary result — fit camera to stops
+  const handleItineraryResult = useCallback(
+    (items: { latitude?: number; longitude?: number }[]) => {
+      const coords: [number, number][] = items
+        .filter(
+          (i): i is { latitude: number; longitude: number } =>
+            i.latitude != null && i.longitude != null,
+        )
+        .map((i) => [i.longitude, i.latitude]);
+      if (coords.length >= 2) {
+        const lngs = coords.map((c) => c[0]);
+        const lats = coords.map((c) => c[1]);
+        cameraRef.current?.fitBounds(
+          [Math.max(...lngs), Math.max(...lats)],
+          [Math.min(...lngs), Math.min(...lats)],
+          60,
+          1500,
+        );
+      }
+      exitPlanMode();
+    },
+    [exitPlanMode],
+  );
+
+  const handleAnchorDismiss = useCallback(() => {
+    exitPlanMode();
+  }, [exitPlanMode]);
+
+  // Search → fly camera to coordinates
+  const handleSearchFlyTo = useCallback(
+    (coords: [number, number]) => {
+      cameraRef.current?.setCamera({
+        centerCoordinate: coords,
+        zoomLevel: 16,
+        animationDuration: 1500,
+        animationMode: "flyTo",
+      });
+    },
+    [cameraRef],
+  );
+
+  // Search → drop anchor at searched place (enriched — skips nearby picker)
+  const addEnrichedAnchor = useAnchorPlanStore((s) => s.addEnrichedAnchor);
+  const handleSearchPlaceAnchor = useCallback(
+    (place: {
+      coordinates: [number, number];
+      name: string;
+      address: string;
+      placeId: string;
+      primaryType?: string;
+      rating?: number;
+    }) => {
+      const id = addEnrichedAnchor({
+        coordinates: place.coordinates,
+        label: place.name,
+        address: place.address,
+        placeId: place.placeId,
+        primaryType: place.primaryType,
+        rating: place.rating,
+      });
+      if (id) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
+    },
+    [addEnrichedAnchor],
+  );
 
   // Memoize floating buttons section
   const floatingButtonsSection = useMemo(
@@ -487,11 +646,12 @@ function HomeScreenContent() {
         </RAnimated.View>
         <RAnimated.View style={fabStyle2}>
           <TouchableOpacity
+            ref={scanAreaRef}
             style={styles.recenterButton}
-            onPress={handleFlyToNearest}
+            onPress={handleScanArea}
             activeOpacity={0.7}
           >
-            <Locate size={22} color={colors.action.map} />
+            <Radar size={22} color={colors.action.map} />
           </TouchableOpacity>
         </RAnimated.View>
         <RAnimated.View
@@ -511,7 +671,7 @@ function HomeScreenContent() {
       floatingDateButtonStyle,
       isFollowing,
       recenter,
-      handleFlyToNearest,
+      handleScanArea,
       filterCategories,
       includedCategoryIds,
       excludedCategoryIds,
@@ -583,6 +743,7 @@ function HomeScreenContent() {
               {...cameraProps}
             />
             {markersComponent}
+            <AnchorMarkers />
             {userLocationLayer}
           </MapboxGL.MapView>
         )}
@@ -603,6 +764,22 @@ function HomeScreenContent() {
         <MapLegend />
 
         {floatingButtonsSection}
+
+        <ItineraryDialogBox
+          city={anchorCity ?? undefined}
+          anchorStops={anchorAnchors.length > 0 ? anchorAnchors : undefined}
+          onDismiss={handleAnchorDismiss}
+          onItineraryResult={handleItineraryResult}
+          nearbyPlaces={nearbyPlacesInput}
+          onNearbySelect={handleNearbySelect}
+          onNearbyKeepPin={handleNearbyKeepPin}
+          onNearbyDismiss={handleNearbyDismiss}
+          onFlyTo={handleSearchFlyTo}
+          onSearchPlaceAnchor={handleSearchPlaceAnchor}
+          onAnchorEdit={handleAnchorEdit}
+          onAnchorRemove={handleAnchorRemove}
+          style={planBannerStyles.dialogBox}
+        />
       </View>
     </>
   );

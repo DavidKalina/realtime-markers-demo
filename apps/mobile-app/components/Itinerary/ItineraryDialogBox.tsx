@@ -8,10 +8,12 @@ import React, {
   useState,
 } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type LayoutChangeEvent,
   type GestureResponderEvent,
@@ -42,6 +44,7 @@ import {
 import { apiClient } from "@/services/ApiClient";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
 import type { RitualResponse } from "@/services/api/modules/rituals";
+import type { NearbyPlace } from "@/services/api/modules/places";
 import { useRouter } from "expo-router";
 import { useJobProgress } from "@/hooks/useJobProgress";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
@@ -374,7 +377,24 @@ const BUDGET_MIN = 0;
 const BUDGET_MAX = 200;
 const BUDGET_STEP = 5;
 
-type Phase = "collapsed" | "form" | "generating" | "result";
+const EXPANDED_NEARBY_HEIGHT = 160;
+
+type Phase = "collapsed" | "nearby" | "form" | "generating" | "result";
+
+export interface AnchorStopInput {
+  id: string;
+  coordinates: [number, number]; // [lng, lat]
+  label?: string;
+  address?: string;
+  placeId?: string;
+  primaryType?: string;
+  rating?: number;
+}
+
+interface NearbyPlacesInput {
+  lat: number;
+  lng: number;
+}
 
 interface ItineraryDialogBoxProps {
   city?: string;
@@ -382,6 +402,35 @@ interface ItineraryDialogBoxProps {
   onDismiss?: () => void;
   /** Start expanded in form mode (used on itineraries list screen) */
   defaultExpanded?: boolean;
+  /** Anchor stops from map planning mode */
+  anchorStops?: AnchorStopInput[];
+  /** Callback when itinerary result arrives — used for route overlay */
+  onItineraryResult?: (
+    items: { latitude?: number; longitude?: number }[],
+  ) => void;
+  /** When set, shows the nearby places picker phase */
+  nearbyPlaces?: NearbyPlacesInput | null;
+  /** Called when user picks a nearby place */
+  onNearbySelect?: (place: NearbyPlace) => void;
+  /** Called when user keeps the raw pin */
+  onNearbyKeepPin?: () => void;
+  /** Called when user dismisses the nearby sheet (remove pin) */
+  onNearbyDismiss?: () => void;
+  /** Fly the map camera to coordinates (map screen only) */
+  onFlyTo?: (coords: [number, number]) => void;
+  /** Create an anchor from a searched place (map screen only) */
+  onSearchPlaceAnchor?: (place: {
+    coordinates: [number, number];
+    name: string;
+    address: string;
+    placeId: string;
+    primaryType?: string;
+    rating?: number;
+  }) => void;
+  /** Called when user taps an anchor chip to edit it */
+  onAnchorEdit?: (anchorId: string) => void;
+  /** Called when user removes an anchor stop */
+  onAnchorRemove?: (anchorId: string) => void;
 }
 
 export default function ItineraryDialogBox({
@@ -389,6 +438,16 @@ export default function ItineraryDialogBox({
   style,
   onDismiss,
   defaultExpanded = false,
+  anchorStops,
+  onItineraryResult,
+  nearbyPlaces,
+  onNearbySelect,
+  onNearbyKeepPin,
+  onNearbyDismiss,
+  onFlyTo,
+  onSearchPlaceAnchor,
+  onAnchorEdit,
+  onAnchorRemove,
 }: ItineraryDialogBoxProps) {
   const colors = useColors();
   const router = useRouter();
@@ -455,6 +514,87 @@ export default function ItineraryDialogBox({
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const resultScrollRef = useRef<ScrollView>(null);
 
+  // Nearby places state
+  const [nearbyResults, setNearbyResults] = useState<NearbyPlace[]>([]);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+
+  // Place search state (for anchor planning from map)
+  const canSearch = Boolean(onFlyTo || onSearchPlaceAnchor);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResult, setSearchResult] = useState<{
+    name: string;
+    address: string;
+    coordinates: [number, number];
+    placeId: string;
+    primaryType?: string;
+    rating?: number;
+  } | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced place search
+  useEffect(() => {
+    if (!canSearch || searchQuery.length < 3) {
+      setSearchResult(null);
+      return;
+    }
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => {
+      setSearchLoading(true);
+      const coords = userLocation
+        ? { lat: userLocation[1], lng: userLocation[0] }
+        : undefined;
+      apiClient.places
+        .searchPlace({ query: searchQuery, coordinates: coords })
+        .then((res) => {
+          if (res.success && res.place) {
+            setSearchResult({
+              name: res.place.name,
+              address: res.place.address,
+              coordinates: res.place.coordinates,
+              placeId: res.place.placeId,
+              primaryType: res.place.types?.[0],
+              rating: res.place.rating,
+            });
+          } else {
+            setSearchResult(null);
+          }
+        })
+        .catch(() => setSearchResult(null))
+        .finally(() => setSearchLoading(false));
+    }, 400);
+    return () => {
+      if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    };
+  }, [searchQuery, canSearch, userLocation]);
+
+  const handleSearchDropPin = useCallback(() => {
+    if (!searchResult) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onFlyTo?.(searchResult.coordinates);
+    onSearchPlaceAnchor?.(searchResult);
+    setSearchQuery("");
+    setSearchResult(null);
+  }, [searchResult, onFlyTo, onSearchPlaceAnchor]);
+
+  const handleSearchFlyTo = useCallback(() => {
+    if (!searchResult) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onFlyTo?.(searchResult.coordinates);
+    setSearchQuery("");
+    setSearchResult(null);
+  }, [searchResult, onFlyTo]);
+
+  const prevNearbyRef = useRef<NearbyPlacesInput | null>(null);
+
+  const handleNearbySelectInternal = useCallback(
+    (place: NearbyPlace) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      onNearbySelect?.(place);
+    },
+    [onNearbySelect],
+  );
+
   // Section refs for auto-expand
   const howLongRef = useRef<CollapsibleSectionHandle>(null);
   const stopsRef = useRef<CollapsibleSectionHandle>(null);
@@ -476,19 +616,19 @@ export default function ItineraryDialogBox({
   const setPhaseFormCb = useCallback(() => setPhase("form"), []);
   const setPhaseResultCb = useCallback(() => setPhase("result"), []);
 
-  const onDismissRef = useRef(onDismiss);
-  onDismissRef.current = onDismiss;
+  const onDismissRef = useRef<{ fn: typeof onDismiss }>({ fn: onDismiss });
+  onDismissRef.current.fn = onDismiss;
 
-  const resultRef = useRef<ItineraryResponse | null>(null);
-  resultRef.current = result;
+  const resultRef = useRef<{ val: ItineraryResponse | null }>({ val: null });
+  resultRef.current.val = result;
 
   const setCollapsedStatusCb = useCallback(() => {
     setPhase("collapsed");
-    setStatusText(resultRef.current ? "View itinerary" : "Plan your adventure");
+    setStatusText(resultRef.current.val ? "View itinerary" : "Plan your adventure");
   }, []);
 
   const setReExpandPhaseCb = useCallback(() => {
-    setPhase(resultRef.current ? "result" : "form");
+    setPhase(resultRef.current.val ? "result" : "form");
   }, []);
 
   // Animation shared values
@@ -509,6 +649,69 @@ export default function ItineraryDialogBox({
       setContainerMeasured(true);
     }
   }, []);
+
+  // Transition into nearby phase when nearbyPlaces prop appears
+  const setPhaseNearbyCb = useCallback(() => {
+    setPhase("nearby");
+  }, []);
+
+  useEffect(() => {
+    const prev = prevNearbyRef.current;
+    prevNearbyRef.current = nearbyPlaces ?? null;
+
+    if (nearbyPlaces && (!prev || prev.lat !== nearbyPlaces.lat || prev.lng !== nearbyPlaces.lng)) {
+      // Reset state up-front so the animation callback can't clobber fetch results
+      setNearbyResults([]);
+      setNearbyLoading(true);
+
+      // Entering nearby phase
+      cancelAnimation(sheenPos);
+      cancelAnimation(animHeight);
+      sheenActive.value = 0;
+      statusOpacity.value = withTiming(0, { duration: 150 });
+      contentOpacity.value = withTiming(0, { duration: 100 });
+      animHeight.value = withTiming(
+        EXPANDED_NEARBY_HEIGHT,
+        { duration: 350, easing: Easing.out(Easing.cubic) },
+        (fin) => {
+          if (fin) {
+            scheduleOnRN(setPhaseNearbyCb);
+            contentOpacity.value = withTiming(1, { duration: 200 });
+          }
+        },
+      );
+
+      // Fetch nearby places
+      let cancelled = false;
+      apiClient.places
+        .searchNearby(nearbyPlaces.lat, nearbyPlaces.lng, 200, 8)
+        .then((res) => {
+          if (!cancelled && res.success) {
+            setNearbyResults(res.places);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setNearbyLoading(false);
+        });
+
+      return () => { cancelled = true; };
+    } else if (!nearbyPlaces && prev) {
+      // Exiting nearby phase — go to collapsed
+      cancelAnimation(animHeight);
+      contentOpacity.value = withTiming(0, { duration: 150 });
+      animHeight.value = withTiming(
+        COLLAPSED_HEIGHT,
+        { duration: 300, easing: Easing.out(Easing.cubic) },
+        (fin) => {
+          if (fin) {
+            scheduleOnRN(setCollapsedStatusCb);
+            statusOpacity.value = withTiming(1, { duration: 200 });
+          }
+        },
+      );
+    }
+  }, [nearbyPlaces?.lat, nearbyPlaces?.lng]);
 
   // Periodic sheen to draw attention while collapsed
   useEffect(() => {
@@ -552,10 +755,13 @@ export default function ItineraryDialogBox({
         .getById(itineraryId)
         .then((itinerary) => {
           setResult(itinerary);
-          resultRef.current = itinerary;
+          resultRef.current.val = itinerary;
           setActiveJobId(null);
           itineraryJobStore.completeJob();
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          if (onItineraryResult && itinerary.items) {
+            onItineraryResult(itinerary.items);
+          }
 
           // Expand to show result
           cancelAnimation(sheenPos);
@@ -668,7 +874,7 @@ export default function ItineraryDialogBox({
         if (!fin) return;
         sheenActive.value = 0;
         statusOpacity.value = withTiming(0, { duration: 150 });
-        const targetH = resultRef.current
+        const targetH = resultRef.current.val
           ? EXPANDED_RESULT_HEIGHT
           : EXPANDED_FORM_HEIGHT;
         animHeight.value = withTiming(
@@ -747,7 +953,7 @@ export default function ItineraryDialogBox({
 
       try {
         const { jobId } = await apiClient.itineraries.create({
-          city,
+          city: city || undefined,
           plannedDate,
           budgetMin: 0,
           budgetMax: params.budget,
@@ -758,6 +964,17 @@ export default function ItineraryDialogBox({
           ...(params.intention && { intention: params.intention }),
           ...(params.startTime && { startTime: params.startTime }),
           ...(params.endTime && { endTime: params.endTime }),
+          ...(anchorStops &&
+            anchorStops.length > 0 && {
+              anchorStops: anchorStops.map((a) => ({
+                coordinates: a.coordinates,
+                label: a.label,
+                address: a.address,
+                placeId: a.placeId,
+                primaryType: a.primaryType,
+                rating: a.rating,
+              })),
+            }),
         });
         setActiveJobId(jobId);
         trackJob(jobId);
@@ -776,11 +993,13 @@ export default function ItineraryDialogBox({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     },
-    [city, plannedDate, trackJob],
+    [city, plannedDate, trackJob, anchorStops],
   );
 
+  const hasAnchors = anchorStops && anchorStops.length > 0;
+
   const handleGenerate = useCallback(() => {
-    if (!city) {
+    if (!city && !hasAnchors) {
       setError("Please select a city");
       return;
     }
@@ -800,6 +1019,8 @@ export default function ItineraryDialogBox({
       }),
     });
   }, [
+    city,
+    hasAnchors,
     durationHours,
     stopCount,
     selectedActivities,
@@ -813,7 +1034,7 @@ export default function ItineraryDialogBox({
   ]);
 
   const handleSurpriseMe = useCallback(() => {
-    if (!city) {
+    if (!city && !hasAnchors) {
       setError("Please select a city");
       return;
     }
@@ -841,11 +1062,11 @@ export default function ItineraryDialogBox({
       activities: randomActivities,
       budget: randomBudget,
     });
-  }, [fireGenerate]);
+  }, [city, hasAnchors, fireGenerate]);
 
   const handleReset = useCallback(() => {
     setResult(null);
-    resultRef.current = null;
+    resultRef.current.val = null;
     setError(null);
     contentOpacity.value = withTiming(0, { duration: 150 });
     animHeight.value = withTiming(
@@ -964,15 +1185,80 @@ export default function ItineraryDialogBox({
       {/* Content */}
       <Reanimated.View style={[{ flex: 1 }, contentAnimStyle]}>
         {/* Inline header with dismiss */}
-        {(phase === "form" || phase === "result") && (
+        {(phase === "form" || phase === "result" || phase === "nearby") && (
           <View style={styles.headerRow}>
             <Text style={styles.headerTitle}>
-              {phase === "result" ? "Your Plan" : "Plan Your Adventure"}
+              {phase === "result"
+                ? "Your Plan"
+                : phase === "nearby"
+                  ? "What's Here?"
+                  : "Plan Your Adventure"}
             </Text>
-            <Pressable onPress={handleDismiss} style={styles.dismissButton}>
+            <Pressable
+              onPress={phase === "nearby" ? onNearbyDismiss : handleDismiss}
+              style={styles.dismissButton}
+            >
               <Text style={styles.dismissText}>✕</Text>
             </Pressable>
           </View>
+        )}
+
+        {phase === "nearby" && (
+          <>
+            {nearbyLoading ? (
+              <View style={styles.nearbyLoadingRow}>
+                <ActivityIndicator size="small" color={colors.accent.primary} />
+                <Text style={styles.nearbyLoadingText}>Finding nearby places...</Text>
+              </View>
+            ) : nearbyResults.length === 0 ? (
+              <Text style={styles.nearbyEmptyText}>No places found nearby</Text>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.nearbyScrollContent}
+              >
+                {nearbyResults.map((place) => (
+                  <Pressable
+                    key={place.placeId}
+                    style={styles.nearbyCard}
+                    onPress={() => handleNearbySelectInternal(place)}
+                  >
+                    <Text style={styles.nearbyName} numberOfLines={1}>
+                      {place.name}
+                    </Text>
+                    <View style={styles.nearbySubRow}>
+                      {place.primaryType && (
+                        <Text style={styles.nearbyType} numberOfLines={1}>
+                          {place.primaryType}
+                        </Text>
+                      )}
+                      {place.rating != null && (
+                        <Text style={styles.nearbyRating}>
+                          {"★"}{place.rating.toFixed(1)}
+                        </Text>
+                      )}
+                      {place.distance != null && (
+                        <Text style={styles.nearbyDistance}>
+                          {place.distance < 1000
+                            ? `${place.distance}m`
+                            : `${(place.distance / 1000).toFixed(1)}km`}
+                        </Text>
+                      )}
+                    </View>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+            <View style={styles.nearbyFooterRow}>
+              <Pressable style={styles.keepPinButton} onPress={onNearbyDismiss}>
+                <Text style={styles.removePinText}>Remove pin</Text>
+              </Pressable>
+              <Pressable style={styles.keepPinButton} onPress={onNearbyKeepPin}>
+                <Text style={styles.keepPinText}>Keep as pin</Text>
+              </Pressable>
+            </View>
+          </>
         )}
 
         {phase === "form" && (
@@ -981,8 +1267,100 @@ export default function ItineraryDialogBox({
             bounces={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* City picker — shown when no city prop */}
-            {!cityProp && cityOptions.length > 0 && (
+            {/* Search bar — map anchor planning mode */}
+            {canSearch && (
+              <View style={styles.searchSection}>
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search a place to fly to..."
+                  placeholderTextColor={colors.text.disabled}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoCorrect={false}
+                  returnKeyType="search"
+                />
+                {searchLoading && (
+                  <ActivityIndicator
+                    size="small"
+                    color={GREEN_ACCENT}
+                    style={styles.searchSpinner}
+                  />
+                )}
+                {searchResult && !searchLoading && (
+                  <View style={styles.searchResultCard}>
+                    <View style={styles.searchResultInfo}>
+                      <Text style={styles.searchResultName} numberOfLines={1}>
+                        {searchResult.name}
+                      </Text>
+                      <Text style={styles.searchResultAddress} numberOfLines={1}>
+                        {searchResult.address}
+                      </Text>
+                    </View>
+                    <View style={styles.searchResultActions}>
+                      <Pressable
+                        style={styles.searchActionButton}
+                        onPress={handleSearchDropPin}
+                      >
+                        <Text style={styles.searchActionTextPrimary}>
+                          Drop Pin
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        style={styles.searchActionButtonSecondary}
+                        onPress={handleSearchFlyTo}
+                      >
+                        <Text style={styles.searchActionTextSecondary}>
+                          Fly There
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Anchor stop chips — shown when anchors are provided */}
+            {anchorStops && anchorStops.length > 0 && (
+              <View style={styles.anchorChipsRow}>
+                <Text style={styles.sectionLabel}>Pinned stops</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.anchorChipsScroll}
+                >
+                  {anchorStops.map((a, idx) => (
+                    <Pressable
+                      key={a.id}
+                      style={styles.anchorChip}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        onAnchorEdit?.(a.id);
+                      }}
+                    >
+                      <Text style={styles.anchorChipNumber}>{idx + 1}</Text>
+                      <Text style={styles.anchorChipText} numberOfLines={1}>
+                        {a.label || `Pin ${idx + 1}`}
+                      </Text>
+                      {onAnchorRemove && (
+                        <Pressable
+                          style={styles.anchorChipRemove}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            onAnchorRemove(a.id);
+                          }}
+                          hitSlop={6}
+                        >
+                          <Text style={styles.anchorChipRemoveText}>✕</Text>
+                        </Pressable>
+                      )}
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+            {/* City picker — shown when no city prop and no anchor stops */}
+            {!cityProp && !hasAnchors && cityOptions.length > 0 && (
               <View style={styles.cityInputSection}>
                 <Text style={styles.sectionLabel}>Where?</Text>
                 <ScrollView
@@ -1279,7 +1657,11 @@ export default function ItineraryDialogBox({
 
             {/* Activities — expanded by default */}
             <CollapsibleSection title="Vibes" defaultExpanded colors={colors}>
-              <View style={styles.activityGrid}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.activityScroll}
+              >
                 {ACTIVITY_OPTIONS.map((opt) => {
                   const isSelected = selectedActivities.includes(opt.value);
                   return (
@@ -1300,7 +1682,7 @@ export default function ItineraryDialogBox({
                     </Pressable>
                   );
                 })}
-              </View>
+              </ScrollView>
             </CollapsibleSection>
 
             {/* Intention */}
@@ -1528,10 +1910,9 @@ const createStyles = (colors: Colors) =>
     segmentTextActive: {
       color: GREEN_ACCENT,
     },
-    activityGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
+    activityScroll: {
       gap: 6,
+      paddingRight: spacing.md,
     },
     chip: {
       flexDirection: "row",
@@ -1779,5 +2160,224 @@ const createStyles = (colors: Colors) =>
       paddingBottom: spacing.sm,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border.subtle,
+    },
+    anchorChipsRow: {
+      marginBottom: spacing.sm,
+      paddingBottom: spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.subtle,
+    },
+    anchorChipsScroll: {
+      gap: 8,
+      marginTop: 6,
+      paddingRight: spacing.md,
+    },
+    anchorChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.bg.elevated,
+      borderRadius: 20,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderWidth: 1,
+      borderColor: colors.border.subtle,
+    },
+    anchorChipNumber: {
+      color: "#0a2618",
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: "800",
+      backgroundColor: GREEN_ACCENT,
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      textAlign: "center",
+      lineHeight: 18,
+      overflow: "hidden",
+    },
+    anchorChipText: {
+      color: colors.text.primary,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      maxWidth: 120,
+    },
+    anchorChipRemove: {
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      backgroundColor: colors.bg.card,
+      alignItems: "center",
+      justifyContent: "center",
+      marginLeft: 2,
+    },
+    anchorChipRemoveText: {
+      fontSize: 9,
+      color: colors.text.disabled,
+      fontWeight: "700",
+    },
+    /* ── Nearby places ─── */
+    nearbyLoadingRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: spacing.md,
+      gap: spacing.sm,
+    },
+    nearbyLoadingText: {
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+      color: colors.text.secondary,
+    },
+    nearbyEmptyText: {
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+      color: colors.text.secondary,
+      textAlign: "center",
+      paddingVertical: spacing.md,
+    },
+    nearbyScrollContent: {
+      paddingHorizontal: 0,
+      gap: 6,
+      alignItems: "flex-start",
+    },
+    nearbyCard: {
+      backgroundColor: colors.bg.elevated,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.border.subtle,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      maxWidth: 200,
+    },
+    nearbyName: {
+      fontFamily: fontFamily.mono,
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.text.primary,
+    },
+    nearbySubRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    nearbyType: {
+      fontFamily: fontFamily.mono,
+      fontSize: 10,
+      color: colors.text.secondary,
+    },
+    nearbyRating: {
+      fontFamily: fontFamily.mono,
+      fontSize: 10,
+      color: colors.accent.primary,
+    },
+    nearbyDistance: {
+      fontFamily: fontFamily.mono,
+      fontSize: 10,
+      color: colors.text.disabled,
+    },
+    nearbyFooterRow: {
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: spacing.lg,
+      marginTop: spacing.sm,
+    },
+    keepPinButton: {
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.md,
+    },
+    keepPinText: {
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+      color: colors.text.disabled,
+      textDecorationLine: "underline",
+    },
+    removePinText: {
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+      color: colors.status.error.text,
+      textDecorationLine: "underline",
+    },
+    /* ── Place search ─── */
+    searchSection: {
+      marginBottom: spacing.sm,
+      paddingBottom: spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.subtle,
+    },
+    searchInput: {
+      fontFamily: fontFamily.mono,
+      fontSize: 13,
+      color: colors.text.primary,
+      backgroundColor: colors.bg.elevated,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    searchSpinner: {
+      marginTop: 8,
+      alignSelf: "center",
+    },
+    searchResultCard: {
+      marginTop: 8,
+      backgroundColor: colors.bg.elevated,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border.subtle,
+      padding: 10,
+      gap: 8,
+    },
+    searchResultInfo: {
+      gap: 2,
+    },
+    searchResultName: {
+      fontFamily: fontFamily.mono,
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.text.primary,
+    },
+    searchResultAddress: {
+      fontFamily: fontFamily.mono,
+      fontSize: 11,
+      color: colors.text.secondary,
+    },
+    searchResultActions: {
+      flexDirection: "row",
+      gap: 8,
+    },
+    searchActionButton: {
+      flex: 1,
+      backgroundColor: GREEN_MUTED,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: "rgba(134, 239, 172, 0.25)",
+      paddingVertical: 6,
+      alignItems: "center",
+    },
+    searchActionTextPrimary: {
+      fontFamily: fontFamily.mono,
+      fontSize: 12,
+      color: GREEN_ACCENT,
+      fontWeight: "700",
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    searchActionButtonSecondary: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      borderRadius: radius.sm,
+      paddingVertical: 6,
+      alignItems: "center",
+    },
+    searchActionTextSecondary: {
+      fontFamily: fontFamily.mono,
+      fontSize: 12,
+      color: colors.text.secondary,
+      fontWeight: "600",
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
     },
   });

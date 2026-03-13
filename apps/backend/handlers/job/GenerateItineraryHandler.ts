@@ -39,6 +39,7 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         startTime,
         endTime,
         intention,
+        anchorStops,
       } = job.data as {
         userId: string;
         city: string;
@@ -51,6 +52,14 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         startTime?: string;
         endTime?: string;
         intention?: string;
+        anchorStops?: {
+          coordinates: [number, number];
+          label?: string;
+          address?: string;
+          placeId?: string;
+          primaryType?: string;
+          rating?: number;
+        }[];
       };
 
       await tracker.step("fetch_events");
@@ -70,6 +79,7 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         startTime,
         endTime,
         intention,
+        anchorStops,
       });
 
       await tracker.stepProgress(90, "Itinerary generated");

@@ -81,6 +81,25 @@ export interface GoogleGeocodingService extends ILocationResolutionService {
       distance?: number;
     };
   }>;
+  searchNearby(
+    lat: number,
+    lng: number,
+    radius?: number,
+    maxResults?: number,
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    places: {
+      name: string;
+      address: string;
+      coordinates: [number, number];
+      placeId: string;
+      types: string[];
+      rating?: number;
+      primaryType?: string;
+      distance?: number;
+    }[];
+  }>;
   reverseGeocodeAddress(
     lat: number,
     lng: number,
@@ -1431,6 +1450,102 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
         success: false,
         error:
           error instanceof Error ? error.message : "Unknown error occurred",
+      };
+    }
+  }
+
+  public async searchNearby(
+    lat: number,
+    lng: number,
+    radius = 200,
+    maxResults = 8,
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    places: {
+      name: string;
+      address: string;
+      coordinates: [number, number];
+      placeId: string;
+      types: string[];
+      rating?: number;
+      primaryType?: string;
+      distance?: number;
+    }[];
+  }> {
+    try {
+      const url = "https://places.googleapis.com/v1/places:searchNearby";
+      const requestBody = {
+        locationRestriction: {
+          circle: {
+            center: { latitude: lat, longitude: lng },
+            radius: Math.min(Math.max(radius, 50), 5000),
+          },
+        },
+        maxResultCount: Math.min(maxResults, 20),
+        rankPreference: "DISTANCE",
+      };
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": process.env.GOOGLE_GEOCODING_API_KEY || "",
+          "X-Goog-FieldMask":
+            "places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.id,places.primaryTypeDisplayName",
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!response.ok) {
+        console.error(
+          "[searchNearby] Places API failed:",
+          response.statusText,
+        );
+        return { success: false, error: "Places API request failed", places: [] };
+      }
+
+      const data = await response.json();
+      if (!data.places || data.places.length === 0) {
+        return { success: true, places: [] };
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const places = data.places.map((place: any) => {
+        const pLat = place.location?.latitude ?? 0;
+        const pLng = place.location?.longitude ?? 0;
+        // Haversine distance in meters
+        const R = 6371000;
+        const dLat = ((pLat - lat) * Math.PI) / 180;
+        const dLng = ((pLng - lng) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) ** 2 +
+          Math.cos((lat * Math.PI) / 180) *
+            Math.cos((pLat * Math.PI) / 180) *
+            Math.sin(dLng / 2) ** 2;
+        const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return {
+          name: place.displayName?.text ?? "",
+          address: place.formattedAddress ?? "",
+          coordinates: [pLng, pLat] as [number, number],
+          placeId: place.id ?? "",
+          types: place.types ?? [],
+          rating: place.rating ?? undefined,
+          primaryType: place.primaryTypeDisplayName?.text ?? undefined,
+          distance: Math.round(dist),
+        };
+      });
+
+      return { success: true, places };
+    } catch (error) {
+      console.error("[searchNearby] Error:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Unknown error occurred",
+        places: [],
       };
     }
   }

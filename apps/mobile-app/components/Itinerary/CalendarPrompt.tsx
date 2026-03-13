@@ -128,10 +128,14 @@ export default function CalendarPrompt() {
   return null;
 }
 
-function promptCalendar(itinerary: ItineraryResponse) {
+async function promptCalendar(itinerary: ItineraryResponse) {
   // Don't prompt if the planned date is today (already happening)
   const today = new Date().toISOString().split("T")[0];
   if (itinerary.plannedDate === today) return;
+
+  // Don't prompt if already added to calendar
+  const alreadyAdded = await calendarService.hasCalendarEvent(itinerary.id);
+  if (alreadyAdded) return;
 
   Alert.alert(
     "Add to Calendar?",

@@ -48,6 +48,23 @@ export interface CityStateSearchParams {
   };
 }
 
+export interface NearbyPlace {
+  name: string;
+  address: string;
+  coordinates: [number, number];
+  placeId: string;
+  types: string[];
+  rating?: number;
+  primaryType?: string;
+  distance?: number;
+}
+
+export interface NearbySearchResult {
+  success: boolean;
+  error?: string;
+  places: NearbyPlace[];
+}
+
 export class PlacesApiClient extends BaseApiModule {
   constructor(client: BaseApiClient) {
     super(client);
@@ -124,6 +141,26 @@ export class PlacesApiClient extends BaseApiModule {
    * @param params Search parameters including query and optional coordinates
    * @returns City/state search result with location details if found
    */
+  async searchNearby(
+    lat: number,
+    lng: number,
+    radius?: number,
+    maxResults?: number,
+  ): Promise<NearbySearchResult> {
+    const url = `${this.client.baseUrl}/api/places/nearby`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lat,
+        lng,
+        ...(radius && { radius }),
+        ...(maxResults && { maxResults }),
+      }),
+    });
+    return this.handleResponse<NearbySearchResult>(response);
+  }
+
   async searchCityState(
     params: CityStateSearchParams,
   ): Promise<CityStateSearchResult> {

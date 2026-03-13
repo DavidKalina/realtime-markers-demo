@@ -69,8 +69,17 @@ export interface ItineraryResponse {
   createdAt: string;
 }
 
+export interface AnchorStopParam {
+  coordinates: [number, number]; // [lng, lat]
+  label?: string;
+  address?: string;
+  placeId?: string;
+  primaryType?: string;
+  rating?: number;
+}
+
 export interface CreateItineraryParams {
-  city: string;
+  city?: string;
   plannedDate: string;
   budgetMin?: number;
   budgetMax?: number;
@@ -81,6 +90,7 @@ export interface CreateItineraryParams {
   startTime?: string; // HH:MM (24h)
   endTime?: string; // HH:MM (24h)
   intention?: string;
+  anchorStops?: AnchorStopParam[];
 }
 
 export class ItinerariesModule extends BaseApiModule {

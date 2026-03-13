@@ -20,9 +20,18 @@ export const createItineraryHandler = async (c: Context<AppContext>) => {
     startTime?: string;
     endTime?: string;
     intention?: string;
+    anchorStops?: {
+      coordinates: [number, number];
+      label?: string;
+      address?: string;
+      placeId?: string;
+      primaryType?: string;
+      rating?: number;
+    }[];
   }>();
 
-  if (!body.city || typeof body.city !== "string") {
+  const hasAnchors = Array.isArray(body.anchorStops) && body.anchorStops.length > 0;
+  if (!hasAnchors && (!body.city || typeof body.city !== "string")) {
     return c.json({ error: "city is required" }, 400);
   }
   if (!body.plannedDate || !/^\d{4}-\d{2}-\d{2}$/.test(body.plannedDate)) {
@@ -42,7 +51,7 @@ export const createItineraryHandler = async (c: Context<AppContext>) => {
     const jobId = await jobQueue.enqueue("generate_itinerary", {
       userId,
       creatorId: userId,
-      city: body.city,
+      city: body.city || "",
       plannedDate: body.plannedDate,
       budgetMin: body.budgetMin ?? 0,
       budgetMax: body.budgetMax ?? 0,
@@ -52,6 +61,17 @@ export const createItineraryHandler = async (c: Context<AppContext>) => {
       ...(body.startTime && { startTime: body.startTime }),
       ...(body.endTime && { endTime: body.endTime }),
       ...(body.intention && { intention: body.intention }),
+      ...(body.anchorStops &&
+        body.anchorStops.length > 0 && {
+          anchorStops: body.anchorStops.map((a) => ({
+            coordinates: a.coordinates,
+            label: a.label,
+            address: a.address,
+            placeId: a.placeId,
+            primaryType: a.primaryType,
+            rating: a.rating,
+          })),
+        }),
     });
 
     // Record ritual usage if this itinerary was created from one
