@@ -7,7 +7,15 @@ import {
   StyleSheet,
 } from "react-native";
 import Animated, { FadeInRight } from "react-native-reanimated";
-import { useColors, fontSize, fontWeight, fontFamily, spacing, radius, type Colors } from "@/theme";
+import {
+  useColors,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  spacing,
+  radius,
+  type Colors,
+} from "@/theme";
 import { getCategoryColor } from "@/utils/categoryColors";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -87,50 +95,51 @@ const PopularCategoriesSection: React.FC<PopularCategoriesSectionProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    marginBottom: spacing.lg,
-  },
-  title: {
-    fontSize: 12,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 1.5,
-    textTransform: "uppercase" as const,
-  },
-  listContent: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-  },
-  pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing._6,
-    paddingHorizontal: spacing._10 + 2,
-    paddingVertical: spacing._6 + 2,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  pillText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
-    fontFamily: fontFamily.mono,
-  },
-  pillCount: {
-    fontSize: 10,
-    fontWeight: fontWeight.regular,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    marginLeft: 2,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      marginBottom: spacing.lg,
+    },
+    title: {
+      fontSize: 12,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      marginBottom: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1.5,
+      textTransform: "uppercase" as const,
+    },
+    listContent: {
+      paddingHorizontal: spacing.lg,
+      gap: spacing.sm,
+    },
+    pill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing._6,
+      paddingHorizontal: spacing._10 + 2,
+      paddingVertical: spacing._6 + 2,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+    },
+    dot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    pillText: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.medium,
+      fontFamily: fontFamily.mono,
+    },
+    pillCount: {
+      fontSize: 10,
+      fontWeight: fontWeight.regular,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+      marginLeft: 2,
+    },
+  });
 
 export default PopularCategoriesSection;

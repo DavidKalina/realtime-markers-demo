@@ -24,7 +24,10 @@ interface LocationStoreState {
   // Visible marker stats (set by ClusteredMapMarkers after clustering + viewport culling)
   visibleCategoryCounts: Record<string, number>;
   visibleMarkerTotal: number;
-  setVisibleMarkerStats: (counts: Record<string, number>, total: number) => void;
+  setVisibleMarkerStats: (
+    counts: Record<string, number>,
+    total: number,
+  ) => void;
 
   // Marker operations
   setMarkers: (markers: Marker[]) => void;
@@ -64,7 +67,8 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
   // Visible marker stats
   visibleCategoryCounts: {},
   visibleMarkerTotal: 0,
-  setVisibleMarkerStats: (counts, total) => set({ visibleCategoryCounts: counts, visibleMarkerTotal: total }),
+  setVisibleMarkerStats: (counts, total) =>
+    set({ visibleCategoryCounts: counts, visibleMarkerTotal: total }),
 
   setZoomLevel: (zoom) => set({ zoomLevel: zoom }),
 

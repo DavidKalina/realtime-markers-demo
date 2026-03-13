@@ -13,7 +13,14 @@ import Animated, {
   LinearTransition,
 } from "react-native-reanimated";
 import { LucideIcon } from "lucide-react-native";
-import { useColors, spacing, radius, fontSize, fontFamily, type Colors } from "@/theme";
+import {
+  useColors,
+  spacing,
+  radius,
+  fontSize,
+  fontFamily,
+  type Colors,
+} from "@/theme";
 
 interface TextAreaProps extends Omit<TextInputProps, "style"> {
   ref?: Ref<TextInput>;
@@ -87,38 +94,39 @@ const TextArea = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    backgroundColor: colors.bg.primary,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  errorContainer: {
-    borderColor: "#f97583",
-  },
-  iconContainer: {
-    marginRight: spacing._10,
-    marginTop: 4,
-  },
-  rightIconContainer: {
-    padding: spacing.sm,
-    alignSelf: "flex-start",
-  },
-  input: {
-    flex: 1,
-    color: colors.text.primary,
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-    minHeight: 24,
-  },
-  errorInput: {
-    color: "#f97583",
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      backgroundColor: colors.bg.primary,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    errorContainer: {
+      borderColor: "#f97583",
+    },
+    iconContainer: {
+      marginRight: spacing._10,
+      marginTop: 4,
+    },
+    rightIconContainer: {
+      padding: spacing.sm,
+      alignSelf: "flex-start",
+    },
+    input: {
+      flex: 1,
+      color: colors.text.primary,
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+      minHeight: 24,
+    },
+    errorInput: {
+      color: "#f97583",
+    },
+  });
 
 export default TextArea;

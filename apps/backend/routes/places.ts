@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import {
   searchPlace,
   searchCityState,
+  searchNearbyHandler,
   reverseGeocodeAddressHandler,
 } from "../handlers/placeHandlers";
 import type { AppContext } from "../types/context";
@@ -34,6 +35,10 @@ placesRouter.post("/search", searchPlace);
 // POST /api/places/search-city-state
 // Search for cities and states using Google Places API
 placesRouter.post("/search-city-state", searchCityState);
+
+// POST /api/places/nearby
+// Search for places near a coordinate
+placesRouter.post("/nearby", searchNearbyHandler);
 
 // POST /api/places/reverse-geocode
 // Get address details from coordinates

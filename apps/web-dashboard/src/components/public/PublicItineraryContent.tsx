@@ -73,8 +73,7 @@ export function PublicItineraryContent({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
     fetch(`${apiUrl}/api/public/itineraries/${shareToken}`)
       .then(async (res) => {
         if (!res.ok) throw new Error("Not found");

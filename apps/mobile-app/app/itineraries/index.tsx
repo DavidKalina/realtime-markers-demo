@@ -239,8 +239,26 @@ ItineraryListItem.displayName = "ItineraryListItem";
 // --- Generating Row (decrypting / experimenting style) ---
 
 const GEN_EMOJIS = [
-  "🗺️", "🎯", "🎪", "🎭", "🎨", "🎵", "🍕", "☕", "🏛️", "🌮",
-  "🎸", "🍜", "🎲", "🌿", "📸", "🛹", "🧗", "🎤", "🍦", "🚲",
+  "🗺️",
+  "🎯",
+  "🎪",
+  "🎭",
+  "🎨",
+  "🎵",
+  "🍕",
+  "☕",
+  "🏛️",
+  "🌮",
+  "🎸",
+  "🍜",
+  "🎲",
+  "🌿",
+  "📸",
+  "🛹",
+  "🧗",
+  "🎤",
+  "🍦",
+  "🚲",
 ];
 
 const GEN_TITLES = [
@@ -386,10 +404,7 @@ const GeneratingRow: React.FC = React.memo(() => {
               generating
             </Text>
           </View>
-          <Animated.Text
-            style={[styles.meta, contentStyle]}
-            numberOfLines={1}
-          >
+          <Animated.Text style={[styles.meta, contentStyle]} numberOfLines={1}>
             {GEN_METAS[metaIdx]}
           </Animated.Text>
         </View>
@@ -563,7 +578,10 @@ const ItinerariesListScreen = () => {
       onBack={handleBack}
       noAnimation
       bottomContent={
-        <ItineraryDialogBox defaultExpanded={expand === "1"} style={{ marginBottom: 0 }} />
+        <ItineraryDialogBox
+          defaultExpanded={expand === "1"}
+          style={{ marginBottom: 0 }}
+        />
       }
     >
       <Animated.FlatList
@@ -662,7 +680,7 @@ const createStyles = (colors: Colors) =>
       color: colors.text.secondary,
       lineHeight: 16,
     },
-deleteAction: {
+    deleteAction: {
       width: DELETE_ACTION_WIDTH,
       backgroundColor: colors.status.error.text,
       alignItems: "center",

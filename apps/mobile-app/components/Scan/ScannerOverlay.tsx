@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { LayoutChangeEvent, StyleSheet, View } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -272,61 +278,62 @@ export const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
 
 // --- Styles ---
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  cornerTL: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: BRACKET_ARM,
-    height: BRACKET_ARM,
-    borderTopWidth: BRACKET_THICKNESS,
-    borderLeftWidth: BRACKET_THICKNESS,
-    borderColor: colors.fixed.white,
-  },
-  cornerTR: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    width: BRACKET_ARM,
-    height: BRACKET_ARM,
-    borderTopWidth: BRACKET_THICKNESS,
-    borderRightWidth: BRACKET_THICKNESS,
-    borderColor: colors.fixed.white,
-  },
-  cornerBL: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    width: BRACKET_ARM,
-    height: BRACKET_ARM,
-    borderBottomWidth: BRACKET_THICKNESS,
-    borderLeftWidth: BRACKET_THICKNESS,
-    borderColor: colors.fixed.white,
-  },
-  cornerBR: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: BRACKET_ARM,
-    height: BRACKET_ARM,
-    borderBottomWidth: BRACKET_THICKNESS,
-    borderRightWidth: BRACKET_THICKNESS,
-    borderColor: colors.fixed.white,
-  },
-  scanLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: colors.fixed.white,
-  },
-  hintText: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    textAlign: "center",
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.sm,
-    color: colors.fixed.white,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    cornerTL: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: BRACKET_ARM,
+      height: BRACKET_ARM,
+      borderTopWidth: BRACKET_THICKNESS,
+      borderLeftWidth: BRACKET_THICKNESS,
+      borderColor: colors.fixed.white,
+    },
+    cornerTR: {
+      position: "absolute",
+      top: 0,
+      right: 0,
+      width: BRACKET_ARM,
+      height: BRACKET_ARM,
+      borderTopWidth: BRACKET_THICKNESS,
+      borderRightWidth: BRACKET_THICKNESS,
+      borderColor: colors.fixed.white,
+    },
+    cornerBL: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      width: BRACKET_ARM,
+      height: BRACKET_ARM,
+      borderBottomWidth: BRACKET_THICKNESS,
+      borderLeftWidth: BRACKET_THICKNESS,
+      borderColor: colors.fixed.white,
+    },
+    cornerBR: {
+      position: "absolute",
+      bottom: 0,
+      right: 0,
+      width: BRACKET_ARM,
+      height: BRACKET_ARM,
+      borderBottomWidth: BRACKET_THICKNESS,
+      borderRightWidth: BRACKET_THICKNESS,
+      borderColor: colors.fixed.white,
+    },
+    scanLine: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      height: 1,
+      backgroundColor: colors.fixed.white,
+    },
+    hintText: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      textAlign: "center",
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+      color: colors.fixed.white,
+    },
+  });

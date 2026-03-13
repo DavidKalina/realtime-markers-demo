@@ -1,4 +1,10 @@
-import React, { useRef, useState, useCallback, useEffect, useMemo } from "react";
+import React, {
+  useRef,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+} from "react";
 import { formatVenueShort } from "@/components/Event/EventListItem";
 import {
   View,
@@ -124,11 +130,15 @@ const WhatsHappeningSection: React.FC<WhatsHappeningSectionProps> = ({
   const prevRealtimeCountRef = useRef(-1);
 
   const merged: MergedEvent[] = useMemo(() => {
-    const trending: MergedEvent[] = filterExpiredEvents(trendingEvents).map((e) => ({
-      ...e,
-      _kind: "trending" as const,
-    }));
-    const discovered: MergedEvent[] = filterExpiredEvents(justDiscoveredEvents).map((e) => ({
+    const trending: MergedEvent[] = filterExpiredEvents(trendingEvents).map(
+      (e) => ({
+        ...e,
+        _kind: "trending" as const,
+      }),
+    );
+    const discovered: MergedEvent[] = filterExpiredEvents(
+      justDiscoveredEvents,
+    ).map((e) => ({
       ...e,
       _kind: "discovered" as const,
     }));
@@ -138,7 +148,10 @@ const WhatsHappeningSection: React.FC<WhatsHappeningSectionProps> = ({
   // Haptic feedback when new realtime items arrive
   useEffect(() => {
     const realtimeCount = merged.filter((e) => e._isRealtime).length;
-    if (prevRealtimeCountRef.current >= 0 && realtimeCount > prevRealtimeCountRef.current) {
+    if (
+      prevRealtimeCountRef.current >= 0 &&
+      realtimeCount > prevRealtimeCountRef.current
+    ) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Scroll to start to show the new item
       scrollViewRef.current?.scrollTo({ x: 0, animated: true });
@@ -295,104 +308,105 @@ const WhatsHappeningSection: React.FC<WhatsHappeningSectionProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    marginBottom: spacing["3xl"],
-  },
-  title: {
-    fontSize: 12,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 1.5,
-    textTransform: "uppercase" as const,
-  },
-  subtitle: {
-    fontSize: fontSize.xs,
-    color: colors.text.disabled,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.mono,
-  },
-  carouselContainer: {
-    position: "relative",
-  },
-  scrollContent: {
-    paddingHorizontal: ITEM_MARGIN,
-  },
-  itemContainer: {
-    width: ITEM_WIDTH,
-    marginRight: ITEM_SPACING,
-  },
-  cardContainer: {
-    overflow: "hidden",
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    height: 120,
-  },
-  cardBody: {
-    flex: 1,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  kindDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  kindText: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    letterSpacing: 0.5,
-    textTransform: "uppercase" as const,
-    flex: 1,
-  },
-  timeText: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.medium,
-    letterSpacing: 0.3,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-    lineHeight: 20,
-  },
-  cardMeta: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-  },
-  paginationContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  paginationDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border.subtle,
-    marginHorizontal: 3,
-  },
-  paginationDotActive: {
-    backgroundColor: colors.text.secondary,
-    width: 16,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      marginBottom: spacing["3xl"],
+    },
+    title: {
+      fontSize: 12,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      marginBottom: spacing.xs,
+      paddingHorizontal: spacing.lg,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1.5,
+      textTransform: "uppercase" as const,
+    },
+    subtitle: {
+      fontSize: fontSize.xs,
+      color: colors.text.disabled,
+      marginBottom: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      fontFamily: fontFamily.mono,
+    },
+    carouselContainer: {
+      position: "relative",
+    },
+    scrollContent: {
+      paddingHorizontal: ITEM_MARGIN,
+    },
+    itemContainer: {
+      width: ITEM_WIDTH,
+      marginRight: ITEM_SPACING,
+    },
+    cardContainer: {
+      overflow: "hidden",
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      height: 120,
+    },
+    cardBody: {
+      flex: 1,
+      padding: spacing.md,
+      gap: spacing.xs,
+    },
+    cardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    kindDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    kindText: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      letterSpacing: 0.5,
+      textTransform: "uppercase" as const,
+      flex: 1,
+    },
+    timeText: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      letterSpacing: 0.3,
+    },
+    cardTitle: {
+      fontSize: 14,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+      lineHeight: 20,
+    },
+    cardMeta: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    paginationContainer: {
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems: "center",
+      marginTop: spacing.sm,
+      paddingHorizontal: spacing.lg,
+    },
+    paginationDot: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: colors.border.subtle,
+      marginHorizontal: 3,
+    },
+    paginationDotActive: {
+      backgroundColor: colors.text.secondary,
+      width: 16,
+    },
+  });
 
 export default WhatsHappeningSection;

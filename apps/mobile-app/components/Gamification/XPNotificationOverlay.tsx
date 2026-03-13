@@ -17,6 +17,7 @@ import { useXPStore } from "@/stores/useXPStore";
 const XPNotificationOverlay: React.FC = () => {
   const addXP = useXPStore((s) => s.addXP);
   const setLevelUp = useXPStore((s) => s.setLevelUp);
+  const addBadge = useXPStore((s) => s.addBadge);
 
   const handleXPAwarded = useCallback(
     (event: XPAwardedEvent) => {
@@ -34,8 +35,21 @@ const XPNotificationOverlay: React.FC = () => {
         setLevelUp(tier.name, tier.emoji);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
+      // Capture badge unlocks
+      if (
+        event.data?.action === "badge_unlocked" &&
+        (event.data as Record<string, unknown>).badgeId
+      ) {
+        const d = event.data as Record<string, unknown>;
+        addBadge(
+          d.badgeId as string,
+          d.badgeName as string,
+          d.badgeEmoji as string,
+        );
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
     },
-    [setLevelUp],
+    [setLevelUp, addBadge],
   );
 
   useEffect(() => {

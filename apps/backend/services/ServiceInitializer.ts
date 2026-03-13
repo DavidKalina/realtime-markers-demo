@@ -63,6 +63,10 @@ import type { OverpassService } from "./shared/OverpassService";
 import { createWeatherService } from "./shared/WeatherService";
 import { createItineraryCheckinService } from "./ItineraryCheckinService";
 import type { ItineraryCheckinService } from "./ItineraryCheckinService";
+import { createBadgeService } from "./BadgeService";
+import type { BadgeService } from "./BadgeService";
+import { createAdventureScoreService } from "./AdventureScoreService";
+import type { AdventureScoreService } from "./AdventureScoreService";
 
 export interface ServiceContainer {
   eventService: EventService;
@@ -90,6 +94,8 @@ export interface ServiceContainer {
   itineraryCheckinService: ItineraryCheckinService;
   itineraryRitualService: ItineraryRitualService;
   overpassService: OverpassService;
+  badgeService: BadgeService;
+  adventureScoreService: AdventureScoreService;
 }
 
 export class ServiceInitializer {
@@ -279,10 +285,24 @@ export class ServiceInitializer {
       dataSource: this.dataSource,
     });
 
+    const adventureScoreService = createAdventureScoreService({
+      dataSource: this.dataSource,
+      redisService,
+    });
+
+    const badgeService = createBadgeService({
+      dataSource: this.dataSource,
+      gamificationService,
+      redisService,
+      pushService: pushNotificationService,
+    });
+
     const itineraryCheckinService = createItineraryCheckinService({
       dataSource: this.dataSource,
       pushService: pushNotificationService,
       redisService,
+      gamificationService,
+      badgeService,
     });
 
     // Conditionally create TicketmasterService (opt-in via env var)
@@ -323,6 +343,8 @@ export class ServiceInitializer {
       itineraryCheckinService,
       itineraryRitualService,
       overpassService,
+      badgeService,
+      adventureScoreService,
     };
   }
 
@@ -419,6 +441,128 @@ export class ServiceInitializer {
 
     // Check every 5 minutes if interval has elapsed
     setInterval(enqueueImport, 5 * 60 * 1000);
+  }
+
+  setupNotificationSchedule(): void {
+    if (process.env.DISABLE_NOTIFICATION_SCHEDULE === "true") {
+      console.log(
+        "Notification schedule disabled via DISABLE_NOTIFICATION_SCHEDULE environment variable",
+      );
+      return;
+    }
+
+    console.log(
+      "Setting up streak-at-risk and weekly nudge notification schedules",
+    );
+
+    // Check every 15 minutes
+    setInterval(
+      async () => {
+        const now = new Date();
+        const dayOfWeek = now.getUTCDay(); // 0=Sun, 4=Thu
+        const utcHour = now.getUTCHours();
+
+        // Streak-at-risk: Sunday ~18:00 UTC
+        if (dayOfWeek === 0 && utcHour === 18) {
+          await this.sendStreakAtRiskNotifications();
+        }
+
+        // Weekly nudge: Thursday ~18:00 UTC
+        if (dayOfWeek === 4 && utcHour === 18) {
+          await this.sendWeeklyNudgeNotifications();
+        }
+      },
+      15 * 60 * 1000,
+    );
+  }
+
+  private async sendStreakAtRiskNotifications(): Promise<void> {
+    try {
+      // Find users with active streaks who haven't checked in this ISO week
+      const now = new Date();
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(now);
+      monday.setDate(diff);
+      const currentWeekMonday = monday.toISOString().slice(0, 10);
+
+      const usersAtRisk: { id: string; current_streak: number }[] =
+        await this.dataSource.query(
+          `SELECT id, current_streak FROM users
+           WHERE current_streak > 0
+           AND (last_streak_week IS NULL OR last_streak_week < $1)`,
+          [currentWeekMonday],
+        );
+
+      for (const user of usersAtRisk) {
+        try {
+          await pushNotificationService.sendToUser(user.id, {
+            title: "Your streak is at risk!",
+            body: `Your ${user.current_streak}-week adventure streak ends this week if you don't check in!`,
+            sound: "default",
+            data: {
+              type: "streak_at_risk",
+              currentStreak: user.current_streak,
+            },
+          });
+        } catch (err) {
+          console.error(
+            `[NotificationSchedule] Failed to send streak-at-risk to ${user.id}:`,
+            err,
+          );
+        }
+      }
+
+      if (usersAtRisk.length > 0) {
+        console.log(
+          `[NotificationSchedule] Sent streak-at-risk notifications to ${usersAtRisk.length} users`,
+        );
+      }
+    } catch (err) {
+      console.error("[NotificationSchedule] Streak-at-risk check failed:", err);
+    }
+  }
+
+  private async sendWeeklyNudgeNotifications(): Promise<void> {
+    try {
+      // Find users with no upcoming plannedDate itineraries
+      const usersWithoutPlans: { id: string }[] = await this.dataSource.query(
+        `SELECT u.id FROM users u
+         WHERE u.id NOT IN (
+           SELECT DISTINCT i.user_id FROM itineraries i
+           WHERE i.planned_date >= CURRENT_DATE
+           AND i.status = 'READY'
+         )
+         AND EXISTS (
+           SELECT 1 FROM user_push_tokens upt
+           WHERE upt.user_id = u.id AND upt.is_active = true
+         )`,
+      );
+
+      for (const user of usersWithoutPlans) {
+        try {
+          await pushNotificationService.sendToUser(user.id, {
+            title: "No adventure planned this weekend?",
+            body: "Open the app and plan something fun — your next streak point awaits!",
+            sound: "default",
+            data: { type: "weekly_nudge" },
+          });
+        } catch (err) {
+          console.error(
+            `[NotificationSchedule] Failed to send weekly nudge to ${user.id}:`,
+            err,
+          );
+        }
+      }
+
+      if (usersWithoutPlans.length > 0) {
+        console.log(
+          `[NotificationSchedule] Sent weekly nudge to ${usersWithoutPlans.length} users`,
+        );
+      }
+    } catch (err) {
+      console.error("[NotificationSchedule] Weekly nudge check failed:", err);
+    }
   }
 
   setupThirdSpaceScoreSchedule(

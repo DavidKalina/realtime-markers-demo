@@ -30,11 +30,36 @@ interface ThirdSpaceScoreHeroProps {
 }
 
 const SUB_SCORES = [
-  { label: "Vitality", field: "vitalityScore" as const, color: "#93c5fd", info: "How many events are happening nearby, weighted by recency. More recent events count more." },
-  { label: "Discovery", field: "discoveryScore" as const, color: "#86efac", info: "How many events have been scanned and discovered by users in your city this week." },
-  { label: "Diversity", field: "diversityScore" as const, color: "#fcd34d", info: "How varied the event categories are. A healthy mix of arts, sports, food, etc. scores higher." },
-  { label: "Engagement", field: "engagementScore" as const, color: "#c4b5fd", info: "Community interaction with events — saves and views over the last 30 days." },
-  { label: "Rootedness", field: "rootednessScore" as const, color: "#f9a8d4", info: "Recurring events and dedicated high-tier community members who keep the scene alive." },
+  {
+    label: "Vitality",
+    field: "vitalityScore" as const,
+    color: "#93c5fd",
+    info: "How many events are happening nearby, weighted by recency. More recent events count more.",
+  },
+  {
+    label: "Discovery",
+    field: "discoveryScore" as const,
+    color: "#86efac",
+    info: "How many events have been scanned and discovered by users in your city this week.",
+  },
+  {
+    label: "Diversity",
+    field: "diversityScore" as const,
+    color: "#fcd34d",
+    info: "How varied the event categories are. A healthy mix of arts, sports, food, etc. scores higher.",
+  },
+  {
+    label: "Engagement",
+    field: "engagementScore" as const,
+    color: "#c4b5fd",
+    info: "Community interaction with events — saves and views over the last 30 days.",
+  },
+  {
+    label: "Rootedness",
+    field: "rootednessScore" as const,
+    color: "#f9a8d4",
+    info: "Recurring events and dedicated high-tier community members who keep the scene alive.",
+  },
 ];
 
 const MOMENTUM_CONFIG = {
@@ -78,11 +103,7 @@ const AnimatedSubScore: React.FC<{
     },
   );
 
-  return (
-    <Text style={[styles.statValue, { color }]}>
-      {displayed}
-    </Text>
-  );
+  return <Text style={[styles.statValue, { color }]}>{displayed}</Text>;
 };
 
 /**
@@ -97,7 +118,10 @@ function getScoreColor(score: number): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-const ThirdSpaceScoreHero: React.FC<ThirdSpaceScoreHeroProps> = ({ score, onExploreMap }) => {
+const ThirdSpaceScoreHero: React.FC<ThirdSpaceScoreHeroProps> = ({
+  score,
+  onExploreMap,
+}) => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const targetScore = score.current.score;
@@ -154,9 +178,7 @@ const ThirdSpaceScoreHero: React.FC<ThirdSpaceScoreHeroProps> = ({ score, onExpl
 
   const momentumAnimStyle = useAnimatedStyle(() => ({
     opacity: momentumProgress.value,
-    transform: [
-      { translateY: (1 - momentumProgress.value) * -8 },
-    ],
+    transform: [{ translateY: (1 - momentumProgress.value) * -8 }],
   }));
 
   const [activeInfo, setActiveInfo] = useState<{
@@ -311,107 +333,108 @@ function buildSparkline(
     .join(" ");
 }
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    marginBottom: spacing["3xl"],
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  label: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.label,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    marginTop: 2,
-  },
-  momentumBadge: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.bold,
-    fontFamily: fontFamily.mono,
-  },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.lg,
-  },
-  circleWrapper: {
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  circleLabel: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  circleScore: {
-    fontSize: 32,
-    fontWeight: fontWeight.bold,
-    fontFamily: fontFamily.mono,
-  },
-  statsColumn: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  statRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  statLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  statDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statLabel: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-  },
-  statValue: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.bold,
-    fontFamily: fontFamily.mono,
-  },
-  cityText: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.bold,
-    fontFamily: fontFamily.mono,
-    color: colors.text.primary,
-  },
-  sparklineContainer: {
-    height: 28,
-  },
-  exploreButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-  },
-  exploreButtonPressed: {
-    opacity: 0.6,
-  },
-  exploreButtonText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 0.5,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      marginBottom: spacing["3xl"],
+      paddingHorizontal: spacing.lg,
+      gap: spacing.md,
+    },
+    headerRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+    },
+    label: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.label,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1,
+      textTransform: "uppercase",
+      marginTop: 2,
+    },
+    momentumBadge: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+    },
+    topRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.lg,
+    },
+    circleWrapper: {
+      width: CIRCLE_SIZE,
+      height: CIRCLE_SIZE,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    circleLabel: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    circleScore: {
+      fontSize: 32,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+    },
+    statsColumn: {
+      flex: 1,
+      gap: spacing.xs,
+    },
+    statRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    statLabelRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    statDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    statLabel: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    statValue: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+    },
+    cityText: {
+      fontSize: fontSize.lg,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+    },
+    sparklineContainer: {
+      height: 28,
+    },
+    exploreButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing.xs,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.lg,
+    },
+    exploreButtonPressed: {
+      opacity: 0.6,
+    },
+    exploreButtonText: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 0.5,
+    },
+  });
 
 export default ThirdSpaceScoreHero;

@@ -5,7 +5,14 @@ import {
   TrendingEventType,
 } from "@/types/types";
 import React from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useRouter } from "expo-router";
 
 const SectionDivider: React.FC = () => {
@@ -85,7 +92,9 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
 }) => {
   const colors = useColors();
   const router = useRouter();
-  const isEmpty = !!data && !data.featuredEvents?.length &&
+  const isEmpty =
+    !!data &&
+    !data.featuredEvents?.length &&
     !data.upcomingEvents?.length &&
     !data.communityEvents?.length &&
     !data.justDiscoveredEvents?.length &&
@@ -146,14 +155,24 @@ const LandingPageContent: React.FC<LandingPageContentProps> = ({
               <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
                 No events yet
               </Text>
-              <Text style={[styles.emptySubtitle, { color: colors.text.secondary }]}>
+              <Text
+                style={[styles.emptySubtitle, { color: colors.text.secondary }]}
+              >
                 Be the first to scan a flyer and put this city on the map.
               </Text>
               <Pressable
                 onPress={() => router.navigate("/spaces")}
-                style={[styles.emptyButton, { borderColor: colors.border.default }]}
+                style={[
+                  styles.emptyButton,
+                  { borderColor: colors.border.default },
+                ]}
               >
-                <Text style={[styles.emptyButtonText, { color: colors.text.primary }]}>
+                <Text
+                  style={[
+                    styles.emptyButtonText,
+                    { color: colors.text.primary },
+                  ]}
+                >
                   Browse other cities
                 </Text>
               </Pressable>

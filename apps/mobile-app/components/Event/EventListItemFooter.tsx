@@ -108,33 +108,34 @@ const EventListItemFooter: React.FC<EventListItemFooterProps> = ({
 
 export default EventListItemFooter;
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: spacing.sm,
-  },
-  metaText: {
-    flex: 1,
-    color: colors.text.secondary,
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.medium,
-    marginRight: spacing.sm,
-  },
-  timeBadge: {
-    backgroundColor: colors.text.primary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  timeBadgeText: {
-    color: colors.bg.card,
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    footer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginTop: spacing.sm,
+    },
+    metaText: {
+      flex: 1,
+      color: colors.text.secondary,
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      marginRight: spacing.sm,
+    },
+    timeBadge: {
+      backgroundColor: colors.text.primary,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    timeBadgeText: {
+      color: colors.bg.card,
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+    },
+  });

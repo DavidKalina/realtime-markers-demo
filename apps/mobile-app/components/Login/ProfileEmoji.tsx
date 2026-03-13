@@ -1,4 +1,11 @@
-import { useColors, spacing, radius, fontWeight, fontFamily, type Colors } from "@/theme";
+import {
+  useColors,
+  spacing,
+  radius,
+  fontWeight,
+  fontFamily,
+  type Colors,
+} from "@/theme";
 import React, { useEffect, useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, {
@@ -149,40 +156,41 @@ const ProfileFloatingEmoji: React.FC<ProfileFloatingEmojiProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing._10,
-    width: 80,
-  },
-  emojiBubble: {
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: colors.overlay.light,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  emojiText: {
-    textAlign: "center",
-  },
-  nameText: {
-    marginTop: spacing.sm,
-    textAlign: "center",
-    fontWeight: fontWeight.semibold,
-    maxWidth: 80,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 0.2,
-  },
-  roleIndicator: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    marginTop: spacing._6,
-    opacity: 0.9,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      alignItems: "center",
+      justifyContent: "center",
+      padding: spacing._10,
+      width: 80,
+    },
+    emojiBubble: {
+      justifyContent: "center",
+      alignItems: "center",
+      shadowColor: colors.overlay.light,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.2,
+      shadowRadius: 6,
+      elevation: 8,
+    },
+    emojiText: {
+      textAlign: "center",
+    },
+    nameText: {
+      marginTop: spacing.sm,
+      textAlign: "center",
+      fontWeight: fontWeight.semibold,
+      maxWidth: 80,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 0.2,
+    },
+    roleIndicator: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      marginTop: spacing._6,
+      opacity: 0.9,
+    },
+  });
 
 export default ProfileFloatingEmoji;

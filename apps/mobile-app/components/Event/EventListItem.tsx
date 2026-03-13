@@ -40,26 +40,35 @@ type TimeBadgeColor = {
   bg: string;
 };
 
-export const getTimeBadgeColors = (colors: Colors) => ({
-  live: { text: colors.status.success.text, bg: colors.status.success.border },
-  soon: { text: colors.status.warning.text, bg: colors.status.warning.border },
-  today: { text: colors.status.info.text, bg: colors.status.info.border },
-  upcoming: { text: colors.text.secondary, bg: colors.border.subtle },
-  past: { text: colors.text.disabled, bg: colors.border.subtle },
-}) as const;
+export const getTimeBadgeColors = (colors: Colors) =>
+  ({
+    live: {
+      text: colors.status.success.text,
+      bg: colors.status.success.border,
+    },
+    soon: {
+      text: colors.status.warning.text,
+      bg: colors.status.warning.border,
+    },
+    today: { text: colors.status.info.text, bg: colors.status.info.border },
+    upcoming: { text: colors.text.secondary, bg: colors.border.subtle },
+    past: { text: colors.text.disabled, bg: colors.border.subtle },
+  }) as const;
 
 export const getTimeBadge = (
   eventDate: Date | string,
   endDate?: string,
   colors?: Colors,
 ): { text: string; color: TimeBadgeColor } => {
-  const timeBadgeColors = colors ? getTimeBadgeColors(colors) : {
-    live: { text: "#10b981", bg: "rgba(52, 211, 153, 0.12)" },
-    soon: { text: "#fcd34d", bg: "rgba(251, 191, 36, 0.12)" },
-    today: { text: "#93c5fd", bg: "rgba(147, 197, 253, 0.10)" },
-    upcoming: { text: "#8b949e", bg: "rgba(255, 255, 255, 0.04)" },
-    past: { text: "#484f58", bg: "rgba(255, 255, 255, 0.04)" },
-  };
+  const timeBadgeColors = colors
+    ? getTimeBadgeColors(colors)
+    : {
+        live: { text: "#10b981", bg: "rgba(52, 211, 153, 0.12)" },
+        soon: { text: "#fcd34d", bg: "rgba(251, 191, 36, 0.12)" },
+        today: { text: "#93c5fd", bg: "rgba(147, 197, 253, 0.10)" },
+        upcoming: { text: "#8b949e", bg: "rgba(255, 255, 255, 0.04)" },
+        past: { text: "#484f58", bg: "rgba(255, 255, 255, 0.04)" },
+      };
   const now = new Date();
   const eventDateObj =
     typeof eventDate === "string" ? new Date(eventDate) : eventDate;
@@ -105,7 +114,8 @@ const isOnlyDigits = (s: string) => /^\d+$/.test(s.trim());
 /** Truncate a full address to just "City, State" (or return as-is if unparseable). */
 const toCityState = (location: string): string => {
   const parts = location.split(",").map((s) => s.trim());
-  if (parts.length >= 3) return `${parts[parts.length - 3]}, ${parts[parts.length - 2]}`;
+  if (parts.length >= 3)
+    return `${parts[parts.length - 3]}, ${parts[parts.length - 2]}`;
   if (parts.length === 2) return parts.join(", ");
   return location;
 };
@@ -204,7 +214,8 @@ const EventListItem: React.FC<EventListItemProps> = React.memo(
 
     const metaText = useMemo(() => {
       const items: string[] = [];
-      if (location && !isOnlyDigits(location)) items.push(toCityState(location));
+      if (location && !isOnlyDigits(location))
+        items.push(toCityState(location));
       if (distance) items.push(distance);
       if (categories?.length > 0) items.push(titleCase(categories[0].name));
       if (isRecurring) items.push("Recurring");
@@ -249,45 +260,46 @@ EventListItem.displayName = "EventListItem";
 
 export default EventListItem;
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing._10,
-    paddingHorizontal: spacing.lg,
-    gap: spacing._10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border.default,
-  },
-  emoji: {
-    fontSize: fontSize.lg,
-  },
-  info: {
-    flex: 1,
-    gap: 2,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: spacing.sm,
-  },
-  title: {
-    flex: 1,
-    fontSize: 13,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-    lineHeight: 18,
-  },
-  timeBadgeText: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 0.2,
-  },
-  meta: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-    lineHeight: 16,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: spacing._10,
+      paddingHorizontal: spacing.lg,
+      gap: spacing._10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.default,
+    },
+    emoji: {
+      fontSize: fontSize.lg,
+    },
+    info: {
+      flex: 1,
+      gap: 2,
+    },
+    titleRow: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: spacing.sm,
+    },
+    title: {
+      flex: 1,
+      fontSize: 13,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+      lineHeight: 18,
+    },
+    timeBadgeText: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 0.2,
+    },
+    meta: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      lineHeight: 16,
+    },
+  });

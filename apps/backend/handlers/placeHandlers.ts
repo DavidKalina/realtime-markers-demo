@@ -94,11 +94,11 @@ export async function searchCityState(c: Context<AppContext>) {
   try {
     const { query, coordinates } = await c.req.json();
 
-    if (!query || typeof query !== "string") {
+    if ((!query || typeof query !== "string") && !coordinates) {
       return c.json(
         {
           success: false,
-          error: "Query parameter is required and must be a string",
+          error: "Query or coordinates must be provided",
         },
         400,
       );
@@ -107,6 +107,26 @@ export async function searchCityState(c: Context<AppContext>) {
     const geocodingService = c.get(
       "geocodingService",
     ) as GoogleGeocodingService;
+
+    // When no query but coordinates provided, reverse-geocode the city
+    if ((!query || !query.trim()) && coordinates?.lat != null && coordinates?.lng != null) {
+      const cityState = await geocodingService.reverseGeocodeCityState(
+        coordinates.lat,
+        coordinates.lng,
+      );
+      const parts = cityState.split(", ");
+      return c.json({
+        success: true,
+        cityState: {
+          city: parts[0] || cityState,
+          state: parts[1] || "",
+          coordinates: [coordinates.lng, coordinates.lat] as [number, number],
+          formattedAddress: cityState,
+          placeId: "",
+        },
+      });
+    }
+
     const result = await geocodingService.searchCityState(query, coordinates);
 
     return c.json(result);
@@ -122,6 +142,53 @@ export async function searchCityState(c: Context<AppContext>) {
     );
   }
 }
+
+const nearbySearchSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  radius: z.number().min(50).max(5000).optional(),
+  maxResults: z.number().min(1).max(20).optional(),
+});
+
+export const searchNearbyHandler = async (c: Context<AppContext>) => {
+  try {
+    const body = await c.req.json();
+    const validationResult = nearbySearchSchema.safeParse(body);
+    if (!validationResult.success) {
+      return c.json(
+        {
+          success: false,
+          error: validationResult.error.errors[0].message,
+        },
+        400,
+      );
+    }
+
+    const { lat, lng, radius, maxResults } = validationResult.data;
+    const geocodingService = c.get(
+      "geocodingService",
+    ) as GoogleGeocodingService;
+
+    const result = await geocodingService.searchNearby(
+      lat,
+      lng,
+      radius,
+      maxResults,
+    );
+
+    return c.json(result);
+  } catch (error) {
+    console.error("Error in nearby search handler:", error);
+    return c.json(
+      {
+        success: false,
+        error: "Internal server error occurred while searching nearby",
+        places: [],
+      },
+      500,
+    );
+  }
+};
 
 export const reverseGeocodeAddressHandler = async (c: Context<AppContext>) => {
   try {

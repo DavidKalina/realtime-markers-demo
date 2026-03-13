@@ -44,6 +44,9 @@ import DeleteAccountModalComponent from "./DeleteAccountModal";
 import UserStatsCard from "./UserStatsCard";
 import ActiveQuestBanner from "./ActiveQuestBanner";
 import RecentCompletions from "./RecentCompletions";
+import StreakBanner from "./StreakBanner";
+import BadgeGrid from "./BadgeGrid";
+import AdventureScoreCard from "./AdventureScoreCard";
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -87,6 +90,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   } = useUserStats();
 
   const completionsRefetchRef = useRef<(() => Promise<void>) | null>(null);
+  const badgesRefetchRef = useRef<(() => Promise<void>) | null>(null);
+  const scoreRefetchRef = useRef<(() => Promise<void>) | null>(null);
 
   // Consume pending XP on each focus, but only animate AFTER fresh data arrives
   const consume = useXPStore((s) => s.consume);
@@ -128,6 +133,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         refetchStats(),
         useActiveItineraryStore.getState().refresh(),
         completionsRefetchRef.current?.(),
+        badgesRefetchRef.current?.(),
+        scoreRefetchRef.current?.(),
       ]);
     } finally {
       setIsRefreshing(false);
@@ -143,11 +150,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     togglePitch();
   };
-
-  const handleFollowingPress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/following" as const);
-  }, [router]);
 
   const handleSavedPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -200,15 +202,43 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   discoveryCount={profileData?.discoveryCount || 0}
                   saveCount={profileData?.saveCount || 0}
                   viewCount={profileData?.viewCount || 0}
-                  followingCount={profileData?.followingCount || 0}
                   memberSince={memberSince}
                   weeklyScanCount={stats?.weeklyScanCount}
                 />
               </Animated.View>
 
-              {/* Active Quest Banner */}
+              {/* Adventure Score */}
               <Animated.View
                 entering={FadeIn.duration(duration.normal).delay(80)}
+                style={styles.inlineSection}
+              >
+                <AdventureScoreCard onRefetchRef={scoreRefetchRef} />
+              </Animated.View>
+
+              {/* Adventure Streak */}
+              {profileData?.currentStreak || profileData?.longestStreak ? (
+                <Animated.View
+                  entering={FadeIn.duration(duration.normal).delay(160)}
+                  style={styles.inlineSection}
+                >
+                  <StreakBanner
+                    currentStreak={profileData?.currentStreak ?? 0}
+                    longestStreak={profileData?.longestStreak ?? 0}
+                  />
+                </Animated.View>
+              ) : null}
+
+              {/* Badges */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(240)}
+                style={styles.inlineSection}
+              >
+                <BadgeGrid onRefetchRef={badgesRefetchRef} />
+              </Animated.View>
+
+              {/* Active Quest Banner */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(320)}
                 style={styles.inlineSection}
               >
                 <ActiveQuestBanner />
@@ -216,26 +246,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
               {/* Recent Completions (rate unrated) */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(160)}
+                entering={FadeIn.duration(duration.normal).delay(400)}
                 style={styles.inlineSection}
               >
                 <RecentCompletions onRefetchRef={completionsRefetchRef} />
               </Animated.View>
 
-              {/* Following & Saved */}
+              {/* Saved */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(240)}
+                entering={FadeIn.duration(duration.normal).delay(480)}
                 style={styles.inlineSection}
               >
-                <Pressable
-                  style={styles.inlineAction}
-                  onPress={handleFollowingPress}
-                >
-                  <Text style={styles.inlineRowLabel}>
-                    Following ({profileData?.followingCount ?? 0})
-                  </Text>
-                  <ChevronRight size={14} color={colors.text.secondary} />
-                </Pressable>
                 <Pressable
                   style={[styles.inlineAction, styles.inlineActionLast]}
                   onPress={handleSavedPress}
@@ -247,7 +268,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
               {/* Stats */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(320)}
+                entering={FadeIn.duration(duration.normal).delay(480)}
                 style={styles.inlineSection}
               >
                 <UserStatsCard stats={stats} isLoading={statsLoading} />
@@ -255,7 +276,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
               {/* Account */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(400)}
+                entering={FadeIn.duration(duration.normal).delay(560)}
                 style={styles.inlineSection}
               >
                 <Text style={styles.sectionLabel}>ACCOUNT</Text>
@@ -277,7 +298,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
               {/* Appearance */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(480)}
+                entering={FadeIn.duration(duration.normal).delay(640)}
                 style={styles.inlineSection}
               >
                 <Text style={styles.sectionLabel}>APPEARANCE</Text>
@@ -321,7 +342,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
               {/* Actions */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(560)}
+                entering={FadeIn.duration(duration.normal).delay(720)}
                 style={styles.inlineSection}
               >
                 <Pressable

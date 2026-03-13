@@ -15,9 +15,7 @@ interface ScreenConfig {
   name: string;
   options?: Pick<
     NativeStackNavigationOptions,
-    | "animation"
-    | "animationDuration"
-    | "presentation"
+    "animation" | "animationDuration" | "presentation"
   >;
 }
 
@@ -56,10 +54,6 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
   },
   {
     name: "details",
-    options: { animation: "slide_from_right", animationDuration: 250 },
-  },
-  {
-    name: "following",
     options: { animation: "slide_from_right", animationDuration: 250 },
   },
   {

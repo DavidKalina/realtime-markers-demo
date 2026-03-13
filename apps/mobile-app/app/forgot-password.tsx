@@ -184,103 +184,104 @@ const ForgotPasswordScreen: React.FC = () => {
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg.primary,
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-    zIndex: 2,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing._10,
-  },
-  contentContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xl,
-  },
-  formContainer: {
-    width: "100%",
-    maxWidth: 400,
-    alignSelf: "center",
-    zIndex: 2,
-  },
-  formCard: {
-    width: "100%",
-    borderRadius: radius["2xl"],
-    padding: spacing.xl,
-    backgroundColor: colors.bg.card,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    shadowColor: "rgba(0, 0, 0, 0.1)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: radius.md,
-    elevation: 8,
-    position: "relative",
-    overflow: "hidden",
-  },
-  title: {
-    color: colors.text.primary,
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
-    fontFamily: fontFamily.mono,
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    color: colors.text.secondary,
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-    lineHeight: 20,
-    marginBottom: spacing.lg,
-  },
-  errorContainer: {
-    backgroundColor: colors.status.error.bg,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.status.error.border,
-  },
-  errorText: {
-    color: colors.status.error.text,
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-  },
-  buttonContainer: {
-    marginTop: spacing.xl,
-  },
-  sendButton: {
-    borderRadius: radius.md,
-    height: 55,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.accent.muted,
-    borderWidth: 1,
-    borderColor: colors.accent.border,
-  },
-  sendButtonText: {
-    color: colors.text.primary,
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 0.5,
-  },
-  backLinkContainer: {
-    alignItems: "center",
-    marginTop: spacing.lg,
-  },
-  backLink: {
-    color: colors.accent.primary,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bg.primary,
+    },
+    keyboardAvoidingView: {
+      flex: 1,
+      zIndex: 2,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: "center",
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing._10,
+    },
+    contentContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing.xl,
+    },
+    formContainer: {
+      width: "100%",
+      maxWidth: 400,
+      alignSelf: "center",
+      zIndex: 2,
+    },
+    formCard: {
+      width: "100%",
+      borderRadius: radius["2xl"],
+      padding: spacing.xl,
+      backgroundColor: colors.bg.card,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      shadowColor: "rgba(0, 0, 0, 0.1)",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.2,
+      shadowRadius: radius.md,
+      elevation: 8,
+      position: "relative",
+      overflow: "hidden",
+    },
+    title: {
+      color: colors.text.primary,
+      fontSize: fontSize.xl,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      marginBottom: spacing.xs,
+    },
+    subtitle: {
+      color: colors.text.secondary,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      lineHeight: 20,
+      marginBottom: spacing.lg,
+    },
+    errorContainer: {
+      backgroundColor: colors.status.error.bg,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.status.error.border,
+    },
+    errorText: {
+      color: colors.status.error.text,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+    },
+    buttonContainer: {
+      marginTop: spacing.xl,
+    },
+    sendButton: {
+      borderRadius: radius.md,
+      height: 55,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: colors.accent.muted,
+      borderWidth: 1,
+      borderColor: colors.accent.border,
+    },
+    sendButtonText: {
+      color: colors.text.primary,
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 0.5,
+    },
+    backLinkContainer: {
+      alignItems: "center",
+      marginTop: spacing.lg,
+    },
+    backLink: {
+      color: colors.accent.primary,
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+    },
+  });
 
 export default ForgotPasswordScreen;

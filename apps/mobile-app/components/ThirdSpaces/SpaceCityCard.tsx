@@ -1,7 +1,13 @@
 import React, { useEffect, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ChevronRight } from "lucide-react-native";
-import Svg, { Circle, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
+import Svg, {
+  Circle,
+  Defs,
+  LinearGradient,
+  Stop,
+  Rect,
+} from "react-native-svg";
 import Animated, {
   useSharedValue,
   useAnimatedProps,
@@ -111,7 +117,11 @@ const SpaceCityCard: React.FC<SpaceCityCardProps> = ({
 
   const isTop3 = rank <= 3;
   const medalColor = MEDAL_COLORS[rank];
-  const { strokeWidth: sw, radius: r, circumference } = getCircleMetrics(isTop3);
+  const {
+    strokeWidth: sw,
+    radius: r,
+    circumference,
+  } = getCircleMetrics(isTop3);
 
   return (
     <Pressable
@@ -123,30 +133,20 @@ const SpaceCityCard: React.FC<SpaceCityCardProps> = ({
       onPress={() => onPress(city)}
     >
       {rank === 1 && <GoldSheen />}
-      <Text
-        style={[
-          styles.rank,
-          medalColor && { color: medalColor },
-        ]}
-      >
-        {isTop3
-          ? rank === 1
-            ? "🥇"
-            : rank === 2
-              ? "🥈"
-              : "🥉"
-          : `#${rank}`}
+      <Text style={[styles.rank, medalColor && { color: medalColor }]}>
+        {isTop3 ? (rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉") : `#${rank}`}
       </Text>
 
       <View
         style={[
           styles.scoreCircle,
-          isTop3 && medalColor && {
-            shadowColor: medalColor,
-            shadowOpacity: 0.45,
-            shadowRadius: 6,
-            shadowOffset: { width: 0, height: 0 },
-          },
+          isTop3 &&
+            medalColor && {
+              shadowColor: medalColor,
+              shadowOpacity: 0.45,
+              shadowRadius: 6,
+              shadowOffset: { width: 0, height: 0 },
+            },
         ]}
       >
         <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>

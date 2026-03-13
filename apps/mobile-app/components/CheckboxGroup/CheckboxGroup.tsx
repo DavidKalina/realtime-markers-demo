@@ -59,20 +59,20 @@ const DefaultItemCard = <T extends SelectableItem>({
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   return (
-  <TouchableOpacity
-    onPress={onToggle}
-    style={[styles.itemCard, isSelected && styles.selectedItemCard]}
-  >
-    <View style={styles.itemInfo}>
-      <Text style={styles.itemName}>
-        {item.firstName || item.email || item.id}
-      </Text>
-      {item.lastName && (
-        <Text style={styles.itemDescription}>{item.lastName}</Text>
-      )}
-    </View>
-    <View style={[styles.checkbox, isSelected && styles.checkboxSelected]} />
-  </TouchableOpacity>
+    <TouchableOpacity
+      onPress={onToggle}
+      style={[styles.itemCard, isSelected && styles.selectedItemCard]}
+    >
+      <View style={styles.itemInfo}>
+        <Text style={styles.itemName}>
+          {item.firstName || item.email || item.id}
+        </Text>
+        {item.lastName && (
+          <Text style={styles.itemDescription}>{item.lastName}</Text>
+        )}
+      </View>
+      <View style={[styles.checkbox, isSelected && styles.checkboxSelected]} />
+    </TouchableOpacity>
   );
 };
 
@@ -208,147 +208,148 @@ export const CheckboxGroup = <T extends SelectableItem>({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    width: "100%",
-  },
-  button: {
-    backgroundColor: colors.border.subtle,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    alignItems: "center",
-  },
-  buttonText: {
-    color: colors.text.primary,
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: colors.bg.primary,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-  },
-  modalTitle: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-  },
-  closeButton: {
-    padding: spacing.sm,
-  },
-  listContent: {
-    padding: spacing.lg,
-  },
-  itemCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  selectedItemCard: {
-    borderColor: colors.accent.primary,
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  itemName: {
-    color: colors.text.primary,
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-    marginBottom: spacing.xs,
-  },
-  itemDescription: {
-    color: colors.text.secondary,
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: radius.md,
-    borderWidth: 2,
-    borderColor: colors.accent.primary,
-    marginLeft: spacing.md,
-  },
-  checkboxSelected: {
-    backgroundColor: colors.accent.primary,
-  },
-  centerContent: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    color: colors.text.secondary,
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-  },
-  errorText: {
-    color: "#f97583",
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-  },
-  emptyText: {
-    color: colors.text.secondary,
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-  },
-  dismissButtonContainer: {
-    padding: spacing["2xl"],
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
-    backgroundColor: colors.bg.primary,
-  },
-  dismissButton: {
-    backgroundColor: colors.accent.primary,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    alignItems: "center",
-  },
-  dismissButtonText: {
-    color: colors.fixed.black,
-    fontSize: fontSize.lg,
-    fontWeight: "800",
-    fontFamily: fontFamily.mono,
-  },
-  selectedItemsContainer: {
-    marginTop: spacing.md,
-    padding: spacing.md,
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  selectedItemDisplay: {
-    padding: spacing.sm,
-    backgroundColor: colors.bg.primary,
-    borderRadius: 6,
-    marginBottom: spacing.xs,
-  },
-  selectedItemText: {
-    color: colors.text.primary,
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-  },
-  selectedItemDescription: {
-    color: colors.text.secondary,
-    fontSize: fontSize.xs,
-    marginTop: 2,
-    fontFamily: fontFamily.mono,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      width: "100%",
+    },
+    button: {
+      backgroundColor: colors.border.subtle,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      borderRadius: radius.md,
+      padding: spacing.lg,
+      alignItems: "center",
+    },
+    buttonText: {
+      color: colors.text.primary,
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+    },
+    modalContainer: {
+      flex: 1,
+      backgroundColor: colors.bg.primary,
+    },
+    modalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.default,
+    },
+    modalTitle: {
+      fontSize: fontSize.xl,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+      fontFamily: fontFamily.mono,
+    },
+    closeButton: {
+      padding: spacing.sm,
+    },
+    listContent: {
+      padding: spacing.lg,
+    },
+    itemCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.md,
+      padding: spacing.lg,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    selectedItemCard: {
+      borderColor: colors.accent.primary,
+    },
+    itemInfo: {
+      flex: 1,
+    },
+    itemName: {
+      color: colors.text.primary,
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+      marginBottom: spacing.xs,
+    },
+    itemDescription: {
+      color: colors.text.secondary,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+    },
+    checkbox: {
+      width: 24,
+      height: 24,
+      borderRadius: radius.md,
+      borderWidth: 2,
+      borderColor: colors.accent.primary,
+      marginLeft: spacing.md,
+    },
+    checkboxSelected: {
+      backgroundColor: colors.accent.primary,
+    },
+    centerContent: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    loadingText: {
+      color: colors.text.secondary,
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+    },
+    errorText: {
+      color: "#f97583",
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+    },
+    emptyText: {
+      color: colors.text.secondary,
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+    },
+    dismissButtonContainer: {
+      padding: spacing["2xl"],
+      borderTopWidth: 1,
+      borderTopColor: colors.border.default,
+      backgroundColor: colors.bg.primary,
+    },
+    dismissButton: {
+      backgroundColor: colors.accent.primary,
+      borderRadius: radius.md,
+      padding: spacing.lg,
+      alignItems: "center",
+    },
+    dismissButtonText: {
+      color: colors.fixed.black,
+      fontSize: fontSize.lg,
+      fontWeight: "800",
+      fontFamily: fontFamily.mono,
+    },
+    selectedItemsContainer: {
+      marginTop: spacing.md,
+      padding: spacing.md,
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    selectedItemDisplay: {
+      padding: spacing.sm,
+      backgroundColor: colors.bg.primary,
+      borderRadius: 6,
+      marginBottom: spacing.xs,
+    },
+    selectedItemText: {
+      color: colors.text.primary,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+    },
+    selectedItemDescription: {
+      color: colors.text.secondary,
+      fontSize: fontSize.xs,
+      marginTop: 2,
+      fontFamily: fontFamily.mono,
+    },
+  });

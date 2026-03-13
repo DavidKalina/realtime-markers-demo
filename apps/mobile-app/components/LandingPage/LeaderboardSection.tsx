@@ -103,76 +103,77 @@ const ContributorsSection: React.FC<ContributorsSectionProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    marginBottom: spacing["3xl"],
-  },
-  title: {
-    fontSize: 12,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 1.5,
-    textTransform: "uppercase" as const,
-  },
-  subtitle: {
-    fontSize: fontSize.xs,
-    color: colors.text.disabled,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.mono,
-  },
-  listContainer: {
-    paddingHorizontal: spacing.lg,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing.sm + 2,
-    gap: spacing._10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border.default,
-  },
-  rowLast: {
-    borderBottomWidth: 0,
-  },
-  rowHighlight: {
-    opacity: 1,
-  },
-  rank: {
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.bold,
-    color: colors.text.secondary,
-  },
-  info: {
-    flex: 1,
-    gap: 2,
-  },
-  name: {
-    fontSize: 13,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-    lineHeight: 18,
-  },
-  nameHighlight: {
-    color: colors.accent.primary,
-  },
-  meta: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    color: colors.text.disabled,
-    lineHeight: 16,
-  },
-  score: {
-    fontSize: 13,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      marginBottom: spacing["3xl"],
+    },
+    title: {
+      fontSize: 12,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      marginBottom: spacing.xs,
+      paddingHorizontal: spacing.lg,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1.5,
+      textTransform: "uppercase" as const,
+    },
+    subtitle: {
+      fontSize: fontSize.xs,
+      color: colors.text.disabled,
+      marginBottom: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      fontFamily: fontFamily.mono,
+    },
+    listContainer: {
+      paddingHorizontal: spacing.lg,
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: spacing.sm + 2,
+      gap: spacing._10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.default,
+    },
+    rowLast: {
+      borderBottomWidth: 0,
+    },
+    rowHighlight: {
+      opacity: 1,
+    },
+    rank: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: colors.text.secondary,
+    },
+    info: {
+      flex: 1,
+      gap: 2,
+    },
+    name: {
+      fontSize: 13,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+      fontFamily: fontFamily.mono,
+      lineHeight: 18,
+    },
+    nameHighlight: {
+      color: colors.accent.primary,
+    },
+    meta: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+      lineHeight: 16,
+    },
+    score: {
+      fontSize: 13,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+    },
+  });
 
 export default ContributorsSection;

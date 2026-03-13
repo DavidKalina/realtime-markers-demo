@@ -207,6 +207,25 @@ export class PushNotificationService {
         itemId: data.itemId as string,
         completed: data.completed as boolean,
       });
+    } else if (data?.type === "badge_unlocked") {
+      // Badge unlocked — navigate to profile/badges
+      console.log("Badge unlocked:", data.badgeName, data.badgeEmoji);
+      eventBroker.emit(EventTypes.NOTIFICATION, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        title: `${data.badgeEmoji} Badge Unlocked!`,
+        message: data.badgeName as string,
+        notificationType: "success" as const,
+      });
+    } else if (data?.type === "streak_at_risk") {
+      // Streak at risk — navigate to itineraries to plan
+      console.log("Streak at risk, current:", data.currentStreak);
+    } else if (data?.type === "milestone") {
+      // Completion milestone
+      console.log("Milestone reached:", data.milestoneType, data.count);
+    } else if (data?.type === "weekly_nudge") {
+      // Weekly nudge — navigate to itinerary builder
+      console.log("Weekly nudge received");
     } else if (data?.type === "follow_activity" && data.eventId) {
       // A followed user saved/rsvp'd/scanned an event
       console.log("Follow activity notification, event:", data.eventId);

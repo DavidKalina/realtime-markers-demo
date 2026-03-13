@@ -46,9 +46,7 @@ export class JobHandlerRegistry {
 
     // Register itinerary handler
     if (this.itineraryService) {
-      this.registerHandler(
-        new GenerateItineraryHandler(this.itineraryService),
-      );
+      this.registerHandler(new GenerateItineraryHandler(this.itineraryService));
     }
 
     // Conditionally register import handler (opt-in via TICKETMASTER_API_KEY)

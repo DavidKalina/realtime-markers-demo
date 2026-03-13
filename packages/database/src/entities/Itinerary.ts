@@ -80,6 +80,9 @@ export class Itinerary {
   @Column({ name: "share_token", type: "uuid", nullable: true })
   shareToken?: string;
 
+  @Column({ type: "varchar", length: 50, nullable: true })
+  intention?: string;
+
   @Column({ type: "jsonb", nullable: true })
   forecast?: Record<string, unknown>;
 

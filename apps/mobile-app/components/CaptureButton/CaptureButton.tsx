@@ -208,28 +208,29 @@ export const CaptureButton: React.FC<CaptureButtonProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  button: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  outerBorder: {
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    backgroundColor: colors.bg.cardAlt,
-  },
-  innerCircle: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  iconContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    opacity: 0,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    button: {
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    outerBorder: {
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 2,
+      backgroundColor: colors.bg.cardAlt,
+    },
+    innerCircle: {
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    iconContainer: {
+      justifyContent: "center",
+      alignItems: "center",
+      opacity: 0,
+    },
+  });

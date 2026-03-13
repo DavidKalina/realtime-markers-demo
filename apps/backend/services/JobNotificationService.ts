@@ -252,8 +252,7 @@ export class JobNotificationService {
         return {
           title: "Itinerary generation failed",
           body:
-            message ||
-            "We couldn't build your itinerary. Please try again.",
+            message || "We couldn't build your itinerary. Please try again.",
         };
 
       default:

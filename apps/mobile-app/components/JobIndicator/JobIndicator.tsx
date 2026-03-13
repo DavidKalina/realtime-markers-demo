@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+} from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -247,42 +253,43 @@ const JobIndicator: React.FC = () => {
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    width: 160,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  marqueeClip: {
-    overflow: "hidden",
-    maxWidth: LABEL_MAX_WIDTH,
-    flexShrink: 1,
-  },
-  measureText: {
-    position: "absolute",
-    opacity: 0,
-    top: -9999,
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-  },
-  label: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    opacity: 0.85,
-  },
-  progressTrack: {
-    height: 1.5,
-    backgroundColor: colors.border.subtle,
-    borderRadius: 1,
-    marginTop: 3,
-  },
-  progressBar: {
-    height: 1.5,
-    borderRadius: 1,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      width: 160,
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.xs,
+    },
+    marqueeClip: {
+      overflow: "hidden",
+      maxWidth: LABEL_MAX_WIDTH,
+      flexShrink: 1,
+    },
+    measureText: {
+      position: "absolute",
+      opacity: 0,
+      top: -9999,
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+    },
+    label: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      opacity: 0.85,
+    },
+    progressTrack: {
+      height: 1.5,
+      backgroundColor: colors.border.subtle,
+      borderRadius: 1,
+      marginTop: 3,
+    },
+    progressBar: {
+      height: 1.5,
+      borderRadius: 1,
+    },
+  });
 
 export default React.memo(JobIndicator);

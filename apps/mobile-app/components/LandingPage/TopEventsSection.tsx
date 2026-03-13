@@ -18,7 +18,9 @@ interface TopEventsSectionProps {
   events: EventType[];
 }
 
-const TopEventsSection: React.FC<TopEventsSectionProps> = ({ events: rawEvents }) => {
+const TopEventsSection: React.FC<TopEventsSectionProps> = ({
+  events: rawEvents,
+}) => {
   const events = useMemo(() => filterExpiredEvents(rawEvents), [rawEvents]);
   const router = useRouter();
   const colors = useColors();
@@ -43,8 +45,7 @@ const TopEventsSection: React.FC<TopEventsSectionProps> = ({ events: rawEvents }
         <Text style={styles.sectionTitle}>TOP EVENTS</Text>
       </View>
       {events.map((event, index) => {
-        const engagement =
-          (event.saveCount ?? 0) + (event.viewCount ?? 0);
+        const engagement = (event.saveCount ?? 0) + (event.viewCount ?? 0);
         const firstCat = event.categories?.[0];
         const categoryName = firstCat
           ? typeof firstCat === "string"
@@ -73,9 +74,7 @@ const TopEventsSection: React.FC<TopEventsSectionProps> = ({ events: rawEvents }
               <Text style={styles.rankText}>{index + 1}</Text>
             </View>
 
-            {event.emoji && (
-              <Text style={styles.emoji}>{event.emoji}</Text>
-            )}
+            {event.emoji && <Text style={styles.emoji}>{event.emoji}</Text>}
             <View style={styles.eventInfo}>
               <Text style={styles.eventName} numberOfLines={1}>
                 {event.title}
@@ -100,89 +99,90 @@ const TopEventsSection: React.FC<TopEventsSectionProps> = ({ events: rawEvents }
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    marginBottom: spacing["3xl"],
-    paddingHorizontal: spacing.lg,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-  },
-  item: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-  },
-  itemLast: {
-    borderBottomWidth: 0,
-  },
-  itemPressed: {
-    backgroundColor: colors.bg.card,
-  },
-  rankBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.bg.elevated,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  rankText: {
-    fontSize: 11,
-    fontWeight: fontWeight.bold,
-    fontFamily: fontFamily.mono,
-    color: colors.text.primary,
-  },
-  emoji: {
-    fontSize: 18,
-  },
-  eventInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  eventName: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-  },
-  eventMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  categoryPill: {},
-  categoryText: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    color: colors.text.disabled,
-  },
-  dateText: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-  },
-  engagementText: {
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.bold,
-    color: colors.text.secondary,
-    minWidth: 24,
-    textAlign: "right",
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      marginBottom: spacing["3xl"],
+      paddingHorizontal: spacing.lg,
+    },
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.xs,
+      marginBottom: spacing.md,
+    },
+    sectionTitle: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1.5,
+      textTransform: "uppercase",
+    },
+    item: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      paddingVertical: spacing.sm + 2,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.default,
+    },
+    itemLast: {
+      borderBottomWidth: 0,
+    },
+    itemPressed: {
+      backgroundColor: colors.bg.card,
+    },
+    rankBadge: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.bg.elevated,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    rankText: {
+      fontSize: 11,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+    },
+    emoji: {
+      fontSize: 18,
+    },
+    eventInfo: {
+      flex: 1,
+      gap: 2,
+    },
+    eventName: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+    },
+    eventMeta: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+    },
+    categoryPill: {},
+    categoryText: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+    },
+    dateText: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    engagementText: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: colors.text.secondary,
+      minWidth: 24,
+      textAlign: "right",
+    },
+  });
 
 export default TopEventsSection;

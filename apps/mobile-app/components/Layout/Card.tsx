@@ -17,25 +17,26 @@ interface CardProps {
 }
 
 // Memoize the card styles
-const createCardStyles = (colors: Colors) => StyleSheet.create({
-  card: {
-    backgroundColor: colors.bg.card,
-    borderRadius: radius["2xl"],
-    padding: spacing.lg,
-    marginVertical: spacing.sm,
-  },
-  border: {
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  shadow: {
-    shadowColor: colors.shadow.default,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-});
+const createCardStyles = (colors: Colors) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: colors.bg.card,
+      borderRadius: radius["2xl"],
+      padding: spacing.lg,
+      marginVertical: spacing.sm,
+    },
+    border: {
+      borderWidth: 1,
+      borderColor: colors.border.default,
+    },
+    shadow: {
+      shadowColor: colors.shadow.default,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+  });
 
 const Card: React.FC<CardProps> = React.memo(
   ({

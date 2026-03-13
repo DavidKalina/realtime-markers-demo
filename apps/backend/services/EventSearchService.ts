@@ -870,7 +870,9 @@ export class EventSearchServiceImpl implements EventSearchService {
       .where("event.status IN (:...statuses)", {
         statuses: ["VERIFIED", "PENDING"],
       })
-      .andWhere("(event.isRecurring = true OR event.eventDate >= NOW() - INTERVAL '30 days')")
+      .andWhere(
+        "(event.isRecurring = true OR event.eventDate >= NOW() - INTERVAL '30 days')",
+      )
       .andWhere(
         "(LOWER(event.city) = LOWER(:city) OR LOWER(event.city) = LOWER(:cityName))",
         { city, cityName },

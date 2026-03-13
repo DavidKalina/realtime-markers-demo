@@ -21,6 +21,7 @@ const ENTITY_TO_TABLE_MAPPING: Record<string, string> = {
   ItineraryItem: "itinerary_items",
   ItineraryCheckin: "itinerary_checkins",
   ItineraryRitual: "itinerary_rituals",
+  UserBadge: "user_badges",
 };
 
 /**

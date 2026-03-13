@@ -32,7 +32,11 @@ export interface RedisService {
   ) => void;
 
   // Viewport management
-  updateViewport: (userId: string, viewport: ViewportData, zoom?: number) => Promise<void>;
+  updateViewport: (
+    userId: string,
+    viewport: ViewportData,
+    zoom?: number,
+  ) => Promise<void>;
 
   // Client type management
   setClientType: (userId: string, clientType: string) => Promise<void>;

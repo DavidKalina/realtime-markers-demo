@@ -244,226 +244,227 @@ const AdminOriginalImageViewer: React.FC<AdminOriginalImageViewerProps> = ({
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    backgroundColor: colors.bg.card,
-    borderRadius: radius["2xl"],
-    padding: 0,
-    marginVertical: spacing.lg,
-    shadowColor: colors.overlay.light,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      backgroundColor: colors.bg.card,
+      borderRadius: radius["2xl"],
+      padding: 0,
+      marginVertical: spacing.lg,
+      shadowColor: colors.overlay.light,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
+      elevation: 8,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: colors.border.default,
+    },
 
-  // Gradient header
-  headerGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 50,
-  },
+    // Gradient header
+    headerGradient: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: 0,
+      height: 50,
+    },
 
-  // Card header
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-  },
+    // Card header
+    cardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.default,
+    },
 
-  cardIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: spacing.lg,
-    backgroundColor: "rgba(255, 152, 0, 0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 152, 0, 0.3)",
-  },
+    cardIconContainer: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.md,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: spacing.lg,
+      backgroundColor: "rgba(255, 152, 0, 0.15)",
+      borderWidth: 1,
+      borderColor: "rgba(255, 152, 0, 0.3)",
+    },
 
-  cardTitle: {
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.bold,
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-    flex: 1,
-    letterSpacing: 0.5,
-  },
+    cardTitle: {
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.bold,
+      color: colors.text.primary,
+      fontFamily: fontFamily.mono,
+      flex: 1,
+      letterSpacing: 0.5,
+    },
 
-  // Admin badge
-  adminBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 152, 0, 0.15)",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius._10,
-    borderWidth: 1,
-    borderColor: "rgba(255, 152, 0, 0.3)",
-  },
+    // Admin badge
+    adminBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "rgba(255, 152, 0, 0.15)",
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: radius._10,
+      borderWidth: 1,
+      borderColor: "rgba(255, 152, 0, 0.3)",
+    },
 
-  adminText: {
-    fontSize: 11,
-    color: "#ff9800",
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    marginLeft: spacing._6,
-    letterSpacing: 0.5,
-  },
+    adminText: {
+      fontSize: 11,
+      color: "#ff9800",
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      marginLeft: spacing._6,
+      letterSpacing: 0.5,
+    },
 
-  // Card content
-  cardContent: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xl,
-  },
+    // Card content
+    cardContent: {
+      paddingHorizontal: spacing.xl,
+      paddingBottom: spacing.xl,
+    },
 
-  // Loading state
-  loadingContainer: {
-    height: 180,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.border.subtle,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
+    // Loading state
+    loadingContainer: {
+      height: 180,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: colors.border.subtle,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
 
-  loadingText: {
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    fontSize: 13,
-    marginTop: spacing.md,
-  },
+    loadingText: {
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+      fontSize: 13,
+      marginTop: spacing.md,
+    },
 
-  // Error state
-  errorContainer: {
-    height: 100,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.border.subtle,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
+    // Error state
+    errorContainer: {
+      height: 100,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: colors.border.subtle,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
 
-  errorText: {
-    color: "#f97583",
-    fontFamily: fontFamily.mono,
-    fontSize: 13,
-    textAlign: "center",
-    paddingHorizontal: spacing.xl,
-  },
+    errorText: {
+      color: "#f97583",
+      fontFamily: fontFamily.mono,
+      fontSize: 13,
+      textAlign: "center",
+      paddingHorizontal: spacing.xl,
+    },
 
-  // Image container
-  imageContainer: {
-    position: "relative",
-    backgroundColor: colors.border.subtle,
-    borderRadius: radius.xl,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
+    // Image container
+    imageContainer: {
+      position: "relative",
+      backgroundColor: colors.border.subtle,
+      borderRadius: radius.xl,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
 
-  thumbnail: {
-    width: "100%",
-    height: 220,
-    borderRadius: radius.xl,
-  },
+    thumbnail: {
+      width: "100%",
+      height: 220,
+      borderRadius: radius.xl,
+    },
 
-  viewOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.overlay.medium,
-    paddingVertical: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+    viewOverlay: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: colors.overlay.medium,
+      paddingVertical: spacing.md,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+    },
 
-  viewText: {
-    color: colors.fixed.white,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    marginLeft: spacing.sm,
-  },
+    viewText: {
+      color: colors.fixed.white,
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      marginLeft: spacing.sm,
+    },
 
-  // No image state
-  noImageContainer: {
-    height: 100,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.border.subtle,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
+    // No image state
+    noImageContainer: {
+      height: 100,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: colors.border.subtle,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
 
-  noImageText: {
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.sm,
-  },
+    noImageText: {
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+    },
 
-  // Modal styles
-  modalContainer: {
-    flex: 1,
-    backgroundColor: colors.overlay.heavy,
-  },
+    // Modal styles
+    modalContainer: {
+      flex: 1,
+      backgroundColor: colors.overlay.heavy,
+    },
 
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: spacing.lg,
-    paddingTop: spacing._50,
-    backgroundColor: colors.overlay.light,
-    zIndex: 10,
-  },
+    modalHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      padding: spacing.lg,
+      paddingTop: spacing._50,
+      backgroundColor: colors.overlay.light,
+      zIndex: 10,
+    },
 
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.border.subtle,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
+    closeButton: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.md,
+      backgroundColor: colors.border.subtle,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
 
-  shareButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.border.subtle,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
+    shareButton: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.md,
+      backgroundColor: colors.border.subtle,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
 
-  modalContent: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+    modalContent: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
 
-  fullImage: {
-    width: windowWidth,
-    height: windowHeight * 0.7,
-  },
-});
+    fullImage: {
+      width: windowWidth,
+      height: windowHeight * 0.7,
+    },
+  });
 
 export default AdminOriginalImageViewer;

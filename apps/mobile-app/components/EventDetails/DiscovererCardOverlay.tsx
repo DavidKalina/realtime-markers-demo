@@ -1,12 +1,10 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
-  ActivityIndicator,
   Dimensions,
   Modal,
   Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import Animated, {
@@ -31,9 +29,6 @@ import {
 } from "@/theme";
 import { getTierByName } from "@/utils/gamification";
 import { useDeviceMotionTilt } from "./useDeviceMotionTilt";
-import { useAuth } from "@/contexts/AuthContext";
-import { apiClient } from "@/services/ApiClient";
-import { invalidateProfileCache } from "@/hooks/useProfile";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_ASPECT = 1.586; // Credit card ratio
@@ -57,7 +52,6 @@ const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 interface DiscovererCardOverlayProps {
   visible: boolean;
   onDismiss: () => void;
-  userId?: string;
   firstName?: string;
   lastName?: string;
   currentTier?: string;
@@ -66,7 +60,6 @@ interface DiscovererCardOverlayProps {
   scanCount?: number;
   saveCount?: number;
   viewCount?: number;
-  followingCount?: number;
   memberSince?: string;
   weeklyScanCount?: number;
 }
@@ -74,7 +67,6 @@ interface DiscovererCardOverlayProps {
 const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
   visible,
   onDismiss,
-  userId,
   firstName,
   lastName,
   currentTier,
@@ -83,16 +75,11 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
   scanCount,
   saveCount,
   viewCount,
-  followingCount,
   memberSince,
   weeklyScanCount,
 }) => {
   const colors = useColors();
   const overlayStyles = useMemo(() => createOverlayStyles(colors), [colors]);
-  const { user } = useAuth();
-  const isSelf = !!(userId && user?.id && userId === user.id);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followLoading, setFollowLoading] = useState(false);
   const scrimOpacity = useSharedValue(0);
   const cardScale = useSharedValue(0.85);
   const cardOpacity = useSharedValue(0);
@@ -125,31 +112,7 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
     scrimOpacity.value = withTiming(1, { duration: 300 });
     cardScale.value = withSpring(1, spring.firm);
     cardOpacity.value = withTiming(1, { duration: 200 });
-
-    if (userId && !isSelf) {
-      apiClient.follows
-        .isFollowing(userId)
-        .then((res) => setIsFollowing(res.following))
-        .catch(() => {});
-    }
-  }, [scrimOpacity, cardScale, cardOpacity, userId, isSelf]);
-
-  const handleToggleFollow = useCallback(async () => {
-    if (!userId || followLoading) return;
-    setFollowLoading(true);
-    const prev = isFollowing;
-    setIsFollowing(!prev);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      const res = await apiClient.follows.toggleFollow(userId);
-      setIsFollowing(res.following);
-      invalidateProfileCache();
-    } catch {
-      setIsFollowing(prev);
-    } finally {
-      setFollowLoading(false);
-    }
-  }, [userId, followLoading, isFollowing]);
+  }, [scrimOpacity, cardScale, cardOpacity]);
 
   const handleDismiss = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -317,173 +280,118 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
               </AnimatedSvg>
             </View>
           </Animated.View>
-
-          {/* Follow button — below card */}
-          {userId && !isSelf && (
-            <TouchableOpacity
-              style={[
-                overlayStyles.followButton,
-                isFollowing && overlayStyles.followingButton,
-              ]}
-              onPress={handleToggleFollow}
-              activeOpacity={0.7}
-              disabled={followLoading}
-            >
-              {followLoading ? (
-                <ActivityIndicator
-                  size="small"
-                  color={
-                    isFollowing ? colors.text.secondary : colors.text.primary
-                  }
-                />
-              ) : (
-                <Text
-                  style={[
-                    overlayStyles.followButtonText,
-                    isFollowing && overlayStyles.followingButtonText,
-                  ]}
-                >
-                  {isFollowing ? "FOLLOWING" : "FOLLOW"}
-                </Text>
-              )}
-            </TouchableOpacity>
-          )}
         </Animated.View>
       </View>
     </Modal>
   );
 };
 
-const createOverlayStyles = (colors: Colors) => StyleSheet.create({
-  scrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-  },
-  centerContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cardFace: {
-    width: OVERLAY_CARD_WIDTH,
-    height: OVERLAY_CARD_HEIGHT,
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    padding: spacing.md,
-    overflow: "hidden",
-    justifyContent: "space-between",
-  },
-  topRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  tierText: {
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-  },
-  watermarkContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  watermark: {
-    fontWeight: fontWeight.bold,
-    fontFamily: fontFamily.mono,
-    color: "rgba(255, 255, 255, 0.03)",
-    letterSpacing: 5,
-    textShadowColor: "rgba(0, 0, 0, 0.6)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 0,
-    transform: [{ rotate: "-18deg" }],
-  },
-  name: {
-    fontSize: fontSize.md,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.bold,
-    color: colors.text.primary,
-    letterSpacing: 1,
-  },
-  bottomSection: {
-    gap: spacing.xs,
-  },
-  memberSince: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-    letterSpacing: 0.5,
-  },
-  weeklyBadge: {
-    alignSelf: "flex-end",
-    borderWidth: 1,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  weeklyText: {
-    fontSize: 10,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-  },
-  bottomRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  followButton: {
-    marginTop: spacing.md,
-    paddingVertical: 10,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.text.primary,
-    alignSelf: "center",
-    minWidth: 140,
-    alignItems: "center",
-  },
-  followingButton: {
-    borderColor: colors.text.secondary,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-  },
-  followButtonText: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.bold,
-    color: colors.text.primary,
-    letterSpacing: 1.5,
-  },
-  followingButtonText: {
-    color: colors.text.secondary,
-  },
-  stat: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 4,
-  },
-  statValue: {
-    fontSize: fontSize.lg,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.bold,
-    color: colors.text.primary,
-  },
-  statLabel: {
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.disabled,
-    letterSpacing: 1,
-  },
-  sheenOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-  },
-});
+const createOverlayStyles = (colors: Colors) =>
+  StyleSheet.create({
+    scrim: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0, 0, 0, 0.75)",
+    },
+    centerContainer: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    cardFace: {
+      width: OVERLAY_CARD_WIDTH,
+      height: OVERLAY_CARD_HEIGHT,
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      padding: spacing.md,
+      overflow: "hidden",
+      justifyContent: "space-between",
+    },
+    topRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    tierText: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+    },
+    watermarkContainer: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    watermark: {
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: "rgba(255, 255, 255, 0.03)",
+      letterSpacing: 5,
+      textShadowColor: "rgba(0, 0, 0, 0.6)",
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 0,
+      transform: [{ rotate: "-18deg" }],
+    },
+    name: {
+      fontSize: fontSize.md,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: colors.text.primary,
+      letterSpacing: 1,
+    },
+    bottomSection: {
+      gap: spacing.xs,
+    },
+    memberSince: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      letterSpacing: 0.5,
+    },
+    weeklyBadge: {
+      alignSelf: "flex-end",
+      borderWidth: 1,
+      borderRadius: radius.full,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+    },
+    weeklyText: {
+      fontSize: 10,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+    },
+    bottomRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    stat: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: 4,
+    },
+    statValue: {
+      fontSize: fontSize.lg,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: colors.text.primary,
+    },
+    statLabel: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.disabled,
+      letterSpacing: 1,
+    },
+    sheenOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+    },
+  });
 
 export default DiscovererCardOverlay;

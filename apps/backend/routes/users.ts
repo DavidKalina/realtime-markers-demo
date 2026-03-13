@@ -7,6 +7,8 @@ import {
   getFollowingHandler,
 } from "../handlers/followHandlers";
 import { getUserStats } from "../handlers/userStatsHandler";
+import { getUserBadges } from "../handlers/badgeHandlers";
+import { getAdventureScore } from "../handlers/adventureScoreHandler";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
@@ -31,6 +33,8 @@ usersRouter.post("/location", authMiddleware, updateLocationHandler);
 
 // Stats route (before /:userId to avoid param conflict)
 usersRouter.get("/me/stats", authMiddleware, getUserStats);
+usersRouter.get("/me/badges", authMiddleware, getUserBadges);
+usersRouter.get("/me/adventure-score", authMiddleware, getAdventureScore);
 
 // Follow routes
 usersRouter.post("/:userId/follow", authMiddleware, toggleFollowHandler);

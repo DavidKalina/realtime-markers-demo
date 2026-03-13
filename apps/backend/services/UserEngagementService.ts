@@ -511,7 +511,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
             try {
               await this.gamificationService.awardXP(
                 userId,
-                100,
+                25,
                 "scan_event",
                 transactionalEntityManager,
               );
@@ -519,7 +519,7 @@ export class UserEngagementServiceImpl implements UserEngagementService {
               if (previousScanCount === 0) {
                 await this.gamificationService.awardXP(
                   userId,
-                  50,
+                  25,
                   "first_scan_bonus",
                   transactionalEntityManager,
                 );

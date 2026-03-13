@@ -41,10 +41,7 @@ const ANIMATIONS = {
 // Static shadow style — shadow opacity was animating 0.3→0.3 (no-op)
 const staticShadowStyle = {
   opacity: 0.3,
-  transform: [
-    { translateX: SHADOW_OFFSET.x },
-    { translateY: SHADOW_OFFSET.y },
-  ],
+  transform: [{ translateX: SHADOW_OFFSET.x }, { translateY: SHADOW_OFFSET.y }],
 };
 
 interface EmojiMapMarkerProps {

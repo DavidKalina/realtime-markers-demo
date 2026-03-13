@@ -182,14 +182,15 @@ export const MapRippleEffect = React.memo(
   arePropsEqual,
 );
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  ring: {
-    position: "absolute",
-    width: RING_SIZE,
-    height: RING_SIZE,
-    borderRadius: RING_SIZE / 2,
-    backgroundColor: "transparent",
-    borderWidth: 2,
-    borderColor: colors.accent.primary,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    ring: {
+      position: "absolute",
+      width: RING_SIZE,
+      height: RING_SIZE,
+      borderRadius: RING_SIZE / 2,
+      backgroundColor: "transparent",
+      borderWidth: 2,
+      borderColor: colors.accent.primary,
+    },
+  });

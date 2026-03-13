@@ -1,5 +1,18 @@
-import React, { useMemo, useCallback, useRef, useState, useEffect } from "react";
-import { Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import React, {
+  useMemo,
+  useCallback,
+  useRef,
+  useState,
+  useEffect,
+} from "react";
+import {
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import Animated, {
   Easing,
   FadeIn,
@@ -69,7 +82,9 @@ const TrailDetails: React.FC<TrailDetailsProps> = ({ trail, onBack }) => {
   const [hasPlayed, setHasPlayed] = useState(false);
 
   const overlayOpacity = useSharedValue(1);
-  const overlayStyle = useAnimatedStyle(() => ({ opacity: overlayOpacity.value }));
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: overlayOpacity.value,
+  }));
   const progressValue = useSharedValue(0);
   const progressStyle = useAnimatedStyle(() => ({
     width: `${progressValue.value * 100}%`,
@@ -102,7 +117,10 @@ const TrailDetails: React.FC<TrailDetailsProps> = ({ trail, onBack }) => {
       if (lat < minLat) minLat = lat;
       if (lat > maxLat) maxLat = lat;
     }
-    const center: [number, number] = [(minLng + maxLng) / 2, (minLat + maxLat) / 2];
+    const center: [number, number] = [
+      (minLng + maxLng) / 2,
+      (minLat + maxLat) / 2,
+    ];
     const latDelta = maxLat - minLat;
     const lngDelta = maxLng - minLng;
     const maxDelta = Math.max(latDelta, lngDelta, 0.001);
@@ -172,9 +190,7 @@ const TrailDetails: React.FC<TrailDetailsProps> = ({ trail, onBack }) => {
         }
 
         // Ease in/out for a gentle start and stop
-        const ease = t < 0.5
-          ? 2 * t * t
-          : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
         // Lerp position
         const lng = start[0] + (end[0] - start[0]) * ease;
@@ -247,10 +263,7 @@ const TrailDetails: React.FC<TrailDetailsProps> = ({ trail, onBack }) => {
       extendBannerToStatusBar
     >
       {/* Map preview with trail line + fly-along */}
-      <View
-        style={styles.mapContainer}
-        onLayout={onContainerLayout}
-      >
+      <View style={styles.mapContainer} onLayout={onContainerLayout}>
         {isMapSafeToMount && (
           <MapboxGL.MapView
             pitchEnabled={false}
@@ -320,9 +333,7 @@ const TrailDetails: React.FC<TrailDetailsProps> = ({ trail, onBack }) => {
 
       {/* Hero: title + label + stat chips */}
       <View style={styles.hero}>
-        <Animated.View
-          entering={FadeInDown.duration(300).delay(0).springify()}
-        >
+        <Animated.View entering={FadeInDown.duration(300).delay(0).springify()}>
           <Text style={styles.trailTitle}>{trail.name}</Text>
           <View style={styles.heroLabelRow}>
             <View style={styles.heroLabelPill}>
@@ -338,23 +349,43 @@ const TrailDetails: React.FC<TrailDetailsProps> = ({ trail, onBack }) => {
           entering={FadeInDown.duration(300).delay(100).springify()}
           style={styles.chipRow}
         >
-          <View style={[styles.statChip, { borderColor: "rgba(134, 239, 172, 0.25)" }]}>
+          <View
+            style={[
+              styles.statChip,
+              { borderColor: "rgba(134, 239, 172, 0.25)" },
+            ]}
+          >
             <Text style={[styles.statChipValue, { color: GREEN_ACCENT }]}>
               {lengthLabel}
             </Text>
           </View>
-          <View style={[styles.statChip, { borderColor: "rgba(147, 197, 253, 0.25)" }]}>
+          <View
+            style={[
+              styles.statChip,
+              { borderColor: "rgba(147, 197, 253, 0.25)" },
+            ]}
+          >
             <Text style={[styles.statChipValue, { color: "#93c5fd" }]}>
               {milesLabel}
             </Text>
           </View>
-          <View style={[styles.statChip, { borderColor: "rgba(252, 211, 77, 0.25)" }]}>
+          <View
+            style={[
+              styles.statChip,
+              { borderColor: "rgba(252, 211, 77, 0.25)" },
+            ]}
+          >
             <Text style={[styles.statChipValue, { color: "#fcd34d" }]}>
               {trail.surface}
             </Text>
           </View>
           {trail.lit !== null && (
-            <View style={[styles.statChip, { borderColor: "rgba(196, 181, 253, 0.25)" }]}>
+            <View
+              style={[
+                styles.statChip,
+                { borderColor: "rgba(196, 181, 253, 0.25)" },
+              ]}
+            >
               <Text style={[styles.statChipValue, { color: "#c4b5fd" }]}>
                 {trail.lit ? "Lit" : "Unlit"}
               </Text>
@@ -377,8 +408,7 @@ const TrailDetails: React.FC<TrailDetailsProps> = ({ trail, onBack }) => {
         >
           <Text style={styles.infoCardTitle}>About</Text>
           <Text style={styles.descriptionText}>
-            {trail.name} is a {lengthLabel} ({milesLabel}){" "}
-            {trail.surface} trail
+            {trail.name} is a {lengthLabel} ({milesLabel}) {trail.surface} trail
             {trail.lit === true
               ? ", lit for night use"
               : trail.lit === false
@@ -408,9 +438,7 @@ const TrailDetails: React.FC<TrailDetailsProps> = ({ trail, onBack }) => {
             {trail.lit !== null && (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Lit at night</Text>
-                <Text style={styles.infoValue}>
-                  {trail.lit ? "Yes" : "No"}
-                </Text>
+                <Text style={styles.infoValue}>{trail.lit ? "Yes" : "No"}</Text>
               </View>
             )}
             <View style={styles.infoRow}>

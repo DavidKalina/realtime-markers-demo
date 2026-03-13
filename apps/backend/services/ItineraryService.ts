@@ -14,6 +14,15 @@ import type { OverpassService, Trail } from "./shared/OverpassService";
 import type { WeatherService, DayForecast } from "./shared/WeatherService";
 import type { GamificationService } from "./GamificationService";
 
+export interface AnchorStopInput {
+  coordinates: [number, number]; // [lng, lat]
+  label?: string;
+  address?: string;
+  placeId?: string;
+  primaryType?: string;
+  rating?: number;
+}
+
 export interface CreateItineraryInput {
   city: string;
   plannedDate: string; // YYYY-MM-DD
@@ -24,6 +33,8 @@ export interface CreateItineraryInput {
   stopCount: number; // 0 = let LLM decide
   startTime?: string; // HH:MM (24h) — optional fixed start
   endTime?: string; // HH:MM (24h) — optional fixed end
+  intention?: string; // recharge | explore | socialize | move | learn | treat_yourself
+  anchorStops?: AnchorStopInput[];
 }
 
 interface LLMItineraryItem {
@@ -137,53 +148,76 @@ class ItineraryServiceImpl implements ItineraryService {
     const itineraryRepo = this.dataSource.getRepository(Itinerary);
     const itemRepo = this.dataSource.getRepository(ItineraryItem);
 
+    // Infer city from anchor stops if not provided
+    let city = input.city;
+    if (!city && input.anchorStops && input.anchorStops.length > 0) {
+      const [lng, lat] = input.anchorStops[0].coordinates;
+      try {
+        city = await this.geocodingService.reverseGeocodeCityState(lat, lng);
+        console.log(`[ItineraryService] Inferred city from anchor: ${city}`);
+      } catch (err) {
+        console.warn("[ItineraryService] Failed to reverse-geocode city from anchor:", err);
+        city = "Unknown";
+      }
+    }
+
     // Create the itinerary record in GENERATING status
     const itinerary = itineraryRepo.create({
       userId,
-      city: input.city,
+      city,
       plannedDate: input.plannedDate,
       budgetMin: input.budgetMin,
       budgetMax: input.budgetMax,
       durationHours: input.durationHours,
       activityTypes: input.activityTypes,
+      intention: input.intention,
       status: ItineraryStatus.GENERATING,
     });
     await itineraryRepo.save(itinerary);
 
     try {
       // Fetch events in the city for that date
-      const events = await this.fetchCityEvents(input.city, input.plannedDate);
+      const events = await this.fetchCityEvents(city, input.plannedDate);
 
       // Geocode city center early — needed for venue search, weather, and trails
+      // If anchor stops provided, use first anchor's coordinates as city center
       let cityCenter: { lat: number; lng: number } | undefined;
-      try {
-        const [lng, lat] = await this.geocodingService.geocodeAddress(
-          input.city,
+      if (input.anchorStops && input.anchorStops.length > 0) {
+        const [lng, lat] = input.anchorStops[0].coordinates;
+        cityCenter = { lat, lng };
+        console.log(
+          `[ItineraryService] Using first anchor stop as city center: ${lat}, ${lng}`,
         );
-        if (lat !== 0 || lng !== 0) {
-          cityCenter = { lat, lng };
-        } else {
+      } else {
+        try {
+          const [lng, lat] = await this.geocodingService.geocodeAddress(
+            city,
+          );
+          if (lat !== 0 || lng !== 0) {
+            cityCenter = { lat, lng };
+          } else {
+            console.warn(
+              "[ItineraryService] Google geocoding returned [0,0] for:",
+              city,
+            );
+          }
+        } catch (err) {
           console.warn(
-            "[ItineraryService] Google geocoding returned [0,0] for:",
-            input.city,
+            "[ItineraryService] Google geocoding threw for:",
+            city,
+            err,
           );
         }
-      } catch (err) {
-        console.warn(
-          "[ItineraryService] Google geocoding threw for:",
-          input.city,
-          err,
-        );
-      }
 
-      // Fallback: Open-Meteo free geocoding (no API key needed)
-      if (!cityCenter) {
-        cityCenter = await this.geocodeCityFallback(input.city);
+        // Fallback: Open-Meteo free geocoding (no API key needed)
+        if (!cityCenter) {
+          cityCenter = await this.geocodeCityFallback(city);
+        }
       }
 
       // Pre-fetch verified venues from Google Places
       const verifiedVenues = cityCenter
-        ? await this.fetchVerifiedVenues(input, input.city, cityCenter)
+        ? await this.fetchVerifiedVenues(input, city, cityCenter)
         : [];
 
       // Fetch trails based on activity type
@@ -219,10 +253,16 @@ class ItineraryServiceImpl implements ItineraryService {
             hikingResult.status === "fulfilled" ? hikingResult.value : [];
 
           if (pavedResult.status === "rejected") {
-            console.warn("[ItineraryService] Paved trail fetch failed:", pavedResult.reason?.message ?? pavedResult.reason);
+            console.warn(
+              "[ItineraryService] Paved trail fetch failed:",
+              pavedResult.reason?.message ?? pavedResult.reason,
+            );
           }
           if (hikingResult.status === "rejected") {
-            console.warn("[ItineraryService] Hiking trail fetch failed:", hikingResult.reason?.message ?? hikingResult.reason);
+            console.warn(
+              "[ItineraryService] Hiking trail fetch failed:",
+              hikingResult.reason?.message ?? hikingResult.reason,
+            );
           }
 
           // Merge and deduplicate by OSM ID
@@ -234,7 +274,10 @@ class ItineraryServiceImpl implements ItineraryService {
             }
           }
         } catch (err) {
-          console.warn("[ItineraryService] Trail fetch failed, continuing without trails:", err);
+          console.warn(
+            "[ItineraryService] Trail fetch failed, continuing without trails:",
+            err,
+          );
         }
       }
 
@@ -247,10 +290,16 @@ class ItineraryServiceImpl implements ItineraryService {
               input.plannedDate,
             )
           : Promise.resolve(null),
-        this.fetchPreviousVenues(userId, input.city),
+        this.fetchPreviousVenues(userId, city),
       ]);
 
       // Build and call LLM with events + verified venues + trails + context
+      if (input.anchorStops) {
+        console.log(
+          `[ItineraryService] Anchor stops passed to LLM: ${input.anchorStops.length}`,
+          JSON.stringify(input.anchorStops.map((a) => ({ label: a.label, coords: a.coordinates }))),
+        );
+      }
       const llmResult = await this.generateWithLLM(
         input,
         events,
@@ -258,6 +307,13 @@ class ItineraryServiceImpl implements ItineraryService {
         trails,
         forecast,
         previousVenues,
+        input.intention,
+        input.anchorStops,
+        city,
+      );
+      console.log(
+        `[ItineraryService] LLM returned ${llmResult.items.length} items:`,
+        llmResult.items.map((i) => i.venueName || i.title),
       );
 
       // Validate and enrich items — verify venues, drop hallucinations
@@ -265,9 +321,13 @@ class ItineraryServiceImpl implements ItineraryService {
         llmResult.items,
         events,
         verifiedVenues,
-        input.city,
+        city,
         cityCenter,
         trails,
+      );
+      console.log(
+        `[ItineraryService] After validation: ${validatedItems.length} items:`,
+        validatedItems.map((v) => v.item.venueName || v.item.title),
       );
 
       // Save items with geocoded data
@@ -743,7 +803,11 @@ class ItineraryServiceImpl implements ItineraryService {
     trails: Trail[] = [],
     forecast: DayForecast | null = null,
     previousVenues: string[] = [],
+    intention?: string,
+    anchorStops?: AnchorStopInput[],
+    resolvedCity?: string,
   ): Promise<LLMItineraryResponse> {
+    const cityName = resolvedCity || input.city;
     const eventList =
       events.length > 0
         ? events
@@ -830,6 +894,40 @@ class ItineraryServiceImpl implements ItineraryService {
         ? "Free only ($0 — no paid activities)"
         : `$${input.budgetMin}–$${input.budgetMax}`;
 
+    // Build intention context for the LLM
+    const intentionPromptMap: Record<string, string> = {
+      recharge:
+        "INTENTION: Recharge — solo-friendly, quiet cafes, nature spots, morning hours, gentle pacing. Prioritize calm, restorative venues. Avoid loud/crowded spots.",
+      explore:
+        "INTENTION: Explore — new neighborhoods, variety of venue types, hidden gems, discovery-weighted. Prioritize places off the beaten path the user hasn't tried.",
+      socialize:
+        "INTENTION: Socialize — lively spots, communal seating, evening-friendly, breweries/bars/social venues. Prioritize places with great atmosphere for meeting people.",
+      move: "INTENTION: Move — trails, outdoor activities, physical movement, longer walking routes. Prioritize active venues and connect stops with scenic walks or trails.",
+      learn:
+        "INTENTION: Learn — museums, bookstores, galleries, cultural venues, historical landmarks. Prioritize educational and culturally enriching stops.",
+      treat_yourself:
+        "INTENTION: Treat Yourself — great food, scenic spots, nice coffee, premium experiences. Prioritize quality over quantity. Make it feel special and indulgent.",
+    };
+    const intentionBlock =
+      intention && intentionPromptMap[intention]
+        ? `\n${intentionPromptMap[intention]}\n`
+        : "";
+
+    // Build anchor stops instruction block
+    const anchorBlock =
+      anchorStops && anchorStops.length > 0
+        ? `\nANCHOR STOPS (MANDATORY — you MUST include a stop for EVERY anchor listed below, no exceptions):\n${anchorStops
+            .map((a, i) => {
+              const [lng, lat] = a.coordinates;
+              const label = a.label ? `"${a.label}"` : `Pin ${i + 1}`;
+              const addr = a.address ? ` at ${a.address}` : "";
+              const type = a.primaryType ? ` | Type: ${a.primaryType}` : "";
+              const rating = a.rating ? ` | Rating: ${a.rating}` : "";
+              return `- Anchor ${i + 1}: ${label}${addr} (${lat.toFixed(5)}, ${lng.toFixed(5)})${type}${rating}`;
+            })
+            .join("\n")}\nThere are ${anchorStops.length} anchor stops — the output MUST contain at least ${anchorStops.length} items corresponding to these anchors. Build the rest of the itinerary around them, filling complementary stops between them.${anchorStops.some((a) => a.label) ? " Anchors with names are verified real places — use their exact name and address." : " The anchor stops are user-selected map locations — find the nearest real venue or point of interest at each coordinate and use that as the stop."}\n`
+        : "";
+
     const hasTrails = trailList !== null;
     const trailInstructions = hasTrails
       ? `
@@ -843,7 +941,7 @@ TRAIL RULES (for boarding/hiking/walking/outdoor itineraries):
 - If the user wants boarding, hiking, or walking, make trails a CORE part of the itinerary, not an afterthought.`
       : "";
 
-    const systemPrompt = `You are an expert local guide with insider knowledge of ${input.city}. Create a personalized, premium itinerary that feels like advice from a well-connected friend who knows all the best spots.
+    const systemPrompt = `You are an expert local guide with insider knowledge of ${cityName}. Create a personalized, premium itinerary that feels like advice from a well-connected friend who knows all the best spots.
 
 SOURCING RULES (STRICT):
 - EVENTS (concerts, shows, games, markets, pop-ups, etc.): ONLY use events from the EVENTS list below. Do NOT invent or suggest any event not on this list.
@@ -860,12 +958,12 @@ HOURS & SCHEDULING (CRITICAL):
 - If there are no scanned events, build the itinerary entirely from town staples — beloved local restaurants, iconic landmarks, popular parks, and must-visit spots. This is a great itinerary, not a consolation prize.
 - If not enough options exist, create FEWER stops — never pad with fake events.
 - Use FULL street addresses including city and state (e.g., "123 Main St, Austin, TX")
-${trailInstructions}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt the itinerary to the forecast. Rain or storms → prefer indoor stops during those hours. Extreme heat → outdoor activities in morning/evening, shade and AC midday. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9", "Rain likely after 3pm, grab a window seat and enjoy it").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous itineraries: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives. The whole point is discovering something new each time.\n` : ""}
+${trailInstructions}${anchorBlock}${intentionBlock}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt the itinerary to the forecast. Rain or storms → prefer indoor stops during those hours. Extreme heat → outdoor activities in morning/evening, shade and AC midday. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9", "Rain likely after 3pm, grab a window seat and enjoy it").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous itineraries: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives. The whole point is discovering something new each time.\n` : ""}
 PLANNING RULES:
 - Stay within the time budget (${input.durationHours} hours)
 - Stay within the spending budget (${budgetRange})
 - Match the activity preferences: ${input.activityTypes.join(", ") || "any"}
-- ${input.stopCount > 0 ? `Include EXACTLY ${input.stopCount} stops` : "Choose the right number of stops for the duration"}
+- ${input.stopCount > 0 ? `Include EXACTLY ${Math.max(input.stopCount, anchorStops?.length ?? 0)} stops` : `Choose the right number of stops for the duration${anchorStops && anchorStops.length > 0 ? ` (minimum ${anchorStops.length} — one per anchor)` : ""}`}
 - Include travel/transition notes between stops
 - Every stop MUST have a DIFFERENT venue — never repeat the same place
 - If referencing a real event from the list, include its exact ID in eventId
@@ -904,17 +1002,17 @@ Respond ONLY with valid JSON matching this schema:
           ? `\nStart time: ${input.startTime} (begin the itinerary at this time)`
           : "";
 
-    const userPrompt = `City: ${input.city}
+    const userPrompt = `City: ${cityName}
 Date: ${input.plannedDate}
 Duration: ${input.durationHours} hours
 Budget: ${budgetRange}
-Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}${timeConstraint}
+Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${intention ? `\nIntention: ${intention.replace("_", " ")}` : ""}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}${timeConstraint}
 
 EVENTS (use ONLY these for event-type stops):
 ${eventList}
 
-VERIFIED VENUES in ${input.city} (prefer these for non-event stops):
-${venueList}${trailList ? `\n\nPAVED TRAILS near ${input.city} (real OpenStreetMap data — use exact names):\n${trailList}` : ""}${forecast ? `\n\nWEATHER FORECAST for ${input.plannedDate}:\n${this.formatHourlyForPrompt(forecast)}` : ""}`;
+VERIFIED VENUES in ${cityName} (prefer these for non-event stops):
+${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap data — use exact names):\n${trailList}` : ""}${forecast ? `\n\nWEATHER FORECAST for ${input.plannedDate}:\n${this.formatHourlyForPrompt(forecast)}` : ""}`;
 
     const responseText = await this.openAIService.executeResponse(
       {

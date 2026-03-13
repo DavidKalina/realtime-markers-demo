@@ -111,6 +111,9 @@ async function initializeServices() {
     services.thirdSpaceScoreService,
   );
 
+  // Setup push notification schedules (streak-at-risk, weekly nudge)
+  serviceInitializer.setupNotificationSchedule();
+
   console.log("All services initialized successfully");
   return services;
 }

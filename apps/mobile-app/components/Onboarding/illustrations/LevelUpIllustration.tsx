@@ -93,41 +93,42 @@ export const LevelUpIllustration: React.FC<{ active: boolean }> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    width: 260,
-    height: 220,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  xpLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#fbbf24",
-    marginBottom: 6,
-    fontFamily: "SpaceMono",
-  },
-  barTrack: {
-    width: 200,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "rgba(251, 191, 36, 0.15)",
-    overflow: "hidden",
-  },
-  xpText: {
-    fontSize: 12,
-    color: colors.text.secondary,
-    marginTop: 6,
-    fontFamily: "SpaceMono",
-  },
-  badgeContainer: {
-    marginTop: 16,
-  },
-  tierText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#fbbf24",
-    marginTop: 4,
-    fontFamily: "SpaceMono",
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      width: 260,
+      height: 220,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    xpLabel: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#fbbf24",
+      marginBottom: 6,
+      fontFamily: "SpaceMono",
+    },
+    barTrack: {
+      width: 200,
+      height: 16,
+      borderRadius: 8,
+      backgroundColor: "rgba(251, 191, 36, 0.15)",
+      overflow: "hidden",
+    },
+    xpText: {
+      fontSize: 12,
+      color: colors.text.secondary,
+      marginTop: 6,
+      fontFamily: "SpaceMono",
+    },
+    badgeContainer: {
+      marginTop: 16,
+    },
+    tierText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#fbbf24",
+      marginTop: 4,
+      fontFamily: "SpaceMono",
+    },
+  });

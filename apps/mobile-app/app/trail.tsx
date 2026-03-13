@@ -35,7 +35,14 @@ const TrailScreen = () => {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.bg.primary }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: colors.bg.primary,
+        }}
+      >
         <ActivityIndicator color={colors.accent.primary} />
       </View>
     );

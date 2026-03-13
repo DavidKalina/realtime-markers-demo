@@ -21,7 +21,13 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -448,117 +454,118 @@ const Login: React.FC = () => {
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.fixed.black,
-  },
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.fixed.black,
+    },
 
-  foreground: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 2,
-  },
+    foreground: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 2,
+    },
 
-  keyboardAvoidingView: {
-    flex: 1,
-  },
+    keyboardAvoidingView: {
+      flex: 1,
+    },
 
-  headerArea: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+    headerArea: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
 
-  formWrapper: {
-    paddingHorizontal: spacing.xl,
-    width: "100%",
-    maxWidth: 440,
-    alignSelf: "center",
-  },
+    formWrapper: {
+      paddingHorizontal: spacing.xl,
+      width: "100%",
+      maxWidth: 440,
+      alignSelf: "center",
+    },
 
-  formCard: {
-    borderRadius: radius["2xl"],
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    overflow: "hidden",
-  },
+    formCard: {
+      borderRadius: radius["2xl"],
+      padding: spacing.xl,
+      borderWidth: 1,
+      borderColor: "rgba(255, 255, 255, 0.12)",
+      overflow: "hidden",
+    },
 
-  androidBlurFallback: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(42, 42, 42, 0.85)",
-  },
+    androidBlurFallback: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(42, 42, 42, 0.85)",
+    },
 
-  errorContainer: {
-    backgroundColor: colors.status.error.bg,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.status.error.border,
-  },
+    errorContainer: {
+      backgroundColor: colors.status.error.bg,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.status.error.border,
+    },
 
-  errorText: {
-    color: colors.status.error.text,
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-  },
+    errorText: {
+      color: colors.status.error.text,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+    },
 
-  loginButton: {
-    borderRadius: radius.md,
-    height: 55,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.accent.muted,
-    borderWidth: 1,
-    borderColor: colors.accent.border,
-  },
+    loginButton: {
+      borderRadius: radius.md,
+      height: 55,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: colors.accent.muted,
+      borderWidth: 1,
+      borderColor: colors.accent.border,
+    },
 
-  loginButtonText: {
-    color: colors.accent.primary,
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 0.5,
-  },
+    loginButtonText: {
+      color: colors.accent.primary,
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 0.5,
+    },
 
-  loginButtonContainer: {
-    marginTop: spacing.xl,
-  },
+    loginButtonContainer: {
+      marginTop: spacing.xl,
+    },
 
-  createAccountContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: spacing.lg,
-  },
+    createAccountContainer: {
+      flexDirection: "row",
+      justifyContent: "center",
+      marginTop: spacing.lg,
+    },
 
-  createAccountText: {
-    color: "rgba(134, 239, 172, 0.6)",
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-  },
+    createAccountText: {
+      color: "rgba(134, 239, 172, 0.6)",
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+    },
 
-  createAccountLink: {
-    color: colors.accent.primary,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-  },
+    createAccountLink: {
+      color: colors.accent.primary,
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+    },
 
-  forgotPasswordContainer: {
-    alignSelf: "flex-end",
-    marginTop: -spacing.sm,
-  },
+    forgotPasswordContainer: {
+      alignSelf: "flex-end",
+      marginTop: -spacing.sm,
+    },
 
-  forgotPasswordText: {
-    color: "rgba(134, 239, 172, 0.6)",
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-  },
+    forgotPasswordText: {
+      color: "rgba(134, 239, 172, 0.6)",
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+    },
 
-  bottomSpacer: {
-    height: spacing.lg,
-  },
-});
+    bottomSpacer: {
+      height: spacing.lg,
+    },
+  });
 
 export default Login;

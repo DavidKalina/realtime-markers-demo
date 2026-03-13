@@ -84,10 +84,7 @@ const EventItem: React.FC<EventItemProps> = ({
       exiting={FadeOut.duration(200)}
       layout={LinearTransition.duration(300)}
     >
-      <TouchableOpacity
-        onPress={handlePress}
-        activeOpacity={1}
-      >
+      <TouchableOpacity onPress={handlePress} activeOpacity={1}>
         <View style={styles.eventCardContent}>
           <View style={styles.emojiContainer}>
             <Text style={styles.resultEmoji}>{event.emoji || "📍"}</Text>
@@ -153,138 +150,142 @@ const EventItem: React.FC<EventItemProps> = ({
 
 const createAllStyles = (colors: Colors) => {
   const defaultStyles = StyleSheet.create({
-  eventCard: {
-    backgroundColor: colors.bg.card,
-    padding: spacing.md,
-    marginHorizontal: 0,
-    marginVertical: spacing._6,
-    borderRadius: radius.md,
-    flexDirection: "column",
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    shadowColor: colors.shadow.default,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  eventCardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  emojiContainer: {
-    width: spacing["4xl"],
-    height: spacing["4xl"],
-    borderRadius: radius.md,
-    backgroundColor: colors.border.subtle,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  resultEmoji: {
-    fontSize: fontSize.xl,
-  },
-  resultTextContainer: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  resultTitle: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-    marginBottom: spacing._6,
-  },
-  detailsContainer: {
-    gap: spacing.xs,
-  },
-  resultDetailsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  resultDetailText: {
-    fontSize: 13,
-    color: colors.text.detail,
-    fontFamily: fontFamily.mono,
-    flex: 1,
-  },
-  chevronContainer: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: colors.border.subtle,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  footerContainer: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-  },
-});
+    eventCard: {
+      backgroundColor: colors.bg.card,
+      padding: spacing.md,
+      marginHorizontal: 0,
+      marginVertical: spacing._6,
+      borderRadius: radius.md,
+      flexDirection: "column",
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      shadowColor: colors.shadow.default,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    eventCardContent: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    emojiContainer: {
+      width: spacing["4xl"],
+      height: spacing["4xl"],
+      borderRadius: radius.md,
+      backgroundColor: colors.border.subtle,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    resultEmoji: {
+      fontSize: fontSize.xl,
+    },
+    resultTextContainer: {
+      flex: 1,
+      justifyContent: "center",
+    },
+    resultTitle: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+      fontFamily: fontFamily.mono,
+      marginBottom: spacing._6,
+    },
+    detailsContainer: {
+      gap: spacing.xs,
+    },
+    resultDetailsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    resultDetailText: {
+      fontSize: 13,
+      color: colors.text.detail,
+      fontFamily: fontFamily.mono,
+      flex: 1,
+    },
+    chevronContainer: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: colors.border.subtle,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    footerContainer: {
+      borderTopWidth: 1,
+      borderTopColor: colors.border.default,
+      marginTop: spacing.md,
+      paddingTop: spacing.md,
+    },
+  });
 
   const compactStyles = StyleSheet.create({
-  ...defaultStyles,
-  eventCard: {
-    ...defaultStyles.eventCard,
-    padding: spacing.sm,
-    marginVertical: spacing.xs,
-  },
-  emojiContainer: {
-    ...defaultStyles.emojiContainer,
-    width: spacing["3xl"],
-    height: spacing["3xl"],
-  },
-  resultTitle: {
-    ...defaultStyles.resultTitle,
-    fontSize: 13,
-    marginBottom: spacing.xs,
-  },
-  resultDetailText: {
-    ...defaultStyles.resultDetailText,
-    fontSize: fontSize.xs,
-  },
-  footerContainer: {
-    ...defaultStyles.footerContainer,
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-  },
-});
+    ...defaultStyles,
+    eventCard: {
+      ...defaultStyles.eventCard,
+      padding: spacing.sm,
+      marginVertical: spacing.xs,
+    },
+    emojiContainer: {
+      ...defaultStyles.emojiContainer,
+      width: spacing["3xl"],
+      height: spacing["3xl"],
+    },
+    resultTitle: {
+      ...defaultStyles.resultTitle,
+      fontSize: 13,
+      marginBottom: spacing.xs,
+    },
+    resultDetailText: {
+      ...defaultStyles.resultDetailText,
+      fontSize: fontSize.xs,
+    },
+    footerContainer: {
+      ...defaultStyles.footerContainer,
+      marginTop: spacing.sm,
+      paddingTop: spacing.sm,
+    },
+  });
 
   const featuredStyles = StyleSheet.create({
-  ...defaultStyles,
-  eventCard: {
-    ...defaultStyles.eventCard,
-    padding: spacing.lg,
-    marginVertical: spacing.sm,
-  },
-  emojiContainer: {
-    ...defaultStyles.emojiContainer,
-    width: spacing["5xl"],
-    height: spacing["5xl"],
-  },
-  resultTitle: {
-    ...defaultStyles.resultTitle,
-    fontSize: fontSize.md,
-    marginBottom: spacing.sm,
-  },
-  resultDetailText: {
-    ...defaultStyles.resultDetailText,
-    fontSize: fontSize.sm,
-  },
-  footerContainer: {
-    ...defaultStyles.footerContainer,
-    marginTop: spacing.lg,
-    paddingTop: spacing.lg,
-  },
-});
+    ...defaultStyles,
+    eventCard: {
+      ...defaultStyles.eventCard,
+      padding: spacing.lg,
+      marginVertical: spacing.sm,
+    },
+    emojiContainer: {
+      ...defaultStyles.emojiContainer,
+      width: spacing["5xl"],
+      height: spacing["5xl"],
+    },
+    resultTitle: {
+      ...defaultStyles.resultTitle,
+      fontSize: fontSize.md,
+      marginBottom: spacing.sm,
+    },
+    resultDetailText: {
+      ...defaultStyles.resultDetailText,
+      fontSize: fontSize.sm,
+    },
+    footerContainer: {
+      ...defaultStyles.footerContainer,
+      marginTop: spacing.lg,
+      paddingTop: spacing.lg,
+    },
+  });
 
-  return { default: defaultStyles, compact: compactStyles, featured: featuredStyles };
+  return {
+    default: defaultStyles,
+    compact: compactStyles,
+    featured: featuredStyles,
+  };
 };
 
 export default EventItem;

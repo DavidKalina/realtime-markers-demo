@@ -1,5 +1,11 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Button from "./Button";
 import {
@@ -94,44 +100,45 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing["3xl"],
-  },
-  element: {
-    alignItems: "center",
-  },
-  circle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    marginBottom: spacing.lg,
-  },
-  emoji: {
-    fontSize: 44,
-  },
-  title: {
-    fontSize: fontSize["2xl"],
-    fontWeight: fontWeight.semibold,
-    fontFamily: fontFamily.mono,
-    color: colors.text.primary,
-    textAlign: "center",
-    marginBottom: spacing.sm,
-  },
-  subtitle: {
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-    textAlign: "center",
-    marginBottom: spacing.lg,
-    lineHeight: 20,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: spacing["3xl"],
+    },
+    element: {
+      alignItems: "center",
+    },
+    circle: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      marginBottom: spacing.lg,
+    },
+    emoji: {
+      fontSize: 44,
+    },
+    title: {
+      fontSize: fontSize["2xl"],
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+      textAlign: "center",
+      marginBottom: spacing.sm,
+    },
+    subtitle: {
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      textAlign: "center",
+      marginBottom: spacing.lg,
+      lineHeight: 20,
+    },
+  });
 
 export default EmptyState;

@@ -13,6 +13,8 @@ import { FollowsModule } from "./api/modules/follows";
 import { LeaderboardModule } from "./api/modules/leaderboard";
 import { ItinerariesModule } from "./api/modules/itineraries";
 import { RitualsModule } from "./api/modules/rituals";
+import { BadgesModule } from "./api/modules/badges";
+import { AdventureScoreModule } from "./api/modules/adventureScore";
 
 // Re-export types and enums
 export * from "./api/base/types";
@@ -28,6 +30,8 @@ export * from "./api/modules/follows";
 export * from "./api/modules/leaderboard";
 export * from "./api/modules/itineraries";
 export * from "./api/modules/rituals";
+export * from "./api/modules/badges";
+export * from "./api/modules/adventureScore";
 
 class ApiClient extends BaseApiClient {
   private static instance: ApiClient | null = null;
@@ -43,6 +47,8 @@ class ApiClient extends BaseApiClient {
   private _leaderboard: LeaderboardModule | null = null;
   private _itineraries: ItinerariesModule | null = null;
   private _rituals: RitualsModule | null = null;
+  private _badges: BadgesModule | null = null;
+  private _adventureScore: AdventureScoreModule | null = null;
 
   private constructor(baseUrl: string) {
     super(baseUrl);
@@ -143,6 +149,20 @@ class ApiClient extends BaseApiClient {
       this._rituals = new RitualsModule(this);
     }
     return this._rituals;
+  }
+
+  public get badges(): BadgesModule {
+    if (!this._badges) {
+      this._badges = new BadgesModule(this);
+    }
+    return this._badges;
+  }
+
+  public get adventureScore(): AdventureScoreModule {
+    if (!this._adventureScore) {
+      this._adventureScore = new AdventureScoreModule(this);
+    }
+    return this._adventureScore;
   }
 
   override setBaseUrl(baseUrl: string): void {

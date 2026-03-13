@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -19,7 +25,14 @@ import Animated, {
   RotateInDownRight,
   BounceIn,
 } from "react-native-reanimated";
-import { useColors, spacing, radius, fontFamily, fontWeight, type Colors } from "@/theme";
+import {
+  useColors,
+  spacing,
+  radius,
+  fontFamily,
+  fontWeight,
+  type Colors,
+} from "@/theme";
 
 interface TimePopupProps {
   time: string;
@@ -413,81 +426,82 @@ export const TimePopup: React.FC<TimePopupProps> = React.memo(
   },
 );
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    position: "absolute",
-    top: -50,
-    alignSelf: "center",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  absolute: {
-    position: "absolute",
-  },
-  badgeContainer: {
-    backgroundColor: colors.text.primary,
-    paddingHorizontal: spacing._10,
-    paddingVertical: spacing._6,
-    borderRadius: radius.sm,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border.accent,
-    shadowColor: colors.shadow.default,
-    shadowOffset: {
-      width: 0,
-      height: 3,
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      position: "absolute",
+      top: -50,
+      alignSelf: "center",
+      alignItems: "center",
+      justifyContent: "center",
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-    overflow: "hidden",
-  },
-  timeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    maxWidth: 150,
-    minHeight: 20,
-    paddingHorizontal: spacing.xs,
-  },
-  marqueeClip: {
-    overflow: "hidden",
-    maxWidth: MARQUEE_MAX_WIDTH,
-    minHeight: 20,
-    justifyContent: "center",
-    paddingHorizontal: spacing.xs,
-  },
-  measureText: {
-    position: "absolute",
-    opacity: 0,
-    top: -9999,
-    fontSize: 11,
-    lineHeight: 13,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.medium,
-    letterSpacing: 0.2,
-  },
-  emojiText: {
-    fontSize: 11,
-    lineHeight: 13,
-    paddingHorizontal: 1,
-  },
-  countdownText: {
-    color: colors.bg.card,
-    fontSize: 11,
-    lineHeight: 13,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.medium,
-    letterSpacing: 0.2,
-  },
-  titleText: {
-    color: colors.bg.card,
-    fontSize: 11,
-    lineHeight: 13,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.medium,
-    letterSpacing: 0.2,
-  },
-});
+    absolute: {
+      position: "absolute",
+    },
+    badgeContainer: {
+      backgroundColor: colors.text.primary,
+      paddingHorizontal: spacing._10,
+      paddingVertical: spacing._6,
+      borderRadius: radius.sm,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: colors.border.accent,
+      shadowColor: colors.shadow.default,
+      shadowOffset: {
+        width: 0,
+        height: 3,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 4,
+      overflow: "hidden",
+    },
+    timeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing.sm,
+      maxWidth: 150,
+      minHeight: 20,
+      paddingHorizontal: spacing.xs,
+    },
+    marqueeClip: {
+      overflow: "hidden",
+      maxWidth: MARQUEE_MAX_WIDTH,
+      minHeight: 20,
+      justifyContent: "center",
+      paddingHorizontal: spacing.xs,
+    },
+    measureText: {
+      position: "absolute",
+      opacity: 0,
+      top: -9999,
+      fontSize: 11,
+      lineHeight: 13,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      letterSpacing: 0.2,
+    },
+    emojiText: {
+      fontSize: 11,
+      lineHeight: 13,
+      paddingHorizontal: 1,
+    },
+    countdownText: {
+      color: colors.bg.card,
+      fontSize: 11,
+      lineHeight: 13,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      letterSpacing: 0.2,
+    },
+    titleText: {
+      color: colors.bg.card,
+      fontSize: 11,
+      lineHeight: 13,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      letterSpacing: 0.2,
+    },
+  });

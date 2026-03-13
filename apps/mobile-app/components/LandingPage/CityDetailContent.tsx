@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
+  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -562,10 +563,24 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
           const pct = Math.round(stop.completionRate * 100);
           const isLast = index === popularStops.length - 1;
 
+          const openSpot = () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            if (stop.googlePlaceId) {
+              Linking.openURL(
+                `https://www.google.com/maps/place/?q=place_id:${stop.googlePlaceId}`,
+              );
+            } else if (stop.latitude && stop.longitude) {
+              Linking.openURL(
+                `https://maps.apple.com/?ll=${stop.latitude},${stop.longitude}&q=${encodeURIComponent(stop.venueName)}`,
+              );
+            }
+          };
+
           return (
-            <View
+            <Pressable
               key={`${stop.venueName}-${index}`}
               style={[styles.eventRow, isLast && styles.eventRowLast]}
+              onPress={openSpot}
             >
               <View style={styles.rankBadge}>
                 <Text style={styles.rankText}>{index + 1}</Text>
@@ -582,7 +597,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
                   {` \u00B7 ${stop.frequency}x planned \u00B7 ${pct}% went`}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           );
         })}
       </View>

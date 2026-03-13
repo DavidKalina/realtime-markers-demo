@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   StyleSheet,
   Text,
@@ -290,160 +296,161 @@ export const Select: React.FC<SelectProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    width: "100%",
-  },
-  label: {
-    fontSize: 14,
-    color: colors.accent.primary,
-    fontFamily: "SpaceMono",
-    fontWeight: "500",
-    marginBottom: 8,
-  },
-  trigger: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.bg.primary,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 55,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  errorTrigger: {
-    borderColor: colors.status.error.border,
-  },
-  hasValue: {
-    borderColor: colors.accent.primary,
-  },
-  selectedContent: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  selectedIcon: {
-    marginRight: 10,
-  },
-  selectedTextContainer: {
-    flex: 1,
-    flexShrink: 1,
-  },
-  selectedLabel: {
-    color: colors.text.primary,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-  },
-  selectedDescription: {
-    color: colors.text.secondary,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    marginTop: 2,
-  },
-  placeholder: {
-    flex: 1,
-    color: colors.text.secondary,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-  },
-  triggerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.border.subtle,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  errorText: {
-    color: colors.status.error.text,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    marginTop: 4,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: colors.overlay.scrim,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  modalContent: {
-    width: "100%",
-    maxWidth: 400,
-    maxHeight: "80%",
-  },
-  dropdownContainer: {
-    backgroundColor: colors.bg.card,
-    borderRadius: 20,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    shadowColor: colors.overlay.light,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  dropdownHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-  },
-  dropdownTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: colors.text.primary,
-    fontFamily: "SpaceMono",
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.border.subtle,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  searchContainer: {
-    padding: 16,
-    paddingTop: 0,
-  },
-  optionsList: {
-    paddingVertical: 8,
-  },
-  option: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-  },
-  selectedOption: {
-    backgroundColor: colors.border.subtle,
-  },
-  optionIcon: {
-    marginRight: 12,
-  },
-  optionContent: {
-    flex: 1,
-  },
-  optionLabel: {
-    color: colors.text.primary,
-    fontSize: 16,
-    fontFamily: "SpaceMono",
-  },
-  optionDescription: {
-    color: colors.text.secondary,
-    fontSize: 12,
-    fontFamily: "SpaceMono",
-    marginTop: 2,
-  },
-  selectedText: {
-    color: colors.accent.primary,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      width: "100%",
+    },
+    label: {
+      fontSize: 14,
+      color: colors.accent.primary,
+      fontFamily: "SpaceMono",
+      fontWeight: "500",
+      marginBottom: 8,
+    },
+    trigger: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.bg.primary,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      height: 55,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    errorTrigger: {
+      borderColor: colors.status.error.border,
+    },
+    hasValue: {
+      borderColor: colors.accent.primary,
+    },
+    selectedContent: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    selectedIcon: {
+      marginRight: 10,
+    },
+    selectedTextContainer: {
+      flex: 1,
+      flexShrink: 1,
+    },
+    selectedLabel: {
+      color: colors.text.primary,
+      fontSize: 16,
+      fontFamily: "SpaceMono",
+    },
+    selectedDescription: {
+      color: colors.text.secondary,
+      fontSize: 12,
+      fontFamily: "SpaceMono",
+      marginTop: 2,
+    },
+    placeholder: {
+      flex: 1,
+      color: colors.text.secondary,
+      fontSize: 16,
+      fontFamily: "SpaceMono",
+    },
+    triggerIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: colors.border.subtle,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    errorText: {
+      color: colors.status.error.text,
+      fontSize: 12,
+      fontFamily: "SpaceMono",
+      marginTop: 4,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: colors.overlay.scrim,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 20,
+    },
+    modalContent: {
+      width: "100%",
+      maxWidth: 400,
+      maxHeight: "80%",
+    },
+    dropdownContainer: {
+      backgroundColor: colors.bg.card,
+      borderRadius: 20,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      shadowColor: colors.overlay.light,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+    dropdownHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.default,
+    },
+    dropdownTitle: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: colors.text.primary,
+      fontFamily: "SpaceMono",
+    },
+    closeButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.border.subtle,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    searchContainer: {
+      padding: 16,
+      paddingTop: 0,
+    },
+    optionsList: {
+      paddingVertical: 8,
+    },
+    option: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.default,
+    },
+    selectedOption: {
+      backgroundColor: colors.border.subtle,
+    },
+    optionIcon: {
+      marginRight: 12,
+    },
+    optionContent: {
+      flex: 1,
+    },
+    optionLabel: {
+      color: colors.text.primary,
+      fontSize: 16,
+      fontFamily: "SpaceMono",
+    },
+    optionDescription: {
+      color: colors.text.secondary,
+      fontSize: 12,
+      fontFamily: "SpaceMono",
+      marginTop: 2,
+    },
+    selectedText: {
+      color: colors.accent.primary,
+    },
+  });

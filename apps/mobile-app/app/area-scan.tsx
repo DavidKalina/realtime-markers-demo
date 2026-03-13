@@ -64,48 +64,60 @@ export default function AreaScanScreen() {
           onRestart={dialog.restart}
           onExpandComplete={feedPending}
           loadingText="Scanning area"
-          style={{ height: 140, marginBottom: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 }}
+          style={{
+            height: 140,
+            marginBottom: 0,
+            borderTopLeftRadius: 0,
+            borderTopRightRadius: 0,
+          }}
         />
       }
     >
       {showScanAnimation && lat && lng && (
-        <ScanningAnimation
-          lat={parseFloat(lat)}
-          lng={parseFloat(lng)}
-        />
+        <ScanningAnimation lat={parseFloat(lat)} lng={parseFloat(lng)} />
       )}
 
       {!showScanAnimation && zoneStats && <ZoneHero zoneStats={zoneStats} />}
 
-      {!showScanAnimation && zoneStats && zoneStats.categoryBreakdown.length > 0 && (
-        <EventDnaChart
-          categories={zoneStats.categoryBreakdown}
-          variant="bar"
-          label="AREA DNA"
-        />
-      )}
+      {!showScanAnimation &&
+        zoneStats &&
+        zoneStats.categoryBreakdown.length > 0 && (
+          <EventDnaChart
+            categories={zoneStats.categoryBreakdown}
+            variant="bar"
+            label="AREA DNA"
+          />
+        )}
 
       {!showScanAnimation && zoneStats && zoneStats.eventCount > 0 && (
         <StatPillRow zoneStats={zoneStats} />
       )}
 
-      {!showScanAnimation && zoneStats && (eventCount > 0 || trailCount > 0) && (
-        <AreaTabBar
-          activeTab={activeTab}
-          onTabPress={setActiveTab}
-          eventCount={eventCount}
-          trailCount={trailCount}
-        />
-      )}
+      {!showScanAnimation &&
+        zoneStats &&
+        (eventCount > 0 || trailCount > 0) && (
+          <AreaTabBar
+            activeTab={activeTab}
+            onTabPress={setActiveTab}
+            eventCount={eventCount}
+            trailCount={trailCount}
+          />
+        )}
 
-      {!showScanAnimation && zoneStats && activeTab === "events" && eventCount > 0 ? (
+      {!showScanAnimation &&
+      zoneStats &&
+      activeTab === "events" &&
+      eventCount > 0 ? (
         <ZoneEncounters
           events={zoneStats.events}
           onEventPress={(eventId) =>
             router.push(`/details?eventId=${eventId}` as never)
           }
         />
-      ) : !showScanAnimation && zoneStats && activeTab === "trails" && trailCount > 0 ? (
+      ) : !showScanAnimation &&
+        zoneStats &&
+        activeTab === "trails" &&
+        trailCount > 0 ? (
         <ZoneTrails
           trails={zoneStats.trails}
           onTrailPress={(trail) =>

@@ -50,38 +50,39 @@ const DetailItem: React.FC<DetailItemProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    marginBottom: spacing.xl,
-  },
-  iconContainer: {
-    width: spacing["4xl"],
-    height: spacing["4xl"],
-    borderRadius: radius.md,
-    backgroundColor: colors.border.subtle,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  label: {
-    fontSize: 13,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    marginBottom: spacing.xs,
-  },
-  value: {
-    fontSize: fontSize.sm,
-    color: colors.text.primary,
-    fontFamily: fontFamily.mono,
-    lineHeight: lineHeight.normal,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flexDirection: "row",
+      marginBottom: spacing.xl,
+    },
+    iconContainer: {
+      width: spacing["4xl"],
+      height: spacing["4xl"],
+      borderRadius: radius.md,
+      backgroundColor: colors.border.subtle,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    content: {
+      flex: 1,
+      justifyContent: "center",
+    },
+    label: {
+      fontSize: 13,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+      marginBottom: spacing.xs,
+    },
+    value: {
+      fontSize: fontSize.sm,
+      color: colors.text.primary,
+      fontFamily: fontFamily.mono,
+      lineHeight: lineHeight.normal,
+    },
+  });
 
 export default DetailItem;

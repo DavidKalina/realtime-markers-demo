@@ -7,7 +7,13 @@ import { useCamera } from "@/hooks/useCamera";
 import { useNetworkQuality } from "@/hooks/useNetworkQuality";
 import { CameraView } from "expo-camera";
 import { usePathname, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -267,11 +273,7 @@ export default function ScanScreen() {
       "[ScanScreen] Camera permission checking, showing loading screen",
     );
     return (
-      <Screen
-        showBackButton={false}
-        isScrollable={false}
-        noSafeArea={false}
-      >
+      <Screen showBackButton={false} isScrollable={false} noSafeArea={false}>
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color={colors.accent.primary} />
           <Text style={styles.loaderText}>Checking camera permissions...</Text>
@@ -368,52 +370,53 @@ export default function ScanScreen() {
   );
 }
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.fixed.black,
-  },
-  cameraNotReadyOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.fixed.black,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cameraNotReadyText: {
-    color: colors.fixed.white,
-    marginTop: spacing.lg,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.sm,
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loaderText: {
-    color: colors.text.secondary,
-    marginTop: spacing.lg,
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.sm,
-  },
-  floatingButton: {
-    position: "absolute",
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  flashOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.fixed.white,
-    zIndex: 10,
-  },
-  controlsOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.fixed.black,
+    },
+    cameraNotReadyOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: colors.fixed.black,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    cameraNotReadyText: {
+      color: colors.fixed.white,
+      marginTop: spacing.lg,
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+    },
+    loaderContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    loaderText: {
+      color: colors.text.secondary,
+      marginTop: spacing.lg,
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+    },
+    floatingButton: {
+      position: "absolute",
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: "rgba(0,0,0,0.4)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    flashOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: colors.fixed.white,
+      zIndex: 10,
+    },
+    controlsOverlay: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+    },
+  });

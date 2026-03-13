@@ -13,11 +13,19 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
-import { MARKER_HEIGHT, MARKER_WIDTH, MarkerSVG, ShadowSVG } from "../MarkerSVGs";
+import {
+  MARKER_HEIGHT,
+  MARKER_WIDTH,
+  MarkerSVG,
+  ShadowSVG,
+} from "../MarkerSVGs";
 import { fontFamily, lineHeight, useColors } from "@/theme";
 import { getCategoryColorScheme } from "@/utils/categoryColors";
 import { createColorSchemes, ANIMATIONS } from "./constants";
-import { useClusterAnimations, staticShadowStyle } from "./useClusterAnimations";
+import {
+  useClusterAnimations,
+  staticShadowStyle,
+} from "./useClusterAnimations";
 
 interface ClusterMarkerProps {
   count: number;
@@ -33,8 +41,11 @@ interface ClusterMarkerProps {
 export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
   ({ count, onPress, isSelected = false, dominantCategory, clusterPulse }) => {
     const colors = useColors();
-    const { scale, markerStyle, rippleStyle } =
-      useClusterAnimations(count, isSelected, clusterPulse);
+    const { scale, markerStyle, rippleStyle } = useClusterAnimations(
+      count,
+      isSelected,
+      clusterPulse,
+    );
 
     const COLOR_SCHEMES = useMemo(() => createColorSchemes(colors), [colors]);
     const dynamicStyles = useMemo(() => createDynamicStyles(colors), [colors]);
@@ -119,7 +130,13 @@ export const ClusterMarker: React.FC<ClusterMarkerProps> = React.memo(
               </Text>
             </View>
 
-            <Animated.View style={[styles.rippleEffectBase, dynamicStyles.rippleEffect, rippleStyle]} />
+            <Animated.View
+              style={[
+                styles.rippleEffectBase,
+                dynamicStyles.rippleEffect,
+                rippleStyle,
+              ]}
+            />
           </Animated.View>
         </TouchableOpacity>
       </View>

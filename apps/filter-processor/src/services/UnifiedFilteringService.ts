@@ -141,7 +141,11 @@ export function createUnifiedFilteringService(
       }
 
       // Noop: nothing changed
-      if (creates.length === 0 && updates.length === 0 && deletes.length === 0) {
+      if (
+        creates.length === 0 &&
+        updates.length === 0 &&
+        deletes.length === 0
+      ) {
         stats.noopSkipped++;
         return;
       }
@@ -169,14 +173,11 @@ export function createUnifiedFilteringService(
         return;
       }
 
-      console.log(
-        `[UnifiedFiltering] Sending diff to user ${userId}:`,
-        {
-          creates: creates.length,
-          updates: updates.length,
-          deletes: deletes.length,
-        },
-      );
+      console.log(`[UnifiedFiltering] Sending diff to user ${userId}:`, {
+        creates: creates.length,
+        updates: updates.length,
+        deletes: deletes.length,
+      });
 
       // Publish individual messages for incremental updates
       const publishPromises: Promise<void>[] = [];
@@ -188,7 +189,9 @@ export function createUnifiedFilteringService(
         publishPromises.push(eventPublisher.publishUpdateEvent(userId, event));
       }
       for (const eventId of deletes) {
-        publishPromises.push(eventPublisher.publishDeleteEvent(userId, eventId));
+        publishPromises.push(
+          eventPublisher.publishDeleteEvent(userId, eventId),
+        );
       }
 
       await Promise.all(publishPromises);

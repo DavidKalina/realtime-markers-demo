@@ -200,7 +200,11 @@ export const cityHypeHandler = async (c: Context<AppContext>) => {
     const result = await cityHypeService.getCityHype(city);
     const text = result.text || "No city insight available.";
 
-    if (!result.cached && result.text && result.text !== "No city insight available.") {
+    if (
+      !result.cached &&
+      result.text &&
+      result.text !== "No city insight available."
+    ) {
       const cacheKey = `city-hype:${city}`;
       await redisService.set(cacheKey, text, 86400);
     }

@@ -8,10 +8,9 @@ interface PageProps {
 async function fetchSharedItinerary(shareToken: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
   try {
-    const res = await fetch(
-      `${apiUrl}/api/public/itineraries/${shareToken}`,
-      { next: { revalidate: 60 } },
-    );
+    const res = await fetch(`${apiUrl}/api/public/itineraries/${shareToken}`, {
+      next: { revalidate: 60 },
+    });
     if (!res.ok) return null;
     return res.json();
   } catch {

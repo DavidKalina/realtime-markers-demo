@@ -96,66 +96,67 @@ export const ClusterInfoHUD: React.FC<ClusterInfoHUDProps> = React.memo(
   },
 );
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  wrapper: {
-    position: "absolute",
-    left: spacing.md,
-    right: spacing.md,
-    zIndex: 100,
-  },
-  card: {
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    ...shadows.lg,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  emoji: {
-    fontSize: fontSize["2xl"],
-    lineHeight: lineHeight.relaxed,
-  },
-  chevron: {
-    color: colors.text.secondary,
-    fontSize: fontSize.xl,
-    lineHeight: lineHeight.relaxed,
-    marginLeft: spacing.xs,
-  },
-  titleClip: {
-    flex: 1,
-    overflow: "hidden",
-  },
-  title: {
-    color: colors.text.primary,
-    fontSize: fontSize.sm,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    lineHeight: lineHeight.snug,
-  },
-  badge: {
-    backgroundColor: colors.bg.primary,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.accent.border,
-  },
-  badgeText: {
-    color: colors.accent.primary,
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    wrapper: {
+      position: "absolute",
+      left: spacing.md,
+      right: spacing.md,
+      zIndex: 100,
+    },
+    card: {
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg,
+      ...shadows.lg,
+    },
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+    },
+    metaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      marginTop: spacing.md,
+    },
+    emoji: {
+      fontSize: fontSize["2xl"],
+      lineHeight: lineHeight.relaxed,
+    },
+    chevron: {
+      color: colors.text.secondary,
+      fontSize: fontSize.xl,
+      lineHeight: lineHeight.relaxed,
+      marginLeft: spacing.xs,
+    },
+    titleClip: {
+      flex: 1,
+      overflow: "hidden",
+    },
+    title: {
+      color: colors.text.primary,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      lineHeight: lineHeight.snug,
+    },
+    badge: {
+      backgroundColor: colors.bg.primary,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.accent.border,
+    },
+    badgeText: {
+      color: colors.accent.primary,
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+    },
+  });

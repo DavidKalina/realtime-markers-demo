@@ -12,9 +12,44 @@ import type {
   PushNotificationPayload,
 } from "./PushNotificationService";
 import type { RedisService } from "./shared/RedisService";
+import type { GamificationService } from "./GamificationService";
+import type { BadgeService } from "./BadgeService";
 
 const CHECKIN_RADIUS_METERS = 75;
+const COMPLETION_MILESTONES = [5, 10, 25, 50, 100];
 const THROTTLE_TTL = 60; // 1 minute between proximity checks for checkins
+
+// Streak milestone XP bonuses
+const STREAK_MILESTONES: Record<number, number> = {
+  3: 100,
+  7: 250,
+  12: 500,
+  26: 1000,
+  52: 2500,
+};
+
+/**
+ * Get the Monday of the ISO week for a given date (ISO 8601: Monday = start of week).
+ * Returns YYYY-MM-DD string.
+ */
+function getISOWeekMonday(date: Date): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  // day 0 = Sunday → offset 6, day 1 = Monday → offset 0, etc.
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Calculate how many weeks apart two Monday dates are.
+ * Returns 0 for same week, 1 for consecutive weeks, >1 for a gap.
+ */
+function weeksBetween(mondayA: string, mondayB: string): number {
+  const a = new Date(mondayA).getTime();
+  const b = new Date(mondayB).getTime();
+  return Math.round(Math.abs(b - a) / (7 * 24 * 60 * 60 * 1000));
+}
 
 export interface ItineraryCheckinService {
   checkAndNotify(userId: string, lat: number, lng: number): Promise<void>;
@@ -32,6 +67,8 @@ interface ItineraryCheckinServiceDeps {
   dataSource: DataSource;
   pushService: PushNotificationService;
   redisService: RedisService;
+  gamificationService: GamificationService;
+  badgeService: BadgeService;
 }
 
 interface NearbyItem {
@@ -47,11 +84,15 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
   private dataSource: DataSource;
   private pushService: PushNotificationService;
   private redisService: RedisService;
+  private gamificationService: GamificationService;
+  private badgeService: BadgeService;
 
   constructor(deps: ItineraryCheckinServiceDeps) {
     this.dataSource = deps.dataSource;
     this.pushService = deps.pushService;
     this.redisService = deps.redisService;
+    this.gamificationService = deps.gamificationService;
+    this.badgeService = deps.badgeService;
   }
 
   async checkAndNotify(
@@ -152,6 +193,19 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
       },
     });
 
+    // Award XP for check-in and update streak
+    try {
+      await this.gamificationService.awardXP(userId, 50, "itinerary_checkin");
+    } catch (err) {
+      console.error("[ItineraryCheckin] Failed to award check-in XP:", err);
+    }
+    await this.updateStreak(userId, now);
+
+    // Check badge progress (fire-and-forget)
+    this.badgeService.checkBadges(userId).catch((err) => {
+      console.error("[ItineraryCheckin] Badge check failed:", err);
+    });
+
     // Send push notification
     const emoji = item.emoji || "\u2705";
     const payload: PushNotificationPayload =
@@ -198,9 +252,54 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
           .getRepository(Itinerary)
           .update({ id: user.activeItineraryId }, { completedAt: now }),
       ]);
+
+      // Award completion XP
+      try {
+        await this.gamificationService.awardXP(
+          userId,
+          200,
+          "itinerary_completion",
+        );
+      } catch (err) {
+        console.error("[ItineraryCheckin] Failed to award completion XP:", err);
+      }
+
       console.log(
         `[ItineraryCheckin] User ${userId} completed itinerary ${user.activeItineraryId}`,
       );
+
+      // Check for completion milestones
+      this.checkCompletionMilestone(userId).catch((err) => {
+        console.error("[ItineraryCheckin] Milestone check failed:", err);
+      });
+    }
+  }
+
+  private async checkCompletionMilestone(userId: string): Promise<void> {
+    const result = await this.dataSource.query(
+      `SELECT COUNT(*) as count FROM itineraries WHERE user_id = $1 AND completed_at IS NOT NULL`,
+      [userId],
+    );
+    const completedCount = Number(result[0]?.count ?? 0);
+
+    if (COMPLETION_MILESTONES.includes(completedCount)) {
+      try {
+        await this.pushService.sendToUser(userId, {
+          title: "Milestone reached!",
+          body: `You've completed ${completedCount} itineraries! Keep exploring.`,
+          sound: "default",
+          data: {
+            type: "milestone",
+            milestoneType: "completions",
+            count: completedCount,
+          },
+        });
+        console.log(
+          `[ItineraryCheckin] User ${userId} hit completion milestone: ${completedCount}`,
+        );
+      } catch (err) {
+        console.error("[ItineraryCheckin] Failed to send milestone push:", err);
+      }
     }
   }
 
@@ -288,6 +387,19 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
       });
     await this.dataSource.getRepository(ItineraryCheckin).save(checkinRecord);
 
+    // Award XP for check-in and update streak
+    try {
+      await this.gamificationService.awardXP(userId, 50, "itinerary_checkin");
+    } catch (err) {
+      console.error("[ItineraryCheckin] Failed to award check-in XP:", err);
+    }
+    await this.updateStreak(userId, now);
+
+    // Check badge progress (fire-and-forget)
+    this.badgeService.checkBadges(userId).catch((err) => {
+      console.error("[ItineraryCheckin] Badge check failed:", err);
+    });
+
     // Check if all items are now done — mark itinerary completed + deactivate
     const remaining = await this.dataSource.getRepository(ItineraryItem).count({
       where: {
@@ -305,12 +417,97 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
           .getRepository(User)
           .update({ id: userId }, { activeItineraryId: undefined }),
       ]);
+
+      // Award completion XP
+      try {
+        await this.gamificationService.awardXP(
+          userId,
+          200,
+          "itinerary_completion",
+        );
+      } catch (err) {
+        console.error("[ItineraryCheckin] Failed to award completion XP:", err);
+      }
+
       console.log(
         `[ItineraryCheckin] User ${userId} completed itinerary ${itineraryId} via manual checkin`,
       );
+
+      // Check for completion milestones
+      this.checkCompletionMilestone(userId).catch((err) => {
+        console.error("[ItineraryCheckin] Milestone check failed:", err);
+      });
     }
 
     return { success: true, checkedInAt: now };
+  }
+
+  /**
+   * Update the user's adventure streak on check-in.
+   * Same week = no-op, next week = increment, gap > 1 week = reset to 1.
+   * Awards bonus XP at streak milestones.
+   */
+  private async updateStreak(userId: string, now: Date): Promise<void> {
+    try {
+      const currentMonday = getISOWeekMonday(now);
+      const user = await this.dataSource.getRepository(User).findOne({
+        where: { id: userId },
+        select: ["id", "currentStreak", "longestStreak", "lastStreakWeek"],
+      });
+
+      if (!user) return;
+
+      const lastWeek = user.lastStreakWeek;
+
+      // Same week — already counted
+      if (lastWeek === currentMonday) return;
+
+      let newStreak: number;
+
+      if (!lastWeek) {
+        // First ever check-in
+        newStreak = 1;
+      } else {
+        const gap = weeksBetween(lastWeek, currentMonday);
+        if (gap === 1) {
+          // Consecutive week — extend streak
+          newStreak = (user.currentStreak || 0) + 1;
+        } else {
+          // Gap — reset
+          newStreak = 1;
+        }
+      }
+
+      const newLongest = Math.max(newStreak, user.longestStreak || 0);
+
+      await this.dataSource.getRepository(User).update(
+        { id: userId },
+        {
+          currentStreak: newStreak,
+          longestStreak: newLongest,
+          lastStreakWeek: currentMonday,
+        },
+      );
+
+      console.log(
+        `[ItineraryCheckin] Streak updated for user ${userId}: week=${newStreak}, longest=${newLongest}`,
+      );
+
+      // Check for milestone XP bonus
+      const milestoneXP = STREAK_MILESTONES[newStreak];
+      if (milestoneXP) {
+        await this.gamificationService.awardXP(
+          userId,
+          milestoneXP,
+          `streak_milestone_${newStreak}`,
+        );
+        console.log(
+          `[ItineraryCheckin] Streak milestone ${newStreak} weeks! Awarded ${milestoneXP} XP to user ${userId}`,
+        );
+      }
+    } catch (err) {
+      console.error("[ItineraryCheckin] Failed to update streak:", err);
+    }
   }
 
   async getActiveItinerary(userId: string): Promise<Itinerary | null> {

@@ -429,8 +429,7 @@ export default function ItineraryTimeline({
       if (scrollRef?.current) {
         const layout = stopLayoutsRef.current[idx];
         if (layout) {
-          const targetY =
-            containerOffsetRef.current + layout.y + layout.height;
+          const targetY = containerOffsetRef.current + layout.y + layout.height;
           scrollRef.current.scrollTo({
             y: Math.max(0, targetY - 200),
             animated: true,

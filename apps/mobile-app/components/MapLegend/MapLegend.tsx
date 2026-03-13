@@ -73,8 +73,12 @@ function MapLegend() {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [expanded, setExpanded] = useState(false);
-  const visibleCategoryCounts = useLocationStore((state) => state.visibleCategoryCounts);
-  const visibleMarkerTotal = useLocationStore((state) => state.visibleMarkerTotal);
+  const visibleCategoryCounts = useLocationStore(
+    (state) => state.visibleCategoryCounts,
+  );
+  const visibleMarkerTotal = useLocationStore(
+    (state) => state.visibleMarkerTotal,
+  );
   const selectedItem = useLocationStore((state) => state.selectedItem);
 
   // Collapse when a marker is selected or the map is tapped
@@ -172,57 +176,58 @@ function MapLegend() {
 
 export default React.memo(MapLegend);
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    position: "absolute",
-    top: 12,
-    right: 16,
-    zIndex: 1000,
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.lg,
-    padding: spacing.sm,
-    shadowColor: colors.shadow.default,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  ringRow: {
-    width: RING_SIZE,
-    height: RING_SIZE,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ringCount: {
-    position: "absolute",
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    color: colors.text.primary,
-    fontWeight: "700",
-  },
-  labels: {
-    marginTop: spacing.sm,
-    gap: 5,
-  },
-  labelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-  },
-  labelText: {
-    fontSize: 12,
-    fontFamily: fontFamily.mono,
-    color: colors.text.primary,
-  },
-  labelPct: {
-    fontSize: 11,
-    fontFamily: fontFamily.mono,
-    color: colors.text.secondary,
-    marginLeft: 4,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      position: "absolute",
+      top: 12,
+      right: 16,
+      zIndex: 1000,
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.lg,
+      padding: spacing.sm,
+      shadowColor: colors.shadow.default,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.35,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    ringRow: {
+      width: RING_SIZE,
+      height: RING_SIZE,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    ringCount: {
+      position: "absolute",
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+      fontWeight: "700",
+    },
+    labels: {
+      marginTop: spacing.sm,
+      gap: 5,
+    },
+    labelRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    dot: {
+      width: 7,
+      height: 7,
+      borderRadius: 3.5,
+    },
+    labelText: {
+      fontSize: 12,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+    },
+    labelPct: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      marginLeft: 4,
+    },
+  });

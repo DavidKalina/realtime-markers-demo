@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   View,
   Text,
@@ -243,9 +249,7 @@ const CompletionCard: React.FC<{
           );
         })}
         <Text style={styles.moreText}>
-          {sortedItems.length > 3
-            ? `+${sortedItems.length - 3} more`
-            : " "}
+          {sortedItems.length > 3 ? `+${sortedItems.length - 3} more` : " "}
         </Text>
       </View>
 

@@ -1,7 +1,13 @@
 import React, { useCallback, useMemo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { useColors, fontWeight, fontFamily, spacing, type Colors } from "@/theme";
+import {
+  useColors,
+  fontWeight,
+  fontFamily,
+  spacing,
+  type Colors,
+} from "@/theme";
 import { EventType } from "@/types/types";
 import EventListItem from "@/components/Event/EventListItem";
 import { useRouter } from "expo-router";
@@ -59,23 +65,24 @@ const UpcomingEventsSection: React.FC<UpcomingEventsSectionProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    marginBottom: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
-    paddingTop: spacing.lg,
-  },
-  title: {
-    fontSize: 12,
-    fontWeight: fontWeight.semibold,
-    color: colors.text.secondary,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    fontFamily: fontFamily.mono,
-    letterSpacing: 1.5,
-    textTransform: "uppercase" as const,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      marginBottom: spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.default,
+      paddingTop: spacing.lg,
+    },
+    title: {
+      fontSize: 12,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      marginBottom: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1.5,
+      textTransform: "uppercase" as const,
+    },
+  });
 
 export default UpcomingEventsSection;

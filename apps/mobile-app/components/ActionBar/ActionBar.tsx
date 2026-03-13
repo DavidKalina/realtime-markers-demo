@@ -142,9 +142,7 @@ const ActionButton: React.FC<{
       <Animated.View style={[styles.actionButtonInner, animatedButtonStyle]}>
         <View style={styles.actionButtonIcon}>
           <IconComponent size={20} color={iconColor} />
-          {showBadge && (
-            <View style={styles.badgeDot} />
-          )}
+          {showBadge && <View style={styles.badgeDot} />}
         </View>
         <Text
           style={[
@@ -236,7 +234,8 @@ export const ActionBar: React.FC = React.memo(() => {
             disabled={!!tab.requiresLocation && !userLocation}
             showBadge={
               (tab.key === "user" && hasPendingXP) ||
-              (tab.key === "itineraries" && (hasItineraryReady || isItineraryGenerating))
+              (tab.key === "itineraries" &&
+                (hasItineraryReady || isItineraryGenerating))
             }
             onPress={() => handleTabPress(tab)}
           />

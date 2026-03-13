@@ -11,7 +11,11 @@ import {
   ViewStyle,
   TextStyle,
 } from "react-native";
-import Animated, { FadeInDown, FadeInRight, Easing } from "react-native-reanimated";
+import Animated, {
+  FadeInDown,
+  FadeInRight,
+  Easing,
+} from "react-native-reanimated";
 import Screen from "../Layout/Screen";
 import { useColors } from "@/theme";
 import { ErrorEventDetails } from "./ErrorEventDetails";
@@ -266,7 +270,9 @@ const EventDetails: React.FC<EventDetailsProps> = memo(
                 .duration(450)
                 .easing(Easing.out(Easing.cubic))}
             >
-              <Text style={styles.heroSummary}>{event.eventDigest.summary}</Text>
+              <Text style={styles.heroSummary}>
+                {event.eventDigest.summary}
+              </Text>
             </Animated.View>
           )}
 

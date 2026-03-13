@@ -355,74 +355,75 @@ const DiscoveryIndicator: React.FC<DiscoveryIndicatorProps> = ({
   );
 };
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  container: {
-    position: "absolute",
-    zIndex: 1001,
-  },
-  wrapper: {
-    width: 220,
-  },
-  itemContainer: {
-    width: 220,
-  },
-  pressable: {
-    width: "100%",
-  },
-  indicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.bg.card,
-    borderRadius: radius.md,
-    padding: spacing.sm,
-    paddingRight: spacing.sm,
-    width: 200,
-    minHeight: 40,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    shadowColor: colors.shadow.default,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  notificationIndicator: {
-    backgroundColor: colors.bg.cardAlt,
-  },
-  iconContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: radius.sm,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: spacing.sm,
-    backgroundColor: colors.border.subtle,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-  },
-  titleText: {
-    color: colors.text.primary,
-    fontSize: fontSize.xs,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.semibold,
-    letterSpacing: 0.5,
-  },
-  messageText: {
-    color: colors.text.secondary,
-    fontSize: 10,
-    fontFamily: fontFamily.mono,
-    marginTop: 2,
-  },
-  emojiText: {
-    fontSize: fontSize.xs,
-    textAlign: "center",
-    color: colors.text.primary,
-  },
-  tapIndicator: {
-    marginLeft: spacing.xs,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      position: "absolute",
+      zIndex: 1001,
+    },
+    wrapper: {
+      width: 220,
+    },
+    itemContainer: {
+      width: 220,
+    },
+    pressable: {
+      width: "100%",
+    },
+    indicator: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.md,
+      padding: spacing.sm,
+      paddingRight: spacing.sm,
+      width: 200,
+      minHeight: 40,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+      shadowColor: colors.shadow.default,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    notificationIndicator: {
+      backgroundColor: colors.bg.cardAlt,
+    },
+    iconContainer: {
+      width: 24,
+      height: 24,
+      borderRadius: radius.sm,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: spacing.sm,
+      backgroundColor: colors.border.subtle,
+      borderWidth: 1,
+      borderColor: colors.border.medium,
+    },
+    titleText: {
+      color: colors.text.primary,
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      letterSpacing: 0.5,
+    },
+    messageText: {
+      color: colors.text.secondary,
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      marginTop: 2,
+    },
+    emojiText: {
+      fontSize: fontSize.xs,
+      textAlign: "center",
+      color: colors.text.primary,
+    },
+    tapIndicator: {
+      marginLeft: spacing.xs,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+  });
 
 export default DiscoveryIndicator;

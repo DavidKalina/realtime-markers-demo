@@ -57,6 +57,7 @@ export interface ItineraryResponse {
   budgetMax: number;
   durationHours: number;
   activityTypes: string[];
+  intention?: string;
   title?: string;
   summary?: string;
   status: "GENERATING" | "READY" | "FAILED";
@@ -68,8 +69,17 @@ export interface ItineraryResponse {
   createdAt: string;
 }
 
+export interface AnchorStopParam {
+  coordinates: [number, number]; // [lng, lat]
+  label?: string;
+  address?: string;
+  placeId?: string;
+  primaryType?: string;
+  rating?: number;
+}
+
 export interface CreateItineraryParams {
-  city: string;
+  city?: string;
   plannedDate: string;
   budgetMin?: number;
   budgetMax?: number;
@@ -79,6 +89,8 @@ export interface CreateItineraryParams {
   ritualId?: string;
   startTime?: string; // HH:MM (24h)
   endTime?: string; // HH:MM (24h)
+  intention?: string;
+  anchorStops?: AnchorStopParam[];
 }
 
 export class ItinerariesModule extends BaseApiModule {

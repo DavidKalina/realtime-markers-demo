@@ -10,7 +10,14 @@ import Animated, {
   FadeInDown,
   LinearTransition,
 } from "react-native-reanimated";
-import { useColors, spacing, fontSize, fontWeight, fontFamily, type Colors } from "@/theme";
+import {
+  useColors,
+  spacing,
+  fontSize,
+  fontWeight,
+  fontFamily,
+  type Colors,
+} from "@/theme";
 
 export interface TabItem<T extends string> {
   icon: React.ElementType;
@@ -37,23 +44,23 @@ const TabButton = memo<{
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
-  <TouchableOpacity
-    style={[styles.tab, isActive && styles.activeTab]}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    <View style={styles.tabContent}>
-      <Icon
-        size={20}
-        color={isActive ? colors.accent.primary : colors.text.secondary}
-        style={styles.tabIcon}
-      />
-      <Text style={[styles.tabText, isActive && styles.activeTabText]}>
-        {label}
-      </Text>
-    </View>
-    {isActive && <View style={styles.underline} />}
-  </TouchableOpacity>
+    <TouchableOpacity
+      style={[styles.tab, isActive && styles.activeTab]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.tabContent}>
+        <Icon
+          size={20}
+          color={isActive ? colors.accent.primary : colors.text.secondary}
+          style={styles.tabIcon}
+        />
+        <Text style={[styles.tabText, isActive && styles.activeTabText]}>
+          {label}
+        </Text>
+      </View>
+      {isActive && <View style={styles.underline} />}
+    </TouchableOpacity>
   );
 });
 
@@ -90,48 +97,49 @@ function Tabs<T extends string>({
   );
 }
 
-const createStyles = (colors: Colors) => StyleSheet.create({
-  tabsContainer: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.05)",
-  },
-  tab: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: spacing.md,
-    position: "relative",
-  },
-  tabContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  activeTab: {
-    // No background color needed for underlined style
-  },
-  underline: {
-    position: "absolute",
-    bottom: -1, // Align with the bottom border
-    left: "15%",
-    right: "15%",
-    height: 2,
-    backgroundColor: colors.accent.primary,
-    borderRadius: 1,
-  },
-  tabIcon: {
-    marginRight: spacing._6,
-  },
-  tabText: {
-    fontSize: fontSize.sm,
-    color: colors.text.secondary,
-    fontFamily: fontFamily.mono,
-    fontWeight: fontWeight.medium,
-  },
-  activeTabText: {
-    color: colors.accent.primary,
-    fontWeight: fontWeight.semibold,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    tabsContainer: {
+      flexDirection: "row",
+      borderBottomWidth: 1,
+      borderBottomColor: "rgba(0, 0, 0, 0.05)",
+    },
+    tab: {
+      flex: 1,
+      alignItems: "center",
+      paddingVertical: spacing.md,
+      position: "relative",
+    },
+    tabContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    activeTab: {
+      // No background color needed for underlined style
+    },
+    underline: {
+      position: "absolute",
+      bottom: -1, // Align with the bottom border
+      left: "15%",
+      right: "15%",
+      height: 2,
+      backgroundColor: colors.accent.primary,
+      borderRadius: 1,
+    },
+    tabIcon: {
+      marginRight: spacing._6,
+    },
+    tabText: {
+      fontSize: fontSize.sm,
+      color: colors.text.secondary,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+    },
+    activeTabText: {
+      color: colors.accent.primary,
+      fontWeight: fontWeight.semibold,
+    },
+  });
 
 export default Tabs;

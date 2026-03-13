@@ -147,6 +147,8 @@ export type UserProfile = Pick<
   | "currentTier"
   | "followerCount"
   | "followingCount"
+  | "currentStreak"
+  | "longestStreak"
 >;
 
 export type UserStats = Pick<
