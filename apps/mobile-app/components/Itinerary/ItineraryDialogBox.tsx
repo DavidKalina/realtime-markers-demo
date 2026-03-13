@@ -397,6 +397,8 @@ interface NearbyPlacesInput {
   lat: number;
   lng: number;
   zoom?: number;
+  /** placeId of the anchor being edited — pre-selects in the nearby list */
+  selectedPlaceId?: string;
 }
 
 interface ItineraryDialogBoxProps {
@@ -521,6 +523,9 @@ export default function ItineraryDialogBox({
   // Nearby places state
   const [nearbyResults, setNearbyResults] = useState<NearbyPlace[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [selectedNearbyPlaceId, setSelectedNearbyPlaceId] = useState<
+    string | null
+  >(null);
 
   // Place search state (for anchor planning from map)
   const canSearch = Boolean(onFlyTo || onSearchPlaceAnchor);
@@ -573,20 +578,30 @@ export default function ItineraryDialogBox({
   }, [searchQuery, canSearch, userLocation]);
 
   const handleSearchDropPin = useCallback(() => {
-    if (!searchResult) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    onFlyTo?.(searchResult.coordinates);
-    onSearchPlaceAnchor?.(searchResult);
-    setSearchQuery("");
-    setSearchResult(null);
+    if (!searchResult?.coordinates) return;
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const result = searchResult;
+      setSearchQuery("");
+      setSearchResult(null);
+      onFlyTo?.(result.coordinates);
+      onSearchPlaceAnchor?.(result);
+    } catch (error) {
+      console.error("[ItineraryDialogBox] Drop pin failed:", error);
+    }
   }, [searchResult, onFlyTo, onSearchPlaceAnchor]);
 
   const handleSearchFlyTo = useCallback(() => {
-    if (!searchResult) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onFlyTo?.(searchResult.coordinates);
-    setSearchQuery("");
-    setSearchResult(null);
+    if (!searchResult?.coordinates) return;
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const coords = searchResult.coordinates;
+      setSearchQuery("");
+      setSearchResult(null);
+      onFlyTo?.(coords);
+    } catch (error) {
+      console.error("[ItineraryDialogBox] Fly-to failed:", error);
+    }
   }, [searchResult, onFlyTo]);
 
   const prevNearbyRef = useRef<NearbyPlacesInput | null>(null);
@@ -594,6 +609,7 @@ export default function ItineraryDialogBox({
   const handleNearbySelectInternal = useCallback(
     (place: NearbyPlace) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setSelectedNearbyPlaceId(place.placeId);
       onNearbySelect?.(place);
     },
     [onNearbySelect],
@@ -671,6 +687,7 @@ export default function ItineraryDialogBox({
       // Reset state up-front so the animation callback can't clobber fetch results
       setNearbyResults([]);
       setNearbyLoading(true);
+      setSelectedNearbyPlaceId(nearbyPlaces.selectedPlaceId ?? null);
 
       // Entering nearby phase
       cancelAnimation(sheenPos);
@@ -690,12 +707,12 @@ export default function ItineraryDialogBox({
       );
 
       // Fetch nearby places — scale radius with zoom level so low-zoom
-      // long-presses cast a wider net (max 5000m at zoom ≤6, 200m at zoom ≥16).
+      // long-presses cast a wider net (max 5000m at zoom ≤6, 500m at zoom ≥16).
       const zoom = nearbyPlaces.zoom ?? 16;
       const radius = Math.round(
         Math.min(
           5000,
-          Math.max(200, 200 * Math.pow(2, Math.max(0, 16 - zoom) / 2)),
+          Math.max(500, 500 * Math.pow(2, Math.max(0, 16 - zoom) / 2)),
         ),
       );
       let cancelled = false;
@@ -920,9 +937,17 @@ export default function ItineraryDialogBox({
 
   const toggleActivity = useCallback((value: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedActivities((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
-    );
+    setSelectedActivities((prev) => {
+      const wasEmpty = prev.length === 0;
+      const next = prev.includes(value)
+        ? prev.filter((v) => v !== value)
+        : [...prev, value];
+      // Auto-expand intention section when first vibe is selected
+      if (wasEmpty && next.length > 0) {
+        intentionRef.current?.expand();
+      }
+      return next;
+    });
   }, []);
 
   const applyRitual = useCallback((ritual: RitualResponse) => {
@@ -1209,7 +1234,7 @@ export default function ItineraryDialogBox({
                   : "Plan Your Adventure"}
             </Text>
             <Pressable
-              onPress={phase === "nearby" ? onNearbyDismiss : handleDismiss}
+              onPress={phase === "nearby" ? onNearbyKeepPin : handleDismiss}
               style={styles.dismissButton}
             >
               <Text style={styles.dismissText}>✕</Text>
@@ -1219,60 +1244,72 @@ export default function ItineraryDialogBox({
 
         {phase === "nearby" && (
           <>
-            {nearbyLoading ? (
-              <View style={styles.nearbyLoadingRow}>
-                <ActivityIndicator size="small" color={colors.accent.primary} />
-                <Text style={styles.nearbyLoadingText}>
-                  Finding nearby places...
-                </Text>
-              </View>
-            ) : nearbyResults.length === 0 ? (
-              <Text style={styles.nearbyEmptyText}>No places found nearby</Text>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.nearbyScrollContent}
-              >
-                {nearbyResults.map((place) => (
-                  <Pressable
-                    key={place.placeId}
-                    style={styles.nearbyCard}
-                    onPress={() => handleNearbySelectInternal(place)}
-                  >
-                    <Text style={styles.nearbyName} numberOfLines={1}>
-                      {place.name}
-                    </Text>
-                    <View style={styles.nearbySubRow}>
-                      {place.primaryType && (
-                        <Text style={styles.nearbyType} numberOfLines={1}>
-                          {place.primaryType}
-                        </Text>
-                      )}
-                      {place.rating != null && (
-                        <Text style={styles.nearbyRating}>
-                          {"★"}
-                          {place.rating.toFixed(1)}
-                        </Text>
-                      )}
-                      {place.distance != null && (
-                        <Text style={styles.nearbyDistance}>
-                          {place.distance < 1000
-                            ? `${place.distance}m`
-                            : `${(place.distance / 1000).toFixed(1)}km`}
-                        </Text>
-                      )}
-                    </View>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            )}
+            <View style={styles.nearbyContent}>
+              {nearbyLoading ? (
+                <View style={styles.nearbyLoadingRow}>
+                  <ActivityIndicator size="small" color={colors.accent.primary} />
+                  <Text style={styles.nearbyLoadingText}>
+                    Finding nearby places...
+                  </Text>
+                </View>
+              ) : nearbyResults.length === 0 ? (
+                <Text style={styles.nearbyEmptyText}>No places found nearby</Text>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.nearbyScrollContent}
+                >
+                  {nearbyResults.map((place) => {
+                    const isSelected =
+                      selectedNearbyPlaceId === place.placeId;
+                    return (
+                    <Pressable
+                      key={place.placeId}
+                      style={[
+                        styles.nearbyCard,
+                        isSelected && styles.nearbyCardSelected,
+                      ]}
+                      onPress={() => handleNearbySelectInternal(place)}
+                    >
+                      <Text style={styles.nearbyName} numberOfLines={1}>
+                        {place.name}
+                      </Text>
+                      <View style={styles.nearbySubRow}>
+                        {place.primaryType && (
+                          <Text style={styles.nearbyType} numberOfLines={1}>
+                            {place.primaryType}
+                          </Text>
+                        )}
+                        {place.rating != null && (
+                          <Text style={styles.nearbyRating}>
+                            {"★"}
+                            {place.rating.toFixed(1)}
+                          </Text>
+                        )}
+                        {place.distance != null && (
+                          <Text style={styles.nearbyDistance}>
+                            {place.distance < 1000
+                              ? `${place.distance}m`
+                              : `${(place.distance / 1000).toFixed(1)}km`}
+                          </Text>
+                        )}
+                      </View>
+                    </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
             <View style={styles.nearbyFooterRow}>
-              <Pressable style={styles.keepPinButton} onPress={onNearbyDismiss}>
-                <Text style={styles.removePinText}>Remove pin</Text>
+              <Pressable
+                style={styles.nearbyBtnRemove}
+                onPress={onNearbyDismiss}
+              >
+                <Text style={styles.nearbyBtnRemoveText}>Remove</Text>
               </Pressable>
-              <Pressable style={styles.keepPinButton} onPress={onNearbyKeepPin}>
-                <Text style={styles.keepPinText}>Keep as pin</Text>
+              <Pressable style={styles.nearbyBtnKeep} onPress={onNearbyKeepPin}>
+                <Text style={styles.nearbyBtnKeepText}>Keep pin</Text>
               </Pressable>
             </View>
           </>
@@ -1773,15 +1810,47 @@ export default function ItineraryDialogBox({
             {result.summary && (
               <Text style={styles.resultSummary}>{result.summary}</Text>
             )}
-            {result.forecast && (
-              <View style={styles.forecastChip}>
-                <Text style={styles.forecastText}>
-                  {conditionEmoji(result.forecast.dominantCondition)}{" "}
-                  {result.forecast.tempLowF}–{result.forecast.tempHighF}°F{" "}
-                  {result.forecast.dominantCondition}
-                </Text>
-              </View>
-            )}
+            {result.forecast &&
+              (() => {
+                const f = result.forecast;
+                const items = result.items ?? [];
+                let low = f.tempLowF;
+                let high = f.tempHighF;
+                if (f.hourly?.length && items.length) {
+                  const startH = Math.min(
+                    ...items.map((i) =>
+                      parseInt(i.startTime.split(":")[0], 10),
+                    ),
+                  );
+                  const endH = Math.max(
+                    ...items.map((i) =>
+                      parseInt(i.endTime.split(":")[0], 10),
+                    ),
+                  );
+                  const rel = f.hourly.filter(
+                    (h) => h.hour >= startH && h.hour <= endH,
+                  );
+                  if (rel.length) {
+                    low = Math.round(Math.min(...rel.map((h) => h.tempF)));
+                    high = Math.round(Math.max(...rel.map((h) => h.tempF)));
+                  }
+                }
+                return (
+                  <View style={styles.forecastRow}>
+                    <View style={styles.forecastChip}>
+                      <Text style={styles.forecastText}>
+                        {conditionEmoji(f.dominantCondition)}{" "}
+                        {low === high ? `${high}°F` : `${low}–${high}°F`}
+                      </Text>
+                    </View>
+                    <View style={styles.forecastChip}>
+                      <Text style={styles.forecastText}>
+                        {f.dominantCondition}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })()}
             <ItineraryTimeline
               items={result.items}
               forecast={result.forecast}
@@ -2018,6 +2087,11 @@ const createStyles = (colors: Colors) =>
       color: colors.text.primary,
       fontWeight: "700",
     },
+    forecastRow: {
+      flexDirection: "row",
+      gap: 6,
+      marginBottom: spacing.sm,
+    },
     forecastChip: {
       alignSelf: "flex-start",
       borderWidth: 1,
@@ -2025,7 +2099,6 @@ const createStyles = (colors: Colors) =>
       borderRadius: radius.full,
       paddingHorizontal: 10,
       paddingVertical: 4,
-      marginBottom: spacing.sm,
     },
     forecastText: {
       fontFamily: fontFamily.mono,
@@ -2239,6 +2312,10 @@ const createStyles = (colors: Colors) =>
       fontWeight: "700",
     },
     /* ── Nearby places ─── */
+    nearbyContent: {
+      flex: 1,
+      justifyContent: "center",
+    },
     nearbyLoadingRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -2271,6 +2348,11 @@ const createStyles = (colors: Colors) =>
       paddingHorizontal: 12,
       paddingVertical: 6,
       maxWidth: 200,
+      overflow: "hidden",
+    },
+    nearbyCardSelected: {
+      backgroundColor: GREEN_MUTED,
+      borderColor: "rgba(134, 239, 172, 0.4)",
     },
     nearbyName: {
       fontFamily: fontFamily.mono,
@@ -2282,11 +2364,13 @@ const createStyles = (colors: Colors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
+      flexShrink: 1,
     },
     nearbyType: {
       fontFamily: fontFamily.mono,
       fontSize: 10,
       color: colors.text.secondary,
+      flexShrink: 1,
     },
     nearbyRating: {
       fontFamily: fontFamily.mono,
@@ -2301,24 +2385,35 @@ const createStyles = (colors: Colors) =>
     nearbyFooterRow: {
       flexDirection: "row",
       justifyContent: "center",
-      gap: spacing.lg,
+      gap: 10,
       marginTop: spacing.sm,
     },
-    keepPinButton: {
-      paddingVertical: spacing.xs,
-      paddingHorizontal: spacing.md,
+    nearbyBtnRemove: {
+      flex: 1,
+      paddingVertical: 6,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      borderColor: colors.border.subtle,
+      alignItems: "center",
     },
-    keepPinText: {
+    nearbyBtnRemoveText: {
       fontFamily: fontFamily.mono,
-      fontSize: fontSize.sm,
-      color: colors.text.disabled,
-      textDecorationLine: "underline",
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.text.secondary,
     },
-    removePinText: {
+    nearbyBtnKeep: {
+      flex: 1,
+      paddingVertical: 6,
+      borderRadius: radius.full,
+      backgroundColor: colors.accent.primary,
+      alignItems: "center",
+    },
+    nearbyBtnKeepText: {
       fontFamily: fontFamily.mono,
-      fontSize: fontSize.sm,
-      color: colors.status.error.text,
-      textDecorationLine: "underline",
+      fontSize: 11,
+      fontWeight: "600",
+      color: colors.fixed.black,
     },
     /* ── Place search ─── */
     searchSection: {

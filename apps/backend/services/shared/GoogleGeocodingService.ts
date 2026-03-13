@@ -56,6 +56,7 @@ export interface GoogleGeocodingService extends ILocationResolutionService {
       rating?: number;
       userRatingsTotal?: number;
       businessStatus?: string;
+      primaryType?: string;
       distance?: number;
       locationNotes?: string;
     };
@@ -203,6 +204,7 @@ export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
     rating?: number;
     userRatingsTotal?: number;
     businessStatus?: string;
+    primaryType?: string;
     locationNotes?: string;
   } | null> {
     try {
@@ -271,7 +273,7 @@ export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": process.env.GOOGLE_GEOCODING_API_KEY || "",
           "X-Goog-FieldMask":
-            "places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.id,places.businessStatus",
+            "places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.id,places.businessStatus,places.primaryTypeDisplayName",
         },
         body: JSON.stringify(requestBody),
       });
@@ -380,6 +382,7 @@ export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
         rating: result.rating,
         userRatingsTotal: result.userRatingCount,
         businessStatus: result.businessStatus,
+        primaryType: result.primaryTypeDisplayName?.text ?? undefined,
         locationNotes,
       };
     } catch (error) {
@@ -1053,6 +1056,8 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
       types: string[];
       rating?: number;
       userRatingsTotal?: number;
+      businessStatus?: string;
+      primaryType?: string;
       distance?: number;
       locationNotes?: string;
     };
@@ -1111,6 +1116,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           rating: placesResult.rating,
           userRatingsTotal: placesResult.userRatingsTotal,
           businessStatus: placesResult.businessStatus,
+          primaryType: placesResult.primaryType,
           distance,
           locationNotes: placesResult.locationNotes,
         },
@@ -1489,7 +1495,6 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           "car_repair",
           "car_wash",
           "gas_station",
-          "parking",
           // Finance
           "accounting",
           "atm",
@@ -1506,7 +1511,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           "medical_lab",
           "pharmacy",
           "physiotherapist",
-          // Services
+          // Services & contractors
           "cemetery",
           "funeral_home",
           "insurance_agency",
@@ -1518,6 +1523,14 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           "roofing_contractor",
           "moving_company",
           "storage",
+          "painter",
+          "consultant",
+          "marketing_consultant",
+          "courier_service",
+          "shipping_service",
+          "telecommunications_service_provider",
+          "employment_agency",
+          "child_care_agency",
           // Government
           "courthouse",
           "post_office",
@@ -1530,25 +1543,23 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           // Transportation
           "bus_station",
           "bus_stop",
-          "train_station",
-          "subway_station",
-          "taxi_stand",
           // Housing
-          "apartment_building",
           "apartment_complex",
-          "condominium_complex",
         ],
         maxResultCount: Math.min(maxResults, 20),
         rankPreference: "DISTANCE",
       };
 
-      console.log("[searchNearby] Request:", JSON.stringify({
-        lat,
-        lng,
-        radius: requestBody.locationRestriction.circle.radius,
-        maxResultCount: requestBody.maxResultCount,
-        includedTypesCount: requestBody.includedTypes.length,
-      }));
+      console.log(
+        "[searchNearby] Request:",
+        JSON.stringify({
+          lat,
+          lng,
+          radius: requestBody.locationRestriction.circle.radius,
+          maxResultCount: requestBody.maxResultCount,
+          excludedTypesCount: requestBody.excludedTypes.length,
+        }),
+      );
 
       const response = await fetch(url, {
         method: "POST",
@@ -1570,48 +1581,79 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           response.statusText,
           errorBody,
         );
-        return { success: false, error: "Places API request failed", places: [] };
+        return {
+          success: false,
+          error: "Places API request failed",
+          places: [],
+        };
       }
 
       const data = await response.json();
-      console.log("[searchNearby] Response:", JSON.stringify({
-        placesCount: data.places?.length ?? 0,
-        firstPlace: data.places?.[0]?.displayName?.text,
-        error: data.error,
-      }));
+      console.log(
+        "[searchNearby] Response:",
+        JSON.stringify({
+          placesCount: data.places?.length ?? 0,
+          firstPlace: data.places?.[0]?.displayName?.text,
+          error: data.error,
+        }),
+      );
 
       if (!data.places || data.places.length === 0) {
         return { success: true, places: [] };
       }
 
+      // Table B types we can't exclude via the API but don't want to show.
+      // These are checked against a place's *primary* type only, since generic
+      // Table B labels like "establishment" appear on nearly everything.
+      const EXCLUDED_PRIMARY_TYPES = new Set([
+        "general_contractor",
+        "corporate_office",
+        "business_center",
+        "supplier",
+        "manufacturer",
+        "farm",
+        "ranch",
+      ]);
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const places = data.places.map((place: any) => {
-        const pLat = place.location?.latitude ?? 0;
-        const pLng = place.location?.longitude ?? 0;
-        // Haversine distance in meters
-        const R = 6371000;
-        const dLat = ((pLat - lat) * Math.PI) / 180;
-        const dLng = ((pLng - lng) * Math.PI) / 180;
-        const a =
-          Math.sin(dLat / 2) ** 2 +
-          Math.cos((lat * Math.PI) / 180) *
-            Math.cos((pLat * Math.PI) / 180) *
-            Math.sin(dLng / 2) ** 2;
-        const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const places = data.places
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((place: any) => {
+          const primary = place.primaryType ?? place.types?.[0] ?? "";
+          return !EXCLUDED_PRIMARY_TYPES.has(primary);
+        })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((place: any) => {
+          const pLat = place.location?.latitude ?? 0;
+          const pLng = place.location?.longitude ?? 0;
+          // Haversine distance in meters
+          const R = 6371000;
+          const dLat = ((pLat - lat) * Math.PI) / 180;
+          const dLng = ((pLng - lng) * Math.PI) / 180;
+          const a =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos((lat * Math.PI) / 180) *
+              Math.cos((pLat * Math.PI) / 180) *
+              Math.sin(dLng / 2) ** 2;
+          const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-        return {
-          name: place.displayName?.text ?? "",
-          address: place.formattedAddress ?? "",
-          coordinates: [pLng, pLat] as [number, number],
-          placeId: place.id ?? "",
-          types: place.types ?? [],
-          rating: place.rating ?? undefined,
-          primaryType: place.primaryTypeDisplayName?.text ?? undefined,
-          distance: Math.round(dist),
-        };
-      });
+          return {
+            name: place.displayName?.text ?? "",
+            address: place.formattedAddress ?? "",
+            coordinates: [pLng, pLat] as [number, number],
+            placeId: place.id ?? "",
+            types: place.types ?? [],
+            rating: place.rating ?? undefined,
+            primaryType: place.primaryTypeDisplayName?.text ?? undefined,
+            distance: Math.round(dist),
+          };
+        });
 
-      return { success: true, places };
+      // Use a fast LLM to filter out places that aren't relevant for an
+      // adventure / outing app (e.g. landscapers, contractors, offices).
+      const filtered = await this.filterPlacesWithLLM(places);
+
+      return { success: true, places: filtered };
     } catch (error) {
       console.error("[searchNearby] Error:", error);
       return {
@@ -1620,6 +1662,74 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           error instanceof Error ? error.message : "Unknown error occurred",
         places: [],
       };
+    }
+  }
+
+  /**
+   * Use GPT-4o-mini to filter nearby places to only those relevant for
+   * a personal adventure / "touch grass" app. Falls back to the unfiltered
+   * list if the LLM call fails.
+   */
+  private async filterPlacesWithLLM(
+    places: {
+      name: string;
+      address: string;
+      coordinates: [number, number];
+      placeId: string;
+      types: string[];
+      rating?: number;
+      primaryType?: string;
+      distance?: number;
+    }[],
+  ): Promise<typeof places> {
+    if (places.length === 0) return places;
+
+    try {
+      const placeList = places
+        .map(
+          (p, i) =>
+            `${i}: "${p.name}" (${p.primaryType ?? p.types[0] ?? "unknown"})`,
+        )
+        .join("\n");
+
+      const completion = await this.openAIService.executeChatCompletion(
+        {
+          model: OpenAIModel.GPT4OMini,
+          temperature: 0,
+          max_tokens: 200,
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content:
+                'You filter places for a personal adventure app. Keep places someone would actually visit for fun, food, culture, fitness, nature, entertainment, or community. Remove service businesses (contractors, landscapers, cleaners, accountants, etc.), offices, and anything you wouldn\'t suggest as an outing destination. Return JSON: {"keep":[0,2,5]} with the indices to keep.',
+            },
+            {
+              role: "user",
+              content: placeList,
+            },
+          ],
+        },
+        "searchNearby-filter",
+      );
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) return places;
+
+      const parsed = JSON.parse(content) as { keep: number[] };
+      if (!Array.isArray(parsed.keep)) return places;
+
+      const kept = parsed.keep
+        .filter((i) => typeof i === "number" && i >= 0 && i < places.length)
+        .map((i) => places[i]);
+
+      return kept.length > 0 ? kept : places;
+    } catch (error) {
+      console.warn(
+        "[searchNearby] LLM filter failed, returning unfiltered:",
+        error,
+      );
+      return places;
     }
   }
 }

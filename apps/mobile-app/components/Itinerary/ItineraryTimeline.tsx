@@ -352,7 +352,9 @@ const TimelineStop = React.memo(
                 {item.venueName && (
                   <Text style={styles.venueText} numberOfLines={1}>
                     {item.venueName}
-                    {item.venueAddress ? ` · ${item.venueAddress}` : ""}
+                    {item.venueAddress
+                      ? ` · ${extractCity(item.venueAddress)}`
+                      : ""}
                   </Text>
                 )}
 
@@ -511,6 +513,31 @@ export default function ItineraryTimeline({
   );
 }
 
+// Pull "City, ST" from a Google address like
+// "1234 Main St, Denver, CO 80205, USA"
+// Parts: [street, city, stateZip, country]
+function extractCity(address: string): string {
+  const parts = address.split(",").map((s) => s.trim());
+  // 4+ parts: street, city, "CO 80205", "USA"
+  if (parts.length >= 4) {
+    const city = parts[parts.length - 3];
+    const state = parts[parts.length - 2].replace(/\s*\d{5}(-\d{4})?$/, "");
+    return state ? `${city}, ${state}` : city;
+  }
+  // 3 parts: "city, CO 80205, USA" or "city, state zip"
+  if (parts.length === 3) {
+    const city = parts[0];
+    const state = parts[1].replace(/\s*\d{5}(-\d{4})?$/, "");
+    return state ? `${city}, ${state}` : city;
+  }
+  // 2 parts: "city, state"
+  if (parts.length === 2) {
+    const state = parts[1].replace(/\s*\d{5}(-\d{4})?$/, "");
+    return state ? `${parts[0]}, ${state}` : parts[0];
+  }
+  return address;
+}
+
 function formatTime(time24: string): string {
   const [h, m] = time24.split(":").map(Number);
   const suffix = h >= 12 ? "PM" : "AM";
@@ -652,7 +679,7 @@ const createStyles = (colors: Colors) =>
       fontSize: 10,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.regular,
-      color: colors.text.disabled,
+      color: colors.text.secondary,
       fontStyle: "italic",
       letterSpacing: 0.2,
     },

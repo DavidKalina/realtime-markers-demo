@@ -128,7 +128,12 @@ function HomeScreenContent() {
   const nearbyPlacesInput = useMemo(
     () =>
       pendingAnchor
-        ? { lat: pendingAnchor.coordinates[1], lng: pendingAnchor.coordinates[0], zoom: zoomLevel }
+        ? {
+            lat: pendingAnchor.coordinates[1],
+            lng: pendingAnchor.coordinates[0],
+            zoom: zoomLevel,
+            selectedPlaceId: pendingAnchor.placeId,
+          }
         : null,
     [pendingAnchor, zoomLevel],
   );
@@ -334,21 +339,10 @@ function HomeScreenContent() {
     [addAnchor],
   );
 
-  // Long press handler — drops anchor pin + ripple effect
+  // Long press handler — drops anchor pin (pin has its own ripple)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleMapLongPress = useCallback((event: any) => {
     "worklet";
-    // Ripple effect
-    if (event?.properties) {
-      const { screenPointX, screenPointY } = event.properties;
-      if (
-        typeof screenPointX === "number" &&
-        typeof screenPointY === "number"
-      ) {
-        scheduleOnRN(setRipplePosition, { x: screenPointX, y: screenPointY });
-        scheduleOnRN(setShowRipple, true);
-      }
-    }
     // Drop anchor pin
     if (event?.geometry?.coordinates) {
       const [lng, lat] = event.geometry.coordinates;

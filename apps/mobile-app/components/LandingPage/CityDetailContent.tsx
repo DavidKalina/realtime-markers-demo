@@ -16,6 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
+import EmptyState from "@/components/Layout/EmptyState";
 import {
   useColors,
   duration,
@@ -396,7 +397,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
   const renderTopTab = () => {
     const { ranked, featured } = topTabEvents;
     if (ranked.length === 0 && featured.length === 0) {
-      return renderEmptyTab("No top events yet");
+      return renderEmptyTab("🏆", "No top events yet", "Top-rated events will appear here as they get discovered.");
     }
     const allEvents = [
       ...ranked.map((e, i) => ({
@@ -437,7 +438,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
     const hasWeekly = activeWeekly.length > 0;
 
     if (!hasToday && !hasFree && !hasWeekly) {
-      return renderEmptyTab("Nothing happening today");
+      return renderEmptyTab("📅", "Nothing happening today", "Scan a flyer to add events happening in this city.");
     }
 
     return (
@@ -503,7 +504,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
     const hasCommunity = activeCommunity.length > 0;
 
     if (!hasDiscover && !hasCommunity) {
-      return renderEmptyTab("Nothing discovered yet");
+      return renderEmptyTab("🔍", "Nothing discovered yet", "Recently scanned events will show up here.");
     }
 
     return (
@@ -548,7 +549,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
 
   const renderSpotsTab = () => {
     if (!popularStops || popularStops.length === 0) {
-      return renderEmptyTab("No popular spots yet");
+      return renderEmptyTab("📍", "No popular spots yet", "Spots with the most events will appear here.");
     }
 
     return (
@@ -607,7 +608,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
   const renderLeaderboardTab = () => {
     const contributors = thirdSpaceScore?.contributors;
     if (!contributors || contributors.length === 0) {
-      return renderEmptyTab("No contributors yet");
+      return renderEmptyTab("👥", "No contributors yet", "People who scan events in this city will show up here.");
     }
 
     return (
@@ -659,18 +660,18 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
     );
   };
 
-  const renderEmptyTab = (message: string) => (
-    <View style={styles.emptyTab}>
-      <Text style={styles.emptyTabText}>{message}</Text>
-      <Pressable
-        onPress={() => router.navigate("/spaces")}
-        style={[styles.emptyButton, { borderColor: colors.border.default }]}
-      >
-        <Text style={[styles.emptyButtonText, { color: colors.text.primary }]}>
-          Browse other cities
-        </Text>
-      </Pressable>
-    </View>
+  const renderEmptyTab = (emoji: string, title: string, subtitle: string) => (
+    <EmptyState
+      emoji={emoji}
+      title={title}
+      subtitle={subtitle}
+      action={{
+        label: "Browse other cities",
+        onPress: () => router.navigate("/spaces"),
+        variant: "outline",
+      }}
+      style={{ paddingVertical: spacing["2xl"] }}
+    />
   );
 
   const scrollContent = (
@@ -697,32 +698,17 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
           {isEmpty && (
             <Animated.View
               entering={FadeIn.duration(duration.normal).delay(160)}
-              style={styles.emptyContainer}
             >
-              <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
-                No events yet
-              </Text>
-              <Text
-                style={[styles.emptySubtitle, { color: colors.text.secondary }]}
-              >
-                Be the first to scan a flyer and put this city on the map.
-              </Text>
-              <Pressable
-                onPress={() => router.navigate("/spaces")}
-                style={[
-                  styles.emptyButton,
-                  { borderColor: colors.border.default },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.emptyButtonText,
-                    { color: colors.text.primary },
-                  ]}
-                >
-                  Browse other cities
-                </Text>
-              </Pressable>
+              <EmptyState
+                emoji="🌿"
+                title="No events yet"
+                subtitle="Be the first to scan a flyer and put this city on the map."
+                action={{
+                  label: "Browse other cities",
+                  onPress: () => router.navigate("/spaces"),
+                  variant: "outline",
+                }}
+              />
             </Animated.View>
           )}
 
@@ -959,46 +945,6 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
     },
 
-    /* Empty states */
-    emptyContainer: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      paddingHorizontal: spacing.xl,
-      paddingTop: 80,
-    },
-    emptyTitle: {
-      fontSize: fontSize.lg,
-      fontFamily: fontFamily.mono,
-      marginBottom: spacing.sm,
-      textAlign: "center",
-    },
-    emptySubtitle: {
-      fontSize: fontSize.sm,
-      fontFamily: fontFamily.mono,
-      textAlign: "center",
-      lineHeight: 20,
-    },
-    emptyTab: {
-      alignItems: "center",
-      paddingVertical: spacing["2xl"],
-      gap: spacing.md,
-    },
-    emptyTabText: {
-      fontSize: fontSize.sm,
-      fontFamily: fontFamily.mono,
-      color: colors.text.secondary,
-    },
-    emptyButton: {
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.lg,
-      borderRadius: 8,
-      borderWidth: 1,
-    },
-    emptyButtonText: {
-      fontSize: fontSize.sm,
-      fontFamily: fontFamily.mono,
-    },
   });
 
 export default CityDetailContent;

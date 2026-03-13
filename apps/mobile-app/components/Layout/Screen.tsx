@@ -145,6 +145,8 @@ const Screen = <T extends string>({
   const handleBack = () => {
     if (onBack) {
       onBack();
+    } else if (router.canGoBack()) {
+      router.back();
     }
   };
 

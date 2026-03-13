@@ -14,7 +14,14 @@ import {
   useAnchorPlanStore,
   type AnchorStop,
 } from "@/stores/useAnchorPlanStore";
-import { fontSize, lineHeight, spacing, spring, useColors } from "@/theme";
+import {
+  fontFamily,
+  fontSize,
+  lineHeight,
+  spacing,
+  spring,
+  useColors,
+} from "@/theme";
 import {
   MARKER_HEIGHT,
   MARKER_WIDTH,
@@ -35,13 +42,21 @@ const AnchorPin = React.memo(
 
     const scale = useSharedValue(0);
     const rippleScale = useSharedValue(0);
-    const rippleOpacity = useSharedValue(0.8);
+    const rippleOpacity = useSharedValue(0);
 
     // Pop-in animation on mount
     useEffect(() => {
       scale.value = withSpring(1, spring.bouncy);
-      rippleScale.value = withTiming(5, { duration: 800 });
-      rippleOpacity.value = withTiming(0, { duration: 800 });
+      // Single ripple wave: start after the pin lands, expand and fade
+      rippleOpacity.value = withSequence(
+        withTiming(0, { duration: 200 }),
+        withTiming(0.6, { duration: 50 }),
+        withTiming(0, { duration: 600 }),
+      );
+      rippleScale.value = withSequence(
+        withTiming(0, { duration: 200 }),
+        withTiming(3, { duration: 650 }),
+      );
 
       return () => {
         cancelAnimation(scale);
@@ -76,42 +91,53 @@ const AnchorPin = React.memo(
       setTimeout(() => removeAnchor(anchor.id), 250);
     }, [anchor.id, removeAnchor, scale]);
 
+    const label = anchor.label || `Pin ${index + 1}`;
+
     return (
       <MapboxGL.MarkerView coordinate={anchor.coordinates} anchor={ANCHOR}>
-        <View style={styles.container}>
-          {/* Shadow */}
-          <View style={[styles.shadowContainer, staticShadowStyle]}>
-            <ShadowSVG />
+        <View style={styles.outerContainer}>
+          {/* Label above the pin */}
+          <Animated.View style={[styles.labelContainer, markerStyle]}>
+            <Text style={styles.labelText} numberOfLines={1}>
+              {label}
+            </Text>
+          </Animated.View>
+
+          <View style={styles.container}>
+            {/* Shadow */}
+            <View style={[styles.shadowContainer, staticShadowStyle]}>
+              <ShadowSVG />
+            </View>
+
+            {/* Marker */}
+            <TouchableOpacity
+              onPress={handlePress}
+              onLongPress={handleLongPress}
+              delayLongPress={400}
+              activeOpacity={0.7}
+              style={styles.touchableArea}
+            >
+              <Animated.View style={[styles.markerContainer, markerStyle]}>
+                <MarkerSVG
+                  fill={colors.accent.primary}
+                  stroke={colors.accent.dark}
+                  strokeWidth="3"
+                  highlightStrokeWidth="2.5"
+                  circleRadius="12"
+                  circleStroke={colors.accent.dark}
+                  circleStrokeWidth="1"
+                />
+
+                {/* Number label */}
+                <View style={styles.emojiContainer}>
+                  <Text style={styles.numberText}>{index + 1}</Text>
+                </View>
+
+                {/* Impact ripple */}
+                <Animated.View style={[styles.rippleEffect, rippleStyle]} />
+              </Animated.View>
+            </TouchableOpacity>
           </View>
-
-          {/* Marker */}
-          <TouchableOpacity
-            onPress={handlePress}
-            onLongPress={handleLongPress}
-            delayLongPress={400}
-            activeOpacity={0.7}
-            style={styles.touchableArea}
-          >
-            <Animated.View style={[styles.markerContainer, markerStyle]}>
-              <MarkerSVG
-                fill={colors.accent.primary}
-                stroke={colors.accent.dark}
-                strokeWidth="3"
-                highlightStrokeWidth="2.5"
-                circleRadius="12"
-                circleStroke={colors.accent.dark}
-                circleStrokeWidth="1"
-              />
-
-              {/* Number label */}
-              <View style={styles.emojiContainer}>
-                <Text style={styles.numberText}>{index + 1}</Text>
-              </View>
-
-              {/* Impact ripple */}
-              <Animated.View style={[styles.rippleEffect, rippleStyle]} />
-            </Animated.View>
-          </TouchableOpacity>
         </View>
       </MapboxGL.MarkerView>
     );
@@ -141,7 +167,27 @@ const staticShadowStyle = {
   transform: [{ translateX: SHADOW_OFFSET.x }, { translateY: SHADOW_OFFSET.y }],
 };
 
+const LABEL_HEIGHT = 22;
+
 const styles = StyleSheet.create({
+  outerContainer: {
+    alignItems: "center",
+  },
+  labelContainer: {
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginBottom: 4,
+    maxWidth: 140,
+  },
+  labelText: {
+    fontFamily: fontFamily.mono,
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    textAlign: "center",
+  },
   container: {
     width: MARKER_WIDTH,
     height: MARKER_HEIGHT,
@@ -183,12 +229,11 @@ const styles = StyleSheet.create({
   },
   rippleEffect: {
     position: "absolute",
-    width: spacing._10,
-    height: spacing._10,
-    borderRadius: 5,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: "transparent",
     borderWidth: 2,
-    opacity: 0.7,
-    bottom: spacing.md,
+    bottom: 0,
   },
 });

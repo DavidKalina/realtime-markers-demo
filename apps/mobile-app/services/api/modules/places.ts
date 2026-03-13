@@ -14,6 +14,8 @@ export interface PlaceSearchResult {
     types: string[];
     rating?: number;
     userRatingsTotal?: number;
+    businessStatus?: string;
+    primaryType?: string;
     distance?: number;
     locationNotes?: string;
   };

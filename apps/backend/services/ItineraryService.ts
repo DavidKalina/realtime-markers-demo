@@ -929,6 +929,9 @@ class ItineraryServiceImpl implements ItineraryService {
         : "";
 
     const hasTrails = trailList !== null;
+    const wantsBoarding = input.activityTypes.some((a) =>
+      ["boarding", "skating"].includes(a.toLowerCase()),
+    );
     const trailInstructions = hasTrails
       ? `
 TRAIL RULES (for boarding/hiking/walking/outdoor itineraries):
@@ -939,6 +942,16 @@ TRAIL RULES (for boarding/hiking/walking/outdoor itineraries):
 - For hiking/walking: pick trails with appropriate surface and length for the duration. A 2-hour hike needs a longer trail than a 30-minute stroll. Mention the surface type (dirt, gravel, paved) so the user knows what footwear to expect.
 - Suggest grabbing coffee/food near trail entry points — that's the vibe.
 - If the user wants boarding, hiking, or walking, make trails a CORE part of the itinerary, not an afterthought.`
+      : "";
+
+    const boardingGarageInstructions = wantsBoarding
+      ? `
+PARKING GARAGE BOARDING (evening/night stops only):
+- For boarding stops scheduled in the evening or at night (after ~18:00), consider multi-story parking garages — smooth concrete, ramps, shade, and usually empty upper levels after hours.
+- Only suggest a garage for a boarding-focused stop, not for dining or other activities.
+- Use the actual garage name (e.g., "2nd Street District Garage"), venueCategory: "attraction".
+- In proTip, mention best levels (top floors = empty + views, mid floors = shade) and that garages are emptier after business hours.
+- If a mall or shopping center is already in the itinerary, its parking garage is a natural late-session boarding spot.`
       : "";
 
     const systemPrompt = `You are an expert local guide with insider knowledge of ${cityName}. Create a personalized, premium itinerary that feels like advice from a well-connected friend who knows all the best spots.
@@ -958,7 +971,7 @@ HOURS & SCHEDULING (CRITICAL):
 - If there are no scanned events, build the itinerary entirely from town staples — beloved local restaurants, iconic landmarks, popular parks, and must-visit spots. This is a great itinerary, not a consolation prize.
 - If not enough options exist, create FEWER stops — never pad with fake events.
 - Use FULL street addresses including city and state (e.g., "123 Main St, Austin, TX")
-${trailInstructions}${anchorBlock}${intentionBlock}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt the itinerary to the forecast. Rain or storms → prefer indoor stops during those hours. Extreme heat → outdoor activities in morning/evening, shade and AC midday. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9", "Rain likely after 3pm, grab a window seat and enjoy it").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous itineraries: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives. The whole point is discovering something new each time.\n` : ""}
+${trailInstructions}${boardingGarageInstructions}${anchorBlock}${intentionBlock}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt the itinerary to the forecast. Rain or storms → prefer indoor stops during those hours. Extreme heat → outdoor activities in morning/evening, shade and AC midday. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9", "Rain likely after 3pm, grab a window seat and enjoy it").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous itineraries: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives. The whole point is discovering something new each time.\n` : ""}
 PLANNING RULES:
 - Stay within the time budget (${input.durationHours} hours)
 - Stay within the spending budget (${budgetRange})

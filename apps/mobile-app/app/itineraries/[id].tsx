@@ -86,6 +86,29 @@ const AnimatedNumber: React.FC<{
   );
 };
 
+// Compute temp range scoped to the itinerary's actual hours
+function scopedForecast(
+  forecast: ItineraryResponse["forecast"],
+  items: ItineraryItemResponse[],
+): { low: number; high: number; condition: string } | null {
+  if (!forecast?.hourly?.length || !items.length) return null;
+  const startHour = Math.min(
+    ...items.map((i) => parseInt(i.startTime.split(":")[0], 10)),
+  );
+  const endHour = Math.max(
+    ...items.map((i) => parseInt(i.endTime.split(":")[0], 10)),
+  );
+  const relevant = forecast.hourly.filter(
+    (h) => h.hour >= startHour && h.hour <= endHour,
+  );
+  if (!relevant.length) return null;
+  return {
+    low: Math.round(Math.min(...relevant.map((h) => h.tempF))),
+    high: Math.round(Math.max(...relevant.map((h) => h.tempF))),
+    condition: forecast.dominantCondition,
+  };
+}
+
 // --- Hero stat pill ---
 
 const STAT_COLORS = ["#93c5fd", "#86efac", "#fcd34d", "#c4b5fd", "#f9a8d4"];
@@ -500,20 +523,65 @@ const ItineraryDetailScreen = () => {
                 />
               </View>
             )}
-            {displayItinerary?.forecast && (
-              <View
-                style={[
-                  styles.statChip,
-                  { borderColor: "rgba(253, 186, 116, 0.25)" },
-                ]}
-              >
-                <Text style={[styles.statChipValue, { color: STAT_COLORS[4] }]}>
-                  {displayItinerary.forecast.tempLowF}–
-                  {displayItinerary.forecast.tempHighF}°F{" "}
-                  {displayItinerary.forecast.dominantCondition}
-                </Text>
-              </View>
-            )}
+            {displayItinerary?.forecast &&
+              (() => {
+                const scoped = scopedForecast(
+                  displayItinerary.forecast,
+                  displayItinerary.items,
+                );
+                const low = scoped?.low ?? displayItinerary.forecast.tempLowF;
+                const high = scoped?.high ?? displayItinerary.forecast.tempHighF;
+                const condition =
+                  scoped?.condition ??
+                  displayItinerary.forecast.dominantCondition;
+                return low === high ? (
+                  <View
+                    style={[
+                      styles.statChip,
+                      { borderColor: "rgba(253, 186, 116, 0.25)" },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.statChipValue, { color: STAT_COLORS[4] }]}
+                    >
+                      {high}°F {condition}
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <View
+                      style={[
+                        styles.statChip,
+                        { borderColor: "rgba(253, 186, 116, 0.25)" },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statChipValue,
+                          { color: STAT_COLORS[4] },
+                        ]}
+                      >
+                        {low}–{high}°F
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.statChip,
+                        { borderColor: "rgba(253, 186, 116, 0.25)" },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statChipValue,
+                          { color: STAT_COLORS[4] },
+                        ]}
+                      >
+                        {condition}
+                      </Text>
+                    </View>
+                  </>
+                );
+              })()}
           </Animated.View>
 
           {/* Vibe tags + save as ritual */}
