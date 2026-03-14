@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useState } from "react";
 import { View } from "react-native";
 
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -13,11 +7,9 @@ import Screen from "@/components/Layout/Screen";
 import CityDetailContent from "@/components/LandingPage/CityDetailContent";
 import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
 import useThirdSpaceScore from "@/hooks/useThirdSpaceScore";
-import useLandingPageData from "@/hooks/useLandingPageData";
-import { useRealtimeDiscoveries } from "@/hooks/useRealtimeDiscoveries";
-import { apiClient } from "@/services/ApiClient";
-import { setFlyTo } from "@/hooks/useInitialLocation";
 import usePopularStops from "@/hooks/usePopularStops";
+import useBrowseItineraries from "@/hooks/useBrowseItineraries";
+import { setFlyTo } from "@/hooks/useInitialLocation";
 
 const CityDetailScreen = () => {
   const { city } = useLocalSearchParams<{ city: string }>();
@@ -31,63 +23,24 @@ const CityDetailScreen = () => {
     decodedCity || null,
   );
 
-  const {
-    landingData,
-    isLoading,
-    refresh: refreshLanding,
-  } = useLandingPageData({
-    city: decodedCity || undefined,
-    featuredLimit: 5,
-    upcomingLimit: 10,
-    communityLimit: 5,
-    discoveryLimit: 8,
-    trendingLimit: 5,
-  });
-
-  const { realtimeDiscoveries, clearRealtime } =
-    useRealtimeDiscoveries(decodedCity);
-
   const { stops: popularStops, refetch: refetchStops } = usePopularStops(
     decodedCity || null,
   );
 
-  // Haptic when new realtime events arrive
-  const prevCountRef = useRef(0);
-  useEffect(() => {
-    if (realtimeDiscoveries.length > prevCountRef.current) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    prevCountRef.current = realtimeDiscoveries.length;
-  }, [realtimeDiscoveries]);
-
-  const mergedData = useMemo(() => {
-    if (!landingData) return landingData;
-    const existingIds = new Set(
-      (landingData.justDiscoveredEvents ?? []).map((e) => e.id),
-    );
-    const newEvents = realtimeDiscoveries
-      .filter((e) => !existingIds.has(e.id))
-      .map((e) => ({ ...e, _isRealtime: true as const }));
-    return {
-      ...landingData,
-      justDiscoveredEvents: [
-        ...newEvents,
-        ...(landingData.justDiscoveredEvents ?? []),
-      ],
-    };
-  }, [landingData, realtimeDiscoveries]);
-
-  const currentUser = apiClient.getCurrentUser();
+  const {
+    groupedByIntention,
+    isLoading,
+    refetch: refetchItineraries,
+  } = useBrowseItineraries(decodedCity || null);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([refreshLanding(), refetchScore(), refetchStops()]);
-      clearRealtime();
+      await Promise.all([refetchScore(), refetchStops(), refetchItineraries()]);
     } finally {
       setIsRefreshing(false);
     }
-  }, [refreshLanding, refetchScore, refetchStops, clearRealtime]);
+  }, [refetchScore, refetchStops, refetchItineraries]);
 
   const handleSearch = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -95,25 +48,20 @@ const CityDetailScreen = () => {
   }, [router]);
 
   const handleExploreMap = useCallback(() => {
-    // Prefer a real event location over the centroid to avoid dead zones
-    const firstEvent =
-      landingData?.featuredEvents?.[0] ?? landingData?.topEvents?.[0];
-    const coords: [number, number] | null =
-      firstEvent?.coordinates ??
-      (thirdSpaceScore?.centroid
-        ? [thirdSpaceScore.centroid.lng, thirdSpaceScore.centroid.lat]
-        : null);
+    const coords: [number, number] | null = thirdSpaceScore?.centroid
+      ? [thirdSpaceScore.centroid.lng, thirdSpaceScore.centroid.lat]
+      : null;
     if (!coords) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setFlyTo(coords, 15);
     router.navigate("/");
-  }, [router, landingData, thirdSpaceScore?.centroid]);
+  }, [router, thirdSpaceScore?.centroid]);
 
   return (
     <Screen
       isScrollable={false}
-      bannerDescription="Third Space Score & Events"
+      bannerDescription="Third Space Score & Adventures"
       noAnimation
       bottomContent={
         showItinerary ? (
@@ -127,22 +75,17 @@ const CityDetailScreen = () => {
     >
       <View style={{ flex: 1 }}>
         <CityDetailContent
-          data={mergedData}
           isLoading={isLoading}
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
           thirdSpaceScore={thirdSpaceScore}
-          currentUserId={currentUser?.id}
           popularStops={popularStops}
-          topEvents={landingData?.topEvents}
+          groupedItineraries={groupedByIntention}
           onSearch={handleSearch}
           onExploreMap={
-            landingData?.featuredEvents?.[0] ||
-            landingData?.topEvents?.[0] ||
-            thirdSpaceScore?.centroid
-              ? handleExploreMap
-              : undefined
+            thirdSpaceScore?.centroid ? handleExploreMap : undefined
           }
+          onItineraryAdopted={refetchItineraries}
         />
       </View>
     </Screen>

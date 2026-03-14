@@ -11,6 +11,7 @@ import type { ItineraryResponse } from "@/services/api/modules/itineraries";
  * Schedule local reminder notifications for an itinerary.
  * - Evening before (7pm local): "Your adventure is tomorrow!"
  * - Morning of (8am local): "Today's the day!"
+ * - 30 min before first stop: "Starting soon!"
  */
 async function scheduleReminders(
   itinerary: ItineraryResponse,
@@ -69,6 +70,39 @@ async function scheduleReminders(
         "[CalendarPrompt] Failed to schedule morning reminder:",
         err,
       );
+    }
+  }
+
+  // 30 minutes before first stop
+  const firstItem = itinerary.items
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder)[0];
+  if (firstItem?.startTime) {
+    const thirtyBefore = new Date(
+      `${itinerary.plannedDate}T${firstItem.startTime}`,
+    );
+    thirtyBefore.setMinutes(thirtyBefore.getMinutes() - 30);
+
+    if (thirtyBefore > now) {
+      try {
+        const id = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Starting soon!",
+            body: `"${itinerary.title ?? "Your adventure"}" kicks off in 30 minutes. Time to head out!`,
+            data: {
+              type: "itinerary_reminder",
+              itineraryId: itinerary.id,
+            },
+          },
+          trigger: { type: "date" as const, date: thirtyBefore },
+        });
+        ids.push(id);
+      } catch (err) {
+        console.warn(
+          "[CalendarPrompt] Failed to schedule 30-min reminder:",
+          err,
+        );
+      }
     }
   }
 

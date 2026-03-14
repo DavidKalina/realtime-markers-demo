@@ -473,6 +473,13 @@ export default function ItineraryDialogBox({
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const city = cityProp ?? selectedCity ?? "";
 
+  // Auto-select the closest city when location data arrives
+  useEffect(() => {
+    if (!cityProp && !selectedCity && closestCities.length > 0) {
+      setSelectedCity(closestCities[0].city);
+    }
+  }, [cityProp, selectedCity, closestCities]);
+
   // Build deduplicated city list: closest first, then top
   const cityOptions = useMemo(() => {
     if (cityProp) return [];

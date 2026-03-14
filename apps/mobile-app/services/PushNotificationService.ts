@@ -188,11 +188,23 @@ export class PushNotificationService {
    * Set up notification listeners
    */
   setupNotificationListeners() {
-    // Handle notification received while app is running
+    // Handle notification received while app is running (foreground)
     const notificationListener = Notifications.addNotificationReceivedListener(
       (notification) => {
         console.log("📱 Notification received:", notification);
-        // Handle the notification as needed
+        const data = notification.request.content.data;
+
+        // Process itinerary check-ins immediately so the UI updates
+        // without waiting for the user to tap the notification banner
+        if (data?.type === "itinerary_checkin" && data.itineraryId) {
+          eventBroker.emit(EventTypes.ITINERARY_CHECKIN, {
+            timestamp: Date.now(),
+            source: "PushNotification",
+            itineraryId: data.itineraryId as string,
+            itemId: data.itemId as string,
+            completed: data.completed as boolean,
+          });
+        }
       },
     );
 

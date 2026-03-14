@@ -17,6 +17,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
 import EmptyState from "@/components/Layout/EmptyState";
+import ItineraryBrowseCard from "@/components/Itinerary/ItineraryBrowseCard";
 import {
   useColors,
   duration,
@@ -27,66 +28,52 @@ import {
   radius,
   type Colors,
 } from "@/theme";
-import {
-  getTimeBadge,
-  formatVenueShort,
-} from "@/components/Event/EventListItem";
-import type {
-  DiscoveredEventType,
-  EventType,
-  TrendingEventType,
-} from "@/types/types";
 import type { ThirdSpaceScoreResponse } from "@/services/api/modules/leaderboard";
 import type { PopularStop } from "@/hooks/usePopularStops";
+import type { BrowseItineraryResponse } from "@/hooks/useBrowseItineraries";
 import ThirdSpaceScoreHero from "./ThirdSpaceScoreHero";
-import PopularCategoriesSection from "./PopularCategoriesSection";
 import { ScoreHeroSkeleton } from "./Skeletons";
-import { filterExpiredEvents } from "./filterExpiredEvents";
 
 /* ─── Types ─── */
 
-interface Category {
-  id: string;
-  name: string;
-  icon: string;
-  eventCount?: number;
-}
-
-interface LandingPageData {
-  featuredEvents: EventType[];
-  upcomingEvents?: EventType[];
-  communityEvents?: EventType[];
-  justDiscoveredEvents?: DiscoveredEventType[];
-  trendingEvents?: TrendingEventType[];
-  popularCategories?: Category[];
-  availableCities?: string[];
-  topEvents?: EventType[];
-  happeningTodayEvents?: EventType[];
-  freeThisWeekEvents?: EventType[];
-  weeklyRegularEvents?: EventType[];
-}
-
-type TabKey = "top" | "today" | "discover" | "spots" | "leaderboard";
+type TabKey = "adventures" | "spots" | "people";
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: "top", label: "Top" },
-  { key: "today", label: "Today" },
-  { key: "discover", label: "Discover" },
+  { key: "adventures", label: "Adventures" },
   { key: "spots", label: "Spots" },
-  { key: "leaderboard", label: "People" },
+  { key: "people", label: "People" },
+];
+
+const INTENTION_LABELS: Record<string, { label: string; emoji: string }> = {
+  recharge: { label: "Recharge", emoji: "\u{1F9D8}" },
+  explore: { label: "Explore", emoji: "\u{1F9ED}" },
+  socialize: { label: "Socialize", emoji: "\u{1F37B}" },
+  move: { label: "Move", emoji: "\u{1F3C3}" },
+  learn: { label: "Learn", emoji: "\u{1F4DA}" },
+  treat_yourself: { label: "Treat Yourself", emoji: "\u{2728}" },
+  other: { label: "Other", emoji: "\u{1F30D}" },
+};
+
+const INTENTION_ORDER = [
+  "recharge",
+  "explore",
+  "socialize",
+  "move",
+  "learn",
+  "treat_yourself",
+  "other",
 ];
 
 interface CityDetailContentProps {
-  data: LandingPageData | null;
   isLoading: boolean;
   onRefresh: () => Promise<void>;
   isRefreshing?: boolean;
   popularStops?: PopularStop[];
   thirdSpaceScore?: ThirdSpaceScoreResponse | null;
-  currentUserId?: string;
-  topEvents?: EventType[];
+  groupedItineraries?: Record<string, BrowseItineraryResponse[]>;
   onExploreMap?: () => void;
   onSearch?: () => void;
+  onItineraryAdopted?: () => void;
 }
 
 /* ─── Tier emoji for leaderboard ─── */
@@ -102,125 +89,6 @@ const RANK_COLORS: Record<number, string> = {
   1: "#fbbf24",
   2: "#a0a0a0",
   3: "#cd7f32",
-};
-
-/* ─── Recurrence label ─── */
-
-const DAY_NAMES = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
-
-const getRecurrenceLabel = (event: EventType): string => {
-  if (event.recurrenceDays && event.recurrenceDays.length > 0) {
-    const days = event.recurrenceDays
-      .map((d: string) => {
-        const idx = DAY_NAMES.findIndex(
-          (n) => n.toLowerCase() === d.toLowerCase(),
-        );
-        return idx >= 0 ? DAY_NAMES[idx] : d;
-      })
-      .slice(0, 2);
-    return "Every " + days.join(" & ");
-  }
-  if (event.eventDate) {
-    const dayIdx = new Date(event.eventDate).getDay();
-    return `Every ${DAY_NAMES[dayIdx]}`;
-  }
-  return "Weekly";
-};
-
-/* ─── Unified event list item ─── */
-
-interface EventRowProps {
-  event: EventType;
-  onPress: (id: string) => void;
-  isLast: boolean;
-  rank?: number;
-  badge?: string;
-  badgeColor?: string;
-  subtitle?: string;
-  colors: Colors;
-  styles: ReturnType<typeof createStyles>;
-}
-
-const EventRow: React.FC<EventRowProps> = ({
-  event,
-  onPress,
-  isLast,
-  rank,
-  badge,
-  badgeColor,
-  subtitle,
-  colors,
-  styles,
-}) => {
-  const timeBadge = getTimeBadge(event.eventDate, event.endDate);
-  const firstCat = event.categories?.[0];
-  const categoryName = firstCat
-    ? typeof firstCat === "string"
-      ? firstCat
-      : firstCat.name
-    : null;
-
-  const meta = subtitle
-    ? subtitle
-    : [event.location ? formatVenueShort(event.location) : null, categoryName]
-        .filter(Boolean)
-        .join(" \u00B7 ");
-
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.eventRow,
-        isLast && styles.eventRowLast,
-        pressed && styles.eventRowPressed,
-      ]}
-      onPress={() => onPress(event.id)}
-    >
-      {rank != null && (
-        <View style={styles.rankBadge}>
-          <Text style={styles.rankText}>{rank}</Text>
-        </View>
-      )}
-      {badge && (
-        <View
-          style={[
-            styles.tagBadge,
-            badgeColor ? { backgroundColor: badgeColor + "18" } : undefined,
-          ]}
-        >
-          <Text
-            style={[
-              styles.tagBadgeText,
-              badgeColor ? { color: badgeColor } : undefined,
-            ]}
-          >
-            {badge}
-          </Text>
-        </View>
-      )}
-      {!rank && !badge && (
-        <Text style={styles.emoji}>{event.emoji || "\u{1F4CC}"}</Text>
-      )}
-      <View style={styles.eventInfo}>
-        <Text style={styles.eventName} numberOfLines={1}>
-          {event.title}
-        </Text>
-        <Text style={styles.eventMeta} numberOfLines={1}>
-          {meta}
-        </Text>
-      </View>
-      <Text style={[styles.timeBadgeText, { color: timeBadge.color.text }]}>
-        {timeBadge.text}
-      </Text>
-    </Pressable>
-  );
 };
 
 /* ─── Hero crossfade ─── */
@@ -248,7 +116,7 @@ const HeroCrossfade: React.FC<{
   return null;
 };
 
-/* ─── Main component ─── */
+/* ─── Category emoji map ─── */
 
 const CATEGORY_EMOJI: Record<string, string> = {
   cafe: "\u2615",
@@ -263,298 +131,100 @@ const CATEGORY_EMOJI: Record<string, string> = {
   venue: "\u{1F3A4}",
 };
 
+/* ─── Main component ─── */
+
 const CityDetailContent: React.FC<CityDetailContentProps> = ({
-  data,
   isLoading,
   onRefresh,
   isRefreshing = false,
   thirdSpaceScore,
-  currentUserId,
-  topEvents,
   popularStops,
+  groupedItineraries,
   onExploreMap,
   onSearch,
+  onItineraryAdopted,
 }) => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabKey>("top");
-
-  const handleEventPress = useCallback(
-    (eventId: string) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      router.push({
-        pathname: "/details" as const,
-        params: { eventId },
-      });
-    },
-    [router],
-  );
+  const [activeTab, setActiveTab] = useState<TabKey>("adventures");
 
   const handleTabPress = useCallback((tab: TabKey) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tab);
   }, []);
 
-  // Memoize active events — aggressively filter out expired
-  const activeToday = useMemo(
-    () => filterExpiredEvents(data?.happeningTodayEvents || []),
-    [data?.happeningTodayEvents],
-  );
-
-  const activeFree = useMemo(
-    () => filterExpiredEvents(data?.freeThisWeekEvents || []),
-    [data?.freeThisWeekEvents],
-  );
-
-  const activeCommunity = useMemo(
-    () => filterExpiredEvents(data?.communityEvents || []),
-    [data?.communityEvents],
-  );
-
-  const activeWeekly = useMemo(
-    () => filterExpiredEvents(data?.weeklyRegularEvents || []),
-    [data?.weeklyRegularEvents],
-  );
-
-  // Merge trending + discovered into a unified list (filter expired)
-  const discoverEvents = useMemo((): (EventType & {
-    _badge: string;
-    _badgeColor: string;
-  })[] => {
-    const trending = filterExpiredEvents(data?.trendingEvents || []).map(
-      (e) => ({
-        ...(e as EventType),
-        _badge: "Trending",
-        _badgeColor: "#fcd34d",
-      }),
+  const totalItineraries = useMemo(() => {
+    if (!groupedItineraries) return 0;
+    return Object.values(groupedItineraries).reduce(
+      (sum, arr) => sum + arr.length,
+      0,
     );
-    const discovered = filterExpiredEvents(
-      data?.justDiscoveredEvents || [],
-    ).map((e) => ({
-      ...(e as EventType),
-      _badge: "New",
-      _badgeColor: "#93c5fd",
-    }));
-    return [...trending, ...discovered];
-  }, [data?.trendingEvents, data?.justDiscoveredEvents]);
+  }, [groupedItineraries]);
 
-  // Combined events for the "top" tab: top events + featured (filter expired)
-  const topTabEvents = useMemo(() => {
-    const top = filterExpiredEvents(topEvents || []);
-    const featured = filterExpiredEvents(data?.featuredEvents || []);
-    const topIds = new Set(top.map((e) => e.id));
-    const extra = featured.filter((e) => !topIds.has(e.id));
-    return { ranked: top, featured: extra };
-  }, [topEvents, data?.featuredEvents]);
-
-  const isEmpty =
-    !!data &&
-    !data.featuredEvents?.length &&
-    !data.upcomingEvents?.length &&
-    !data.communityEvents?.length &&
-    !data.justDiscoveredEvents?.length &&
-    !data.trendingEvents?.length &&
-    !data.happeningTodayEvents?.length &&
-    !topEvents?.length;
-
-  // Tab content counts for subtle badges
   const tabCounts = useMemo(
     () => ({
-      top: topTabEvents.ranked.length + topTabEvents.featured.length,
-      today: activeToday.length + activeFree.length + activeWeekly.length,
-      discover: discoverEvents.length + activeCommunity.length,
+      adventures: totalItineraries,
       spots: popularStops?.length || 0,
-      leaderboard: thirdSpaceScore?.contributors?.length || 0,
+      people: thirdSpaceScore?.contributors?.length || 0,
     }),
-    [
-      topTabEvents,
-      activeToday,
-      activeFree,
-      activeWeekly,
-      discoverEvents,
-      activeCommunity,
-      popularStops,
-      thirdSpaceScore?.contributors,
-    ],
+    [totalItineraries, popularStops, thirdSpaceScore?.contributors],
   );
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case "top":
-        return renderTopTab();
-      case "today":
-        return renderTodayTab();
-      case "discover":
-        return renderDiscoverTab();
+      case "adventures":
+        return renderAdventuresTab();
       case "spots":
         return renderSpotsTab();
-      case "leaderboard":
-        return renderLeaderboardTab();
+      case "people":
+        return renderPeopleTab();
     }
   };
 
-  const renderTopTab = () => {
-    const { ranked, featured } = topTabEvents;
-    if (ranked.length === 0 && featured.length === 0) {
+  const renderAdventuresTab = () => {
+    if (!groupedItineraries || totalItineraries === 0) {
       return renderEmptyTab(
-        "🏆",
-        "No top events yet",
-        "Top-rated events will appear here as they get discovered.",
+        "\u{1F30D}",
+        "No adventures yet",
+        "Be the first to complete an adventure here and it'll show up for others to try.",
       );
     }
-    const allEvents = [
-      ...ranked.map((e, i) => ({
-        event: e,
-        rank: i + 1,
-        badge: undefined as string | undefined,
-        badgeColor: undefined as string | undefined,
-      })),
-      ...featured.map((e) => ({
-        event: e,
-        rank: undefined as number | undefined,
-        badge: "Featured",
-        badgeColor: "#10b981",
-      })),
-    ];
-    return (
-      <View style={styles.tabContent}>
-        {allEvents.map(({ event, rank, badge, badgeColor }, index) => (
-          <EventRow
-            key={event.id}
-            event={event}
-            onPress={handleEventPress}
-            isLast={index === allEvents.length - 1}
-            rank={rank}
-            badge={badge}
-            badgeColor={badgeColor}
-            colors={colors}
-            styles={styles}
-          />
-        ))}
-      </View>
+
+    const sortedIntentions = INTENTION_ORDER.filter(
+      (key) => groupedItineraries[key] && groupedItineraries[key].length > 0,
     );
-  };
-
-  const renderTodayTab = () => {
-    const hasToday = activeToday.length > 0;
-    const hasFree = activeFree.length > 0;
-    const hasWeekly = activeWeekly.length > 0;
-
-    if (!hasToday && !hasFree && !hasWeekly) {
-      return renderEmptyTab(
-        "📅",
-        "Nothing happening today",
-        "Scan a flyer to add events happening in this city.",
-      );
-    }
 
     return (
       <View style={styles.tabContent}>
-        {hasToday && (
-          <>
-            <Text style={styles.subSectionTitle}>HAPPENING NOW</Text>
-            {activeToday.map((event, index) => (
-              <EventRow
-                key={event.id}
-                event={event}
-                onPress={handleEventPress}
-                isLast={
-                  !hasFree && !hasWeekly && index === activeToday.length - 1
-                }
-                colors={colors}
-                styles={styles}
-              />
-            ))}
-          </>
-        )}
-        {hasFree && (
-          <>
-            {hasToday && <View style={styles.subSectionDivider} />}
-            <Text style={styles.subSectionTitle}>FREE THIS WEEK</Text>
-            {activeFree.map((event, index) => (
-              <EventRow
-                key={event.id}
-                event={event}
-                onPress={handleEventPress}
-                isLast={!hasWeekly && index === activeFree.length - 1}
-                badge="Free"
-                badgeColor="#10b981"
-                colors={colors}
-                styles={styles}
-              />
-            ))}
-          </>
-        )}
-        {hasWeekly && (
-          <>
-            {(hasToday || hasFree) && <View style={styles.subSectionDivider} />}
-            <Text style={styles.subSectionTitle}>WEEKLY REGULARS</Text>
-            {activeWeekly.map((event, index) => (
-              <EventRow
-                key={event.id}
-                event={event}
-                onPress={handleEventPress}
-                isLast={index === activeWeekly.length - 1}
-                subtitle={getRecurrenceLabel(event)}
-                colors={colors}
-                styles={styles}
-              />
-            ))}
-          </>
-        )}
-      </View>
-    );
-  };
+        {sortedIntentions.map((intentionKey) => {
+          const itineraries = groupedItineraries[intentionKey];
+          const meta = INTENTION_LABELS[intentionKey] || {
+            label: intentionKey,
+            emoji: "\u{1F30D}",
+          };
 
-  const renderDiscoverTab = () => {
-    const hasDiscover = discoverEvents.length > 0;
-    const hasCommunity = activeCommunity.length > 0;
-
-    if (!hasDiscover && !hasCommunity) {
-      return renderEmptyTab(
-        "🔍",
-        "Nothing discovered yet",
-        "Recently scanned events will show up here.",
-      );
-    }
-
-    return (
-      <View style={styles.tabContent}>
-        {hasDiscover &&
-          discoverEvents.map((event, index) => (
-            <EventRow
-              key={event.id}
-              event={event}
-              onPress={handleEventPress}
-              isLast={!hasCommunity && index === discoverEvents.length - 1}
-              badge={event._badge}
-              badgeColor={event._badgeColor}
-              colors={colors}
-              styles={styles}
-            />
-          ))}
-        {hasCommunity && (
-          <>
-            {hasDiscover && <View style={styles.subSectionDivider} />}
-            <Text style={styles.subSectionTitle}>COMMUNITY</Text>
-            {activeCommunity.map((event, index) => (
-              <EventRow
-                key={event.id}
-                event={event}
-                onPress={handleEventPress}
-                isLast={index === activeCommunity.length - 1}
-                subtitle={
-                  event.scanCount && event.scanCount > 0
-                    ? `Scanned ${event.scanCount}x`
-                    : undefined
-                }
-                colors={colors}
-                styles={styles}
-              />
-            ))}
-          </>
-        )}
+          return (
+            <View key={intentionKey} style={styles.intentionSection}>
+              <Text style={styles.subSectionTitle}>
+                {meta.emoji} {meta.label.toUpperCase()}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalScroll}
+              >
+                {itineraries.map((it) => (
+                  <ItineraryBrowseCard
+                    key={it.id}
+                    itinerary={it}
+                    onAdopted={onItineraryAdopted}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          );
+        })}
       </View>
     );
   };
@@ -562,9 +232,9 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
   const renderSpotsTab = () => {
     if (!popularStops || popularStops.length === 0) {
       return renderEmptyTab(
-        "📍",
+        "\u{1F4CD}",
         "No popular spots yet",
-        "Spots with the most events will appear here.",
+        "Spots with the most adventures will appear here.",
       );
     }
 
@@ -621,20 +291,19 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
     );
   };
 
-  const renderLeaderboardTab = () => {
+  const renderPeopleTab = () => {
     const contributors = thirdSpaceScore?.contributors;
     if (!contributors || contributors.length === 0) {
       return renderEmptyTab(
-        "👥",
+        "\u{1F465}",
         "No contributors yet",
-        "People who scan events in this city will show up here.",
+        "People who explore this city will show up here.",
       );
     }
 
     return (
       <View style={styles.tabContent}>
         {contributors.map((entry, index) => {
-          const isCurrentUser = entry.userId === currentUserId;
           const rankColor = RANK_COLORS[entry.rank];
           const tierEmoji =
             TIER_EMOJI[entry.currentTier] || TIER_EMOJI.Explorer;
@@ -657,15 +326,8 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
                 #{entry.rank}
               </Text>
               <View style={styles.eventInfo}>
-                <Text
-                  style={[
-                    styles.eventName,
-                    isCurrentUser && { color: colors.accent.primary },
-                  ]}
-                  numberOfLines={1}
-                >
+                <Text style={styles.eventName} numberOfLines={1}>
                   {displayName}
-                  {isCurrentUser ? " (you)" : ""}
                 </Text>
                 <Text style={styles.eventMeta} numberOfLines={1}>
                   {`${tierEmoji} ${entry.currentTier}`}
@@ -696,7 +358,6 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
 
   const scrollContent = (
     <>
-      {/* Hero crossfade — skeleton and real hero overlap to avoid layout jump */}
       <HeroCrossfade
         isLoading={isLoading}
         thirdSpaceScore={thirdSpaceScore}
@@ -704,88 +365,48 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
       />
 
       {!isLoading && (
-        <>
-          {/* Categories pills */}
-          {data?.popularCategories && data.popularCategories.length > 0 && (
-            <Animated.View
-              entering={FadeIn.duration(duration.normal).delay(80)}
-            >
-              <PopularCategoriesSection categories={data.popularCategories} />
-            </Animated.View>
-          )}
-
-          {/* Empty state */}
-          {isEmpty && (
-            <Animated.View
-              entering={FadeIn.duration(duration.normal).delay(160)}
-            >
-              <EmptyState
-                emoji="🌿"
-                title="No events yet"
-                subtitle="Be the first to scan a flyer and put this city on the map."
-                action={{
-                  label: "Browse other cities",
-                  onPress: () => router.navigate("/spaces"),
-                  variant: "outline",
-                }}
-              />
-            </Animated.View>
-          )}
-
-          {/* Tab bar + content */}
-          {!isEmpty && (
-            <Animated.View
-              entering={FadeIn.duration(duration.normal).delay(160)}
-            >
-              {/* Tab bar */}
-              <View style={styles.tabBar}>
-                {TABS.map((tab) => {
-                  const isActive = activeTab === tab.key;
-                  const count = tabCounts[tab.key];
-                  return (
-                    <Pressable
-                      key={tab.key}
+        <Animated.View entering={FadeIn.duration(duration.normal).delay(160)}>
+          {/* Tab bar */}
+          <View style={styles.tabBar}>
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab.key;
+              const count = tabCounts[tab.key];
+              return (
+                <Pressable
+                  key={tab.key}
+                  style={[styles.tabButton, isActive && styles.tabButtonActive]}
+                  onPress={() => handleTabPress(tab.key)}
+                >
+                  <Text
+                    style={[styles.tabText, isActive && styles.tabTextActive]}
+                  >
+                    {tab.label}
+                  </Text>
+                  {count > 0 && (
+                    <Text
                       style={[
-                        styles.tabButton,
-                        isActive && styles.tabButtonActive,
+                        styles.tabCount,
+                        isActive && styles.tabCountActive,
                       ]}
-                      onPress={() => handleTabPress(tab.key)}
                     >
-                      <Text
-                        style={[
-                          styles.tabText,
-                          isActive && styles.tabTextActive,
-                        ]}
-                      >
-                        {tab.label}
-                      </Text>
-                      {count > 0 && (
-                        <Text
-                          style={[
-                            styles.tabCount,
-                            isActive && styles.tabCountActive,
-                          ]}
-                        >
-                          {count}
-                        </Text>
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
+                      {count}
+                    </Text>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
 
-              {/* Tab content — key swap triggers enter/exit animation */}
-              <Animated.View
-                key={activeTab}
-                entering={FadeIn.duration(200)}
-                exiting={FadeOut.duration(120)}
-                layout={LinearTransition.duration(250)}
-              >
-                {renderTabContent()}
-              </Animated.View>
-            </Animated.View>
-          )}
-        </>
+          {/* Tab content */}
+          <Animated.View
+            key={activeTab}
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(120)}
+            layout={LinearTransition.duration(250)}
+          >
+            {renderTabContent()}
+          </Animated.View>
+        </Animated.View>
       )}
 
       <View style={{ height: 120 }} />
@@ -823,7 +444,7 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
-    /* Tab bar — matches browse screen toggle style */
+    /* Tab bar */
     tabBar: {
       flexDirection: "row",
       marginHorizontal: spacing.lg,
@@ -876,13 +497,16 @@ const createStyles = (colors: Colors) =>
       marginTop: spacing.sm,
       marginBottom: spacing.xs,
     },
-    subSectionDivider: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: colors.border.default,
-      marginVertical: spacing.md,
+
+    /* Intention section */
+    intentionSection: {
+      marginBottom: spacing.md,
+    },
+    horizontalScroll: {
+      paddingRight: spacing.lg,
     },
 
-    /* Unified event row */
+    /* Unified row */
     eventRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -893,9 +517,6 @@ const createStyles = (colors: Colors) =>
     },
     eventRowLast: {
       borderBottomWidth: 0,
-    },
-    eventRowPressed: {
-      opacity: 0.6,
     },
     rankBadge: {
       width: 24,
@@ -911,24 +532,6 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       color: colors.text.primary,
     },
-    tagBadge: {
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 4,
-    },
-    tagBadgeText: {
-      fontSize: 9,
-      fontWeight: fontWeight.semibold,
-      fontFamily: fontFamily.mono,
-      letterSpacing: 0.5,
-      textTransform: "uppercase",
-      color: colors.text.secondary,
-    },
-    emoji: {
-      fontSize: 18,
-      width: 28,
-      textAlign: "center",
-    },
     eventInfo: {
       flex: 1,
       gap: 2,
@@ -943,11 +546,6 @@ const createStyles = (colors: Colors) =>
       fontSize: 11,
       fontFamily: fontFamily.mono,
       color: colors.text.secondary,
-    },
-    timeBadgeText: {
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      letterSpacing: 0.2,
     },
 
     /* Leaderboard */

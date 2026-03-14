@@ -3,6 +3,7 @@ import {
   Itinerary,
   ItineraryItem,
   ItineraryStatus,
+  User,
 } from "@realtime-markers/database";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
@@ -13,6 +14,8 @@ import type {
 import type { OverpassService, Trail } from "./shared/OverpassService";
 import type { WeatherService, DayForecast } from "./shared/WeatherService";
 import type { GamificationService } from "./GamificationService";
+import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
+import type { RedisService } from "./shared/RedisService";
 
 export interface AnchorStopInput {
   coordinates: [number, number]; // [lng, lat]
@@ -113,6 +116,64 @@ export interface ItineraryService {
     comment?: string,
   ): Promise<Itinerary | null>;
   listCompleted(userId: string, limit?: number): Promise<Itinerary[]>;
+  browsePublished(options: BrowsePublishedOptions): Promise<BrowseItinerary[]>;
+  adoptItinerary(sourceId: string, userId: string): Promise<Itinerary>;
+  listPublishedInternal(
+    page: number,
+    pageSize: number,
+  ): Promise<{
+    itineraries: InternalItinerary[];
+    pagination: { page: number; pageSize: number; total: number; hasMore: boolean };
+  }>;
+}
+
+export interface InternalItinerary {
+  id: string;
+  title: string | null;
+  summary: string | null;
+  city: string;
+  categories: string[];
+  embedding: string | null;
+  entryLatitude: number | null;
+  entryLongitude: number | null;
+  rating: number | null;
+  timesAdopted: number;
+  items: {
+    id: string;
+    title: string;
+    latitude: number | null;
+    longitude: number | null;
+    venueCategory: string | null;
+    sortOrder: number;
+  }[];
+}
+
+export interface BrowsePublishedOptions {
+  city: string;
+  intention?: string;
+  sort?: "popular" | "recent" | "top_rated";
+  limit?: number;
+  cursor?: string;
+  excludeUserId?: string;
+}
+
+export interface BrowseItinerary {
+  id: string;
+  title: string | null;
+  summary: string | null;
+  city: string;
+  intention: string | null;
+  durationHours: number;
+  rating: number | null;
+  timesAdopted: number;
+  itemCount: number;
+  creatorFirstName: string | null;
+  completedAt: string;
+  items: {
+    emoji: string | null;
+    title: string;
+    venueName: string | null;
+  }[];
 }
 
 interface ItineraryServiceDeps {
@@ -122,6 +183,8 @@ interface ItineraryServiceDeps {
   overpassService: OverpassService;
   weatherService: WeatherService;
   gamificationService?: GamificationService;
+  embeddingService?: IEmbeddingService;
+  redisService?: RedisService;
 }
 
 class ItineraryServiceImpl implements ItineraryService {
@@ -131,6 +194,8 @@ class ItineraryServiceImpl implements ItineraryService {
   private overpassService: OverpassService;
   private weatherService: WeatherService;
   private gamificationService?: GamificationService;
+  private embeddingService?: IEmbeddingService;
+  private redisService?: RedisService;
 
   constructor(deps: ItineraryServiceDeps) {
     this.dataSource = deps.dataSource;
@@ -139,6 +204,8 @@ class ItineraryServiceImpl implements ItineraryService {
     this.overpassService = deps.overpassService;
     this.weatherService = deps.weatherService;
     this.gamificationService = deps.gamificationService;
+    this.embeddingService = deps.embeddingService;
+    this.redisService = deps.redisService;
   }
 
   async create(
@@ -371,6 +438,15 @@ class ItineraryServiceImpl implements ItineraryService {
       await itineraryRepo.save(itinerary);
 
       itinerary.items = items;
+
+      // Generate embedding, categories, and entry point asynchronously (non-blocking)
+      this.generateItineraryEnhancements(itinerary.id, items).catch((err) => {
+        console.error(
+          `[ItineraryService] Failed to generate enhancements for ${itinerary.id}:`,
+          err,
+        );
+      });
+
       return itinerary;
     } catch (error) {
       console.error("[ItineraryService] Generation failed:", error);
@@ -415,10 +491,30 @@ class ItineraryServiceImpl implements ItineraryService {
   }
 
   async deleteById(id: string, userId: string): Promise<boolean> {
-    const result = await this.dataSource
-      .getRepository(Itinerary)
-      .delete({ id, userId });
-    return (result.affected ?? 0) > 0;
+    const repo = this.dataSource.getRepository(Itinerary);
+
+    // Check if published before deleting (for Redis notification)
+    const itinerary = await repo.findOne({
+      where: { id, userId },
+      select: ["id", "isPublished"],
+    });
+
+    const result = await repo.delete({ id, userId });
+    const deleted = (result.affected ?? 0) > 0;
+
+    if (deleted && itinerary?.isPublished) {
+      this.publishItineraryChange(
+        { id } as Itinerary,
+        "DELETE",
+      ).catch((err) => {
+        console.error(
+          "[ItineraryService] Failed to publish itinerary deletion:",
+          err,
+        );
+      });
+    }
+
+    return deleted;
   }
 
   async generateShareToken(id: string, userId: string): Promise<string | null> {
@@ -459,9 +555,21 @@ class ItineraryServiceImpl implements ItineraryService {
 
     if (!itinerary || !itinerary.completedAt) return null;
 
+    const wasPublished = itinerary.isPublished;
     itinerary.rating = rating;
     if (comment) itinerary.ratingComment = comment;
+    itinerary.isPublished = true;
     await repo.save(itinerary);
+
+    // Publish to Redis when transitioning to published
+    if (!wasPublished) {
+      this.publishItineraryChange(itinerary, "CREATE").catch((err) => {
+        console.error(
+          "[ItineraryService] Failed to publish itinerary change:",
+          err,
+        );
+      });
+    }
 
     // Award XP for rating
     if (this.gamificationService) {
@@ -481,6 +589,169 @@ class ItineraryServiceImpl implements ItineraryService {
       relations: ["items"],
       order: { completedAt: "DESC" },
       take: limit,
+    });
+  }
+
+  async browsePublished(
+    options: BrowsePublishedOptions,
+  ): Promise<BrowseItinerary[]> {
+    const {
+      city,
+      intention,
+      sort = "popular",
+      limit = 20,
+      cursor,
+      excludeUserId,
+    } = options;
+
+    const qb = this.dataSource
+      .getRepository(Itinerary)
+      .createQueryBuilder("i")
+      .innerJoin(User, "u", "u.id = i.user_id")
+      .leftJoinAndSelect("i.items", "item")
+      .where("i.is_published = true")
+      .andWhere("i.city = :city", { city })
+      .andWhere("i.status = :status", { status: ItineraryStatus.READY });
+
+    if (excludeUserId) {
+      qb.andWhere("i.user_id != :excludeUserId", { excludeUserId });
+    }
+
+    if (intention) {
+      qb.andWhere("i.intention = :intention", { intention });
+    }
+
+    if (cursor) {
+      // cursor format: "completedAt|id"
+      const [cursorDate, cursorId] = cursor.split("|");
+      qb.andWhere(
+        "(i.completed_at < :cursorDate OR (i.completed_at = :cursorDate AND i.id < :cursorId))",
+        { cursorDate, cursorId },
+      );
+    }
+
+    // Add firstName as a select
+    qb.addSelect("u.first_name", "creatorFirstName");
+
+    switch (sort) {
+      case "recent":
+        qb.orderBy("i.completed_at", "DESC").addOrderBy("i.id", "DESC");
+        break;
+      case "top_rated":
+        qb.orderBy("i.rating", "DESC").addOrderBy("i.id", "DESC");
+        break;
+      case "popular":
+      default:
+        qb.addSelect(
+          "i.times_adopted * 2 + COALESCE(i.rating, 0)",
+          "popularity_score",
+        );
+        qb.orderBy("popularity_score", "DESC").addOrderBy("i.id", "DESC");
+        break;
+    }
+
+    qb.take(limit);
+
+    const { raw, entities } = await qb.getRawAndEntities();
+
+    // Build a map from itinerary id to creatorFirstName
+    const firstNameMap = new Map<string, string | null>();
+    for (const row of raw) {
+      firstNameMap.set(row.i_id, row.creatorFirstName || null);
+    }
+
+    return entities.map((itinerary) => {
+      const items = (itinerary.items || [])
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .slice(0, 3);
+      return {
+        id: itinerary.id,
+        title: itinerary.title || null,
+        summary: itinerary.summary || null,
+        city: itinerary.city,
+        intention: itinerary.intention || null,
+        durationHours: itinerary.durationHours,
+        rating: itinerary.rating ?? null,
+        timesAdopted: itinerary.timesAdopted,
+        itemCount: (itinerary.items || []).length,
+        creatorFirstName: firstNameMap.get(itinerary.id) ?? null,
+        completedAt: itinerary.completedAt
+          ? itinerary.completedAt.toISOString()
+          : "",
+        items: items.map((item) => ({
+          emoji: item.emoji || null,
+          title: item.title,
+          venueName: item.venueName || null,
+        })),
+      };
+    });
+  }
+
+  async adoptItinerary(sourceId: string, userId: string): Promise<Itinerary> {
+    const sourceRepo = this.dataSource.getRepository(Itinerary);
+    const source = await sourceRepo.findOne({
+      where: {
+        id: sourceId,
+        isPublished: true,
+        status: ItineraryStatus.READY,
+      },
+      relations: ["items"],
+    });
+
+    if (!source) {
+      throw new Error("Itinerary not found or not available for adoption");
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const itineraryRepo = manager.getRepository(Itinerary);
+      const itemRepo = manager.getRepository(ItineraryItem);
+
+      const newItinerary = itineraryRepo.create({
+        userId,
+        city: source.city,
+        plannedDate: new Date().toISOString().slice(0, 10),
+        budgetMin: source.budgetMin,
+        budgetMax: source.budgetMax,
+        durationHours: source.durationHours,
+        activityTypes: source.activityTypes,
+        title: source.title,
+        summary: source.summary,
+        intention: source.intention,
+        status: ItineraryStatus.READY,
+        sourceItineraryId: source.id,
+      });
+      const saved = await itineraryRepo.save(newItinerary);
+
+      const newItems = (source.items || []).map((item) =>
+        itemRepo.create({
+          itineraryId: saved.id,
+          sortOrder: item.sortOrder,
+          startTime: item.startTime,
+          endTime: item.endTime,
+          title: item.title,
+          description: item.description,
+          emoji: item.emoji,
+          estimatedCost: item.estimatedCost,
+          venueName: item.venueName,
+          venueAddress: item.venueAddress,
+          eventId: item.eventId,
+          travelNote: item.travelNote,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          googlePlaceId: item.googlePlaceId,
+          googleRating: item.googleRating,
+          venueCategory: item.venueCategory,
+          whyThisStop: item.whyThisStop,
+          proTip: item.proTip,
+        }),
+      );
+      await itemRepo.save(newItems);
+
+      // Increment times_adopted on source
+      await itineraryRepo.increment({ id: source.id }, "timesAdopted", 1);
+
+      saved.items = newItems;
+      return saved;
     });
   }
 
@@ -1210,6 +1481,223 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
         return `${time}: ${parts}`;
       })
       .join("\n");
+  }
+
+  async listPublishedInternal(
+    page: number,
+    pageSize: number,
+  ): Promise<{
+    itineraries: InternalItinerary[];
+    pagination: { page: number; pageSize: number; total: number; hasMore: boolean };
+  }> {
+    const offset = (page - 1) * pageSize;
+    const repo = this.dataSource.getRepository(Itinerary);
+
+    const [itineraries, total] = await repo.findAndCount({
+      where: {
+        isPublished: true,
+        status: ItineraryStatus.READY,
+      },
+      relations: ["items"],
+      order: { updatedAt: "DESC", items: { sortOrder: "ASC" } },
+      skip: offset,
+      take: pageSize,
+    });
+
+    const results: InternalItinerary[] = itineraries.map((it) => ({
+      id: it.id,
+      title: it.title || null,
+      summary: it.summary || null,
+      city: it.city,
+      categories: it.categories || [],
+      embedding: it.embedding || null,
+      entryLatitude: it.entryLatitude != null ? Number(it.entryLatitude) : null,
+      entryLongitude: it.entryLongitude != null ? Number(it.entryLongitude) : null,
+      rating: it.rating ?? null,
+      timesAdopted: it.timesAdopted,
+      items: (it.items || []).map((item) => ({
+        id: item.id,
+        title: item.title,
+        latitude: item.latitude != null ? Number(item.latitude) : null,
+        longitude: item.longitude != null ? Number(item.longitude) : null,
+        venueCategory: item.venueCategory || null,
+        sortOrder: item.sortOrder,
+      })),
+    }));
+
+    return {
+      itineraries: results,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        hasMore: offset + pageSize < total,
+      },
+    };
+  }
+
+  private async generateItineraryEnhancements(
+    itineraryId: string,
+    items: ItineraryItem[],
+  ): Promise<void> {
+    const repo = this.dataSource.getRepository(Itinerary);
+    const itinerary = await repo.findOne({ where: { id: itineraryId } });
+    if (!itinerary) return;
+
+    const updates: Partial<Itinerary> = {};
+
+    // 1. Set entry point from first stop with coordinates
+    const sortedItems = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
+    const firstGeoItem = sortedItems.find(
+      (item) => item.latitude != null && item.longitude != null,
+    );
+    if (firstGeoItem) {
+      updates.entryLatitude = firstGeoItem.latitude;
+      updates.entryLongitude = firstGeoItem.longitude;
+    }
+
+    // 2. Generate embedding
+    if (this.embeddingService) {
+      try {
+        const stopsText = sortedItems
+          .map(
+            (item) =>
+              `${item.title}${item.venueCategory ? ` (${item.venueCategory})` : ""}`,
+          )
+          .join(", ");
+        const textRepr = `${itinerary.title || ""}. ${itinerary.summary || ""}. Stops: ${stopsText}`;
+
+        const embeddingSql =
+          await this.embeddingService.getStructuredEmbeddingSql({
+            text: textRepr,
+            weights: { text: 5 },
+          });
+        updates.embedding = embeddingSql;
+      } catch (error) {
+        console.error(
+          `[ItineraryService] Error generating embedding for ${itineraryId}:`,
+          error,
+        );
+      }
+    }
+
+    // 3. Generate category tags via GPT-4o-mini
+    try {
+      const stopsForCategories = sortedItems
+        .map(
+          (item) =>
+            `${item.title}${item.venueCategory ? ` (${item.venueCategory})` : ""}${item.description ? ` — ${item.description}` : ""}`,
+        )
+        .join("; ");
+
+      const completion = await this.openAIService.executeChatCompletion({
+        model: OpenAIModel.GPT4OMini,
+        messages: [
+          {
+            role: "system",
+            content:
+              'You generate category tags for itineraries. Return a JSON array of 3-5 lowercase single-word tags that describe the itinerary\'s themes. Examples: ["outdoor", "food", "culture", "nightlife", "art", "music", "nature", "fitness", "shopping", "history"]. Respond with ONLY the JSON array.',
+          },
+          {
+            role: "user",
+            content: `Title: ${itinerary.title || "Untitled"}\nSummary: ${itinerary.summary || "N/A"}\nStops: ${stopsForCategories}`,
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 100,
+      });
+
+      const raw = completion.choices[0].message.content?.trim();
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            updates.categories = parsed
+              .filter((t: unknown) => typeof t === "string")
+              .slice(0, 5)
+              .map((t: string) => t.toLowerCase());
+          }
+        } catch {
+          console.warn(
+            `[ItineraryService] Failed to parse category tags: ${raw}`,
+          );
+        }
+      }
+    } catch (error) {
+      console.error(
+        `[ItineraryService] Error generating categories for ${itineraryId}:`,
+        error,
+      );
+    }
+
+    // Save updates
+    if (Object.keys(updates).length > 0) {
+      await repo.update(itineraryId, updates);
+      console.log(
+        `[ItineraryService] Enhanced itinerary ${itineraryId}:`,
+        Object.keys(updates),
+      );
+    }
+  }
+
+  private async publishItineraryChange(
+    itinerary: Itinerary,
+    operation: "CREATE" | "UPDATE" | "DELETE",
+  ): Promise<void> {
+    if (!this.redisService) return;
+
+    try {
+      if (operation === "DELETE") {
+        await this.redisService.publishMessage("itinerary_changes", {
+          operation,
+          record: { id: itinerary.id },
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      // Load full itinerary with items for CREATE/UPDATE
+      const full = await this.dataSource.getRepository(Itinerary).findOne({
+        where: { id: itinerary.id },
+        relations: ["items"],
+      });
+
+      if (!full) return;
+
+      const items = (full.items || [])
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((item) => ({
+          id: item.id,
+          title: item.title,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          venueCategory: item.venueCategory,
+          sortOrder: item.sortOrder,
+        }));
+
+      await this.redisService.publishMessage("itinerary_changes", {
+        operation,
+        record: {
+          id: full.id,
+          title: full.title,
+          summary: full.summary,
+          city: full.city,
+          categories: full.categories,
+          embedding: full.embedding,
+          entryLatitude: full.entryLatitude,
+          entryLongitude: full.entryLongitude,
+          rating: full.rating,
+          timesAdopted: full.timesAdopted,
+          items,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error(
+        `[ItineraryService] Error publishing itinerary change:`,
+        error,
+      );
+    }
   }
 }
 

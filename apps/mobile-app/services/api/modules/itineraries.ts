@@ -67,6 +67,28 @@ export interface ItineraryResponse {
   ratingComment?: string;
   completedAt?: string;
   createdAt: string;
+  isPublished?: boolean;
+  timesAdopted?: number;
+  sourceItineraryId?: string;
+}
+
+export interface BrowseItineraryResponse {
+  id: string;
+  title: string | null;
+  summary: string | null;
+  city: string;
+  intention: string | null;
+  durationHours: number;
+  rating: number | null;
+  timesAdopted: number;
+  itemCount: number;
+  creatorFirstName: string | null;
+  completedAt: string;
+  items: {
+    emoji: string | null;
+    title: string;
+    venueName: string | null;
+  }[];
 }
 
 export interface AnchorStopParam {
@@ -216,6 +238,37 @@ export class ItinerariesModule extends BaseApiModule {
       `${this.client.baseUrl}/api/itineraries/completed?${params}`,
     );
     return this.handleResponse<{ data: ItineraryResponse[] }>(response);
+  }
+
+  async browse(
+    city: string,
+    options?: {
+      sort?: "popular" | "recent" | "top_rated";
+      intention?: string;
+      limit?: number;
+      cursor?: string;
+    },
+  ): Promise<{ data: BrowseItineraryResponse[] }> {
+    const params = new URLSearchParams({
+      city: encodeURIComponent(city),
+    });
+    if (options?.sort) params.set("sort", options.sort);
+    if (options?.intention) params.set("intention", options.intention);
+    if (options?.limit) params.set("limit", String(options.limit));
+    if (options?.cursor) params.set("cursor", options.cursor);
+
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/itineraries/browse?${params}`,
+    );
+    return this.handleResponse<{ data: BrowseItineraryResponse[] }>(response);
+  }
+
+  async adopt(id: string): Promise<ItineraryResponse> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/itineraries/${id}/adopt`,
+      { method: "POST" },
+    );
+    return this.handleResponse<ItineraryResponse>(response);
   }
 
   async getPopularStops(city: string, limit = 15): Promise<PopularStop[]> {

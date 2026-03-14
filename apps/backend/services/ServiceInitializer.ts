@@ -279,6 +279,8 @@ export class ServiceInitializer {
       overpassService,
       weatherService,
       gamificationService,
+      embeddingService,
+      redisService,
     });
 
     const itineraryRitualService = createItineraryRitualService({

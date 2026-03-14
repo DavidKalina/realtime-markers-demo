@@ -325,6 +325,58 @@ export const listCompletedHandler = async (c: Context<AppContext>) => {
   return c.json({ data });
 };
 
+export const browseItinerariesHandler = async (c: Context<AppContext>) => {
+  const city = c.req.query("city");
+  if (!city || typeof city !== "string") {
+    return c.json({ error: "city query parameter is required" }, 400);
+  }
+
+  const sort = (c.req.query("sort") || "popular") as
+    | "popular"
+    | "recent"
+    | "top_rated";
+  const intention = c.req.query("intention") || undefined;
+  const limit = Math.min(parseInt(c.req.query("limit") || "20", 10), 50);
+  const cursor = c.req.query("cursor") || undefined;
+
+  // Optionally exclude current user's own itineraries
+  const user = c.get("user");
+  const excludeUserId = user?.userId || user?.id || undefined;
+
+  const itineraryService = c.get("itineraryService");
+  const data = await itineraryService.browsePublished({
+    city: decodeURIComponent(city),
+    sort,
+    intention,
+    limit,
+    cursor,
+    excludeUserId,
+  });
+
+  return c.json({ data });
+};
+
+export const adoptItineraryHandler = async (c: Context<AppContext>) => {
+  const user = c.get("user");
+  if (!user?.userId && !user?.id) {
+    return c.json({ error: "Authentication required" }, 401);
+  }
+  const userId = user.userId || user.id;
+
+  const id = c.req.param("id");
+  if (!id) {
+    return c.json({ error: "id is required" }, 400);
+  }
+
+  const itineraryService = c.get("itineraryService");
+  try {
+    const itinerary = await itineraryService.adoptItinerary(id, userId);
+    return c.json(itinerary, 201);
+  } catch {
+    return c.json({ error: "Itinerary not found or not available" }, 404);
+  }
+};
+
 export const getPopularStopsHandler = async (c: Context<AppContext>) => {
   const city = c.req.query("city");
   if (!city || typeof city !== "string") {

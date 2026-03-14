@@ -95,6 +95,43 @@ export class Itinerary {
   @Column({ name: "completed_at", type: "timestamptz", nullable: true })
   completedAt?: Date;
 
+  @Column({ name: "is_published", type: "boolean", default: false })
+  isPublished!: boolean;
+
+  @Column({ name: "times_adopted", type: "int", default: 0 })
+  timesAdopted!: number;
+
+  @Column({ type: "text", nullable: true })
+  embedding?: string;
+
+  @Column({ type: "text", array: true, default: "'{}'" })
+  categories!: string[];
+
+  @Column({
+    name: "entry_latitude",
+    type: "numeric",
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
+  entryLatitude?: number;
+
+  @Column({
+    name: "entry_longitude",
+    type: "numeric",
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
+  entryLongitude?: number;
+
+  @Column({ name: "source_itinerary_id", type: "uuid", nullable: true })
+  sourceItineraryId?: string;
+
+  @ManyToOne(() => Itinerary, { onDelete: "SET NULL", nullable: true })
+  @JoinColumn({ name: "source_itinerary_id" })
+  sourceItinerary?: Relation<Itinerary>;
+
   @OneToMany(() => ItineraryItem, (item) => item.itinerary, { cascade: true })
   items!: Relation<ItineraryItem[]>;
 

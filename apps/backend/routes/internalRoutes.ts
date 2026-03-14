@@ -2,6 +2,7 @@
 import { Hono } from "hono";
 import * as eventHandler from "../handlers/eventHandlers";
 import * as filterHandler from "../handlers/filterHandlers";
+import { getInternalItinerariesHandler } from "../handlers/internal/internalItineraryHandler";
 import type { AppContext } from "../types/context";
 import { ip } from "../middleware/ip";
 import { rateLimit } from "../middleware/rateLimit";
@@ -26,6 +27,7 @@ internalRouter.use(
 // Add your internal routes without auth middleware
 internalRouter.get("/events", eventHandler.getAllEventsHandler);
 internalRouter.get("/filters", filterHandler.getInternalFiltersHandler);
+internalRouter.get("/itineraries", getInternalItinerariesHandler);
 
 // Award XP to a user
 

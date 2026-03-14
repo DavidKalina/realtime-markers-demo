@@ -13,7 +13,8 @@ export type RedisChannel =
   | "viewport-updates"
   | `user:${string}:filtered-events`
   | `job:${string}:updates`
-  | "push:discovery";
+  | "push:discovery"
+  | "itinerary_changes";
 
 // Define base interface for messages that require timestamps
 interface TimestampedMessage {
