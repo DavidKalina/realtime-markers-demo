@@ -3,9 +3,9 @@ import "dotenv/config";
 
 export default {
   expo: {
-    name: "A Third Space",
+    name: "Sidequests",
     slug: "mobile-app",
-    version: "1.22.4",
+    version: "1.22.5",
     orientation: "portrait",
     icon: "./assets/app-icon.png",
     scheme: "myapp",
@@ -18,7 +18,7 @@ export default {
       // Icon Composer .icon directory for glass effect (SDK 54+)
       icon: "./assets/AThirdPlace.icon",
       infoPlist: {
-        CFBundleDisplayName: "A Third Space",
+        CFBundleDisplayName: "Sidequests",
         ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription:
           "Realtime Markers uses your location while the app is in use to center the map on your current position and improve address search results when scanning event flyers. Coordinates are sent to our server for better relevance.",
@@ -27,9 +27,9 @@ export default {
         NSLocationAlwaysUsageDescription:
           "Realtime Markers may access your location in the background to support location-based flyer scanning and event discovery. Your coordinates are securely sent to our server to improve results.",
         NSCalendarsUsageDescription:
-          "A Third Space can add your planned adventures to your calendar so you never miss an outing.",
+          "Sidequests can add your planned adventures to your calendar so you never miss an outing.",
         NSCalendarsWriteOnlyAccessUsageDescription:
-          "A Third Space can add your planned adventures to your calendar so you never miss an outing.",
+          "Sidequests can add your planned adventures to your calendar so you never miss an outing.",
         NSCameraUsageDescription:
           "Realtime Markers needs camera access to scan event flyers. Images are processed on our server and may be stored to display event details to other users.",
         NSAppTransportSecurity: {
@@ -39,10 +39,10 @@ export default {
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "225",
+      buildNumber: "226",
     },
     android: {
-      label: "A Third Space",
+      label: "Sidequests",
       adaptiveIcon: {
         foregroundImage: "./assets/images/app-icon.png",
         backgroundColor: "#ffffff",
@@ -120,7 +120,7 @@ export default {
         "expo-calendar",
         {
           calendarPermission:
-            "A Third Space can add your planned adventures to your calendar so you never miss an outing.",
+            "Sidequests can add your planned adventures to your calendar so you never miss an outing.",
         },
       ],
     ],
