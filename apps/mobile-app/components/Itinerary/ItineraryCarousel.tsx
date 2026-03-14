@@ -26,29 +26,17 @@ import {
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import ItineraryTimeline from "./ItineraryTimeline";
+import ExpandableCard, { GREEN_ACCENT, STOP_COLORS } from "./ExpandableCard";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SWIPE_THRESHOLD = 50;
-const COLLAPSED_HEIGHT = 70;
-const EXPANDED_HEIGHT = 420;
-const GREEN_ACCENT = "#86efac";
-
-const STOP_COLORS = [
-  "#93c5fd",
-  "#86efac",
-  "#fcd34d",
-  "#c4b5fd",
-  "#f9a8d4",
-  "#fdba74",
-  "#67e8f9",
-];
 
 export interface ItineraryPreviewStop {
   coordinate: [number, number]; // [lng, lat]
@@ -78,29 +66,9 @@ const ItineraryCarousel: React.FC<ItineraryCarouselProps> = ({
   const activate = useActiveItineraryStore((state) => state.activate);
   const [activating, setActivating] = useState(false);
 
-  const animHeight = useSharedValue(COLLAPSED_HEIGHT);
-  const contentOpacity = useSharedValue(0);
-
-  const containerStyle = useAnimatedStyle(() => ({
-    height: animHeight.value,
-  }));
-
-  const expandedContentStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
-  }));
-
   const toggleExpand = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (expanded) {
-      contentOpacity.value = withTiming(0, { duration: 150 });
-      animHeight.value = withTiming(COLLAPSED_HEIGHT, { duration: 250 });
-      setExpanded(false);
-    } else {
-      animHeight.value = withTiming(EXPANDED_HEIGHT, { duration: 300 });
-      contentOpacity.value = withTiming(1, { duration: 200 });
-      setExpanded(true);
-    }
-  }, [expanded, animHeight, contentOpacity]);
+    setExpanded((prev) => !prev);
+  }, []);
 
   const fetchItineraries = useCallback(async () => {
     try {
@@ -187,14 +155,14 @@ const ItineraryCarousel: React.FC<ItineraryCarouselProps> = ({
           -SCREEN_WIDTH * 0.5,
           { duration: 150 },
           () => {
-            runOnJS(goNext)();
+            scheduleOnRN(goNext);
             swipeX.value = SCREEN_WIDTH * 0.3;
             swipeX.value = withSpring(0, { damping: 18, stiffness: 200 });
           },
         );
       } else if (e.translationX > SWIPE_THRESHOLD) {
         swipeX.value = withTiming(SCREEN_WIDTH * 0.5, { duration: 150 }, () => {
-          runOnJS(goPrev)();
+          scheduleOnRN(goPrev);
           swipeX.value = -SCREEN_WIDTH * 0.3;
           swipeX.value = withSpring(0, { damping: 18, stiffness: 200 });
         });
@@ -237,163 +205,135 @@ const ItineraryCarousel: React.FC<ItineraryCarouselProps> = ({
 
   return (
     <Animated.View style={style}>
-      <Animated.View style={[s.bubble, containerStyle]}>
-        {/* Handle */}
-        <View style={s.handleRow}>
-          <View style={s.handle} />
-        </View>
+      <ExpandableCard
+        expanded={expanded}
+        onToggleExpand={toggleExpand}
+        collapsedContent={
+          <>
+            <GestureDetector gesture={panGesture}>
+              <Animated.View style={[s.swipeArea, collapsedContentStyle]}>
+                <View style={s.emojiTrail}>
+                  {sortedItems.slice(0, 5).map((item, idx) => (
+                    <View
+                      key={item.id}
+                      style={[
+                        s.emojiDot,
+                        {
+                          backgroundColor:
+                            STOP_COLORS[idx % STOP_COLORS.length],
+                          marginLeft: idx > 0 ? -4 : 0,
+                        },
+                      ]}
+                    >
+                      <Text style={s.emojiText}>
+                        {item.emoji || "\u{1F4CD}"}
+                      </Text>
+                    </View>
+                  ))}
+                  {sortedItems.length > 5 && (
+                    <View style={[s.emojiDot, s.emojiMore]}>
+                      <Text style={s.emojiMoreText}>
+                        +{sortedItems.length - 5}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <View style={s.titleCol}>
+                  <Text style={s.cardTitle} numberOfLines={1}>
+                    {current.title || "Untitled Plan"}
+                  </Text>
+                  <Text style={s.cardMeta} numberOfLines={1}>
+                    {meta}
+                  </Text>
+                </View>
+              </Animated.View>
+            </GestureDetector>
 
-        {/* Collapsed row */}
-        <Pressable style={s.contentRow} onPress={toggleExpand}>
-          <GestureDetector gesture={panGesture}>
-            <Animated.View style={[s.swipeArea, collapsedContentStyle]}>
-              <View style={s.emojiTrail}>
-                {sortedItems.slice(0, 5).map((item, idx) => (
-                  <View
-                    key={item.id}
-                    style={[
-                      s.emojiDot,
-                      {
-                        backgroundColor: STOP_COLORS[idx % STOP_COLORS.length],
-                        marginLeft: idx > 0 ? -4 : 0,
-                      },
-                    ]}
-                  >
-                    <Text style={s.emojiText}>{item.emoji || "\u{1F4CD}"}</Text>
-                  </View>
-                ))}
-                {sortedItems.length > 5 && (
-                  <View style={[s.emojiDot, s.emojiMore]}>
-                    <Text style={s.emojiMoreText}>
-                      +{sortedItems.length - 5}
-                    </Text>
-                  </View>
+            {!expanded ? (
+              <Pressable
+                style={({ pressed }) => [
+                  s.activateButton,
+                  pressed && s.activateButtonPressed,
+                  activating && s.activateButtonDisabled,
+                ]}
+                onPress={handleActivate}
+                disabled={activating}
+              >
+                {activating ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <>
+                    <Play size={12} color="#000" fill="#000" />
+                    <Text style={s.activateText}>Go</Text>
+                  </>
                 )}
-              </View>
-              <View style={s.titleCol}>
-                <Text style={s.cardTitle} numberOfLines={1}>
-                  {current.title || "Untitled Plan"}
-                </Text>
-                <Text style={s.cardMeta} numberOfLines={1}>
-                  {meta}
-                </Text>
-              </View>
-            </Animated.View>
-          </GestureDetector>
-
-          {!expanded ? (
-            <Pressable
-              style={({ pressed }) => [
-                s.activateButton,
-                pressed && s.activateButtonPressed,
-                activating && s.activateButtonDisabled,
-              ]}
-              onPress={handleActivate}
-              disabled={activating}
+              </Pressable>
+            ) : (
+              <ChevronDown size={14} color={colors.text.secondary} />
+            )}
+          </>
+        }
+        afterCollapsed={
+          !expanded && itineraries.length > 1 ? (
+            <View style={s.dotsRow}>
+              {itineraries.map((c, i) => (
+                <View
+                  key={c.id}
+                  style={[s.dot, i === activeIndex && s.dotActive]}
+                />
+              ))}
+            </View>
+          ) : undefined
+        }
+        expandedContent={
+          <>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              bounces
+              style={s.scrollView}
             >
-              {activating ? (
-                <ActivityIndicator size="small" color="#000" />
-              ) : (
-                <>
-                  <Play size={12} color="#000" fill="#000" />
-                  <Text style={s.activateText}>Go</Text>
-                </>
-              )}
-            </Pressable>
-          ) : (
-            <ChevronDown size={14} color={colors.text.secondary} />
-          )}
-        </Pressable>
+              <ItineraryTimeline items={sortedItems} />
+            </ScrollView>
 
-        {/* Dots (collapsed only) */}
-        {!expanded && itineraries.length > 1 && (
-          <View style={s.dotsRow}>
-            {itineraries.map((c, i) => (
-              <View
-                key={c.id}
-                style={[s.dot, i === activeIndex && s.dotActive]}
-              />
-            ))}
-          </View>
-        )}
-
-        {/* Expanded content */}
-        <Animated.View style={[s.expandedContent, expandedContentStyle]}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            bounces
-            style={s.scrollView}
-          >
-            <ItineraryTimeline items={sortedItems} />
-          </ScrollView>
-
-          <View style={s.footerRow}>
-            <Pressable style={s.cancelButton} onPress={handleBack}>
-              <X size={14} color={colors.text.secondary} />
-              <Text style={s.cancelText}>Back</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                s.goButton,
-                pressed && s.goButtonPressed,
-                activating && s.goButtonDisabled,
-              ]}
-              onPress={handleActivate}
-              disabled={activating}
-            >
-              {activating ? (
-                <ActivityIndicator size="small" color="#000" />
-              ) : (
-                <>
-                  <Play size={12} color="#000" fill="#000" />
-                  <Text style={s.goButtonText}>Start Adventure</Text>
-                </>
-              )}
-            </Pressable>
-          </View>
-        </Animated.View>
-      </Animated.View>
+            <View style={s.footerRow}>
+              <Pressable style={s.cancelButton} onPress={handleBack}>
+                <X size={14} color={colors.text.secondary} />
+                <Text style={s.cancelText}>Back</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  s.goButton,
+                  pressed && s.goButtonPressed,
+                  activating && s.goButtonDisabled,
+                ]}
+                onPress={handleActivate}
+                disabled={activating}
+              >
+                {activating ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <>
+                    <Play size={12} color="#000" fill="#000" />
+                    <Text style={s.goButtonText}>Start Adventure</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </>
+        }
+      />
     </Animated.View>
   );
 };
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
-    bubble: {
-      backgroundColor: colors.bg.card,
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
-      borderTopWidth: 1,
-      borderColor: colors.border.subtle,
-      paddingTop: 4,
-      marginBottom: -spacing.lg,
-      overflow: "hidden",
-    },
-    handleRow: {
-      alignItems: "center",
-      paddingBottom: 6,
-    },
-    handle: {
-      width: 32,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: colors.border.medium,
-    },
-    contentRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: spacing.md,
-      paddingBottom: 10,
-      gap: spacing.sm,
-    },
     swipeArea: {
       flex: 1,
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.sm,
     },
-
-    // Emoji trail
     emojiTrail: {
       flexDirection: "row",
       alignItems: "center",
@@ -420,7 +360,6 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       color: colors.text.secondary,
     },
-
     titleCol: {
       flex: 1,
       gap: 1,
@@ -436,8 +375,6 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       color: colors.text.secondary,
     },
-
-    // Activate (collapsed)
     activateButton: {
       flexDirection: "row",
       alignItems: "center",
@@ -461,8 +398,6 @@ const createStyles = (colors: Colors) =>
       textTransform: "uppercase",
       letterSpacing: 0.5,
     },
-
-    // Dots
     dotsRow: {
       flexDirection: "row",
       justifyContent: "center",
@@ -479,12 +414,6 @@ const createStyles = (colors: Colors) =>
       backgroundColor: GREEN_ACCENT,
       width: 14,
       borderRadius: 3,
-    },
-
-    // Expanded
-    expandedContent: {
-      flex: 1,
-      paddingHorizontal: spacing.md,
     },
     scrollView: {
       flex: 1,

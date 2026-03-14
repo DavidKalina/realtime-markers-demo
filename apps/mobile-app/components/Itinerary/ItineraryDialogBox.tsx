@@ -462,7 +462,7 @@ export default function ItineraryDialogBox({
   const [phase, setPhase] = useState<Phase>(
     defaultExpanded ? "form" : "collapsed",
   );
-  const [statusText, setStatusText] = useState("Plan your adventure");
+  const [statusText, setStatusText] = useState("Plan your Sidequest");
 
   // City state — chip picker when no city prop provided
   const { userLocation } = useUserLocation();
@@ -645,7 +645,7 @@ export default function ItineraryDialogBox({
   const setCollapsedStatusCb = useCallback(() => {
     setPhase("collapsed");
     setStatusText(
-      resultRef.current.val ? "View itinerary" : "Plan your adventure",
+      resultRef.current.val ? "View itinerary" : "Plan your Sidequest",
     );
   }, []);
 
@@ -1226,7 +1226,7 @@ export default function ItineraryDialogBox({
                 ? "Your Plan"
                 : phase === "nearby"
                   ? "What's Here?"
-                  : "Plan Your Adventure"}
+                  : "Plan your Sidequest"}
             </Text>
             <Pressable
               onPress={phase === "nearby" ? onNearbyKeepPin : handleDismiss}

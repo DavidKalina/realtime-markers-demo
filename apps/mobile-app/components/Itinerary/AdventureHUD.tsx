@@ -23,6 +23,11 @@ import * as Haptics from "expo-haptics";
 import { ChevronDown, ChevronRight, X } from "lucide-react-native";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import ItineraryTimeline from "./ItineraryTimeline";
+import ExpandableCard, {
+  COLLAPSED_HEIGHT,
+  GREEN_ACCENT,
+  STOP_COLORS,
+} from "./ExpandableCard";
 import {
   useColors,
   type Colors,
@@ -32,21 +37,8 @@ import {
 } from "@/theme";
 import { scheduleOnRN } from "react-native-worklets";
 
-const COLLAPSED_HEIGHT = 70;
-const EXPANDED_HEIGHT = 420;
 const SHEEN_WIDTH = 100;
-const GREEN_ACCENT = "#86efac";
 const DISMISS_THRESHOLD = 80;
-
-const STOP_COLORS = [
-  "#93c5fd",
-  "#86efac",
-  "#fcd34d",
-  "#c4b5fd",
-  "#f9a8d4",
-  "#fdba74",
-  "#67e8f9",
-];
 
 interface AdventureHUDProps {
   style?: ViewStyle;
@@ -60,29 +52,10 @@ const AdventureHUD: React.FC<AdventureHUDProps> = ({ style }) => {
   const deactivate = useActiveItineraryStore((s) => s.deactivate);
 
   const [expanded, setExpanded] = useState(false);
-  const animHeight = useSharedValue(COLLAPSED_HEIGHT);
-  const contentOpacity = useSharedValue(0);
-
-  const containerStyle = useAnimatedStyle(() => ({
-    height: animHeight.value,
-  }));
-
-  const expandedContentStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
-  }));
 
   const toggleExpand = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (expanded) {
-      contentOpacity.value = withTiming(0, { duration: 150 });
-      animHeight.value = withTiming(COLLAPSED_HEIGHT, { duration: 250 });
-      setExpanded(false);
-    } else {
-      animHeight.value = withTiming(EXPANDED_HEIGHT, { duration: 300 });
-      contentOpacity.value = withTiming(1, { duration: 200 });
-      setExpanded(true);
-    }
-  }, [expanded, animHeight, contentOpacity]);
+    setExpanded((prev) => !prev);
+  }, []);
 
   // Swipe offset (collapsed only)
   const swipeY = useSharedValue(0);
@@ -183,108 +156,135 @@ const AdventureHUD: React.FC<AdventureHUDProps> = ({ style }) => {
   return (
     <GestureDetector gesture={panGesture}>
       <Animated.View style={[style, swipeStyle]}>
-        <Animated.View
-          style={[s.bubble, containerStyle]}
+        <ExpandableCard
+          expanded={expanded}
+          onToggleExpand={toggleExpand}
           onLayout={handleLayout}
-        >
-          {/* Handle */}
-          <View style={s.handleRow}>
-            <View style={s.handle} />
-          </View>
+          collapsedContent={
+            <>
+              {nextStop && (
+                <View
+                  style={[
+                    s.emojiDot,
+                    {
+                      backgroundColor:
+                        STOP_COLORS[nextStopIdx % STOP_COLORS.length],
+                    },
+                  ]}
+                >
+                  <Text style={s.emojiText}>
+                    {nextStop.emoji || "\u{1F4CD}"}
+                  </Text>
+                </View>
+              )}
 
-          {/* Collapsed row — tappable to expand */}
-          <Pressable style={s.contentRow} onPress={toggleExpand}>
-            {nextStop && (
-              <View
-                style={[
-                  s.emojiDot,
-                  {
-                    backgroundColor:
-                      STOP_COLORS[nextStopIdx % STOP_COLORS.length],
-                  },
-                ]}
-              >
-                <Text style={s.emojiText}>{nextStop.emoji || "\u{1F4CD}"}</Text>
+              <View style={s.titleCol}>
+                <Text style={s.cardTitle} numberOfLines={1}>
+                  {itinerary.title || "Active Adventure"}
+                </Text>
+                <Text style={s.cardMeta} numberOfLines={1}>
+                  {nextStop
+                    ? `Next: ${nextStop.title}`
+                    : `${checked}/${total} stops`}
+                </Text>
               </View>
-            )}
 
-            <View style={s.titleCol}>
-              <Text style={s.cardTitle} numberOfLines={1}>
-                {itinerary.title || "Active Adventure"}
-              </Text>
-              <Text style={s.cardMeta} numberOfLines={1}>
-                {nextStop
-                  ? `Next: ${nextStop.title}`
-                  : `${checked}/${total} stops`}
-              </Text>
-            </View>
+              <View style={s.progressPill}>
+                <Text style={s.progressPillText}>
+                  {checked}/{total}
+                </Text>
+              </View>
 
-            <View style={s.progressPill}>
-              <Text style={s.progressPillText}>
-                {checked}/{total}
-              </Text>
-            </View>
+              {expanded ? (
+                <ChevronDown size={14} color={colors.text.secondary} />
+              ) : (
+                <ChevronRight size={14} color={colors.text.secondary} />
+              )}
+            </>
+          }
+          expandedContent={
+            <>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                bounces
+                style={s.scrollView}
+              >
+                <ItineraryTimeline items={sortedItems} isActive />
+              </ScrollView>
 
-            {expanded ? (
-              <ChevronDown size={14} color={colors.text.secondary} />
-            ) : (
-              <ChevronRight size={14} color={colors.text.secondary} />
-            )}
-          </Pressable>
+              <View style={s.footerRow}>
+                <Pressable style={s.cancelButton} onPress={dismiss}>
+                  <X size={14} color={colors.text.secondary} />
+                  <Text style={s.cancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable style={s.viewButton} onPress={handleViewDetail}>
+                  <Text style={s.viewButtonText}>View Details</Text>
+                </Pressable>
+              </View>
+            </>
+          }
+          bottomOverlay={
+            <>
+              {/* Sheen sweep (collapsed only) */}
+              {!expanded && containerMeasured && (
+                <Animated.View
+                  style={[s.sheenBeam, sheenAnimStyle]}
+                  pointerEvents="none"
+                >
+                  <Svg width={SHEEN_WIDTH} height={COLLAPSED_HEIGHT}>
+                    <Defs>
+                      <LinearGradient
+                        id="advSheen"
+                        x1="0"
+                        y1="0"
+                        x2="1"
+                        y2="0"
+                      >
+                        <Stop
+                          offset="0"
+                          stopColor={GREEN_ACCENT}
+                          stopOpacity="0"
+                        />
+                        <Stop
+                          offset="0.3"
+                          stopColor="#a8e6c0"
+                          stopOpacity="0.3"
+                        />
+                        <Stop
+                          offset="0.5"
+                          stopColor="#d4f5e0"
+                          stopOpacity="0.5"
+                        />
+                        <Stop
+                          offset="0.7"
+                          stopColor="#a8e6c0"
+                          stopOpacity="0.3"
+                        />
+                        <Stop
+                          offset="1"
+                          stopColor={GREEN_ACCENT}
+                          stopOpacity="0"
+                        />
+                      </LinearGradient>
+                    </Defs>
+                    <Rect
+                      x="0"
+                      y="0"
+                      width={SHEEN_WIDTH}
+                      height={COLLAPSED_HEIGHT}
+                      fill="url(#advSheen)"
+                    />
+                  </Svg>
+                </Animated.View>
+              )}
 
-          {/* Expanded content */}
-          <Animated.View style={[s.expandedContent, expandedContentStyle]}>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              bounces
-              style={s.scrollView}
-            >
-              <ItineraryTimeline items={sortedItems} isActive />
-            </ScrollView>
-
-            <View style={s.footerRow}>
-              <Pressable style={s.cancelButton} onPress={dismiss}>
-                <X size={14} color={colors.text.secondary} />
-                <Text style={s.cancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable style={s.viewButton} onPress={handleViewDetail}>
-                <Text style={s.viewButtonText}>View Details</Text>
-              </Pressable>
-            </View>
-          </Animated.View>
-
-          {/* Sheen sweep (collapsed only) */}
-          {!expanded && containerMeasured && (
-            <Animated.View
-              style={[s.sheenBeam, sheenAnimStyle]}
-              pointerEvents="none"
-            >
-              <Svg width={SHEEN_WIDTH} height={COLLAPSED_HEIGHT}>
-                <Defs>
-                  <LinearGradient id="advSheen" x1="0" y1="0" x2="1" y2="0">
-                    <Stop offset="0" stopColor={GREEN_ACCENT} stopOpacity="0" />
-                    <Stop offset="0.3" stopColor="#a8e6c0" stopOpacity="0.3" />
-                    <Stop offset="0.5" stopColor="#d4f5e0" stopOpacity="0.5" />
-                    <Stop offset="0.7" stopColor="#a8e6c0" stopOpacity="0.3" />
-                    <Stop offset="1" stopColor={GREEN_ACCENT} stopOpacity="0" />
-                  </LinearGradient>
-                </Defs>
-                <Rect
-                  x="0"
-                  y="0"
-                  width={SHEEN_WIDTH}
-                  height={COLLAPSED_HEIGHT}
-                  fill="url(#advSheen)"
-                />
-              </Svg>
-            </Animated.View>
-          )}
-
-          {/* Progress bar along bottom edge */}
-          <View style={s.progressTrack}>
-            <ProgressFill progress={progress} />
-          </View>
-        </Animated.View>
+              {/* Progress bar along bottom edge */}
+              <View style={s.progressTrack}>
+                <ProgressFill progress={progress} />
+              </View>
+            </>
+          }
+        />
       </Animated.View>
     </GestureDetector>
   );
@@ -312,33 +312,6 @@ const ProgressFill: React.FC<{ progress: number }> = ({ progress }) => {
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
-    bubble: {
-      backgroundColor: colors.bg.card,
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
-      borderTopWidth: 1,
-      borderColor: colors.border.subtle,
-      paddingTop: 4,
-      marginBottom: -spacing.lg,
-      overflow: "hidden",
-    },
-    handleRow: {
-      alignItems: "center",
-      paddingBottom: 6,
-    },
-    handle: {
-      width: 32,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: colors.border.medium,
-    },
-    contentRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: spacing.md,
-      paddingBottom: 10,
-      gap: spacing.sm,
-    },
     emojiDot: {
       width: 32,
       height: 32,
@@ -377,10 +350,6 @@ const createStyles = (colors: Colors) =>
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
       color: colors.text.label,
-    },
-    expandedContent: {
-      flex: 1,
-      paddingHorizontal: spacing.md,
     },
     scrollView: {
       flex: 1,

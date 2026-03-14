@@ -15,7 +15,7 @@ const AppHeader = () => {
   const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>A Third Space</Text>
+      <Text style={styles.text}>Sidequests</Text>
     </View>
   );
 };
@@ -32,7 +32,7 @@ const createStyles = (colors: Colors) =>
     },
     text: {
       fontSize: 42,
-      fontFamily: fontFamily.mono,
+      fontFamily: fontFamily.display,
       letterSpacing: 1,
       color: colors.fixed.white,
       zIndex: 10,
@@ -40,7 +40,6 @@ const createStyles = (colors: Colors) =>
       textShadowColor: "rgba(77, 171, 247, 0.6)",
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 12,
-      fontWeight: fontWeight.bold,
     },
     subtext: {
       fontSize: fontSize.md,

@@ -11,6 +11,7 @@ import {
   CompassIcon,
   GlobeIcon,
   LucideIcon,
+  LucideSword,
   Route,
   User,
 } from "lucide-react-native";
@@ -72,8 +73,8 @@ const TABS: TabConfig[] = [
   },
   {
     key: "itineraries",
-    label: "Plans",
-    icon: Route,
+    label: "Quests",
+    icon: LucideSword,
     route: "/itineraries",
   },
   {

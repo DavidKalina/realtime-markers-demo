@@ -33,7 +33,7 @@ const ActiveQuestBanner: React.FC = () => {
           router.push("/itineraries?expand=1" as const);
         }}
       >
-        <Text style={styles.ctaText}>Start an adventure</Text>
+        <Text style={styles.ctaText}>Start a sidequest</Text>
         <ChevronRight size={14} color={colors.text.secondary} />
       </Pressable>
     );
