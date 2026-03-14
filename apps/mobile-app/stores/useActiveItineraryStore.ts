@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
 import { apiClient } from "@/services/ApiClient";
 import { startBackgroundLocationTracking } from "@/hooks/useBackgroundLocation";
+import { useMapModeStore } from "@/stores/useMapModeStore";
 
 export interface CompletionData {
   itinerary: ItineraryResponse;
@@ -66,6 +67,7 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
         console.error("[ActiveItinerary] Failed to deactivate:", err);
       }
       set({ itinerary: null, isLoading: false });
+      useMapModeStore.getState().enterExploreMode();
     },
 
     markCheckedIn: (itemId, checkedInAt) => {
@@ -79,17 +81,22 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
       const allChecked = updatedItems.every((item) => item.checkedInAt);
       const updatedItinerary = { ...itinerary, items: updatedItems };
 
+      // Always update the itinerary first so the pin celebration animation plays
+      set({ itinerary: updatedItinerary });
+
       if (allChecked) {
-        // Set completion data for the celebration overlay
-        set({
-          completionData: {
-            itinerary: updatedItinerary,
-            completedAt: new Date().toISOString(),
-          },
-          itinerary: null,
-        });
-      } else {
-        set({ itinerary: updatedItinerary });
+        // Delay clearing the itinerary so the last pin's check-in animation
+        // has time to play before waypoints unmount
+        setTimeout(() => {
+          set({
+            completionData: {
+              itinerary: updatedItinerary,
+              completedAt: new Date().toISOString(),
+            },
+            itinerary: null,
+          });
+          useMapModeStore.getState().enterExploreMode();
+        }, 2500);
       }
     },
 
@@ -112,6 +119,7 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
         const result = await apiClient.itineraries.getActive();
         if (result.active && result.itinerary) {
           set({ itinerary: result.itinerary });
+          useMapModeStore.getState().enterItineraryMode();
         }
       } catch (err) {
         console.error("[ActiveItinerary] Failed to load active:", err);

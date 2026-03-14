@@ -187,7 +187,8 @@ const SpaceCityCard: React.FC<SpaceCityCardProps> = ({
             {momentum.arrow} {city.momentum}
           </Text>
           <Text style={styles.eventCount}>
-            {city.eventCount} event{city.eventCount !== 1 ? "s" : ""}
+            {city.adventureCount} adventure
+            {city.adventureCount !== 1 ? "s" : ""}
           </Text>
         </View>
       </View>

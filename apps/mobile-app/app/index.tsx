@@ -22,7 +22,12 @@ import { useMapMountGate } from "@/hooks/useMapMountGate";
 import { useMapViewport } from "@/hooks/useMapViewport";
 import { useMapWebSocket } from "@/hooks/useMapWebSocket";
 import { apiClient } from "@/services/ApiClient";
-import { BaseEvent, CameraAnimateToLocationEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
+import {
+  BaseEvent,
+  CameraAnimateToLocationEvent,
+  EventTypes,
+  MapItemEvent,
+} from "@/services/EventBroker";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { useJobSheetStore } from "@/stores/useJobSheetStore";
 import { useLocationStore } from "@/stores/useLocationStore";
@@ -30,7 +35,7 @@ import { useColors, type Colors } from "@/theme";
 import MapboxGL from "@rnmapbox/maps";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
-import { ClipboardList, Navigation, Radar } from "lucide-react-native";
+import { ClipboardList, Map, Navigation, Radar } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -42,6 +47,7 @@ import {
   ActivityIndicator,
   Platform,
   StyleSheet,
+  Text,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -58,7 +64,16 @@ import RAnimated, {
 import { scheduleOnRN } from "react-native-worklets";
 import AnchorMarkers from "@/components/Markers/AnchorMarkers";
 import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
+import ItineraryRouteLayer from "@/components/Itinerary/ItineraryRouteLayer";
+import ItineraryWaypoints from "@/components/Itinerary/ItineraryWaypoints";
+import AdventureHUD from "@/components/Itinerary/AdventureHUD";
+import ItineraryCarousel from "@/components/Itinerary/ItineraryCarousel";
 import { useAnchorPlanStore } from "@/stores/useAnchorPlanStore";
+import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
+import { useMapModeStore } from "@/stores/useMapModeStore";
+import { useItineraryReveal } from "@/hooks/useItineraryReveal";
+import { useItineraryPreviewOrbit } from "@/hooks/useItineraryPreviewOrbit";
+import { useSimulateItinerary } from "@/hooks/useSimulateItinerary";
 import type { NearbyPlace } from "@/services/api/modules/places";
 
 // Set access token at module scope (lightweight, required before MapView renders)
@@ -87,6 +102,36 @@ const resumeStyles = StyleSheet.create({
   },
 });
 
+const modeToggleStyles = StyleSheet.create({
+  container: {
+    position: "absolute",
+    bottom: 140,
+    right: 16,
+    zIndex: 1000,
+  },
+});
+
+const previewMarkerStyles = StyleSheet.create({
+  dot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#93c5fd",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 3,
+    borderColor: "rgba(255,255,255,0.9)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  emoji: {
+    fontSize: 18,
+  },
+});
+
 const planBannerStyles = StyleSheet.create({
   dialogBox: {
     position: "absolute",
@@ -94,6 +139,13 @@ const planBannerStyles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1001,
+  },
+  carousel: {
+    position: "absolute",
+    bottom: 16,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
   },
 });
 
@@ -104,6 +156,11 @@ function HomeScreenContent() {
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const router = useRouter();
   const { publish } = useEventBroker();
+  const activeItinerary = useActiveItineraryStore((s) => s.itinerary);
+  const mode = useMapModeStore((s) => s.mode);
+  const isExplore = mode === "explore";
+  const enterItineraryMode = useMapModeStore((s) => s.enterItineraryMode);
+  const enterExploreMode = useMapModeStore((s) => s.enterExploreMode);
   const { mapStyle, isPitched } = useMapStyle();
   const { activeCount } = useJobProgressContext();
   const openJobSheet = useJobSheetStore((s) => s.open);
@@ -227,6 +284,28 @@ function HomeScreenContent() {
     startLocationTracking();
   }, [startLocationTracking]);
 
+  // Itinerary reveal orchestration, deferred layer mount, and check-in handling
+  const { revealedStopCount, layersSafe: itineraryLayersSafe } =
+    useItineraryReveal({ cameraRef });
+
+  // Preview orbit when browsing itinerary carousel
+  const { previewStop, handlePreviewStop } = useItineraryPreviewOrbit({
+    cameraRef,
+  });
+
+  // DEV: simulate itinerary check-in animations (long-press jobs FAB)
+  const { startSimulation, stopSimulation } = useSimulateItinerary(
+    userLocation ?? null,
+  );
+  const handleSimTrigger = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (activeItinerary) {
+      stopSimulation();
+    } else {
+      startSimulation();
+    }
+  }, [activeItinerary, startSimulation, stopSimulation]);
+
   // Viewport processing and region change tracking
   const { handleRegionChanging } = useMapViewport({
     updateViewport,
@@ -349,15 +428,22 @@ function HomeScreenContent() {
     [addAnchor, publish],
   );
 
+  // Track explore mode in a ref so the worklet long-press handler can read it
+  const isExploreRef = useRef(isExplore);
+  isExploreRef.current = isExplore;
+
   // Long press handler — drops anchor pin (pin has its own ripple)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleMapLongPress = useCallback((event: any) => {
     "worklet";
-    // Drop anchor pin
+    // Drop anchor pin — only in explore mode
     if (event?.geometry?.coordinates) {
       const [lng, lat] = event.geometry.coordinates;
       if (typeof lat === "number" && typeof lng === "number") {
-        scheduleOnRN(handleAddAnchor, { lat, lng });
+        scheduleOnRN((coords: { lat: number; lng: number }) => {
+          if (!isExploreRef.current) return;
+          handleAddAnchor(coords);
+        }, { lat, lng });
       }
     }
   }, []);
@@ -515,6 +601,8 @@ function HomeScreenContent() {
   const fabOpacity2 = useSharedValue(0);
   const fabSlide3 = useSharedValue(20);
   const fabOpacity3 = useSharedValue(0);
+  const fabSlide4 = useSharedValue(20);
+  const fabOpacity4 = useSharedValue(0);
   useEffect(() => {
     const springCfg = { damping: 14, stiffness: 160 };
     fabSlide0.value = withSpring(0, springCfg);
@@ -525,6 +613,8 @@ function HomeScreenContent() {
     fabOpacity2.value = withDelay(100, withSpring(1, springCfg));
     fabSlide3.value = withDelay(150, withSpring(0, springCfg));
     fabOpacity3.value = withDelay(150, withSpring(1, springCfg));
+    fabSlide4.value = withDelay(200, withSpring(0, springCfg));
+    fabOpacity4.value = withDelay(200, withSpring(1, springCfg));
   }, []);
   const fabStyle0 = useAnimatedStyle(() => ({
     opacity: fabOpacity0.value,
@@ -541,6 +631,10 @@ function HomeScreenContent() {
   const fabStyle3 = useAnimatedStyle(() => ({
     opacity: fabOpacity3.value,
     transform: [{ translateY: fabSlide3.value }],
+  }));
+  const fabStyle4 = useAnimatedStyle(() => ({
+    opacity: fabOpacity4.value,
+    transform: [{ translateY: fabSlide4.value }],
   }));
   // Subtle pulse on jobs FAB when work is in-flight
   const jobPulse = useSharedValue(1);
@@ -675,6 +769,7 @@ function HomeScreenContent() {
           <TouchableOpacity
             style={styles.recenterButton}
             onPress={openJobSheet}
+            onLongPress={handleSimTrigger}
             activeOpacity={0.7}
           >
             <ClipboardList size={22} color={colors.accent.primary} />
@@ -695,6 +790,7 @@ function HomeScreenContent() {
       clearAllFilters,
       hasInFlight,
       openJobSheet,
+      handleSimTrigger,
       fabStyle0,
       fabStyle1,
       fabStyle2,
@@ -759,6 +855,25 @@ function HomeScreenContent() {
             />
             {markersComponent}
             <AnchorMarkers />
+            {itineraryLayersSafe && (
+              <ItineraryRouteLayer revealedStopCount={revealedStopCount} />
+            )}
+            {itineraryLayersSafe && (
+              <ItineraryWaypoints revealedStopCount={revealedStopCount} />
+            )}
+            {/* Preview marker for itinerary carousel browsing */}
+            {previewStop && (
+              <MapboxGL.MarkerView
+                coordinate={previewStop.coordinate}
+                anchor={{ x: 0.5, y: 0.5 }}
+              >
+                <View style={previewMarkerStyles.dot}>
+                  <Text style={previewMarkerStyles.emoji}>
+                    {previewStop.emoji}
+                  </Text>
+                </View>
+              </MapboxGL.MarkerView>
+            )}
             {userLocationLayer}
           </MapboxGL.MapView>
         )}
@@ -778,9 +893,20 @@ function HomeScreenContent() {
 
         <MapLegend />
 
-        {floatingButtonsSection}
+        {isExplore && floatingButtonsSection}
 
-        {!selectedItem && (
+        {/* Mode toggle FAB — always visible */}
+        <RAnimated.View style={[modeToggleStyles.container, fabStyle4]}>
+          <TouchableOpacity
+            style={styles.recenterButton}
+            onPress={isExplore ? enterItineraryMode : enterExploreMode}
+            activeOpacity={0.7}
+          >
+            <Map size={22} color="#86efac" />
+          </TouchableOpacity>
+        </RAnimated.View>
+
+        {isExplore && !selectedItem && !activeItinerary && (
           <ItineraryDialogBox
             city={anchorCity ?? undefined}
             anchorStops={anchorAnchors.length > 0 ? anchorAnchors : undefined}
@@ -796,6 +922,16 @@ function HomeScreenContent() {
             onAnchorRemove={handleAnchorRemove}
             style={planBannerStyles.dialogBox}
           />
+        )}
+        {!isExplore && !activeItinerary && (
+          <ItineraryCarousel
+            style={planBannerStyles.carousel}
+            onBack={enterExploreMode}
+            onPreviewStop={handlePreviewStop}
+          />
+        )}
+        {!isExplore && activeItinerary && (
+          <AdventureHUD style={planBannerStyles.dialogBox} />
         )}
       </View>
     </>

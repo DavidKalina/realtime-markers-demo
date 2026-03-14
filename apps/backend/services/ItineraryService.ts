@@ -156,7 +156,10 @@ class ItineraryServiceImpl implements ItineraryService {
         city = await this.geocodingService.reverseGeocodeCityState(lat, lng);
         console.log(`[ItineraryService] Inferred city from anchor: ${city}`);
       } catch (err) {
-        console.warn("[ItineraryService] Failed to reverse-geocode city from anchor:", err);
+        console.warn(
+          "[ItineraryService] Failed to reverse-geocode city from anchor:",
+          err,
+        );
         city = "Unknown";
       }
     }
@@ -190,9 +193,7 @@ class ItineraryServiceImpl implements ItineraryService {
         );
       } else {
         try {
-          const [lng, lat] = await this.geocodingService.geocodeAddress(
-            city,
-          );
+          const [lng, lat] = await this.geocodingService.geocodeAddress(city);
           if (lat !== 0 || lng !== 0) {
             cityCenter = { lat, lng };
           } else {
@@ -297,7 +298,12 @@ class ItineraryServiceImpl implements ItineraryService {
       if (input.anchorStops) {
         console.log(
           `[ItineraryService] Anchor stops passed to LLM: ${input.anchorStops.length}`,
-          JSON.stringify(input.anchorStops.map((a) => ({ label: a.label, coords: a.coordinates }))),
+          JSON.stringify(
+            input.anchorStops.map((a) => ({
+              label: a.label,
+              coords: a.coordinates,
+            })),
+          ),
         );
       }
       const llmResult = await this.generateWithLLM(
@@ -925,7 +931,9 @@ class ItineraryServiceImpl implements ItineraryService {
               const rating = a.rating ? ` | Rating: ${a.rating}` : "";
               return `- Anchor ${i + 1}: ${label}${addr} (${lat.toFixed(5)}, ${lng.toFixed(5)})${type}${rating}`;
             })
-            .join("\n")}\nThere are ${anchorStops.length} anchor stops — the output MUST contain at least ${anchorStops.length} items corresponding to these anchors. Build the rest of the itinerary around them, filling complementary stops between them.${anchorStops.some((a) => a.label) ? " Anchors with names are verified real places — use their exact name and address." : " The anchor stops are user-selected map locations — find the nearest real venue or point of interest at each coordinate and use that as the stop."}\n`
+            .join(
+              "\n",
+            )}\nThere are ${anchorStops.length} anchor stops — the output MUST contain at least ${anchorStops.length} items corresponding to these anchors. Build the rest of the itinerary around them, filling complementary stops between them.${anchorStops.some((a) => a.label) ? " Anchors with names are verified real places — use their exact name and address." : " The anchor stops are user-selected map locations — find the nearest real venue or point of interest at each coordinate and use that as the stop."}\n`
         : "";
 
     const hasTrails = trailList !== null;

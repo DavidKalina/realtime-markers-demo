@@ -14,6 +14,7 @@ import type {
 import type { RedisService } from "./shared/RedisService";
 import type { GamificationService } from "./GamificationService";
 import type { BadgeService } from "./BadgeService";
+import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 
 const CHECKIN_RADIUS_METERS = 75;
 const COMPLETION_MILESTONES = [5, 10, 25, 50, 100];
@@ -69,6 +70,7 @@ interface ItineraryCheckinServiceDeps {
   redisService: RedisService;
   gamificationService: GamificationService;
   badgeService: BadgeService;
+  thirdSpaceScoreService?: ThirdSpaceScoreService;
 }
 
 interface NearbyItem {
@@ -86,6 +88,7 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
   private redisService: RedisService;
   private gamificationService: GamificationService;
   private badgeService: BadgeService;
+  private thirdSpaceScoreService?: ThirdSpaceScoreService;
 
   constructor(deps: ItineraryCheckinServiceDeps) {
     this.dataSource = deps.dataSource;
@@ -93,6 +96,7 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
     this.redisService = deps.redisService;
     this.gamificationService = deps.gamificationService;
     this.badgeService = deps.badgeService;
+    this.thirdSpaceScoreService = deps.thirdSpaceScoreService;
   }
 
   async checkAndNotify(
@@ -268,6 +272,9 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
         `[ItineraryCheckin] User ${userId} completed itinerary ${user.activeItineraryId}`,
       );
 
+      // Refresh city score on completion
+      this.refreshCityScoreForItinerary(user.activeItineraryId);
+
       // Check for completion milestones
       this.checkCompletionMilestone(userId).catch((err) => {
         console.error("[ItineraryCheckin] Milestone check failed:", err);
@@ -433,6 +440,9 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
         `[ItineraryCheckin] User ${userId} completed itinerary ${itineraryId} via manual checkin`,
       );
 
+      // Refresh city score on completion
+      this.refreshCityScoreForItinerary(itineraryId);
+
       // Check for completion milestones
       this.checkCompletionMilestone(userId).catch((err) => {
         console.error("[ItineraryCheckin] Milestone check failed:", err);
@@ -440,6 +450,20 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
     }
 
     return { success: true, checkedInAt: now };
+  }
+
+  private refreshCityScoreForItinerary(itineraryId: string): void {
+    this.dataSource
+      .getRepository(Itinerary)
+      .findOne({ where: { id: itineraryId }, select: ["city"] })
+      .then((itinerary) => {
+        if (itinerary?.city) {
+          this.thirdSpaceScoreService
+            ?.refreshCityScore(itinerary.city)
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
   }
 
   /**

@@ -14,7 +14,6 @@ import { EventTypes, BaseEvent } from "@/services/EventBroker";
 import MapboxGL from "@rnmapbox/maps";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-
 // Define the event types
 interface UserLocationEvent extends BaseEvent {
   coordinates: [number, number];

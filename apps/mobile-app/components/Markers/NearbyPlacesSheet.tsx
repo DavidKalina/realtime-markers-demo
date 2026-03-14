@@ -122,7 +122,8 @@ export default function NearbyPlacesSheet({
                 )}
                 {place.rating != null && (
                   <Text style={styles.placeRating}>
-                    {"★"}{place.rating.toFixed(1)}
+                    {"★"}
+                    {place.rating.toFixed(1)}
                   </Text>
                 )}
                 {place.distance != null && (

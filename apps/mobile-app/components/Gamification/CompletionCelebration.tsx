@@ -184,7 +184,11 @@ export default function CompletionCelebration() {
       <Reanimated.View
         style={[
           styles.card,
-          { backgroundColor: colors.bg.card },
+          {
+            backgroundColor: colors.bg.elevated,
+            borderWidth: 1,
+            borderColor: colors.border.medium,
+          },
           contentAnimStyle,
         ]}
       >
@@ -195,7 +199,7 @@ export default function CompletionCelebration() {
         <Text style={[styles.itineraryTitle, { color: colors.text.secondary }]}>
           {itinerary.title ?? "Your itinerary"}
         </Text>
-        <Text style={[styles.subtitle, { color: colors.text.tertiary }]}>
+        <Text style={[styles.subtitle, { color: colors.text.primary }]}>
           {stopCount} stop{stopCount !== 1 ? "s" : ""} visited in{" "}
           {itinerary.city}
         </Text>
@@ -272,7 +276,7 @@ export default function CompletionCelebration() {
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "rgba(0,0,0,0.85)",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 999,
@@ -283,10 +287,10 @@ const styles = StyleSheet.create({
     padding: 28,
     alignItems: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 16,
   },
   emoji: {
     fontSize: 56,
