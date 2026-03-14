@@ -249,14 +249,41 @@ export class PushNotificationService {
         notificationType: "success" as const,
       });
     } else if (data?.type === "streak_at_risk") {
-      // Streak at risk — navigate to itineraries to plan
-      console.log("Streak at risk, current:", data.currentStreak);
+      // Streak at risk — show notification and navigate to itineraries
+      eventBroker.emit(EventTypes.NOTIFICATION, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        title: "Streak at risk!",
+        message: `Your ${data.currentStreak}-week streak needs a check-in this week`,
+        notificationType: "warning" as const,
+      });
+      eventBroker.emit(EventTypes.NAVIGATE_TO_SCREEN, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        path: "/itineraries",
+      });
     } else if (data?.type === "milestone") {
-      // Completion milestone
-      console.log("Milestone reached:", data.milestoneType, data.count);
+      // Completion milestone — show celebration notification
+      eventBroker.emit(EventTypes.NOTIFICATION, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        title: "Milestone reached!",
+        message: `You've completed ${data.count} itineraries!`,
+        notificationType: "success" as const,
+        duration: 5000,
+      });
+      eventBroker.emit(EventTypes.NAVIGATE_TO_SCREEN, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        path: "/user",
+      });
     } else if (data?.type === "weekly_nudge") {
       // Weekly nudge — navigate to itinerary builder
-      console.log("Weekly nudge received");
+      eventBroker.emit(EventTypes.NAVIGATE_TO_SCREEN, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        path: "/itineraries",
+      });
     } else if (data?.type === "follow_activity" && data.eventId) {
       // A followed user saved/rsvp'd/scanned an event
       console.log("Follow activity notification, event:", data.eventId);

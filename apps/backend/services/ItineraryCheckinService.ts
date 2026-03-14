@@ -251,7 +251,7 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
       await Promise.all([
         this.dataSource
           .getRepository(User)
-          .update({ id: userId }, { activeItineraryId: undefined }),
+          .update({ id: userId }, { activeItineraryId: null }),
         this.dataSource
           .getRepository(Itinerary)
           .update({ id: user.activeItineraryId }, { completedAt: now }),
@@ -334,7 +334,7 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
   async deactivateItinerary(userId: string): Promise<boolean> {
     const result = await this.dataSource
       .getRepository(User)
-      .update({ id: userId }, { activeItineraryId: undefined });
+      .update({ id: userId }, { activeItineraryId: null });
 
     return (result.affected ?? 0) > 0;
   }
@@ -422,7 +422,7 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
           .update({ id: itineraryId }, { completedAt: now }),
         this.dataSource
           .getRepository(User)
-          .update({ id: userId }, { activeItineraryId: undefined }),
+          .update({ id: userId }, { activeItineraryId: null }),
       ]);
 
       // Award completion XP
