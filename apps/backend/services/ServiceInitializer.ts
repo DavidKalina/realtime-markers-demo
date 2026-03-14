@@ -303,6 +303,7 @@ export class ServiceInitializer {
       redisService,
       gamificationService,
       badgeService,
+      thirdSpaceScoreService,
     });
 
     // Conditionally create TicketmasterService (opt-in via env var)

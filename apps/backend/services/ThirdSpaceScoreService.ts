@@ -9,11 +9,11 @@ export interface ThirdSpaceScoreServiceDependencies {
 interface ScoreSnapshot {
   city: string;
   score: number;
-  vitalityScore: number;
-  discoveryScore: number;
-  diversityScore: number;
-  engagementScore: number;
-  rootednessScore: number;
+  activityScore: number;
+  followThroughScore: number;
+  varietyScore: number;
+  satisfactionScore: number;
+  communityScore: number;
   computedAt: string;
 }
 
@@ -25,7 +25,7 @@ export interface ContributorEntry {
   avatarUrl: string | null;
   currentTier: string;
   contribution: number;
-  scanCount: number;
+  completionCount: number;
   label: string;
 }
 
@@ -44,7 +44,7 @@ export interface ThirdSpaceSummary {
   score: number;
   momentum: "rising" | "steady" | "cooling";
   delta24h: number;
-  eventCount: number;
+  adventureCount: number;
   centroid: { lat: number; lng: number };
   distanceMiles?: number;
   computedAt: string;
@@ -59,37 +59,28 @@ function sigmoid(raw: number, k: number): number {
   return Math.round(100 * (1 - Math.exp(-raw / k)));
 }
 
-function getWeekStartUTC(): Date {
-  const now = new Date();
-  const day = now.getUTCDay();
-  const diff = day === 0 ? 6 : day - 1;
-  const monday = new Date(now);
-  monday.setUTCDate(now.getUTCDate() - diff);
-  monday.setUTCHours(0, 0, 0, 0);
-  return monday;
-}
-
 function normalizeCity(city: string): string {
-  // Ensure consistent "City, ST" formatting
   const parts = city.split(",").map((p) => p.trim());
-  // Title-case each part: "frederick" → "Frederick", "CO" stays "CO"
   const normalized = parts.map((part) => {
-    if (part.length <= 2) return part.toUpperCase(); // state abbreviations
+    if (part.length <= 2) return part.toUpperCase();
     return part.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
   });
   return normalized.join(", ");
 }
 
 function assignLabel(
-  scanCount: number,
-  uniqueCategories: number,
-  recurringEvents: number,
+  completionCount: number,
+  streakWeeks: number,
+  intentionCount: number,
+  completionRate: number,
 ): string {
-  if (recurringEvents >= 3) return "Community Anchor";
-  if (uniqueCategories >= 5) return "Category Pioneer";
-  if (scanCount >= 10) return "Top Explorer";
-  if (scanCount >= 5) return "Active Scanner";
-  return "Contributor";
+  if (streakWeeks >= 12) return "Streak Legend";
+  if (completionRate >= 90 && completionCount >= 5) return "Completionist";
+  if (intentionCount >= 5) return "Versatile Explorer";
+  if (completionCount >= 10) return "Top Adventurer";
+  if (completionCount >= 5) return "Active Adventurer";
+  if (completionCount >= 1) return "Adventurer";
+  return "Planner";
 }
 
 export class ThirdSpaceScoreService {
@@ -113,7 +104,6 @@ export class ThirdSpaceScoreService {
       return cached;
     }
 
-    // Check DB for recent snapshot (< 4h old); if none, compute on-demand
     const recentSnapshot = await this.dataSource.query(
       `SELECT 1 FROM third_space_score_snapshots
        WHERE LOWER(city) = LOWER($1) AND computed_at > NOW() - INTERVAL '4 hours'
@@ -125,139 +115,153 @@ export class ThirdSpaceScoreService {
       await this.computeAndStoreScore(city);
     }
 
-    // Always build from the latest snapshot in DB
     const response = await this.buildResponse(city, contributorLimit);
-    await this.redisService.set(cacheKey, response, 900); // 15-min TTL
+    await this.redisService.set(cacheKey, response, 900);
     return response;
   }
 
   async computeAndStoreScore(city: string): Promise<void> {
     city = normalizeCity(city);
 
-    // 1. Vitality: Active events weighted by recency
-    const vitalityRows = await this.dataSource.query(
+    // 1. Activity: Completed itineraries in 30d, recency-weighted
+    const activityRows = await this.dataSource.query(
       `SELECT COALESCE(SUM(
         CASE
-          WHEN e.event_date >= NOW() - INTERVAL '7 days' THEN 1.0
-          WHEN e.event_date >= NOW() - INTERVAL '14 days' THEN 0.5
-          WHEN e.event_date >= NOW() - INTERVAL '30 days' THEN 0.25
+          WHEN completed_at >= NOW() - INTERVAL '7 days' THEN 1.0
+          WHEN completed_at >= NOW() - INTERVAL '14 days' THEN 0.5
+          WHEN completed_at >= NOW() - INTERVAL '30 days' THEN 0.25
           ELSE 0
         END
       ), 0) AS raw
-      FROM events e
-      WHERE LOWER(e.city) = LOWER($1)
-        AND e.status IN ('PENDING', 'VERIFIED')
-        AND e.event_date >= NOW() - INTERVAL '30 days'`,
+      FROM itineraries
+      WHERE LOWER(city) = LOWER($1)
+        AND completed_at IS NOT NULL
+        AND completed_at >= NOW() - INTERVAL '30 days'`,
       [city],
     );
-    const vitalityRaw = parseFloat(vitalityRows[0]?.raw || "0");
+    const activityRaw = parseFloat(activityRows[0]?.raw || "0");
 
-    // 2. Discovery: Scan count this week
-    const weekStart = getWeekStartUTC();
-    const discoveryRows = await this.dataSource.query(
-      `SELECT COUNT(*)::int AS raw
-      FROM user_event_discoveries ued
-      JOIN events e ON e.id = ued.event_id
-      WHERE LOWER(e.city) = LOWER($1)
-        AND ued.discovered_at >= $2`,
-      [city, weekStart.toISOString()],
-    );
-    const discoveryRaw = parseInt(discoveryRows[0]?.raw || "0");
-
-    // 3. Diversity: Shannon entropy of category distribution
-    const diversityRows = await this.dataSource.query(
-      `SELECT c.name, COUNT(*)::int AS cnt
-      FROM events e
-      JOIN event_categories ec ON ec.event_id = e.id
-      JOIN categories c ON c.id = ec.category_id
-      WHERE LOWER(e.city) = LOWER($1)
-        AND e.status IN ('PENDING', 'VERIFIED')
-        AND e.event_date >= NOW() - INTERVAL '30 days'
-      GROUP BY c.name`,
+    // 2. Follow-Through: completion rate + avg check-in rate
+    const completionRateRows = await this.dataSource.query(
+      `SELECT
+        COUNT(*) FILTER (WHERE completed_at IS NOT NULL)::float AS completed,
+        COUNT(*)::float AS total
+      FROM itineraries
+      WHERE LOWER(city) = LOWER($1)
+        AND created_at >= NOW() - INTERVAL '30 days'`,
       [city],
     );
-    let diversityRaw = 0;
-    if (diversityRows.length > 0) {
-      const total = diversityRows.reduce(
+    const completed = parseFloat(completionRateRows[0]?.completed || "0");
+    const total = parseFloat(completionRateRows[0]?.total || "0");
+    const completionRate = total > 0 ? (completed / total) * 100 : 0;
+
+    const checkinRateRows = await this.dataSource.query(
+      `SELECT
+        COUNT(*) FILTER (WHERE ii.checked_in_at IS NOT NULL)::float AS checked_in,
+        COUNT(*)::float AS total_items
+      FROM itinerary_items ii
+      JOIN itineraries i ON i.id = ii.itinerary_id
+      WHERE LOWER(i.city) = LOWER($1)
+        AND i.completed_at IS NOT NULL
+        AND i.completed_at >= NOW() - INTERVAL '30 days'`,
+      [city],
+    );
+    const checkedIn = parseFloat(checkinRateRows[0]?.checked_in || "0");
+    const totalItems = parseFloat(checkinRateRows[0]?.total_items || "0");
+    const checkinRate = totalItems > 0 ? (checkedIn / totalItems) * 100 : 0;
+
+    const followThroughRaw = (completionRate + checkinRate) / 2;
+
+    // 3. Satisfaction: avg rating of completed itineraries, normalized 0-100
+    const satisfactionRows = await this.dataSource.query(
+      `SELECT AVG(rating) AS avg_rating
+      FROM itineraries
+      WHERE LOWER(city) = LOWER($1)
+        AND completed_at IS NOT NULL
+        AND rating IS NOT NULL`,
+      [city],
+    );
+    const avgRating = parseFloat(satisfactionRows[0]?.avg_rating || "0");
+    // Normalize from 1-5 scale to 0-100
+    const satisfactionRaw = avgRating > 0 ? ((avgRating - 1) / 4) * 100 : 0;
+
+    // 4. Variety: Shannon entropy of intentions + activity types
+    const varietyRows = await this.dataSource.query(
+      `SELECT label, COUNT(*)::int AS cnt FROM (
+        SELECT intention AS label FROM itineraries
+        WHERE LOWER(city) = LOWER($1)
+          AND completed_at IS NOT NULL
+          AND completed_at >= NOW() - INTERVAL '30 days'
+          AND intention IS NOT NULL
+        UNION ALL
+        SELECT UNNEST(activity_types) AS label FROM itineraries
+        WHERE LOWER(city) = LOWER($1)
+          AND completed_at IS NOT NULL
+          AND completed_at >= NOW() - INTERVAL '30 days'
+          AND activity_types IS NOT NULL
+          AND array_length(activity_types, 1) > 0
+      ) sub
+      GROUP BY label`,
+      [city],
+    );
+    let varietyRaw = 0;
+    if (varietyRows.length > 0) {
+      const varietyTotal = varietyRows.reduce(
         (sum: number, r: { cnt: number }) => sum + r.cnt,
         0,
       );
-      diversityRaw = diversityRows.reduce(
-        (entropy: number, r: { cnt: number }) => {
-          const p = r.cnt / total;
-          return entropy - p * Math.log(p);
-        },
-        0,
-      );
+      varietyRaw = varietyRows.reduce((entropy: number, r: { cnt: number }) => {
+        const p = r.cnt / varietyTotal;
+        return entropy - p * Math.log(p);
+      }, 0);
     }
 
-    // 4. Engagement: saves + going + views*0.1 last 30 days
-    const engagementRows = await this.dataSource.query(
-      `SELECT COALESCE(SUM(e.save_count + e.view_count * 0.1), 0) AS raw
-      FROM events e
-      WHERE LOWER(e.city) = LOWER($1)
-        AND e.status IN ('PENDING', 'VERIFIED')
-        AND e.event_date >= NOW() - INTERVAL '30 days'`,
+    // 5. Community: unique users with itineraries in 30d
+    const communityRows = await this.dataSource.query(
+      `SELECT COUNT(DISTINCT user_id)::int AS raw
+      FROM itineraries
+      WHERE LOWER(city) = LOWER($1)
+        AND created_at >= NOW() - INTERVAL '30 days'`,
       [city],
     );
-    const engagementRaw = parseFloat(engagementRows[0]?.raw || "0");
-
-    // 5. Rootedness: recurring events + high-tier active users
-    const rootednessRows = await this.dataSource.query(
-      `SELECT (
-        (SELECT COUNT(*)::int FROM events e
-         WHERE LOWER(e.city) = LOWER($1)
-           AND e.status IN ('PENDING', 'VERIFIED')
-           AND e.recurrence_frequency IS NOT NULL
-           )
-        +
-        (SELECT COUNT(DISTINCT u.id)::int FROM users u
-         JOIN user_event_discoveries ued ON ued.user_id = u.id
-         JOIN events e ON e.id = ued.event_id
-         WHERE LOWER(e.city) = LOWER($1)
-           AND u.current_tier IN ('Curator', 'Ambassador')
-           AND ued.discovered_at >= NOW() - INTERVAL '30 days')
-      ) AS raw`,
-      [city],
-    );
-    const rootednessRaw = parseInt(rootednessRows[0]?.raw || "0");
+    const communityRaw = parseInt(communityRows[0]?.raw || "0");
 
     // Normalize via sigmoid
-    const vitalityScore = sigmoid(vitalityRaw, 50);
-    const discoveryScore = sigmoid(discoveryRaw, 30);
-    const diversityScore = sigmoid(diversityRaw, 1.5);
-    const engagementScore = sigmoid(engagementRaw, 200);
-    const rootednessScore = sigmoid(rootednessRaw, 15);
+    const activityScore = sigmoid(activityRaw, 15);
+    const followThroughScore = sigmoid(followThroughRaw, 60);
+    const satisfactionScore = sigmoid(satisfactionRaw, 70);
+    const varietyScore = sigmoid(varietyRaw, 1.2);
+    const communityScore = sigmoid(communityRaw, 8);
 
     // Weighted composite
     const score = Math.round(
-      vitalityScore * 0.3 +
-        discoveryScore * 0.25 +
-        diversityScore * 0.15 +
-        engagementScore * 0.2 +
-        rootednessScore * 0.1,
+      activityScore * 0.35 +
+        followThroughScore * 0.25 +
+        satisfactionScore * 0.15 +
+        varietyScore * 0.15 +
+        communityScore * 0.1,
     );
 
     const rawData = {
-      vitality: vitalityRaw,
-      discovery: discoveryRaw,
-      diversity: diversityRaw,
-      engagement: engagementRaw,
-      rootedness: rootednessRaw,
+      activity: activityRaw,
+      followThrough: followThroughRaw,
+      satisfaction: satisfactionRaw,
+      variety: varietyRaw,
+      community: communityRaw,
     };
 
     await this.dataSource.query(
       `INSERT INTO third_space_score_snapshots
-        (city, score, vitality_score, discovery_score, diversity_score, engagement_score, rootedness_score, raw_data)
+        (city, score, activity_score, follow_through_score, variety_score, satisfaction_score, community_score, raw_data)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         city,
         score,
-        vitalityScore,
-        discoveryScore,
-        diversityScore,
-        engagementScore,
-        rootednessScore,
+        activityScore,
+        followThroughScore,
+        varietyScore,
+        satisfactionScore,
+        communityScore,
         JSON.stringify(rawData),
       ],
     );
@@ -274,7 +278,6 @@ export class ThirdSpaceScoreService {
     if (alreadyQueued) return;
     await this.redisService.set(debounceKey, "1", 60);
 
-    // Invalidate caches *before* computing so concurrent reads don't serve stale data
     const cacheKey = `tss:city:${city.toLowerCase()}`;
     await this.redisService.del(cacheKey);
 
@@ -283,7 +286,7 @@ export class ThirdSpaceScoreService {
 
   async computeAllCities(): Promise<void> {
     const rows = await this.dataSource.query(
-      `SELECT DISTINCT city FROM events WHERE city IS NOT NULL AND status IN ('PENDING', 'VERIFIED')`,
+      `SELECT DISTINCT city FROM itineraries WHERE city IS NOT NULL`,
     );
     for (const row of rows) {
       try {
@@ -312,9 +315,9 @@ export class ThirdSpaceScoreService {
   ): Promise<ThirdSpaceScoreResponse> {
     // Current snapshot
     const currentRows = await this.dataSource.query(
-      `SELECT city, score, vitality_score AS "vitalityScore",
-              discovery_score AS "discoveryScore", diversity_score AS "diversityScore",
-              engagement_score AS "engagementScore", rootedness_score AS "rootednessScore",
+      `SELECT city, score, activity_score AS "activityScore",
+              follow_through_score AS "followThroughScore", variety_score AS "varietyScore",
+              satisfaction_score AS "satisfactionScore", community_score AS "communityScore",
               computed_at AS "computedAt"
        FROM third_space_score_snapshots
        WHERE LOWER(city) = LOWER($1)
@@ -325,11 +328,11 @@ export class ThirdSpaceScoreService {
     const current = currentRows[0] || {
       city,
       score: 0,
-      vitalityScore: 0,
-      discoveryScore: 0,
-      diversityScore: 0,
-      engagementScore: 0,
-      rootednessScore: 0,
+      activityScore: 0,
+      followThroughScore: 0,
+      varietyScore: 0,
+      satisfactionScore: 0,
+      communityScore: 0,
       computedAt: new Date().toISOString(),
     };
 
@@ -359,15 +362,15 @@ export class ThirdSpaceScoreService {
     // Contributors
     const contributors = await this.getContributors(city, contributorLimit);
 
-    // Centroid of active events in this city
+    // Centroid from itinerary items with coordinates
     const centroidRows = await this.dataSource.query(
-      `SELECT AVG(ST_Y(location::geometry)) AS lat,
-              AVG(ST_X(location::geometry)) AS lng
-       FROM events
-       WHERE LOWER(city) = LOWER($1)
-         AND status IN ('PENDING', 'VERIFIED')
-         AND event_date >= NOW() - INTERVAL '30 days'
-         AND location IS NOT NULL`,
+      `SELECT AVG(ii.latitude) AS lat, AVG(ii.longitude) AS lng
+       FROM itinerary_items ii
+       JOIN itineraries i ON i.id = ii.itinerary_id
+       WHERE LOWER(i.city) = LOWER($1)
+         AND i.created_at >= NOW() - INTERVAL '30 days'
+         AND ii.latitude IS NOT NULL
+         AND ii.longitude IS NOT NULL`,
       [city],
     );
     const centroid = centroidRows[0]?.lat
@@ -381,11 +384,11 @@ export class ThirdSpaceScoreService {
       current: {
         city: current.city,
         score: current.score,
-        vitalityScore: current.vitalityScore,
-        discoveryScore: current.discoveryScore,
-        diversityScore: current.diversityScore,
-        engagementScore: current.engagementScore,
-        rootednessScore: current.rootednessScore,
+        activityScore: current.activityScore,
+        followThroughScore: current.followThroughScore,
+        varietyScore: current.varietyScore,
+        satisfactionScore: current.satisfactionScore,
+        communityScore: current.communityScore,
         computedAt: current.computedAt,
       },
       previous,
@@ -401,8 +404,6 @@ export class ThirdSpaceScoreService {
     city: string,
     limit: number,
   ): Promise<ContributorEntry[]> {
-    const weekStart = getWeekStartUTC();
-
     const rows = await this.dataSource.query(
       `SELECT
         u.id AS "userId",
@@ -410,28 +411,31 @@ export class ThirdSpaceScoreService {
         u.last_name AS "lastName",
         u.avatar_url AS "avatarUrl",
         u.current_tier AS "currentTier",
-        COUNT(ued.id)::int AS "scanCount",
-        COUNT(DISTINCT ec.category_id)::int AS "uniqueCategories",
-        COUNT(DISTINCT CASE WHEN e.recurrence_frequency IS NOT NULL  THEN e.id END)::int AS "recurringEvents"
-      FROM user_event_discoveries ued
-      JOIN events e ON e.id = ued.event_id
-      JOIN users u ON u.id = ued.user_id
-      LEFT JOIN event_categories ec ON ec.event_id = e.id
-      WHERE LOWER(e.city) = LOWER($1)
-        AND ued.discovered_at >= $2
-      GROUP BY u.id, u.first_name, u.last_name, u.avatar_url, u.current_tier
-      ORDER BY (COUNT(ued.id) * 2 + COUNT(DISTINCT ec.category_id) * 5 + COUNT(DISTINCT CASE WHEN e.recurrence_frequency IS NOT NULL  THEN e.id END) * 3) DESC
-      LIMIT $3`,
-      [city, weekStart.toISOString(), limit],
+        u.current_streak AS "streakWeeks",
+        COUNT(*) FILTER (WHERE i.completed_at IS NOT NULL)::int AS "completionCount",
+        COUNT(*)::int AS "totalCount",
+        COUNT(DISTINCT i.intention) FILTER (WHERE i.intention IS NOT NULL)::int AS "intentionCount"
+      FROM itineraries i
+      JOIN users u ON u.id = i.user_id
+      WHERE LOWER(i.city) = LOWER($1)
+        AND i.created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY u.id, u.first_name, u.last_name, u.avatar_url, u.current_tier, u.current_streak
+      ORDER BY COUNT(*) FILTER (WHERE i.completed_at IS NOT NULL) DESC,
+               COUNT(DISTINCT i.intention) DESC
+      LIMIT $2`,
+      [city, limit],
     );
 
     return rows.map(
       (row: Record<string, unknown>, index: number): ContributorEntry => {
-        const scanCount = row.scanCount as number;
-        const uniqueCategories = row.uniqueCategories as number;
-        const recurringEvents = row.recurringEvents as number;
+        const completionCount = row.completionCount as number;
+        const totalCount = row.totalCount as number;
+        const streakWeeks = (row.streakWeeks as number) || 0;
+        const intentionCount = row.intentionCount as number;
+        const completionRate =
+          totalCount > 0 ? (completionCount / totalCount) * 100 : 0;
         const contribution =
-          scanCount * 2 + uniqueCategories * 5 + recurringEvents * 3;
+          completionCount * 10 + streakWeeks * 5 + intentionCount * 3;
 
         return {
           rank: index + 1,
@@ -441,8 +445,13 @@ export class ThirdSpaceScoreService {
           avatarUrl: (row.avatarUrl as string) || null,
           currentTier: (row.currentTier as string) || "Explorer",
           contribution,
-          scanCount,
-          label: assignLabel(scanCount, uniqueCategories, recurringEvents),
+          completionCount,
+          label: assignLabel(
+            completionCount,
+            streakWeeks,
+            intentionCount,
+            completionRate,
+          ),
         };
       },
     );
@@ -463,35 +472,36 @@ export class ThirdSpaceScoreService {
     const snapshots = await this.dataSource.query(
       `SELECT DISTINCT ON (LOWER(city))
         city, score,
-        vitality_score AS "vitalityScore",
-        discovery_score AS "discoveryScore",
-        diversity_score AS "diversityScore",
-        engagement_score AS "engagementScore",
-        rootedness_score AS "rootednessScore",
+        activity_score AS "activityScore",
+        follow_through_score AS "followThroughScore",
+        variety_score AS "varietyScore",
+        satisfaction_score AS "satisfactionScore",
+        community_score AS "communityScore",
         computed_at AS "computedAt"
        FROM third_space_score_snapshots
        ORDER BY LOWER(city), computed_at DESC`,
     );
 
-    // Active event count + centroid per city
-    const eventStats = await this.dataSource.query(
-      `SELECT LOWER(city) AS city_key,
-              COUNT(*)::int AS event_count,
-              AVG(ST_Y(location::geometry)) AS centroid_lat,
-              AVG(ST_X(location::geometry)) AS centroid_lng
-       FROM events
-       WHERE city IS NOT NULL
-         AND status IN ('PENDING', 'VERIFIED')
-         AND event_date >= NOW() - INTERVAL '30 days'
-       GROUP BY LOWER(city)`,
+    // Adventure count + centroid per city from itineraries
+    const adventureStats = await this.dataSource.query(
+      `SELECT LOWER(i.city) AS city_key,
+              COUNT(*) FILTER (WHERE i.completed_at IS NOT NULL)::int AS adventure_count,
+              AVG(ii.latitude) AS centroid_lat,
+              AVG(ii.longitude) AS centroid_lng
+       FROM itineraries i
+       LEFT JOIN itinerary_items ii ON ii.itinerary_id = i.id
+         AND ii.latitude IS NOT NULL AND ii.longitude IS NOT NULL
+       WHERE i.city IS NOT NULL
+         AND i.created_at >= NOW() - INTERVAL '30 days'
+       GROUP BY LOWER(i.city)`,
     );
     const statsMap = new Map<
       string,
-      { eventCount: number; centroidLat: number; centroidLng: number }
+      { adventureCount: number; centroidLat: number; centroidLng: number }
     >();
-    for (const row of eventStats) {
+    for (const row of adventureStats) {
       statsMap.set(row.city_key, {
-        eventCount: row.event_count,
+        adventureCount: row.adventure_count,
         centroidLat: parseFloat(row.centroid_lat),
         centroidLng: parseFloat(row.centroid_lng),
       });
@@ -514,7 +524,6 @@ export class ThirdSpaceScoreService {
     for (const snap of snapshots) {
       const key = snap.city.toLowerCase();
       const stats = statsMap.get(key);
-      if (!stats || stats.eventCount === 0) continue;
 
       const prevScore = prevMap.get(key);
       const delta24h = prevScore !== undefined ? snap.score - prevScore : 0;
@@ -526,12 +535,14 @@ export class ThirdSpaceScoreService {
         score: snap.score,
         momentum,
         delta24h,
-        eventCount: stats.eventCount,
-        centroid: { lat: stats.centroidLat, lng: stats.centroidLng },
+        adventureCount: stats?.adventureCount || 0,
+        centroid: stats?.centroidLat
+          ? { lat: stats.centroidLat, lng: stats.centroidLng }
+          : { lat: 0, lng: 0 },
         computedAt: snap.computedAt,
       };
 
-      if (lat !== undefined && lng !== undefined) {
+      if (lat !== undefined && lng !== undefined && stats?.centroidLat) {
         summary.distanceMiles = haversineDistance(
           lat,
           lng,
@@ -556,7 +567,7 @@ export class ThirdSpaceScoreService {
         .slice(0, 10);
     }
 
-    await this.redisService.set(cacheKey, result, 900); // 15-min TTL
+    await this.redisService.set(cacheKey, result, 900);
     return result;
   }
 }

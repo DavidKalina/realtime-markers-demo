@@ -2,6 +2,7 @@
 
 export const fontFamily = {
   mono: "SpaceMono",
+  display: "Bungee",
 } as const;
 
 export const fontSize = {

@@ -64,6 +64,9 @@ export enum EventTypes {
   // Itinerary checkin events
   ITINERARY_CHECKIN = "itinerary:checkin",
 
+  // Navigation events from services (e.g., push notification taps)
+  NAVIGATE_TO_SCREEN = "navigate:to:screen",
+
   // Internal: WebSocket viewport messages forwarded to useMapWebSocket
   WS_VIEWPORT_MESSAGE = "ws:viewport_message",
 }
@@ -222,6 +225,11 @@ export interface NotificationEvent extends BaseEvent {
   message: string;
   notificationType: "info" | "success" | "warning" | "error";
   duration?: number; // How long to show the notification in milliseconds
+}
+
+// Navigation event (for service→router communication)
+export interface NavigateToScreenEvent extends BaseEvent {
+  path: string;
 }
 
 // Error event

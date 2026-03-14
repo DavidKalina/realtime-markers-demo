@@ -530,7 +530,8 @@ const ItineraryDetailScreen = () => {
                   displayItinerary.items,
                 );
                 const low = scoped?.low ?? displayItinerary.forecast.tempLowF;
-                const high = scoped?.high ?? displayItinerary.forecast.tempHighF;
+                const high =
+                  scoped?.high ?? displayItinerary.forecast.tempHighF;
                 const condition =
                   scoped?.condition ??
                   displayItinerary.forecast.dominantCondition;

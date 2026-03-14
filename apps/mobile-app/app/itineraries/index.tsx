@@ -564,7 +564,7 @@ const ItinerariesListScreen = () => {
       <EmptyState
         emoji="🗺️"
         title="No plans yet"
-        subtitle={'Visit a city and tap "Plan your adventure" to create one'}
+        subtitle={'Visit a city and tap "Plan your Sidequest" to create one'}
         style={{ justifyContent: "flex-start", paddingTop: spacing["3xl"] }}
       />
     );

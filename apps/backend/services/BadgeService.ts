@@ -378,10 +378,6 @@ export class BadgeService {
   }
 
   private async countCompletions(userId: string): Promise<number> {
-    const count = await this.dataSource.getRepository(Itinerary).count({
-      where: { userId, completedAt: new Date() }, // TypeORM needs a value; use raw query instead
-    });
-    // Use raw query for non-null check
     const result = await this.dataSource.query(
       `SELECT COUNT(*) as count FROM itineraries WHERE user_id = $1 AND completed_at IS NOT NULL`,
       [userId],

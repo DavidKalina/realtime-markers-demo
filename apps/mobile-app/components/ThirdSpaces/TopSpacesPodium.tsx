@@ -130,8 +130,8 @@ const PodiumItem: React.FC<PodiumItemProps> = ({ city, rank, onPress }) => {
 
       {/* Momentum + event count */}
       <Text style={[styles.podiumMeta, { color: momentum.color }]}>
-        {momentum.arrow} {city.eventCount} event
-        {city.eventCount !== 1 ? "s" : ""}
+        {momentum.arrow} {city.adventureCount} adventure
+        {city.adventureCount !== 1 ? "s" : ""}
       </Text>
     </Pressable>
   );

@@ -21,118 +21,15 @@ All core game loop infrastructure is built and integrated.
 
 ---
 
-## Phase 2: The Accountability Bridge
+## Phase 2: The Accountability Bridge — COMPLETE
 
-These features close the gap between "I made a plan" and "I actually did it." This is the #1 priority — the game loop exists, but the nudge that makes Saturday happen is missing.
+All accountability features are built and integrated. The gap between "I made a plan" and "I actually did it" is closed.
 
-### 1. Calendar Integration + Reminders
-
-**Impact:** Very High | **Effort:** ~4 hours | **Risk:** Low
-
-The single biggest missing piece. Right now there's a gap between planning an itinerary on Monday and doing it on Saturday. Life fills that gap and kills the plan. Calendar reminders are the bridge.
-
-**What to build:**
-
-- On itinerary creation/activation, prompt to add to device calendar (Expo Calendar API)
-- Calendar event with itinerary name, first stop address, planned start time
-- Push notification the evening before: "Your adventure starts tomorrow at 10am"
-- Morning-of reminder: "First stop: [coffee shop name] — 15 minutes away"
-- If no itinerary planned by Thursday: gentle nudge — "No plans this weekend yet. Want to set something up?"
-
-**Why this matters:** The target user's failure mode is "Saturday 4pm, did nothing." This is the only feature that directly prevents that.
-
-**Files to touch:** `apps/mobile-app/` (Expo Calendar integration), `apps/backend/services/PushNotificationService.ts` (scheduled notification templates), itinerary creation flow
-
----
-
-### 2. Intention-Based Itinerary Generation
-
-**Impact:** High | **Effort:** ~3 hours | **Risk:** None
-
-Free time isn't generic. Sometimes you want to clear your head, sometimes you're restless, sometimes you're lonely. Adding an intention/vibe selector to itinerary creation makes the AI output dramatically more relevant — same venues and data sources, different lens.
-
-**What to build:**
-
-- Intention selector in itinerary creation dialog (before activity types):
-  - **Recharge** — solo, nature, quiet cafes, morning hours
-  - **Explore** — new neighborhoods, variety, discovery-weighted
-  - **Socialize** — lively spots, communal seating, evening-friendly, breweries
-  - **Move** — trails, outdoor activities, physical, longer routes
-  - **Learn** — museums, bookstores, galleries, cultural venues
-  - **Treat Yourself** — great food, scenic spots, nice coffee
-- Intention shapes AI prompt: venue types, time-of-day preference, pacing, neighborhood selection
-- Log intention per itinerary for progress insights: "In March, 60% of your adventures were Explore-type"
-- Insight nudges: "You haven't done a Socialize outing in 3 weeks — want to try one this weekend?"
-
-**Why this matters:** This is how the third-space philosophy lives in the app without becoming Meetup. "Socialize" intention routes users to places where being around people happens naturally — no social graph needed.
-
-**Files to touch:** `apps/backend/services/ItineraryService.ts` (AI prompt context), itinerary creation UI, `Itinerary` entity (new `intention` column)
-
----
-
-### 3. Map-Based Itinerary Builder (Anchor & Build)
-
-**Impact:** Very High | **Effort:** ~5 hours | **Risk:** Medium (UX complexity)
-
-The map is currently a passive display layer. With scanning deprioritized, it needs a new purpose. Turn it into the planning surface — long-press to drop an anchor, AI builds the itinerary around it. This lets users inject personal knowledge the AI would never suggest (your favorite disc golf spot, that taco truck only locals know, the park bench with the best view).
-
-**The interaction:**
-
-1. Long-press the map → pin drops → "Start a plan here" prompt with option to label it (e.g. "Disc Golf at Pier Park")
-2. Optionally search Google Places → add a second anchor ("I want to end up here")
-3. ItineraryDialogBox slides up, pre-filled with city from pin location, anchored stops shown as fixed constraints
-4. User picks intention/vibe, duration, budget → "Build My Plan"
-5. AI generates the itinerary _around_ the user's anchors — filling in complementary stops, connecting trails, handling timing
-6. Result renders on the map with the route drawn between stops
-
-**Why this matters:** The AI is great at planning but it doesn't know your spots. The user knows _one thing_ they want to do — the app handles the rest. This is the difference between a blank canvas (overwhelming) and "start here, we'll figure out the rest" (empowering). It also gives the map a clear action-oriented purpose now that scanning is no longer the focal point.
-
-**What exists:** `ItineraryDialogBox` is fully built with city selection, date, duration, stops, budget, vibes, rituals, and "Surprise Me." Long-press gesture handling exists on the map (currently used for marker reveal in explore mode). Google Places search exists. Itinerary generation pipeline supports `startTime`/`endTime` params.
-
-**What to build:**
-
-- Long-press → anchor pin drop with optional label/name
-- Google Places search overlay for adding named anchors
-- Pass anchor locations + labels to itinerary generation as fixed constraints
-- Backend: ItineraryService accepts `anchorStops` param — AI treats these as required stops and builds around them
-- Map route visualization on generated result (polyline between stops)
-- Smooth transition between map interaction and ItineraryDialogBox
-
-**Files to touch:** `apps/mobile-app/app/index.tsx` (map interaction), `apps/mobile-app/components/Itinerary/ItineraryDialogBox.tsx` (anchor UI), `apps/backend/services/ItineraryService.ts` (anchor constraints in AI prompt)
-
----
-
-### 5. Itinerary Completion Celebration
-
-**Impact:** High | **Effort:** ~2 hours | **Risk:** None
-
-When you complete an itinerary, the moment should feel significant. Right now it's a rating prompt. It should be a celebration screen — XP awarded, badges unlocked, streak updated, all in one satisfying moment.
-
-**What exists:** Itinerary completion flow works (mark done → rate → comment). `XPNotificationOverlay` exists for pop-ups. Haptic feedback patterns throughout the app.
-
-**What to build:**
-
-- Completion summary screen: total XP earned, new badges unlocked (if any), streak status, adventure score change
-- Confetti or particle animation (Expo-compatible)
-- Sound effect (optional, haptic at minimum)
-- "Share this adventure" CTA (uses existing share token)
-
----
-
-### 6. Streak + Badge Push Notifications
-
-**Impact:** Medium-High | **Effort:** ~2 hours | **Risk:** None
-
-"Your 7-week streak is at risk — get out there this weekend!" and "You unlocked Trail Blazer!" These are the re-engagement hooks that bring people back.
-
-**What exists:** Full Expo push notification pipeline. `PushNotificationService` sends to registered devices. Badge/streak events already publish to Redis from Phase 1 work.
-
-**What to build:**
-
-- Streak-at-risk notification: scheduled check (Sunday evening if no check-in this week)
-- Badge unlock notification: triggered by `BadgeService` on unlock
-- Milestone notification: "You've completed 10 itineraries!"
-- Templates in `PushNotificationService`
+- [x] **Calendar Integration + Reminders** — `CalendarService` (Expo Calendar API), `CalendarPrompt` on activation, evening-before + morning-of local reminders, Thursday nudge for users with no plans (`ServiceInitializer.sendWeeklyNudgeNotifications`)
+- [x] **Intention-Based Itinerary Generation** — 6 intentions (Recharge/Explore/Socialize/Move/Learn/Treat Yourself), selector in `ItineraryDialogBox`, `intention` column on Itinerary entity, intention-aware LLM prompt in `ItineraryService`
+- [x] **Map-Based Itinerary Builder (Anchor & Build)** — Long-press anchor drop, `AnchorMarkers` + `useAnchorPlanStore`, anchors passed as fixed constraints to `ItineraryService`, reverse-geocodes city from anchor, AI builds around user's spots
+- [x] **Itinerary Completion Celebration** — `CompletionCelebration` overlay with confetti particles, XP display, badge unlocks, haptic feedback, "View & Share" CTA
+- [x] **Streak + Badge Push Notifications** — Streak-at-risk (Sunday 18:00 UTC), badge unlock via `BadgeService`, completion milestones at 5/10/25/50/100, mobile tap handlers navigate to itineraries/profile
 
 ---
 
@@ -339,12 +236,12 @@ Phase 1: Close the Loop — DONE
   [x] Hide Social Features
   [x] Progress Dashboard
 
-Phase 2: The Accountability Bridge (~16 hours)
-  1. Calendar Integration + Reminders           (4 hours)  ← #1 PRIORITY
-  2. Intention-Based Itinerary Generation       (3 hours)
-  3. Map-Based Itinerary Builder (Anchor & Build) (5 hours)
-  4. Itinerary Completion Celebration           (2 hours)
-  5. Streak/Badge Push Notifications            (2 hours)
+Phase 2: The Accountability Bridge — DONE
+  [x] Calendar Integration + Reminders
+  [x] Intention-Based Itinerary Generation
+  [x] Map-Based Itinerary Builder (Anchor & Build)
+  [x] Itinerary Completion Celebration
+  [x] Streak/Badge Push Notifications
 
 Phase 3: Make the Record Beautiful (~10 hours)
   7. Photo Memories at Check-Ins                (3 hours)

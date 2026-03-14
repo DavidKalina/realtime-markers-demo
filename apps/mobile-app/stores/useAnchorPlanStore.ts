@@ -77,9 +77,7 @@ export const useAnchorPlanStore = create<AnchorPlanState>((set, get) => ({
 
   updateAnchor: (id, data) =>
     set((state) => ({
-      anchors: state.anchors.map((a) =>
-        a.id === id ? { ...a, ...data } : a,
-      ),
+      anchors: state.anchors.map((a) => (a.id === id ? { ...a, ...data } : a)),
     })),
 
   setPendingAnchor: (id) => set({ pendingAnchorId: id }),

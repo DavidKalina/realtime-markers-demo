@@ -14,6 +14,7 @@ import type {
 import type { RedisService } from "./shared/RedisService";
 import type { GamificationService } from "./GamificationService";
 import type { BadgeService } from "./BadgeService";
+import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 
 const CHECKIN_RADIUS_METERS = 75;
 const COMPLETION_MILESTONES = [5, 10, 25, 50, 100];
@@ -69,6 +70,7 @@ interface ItineraryCheckinServiceDeps {
   redisService: RedisService;
   gamificationService: GamificationService;
   badgeService: BadgeService;
+  thirdSpaceScoreService?: ThirdSpaceScoreService;
 }
 
 interface NearbyItem {
@@ -80,12 +82,32 @@ interface NearbyItem {
   distance_meters: number;
 }
 
+/** Params for the shared check-in processing logic. */
+interface ProcessCheckinParams {
+  userId: string;
+  itineraryId: string;
+  itemId: string;
+  sortOrder: number;
+  plannedTime: string;
+  source: "proximity" | "manual";
+  userLatitude?: number;
+  userLongitude?: number;
+  distanceMeters?: number;
+}
+
+/** Result of processing a check-in. */
+interface ProcessCheckinResult {
+  checkedInAt: Date;
+  remaining: number;
+}
+
 class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
   private dataSource: DataSource;
   private pushService: PushNotificationService;
   private redisService: RedisService;
   private gamificationService: GamificationService;
   private badgeService: BadgeService;
+  private thirdSpaceScoreService?: ThirdSpaceScoreService;
 
   constructor(deps: ItineraryCheckinServiceDeps) {
     this.dataSource = deps.dataSource;
@@ -93,6 +115,7 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
     this.redisService = deps.redisService;
     this.gamificationService = deps.gamificationService;
     this.badgeService = deps.badgeService;
+    this.thirdSpaceScoreService = deps.thirdSpaceScoreService;
   }
 
   async checkAndNotify(
@@ -148,62 +171,17 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
     if (nearbyItems.length === 0) return;
 
     const item = nearbyItems[0];
-    const now = new Date();
 
-    // Mark as checked in on the item (fast UX read path)
-    await this.dataSource
-      .getRepository(ItineraryItem)
-      .update({ id: item.id }, { checkedInAt: now });
-
-    // Find skipped items (lower sortOrder, still unchecked)
-    const skippedItems = await this.dataSource
-      .getRepository(ItineraryItem)
-      .find({
-        where: {
-          itineraryId: user.activeItineraryId,
-          checkedInAt: IsNull(),
-          sortOrder: LessThan(item.sort_order),
-        },
-        select: ["id"],
-      });
-
-    // Write analytics record
-    const checkinRecord = this.dataSource
-      .getRepository(ItineraryCheckin)
-      .create({
-        userId,
-        itineraryId: user.activeItineraryId,
-        itineraryItemId: item.id,
-        userLatitude: lat,
-        userLongitude: lng,
-        distanceMeters: Number(item.distance_meters),
-        plannedTime: item.start_time,
-        source: "proximity",
-        itemSortOrder: item.sort_order,
-        skippedItemIds: skippedItems.map((s) => s.id),
-        checkedInAt: now,
-      });
-    await this.dataSource.getRepository(ItineraryCheckin).save(checkinRecord);
-
-    // Check how many items are left
-    const remaining = await this.dataSource.getRepository(ItineraryItem).count({
-      where: {
-        itineraryId: user.activeItineraryId,
-        checkedInAt: IsNull(),
-      },
-    });
-
-    // Award XP for check-in and update streak
-    try {
-      await this.gamificationService.awardXP(userId, 50, "itinerary_checkin");
-    } catch (err) {
-      console.error("[ItineraryCheckin] Failed to award check-in XP:", err);
-    }
-    await this.updateStreak(userId, now);
-
-    // Check badge progress (fire-and-forget)
-    this.badgeService.checkBadges(userId).catch((err) => {
-      console.error("[ItineraryCheckin] Badge check failed:", err);
+    const { remaining } = await this.processCheckin({
+      userId,
+      itineraryId: user.activeItineraryId,
+      itemId: item.id,
+      sortOrder: item.sort_order,
+      plannedTime: item.start_time,
+      source: "proximity",
+      userLatitude: lat,
+      userLongitude: lng,
+      distanceMeters: Number(item.distance_meters),
     });
 
     // Send push notification
@@ -236,43 +214,165 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
     try {
       await this.pushService.sendToUser(userId, payload);
       console.log(
-        `[ItineraryCheckin] User ${userId} checked in at "${item.title}" (${Number(item.distance_meters).toFixed(0)}m away, ${skippedItems.length} skipped, ${remaining} remaining)`,
+        `[ItineraryCheckin] User ${userId} checked in at "${item.title}" (${Number(item.distance_meters).toFixed(0)}m away, ${remaining} remaining)`,
       );
     } catch (err) {
       console.error("[ItineraryCheckin] Failed to send push:", err);
     }
+  }
 
-    // Auto-deactivate and mark completed when complete
-    if (remaining === 0) {
-      await Promise.all([
-        this.dataSource
-          .getRepository(User)
-          .update({ id: userId }, { activeItineraryId: undefined }),
-        this.dataSource
-          .getRepository(Itinerary)
-          .update({ id: user.activeItineraryId }, { completedAt: now }),
-      ]);
+  async manualCheckin(
+    userId: string,
+    itineraryId: string,
+    itemId: string,
+  ): Promise<{ success: boolean; checkedInAt?: Date }> {
+    // Verify item belongs to user's itinerary
+    const item = await this.dataSource.getRepository(ItineraryItem).findOne({
+      where: { id: itemId, itineraryId },
+      relations: ["itinerary"],
+    });
 
-      // Award completion XP
-      try {
-        await this.gamificationService.awardXP(
-          userId,
-          200,
-          "itinerary_completion",
-        );
-      } catch (err) {
-        console.error("[ItineraryCheckin] Failed to award completion XP:", err);
-      }
-
-      console.log(
-        `[ItineraryCheckin] User ${userId} completed itinerary ${user.activeItineraryId}`,
-      );
-
-      // Check for completion milestones
-      this.checkCompletionMilestone(userId).catch((err) => {
-        console.error("[ItineraryCheckin] Milestone check failed:", err);
-      });
+    if (!item) return { success: false };
+    if ((item.itinerary as Itinerary).userId !== userId) {
+      return { success: false };
     }
+
+    // Already checked in
+    if (item.checkedInAt) {
+      return { success: true, checkedInAt: item.checkedInAt };
+    }
+
+    const { checkedInAt } = await this.processCheckin({
+      userId,
+      itineraryId,
+      itemId,
+      sortOrder: item.sortOrder,
+      plannedTime: item.startTime,
+      source: "manual",
+    });
+
+    return { success: true, checkedInAt };
+  }
+
+  /**
+   * Core check-in logic shared by proximity and manual flows.
+   * Marks item, writes analytics, awards XP, updates streak,
+   * checks badges, and handles completion if all items are done.
+   */
+  private async processCheckin(
+    params: ProcessCheckinParams,
+  ): Promise<ProcessCheckinResult> {
+    const {
+      userId,
+      itineraryId,
+      itemId,
+      sortOrder,
+      plannedTime,
+      source,
+      userLatitude,
+      userLongitude,
+      distanceMeters,
+    } = params;
+    const now = new Date();
+
+    // Mark as checked in
+    await this.dataSource
+      .getRepository(ItineraryItem)
+      .update({ id: itemId }, { checkedInAt: now });
+
+    // Find skipped items (lower sortOrder, still unchecked)
+    const skippedItems = await this.dataSource
+      .getRepository(ItineraryItem)
+      .find({
+        where: {
+          itineraryId,
+          checkedInAt: IsNull(),
+          sortOrder: LessThan(sortOrder),
+        },
+        select: ["id"],
+      });
+
+    // Write analytics record
+    const checkinRecord = this.dataSource
+      .getRepository(ItineraryCheckin)
+      .create({
+        userId,
+        itineraryId,
+        itineraryItemId: itemId,
+        userLatitude,
+        userLongitude,
+        distanceMeters,
+        plannedTime,
+        source,
+        itemSortOrder: sortOrder,
+        skippedItemIds: skippedItems.map((s) => s.id),
+        checkedInAt: now,
+      });
+    await this.dataSource.getRepository(ItineraryCheckin).save(checkinRecord);
+
+    // Count remaining unchecked items
+    const remaining = await this.dataSource.getRepository(ItineraryItem).count({
+      where: { itineraryId, checkedInAt: IsNull() },
+    });
+
+    // Award XP and update streak
+    try {
+      await this.gamificationService.awardXP(userId, 50, "itinerary_checkin");
+    } catch (err) {
+      console.error("[ItineraryCheckin] Failed to award check-in XP:", err);
+    }
+    await this.updateStreak(userId, now);
+
+    // Check badge progress (fire-and-forget)
+    this.badgeService.checkBadges(userId).catch((err) => {
+      console.error("[ItineraryCheckin] Badge check failed:", err);
+    });
+
+    // Handle completion
+    if (remaining === 0) {
+      await this.completeItinerary(userId, itineraryId, now);
+    }
+
+    return { checkedInAt: now, remaining };
+  }
+
+  /**
+   * Mark itinerary completed, deactivate, award XP, refresh city score,
+   * and check for completion milestones.
+   */
+  private async completeItinerary(
+    userId: string,
+    itineraryId: string,
+    completedAt: Date,
+  ): Promise<void> {
+    await Promise.all([
+      this.dataSource
+        .getRepository(Itinerary)
+        .update({ id: itineraryId }, { completedAt }),
+      this.dataSource
+        .getRepository(User)
+        .update({ id: userId }, { activeItineraryId: null }),
+    ]);
+
+    try {
+      await this.gamificationService.awardXP(
+        userId,
+        200,
+        "itinerary_completion",
+      );
+    } catch (err) {
+      console.error("[ItineraryCheckin] Failed to award completion XP:", err);
+    }
+
+    console.log(
+      `[ItineraryCheckin] User ${userId} completed itinerary ${itineraryId}`,
+    );
+
+    this.refreshCityScoreForItinerary(itineraryId);
+
+    this.checkCompletionMilestone(userId).catch((err) => {
+      console.error("[ItineraryCheckin] Milestone check failed:", err);
+    });
   }
 
   private async checkCompletionMilestone(userId: string): Promise<void> {
@@ -327,119 +427,23 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
   async deactivateItinerary(userId: string): Promise<boolean> {
     const result = await this.dataSource
       .getRepository(User)
-      .update({ id: userId }, { activeItineraryId: undefined });
+      .update({ id: userId }, { activeItineraryId: null });
 
     return (result.affected ?? 0) > 0;
   }
 
-  async manualCheckin(
-    userId: string,
-    itineraryId: string,
-    itemId: string,
-  ): Promise<{ success: boolean; checkedInAt?: Date }> {
-    // Verify item belongs to user's itinerary
-    const item = await this.dataSource.getRepository(ItineraryItem).findOne({
-      where: { id: itemId, itineraryId },
-      relations: ["itinerary"],
-    });
-
-    if (!item) return { success: false };
-    if ((item.itinerary as Itinerary).userId !== userId) {
-      return { success: false };
-    }
-
-    // Already checked in
-    if (item.checkedInAt) {
-      return { success: true, checkedInAt: item.checkedInAt };
-    }
-
-    const now = new Date();
-
-    // Mark on item
-    await this.dataSource
-      .getRepository(ItineraryItem)
-      .update({ id: itemId }, { checkedInAt: now });
-
-    // Find skipped items
-    const skippedItems = await this.dataSource
-      .getRepository(ItineraryItem)
-      .find({
-        where: {
-          itineraryId,
-          checkedInAt: IsNull(),
-          sortOrder: LessThan(item.sortOrder),
-        },
-        select: ["id"],
-      });
-
-    // Write analytics record (no coordinates for manual check-in)
-    const checkinRecord = this.dataSource
-      .getRepository(ItineraryCheckin)
-      .create({
-        userId,
-        itineraryId,
-        itineraryItemId: itemId,
-        plannedTime: item.startTime,
-        source: "manual",
-        itemSortOrder: item.sortOrder,
-        skippedItemIds: skippedItems.map((s) => s.id),
-        checkedInAt: now,
-      });
-    await this.dataSource.getRepository(ItineraryCheckin).save(checkinRecord);
-
-    // Award XP for check-in and update streak
-    try {
-      await this.gamificationService.awardXP(userId, 50, "itinerary_checkin");
-    } catch (err) {
-      console.error("[ItineraryCheckin] Failed to award check-in XP:", err);
-    }
-    await this.updateStreak(userId, now);
-
-    // Check badge progress (fire-and-forget)
-    this.badgeService.checkBadges(userId).catch((err) => {
-      console.error("[ItineraryCheckin] Badge check failed:", err);
-    });
-
-    // Check if all items are now done — mark itinerary completed + deactivate
-    const remaining = await this.dataSource.getRepository(ItineraryItem).count({
-      where: {
-        itineraryId,
-        checkedInAt: IsNull(),
-      },
-    });
-
-    if (remaining === 0) {
-      await Promise.all([
-        this.dataSource
-          .getRepository(Itinerary)
-          .update({ id: itineraryId }, { completedAt: now }),
-        this.dataSource
-          .getRepository(User)
-          .update({ id: userId }, { activeItineraryId: undefined }),
-      ]);
-
-      // Award completion XP
-      try {
-        await this.gamificationService.awardXP(
-          userId,
-          200,
-          "itinerary_completion",
-        );
-      } catch (err) {
-        console.error("[ItineraryCheckin] Failed to award completion XP:", err);
-      }
-
-      console.log(
-        `[ItineraryCheckin] User ${userId} completed itinerary ${itineraryId} via manual checkin`,
-      );
-
-      // Check for completion milestones
-      this.checkCompletionMilestone(userId).catch((err) => {
-        console.error("[ItineraryCheckin] Milestone check failed:", err);
-      });
-    }
-
-    return { success: true, checkedInAt: now };
+  private refreshCityScoreForItinerary(itineraryId: string): void {
+    this.dataSource
+      .getRepository(Itinerary)
+      .findOne({ where: { id: itineraryId }, select: ["city"] })
+      .then((itinerary) => {
+        if (itinerary?.city) {
+          this.thirdSpaceScoreService
+            ?.refreshCityScore(itinerary.city)
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
   }
 
   /**

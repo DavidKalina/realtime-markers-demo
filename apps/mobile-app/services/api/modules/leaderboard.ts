@@ -19,7 +19,7 @@ export interface ContributorEntry {
   avatarUrl: string | null;
   currentTier: string;
   contribution: number;
-  scanCount: number;
+  completionCount: number;
   label: string;
 }
 
@@ -27,11 +27,11 @@ export interface ThirdSpaceScoreResponse {
   current: {
     city: string;
     score: number;
-    vitalityScore: number;
-    discoveryScore: number;
-    diversityScore: number;
-    engagementScore: number;
-    rootednessScore: number;
+    activityScore: number;
+    followThroughScore: number;
+    varietyScore: number;
+    satisfactionScore: number;
+    communityScore: number;
     computedAt: string;
   };
   previous: { score: number; computedAt: string } | null;
@@ -47,7 +47,7 @@ export interface ThirdSpaceSummary {
   score: number;
   momentum: "rising" | "steady" | "cooling";
   delta24h: number;
-  eventCount: number;
+  adventureCount: number;
   centroid: { lat: number; lng: number };
   distanceMiles?: number;
   computedAt: string;

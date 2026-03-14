@@ -30,7 +30,8 @@ export const createItineraryHandler = async (c: Context<AppContext>) => {
     }[];
   }>();
 
-  const hasAnchors = Array.isArray(body.anchorStops) && body.anchorStops.length > 0;
+  const hasAnchors =
+    Array.isArray(body.anchorStops) && body.anchorStops.length > 0;
   if (!hasAnchors && (!body.city || typeof body.city !== "string")) {
     return c.json({ error: "city is required" }, 400);
   }

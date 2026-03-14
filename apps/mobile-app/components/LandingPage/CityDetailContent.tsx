@@ -397,7 +397,11 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
   const renderTopTab = () => {
     const { ranked, featured } = topTabEvents;
     if (ranked.length === 0 && featured.length === 0) {
-      return renderEmptyTab("🏆", "No top events yet", "Top-rated events will appear here as they get discovered.");
+      return renderEmptyTab(
+        "🏆",
+        "No top events yet",
+        "Top-rated events will appear here as they get discovered.",
+      );
     }
     const allEvents = [
       ...ranked.map((e, i) => ({
@@ -438,7 +442,11 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
     const hasWeekly = activeWeekly.length > 0;
 
     if (!hasToday && !hasFree && !hasWeekly) {
-      return renderEmptyTab("📅", "Nothing happening today", "Scan a flyer to add events happening in this city.");
+      return renderEmptyTab(
+        "📅",
+        "Nothing happening today",
+        "Scan a flyer to add events happening in this city.",
+      );
     }
 
     return (
@@ -504,7 +512,11 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
     const hasCommunity = activeCommunity.length > 0;
 
     if (!hasDiscover && !hasCommunity) {
-      return renderEmptyTab("🔍", "Nothing discovered yet", "Recently scanned events will show up here.");
+      return renderEmptyTab(
+        "🔍",
+        "Nothing discovered yet",
+        "Recently scanned events will show up here.",
+      );
     }
 
     return (
@@ -549,7 +561,11 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
 
   const renderSpotsTab = () => {
     if (!popularStops || popularStops.length === 0) {
-      return renderEmptyTab("📍", "No popular spots yet", "Spots with the most events will appear here.");
+      return renderEmptyTab(
+        "📍",
+        "No popular spots yet",
+        "Spots with the most events will appear here.",
+      );
     }
 
     return (
@@ -608,7 +624,11 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
   const renderLeaderboardTab = () => {
     const contributors = thirdSpaceScore?.contributors;
     if (!contributors || contributors.length === 0) {
-      return renderEmptyTab("👥", "No contributors yet", "People who scan events in this city will show up here.");
+      return renderEmptyTab(
+        "👥",
+        "No contributors yet",
+        "People who scan events in this city will show up here.",
+      );
     }
 
     return (
@@ -944,7 +964,6 @@ const createStyles = (colors: Colors) =>
       color: colors.text.secondary,
       fontFamily: fontFamily.mono,
     },
-
   });
 
 export default CityDetailContent;

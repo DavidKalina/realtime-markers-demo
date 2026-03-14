@@ -31,34 +31,34 @@ interface ThirdSpaceScoreHeroProps {
 
 const SUB_SCORES = [
   {
-    label: "Vitality",
-    field: "vitalityScore" as const,
+    label: "Activity",
+    field: "activityScore" as const,
     color: "#93c5fd",
-    info: "How many events are happening nearby, weighted by recency. More recent events count more.",
+    info: "Completed adventures in the last 30 days, weighted by recency.",
   },
   {
-    label: "Discovery",
-    field: "discoveryScore" as const,
+    label: "Follow-Through",
+    field: "followThroughScore" as const,
     color: "#86efac",
-    info: "How many events have been scanned and discovered by users in your city this week.",
+    info: "How often planned adventures are completed and stops are visited.",
   },
   {
-    label: "Diversity",
-    field: "diversityScore" as const,
+    label: "Satisfaction",
+    field: "satisfactionScore" as const,
     color: "#fcd34d",
-    info: "How varied the event categories are. A healthy mix of arts, sports, food, etc. scores higher.",
+    info: "Average rating of completed adventures in this city.",
   },
   {
-    label: "Engagement",
-    field: "engagementScore" as const,
+    label: "Variety",
+    field: "varietyScore" as const,
     color: "#c4b5fd",
-    info: "Community interaction with events — saves and views over the last 30 days.",
+    info: "Diversity of adventure intentions and activity types.",
   },
   {
-    label: "Rootedness",
-    field: "rootednessScore" as const,
+    label: "Community",
+    field: "communityScore" as const,
     color: "#f9a8d4",
-    info: "Recurring events and dedicated high-tier community members who keep the scene alive.",
+    info: "Unique adventurers active in this city over the last 30 days.",
   },
 ];
 

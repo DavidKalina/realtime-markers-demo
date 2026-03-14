@@ -182,6 +182,8 @@ function RootLayout() {
   const [fontsLoaded] = useFonts({
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    Bungee: require("../assets/fonts/Bungee-Regular.ttf"),
   });
 
   // Hide splash screen when fonts are loaded

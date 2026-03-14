@@ -109,7 +109,11 @@ export async function searchCityState(c: Context<AppContext>) {
     ) as GoogleGeocodingService;
 
     // When no query but coordinates provided, reverse-geocode the city
-    if ((!query || !query.trim()) && coordinates?.lat != null && coordinates?.lng != null) {
+    if (
+      (!query || !query.trim()) &&
+      coordinates?.lat != null &&
+      coordinates?.lng != null
+    ) {
       const cityState = await geocodingService.reverseGeocodeCityState(
         coordinates.lat,
         coordinates.lng,
