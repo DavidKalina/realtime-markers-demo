@@ -168,6 +168,11 @@ export function useMapViewport({
       try {
         if (!feature || typeof feature !== "object") return;
 
+        // During orbit the camera only rotates heading/pitch — position and
+        // zoom never change. Skip all state updates to avoid ~30 re-renders/sec
+        // that cascade into marker re-clustering and animation restarts.
+        if (internalPausedRef.current || externalPausedRef?.current) return;
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const properties = (feature as any).properties;
         if (!properties) return;
