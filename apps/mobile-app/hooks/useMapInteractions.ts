@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useLocationStore } from "@/stores/useLocationStore";
 import { useEventBroker } from "@/hooks/useEventBroker";
-import { BaseEvent, EventTypes, MapItemEvent } from "@/services/EventBroker";
+import { EventTypes, MapItemEvent } from "@/services/EventBroker";
 
 interface UseMapInteractionsOptions {
   selectedItineraryIndex: number | null;
@@ -41,14 +41,6 @@ export function useMapInteractions({
     [],
   );
 
-  // Handle user pan — only publish the panning event.
-  const handleUserPan = useCallback(() => {
-    publish<BaseEvent>(EventTypes.USER_PANNING_VIEWPORT, {
-      timestamp: Date.now(),
-      source: "MapPress",
-    });
-  }, [publish]);
-
   // Handle map press
   const handleMapPress = useCallback(() => {
     // Dismiss itinerary carousel if open
@@ -79,5 +71,5 @@ export function useMapInteractions({
     handleCarouselDismiss,
   ]);
 
-  return { handleMapPress, handleUserPan };
+  return { handleMapPress };
 }

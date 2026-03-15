@@ -442,16 +442,23 @@ out body;
       });
     }
 
-    // Sort by combined score: closer + larger cities rank higher.
-    // Distance is primary (log-scaled km), population gives a mild boost.
-    cities.sort((a, b) => {
-      const distA = Math.log1p(a.distanceMeters / 1000);
-      const distB = Math.log1p(b.distanceMeters / 1000);
-      const popBoostA = Math.log1p((a.population ?? 0) / 10000) * 0.3;
-      const popBoostB = Math.log1p((b.population ?? 0) / 10000) * 0.3;
-      return (distA - popBoostA) - (distB - popBoostB);
-    });
-    const result = cities.slice(0, maxResults);
+    // Top 3 nearest towns/cities, then larger cities (pop >= 50k) from full radius.
+    const NEARBY_RADIUS = 15000;
+    const LARGE_CITY_POP = 50000;
+    const MAX_NEARBY = 3;
+    const nearby = cities
+      .filter((c) => c.distanceMeters <= NEARBY_RADIUS)
+      .sort((a, b) => a.distanceMeters - b.distanceMeters)
+      .slice(0, MAX_NEARBY);
+    const nearbyNames = new Set(nearby.map((c) => c.name.toLowerCase()));
+    const larger = cities
+      .filter(
+        (c) =>
+          !nearbyNames.has(c.name.toLowerCase()) &&
+          (c.population ?? 0) >= LARGE_CITY_POP,
+      )
+      .sort((a, b) => a.distanceMeters - b.distanceMeters);
+    const result = [...nearby, ...larger].slice(0, maxResults);
 
     if (result.length > 0) {
       await client.setex(cacheKey, CACHE_TTL, JSON.stringify(result));

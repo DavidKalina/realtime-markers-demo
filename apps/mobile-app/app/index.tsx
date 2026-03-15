@@ -226,7 +226,7 @@ function HomeScreenContent() {
   });
 
   // ── Map interactions ────────────────────────────────────────────────
-  const { handleMapPress, handleUserPan } = useMapInteractions({
+  const { handleMapPress } = useMapInteractions({
     selectedItineraryIndex,
     handleCarouselDismiss,
   });
@@ -438,7 +438,6 @@ function HomeScreenContent() {
       <View style={styles.mapContainer} onLayout={onContainerLayout}>
         {isMapSafeToMount && isAppActive && (
           <MapboxGL.MapView
-            onTouchMove={handleUserPan}
             onPress={handleMapPress}
             onLongPress={handleMapLongPress}
             ref={mapRef}

@@ -21,6 +21,7 @@ import {
 } from "react-native";
 import Reanimated, {
   Easing,
+  FadeIn,
   cancelAnimation,
   interpolate,
   useAnimatedStyle,
@@ -558,7 +559,7 @@ export default function ItineraryDialogBox({
 
   // City state — chip picker when no city prop provided
   const { userLocation } = useUserLocation();
-  const { closestCities, topCities } = useThirdSpaces(
+  const { closestCities, topCities, isLoading: citiesLoading } = useThirdSpaces(
     cityProp ? undefined : userLocation?.[1],
     cityProp ? undefined : userLocation?.[0],
   );
@@ -597,7 +598,7 @@ export default function ItineraryDialogBox({
         result.push({ city: c.city, label: c.city.split(",")[0].trim() });
       }
     }
-    return result.slice(0, 10);
+    return result;
   }, [cityProp, closestCities, topCities]);
 
   // Pre-fill from onboarding preferences
@@ -1518,25 +1519,39 @@ export default function ItineraryDialogBox({
                 </View>
               )}
               {/* City picker — shown when no city prop and no anchor stops */}
-              {!cityProp && !hasAnchors && cityOptions.length > 0 && (
+              {!cityProp && !hasAnchors && (
                 <View style={styles.cityInputSection}>
                   <Text style={styles.sectionLabel}>Where?</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.pillRow}
-                  >
-                    {cityOptions.map((opt) => (
-                      <PillItem
-                        key={opt.city}
-                        label={opt.label}
-                        value={opt.city}
-                        isActive={selectedCity === opt.city}
-                        onSelect={setSelectedCity}
-                        styles={styles}
+                  {citiesLoading && cityOptions.length === 0 ? (
+                    <View style={styles.cityLoadingRow}>
+                      <ActivityIndicator
+                        size="small"
+                        color={GREEN_ACCENT}
                       />
-                    ))}
-                  </ScrollView>
+                      <Text style={styles.cityLoadingText}>
+                        Finding cities nearby...
+                      </Text>
+                    </View>
+                  ) : cityOptions.length > 0 ? (
+                    <Reanimated.View entering={FadeIn.duration(300)}>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.pillRow}
+                      >
+                        {cityOptions.map((opt) => (
+                          <PillItem
+                            key={opt.city}
+                            label={opt.label}
+                            value={opt.city}
+                            isActive={selectedCity === opt.city}
+                            onSelect={setSelectedCity}
+                            styles={styles}
+                          />
+                        ))}
+                      </ScrollView>
+                    </Reanimated.View>
+                  ) : null}
                 </View>
               )}
 
@@ -2330,6 +2345,17 @@ const createStyles = (colors: Colors) =>
       paddingBottom: spacing.sm,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border.subtle,
+    },
+    cityLoadingRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      paddingVertical: 6,
+    },
+    cityLoadingText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 12,
+      color: colors.text.secondary,
     },
     anchorChipsRow: {
       marginBottom: spacing.sm,

@@ -9,6 +9,7 @@ import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
 import { SpaceCityCard } from "@/components/ThirdSpaces";
 import ThirdSpaceScoreHero from "@/components/LandingPage/ThirdSpaceScoreHero";
 import { ScoreHeroSkeleton } from "@/components/LandingPage/Skeletons";
+import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
 import useThirdSpaces from "@/hooks/useThirdSpaces";
 import useThirdSpaceScore from "@/hooks/useThirdSpaceScore";
 import useLandingPageData from "@/hooks/useLandingPageData";
@@ -110,6 +111,9 @@ const SpacesBrowseScreen = () => {
       isScrollable={false}
       bannerDescription="Third Space Scores for cities near you"
       noAnimation
+      bottomContent={
+        <ItineraryDialogBox style={{ marginBottom: 0 }} />
+      }
     >
       <PullToActionScrollView
         onSearch={handleSearchFocus}

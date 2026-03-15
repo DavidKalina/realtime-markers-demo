@@ -1,5 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useLocationStore } from "@/stores/useLocationStore";
+import { useEventBroker } from "@/hooks/useEventBroker";
+import { BaseEvent, EventTypes } from "@/services/EventBroker";
 import { MapboxViewport } from "@/types/types";
 
 interface UseMapViewportOptions {
@@ -29,6 +31,7 @@ export function useMapViewport({
   pausedRef: externalPausedRef,
 }: UseMapViewportOptions) {
   const { setZoomLevel } = useLocationStore();
+  const { publish } = useEventBroker();
   const [viewportRectangle, setViewportRectangle] =
     useState<MapboxViewport | null>(null);
   const internalPausedRef = useRef(paused);
@@ -182,12 +185,21 @@ export function useMapViewport({
           setZoomLevel(zoomLevel);
         }
 
+        // Detect user-initiated panning via Mapbox's native flag — more
+        // reliable than onTouchMove which the native map layer can swallow.
+        if (properties.isUserInteraction) {
+          publish<BaseEvent>(EventTypes.USER_PANNING_VIEWPORT, {
+            timestamp: Date.now(),
+            source: "MapRegionChange",
+          });
+        }
+
         handleMapViewportChange(feature);
       } catch (error) {
         console.error("Error handling region change:", error);
       }
     },
-    [handleMapViewportChange, setZoomLevel],
+    [handleMapViewportChange, setZoomLevel, publish],
   );
 
   return {
