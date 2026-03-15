@@ -38,12 +38,9 @@ export const getThirdSpaceLeaderboard = async (c: Context<AppContext>) => {
     lng ? parseFloat(lng) : undefined,
   );
 
-  // If no close cities from DB and we have user coords, fall back to Overpass
-  if (
-    lat &&
-    lng &&
-    (!result.closestCities || result.closestCities.length === 0)
-  ) {
+  // Always use Overpass for closest cities — DB only has cities with
+  // Third Space Score snapshots which is a tiny subset of real cities.
+  if (lat && lng) {
     try {
       const overpassService = c.get("overpassService");
       const nearbyCities = await overpassService.fetchNearbyCities(
@@ -66,7 +63,7 @@ export const getThirdSpaceLeaderboard = async (c: Context<AppContext>) => {
       }
     } catch (err) {
       console.error(
-        "[leaderboardHandlers] Overpass city fallback failed:",
+        "[leaderboardHandlers] Overpass city fetch failed:",
         err,
       );
     }
