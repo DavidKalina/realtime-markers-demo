@@ -288,18 +288,24 @@ export class ThirdSpaceScoreService {
     const rows = await this.dataSource.query(
       `SELECT DISTINCT city FROM itineraries WHERE city IS NOT NULL`,
     );
+    // Deduplicate after normalizing — raw DB values may differ in casing/format
+    const seen = new Set<string>();
     for (const row of rows) {
+      const city = normalizeCity(row.city);
+      const key = city.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
       try {
-        await this.computeAndStoreScore(row.city);
+        await this.computeAndStoreScore(city);
       } catch (err) {
         console.error(
-          `Failed to compute Third Space Score for ${row.city}:`,
+          `Failed to compute Third Space Score for ${city}:`,
           err,
         );
       }
     }
     console.log(
-      `Third Space Score computation complete for ${rows.length} cities`,
+      `Third Space Score computation complete for ${seen.size} cities (${rows.length} raw)`,
     );
   }
 
