@@ -8,7 +8,7 @@ export interface LeaderboardEntry {
   lastName: string | null;
   avatarUrl: string | null;
   currentTier: string;
-  scanCount: number;
+  checkinCount: number;
 }
 
 export interface LeaderboardServiceDependencies {
@@ -49,8 +49,6 @@ export class LeaderboardService {
 
     const weekStart = getWeekStartUTC();
 
-    // resolvedCity is "City, State" format but events.city may store just "City"
-    // Match on just the city portion (before the comma) as well as the full string
     const cityName = city.includes(",") ? city.split(",")[0].trim() : city;
 
     const rows = await this.dataSource.query(
@@ -60,14 +58,15 @@ export class LeaderboardService {
         u.last_name AS "lastName",
         u.avatar_url AS "avatarUrl",
         u.current_tier AS "currentTier",
-        COUNT(ued.id)::int AS "scanCount"
-      FROM user_event_discoveries ued
-      JOIN events e ON e.id = ued.event_id
-      JOIN users u ON u.id = ued.user_id
-      WHERE (LOWER(e.city) = LOWER($1) OR LOWER(e.city) = LOWER($4))
-        AND ued.discovered_at >= $2
+        COUNT(ic.id)::int AS "checkinCount"
+      FROM itinerary_checkins ic
+      JOIN itinerary_items ii ON ii.id = ic.itinerary_item_id
+      JOIN itineraries i ON i.id = ii.itinerary_id
+      JOIN users u ON u.id = ic.user_id
+      WHERE (LOWER(i.city) = LOWER($1) OR LOWER(i.city) = LOWER($4))
+        AND ic.checked_in_at >= $2
       GROUP BY u.id, u.first_name, u.last_name, u.avatar_url, u.current_tier
-      ORDER BY "scanCount" DESC, u.first_name ASC
+      ORDER BY "checkinCount" DESC, u.first_name ASC
       LIMIT $3`,
       [city, weekStart.toISOString(), limit, cityName],
     );
@@ -80,7 +79,7 @@ export class LeaderboardService {
         lastName: (row.lastName as string) || null,
         avatarUrl: (row.avatarUrl as string) || null,
         currentTier: (row.currentTier as string) || "Explorer",
-        scanCount: row.scanCount as number,
+        checkinCount: row.checkinCount as number,
       }),
     );
 
@@ -92,13 +91,13 @@ export class LeaderboardService {
   async getUserCityRank(
     userId: string,
     city: string,
-  ): Promise<{ rank: number; scanCount: number } | null> {
+  ): Promise<{ rank: number; checkinCount: number } | null> {
     const leaderboard = await this.getCityWeeklyLeaderboard(city, 100);
     const entry = leaderboard.find((e) => e.userId === userId);
     if (!entry) {
       return null;
     }
-    return { rank: entry.rank, scanCount: entry.scanCount };
+    return { rank: entry.rank, checkinCount: entry.checkinCount };
   }
 }
 

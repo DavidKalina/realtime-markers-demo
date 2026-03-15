@@ -347,9 +347,9 @@ export default function UsersPage() {
                         </TableCell>
                         <TableCell>
                           <div className="text-sm space-y-1">
-                            <div>Scans: {user.scanCount}</div>
-                            <div>Saves: {user.saveCount}</div>
-                            <div>Views: {user.viewCount}</div>
+                            <div>XP: {user.totalXp}</div>
+                            <div>Tier: {user.currentTier}</div>
+                            <div>Streak: {user.currentStreak}</div>
                           </div>
                         </TableCell>
                         <TableCell>

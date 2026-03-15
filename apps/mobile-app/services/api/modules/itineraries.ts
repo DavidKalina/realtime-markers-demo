@@ -113,6 +113,7 @@ export interface CreateItineraryParams {
   endTime?: string; // HH:MM (24h)
   intention?: string;
   anchorStops?: AnchorStopParam[];
+  surpriseMe?: boolean;
 }
 
 export class ItinerariesModule extends BaseApiModule {

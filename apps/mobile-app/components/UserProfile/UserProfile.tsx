@@ -37,6 +37,7 @@ import {
 } from "@/theme";
 import { getTierForXP } from "@/utils/gamification";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
+import { useOnboarding } from "@/contexts/OnboardingContext";
 import DiscovererCard from "../EventDetails/DiscovererCard";
 import Screen from "../Layout/Screen";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
@@ -65,6 +66,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { user } = useAuth();
   const { isPitched, togglePitch } = useMapStyle();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
+  const { resetOnboarding } = useOnboarding();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const {
     loading,
@@ -198,12 +200,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   lastName={profileData?.lastName}
                   currentTier={getTierForXP(profileData?.totalXp || 0).name}
                   totalXp={profileData?.totalXp || 0}
-                  scanCount={profileData?.scanCount || 0}
-                  discoveryCount={profileData?.discoveryCount || 0}
-                  saveCount={profileData?.saveCount || 0}
-                  viewCount={profileData?.viewCount || 0}
+                  currentStreak={profileData?.currentStreak || 0}
+                  longestStreak={profileData?.longestStreak || 0}
                   memberSince={memberSince}
-                  weeklyScanCount={stats?.weeklyScanCount}
                 />
               </Animated.View>
 
@@ -356,7 +355,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   <ChevronRight size={14} color={colors.text.secondary} />
                 </Pressable>
                 <Pressable
-                  style={[styles.inlineAction, styles.inlineActionLast]}
+                  style={[styles.inlineAction, __DEV__ ? undefined : styles.inlineActionLast]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setShowDeleteDialog(true);
@@ -365,6 +364,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   <Text style={styles.deleteText}>Delete Account</Text>
                   <ChevronRight size={14} color={colors.status.error.text} />
                 </Pressable>
+                {__DEV__ && (
+                  <Pressable
+                    style={[styles.inlineAction, styles.inlineActionLast]}
+                    onPress={async () => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      await resetOnboarding();
+                      router.replace("/onboarding" as const);
+                    }}
+                  >
+                    <Text style={styles.inlineRowLabel}>Replay Onboarding</Text>
+                    <ChevronRight size={14} color={colors.text.secondary} />
+                  </Pressable>
+                )}
               </Animated.View>
             </>
           )}

@@ -1,12 +1,6 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
-import {
-  useColors,
-  fontSize,
-  fontFamily,
-  fontWeight,
-  type Colors,
-} from "@/theme";
+import { useColors, fontSize, fontFamily, type Colors } from "@/theme";
 
 const { width } = Dimensions.get("window");
 

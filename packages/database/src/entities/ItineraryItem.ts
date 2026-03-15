@@ -3,12 +3,15 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  ManyToMany,
   JoinColumn,
+  JoinTable,
   Index,
   type Relation,
 } from "typeorm";
 import { Itinerary } from "./Itinerary";
 import { Event } from "./Event";
+import { Category } from "./Category";
 
 @Entity("itinerary_items")
 export class ItineraryItem {
@@ -112,4 +115,15 @@ export class ItineraryItem {
 
   @Column({ name: "checked_in_at", type: "timestamptz", nullable: true })
   checkedInAt?: Date;
+
+  @Column({ type: "text", nullable: true })
+  embedding?: string;
+
+  @ManyToMany(() => Category)
+  @JoinTable({
+    name: "itinerary_item_categories",
+    joinColumn: { name: "itinerary_item_id", referencedColumnName: "id" },
+    inverseJoinColumn: { name: "category_id", referencedColumnName: "id" },
+  })
+  categories?: Relation<Category>[];
 }

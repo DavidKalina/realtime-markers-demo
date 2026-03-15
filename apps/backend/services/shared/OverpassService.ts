@@ -13,6 +13,14 @@ export interface Trail {
   center: [number, number]; // [lng, lat]
 }
 
+export interface NearbyCity {
+  name: string;
+  lat: number;
+  lng: number;
+  population: number | null;
+  distanceMeters: number;
+}
+
 export interface OverpassService {
   fetchPavedTrails(
     lat: number,
@@ -27,6 +35,12 @@ export interface OverpassService {
     maxResults?: number,
   ): Promise<Trail[]>;
   fetchTrailById(wayId: number): Promise<Trail | null>;
+  fetchNearbyCities(
+    lat: number,
+    lng: number,
+    radiusMeters?: number,
+    maxResults?: number,
+  ): Promise<NearbyCity[]>;
 }
 
 interface OverpassServiceDeps {
@@ -342,6 +356,107 @@ out geom;
     }
   }
 
+  async fetchNearbyCities(
+    lat: number,
+    lng: number,
+    radiusMeters = 60000,
+    maxResults = 10,
+  ): Promise<NearbyCity[]> {
+    const cacheKey = `nearby-cities:${lat.toFixed(2)}:${lng.toFixed(2)}:${radiusMeters}`;
+    const client = this.redisService.getClient();
+
+    const cached = await client.get(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {
+        // Corrupted cache, refetch
+      }
+    }
+
+    // Query Overpass for place nodes (city, town, village) near coordinates
+    const query = `
+[out:json][timeout:15];
+(
+  node["place"="city"](around:${radiusMeters},${lat},${lng});
+  node["place"="town"](around:${radiusMeters},${lat},${lng});
+  node["place"="village"](around:${Math.min(radiusMeters, 20000)},${lat},${lng});
+);
+out body;
+`;
+
+    let data: OverpassResponse;
+    try {
+      const response = await fetch(OVERPASS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `data=${encodeURIComponent(query)}`,
+        signal: AbortSignal.timeout(20000),
+      });
+
+      if (!response.ok) {
+        console.error(
+          `[OverpassService] Cities API returned ${response.status}`,
+        );
+        return [];
+      }
+
+      data = (await response.json()) as OverpassResponse;
+    } catch (err) {
+      console.error("[OverpassService] Cities fetch failed:", err);
+      return [];
+    }
+
+    const cities: NearbyCity[] = [];
+    const seen = new Set<string>();
+
+    for (const element of data.elements) {
+      if (element.type !== "node") continue;
+      const tags = element.tags || {};
+      const name = tags.name;
+      if (!name) continue;
+
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const nodeLat = (element as OverpassNodeElement).lat;
+      const nodeLon = (element as OverpassNodeElement).lon;
+      if (nodeLat == null || nodeLon == null) continue;
+
+      const dist = haversine(lat, lng, nodeLat, nodeLon);
+      const population = tags.population
+        ? parseInt(tags.population, 10)
+        : null;
+
+      // Build a "City, State" label if state info is available
+      const state = tags["is_in:state"] || tags["is_in"] || "";
+      const fullName = state ? `${name}, ${state.split(",")[0].trim()}` : name;
+
+      cities.push({
+        name: fullName,
+        lat: nodeLat,
+        lng: nodeLon,
+        population: Number.isNaN(population) ? null : population,
+        distanceMeters: Math.round(dist),
+      });
+    }
+
+    // Sort by population descending (nulls last)
+    cities.sort((a, b) => (b.population ?? 0) - (a.population ?? 0));
+    const result = cities.slice(0, maxResults);
+
+    if (result.length > 0) {
+      await client.setex(cacheKey, CACHE_TTL, JSON.stringify(result));
+    }
+
+    console.log(
+      `[OverpassService] Found ${result.length} cities near ${lat.toFixed(3)},${lng.toFixed(3)}`,
+    );
+
+    return result;
+  }
+
   private calculatePathLength(coords: [number, number][]): number {
     let total = 0;
     for (let i = 1; i < coords.length; i++) {
@@ -378,6 +493,11 @@ interface OverpassElement {
   id: number;
   tags?: Record<string, string>;
   geometry?: { lon: number; lat: number }[];
+}
+
+interface OverpassNodeElement extends OverpassElement {
+  lat: number;
+  lon: number;
 }
 
 interface OverpassResponse {

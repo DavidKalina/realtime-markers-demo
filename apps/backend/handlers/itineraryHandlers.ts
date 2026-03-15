@@ -20,6 +20,7 @@ export const createItineraryHandler = async (c: Context<AppContext>) => {
     startTime?: string;
     endTime?: string;
     intention?: string;
+    surpriseMe?: boolean;
     anchorStops?: {
       coordinates: [number, number];
       label?: string;
@@ -62,6 +63,7 @@ export const createItineraryHandler = async (c: Context<AppContext>) => {
       ...(body.startTime && { startTime: body.startTime }),
       ...(body.endTime && { endTime: body.endTime }),
       ...(body.intention && { intention: body.intention }),
+      ...(body.surpriseMe && { surpriseMe: true }),
       ...(body.anchorStops &&
         body.anchorStops.length > 0 && {
           anchorStops: body.anchorStops.map((a) => ({

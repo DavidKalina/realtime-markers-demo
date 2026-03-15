@@ -12,7 +12,7 @@ const useLeaderboard = (city: string | null): UseLeaderboardReturn => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [myRank, setMyRank] = useState<{
     rank: number;
-    scanCount: number;
+    checkinCount: number;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 

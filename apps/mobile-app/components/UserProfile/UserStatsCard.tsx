@@ -59,7 +59,7 @@ const UserStatsCard: React.FC<UserStatsCardProps> = ({ stats, isLoading }) => {
 
   const statItems = [
     { label: "Rank", value: `#${stats.globalRank}` },
-    { label: "Scanners", value: formatNumber(stats.totalUsers) },
+    { label: "Explorers", value: formatNumber(stats.totalUsers) },
     { label: "Cities", value: formatNumber(stats.cityBreakdown.length) },
   ];
 
@@ -115,7 +115,7 @@ const UserStatsCard: React.FC<UserStatsCardProps> = ({ stats, isLoading }) => {
       {stats.cityBreakdown.length > 0 && (
         <>
           <Text style={[styles.sectionLabel, styles.sectionGap]}>
-            CITIES SCANNED
+            CITIES EXPLORED
           </Text>
           <View style={styles.cityPills}>
             {stats.cityBreakdown.map((c) => (

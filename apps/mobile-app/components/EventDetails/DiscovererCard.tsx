@@ -44,12 +44,9 @@ interface DiscovererCardProps {
   lastName?: string;
   currentTier?: string;
   totalXp?: number;
-  discoveryCount?: number;
-  scanCount?: number;
-  saveCount?: number;
-  viewCount?: number;
+  currentStreak?: number;
+  longestStreak?: number;
   memberSince?: string;
-  weeklyScanCount?: number;
 }
 
 const AnimatedSvg = Animated.createAnimatedComponent(Svg);
@@ -60,12 +57,9 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
   lastName,
   currentTier,
   totalXp,
-  discoveryCount,
-  scanCount,
-  saveCount,
-  viewCount,
+  currentStreak,
+  longestStreak,
   memberSince,
-  weeklyScanCount,
 }) => {
   const colors = useColors();
   const cardStyles = useMemo(() => createCardStyles(colors), [colors]);
@@ -177,11 +171,11 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
             </View>
           )}
 
-          {/* Weekly badge */}
-          {weeklyScanCount != null && weeklyScanCount > 0 && (
+          {/* Streak badge */}
+          {currentStreak != null && currentStreak > 0 && (
             <View style={[cardStyles.weeklyBadge, { borderColor: tierColor }]}>
               <Text style={[cardStyles.weeklyText, { color: tierColor }]}>
-                {weeklyScanCount} this week
+                {currentStreak}w streak
               </Text>
             </View>
           )}
@@ -201,20 +195,12 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
                 <Text style={cardStyles.statLabel}>XP</Text>
               </View>
               <View style={cardStyles.stat}>
-                <Text style={cardStyles.statValue}>{scanCount ?? 0}</Text>
-                <Text style={cardStyles.statLabel}>SCANS</Text>
+                <Text style={cardStyles.statValue}>{currentStreak ?? 0}</Text>
+                <Text style={cardStyles.statLabel}>STREAK</Text>
               </View>
               <View style={cardStyles.stat}>
-                <Text style={cardStyles.statValue}>{discoveryCount ?? 0}</Text>
-                <Text style={cardStyles.statLabel}>FINDS</Text>
-              </View>
-              <View style={cardStyles.stat}>
-                <Text style={cardStyles.statValue}>{saveCount ?? 0}</Text>
-                <Text style={cardStyles.statLabel}>SAVES</Text>
-              </View>
-              <View style={cardStyles.stat}>
-                <Text style={cardStyles.statValue}>{viewCount ?? 0}</Text>
-                <Text style={cardStyles.statLabel}>VIEWS</Text>
+                <Text style={cardStyles.statValue}>{longestStreak ?? 0}</Text>
+                <Text style={cardStyles.statLabel}>BEST</Text>
               </View>
             </View>
           </View>
@@ -253,12 +239,9 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
         lastName={lastName}
         currentTier={currentTier}
         totalXp={totalXp}
-        scanCount={scanCount}
-        discoveryCount={discoveryCount}
-        saveCount={saveCount}
-        viewCount={viewCount}
+        currentStreak={currentStreak}
+        longestStreak={longestStreak}
         memberSince={memberSince}
-        weeklyScanCount={weeklyScanCount}
       />
     </>
   );

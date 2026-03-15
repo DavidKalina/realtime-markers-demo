@@ -8,6 +8,7 @@ import {
 } from "typeorm";
 import type { Relation } from "typeorm";
 import { Event } from "./Event";
+import { ItineraryItem } from "./ItineraryItem";
 
 @Entity("categories")
 export class Category {
@@ -31,4 +32,7 @@ export class Category {
 
   @ManyToMany(() => Event, (event) => event.categories)
   events!: Relation<Event>[];
+
+  @ManyToMany(() => ItineraryItem, (item) => item.categories)
+  itineraryItems?: Relation<ItineraryItem>[];
 }

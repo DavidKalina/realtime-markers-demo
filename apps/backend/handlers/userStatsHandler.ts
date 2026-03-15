@@ -37,30 +37,30 @@ export const getUserStats = async (c: Context<AppContext>) => {
 
   try {
     const [categoryRows, cityRows, rankRows] = await Promise.all([
+      // Category breakdown from itinerary item venue categories
       AppDataSource.query(
-        `SELECT c.name, c.icon, COUNT(*)::int AS count
-         FROM user_event_discoveries ued
-         JOIN events e ON e.id = ued.event_id
-         JOIN event_categories ec ON ec.event_id = e.id
-         JOIN categories c ON c.id = ec.category_id
-         WHERE ued.user_id = $1
-         GROUP BY c.name, c.icon
+        `SELECT ii.venue_category AS name, NULL AS icon, COUNT(*)::int AS count
+         FROM itinerary_checkins ic
+         JOIN itinerary_items ii ON ii.id = ic.itinerary_item_id
+         WHERE ic.user_id = $1 AND ii.venue_category IS NOT NULL
+         GROUP BY ii.venue_category
          ORDER BY count DESC
          LIMIT 10`,
         [userId],
       ),
+      // City breakdown from completed itineraries
       AppDataSource.query(
-        `SELECT e.city, COUNT(*)::int AS count
-         FROM user_event_discoveries ued
-         JOIN events e ON e.id = ued.event_id
-         WHERE ued.user_id = $1 AND e.city IS NOT NULL
-         GROUP BY e.city
+        `SELECT i.city, COUNT(*)::int AS count
+         FROM itineraries i
+         WHERE i.user_id = $1 AND i.city IS NOT NULL AND i.completed_at IS NOT NULL
+         GROUP BY i.city
          ORDER BY count DESC`,
         [userId],
       ),
+      // Global rank by total XP
       AppDataSource.query(
         `SELECT
-           (SELECT COUNT(*)::int + 1 FROM users WHERE scan_count > (SELECT scan_count FROM users WHERE id = $1)) AS rank,
+           (SELECT COUNT(*)::int + 1 FROM users WHERE total_xp > (SELECT total_xp FROM users WHERE id = $1)) AS rank,
            (SELECT COUNT(*)::int FROM users) AS "totalUsers"`,
         [userId],
       ),

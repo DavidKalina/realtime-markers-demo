@@ -38,6 +38,40 @@ export const getThirdSpaceLeaderboard = async (c: Context<AppContext>) => {
     lng ? parseFloat(lng) : undefined,
   );
 
+  // If no close cities from DB and we have user coords, fall back to Overpass
+  if (
+    lat &&
+    lng &&
+    (!result.closestCities || result.closestCities.length === 0)
+  ) {
+    try {
+      const overpassService = c.get("overpassService");
+      const nearbyCities = await overpassService.fetchNearbyCities(
+        parseFloat(lat),
+        parseFloat(lng),
+      );
+
+      if (nearbyCities.length > 0) {
+        const METERS_PER_MILE = 1609.344;
+        result.closestCities = nearbyCities.map((city) => ({
+          city: city.name,
+          score: 0,
+          momentum: "steady" as const,
+          delta24h: 0,
+          adventureCount: 0,
+          centroid: { lat: city.lat, lng: city.lng },
+          distanceMiles: Math.round(city.distanceMeters / METERS_PER_MILE),
+          computedAt: new Date().toISOString(),
+        }));
+      }
+    } catch (err) {
+      console.error(
+        "[leaderboardHandlers] Overpass city fallback failed:",
+        err,
+      );
+    }
+  }
+
   return c.json(result);
 };
 

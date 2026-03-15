@@ -102,14 +102,7 @@ export type UserInput = Omit<
   | "id"
   | "createdAt"
   | "updatedAt"
-  | "discoveries"
-  | "createdEvents"
-  | "savedEvents"
-  | "viewedEvents"
-  | "rsvps"
   | "pushTokens"
-  | "following"
-  | "followers"
 >;
 
 export type UserUpdate = Partial<
@@ -118,14 +111,7 @@ export type UserUpdate = Partial<
     | "id"
     | "createdAt"
     | "updatedAt"
-    | "discoveries"
-    | "createdEvents"
-    | "savedEvents"
-    | "viewedEvents"
-    | "rsvps"
     | "pushTokens"
-    | "following"
-    | "followers"
   >
 >;
 
@@ -139,21 +125,11 @@ export type UserProfile = Pick<
   | "bio"
   | "role"
   | "isVerified"
-  | "discoveryCount"
-  | "scanCount"
-  | "saveCount"
-  | "viewCount"
   | "totalXp"
   | "currentTier"
-  | "followerCount"
-  | "followingCount"
   | "currentStreak"
   | "longestStreak"
->;
-
-export type UserStats = Pick<
-  User,
-  "discoveryCount" | "scanCount" | "saveCount" | "viewCount" | "weeklyScanCount"
+  | "onboardingProfile"
 >;
 
 // ============================================================================

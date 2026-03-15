@@ -8,7 +8,7 @@ export interface LeaderboardEntry {
   lastName: string | null;
   avatarUrl: string | null;
   currentTier: string;
-  scanCount: number;
+  checkinCount: number;
 }
 
 export interface ContributorEntry {
@@ -78,10 +78,10 @@ export class LeaderboardModule extends BaseApiModule {
 
   async getMyRank(
     city: string,
-  ): Promise<{ rank: number; scanCount: number } | null> {
+  ): Promise<{ rank: number; checkinCount: number } | null> {
     const url = `${this.client.baseUrl}/api/leaderboard/my-rank?city=${encodeURIComponent(city)}`;
     const response = await this.fetchWithAuth(url);
-    return this.handleResponse<{ rank: number; scanCount: number } | null>(
+    return this.handleResponse<{ rank: number; checkinCount: number } | null>(
       response,
     );
   }

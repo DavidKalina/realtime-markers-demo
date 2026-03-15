@@ -38,6 +38,7 @@ export interface CreateItineraryInput {
   endTime?: string; // HH:MM (24h) — optional fixed end
   intention?: string; // recharge | explore | socialize | move | learn | treat_yourself
   anchorStops?: AnchorStopInput[];
+  surpriseMe?: boolean;
 }
 
 interface LLMItineraryItem {
@@ -246,8 +247,25 @@ class ItineraryServiceImpl implements ItineraryService {
     await itineraryRepo.save(itinerary);
 
     try {
-      // Fetch events in the city for that date
-      const events = await this.fetchCityEvents(city, input.plannedDate);
+      // Fetch user's onboarding preferences (skip for "Surprise Me" — keep it fresh)
+      let userPreferences: { activities: string[]; vibes: string[]; idealDay: string; pace: string } | null = null;
+      let preferenceEmbedding: string | null = null;
+      if (!input.surpriseMe) {
+        const userRepo = this.dataSource.getRepository(User);
+        const userRecord = await userRepo.findOne({
+          where: { id: userId },
+          select: ["id", "onboardingProfile", "preferenceEmbedding"],
+        });
+        userPreferences = userRecord?.onboardingProfile ?? null;
+        preferenceEmbedding = userRecord?.preferenceEmbedding ?? null;
+      }
+
+      // Fetch events in the city for that date (ranked by preference if available)
+      const events = await this.fetchCityEvents(
+        city,
+        input.plannedDate,
+        preferenceEmbedding,
+      );
 
       // Geocode city center early — needed for venue search, weather, and trails
       // If anchor stops provided, use first anchor's coordinates as city center
@@ -383,6 +401,7 @@ class ItineraryServiceImpl implements ItineraryService {
         input.intention,
         input.anchorStops,
         city,
+        userPreferences,
       );
       console.log(
         `[ItineraryService] LLM returned ${llmResult.items.length} items:`,
@@ -790,7 +809,46 @@ class ItineraryServiceImpl implements ItineraryService {
   private async fetchCityEvents(
     city: string,
     date: string,
+    preferenceEmbedding?: string | null,
   ): Promise<CityEvent[]> {
+    // When user has a preference embedding, rank events by similarity
+    // so the most relevant ones appear first in the LLM prompt
+    if (preferenceEmbedding) {
+      return this.dataSource.query(
+        `
+        SELECT
+          e.id,
+          e.title,
+          e.emoji,
+          e.event_date AS "eventDate",
+          e.end_date AS "endDate",
+          e.address,
+          e.description,
+          ST_Y(e.location::geometry) AS "latitude",
+          ST_X(e.location::geometry) AS "longitude",
+          COALESCE(
+            (SELECT string_agg(c.name, ', ')
+             FROM event_categories ec
+             JOIN categories c ON c.id = ec.category_id
+             WHERE ec.event_id = e.id),
+            ''
+          ) AS categories
+        FROM events e
+        WHERE LOWER(e.city) = LOWER($1)
+          AND e.status IN ('PENDING', 'VERIFIED')
+          AND DATE(e.event_date) = $2
+        ORDER BY
+          CASE WHEN e.embedding IS NOT NULL
+            THEN e.embedding::vector <=> $3::vector
+            ELSE 2
+          END ASC,
+          e.event_date ASC
+        LIMIT 50
+        `,
+        [city, date, preferenceEmbedding],
+      );
+    }
+
     return this.dataSource.query(
       `
       SELECT
@@ -1083,6 +1141,12 @@ class ItineraryServiceImpl implements ItineraryService {
     intention?: string,
     anchorStops?: AnchorStopInput[],
     resolvedCity?: string,
+    userPreferences?: {
+      activities: string[];
+      vibes: string[];
+      idealDay: string;
+      pace: string;
+    } | null,
   ): Promise<LLMItineraryResponse> {
     const cityName = resolvedCity || input.city;
     const eventList =
@@ -1233,6 +1297,23 @@ PARKING GARAGE BOARDING (evening/night stops only):
 - If a mall or shopping center is already in the itinerary, its parking garage is a natural late-session boarding spot.`
       : "";
 
+    // Build user preference context for the LLM
+    const paceDescriptions: Record<string, string> = {
+      chill: "relaxed pacing with generous time at each stop — no rushing",
+      balanced: "moderate pacing with breathing room between stops",
+      send_it: "packed schedule, maximize stops and experiences",
+    };
+    const preferencesBlock = userPreferences
+      ? `
+USER PREFERENCES (from onboarding — use these to personalize the itinerary):
+- Favorite activities: ${userPreferences.activities.join(", ")}
+- Vibe: ${userPreferences.vibes.join(", ")}
+- Their ideal day: "${userPreferences.idealDay}"
+- Preferred pace: ${userPreferences.pace.replace("_", " ")}${paceDescriptions[userPreferences.pace] ? ` — ${paceDescriptions[userPreferences.pace]}` : ""}
+- Use this profile to influence venue selection, stop ordering, and overall tone. Lean into what they love. The activity preferences from the request take priority, but use the profile to break ties and add personality.
+`
+      : "";
+
     const systemPrompt = `You are an expert local guide with insider knowledge of ${cityName}. Create a personalized, premium itinerary that feels like advice from a well-connected friend who knows all the best spots.
 
 SOURCING RULES (STRICT):
@@ -1250,7 +1331,7 @@ HOURS & SCHEDULING (CRITICAL):
 - If there are no scanned events, build the itinerary entirely from town staples — beloved local restaurants, iconic landmarks, popular parks, and must-visit spots. This is a great itinerary, not a consolation prize.
 - If not enough options exist, create FEWER stops — never pad with fake events.
 - Use FULL street addresses including city and state (e.g., "123 Main St, Austin, TX")
-${trailInstructions}${boardingGarageInstructions}${anchorBlock}${intentionBlock}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt the itinerary to the forecast. Rain or storms → prefer indoor stops during those hours. Extreme heat → outdoor activities in morning/evening, shade and AC midday. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9", "Rain likely after 3pm, grab a window seat and enjoy it").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous itineraries: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives. The whole point is discovering something new each time.\n` : ""}
+${trailInstructions}${boardingGarageInstructions}${anchorBlock}${intentionBlock}${preferencesBlock}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt the itinerary to the forecast. Rain or storms → prefer indoor stops during those hours. Extreme heat → outdoor activities in morning/evening, shade and AC midday. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9", "Rain likely after 3pm, grab a window seat and enjoy it").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous itineraries: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives. The whole point is discovering something new each time.\n` : ""}
 PLANNING RULES:
 - Stay within the time budget (${input.durationHours} hours)
 - Stay within the spending budget (${budgetRange})

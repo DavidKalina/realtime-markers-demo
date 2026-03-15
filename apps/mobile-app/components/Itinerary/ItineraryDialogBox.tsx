@@ -47,6 +47,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
 import type { RitualResponse } from "@/services/api/modules/rituals";
 import type { NearbyPlace } from "@/services/api/modules/places";
+import {
+  ACTIVITY_OPTIONS,
+  INTENTION_OPTIONS,
+} from "@/constants/adventureOptions";
 import { useRouter } from "expo-router";
 import { useJobProgress } from "@/hooks/useJobProgress";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
@@ -329,29 +333,6 @@ const EXPANDED_RESULT_HEIGHT = 620;
 const GREEN_ACCENT = "#86efac";
 const GREEN_MUTED = "rgba(134, 239, 172, 0.12)";
 
-const ACTIVITY_OPTIONS = [
-  { label: "Food", value: "food", emoji: "\u{1F37D}\uFE0F" },
-  { label: "Coffee", value: "coffee", emoji: "\u2615" },
-  { label: "Music", value: "music", emoji: "\u{1F3B5}" },
-  { label: "Art", value: "art", emoji: "\u{1F3A8}" },
-  { label: "Outdoors", value: "outdoors", emoji: "\u{1F333}" },
-  { label: "Boarding", value: "boarding", emoji: "\u{1F6F9}" },
-  { label: "Hiking", value: "hiking", emoji: "\u{1F97E}" },
-  { label: "Walking", value: "walking", emoji: "\u{1F6B6}" },
-  { label: "Nightlife", value: "nightlife", emoji: "\u{1F378}" },
-  { label: "Sports", value: "sports", emoji: "\u26BD" },
-  { label: "Culture", value: "culture", emoji: "\u{1F3DB}\uFE0F" },
-];
-
-const INTENTION_OPTIONS = [
-  { label: "Recharge", value: "recharge", emoji: "\u{1F9D8}" },
-  { label: "Explore", value: "explore", emoji: "\u{1F9ED}" },
-  { label: "Socialize", value: "socialize", emoji: "\u{1F37B}" },
-  { label: "Move", value: "move", emoji: "\u{1F3C3}" },
-  { label: "Learn", value: "learn", emoji: "\u{1F4DA}" },
-  { label: "Treat Yourself", value: "treat_yourself", emoji: "\u{1F48E}" },
-];
-
 const STOP_COUNT_OPTIONS = [
   { label: "Auto", value: 0 },
   { label: "1", value: 1 },
@@ -508,6 +489,9 @@ export default function ItineraryDialogBox({
     return result.slice(0, 10);
   }, [cityProp, closestCities, topCities]);
 
+  // Pre-fill from onboarding preferences
+  const onboardingProfile = user?.onboardingProfile;
+
   // Form state
   const [plannedDate, setPlannedDate] = useState(() => {
     return new Date().toISOString().split("T")[0];
@@ -515,9 +499,11 @@ export default function ItineraryDialogBox({
   const [budgetMax, setBudgetMax] = useState(50);
   const [durationHours, setDurationHours] = useState(4);
   const [stopCount, setStopCount] = useState(0); // 0 = auto
-  const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
+  const [selectedActivities, setSelectedActivities] = useState<string[]>(
+    () => onboardingProfile?.activities ?? [],
+  );
   const [selectedIntention, setSelectedIntention] = useState<string | null>(
-    null,
+    () => onboardingProfile?.vibes?.[0] ?? null,
   );
   const [useCustomTime, setUseCustomTime] = useState(false);
   const [startHour, setStartHour] = useState(9);
@@ -972,6 +958,7 @@ export default function ItineraryDialogBox({
       startTime?: string;
       endTime?: string;
       intention?: string;
+      surpriseMe?: boolean;
     }) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setPhase("generating");
@@ -1003,6 +990,7 @@ export default function ItineraryDialogBox({
           stopCount: params.stops || undefined,
           ritualId: params.ritualId,
           ...(params.intention && { intention: params.intention }),
+          ...(params.surpriseMe && { surpriseMe: true }),
           ...(params.startTime && { startTime: params.startTime }),
           ...(params.endTime && { endTime: params.endTime }),
           ...(anchorStops &&
@@ -1102,6 +1090,7 @@ export default function ItineraryDialogBox({
       stops: randomStops,
       activities: randomActivities,
       budget: randomBudget,
+      surpriseMe: true,
     });
   }, [city, hasAnchors, fireGenerate]);
 

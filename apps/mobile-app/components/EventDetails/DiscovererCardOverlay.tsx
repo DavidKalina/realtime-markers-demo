@@ -56,12 +56,9 @@ interface DiscovererCardOverlayProps {
   lastName?: string;
   currentTier?: string;
   totalXp?: number;
-  discoveryCount?: number;
-  scanCount?: number;
-  saveCount?: number;
-  viewCount?: number;
+  currentStreak?: number;
+  longestStreak?: number;
   memberSince?: string;
-  weeklyScanCount?: number;
 }
 
 const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
@@ -71,12 +68,9 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
   lastName,
   currentTier,
   totalXp,
-  discoveryCount,
-  scanCount,
-  saveCount,
-  viewCount,
+  currentStreak,
+  longestStreak,
   memberSince,
-  weeklyScanCount,
 }) => {
   const colors = useColors();
   const overlayStyles = useMemo(() => createOverlayStyles(colors), [colors]);
@@ -231,27 +225,15 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
                   </View>
                   <View style={overlayStyles.stat}>
                     <Text style={overlayStyles.statValue}>
-                      {scanCount ?? 0}
+                      {currentStreak ?? 0}
                     </Text>
-                    <Text style={overlayStyles.statLabel}>SCANS</Text>
+                    <Text style={overlayStyles.statLabel}>STREAK</Text>
                   </View>
                   <View style={overlayStyles.stat}>
                     <Text style={overlayStyles.statValue}>
-                      {discoveryCount ?? 0}
+                      {longestStreak ?? 0}
                     </Text>
-                    <Text style={overlayStyles.statLabel}>FINDS</Text>
-                  </View>
-                  <View style={overlayStyles.stat}>
-                    <Text style={overlayStyles.statValue}>
-                      {saveCount ?? 0}
-                    </Text>
-                    <Text style={overlayStyles.statLabel}>SAVES</Text>
-                  </View>
-                  <View style={overlayStyles.stat}>
-                    <Text style={overlayStyles.statValue}>
-                      {viewCount ?? 0}
-                    </Text>
-                    <Text style={overlayStyles.statLabel}>VIEWS</Text>
+                    <Text style={overlayStyles.statLabel}>BEST</Text>
                   </View>
                 </View>
               </View>

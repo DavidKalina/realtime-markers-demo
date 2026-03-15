@@ -66,6 +66,8 @@ import { RenameThirdSpaceScoreColumns1710000000054 } from "./migrations/RenameTh
 import { AddGlobalItineraryFields1710000000055 } from "./migrations/AddGlobalItineraryFields1710000000055";
 import { AddItineraryMapFields1710000000056 } from "./migrations/AddItineraryMapFields1710000000056";
 import { BackfillItineraryEnhancements1710000000057 } from "./migrations/BackfillItineraryEnhancements1710000000057";
+import { AddItineraryItemEmbeddingsAndCategories1710000000058 } from "./migrations/AddItineraryItemEmbeddingsAndCategories1710000000058";
+import { AddOnboardingProfile1710000000059 } from "./migrations/AddOnboardingProfile1710000000059";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -133,6 +135,8 @@ const AppDataSource = new DataSource({
     AddGlobalItineraryFields1710000000055,
     AddItineraryMapFields1710000000056,
     BackfillItineraryEnhancements1710000000057,
+    AddItineraryItemEmbeddingsAndCategories1710000000058,
+    AddOnboardingProfile1710000000059,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

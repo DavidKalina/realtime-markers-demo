@@ -417,6 +417,7 @@ export class AuthService {
         "currentTier",
         "followerCount",
         "followingCount",
+        "onboardingProfile",
       ],
     });
 

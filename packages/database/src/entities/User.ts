@@ -12,13 +12,14 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 import type { Relation } from "typeorm";
-import { Event } from "./Event";
-import { UserEventDiscovery } from "./UserEventDiscovery";
-import { UserEventSave } from "./UserEventSave";
-import { UserEventView } from "./UserEventView";
-import { UserEventRsvp } from "./UserEventRsvp";
-import { UserFollow } from "./UserFollow";
 import { Itinerary } from "./Itinerary";
+import type { Event } from "./Event";
+import type { UserEventDiscovery } from "./UserEventDiscovery";
+import type { UserEventRsvp } from "./UserEventRsvp";
+import type { UserEventSave } from "./UserEventSave";
+import type { UserEventView } from "./UserEventView";
+import type { UserFollow } from "./UserFollow";
+import type { UserPushToken } from "./UserPushToken";
 
 export enum UserRole {
   USER = "USER",
@@ -115,29 +116,40 @@ export class User {
     lastImportedAt?: Date;
   }[];
 
-  @OneToMany(() => UserEventDiscovery, (discovery) => discovery.user)
-  discoveries!: Relation<UserEventDiscovery>[];
+  @OneToMany("UserPushToken", "user")
+  pushTokens!: Relation<UserPushToken>[];
 
-  @OneToMany(() => Event, (event) => event.creator)
+  @OneToMany("Event", "creator")
   createdEvents!: Relation<Event>[];
 
-  @OneToMany(() => UserEventSave, (save) => save.user)
-  savedEvents!: Relation<UserEventSave>[];
+  @OneToMany("UserEventDiscovery", "user")
+  discoveries!: Relation<UserEventDiscovery>[];
 
-  @OneToMany(() => UserEventView, (view) => view.user)
-  viewedEvents!: Relation<UserEventView>[];
-
-  @OneToMany(() => UserEventRsvp, (rsvp) => rsvp.user)
+  @OneToMany("UserEventRsvp", "user")
   rsvps!: Relation<UserEventRsvp>[];
 
-  @OneToMany("UserPushToken", "user")
-  pushTokens!: Relation<any>[];
+  @OneToMany("UserEventSave", "user")
+  savedEvents!: Relation<UserEventSave>[];
 
-  @OneToMany(() => UserFollow, (follow) => follow.follower)
+  @OneToMany("UserEventView", "user")
+  viewedEvents!: Relation<UserEventView>[];
+
+  @OneToMany("UserFollow", "follower")
   following!: Relation<UserFollow>[];
 
-  @OneToMany(() => UserFollow, (follow) => follow.followedUser)
+  @OneToMany("UserFollow", "following")
   followers!: Relation<UserFollow>[];
+
+  @Column({ name: "preference_embedding", type: "text", nullable: true })
+  preferenceEmbedding?: string;
+
+  @Column({ name: "onboarding_profile", type: "jsonb", nullable: true })
+  onboardingProfile?: {
+    activities: string[];
+    vibes: string[];
+    idealDay: string;
+    pace: string;
+  };
 
   @Column({ name: "active_itinerary_id", type: "uuid", nullable: true })
   activeItineraryId?: string;
