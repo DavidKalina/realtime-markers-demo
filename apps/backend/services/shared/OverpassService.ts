@@ -442,8 +442,15 @@ out body;
       });
     }
 
-    // Sort by population descending (nulls last)
-    cities.sort((a, b) => (b.population ?? 0) - (a.population ?? 0));
+    // Sort by combined score: closer + larger cities rank higher.
+    // Distance is primary (log-scaled km), population gives a mild boost.
+    cities.sort((a, b) => {
+      const distA = Math.log1p(a.distanceMeters / 1000);
+      const distB = Math.log1p(b.distanceMeters / 1000);
+      const popBoostA = Math.log1p((a.population ?? 0) / 10000) * 0.3;
+      const popBoostB = Math.log1p((b.population ?? 0) / 10000) * 0.3;
+      return (distA - popBoostA) - (distB - popBoostB);
+    });
     const result = cities.slice(0, maxResults);
 
     if (result.length > 0) {
