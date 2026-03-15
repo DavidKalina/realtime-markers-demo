@@ -1,5 +1,4 @@
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
-import { apiClient } from "@/services/ApiClient";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import {
   fontFamily,
@@ -46,21 +45,46 @@ export interface ItineraryPreviewStop {
 
 interface ItineraryCarouselProps {
   style?: ViewStyle;
+  /** Itineraries to display — passed from parent (shared with map markers) */
+  itineraries: ItineraryResponse[];
+  /** Externally controlled active index (e.g. from tapping a map marker) */
+  activeIndex: number;
+  /** Called when the user swipes to a different itinerary */
+  onIndexChange: (index: number) => void;
   onBack?: () => void;
   onPreviewStop?: (stop: ItineraryPreviewStop | null) => void;
+  /** Whether the orbit camera animation is currently running */
+  isOrbiting?: boolean;
+}
+
+/** Extract the preview stop data for a given itinerary */
+export function getFirstStop(
+  itinerary: ItineraryResponse,
+): ItineraryPreviewStop | null {
+  const firstItem = [...itinerary.items]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .find((i) => i.latitude != null && i.longitude != null);
+  if (!firstItem) return null;
+  return {
+    coordinate: [Number(firstItem.longitude), Number(firstItem.latitude)],
+    emoji: firstItem.emoji || "\u{1F4CD}",
+    color: STOP_COLORS[0],
+    title: firstItem.title || "",
+  };
 }
 
 const ItineraryCarousel: React.FC<ItineraryCarouselProps> = ({
   style,
+  itineraries,
+  activeIndex,
+  onIndexChange,
   onBack,
   onPreviewStop,
+  isOrbiting,
 }) => {
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const [itineraries, setItineraries] = useState<ItineraryResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeIndex, setActiveIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const activate = useActiveItineraryStore((state) => state.activate);
   const [activating, setActivating] = useState(false);
@@ -69,57 +93,36 @@ const ItineraryCarousel: React.FC<ItineraryCarouselProps> = ({
     setExpanded((prev) => !prev);
   }, []);
 
-  const fetchItineraries = useCallback(async () => {
-    try {
-      const result = await apiClient.itineraries.list(10);
-      setItineraries(
-        (result.data ?? []).filter(
-          (it) => it.status === "READY" && !it.completedAt,
-        ),
-      );
-    } catch (err) {
-      console.error("[ItineraryCarousel] Failed to fetch:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchItineraries();
-  }, [fetchItineraries]);
-
   // Stable ref for preview callback to avoid stale closures
   const onPreviewStopRef = useRef(onPreviewStop);
   onPreviewStopRef.current = onPreviewStop;
-  const isInitialLoadRef = useRef(true);
 
-  // Emit preview stop when index changes or itineraries load
+  // Re-engage orbit when card is tapped while not orbiting
+  const handleReOrbit = useCallback(() => {
+    if (isOrbiting || !onPreviewStopRef.current || itineraries.length === 0)
+      return;
+    const current = itineraries[activeIndex];
+    if (!current) return;
+    const stop = getFirstStop(current);
+    if (!stop) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPreviewStopRef.current(stop);
+  }, [isOrbiting, itineraries, activeIndex]);
+
+  // Emit preview stop when index changes (swipe between itineraries)
+  const isFirstRender = useRef(true);
   useEffect(() => {
+    // Skip the initial render — orbit is triggered by the map marker tap,
+    // not by the carousel mounting.
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     if (!onPreviewStopRef.current || itineraries.length === 0) return;
     const current = itineraries[activeIndex];
     if (!current) return;
-    const firstStop = [...current.items]
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .find((i) => i.latitude != null && i.longitude != null);
-    if (!firstStop) return;
-
-    const emitStop = () => {
-      onPreviewStopRef.current?.({
-        coordinate: [Number(firstStop.longitude), Number(firstStop.latitude)],
-        emoji: firstStop.emoji || "\u{1F4CD}",
-        color: STOP_COLORS[0],
-        title: firstStop.title || "",
-      });
-    };
-
-    // On initial load, delay slightly so map camera is settled
-    if (isInitialLoadRef.current) {
-      isInitialLoadRef.current = false;
-      const timer = setTimeout(emitStop, 400);
-      return () => clearTimeout(timer);
-    }
-
-    emitStop();
+    const stop = getFirstStop(current);
+    if (stop) onPreviewStopRef.current(stop);
   }, [activeIndex, itineraries]);
 
   // Clear preview on unmount
@@ -142,20 +145,27 @@ const ItineraryCarousel: React.FC<ItineraryCarouselProps> = ({
   }));
 
   const goNext = useCallback(() => {
-    setActiveIndex((prev) => {
-      const next = Math.min(prev + 1, itineraries.length - 1);
-      if (next !== prev) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      return next;
-    });
-  }, [itineraries.length]);
+    const next = Math.min(activeIndex + 1, itineraries.length - 1);
+    if (next !== activeIndex) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onIndexChange(next);
+    }
+  }, [activeIndex, itineraries.length, onIndexChange]);
 
   const goPrev = useCallback(() => {
-    setActiveIndex((prev) => {
-      const next = Math.max(prev - 1, 0);
-      if (next !== prev) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      return next;
+    const next = Math.max(activeIndex - 1, 0);
+    if (next !== activeIndex) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onIndexChange(next);
+    }
+  }, [activeIndex, onIndexChange]);
+
+  // Tap to re-engage orbit when user has panned away
+  const tapGesture = Gesture.Tap()
+    .enabled(!expanded)
+    .onEnd(() => {
+      scheduleOnRN(handleReOrbit);
     });
-  }, []);
 
   const panGesture = Gesture.Pan()
     .activeOffsetX([-15, 15])
@@ -204,9 +214,10 @@ const ItineraryCarousel: React.FC<ItineraryCarouselProps> = ({
     onBack?.();
   }, [onBack]);
 
-  if (loading || itineraries.length === 0) return null;
+  if (itineraries.length === 0) return null;
 
   const current = itineraries[activeIndex];
+  if (!current) return null;
   const sortedItems = [...current.items].sort(
     (a, b) => a.sortOrder - b.sortOrder,
   );
@@ -223,7 +234,7 @@ const ItineraryCarousel: React.FC<ItineraryCarouselProps> = ({
         onToggleExpand={toggleExpand}
         collapsedContent={
           <>
-            <GestureDetector gesture={panGesture}>
+            <GestureDetector gesture={Gesture.Race(tapGesture, panGesture)}>
               <Animated.View style={[s.swipeArea, collapsedContentStyle]}>
                 <View style={s.emojiTrail}>
                   {sortedItems.slice(0, 5).map((item, idx) => (

@@ -85,6 +85,9 @@ export const useMapCamera = ({ cameraRef }: UseMapCameraProps) => {
 
           if (cameraRef.current) {
             isAnimatingRef.current = true;
+            // Always reset heading/pitch so orbit rotation doesn't persist
+            cameraSettings.heading = 0;
+            cameraSettings.pitch = 0;
             cameraRef.current.setCamera(cameraSettings);
             setTimeout(() => {
               isAnimatingRef.current = false;

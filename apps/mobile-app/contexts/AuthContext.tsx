@@ -181,13 +181,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const success = await apiClient.refreshAuthTokens();
       if (success) {
-        const currentUser = apiClient.getCurrentUser();
-        setUser(currentUser);
+        // Re-fetch user profile from server to get latest data (e.g. onboardingProfile)
+        const freshUser = await apiClient.auth.getUserProfile();
+        setUser(freshUser);
         setIsAuthenticated(true);
 
         // Setup push notifications after successful refresh
-        if (currentUser?.id) {
-          await setupPushNotifications(currentUser.id);
+        if (freshUser?.id) {
+          await setupPushNotifications(freshUser.id);
         }
 
         return true;

@@ -5,6 +5,10 @@ import { MapboxViewport } from "@/types/types";
 interface UseMapViewportOptions {
   updateViewport: (viewport: MapboxViewport) => void;
   isPitched: boolean;
+  /** When true, viewport updates are suppressed (e.g. during orbit animation) */
+  paused?: boolean;
+  /** Synchronous ref for paused state — checked before React re-render flushes */
+  pausedRef?: React.RefObject<boolean>;
 }
 
 /**
@@ -21,10 +25,14 @@ function getClientDebounceMs(zoom: number): number {
 export function useMapViewport({
   updateViewport,
   isPitched,
+  paused,
+  pausedRef: externalPausedRef,
 }: UseMapViewportOptions) {
   const { setZoomLevel } = useLocationStore();
   const [viewportRectangle, setViewportRectangle] =
     useState<MapboxViewport | null>(null);
+  const internalPausedRef = useRef(paused);
+  internalPausedRef.current = paused;
 
   // Zoom-aware debounce: fires once at the start (leading) and once after the
   // last call (trailing). The debounce window scales with zoom — tight at high
@@ -139,7 +147,9 @@ export function useMapViewport({
         if (viewport) {
           const rectangle = calculateViewportRectangle(viewport, isPitched);
           setViewportRectangle(rectangle);
-          debouncedUpdateViewport(rectangle);
+          if (!internalPausedRef.current && !externalPausedRef?.current) {
+            debouncedUpdateViewport(rectangle);
+          }
         }
       } catch (error) {
         console.error("Error processing viewport change:", error);

@@ -212,6 +212,9 @@ export class AuthService {
         "viewCount",
         "followerCount",
         "followingCount",
+        "onboardingProfile",
+        "currentStreak",
+        "longestStreak",
       ],
     });
 

@@ -491,7 +491,6 @@ export default function ItineraryDialogBox({
 
   // Pre-fill from onboarding preferences
   const onboardingProfile = user?.onboardingProfile;
-
   // Form state
   const [plannedDate, setPlannedDate] = useState(() => {
     return new Date().toISOString().split("T")[0];
@@ -499,12 +498,11 @@ export default function ItineraryDialogBox({
   const [budgetMax, setBudgetMax] = useState(50);
   const [durationHours, setDurationHours] = useState(4);
   const [stopCount, setStopCount] = useState(0); // 0 = auto
-  const [selectedActivities, setSelectedActivities] = useState<string[]>(
-    () => onboardingProfile?.activities ?? [],
-  );
+  const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
   const [selectedIntention, setSelectedIntention] = useState<string | null>(
-    () => onboardingProfile?.vibes?.[0] ?? null,
+    null,
   );
+  const [preferencesActive, setPreferencesActive] = useState(false);
   const [useCustomTime, setUseCustomTime] = useState(false);
   const [startHour, setStartHour] = useState(9);
   const [endHour, setEndHour] = useState(13);
@@ -887,36 +885,24 @@ export default function ItineraryDialogBox({
   const handleReExpand = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Stop any in-progress sheen and pick up from its current position
+    // Kill sheen immediately and expand
     cancelAnimation(sheenPos);
-    const current = sheenPos.value;
-    const remaining = 1 - current;
-    const duration = Math.max(150, remaining * 600);
-
-    sheenActive.value = 1;
-    sheenPos.value = withTiming(
-      1,
-      { duration, easing: Easing.inOut(Easing.ease) },
-      (fin) => {
-        if (!fin) return;
-        sheenActive.value = 0;
-        statusOpacity.value = withTiming(0, { duration: 150 });
-        const targetH = resultRef.current.val
-          ? EXPANDED_RESULT_HEIGHT
-          : EXPANDED_FORM_HEIGHT;
-        animHeight.value = withTiming(
-          targetH,
-          { duration: 350, easing: Easing.out(Easing.cubic) },
-          (finished) => {
-            if (finished) {
-              scheduleOnRN(setReExpandPhaseCb);
-              contentOpacity.value = withDelay(
-                50,
-                withTiming(1, { duration: 200 }),
-              );
-            }
-          },
-        );
+    sheenActive.value = 0;
+    statusOpacity.value = withTiming(0, { duration: 150 });
+    const targetH = resultRef.current.val
+      ? EXPANDED_RESULT_HEIGHT
+      : EXPANDED_FORM_HEIGHT;
+    animHeight.value = withTiming(
+      targetH,
+      { duration: 350, easing: Easing.out(Easing.cubic) },
+      (finished) => {
+        if (finished) {
+          scheduleOnRN(setReExpandPhaseCb);
+          contentOpacity.value = withDelay(
+            50,
+            withTiming(1, { duration: 200 }),
+          );
+        }
       },
     );
   }, [setReExpandPhaseCb]);
@@ -933,6 +919,7 @@ export default function ItineraryDialogBox({
 
   const toggleActivity = useCallback((value: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPreferencesActive(false);
     setSelectedActivities((prev) =>
       prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
     );
@@ -941,11 +928,33 @@ export default function ItineraryDialogBox({
   const applyRitual = useCallback((ritual: RitualResponse) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setActiveRitualId(ritual.id);
+    setPreferencesActive(false);
     setBudgetMax(Number(ritual.budgetMax));
     setDurationHours(Number(ritual.durationHours));
     setStopCount(ritual.stopCount);
     setSelectedActivities(ritual.activityTypes);
   }, []);
+
+  const togglePreferences = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setPreferencesActive((prev) => {
+      if (!prev && onboardingProfile) {
+        // Applying preferences — set activities and intention from profile
+        setActiveRitualId(null);
+        if (onboardingProfile.activities?.length) {
+          setSelectedActivities(onboardingProfile.activities);
+        }
+        if (onboardingProfile.vibes?.length) {
+          setSelectedIntention(onboardingProfile.vibes[0]);
+        }
+      } else {
+        // Clearing preferences — reset to empty
+        setSelectedActivities([]);
+        setSelectedIntention(null);
+      }
+      return !prev;
+    });
+  }, [onboardingProfile]);
 
   // Fire-and-forget generate with explicit params (avoids stale closure from setState)
   const fireGenerate = useCallback(
@@ -1453,15 +1462,34 @@ export default function ItineraryDialogBox({
                 </View>
               )}
 
-              {/* Ritual shelf */}
-              {rituals.length > 0 && (
+              {/* Presets row — My Preferences + Rituals */}
+              {(onboardingProfile || rituals.length > 0) && (
                 <View style={styles.ritualShelf}>
-                  <Text style={styles.ritualShelfLabel}>RITUALS</Text>
+                  <Text style={styles.ritualShelfLabel}>PRESETS</Text>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.ritualPillRow}
                   >
+                    {onboardingProfile && (
+                      <Pressable
+                        style={[
+                          styles.ritualPill,
+                          preferencesActive && styles.ritualPillActive,
+                        ]}
+                        onPress={togglePreferences}
+                      >
+                        <Text style={styles.ritualPillEmoji}>{"✨"}</Text>
+                        <Text
+                          style={[
+                            styles.ritualPillText,
+                            preferencesActive && styles.ritualPillTextActive,
+                          ]}
+                        >
+                          My Preferences
+                        </Text>
+                      </Pressable>
+                    )}
                     {rituals.map((r) => (
                       <Pressable
                         key={r.id}
@@ -1769,6 +1797,7 @@ export default function ItineraryDialogBox({
                       ]}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setPreferencesActive(false);
                         setSelectedIntention((prev) =>
                           prev === opt.value ? null : opt.value,
                         );

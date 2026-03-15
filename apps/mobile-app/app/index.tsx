@@ -47,7 +47,6 @@ import {
   ActivityIndicator,
   Platform,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -67,12 +66,16 @@ import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
 import ItineraryRouteLayer from "@/components/Itinerary/ItineraryRouteLayer";
 import ItineraryWaypoints from "@/components/Itinerary/ItineraryWaypoints";
 import AdventureHUD from "@/components/Itinerary/AdventureHUD";
-import ItineraryCarousel from "@/components/Itinerary/ItineraryCarousel";
+import ItineraryCarousel, {
+  getFirstStop,
+} from "@/components/Itinerary/ItineraryCarousel";
+import ItineraryMapMarkers from "@/components/Itinerary/ItineraryMapMarkers";
 import { useAnchorPlanStore } from "@/stores/useAnchorPlanStore";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useItineraryReveal } from "@/hooks/useItineraryReveal";
 import { useItineraryPreviewOrbit } from "@/hooks/useItineraryPreviewOrbit";
 import { useSimulateItinerary } from "@/hooks/useSimulateItinerary";
+import { useRecentItineraries } from "@/hooks/useRecentItineraries";
 import type { NearbyPlace } from "@/services/api/modules/places";
 
 // Set access token at module scope (lightweight, required before MapView renders)
@@ -101,40 +104,6 @@ const resumeStyles = StyleSheet.create({
   },
 });
 
-const previewMarkerStyles = StyleSheet.create({
-  container: {
-    width: 80,
-    height: 80,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pulseRing: {
-    position: "absolute",
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 2,
-    borderColor: "rgba(134,239,172,0.6)",
-  },
-  dot: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#86efac",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  emoji: {
-    fontSize: 22,
-  },
-});
 
 const planBannerStyles = StyleSheet.create({
   dialogBox: {
@@ -153,32 +122,6 @@ const planBannerStyles = StyleSheet.create({
   },
 });
 
-/** Pulsing ring behind the preview marker so it stands out from event markers */
-const PreviewPulseRing = React.memo(() => {
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(0.6);
-  useEffect(() => {
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(1.6, { duration: 1200, easing: Easing.out(Easing.ease) }),
-        withTiming(1, { duration: 0 }),
-      ),
-      -1,
-    );
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(0, { duration: 1200, easing: Easing.out(Easing.ease) }),
-        withTiming(0.6, { duration: 0 }),
-      ),
-      -1,
-    );
-  }, []);
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
-  return <RAnimated.View style={[previewMarkerStyles.pulseRing, animStyle]} />;
-});
 
 function HomeScreenContent() {
   const colors = useColors();
@@ -316,9 +259,40 @@ function HomeScreenContent() {
     useItineraryReveal({ cameraRef });
 
   // Preview orbit when browsing itinerary carousel
-  const { previewStop, handlePreviewStop } = useItineraryPreviewOrbit({
-    cameraRef,
-  });
+  const { handlePreviewStop, isOrbiting, isOrbitingRef } =
+    useItineraryPreviewOrbit({
+      cameraRef,
+      isPitched,
+    });
+
+  // Recent itineraries — shared between map markers and carousel
+  const { itineraries: recentItineraries } = useRecentItineraries();
+  const [selectedItineraryIndex, setSelectedItineraryIndex] = useState<
+    number | null
+  >(null);
+
+  // Tap itinerary map marker → open carousel + start orbit
+  const handleItineraryMarkerSelect = useCallback(
+    (index: number) => {
+      setSelectedItineraryIndex(index);
+      const itinerary = recentItineraries[index];
+      if (!itinerary) return;
+      const stop = getFirstStop(itinerary);
+      if (stop) handlePreviewStop(stop);
+    },
+    [recentItineraries, handlePreviewStop],
+  );
+
+  // Carousel swipe → update selected index (orbit triggers via carousel's effect)
+  const handleCarouselIndexChange = useCallback((index: number) => {
+    setSelectedItineraryIndex(index);
+  }, []);
+
+  // Dismiss carousel (back button or map press while carousel is open)
+  const handleCarouselDismiss = useCallback(() => {
+    setSelectedItineraryIndex(null);
+    handlePreviewStop(null);
+  }, [handlePreviewStop]);
 
   // DEV: simulate itinerary check-in animations (long-press jobs FAB)
   const { startSimulation, stopSimulation } = useSimulateItinerary(
@@ -337,6 +311,8 @@ function HomeScreenContent() {
   const { handleRegionChanging } = useMapViewport({
     updateViewport,
     isPitched,
+    paused: isOrbiting,
+    pausedRef: isOrbitingRef,
   });
 
   // Create map item event utility
@@ -384,6 +360,11 @@ function HomeScreenContent() {
 
   // Handle map press
   const handleMapPress = useCallback(() => {
+    // Dismiss itinerary carousel if open
+    if (selectedItineraryIndex != null) {
+      handleCarouselDismiss();
+    }
+
     if (!selectedItem) return;
 
     try {
@@ -397,8 +378,10 @@ function HomeScreenContent() {
   }, [
     selectMapItem,
     selectedItem,
+    selectedItineraryIndex,
     createMapItemEvent,
     handleMapItemDeselection,
+    handleCarouselDismiss,
   ]);
 
   // Memoize default camera settings with null check
@@ -566,8 +549,8 @@ function HomeScreenContent() {
   const mapViewProps = useMemo(
     () => ({
       scaleBarEnabled: false,
-      rotateEnabled: false,
-      pitchEnabled: false,
+      rotateEnabled: true,
+      pitchEnabled: true,
       style: styles.map,
       logoEnabled: false,
       attributionEnabled: false,
@@ -879,27 +862,18 @@ function HomeScreenContent() {
             />
             {markersComponent}
             <AnchorMarkers />
+            {!activeItinerary && (
+              <ItineraryMapMarkers
+                itineraries={recentItineraries}
+                selectedIndex={selectedItineraryIndex}
+                onSelect={handleItineraryMarkerSelect}
+              />
+            )}
             {itineraryLayersSafe && (
               <ItineraryRouteLayer revealedStopCount={revealedStopCount} />
             )}
             {itineraryLayersSafe && (
               <ItineraryWaypoints revealedStopCount={revealedStopCount} />
-            )}
-            {/* Preview marker for itinerary carousel browsing */}
-            {previewStop && (
-              <MapboxGL.MarkerView
-                coordinate={previewStop.coordinate}
-                anchor={{ x: 0.5, y: 0.5 }}
-              >
-                <View style={previewMarkerStyles.container}>
-                  <PreviewPulseRing />
-                  <View style={previewMarkerStyles.dot}>
-                    <Text style={previewMarkerStyles.emoji}>
-                      {previewStop.emoji}
-                    </Text>
-                  </View>
-                </View>
-              </MapboxGL.MarkerView>
             )}
             {userLocationLayer}
           </MapboxGL.MapView>
@@ -940,13 +914,19 @@ function HomeScreenContent() {
               onAnchorRemove={handleAnchorRemove}
               style={planBannerStyles.dialogBox}
             />
-            {/* Carousel — shows over dialog when user has itineraries and isn't planning */}
-            {anchorAnchors.length === 0 && (
-              <ItineraryCarousel
-                style={planBannerStyles.carousel}
-                onPreviewStop={handlePreviewStop}
-              />
-            )}
+            {/* Carousel — shows when user taps an itinerary marker on the map */}
+            {selectedItineraryIndex != null &&
+              anchorAnchors.length === 0 && (
+                <ItineraryCarousel
+                  style={planBannerStyles.carousel}
+                  itineraries={recentItineraries}
+                  activeIndex={selectedItineraryIndex}
+                  onIndexChange={handleCarouselIndexChange}
+                  onPreviewStop={handlePreviewStop}
+                  onBack={handleCarouselDismiss}
+                  isOrbiting={isOrbiting}
+                />
+              )}
           </>
         )}
         {activeItinerary && (
