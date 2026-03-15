@@ -628,6 +628,7 @@ export class AuthService {
       followingCount: user.followingCount,
       currentStreak: user.currentStreak ?? 0,
       longestStreak: user.longestStreak ?? 0,
+      onboardingProfile: user.onboardingProfile,
     };
   }
 
