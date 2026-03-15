@@ -7,6 +7,7 @@ import {
   spacing,
   type Colors,
 } from "@/theme";
+import { useAuth } from "@/contexts/AuthContext";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { apiClient } from "@/services/ApiClient";
 import { useRouter } from "expo-router";
@@ -41,6 +42,7 @@ export const OnboardingScreen: React.FC = () => {
     [colors],
   );
   const { completeOnboarding } = useOnboarding();
+  const { refreshAuth } = useAuth();
   const router = useRouter();
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -64,6 +66,8 @@ export const OnboardingScreen: React.FC = () => {
         idealDay: idealDay.trim(),
         pace: selectedPace,
       });
+      // Refresh user so onboardingProfile is available in AuthContext
+      await refreshAuth();
     } catch (err) {
       // Don't block user on API failure
       console.warn("Failed to submit onboarding profile:", err);
@@ -72,6 +76,7 @@ export const OnboardingScreen: React.FC = () => {
     router.replace("/");
   }, [
     completeOnboarding,
+    refreshAuth,
     router,
     selectedActivities,
     selectedVibes,
