@@ -5,14 +5,19 @@ export default {
   expo: {
     name: "Sidequests",
     slug: "mobile-app",
-    version: "1.22.6",
+    version: "1.22.7",
     orientation: "portrait",
     icon: "./assets/app-icon.png",
     scheme: "myapp",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     updates: {
-      enabled: false,
+      enabled: true,
+      fallbackToCacheTimeout: 0,
+      url: "https://u.expo.dev/ff0ebef4-f13d-442f-be77-f5818888f458",
+    },
+    runtimeVersion: {
+      policy: "appVersion",
     },
     ios: {
       // Icon Composer .icon directory for glass effect (SDK 54+)
@@ -39,7 +44,7 @@ export default {
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "227",
+      buildNumber: "228",
     },
     android: {
       label: "Sidequests",

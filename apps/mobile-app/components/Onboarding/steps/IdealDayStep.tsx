@@ -1,11 +1,12 @@
 import React, { useMemo } from "react";
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   Text,
   TextInput,
-  View,
+  TouchableWithoutFeedback,
 } from "react-native";
 import {
   useColors,
@@ -31,31 +32,32 @@ export const IdealDayStep: React.FC<IdealDayStepProps> = ({
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={120}
-    >
-      <Text style={styles.title}>Your ideal day out</Text>
-      <Text style={styles.subtitle}>
-        Describe your perfect day — we'll use this to shape your recommendations.
-      </Text>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={120}
+      >
+        <Text style={styles.title}>Your ideal day out</Text>
+        <Text style={styles.subtitle}>
+          Describe your perfect day — we'll use this to shape your
+          recommendations.
+        </Text>
 
-      <TextInput
-        style={styles.input}
-        value={value}
-        onChangeText={onChange}
-        placeholder="Coffee at a quiet cafe, then a street art walk, ending with live jazz at sunset..."
-        placeholderTextColor={colors.text.tertiary}
-        multiline
-        textAlignVertical="top"
-        maxLength={500}
-      />
+        <TextInput
+          style={styles.input}
+          value={value}
+          onChangeText={onChange}
+          placeholder="Coffee at a quiet cafe, then a street art walk, ending with live jazz at sunset..."
+          placeholderTextColor={colors.text.secondary}
+          multiline
+          textAlignVertical="top"
+          maxLength={500}
+        />
 
-      <Text style={styles.charCount}>
-        {value.length}/500
-      </Text>
-    </KeyboardAvoidingView>
+        <Text style={styles.charCount}>{value.length}/500</Text>
+      </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
   );
 };
 
