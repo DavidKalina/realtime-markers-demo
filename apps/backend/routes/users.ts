@@ -9,6 +9,7 @@ import {
 import { getUserStats } from "../handlers/userStatsHandler";
 import { getUserBadges } from "../handlers/badgeHandlers";
 import { getAdventureScore } from "../handlers/adventureScoreHandler";
+import { getProfileInsights } from "../handlers/profileInsightsHandler";
 import { submitOnboardingProfile } from "../handlers/onboardingProfileHandler";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -36,7 +37,12 @@ usersRouter.post("/location", authMiddleware, updateLocationHandler);
 usersRouter.get("/me/stats", authMiddleware, getUserStats);
 usersRouter.get("/me/badges", authMiddleware, getUserBadges);
 usersRouter.get("/me/adventure-score", authMiddleware, getAdventureScore);
-usersRouter.post("/me/onboarding-profile", authMiddleware, submitOnboardingProfile);
+usersRouter.get("/me/profile-insights", authMiddleware, getProfileInsights);
+usersRouter.post(
+  "/me/onboarding-profile",
+  authMiddleware,
+  submitOnboardingProfile,
+);
 
 // Follow routes
 usersRouter.post("/:userId/follow", authMiddleware, toggleFollowHandler);

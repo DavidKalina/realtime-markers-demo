@@ -38,6 +38,7 @@ import {
 import { getTierForXP } from "@/utils/gamification";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useOnboarding } from "@/contexts/OnboardingContext";
+import { useProfileInsights } from "@/hooks/useProfileInsights";
 import DiscovererCard from "../EventDetails/DiscovererCard";
 import Screen from "../Layout/Screen";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
@@ -45,9 +46,13 @@ import DeleteAccountModalComponent from "./DeleteAccountModal";
 import UserStatsCard from "./UserStatsCard";
 import ActiveQuestBanner from "./ActiveQuestBanner";
 import RecentCompletions from "./RecentCompletions";
-import StreakBanner from "./StreakBanner";
 import BadgeGrid from "./BadgeGrid";
 import AdventureScoreCard from "./AdventureScoreCard";
+import ActivityHeatmap from "./ActivityHeatmap";
+import VenueDnaChart from "./VenueDnaChart";
+import StreakCalendar from "./StreakCalendar";
+import AdventureFootprint from "./AdventureFootprint";
+import PendingItineraries from "./PendingItineraries";
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -91,7 +96,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     refetch: refetchStats,
   } = useUserStats();
 
+  const { data: insights, refetch: refetchInsights } = useProfileInsights();
+
   const completionsRefetchRef = useRef<(() => Promise<void>) | null>(null);
+  const pendingRefetchRef = useRef<(() => Promise<void>) | null>(null);
   const badgesRefetchRef = useRef<(() => Promise<void>) | null>(null);
   const scoreRefetchRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -133,15 +141,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       await Promise.all([
         refetch(),
         refetchStats(),
+        refetchInsights(),
         useActiveItineraryStore.getState().refresh(),
         completionsRefetchRef.current?.(),
+        pendingRefetchRef.current?.(),
         badgesRefetchRef.current?.(),
         scoreRefetchRef.current?.(),
       ]);
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetch, refetchStats]);
+  }, [refetch, refetchStats, refetchInsights]);
 
   const handleThemeChange = (mode: ThemeMode) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -214,18 +224,22 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 <AdventureScoreCard onRefetchRef={scoreRefetchRef} />
               </Animated.View>
 
-              {/* Adventure Streak */}
-              {profileData?.currentStreak || profileData?.longestStreak ? (
+              {/* Adventure Streak (visual calendar) */}
+              {(profileData?.currentStreak ||
+                profileData?.longestStreak ||
+                (insights?.streakCalendar &&
+                  insights.streakCalendar.length > 0)) && (
                 <Animated.View
                   entering={FadeIn.duration(duration.normal).delay(160)}
                   style={styles.inlineSection}
                 >
-                  <StreakBanner
+                  <StreakCalendar
+                    data={insights?.streakCalendar ?? []}
                     currentStreak={profileData?.currentStreak ?? 0}
                     longestStreak={profileData?.longestStreak ?? 0}
                   />
                 </Animated.View>
-              ) : null}
+              )}
 
               {/* Badges */}
               <Animated.View
@@ -235,17 +249,61 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 <BadgeGrid onRefetchRef={badgesRefetchRef} />
               </Animated.View>
 
-              {/* Active Quest Banner */}
+              {/* Activity Heatmap */}
               <Animated.View
                 entering={FadeIn.duration(duration.normal).delay(320)}
+                style={styles.inlineSection}
+              >
+                <ActivityHeatmap data={insights?.activityHeatmap ?? []} />
+              </Animated.View>
+
+              {/* Venue DNA */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(400)}
+                style={styles.inlineSection}
+              >
+                <VenueDnaChart data={insights?.venueDna ?? []} />
+              </Animated.View>
+
+              {/* Adventure Footprint */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(480)}
+                style={styles.inlineSection}
+              >
+                <AdventureFootprint
+                  footprint={
+                    insights?.footprint ?? {
+                      totalDistanceMiles: 0,
+                      totalCheckins: 0,
+                      totalCompletedItineraries: 0,
+                      totalUniqueVenues: 0,
+                      totalStopsVisited: 0,
+                      avgStopsPerItinerary: 0,
+                      cities: [],
+                    }
+                  }
+                />
+              </Animated.View>
+
+              {/* Active Quest Banner */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(560)}
                 style={styles.inlineSection}
               >
                 <ActiveQuestBanner />
               </Animated.View>
 
+              {/* Pending Itineraries */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(600)}
+                style={styles.inlineSection}
+              >
+                <PendingItineraries onRefetchRef={pendingRefetchRef} />
+              </Animated.View>
+
               {/* Recent Completions (rate unrated) */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(400)}
+                entering={FadeIn.duration(duration.normal).delay(680)}
                 style={styles.inlineSection}
               >
                 <RecentCompletions onRefetchRef={completionsRefetchRef} />
@@ -253,7 +311,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
               {/* Saved */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(480)}
+                entering={FadeIn.duration(duration.normal).delay(720)}
                 style={styles.inlineSection}
               >
                 <Pressable
@@ -267,7 +325,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
               {/* Stats */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(480)}
+                entering={FadeIn.duration(duration.normal).delay(720)}
                 style={styles.inlineSection}
               >
                 <UserStatsCard stats={stats} isLoading={statsLoading} />
@@ -275,7 +333,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
               {/* Account */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(560)}
+                entering={FadeIn.duration(duration.normal).delay(800)}
                 style={styles.inlineSection}
               >
                 <Text style={styles.sectionLabel}>ACCOUNT</Text>
@@ -297,7 +355,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
               {/* Appearance */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(640)}
+                entering={FadeIn.duration(duration.normal).delay(880)}
                 style={styles.inlineSection}
               >
                 <Text style={styles.sectionLabel}>APPEARANCE</Text>
@@ -341,7 +399,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
               {/* Actions */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(720)}
+                entering={FadeIn.duration(duration.normal).delay(960)}
                 style={styles.inlineSection}
               >
                 <Pressable
@@ -355,7 +413,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   <ChevronRight size={14} color={colors.text.secondary} />
                 </Pressable>
                 <Pressable
-                  style={[styles.inlineAction, __DEV__ ? undefined : styles.inlineActionLast]}
+                  style={[
+                    styles.inlineAction,
+                    __DEV__ ? undefined : styles.inlineActionLast,
+                  ]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setShowDeleteDialog(true);

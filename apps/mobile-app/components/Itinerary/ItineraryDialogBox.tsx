@@ -65,7 +65,7 @@ interface CollapsibleSectionHandle {
   expand: () => void;
 }
 
-const CollapsibleSection = forwardRef<
+const CollapsibleSection = React.memo(forwardRef<
   CollapsibleSectionHandle,
   {
     title: string;
@@ -144,7 +144,7 @@ const CollapsibleSection = forwardRef<
       </Reanimated.View>
     </View>
   );
-});
+}));
 
 const collapsibleStyles = (colors: Colors) =>
   StyleSheet.create({
@@ -188,7 +188,7 @@ const collapsibleStyles = (colors: Colors) =>
 const SLIDER_TRACK_HEIGHT = 6;
 const SLIDER_THUMB_SIZE = 24;
 
-function BudgetSlider({
+const BudgetSlider = React.memo(function BudgetSlider({
   value,
   onChange,
   colors,
@@ -259,7 +259,7 @@ function BudgetSlider({
       </View>
     </View>
   );
-}
+});
 
 const budgetSliderStyles = (colors: Colors) =>
   StyleSheet.create({
@@ -361,6 +361,117 @@ const BUDGET_MAX = 200;
 const BUDGET_STEP = 5;
 
 const EXPANDED_NEARBY_HEIGHT = 160;
+
+/* ── Memoized list-item components ────────────────────────── */
+
+const PillItem = React.memo(function PillItem({
+  label,
+  value,
+  isActive,
+  onSelect,
+  styles,
+}: {
+  label: string;
+  value: string;
+  isActive: boolean;
+  onSelect: (v: string) => void;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const handlePress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onSelect(value);
+  }, [value, onSelect]);
+
+  return (
+    <Pressable
+      style={[styles.pill, isActive && styles.pillActive]}
+      onPress={handlePress}
+    >
+      <Text style={[styles.pillText, isActive && styles.pillTextActive]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+});
+
+const ChipItem = React.memo(function ChipItem({
+  emoji,
+  label,
+  value,
+  isActive,
+  onToggle,
+  styles,
+}: {
+  emoji: string;
+  label: string;
+  value: string;
+  isActive: boolean;
+  onToggle: (v: string) => void;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const handlePress = useCallback(() => {
+    onToggle(value);
+  }, [value, onToggle]);
+
+  return (
+    <Pressable
+      style={[styles.chip, isActive && styles.chipActive]}
+      onPress={handlePress}
+    >
+      <Text style={styles.chipEmoji}>{emoji}</Text>
+      <Text style={[styles.chipLabel, isActive && styles.chipLabelActive]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+});
+
+const NearbyCardItem = React.memo(function NearbyCardItem({
+  place,
+  isSelected,
+  onSelect,
+  styles,
+}: {
+  place: NearbyPlace;
+  isSelected: boolean;
+  onSelect: (place: NearbyPlace) => void;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const handlePress = useCallback(() => {
+    onSelect(place);
+  }, [place, onSelect]);
+
+  return (
+    <Pressable
+      style={[styles.nearbyCard, isSelected && styles.nearbyCardSelected]}
+      onPress={handlePress}
+    >
+      <Text style={styles.nearbyName} numberOfLines={1}>
+        {place.name}
+      </Text>
+      <View style={styles.nearbySubRow}>
+        {place.primaryType && (
+          <Text style={styles.nearbyType} numberOfLines={1}>
+            {place.primaryType}
+          </Text>
+        )}
+        {place.rating != null && (
+          <Text style={styles.nearbyRating}>
+            {"★"}
+            {place.rating.toFixed(1)}
+          </Text>
+        )}
+        {place.distance != null && (
+          <Text style={styles.nearbyDistance}>
+            {place.distance < 1000
+              ? `${place.distance}m`
+              : `${(place.distance / 1000).toFixed(1)}km`}
+          </Text>
+        )}
+      </View>
+    </Pressable>
+  );
+});
 
 type Phase = "collapsed" | "nearby" | "form" | "generating" | "result";
 
@@ -917,6 +1028,12 @@ export default function ItineraryDialogBox({
       );
   }, []);
 
+  const toggleIntention = useCallback((value: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPreferencesActive(false);
+    setSelectedIntention((prev) => (prev === value ? null : value));
+  }, []);
+
   const toggleActivity = useCallback((value: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPreferencesActive(false);
@@ -1034,7 +1151,10 @@ export default function ItineraryDialogBox({
     [city, plannedDate, trackJob, anchorStops],
   );
 
-  const hasAnchors = anchorStops && anchorStops.length > 0;
+  const hasAnchors = useMemo(
+    () => anchorStops && anchorStops.length > 0,
+    [anchorStops],
+  );
 
   const handleGenerate = useCallback(() => {
     if (!city && !hasAnchors) {
@@ -1265,43 +1385,15 @@ export default function ItineraryDialogBox({
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.nearbyScrollContent}
                 >
-                  {nearbyResults.map((place) => {
-                    const isSelected = selectedNearbyPlaceId === place.placeId;
-                    return (
-                      <Pressable
-                        key={place.placeId}
-                        style={[
-                          styles.nearbyCard,
-                          isSelected && styles.nearbyCardSelected,
-                        ]}
-                        onPress={() => handleNearbySelectInternal(place)}
-                      >
-                        <Text style={styles.nearbyName} numberOfLines={1}>
-                          {place.name}
-                        </Text>
-                        <View style={styles.nearbySubRow}>
-                          {place.primaryType && (
-                            <Text style={styles.nearbyType} numberOfLines={1}>
-                              {place.primaryType}
-                            </Text>
-                          )}
-                          {place.rating != null && (
-                            <Text style={styles.nearbyRating}>
-                              {"★"}
-                              {place.rating.toFixed(1)}
-                            </Text>
-                          )}
-                          {place.distance != null && (
-                            <Text style={styles.nearbyDistance}>
-                              {place.distance < 1000
-                                ? `${place.distance}m`
-                                : `${(place.distance / 1000).toFixed(1)}km`}
-                            </Text>
-                          )}
-                        </View>
-                      </Pressable>
-                    );
-                  })}
+                  {nearbyResults.map((place) => (
+                    <NearbyCardItem
+                      key={place.placeId}
+                      place={place}
+                      isSelected={selectedNearbyPlaceId === place.placeId}
+                      onSelect={handleNearbySelectInternal}
+                      styles={styles}
+                    />
+                  ))}
                 </ScrollView>
               )}
             </View>
@@ -1435,28 +1527,14 @@ export default function ItineraryDialogBox({
                     contentContainerStyle={styles.pillRow}
                   >
                     {cityOptions.map((opt) => (
-                      <Pressable
+                      <PillItem
                         key={opt.city}
-                        style={[
-                          styles.pill,
-                          selectedCity === opt.city && styles.pillActive,
-                        ]}
-                        onPress={() => {
-                          Haptics.impactAsync(
-                            Haptics.ImpactFeedbackStyle.Light,
-                          );
-                          setSelectedCity(opt.city);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.pillText,
-                            selectedCity === opt.city && styles.pillTextActive,
-                          ]}
-                        >
-                          {opt.label}
-                        </Text>
-                      </Pressable>
+                        label={opt.label}
+                        value={opt.city}
+                        isActive={selectedCity === opt.city}
+                        onSelect={setSelectedCity}
+                        styles={styles}
+                      />
                     ))}
                   </ScrollView>
                 </View>
@@ -1528,26 +1606,14 @@ export default function ItineraryDialogBox({
                   contentContainerStyle={styles.pillRow}
                 >
                   {dateOptions.map((opt) => (
-                    <Pressable
+                    <PillItem
                       key={opt.value}
-                      style={[
-                        styles.pill,
-                        plannedDate === opt.value && styles.pillActive,
-                      ]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setPlannedDate(opt.value);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.pillText,
-                          plannedDate === opt.value && styles.pillTextActive,
-                        ]}
-                      >
-                        {opt.label}
-                      </Text>
-                    </Pressable>
+                      label={opt.label}
+                      value={opt.value}
+                      isActive={plannedDate === opt.value}
+                      onSelect={setPlannedDate}
+                      styles={styles}
+                    />
                   ))}
                 </ScrollView>
               </CollapsibleSection>
@@ -1753,26 +1819,17 @@ export default function ItineraryDialogBox({
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.activityScroll}
                 >
-                  {ACTIVITY_OPTIONS.map((opt) => {
-                    const isSelected = selectedActivities.includes(opt.value);
-                    return (
-                      <Pressable
-                        key={opt.value}
-                        style={[styles.chip, isSelected && styles.chipActive]}
-                        onPress={() => toggleActivity(opt.value)}
-                      >
-                        <Text style={styles.chipEmoji}>{opt.emoji}</Text>
-                        <Text
-                          style={[
-                            styles.chipLabel,
-                            isSelected && styles.chipLabelActive,
-                          ]}
-                        >
-                          {opt.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                  {ACTIVITY_OPTIONS.map((opt) => (
+                    <ChipItem
+                      key={opt.value}
+                      emoji={opt.emoji}
+                      label={opt.label}
+                      value={opt.value}
+                      isActive={selectedActivities.includes(opt.value)}
+                      onToggle={toggleActivity}
+                      styles={styles}
+                    />
+                  ))}
                 </ScrollView>
               </CollapsibleSection>
 
@@ -1789,31 +1846,15 @@ export default function ItineraryDialogBox({
                   contentContainerStyle={styles.pillRow}
                 >
                   {INTENTION_OPTIONS.map((opt) => (
-                    <Pressable
+                    <ChipItem
                       key={opt.value}
-                      style={[
-                        styles.chip,
-                        selectedIntention === opt.value && styles.chipActive,
-                      ]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setPreferencesActive(false);
-                        setSelectedIntention((prev) =>
-                          prev === opt.value ? null : opt.value,
-                        );
-                      }}
-                    >
-                      <Text style={styles.chipEmoji}>{opt.emoji}</Text>
-                      <Text
-                        style={[
-                          styles.chipLabel,
-                          selectedIntention === opt.value &&
-                            styles.chipLabelActive,
-                        ]}
-                      >
-                        {opt.label}
-                      </Text>
-                    </Pressable>
+                      emoji={opt.emoji}
+                      label={opt.label}
+                      value={opt.value}
+                      isActive={selectedIntention === opt.value}
+                      onToggle={toggleIntention}
+                      styles={styles}
+                    />
                   ))}
                 </ScrollView>
               </CollapsibleSection>
@@ -2073,6 +2114,7 @@ const createStyles = (colors: Colors) =>
     footerRow: {
       flexDirection: "row",
       gap: 8,
+      marginTop: spacing.sm,
       paddingTop: spacing.md,
       shadowColor: "#000",
       shadowOffset: { width: 0, height: -4 },
@@ -2087,12 +2129,12 @@ const createStyles = (colors: Colors) =>
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: "rgba(134, 239, 172, 0.25)",
-      paddingVertical: 10,
+      paddingVertical: 8,
       alignItems: "center",
     },
     generateButtonText: {
       fontFamily: fontFamily.mono,
-      fontSize: 13,
+      fontSize: 12,
       color: GREEN_ACCENT,
       fontWeight: "700",
       textTransform: "uppercase",
@@ -2103,12 +2145,12 @@ const createStyles = (colors: Colors) =>
       borderWidth: 1,
       borderColor: "rgba(134, 239, 172, 0.25)",
       borderRadius: radius.md,
-      paddingVertical: 10,
+      paddingVertical: 8,
       alignItems: "center",
     },
     surpriseButtonText: {
       fontFamily: fontFamily.mono,
-      fontSize: 13,
+      fontSize: 12,
       color: colors.text.secondary,
       fontWeight: "700",
       textTransform: "uppercase",

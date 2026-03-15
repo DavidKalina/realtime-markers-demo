@@ -16,6 +16,7 @@ import { RitualsModule } from "./api/modules/rituals";
 import { BadgesModule } from "./api/modules/badges";
 import { AdventureScoreModule } from "./api/modules/adventureScore";
 import { OnboardingModule } from "./api/modules/onboarding";
+import { ProfileInsightsModule } from "./api/modules/profileInsights";
 
 // Re-export types and enums
 export * from "./api/base/types";
@@ -34,6 +35,7 @@ export * from "./api/modules/rituals";
 export * from "./api/modules/badges";
 export * from "./api/modules/adventureScore";
 export * from "./api/modules/onboarding";
+export * from "./api/modules/profileInsights";
 
 class ApiClient extends BaseApiClient {
   private static instance: ApiClient | null = null;
@@ -52,6 +54,7 @@ class ApiClient extends BaseApiClient {
   private _badges: BadgesModule | null = null;
   private _adventureScore: AdventureScoreModule | null = null;
   private _onboarding: OnboardingModule | null = null;
+  private _profileInsights: ProfileInsightsModule | null = null;
 
   private constructor(baseUrl: string) {
     super(baseUrl);
@@ -173,6 +176,13 @@ class ApiClient extends BaseApiClient {
       this._onboarding = new OnboardingModule(this);
     }
     return this._onboarding;
+  }
+
+  public get profileInsights(): ProfileInsightsModule {
+    if (!this._profileInsights) {
+      this._profileInsights = new ProfileInsightsModule(this);
+    }
+    return this._profileInsights;
   }
 
   override setBaseUrl(baseUrl: string): void {
