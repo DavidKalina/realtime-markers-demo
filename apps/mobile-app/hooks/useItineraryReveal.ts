@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
+import type { CheckinReplay } from "@/stores/useActiveItineraryStore";
 import { eventBroker, EventTypes } from "@/services/EventBroker";
 import { LINE_DRAW_MS } from "@/components/Itinerary/ItineraryRouteLayer";
 
@@ -20,6 +21,16 @@ const CHECKIN_CELEBRATION_MS = 2200;
 
 /** Camera fly duration for the initial approach to the first stop. */
 const INITIAL_FLY_MS = 1800;
+
+/** Camera fly duration between replay stops. */
+const REPLAY_FLY_MS = 1200;
+
+/**
+ * Track itinerary IDs we've already seen on first mount so we can
+ * distinguish "first activation" (no refresh needed) from "foreground
+ * return" (refresh to catch missed check-ins).
+ */
+const seenItineraryIds = new Set<string>();
 
 interface UseItineraryRevealOptions {
   cameraRef: React.RefObject<{
@@ -43,13 +54,20 @@ interface UseItineraryRevealResult {
  * 2. For each subsequent stop: dwell → camera flies to next stop, line segment + pin appear
  * 3. After all stops, zoom out to fit the full route
  *
- * Also handles deferred MapView layer mount and ITINERARY_CHECKIN subscription.
+ * Also handles deferred MapView layer mount, ITINERARY_CHECKIN subscription,
+ * and replaying check-in animations missed while the app was backgrounded.
  */
 export function useItineraryReveal({
   cameraRef,
 }: UseItineraryRevealOptions): UseItineraryRevealResult {
   const activeItinerary = useActiveItineraryStore((s) => s.itinerary);
   const markCheckedIn = useActiveItineraryStore((s) => s.markCheckedIn);
+  const pendingReplays = useActiveItineraryStore(
+    (s) => s.pendingCheckinReplays,
+  );
+  const consumePendingReplays = useActiveItineraryStore(
+    (s) => s.consumePendingReplays,
+  );
 
   // ── Deferred layer mount ──────────────────────────────────
   const [layersSafe, setLayersSafe] = useState(false);
@@ -66,6 +84,87 @@ export function useItineraryReveal({
       setLayersSafe(false);
     };
   }, [activeItinerary?.id]);
+
+  // ── Foreground refresh — detect check-ins missed while backgrounded ──
+  useEffect(() => {
+    if (!layersSafe || !activeItinerary) return;
+
+    if (seenItineraryIds.has(activeItinerary.id)) {
+      // Component re-mounted for a known itinerary → foreground return.
+      // Refresh from server to detect any check-ins that happened via push
+      // while the app was backgrounded.
+      useActiveItineraryStore.getState().refresh();
+    } else {
+      // First time seeing this itinerary — no refresh needed.
+      seenItineraryIds.add(activeItinerary.id);
+    }
+  }, [layersSafe, activeItinerary?.id]);
+
+  // ── Replay missed check-in animations ───────────────────
+  const replayTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    if (!layersSafe || pendingReplays.length === 0) return;
+
+    const replays = consumePendingReplays();
+    if (replays.length === 0) return;
+
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+
+    const replayOne = (replay: CheckinReplay, delay: number) => {
+      // Fly camera to the checked-in stop
+      timeouts.push(
+        setTimeout(() => {
+          const current = useActiveItineraryStore.getState().itinerary;
+          if (!current) return;
+
+          const item = current.items.find((i) => i.id === replay.itemId);
+          if (item?.latitude && item?.longitude) {
+            cameraRef.current?.setCamera({
+              centerCoordinate: [Number(item.longitude), Number(item.latitude)],
+              zoomLevel: 16,
+              animationDuration: 1000,
+              animationMode: "flyTo",
+            });
+          }
+
+          // Trigger pin celebration animation
+          markCheckedIn(replay.itemId, replay.checkedInAt);
+
+          // After celebration, fly to the next unchecked stop
+          timeouts.push(
+            setTimeout(() => {
+              const updated = useActiveItineraryStore.getState().itinerary;
+              if (!updated) return;
+
+              const nextStop = [...updated.items]
+                .sort((a, b) => a.sortOrder - b.sortOrder)
+                .find((i) => !i.checkedInAt);
+
+              if (nextStop?.latitude && nextStop?.longitude) {
+                cameraRef.current?.setCamera({
+                  centerCoordinate: [
+                    Number(nextStop.longitude),
+                    Number(nextStop.latitude),
+                  ],
+                  zoomLevel: 15,
+                  animationDuration: REPLAY_FLY_MS,
+                  animationMode: "flyTo",
+                });
+              }
+            }, CHECKIN_CELEBRATION_MS),
+          );
+        }, delay),
+      );
+    };
+
+    // Stagger replays: each one needs fly-in + celebration + fly-to-next
+    const staggerMs = CHECKIN_CELEBRATION_MS + REPLAY_FLY_MS + 500;
+    replays.forEach((replay, idx) => replayOne(replay, idx * staggerMs));
+
+    replayTimeoutsRef.current = timeouts;
+    return () => timeouts.forEach(clearTimeout);
+  }, [layersSafe, pendingReplays, consumePendingReplays, markCheckedIn, cameraRef]);
 
   // ── Check-in subscription ─────────────────────────────────
   useEffect(() => {

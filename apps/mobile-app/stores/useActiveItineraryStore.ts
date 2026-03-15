@@ -1,12 +1,19 @@
 import { create } from "zustand";
-import type { ItineraryResponse } from "@/services/api/modules/itineraries";
+import type {
+  ItineraryResponse,
+  ItineraryItemResponse,
+} from "@/services/api/modules/itineraries";
 import { apiClient } from "@/services/ApiClient";
 import { startBackgroundLocationTracking } from "@/hooks/useBackgroundLocation";
-import { useMapModeStore } from "@/stores/useMapModeStore";
 
 export interface CompletionData {
   itinerary: ItineraryResponse;
   completedAt: string;
+}
+
+export interface CheckinReplay {
+  itemId: string;
+  checkedInAt: string;
 }
 
 interface ActiveItineraryStore {
@@ -16,6 +23,8 @@ interface ActiveItineraryStore {
   isLoading: boolean;
   /** Data for the completion celebration overlay */
   completionData: CompletionData | null;
+  /** Check-ins that happened while backgrounded, waiting to be animated */
+  pendingCheckinReplays: CheckinReplay[];
 
   /** Activate an itinerary for check-in tracking */
   activate: (itinerary: ItineraryResponse) => Promise<boolean>;
@@ -25,12 +34,58 @@ interface ActiveItineraryStore {
   markCheckedIn: (itemId: string, checkedInAt: string) => void;
   /** Dismiss the completion celebration */
   dismissCompletion: () => void;
-  /** Refresh the active itinerary from server */
+  /** Refresh the active itinerary from server (detects missed check-ins) */
   refresh: () => Promise<void>;
   /** Load active itinerary on app start */
   loadActive: () => Promise<void>;
+  /** Consume pending replays atomically (returns and clears them) */
+  consumePendingReplays: () => CheckinReplay[];
   /** Clear state (e.g., on logout) */
   clear: () => void;
+}
+
+/**
+ * Compare local items against server items for the same itinerary.
+ * Returns items whose `checkedInAt` went from falsy → truthy (i.e., checked
+ * in on the server while the app was backgrounded).
+ */
+function detectMissedCheckins(
+  localItems: ItineraryItemResponse[],
+  serverItems: ItineraryItemResponse[],
+): CheckinReplay[] {
+  const replays: CheckinReplay[] = [];
+  for (const serverItem of serverItems) {
+    if (!serverItem.checkedInAt) continue;
+    const localItem = localItems.find((i) => i.id === serverItem.id);
+    if (localItem && !localItem.checkedInAt) {
+      replays.push({
+        itemId: serverItem.id,
+        checkedInAt: serverItem.checkedInAt,
+      });
+    }
+  }
+  return replays;
+}
+
+/**
+ * Given a server itinerary and missed check-ins, return a copy with
+ * those items' `checkedInAt` cleared so the pin animation can fire
+ * when `markCheckedIn` is called during replay.
+ */
+function nullCheckins(
+  itinerary: ItineraryResponse,
+  replays: CheckinReplay[],
+): ItineraryResponse {
+  if (replays.length === 0) return itinerary;
+  const replayIds = new Set(replays.map((r) => r.itemId));
+  return {
+    ...itinerary,
+    items: itinerary.items.map((item) =>
+      replayIds.has(item.id)
+        ? { ...item, checkedInAt: undefined }
+        : item,
+    ),
+  };
 }
 
 export const useActiveItineraryStore = create<ActiveItineraryStore>(
@@ -38,6 +93,7 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
     itinerary: null,
     isLoading: false,
     completionData: null,
+    pendingCheckinReplays: [],
 
     activate: async (itinerary) => {
       set({ isLoading: true });
@@ -67,7 +123,6 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
         console.error("[ActiveItinerary] Failed to deactivate:", err);
       }
       set({ itinerary: null, isLoading: false });
-      useMapModeStore.getState().enterExploreMode();
     },
 
     markCheckedIn: (itemId, checkedInAt) => {
@@ -95,7 +150,6 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
             },
             itinerary: null,
           });
-          useMapModeStore.getState().enterExploreMode();
         }, 2500);
       }
     },
@@ -107,8 +161,18 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
       if (!itinerary) return;
 
       try {
-        const updated = await apiClient.itineraries.getById(itinerary.id);
-        set({ itinerary: updated });
+        const fetched = await apiClient.itineraries.getById(itinerary.id);
+        const replays = detectMissedCheckins(itinerary.items, fetched.items);
+
+        if (replays.length > 0) {
+          // Null the new check-ins so the animation can play during replay
+          set({
+            itinerary: nullCheckins(fetched, replays),
+            pendingCheckinReplays: replays,
+          });
+        } else {
+          set({ itinerary: fetched });
+        }
       } catch (err) {
         console.error("[ActiveItinerary] Failed to refresh:", err);
       }
@@ -118,15 +182,40 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
       try {
         const result = await apiClient.itineraries.getActive();
         if (result.active && result.itinerary) {
-          set({ itinerary: result.itinerary });
-          useMapModeStore.getState().enterItineraryMode();
+          const { itinerary: prev } = get();
+          const fetched = result.itinerary;
+
+          // Detect check-ins that happened while app was killed/backgrounded
+          if (prev && prev.id === fetched.id) {
+            const replays = detectMissedCheckins(prev.items, fetched.items);
+            if (replays.length > 0) {
+              set({
+                itinerary: nullCheckins(fetched, replays),
+                pendingCheckinReplays: replays,
+              });
+              return;
+            }
+          }
+
+          set({ itinerary: fetched });
         }
       } catch (err) {
         console.error("[ActiveItinerary] Failed to load active:", err);
       }
     },
 
+    consumePendingReplays: () => {
+      const replays = get().pendingCheckinReplays;
+      set({ pendingCheckinReplays: [] });
+      return replays;
+    },
+
     clear: () =>
-      set({ itinerary: null, isLoading: false, completionData: null }),
+      set({
+        itinerary: null,
+        isLoading: false,
+        completionData: null,
+        pendingCheckinReplays: [],
+      }),
   }),
 );

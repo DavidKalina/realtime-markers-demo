@@ -169,7 +169,7 @@ Next.js 14 App Router. Uses Mapbox GL for map visualization, Recharts for analyt
 Expo Router with `app/` directory for screens. Uses `@rnmapbox/maps`, Zustand stores, and Expo modules (camera, location, haptics, notifications).
 
 **Screens:**
-- `index` — Map home. Two modes: "explore" (discovery markers) and "itinerary" (active quest with AdventureHUD). Long-press to drop anchor pins for planning. FABs for recenter, category filter, area scan, job status, mode toggle.
+- `index` — Map home. Single unified view — event markers always visible, active itinerary route/waypoints/AdventureHUD overlay on top when a quest is active. Long-press to drop anchor pins for planning. FABs for recenter, category filter, area scan, job status.
 - `scan` — Camera flyer scanning with guide rail overlay, auto-crop, flash toggle, gallery picker. Processing overlay shows GPT-4o extraction progress via SSE.
 - `itineraries/index` — Swipeable itinerary list with active indicator, generation status (animated emoji reel), pull-to-search, infinite scroll.
 - `itineraries/[id]` — Itinerary detail with animated hero stats, timeline view of stops (check-in times, descriptions, pro tips, "why this stop"), map preview, activate/rate/share actions.
@@ -180,7 +180,7 @@ Expo Router with `app/` directory for screens. Uses `@rnmapbox/maps`, Zustand st
 - `search`, `saved`, `details`, `cluster`, `category/[id]` — Event browsing, bookmarks, detail views.
 - `login`, `register`, `onboarding`, `forgot-password`, `reset-password` — Auth screens with Google/Facebook OAuth.
 
-**Key Zustand stores:** `useActiveItineraryStore` (active quest state), `useAnchorPlanStore` (planning pins, max 3), `useXPStore` (pending XP/level-ups/badges), `useMapModeStore` (explore vs itinerary), `useLocationStore` (markers, selection, viewport, WebSocket status), `useFilterStore` (category preferences), `useItineraryJobStore` (generation tracking).
+**Key Zustand stores:** `useActiveItineraryStore` (active quest state), `useAnchorPlanStore` (planning pins, max 3), `useXPStore` (pending XP/level-ups/badges), `useLocationStore` (markers, selection, viewport, WebSocket status), `useFilterStore` (category preferences), `useItineraryJobStore` (generation tracking).
 
 **Key hooks:** `useMapWebSocket` (real-time viewport filtering), `useEventSearch`, `useSavedEvents`, `useThirdSpaces`, `useUserStats`, `useLeaderboard`, `useCameraFollowMode`, `useItineraryReveal` (progressive waypoint reveal on map).
 

@@ -1,7 +1,6 @@
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
 import { apiClient } from "@/services/ApiClient";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
-import { useMapModeStore } from "@/stores/useMapModeStore";
 import {
   fontFamily,
   fontWeight,
@@ -12,7 +11,7 @@ import {
 } from "@/theme";
 import * as Haptics from "expo-haptics";
 import { ChevronDown, Play, X } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -89,30 +88,46 @@ const ItineraryCarousel: React.FC<ItineraryCarouselProps> = ({
     fetchItineraries();
   }, [fetchItineraries]);
 
+  // Stable ref for preview callback to avoid stale closures
+  const onPreviewStopRef = useRef(onPreviewStop);
+  onPreviewStopRef.current = onPreviewStop;
+  const isInitialLoadRef = useRef(true);
+
   // Emit preview stop when index changes or itineraries load
   useEffect(() => {
-    if (!onPreviewStop || itineraries.length === 0) return;
+    if (!onPreviewStopRef.current || itineraries.length === 0) return;
     const current = itineraries[activeIndex];
     if (!current) return;
     const firstStop = [...current.items]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .find((i) => i.latitude != null && i.longitude != null);
-    if (firstStop) {
-      onPreviewStop({
+    if (!firstStop) return;
+
+    const emitStop = () => {
+      onPreviewStopRef.current?.({
         coordinate: [Number(firstStop.longitude), Number(firstStop.latitude)],
         emoji: firstStop.emoji || "\u{1F4CD}",
         color: STOP_COLORS[0],
         title: firstStop.title || "",
       });
+    };
+
+    // On initial load, delay slightly so map camera is settled
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      const timer = setTimeout(emitStop, 400);
+      return () => clearTimeout(timer);
     }
-  }, [activeIndex, itineraries, onPreviewStop]);
+
+    emitStop();
+  }, [activeIndex, itineraries]);
 
   // Clear preview on unmount
   useEffect(() => {
     return () => {
-      onPreviewStop?.(null);
+      onPreviewStopRef.current?.(null);
     };
-  }, [onPreviewStop]);
+  }, []);
 
   // Horizontal swipe tracking (collapsed only)
   const swipeX = useSharedValue(0);
@@ -179,9 +194,7 @@ const ItineraryCarousel: React.FC<ItineraryCarouselProps> = ({
     setActivating(true);
     const success = await activate(itinerary);
     setActivating(false);
-    if (success) {
-      useMapModeStore.getState().enterItineraryMode();
-    } else {
+    if (!success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   }, [itineraries, activeIndex, activate]);

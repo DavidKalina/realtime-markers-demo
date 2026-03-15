@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from "react";
 import { useLocationStore } from "@/stores/useLocationStore";
-import { useMapModeStore } from "@/stores/useMapModeStore";
 import { MapboxViewport } from "@/types/types";
 
 interface UseMapViewportOptions {
@@ -37,9 +36,6 @@ export function useMapViewport({
 
   const debouncedUpdateViewport = useCallback(
     (viewport: MapboxViewport) => {
-      // Skip viewport updates in itinerary mode to prevent marker floods
-      if (useMapModeStore.getState().mode === "itinerary") return;
-
       const zoom = useLocationStore.getState().zoomLevel;
       const wait = getClientDebounceMs(zoom);
 

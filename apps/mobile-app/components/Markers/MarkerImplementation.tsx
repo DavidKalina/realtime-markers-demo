@@ -42,6 +42,8 @@ interface ClusteredMapMarkersProps {
   markers?: Marker[];
   currentZoom?: number;
   viewport: MapboxViewport;
+  /** Reduce marker opacity (e.g. when active itinerary waypoints need focus) */
+  dimmed?: boolean;
 }
 
 // Maximum number of MarkerView slots pre-mounted inside the MapView.
@@ -264,6 +266,7 @@ const ClusterSlotContent = React.memo(
 interface PoolSlotData {
   coordinate: [number, number];
   anchor: { x: number; y: number };
+  dimmed?: boolean;
   content:
     | { type: "marker"; props: React.ComponentProps<typeof MarkerSlotContent> }
     | {
@@ -275,12 +278,17 @@ interface PoolSlotData {
 
 const PoolSlot = React.memo(
   ({ data }: { data: PoolSlotData }) => {
+    const opacity = data.dimmed ? 0.35 : 1;
     return (
       <MapboxGL.MarkerView coordinate={data.coordinate} anchor={data.anchor}>
         {data.content?.type === "marker" ? (
-          <MarkerSlotContent {...data.content.props} />
+          <Animated.View style={{ opacity }}>
+            <MarkerSlotContent {...data.content.props} />
+          </Animated.View>
         ) : data.content?.type === "cluster" ? (
-          <ClusterSlotContent {...data.content.props} />
+          <Animated.View style={{ opacity }}>
+            <ClusterSlotContent {...data.content.props} />
+          </Animated.View>
         ) : null}
       </MapboxGL.MarkerView>
     );
@@ -288,6 +296,7 @@ const PoolSlot = React.memo(
   (prev, next) => {
     // Only re-render if the slot data actually changed
     if (prev.data.coordinate !== next.data.coordinate) return false;
+    if (prev.data.dimmed !== next.data.dimmed) return false;
     if (prev.data.content === null && next.data.content === null) return true;
     if (prev.data.content === null || next.data.content === null) return false;
     if (prev.data.content.type !== next.data.content.type) return false;
@@ -301,7 +310,7 @@ const PoolSlot = React.memo(
 // ---------------------------------------------------------------------------
 
 export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
-  React.memo(({ currentZoom = 14, viewport }) => {
+  React.memo(({ currentZoom = 14, viewport, dimmed = false }) => {
     // Zoom tier: high (14+) = full animations, mid (10-13) = subtle, low (<10) = static
     const isHighZoom = currentZoom >= 14;
     const isMidZoom = currentZoom >= 10 && currentZoom < 14;
@@ -632,6 +641,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           slots.push({
             coordinate: processed.item.coordinates,
             anchor: { x: 0.5, y: 0.5 },
+            dimmed,
             content: {
               type: "cluster",
               props: {
@@ -650,6 +660,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
           slots.push({
             coordinate: processed.item.coordinates,
             anchor: { x: 0.5, y: 1.0 },
+            dimmed,
             content: {
               type: "marker",
               props: {
@@ -679,7 +690,7 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       }
 
       return slots;
-    }, [stableItems, breathingScale, clusterPulse, effectivePoolSize]);
+    }, [stableItems, breathingScale, clusterPulse, effectivePoolSize, dimmed]);
 
     return (
       <>

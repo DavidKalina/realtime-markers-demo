@@ -35,7 +35,7 @@ import { useColors, type Colors } from "@/theme";
 import MapboxGL from "@rnmapbox/maps";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
-import { ClipboardList, Map, Navigation, Radar } from "lucide-react-native";
+import { ClipboardList, Navigation, Radar } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -70,7 +70,6 @@ import AdventureHUD from "@/components/Itinerary/AdventureHUD";
 import ItineraryCarousel from "@/components/Itinerary/ItineraryCarousel";
 import { useAnchorPlanStore } from "@/stores/useAnchorPlanStore";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
-import { useMapModeStore } from "@/stores/useMapModeStore";
 import { useItineraryReveal } from "@/hooks/useItineraryReveal";
 import { useItineraryPreviewOrbit } from "@/hooks/useItineraryPreviewOrbit";
 import { useSimulateItinerary } from "@/hooks/useSimulateItinerary";
@@ -102,33 +101,38 @@ const resumeStyles = StyleSheet.create({
   },
 });
 
-const modeToggleStyles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    bottom: 140,
-    right: 16,
-    zIndex: 1000,
-  },
-});
-
 const previewMarkerStyles = StyleSheet.create({
+  container: {
+    width: 80,
+    height: 80,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pulseRing: {
+    position: "absolute",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: "rgba(134,239,172,0.6)",
+  },
   dot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#93c5fd",
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#86efac",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 3,
-    borderColor: "rgba(255,255,255,0.9)",
+    borderColor: "#fff",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 8,
   },
   emoji: {
-    fontSize: 18,
+    fontSize: 22,
   },
 });
 
@@ -138,15 +142,42 @@ const planBannerStyles = StyleSheet.create({
     bottom: 16,
     left: 0,
     right: 0,
-    zIndex: 1001,
+    zIndex: 1000,
   },
   carousel: {
     position: "absolute",
     bottom: 16,
     left: 0,
     right: 0,
-    zIndex: 1000,
+    zIndex: 1001,
   },
+});
+
+/** Pulsing ring behind the preview marker so it stands out from event markers */
+const PreviewPulseRing = React.memo(() => {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(0.6);
+  useEffect(() => {
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.6, { duration: 1200, easing: Easing.out(Easing.ease) }),
+        withTiming(1, { duration: 0 }),
+      ),
+      -1,
+    );
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0, { duration: 1200, easing: Easing.out(Easing.ease) }),
+        withTiming(0.6, { duration: 0 }),
+      ),
+      -1,
+    );
+  }, []);
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+  return <RAnimated.View style={[previewMarkerStyles.pulseRing, animStyle]} />;
 });
 
 function HomeScreenContent() {
@@ -157,10 +188,6 @@ function HomeScreenContent() {
   const router = useRouter();
   const { publish } = useEventBroker();
   const activeItinerary = useActiveItineraryStore((s) => s.itinerary);
-  const mode = useMapModeStore((s) => s.mode);
-  const isExplore = mode === "explore";
-  const enterItineraryMode = useMapModeStore((s) => s.enterItineraryMode);
-  const enterExploreMode = useMapModeStore((s) => s.enterExploreMode);
   const { mapStyle, isPitched } = useMapStyle();
   const { activeCount } = useJobProgressContext();
   const openJobSheet = useJobSheetStore((s) => s.open);
@@ -387,12 +414,17 @@ function HomeScreenContent() {
   );
 
   // Memoize markers component for better performance
+  const hasActiveQuest = !!activeItinerary;
   const markersComponent = useMemo(() => {
     if (!shouldRenderMarkers || !currentViewport) return null;
     return (
-      <ClusteredMapMarkers viewport={currentViewport} currentZoom={zoomLevel} />
+      <ClusteredMapMarkers
+        viewport={currentViewport}
+        currentZoom={zoomLevel}
+        dimmed={hasActiveQuest}
+      />
     );
-  }, [shouldRenderMarkers, currentViewport, zoomLevel]);
+  }, [shouldRenderMarkers, currentViewport, zoomLevel, hasActiveQuest]);
 
   // Memoize user location layer
   const userLocationLayer = useMemo(() => {
@@ -428,20 +460,20 @@ function HomeScreenContent() {
     [addAnchor, publish],
   );
 
-  // Track explore mode in a ref so the worklet long-press handler can read it
-  const isExploreRef = useRef(isExplore);
-  isExploreRef.current = isExplore;
+  // Track active itinerary in a ref so the worklet long-press handler can read it
+  const hasActiveItineraryRef = useRef(!!activeItinerary);
+  hasActiveItineraryRef.current = !!activeItinerary;
 
   // Long press handler — drops anchor pin (pin has its own ripple)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleMapLongPress = useCallback((event: any) => {
     "worklet";
-    // Drop anchor pin — only in explore mode
+    // Drop anchor pin — skip if an itinerary is active
     if (event?.geometry?.coordinates) {
       const [lng, lat] = event.geometry.coordinates;
       if (typeof lat === "number" && typeof lng === "number") {
         scheduleOnRN((coords: { lat: number; lng: number }) => {
-          if (!isExploreRef.current) return;
+          if (hasActiveItineraryRef.current) return;
           handleAddAnchor(coords);
         }, { lat, lng });
       }
@@ -601,8 +633,6 @@ function HomeScreenContent() {
   const fabOpacity2 = useSharedValue(0);
   const fabSlide3 = useSharedValue(20);
   const fabOpacity3 = useSharedValue(0);
-  const fabSlide4 = useSharedValue(20);
-  const fabOpacity4 = useSharedValue(0);
   useEffect(() => {
     const springCfg = { damping: 14, stiffness: 160 };
     fabSlide0.value = withSpring(0, springCfg);
@@ -613,8 +643,6 @@ function HomeScreenContent() {
     fabOpacity2.value = withDelay(100, withSpring(1, springCfg));
     fabSlide3.value = withDelay(150, withSpring(0, springCfg));
     fabOpacity3.value = withDelay(150, withSpring(1, springCfg));
-    fabSlide4.value = withDelay(200, withSpring(0, springCfg));
-    fabOpacity4.value = withDelay(200, withSpring(1, springCfg));
   }, []);
   const fabStyle0 = useAnimatedStyle(() => ({
     opacity: fabOpacity0.value,
@@ -631,10 +659,6 @@ function HomeScreenContent() {
   const fabStyle3 = useAnimatedStyle(() => ({
     opacity: fabOpacity3.value,
     transform: [{ translateY: fabSlide3.value }],
-  }));
-  const fabStyle4 = useAnimatedStyle(() => ({
-    opacity: fabOpacity4.value,
-    transform: [{ translateY: fabSlide4.value }],
   }));
   // Subtle pulse on jobs FAB when work is in-flight
   const jobPulse = useSharedValue(1);
@@ -867,10 +891,13 @@ function HomeScreenContent() {
                 coordinate={previewStop.coordinate}
                 anchor={{ x: 0.5, y: 0.5 }}
               >
-                <View style={previewMarkerStyles.dot}>
-                  <Text style={previewMarkerStyles.emoji}>
-                    {previewStop.emoji}
-                  </Text>
+                <View style={previewMarkerStyles.container}>
+                  <PreviewPulseRing />
+                  <View style={previewMarkerStyles.dot}>
+                    <Text style={previewMarkerStyles.emoji}>
+                      {previewStop.emoji}
+                    </Text>
+                  </View>
                 </View>
               </MapboxGL.MarkerView>
             )}
@@ -893,44 +920,36 @@ function HomeScreenContent() {
 
         <MapLegend />
 
-        {isExplore && floatingButtonsSection}
+        {floatingButtonsSection}
 
-        {/* Mode toggle FAB — always visible */}
-        <RAnimated.View style={[modeToggleStyles.container, fabStyle4]}>
-          <TouchableOpacity
-            style={styles.recenterButton}
-            onPress={isExplore ? enterItineraryMode : enterExploreMode}
-            activeOpacity={0.7}
-          >
-            <Map size={22} color="#86efac" />
-          </TouchableOpacity>
-        </RAnimated.View>
-
-        {isExplore && !selectedItem && !activeItinerary && (
-          <ItineraryDialogBox
-            city={anchorCity ?? undefined}
-            anchorStops={anchorAnchors.length > 0 ? anchorAnchors : undefined}
-            onDismiss={handleAnchorDismiss}
-            onItineraryResult={handleItineraryResult}
-            nearbyPlaces={nearbyPlacesInput}
-            onNearbySelect={handleNearbySelect}
-            onNearbyKeepPin={handleNearbyKeepPin}
-            onNearbyDismiss={handleNearbyDismiss}
-            onFlyTo={handleSearchFlyTo}
-            onSearchPlaceAnchor={handleSearchPlaceAnchor}
-            onAnchorEdit={handleAnchorEdit}
-            onAnchorRemove={handleAnchorRemove}
-            style={planBannerStyles.dialogBox}
-          />
+        {!selectedItem && !activeItinerary && (
+          <>
+            {/* Planning dialog — always mounted as fallback; carousel covers it when visible */}
+            <ItineraryDialogBox
+              city={anchorCity ?? undefined}
+              anchorStops={anchorAnchors.length > 0 ? anchorAnchors : undefined}
+              onDismiss={handleAnchorDismiss}
+              onItineraryResult={handleItineraryResult}
+              nearbyPlaces={nearbyPlacesInput}
+              onNearbySelect={handleNearbySelect}
+              onNearbyKeepPin={handleNearbyKeepPin}
+              onNearbyDismiss={handleNearbyDismiss}
+              onFlyTo={handleSearchFlyTo}
+              onSearchPlaceAnchor={handleSearchPlaceAnchor}
+              onAnchorEdit={handleAnchorEdit}
+              onAnchorRemove={handleAnchorRemove}
+              style={planBannerStyles.dialogBox}
+            />
+            {/* Carousel — shows over dialog when user has itineraries and isn't planning */}
+            {anchorAnchors.length === 0 && (
+              <ItineraryCarousel
+                style={planBannerStyles.carousel}
+                onPreviewStop={handlePreviewStop}
+              />
+            )}
+          </>
         )}
-        {!isExplore && !activeItinerary && (
-          <ItineraryCarousel
-            style={planBannerStyles.carousel}
-            onBack={enterExploreMode}
-            onPreviewStop={handlePreviewStop}
-          />
-        )}
-        {!isExplore && activeItinerary && (
+        {activeItinerary && (
           <AdventureHUD style={planBannerStyles.dialogBox} />
         )}
       </View>

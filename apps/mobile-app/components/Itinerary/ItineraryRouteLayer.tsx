@@ -132,41 +132,48 @@ export default function ItineraryRouteLayer({ revealedStopCount }: Props) {
     );
   }
 
-  if (!completedLine && !upcomingLine) return null;
+  // Always mount both ShapeSources so Mapbox doesn't error when toggling
+  // between completed/upcoming states. Empty FeatureCollection as fallback.
+  const emptyShape = useMemo(
+    () => ({
+      type: "FeatureCollection" as const,
+      features: [] as never[],
+    }),
+    [],
+  );
 
   return (
     <>
-      {completedLine && (
-        <MapboxGL.ShapeSource
-          id="itinerary-completed-line"
-          shape={completedLine}
-        >
-          <MapboxGL.LineLayer
-            id="itinerary-completed-line-layer"
-            style={{
-              lineColor: "#22c55e",
-              lineWidth: 4,
-              lineCap: "round",
-              lineJoin: "round",
-            }}
-          />
-        </MapboxGL.ShapeSource>
-      )}
-      {upcomingLine && (
-        <MapboxGL.ShapeSource id="itinerary-upcoming-line" shape={upcomingLine}>
-          <MapboxGL.LineLayer
-            id="itinerary-upcoming-line-layer"
-            style={{
-              lineColor: "#86efac",
-              lineWidth: 3,
-              lineCap: "round",
-              lineJoin: "round",
-              lineOpacity: dashOpacity,
-              lineDasharray: [2, 3],
-            }}
-          />
-        </MapboxGL.ShapeSource>
-      )}
+      <MapboxGL.ShapeSource
+        id="itinerary-completed-line"
+        shape={completedLine ?? emptyShape}
+      >
+        <MapboxGL.LineLayer
+          id="itinerary-completed-line-layer"
+          style={{
+            lineColor: "#22c55e",
+            lineWidth: 4,
+            lineCap: "round",
+            lineJoin: "round",
+          }}
+        />
+      </MapboxGL.ShapeSource>
+      <MapboxGL.ShapeSource
+        id="itinerary-upcoming-line"
+        shape={upcomingLine ?? emptyShape}
+      >
+        <MapboxGL.LineLayer
+          id="itinerary-upcoming-line-layer"
+          style={{
+            lineColor: "#86efac",
+            lineWidth: 3,
+            lineCap: "round",
+            lineJoin: "round",
+            lineOpacity: dashOpacity,
+            lineDasharray: [2, 3],
+          }}
+        />
+      </MapboxGL.ShapeSource>
     </>
   );
 }
