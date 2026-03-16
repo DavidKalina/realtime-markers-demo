@@ -9,13 +9,13 @@ import {
 } from "react-native";
 import Animated, {
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { Svg, Defs, LinearGradient, Stop, Rect } from "react-native-svg";
+import { scheduleOnRN } from "react-native-worklets";
 import * as Haptics from "expo-haptics";
 import {
   useColors,
@@ -114,7 +114,7 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
     cardOpacity.value = withTiming(0, { duration: 200 });
     scrimOpacity.value = withTiming(0, { duration: 300 }, (finished) => {
       if (finished) {
-        runOnJS(onDismiss)();
+        scheduleOnRN(onDismiss);
       }
     });
   }, [cardScale, cardOpacity, scrimOpacity, onDismiss]);
@@ -192,7 +192,7 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
               </View>
 
               {/* Weekly badge */}
-              {weeklyScanCount != null && weeklyScanCount > 0 && (
+              {currentStreak != null && currentStreak > 0 && (
                 <View
                   style={[
                     overlayStyles.weeklyBadge,
@@ -202,7 +202,7 @@ const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({
                   <Text
                     style={[overlayStyles.weeklyText, { color: tierColor }]}
                   >
-                    {weeklyScanCount} this week
+                    {currentStreak}w streak
                   </Text>
                 </View>
               )}
