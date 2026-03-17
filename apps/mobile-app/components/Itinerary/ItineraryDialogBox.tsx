@@ -500,6 +500,8 @@ interface ItineraryDialogBoxProps {
   onDismiss?: () => void;
   /** Start expanded in form mode (used on itineraries list screen) */
   defaultExpanded?: boolean;
+  /** Reactively expand to form mode when this becomes true */
+  autoExpand?: boolean;
   /** Anchor stops from map planning mode */
   anchorStops?: AnchorStopInput[];
   /** Callback when itinerary result arrives — used for route overlay */
@@ -536,6 +538,7 @@ export default function ItineraryDialogBox({
   style,
   onDismiss,
   defaultExpanded = false,
+  autoExpand = false,
   anchorStops,
   onItineraryResult,
   nearbyPlaces,
@@ -1018,6 +1021,13 @@ export default function ItineraryDialogBox({
       },
     );
   }, [setReExpandPhaseCb]);
+
+  // Auto-expand when autoExpand becomes true
+  useEffect(() => {
+    if (autoExpand && phase === "collapsed") {
+      handleReExpand();
+    }
+  }, [autoExpand]);
 
   // Load rituals
   useEffect(() => {

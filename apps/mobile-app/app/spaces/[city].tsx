@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -32,6 +32,12 @@ const CityDetailScreen = () => {
     isLoading,
     refetch: refetchItineraries,
   } = useBrowseItineraries(decodedCity || null);
+
+  const hasNoAdventures = useMemo(() => {
+    if (isLoading) return false;
+    if (!groupedByIntention) return true;
+    return Object.keys(groupedByIntention).length === 0;
+  }, [isLoading, groupedByIntention]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -69,6 +75,7 @@ const CityDetailScreen = () => {
             city={decodedCity}
             style={{ height: 105, marginBottom: 0 }}
             onDismiss={() => setShowItinerary(false)}
+            autoExpand={hasNoAdventures}
           />
         ) : undefined
       }

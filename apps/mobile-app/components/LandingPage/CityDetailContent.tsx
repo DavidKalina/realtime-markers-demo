@@ -184,10 +184,12 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
 
   const renderAdventuresTab = () => {
     if (!groupedItineraries || totalItineraries === 0) {
-      return renderEmptyTab(
-        "\u{1F30D}",
-        "No adventures yet",
-        "Be the first to complete an adventure here and it'll show up for others to try.",
+      return (
+        <View style={styles.emptyInline}>
+          <Text style={styles.emptyInlineText}>
+            No adventures here yet. Plan one below.
+          </Text>
+        </View>
       );
     }
 
@@ -496,6 +498,19 @@ const createStyles = (colors: Colors) =>
       letterSpacing: 1.5,
       marginTop: spacing.sm,
       marginBottom: spacing.xs,
+    },
+
+    /* Empty inline */
+    emptyInline: {
+      paddingVertical: spacing["3xl"],
+      paddingHorizontal: spacing.lg,
+      alignItems: "center",
+    },
+    emptyInlineText: {
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+      textAlign: "center",
     },
 
     /* Intention section */
