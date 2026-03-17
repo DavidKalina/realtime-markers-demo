@@ -10,6 +10,8 @@ import {
   radius,
 } from "@/theme";
 import type { ActivityDay } from "@/services/api/modules/profileInsights";
+import { formatInTimeZone } from "date-fns-tz";
+import { getUserTimezone } from "@/utils/dateTimeFormatting";
 
 interface ActivityHeatmapProps {
   data: ActivityDay[];
@@ -64,13 +66,13 @@ const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ data }) => {
         const cellDate = new Date(startDate);
         cellDate.setDate(startDate.getDate() + w * 7 + d);
 
-        // Don't show future dates
+        // Future dates show as empty cells
         if (cellDate > today) {
-          week.push({ date: "", count: -1 });
+          week.push({ date: "", count: 0 });
           continue;
         }
 
-        const dateStr = cellDate.toISOString().slice(0, 10);
+        const dateStr = formatInTimeZone(cellDate, getUserTimezone(), "yyyy-MM-dd");
         const count = dateMap.get(dateStr) || 0;
         if (count > 0) active++;
         week.push({ date: dateStr, count });
@@ -113,15 +115,10 @@ const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ data }) => {
                       styles.cell,
                       {
                         backgroundColor:
-                          cell.count < 0
-                            ? "transparent"
-                            : cell.count === 0
-                              ? colors.bg.cardAlt
-                              : getIntensityColor(cell.count, maxCount),
-                        borderColor:
-                          cell.count < 0
-                            ? "transparent"
-                            : colors.border.default,
+                          cell.count === 0
+                            ? colors.bg.cardAlt
+                            : getIntensityColor(cell.count, maxCount),
+                        borderColor: colors.border.default,
                       },
                     ]}
                   />
