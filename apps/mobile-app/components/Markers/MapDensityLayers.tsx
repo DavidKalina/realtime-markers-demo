@@ -166,6 +166,7 @@ const MapDensityLayersInner: React.FC<MapDensityLayersProps> = ({
       cluster
       clusterRadius={50}
       clusterMaxZoomLevel={CLUSTER_MAX_ZOOM}
+      hitbox={{ width: 0, height: 0 }}
     >
       {/* Tier 1: Heatmap — zoom < 10 */}
       <MapboxGL.HeatmapLayer

@@ -202,7 +202,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               {/* Discoverer Card */}
               <Animated.View
                 entering={FadeIn.duration(duration.normal)}
-                style={styles.section}
+                style={styles.inlineSection}
               >
                 <DiscovererCard
                   userId={user?.id}
@@ -473,14 +473,10 @@ const createStyles = (colors: Colors) =>
       fontSize: fontSize.sm,
       fontFamily: fontFamily.mono,
     },
-    section: {
-      paddingHorizontal: spacing.lg,
-      marginBottom: spacing.lg,
-    },
     // Inline sections
     inlineSection: {
       paddingHorizontal: spacing.lg,
-      marginBottom: spacing.xl,
+      marginBottom: spacing.lg,
     },
     sectionLabel: {
       fontSize: 11,

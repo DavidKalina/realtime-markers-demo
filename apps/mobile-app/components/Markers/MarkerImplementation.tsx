@@ -312,8 +312,9 @@ const PoolSlot = React.memo(
 export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
   React.memo(({ currentZoom = 14, viewport, dimmed = false }) => {
     // Below zoom 14, native density layers (HeatmapLayer / CircleLayer) handle
-    // visualization — skip Supercluster + MarkerView pool entirely.
-    if (currentZoom < 14) return null;
+    // visualization. The pool stays mounted (to avoid native view churn that
+    // destabilises other MarkerViews) but all slots park offscreen.
+    const isDensityZoom = currentZoom < 14;
 
     // Zoom tier: high (14+) = full animations, mid (10-13) = subtle, low (<10) = static
     const isHighZoom = currentZoom >= 14;
@@ -393,8 +394,14 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
       return lookup;
     }, [markers]);
 
-    // Clustering
-    const { clusters } = useMarkerClustering(markers, viewport, currentZoom);
+    // Clustering — pass empty array when density layers handle visualization
+    // to skip Supercluster work while keeping hooks called in consistent order.
+    const emptyMarkers = useMemo((): Marker[] => [], []);
+    const { clusters } = useMarkerClustering(
+      isDensityZoom ? emptyMarkers : markers,
+      viewport,
+      currentZoom,
+    );
 
     // Handlers
     const createClusterPressHandler = useCallback(
@@ -626,11 +633,14 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
 
     // Dynamic pool size — at low zoom most items are clusters so we need fewer
     // React-managed MarkerView slots, reducing reconciliation cost.
+    // At density zoom (< 14) the pool is idle but stays mounted to avoid native
+    // view hierarchy churn that breaks other MarkerViews.
     const effectivePoolSize = useMemo(() => {
+      if (isDensityZoom) return 15;
       if (currentZoom >= 14) return MAX_POOL_SIZE;
       if (currentZoom >= 10) return 30;
       return 15;
-    }, [currentZoom]);
+    }, [currentZoom, isDensityZoom]);
 
     // -----------------------------------------------------------------------
     // Build pool slot data — map each visible item to a slot, rest go offscreen
