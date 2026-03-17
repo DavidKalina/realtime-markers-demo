@@ -37,6 +37,7 @@ import {
   View,
 } from "react-native";
 import RAnimated from "react-native-reanimated";
+import { MapDensityLayers } from "@/components/Markers/MapDensityLayers";
 import AnchorMarkers from "@/components/Markers/AnchorMarkers";
 import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
 import ItineraryRouteLayer from "@/components/Itinerary/ItineraryRouteLayer";
@@ -278,6 +279,14 @@ function HomeScreenContent() {
   );
 
   const hasActiveQuest = !!activeItinerary;
+
+  // Native density layers (heatmap + circles) for zoom < 14
+  const densityLayersComponent = useMemo(() => {
+    if (!shouldRenderMarkers) return null;
+    return <MapDensityLayers dimmed={hasActiveQuest} />;
+  }, [shouldRenderMarkers, hasActiveQuest]);
+
+  // MarkerView pool for zoom >= 14 (ClusteredMapMarkers returns null below 14)
   const markersComponent = useMemo(() => {
     if (!shouldRenderMarkers || !currentViewport) return null;
     return (
@@ -451,6 +460,7 @@ function HomeScreenContent() {
               defaultSettings={cameraSettings}
               {...staticCameraProps}
             />
+            {densityLayersComponent}
             {markersComponent}
             <AnchorMarkers />
             {!activeItinerary && (

@@ -311,6 +311,10 @@ const PoolSlot = React.memo(
 
 export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
   React.memo(({ currentZoom = 14, viewport, dimmed = false }) => {
+    // Below zoom 14, native density layers (HeatmapLayer / CircleLayer) handle
+    // visualization — skip Supercluster + MarkerView pool entirely.
+    if (currentZoom < 14) return null;
+
     // Zoom tier: high (14+) = full animations, mid (10-13) = subtle, low (<10) = static
     const isHighZoom = currentZoom >= 14;
     const isMidZoom = currentZoom >= 10 && currentZoom < 14;
