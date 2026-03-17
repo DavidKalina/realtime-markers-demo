@@ -631,16 +631,11 @@ export const ClusteredMapMarkers: React.FC<ClusteredMapMarkersProps> =
     // movement caused a batch-update stutter when the camera settled.
     const stableItems = itemsWithNewIndex;
 
-    // Dynamic pool size — at low zoom most items are clusters so we need fewer
-    // React-managed MarkerView slots, reducing reconciliation cost.
-    // At density zoom (< 14) the pool is idle but stays mounted to avoid native
-    // view hierarchy churn that breaks other MarkerViews.
-    const effectivePoolSize = useMemo(() => {
-      if (isDensityZoom) return 15;
-      if (currentZoom >= 14) return MAX_POOL_SIZE;
-      if (currentZoom >= 10) return 30;
-      return 15;
-    }, [currentZoom, isDensityZoom]);
+    // Pool size is ALWAYS MAX_POOL_SIZE. Never shrink — removing MarkerView
+    // native children destabilises other MarkerViews in the MapView (e.g.
+    // itinerary browse dots). Unused slots park offscreen with null content
+    // which is essentially free.
+    const effectivePoolSize = MAX_POOL_SIZE;
 
     // -----------------------------------------------------------------------
     // Build pool slot data — map each visible item to a slot, rest go offscreen

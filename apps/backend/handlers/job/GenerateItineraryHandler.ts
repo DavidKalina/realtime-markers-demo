@@ -61,6 +61,7 @@ export class GenerateItineraryHandler extends BaseJobHandler {
           placeId?: string;
           primaryType?: string;
           rating?: number;
+          note?: string;
         }[];
       };
 

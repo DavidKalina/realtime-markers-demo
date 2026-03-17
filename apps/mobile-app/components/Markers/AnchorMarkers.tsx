@@ -101,6 +101,11 @@ const AnchorPin = React.memo(
             <Text style={styles.labelText} numberOfLines={1}>
               {label}
             </Text>
+            {anchor.note ? (
+              <Text style={styles.noteText} numberOfLines={1}>
+                {anchor.note}
+              </Text>
+            ) : null}
           </Animated.View>
 
           <View style={styles.container}>
@@ -186,6 +191,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     color: "#FFFFFF",
+    textAlign: "center",
+  },
+  noteText: {
+    fontFamily: fontFamily.mono,
+    fontSize: 9,
+    fontWeight: "400",
+    color: "rgba(255, 255, 255, 0.7)",
     textAlign: "center",
   },
   container: {

@@ -361,7 +361,7 @@ const BUDGET_MIN = 0;
 const BUDGET_MAX = 200;
 const BUDGET_STEP = 5;
 
-const EXPANDED_NEARBY_HEIGHT = 160;
+const EXPANDED_NEARBY_HEIGHT = 200;
 
 /* ── Memoized list-item components ────────────────────────── */
 
@@ -484,6 +484,7 @@ export interface AnchorStopInput {
   placeId?: string;
   primaryType?: string;
   rating?: number;
+  note?: string;
 }
 
 interface NearbyPlacesInput {
@@ -511,9 +512,9 @@ interface ItineraryDialogBoxProps {
   /** When set, shows the nearby places picker phase */
   nearbyPlaces?: NearbyPlacesInput | null;
   /** Called when user picks a nearby place */
-  onNearbySelect?: (place: NearbyPlace) => void;
+  onNearbySelect?: (place: NearbyPlace, note?: string) => void;
   /** Called when user keeps the raw pin */
-  onNearbyKeepPin?: () => void;
+  onNearbyKeepPin?: (note?: string) => void;
   /** Called when user dismisses the nearby sheet (remove pin) */
   onNearbyDismiss?: () => void;
   /** Fly the map camera to coordinates (map screen only) */
@@ -632,6 +633,7 @@ export default function ItineraryDialogBox({
   const [selectedNearbyPlaceId, setSelectedNearbyPlaceId] = useState<
     string | null
   >(null);
+  const [anchorNote, setAnchorNote] = useState("");
 
   // Place search state (for anchor planning from map)
   const canSearch = Boolean(onFlyTo || onSearchPlaceAnchor);
@@ -716,10 +718,16 @@ export default function ItineraryDialogBox({
     (place: NearbyPlace) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setSelectedNearbyPlaceId(place.placeId);
-      onNearbySelect?.(place);
+      const trimmed = anchorNote.trim() || undefined;
+      onNearbySelect?.(place, trimmed);
     },
-    [onNearbySelect],
+    [onNearbySelect, anchorNote],
   );
+
+  const handleKeepPinWithNote = useCallback(() => {
+    const trimmed = anchorNote.trim() || undefined;
+    onNearbyKeepPin?.(trimmed);
+  }, [onNearbyKeepPin, anchorNote]);
 
   // Section refs for auto-expand
   const howLongRef = useRef<CollapsibleSectionHandle>(null);
@@ -795,6 +803,14 @@ export default function ItineraryDialogBox({
       setNearbyResults([]);
       setNearbyLoading(true);
       setSelectedNearbyPlaceId(nearbyPlaces.selectedPlaceId ?? null);
+      // Load existing note if editing an anchor (match by placeId or coordinates)
+      const existingAnchor = anchorStops?.find(
+        (a) =>
+          (nearbyPlaces.selectedPlaceId && a.placeId === nearbyPlaces.selectedPlaceId) ||
+          (Math.abs(a.coordinates[0] - nearbyPlaces.lng) < 0.0001 &&
+            Math.abs(a.coordinates[1] - nearbyPlaces.lat) < 0.0001),
+      );
+      setAnchorNote(existingAnchor?.note ?? "");
 
       // Entering nearby phase
       cancelAnimation(sheenPos);
@@ -1139,6 +1155,7 @@ export default function ItineraryDialogBox({
                 placeId: a.placeId,
                 primaryType: a.primaryType,
                 rating: a.rating,
+                note: a.note,
               })),
             }),
         });
@@ -1365,7 +1382,7 @@ export default function ItineraryDialogBox({
                   : "Plan your Sidequest"}
             </Text>
             <Pressable
-              onPress={phase === "nearby" ? onNearbyKeepPin : handleDismiss}
+              onPress={phase === "nearby" ? onNearbyDismiss : handleDismiss}
               style={styles.dismissButton}
             >
               <Text style={styles.dismissText}>✕</Text>
@@ -1408,6 +1425,17 @@ export default function ItineraryDialogBox({
                 </ScrollView>
               )}
             </View>
+            <TextInput
+              style={styles.anchorNoteInput}
+              placeholder="Add a note — why here?"
+              placeholderTextColor={colors.text.disabled}
+              value={anchorNote}
+              onChangeText={(t) => setAnchorNote(t.slice(0, 150))}
+              maxLength={150}
+              autoCorrect
+              returnKeyType="done"
+              blurOnSubmit
+            />
             <View style={styles.nearbyFooterRow}>
               <Pressable
                 style={styles.nearbyBtnRemove}
@@ -1415,7 +1443,7 @@ export default function ItineraryDialogBox({
               >
                 <Text style={styles.nearbyBtnRemoveText}>Remove</Text>
               </Pressable>
-              <Pressable style={styles.nearbyBtnKeep} onPress={onNearbyKeepPin}>
+              <Pressable style={styles.nearbyBtnKeep} onPress={handleKeepPinWithNote}>
                 <Text style={styles.nearbyBtnKeepText}>Keep pin</Text>
               </Pressable>
             </View>
@@ -2492,6 +2520,17 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontSize: 10,
       color: colors.text.disabled,
+    },
+    anchorNoteInput: {
+      fontFamily: fontFamily.mono,
+      fontSize: 12,
+      color: colors.text.primary,
+      borderWidth: 1,
+      borderColor: colors.border.subtle,
+      borderRadius: radius.full,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      marginTop: spacing.xs,
     },
     nearbyFooterRow: {
       flexDirection: "row",

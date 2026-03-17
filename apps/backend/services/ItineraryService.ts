@@ -24,6 +24,7 @@ export interface AnchorStopInput {
   placeId?: string;
   primaryType?: string;
   rating?: number;
+  note?: string;
 }
 
 export interface CreateItineraryInput {
@@ -1264,11 +1265,12 @@ class ItineraryServiceImpl implements ItineraryService {
               const addr = a.address ? ` at ${a.address}` : "";
               const type = a.primaryType ? ` | Type: ${a.primaryType}` : "";
               const rating = a.rating ? ` | Rating: ${a.rating}` : "";
-              return `- Anchor ${i + 1}: ${label}${addr} (${lat.toFixed(5)}, ${lng.toFixed(5)})${type}${rating}`;
+              const note = a.note ? ` | User note: "${a.note}"` : "";
+              return `- Anchor ${i + 1}: ${label}${addr} (${lat.toFixed(5)}, ${lng.toFixed(5)})${type}${rating}${note}`;
             })
             .join(
               "\n",
-            )}\nThere are ${anchorStops.length} anchor stops — the output MUST contain at least ${anchorStops.length} items corresponding to these anchors. Build the rest of the itinerary around them, filling complementary stops between them.${anchorStops.some((a) => a.label) ? " Anchors with names are verified real places — use their exact name and address." : " The anchor stops are user-selected map locations — find the nearest real venue or point of interest at each coordinate and use that as the stop."}\n`
+            )}\nThere are ${anchorStops.length} anchor stops — the output MUST contain at least ${anchorStops.length} items corresponding to these anchors. Build the rest of the itinerary around them, filling complementary stops between them.${anchorStops.some((a) => a.label) ? " Anchors with names are verified real places — use their exact name and address." : " The anchor stops are user-selected map locations — find the nearest real venue or point of interest at each coordinate and use that as the stop."}${anchorStops.some((a) => a.note) ? " When an anchor has a user note, incorporate the user's intent into that stop's description, whyThisStop, and proTip — it tells you WHY they want to go there." : ""}\n`
         : "";
 
     const hasTrails = trailList !== null;

@@ -8,6 +8,7 @@ export interface AnchorStop {
   placeId?: string;
   primaryType?: string;
   rating?: number;
+  note?: string;
 }
 
 interface AnchorPlanState {

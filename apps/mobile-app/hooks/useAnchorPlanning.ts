@@ -120,7 +120,7 @@ export function useAnchorPlanning({
 
   // Nearby places sheet callbacks
   const handleNearbySelect = useCallback(
-    (place: NearbyPlace) => {
+    (place: NearbyPlace, note?: string) => {
       if (!pendingAnchorId) return;
       updateAnchor(pendingAnchorId, {
         coordinates: place.coordinates,
@@ -129,6 +129,7 @@ export function useAnchorPlanning({
         placeId: place.placeId,
         primaryType: place.primaryType,
         rating: place.rating,
+        note: note || undefined,
       });
       setPendingAnchor(null);
       publish<CameraAnimateToLocationEvent>(
@@ -145,9 +146,15 @@ export function useAnchorPlanning({
     [pendingAnchorId, updateAnchor, setPendingAnchor, publish],
   );
 
-  const handleNearbyKeepPin = useCallback(() => {
-    setPendingAnchor(null);
-  }, [setPendingAnchor]);
+  const handleNearbyKeepPin = useCallback(
+    (note?: string) => {
+      if (pendingAnchorId && note) {
+        updateAnchor(pendingAnchorId, { note });
+      }
+      setPendingAnchor(null);
+    },
+    [pendingAnchorId, updateAnchor, setPendingAnchor],
+  );
 
   const handleNearbyDismiss = useCallback(() => {
     if (pendingAnchorId) {
@@ -211,7 +218,7 @@ export function useAnchorPlanning({
     [cameraRef],
   );
 
-  // Search → drop anchor at searched place (enriched — skips nearby picker)
+  // Search → drop anchor at searched place, then open nearby sheet for note
   const handleSearchPlaceAnchor = useCallback(
     (place: {
       coordinates: [number, number];
@@ -231,11 +238,13 @@ export function useAnchorPlanning({
       });
       if (id) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        // Open the nearby sheet so the user can add a note
+        setPendingAnchor(id);
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
     },
-    [addEnrichedAnchor],
+    [addEnrichedAnchor, setPendingAnchor],
   );
 
   return {

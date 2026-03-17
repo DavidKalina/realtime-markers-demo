@@ -98,6 +98,7 @@ export interface AnchorStopParam {
   placeId?: string;
   primaryType?: string;
   rating?: number;
+  note?: string;
 }
 
 export interface CreateItineraryParams {

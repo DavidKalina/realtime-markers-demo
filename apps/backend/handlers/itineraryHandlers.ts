@@ -28,6 +28,7 @@ export const createItineraryHandler = async (c: Context<AppContext>) => {
       placeId?: string;
       primaryType?: string;
       rating?: number;
+      note?: string;
     }[];
   }>();
 
@@ -73,6 +74,7 @@ export const createItineraryHandler = async (c: Context<AppContext>) => {
             placeId: a.placeId,
             primaryType: a.primaryType,
             rating: a.rating,
+            note: a.note,
           })),
         }),
     });
