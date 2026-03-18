@@ -1391,7 +1391,7 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
 
     const responseText = await this.openAIService.executeResponse(
       {
-        model: OpenAIModel.GPT52,
+        model: OpenAIModel.GPT54Mini,
         instructions: systemPrompt,
         input: userPrompt,
         max_output_tokens: 6000,
