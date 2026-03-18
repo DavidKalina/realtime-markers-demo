@@ -227,7 +227,7 @@ class AreaScanServiceImpl implements AreaScanService {
     );
 
     const completion = await this.openAIService.executeChatCompletion({
-      model: OpenAIModel.GPT54Mini,
+      model: OpenAIModel.GPT4OMini,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -302,7 +302,7 @@ class AreaScanServiceImpl implements AreaScanService {
     );
 
     const completion = await this.openAIService.executeChatCompletion({
-      model: OpenAIModel.GPT54Mini,
+      model: OpenAIModel.GPT4OMini,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
