@@ -100,11 +100,24 @@ class CalendarService {
       const lastItem = items[items.length - 1];
 
       const dateStr = itinerary.plannedDate; // YYYY-MM-DD
-      const startTime = firstItem?.startTime ?? "09:00";
-      const endTime = lastItem?.endTime ?? "17:00";
+      if (!dateStr) return null;
+
+      // startTime/endTime may be "HH:mm" or "HH:mm:ss" — normalize to "HH:mm"
+      const rawStart = firstItem?.startTime ?? "09:00";
+      const rawEnd = lastItem?.endTime ?? "17:00";
+      const startTime = rawStart.slice(0, 5);
+      const endTime = rawEnd.slice(0, 5);
 
       const startDate = new Date(`${dateStr}T${startTime}:00`);
       const endDate = new Date(`${dateStr}T${endTime}:00`);
+
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        console.error(
+          "[CalendarService] Invalid dates:",
+          { dateStr, startTime, endTime },
+        );
+        return null;
+      }
 
       const notes = items
         .map(

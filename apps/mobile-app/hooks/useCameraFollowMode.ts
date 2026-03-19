@@ -12,9 +12,10 @@ export function useCameraFollowMode({
   cameraRef,
   userLocation,
 }: UseCameraFollowModeOptions) {
-  const [isFollowing, setIsFollowing] = useState(true);
+  // Start NOT following — useInitialLocation handles the first center.
+  // Follow mode is only enabled explicitly via the recenter button.
+  const [isFollowing, setIsFollowing] = useState(false);
   const { subscribe } = useEventBroker();
-  const mountTimeRef = useRef(Date.now());
 
   // When user pans the map, disable follow mode
   useEffect(() => {
@@ -36,9 +37,6 @@ export function useCameraFollowMode({
   // When following and location updates, move camera
   useEffect(() => {
     if (!isFollowing || !userLocation || !cameraRef.current) return;
-
-    // Skip tracking for first 2s after mount to avoid fighting useInitialLocation
-    if (Date.now() - mountTimeRef.current < 2000) return;
 
     cameraRef.current.setCamera({
       centerCoordinate: userLocation,

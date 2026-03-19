@@ -47,7 +47,6 @@ import UserStatsCard from "./UserStatsCard";
 import ActiveQuestBanner from "./ActiveQuestBanner";
 import RecentCompletions from "./RecentCompletions";
 import BadgeGrid from "./BadgeGrid";
-import AdventureScoreCard from "./AdventureScoreCard";
 import ActivityHeatmap from "./ActivityHeatmap";
 import VenueDnaChart from "./VenueDnaChart";
 import StreakCalendar from "./StreakCalendar";
@@ -213,15 +212,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                   currentStreak={profileData?.currentStreak || 0}
                   longestStreak={profileData?.longestStreak || 0}
                   memberSince={memberSince}
+                  onRefetchRef={scoreRefetchRef}
                 />
-              </Animated.View>
-
-              {/* Adventure Score */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(80)}
-                style={styles.inlineSection}
-              >
-                <AdventureScoreCard onRefetchRef={scoreRefetchRef} />
               </Animated.View>
 
               {/* Adventure Streak (visual calendar) */}

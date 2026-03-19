@@ -12,7 +12,6 @@ import {
   GlobeIcon,
   LucideIcon,
   LucideSword,
-  Route,
   User,
 } from "lucide-react-native";
 import React, { useCallback, useMemo } from "react";
@@ -54,6 +53,24 @@ interface TabConfig {
 
 const TABS: TabConfig[] = [
   {
+    key: "user",
+    label: "Me",
+    icon: User,
+    route: "/user",
+  },
+  {
+    key: "itineraries",
+    label: "Quests",
+    icon: LucideSword,
+    route: "/itineraries",
+  },
+  {
+    key: "locate",
+    label: "Discover",
+    icon: CompassIcon,
+    requiresLocation: true,
+  },
+  {
     key: "spaces",
     label: "Spaces",
     icon: GlobeIcon,
@@ -64,24 +81,6 @@ const TABS: TabConfig[] = [
     label: "Scan",
     icon: Camera,
     route: "/scan",
-  },
-  {
-    key: "locate",
-    label: "Discover",
-    icon: CompassIcon,
-    requiresLocation: true,
-  },
-  {
-    key: "itineraries",
-    label: "Quests",
-    icon: LucideSword,
-    route: "/itineraries",
-  },
-  {
-    key: "user",
-    label: "Me",
-    icon: User,
-    route: "/user",
   },
 ];
 
