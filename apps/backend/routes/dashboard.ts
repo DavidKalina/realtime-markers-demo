@@ -9,6 +9,16 @@ import {
   UserEventDiscovery,
   UserEventRsvp,
   LlmUsageLog,
+  Itinerary,
+  ItineraryItem,
+  ItineraryCheckin,
+  UserBadge,
+  UserEventSave,
+  UserEventView,
+  Filter,
+  QueryAnalytics,
+  UserPushToken,
+  ItineraryRitual,
 } from "@realtime-markers/database";
 
 export const dashboardRouter = new Hono<AppContext>();
@@ -822,6 +832,423 @@ dashboardRouter.get("/llm-costs", async (c) => {
     return c.json(
       {
         error: "Failed to fetch LLM costs",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500,
+    );
+  }
+});
+
+// Dashboard Overview Endpoint — itinerary-focused + overall app stats
+dashboardRouter.get("/overview", async (c) => {
+  try {
+    const userRepo = AppDataSource.getRepository(User);
+    const eventRepo = AppDataSource.getRepository(Event);
+    const itineraryRepo = AppDataSource.getRepository(Itinerary);
+    const checkinRepo = AppDataSource.getRepository(ItineraryCheckin);
+    const badgeRepo = AppDataSource.getRepository(UserBadge);
+    const itemRepo = AppDataSource.getRepository(ItineraryItem);
+
+    const now = new Date();
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    // ── App-wide counts (parallel) ──
+    const [
+      totalUsers,
+      totalEvents,
+      totalItineraries,
+      totalCheckins,
+      totalBadgesUnlocked,
+      totalItineraryItems,
+    ] = await Promise.all([
+      userRepo.count(),
+      eventRepo.count(),
+      itineraryRepo.count(),
+      checkinRepo.count(),
+      badgeRepo
+        .createQueryBuilder("b")
+        .where("b.unlockedAt IS NOT NULL")
+        .getCount(),
+      itemRepo.count(),
+    ]);
+
+    // ── Database row counts for all key tables ──
+    const tableCountQueries = [
+      { name: "users", repo: userRepo },
+      { name: "events", repo: eventRepo },
+      { name: "itineraries", repo: itineraryRepo },
+      { name: "itinerary_items", repo: itemRepo },
+      { name: "itinerary_checkins", repo: checkinRepo },
+      { name: "user_badges", repo: badgeRepo },
+      { name: "categories", repo: AppDataSource.getRepository(Category) },
+      { name: "filters", repo: AppDataSource.getRepository(Filter) },
+      {
+        name: "query_analytics",
+        repo: AppDataSource.getRepository(QueryAnalytics),
+      },
+      { name: "llm_usage_logs", repo: AppDataSource.getRepository(LlmUsageLog) },
+      {
+        name: "user_event_discoveries",
+        repo: AppDataSource.getRepository(UserEventDiscovery),
+      },
+      {
+        name: "user_event_saves",
+        repo: AppDataSource.getRepository(UserEventSave),
+      },
+      {
+        name: "user_event_views",
+        repo: AppDataSource.getRepository(UserEventView),
+      },
+      {
+        name: "user_push_tokens",
+        repo: AppDataSource.getRepository(UserPushToken),
+      },
+      {
+        name: "itinerary_rituals",
+        repo: AppDataSource.getRepository(ItineraryRitual),
+      },
+    ];
+
+    const tableCounts = await Promise.all(
+      tableCountQueries.map(async ({ name, repo }) => ({
+        table: name,
+        rows: await repo.count(),
+      })),
+    );
+
+    // ── User stats ──
+    const [usersThisMonth, usersThisWeek, activeQuestUsers] = await Promise.all(
+      [
+        userRepo
+          .createQueryBuilder("u")
+          .where("u.createdAt >= :since", {
+            since: new Date(now.getFullYear(), now.getMonth(), 1),
+          })
+          .getCount(),
+        userRepo
+          .createQueryBuilder("u")
+          .where("u.createdAt >= :since", { since: sevenDaysAgo })
+          .getCount(),
+        userRepo
+          .createQueryBuilder("u")
+          .where("u.activeItineraryId IS NOT NULL")
+          .getCount(),
+      ],
+    );
+
+    // ── Tier distribution ──
+    const tierDistribution: Array<{ tier: string; count: string }> =
+      await userRepo
+        .createQueryBuilder("u")
+        .select("u.currentTier", "tier")
+        .addSelect("COUNT(*)::int", "count")
+        .groupBy("u.currentTier")
+        .getRawMany();
+
+    // ── Itinerary stats ──
+    const [
+      itinerariesReady,
+      itinerariesCompleted,
+      itinerariesFailed,
+      itinerariesThisWeek,
+      itinerariesCompletedThisWeek,
+    ] = await Promise.all([
+      itineraryRepo
+        .createQueryBuilder("i")
+        .where("i.status = :status", { status: "READY" })
+        .getCount(),
+      itineraryRepo
+        .createQueryBuilder("i")
+        .where("i.completedAt IS NOT NULL")
+        .getCount(),
+      itineraryRepo
+        .createQueryBuilder("i")
+        .where("i.status = :status", { status: "FAILED" })
+        .getCount(),
+      itineraryRepo
+        .createQueryBuilder("i")
+        .where("i.createdAt >= :since", { since: sevenDaysAgo })
+        .getCount(),
+      itineraryRepo
+        .createQueryBuilder("i")
+        .where("i.completedAt IS NOT NULL")
+        .andWhere("i.completedAt >= :since", { since: sevenDaysAgo })
+        .getCount(),
+    ]);
+
+    // Average rating (only rated itineraries)
+    const ratingResult = await itineraryRepo
+      .createQueryBuilder("i")
+      .select("AVG(i.rating)", "avg")
+      .addSelect("COUNT(i.rating)::int", "count")
+      .where("i.rating IS NOT NULL")
+      .getRawOne();
+
+    // ── Top cities by itinerary count ──
+    const topCities: Array<{
+      city: string;
+      total: string;
+      completed: string;
+    }> = await itineraryRepo
+      .createQueryBuilder("i")
+      .select("i.city", "city")
+      .addSelect("COUNT(*)::int", "total")
+      .addSelect(
+        "COUNT(CASE WHEN i.completedAt IS NOT NULL THEN 1 END)::int",
+        "completed",
+      )
+      .where("i.city IS NOT NULL")
+      .groupBy("i.city")
+      .orderBy("total", "DESC")
+      .limit(10)
+      .getRawMany();
+
+    // ── Check-in insights ──
+    const [checkinSourceBreakdown, checkinsThisWeek, avgCheckinDistance] =
+      await Promise.all([
+        checkinRepo
+          .createQueryBuilder("c")
+          .select("c.source", "source")
+          .addSelect("COUNT(*)::int", "count")
+          .groupBy("c.source")
+          .getRawMany() as Promise<Array<{ source: string; count: string }>>,
+        checkinRepo
+          .createQueryBuilder("c")
+          .where("c.checkedInAt >= :since", { since: sevenDaysAgo })
+          .getCount(),
+        checkinRepo
+          .createQueryBuilder("c")
+          .select("AVG(c.distanceMeters)", "avg")
+          .getRawOne() as Promise<{ avg: string | null }>,
+      ]);
+
+    // Average stops completed per itinerary (itineraries that have at least one check-in)
+    const avgStopsResult = await checkinRepo
+      .createQueryBuilder("c")
+      .select("AVG(stops_per_itin.stop_count)", "avg")
+      .from(
+        (subQuery) =>
+          subQuery
+            .select("c2.itineraryId", "itin_id")
+            .addSelect("COUNT(*)::int", "stop_count")
+            .from(ItineraryCheckin, "c2")
+            .groupBy("c2.itineraryId"),
+        "stops_per_itin",
+      )
+      .getRawOne();
+
+    // ── Streak stats ──
+    const streakStats = await userRepo
+      .createQueryBuilder("u")
+      .select("COUNT(CASE WHEN u.currentStreak > 0 THEN 1 END)::int", "activeStreaks")
+      .addSelect("AVG(CASE WHEN u.currentStreak > 0 THEN u.currentStreak END)", "avgStreak")
+      .addSelect("MAX(u.longestStreak)::int", "longestEver")
+      .addSelect("AVG(u.totalXp)", "avgXp")
+      .addSelect("SUM(u.totalXp)::int", "totalXpAwarded")
+      .getRawOne();
+
+    // ── Badge stats ──
+    const topBadges: Array<{ badgeId: string; count: string }> = await badgeRepo
+      .createQueryBuilder("b")
+      .select("b.badgeId", "badgeId")
+      .addSelect("COUNT(*)::int", "count")
+      .where("b.unlockedAt IS NOT NULL")
+      .groupBy("b.badgeId")
+      .orderBy("count", "DESC")
+      .limit(10)
+      .getRawMany();
+
+    // ── Weekly itinerary trend (12 weeks) ──
+    const weeklyItineraryTrend: Array<{
+      week: string;
+      created: string;
+      completed: string;
+    }> = await itineraryRepo
+      .createQueryBuilder("i")
+      .select("DATE_TRUNC('week', i.createdAt)", "week")
+      .addSelect("COUNT(*)::int", "created")
+      .addSelect(
+        "COUNT(CASE WHEN i.completedAt IS NOT NULL THEN 1 END)::int",
+        "completed",
+      )
+      .where("i.createdAt >= :since", {
+        since: new Date(Date.now() - 12 * 7 * 24 * 60 * 60 * 1000),
+      })
+      .groupBy("week")
+      .orderBy("week", "ASC")
+      .getRawMany();
+
+    // ── Recent activity (itinerary-focused) ──
+    const recentCompletions = await itineraryRepo
+      .createQueryBuilder("i")
+      .leftJoinAndSelect("i.user", "user")
+      .where("i.completedAt IS NOT NULL")
+      .orderBy("i.completedAt", "DESC")
+      .limit(10)
+      .getMany();
+
+    const recentCheckins = await checkinRepo
+      .createQueryBuilder("c")
+      .leftJoinAndSelect("c.user", "user")
+      .leftJoinAndSelect("c.itineraryItem", "item")
+      .orderBy("c.checkedInAt", "DESC")
+      .limit(10)
+      .getMany();
+
+    const recentBadgeUnlocks = await badgeRepo
+      .createQueryBuilder("b")
+      .leftJoinAndSelect("b.user", "user")
+      .where("b.unlockedAt IS NOT NULL")
+      .orderBy("b.unlockedAt", "DESC")
+      .limit(10)
+      .getMany();
+
+    type ActivityEntry = {
+      id: string;
+      type: string;
+      title: string;
+      description: string;
+      timestamp: string;
+      user?: { name: string; avatar?: string };
+    };
+
+    const recentActivity: ActivityEntry[] = [];
+
+    for (const itin of recentCompletions) {
+      recentActivity.push({
+        id: `completion_${itin.id}`,
+        type: "itinerary_completed",
+        title: `Itinerary completed: "${itin.title}"`,
+        description: `${itin.user?.email || "Unknown user"} completed in ${itin.city || "unknown city"}`,
+        timestamp: itin.completedAt!.toISOString(),
+        user: itin.user
+          ? { name: itin.user.email, avatar: itin.user.avatarUrl }
+          : undefined,
+      });
+    }
+
+    for (const ci of recentCheckins) {
+      recentActivity.push({
+        id: `checkin_${ci.id}`,
+        type: "checkin",
+        title: `Checked in: "${ci.itineraryItem?.title || "stop"}"`,
+        description: `${ci.user?.email || "Unknown"} — ${ci.source} (${Math.round(ci.distanceMeters)}m)`,
+        timestamp: ci.checkedInAt.toISOString(),
+        user: ci.user
+          ? { name: ci.user.email, avatar: ci.user.avatarUrl }
+          : undefined,
+      });
+    }
+
+    for (const badge of recentBadgeUnlocks) {
+      recentActivity.push({
+        id: `badge_${badge.id}`,
+        type: "badge_unlocked",
+        title: `Badge unlocked: ${badge.badgeId.replace(/_/g, " ")}`,
+        description: `${badge.user?.email || "Unknown"} earned a new badge`,
+        timestamp: badge.unlockedAt!.toISOString(),
+        user: badge.user
+          ? { name: badge.user.email, avatar: badge.user.avatarUrl }
+          : undefined,
+      });
+    }
+
+    recentActivity.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    );
+
+    return c.json({
+      app: {
+        totalUsers,
+        usersThisMonth,
+        usersThisWeek,
+        totalEvents,
+        totalItineraries,
+        totalCheckins,
+        totalBadgesUnlocked,
+        totalItineraryItems,
+        activeQuestUsers,
+        tableCounts,
+      },
+      tiers: tierDistribution.map((t) => ({
+        tier: t.tier || "Explorer",
+        count: parseInt(t.count),
+      })),
+      itineraries: {
+        total: totalItineraries,
+        ready: itinerariesReady,
+        completed: itinerariesCompleted,
+        failed: itinerariesFailed,
+        completionRate:
+          itinerariesReady > 0
+            ? Math.round((itinerariesCompleted / itinerariesReady) * 10000) /
+              100
+            : 0,
+        thisWeek: itinerariesThisWeek,
+        completedThisWeek: itinerariesCompletedThisWeek,
+        avgRating: ratingResult?.avg
+          ? Math.round(parseFloat(ratingResult.avg) * 100) / 100
+          : null,
+        totalRated: parseInt(ratingResult?.count) || 0,
+      },
+      topCities: topCities.map((c) => ({
+        city: c.city,
+        total: parseInt(c.total),
+        completed: parseInt(c.completed),
+        completionRate:
+          parseInt(c.total) > 0
+            ? Math.round(
+                (parseInt(c.completed) / parseInt(c.total)) * 10000,
+              ) / 100
+            : 0,
+      })),
+      checkins: {
+        total: totalCheckins,
+        thisWeek: checkinsThisWeek,
+        sourceBreakdown: checkinSourceBreakdown.map((s) => ({
+          source: s.source || "unknown",
+          count: parseInt(s.count),
+        })),
+        avgDistanceMeters: avgCheckinDistance?.avg
+          ? Math.round(parseFloat(avgCheckinDistance.avg) * 100) / 100
+          : null,
+        avgStopsPerItinerary: avgStopsResult?.avg
+          ? Math.round(parseFloat(avgStopsResult.avg) * 100) / 100
+          : null,
+      },
+      streaks: {
+        activeStreaks: parseInt(streakStats?.activeStreaks) || 0,
+        avgStreak: streakStats?.avgStreak
+          ? Math.round(parseFloat(streakStats.avgStreak) * 100) / 100
+          : 0,
+        longestEver: parseInt(streakStats?.longestEver) || 0,
+        avgXp: streakStats?.avgXp
+          ? Math.round(parseFloat(streakStats.avgXp))
+          : 0,
+        totalXpAwarded: parseInt(streakStats?.totalXpAwarded) || 0,
+      },
+      badges: {
+        totalUnlocked: totalBadgesUnlocked,
+        topBadges: topBadges.map((b) => ({
+          badgeId: b.badgeId,
+          label: b.badgeId.replace(/_/g, " "),
+          count: parseInt(b.count),
+        })),
+      },
+      weeklyTrend: weeklyItineraryTrend.map((w) => ({
+        week: w.week,
+        created: parseInt(w.created),
+        completed: parseInt(w.completed),
+      })),
+      recentActivity: recentActivity.slice(0, 20),
+    });
+  } catch (error) {
+    console.error("Error fetching dashboard overview:", error);
+    return c.json(
+      {
+        error: "Failed to fetch dashboard overview",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       500,

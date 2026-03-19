@@ -54,6 +54,20 @@ export interface CategoryStat {
   };
 }
 
+export interface LlmCostsSummary {
+  summary: {
+    totalCost: number;
+    totalCalls: number;
+    totalTokens: number;
+  };
+  byModel: Array<{
+    model: string;
+    calls: number;
+    tokens: number;
+    cost: number;
+  }>;
+}
+
 export interface TimeStat {
   day: string;
   time: string;
@@ -80,6 +94,66 @@ export interface Event {
   attendees: number;
   maxAttendees?: number;
   qrUrl?: string | null;
+}
+
+export interface DashboardOverview {
+  app: {
+    totalUsers: number;
+    usersThisMonth: number;
+    usersThisWeek: number;
+    totalEvents: number;
+    totalItineraries: number;
+    totalCheckins: number;
+    totalBadgesUnlocked: number;
+    totalItineraryItems: number;
+    activeQuestUsers: number;
+    tableCounts: Array<{ table: string; rows: number }>;
+  };
+  tiers: Array<{ tier: string; count: number }>;
+  itineraries: {
+    total: number;
+    ready: number;
+    completed: number;
+    failed: number;
+    completionRate: number;
+    thisWeek: number;
+    completedThisWeek: number;
+    avgRating: number | null;
+    totalRated: number;
+  };
+  topCities: Array<{
+    city: string;
+    total: number;
+    completed: number;
+    completionRate: number;
+  }>;
+  checkins: {
+    total: number;
+    thisWeek: number;
+    sourceBreakdown: Array<{ source: string; count: number }>;
+    avgDistanceMeters: number | null;
+    avgStopsPerItinerary: number | null;
+  };
+  streaks: {
+    activeStreaks: number;
+    avgStreak: number;
+    longestEver: number;
+    avgXp: number;
+    totalXpAwarded: number;
+  };
+  badges: {
+    totalUnlocked: number;
+    topBadges: Array<{ badgeId: string; label: string; count: number }>;
+  };
+  weeklyTrend: Array<{ week: string; created: number; completed: number }>;
+  recentActivity: Array<{
+    id: string;
+    type: string;
+    title: string;
+    description: string;
+    timestamp: string;
+    user?: { name: string; avatar?: string };
+  }>;
 }
 
 export interface CategoryTrends {
@@ -197,6 +271,74 @@ export function getCategoryName(
 }
 
 export class DashboardDataService {
+  static async getOverview(): Promise<DashboardOverview> {
+    try {
+      return await api.get<DashboardOverview>(
+        "/api/admin/dashboard/overview",
+      );
+    } catch (error) {
+      console.error("Failed to fetch dashboard overview:", error);
+      return {
+        app: {
+          totalUsers: 0,
+          usersThisMonth: 0,
+          usersThisWeek: 0,
+          totalEvents: 0,
+          totalItineraries: 0,
+          totalCheckins: 0,
+          totalBadgesUnlocked: 0,
+          totalItineraryItems: 0,
+          activeQuestUsers: 0,
+          tableCounts: [],
+        },
+        tiers: [],
+        itineraries: {
+          total: 0,
+          ready: 0,
+          completed: 0,
+          failed: 0,
+          completionRate: 0,
+          thisWeek: 0,
+          completedThisWeek: 0,
+          avgRating: null,
+          totalRated: 0,
+        },
+        topCities: [],
+        checkins: {
+          total: 0,
+          thisWeek: 0,
+          sourceBreakdown: [],
+          avgDistanceMeters: null,
+          avgStopsPerItinerary: null,
+        },
+        streaks: {
+          activeStreaks: 0,
+          avgStreak: 0,
+          longestEver: 0,
+          avgXp: 0,
+          totalXpAwarded: 0,
+        },
+        badges: { totalUnlocked: 0, topBadges: [] },
+        weeklyTrend: [],
+        recentActivity: [],
+      };
+    }
+  }
+
+  static async getLlmCostsSummary(): Promise<LlmCostsSummary> {
+    try {
+      return await api.get<LlmCostsSummary>(
+        "/api/admin/dashboard/llm-costs?days=30",
+      );
+    } catch (error) {
+      console.error("Failed to fetch LLM costs:", error);
+      return {
+        summary: { totalCost: 0, totalCalls: 0, totalTokens: 0 },
+        byModel: [],
+      };
+    }
+  }
+
   static async getMetrics(): Promise<DashboardMetrics> {
     try {
       const response = await api.get<DashboardMetrics>(
