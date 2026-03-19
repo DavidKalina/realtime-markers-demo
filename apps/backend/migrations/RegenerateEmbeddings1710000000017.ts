@@ -51,6 +51,7 @@ export class RegenerateEmbeddings1710000000017 implements MigrationInterface {
     const openAIService = createOpenAIService({
       redisService,
       openAICacheService,
+      dataSource: queryRunner.connection,
     });
     const embeddingCacheService = createEmbeddingCacheService({
       configService,

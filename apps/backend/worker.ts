@@ -89,6 +89,7 @@ async function initializeWorker() {
     openAIService: createOpenAIService({
       redisService,
       openAICacheService: createOpenAICacheService(),
+      dataSource: AppDataSource,
     }),
     categoryCacheService: createCategoryCacheService(redisClient),
   });
@@ -97,6 +98,7 @@ async function initializeWorker() {
   const openAIService = createOpenAIService({
     redisService,
     openAICacheService: createOpenAICacheService(),
+    dataSource: AppDataSource,
   });
 
   // Create EventCacheService instance

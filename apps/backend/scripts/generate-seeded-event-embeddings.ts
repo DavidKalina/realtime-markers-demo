@@ -92,6 +92,7 @@ async function generateSeededEventEmbeddings() {
     const openAIService = createOpenAIService({
       redisService,
       openAICacheService,
+      dataSource,
     });
     const embeddingCacheService = createEmbeddingCacheService({
       configService,

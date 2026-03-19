@@ -12,6 +12,10 @@ import { createOpenAICacheService } from "../services/shared/OpenAICacheService"
 import { createEmbeddingService } from "../services/shared/EmbeddingService";
 import { createEmbeddingCacheService } from "../services/shared/EmbeddingCacheService";
 import { createConfigService } from "../services/shared/ConfigService";
+import {
+  createEmailService,
+  MockEmailService,
+} from "../services/shared/EmailService";
 
 // Create an instance of AuthService (or import it if already instantiated)
 const userRepository = dataSource.getRepository(User);
@@ -21,6 +25,7 @@ const openAICacheService = createOpenAICacheService();
 const openAIService = createOpenAIService({
   redisService,
   openAICacheService,
+  dataSource,
 });
 
 const configService = createConfigService();
@@ -38,11 +43,20 @@ const userPreferencesService = createUserPreferencesService({
   openAIService,
 });
 
+const emailService = process.env.RESEND_API_KEY
+  ? createEmailService({
+      apiKey: process.env.RESEND_API_KEY,
+      fromEmail: process.env.EMAIL_FROM || "noreply@mail.davidkalina.com",
+      adminEmails: process.env.ADMIN_EMAILS?.split(",") || [],
+    })
+  : new MockEmailService();
+
 const authService = createAuthService({
   userRepository,
   userPreferencesService,
   dataSource,
   openAIService,
+  emailService,
 });
 
 export const authMiddleware = async (c: Context<AppContext>, next: Next) => {

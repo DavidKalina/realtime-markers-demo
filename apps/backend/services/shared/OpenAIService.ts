@@ -6,11 +6,9 @@ import type { RedisService } from "./RedisService";
 import type { OpenAICacheService } from "./OpenAICacheService";
 import type {
   ChatCompletion,
-  ChatCompletionChunk,
   ChatCompletionMessageParam,
   ChatCompletionCreateParamsNonStreaming,
 } from "openai/resources/chat/completions";
-import type { Stream } from "openai/streaming";
 
 export enum OpenAIModel {
   GPT4O = "gpt-4o",
@@ -98,13 +96,6 @@ export interface OpenAIService {
     caller?: string,
   ): Promise<string>;
 
-  streamChatCompletion(params: {
-    model: OpenAIModel;
-    messages: ChatCompletionMessageParam[];
-    temperature?: number;
-    max_tokens?: number;
-  }): Promise<Stream<ChatCompletionChunk>>;
-
   generateEmbedding(
     text: string,
     model?: OpenAIModel,
@@ -123,7 +114,7 @@ export interface OpenAIService {
 export interface OpenAIServiceDependencies {
   redisService: RedisService;
   openAICacheService: OpenAICacheService;
-  dataSource?: DataSource;
+  dataSource: DataSource;
 }
 
 export class OpenAIServiceImpl implements OpenAIService {
@@ -131,7 +122,7 @@ export class OpenAIServiceImpl implements OpenAIService {
   private redisService: RedisService;
   private openAICacheService: OpenAICacheService;
   private activeRequests: Map<string, number> = new Map();
-  private llmUsageRepository: Repository<LlmUsageLog> | null = null;
+  private llmUsageRepository: Repository<LlmUsageLog>;
 
   constructor(private dependencies: OpenAIServiceDependencies) {
     if (!process.env.OPENAI_API_KEY) {
@@ -143,10 +134,8 @@ export class OpenAIServiceImpl implements OpenAIService {
     this.redisService = dependencies.redisService;
     this.openAICacheService = dependencies.openAICacheService;
 
-    if (dependencies.dataSource) {
-      this.llmUsageRepository =
-        dependencies.dataSource.getRepository(LlmUsageLog);
-    }
+    this.llmUsageRepository =
+      dependencies.dataSource.getRepository(LlmUsageLog);
 
     // Create the OpenAI instance with a custom fetch function
     this.openai = new OpenAI({
@@ -165,7 +154,6 @@ export class OpenAIServiceImpl implements OpenAIService {
     totalTokens: number;
     durationMs: number;
   }): void {
-    if (!this.llmUsageRepository) return;
     const cost = estimateCost(
       params.model,
       params.promptTokens,
@@ -371,18 +359,6 @@ export class OpenAIServiceImpl implements OpenAIService {
     }
 
     return response.output_text;
-  }
-
-  async streamChatCompletion(params: {
-    model: OpenAIModel;
-    messages: ChatCompletionMessageParam[];
-    temperature?: number;
-    max_tokens?: number;
-  }): Promise<Stream<ChatCompletionChunk>> {
-    return this.openai.chat.completions.create({
-      ...params,
-      stream: true,
-    });
   }
 
   async generateEmbedding(
