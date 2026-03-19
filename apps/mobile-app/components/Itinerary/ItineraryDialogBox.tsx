@@ -65,86 +65,90 @@ interface CollapsibleSectionHandle {
   expand: () => void;
 }
 
-const CollapsibleSection = React.memo(forwardRef<
-  CollapsibleSectionHandle,
-  {
-    title: string;
-    defaultExpanded?: boolean;
-    colors: Colors;
-    children: React.ReactNode;
-  }
->(function CollapsibleSection(
-  { title, defaultExpanded = false, colors, children },
-  ref,
-) {
-  const expanded = useSharedValue(defaultExpanded ? 1 : 0);
-  const contentHeight = useSharedValue(0);
-  const sStyles = useMemo(() => collapsibleStyles(colors), [colors]);
+const CollapsibleSection = React.memo(
+  forwardRef<
+    CollapsibleSectionHandle,
+    {
+      title: string;
+      defaultExpanded?: boolean;
+      colors: Colors;
+      children: React.ReactNode;
+    }
+  >(function CollapsibleSection(
+    { title, defaultExpanded = false, colors, children },
+    ref,
+  ) {
+    const expanded = useSharedValue(defaultExpanded ? 1 : 0);
+    const contentHeight = useSharedValue(0);
+    const sStyles = useMemo(() => collapsibleStyles(colors), [colors]);
 
-  useImperativeHandle(ref, () => ({
-    expand: () => {
-      if (expanded.value < 1) {
-        expanded.value = withTiming(1, {
-          duration: COLLAPSE_DURATION,
-          easing: Easing.out(Easing.cubic),
-        });
+    useImperativeHandle(ref, () => ({
+      expand: () => {
+        if (expanded.value < 1) {
+          expanded.value = withTiming(1, {
+            duration: COLLAPSE_DURATION,
+            easing: Easing.out(Easing.cubic),
+          });
+        }
+      },
+    }));
+
+    const toggle = useCallback(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      expanded.value = withTiming(expanded.value === 1 ? 0 : 1, {
+        duration: COLLAPSE_DURATION,
+        easing: Easing.out(Easing.cubic),
+      });
+    }, []);
+
+    const onContentLayout = useCallback((e: LayoutChangeEvent) => {
+      const h = e.nativeEvent.layout.height;
+      if (h > 0) {
+        contentHeight.value = h;
       }
-    },
-  }));
+    }, []);
 
-  const toggle = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    expanded.value = withTiming(expanded.value === 1 ? 0 : 1, {
-      duration: COLLAPSE_DURATION,
-      easing: Easing.out(Easing.cubic),
+    const chevronStyle = useAnimatedStyle(() => ({
+      transform: [{ rotate: `${expanded.value * 90}deg` }],
+    }));
+
+    const bodyStyle = useAnimatedStyle(() => {
+      // Before measurement, show at natural height if default-expanded
+      if (contentHeight.value === 0) {
+        return expanded.value === 1
+          ? { opacity: 1 }
+          : { height: 0, opacity: 0 };
+      }
+      const h = interpolate(expanded.value, [0, 1], [0, contentHeight.value]);
+      return { height: h, opacity: expanded.value };
     });
-  }, []);
 
-  const onContentLayout = useCallback((e: LayoutChangeEvent) => {
-    const h = e.nativeEvent.layout.height;
-    if (h > 0) {
-      contentHeight.value = h;
-    }
-  }, []);
+    return (
+      <View style={sStyles.wrapper}>
+        <Pressable onPress={toggle} style={sStyles.header}>
+          <Text style={sStyles.label}>{title}</Text>
+          <Reanimated.View style={chevronStyle}>
+            <Text style={sStyles.chevron}>›</Text>
+          </Reanimated.View>
+        </Pressable>
 
-  const chevronStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${expanded.value * 90}deg` }],
-  }));
+        {/* Always-present invisible measure — ensures contentHeight is known even when collapsed */}
+        <View
+          style={sStyles.measure}
+          onLayout={onContentLayout}
+          pointerEvents="none"
+        >
+          <View style={sStyles.content}>{children}</View>
+        </View>
 
-  const bodyStyle = useAnimatedStyle(() => {
-    // Before measurement, show at natural height if default-expanded
-    if (contentHeight.value === 0) {
-      return expanded.value === 1 ? { opacity: 1 } : { height: 0, opacity: 0 };
-    }
-    const h = interpolate(expanded.value, [0, 1], [0, contentHeight.value]);
-    return { height: h, opacity: expanded.value };
-  });
-
-  return (
-    <View style={sStyles.wrapper}>
-      <Pressable onPress={toggle} style={sStyles.header}>
-        <Text style={sStyles.label}>{title}</Text>
-        <Reanimated.View style={chevronStyle}>
-          <Text style={sStyles.chevron}>›</Text>
+        {/* Animated clip container — always rendered, no conditional swap */}
+        <Reanimated.View style={[sStyles.bodyClip, bodyStyle]}>
+          <View style={sStyles.content}>{children}</View>
         </Reanimated.View>
-      </Pressable>
-
-      {/* Always-present invisible measure — ensures contentHeight is known even when collapsed */}
-      <View
-        style={sStyles.measure}
-        onLayout={onContentLayout}
-        pointerEvents="none"
-      >
-        <View style={sStyles.content}>{children}</View>
       </View>
-
-      {/* Animated clip container — always rendered, no conditional swap */}
-      <Reanimated.View style={[sStyles.bodyClip, bodyStyle]}>
-        <View style={sStyles.content}>{children}</View>
-      </Reanimated.View>
-    </View>
-  );
-}));
+    );
+  }),
+);
 
 const collapsibleStyles = (colors: Colors) =>
   StyleSheet.create({
@@ -562,7 +566,11 @@ export default function ItineraryDialogBox({
 
   // City state — chip picker when no city prop provided
   const { userLocation } = useUserLocation();
-  const { closestCities, topCities, isLoading: citiesLoading } = useThirdSpaces(
+  const {
+    closestCities,
+    topCities,
+    isLoading: citiesLoading,
+  } = useThirdSpaces(
     cityProp ? undefined : userLocation?.[1],
     cityProp ? undefined : userLocation?.[0],
   );
@@ -735,7 +743,6 @@ export default function ItineraryDialogBox({
   const vibesRef = useRef<CollapsibleSectionHandle>(null);
   const intentionRef = useRef<CollapsibleSectionHandle>(null);
 
-
   // Job progress streaming
   const { activeJobs, trackJob } = useJobProgress();
   const itineraryJobStore = useItineraryJobStore();
@@ -802,7 +809,8 @@ export default function ItineraryDialogBox({
       // Load existing note if editing an anchor (match by placeId or coordinates)
       const existingAnchor = anchorStops?.find(
         (a) =>
-          (nearbyPlaces.selectedPlaceId && a.placeId === nearbyPlaces.selectedPlaceId) ||
+          (nearbyPlaces.selectedPlaceId &&
+            a.placeId === nearbyPlaces.selectedPlaceId) ||
           (Math.abs(a.coordinates[0] - nearbyPlaces.lng) < 0.0001 &&
             Math.abs(a.coordinates[1] - nearbyPlaces.lat) < 0.0001),
       );
@@ -1245,7 +1253,7 @@ export default function ItineraryDialogBox({
   // Date options
   const dateOptions = useMemo(() => {
     const options: { label: string; value: string }[] = [];
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 14; i++) {
       const d = new Date();
       d.setDate(d.getDate() + i);
       const value = d.toISOString().split("T")[0];
@@ -1414,7 +1422,10 @@ export default function ItineraryDialogBox({
               >
                 <Text style={styles.nearbyBtnRemoveText}>Remove</Text>
               </Pressable>
-              <Pressable style={styles.nearbyBtnKeep} onPress={handleKeepPinWithNote}>
+              <Pressable
+                style={styles.nearbyBtnKeep}
+                onPress={handleKeepPinWithNote}
+              >
                 <Text style={styles.nearbyBtnKeepText}>Keep pin</Text>
               </Pressable>
             </View>
@@ -1533,10 +1544,7 @@ export default function ItineraryDialogBox({
                   <Text style={styles.sectionLabel}>Where?</Text>
                   {citiesLoading && cityOptions.length === 0 ? (
                     <View style={styles.cityLoadingRow}>
-                      <ActivityIndicator
-                        size="small"
-                        color={GREEN_ACCENT}
-                      />
+                      <ActivityIndicator size="small" color={GREEN_ACCENT} />
                       <Text style={styles.cityLoadingText}>
                         Finding cities nearby...
                       </Text>
