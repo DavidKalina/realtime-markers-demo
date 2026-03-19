@@ -1,8 +1,6 @@
 import { type MigrationInterface, type QueryRunner } from "typeorm";
 
-export class AdventureScoreSnapshot1710000000063
-  implements MigrationInterface
-{
+export class AdventureScoreSnapshot1710000000063 implements MigrationInterface {
   name = "AdventureScoreSnapshot1710000000063";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -28,8 +26,6 @@ export class AdventureScoreSnapshot1710000000063
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_ass_user_computed"`);
-    await queryRunner.query(
-      `DROP TABLE IF EXISTS "adventure_score_snapshots"`,
-    );
+    await queryRunner.query(`DROP TABLE IF EXISTS "adventure_score_snapshots"`);
   }
 }
