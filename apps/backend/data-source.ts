@@ -14,12 +14,10 @@ import {
   UserEventRsvp,
   UserEventSave,
   UserPushToken,
-  UserFollow,
   LlmUsageLog,
   Itinerary,
   ItineraryItem,
   ItineraryCheckin,
-  ItineraryRitual,
   UserBadge,
 } from "@realtime-markers/database";
 
@@ -69,6 +67,7 @@ import { BackfillItineraryEnhancements1710000000057 } from "./migrations/Backfil
 import { AddItineraryItemEmbeddingsAndCategories1710000000058 } from "./migrations/AddItineraryItemEmbeddingsAndCategories1710000000058";
 import { AddOnboardingProfile1710000000059 } from "./migrations/AddOnboardingProfile1710000000059";
 import { AddItinerarySoftDelete1710000000060 } from "./migrations/AddItinerarySoftDelete1710000000060";
+import { DropFollowsAndRituals1710000000061 } from "./migrations/DropFollowsAndRituals1710000000061";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -85,12 +84,10 @@ const AppDataSource = new DataSource({
     UserEventRsvp,
     UserEventSave,
     UserPushToken,
-    UserFollow,
     LlmUsageLog,
     Itinerary,
     ItineraryItem,
     ItineraryCheckin,
-    ItineraryRitual,
     UserBadge,
   ],
   migrations: [
@@ -139,6 +136,7 @@ const AppDataSource = new DataSource({
     AddItineraryItemEmbeddingsAndCategories1710000000058,
     AddOnboardingProfile1710000000059,
     AddItinerarySoftDelete1710000000060,
+    DropFollowsAndRituals1710000000061,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

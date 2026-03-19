@@ -29,12 +29,10 @@ export function setupContext(
       "proximityNotificationService",
       services.proximityNotificationService,
     );
-    c.set("followService", services.followService);
     c.set("leaderboardService", services.leaderboardService);
     c.set("thirdSpaceScoreService", services.thirdSpaceScoreService);
     c.set("itineraryService", services.itineraryService);
     c.set("itineraryCheckinService", services.itineraryCheckinService);
-    c.set("itineraryRitualService", services.itineraryRitualService);
     c.set("overpassService", services.overpassService);
     c.set("badgeService", services.badgeService);
     c.set("adventureScoreService", services.adventureScoreService);

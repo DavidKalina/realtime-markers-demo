@@ -46,7 +46,6 @@ import { apiClient } from "@/services/ApiClient";
 import { pushNotificationService } from "@/services/PushNotificationService";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
-import type { RitualResponse } from "@/services/api/modules/rituals";
 import type { NearbyPlace } from "@/services/api/modules/places";
 import {
   ACTIVITY_OPTIONS,
@@ -736,9 +735,6 @@ export default function ItineraryDialogBox({
   const vibesRef = useRef<CollapsibleSectionHandle>(null);
   const intentionRef = useRef<CollapsibleSectionHandle>(null);
 
-  // Rituals
-  const [rituals, setRituals] = useState<RitualResponse[]>([]);
-  const [activeRitualId, setActiveRitualId] = useState<string | null>(null);
 
   // Job progress streaming
   const { activeJobs, trackJob } = useJobProgress();
@@ -1045,16 +1041,6 @@ export default function ItineraryDialogBox({
     }
   }, [autoExpand]);
 
-  // Load rituals
-  useEffect(() => {
-    apiClient.rituals
-      .list()
-      .then((r) => setRituals(r))
-      .catch((err) =>
-        console.warn("[ItineraryDialogBox] Failed to load rituals:", err),
-      );
-  }, []);
-
   const toggleIntention = useCallback((value: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPreferencesActive(false);
@@ -1069,22 +1055,11 @@ export default function ItineraryDialogBox({
     );
   }, []);
 
-  const applyRitual = useCallback((ritual: RitualResponse) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setActiveRitualId(ritual.id);
-    setPreferencesActive(false);
-    setBudgetMax(Number(ritual.budgetMax));
-    setDurationHours(Number(ritual.durationHours));
-    setStopCount(ritual.stopCount);
-    setSelectedActivities(ritual.activityTypes);
-  }, []);
-
   const togglePreferences = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setPreferencesActive((prev) => {
       if (!prev && onboardingProfile) {
         // Applying preferences — set activities and intention from profile
-        setActiveRitualId(null);
         if (onboardingProfile.activities?.length) {
           setSelectedActivities(onboardingProfile.activities);
         }
@@ -1107,7 +1082,6 @@ export default function ItineraryDialogBox({
       stops: number;
       activities: string[];
       budget: number;
-      ritualId?: string;
       startTime?: string;
       endTime?: string;
       intention?: string;
@@ -1141,7 +1115,6 @@ export default function ItineraryDialogBox({
           durationHours: params.duration,
           activityTypes: params.activities,
           stopCount: params.stops || undefined,
-          ritualId: params.ritualId,
           ...(params.intention && { intention: params.intention }),
           ...(params.surpriseMe && { surpriseMe: true }),
           ...(params.startTime && { startTime: params.startTime }),
@@ -1197,7 +1170,6 @@ export default function ItineraryDialogBox({
       stops: stopCount,
       activities: selectedActivities,
       budget: budgetMax,
-      ritualId: activeRitualId ?? undefined,
       intention: selectedIntention ?? undefined,
       ...(useCustomTime && {
         startTime: `${String(startHour).padStart(2, "0")}:00`,
@@ -1211,7 +1183,6 @@ export default function ItineraryDialogBox({
     stopCount,
     selectedActivities,
     budgetMax,
-    activeRitualId,
     selectedIntention,
     useCustomTime,
     startHour,
@@ -1593,61 +1564,27 @@ export default function ItineraryDialogBox({
                 </View>
               )}
 
-              {/* Presets row — My Preferences + Rituals */}
-              {(onboardingProfile || rituals.length > 0) && (
-                <View style={styles.ritualShelf}>
-                  <Text style={styles.ritualShelfLabel}>PRESETS</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.ritualPillRow}
+              {/* Presets row — My Preferences */}
+              {onboardingProfile && (
+                <View style={styles.presetShelf}>
+                  <Text style={styles.presetShelfLabel}>PRESETS</Text>
+                  <Pressable
+                    style={[
+                      styles.presetPill,
+                      preferencesActive && styles.presetPillActive,
+                    ]}
+                    onPress={togglePreferences}
                   >
-                    {onboardingProfile && (
-                      <Pressable
-                        style={[
-                          styles.ritualPill,
-                          preferencesActive && styles.ritualPillActive,
-                        ]}
-                        onPress={togglePreferences}
-                      >
-                        <Text style={styles.ritualPillEmoji}>{"✨"}</Text>
-                        <Text
-                          style={[
-                            styles.ritualPillText,
-                            preferencesActive && styles.ritualPillTextActive,
-                          ]}
-                        >
-                          My Preferences
-                        </Text>
-                      </Pressable>
-                    )}
-                    {rituals.map((r) => (
-                      <Pressable
-                        key={r.id}
-                        style={[
-                          styles.ritualPill,
-                          activeRitualId === r.id && styles.ritualPillActive,
-                        ]}
-                        onPress={() => applyRitual(r)}
-                      >
-                        <Text style={styles.ritualPillEmoji}>{r.emoji}</Text>
-                        <Text
-                          style={[
-                            styles.ritualPillText,
-                            activeRitualId === r.id &&
-                              styles.ritualPillTextActive,
-                          ]}
-                        >
-                          {r.name}
-                        </Text>
-                        {r.usageCount > 0 && (
-                          <Text style={styles.ritualUsageCount}>
-                            {r.usageCount}×
-                          </Text>
-                        )}
-                      </Pressable>
-                    ))}
-                  </ScrollView>
+                    <Text style={styles.presetPillEmoji}>{"✨"}</Text>
+                    <Text
+                      style={[
+                        styles.presetPillText,
+                        preferencesActive && styles.presetPillTextActive,
+                      ]}
+                    >
+                      My Preferences
+                    </Text>
+                  </Pressable>
                 </View>
               )}
 
@@ -2281,14 +2218,14 @@ const createStyles = (colors: Colors) =>
       textTransform: "uppercase",
       letterSpacing: 1,
     },
-    /* ── Ritual shelf ─── */
-    ritualShelf: {
+    /* ── Preset shelf ─── */
+    presetShelf: {
       marginBottom: spacing.md,
       paddingBottom: spacing.sm,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border.subtle,
     },
-    ritualShelfLabel: {
+    presetShelfLabel: {
       fontFamily: fontFamily.mono,
       fontSize: 11,
       color: colors.text.secondary,
@@ -2296,11 +2233,7 @@ const createStyles = (colors: Colors) =>
       letterSpacing: 1.5,
       marginBottom: 6,
     },
-    ritualPillRow: {
-      flexDirection: "row",
-      gap: 6,
-    },
-    ritualPill: {
+    presetPill: {
       flexDirection: "row",
       alignItems: "center",
       paddingHorizontal: 10,
@@ -2311,26 +2244,21 @@ const createStyles = (colors: Colors) =>
       borderColor: colors.border.default,
       gap: 4,
     },
-    ritualPillActive: {
+    presetPillActive: {
       backgroundColor: GREEN_MUTED,
       borderColor: "rgba(134, 239, 172, 0.4)",
     },
-    ritualPillEmoji: {
+    presetPillEmoji: {
       fontSize: 13,
     },
-    ritualPillText: {
+    presetPillText: {
       fontFamily: fontFamily.mono,
       fontSize: 12,
       color: colors.text.secondary,
       fontWeight: "600",
     },
-    ritualPillTextActive: {
+    presetPillTextActive: {
       color: GREEN_ACCENT,
-    },
-    ritualUsageCount: {
-      fontFamily: fontFamily.mono,
-      fontSize: 10,
-      color: colors.text.disabled,
     },
     /* ── Time picker ─── */
     timePickerSection: {

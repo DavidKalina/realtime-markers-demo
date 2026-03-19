@@ -18,7 +18,6 @@ import type { UserEventDiscovery } from "./UserEventDiscovery";
 import type { UserEventRsvp } from "./UserEventRsvp";
 import type { UserEventSave } from "./UserEventSave";
 import type { UserEventView } from "./UserEventView";
-import type { UserFollow } from "./UserFollow";
 import type { UserPushToken } from "./UserPushToken";
 
 export enum UserRole {
@@ -102,12 +101,6 @@ export class User {
   @Column({ name: "last_streak_week", type: "date", nullable: true })
   lastStreakWeek?: string;
 
-  @Column({ name: "follower_count", type: "integer", default: 0 })
-  followerCount!: number;
-
-  @Column({ name: "following_count", type: "integer", default: 0 })
-  followingCount!: number;
-
   @Column({ name: "contacts", type: "jsonb", nullable: true })
   contacts?: {
     email?: string;
@@ -133,12 +126,6 @@ export class User {
 
   @OneToMany("UserEventView", "user")
   viewedEvents!: Relation<UserEventView>[];
-
-  @OneToMany("UserFollow", "follower")
-  following!: Relation<UserFollow>[];
-
-  @OneToMany("UserFollow", "following")
-  followers!: Relation<UserFollow>[];
 
   @Column({ name: "preference_embedding", type: "text", nullable: true })
   preferenceEmbedding?: string;

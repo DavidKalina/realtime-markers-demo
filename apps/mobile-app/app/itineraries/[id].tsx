@@ -329,49 +329,6 @@ const ItineraryDetailScreen = () => {
     setSelectedItem(item);
   }, []);
 
-  // Save as ritual
-  const [showSaveRitual, setShowSaveRitual] = useState(false);
-  const [ritualName, setRitualName] = useState("");
-
-  const ACTIVITY_EMOJI: Record<string, string> = {
-    food: "\u{1F37D}\uFE0F",
-    coffee: "\u2615",
-    music: "\u{1F3B5}",
-    art: "\u{1F3A8}",
-    outdoors: "\u{1F333}",
-    boarding: "\u{1F6F9}",
-    hiking: "\u{1F97E}",
-    walking: "\u{1F6B6}",
-    nightlife: "\u{1F378}",
-    sports: "\u26BD",
-    culture: "\u{1F3DB}\uFE0F",
-  };
-
-  const handleSaveRitual = useCallback(async () => {
-    if (!ritualName.trim() || !itinerary) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    const emoji = ACTIVITY_EMOJI[itinerary.activityTypes?.[0]] || "\u{1F501}";
-
-    try {
-      await apiClient.rituals.create({
-        name: ritualName.trim(),
-        emoji,
-        budgetMin: 0,
-        budgetMax: itinerary.budgetMax,
-        durationHours: itinerary.durationHours,
-        activityTypes: itinerary.activityTypes,
-        stopCount: itinerary.items.length,
-      });
-      setShowSaveRitual(false);
-      setRitualName("");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err) {
-      console.error("[ItineraryDetail] Failed to save ritual:", err);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  }, [ritualName, itinerary]);
-
   const formatDate = useCallback((dateStr: string) => {
     const date = new Date(dateStr + "T00:00:00");
     return date.toLocaleDateString("en-US", {
@@ -585,36 +542,22 @@ const ItineraryDetailScreen = () => {
               })()}
           </Animated.View>
 
-          {/* Vibe tags + save as ritual */}
+          {/* Vibe tags */}
           <Animated.View
             entering={FadeInDown.delay(400)
               .duration(400)
               .easing(Easing.out(Easing.cubic))}
-            style={styles.vibeAndRitualRow}
+            style={styles.vibeRow}
           >
-            <View style={styles.vibeRow}>
-              {(itinerary.activityTypes ?? []).map((vibe, i) => (
-                <Animated.View
-                  key={vibe}
-                  entering={FadeInRight.delay(450 + i * 60).duration(350)}
-                  style={styles.vibePill}
-                >
-                  <Text style={styles.vibeText}>{vibe}</Text>
-                </Animated.View>
-              ))}
-            </View>
-            <Pressable
-              style={({ pressed }) => [
-                styles.saveRitualToggle,
-                pressed && styles.saveRitualTogglePressed,
-              ]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowSaveRitual(true);
-              }}
-            >
-              <Text style={styles.saveRitualToggleText}>Save as ritual</Text>
-            </Pressable>
+            {(itinerary.activityTypes ?? []).map((vibe, i) => (
+              <Animated.View
+                key={vibe}
+                entering={FadeInRight.delay(450 + i * 60).duration(350)}
+                style={styles.vibePill}
+              >
+                <Text style={styles.vibeText}>{vibe}</Text>
+              </Animated.View>
+            ))}
           </Animated.View>
         </Animated.View>
 
@@ -746,78 +689,6 @@ const ItineraryDetailScreen = () => {
         </Animated.View>
       </PullToActionScrollView>
 
-      {/* Save as ritual modal */}
-      <Modal
-        visible={showSaveRitual}
-        transparent
-        animationType="none"
-        onRequestClose={() => {
-          setShowSaveRitual(false);
-          setRitualName("");
-        }}
-      >
-        <Pressable
-          style={styles.ritualModalBackdrop}
-          onPress={() => {
-            setShowSaveRitual(false);
-            setRitualName("");
-          }}
-        >
-          <Animated.View
-            entering={FadeIn.duration(200)}
-            style={styles.ritualModalBackdropFill}
-          />
-          <Animated.View
-            entering={FadeInDown.duration(250).easing(Easing.out(Easing.cubic))}
-            style={styles.ritualModalCard}
-          >
-            <Pressable>
-              <View style={styles.ritualModalAccent} />
-              <Text style={styles.ritualModalTitle}>Save as Ritual</Text>
-              <Text style={styles.ritualModalDescription}>
-                Save this itinerary's settings as a reusable ritual template.
-              </Text>
-              <TextInput
-                style={styles.ritualModalInput}
-                placeholder="Ritual name..."
-                placeholderTextColor={colors.text.disabled}
-                value={ritualName}
-                onChangeText={setRitualName}
-                autoFocus
-                returnKeyType="done"
-                onSubmitEditing={handleSaveRitual}
-                maxLength={50}
-              />
-              <View style={styles.ritualModalActions}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.ritualModalCancel,
-                    pressed && styles.ritualModalCancelPressed,
-                  ]}
-                  onPress={() => {
-                    setShowSaveRitual(false);
-                    setRitualName("");
-                  }}
-                >
-                  <Text style={styles.ritualModalCancelText}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.ritualModalSave,
-                    pressed && styles.ritualModalSavePressed,
-                    !ritualName.trim() && styles.ritualModalSaveDisabled,
-                  ]}
-                  onPress={handleSaveRitual}
-                  disabled={!ritualName.trim()}
-                >
-                  <Text style={styles.ritualModalSaveText}>Save</Text>
-                </Pressable>
-              </View>
-            </Pressable>
-          </Animated.View>
-        </Pressable>
-      </Modal>
-
       {/* Item detail modal */}
       <Modal
         visible={!!selectedItem}
@@ -826,12 +697,12 @@ const ItineraryDetailScreen = () => {
         onRequestClose={() => setSelectedItem(null)}
       >
         <Pressable
-          style={styles.ritualModalBackdrop}
+          style={styles.modalBackdrop}
           onPress={() => setSelectedItem(null)}
         >
           <Animated.View
             entering={FadeIn.duration(200)}
-            style={styles.ritualModalBackdropFill}
+            style={styles.modalBackdropFill}
           />
           {selectedItem && (
             <Animated.View
@@ -1227,130 +1098,15 @@ const createStyles = (colors: Colors) =>
       letterSpacing: 1,
     },
 
-    // ── Vibe + ritual row ──
-    vibeAndRitualRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "flex-end",
-      gap: spacing.sm,
-    },
-
-    // ── Save as ritual ──
-    saveRitualToggle: {
-      flexShrink: 0,
-      paddingVertical: 2,
-    },
-    saveRitualTogglePressed: {
-      opacity: 0.6,
-    },
-    saveRitualToggleText: {
-      fontFamily: fontFamily.mono,
-      fontSize: 10,
-      color: "#86efac",
-      fontWeight: fontWeight.semibold,
-      textDecorationLine: "underline",
-    },
-
-    // ── Ritual modal ──
-    ritualModalBackdrop: {
+    // ── Modal shared styles ──
+    modalBackdrop: {
       flex: 1,
       justifyContent: "center",
       alignItems: "center",
     },
-    ritualModalBackdropFill: {
+    modalBackdropFill: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: colors.overlay.light,
-    },
-    ritualModalCard: {
-      backgroundColor: colors.bg.card,
-      borderRadius: radius.xl,
-      padding: spacing["2xl"],
-      width: "85%",
-      maxWidth: 360,
-      borderWidth: 1,
-      borderColor: colors.border.default,
-      shadowColor: colors.fixed.black,
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.25,
-      shadowRadius: 20,
-      elevation: 10,
-    },
-    ritualModalAccent: {
-      height: 3,
-      borderRadius: 2,
-      width: 32,
-      marginBottom: spacing.md,
-      backgroundColor: "#86efac",
-    },
-    ritualModalTitle: {
-      fontSize: fontSize.lg,
-      fontWeight: fontWeight.bold,
-      color: colors.text.primary,
-      fontFamily: fontFamily.mono,
-      marginBottom: spacing.xs,
-    },
-    ritualModalDescription: {
-      fontSize: fontSize.sm,
-      color: colors.text.secondary,
-      fontFamily: fontFamily.mono,
-      lineHeight: 20,
-      marginBottom: spacing.lg,
-    },
-    ritualModalInput: {
-      height: 42,
-      borderRadius: radius.md,
-      backgroundColor: colors.bg.elevated,
-      borderWidth: 1,
-      borderColor: colors.border.default,
-      paddingHorizontal: spacing.md,
-      fontFamily: fontFamily.mono,
-      fontSize: fontSize.sm,
-      color: colors.text.primary,
-      marginBottom: spacing.lg,
-    },
-    ritualModalActions: {
-      flexDirection: "row",
-      justifyContent: "flex-end",
-      gap: spacing.sm,
-    },
-    ritualModalCancel: {
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.lg,
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border.medium,
-      backgroundColor: colors.bg.elevated,
-    },
-    ritualModalCancelPressed: {
-      opacity: 0.7,
-    },
-    ritualModalCancelText: {
-      fontSize: fontSize.sm,
-      fontWeight: fontWeight.semibold,
-      fontFamily: fontFamily.mono,
-      color: colors.text.primary,
-    },
-    ritualModalSave: {
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.lg,
-      borderRadius: radius.md,
-      backgroundColor: "rgba(134, 239, 172, 0.15)",
-      borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.3)",
-    },
-    ritualModalSavePressed: {
-      backgroundColor: "rgba(134, 239, 172, 0.25)",
-    },
-    ritualModalSaveDisabled: {
-      opacity: 0.4,
-    },
-    ritualModalSaveText: {
-      fontSize: fontSize.sm,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      color: "#86efac",
-      textTransform: "uppercase",
-      letterSpacing: 0.5,
     },
 
     // ── Item detail modal ──

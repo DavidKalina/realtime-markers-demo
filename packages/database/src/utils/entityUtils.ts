@@ -15,12 +15,10 @@ const ENTITY_TO_TABLE_MAPPING: Record<string, string> = {
   UserEventRsvp: "user_event_rsvps",
   UserEventSave: "user_event_saves",
   UserPushToken: "user_push_tokens",
-  UserFollow: "user_follows",
   LlmUsageLog: "llm_usage_logs",
   Itinerary: "itineraries",
   ItineraryItem: "itinerary_items",
   ItineraryCheckin: "itinerary_checkins",
-  ItineraryRitual: "itinerary_rituals",
   UserBadge: "user_badges",
 };
 

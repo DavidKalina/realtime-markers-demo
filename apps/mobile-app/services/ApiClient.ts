@@ -9,10 +9,8 @@ import { RSVPModule } from "./api/modules/rsvp";
 import { CategoriesModule } from "./api/modules/categories";
 import { PushNotificationsModule } from "./api/modules/pushNotifications";
 import { AreaScanModule } from "./api/modules/areaScan";
-import { FollowsModule } from "./api/modules/follows";
 import { LeaderboardModule } from "./api/modules/leaderboard";
 import { ItinerariesModule } from "./api/modules/itineraries";
-import { RitualsModule } from "./api/modules/rituals";
 import { BadgesModule } from "./api/modules/badges";
 import { AdventureScoreModule } from "./api/modules/adventureScore";
 import { OnboardingModule } from "./api/modules/onboarding";
@@ -28,10 +26,8 @@ export * from "./api/modules/rsvp";
 export * from "./api/modules/places";
 export * from "./api/modules/pushNotifications";
 export * from "./api/modules/areaScan";
-export * from "./api/modules/follows";
 export * from "./api/modules/leaderboard";
 export * from "./api/modules/itineraries";
-export * from "./api/modules/rituals";
 export * from "./api/modules/badges";
 export * from "./api/modules/adventureScore";
 export * from "./api/modules/onboarding";
@@ -47,10 +43,8 @@ class ApiClient extends BaseApiClient {
   private _categories: CategoriesModule | null = null;
   private _pushNotifications: PushNotificationsModule | null = null;
   private _areaScan: AreaScanModule | null = null;
-  private _follows: FollowsModule | null = null;
   private _leaderboard: LeaderboardModule | null = null;
   private _itineraries: ItinerariesModule | null = null;
-  private _rituals: RitualsModule | null = null;
   private _badges: BadgesModule | null = null;
   private _adventureScore: AdventureScoreModule | null = null;
   private _onboarding: OnboardingModule | null = null;
@@ -129,13 +123,6 @@ class ApiClient extends BaseApiClient {
     return this._areaScan;
   }
 
-  public get follows(): FollowsModule {
-    if (!this._follows) {
-      this._follows = new FollowsModule(this);
-    }
-    return this._follows;
-  }
-
   public get leaderboard(): LeaderboardModule {
     if (!this._leaderboard) {
       this._leaderboard = new LeaderboardModule(this);
@@ -148,13 +135,6 @@ class ApiClient extends BaseApiClient {
       this._itineraries = new ItinerariesModule(this);
     }
     return this._itineraries;
-  }
-
-  public get rituals(): RitualsModule {
-    if (!this._rituals) {
-      this._rituals = new RitualsModule(this);
-    }
-    return this._rituals;
   }
 
   public get badges(): BadgesModule {

@@ -109,7 +109,6 @@ export interface CreateItineraryParams {
   durationHours: number;
   activityTypes?: string[];
   stopCount?: number;
-  ritualId?: string;
   startTime?: string; // HH:MM (24h)
   endTime?: string; // HH:MM (24h)
   intention?: string;

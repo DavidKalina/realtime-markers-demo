@@ -18,7 +18,6 @@ import {
   Filter,
   QueryAnalytics,
   UserPushToken,
-  ItineraryRitual,
 } from "@realtime-markers/database";
 
 export const dashboardRouter = new Hono<AppContext>();
@@ -903,10 +902,6 @@ dashboardRouter.get("/overview", async (c) => {
       {
         name: "user_push_tokens",
         repo: AppDataSource.getRepository(UserPushToken),
-      },
-      {
-        name: "itinerary_rituals",
-        repo: AppDataSource.getRepository(ItineraryRitual),
       },
     ];
 

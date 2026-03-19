@@ -52,12 +52,8 @@ import {
 } from "./TicketmasterService";
 import { ProximityNotificationService } from "./ProximityNotificationService";
 import { pushNotificationService } from "./PushNotificationService";
-import { createFollowService } from "./FollowService";
-import type { FollowService } from "./FollowService";
 import { createItineraryService } from "./ItineraryService";
 import type { ItineraryService } from "./ItineraryService";
-import { createItineraryRitualService } from "./ItineraryRitualService";
-import type { ItineraryRitualService } from "./ItineraryRitualService";
 import { createOverpassService } from "./shared/OverpassService";
 import type { OverpassService } from "./shared/OverpassService";
 import { createWeatherService } from "./shared/WeatherService";
@@ -88,11 +84,9 @@ export interface ServiceContainer {
   cityHypeService: CityHypeService;
   ticketmasterService: TicketmasterService | null;
   proximityNotificationService: ProximityNotificationService;
-  followService: FollowService;
   thirdSpaceScoreService: ThirdSpaceScoreService;
   itineraryService: ItineraryService;
   itineraryCheckinService: ItineraryCheckinService;
-  itineraryRitualService: ItineraryRitualService;
   overpassService: OverpassService;
   badgeService: BadgeService;
   adventureScoreService: AdventureScoreService;
@@ -217,10 +211,6 @@ export class ServiceInitializer {
       redisService,
     );
 
-    const followService = createFollowService({
-      dataSource: this.dataSource,
-    });
-
     const userPreferencesService = createUserPreferencesService({
       dataSource: this.dataSource,
       redisService,
@@ -283,10 +273,6 @@ export class ServiceInitializer {
       redisService,
     });
 
-    const itineraryRitualService = createItineraryRitualService({
-      dataSource: this.dataSource,
-    });
-
     const adventureScoreService = createAdventureScoreService({
       dataSource: this.dataSource,
       redisService,
@@ -340,11 +326,9 @@ export class ServiceInitializer {
       cityHypeService,
       ticketmasterService,
       proximityNotificationService,
-      followService,
       thirdSpaceScoreService,
       itineraryService,
       itineraryCheckinService,
-      itineraryRitualService,
       overpassService,
       badgeService,
       adventureScoreService,

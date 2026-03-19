@@ -296,9 +296,6 @@ export class PushNotificationService {
         source: "PushNotification",
         path: "/itineraries",
       });
-    } else if (data?.type === "follow_activity" && data.eventId) {
-      // A followed user saved/rsvp'd/scanned an event
-      console.log("Follow activity notification, event:", data.eventId);
     } else if (data?.type === "event") {
       // Navigate to event details
       console.log("Navigate to event:", data.eventId);

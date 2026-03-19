@@ -16,7 +16,6 @@ import {
   LlmUsageLog,
   Itinerary,
   ItineraryItem,
-  ItineraryRitual,
   UserBadge,
 } from "../entities";
 
@@ -39,7 +38,6 @@ export const createDataSource = (databaseUrl: string): DataSource => {
       LlmUsageLog,
       Itinerary,
       ItineraryItem,
-      ItineraryRitual,
       UserBadge,
     ],
     migrationsTableName: "migrations",

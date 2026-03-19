@@ -1,11 +1,5 @@
 import { Hono } from "hono";
 import { updateLocationHandler } from "../handlers/userLocationHandler";
-import {
-  toggleFollowHandler,
-  isFollowingHandler,
-  getFollowersHandler,
-  getFollowingHandler,
-} from "../handlers/followHandlers";
 import { getUserStats } from "../handlers/userStatsHandler";
 import { getUserBadges } from "../handlers/badgeHandlers";
 import { getAdventureScore } from "../handlers/adventureScoreHandler";
@@ -44,8 +38,3 @@ usersRouter.post(
   submitOnboardingProfile,
 );
 
-// Follow routes
-usersRouter.post("/:userId/follow", authMiddleware, toggleFollowHandler);
-usersRouter.get("/:userId/is-following", authMiddleware, isFollowingHandler);
-usersRouter.get("/:userId/followers", getFollowersHandler);
-usersRouter.get("/:userId/following", getFollowingHandler);
