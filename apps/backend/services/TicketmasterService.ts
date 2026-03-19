@@ -1,6 +1,8 @@
 // Ticketmaster Discovery API client.
 // Uses native fetch (Bun has it built-in) — no new dependencies.
 
+import { normalizeCity } from "@realtime-markers/database";
+
 const TM_BASE_URL = "https://app.ticketmaster.com/discovery/v2";
 
 export interface TicketmasterSearchParams {
@@ -156,7 +158,7 @@ function parseEvent(tmEvent: TmEvent): ParsedTicketmasterEvent | null {
   // Derive city from venue data (e.g. "Denver, CO")
   const city =
     venue?.city?.name && venue?.state?.stateCode
-      ? `${venue.city.name}, ${venue.state.stateCode}`
+      ? normalizeCity(`${venue.city.name}, ${venue.state.stateCode}`)
       : undefined;
 
   return {

@@ -1,4 +1,5 @@
 import { DataSource } from "typeorm";
+import { normalizeCity } from "@realtime-markers/database";
 import type { RedisService } from "./shared/RedisService";
 
 export interface ThirdSpaceScoreServiceDependencies {
@@ -57,15 +58,6 @@ export interface ThirdSpacesResponse {
 
 function sigmoid(raw: number, k: number): number {
   return Math.round(100 * (1 - Math.exp(-raw / k)));
-}
-
-function normalizeCity(city: string): string {
-  const parts = city.split(",").map((p) => p.trim());
-  const normalized = parts.map((part) => {
-    if (part.length <= 2) return part.toUpperCase();
-    return part.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-  });
-  return normalized.join(", ");
 }
 
 function assignLabel(

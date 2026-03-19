@@ -1,3 +1,4 @@
+import { normalizeCity } from "@realtime-markers/database";
 import type { RedisService } from "./RedisService";
 
 export interface Trail {
@@ -431,7 +432,8 @@ out body;
 
       // Build a "City, State" label if state info is available
       const state = tags["is_in:state"] || tags["is_in"] || "";
-      const fullName = state ? `${name}, ${state.split(",")[0].trim()}` : name;
+      const rawName = state ? `${name}, ${state.split(",")[0].trim()}` : name;
+      const fullName = normalizeCity(rawName);
 
       cities.push({
         name: fullName,

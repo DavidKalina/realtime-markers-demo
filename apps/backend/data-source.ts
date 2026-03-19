@@ -68,6 +68,7 @@ import { AddItineraryItemEmbeddingsAndCategories1710000000058 } from "./migratio
 import { AddOnboardingProfile1710000000059 } from "./migrations/AddOnboardingProfile1710000000059";
 import { AddItinerarySoftDelete1710000000060 } from "./migrations/AddItinerarySoftDelete1710000000060";
 import { DropFollowsAndRituals1710000000061 } from "./migrations/DropFollowsAndRituals1710000000061";
+import { NormalizeCityNames1710000000062 } from "./migrations/NormalizeCityNames1710000000062";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -137,6 +138,7 @@ const AppDataSource = new DataSource({
     AddOnboardingProfile1710000000059,
     AddItinerarySoftDelete1710000000060,
     DropFollowsAndRituals1710000000061,
+    NormalizeCityNames1710000000062,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

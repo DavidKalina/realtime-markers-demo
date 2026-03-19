@@ -4,6 +4,7 @@ import {
   ItineraryItem,
   ItineraryStatus,
   User,
+  normalizeCity,
 } from "@realtime-markers/database";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
@@ -218,7 +219,7 @@ class ItineraryServiceImpl implements ItineraryService {
     const itemRepo = this.dataSource.getRepository(ItineraryItem);
 
     // Infer city from anchor stops if not provided
-    let city = input.city;
+    let city = input.city ? normalizeCity(input.city) : undefined;
     if (!city && input.anchorStops && input.anchorStops.length > 0) {
       const [lng, lat] = input.anchorStops[0].coordinates;
       try {

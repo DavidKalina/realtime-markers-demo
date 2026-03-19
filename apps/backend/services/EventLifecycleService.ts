@@ -1,6 +1,6 @@
 import pgvector from "pgvector";
 import { DataSource, Repository, type DeepPartial, In } from "typeorm";
-import { Event, EventStatus, Category } from "@realtime-markers/database";
+import { Event, EventStatus, Category, normalizeCity } from "@realtime-markers/database";
 import type { EventCacheService } from "./shared/EventCacheService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import type { RedisService } from "./shared/RedisService";
@@ -89,7 +89,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
           input.location.coordinates[0],
         );
         if (cityState) {
-          input.city = cityState;
+          input.city = normalizeCity(cityState);
         }
       } catch (error) {
         console.error("Error determining city:", error);
@@ -115,7 +115,7 @@ export class EventLifecycleServiceImpl implements EventLifecycleService {
       location: input.location,
       status: input.status || EventStatus.PENDING,
       address: input.address,
-      city: input.city,
+      city: input.city ? normalizeCity(input.city) : undefined,
       locationNotes: input.locationNotes || "",
       embedding: pgvector.toSql(input.embedding),
       creatorId: input.creatorId,

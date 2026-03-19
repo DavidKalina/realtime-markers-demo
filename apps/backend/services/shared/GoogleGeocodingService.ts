@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { find } from "geo-tz";
+import { normalizeCity } from "@realtime-markers/database";
 import { OpenAIModel, type OpenAIService } from "./OpenAIService";
 import type { RedisService } from "./RedisService";
 import type { Point } from "geojson";
@@ -1011,7 +1012,9 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
         );
 
       if (city && state) {
-        const cityState = `${city.long_name}, ${state.short_name}`;
+        const cityState = normalizeCity(
+          `${city.long_name}, ${state.short_name}`,
+        );
         console.warn("Found city/state:", cityState);
         return cityState;
       } else {
