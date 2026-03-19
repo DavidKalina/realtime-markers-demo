@@ -39,7 +39,7 @@ import {
 } from "@/theme";
 import { getTierByName } from "@/utils/gamification";
 import { useDeviceMotionTilt } from "./useDeviceMotionTilt";
-import type { AdventureScoreResponse } from "@/services/api/modules/adventureScore";
+import type { AdventureScoreSnapshot } from "@/services/api/modules/adventureScore";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CARD_ASPECT = 1.586; // Credit card ratio
@@ -122,7 +122,7 @@ interface DiscovererCardOverlayProps {
   currentStreak?: number;
   longestStreak?: number;
   memberSince?: string;
-  scoreData?: AdventureScoreResponse | null;
+  scoreData?: AdventureScoreSnapshot | null;
 }
 
 const DiscovererCardOverlay: React.FC<DiscovererCardOverlayProps> = ({

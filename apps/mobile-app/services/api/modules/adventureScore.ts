@@ -1,7 +1,7 @@
 import { BaseApiModule } from "../base/BaseApiModule";
 import type { BaseApiClient } from "../base/ApiClient";
 
-export interface AdventureScoreResponse {
+export interface AdventureScoreSnapshot {
   score: number;
   activityScore: number;
   consistencyScore: number;
@@ -9,6 +9,14 @@ export interface AdventureScoreResponse {
   completionScore: number;
   discoveryScore: number;
   computedAt: string;
+}
+
+export interface AdventureScoreResponse {
+  current: AdventureScoreSnapshot;
+  previous: { score: number; computedAt: string } | null;
+  history: { score: number; computedAt: string }[];
+  delta24h: number;
+  momentum: "rising" | "steady" | "cooling";
 }
 
 export class AdventureScoreModule extends BaseApiModule {

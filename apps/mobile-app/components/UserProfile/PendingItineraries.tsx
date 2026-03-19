@@ -1,10 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Text, StyleSheet, Pressable } from "react-native";
+import {
+  ActivityIndicator,
+  Text,
+  StyleSheet,
+  Pressable,
+  View,
+} from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { ChevronRight } from "lucide-react-native";
 import { apiClient } from "@/services/ApiClient";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
+import type { ItineraryResponse } from "@/services/api/modules/itineraries";
 import {
   useColors,
   type Colors,
@@ -12,11 +19,24 @@ import {
   fontWeight,
   fontFamily,
   spacing,
+  radius,
 } from "@/theme";
 
 interface PendingItinerariesProps {
   onRefetchRef?: React.MutableRefObject<(() => Promise<void>) | null>;
 }
+
+const INTENTION_EMOJI: Record<string, string> = {
+  recharge: "\u{1F9D8}",
+  explore: "\u{1F9ED}",
+  socialize: "\u{1F37B}",
+  move: "\u{1F3C3}",
+  learn: "\u{1F4DA}",
+  treat_yourself: "\u{2728}",
+  other: "\u{1F30D}",
+};
+
+const MAX_CARDS = 3;
 
 const PendingItineraries: React.FC<PendingItinerariesProps> = ({
   onRefetchRef,
@@ -26,7 +46,7 @@ const PendingItineraries: React.FC<PendingItinerariesProps> = ({
   const router = useRouter();
   const activeId = useActiveItineraryStore((s) => s.itinerary?.id);
 
-  const [count, setCount] = useState(0);
+  const [itineraries, setItineraries] = useState<ItineraryResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchPending = useCallback(async () => {
@@ -35,7 +55,7 @@ const PendingItineraries: React.FC<PendingItinerariesProps> = ({
       const pending = result.data.filter(
         (it) => it.status === "READY" && !it.completedAt && it.id !== activeId,
       );
-      setCount(pending.length);
+      setItineraries(pending);
     } catch (err) {
       console.error("[PendingItineraries] Failed to fetch:", err);
     } finally {
@@ -53,38 +73,115 @@ const PendingItineraries: React.FC<PendingItinerariesProps> = ({
     }
   }, [onRefetchRef, fetchPending]);
 
-  if (loading || count === 0) return null;
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="small" color={colors.text.disabled} />
+      </View>
+    );
+  }
 
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/itineraries" as const);
-  };
+  if (itineraries.length === 0) return null;
+
+  const displayed = itineraries.slice(0, MAX_CARDS);
+  const remaining = itineraries.length - MAX_CARDS;
 
   return (
-    <Pressable style={styles.row} onPress={handlePress}>
-      <Text style={styles.label}>
-        {count} {count === 1 ? "adventure" : "adventures"} ready to go
-      </Text>
-      <ChevronRight size={14} color={colors.text.secondary} />
-    </Pressable>
+    <View>
+      <Text style={styles.sectionLabel}>READY TO GO</Text>
+      {displayed.map((it) => {
+        const emojiStrip = it.items
+          .slice(0, 4)
+          .map((item) => item.emoji || "\u{1F4CD}")
+          .join(" ");
+        const intentionEmoji = it.intention
+          ? INTENTION_EMOJI[it.intention] || "\u{1F30D}"
+          : null;
+
+        return (
+          <Pressable
+            key={it.id}
+            style={styles.card}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push(`/itineraries/${it.id}` as const);
+            }}
+          >
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {it.title || "Untitled Adventure"}
+              </Text>
+              <Text style={styles.cardMeta} numberOfLines={1}>
+                {emojiStrip} {"\u00B7"} {it.items.length}{" "}
+                {it.items.length === 1 ? "stop" : "stops"}
+                {intentionEmoji ? ` \u00B7 ${intentionEmoji}` : ""}
+              </Text>
+            </View>
+            <ChevronRight size={14} color={colors.text.secondary} />
+          </Pressable>
+        );
+      })}
+      {remaining > 0 && (
+        <Pressable
+          style={styles.viewAllRow}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push("/itineraries" as const);
+          }}
+        >
+          <Text style={styles.viewAllText}>
+            View all {itineraries.length} adventures {"\u2192"}
+          </Text>
+        </Pressable>
+      )}
+    </View>
   );
 };
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
-    row: {
+    loadingContainer: {
+      paddingVertical: spacing.lg,
+      alignItems: "center",
+    },
+    sectionLabel: {
+      fontSize: 10,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.disabled,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1.5,
+      marginBottom: spacing.xs,
+    },
+    card: {
       flexDirection: "row",
-      justifyContent: "space-between",
       alignItems: "center",
       paddingVertical: spacing.md,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border.default,
     },
-    label: {
+    cardContent: {
+      flex: 1,
+      gap: 2,
+    },
+    cardTitle: {
       fontSize: fontSize.sm,
-      color: colors.text.secondary,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
       fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.medium,
+    },
+    cardMeta: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    viewAllRow: {
+      paddingVertical: spacing.md,
+    },
+    viewAllText: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.accent.primary,
     },
   });
 

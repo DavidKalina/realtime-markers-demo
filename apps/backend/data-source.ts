@@ -19,6 +19,7 @@ import {
   ItineraryItem,
   ItineraryCheckin,
   UserBadge,
+  AdventureScoreSnapshot,
 } from "@realtime-markers/database";
 
 // Import all migrations explicitly
@@ -69,6 +70,7 @@ import { AddOnboardingProfile1710000000059 } from "./migrations/AddOnboardingPro
 import { AddItinerarySoftDelete1710000000060 } from "./migrations/AddItinerarySoftDelete1710000000060";
 import { DropFollowsAndRituals1710000000061 } from "./migrations/DropFollowsAndRituals1710000000061";
 import { NormalizeCityNames1710000000062 } from "./migrations/NormalizeCityNames1710000000062";
+import { AdventureScoreSnapshot1710000000063 } from "./migrations/AdventureScoreSnapshot1710000000063";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -90,6 +92,7 @@ const AppDataSource = new DataSource({
     ItineraryItem,
     ItineraryCheckin,
     UserBadge,
+    AdventureScoreSnapshot,
   ],
   migrations: [
     CategoryTable1710000000000,
@@ -139,6 +142,7 @@ const AppDataSource = new DataSource({
     AddItinerarySoftDelete1710000000060,
     DropFollowsAndRituals1710000000061,
     NormalizeCityNames1710000000062,
+    AdventureScoreSnapshot1710000000063,
   ],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running

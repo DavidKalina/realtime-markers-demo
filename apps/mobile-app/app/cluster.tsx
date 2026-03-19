@@ -106,7 +106,9 @@ export default function ClusterScreen() {
         />
       }
     >
-      {isLoading && !zoneStats && <ScanningAnimation />}
+      {isLoading && !zoneStats && lat && lng && (
+        <ScanningAnimation lat={parseFloat(lat)} lng={parseFloat(lng)} />
+      )}
 
       {zoneStats && <ZoneHero zoneStats={zoneStats} />}
 

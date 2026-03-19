@@ -6,7 +6,7 @@ export interface AdventureScoreServiceDeps {
   redisService: RedisService;
 }
 
-export interface AdventureScoreResponse {
+export interface AdventureScoreSnapshot {
   score: number;
   activityScore: number;
   consistencyScore: number;
@@ -14,6 +14,14 @@ export interface AdventureScoreResponse {
   completionScore: number;
   discoveryScore: number;
   computedAt: string;
+}
+
+export interface AdventureScoreResponse {
+  current: AdventureScoreSnapshot;
+  previous: { score: number; computedAt: string } | null;
+  history: { score: number; computedAt: string }[];
+  delta24h: number;
+  momentum: "rising" | "steady" | "cooling";
 }
 
 function sigmoid(raw: number, k: number): number {
@@ -35,12 +43,90 @@ export class AdventureScoreService {
       await this.redisService.get<AdventureScoreResponse>(cacheKey);
     if (cached) return cached;
 
-    const score = await this.compute(userId);
-    await this.redisService.set(cacheKey, score, 900); // 15-min TTL
-    return score;
+    const current = await this.compute(userId);
+
+    // Store snapshot (fire-and-forget)
+    this.storeSnapshot(userId, current).catch((err) =>
+      console.error("Failed to store adventure score snapshot:", err),
+    );
+
+    const response = await this.buildResponse(userId, current);
+    await this.redisService.set(cacheKey, response, 900); // 15-min TTL
+    return response;
   }
 
-  private async compute(userId: string): Promise<AdventureScoreResponse> {
+  private async buildResponse(
+    userId: string,
+    current: AdventureScoreSnapshot,
+  ): Promise<AdventureScoreResponse> {
+    // Fetch previous snapshot (20+ hours ago to avoid comparing against ourselves)
+    const previousRows = await this.dataSource.query(
+      `SELECT score, computed_at AS "computedAt"
+       FROM adventure_score_snapshots
+       WHERE user_id = $1
+         AND computed_at < NOW() - INTERVAL '20 hours'
+       ORDER BY computed_at DESC
+       LIMIT 1`,
+      [userId],
+    );
+    const previous = previousRows[0]
+      ? {
+          score: Number(previousRows[0].score),
+          computedAt: previousRows[0].computedAt,
+        }
+      : null;
+
+    // 7-day history — one per day (latest of each day)
+    const historyRows = await this.dataSource.query(
+      `SELECT DISTINCT ON (DATE(computed_at))
+              score, computed_at AS "computedAt"
+       FROM adventure_score_snapshots
+       WHERE user_id = $1
+         AND computed_at >= NOW() - INTERVAL '7 days'
+       ORDER BY DATE(computed_at), computed_at DESC`,
+      [userId],
+    );
+    const history = historyRows.map(
+      (r: { score: number; computedAt: string }) => ({
+        score: Number(r.score),
+        computedAt: r.computedAt,
+      }),
+    );
+
+    const delta24h = previous ? current.score - previous.score : 0;
+    const momentum: "rising" | "steady" | "cooling" =
+      delta24h >= 3 ? "rising" : delta24h <= -3 ? "cooling" : "steady";
+
+    return {
+      current,
+      previous,
+      history,
+      delta24h,
+      momentum,
+    };
+  }
+
+  private async storeSnapshot(
+    userId: string,
+    snapshot: AdventureScoreSnapshot,
+  ): Promise<void> {
+    await this.dataSource.query(
+      `INSERT INTO adventure_score_snapshots
+        (user_id, score, activity_score, consistency_score, diversity_score, completion_score, discovery_score)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        userId,
+        snapshot.score,
+        snapshot.activityScore,
+        snapshot.consistencyScore,
+        snapshot.diversityScore,
+        snapshot.completionScore,
+        snapshot.discoveryScore,
+      ],
+    );
+  }
+
+  private async compute(userId: string): Promise<AdventureScoreSnapshot> {
     const [
       activityRaw,
       consistencyRaw,

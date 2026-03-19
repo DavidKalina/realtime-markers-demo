@@ -20,7 +20,10 @@ import {
   radius,
 } from "@/theme";
 import { apiClient } from "@/services/ApiClient";
-import type { AdventureScoreResponse } from "@/services/api/modules/adventureScore";
+import type {
+  AdventureScoreResponse,
+  AdventureScoreSnapshot,
+} from "@/services/api/modules/adventureScore";
 
 interface AdventureScoreCardProps {
   onRefetchRef?: React.MutableRefObject<(() => Promise<void>) | null>;
@@ -52,13 +55,15 @@ const AdventureScoreCard: React.FC<AdventureScoreCardProps> = ({
 }) => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [data, setData] = useState<AdventureScoreResponse | null>(null);
+  const [data, setData] = useState<AdventureScoreSnapshot | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const fetchScore = useCallback(async () => {
     try {
-      const result = await apiClient.adventureScore.getMyScore();
-      setData(result);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw: any = await apiClient.adventureScore.getMyScore();
+      // Backwards-compat: old backend returns flat shape without .current
+      setData(raw.current ?? raw);
     } catch (err) {
       console.error("Failed to fetch adventure score:", err);
     } finally {

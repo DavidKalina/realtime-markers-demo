@@ -24,7 +24,7 @@ import {
   type Colors,
 } from "@/theme";
 import { apiClient } from "@/services/ApiClient";
-import type { AdventureScoreResponse } from "@/services/api/modules/adventureScore";
+import type { AdventureScoreSnapshot } from "@/services/api/modules/adventureScore";
 import DiscovererCardOverlay from "./DiscovererCardOverlay";
 
 const CARD_HEIGHT = 230;
@@ -111,14 +111,16 @@ const DiscovererCard: React.FC<DiscovererCardProps> = ({
   const pressScale = useSharedValue(1);
 
   // Adventure score data
-  const [scoreData, setScoreData] = useState<AdventureScoreResponse | null>(
+  const [scoreData, setScoreData] = useState<AdventureScoreSnapshot | null>(
     null,
   );
 
   const fetchScore = useCallback(async () => {
     try {
-      const result = await apiClient.adventureScore.getMyScore();
-      setScoreData(result);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw: any = await apiClient.adventureScore.getMyScore();
+      // Backwards-compat: old backend returns flat shape without .current
+      setScoreData(raw.current ?? raw);
     } catch (err) {
       console.error("Failed to fetch adventure score:", err);
     }

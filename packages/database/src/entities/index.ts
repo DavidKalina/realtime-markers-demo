@@ -14,3 +14,4 @@ export * from "./Itinerary";
 export * from "./ItineraryItem";
 export * from "./ItineraryCheckin";
 export * from "./UserBadge";
+export * from "./AdventureScoreSnapshot";

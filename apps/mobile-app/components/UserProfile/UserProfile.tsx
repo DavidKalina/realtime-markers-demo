@@ -13,7 +13,7 @@ import {
   Text,
   View,
 } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -35,13 +35,12 @@ import {
   radius,
   spacing,
 } from "@/theme";
-import { getTierForXP } from "@/utils/gamification";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useProfileInsights } from "@/hooks/useProfileInsights";
-import DiscovererCard from "../EventDetails/DiscovererCard";
 import Screen from "../Layout/Screen";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
+import ItineraryDialogBox from "../Itinerary/ItineraryDialogBox";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
 import UserStatsCard from "./UserStatsCard";
 import ActiveQuestBanner from "./ActiveQuestBanner";
@@ -52,6 +51,18 @@ import VenueDnaChart from "./VenueDnaChart";
 import StreakCalendar from "./StreakCalendar";
 import AdventureFootprint from "./AdventureFootprint";
 import PendingItineraries from "./PendingItineraries";
+import PersonalScoreHero from "./PersonalScoreHero";
+import NextBadgeProgress from "./NextBadgeProgress";
+
+/* ─── Types ─── */
+
+type ProfileTab = "adventures" | "insights" | "settings";
+
+const TABS: { key: ProfileTab; label: string }[] = [
+  { key: "adventures", label: "Adventures" },
+  { key: "insights", label: "Insights" },
+  { key: "settings", label: "Settings" },
+];
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -72,6 +83,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
   const { resetOnboarding } = useOnboarding();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<ProfileTab>("adventures");
   const {
     loading,
     profileData,
@@ -172,6 +184,247 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     router.push("/search" as const);
   }, [router]);
 
+  const handleTabPress = useCallback((tab: ProfileTab) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveTab(tab);
+  }, []);
+
+  /* ─── Tab renderers ─── */
+
+  const renderAdventuresTab = () => (
+    <>
+      {/* Pending Itineraries */}
+      <View style={styles.tabSection}>
+        <PendingItineraries onRefetchRef={pendingRefetchRef} />
+      </View>
+
+      {/* Next Badge Progress */}
+      <View style={styles.tabSection}>
+        <NextBadgeProgress onViewBadges={() => handleTabPress("insights")} />
+      </View>
+
+      {/* Recent Completions (rate unrated) */}
+      <View style={styles.tabSection}>
+        <RecentCompletions onRefetchRef={completionsRefetchRef} />
+      </View>
+
+      {/* Surprise Me CTA */}
+      <View style={styles.tabSection}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.surpriseCta,
+            pressed && styles.surpriseCtaPressed,
+          ]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            router.push("/" as const);
+          }}
+        >
+          <Text style={styles.surpriseCtaText}>Surprise Me</Text>
+        </Pressable>
+      </View>
+    </>
+  );
+
+  const renderInsightsTab = () => (
+    <>
+      {/* Adventure Streak (visual calendar) */}
+      {(profileData?.currentStreak ||
+        profileData?.longestStreak ||
+        (insights?.streakCalendar &&
+          insights.streakCalendar.length > 0)) && (
+        <Animated.View
+          entering={FadeIn.duration(duration.normal)}
+          style={styles.tabSection}
+        >
+          <StreakCalendar
+            data={insights?.streakCalendar ?? []}
+            currentStreak={profileData?.currentStreak ?? 0}
+            longestStreak={profileData?.longestStreak ?? 0}
+          />
+        </Animated.View>
+      )}
+
+      {/* Badges */}
+      <Animated.View
+        entering={FadeIn.duration(duration.normal).delay(80)}
+        style={styles.tabSection}
+      >
+        <BadgeGrid onRefetchRef={badgesRefetchRef} />
+      </Animated.View>
+
+      {/* Activity Heatmap */}
+      <Animated.View
+        entering={FadeIn.duration(duration.normal).delay(160)}
+        style={styles.tabSection}
+      >
+        <ActivityHeatmap data={insights?.activityHeatmap ?? []} />
+      </Animated.View>
+
+      {/* Venue DNA */}
+      <Animated.View
+        entering={FadeIn.duration(duration.normal).delay(240)}
+        style={styles.tabSection}
+      >
+        <VenueDnaChart data={insights?.venueDna ?? []} />
+      </Animated.View>
+
+      {/* Adventure Footprint */}
+      <Animated.View
+        entering={FadeIn.duration(duration.normal).delay(320)}
+        style={styles.tabSection}
+      >
+        <AdventureFootprint
+          footprint={
+            insights?.footprint ?? {
+              totalDistanceMiles: 0,
+              totalCheckins: 0,
+              totalCompletedItineraries: 0,
+              totalUniqueVenues: 0,
+              totalStopsVisited: 0,
+              avgStopsPerItinerary: 0,
+              cities: [],
+            }
+          }
+        />
+      </Animated.View>
+
+      {/* Stats */}
+      <Animated.View
+        entering={FadeIn.duration(duration.normal).delay(400)}
+        style={styles.tabSection}
+      >
+        <UserStatsCard stats={stats} isLoading={statsLoading} />
+      </Animated.View>
+    </>
+  );
+
+  const renderSettingsTab = () => (
+    <>
+      {/* Account */}
+      <View style={styles.tabSection}>
+        <Text style={styles.sectionLabel}>ACCOUNT</Text>
+        <View style={styles.inlineRow}>
+          <Text style={styles.inlineRowLabel}>Email</Text>
+          <Text style={styles.inlineRowValue} numberOfLines={1}>
+            {user?.email}
+          </Text>
+        </View>
+        {profileData?.bio ? (
+          <View style={styles.inlineRow}>
+            <Text style={styles.inlineRowLabel}>Bio</Text>
+            <Text style={styles.inlineRowValue} numberOfLines={2}>
+              {profileData.bio}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      {/* Appearance */}
+      <View style={styles.tabSection}>
+        <Text style={styles.sectionLabel}>APPEARANCE</Text>
+        <View style={styles.inlineRow}>
+          <Text style={styles.inlineRowLabel}>Theme</Text>
+          <View style={styles.pillGroup}>
+            {THEME_OPTIONS.map(({ key, label }) => (
+              <Pressable
+                key={key}
+                style={[
+                  styles.pill,
+                  themeMode === key && styles.pillActive,
+                ]}
+                onPress={() => handleThemeChange(key)}
+              >
+                <Text
+                  style={[
+                    styles.pillText,
+                    themeMode === key && styles.pillTextActive,
+                  ]}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+        <View style={styles.inlineRow}>
+          <Text style={styles.inlineRowLabel}>3D Buildings</Text>
+          <Switch
+            value={isPitched}
+            onValueChange={handlePitchChange}
+            trackColor={{
+              false: colors.border.medium,
+              true: colors.accent.primary,
+            }}
+            thumbColor={colors.bg.elevated}
+          />
+        </View>
+      </View>
+
+      {/* Saved Events */}
+      <View style={styles.tabSection}>
+        <Pressable
+          style={[styles.inlineAction, styles.inlineActionLast]}
+          onPress={handleSavedPress}
+        >
+          <Text style={styles.inlineRowLabel}>Saved Events</Text>
+          <ChevronRight size={14} color={colors.text.secondary} />
+        </Pressable>
+      </View>
+
+      {/* Actions */}
+      <View style={styles.tabSection}>
+        <Pressable
+          style={styles.inlineAction}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            handleLogout();
+          }}
+        >
+          <Text style={styles.signOutText}>Sign Out</Text>
+          <ChevronRight size={14} color={colors.text.secondary} />
+        </Pressable>
+        <Pressable
+          style={[
+            styles.inlineAction,
+            __DEV__ ? undefined : styles.inlineActionLast,
+          ]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowDeleteDialog(true);
+          }}
+        >
+          <Text style={styles.deleteText}>Delete Account</Text>
+          <ChevronRight size={14} color={colors.status.error.text} />
+        </Pressable>
+        {__DEV__ && (
+          <Pressable
+            style={[styles.inlineAction, styles.inlineActionLast]}
+            onPress={async () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              await resetOnboarding();
+              router.replace("/onboarding" as const);
+            }}
+          >
+            <Text style={styles.inlineRowLabel}>Replay Onboarding</Text>
+            <ChevronRight size={14} color={colors.text.secondary} />
+          </Pressable>
+        )}
+      </View>
+    </>
+  );
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "adventures":
+        return renderAdventuresTab();
+      case "insights":
+        return renderInsightsTab();
+      case "settings":
+        return renderSettingsTab();
+    }
+  };
+
   return (
     <>
       <Screen
@@ -180,6 +433,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         showBackButton
         onBack={handleBack}
         noAnimation
+        bottomContent={<ItineraryDialogBox style={{ marginBottom: 0 }} />}
       >
         <PullToActionScrollView
           onSearch={handleSearch}
@@ -198,238 +452,65 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
           {!loading && (
             <>
-              {/* Discoverer Card */}
+              {/* Hero: Personal Score */}
               <Animated.View
                 entering={FadeIn.duration(duration.normal)}
-                style={styles.inlineSection}
+                style={styles.heroSection}
               >
-                <DiscovererCard
-                  userId={user?.id}
-                  firstName={profileData?.firstName}
-                  lastName={profileData?.lastName}
-                  currentTier={getTierForXP(profileData?.totalXp || 0).name}
+                <PersonalScoreHero
                   totalXp={profileData?.totalXp || 0}
                   currentStreak={profileData?.currentStreak || 0}
                   longestStreak={profileData?.longestStreak || 0}
-                  memberSince={memberSince}
                   onRefetchRef={scoreRefetchRef}
                 />
               </Animated.View>
 
-              {/* Adventure Streak (visual calendar) */}
-              {(profileData?.currentStreak ||
-                profileData?.longestStreak ||
-                (insights?.streakCalendar &&
-                  insights.streakCalendar.length > 0)) && (
-                <Animated.View
-                  entering={FadeIn.duration(duration.normal).delay(160)}
-                  style={styles.inlineSection}
-                >
-                  <StreakCalendar
-                    data={insights?.streakCalendar ?? []}
-                    currentStreak={profileData?.currentStreak ?? 0}
-                    longestStreak={profileData?.longestStreak ?? 0}
-                  />
-                </Animated.View>
-              )}
-
-              {/* Badges */}
+              {/* Hero: Active Quest Banner */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(240)}
-                style={styles.inlineSection}
-              >
-                <BadgeGrid onRefetchRef={badgesRefetchRef} />
-              </Animated.View>
-
-              {/* Activity Heatmap */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(320)}
-                style={styles.inlineSection}
-              >
-                <ActivityHeatmap data={insights?.activityHeatmap ?? []} />
-              </Animated.View>
-
-              {/* Venue DNA */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(400)}
-                style={styles.inlineSection}
-              >
-                <VenueDnaChart data={insights?.venueDna ?? []} />
-              </Animated.View>
-
-              {/* Adventure Footprint */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(480)}
-                style={styles.inlineSection}
-              >
-                <AdventureFootprint
-                  footprint={
-                    insights?.footprint ?? {
-                      totalDistanceMiles: 0,
-                      totalCheckins: 0,
-                      totalCompletedItineraries: 0,
-                      totalUniqueVenues: 0,
-                      totalStopsVisited: 0,
-                      avgStopsPerItinerary: 0,
-                      cities: [],
-                    }
-                  }
-                />
-              </Animated.View>
-
-              {/* Active Quest Banner */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(560)}
-                style={styles.inlineSection}
+                entering={FadeIn.duration(duration.normal).delay(100)}
+                style={styles.heroSection}
               >
                 <ActiveQuestBanner />
               </Animated.View>
 
-              {/* Pending Itineraries */}
+              {/* Tab bar */}
               <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(600)}
-                style={styles.inlineSection}
+                entering={FadeIn.duration(duration.normal).delay(160)}
               >
-                <PendingItineraries onRefetchRef={pendingRefetchRef} />
-              </Animated.View>
-
-              {/* Recent Completions (rate unrated) */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(680)}
-                style={styles.inlineSection}
-              >
-                <RecentCompletions onRefetchRef={completionsRefetchRef} />
-              </Animated.View>
-
-              {/* Saved */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(720)}
-                style={styles.inlineSection}
-              >
-                <Pressable
-                  style={[styles.inlineAction, styles.inlineActionLast]}
-                  onPress={handleSavedPress}
-                >
-                  <Text style={styles.inlineRowLabel}>Saved Events</Text>
-                  <ChevronRight size={14} color={colors.text.secondary} />
-                </Pressable>
-              </Animated.View>
-
-              {/* Stats */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(720)}
-                style={styles.inlineSection}
-              >
-                <UserStatsCard stats={stats} isLoading={statsLoading} />
-              </Animated.View>
-
-              {/* Account */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(800)}
-                style={styles.inlineSection}
-              >
-                <Text style={styles.sectionLabel}>ACCOUNT</Text>
-                <View style={styles.inlineRow}>
-                  <Text style={styles.inlineRowLabel}>Email</Text>
-                  <Text style={styles.inlineRowValue} numberOfLines={1}>
-                    {user?.email}
-                  </Text>
-                </View>
-                {profileData?.bio ? (
-                  <View style={styles.inlineRow}>
-                    <Text style={styles.inlineRowLabel}>Bio</Text>
-                    <Text style={styles.inlineRowValue} numberOfLines={2}>
-                      {profileData.bio}
-                    </Text>
-                  </View>
-                ) : null}
-              </Animated.View>
-
-              {/* Appearance */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(880)}
-                style={styles.inlineSection}
-              >
-                <Text style={styles.sectionLabel}>APPEARANCE</Text>
-                <View style={styles.inlineRow}>
-                  <Text style={styles.inlineRowLabel}>Theme</Text>
-                  <View style={styles.pillGroup}>
-                    {THEME_OPTIONS.map(({ key, label }) => (
+                <View style={styles.tabBar}>
+                  {TABS.map((tab) => {
+                    const isActive = activeTab === tab.key;
+                    return (
                       <Pressable
-                        key={key}
+                        key={tab.key}
                         style={[
-                          styles.pill,
-                          themeMode === key && styles.pillActive,
+                          styles.tabButton,
+                          isActive && styles.tabButtonActive,
                         ]}
-                        onPress={() => handleThemeChange(key)}
+                        onPress={() => handleTabPress(tab.key)}
                       >
                         <Text
                           style={[
-                            styles.pillText,
-                            themeMode === key && styles.pillTextActive,
+                            styles.tabText,
+                            isActive && styles.tabTextActive,
                           ]}
                         >
-                          {label}
+                          {tab.label}
                         </Text>
                       </Pressable>
-                    ))}
-                  </View>
+                    );
+                  })}
                 </View>
-                <View style={styles.inlineRow}>
-                  <Text style={styles.inlineRowLabel}>3D Buildings</Text>
-                  <Switch
-                    value={isPitched}
-                    onValueChange={handlePitchChange}
-                    trackColor={{
-                      false: colors.border.medium,
-                      true: colors.accent.primary,
-                    }}
-                    thumbColor={colors.bg.elevated}
-                  />
-                </View>
-              </Animated.View>
 
-              {/* Actions */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(960)}
-                style={styles.inlineSection}
-              >
-                <Pressable
-                  style={styles.inlineAction}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    handleLogout();
-                  }}
+                {/* Tab content */}
+                <Animated.View
+                  key={activeTab}
+                  entering={FadeIn.duration(200)}
+                  exiting={FadeOut.duration(120)}
+                  layout={LinearTransition.duration(250)}
                 >
-                  <Text style={styles.signOutText}>Sign Out</Text>
-                  <ChevronRight size={14} color={colors.text.secondary} />
-                </Pressable>
-                <Pressable
-                  style={[
-                    styles.inlineAction,
-                    __DEV__ ? undefined : styles.inlineActionLast,
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setShowDeleteDialog(true);
-                  }}
-                >
-                  <Text style={styles.deleteText}>Delete Account</Text>
-                  <ChevronRight size={14} color={colors.status.error.text} />
-                </Pressable>
-                {__DEV__ && (
-                  <Pressable
-                    style={[styles.inlineAction, styles.inlineActionLast]}
-                    onPress={async () => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      await resetOnboarding();
-                      router.replace("/onboarding" as const);
-                    }}
-                  >
-                    <Text style={styles.inlineRowLabel}>Replay Onboarding</Text>
-                    <ChevronRight size={14} color={colors.text.secondary} />
-                  </Pressable>
-                )}
+                  {renderTabContent()}
+                </Animated.View>
               </Animated.View>
             </>
           )}
@@ -465,8 +546,43 @@ const createStyles = (colors: Colors) =>
       fontSize: fontSize.sm,
       fontFamily: fontFamily.mono,
     },
-    // Inline sections
-    inlineSection: {
+    // Hero sections (above tabs)
+    heroSection: {
+      paddingHorizontal: spacing.lg,
+      marginBottom: spacing.lg,
+    },
+    // Tab bar (pill-shaped, matches CityDetailContent)
+    tabBar: {
+      flexDirection: "row",
+      marginHorizontal: spacing.lg,
+      marginBottom: spacing.md,
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.lg,
+      padding: 2,
+    },
+    tabButton: {
+      flex: 1,
+      flexDirection: "row",
+      paddingVertical: spacing.sm,
+      borderRadius: radius.lg - 2,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 4,
+    },
+    tabButtonActive: {
+      backgroundColor: colors.bg.elevated,
+    },
+    tabText: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+    },
+    tabTextActive: {
+      color: colors.text.primary,
+    },
+    // Tab content sections
+    tabSection: {
       paddingHorizontal: spacing.lg,
       marginBottom: spacing.lg,
     },
@@ -549,6 +665,25 @@ const createStyles = (colors: Colors) =>
       fontSize: fontSize.sm,
       fontWeight: fontWeight.medium,
       fontFamily: fontFamily.mono,
+    },
+    // Surprise Me CTA
+    surpriseCta: {
+      borderWidth: 1.5,
+      borderColor: colors.accent.primary,
+      borderRadius: radius.lg,
+      paddingVertical: spacing.md + 2,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    surpriseCtaPressed: {
+      opacity: 0.6,
+    },
+    surpriseCtaText: {
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.accent.primary,
+      letterSpacing: 0.5,
     },
   });
 

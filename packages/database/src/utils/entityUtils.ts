@@ -20,6 +20,7 @@ const ENTITY_TO_TABLE_MAPPING: Record<string, string> = {
   ItineraryItem: "itinerary_items",
   ItineraryCheckin: "itinerary_checkins",
   UserBadge: "user_badges",
+  AdventureScoreSnapshot: "adventure_score_snapshots",
 };
 
 /**
