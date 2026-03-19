@@ -519,7 +519,7 @@ class ItineraryServiceImpl implements ItineraryService {
       select: ["id", "isPublished"],
     });
 
-    const result = await repo.delete({ id, userId });
+    const result = await repo.softDelete({ id, userId });
     const deleted = (result.affected ?? 0) > 0;
 
     if (deleted && itinerary?.isPublished) {
