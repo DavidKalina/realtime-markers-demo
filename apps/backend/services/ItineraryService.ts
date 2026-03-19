@@ -1389,49 +1389,74 @@ ${eventList}
 VERIFIED VENUES in ${cityName} (prefer these for non-event stops):
 ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap data — use exact names):\n${trailList}` : ""}${forecast ? `\n\nWEATHER FORECAST for ${input.plannedDate}:\n${this.formatHourlyForPrompt(forecast)}` : ""}`;
 
-    const responseText = await this.openAIService.executeResponse(
-      {
-        model: OpenAIModel.GPT54Mini,
-        instructions: systemPrompt,
-        input: userPrompt,
-        max_output_tokens: 6000,
-        reasoning: { effort: "medium" },
-      },
-      "itinerary-generation",
-    );
+    const parseLLMResponse = (responseText: string): LLMItineraryResponse => {
+      let jsonStr = responseText.trim();
 
-    // Parse JSON from response (handle markdown code blocks + truncation)
-    let jsonStr = responseText.trim();
-    if (jsonStr.startsWith("```")) {
-      jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-    }
+      if (!jsonStr || jsonStr.length < 10) {
+        throw new Error(
+          `LLM returned empty or too-short response (${jsonStr.length} chars)`,
+        );
+      }
 
-    // Extract JSON object if surrounded by other text
-    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[0];
-    }
+      if (jsonStr.startsWith("```")) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      }
 
-    // Try to repair truncated JSON by closing open structures
+      // Extract JSON object if surrounded by other text
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonStr = jsonMatch[0];
+      } else {
+        throw new Error("No JSON object found in LLM response");
+      }
+
+      // Try to repair truncated JSON by closing open structures
+      try {
+        return JSON.parse(jsonStr);
+      } catch {
+        let repaired = jsonStr;
+        // Remove trailing incomplete key-value or string
+        repaired = repaired.replace(/,\s*"[^"]*$/, "");
+        repaired = repaired.replace(/,\s*\{[^}]*$/, "");
+        // Count and close open brackets
+        const openBraces =
+          (repaired.match(/\{/g) || []).length -
+          (repaired.match(/\}/g) || []).length;
+        const openBrackets =
+          (repaired.match(/\[/g) || []).length -
+          (repaired.match(/\]/g) || []).length;
+
+        if (openBraces < 0 || openBrackets < 0) {
+          throw new Error("Malformed JSON: more closing than opening brackets");
+        }
+
+        for (let i = 0; i < openBrackets; i++) repaired += "]";
+        for (let i = 0; i < openBraces; i++) repaired += "}";
+        return JSON.parse(repaired);
+      }
+    };
+
+    const callLLM = async (): Promise<string> => {
+      return this.openAIService.executeResponse(
+        {
+          model: OpenAIModel.GPT54Mini,
+          instructions: systemPrompt,
+          input: userPrompt,
+          max_output_tokens: 10000,
+          reasoning: { effort: "low" },
+        },
+        "itinerary-generation",
+      );
+    };
+
     let parsed: LLMItineraryResponse;
     try {
-      parsed = JSON.parse(jsonStr);
-    } catch {
-      // Attempt repair: close any unclosed strings, arrays, objects
-      let repaired = jsonStr;
-      // Remove trailing incomplete key-value or string
-      repaired = repaired.replace(/,\s*"[^"]*$/, "");
-      repaired = repaired.replace(/,\s*\{[^}]*$/, "");
-      // Count and close open brackets
-      const openBraces =
-        (repaired.match(/\{/g) || []).length -
-        (repaired.match(/\}/g) || []).length;
-      const openBrackets =
-        (repaired.match(/\[/g) || []).length -
-        (repaired.match(/\]/g) || []).length;
-      for (let i = 0; i < openBrackets; i++) repaired += "]";
-      for (let i = 0; i < openBraces; i++) repaired += "}";
-      parsed = JSON.parse(repaired);
+      parsed = parseLLMResponse(await callLLM());
+    } catch (firstError) {
+      console.warn(
+        `[ItineraryService] First LLM attempt failed, retrying: ${(firstError as Error).message}`,
+      );
+      parsed = parseLLMResponse(await callLLM());
     }
 
     // Validate eventIds — only keep IDs that exist in our events list
