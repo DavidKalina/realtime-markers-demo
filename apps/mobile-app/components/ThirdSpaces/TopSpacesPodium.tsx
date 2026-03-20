@@ -144,7 +144,31 @@ const TopSpacesPodium: React.FC<TopSpacesPodiumProps> = ({
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  if (cities.length === 0) return null;
+  if (cities.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.sectionTitle}>TOP THIRD SPACES</Text>
+        <View style={styles.emptyState}>
+          <Svg width={64} height={64}>
+            <Circle
+              cx={32}
+              cy={32}
+              r={28}
+              stroke={colors.border.accent}
+              strokeWidth={4}
+              fill="none"
+              strokeDasharray="6 4"
+            />
+          </Svg>
+          <Text style={styles.emptyTitle}>No cities yet</Text>
+          <Text style={styles.emptyBody}>
+            Complete adventures in different cities to see your top third spaces
+            ranked here.
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   // Arrange as [#2, #1, #3] for podium layout
   const ordered = [cities[1], cities[0], cities[2]].filter(Boolean);
@@ -242,6 +266,26 @@ const createStyles = (colors: Colors) =>
       fontSize: 9,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.semibold,
+    },
+    emptyState: {
+      alignItems: "center",
+      paddingVertical: spacing["2xl"],
+      paddingHorizontal: spacing.lg,
+      gap: spacing.md,
+      opacity: 0.7,
+    },
+    emptyTitle: {
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+    },
+    emptyBody: {
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      textAlign: "center",
+      lineHeight: 20,
     },
   });
 

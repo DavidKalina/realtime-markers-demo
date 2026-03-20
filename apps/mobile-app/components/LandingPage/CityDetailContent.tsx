@@ -31,6 +31,7 @@ import {
 import type { ThirdSpaceScoreResponse } from "@/services/api/modules/leaderboard";
 import type { PopularStop } from "@/hooks/usePopularStops";
 import type { BrowseItineraryResponse } from "@/hooks/useBrowseItineraries";
+import Svg, { Circle } from "react-native-svg";
 import ThirdSpaceScoreHero from "./ThirdSpaceScoreHero";
 import { ScoreHeroSkeleton } from "./Skeletons";
 
@@ -93,11 +94,17 @@ const RANK_COLORS: Record<number, string> = {
 
 /* ─── Hero crossfade ─── */
 
+const EMPTY_HERO_CIRCLE = 80;
+const EMPTY_HERO_RADIUS = (EMPTY_HERO_CIRCLE - 4) / 2;
+
 const HeroCrossfade: React.FC<{
   isLoading: boolean;
   thirdSpaceScore?: ThirdSpaceScoreResponse | null;
   onExploreMap?: () => void;
 }> = ({ isLoading, thirdSpaceScore, onExploreMap }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (isLoading) {
     return <ScoreHeroSkeleton />;
   }
@@ -113,7 +120,30 @@ const HeroCrossfade: React.FC<{
     );
   }
 
-  return null;
+  return (
+    <Animated.View
+      entering={FadeIn.duration(duration.normal)}
+      style={styles.emptyHero}
+    >
+      <View style={styles.emptyHeroCircle}>
+        <Svg width={EMPTY_HERO_CIRCLE} height={EMPTY_HERO_CIRCLE}>
+          <Circle
+            cx={EMPTY_HERO_CIRCLE / 2}
+            cy={EMPTY_HERO_CIRCLE / 2}
+            r={EMPTY_HERO_RADIUS}
+            stroke={colors.border.accent}
+            strokeWidth={4}
+            fill="none"
+            strokeDasharray="6 4"
+          />
+        </Svg>
+      </View>
+      <Text style={styles.emptyHeroTitle}>New territory</Text>
+      <Text style={styles.emptyHeroBody}>
+        Plan an itinerary here to start building this city's Adventure Score.
+      </Text>
+    </Animated.View>
+  );
 };
 
 /* ─── Category emoji map ─── */
@@ -446,6 +476,32 @@ const CityDetailContent: React.FC<CityDetailContentProps> = ({
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
+    /* Empty hero */
+    emptyHero: {
+      alignItems: "center",
+      paddingVertical: spacing["2xl"],
+      paddingHorizontal: spacing["2xl"],
+      marginBottom: spacing["3xl"],
+      gap: spacing.sm,
+    },
+    emptyHeroCircle: {
+      opacity: 0.5,
+      marginBottom: spacing.xs,
+    },
+    emptyHeroTitle: {
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+    },
+    emptyHeroBody: {
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      textAlign: "center",
+      lineHeight: 20,
+    },
+
     /* Tab bar */
     tabBar: {
       flexDirection: "row",

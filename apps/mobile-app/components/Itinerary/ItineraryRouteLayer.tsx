@@ -111,6 +111,16 @@ export default function ItineraryRouteLayer({ revealedStopCount }: Props) {
     };
   }, [upcomingCoords]);
 
+  // Always mount both ShapeSources so Mapbox doesn't error when toggling
+  // between completed/upcoming states. Empty FeatureCollection as fallback.
+  const emptyShape = useMemo(
+    () => ({
+      type: "FeatureCollection" as const,
+      features: [] as never[],
+    }),
+    [],
+  );
+
   // ── Render ──
 
   if (isRevealing) {
@@ -131,16 +141,6 @@ export default function ItineraryRouteLayer({ revealedStopCount }: Props) {
       </MapboxGL.ShapeSource>
     );
   }
-
-  // Always mount both ShapeSources so Mapbox doesn't error when toggling
-  // between completed/upcoming states. Empty FeatureCollection as fallback.
-  const emptyShape = useMemo(
-    () => ({
-      type: "FeatureCollection" as const,
-      features: [] as never[],
-    }),
-    [],
-  );
 
   return (
     <>
