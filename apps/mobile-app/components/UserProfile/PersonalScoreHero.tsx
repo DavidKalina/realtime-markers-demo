@@ -181,6 +181,7 @@ const PersonalScoreHero: React.FC<PersonalScoreHeroProps> = ({
   }, [onRefetchRef, fetchScore]);
 
   const targetScore = data?.current.score ?? 0;
+  const isEmpty = data !== null && targetScore === 0;
   const scoreColor = getScoreColor(targetScore);
 
   const animatedScore = useSharedValue(0);
@@ -248,6 +249,39 @@ const PersonalScoreHero: React.FC<PersonalScoreHeroProps> = ({
         : ""
     : "";
   const sparklinePoints = data ? buildSparkline(data.history) : null;
+
+  if (isEmpty) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.label}>ADVENTURE SCORE</Text>
+        <View style={styles.emptyState}>
+          <View style={styles.emptyCircleWrapper}>
+            <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
+              <Circle
+                cx={CIRCLE_SIZE / 2}
+                cy={CIRCLE_SIZE / 2}
+                r={CIRCLE_RADIUS}
+                stroke={colors.border.accent}
+                strokeWidth={STROKE_WIDTH}
+                fill="none"
+                strokeDasharray="6 4"
+              />
+            </Svg>
+            <View style={styles.circleLabel}>
+              <Text style={styles.emptyCircleIcon}>?</Text>
+            </View>
+          </View>
+          <View style={styles.emptyTextColumn}>
+            <Text style={styles.emptyTitle}>Your score awaits</Text>
+            <Text style={styles.emptyBody}>
+              Complete your first itinerary to unlock your Adventure Score
+              — five dimensions of how you explore the world.
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -442,6 +476,40 @@ const createStyles = (colors: Colors) =>
       fontSize: fontSize.sm,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
+    },
+    emptyState: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.lg,
+    },
+    emptyCircleWrapper: {
+      width: CIRCLE_SIZE,
+      height: CIRCLE_SIZE,
+      justifyContent: "center",
+      alignItems: "center",
+      opacity: 0.5,
+    },
+    emptyCircleIcon: {
+      fontSize: 32,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    emptyTitle: {
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+    },
+    emptyBody: {
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      lineHeight: 20,
+    },
+    emptyTextColumn: {
+      flex: 1,
+      gap: spacing.xs,
     },
     sparklineContainer: {
       height: 28,
