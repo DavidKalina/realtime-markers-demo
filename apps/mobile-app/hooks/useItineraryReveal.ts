@@ -164,13 +164,22 @@ export function useItineraryReveal({
 
     replayTimeoutsRef.current = timeouts;
     return () => timeouts.forEach(clearTimeout);
-  }, [layersSafe, pendingReplays, consumePendingReplays, markCheckedIn, cameraRef]);
+  }, [
+    layersSafe,
+    pendingReplays,
+    consumePendingReplays,
+    markCheckedIn,
+    cameraRef,
+  ]);
+
+  const itineraryCheckinRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // ── Check-in subscription ─────────────────────────────────
   useEffect(() => {
     const unsub = eventBroker.on(
       EventTypes.ITINERARY_CHECKIN,
       (data: { itineraryId: string; itemId: string; completed: boolean }) => {
+
         const current = useActiveItineraryStore.getState().itinerary;
 
         // 1. Fly to the checked-in stop first so the user sees the celebration
@@ -189,32 +198,46 @@ export function useItineraryReveal({
           }
         }
 
+        const timeouts: ReturnType<typeof setTimeout>[] = [];
+
         // 2. Mark checked in (triggers the pin celebration animation)
         markCheckedIn(data.itemId, new Date().toISOString());
 
         // 3. After celebration plays, fly to the next unchecked stop
-        setTimeout(() => {
-          const updated = useActiveItineraryStore.getState().itinerary;
-          if (updated) {
-            const nextStop = [...updated.items]
-              .sort((a, b) => a.sortOrder - b.sortOrder)
-              .find((i) => !i.checkedInAt);
-            if (nextStop?.latitude && nextStop?.longitude) {
-              cameraRef.current?.setCamera({
-                centerCoordinate: [
-                  Number(nextStop.longitude),
-                  Number(nextStop.latitude),
-                ],
-                zoomLevel: 15,
-                animationDuration: 1200,
-                animationMode: "flyTo",
-              });
+
+        if (itineraryCheckinRefs.current.length > 0) {
+          itineraryCheckinRefs.current.forEach(clearTimeout);
+        }
+        timeouts.push(
+          setTimeout(() => {
+            const updated = useActiveItineraryStore.getState().itinerary;
+            if (updated) {
+              const nextStop = [...updated.items]
+                .sort((a, b) => a.sortOrder - b.sortOrder)
+                .find((i) => !i.checkedInAt);
+              if (nextStop?.latitude && nextStop?.longitude) {
+                cameraRef.current?.setCamera({
+                  centerCoordinate: [
+                    Number(nextStop.longitude),
+                    Number(nextStop.latitude),
+                  ],
+                  zoomLevel: 15,
+                  animationDuration: 1200,
+                  animationMode: "flyTo",
+                });
+              }
             }
-          }
-        }, CHECKIN_CELEBRATION_MS);
+          }, CHECKIN_CELEBRATION_MS),
+        );
+
+        itineraryCheckinRefs.current = timeouts;
       },
     );
-    return unsub;
+    return () => {
+      itineraryCheckinRefs.current.forEach(clearTimeout);
+      itineraryCheckinRefs.current = [];
+      unsub();
+    };
   }, [markCheckedIn, cameraRef]);
 
   // ── Cinematic reveal sequence ─────────────────────────────
