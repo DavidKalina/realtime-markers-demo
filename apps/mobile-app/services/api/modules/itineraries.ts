@@ -114,6 +114,7 @@ export interface CreateItineraryParams {
   intention?: string;
   anchorStops?: AnchorStopParam[];
   surpriseMe?: boolean;
+  timezone?: string;
 }
 
 export class ItinerariesModule extends BaseApiModule {
