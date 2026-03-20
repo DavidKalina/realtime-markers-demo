@@ -23,6 +23,7 @@ import {
 } from "@/theme";
 import type { ThirdSpaceScoreResponse } from "@/services/api/modules/leaderboard";
 import InfoModal from "@/components/InfoModal";
+import ScoreEmptyState from "@/components/ScoreEmptyState";
 
 interface ThirdSpaceScoreHeroProps {
   score: ThirdSpaceScoreResponse;
@@ -201,31 +202,10 @@ const ThirdSpaceScoreHero: React.FC<ThirdSpaceScoreHeroProps> = ({
           <Text style={styles.cityText}>{cityLabel}</Text>
           <Text style={styles.label}>ADVENTURE SCORE</Text>
         </View>
-        <View style={styles.emptyState}>
-          <View style={styles.emptyCircleWrapper}>
-            <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
-              <Circle
-                cx={CIRCLE_SIZE / 2}
-                cy={CIRCLE_SIZE / 2}
-                r={CIRCLE_RADIUS}
-                stroke={colors.border.accent}
-                strokeWidth={STROKE_WIDTH}
-                fill="none"
-                strokeDasharray="6 4"
-              />
-            </Svg>
-            <View style={styles.circleLabel}>
-              <Text style={styles.emptyCircleIcon}>?</Text>
-            </View>
-          </View>
-          <View style={styles.emptyTextColumn}>
-            <Text style={styles.emptyTitle}>This city awaits</Text>
-            <Text style={styles.emptyBody}>
-              Complete an itinerary in {cityLabel} to reveal its Adventure Score
-              — five dimensions of how this city is being explored.
-            </Text>
-          </View>
-        </View>
+        <ScoreEmptyState
+          title="This city awaits"
+          body={`Complete an itinerary in ${cityLabel} to reveal its Adventure Score — five dimensions of how this city is being explored.`}
+        />
       </View>
     );
   }
@@ -452,40 +432,6 @@ const createStyles = (colors: Colors) =>
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
       color: colors.text.primary,
-    },
-    emptyState: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.lg,
-    },
-    emptyCircleWrapper: {
-      width: CIRCLE_SIZE,
-      height: CIRCLE_SIZE,
-      justifyContent: "center",
-      alignItems: "center",
-      opacity: 0.5,
-    },
-    emptyCircleIcon: {
-      fontSize: 32,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      color: colors.text.secondary,
-    },
-    emptyTextColumn: {
-      flex: 1,
-      gap: spacing.xs,
-    },
-    emptyTitle: {
-      fontSize: fontSize.md,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      color: colors.text.primary,
-    },
-    emptyBody: {
-      fontSize: fontSize.sm,
-      fontFamily: fontFamily.mono,
-      color: colors.text.secondary,
-      lineHeight: 20,
     },
     sparklineContainer: {
       height: 28,
