@@ -6,7 +6,7 @@
   },
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
-    "ecmaVersion": 2021,
+    "ecmaVersion": "latest",
     "sourceType": "module"
   },
   "plugins": ["@typescript-eslint", "prettier"],
@@ -16,8 +16,17 @@
     "plugin:prettier/recommended"
   ],
   "rules": {
-    "semi": ["error", "always"],
-    "prettier/prettier": ["error", { "singleQuote": false, "semi": true }]
+    "prettier/prettier": "warn",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "destructuredArrayIgnorePattern": "^_"
+      }
+    ],
+    "@typescript-eslint/no-require-imports": "off"
   },
   "ignorePatterns": ["node_modules/", "dist/", "build/", "*.d.ts"]
 }

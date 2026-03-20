@@ -1,5 +1,4 @@
-import type { Context } from "hono";
-import type { AppContext } from "../types/context";
+import { withErrorHandling, type Handler } from "../utils/handlerUtils";
 import AppDataSource from "../data-source";
 import {
   Itinerary,
@@ -34,8 +33,8 @@ interface CreateItineraryPayload {
   items: CreateItineraryItemPayload[];
 }
 
-export const adminCreateItineraryHandler = async (c: Context<AppContext>) => {
-  try {
+export const adminCreateItineraryHandler: Handler = withErrorHandling(
+  async (c) => {
     const body = (await c.req.json()) as CreateItineraryPayload;
 
     const { userId, title, city, plannedDate, durationHours, activate, items } =
@@ -120,14 +119,5 @@ export const adminCreateItineraryHandler = async (c: Context<AppContext>) => {
       },
       201,
     );
-  } catch (error) {
-    console.error("Error creating admin itinerary:", error);
-    return c.json(
-      {
-        error: "Failed to create itinerary",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      500,
-    );
-  }
-};
+  },
+);

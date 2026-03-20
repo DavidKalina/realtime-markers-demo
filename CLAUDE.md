@@ -13,12 +13,12 @@
 - Routes are mounted in `utils/routeSetup.ts` via `app.route("/api/path", router)`
 - Use CORS middleware from Hono (`hono/cors`) — not custom implementations
 - Database migrations live in `apps/backend/migrations/` and use TypeORM CLI
-- **When adding a new entity or migration**, update ALL of these files:
+- **When adding a new entity**, update ALL of these files:
   1. `packages/database/src/entities/` — create the entity file
   2. `packages/database/src/entities/index.ts` — export the entity
   3. `packages/database/src/config/data-source.ts` — add entity to the `entities` array
   4. `packages/database/src/utils/entityUtils.ts` — add to `ENTITY_TO_TABLE_MAPPING`
-  5. `apps/backend/data-source.ts` — add entity to `entities` array AND migration to `migrations` array
+  5. `apps/backend/data-source.ts` — add entity to `entities` array
+- **Migrations are auto-discovered** — just create a file in `apps/backend/migrations/` and it's picked up via glob pattern. No manual registration needed.
 - The app is **events-only** — do not add new entity types (e.g. civic engagements, private events) without explicit product direction
 - **Do not use `runOnJS` from react-native-reanimated** — it is deprecated. Use `scheduleOnRN` from `react-native-worklets` instead to call JS functions from worklet callbacks.
-

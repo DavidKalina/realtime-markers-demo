@@ -1,8 +1,7 @@
-import type { Context } from "hono";
-import type { AppContext } from "../types/context";
+import { withErrorHandling, type Handler } from "../utils/handlerUtils";
 import type { AreaScanFilters } from "../services/AreaScanService";
 
-export const areaScanHandler = async (c: Context<AppContext>) => {
+export const areaScanHandler: Handler = withErrorHandling(async (c) => {
   const body = await c.req.json<{
     lat: number;
     lng: number;
@@ -58,54 +57,47 @@ export const areaScanHandler = async (c: Context<AppContext>) => {
     }
   }
 
-  try {
-    const result = await areaScanService.getAreaProfile(
-      lat,
-      lng,
-      radius,
-      filters,
+  const result = await areaScanService.getAreaProfile(
+    lat,
+    lng,
+    radius,
+    filters,
+  );
+
+  const text = result.text || "No data available.";
+
+  // Cache the result (if not already cached)
+  if (!result.cached) {
+    const geohash = encodeGeohashSimple(lat, lng);
+    const hourBucket = Math.floor(Date.now() / (3600 * 1000));
+    const filterHash = filters
+      ? Buffer.from(JSON.stringify(filters)).toString("base64url").slice(0, 12)
+      : "";
+    const cacheKey = filterHash
+      ? `area-scan:${geohash}:${hourBucket}:${radius}:${filterHash}`
+      : `area-scan:${geohash}:${hourBucket}:${radius}`;
+    await redisService.set(
+      cacheKey,
+      JSON.stringify({
+        zoneStats: result.zoneStats,
+        events: result.events,
+        trails: result.trails,
+        text,
+      }),
+      3600,
     );
-
-    const text = result.text || "No data available.";
-
-    // Cache the result (if not already cached)
-    if (!result.cached) {
-      const geohash = encodeGeohashSimple(lat, lng);
-      const hourBucket = Math.floor(Date.now() / (3600 * 1000));
-      const filterHash = filters
-        ? Buffer.from(JSON.stringify(filters))
-            .toString("base64url")
-            .slice(0, 12)
-        : "";
-      const cacheKey = filterHash
-        ? `area-scan:${geohash}:${hourBucket}:${radius}:${filterHash}`
-        : `area-scan:${geohash}:${hourBucket}:${radius}`;
-      await redisService.set(
-        cacheKey,
-        JSON.stringify({
-          zoneStats: result.zoneStats,
-          events: result.events,
-          trails: result.trails,
-          text,
-        }),
-        3600,
-      );
-    }
-
-    return c.json({
-      ...result.zoneStats,
-      events: result.events,
-      trails: result.trails,
-      text,
-      cached: result.cached,
-    });
-  } catch (error) {
-    console.error("[AreaScan] Error:", error);
-    return c.json({ error: "Failed to scan area" }, 500);
   }
-};
 
-export const clusterProfileHandler = async (c: Context<AppContext>) => {
+  return c.json({
+    ...result.zoneStats,
+    events: result.events,
+    trails: result.trails,
+    text,
+    cached: result.cached,
+  });
+});
+
+export const clusterProfileHandler: Handler = withErrorHandling(async (c) => {
   const body = await c.req.json<{
     eventIds: string[];
     lat: number;
@@ -140,24 +132,19 @@ export const clusterProfileHandler = async (c: Context<AppContext>) => {
 
   const areaScanService = c.get("areaScanService");
 
-  try {
-    const result = await areaScanService.getClusterProfile(eventIds, lat, lng);
-    const text = result.text || "No data available.";
+  const result = await areaScanService.getClusterProfile(eventIds, lat, lng);
+  const text = result.text || "No data available.";
 
-    return c.json({
-      ...result.zoneStats,
-      events: result.events,
-      trails: result.trails,
-      text,
-      cached: result.cached,
-    });
-  } catch (error) {
-    console.error("[ClusterProfile] Error:", error);
-    return c.json({ error: "Failed to generate cluster profile" }, 500);
-  }
-};
+  return c.json({
+    ...result.zoneStats,
+    events: result.events,
+    trails: result.trails,
+    text,
+    cached: result.cached,
+  });
+});
 
-export const eventHypeHandler = async (c: Context<AppContext>) => {
+export const eventHypeHandler: Handler = withErrorHandling(async (c) => {
   const body = await c.req.json<{ eventId: string }>();
   const { eventId } = body;
 
@@ -168,24 +155,19 @@ export const eventHypeHandler = async (c: Context<AppContext>) => {
   const eventHypeService = c.get("eventHypeService");
   const redisService = c.get("redisService");
 
-  try {
-    const result = await eventHypeService.getEventHype(eventId);
-    const text = result.text || "No hype available.";
+  const result = await eventHypeService.getEventHype(eventId);
+  const text = result.text || "No hype available.";
 
-    // Only cache actual GPT-5 responses, not fallback text
-    if (!result.cached && result.text && result.text !== "No hype available.") {
-      const cacheKey = `event-hype:${eventId}`;
-      await redisService.set(cacheKey, text, 86400);
-    }
-
-    return c.json({ text, cached: result.cached });
-  } catch (error) {
-    console.error("[EventHype] Error:", error);
-    return c.json({ error: "Failed to generate hype" }, 500);
+  // Only cache actual GPT-5 responses, not fallback text
+  if (!result.cached && result.text && result.text !== "No hype available.") {
+    const cacheKey = `event-hype:${eventId}`;
+    await redisService.set(cacheKey, text, 86400);
   }
-};
 
-export const cityHypeHandler = async (c: Context<AppContext>) => {
+  return c.json({ text, cached: result.cached });
+});
+
+export const cityHypeHandler: Handler = withErrorHandling(async (c) => {
   const body = await c.req.json<{ city: string }>();
   const { city } = body;
 
@@ -196,27 +178,22 @@ export const cityHypeHandler = async (c: Context<AppContext>) => {
   const cityHypeService = c.get("cityHypeService");
   const redisService = c.get("redisService");
 
-  try {
-    const result = await cityHypeService.getCityHype(city);
-    const text = result.text || "No city insight available.";
+  const result = await cityHypeService.getCityHype(city);
+  const text = result.text || "No city insight available.";
 
-    if (
-      !result.cached &&
-      result.text &&
-      result.text !== "No city insight available."
-    ) {
-      const cacheKey = `city-hype:${city}`;
-      await redisService.set(cacheKey, text, 86400);
-    }
-
-    return c.json({ text, cached: result.cached });
-  } catch (error) {
-    console.error("[CityHype] Error:", error);
-    return c.json({ error: "Failed to generate city insight" }, 500);
+  if (
+    !result.cached &&
+    result.text &&
+    result.text !== "No city insight available."
+  ) {
+    const cacheKey = `city-hype:${city}`;
+    await redisService.set(cacheKey, text, 86400);
   }
-};
 
-export const trailDetailHandler = async (c: Context<AppContext>) => {
+  return c.json({ text, cached: result.cached });
+});
+
+export const trailDetailHandler: Handler = withErrorHandling(async (c) => {
   const wayId = Number(c.req.param("id"));
   if (!wayId || isNaN(wayId)) {
     return c.json({ error: "Invalid trail ID" }, 400);
@@ -230,7 +207,7 @@ export const trailDetailHandler = async (c: Context<AppContext>) => {
   }
 
   return c.json(trail);
-};
+});
 
 // Simple geohash for cache key (matches AreaScanService)
 const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";

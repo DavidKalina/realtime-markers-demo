@@ -1,11 +1,11 @@
-import type { Context } from "hono";
-import type { AppContext } from "../types/context";
+import {
+  withErrorHandling,
+  requireAuth,
+  type Handler,
+} from "../utils/handlerUtils";
 
-export async function updateLocationHandler(c: Context<AppContext>) {
-  const user = c.get("user");
-  if (!user?.id) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
+export const updateLocationHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
 
   const body = await c.req.json();
   const { lng, lat } = body;
@@ -45,4 +45,4 @@ export async function updateLocationHandler(c: Context<AppContext>) {
     );
 
   return c.json({ success: true });
-}
+});

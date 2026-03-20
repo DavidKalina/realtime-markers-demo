@@ -22,55 +22,10 @@ import {
   AdventureScoreSnapshot,
 } from "@realtime-markers/database";
 
-// Import all migrations explicitly
-import { CategoryTable1710000000000 } from "./migrations/CategoryTable1710000000000";
-import { EventTable1710000000001 } from "./migrations/EventTable1710000000001";
-import { FilterTable1710000000003 } from "./migrations/FilterTable1710000000003";
-import { QueryAnalyticsTable1710000000005 } from "./migrations/QueryAnalyticsTable1710000000005";
-import { UserTable1710000000006 } from "./migrations/UserTable1710000000006";
-import { UserEventDiscoveryTable1710000000007 } from "./migrations/UserEventDiscoveryTable1710000000007";
-import { UserEventRsvpTable1710000000008 } from "./migrations/UserEventRsvpTable1710000000008";
-import { UserEventSaveTable1710000000009 } from "./migrations/UserEventSaveTable1710000000009";
-import { UserEventViewTable1710000000010 } from "./migrations/UserEventViewTable1710000000010";
-import { SeedUsers1710000000012 } from "./migrations/SeedUsers1710000000012";
-import { AddAllUserForeignKeys1710000000014 } from "./migrations/AddAllUserForeignKeys1710000000014";
-import { AddIsOfficialToEvents1710000000015 } from "./migrations/AddIsOfficialToEvents1710000000015";
-import { SeedOfficialEvents1710000000016 } from "./migrations/SeedOfficialEvents1710000000016";
-import { RegenerateEmbeddings1710000000017 } from "./migrations/RegenerateEmbeddings1710000000017";
-import { UserPushTokenTable1710000000022 } from "./migrations/UserPushTokenTable1710000000022";
-import { DropCivicEngagementTables1710000000023 } from "./migrations/DropCivicEngagementTables1710000000023";
-import { AddSpatialAndCompoundIndexes1710000000024 } from "./migrations/AddSpatialAndCompoundIndexes1710000000024";
-import { AddGamificationFields1710000000025 } from "./migrations/AddGamificationFields1710000000025";
-import { AddExternalEventFields1710000000026 } from "./migrations/AddExternalEventFields1710000000026";
-import { AddEventDigest1710000000027 } from "./migrations/AddEventDigest1710000000027";
-import { AddExternalUrl1710000000028 } from "./migrations/AddExternalUrl1710000000028";
-import { AddCityToEvents1710000000029 } from "./migrations/AddCityToEvents1710000000029";
-import { UserFollowTable1710000000030 } from "./migrations/UserFollowTable1710000000030";
-import { LlmUsageLogTable1710000000031 } from "./migrations/LlmUsageLogTable1710000000031";
-import { AddPasswordResetFields1710000000032 } from "./migrations/AddPasswordResetFields1710000000032";
-import { ThirdSpaceScoreSnapshot1710000000033 } from "./migrations/ThirdSpaceScoreSnapshot1710000000033";
-import { NormalizeTSSCityNames1710000000034 } from "./migrations/NormalizeTSSCityNames1710000000034";
-import { ItineraryTables1710000000035 } from "./migrations/ItineraryTables1710000000035";
-import { AddItineraryItemGeoData1710000000036 } from "./migrations/AddItineraryItemGeoData1710000000036";
-import { AddItineraryShareToken1710000000037 } from "./migrations/AddItineraryShareToken1710000000037";
-import { AddItineraryCheckins1710000000038 } from "./migrations/AddItineraryCheckins1710000000038";
-import { ItineraryCheckinsTable1710000000039 } from "./migrations/ItineraryCheckinsTable1710000000039";
-import { AddItineraryForecast1710000000040 } from "./migrations/AddItineraryForecast1710000000040";
-import { ItineraryRitualsTable1710000000041 } from "./migrations/ItineraryRitualsTable1710000000041";
-import { AddItineraryRatingAndCompletion1710000000050 } from "./migrations/AddItineraryRatingAndCompletion1710000000050";
-import { AddAdventureStreaks1710000000051 } from "./migrations/AddAdventureStreaks1710000000051";
-import { AddUserBadges1710000000052 } from "./migrations/AddUserBadges1710000000052";
-import { AddItineraryIntention1710000000053 } from "./migrations/AddItineraryIntention1710000000053";
-import { RenameThirdSpaceScoreColumns1710000000054 } from "./migrations/RenameThirdSpaceScoreColumns1710000000054";
-import { AddGlobalItineraryFields1710000000055 } from "./migrations/AddGlobalItineraryFields1710000000055";
-import { AddItineraryMapFields1710000000056 } from "./migrations/AddItineraryMapFields1710000000056";
-import { BackfillItineraryEnhancements1710000000057 } from "./migrations/BackfillItineraryEnhancements1710000000057";
-import { AddItineraryItemEmbeddingsAndCategories1710000000058 } from "./migrations/AddItineraryItemEmbeddingsAndCategories1710000000058";
-import { AddOnboardingProfile1710000000059 } from "./migrations/AddOnboardingProfile1710000000059";
-import { AddItinerarySoftDelete1710000000060 } from "./migrations/AddItinerarySoftDelete1710000000060";
-import { DropFollowsAndRituals1710000000061 } from "./migrations/DropFollowsAndRituals1710000000061";
-import { NormalizeCityNames1710000000062 } from "./migrations/NormalizeCityNames1710000000062";
-import { AdventureScoreSnapshot1710000000063 } from "./migrations/AdventureScoreSnapshot1710000000063";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
+
+const currentDir = dirname(fileURLToPath(import.meta.url));
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({
@@ -94,56 +49,7 @@ const AppDataSource = new DataSource({
     UserBadge,
     AdventureScoreSnapshot,
   ],
-  migrations: [
-    CategoryTable1710000000000,
-    EventTable1710000000001,
-    FilterTable1710000000003,
-    QueryAnalyticsTable1710000000005,
-    UserTable1710000000006,
-    UserEventDiscoveryTable1710000000007,
-    UserEventRsvpTable1710000000008,
-    UserEventSaveTable1710000000009,
-    UserEventViewTable1710000000010,
-    SeedUsers1710000000012,
-    AddAllUserForeignKeys1710000000014,
-    AddIsOfficialToEvents1710000000015,
-    SeedOfficialEvents1710000000016,
-    RegenerateEmbeddings1710000000017,
-    UserPushTokenTable1710000000022,
-    DropCivicEngagementTables1710000000023,
-    AddSpatialAndCompoundIndexes1710000000024,
-    AddGamificationFields1710000000025,
-    AddExternalEventFields1710000000026,
-    AddEventDigest1710000000027,
-    AddExternalUrl1710000000028,
-    AddCityToEvents1710000000029,
-    UserFollowTable1710000000030,
-    LlmUsageLogTable1710000000031,
-    AddPasswordResetFields1710000000032,
-    ThirdSpaceScoreSnapshot1710000000033,
-    NormalizeTSSCityNames1710000000034,
-    ItineraryTables1710000000035,
-    AddItineraryItemGeoData1710000000036,
-    AddItineraryShareToken1710000000037,
-    AddItineraryCheckins1710000000038,
-    ItineraryCheckinsTable1710000000039,
-    AddItineraryForecast1710000000040,
-    ItineraryRitualsTable1710000000041,
-    AddItineraryRatingAndCompletion1710000000050,
-    AddAdventureStreaks1710000000051,
-    AddUserBadges1710000000052,
-    AddItineraryIntention1710000000053,
-    RenameThirdSpaceScoreColumns1710000000054,
-    AddGlobalItineraryFields1710000000055,
-    AddItineraryMapFields1710000000056,
-    BackfillItineraryEnhancements1710000000057,
-    AddItineraryItemEmbeddingsAndCategories1710000000058,
-    AddOnboardingProfile1710000000059,
-    AddItinerarySoftDelete1710000000060,
-    DropFollowsAndRituals1710000000061,
-    NormalizeCityNames1710000000062,
-    AdventureScoreSnapshot1710000000063,
-  ],
+  migrations: [join(currentDir, "migrations", "*.ts")],
   migrationsTableName: "migrations",
   migrationsRun: false, // Disable automatic migration running
   logging: ["error"],

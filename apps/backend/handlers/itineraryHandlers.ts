@@ -1,12 +1,12 @@
-import type { Context } from "hono";
-import type { AppContext } from "../types/context";
+import {
+  withErrorHandling,
+  requireAuth,
+  type Handler,
+} from "../utils/handlerUtils";
 
-export const createItineraryHandler = async (c: Context<AppContext>) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id) {
-    return c.json({ error: "Authentication required" }, 401);
-  }
-  const userId = user.userId || user.id;
+export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const userId = user.id;
 
   const body = await c.req.json<{
     city: string;
@@ -49,54 +49,46 @@ export const createItineraryHandler = async (c: Context<AppContext>) => {
 
   const jobQueue = c.get("jobQueue");
 
-  try {
-    const jobId = await jobQueue.enqueue("generate_itinerary", {
-      userId,
-      creatorId: userId,
-      city: body.city || "",
-      plannedDate: body.plannedDate,
-      budgetMin: body.budgetMin ?? 0,
-      budgetMax: body.budgetMax ?? 0,
-      durationHours: body.durationHours,
-      activityTypes: body.activityTypes ?? [],
-      stopCount: body.stopCount ?? 0,
-      ...(body.startTime && { startTime: body.startTime }),
-      ...(body.endTime && { endTime: body.endTime }),
-      ...(body.intention && { intention: body.intention }),
-      ...(body.surpriseMe && { surpriseMe: true }),
-      ...(body.anchorStops &&
-        body.anchorStops.length > 0 && {
-          anchorStops: body.anchorStops.map((a) => ({
-            coordinates: a.coordinates,
-            label: a.label,
-            address: a.address,
-            placeId: a.placeId,
-            primaryType: a.primaryType,
-            rating: a.rating,
-            note: a.note,
-          })),
-        }),
-    });
+  const jobId = await jobQueue.enqueue("generate_itinerary", {
+    userId,
+    creatorId: userId,
+    city: body.city || "",
+    plannedDate: body.plannedDate,
+    budgetMin: body.budgetMin ?? 0,
+    budgetMax: body.budgetMax ?? 0,
+    durationHours: body.durationHours,
+    activityTypes: body.activityTypes ?? [],
+    stopCount: body.stopCount ?? 0,
+    ...(body.startTime && { startTime: body.startTime }),
+    ...(body.endTime && { endTime: body.endTime }),
+    ...(body.intention && { intention: body.intention }),
+    ...(body.surpriseMe && { surpriseMe: true }),
+    ...(body.anchorStops &&
+      body.anchorStops.length > 0 && {
+        anchorStops: body.anchorStops.map((a) => ({
+          coordinates: a.coordinates,
+          label: a.label,
+          address: a.address,
+          placeId: a.placeId,
+          primaryType: a.primaryType,
+          rating: a.rating,
+          note: a.note,
+        })),
+      }),
+  });
 
-    return c.json(
-      {
-        jobId,
-        streamUrl: `/api/jobs/${jobId}/stream`,
-      },
-      202,
-    );
-  } catch (error) {
-    console.error("[Itinerary] Failed to enqueue job:", error);
-    return c.json({ error: "Failed to start itinerary generation" }, 500);
-  }
-};
+  return c.json(
+    {
+      jobId,
+      streamUrl: `/api/jobs/${jobId}/stream`,
+    },
+    202,
+  );
+});
 
-export const listItinerariesHandler = async (c: Context<AppContext>) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id) {
-    return c.json({ error: "Authentication required" }, 401);
-  }
-  const userId = user.userId || user.id;
+export const listItinerariesHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const userId = user.id;
 
   const limit = parseInt(c.req.query("limit") || "20");
   const cursor = c.req.query("cursor") || undefined;
@@ -108,14 +100,11 @@ export const listItinerariesHandler = async (c: Context<AppContext>) => {
     cursor,
   );
   return c.json(result);
-};
+});
 
-export const getItineraryHandler = async (c: Context<AppContext>) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id) {
-    return c.json({ error: "Authentication required" }, 401);
-  }
-  const userId = user.userId || user.id;
+export const getItineraryHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const userId = user.id;
 
   const id = c.req.param("id");
   if (!id) {
@@ -130,14 +119,11 @@ export const getItineraryHandler = async (c: Context<AppContext>) => {
   }
 
   return c.json(itinerary);
-};
+});
 
-export const shareItineraryHandler = async (c: Context<AppContext>) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id) {
-    return c.json({ error: "Authentication required" }, 401);
-  }
-  const userId = user.userId || user.id;
+export const shareItineraryHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const userId = user.id;
 
   const id = c.req.param("id");
   if (!id) {
@@ -152,107 +138,102 @@ export const shareItineraryHandler = async (c: Context<AppContext>) => {
   }
 
   return c.json({ shareToken });
-};
+});
 
-export const getSharedItineraryHandler = async (c: Context<AppContext>) => {
-  const shareToken = c.req.param("shareToken");
-  if (!shareToken) {
-    return c.json({ error: "shareToken is required" }, 400);
-  }
+export const getSharedItineraryHandler: Handler = withErrorHandling(
+  async (c) => {
+    const shareToken = c.req.param("shareToken");
+    if (!shareToken) {
+      return c.json({ error: "shareToken is required" }, 400);
+    }
 
-  const itineraryService = c.get("itineraryService");
-  const itinerary = await itineraryService.getByShareToken(shareToken);
+    const itineraryService = c.get("itineraryService");
+    const itinerary = await itineraryService.getByShareToken(shareToken);
 
-  if (!itinerary) {
-    return c.json({ error: "Itinerary not found" }, 404);
-  }
+    if (!itinerary) {
+      return c.json({ error: "Itinerary not found" }, 404);
+    }
 
-  // Strip userId for public response
-  const { userId, ...safeItinerary } = itinerary as any;
-  return c.json(safeItinerary);
-};
+    // Strip userId for public response
+    const { userId: _, ...safeItinerary } = itinerary as any;
+    return c.json(safeItinerary);
+  },
+);
 
-export const activateItineraryHandler = async (c: Context<AppContext>) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id) {
-    return c.json({ error: "Authentication required" }, 401);
-  }
-  const userId = user.userId || user.id;
+export const activateItineraryHandler: Handler = withErrorHandling(
+  async (c) => {
+    const user = requireAuth(c);
+    const userId = user.id;
 
-  const id = c.req.param("id");
-  if (!id) {
-    return c.json({ error: "id is required" }, 400);
-  }
+    const id = c.req.param("id");
+    if (!id) {
+      return c.json({ error: "id is required" }, 400);
+    }
 
-  const checkinService = c.get("itineraryCheckinService");
-  const activated = await checkinService.activateItinerary(userId, id);
+    const checkinService = c.get("itineraryCheckinService");
+    const activated = await checkinService.activateItinerary(userId, id);
 
-  if (!activated) {
-    return c.json({ error: "Itinerary not found or not ready" }, 404);
-  }
+    if (!activated) {
+      return c.json({ error: "Itinerary not found or not ready" }, 404);
+    }
 
-  return c.json({ success: true });
-};
+    return c.json({ success: true });
+  },
+);
 
-export const deactivateItineraryHandler = async (c: Context<AppContext>) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id) {
-    return c.json({ error: "Authentication required" }, 401);
-  }
-  const userId = user.userId || user.id;
+export const deactivateItineraryHandler: Handler = withErrorHandling(
+  async (c) => {
+    const user = requireAuth(c);
+    const userId = user.id;
 
-  const checkinService = c.get("itineraryCheckinService");
-  await checkinService.deactivateItinerary(userId);
+    const checkinService = c.get("itineraryCheckinService");
+    await checkinService.deactivateItinerary(userId);
 
-  return c.json({ success: true });
-};
+    return c.json({ success: true });
+  },
+);
 
-export const getActiveItineraryHandler = async (c: Context<AppContext>) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id) {
-    return c.json({ error: "Authentication required" }, 401);
-  }
-  const userId = user.userId || user.id;
+export const getActiveItineraryHandler: Handler = withErrorHandling(
+  async (c) => {
+    const user = requireAuth(c);
+    const userId = user.id;
 
-  const checkinService = c.get("itineraryCheckinService");
-  const itinerary = await checkinService.getActiveItinerary(userId);
+    const checkinService = c.get("itineraryCheckinService");
+    const itinerary = await checkinService.getActiveItinerary(userId);
 
-  if (!itinerary) {
-    return c.json({ active: false });
-  }
+    if (!itinerary) {
+      return c.json({ active: false });
+    }
 
-  return c.json({ active: true, itinerary });
-};
+    return c.json({ active: true, itinerary });
+  },
+);
 
-export const checkinItineraryItemHandler = async (c: Context<AppContext>) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id) {
-    return c.json({ error: "Authentication required" }, 401);
-  }
-  const userId = user.userId || user.id;
+export const checkinItineraryItemHandler: Handler = withErrorHandling(
+  async (c) => {
+    const user = requireAuth(c);
+    const userId = user.id;
 
-  const id = c.req.param("id");
-  const itemId = c.req.param("itemId");
-  if (!id || !itemId) {
-    return c.json({ error: "id and itemId are required" }, 400);
-  }
+    const id = c.req.param("id");
+    const itemId = c.req.param("itemId");
+    if (!id || !itemId) {
+      return c.json({ error: "id and itemId are required" }, 400);
+    }
 
-  const checkinService = c.get("itineraryCheckinService");
-  const result = await checkinService.manualCheckin(userId, id, itemId);
+    const checkinService = c.get("itineraryCheckinService");
+    const result = await checkinService.manualCheckin(userId, id, itemId);
 
-  if (!result.success) {
-    return c.json({ error: "Item not found" }, 404);
-  }
+    if (!result.success) {
+      return c.json({ error: "Item not found" }, 404);
+    }
 
-  return c.json({ success: true, checkedInAt: result.checkedInAt });
-};
+    return c.json({ success: true, checkedInAt: result.checkedInAt });
+  },
+);
 
-export const deleteItineraryHandler = async (c: Context<AppContext>) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id) {
-    return c.json({ error: "Authentication required" }, 401);
-  }
-  const userId = user.userId || user.id;
+export const deleteItineraryHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const userId = user.id;
 
   const id = c.req.param("id");
   if (!id) {
@@ -267,14 +248,11 @@ export const deleteItineraryHandler = async (c: Context<AppContext>) => {
   }
 
   return c.json({ success: true });
-};
+});
 
-export const rateItineraryHandler = async (c: Context<AppContext>) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id) {
-    return c.json({ error: "Authentication required" }, 401);
-  }
-  const userId = user.userId || user.id;
+export const rateItineraryHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const userId = user.id;
 
   const id = c.req.param("id");
   if (!id) {
@@ -304,59 +282,55 @@ export const rateItineraryHandler = async (c: Context<AppContext>) => {
   }
 
   return c.json({ success: true, rating: result.rating });
-};
+});
 
-export const listCompletedHandler = async (c: Context<AppContext>) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id) {
-    return c.json({ error: "Authentication required" }, 401);
-  }
-  const userId = user.userId || user.id;
+export const listCompletedHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const userId = user.id;
 
   const limit = Math.min(parseInt(c.req.query("limit") || "20", 10), 50);
   const itineraryService = c.get("itineraryService");
   const data = await itineraryService.listCompleted(userId, limit);
 
   return c.json({ data });
-};
+});
 
-export const browseItinerariesHandler = async (c: Context<AppContext>) => {
-  const city = c.req.query("city");
-  if (!city || typeof city !== "string") {
-    return c.json({ error: "city query parameter is required" }, 400);
-  }
+export const browseItinerariesHandler: Handler = withErrorHandling(
+  async (c) => {
+    const city = c.req.query("city");
+    if (!city || typeof city !== "string") {
+      return c.json({ error: "city query parameter is required" }, 400);
+    }
 
-  const sort = (c.req.query("sort") || "popular") as
-    | "popular"
-    | "recent"
-    | "top_rated";
-  const intention = c.req.query("intention") || undefined;
-  const limit = Math.min(parseInt(c.req.query("limit") || "20", 10), 50);
-  const cursor = c.req.query("cursor") || undefined;
+    const sort = (c.req.query("sort") || "popular") as
+      | "popular"
+      | "recent"
+      | "top_rated";
+    const intention = c.req.query("intention") || undefined;
+    const limit = Math.min(parseInt(c.req.query("limit") || "20", 10), 50);
+    const cursor = c.req.query("cursor") || undefined;
 
-  // Optionally exclude current user's own itineraries
-  const user = c.get("user");
-  const excludeUserId = user?.userId || user?.id || undefined;
+    // Optionally exclude current user's own itineraries
+    const user = c.get("user");
+    const excludeUserId = user?.userId || user?.id || undefined;
 
-  const itineraryService = c.get("itineraryService");
-  const data = await itineraryService.browsePublished({
-    city: decodeURIComponent(city),
-    sort,
-    intention,
-    limit,
-    cursor,
-    excludeUserId,
-  });
+    const itineraryService = c.get("itineraryService");
+    const data = await itineraryService.browsePublished({
+      city: decodeURIComponent(city),
+      sort,
+      intention,
+      limit,
+      cursor,
+      excludeUserId,
+    });
 
-  return c.json({ data });
-};
+    return c.json({ data });
+  },
+);
 
-export const adoptItineraryHandler = async (c: Context<AppContext>) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id) {
-    return c.json({ error: "Authentication required" }, 401);
-  }
-  const userId = user.userId || user.id;
+export const adoptItineraryHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const userId = user.id;
 
   const id = c.req.param("id");
   if (!id) {
@@ -364,15 +338,11 @@ export const adoptItineraryHandler = async (c: Context<AppContext>) => {
   }
 
   const itineraryService = c.get("itineraryService");
-  try {
-    const itinerary = await itineraryService.adoptItinerary(id, userId);
-    return c.json(itinerary, 201);
-  } catch {
-    return c.json({ error: "Itinerary not found or not available" }, 404);
-  }
-};
+  const itinerary = await itineraryService.adoptItinerary(id, userId);
+  return c.json(itinerary, 201);
+});
 
-export const getPopularStopsHandler = async (c: Context<AppContext>) => {
+export const getPopularStopsHandler: Handler = withErrorHandling(async (c) => {
   const city = c.req.query("city");
   if (!city || typeof city !== "string") {
     return c.json({ error: "city query parameter is required" }, 400);
@@ -386,4 +356,4 @@ export const getPopularStopsHandler = async (c: Context<AppContext>) => {
   );
 
   return c.json({ data: stops });
-};
+});

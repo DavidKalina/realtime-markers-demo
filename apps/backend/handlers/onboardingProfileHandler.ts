@@ -1,9 +1,6 @@
 import type { Context } from "hono";
 import type { AppContext } from "../types/context";
-import {
-  withErrorHandling,
-  requireAuth,
-} from "../utils/handlerUtils";
+import { withErrorHandling, requireAuth } from "../utils/handlerUtils";
 import { ValidationError } from "../utils/errors";
 import AppDataSource from "../data-source";
 import { User } from "@realtime-markers/database";

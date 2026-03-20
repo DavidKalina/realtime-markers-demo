@@ -1,20 +1,12 @@
-import type { Context } from "hono";
-import type { AppContext } from "../types/context";
+import {
+  withErrorHandling,
+  requireAuth,
+  type Handler,
+} from "../utils/handlerUtils";
 
-export const getUserBadges = async (c: Context<AppContext>) => {
-  const user = c.get("user");
-  if (!user) {
-    return c.json({ error: "Authentication required" }, 401);
-  }
-
-  const userId = user.userId || user.id;
+export const getUserBadges: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
   const badgeService = c.get("badgeService");
-
-  try {
-    const badges = await badgeService.getUserBadges(userId);
-    return c.json(badges);
-  } catch (error) {
-    console.error("Error fetching user badges:", error);
-    return c.json({ error: "Failed to fetch badges" }, 500);
-  }
-};
+  const badges = await badgeService.getUserBadges(user.id);
+  return c.json(badges);
+});
