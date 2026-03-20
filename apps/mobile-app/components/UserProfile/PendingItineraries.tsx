@@ -1,26 +1,52 @@
+import type { ItineraryResponse } from "@/services/api/modules/itineraries";
+import { apiClient } from "@/services/ApiClient";
+import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
+import {
+  fontFamily,
+  fontSize,
+  fontWeight,
+  spacing,
+  useColors,
+  type Colors,
+} from "@/theme";
+import {
+  differenceInDays,
+  differenceInHours,
+  formatDate,
+  formatDistance,
+  getUnixTime,
+  parseISO,
+} from "date-fns";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
+import { ChevronRight } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Text,
-  StyleSheet,
   Pressable,
+  StyleSheet,
+  Text,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
-import { ChevronRight } from "lucide-react-native";
-import { apiClient } from "@/services/ApiClient";
-import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
-import type { ItineraryResponse } from "@/services/api/modules/itineraries";
-import {
-  useColors,
-  type Colors,
-  fontSize,
-  fontWeight,
-  fontFamily,
-  spacing,
-  radius,
-} from "@/theme";
+
+const dateStringToUnixTime = (dateString: string) => {
+  return getUnixTime(parseISO(dateString));
+};
+
+const distanceFromNow = (dateString: string) => {
+  const plannedDate = parseISO(dateString);
+  const hoursFromNow = differenceInHours(plannedDate, new Date());
+
+  if (hoursFromNow > 0 && hoursFromNow < 24) {
+    return `in ${formatDistance(plannedDate, Date.now())}`;
+  } else if (hoursFromNow > 24) {
+    return formatDate(dateString, "MMM dd");
+  } else if (hoursFromNow === 0) {
+    return "now";
+  }
+
+  return "expired";
+};
 
 interface PendingItinerariesProps {
   onRefetchRef?: React.MutableRefObject<(() => Promise<void>) | null>;
@@ -83,7 +109,14 @@ const PendingItineraries: React.FC<PendingItinerariesProps> = ({
 
   if (itineraries.length === 0) return null;
 
-  const displayed = itineraries.slice(0, MAX_CARDS);
+  const displayed = [...itineraries]
+    .filter((it) => differenceInDays(parseISO(it.plannedDate), Date.now()) >= 0)
+    .sort(
+      (a, b) =>
+        dateStringToUnixTime(a.plannedDate) -
+        dateStringToUnixTime(b.plannedDate),
+    )
+    .slice(0, MAX_CARDS);
   const remaining = itineraries.length - MAX_CARDS;
 
   return (
@@ -115,6 +148,9 @@ const PendingItineraries: React.FC<PendingItinerariesProps> = ({
                 {emojiStrip} {"\u00B7"} {it.items.length}{" "}
                 {it.items.length === 1 ? "stop" : "stops"}
                 {intentionEmoji ? ` \u00B7 ${intentionEmoji}` : ""}
+              </Text>
+              <Text style={styles.cardDistanceFromNow}>
+                {distanceFromNow(it.plannedDate)}
               </Text>
             </View>
             <ChevronRight size={14} color={colors.text.secondary} />
@@ -171,6 +207,12 @@ const createStyles = (colors: Colors) =>
     },
     cardMeta: {
       fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    cardDistanceFromNow: {
+      fontSize: 10,
+      marginLeft: "auto",
       fontFamily: fontFamily.mono,
       color: colors.text.secondary,
     },

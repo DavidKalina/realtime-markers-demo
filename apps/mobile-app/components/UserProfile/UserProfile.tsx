@@ -218,8 +218,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       {/* Adventure Streak (visual calendar) */}
       {(profileData?.currentStreak ||
         profileData?.longestStreak ||
-        (insights?.streakCalendar &&
-          insights.streakCalendar.length > 0)) && (
+        (insights?.streakCalendar && insights.streakCalendar.length > 0)) && (
         <Animated.View
           entering={FadeIn.duration(duration.normal)}
           style={styles.tabSection}
