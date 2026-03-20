@@ -17,6 +17,7 @@ import type { WeatherService, DayForecast } from "./shared/WeatherService";
 import type { GamificationService } from "./GamificationService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
 import type { RedisService } from "./shared/RedisService";
+import { formatInTimeZone, toDate } from "date-fns-tz";
 
 export interface AnchorStopInput {
   coordinates: [number, number]; // [lng, lat]
@@ -41,6 +42,7 @@ export interface CreateItineraryInput {
   intention?: string; // recharge | explore | socialize | move | learn | treat_yourself
   anchorStops?: AnchorStopInput[];
   surpriseMe?: boolean;
+  timezone?: string;
 }
 
 interface LLMItineraryItem {
@@ -126,7 +128,12 @@ export interface ItineraryService {
     pageSize: number,
   ): Promise<{
     itineraries: InternalItinerary[];
-    pagination: { page: number; pageSize: number; total: number; hasMore: boolean };
+    pagination: {
+      page: number;
+      pageSize: number;
+      total: number;
+      hasMore: boolean;
+    };
   }>;
 }
 
@@ -245,12 +252,18 @@ class ItineraryServiceImpl implements ItineraryService {
       activityTypes: input.activityTypes,
       intention: input.intention,
       status: ItineraryStatus.GENERATING,
+      timezone: input.timezone,
     });
     await itineraryRepo.save(itinerary);
 
     try {
       // Fetch user's onboarding preferences (skip for "Surprise Me" — keep it fresh)
-      let userPreferences: { activities: string[]; vibes: string[]; idealDay: string; pace: string } | null = null;
+      let userPreferences: {
+        activities: string[];
+        vibes: string[];
+        idealDay: string;
+        pace: string;
+      } | null = null;
       let preferenceEmbedding: string | null = null;
       if (!input.surpriseMe) {
         const userRepo = this.dataSource.getRepository(User);
@@ -317,7 +330,7 @@ class ItineraryServiceImpl implements ItineraryService {
         ["hiking", "walking", "outdoors"].includes(a),
       );
 
-      let trails: Trail[] = [];
+      const trails: Trail[] = [];
       if (cityCenter && (wantsPaved || wantsHiking)) {
         try {
           const [pavedResult, hikingResult] = await Promise.allSettled([
@@ -524,15 +537,14 @@ class ItineraryServiceImpl implements ItineraryService {
     const deleted = (result.affected ?? 0) > 0;
 
     if (deleted && itinerary?.isPublished) {
-      this.publishItineraryChange(
-        { id } as Itinerary,
-        "DELETE",
-      ).catch((err) => {
-        console.error(
-          "[ItineraryService] Failed to publish itinerary deletion:",
-          err,
-        );
-      });
+      this.publishItineraryChange({ id } as Itinerary, "DELETE").catch(
+        (err) => {
+          console.error(
+            "[ItineraryService] Failed to publish itinerary deletion:",
+            err,
+          );
+        },
+      );
     }
 
     return deleted;
@@ -1373,11 +1385,21 @@ Respond ONLY with valid JSON matching this schema:
 
     // When planned date is today and no explicit start time, pin to current time
     // so the LLM never schedules stops in the past.
-    const isToday = input.plannedDate === new Date().toISOString().slice(0, 10);
+
+    const tz = input.timezone ?? "America/Denver";
+
+    const today = formatInTimeZone(new Date(), tz, "yyyy-MM-dd");
+
+    const currentHour = parseInt(formatInTimeZone(new Date(), tz, "HH"), 10);
+
+    const currentTime = formatInTimeZone(new Date(), tz, "HH:mm");
+
+    const isToday = input.plannedDate === today;
+
     const effectiveStartTime =
       input.startTime ??
       (isToday
-        ? `${String(Math.min(new Date().getHours() + 1, 23)).padStart(2, "0")}:00`
+        ? `${String(Math.min(currentHour + 1, 23)).padStart(2, "0")}:00`
         : undefined);
 
     const timeConstraint =
@@ -1388,7 +1410,7 @@ Respond ONLY with valid JSON matching this schema:
           : "";
 
     const userPrompt = `City: ${cityName}
-Date: ${input.plannedDate}${isToday ? ` (today — current time is ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })})` : ""}
+Date: ${input.plannedDate}${isToday ? ` (today — current time is ${currentTime})` : ""}
 Duration: ${input.durationHours} hours
 Budget: ${budgetRange}
 Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${intention ? `\nIntention: ${intention.replace("_", " ")}` : ""}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}${timeConstraint}
@@ -1409,7 +1431,9 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
       }
 
       if (jsonStr.startsWith("```")) {
-        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+        jsonStr = jsonStr
+          .replace(/^```(?:json)?\n?/, "")
+          .replace(/\n?```$/, "");
       }
 
       // Extract JSON object if surrounded by other text
@@ -1606,7 +1630,12 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
     pageSize: number,
   ): Promise<{
     itineraries: InternalItinerary[];
-    pagination: { page: number; pageSize: number; total: number; hasMore: boolean };
+    pagination: {
+      page: number;
+      pageSize: number;
+      total: number;
+      hasMore: boolean;
+    };
   }> {
     const offset = (page - 1) * pageSize;
     const repo = this.dataSource.getRepository(Itinerary);
@@ -1630,7 +1659,8 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
       categories: it.categories || [],
       embedding: it.embedding || null,
       entryLatitude: it.entryLatitude != null ? Number(it.entryLatitude) : null,
-      entryLongitude: it.entryLongitude != null ? Number(it.entryLongitude) : null,
+      entryLongitude:
+        it.entryLongitude != null ? Number(it.entryLongitude) : null,
       rating: it.rating ?? null,
       timesAdopted: it.timesAdopted,
       items: (it.items || []).map((item) => ({

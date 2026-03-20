@@ -57,6 +57,7 @@ import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
 import useThirdSpaces from "@/hooks/useThirdSpaces";
 import { useUserLocation } from "@/contexts/LocationContext";
 import ItineraryTimeline from "./ItineraryTimeline";
+import { getUserTimezone } from "@/utils/dateTimeFormatting";
 
 /* ── Collapsible section ─────────────────────────────────── */
 const COLLAPSE_DURATION = 250;
@@ -1122,6 +1123,7 @@ export default function ItineraryDialogBox({
           budgetMax: params.budget,
           durationHours: params.duration,
           activityTypes: params.activities,
+          timezone: getUserTimezone(),
           stopCount: params.stops || undefined,
           ...(params.intention && { intention: params.intention }),
           ...(params.surpriseMe && { surpriseMe: true }),
