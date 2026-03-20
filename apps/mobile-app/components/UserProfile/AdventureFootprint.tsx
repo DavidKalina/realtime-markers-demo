@@ -7,7 +7,6 @@ import {
   fontWeight,
   fontFamily,
   spacing,
-  radius,
 } from "@/theme";
 import type { ProfileInsightsResponse } from "@/services/api/modules/profileInsights";
 
@@ -134,11 +133,6 @@ const createStyles = (colors: Colors) =>
       marginBottom: spacing.md,
     },
     container: {
-      backgroundColor: colors.bg.elevated,
-      borderRadius: radius.lg,
-      padding: spacing.md,
-      borderWidth: 1,
-      borderColor: colors.border.default,
       gap: spacing.md,
     },
     // Hero stats

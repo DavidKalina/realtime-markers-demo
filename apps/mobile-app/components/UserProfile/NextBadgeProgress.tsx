@@ -8,7 +8,6 @@ import {
   fontWeight,
   fontFamily,
   spacing,
-  radius,
 } from "@/theme";
 import { apiClient } from "@/services/ApiClient";
 import type { UserBadge } from "@/services/api/modules/badges";
@@ -57,15 +56,12 @@ const NextBadgeProgress: React.FC<NextBadgeProgressProps> = ({
   return (
     <View>
       <Text style={styles.sectionLabel}>
-        {hasAny ? "NEXT BADGE" : "YOUR FIRST BADGE"}
+        {hasAny ? "NEXT BADGE" : "UNLOCK YOUR FIRST BADGE"}
       </Text>
-      <View style={styles.card}>
+      <View style={styles.row}>
         <Text style={styles.emoji}>{next.emoji}</Text>
-        <View style={styles.content}>
+        <View style={styles.rowContent}>
           <Text style={styles.name}>{next.name}</Text>
-          <Text style={styles.description} numberOfLines={2}>
-            {next.description}
-          </Text>
           <View style={styles.progressRow}>
             <View style={styles.progressTrack}>
               <View
@@ -106,20 +102,18 @@ const createStyles = (colors: Colors) =>
       letterSpacing: 1.5,
       marginBottom: spacing.xs,
     },
-    card: {
+    row: {
       flexDirection: "row",
       alignItems: "center",
+      paddingVertical: spacing.md,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.default,
       gap: spacing.md,
-      padding: spacing.md,
-      borderRadius: radius.lg,
-      backgroundColor: colors.bg.elevated,
-      borderWidth: 1,
-      borderColor: colors.border.default,
     },
     emoji: {
-      fontSize: 32,
+      fontSize: 22,
     },
-    content: {
+    rowContent: {
       flex: 1,
       gap: 4,
     },
@@ -129,20 +123,15 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       color: colors.text.primary,
     },
-    description: {
-      fontSize: 11,
-      fontFamily: fontFamily.mono,
-      color: colors.text.secondary,
-    },
     progressRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: spacing.sm,
-      marginTop: 2,
+      gap: 6,
     },
     progressTrack: {
       flex: 1,
-      height: 4,
+      maxWidth: 80,
+      height: 3,
       borderRadius: 2,
       backgroundColor: colors.border.medium,
       overflow: "hidden",
@@ -153,10 +142,9 @@ const createStyles = (colors: Colors) =>
       backgroundColor: colors.accent.primary,
     },
     progressText: {
-      fontSize: 10,
+      fontSize: 9,
       fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.secondary,
+      color: colors.text.label,
     },
     viewAllRow: {
       paddingVertical: spacing.sm,

@@ -7,7 +7,6 @@ import {
   fontWeight,
   fontFamily,
   spacing,
-  radius,
 } from "@/theme";
 import type { ActivityDay } from "@/services/api/modules/profileInsights";
 import { formatInTimeZone } from "date-fns-tz";
@@ -37,7 +36,6 @@ const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ data }) => {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const { grid, maxCount, totalCheckins, activeDays } = useMemo(() => {
-    // Build a date->count map
     const dateMap = new Map<string, number>();
     let max = 0;
     let total = 0;
@@ -47,13 +45,10 @@ const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ data }) => {
       total += d.count;
     }
 
-    // Generate grid: 16 weeks x 7 days, ending at today
     const today = new Date();
-    const todayDay = today.getDay(); // 0=Sun
-    // Adjust to Monday-based: Mon=0, Tue=1, ..., Sun=6
+    const todayDay = today.getDay();
     const todayMondayIdx = todayDay === 0 ? 6 : todayDay - 1;
 
-    // End of grid is today; start is 16 weeks back from the start of this week
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() - todayMondayIdx - (WEEKS - 1) * 7);
 
@@ -66,7 +61,6 @@ const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ data }) => {
         const cellDate = new Date(startDate);
         cellDate.setDate(startDate.getDate() + w * 7 + d);
 
-        // Future dates show as empty cells
         if (cellDate > today) {
           week.push({ date: "", count: 0 });
           continue;
@@ -93,80 +87,79 @@ const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ data }) => {
   return (
     <View>
       <Text style={styles.sectionLabel}>ACTIVITY</Text>
-      <View style={styles.container}>
-        <View style={styles.gridWrapper}>
-          {/* Day labels */}
-          <View style={styles.dayLabels}>
-            {DAY_LABELS.map((label, i) => (
-              <Text key={i} style={styles.dayLabel}>
-                {label}
-              </Text>
-            ))}
-          </View>
 
-          {/* Grid */}
-          <View style={styles.grid}>
-            {grid.map((week, wi) => (
-              <View key={wi} style={styles.column}>
-                {week.map((cell, di) => (
-                  <View
-                    key={`${wi}-${di}`}
-                    style={[
-                      styles.cell,
-                      {
-                        backgroundColor:
-                          cell.count === 0
-                            ? colors.bg.cardAlt
-                            : getIntensityColor(cell.count, maxCount),
-                        borderColor: colors.border.default,
-                      },
-                    ]}
-                  />
-                ))}
-              </View>
-            ))}
-          </View>
+      <View style={styles.gridWrapper}>
+        {/* Day labels */}
+        <View style={styles.dayLabels}>
+          {DAY_LABELS.map((label, i) => (
+            <Text key={i} style={styles.dayLabel}>
+              {label}
+            </Text>
+          ))}
         </View>
 
-        {/* Summary row */}
-        {isEmpty ? (
-          <Text style={styles.emptyHint}>
-            Check in to stops to fill your activity grid
-          </Text>
-        ) : (
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>{totalCheckins}</Text>
-              <Text style={styles.summaryLabel}>check-ins</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>{activeDays}</Text>
-              <Text style={styles.summaryLabel}>active days</Text>
-            </View>
-            <View style={styles.legendRow}>
-              <Text style={styles.legendLabel}>Less</Text>
-              {[0, 0.25, 0.5, 0.75, 1].map((intensity, i) => (
+        {/* Grid */}
+        <View style={styles.grid}>
+          {grid.map((week, wi) => (
+            <View key={wi} style={styles.column}>
+              {week.map((cell, di) => (
                 <View
-                  key={i}
+                  key={`${wi}-${di}`}
                   style={[
-                    styles.legendCell,
+                    styles.cell,
                     {
                       backgroundColor:
-                        intensity === 0
+                        cell.count === 0
                           ? colors.bg.cardAlt
-                          : getIntensityColor(
-                              intensity * (maxCount || 1),
-                              maxCount || 1,
-                            ),
+                          : getIntensityColor(cell.count, maxCount),
+                      borderColor: colors.border.default,
                     },
                   ]}
                 />
               ))}
-              <Text style={styles.legendLabel}>More</Text>
             </View>
-          </View>
-        )}
+          ))}
+        </View>
       </View>
+
+      {/* Summary row */}
+      {isEmpty ? (
+        <Text style={styles.emptyHint}>
+          Check in to stops to fill your activity grid
+        </Text>
+      ) : (
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>{totalCheckins}</Text>
+            <Text style={styles.summaryLabel}>check-ins</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>{activeDays}</Text>
+            <Text style={styles.summaryLabel}>active days</Text>
+          </View>
+          <View style={styles.legendRow}>
+            <Text style={styles.legendLabel}>Less</Text>
+            {[0, 0.25, 0.5, 0.75, 1].map((intensity, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.legendCell,
+                  {
+                    backgroundColor:
+                      intensity === 0
+                        ? colors.bg.cardAlt
+                        : getIntensityColor(
+                            intensity * (maxCount || 1),
+                            maxCount || 1,
+                          ),
+                  },
+                ]}
+              />
+            ))}
+            <Text style={styles.legendLabel}>More</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -181,17 +174,10 @@ const createStyles = (colors: Colors) =>
       letterSpacing: 1.5,
       marginBottom: spacing.md,
     },
-    container: {
-      backgroundColor: colors.bg.elevated,
-      borderRadius: radius.lg,
-      padding: spacing.md,
-      borderWidth: 1,
-      borderColor: colors.border.default,
-      gap: spacing.md,
-    },
     gridWrapper: {
       flexDirection: "row",
       gap: spacing.xs,
+      marginBottom: spacing.md,
     },
     dayLabels: {
       justifyContent: "space-between",

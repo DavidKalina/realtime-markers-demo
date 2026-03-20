@@ -1371,15 +1371,24 @@ Respond ONLY with valid JSON matching this schema:
   ]
 }`;
 
+    // When planned date is today and no explicit start time, pin to current time
+    // so the LLM never schedules stops in the past.
+    const isToday = input.plannedDate === new Date().toISOString().slice(0, 10);
+    const effectiveStartTime =
+      input.startTime ??
+      (isToday
+        ? `${String(Math.min(new Date().getHours() + 1, 23)).padStart(2, "0")}:00`
+        : undefined);
+
     const timeConstraint =
-      input.startTime && input.endTime
-        ? `\nTime window: ${input.startTime} – ${input.endTime} (schedule all stops within this window)`
-        : input.startTime
-          ? `\nStart time: ${input.startTime} (begin the itinerary at this time)`
+      effectiveStartTime && input.endTime
+        ? `\nTime window: ${effectiveStartTime} – ${input.endTime} (schedule all stops within this window)`
+        : effectiveStartTime
+          ? `\nStart time: ${effectiveStartTime} (begin the itinerary at this time — do NOT schedule anything before this)`
           : "";
 
     const userPrompt = `City: ${cityName}
-Date: ${input.plannedDate}
+Date: ${input.plannedDate}${isToday ? ` (today — current time is ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })})` : ""}
 Duration: ${input.durationHours} hours
 Budget: ${budgetRange}
 Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${intention ? `\nIntention: ${intention.replace("_", " ")}` : ""}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}${timeConstraint}

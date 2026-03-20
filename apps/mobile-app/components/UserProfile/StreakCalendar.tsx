@@ -7,7 +7,6 @@ import {
   fontWeight,
   fontFamily,
   spacing,
-  radius,
 } from "@/theme";
 import type { WeekActivity } from "@/services/api/modules/profileInsights";
 
@@ -95,7 +94,7 @@ const StreakCalendar: React.FC<StreakCalendarProps> = ({
   return (
     <View>
       <Text style={styles.sectionLabel}>ADVENTURE STREAK</Text>
-      <View style={[styles.container, { borderColor: tier.color + "40" }]}>
+      <View style={styles.container}>
         {/* Streak header */}
         <View style={styles.headerRow}>
           <View style={styles.streakInfo}>
@@ -172,10 +171,6 @@ const createStyles = (colors: Colors) =>
       marginBottom: spacing.md,
     },
     container: {
-      borderWidth: 1,
-      borderRadius: radius.lg,
-      padding: spacing.md,
-      backgroundColor: colors.bg.elevated,
       gap: spacing.md,
     },
     headerRow: {

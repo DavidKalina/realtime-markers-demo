@@ -13,7 +13,11 @@ import {
   Text,
   View,
 } from "react-native";
-import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -87,7 +91,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const {
     loading,
     profileData,
-    memberSince,
     deleteError,
     isDeleting,
     showDeleteDialog,
@@ -207,22 +210,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       <View style={styles.tabSection}>
         <RecentCompletions onRefetchRef={completionsRefetchRef} />
       </View>
-
-      {/* Surprise Me CTA */}
-      <View style={styles.tabSection}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.surpriseCta,
-            pressed && styles.surpriseCtaPressed,
-          ]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            router.push("/" as const);
-          }}
-        >
-          <Text style={styles.surpriseCtaText}>Surprise Me</Text>
-        </Pressable>
-      </View>
     </>
   );
 
@@ -245,17 +232,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         </Animated.View>
       )}
 
-      {/* Badges */}
-      <Animated.View
-        entering={FadeIn.duration(duration.normal).delay(80)}
-        style={styles.tabSection}
-      >
-        <BadgeGrid onRefetchRef={badgesRefetchRef} />
-      </Animated.View>
-
       {/* Activity Heatmap */}
       <Animated.View
-        entering={FadeIn.duration(duration.normal).delay(160)}
+        entering={FadeIn.duration(duration.normal).delay(80)}
         style={styles.tabSection}
       >
         <ActivityHeatmap data={insights?.activityHeatmap ?? []} />
@@ -263,7 +242,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
       {/* Venue DNA */}
       <Animated.View
-        entering={FadeIn.duration(duration.normal).delay(240)}
+        entering={FadeIn.duration(duration.normal).delay(160)}
         style={styles.tabSection}
       >
         <VenueDnaChart data={insights?.venueDna ?? []} />
@@ -271,7 +250,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
       {/* Adventure Footprint */}
       <Animated.View
-        entering={FadeIn.duration(duration.normal).delay(320)}
+        entering={FadeIn.duration(duration.normal).delay(240)}
         style={styles.tabSection}
       >
         <AdventureFootprint
@@ -288,10 +267,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           }
         />
       </Animated.View>
+      {/* Badges */}
+      <Animated.View
+        entering={FadeIn.duration(duration.normal).delay(80)}
+        style={styles.tabSection}
+      >
+        <BadgeGrid onRefetchRef={badgesRefetchRef} />
+      </Animated.View>
 
       {/* Stats */}
       <Animated.View
-        entering={FadeIn.duration(duration.normal).delay(400)}
+        entering={FadeIn.duration(duration.normal).delay(320)}
         style={styles.tabSection}
       >
         <UserStatsCard stats={stats} isLoading={statsLoading} />
@@ -329,10 +315,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             {THEME_OPTIONS.map(({ key, label }) => (
               <Pressable
                 key={key}
-                style={[
-                  styles.pill,
-                  themeMode === key && styles.pillActive,
-                ]}
+                style={[styles.pill, themeMode === key && styles.pillActive]}
                 onPress={() => handleThemeChange(key)}
               >
                 <Text
@@ -584,7 +567,7 @@ const createStyles = (colors: Colors) =>
     // Tab content sections
     tabSection: {
       paddingHorizontal: spacing.lg,
-      marginBottom: spacing.lg,
+      marginBottom: spacing["2xl"],
     },
     sectionLabel: {
       fontSize: 11,
