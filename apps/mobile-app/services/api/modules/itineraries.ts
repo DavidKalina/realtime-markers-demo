@@ -315,6 +315,7 @@ export interface ItinerarySuggestion {
   city: string;
   costTier: "$" | "$$" | "$$$";
   durationHours: number;
+  stopCount: number;
   activityTypes: string[];
   intention: string;
   budgetMax: number;

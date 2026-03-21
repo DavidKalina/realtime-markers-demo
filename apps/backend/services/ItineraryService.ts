@@ -110,6 +110,7 @@ export interface ItinerarySuggestion {
   city: string;
   costTier: "$" | "$$" | "$$$";
   durationHours: number;
+  stopCount: number;
   activityTypes: string[];
   intention: string;
   budgetMax: number;
@@ -590,6 +591,7 @@ Each suggestion must have:
 - city (the city/town where this adventure takes place, e.g. "Tempe, AZ" — use "City, ST" format)
 - costTier ("$" = free/under $20, "$$" = $20-60, "$$$" = $60+)
 - durationHours (number, 2-8 range, appropriate for time of day)
+- stopCount (number of stops, 1-3 — a quick single-stop outing, a two-stop combo, or a three-stop crawl)
 - activityTypes (1-2 from: food, coffee, music, art, outdoors, hiking, walking, nightlife, sports, culture)
 - intention (one of: recharge, explore, socialize, move, learn, treat_yourself)
 - budgetMax (number in dollars matching the costTier)
@@ -599,6 +601,7 @@ DIVERSITY IS CRITICAL — the 5 suggestions must feel like 5 completely differen
 - Mix categories: one food-focused, one outdoors/active, one arts/culture, one nightlife/social, one wildcard
 - Vary cost: at least one "$" and one "$$$"
 - Vary duration: range from 2h to 6h+
+- Vary stop count: mix of 1-stop, 2-stop, and 3-stop suggestions
 - Vary energy: one lazy/chill, one high-energy
 - Consider the time of day and season`,
         },

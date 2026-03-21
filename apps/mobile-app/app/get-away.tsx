@@ -305,6 +305,11 @@ const SlotRow: React.FC<SlotRowProps> = React.memo(
                       {suggestion.durationHours}h
                     </Text>
                   </View>
+                  <View style={styles.pill}>
+                    <Text style={styles.pillText}>
+                      {suggestion.stopCount} {suggestion.stopCount === 1 ? "stop" : "stops"}
+                    </Text>
+                  </View>
                   {suggestion.activityTypes.map((a) => (
                     <View key={a} style={styles.pill}>
                       <Text style={styles.pillText}>{a}</Text>
@@ -534,6 +539,7 @@ export default function GetAwayScreen() {
           budgetMin: 0,
           budgetMax: suggestion.budgetMax,
           durationHours: suggestion.durationHours,
+          stopCount: suggestion.stopCount,
           activityTypes: suggestion.activityTypes,
           intention: suggestion.intention,
           title: suggestion.title,
