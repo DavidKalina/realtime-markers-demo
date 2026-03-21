@@ -1,5 +1,5 @@
 import { DataSource } from "typeorm";
-import { normalizeCity } from "@realtime-markers/database";
+import { normalizeCity, isCityNormalized } from "@realtime-markers/database";
 import type { RedisService } from "./shared/RedisService";
 
 export interface ThirdSpaceScoreServiceDependencies {
@@ -114,6 +114,10 @@ export class ThirdSpaceScoreService {
 
   async computeAndStoreScore(city: string): Promise<void> {
     city = normalizeCity(city);
+    if (!isCityNormalized(city)) {
+      console.warn(`[ThirdSpaceScoreService] Skipping stateless city: "${city}"`);
+      return;
+    }
 
     // 1. Activity: Completed itineraries in 30d, recency-weighted
     const activityRows = await this.dataSource.query(

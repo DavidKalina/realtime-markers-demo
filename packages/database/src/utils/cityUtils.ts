@@ -101,3 +101,12 @@ export function normalizeCity(city: string): string {
 
   return `${cityName}, ${stateCode}`;
 }
+
+/**
+ * Returns true if the city string is in canonical "City, ST" format
+ * (i.e. contains a comma with a non-empty state portion).
+ */
+export function isCityNormalized(city: string): boolean {
+  const parts = city.split(",");
+  return parts.length >= 2 && parts[1].trim().length > 0;
+}

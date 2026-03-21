@@ -5,6 +5,7 @@ import {
   ItineraryStatus,
   User,
   normalizeCity,
+  isCityNormalized,
 } from "@realtime-markers/database";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
@@ -255,7 +256,11 @@ class ItineraryServiceImpl implements ItineraryService {
     input: Omit<CreateItineraryInput, "stopCount">,
   ): Promise<Itinerary> {
     const itineraryRepo = this.dataSource.getRepository(Itinerary);
-    const city = input.city ? normalizeCity(input.city) : undefined;
+    let city = input.city ? normalizeCity(input.city) : undefined;
+    if (city && !isCityNormalized(city)) {
+      console.warn(`[ItineraryService] Rejecting stateless city in createShell: "${city}"`);
+      city = undefined;
+    }
     const shell = itineraryRepo.create({
       userId,
       city,
@@ -282,6 +287,10 @@ class ItineraryServiceImpl implements ItineraryService {
 
     // Infer city from anchor stops if not provided
     let city = input.city ? normalizeCity(input.city) : undefined;
+    if (city && !isCityNormalized(city)) {
+      console.warn(`[ItineraryService] Rejecting stateless city in create: "${city}"`);
+      city = undefined;
+    }
     if (!city && input.anchorStops && input.anchorStops.length > 0) {
       const [lng, lat] = input.anchorStops[0].coordinates;
       try {
