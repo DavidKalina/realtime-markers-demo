@@ -594,10 +594,16 @@ Each suggestion must have:
 - intention (one of: recharge, explore, socialize, move, learn, treat_yourself)
 - budgetMax (number in dollars matching the costTier)
 
-Make them diverse: mix indoor/outdoor, cheap/splurge, active/chill, short/long, near/farther. Consider the time of day and season.`,
+DIVERSITY IS CRITICAL — the 5 suggestions must feel like 5 completely different days, not variations of the same idea:
+- Each title MUST use different words — no repeating "explore", "discover", "hidden", etc. across titles
+- Mix categories: one food-focused, one outdoors/active, one arts/culture, one nightlife/social, one wildcard
+- Vary cost: at least one "$" and one "$$$"
+- Vary duration: range from 2h to 6h+
+- Vary energy: one lazy/chill, one high-energy
+- Consider the time of day and season`,
         },
       ],
-      temperature: 0.9,
+      temperature: 1.0,
       max_tokens: 800,
     });
 
