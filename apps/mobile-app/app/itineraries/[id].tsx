@@ -699,6 +699,10 @@ const ItineraryDetailScreen = () => {
     if (sortedItems.length === 0) return;
 
     const stopLabel = (item: (typeof sortedItems)[0]) => {
+      // Prefer entry point coords (trailhead/parking) for navigation
+      if (item.entryLatitude && item.entryLongitude) {
+        return `${item.entryLatitude},${item.entryLongitude}`;
+      }
       if (item.latitude && item.longitude) {
         return `${item.latitude},${item.longitude}`;
       }
@@ -715,7 +719,7 @@ const ItineraryDetailScreen = () => {
     const openAppleMapsStop = (index: number) => {
       const label = stopLabels[index];
       Linking.openURL(
-        `https://maps.apple.com/?daddr=${encodeURIComponent(label)}&dirflg=w`,
+        `https://maps.apple.com/?daddr=${encodeURIComponent(label)}&dirflg=d`,
       );
     };
 
@@ -728,7 +732,8 @@ const ItineraryDetailScreen = () => {
             "Cancel",
             `Full Route (${stopLabels.length} stops)`,
             ...sortedItems.map(
-              (item) => `${item.emoji || "\u{1F4CD}"} ${item.title}`,
+              (item) =>
+                `${item.emoji || "\u{1F4CD}"} ${item.title}${item.entryPointName ? ` → ${item.entryPointName}` : ""}`,
             ),
           ],
           cancelButtonIndex: 0,

@@ -1463,6 +1463,113 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
     }
   }
 
+  /**
+   * Search for a navigable entry point (trailhead, parking lot, visitor center)
+   * near the given venue coordinates. Returns the closest relevant result.
+   */
+  public async searchEntryPoint(
+    lat: number,
+    lng: number,
+    venueCategory: string,
+  ): Promise<{
+    latitude: number;
+    longitude: number;
+    name: string;
+    placeId: string;
+  } | null> {
+    // Determine search terms based on venue category
+    const searchTerms: string[] = [];
+    switch (venueCategory) {
+      case "trail":
+        searchTerms.push("trailhead", "trailhead parking");
+        break;
+      case "park":
+        searchTerms.push("parking lot", "visitor center", "park entrance");
+        break;
+      case "attraction":
+        searchTerms.push("parking lot", "visitor entrance");
+        break;
+      default:
+        return null;
+    }
+
+    const url = "https://places.googleapis.com/v1/places:searchText";
+
+    for (const term of searchTerms) {
+      try {
+        const requestBody = {
+          textQuery: term,
+          locationBias: {
+            circle: {
+              center: { latitude: lat, longitude: lng },
+              radius: 3000.0, // 3km radius around the venue
+            },
+          },
+          maxResultCount: 3,
+        };
+
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": process.env.GOOGLE_GEOCODING_API_KEY || "",
+            "X-Goog-FieldMask":
+              "places.displayName,places.location,places.id,places.businessStatus",
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) continue;
+
+        const data = await response.json();
+        if (!data.places || data.places.length === 0) continue;
+
+        // Find the closest non-closed result
+        let bestPlace = null;
+        let bestDistance = Infinity;
+
+        for (const place of data.places) {
+          if (
+            place.businessStatus === "CLOSED_PERMANENTLY" ||
+            place.businessStatus === "CLOSED_TEMPORARILY"
+          ) {
+            continue;
+          }
+
+          const placeLat = place.location.latitude;
+          const placeLng = place.location.longitude;
+          const dist = Math.sqrt(
+            Math.pow(placeLat - lat, 2) + Math.pow(placeLng - lng, 2),
+          );
+
+          if (dist < bestDistance) {
+            bestDistance = dist;
+            bestPlace = place;
+          }
+        }
+
+        if (bestPlace) {
+          console.log(
+            `[searchEntryPoint] Found entry point "${bestPlace.displayName.text}" for ${venueCategory} at [${lat}, ${lng}]`,
+          );
+          return {
+            latitude: bestPlace.location.latitude,
+            longitude: bestPlace.location.longitude,
+            name: bestPlace.displayName.text,
+            placeId: bestPlace.id,
+          };
+        }
+      } catch (error) {
+        console.warn(
+          `[searchEntryPoint] Error searching "${term}" near [${lat}, ${lng}]:`,
+          error,
+        );
+      }
+    }
+
+    return null;
+  }
+
   public async searchNearby(
     lat: number,
     lng: number,

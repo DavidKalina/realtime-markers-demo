@@ -22,6 +22,9 @@ export interface ItineraryItemResponse {
   whyThisStop?: string;
   proTip?: string;
   checkedInAt?: string;
+  entryLatitude?: number;
+  entryLongitude?: number;
+  entryPointName?: string;
 }
 
 export interface HourlyForecast {

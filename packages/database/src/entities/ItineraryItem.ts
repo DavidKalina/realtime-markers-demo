@@ -116,6 +116,32 @@ export class ItineraryItem {
   @Column({ name: "checked_in_at", type: "timestamptz", nullable: true })
   checkedInAt?: Date;
 
+  @Column({
+    name: "entry_latitude",
+    type: "numeric",
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
+  entryLatitude?: number;
+
+  @Column({
+    name: "entry_longitude",
+    type: "numeric",
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
+  entryLongitude?: number;
+
+  @Column({
+    name: "entry_point_name",
+    type: "varchar",
+    length: 500,
+    nullable: true,
+  })
+  entryPointName?: string;
+
   @Column({ type: "text", nullable: true })
   embedding?: string;
 

@@ -1024,6 +1024,9 @@ DIVERSITY IS CRITICAL — the 5 suggestions must feel like 5 completely differen
           venueCategory: item.venueCategory,
           whyThisStop: item.whyThisStop,
           proTip: item.proTip,
+          entryLatitude: item.entryLatitude,
+          entryLongitude: item.entryLongitude,
+          entryPointName: item.entryPointName,
         }),
       );
       await itemRepo.save(newItems);
@@ -2054,6 +2057,52 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
         `[ItineraryService] Error generating categories for ${itineraryId}:`,
         error,
       );
+    }
+
+    // 4. Find entry points for trails, parks, and attractions
+    const entryPointCategories = ["trail", "park", "attraction"];
+    const itemsNeedingEntryPoints = sortedItems.filter(
+      (item) =>
+        item.latitude != null &&
+        item.longitude != null &&
+        item.venueCategory &&
+        entryPointCategories.includes(item.venueCategory),
+    );
+
+    if (itemsNeedingEntryPoints.length > 0) {
+      const itemRepo = this.dataSource.getRepository(ItineraryItem);
+      const entryPointResults = await Promise.all(
+        itemsNeedingEntryPoints.map(async (item) => {
+          try {
+            const entryPoint =
+              await this.geocodingService.searchEntryPoint(
+                Number(item.latitude),
+                Number(item.longitude),
+                item.venueCategory!,
+              );
+            return { itemId: item.id, entryPoint };
+          } catch (error) {
+            console.warn(
+              `[ItineraryService] Entry point search failed for "${item.title}":`,
+              error,
+            );
+            return { itemId: item.id, entryPoint: null };
+          }
+        }),
+      );
+
+      for (const { itemId, entryPoint } of entryPointResults) {
+        if (entryPoint) {
+          await itemRepo.update(itemId, {
+            entryLatitude: entryPoint.latitude,
+            entryLongitude: entryPoint.longitude,
+            entryPointName: entryPoint.name,
+          });
+          console.log(
+            `[ItineraryService] Set entry point "${entryPoint.name}" for item ${itemId}`,
+          );
+        }
+      }
     }
 
     // Save updates

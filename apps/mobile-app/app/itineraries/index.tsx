@@ -809,7 +809,6 @@ const ItinerariesListScreen = () => {
         ListHeaderComponent={
           <>
             {pullIndicator}
-            {isGenerating ? <GeneratingRow /> : null}
             <FilterBar
               activeSort={activeSort}
               activeIntention={activeIntention}
@@ -819,6 +818,7 @@ const ItinerariesListScreen = () => {
               onStatusChange={setActiveStatus}
               onClear={handleClearFilters}
             />
+            {isGenerating ? <GeneratingRow /> : null}
           </>
         }
         ListEmptyComponent={renderEmpty}
