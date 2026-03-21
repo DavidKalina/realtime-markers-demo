@@ -296,6 +296,13 @@ export class PushNotificationService {
         source: "PushNotification",
         path: "/itineraries",
       });
+    } else if (data?.type === "itinerary_reminder" && data.itineraryId) {
+      // First-stop reminder — navigate to the itinerary
+      eventBroker.emit(EventTypes.NAVIGATE_TO_SCREEN, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        path: `/itineraries/${data.itineraryId}`,
+      });
     } else if (data?.type === "event") {
       // Navigate to event details
       console.log("Navigate to event:", data.eventId);

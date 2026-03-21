@@ -24,7 +24,7 @@ interface CreateItineraryPayload {
   userId: string;
   title: string;
   city: string;
-  plannedDate: string;
+  plannedDate: string | Date;
   durationHours: number;
   activate?: boolean;
   budgetMin?: number;
@@ -67,7 +67,7 @@ export const adminCreateItineraryHandler: Handler = withErrorHandling(
       userId,
       title,
       city,
-      plannedDate,
+      plannedDate: new Date(plannedDate),
       durationHours,
       budgetMin: body.budgetMin ?? 0,
       budgetMax: body.budgetMax ?? 0,

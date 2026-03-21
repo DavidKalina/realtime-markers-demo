@@ -14,6 +14,8 @@ export const ACTIVITY_OPTIONS: AdventureOption[] = [
   { label: "Hiking", value: "hiking", emoji: "🥾" },
   { label: "Walking", value: "walking", emoji: "🚶" },
   { label: "Nightlife", value: "nightlife", emoji: "🍸" },
+  { label: "Brews", value: "brews", emoji: "🍺" },
+  { label: "Thrifting", value: "thrifting", emoji: "🛍️" },
   { label: "Sports", value: "sports", emoji: "⚽" },
   { label: "Culture", value: "culture", emoji: "🏛️" },
 ];
@@ -25,6 +27,7 @@ export const INTENTION_OPTIONS: AdventureOption[] = [
   { label: "Move", value: "move", emoji: "🏃" },
   { label: "Learn", value: "learn", emoji: "📚" },
   { label: "Treat Yourself", value: "treat_yourself", emoji: "💎" },
+  { label: "Lock In", value: "lock_in", emoji: "🔒" },
 ];
 
 export const PACE_OPTIONS: AdventureOption[] = [

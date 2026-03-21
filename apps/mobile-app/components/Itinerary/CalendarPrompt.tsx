@@ -17,7 +17,7 @@ async function scheduleReminders(
   itinerary: ItineraryResponse,
 ): Promise<string[]> {
   const ids: string[] = [];
-  const plannedDate = new Date(`${itinerary.plannedDate}T12:00:00`);
+  const plannedDate = new Date(itinerary.plannedDate);
   const now = new Date();
 
   // Evening before — 7pm the day before
@@ -78,8 +78,9 @@ async function scheduleReminders(
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder)[0];
   if (firstItem?.startTime) {
+    const plannedDay = itinerary.plannedDate.split("T")[0];
     const thirtyBefore = new Date(
-      `${itinerary.plannedDate}T${firstItem.startTime}`,
+      `${plannedDay}T${firstItem.startTime}`,
     );
     thirtyBefore.setMinutes(thirtyBefore.getMinutes() - 30);
 
@@ -167,7 +168,8 @@ export default function CalendarPrompt() {
 async function promptCalendar(itinerary: ItineraryResponse) {
   // Don't prompt if the planned date is today (already happening)
   const today = formatInTimeZone(new Date(), getUserTimezone(), "yyyy-MM-dd");
-  if (itinerary.plannedDate === today) return;
+  const plannedDay = itinerary.plannedDate.split("T")[0];
+  if (plannedDay === today) return;
 
   // Don't prompt if already added to calendar
   const alreadyAdded = await calendarService.hasCalendarEvent(itinerary.id);

@@ -10,12 +10,12 @@ import {
   type Colors,
 } from "@/theme";
 import {
-  differenceInDays,
-  differenceInHours,
+  differenceInCalendarDays,
+  differenceInMinutes,
   formatDate,
   formatDistance,
   getUnixTime,
-  parseISO,
+  parseISO
 } from "date-fns";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -35,17 +35,21 @@ const dateStringToUnixTime = (dateString: string) => {
 
 const distanceFromNow = (dateString: string) => {
   const plannedDate = parseISO(dateString);
-  const hoursFromNow = differenceInHours(plannedDate, new Date());
+  const now = new Date();
+  const daysFromNow = differenceInCalendarDays(plannedDate, now);
+  const minutesFromNow = differenceInMinutes(plannedDate, now);
 
-  if (hoursFromNow > 0 && hoursFromNow < 24) {
-    return `in ${formatDistance(plannedDate, Date.now())}`;
-  } else if (hoursFromNow > 24) {
-    return formatDate(dateString, "MMM dd");
-  } else if (hoursFromNow === 0) {
-    return "now";
+  if (daysFromNow < 0) {
+    return "expired";
+  } else if (daysFromNow === 0) {
+    if (minutesFromNow <= 3) {
+      return "now";
+    }
+    return `in ${formatDistance(plannedDate, now)}`;
+  } else if (daysFromNow === 1) {
+    return "tomorrow";
   }
-
-  return "expired";
+  return formatDate(plannedDate, "MMM dd");
 };
 
 interface PendingItinerariesProps {
@@ -110,7 +114,7 @@ const PendingItineraries: React.FC<PendingItinerariesProps> = ({
   if (itineraries.length === 0) return null;
 
   const displayed = [...itineraries]
-    .filter((it) => differenceInDays(parseISO(it.plannedDate), Date.now()) >= 0)
+    .filter((it) => distanceFromNow(it.plannedDate) !== "expired")
     .sort(
       (a, b) =>
         dateStringToUnixTime(a.plannedDate) -

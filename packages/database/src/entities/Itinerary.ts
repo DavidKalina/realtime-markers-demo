@@ -37,8 +37,8 @@ export class Itinerary {
   @Column({ type: "varchar", length: 255 })
   city!: string;
 
-  @Column({ name: "planned_date", type: "date" })
-  plannedDate!: string;
+  @Column({ name: "planned_date", type: "timestamptz" })
+  plannedDate!: Date;
 
   @Column({
     name: "budget_min",

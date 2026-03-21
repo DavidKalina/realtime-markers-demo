@@ -52,6 +52,7 @@ import RecentCompletions from "./RecentCompletions";
 import BadgeGrid from "./BadgeGrid";
 import ActivityHeatmap from "./ActivityHeatmap";
 import VenueDnaChart from "./VenueDnaChart";
+import AdventureDnaChart from "./AdventureDnaChart";
 import StreakCalendar from "./StreakCalendar";
 import AdventureFootprint from "./AdventureFootprint";
 import PendingItineraries from "./PendingItineraries";
@@ -245,6 +246,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         style={styles.tabSection}
       >
         <VenueDnaChart data={insights?.venueDna ?? []} />
+      </Animated.View>
+
+      {/* Adventure DNA (Vibes & Intentions) */}
+      <Animated.View
+        entering={FadeIn.duration(duration.normal).delay(200)}
+        style={styles.tabSection}
+      >
+        <AdventureDnaChart
+          vibes={insights?.vibeDna ?? []}
+          intentions={insights?.intentionDna ?? []}
+        />
       </Animated.View>
 
       {/* Adventure Footprint */}

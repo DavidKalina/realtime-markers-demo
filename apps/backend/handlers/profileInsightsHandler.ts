@@ -28,11 +28,27 @@ interface CityFootprint {
   uniqueVenues: number;
 }
 
+interface VibeCount {
+  vibe: string;
+  count: number;
+  pct: number;
+}
+
+interface IntentionCount {
+  intention: string;
+  count: number;
+  pct: number;
+}
+
 interface ProfileInsightsResponse {
   // Activity heatmap (last 16 weeks, daily)
   activityHeatmap: ActivityDay[];
   // Venue DNA (category breakdown from check-ins)
   venueDna: VenueCategory[];
+  // Vibe DNA (activity type breakdown from completed itineraries)
+  vibeDna: VibeCount[];
+  // Intention DNA (intention breakdown from completed itineraries)
+  intentionDna: IntentionCount[];
   // Streak calendar (weekly activity for last 16 weeks)
   streakCalendar: WeekActivity[];
   // Adventure footprint
@@ -64,6 +80,8 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     distanceRows,
     summaryRows,
     cityRows,
+    vibeDnaRows,
+    intentionDnaRows,
   ] = await Promise.all([
     // 1. Activity heatmap — daily check-in counts for last 16 weeks
     AppDataSource.query(
@@ -159,6 +177,37 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
        LIMIT 10`,
       [user.id],
     ),
+
+    // 5. Vibe DNA — activity type breakdown from completed itineraries
+    AppDataSource.query(
+      `SELECT vibe, COUNT(*)::int AS count
+       FROM (
+         SELECT UNNEST(activity_types) AS vibe
+         FROM itineraries
+         WHERE user_id = $1
+           AND completed_at IS NOT NULL
+           AND deleted_at IS NULL
+           AND CARDINALITY(activity_types) > 0
+       ) sub
+       GROUP BY vibe
+       ORDER BY count DESC
+       LIMIT 10`,
+      [user.id],
+    ),
+
+    // 6. Intention DNA — intention breakdown from completed itineraries
+    AppDataSource.query(
+      `SELECT intention, COUNT(*)::int AS count
+       FROM itineraries
+       WHERE user_id = $1
+         AND completed_at IS NOT NULL
+         AND deleted_at IS NULL
+         AND intention IS NOT NULL
+       GROUP BY intention
+       ORDER BY count DESC
+       LIMIT 8`,
+      [user.id],
+    ),
   ]);
 
   // Build venue DNA with percentages
@@ -173,6 +222,38 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
       pct:
         totalVenueCheckins > 0
           ? Math.round(((r.count as number) / totalVenueCheckins) * 100)
+          : 0,
+    }),
+  );
+
+  // Build vibe DNA with percentages
+  const totalVibes = vibeDnaRows.reduce(
+    (sum: number, r: Record<string, unknown>) => sum + (r.count as number),
+    0,
+  );
+  const vibeDna: VibeCount[] = vibeDnaRows.map(
+    (r: Record<string, unknown>) => ({
+      vibe: r.vibe as string,
+      count: r.count as number,
+      pct:
+        totalVibes > 0
+          ? Math.round(((r.count as number) / totalVibes) * 100)
+          : 0,
+    }),
+  );
+
+  // Build intention DNA with percentages
+  const totalIntentions = intentionDnaRows.reduce(
+    (sum: number, r: Record<string, unknown>) => sum + (r.count as number),
+    0,
+  );
+  const intentionDna: IntentionCount[] = intentionDnaRows.map(
+    (r: Record<string, unknown>) => ({
+      intention: r.intention as string,
+      count: r.count as number,
+      pct:
+        totalIntentions > 0
+          ? Math.round(((r.count as number) / totalIntentions) * 100)
           : 0,
     }),
   );
@@ -192,6 +273,8 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
       count: r.count as number,
     })),
     venueDna,
+    vibeDna,
+    intentionDna,
     streakCalendar: streakRows.map((r: Record<string, unknown>) => ({
       weekStart:
         r.week_start instanceof Date

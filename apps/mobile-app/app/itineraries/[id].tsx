@@ -1,8 +1,21 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ItineraryMapPreview from "@/components/Itinerary/ItineraryMapPreview";
+import ItineraryTimeline from "@/components/Itinerary/ItineraryTimeline";
+import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
+import Screen from "@/components/Layout/Screen";
+import * as Haptics from "expo-haptics";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
   Alert,
+  type DimensionValue,
   Linking,
   Modal,
   Platform,
@@ -11,7 +24,6 @@ import {
   Share,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import Animated, {
@@ -28,28 +40,26 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
-import Screen from "@/components/Layout/Screen";
-import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
-import ItineraryTimeline from "@/components/Itinerary/ItineraryTimeline";
-import ItineraryMapPreview from "@/components/Itinerary/ItineraryMapPreview";
 
 import { apiClient } from "@/services/ApiClient";
+import {
+  type BaseEvent,
+  eventBroker,
+  EventTypes,
+} from "@/services/EventBroker";
 import type {
-  ItineraryResponse,
   ItineraryItemResponse,
+  ItineraryResponse,
 } from "@/services/api/modules/itineraries";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
-import { eventBroker, EventTypes } from "@/services/EventBroker";
 import {
-  useColors,
   fontFamily,
-  fontWeight,
   fontSize,
-  spacing,
+  fontWeight,
   radius,
+  spacing,
+  useColors,
   type Colors,
 } from "@/theme";
 
@@ -116,7 +126,7 @@ function scopedForecast(
 // --- Skeleton pulse bar ---
 
 const SkeletonBar: React.FC<{
-  width: number | string;
+  width: DimensionValue;
   height: number;
   colors: Colors;
   rounded?: boolean;
@@ -158,6 +168,12 @@ const SkeletonBar: React.FC<{
 
 SkeletonBar.displayName = "SkeletonBar";
 
+type ItineraryCheckinEvent = BaseEvent & {
+  itineraryId: string;
+  itemId: string;
+  completed: boolean;
+};
+
 // --- Skeleton stop reel row ---
 
 const STOP_TITLES = [
@@ -193,8 +209,7 @@ const SkeletonStopReel: React.FC<{
     const delay = index * 300;
     const spin = () => {
       const landIdx =
-        2 * GEN_EMOJIS.length +
-        Math.floor(Math.random() * GEN_EMOJIS.length);
+        2 * GEN_EMOJIS.length + Math.floor(Math.random() * GEN_EMOJIS.length);
       reelTranslateY.value = 0;
       reelTranslateY.value = withTiming(-landIdx * 28, {
         duration: 1200,
@@ -206,16 +221,18 @@ const SkeletonStopReel: React.FC<{
       const id = setInterval(spin, interval);
       return () => clearInterval(id);
     }, delay);
-    const id = setInterval(() => {
-      reelTranslateY.value = 0;
-      const landIdx =
-        2 * GEN_EMOJIS.length +
-        Math.floor(Math.random() * GEN_EMOJIS.length);
-      reelTranslateY.value = withTiming(-landIdx * 28, {
-        duration: 1200,
-        easing: Easing.out(Easing.cubic),
-      });
-    }, 2200 + index * 250);
+    const id = setInterval(
+      () => {
+        reelTranslateY.value = 0;
+        const landIdx =
+          2 * GEN_EMOJIS.length + Math.floor(Math.random() * GEN_EMOJIS.length);
+        reelTranslateY.value = withTiming(-landIdx * 28, {
+          duration: 1200,
+          easing: Easing.out(Easing.cubic),
+        });
+      },
+      2200 + index * 250,
+    );
     return () => {
       clearTimeout(startTimer);
       clearInterval(id);
@@ -269,7 +286,12 @@ const SkeletonStopReel: React.FC<{
             {reelEmojis.map((emoji, i) => (
               <Text
                 key={i}
-                style={{ height: 28, lineHeight: 28, fontSize: 20, textAlign: "center" }}
+                style={{
+                  height: 28,
+                  lineHeight: 28,
+                  fontSize: 20,
+                  textAlign: "center",
+                }}
               >
                 {emoji}
               </Text>
@@ -338,10 +360,24 @@ SkeletonStops.displayName = "SkeletonStops";
 // --- Generating state constants ---
 
 const GEN_EMOJIS = [
-  "\u{1F5FA}\u{FE0F}", "\u{1F3AF}", "\u{1F3AA}", "\u{1F3AD}", "\u{1F3A8}",
-  "\u{1F3B5}", "\u{1F37D}\u{FE0F}", "\u{2615}", "\u{1F3DE}\u{FE0F}", "\u{1F6B6}",
-  "\u{1F3D5}\u{FE0F}", "\u{1F30A}", "\u{1F3DB}\u{FE0F}", "\u{1F3A4}",
-  "\u{1F9D7}", "\u{1F366}", "\u{1F6B2}", "\u{1F3B6}",
+  "\u{1F5FA}\u{FE0F}",
+  "\u{1F3AF}",
+  "\u{1F3AA}",
+  "\u{1F3AD}",
+  "\u{1F3A8}",
+  "\u{1F3B5}",
+  "\u{1F37D}\u{FE0F}",
+  "\u{2615}",
+  "\u{1F3DE}\u{FE0F}",
+  "\u{1F6B6}",
+  "\u{1F3D5}\u{FE0F}",
+  "\u{1F30A}",
+  "\u{1F3DB}\u{FE0F}",
+  "\u{1F3A4}",
+  "\u{1F9D7}",
+  "\u{1F366}",
+  "\u{1F6B2}",
+  "\u{1F3B6}",
 ];
 
 const GEN_MESSAGES = [
@@ -411,7 +447,12 @@ const GeneratingEmojiReel: React.FC = React.memo(() => {
         {reelEmojis.map((emoji, i) => (
           <Text
             key={i}
-            style={{ height: REEL_H, lineHeight: REEL_H, fontSize: 22, textAlign: "center" }}
+            style={{
+              height: REEL_H,
+              lineHeight: REEL_H,
+              fontSize: 22,
+              textAlign: "center",
+            }}
           >
             {emoji}
           </Text>
@@ -536,11 +577,7 @@ const ItineraryDetailScreen = () => {
 
   // Listen for check-in events from push notifications
   useEffect(() => {
-    const handler = (data: {
-      itineraryId: string;
-      itemId: string;
-      completed: boolean;
-    }) => {
+    const handler = (data: ItineraryCheckinEvent) => {
       if (data.itineraryId === id) {
         markCheckedIn(data.itemId, new Date().toISOString());
         Haptics.notificationAsync(
@@ -551,7 +588,10 @@ const ItineraryDetailScreen = () => {
       }
     };
 
-    const unsub = eventBroker.on(EventTypes.ITINERARY_CHECKIN, handler);
+    const unsub = eventBroker.on<ItineraryCheckinEvent>(
+      EventTypes.ITINERARY_CHECKIN,
+      handler,
+    );
     return unsub;
   }, [id, markCheckedIn]);
 
@@ -714,9 +754,8 @@ const ItineraryDetailScreen = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedItem(item);
   }, []);
-
   const formatDate = useCallback((dateStr: string) => {
-    const date = new Date(dateStr + "T00:00:00");
+    const date = new Date(dateStr);
     return date.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
@@ -759,7 +798,11 @@ const ItineraryDetailScreen = () => {
               <Text style={styles.heroTitle}>{itinerary.title}</Text>
             ) : (
               <Animated.Text
-                style={[styles.heroTitle, { color: colors.text.secondary }, skelHeroAnimStyle]}
+                style={[
+                  styles.heroTitle,
+                  { color: colors.text.secondary },
+                  skelHeroAnimStyle,
+                ]}
                 numberOfLines={1}
               >
                 {SKELETON_TITLES[skelTitleIdx]}

@@ -43,6 +43,7 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         intention,
         anchorStops,
         surpriseMe,
+        timezone,
       } = job.data as {
         userId: string;
         itineraryId?: string;
@@ -58,6 +59,7 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         endTime?: string;
         intention?: string;
         surpriseMe?: boolean;
+        timezone?: string;
         anchorStops?: {
           coordinates: [number, number];
           label?: string;
@@ -79,7 +81,7 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         itineraryId,
         title,
         city,
-        plannedDate,
+        plannedDate: new Date(plannedDate),
         budgetMin,
         budgetMax,
         durationHours,
@@ -90,6 +92,7 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         intention,
         anchorStops,
         surpriseMe,
+        timezone,
       });
 
       await tracker.stepProgress(90, "Itinerary generated");

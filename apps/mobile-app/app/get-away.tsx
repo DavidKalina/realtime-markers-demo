@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -35,23 +41,61 @@ import {
 const SLOT_COUNT = 5;
 
 const GEN_EMOJIS = [
-  "\u{1F5FA}\u{FE0F}", "\u{1F3AF}", "\u{1F3AA}", "\u{1F3AD}", "\u{1F3A8}",
-  "\u{1F3B5}", "\u{1F37D}\u{FE0F}", "\u{2615}", "\u{1F3DE}\u{FE0F}", "\u{1F6B6}",
-  "\u{1F3D5}\u{FE0F}", "\u{1F30A}", "\u{1F3DB}\u{FE0F}", "\u{1F3A4}",
-  "\u{1F9D7}", "\u{1F366}", "\u{1F6B2}", "\u{1F3B6}",
+  "\u{1F5FA}\u{FE0F}",
+  "\u{1F3AF}",
+  "\u{1F3AA}",
+  "\u{1F3AD}",
+  "\u{1F3A8}",
+  "\u{1F3B5}",
+  "\u{1F37D}\u{FE0F}",
+  "\u{2615}",
+  "\u{1F3DE}\u{FE0F}",
+  "\u{1F6B6}",
+  "\u{1F3D5}\u{FE0F}",
+  "\u{1F30A}",
+  "\u{1F3DB}\u{FE0F}",
+  "\u{1F3A4}",
+  "\u{1F9D7}",
+  "\u{1F366}",
+  "\u{1F6B2}",
+  "\u{1F3B6}",
 ];
 
 const SLOT_TITLES = [
-  ["Scouting cheap eats\u2026", "Browsing free parks\u2026", "Finding hidden patios\u2026"],
-  ["Checking upscale spots\u2026", "Exploring galleries\u2026", "Mapping rooftop bars\u2026"],
-  ["Scanning trail maps\u2026", "Finding outdoor vibes\u2026", "Locating scenic routes\u2026"],
-  ["Curating nightlife\u2026", "Discovering live music\u2026", "Searching late-night eats\u2026"],
-  ["Browsing local culture\u2026", "Finding cozy corners\u2026", "Checking community boards\u2026"],
+  [
+    "Scouting cheap eats\u2026",
+    "Browsing free parks\u2026",
+    "Finding hidden patios\u2026",
+  ],
+  [
+    "Checking upscale spots\u2026",
+    "Exploring galleries\u2026",
+    "Mapping rooftop bars\u2026",
+  ],
+  [
+    "Scanning trail maps\u2026",
+    "Finding outdoor vibes\u2026",
+    "Locating scenic routes\u2026",
+  ],
+  [
+    "Curating nightlife\u2026",
+    "Discovering live music\u2026",
+    "Searching late-night eats\u2026",
+  ],
+  [
+    "Browsing local culture\u2026",
+    "Finding cozy corners\u2026",
+    "Checking community boards\u2026",
+  ],
 ];
 
 const SLOT_METAS = [
   ["something budget-friendly", "keeping it chill", "low-key adventure"],
-  ["a treat-yourself kind of day", "somewhere worth the splurge", "elevated vibes"],
+  [
+    "a treat-yourself kind of day",
+    "somewhere worth the splurge",
+    "elevated vibes",
+  ],
   ["fresh air and movement", "nature within reach", "getting your steps in"],
   ["good energy tonight", "something unexpected", "the after-hours move"],
   ["a little bit of everything", "the wildcard pick", "mixing it up"],
@@ -73,7 +117,11 @@ const EmojiReel: React.FC<EmojiReelProps> = React.memo(
   ({ index, spinning, landEmoji }) => {
     const reelStyles = useMemo(
       () => ({
-        container: { width: 28, height: REEL_ITEM_HEIGHT, overflow: "hidden" as const },
+        container: {
+          width: 28,
+          height: REEL_ITEM_HEIGHT,
+          overflow: "hidden" as const,
+        },
         item: {
           height: REEL_ITEM_HEIGHT,
           lineHeight: REEL_ITEM_HEIGHT,
@@ -174,7 +222,16 @@ interface SlotRowProps {
 }
 
 const SlotRow: React.FC<SlotRowProps> = React.memo(
-  ({ index, suggestion, revealed, allReady, pickedItineraryId, onPick, onView, colors }) => {
+  ({
+    index,
+    suggestion,
+    revealed,
+    allReady,
+    pickedItineraryId,
+    onPick,
+    onView,
+    colors,
+  }) => {
     const styles = useMemo(() => createStyles(colors), [colors]);
     const [landed, setLanded] = useState(false);
     const [titleIdx, setTitleIdx] = useState(0);
@@ -282,7 +339,11 @@ const SlotRow: React.FC<SlotRowProps> = React.memo(
           {/* Landed card content — absolutely positioned on top */}
           {suggestion && (
             <Animated.View
-              style={[styles.slotTextLayer, styles.slotTextOverlay, cardAnimStyle]}
+              style={[
+                styles.slotTextLayer,
+                styles.slotTextOverlay,
+                cardAnimStyle,
+              ]}
               pointerEvents={landed ? "auto" : "none"}
             >
               <View style={styles.slotTitleRow}>
@@ -307,7 +368,8 @@ const SlotRow: React.FC<SlotRowProps> = React.memo(
                   </View>
                   <View style={styles.pill}>
                     <Text style={styles.pillText}>
-                      {suggestion.stopCount} {suggestion.stopCount === 1 ? "stop" : "stops"}
+                      {suggestion.stopCount}{" "}
+                      {suggestion.stopCount === 1 ? "stop" : "stops"}
                     </Text>
                   </View>
                   {suggestion.activityTypes.map((a) => (
@@ -354,27 +416,18 @@ const SpinButton: React.FC<{
   onPress: () => void;
   colors: Colors;
 }> = React.memo(({ disabled, onPress, colors }) => {
-  const scale = useSharedValue(1);
   const translateY = useSharedValue(0);
-  const shadowOpacity = useSharedValue(1);
 
   const handlePressIn = useCallback(() => {
-    scale.value = withTiming(0.93, { duration: 120 });
-    translateY.value = withTiming(6, { duration: 120 });
-    shadowOpacity.value = withTiming(0, { duration: 120 });
+    translateY.value = withTiming(4, { duration: 100 });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, []);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSequence(
-      withTiming(1.04, { duration: 180, easing: Easing.out(Easing.cubic) }),
-      withTiming(1, { duration: 120 }),
-    );
     translateY.value = withSequence(
-      withTiming(-2, { duration: 180, easing: Easing.out(Easing.cubic) }),
-      withTiming(0, { duration: 120 }),
+      withTiming(-2, { duration: 150, easing: Easing.out(Easing.cubic) }),
+      withTiming(0, { duration: 100 }),
     );
-    shadowOpacity.value = withTiming(1, { duration: 200 });
   }, []);
 
   const handlePress = useCallback(() => {
@@ -384,35 +437,27 @@ const SpinButton: React.FC<{
   }, [disabled, onPress]);
 
   const buttonAnimStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: scale.value },
-      { translateY: translateY.value },
-    ],
-  }));
-
-  const shadowAnimStyle = useAnimatedStyle(() => ({
-    opacity: shadowOpacity.value,
+    transform: [{ translateY: translateY.value }],
   }));
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.spinButtonWrap}>
-      {/* Shadow layer beneath the button */}
-      <Animated.View style={[styles.spinButtonShadow, shadowAnimStyle]} />
-      <Animated.View style={buttonAnimStyle}>
+      {/* Charcoal ring */}
+      <View style={styles.spinButtonRing} />
+      {/* Dark green shadow — visible when button is raised */}
+      <View style={styles.spinButtonDepth} />
+      {/* Green button pushes down on press */}
+      <Animated.View style={[styles.spinButton, buttonAnimStyle]}>
         <Pressable
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           onPress={handlePress}
-          style={styles.spinButton}
+          style={{ alignItems: "center", justifyContent: "center", flex: 1 }}
         >
           <Text style={styles.spinButtonEmoji}>{"\u{1F3B0}"}</Text>
-          <Text
-            style={styles.spinButtonText}
-          >
-            SPIN
-          </Text>
+          <Text style={styles.spinButtonText}>SPIN</Text>
         </Pressable>
       </Animated.View>
     </View>
@@ -452,22 +497,28 @@ export default function GetAwayScreen() {
 
   // Derive screen state from store
   const hasFreshSuggestions = suggestions.length > 0 && fetchedAt !== null;
-  const state: ScreenState = storeError || localError
-    ? "error"
-    : storeLoading
-      ? "loading"
-      : revealedCount < suggestions.length && hasFreshSuggestions
-        ? "revealing"
-        : hasFreshSuggestions
-          ? "ready"
-          : hasStarted
-            ? "loading"
-            : "idle";
+  const state: ScreenState =
+    storeError || localError
+      ? "error"
+      : storeLoading
+        ? "loading"
+        : revealedCount < suggestions.length && hasFreshSuggestions
+          ? "revealing"
+          : hasFreshSuggestions
+            ? "ready"
+            : hasStarted
+              ? "loading"
+              : "idle";
 
   /* ── Show cached suggestions immediately on mount ───────── */
 
   useEffect(() => {
-    if (!storeLoading && hasFreshSuggestions && revealedCount === 0 && generation === 0) {
+    if (
+      !storeLoading &&
+      hasFreshSuggestions &&
+      revealedCount === 0 &&
+      generation === 0
+    ) {
       setHasStarted(true);
       setVisibleCount(suggestions.length);
       setRevealedCount(suggestions.length);
@@ -530,12 +581,10 @@ export default function GetAwayScreen() {
     async (suggestion: ItinerarySuggestion, suggestionIndex: number) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      const today = new Date().toISOString().split("T")[0];
-
       try {
         const result = await apiClient.itineraries.create({
           city: suggestion.city || city || undefined,
-          plannedDate: today,
+          plannedDate: new Date().toISOString().slice(0, 10),
           budgetMin: 0,
           budgetMax: suggestion.budgetMax,
           durationHours: suggestion.durationHours,
@@ -597,7 +646,10 @@ export default function GetAwayScreen() {
           <Text
             style={[
               styles.headerSub,
-              { opacity: city && state !== "loading" && state !== "idle" ? 1 : 0 },
+              {
+                opacity:
+                  city && state !== "loading" && state !== "idle" ? 1 : 0,
+              },
             ]}
           >
             {city ? `Near ${city}` : " "}
@@ -620,13 +672,16 @@ export default function GetAwayScreen() {
         {state === "idle" && (
           <View style={styles.idleContainer}>
             <Text style={styles.idleText}>
-              Tap to discover adventures near you
+              Press the button to generate adventure ideas. Turn one of those
+              into a full adventure.
             </Text>
           </View>
         )}
 
         {/* Slot rows */}
-        {(state === "loading" || state === "revealing" || state === "ready") && (
+        {(state === "loading" ||
+          state === "revealing" ||
+          state === "ready") && (
           <View style={styles.slotsContainer}>
             {slots.map((i) => (
               <Animated.View
@@ -652,9 +707,7 @@ export default function GetAwayScreen() {
         {state === "error" && (
           <View style={styles.errorContainer}>
             <Text style={styles.errorEmoji}>{"\u{1F61E}"}</Text>
-            <Text style={styles.errorText}>
-              {storeError || localError}
-            </Text>
+            <Text style={styles.errorText}>{storeError || localError}</Text>
           </View>
         )}
       </View>
@@ -812,17 +865,17 @@ const createStyles = (colors: Colors) =>
     pillRow: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: spacing.xs,
-      marginTop: 4,
+      gap: 3,
+      marginTop: 3,
     },
     pill: {
       backgroundColor: colors.bg.card,
       borderRadius: radius.full,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 2,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
     },
     pillText: {
-      fontSize: fontSize.xs,
+      fontSize: 10,
       fontFamily: fontFamily.mono,
       color: colors.text.label,
     },
@@ -869,30 +922,37 @@ const createStyles = (colors: Colors) =>
     spinButtonWrap: {
       alignSelf: "center",
       marginTop: spacing.lg,
-      width: 135,
-      height: 143, // button + shadow depth
+      width: 148,
+      height: 152,
     },
-    spinButtonShadow: {
+    spinButtonRing: {
       position: "absolute",
-      bottom: 0,
-      left: 3,
-      right: 3,
-      height: 135,
-      borderRadius: 68,
-      backgroundColor: "#7f1d1d",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 148,
+      borderRadius: 74,
+      backgroundColor: "#2a2a2e",
+    },
+    spinButtonDepth: {
+      position: "absolute",
+      top: 20,
+      left: 16,
+      width: 116,
+      height: 116,
+      borderRadius: 58,
+      backgroundColor: "#15803d",
     },
     spinButton: {
-      width: 135,
-      height: 135,
-      borderRadius: 68,
+      width: 116,
+      height: 116,
+      borderRadius: 58,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "#dc2626",
-      borderWidth: 3,
-      borderTopColor: "#f87171",
-      borderLeftColor: "#ef4444",
-      borderRightColor: "#ef4444",
-      borderBottomColor: "#991b1b",
+      backgroundColor: "#22c55e",
+      position: "absolute",
+      top: 16,
+      left: 16,
     },
     spinButtonEmoji: {
       fontSize: 43,

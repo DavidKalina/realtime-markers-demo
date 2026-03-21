@@ -19,6 +19,7 @@ import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 const CHECKIN_RADIUS_METERS = 75;
 const COMPLETION_MILESTONES = [5, 10, 25, 50, 100];
 const THROTTLE_TTL = 60; // 1 minute between proximity checks for checkins
+const FIRST_STOP_REMINDER_MINUTES = 5;
 
 // Streak milestone XP bonuses
 const STREAK_MILESTONES: Record<number, number> = {
@@ -403,6 +404,9 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
     }
   }
 
+  // Track scheduled first-stop reminders so they can be cancelled on deactivation
+  private firstStopTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
   async activateItinerary(
     userId: string,
     itineraryId: string,
@@ -410,6 +414,7 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
     // Verify the itinerary belongs to the user and is ready
     const itinerary = await this.dataSource.getRepository(Itinerary).findOne({
       where: { id: itineraryId, userId, status: ItineraryStatus.READY },
+      relations: ["items"],
     });
 
     if (!itinerary) return false;
@@ -418,6 +423,9 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
       .getRepository(User)
       .update({ id: userId }, { activeItineraryId: itineraryId });
 
+    // Schedule "head to first stop" push notification
+    this.scheduleFirstStopReminder(userId, itinerary);
+
     console.log(
       `[ItineraryCheckin] User ${userId} activated itinerary ${itineraryId}`,
     );
@@ -425,11 +433,77 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
   }
 
   async deactivateItinerary(userId: string): Promise<boolean> {
+    // Cancel any pending first-stop reminder
+    const existingTimer = this.firstStopTimers.get(userId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      this.firstStopTimers.delete(userId);
+    }
+
     const result = await this.dataSource
       .getRepository(User)
       .update({ id: userId }, { activeItineraryId: null });
 
     return (result.affected ?? 0) > 0;
+  }
+
+  private scheduleFirstStopReminder(
+    userId: string,
+    itinerary: Itinerary,
+  ): void {
+    // Cancel any previous reminder for this user
+    const existingTimer = this.firstStopTimers.get(userId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    const firstItem = (itinerary.items || [])
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)[0];
+
+    if (!firstItem?.startTime || !itinerary.plannedDate) return;
+
+    // plannedDate is already the timestamptz of the first stop's start time
+    const firstStopTime = new Date(itinerary.plannedDate);
+    const reminderTime = new Date(
+      firstStopTime.getTime() - FIRST_STOP_REMINDER_MINUTES * 60 * 1000,
+    );
+    const delayMs = reminderTime.getTime() - Date.now();
+
+    if (delayMs <= 0) {
+      // Already past the reminder time — skip
+      return;
+    }
+
+    const venueName = firstItem.venueName || firstItem.title;
+    const timer = setTimeout(async () => {
+      this.firstStopTimers.delete(userId);
+      try {
+        await this.pushService.sendToUser(userId, {
+          title: `${firstItem.emoji ?? "📍"} Time to head out!`,
+          body: `Make your way over to "${venueName}" — your adventure starts in ${FIRST_STOP_REMINDER_MINUTES} minutes!`,
+          sound: "default",
+          data: {
+            type: "itinerary_reminder",
+            itineraryId: itinerary.id,
+            itemId: firstItem.id,
+          },
+        });
+        console.log(
+          `[ItineraryCheckin] Sent first-stop reminder to user ${userId} for "${venueName}"`,
+        );
+      } catch (err) {
+        console.error(
+          "[ItineraryCheckin] Failed to send first-stop reminder:",
+          err,
+        );
+      }
+    }, delayMs);
+
+    this.firstStopTimers.set(userId, timer);
+    console.log(
+      `[ItineraryCheckin] Scheduled first-stop reminder for user ${userId} in ${Math.round(delayMs / 60000)}min`,
+    );
   }
 
   private refreshCityScoreForItinerary(itineraryId: string): void {

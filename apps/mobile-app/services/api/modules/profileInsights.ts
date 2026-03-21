@@ -24,9 +24,23 @@ export interface CityFootprint {
   uniqueVenues: number;
 }
 
+export interface VibeCount {
+  vibe: string;
+  count: number;
+  pct: number;
+}
+
+export interface IntentionCount {
+  intention: string;
+  count: number;
+  pct: number;
+}
+
 export interface ProfileInsightsResponse {
   activityHeatmap: ActivityDay[];
   venueDna: VenueCategory[];
+  vibeDna: VibeCount[];
+  intentionDna: IntentionCount[];
   streakCalendar: WeekActivity[];
   footprint: {
     totalDistanceMiles: number;

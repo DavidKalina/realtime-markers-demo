@@ -9,12 +9,14 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { ChevronDown } from "lucide-react-native";
 import Animated, {
   Easing,
   FadeIn,
@@ -27,7 +29,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
-import { Check, Trash2 } from "lucide-react-native";
+import { Check, Trash2, X } from "lucide-react-native";
 import { scheduleOnRN } from "react-native-worklets";
 import Screen from "@/components/Layout/Screen";
 import { usePullToAction } from "@/hooks/usePullToAction";
@@ -41,8 +43,10 @@ import {
   fontWeight,
   fontSize,
   spacing,
+  radius,
   type Colors,
 } from "@/theme";
+import { INTENTION_OPTIONS } from "@/constants/adventureOptions";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 
@@ -430,6 +434,159 @@ const GeneratingRow: React.FC = React.memo(() => {
 
 GeneratingRow.displayName = "GeneratingRow";
 
+// --- Sort + Filter ---
+
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest" },
+  { value: "oldest", label: "Oldest" },
+  { value: "upcoming", label: "Upcoming" },
+  { value: "top_rated", label: "Top Rated" },
+] as const;
+
+const STATUS_OPTIONS = [
+  { value: "completed", label: "Completed" },
+  { value: "upcoming", label: "Upcoming" },
+] as const;
+
+type SortValue = (typeof SORT_OPTIONS)[number]["value"];
+
+interface FilterBarProps {
+  activeSort: SortValue;
+  activeIntention: string | null;
+  activeStatus: string | null;
+  onSortChange: (sort: SortValue) => void;
+  onIntentionChange: (intention: string | null) => void;
+  onStatusChange: (status: string | null) => void;
+  onClear: () => void;
+}
+
+const FilterBar: React.FC<FilterBarProps> = React.memo(
+  ({
+    activeSort,
+    activeIntention,
+    activeStatus,
+    onSortChange,
+    onIntentionChange,
+    onStatusChange,
+    onClear,
+  }) => {
+    const colors = useColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
+    const hasFilters =
+      activeSort !== "newest" ||
+      activeIntention !== null ||
+      activeStatus !== null;
+
+    const handleSortCycle = useCallback(() => {
+      Haptics.selectionAsync();
+      const currentIdx = SORT_OPTIONS.findIndex(
+        (o) => o.value === activeSort,
+      );
+      const nextIdx = (currentIdx + 1) % SORT_OPTIONS.length;
+      onSortChange(SORT_OPTIONS[nextIdx].value);
+    }, [activeSort, onSortChange]);
+
+    const sortLabel = SORT_OPTIONS.find(
+      (o) => o.value === activeSort,
+    )?.label;
+
+    return (
+      <View style={styles.filterBar}>
+        <View style={styles.filterRow}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.sortPill,
+              pressed && styles.chipPressed,
+            ]}
+            onPress={handleSortCycle}
+          >
+            <ChevronDown size={12} color={colors.text.secondary} />
+            <Text style={styles.sortPillText}>{sortLabel}</Text>
+          </Pressable>
+
+          {STATUS_OPTIONS.map((opt) => {
+            const isActive = activeStatus === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                style={({ pressed }) => [
+                  styles.filterChip,
+                  isActive && styles.filterChipActive,
+                  pressed && styles.chipPressed,
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  onStatusChange(isActive ? null : opt.value);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    isActive && styles.filterChipTextActive,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+
+          {hasFilters && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.clearButton,
+                pressed && styles.chipPressed,
+              ]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                onClear();
+              }}
+            >
+              <X size={12} color={colors.text.disabled} />
+            </Pressable>
+          )}
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.intentionRow}
+        >
+          {INTENTION_OPTIONS.map((opt) => {
+            const isActive = activeIntention === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                style={({ pressed }) => [
+                  styles.filterChip,
+                  isActive && styles.filterChipActive,
+                  pressed && styles.chipPressed,
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  onIntentionChange(isActive ? null : opt.value);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    isActive && styles.filterChipTextActive,
+                  ]}
+                >
+                  {opt.emoji} {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+  },
+);
+
+FilterBar.displayName = "FilterBar";
+
 // --- Screen ---
 
 const ItinerariesListScreen = () => {
@@ -444,6 +601,11 @@ const ItinerariesListScreen = () => {
     (s) => s.itinerary?.id ?? null,
   );
 
+  // Filter state
+  const [activeSort, setActiveSort] = useState<SortValue>("newest");
+  const [activeIntention, setActiveIntention] = useState<string | null>(null);
+  const [activeStatus, setActiveStatus] = useState<string | null>(null);
+
   const PAGE_SIZE = 20;
   const [itineraries, setItineraries] = useState<ItineraryResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -452,31 +614,51 @@ const ItinerariesListScreen = () => {
   const cursorRef = useRef<string | null>(null);
   const hasMoreRef = useRef(true);
 
-  const fetchItineraries = useCallback(async (cursor?: string) => {
-    try {
-      const result = await apiClient.itineraries.list(PAGE_SIZE, cursor);
-      const filtered = (result.data ?? []).filter(
-        (it) => it.status !== "GENERATING",
-      );
-      const nextCursor = result.nextCursor ?? null;
-      cursorRef.current = nextCursor;
-      hasMoreRef.current = nextCursor !== null;
+  const filters = useMemo(
+    () => ({
+      sort: activeSort,
+      intention: activeIntention ?? undefined,
+      status: activeStatus ?? undefined,
+    }),
+    [activeSort, activeIntention, activeStatus],
+  );
 
-      if (cursor) {
-        setItineraries((prev) => [...prev, ...filtered]);
-      } else {
-        setItineraries(filtered);
+  const fetchItineraries = useCallback(
+    async (cursor?: string) => {
+      try {
+        const result = await apiClient.itineraries.list(
+          PAGE_SIZE,
+          cursor,
+          filters,
+        );
+        const filtered = (result.data ?? []).filter(
+          (it) => it.status !== "GENERATING",
+        );
+        const nextCursor = result.nextCursor ?? null;
+        cursorRef.current = nextCursor;
+        hasMoreRef.current = nextCursor !== null;
+
+        if (cursor) {
+          setItineraries((prev) => [...prev, ...filtered]);
+        } else {
+          setItineraries(filtered);
+        }
+      } catch (err) {
+        console.error("[Itineraries] Failed to fetch:", err);
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+        setIsLoadingMore(false);
       }
-    } catch (err) {
-      console.error("[Itineraries] Failed to fetch:", err);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-      setIsLoadingMore(false);
-    }
-  }, []);
+    },
+    [filters],
+  );
 
+  // Re-fetch when filters change
   useEffect(() => {
+    setIsLoading(true);
+    cursorRef.current = null;
+    hasMoreRef.current = true;
     fetchItineraries();
   }, [fetchItineraries]);
 
@@ -486,6 +668,17 @@ const ItinerariesListScreen = () => {
       fetchItineraries();
     }
   }, [hasReady, clearReady, fetchItineraries]);
+
+  const hasActiveFilters =
+    activeSort !== "newest" ||
+    activeIntention !== null ||
+    activeStatus !== null;
+
+  const handleClearFilters = useCallback(() => {
+    setActiveSort("newest");
+    setActiveIntention(null);
+    setActiveStatus(null);
+  }, []);
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -575,6 +768,16 @@ const ItinerariesListScreen = () => {
 
   const renderEmpty = useCallback(() => {
     if (isLoading) return null;
+    if (hasActiveFilters) {
+      return (
+        <EmptyState
+          emoji="🔍"
+          title="No matches"
+          subtitle="Try adjusting your filters"
+          style={{ justifyContent: "flex-start", paddingTop: spacing["3xl"] }}
+        />
+      );
+    }
     return (
       <EmptyState
         emoji="🗺️"
@@ -583,7 +786,7 @@ const ItinerariesListScreen = () => {
         style={{ justifyContent: "flex-start", paddingTop: spacing["3xl"] }}
       />
     );
-  }, [isLoading]);
+  }, [isLoading, hasActiveFilters]);
 
   return (
     <Screen
@@ -607,6 +810,15 @@ const ItinerariesListScreen = () => {
           <>
             {pullIndicator}
             {isGenerating ? <GeneratingRow /> : null}
+            <FilterBar
+              activeSort={activeSort}
+              activeIntention={activeIntention}
+              activeStatus={activeStatus}
+              onSortChange={setActiveSort}
+              onIntentionChange={setActiveIntention}
+              onStatusChange={setActiveStatus}
+              onClear={handleClearFilters}
+            />
           </>
         }
         ListEmptyComponent={renderEmpty}
@@ -707,5 +919,67 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.semibold,
       color: "#fff",
+    },
+    filterBar: {
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.md,
+      gap: spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.default,
+    },
+    filterRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: spacing.lg,
+      gap: spacing.sm,
+    },
+    intentionRow: {
+      paddingHorizontal: spacing.lg,
+      gap: spacing.sm,
+    },
+    sortPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+    },
+    sortPillText: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+    },
+    filterChip: {
+      paddingHorizontal: spacing._10,
+      paddingVertical: spacing.xs,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+      backgroundColor: colors.bg.card,
+    },
+    filterChipActive: {
+      backgroundColor: colors.accent.muted,
+      borderColor: colors.accent.border,
+    },
+    filterChipText: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    filterChipTextActive: {
+      color: colors.accent.primary,
+      fontWeight: fontWeight.semibold,
+    },
+    chipPressed: {
+      opacity: 0.6,
+    },
+    clearButton: {
+      padding: spacing.xs,
+      marginLeft: "auto",
     },
   });

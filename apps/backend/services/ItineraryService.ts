@@ -33,7 +33,7 @@ export interface CreateItineraryInput {
   itineraryId?: string; // Pre-created shell record ID
   title?: string; // Suggested title (e.g. from Get Away preview)
   city: string;
-  plannedDate: string; // YYYY-MM-DD
+  plannedDate: Date; // ISO 8601 timestamptz
   budgetMin: number;
   budgetMax: number;
   durationHours: number;
@@ -41,7 +41,7 @@ export interface CreateItineraryInput {
   stopCount: number; // 0 = let LLM decide
   startTime?: string; // HH:MM (24h) — optional fixed start
   endTime?: string; // HH:MM (24h) — optional fixed end
-  intention?: string; // recharge | explore | socialize | move | learn | treat_yourself
+  intention?: string; // recharge | explore | socialize | move | learn | treat_yourself | lock_in
   anchorStops?: AnchorStopInput[];
   surpriseMe?: boolean;
   timezone?: string;
@@ -116,6 +116,17 @@ export interface ItinerarySuggestion {
   budgetMax: number;
 }
 
+export type ListByUserSort = "newest" | "oldest" | "upcoming" | "top_rated";
+export type ListByUserStatus = "completed" | "upcoming";
+
+export interface ListByUserOptions {
+  limit?: number;
+  cursor?: string;
+  sort?: ListByUserSort;
+  intention?: string;
+  status?: ListByUserStatus;
+}
+
 export interface ItineraryService {
   createShell(
     userId: string,
@@ -128,8 +139,7 @@ export interface ItineraryService {
   ): Promise<{ city: string; suggestions: ItinerarySuggestion[] }>;
   listByUser(
     userId: string,
-    limit?: number,
-    cursor?: string,
+    options?: ListByUserOptions,
   ): Promise<{ data: Itinerary[]; nextCursor: string | null }>;
   getById(id: string, userId: string): Promise<Itinerary | null>;
   deleteById(id: string, userId: string): Promise<boolean>;
@@ -318,6 +328,13 @@ class ItineraryServiceImpl implements ItineraryService {
     }
 
     try {
+      const tz = input.timezone ?? "UTC";
+      const plannedDateStr = formatInTimeZone(
+        input.plannedDate,
+        tz,
+        "yyyy-MM-dd",
+      );
+
       // Fetch user's onboarding preferences (skip for "Surprise Me" — keep it fresh)
       let userPreferences: {
         activities: string[];
@@ -339,7 +356,7 @@ class ItineraryServiceImpl implements ItineraryService {
       // Fetch events in the city for that date (ranked by preference if available)
       const events = await this.fetchCityEvents(
         city,
-        input.plannedDate,
+        plannedDateStr,
         preferenceEmbedding,
       );
 
@@ -449,7 +466,7 @@ class ItineraryServiceImpl implements ItineraryService {
           ? this.weatherService.getForecast(
               cityCenter.lat,
               cityCenter.lng,
-              input.plannedDate,
+              plannedDateStr,
             )
           : Promise.resolve(null),
         this.fetchPreviousVenues(userId, city),
@@ -530,6 +547,18 @@ class ItineraryServiceImpl implements ItineraryService {
       itinerary.summary = llmResult.summary;
       itinerary.forecast = forecast as Record<string, unknown> | undefined;
       itinerary.status = ItineraryStatus.READY;
+
+      // Set plannedDate to the first stop's start time on the planned day
+      const firstItem = items
+        .slice()
+        .sort((a, b) => a.sortOrder - b.sortOrder)[0];
+      if (firstItem?.startTime) {
+        itinerary.plannedDate = toDate(
+          `${plannedDateStr}T${firstItem.startTime}:00`,
+          { timeZone: tz },
+        );
+      }
+
       await itineraryRepo.save(itinerary);
 
       itinerary.items = items;
@@ -593,7 +622,7 @@ Each suggestion must have:
 - durationHours (number, 2-8 range, appropriate for time of day)
 - stopCount (number of stops, 1-3 — a quick single-stop outing, a two-stop combo, or a three-stop crawl)
 - activityTypes (1-2 from: food, coffee, music, art, outdoors, hiking, walking, nightlife, sports, culture)
-- intention (one of: recharge, explore, socialize, move, learn, treat_yourself)
+- intention (one of: recharge, explore, socialize, move, learn, treat_yourself, lock_in)
 - budgetMax (number in dollars matching the costTier)
 
 DIVERSITY IS CRITICAL — the 5 suggestions must feel like 5 completely different days, not variations of the same idea:
@@ -634,26 +663,94 @@ DIVERSITY IS CRITICAL — the 5 suggestions must feel like 5 completely differen
 
   async listByUser(
     userId: string,
-    limit = 20,
-    cursor?: string,
+    options: ListByUserOptions = {},
   ): Promise<{ data: Itinerary[]; nextCursor: string | null }> {
-    const where: Record<string, unknown> = { userId };
-    if (cursor) {
-      where.createdAt = LessThan(new Date(cursor));
+    const { limit = 20, cursor, sort = "newest", intention, status } = options;
+
+    const qb = this.dataSource
+      .getRepository(Itinerary)
+      .createQueryBuilder("i")
+      .leftJoinAndSelect("i.items", "item")
+      .where("i.user_id = :userId", { userId });
+
+    // Filters
+    if (intention) {
+      qb.andWhere("i.intention = :intention", { intention });
+    }
+    if (status === "completed") {
+      qb.andWhere("i.completedAt IS NOT NULL");
+    } else if (status === "upcoming") {
+      qb.andWhere("i.plannedDate > NOW()").andWhere("i.completedAt IS NULL");
     }
 
-    const rows = await this.dataSource.getRepository(Itinerary).find({
-      where,
-      order: { createdAt: "DESC" },
-      take: limit + 1,
-      relations: ["items"],
-    });
+    // Cursor + sort
+    if (sort === "oldest") {
+      if (cursor) {
+        const [cursorDate, cursorId] = cursor.split("|");
+        qb.andWhere(
+          "(i.createdAt > :cursorDate OR (i.createdAt = :cursorDate AND i.id > :cursorId))",
+          { cursorDate, cursorId },
+        );
+      }
+      qb.orderBy("i.createdAt", "ASC").addOrderBy("i.id", "ASC");
+    } else if (sort === "upcoming") {
+      if (cursor) {
+        const [cursorDate, cursorId] = cursor.split("|");
+        qb.andWhere(
+          "(i.plannedDate > :cursorDate OR (i.plannedDate = :cursorDate AND i.id > :cursorId))",
+          { cursorDate, cursorId },
+        );
+      }
+      qb.orderBy("i.plannedDate", "ASC").addOrderBy("i.id", "ASC");
+    } else if (sort === "top_rated") {
+      if (cursor) {
+        const [cursorRating, cursorId] = cursor.split("|");
+        const ratingVal =
+          cursorRating === "null" ? null : Number(cursorRating);
+        if (ratingVal === null) {
+          qb.andWhere("(i.rating IS NULL AND i.id < :cursorId)", {
+            cursorId,
+          });
+        } else {
+          qb.andWhere(
+            "(i.rating < :cursorRating OR (i.rating = :cursorRating AND i.id < :cursorId) OR i.rating IS NULL)",
+            { cursorRating: ratingVal, cursorId },
+          );
+        }
+      }
+      qb.orderBy("i.rating", "DESC", "NULLS LAST").addOrderBy(
+        "i.id",
+        "DESC",
+      );
+    } else {
+      // newest (default)
+      if (cursor) {
+        const [cursorDate, cursorId] = cursor.split("|");
+        qb.andWhere(
+          "(i.createdAt < :cursorDate OR (i.createdAt = :cursorDate AND i.id < :cursorId))",
+          { cursorDate, cursorId },
+        );
+      }
+      qb.orderBy("i.createdAt", "DESC").addOrderBy("i.id", "DESC");
+    }
 
+    qb.take(limit + 1);
+
+    const rows = await qb.getMany();
     const hasMore = rows.length > limit;
     const data = hasMore ? rows.slice(0, limit) : rows;
-    const nextCursor = hasMore
-      ? data[data.length - 1].createdAt.toISOString()
-      : null;
+
+    let nextCursor: string | null = null;
+    if (hasMore && data.length > 0) {
+      const last = data[data.length - 1];
+      if (sort === "oldest" || sort === "newest") {
+        nextCursor = `${last.createdAt.toISOString()}|${last.id}`;
+      } else if (sort === "upcoming") {
+        nextCursor = `${last.plannedDate instanceof Date ? last.plannedDate.toISOString() : last.plannedDate}|${last.id}`;
+      } else if (sort === "top_rated") {
+        nextCursor = `${last.rating ?? "null"}|${last.id}`;
+      }
+    }
 
     return { data, nextCursor };
   }
@@ -881,10 +978,19 @@ DIVERSITY IS CRITICAL — the 5 suggestions must feel like 5 completely differen
       const itineraryRepo = manager.getRepository(Itinerary);
       const itemRepo = manager.getRepository(ItineraryItem);
 
+      // Use first stop's start time on today's date
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const firstSourceItem = (source.items || [])
+        .slice()
+        .sort((a, b) => a.sortOrder - b.sortOrder)[0];
+      const adoptedPlannedDate = firstSourceItem?.startTime
+        ? new Date(`${todayStr}T${firstSourceItem.startTime}:00`)
+        : new Date();
+
       const newItinerary = itineraryRepo.create({
         userId,
         city: source.city,
-        plannedDate: new Date().toISOString().slice(0, 10),
+        plannedDate: adoptedPlannedDate,
         budgetMin: source.budgetMin,
         budgetMax: source.budgetMax,
         durationHours: source.durationHours,
@@ -1044,6 +1150,7 @@ DIVERSITY IS CRITICAL — the 5 suggestions must feel like 5 completely differen
     const searchTerms = new Set<string>();
     const typeMap: Record<string, string[]> = {
       food: ["restaurants", "cafes"],
+      coffee: ["coffee shops", "cafes"],
       dining: ["restaurants", "cafes"],
       nightlife: ["bars", "nightlife"],
       culture: ["museums", "galleries"],
@@ -1052,8 +1159,10 @@ DIVERSITY IS CRITICAL — the 5 suggestions must feel like 5 completely differen
       skating: ["cafes", "parks", "juice bars"],
       hiking: ["parks", "nature reserves", "trailheads"],
       walking: ["parks", "cafes", "gardens"],
+      art: ["galleries", "theaters"],
       arts: ["galleries", "theaters"],
       music: ["live music venues"],
+      sports: ["sports venues", "recreation centers"],
       shopping: ["shopping"],
     };
 
@@ -1343,7 +1452,7 @@ DIVERSITY IS CRITICAL — the 5 suggestions must feel like 5 completely differen
               if (v.openingHours && v.openingHours.length > 0) {
                 // Find the hours for the planned day
                 const dayOfWeek = new Date(
-                  input.plannedDate + "T12:00:00",
+                  input.plannedDate,
                 ).toLocaleDateString("en-US", { weekday: "long" });
                 const dayHours = v.openingHours.find((h) =>
                   h.startsWith(dayOfWeek),
@@ -1404,6 +1513,8 @@ DIVERSITY IS CRITICAL — the 5 suggestions must feel like 5 completely differen
         "INTENTION: Learn — museums, bookstores, galleries, cultural venues, historical landmarks. Prioritize educational and culturally enriching stops.",
       treat_yourself:
         "INTENTION: Treat Yourself — great food, scenic spots, nice coffee, premium experiences. Prioritize quality over quantity. Make it feel special and indulgent.",
+      lock_in:
+        "INTENTION: Lock In — productive focus spots, cozy cafes with good WiFi, libraries, co-working-friendly venues, quiet corners. Prioritize places conducive to deep work and concentration. Avoid noisy or overly social environments.",
     };
     const intentionBlock =
       intention && intentionPromptMap[intention]
@@ -1489,11 +1600,27 @@ HOURS & SCHEDULING (CRITICAL):
 - If not enough options exist, create FEWER stops — never pad with fake events.
 - Use FULL street addresses including city and state (e.g., "123 Main St, Austin, TX")
 ${trailInstructions}${boardingGarageInstructions}${anchorBlock}${intentionBlock}${preferencesBlock}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt the itinerary to the forecast. Rain or storms → prefer indoor stops during those hours. Extreme heat → outdoor activities in morning/evening, shade and AC midday. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9", "Rain likely after 3pm, grab a window seat and enjoy it").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous itineraries: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives. The whole point is discovering something new each time.\n` : ""}
-${input.title ? `THEME & TITLE (CRITICAL):
+${
+  input.title
+    ? `THEME & TITLE (CRITICAL):
 - The itinerary title MUST be: "${input.title}"
 - This title describes the THEME and VIBE of the itinerary — every stop MUST reinforce this theme.
 - Parse the title for clues about activities, mood, and timing. Select venues and ordering that deliver on the promise of the title.
-- Do NOT generate a generic itinerary and slap the title on it. The title IS the creative brief — let it drive venue selection, ordering, and overall feel.\n` : ""}PLANNING RULES:
+- Do NOT generate a generic itinerary and slap the title on it. The title IS the creative brief — let it drive venue selection, ordering, and overall feel.\n`
+    : ""
+}${input.activityTypes.length > 1 && input.stopCount > 0 && input.stopCount < input.activityTypes.length ? `VIBE FUSION (CRITICAL — fewer stops than activity preferences):
+- The user selected ${input.activityTypes.length} vibes (${input.activityTypes.join(", ")}) but only ${input.stopCount} stop${input.stopCount > 1 ? "s" : ""}.
+- You MUST find venues that naturally combine multiple vibes in one place. Do NOT just pick one vibe and ignore the others.
+- Examples of fusion: "coffee + food" → a café known for excellent food AND coffee (not just a Starbucks). "outdoors + food" → a brewery with a great patio or a food truck park in a scenic area. "nightlife + food" → a restaurant with a lively bar scene.
+- When describing the stop, highlight how it satisfies multiple vibes in "whyThisStop" (e.g., "Known for their house-roasted beans AND wood-fired brunch — the best of both worlds").
+- Prefer venues with Google ratings ≥ 4.0 that genuinely excel at the combined vibes, not places that technically qualify but are mediocre at both.
+
+` : input.activityTypes.length > 1 && input.stopCount > 0 && input.stopCount <= input.activityTypes.length ? `VIBE BLENDING (multiple activity preferences, limited stops):
+- The user selected ${input.activityTypes.length} vibes (${input.activityTypes.join(", ")}) across ${input.stopCount} stop${input.stopCount > 1 ? "s" : ""}.
+- Where possible, choose venues that satisfy multiple vibes at once rather than dedicating each stop to a single vibe.
+- When a venue naturally blends vibes, highlight this in "whyThisStop" — the user chose these vibes together for a reason.
+
+` : ""}PLANNING RULES:
 - Stay within the time budget (${input.durationHours} hours)
 - Stay within the spending budget (${budgetRange})
 - Match the activity preferences: ${input.activityTypes.join(", ") || "any"}
@@ -1540,7 +1667,12 @@ Respond ONLY with valid JSON matching this schema:
 
     const currentTime = formatInTimeZone(new Date(), tz, "HH:mm");
 
-    const isToday = input.plannedDate === today;
+    const plannedDateStr = formatInTimeZone(
+      input.plannedDate,
+      tz,
+      "yyyy-MM-dd",
+    );
+    const isToday = plannedDateStr === today;
 
     const effectiveStartTime =
       input.startTime ??
@@ -1556,7 +1688,7 @@ Respond ONLY with valid JSON matching this schema:
           : "";
 
     const userPrompt = `City: ${cityName}
-Date: ${input.plannedDate}${isToday ? ` (today — current time is ${currentTime})` : ""}
+Date: ${plannedDateStr}${isToday ? ` (today — current time is ${currentTime})` : ""}
 Duration: ${input.durationHours} hours
 Budget: ${budgetRange}
 Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${intention ? `\nIntention: ${intention.replace("_", " ")}` : ""}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}${timeConstraint}
@@ -1565,7 +1697,7 @@ EVENTS (use ONLY these for event-type stops):
 ${eventList}
 
 VERIFIED VENUES in ${cityName} (prefer these for non-event stops):
-${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap data — use exact names):\n${trailList}` : ""}${forecast ? `\n\nWEATHER FORECAST for ${input.plannedDate}:\n${this.formatHourlyForPrompt(forecast)}` : ""}`;
+${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap data — use exact names):\n${trailList}` : ""}${forecast ? `\n\nWEATHER FORECAST for ${plannedDateStr}:\n${this.formatHourlyForPrompt(forecast)}` : ""}`;
 
     const parseLLMResponse = (responseText: string): LLMItineraryResponse => {
       let jsonStr = responseText.trim();

@@ -3,6 +3,7 @@ import {
   requireAuth,
   type Handler,
 } from "../utils/handlerUtils";
+import { toDate } from "date-fns-tz";
 
 export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
@@ -21,6 +22,7 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
     intention?: string;
     title?: string;
     surpriseMe?: boolean;
+    timezone?: string;
     anchorStops?: {
       coordinates: [number, number];
       label?: string;
@@ -37,8 +39,24 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
   if (!hasAnchors && (!body.city || typeof body.city !== "string")) {
     return c.json({ error: "city is required" }, 400);
   }
-  if (!body.plannedDate || !/^\d{4}-\d{2}-\d{2}$/.test(body.plannedDate)) {
-    return c.json({ error: "plannedDate must be YYYY-MM-DD" }, 400);
+  if (!body.plannedDate) {
+    return c.json({ error: "plannedDate is required" }, 400);
+  }
+  // Accept YYYY-MM-DD (convert to midnight in provided timezone) or full ISO 8601
+  let resolvedPlannedDate: Date;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(body.plannedDate)) {
+    const tz = body.timezone || "UTC";
+    resolvedPlannedDate = toDate(`${body.plannedDate}T00:00:00`, {
+      timeZone: tz,
+    });
+  } else {
+    resolvedPlannedDate = new Date(body.plannedDate);
+  }
+  if (isNaN(resolvedPlannedDate.getTime())) {
+    return c.json(
+      { error: "plannedDate must be a valid ISO 8601 date string" },
+      400,
+    );
   }
   if (
     typeof body.durationHours !== "number" ||
@@ -52,7 +70,7 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
   const itineraryService = c.get("itineraryService");
   const shell = await itineraryService.createShell(userId, {
     city: body.city || "",
-    plannedDate: body.plannedDate,
+    plannedDate: resolvedPlannedDate,
     budgetMin: body.budgetMin ?? 0,
     budgetMax: body.budgetMax ?? 0,
     durationHours: body.durationHours,
@@ -68,12 +86,13 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
     creatorId: userId,
     itineraryId: shell.id,
     city: body.city || "",
-    plannedDate: body.plannedDate,
+    plannedDate: resolvedPlannedDate,
     budgetMin: body.budgetMin ?? 0,
     budgetMax: body.budgetMax ?? 0,
     durationHours: body.durationHours,
     activityTypes: body.activityTypes ?? [],
     stopCount: body.stopCount ?? 0,
+    ...(body.timezone && { timezone: body.timezone }),
     ...(body.startTime && { startTime: body.startTime }),
     ...(body.endTime && { endTime: body.endTime }),
     ...(body.intention && { intention: body.intention }),
@@ -107,15 +126,33 @@ export const listItinerariesHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
   const userId = user.id;
 
-  const limit = parseInt(c.req.query("limit") || "20");
+  const limit = Math.min(parseInt(c.req.query("limit") || "20", 10), 50);
   const cursor = c.req.query("cursor") || undefined;
+  const sortParam = c.req.query("sort") || undefined;
+  const intention = c.req.query("intention") || undefined;
+  const statusParam = c.req.query("status") || undefined;
+
+  const validSorts = ["newest", "oldest", "upcoming", "top_rated"] as const;
+  const sort = validSorts.includes(sortParam as (typeof validSorts)[number])
+    ? (sortParam as (typeof validSorts)[number])
+    : undefined;
+
+  const validStatuses = ["completed", "upcoming"] as const;
+  const status = validStatuses.includes(
+    statusParam as (typeof validStatuses)[number],
+  )
+    ? (statusParam as (typeof validStatuses)[number])
+    : undefined;
+
   const itineraryService = c.get("itineraryService");
 
-  const result = await itineraryService.listByUser(
-    userId,
-    Math.min(limit, 50),
+  const result = await itineraryService.listByUser(userId, {
+    limit,
     cursor,
-  );
+    sort,
+    intention,
+    status,
+  });
   return c.json(result);
 });
 

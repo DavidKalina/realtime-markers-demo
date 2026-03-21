@@ -103,7 +103,7 @@ export interface AnchorStopParam {
 
 export interface CreateItineraryParams {
   city?: string;
-  plannedDate: string;
+  plannedDate: string; // ISO 8601 datetime string (e.g. "2026-03-25T00:00:00-06:00")
   budgetMin?: number;
   budgetMax?: number;
   durationHours: number;
@@ -144,9 +144,17 @@ export class ItinerariesModule extends BaseApiModule {
   async list(
     limit = 20,
     cursor?: string,
+    filters?: {
+      sort?: string;
+      intention?: string;
+      status?: string;
+    },
   ): Promise<{ data: ItineraryResponse[]; nextCursor: string | null }> {
     const params = new URLSearchParams({ limit: String(limit) });
     if (cursor) params.set("cursor", cursor);
+    if (filters?.sort) params.set("sort", filters.sort);
+    if (filters?.intention) params.set("intention", filters.intention);
+    if (filters?.status) params.set("status", filters.status);
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/itineraries?${params}`,
     );
