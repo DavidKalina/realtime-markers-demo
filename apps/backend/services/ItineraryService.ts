@@ -30,6 +30,8 @@ export interface AnchorStopInput {
 }
 
 export interface CreateItineraryInput {
+  itineraryId?: string; // Pre-created shell record ID
+  title?: string; // Suggested title (e.g. from Get Away preview)
   city: string;
   plannedDate: string; // YYYY-MM-DD
   budgetMin: number;
@@ -102,8 +104,27 @@ export interface PopularStop {
   score: number;
 }
 
+export interface ItinerarySuggestion {
+  title: string;
+  emoji: string;
+  city: string;
+  costTier: "$" | "$$" | "$$$";
+  durationHours: number;
+  activityTypes: string[];
+  intention: string;
+  budgetMax: number;
+}
+
 export interface ItineraryService {
+  createShell(
+    userId: string,
+    input: Omit<CreateItineraryInput, "stopCount">,
+  ): Promise<Itinerary>;
   create(userId: string, input: CreateItineraryInput): Promise<Itinerary>;
+  generateSuggestions(
+    latitude: number,
+    longitude: number,
+  ): Promise<{ city: string; suggestions: ItinerarySuggestion[] }>;
   listByUser(
     userId: string,
     limit?: number,
@@ -218,6 +239,29 @@ class ItineraryServiceImpl implements ItineraryService {
     this.redisService = deps.redisService;
   }
 
+  async createShell(
+    userId: string,
+    input: Omit<CreateItineraryInput, "stopCount">,
+  ): Promise<Itinerary> {
+    const itineraryRepo = this.dataSource.getRepository(Itinerary);
+    const city = input.city ? normalizeCity(input.city) : undefined;
+    const shell = itineraryRepo.create({
+      userId,
+      city,
+      title: input.title,
+      plannedDate: input.plannedDate,
+      budgetMin: input.budgetMin,
+      budgetMax: input.budgetMax,
+      durationHours: input.durationHours,
+      activityTypes: input.activityTypes,
+      intention: input.intention,
+      status: ItineraryStatus.GENERATING,
+      timezone: input.timezone,
+    });
+    await itineraryRepo.save(shell);
+    return shell;
+  }
+
   async create(
     userId: string,
     input: CreateItineraryInput,
@@ -241,20 +285,36 @@ class ItineraryServiceImpl implements ItineraryService {
       }
     }
 
-    // Create the itinerary record in GENERATING status
-    const itinerary = itineraryRepo.create({
-      userId,
-      city,
-      plannedDate: input.plannedDate,
-      budgetMin: input.budgetMin,
-      budgetMax: input.budgetMax,
-      durationHours: input.durationHours,
-      activityTypes: input.activityTypes,
-      intention: input.intention,
-      status: ItineraryStatus.GENERATING,
-      timezone: input.timezone,
-    });
-    await itineraryRepo.save(itinerary);
+    // Use pre-created shell record if provided, otherwise create one
+    let itinerary: Itinerary;
+    if (input.itineraryId) {
+      const existing = await itineraryRepo.findOne({
+        where: { id: input.itineraryId, userId },
+      });
+      if (!existing) {
+        throw new Error("Itinerary shell record not found");
+      }
+      itinerary = existing;
+      // Update city if it was inferred from anchors
+      if (city && !itinerary.city) {
+        itinerary.city = city;
+        await itineraryRepo.save(itinerary);
+      }
+    } else {
+      itinerary = itineraryRepo.create({
+        userId,
+        city,
+        plannedDate: input.plannedDate,
+        budgetMin: input.budgetMin,
+        budgetMax: input.budgetMax,
+        durationHours: input.durationHours,
+        activityTypes: input.activityTypes,
+        intention: input.intention,
+        status: ItineraryStatus.GENERATING,
+        timezone: input.timezone,
+      });
+      await itineraryRepo.save(itinerary);
+    }
 
     try {
       // Fetch user's onboarding preferences (skip for "Surprise Me" — keep it fresh)
@@ -487,6 +547,79 @@ class ItineraryServiceImpl implements ItineraryService {
       itinerary.status = ItineraryStatus.FAILED;
       await itineraryRepo.save(itinerary);
       throw error;
+    }
+  }
+
+  async generateSuggestions(
+    latitude: number,
+    longitude: number,
+  ): Promise<{ city: string; suggestions: ItinerarySuggestion[] }> {
+    const city = await this.geocodingService.reverseGeocodeCityState(
+      latitude,
+      longitude,
+    );
+
+    const now = new Date();
+    const dayOfWeek = now.toLocaleDateString("en-US", { weekday: "long" });
+    const dateStr = now.toISOString().split("T")[0];
+    const hour = now.getHours();
+    const month = now.toLocaleDateString("en-US", { month: "long" });
+
+    const completion = await this.openAIService.executeChatCompletion({
+      model: OpenAIModel.GPT4OMini,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an adventure planner. Generate exactly 5 diverse itinerary suggestions for someone looking to get out and do something. Include options in the user's city AND nearby cities/towns within ~30 miles. Each should feel meaningfully different in vibe, cost, activity type, and location. Return ONLY valid JSON.",
+        },
+        {
+          role: "user",
+          content: `User location: ${city}
+Day: ${dayOfWeek}, ${dateStr}
+Current hour: ${hour}:00
+Month: ${month}
+
+Generate 5 adventure suggestions as a JSON object: { "suggestions": [...] }
+
+Include a mix of options in ${city} AND nearby cities/towns within ~30 miles. At least 2 suggestions should be in a different city/town than the user's.
+
+Each suggestion must have:
+- title (catchy, max 6 words — describe the VIBE or THEME, never reference specific venue names. Focus on the activity + mood, like combining an activity with food or a time of day)
+- emoji (single emoji best representing the adventure)
+- city (the city/town where this adventure takes place, e.g. "Tempe, AZ" — use "City, ST" format)
+- costTier ("$" = free/under $20, "$$" = $20-60, "$$$" = $60+)
+- durationHours (number, 2-8 range, appropriate for time of day)
+- activityTypes (1-2 from: food, coffee, music, art, outdoors, hiking, walking, nightlife, sports, culture)
+- intention (one of: recharge, explore, socialize, move, learn, treat_yourself)
+- budgetMax (number in dollars matching the costTier)
+
+Make them diverse: mix indoor/outdoor, cheap/splurge, active/chill, short/long, near/farther. Consider the time of day and season.`,
+        },
+      ],
+      temperature: 0.9,
+      max_tokens: 800,
+    });
+
+    let raw = completion.choices[0].message.content?.trim();
+    if (!raw) {
+      throw new Error("No response from LLM for suggestions");
+    }
+
+    // Strip markdown code fences if present
+    if (raw.startsWith("```")) {
+      raw = raw.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      const suggestions: ItinerarySuggestion[] = Array.isArray(parsed)
+        ? parsed
+        : parsed.suggestions;
+      return { city, suggestions };
+    } catch {
+      console.error("Failed to parse suggestions LLM response:", raw);
+      throw new Error("Failed to parse suggestions response");
     }
   }
 
@@ -1347,7 +1480,11 @@ HOURS & SCHEDULING (CRITICAL):
 - If not enough options exist, create FEWER stops — never pad with fake events.
 - Use FULL street addresses including city and state (e.g., "123 Main St, Austin, TX")
 ${trailInstructions}${boardingGarageInstructions}${anchorBlock}${intentionBlock}${preferencesBlock}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt the itinerary to the forecast. Rain or storms → prefer indoor stops during those hours. Extreme heat → outdoor activities in morning/evening, shade and AC midday. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9", "Rain likely after 3pm, grab a window seat and enjoy it").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous itineraries: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives. The whole point is discovering something new each time.\n` : ""}
-PLANNING RULES:
+${input.title ? `THEME & TITLE (CRITICAL):
+- The itinerary title MUST be: "${input.title}"
+- This title describes the THEME and VIBE of the itinerary — every stop MUST reinforce this theme.
+- Parse the title for clues about activities, mood, and timing. Select venues and ordering that deliver on the promise of the title.
+- Do NOT generate a generic itinerary and slap the title on it. The title IS the creative brief — let it drive venue selection, ordering, and overall feel.\n` : ""}PLANNING RULES:
 - Stay within the time budget (${input.durationHours} hours)
 - Stay within the spending budget (${budgetRange})
 - Match the activity preferences: ${input.activityTypes.join(", ") || "any"}

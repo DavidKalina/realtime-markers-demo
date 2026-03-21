@@ -19,6 +19,7 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
     startTime?: string;
     endTime?: string;
     intention?: string;
+    title?: string;
     surpriseMe?: boolean;
     anchorStops?: {
       coordinates: [number, number];
@@ -47,11 +48,25 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
     return c.json({ error: "durationHours must be between 0.5 and 24" }, 400);
   }
 
+  // Create shell itinerary record upfront so we have an ID immediately
+  const itineraryService = c.get("itineraryService");
+  const shell = await itineraryService.createShell(userId, {
+    city: body.city || "",
+    plannedDate: body.plannedDate,
+    budgetMin: body.budgetMin ?? 0,
+    budgetMax: body.budgetMax ?? 0,
+    durationHours: body.durationHours,
+    activityTypes: body.activityTypes ?? [],
+    intention: body.intention,
+    title: body.title,
+  });
+
   const jobQueue = c.get("jobQueue");
 
   const jobId = await jobQueue.enqueue("generate_itinerary", {
     userId,
     creatorId: userId,
+    itineraryId: shell.id,
     city: body.city || "",
     plannedDate: body.plannedDate,
     budgetMin: body.budgetMin ?? 0,
@@ -62,6 +77,7 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
     ...(body.startTime && { startTime: body.startTime }),
     ...(body.endTime && { endTime: body.endTime }),
     ...(body.intention && { intention: body.intention }),
+    ...(body.title && { title: body.title }),
     ...(body.surpriseMe && { surpriseMe: true }),
     ...(body.anchorStops &&
       body.anchorStops.length > 0 && {
@@ -79,6 +95,7 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
 
   return c.json(
     {
+      itineraryId: shell.id,
       jobId,
       streamUrl: `/api/jobs/${jobId}/stream`,
     },

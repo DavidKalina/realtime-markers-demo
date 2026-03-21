@@ -359,6 +359,8 @@ EmojiReel.displayName = "EmojiReel";
 const GeneratingRow: React.FC = React.memo(() => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const router = useRouter();
+  const activeItineraryId = useItineraryJobStore((s) => s.activeItineraryId);
   const [titleIdx, setTitleIdx] = useState(0);
   const [metaIdx, setMetaIdx] = useState(0);
   const contentOpacity = useSharedValue(1);
@@ -381,9 +383,22 @@ const GeneratingRow: React.FC = React.memo(() => {
     opacity: contentOpacity.value,
   }));
 
+  const handlePress = useCallback(() => {
+    if (!activeItineraryId) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({
+      pathname: "/itineraries/[id]" as const,
+      params: { id: activeItineraryId },
+    });
+  }, [activeItineraryId, router]);
+
   return (
     <Animated.View entering={FadeIn.duration(300)}>
-      <View style={[styles.row, { backgroundColor: colors.bg.primary }]}>
+      <Pressable
+        style={[styles.row, { backgroundColor: colors.bg.primary }]}
+        onPress={handlePress}
+        disabled={!activeItineraryId}
+      >
         <View style={styles.emojiWrap}>
           <EmojiReel />
         </View>
@@ -408,7 +423,7 @@ const GeneratingRow: React.FC = React.memo(() => {
             {GEN_METAS[metaIdx]}
           </Animated.Text>
         </View>
-      </View>
+      </Pressable>
     </Animated.View>
   );
 });

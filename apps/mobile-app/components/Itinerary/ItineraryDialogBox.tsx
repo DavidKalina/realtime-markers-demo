@@ -58,6 +58,7 @@ import useThirdSpaces from "@/hooks/useThirdSpaces";
 import { useUserLocation } from "@/contexts/LocationContext";
 import ItineraryTimeline from "./ItineraryTimeline";
 import { getUserTimezone } from "@/utils/dateTimeFormatting";
+import { formatInTimeZone } from "date-fns-tz";
 
 /* ── Collapsible section ─────────────────────────────────── */
 const COLLAPSE_DURATION = 250;
@@ -617,7 +618,7 @@ export default function ItineraryDialogBox({
   const onboardingProfile = user?.onboardingProfile;
   // Form state
   const [plannedDate, setPlannedDate] = useState(() => {
-    return new Date().toISOString().split("T")[0];
+    return formatInTimeZone(new Date(), getUserTimezone(), "yyyy-MM-dd");
   });
   const [budgetMax, setBudgetMax] = useState(50);
   const [durationHours, setDurationHours] = useState(4);
@@ -1116,7 +1117,7 @@ export default function ItineraryDialogBox({
       });
 
       try {
-        const { jobId } = await apiClient.itineraries.create({
+        const { itineraryId, jobId } = await apiClient.itineraries.create({
           city: city || undefined,
           plannedDate,
           budgetMin: 0,
@@ -1144,7 +1145,7 @@ export default function ItineraryDialogBox({
         });
         setActiveJobId(jobId);
         trackJob(jobId);
-        itineraryJobStore.startJob(jobId);
+        itineraryJobStore.startJob(jobId, itineraryId);
       } catch (err) {
         cancelAnimation(sheenPos);
         sheenActive.value = 0;

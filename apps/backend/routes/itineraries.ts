@@ -16,6 +16,7 @@ import {
   browseItinerariesHandler,
   adoptItineraryHandler,
 } from "../handlers/itineraryHandlers";
+import { suggestItinerariesHandler } from "../handlers/itinerarySuggestionHandler";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
@@ -44,10 +45,20 @@ const writeRateLimit = rateLimit({
   },
 });
 
+const suggestRateLimit = rateLimit({
+  maxRequests: 10,
+  windowMs: 60 * 60 * 1000, // 10 per hour
+  keyGenerator: (c) => {
+    const user = c.get("user");
+    return `itinerary-suggest:${user?.userId || user?.id || "anon"}`;
+  },
+});
+
 itineraryRouter.get("/", readRateLimit, listItinerariesHandler);
 itineraryRouter.get("/completed", readRateLimit, listCompletedHandler);
 itineraryRouter.get("/active", readRateLimit, getActiveItineraryHandler);
 itineraryRouter.get("/browse", readRateLimit, browseItinerariesHandler);
+itineraryRouter.post("/suggestions", suggestRateLimit, suggestItinerariesHandler);
 itineraryRouter.get("/:id", readRateLimit, getItineraryHandler);
 itineraryRouter.post("/", writeRateLimit, createItineraryHandler);
 itineraryRouter.post("/deactivate", writeRateLimit, deactivateItineraryHandler);

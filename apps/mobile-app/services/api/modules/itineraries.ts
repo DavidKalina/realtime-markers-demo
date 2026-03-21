@@ -112,6 +112,7 @@ export interface CreateItineraryParams {
   startTime?: string; // HH:MM (24h)
   endTime?: string; // HH:MM (24h)
   intention?: string;
+  title?: string;
   anchorStops?: AnchorStopParam[];
   surpriseMe?: boolean;
   timezone?: string;
@@ -124,7 +125,7 @@ export class ItinerariesModule extends BaseApiModule {
 
   async create(
     params: CreateItineraryParams,
-  ): Promise<{ jobId: string; streamUrl: string }> {
+  ): Promise<{ itineraryId: string; jobId: string; streamUrl: string }> {
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/itineraries`,
       {
@@ -133,7 +134,11 @@ export class ItinerariesModule extends BaseApiModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.handleResponse<{ jobId: string; streamUrl: string }>(response);
+    return this.handleResponse<{
+      itineraryId: string;
+      jobId: string;
+      streamUrl: string;
+    }>(response);
   }
 
   async list(
@@ -273,6 +278,24 @@ export class ItinerariesModule extends BaseApiModule {
     return this.handleResponse<ItineraryResponse>(response);
   }
 
+  async suggestions(
+    latitude: number,
+    longitude: number,
+  ): Promise<{ city: string; suggestions: ItinerarySuggestion[] }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/itineraries/suggestions`,
+      {
+        method: "POST",
+        body: JSON.stringify({ latitude, longitude }),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse<{
+      city: string;
+      suggestions: ItinerarySuggestion[];
+    }>(response);
+  }
+
   async getPopularStops(city: string, limit = 15): Promise<PopularStop[]> {
     const params = new URLSearchParams({
       city: encodeURIComponent(city),
@@ -284,6 +307,17 @@ export class ItinerariesModule extends BaseApiModule {
     const json = await this.handleResponse<{ data: PopularStop[] }>(response);
     return json.data;
   }
+}
+
+export interface ItinerarySuggestion {
+  title: string;
+  emoji: string;
+  city: string;
+  costTier: "$" | "$$" | "$$$";
+  durationHours: number;
+  activityTypes: string[];
+  intention: string;
+  budgetMax: number;
 }
 
 export interface PopularStop {

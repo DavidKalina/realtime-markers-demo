@@ -455,6 +455,29 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 <ActiveQuestBanner />
               </Animated.View>
 
+              {/* Get Away button */}
+              <Animated.View
+                entering={FadeIn.duration(duration.normal).delay(130)}
+                style={styles.heroSection}
+              >
+                <Pressable
+                  style={styles.getAwayButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    router.push("/get-away" as const);
+                  }}
+                >
+                  <Text style={styles.getAwayEmoji}>{"\u{1F3B2}"}</Text>
+                  <View style={styles.getAwayInfo}>
+                    <Text style={styles.getAwayTitle}>Get Away</Text>
+                    <Text style={styles.getAwaySub}>
+                      Instant adventure near you
+                    </Text>
+                  </View>
+                  <ChevronRight size={14} color={colors.text.inverse} />
+                </Pressable>
+              </Animated.View>
+
               {/* Tab bar */}
               <Animated.View
                 entering={FadeIn.duration(duration.normal).delay(160)}
@@ -532,6 +555,32 @@ const createStyles = (colors: Colors) =>
     heroSection: {
       paddingHorizontal: spacing.lg,
       marginBottom: spacing.lg,
+    },
+    getAwayButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.accent.primary,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      gap: spacing.sm,
+    },
+    getAwayEmoji: {
+      fontSize: 22,
+    },
+    getAwayInfo: {
+      flex: 1,
+    },
+    getAwayTitle: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.inverse,
+    },
+    getAwaySub: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      color: colors.text.inverse,
+      opacity: 0.8,
     },
     // Tab bar (pill-shaped, matches CityDetailContent)
     tabBar: {

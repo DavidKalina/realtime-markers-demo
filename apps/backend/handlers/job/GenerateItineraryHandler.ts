@@ -29,6 +29,8 @@ export class GenerateItineraryHandler extends BaseJobHandler {
     try {
       const {
         userId,
+        itineraryId,
+        title,
         city,
         plannedDate,
         budgetMin,
@@ -43,6 +45,8 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         surpriseMe,
       } = job.data as {
         userId: string;
+        itineraryId?: string;
+        title?: string;
         city: string;
         plannedDate: string;
         budgetMin: number;
@@ -72,6 +76,8 @@ export class GenerateItineraryHandler extends BaseJobHandler {
       await tracker.stepProgress(10, "Calling AI planner");
 
       const itinerary = await this.itineraryService.create(userId, {
+        itineraryId,
+        title,
         city,
         plannedDate,
         budgetMin,

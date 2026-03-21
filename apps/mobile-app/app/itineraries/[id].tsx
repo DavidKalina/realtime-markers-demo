@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -19,9 +19,12 @@ import Animated, {
   FadeIn,
   FadeInDown,
   FadeInRight,
+  FadeOut,
   useAnimatedReaction,
+  useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withSequence,
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
@@ -38,6 +41,7 @@ import type {
   ItineraryItemResponse,
 } from "@/services/api/modules/itineraries";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
+import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
 import { eventBroker, EventTypes } from "@/services/EventBroker";
 import {
   useColors,
@@ -109,6 +113,316 @@ function scopedForecast(
   };
 }
 
+// --- Skeleton pulse bar ---
+
+const SkeletonBar: React.FC<{
+  width: number | string;
+  height: number;
+  colors: Colors;
+  rounded?: boolean;
+}> = React.memo(({ width, height, colors, rounded }) => {
+  const opacity = useSharedValue(0.3);
+
+  useEffect(() => {
+    opacity.value = withDelay(
+      Math.random() * 400,
+      withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+    );
+    const interval = setInterval(() => {
+      opacity.value = withSequence(
+        withTiming(0.3, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+      );
+    }, 1600);
+    return () => clearInterval(interval);
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width,
+          height,
+          borderRadius: rounded ? height / 2 : radius.sm,
+          backgroundColor: colors.bg.elevated,
+        },
+        animStyle,
+      ]}
+    />
+  );
+});
+
+SkeletonBar.displayName = "SkeletonBar";
+
+// --- Skeleton stop reel row ---
+
+const STOP_TITLES = [
+  "Finding a caf\u{E9}\u2026",
+  "Scouting a park\u2026",
+  "Checking galleries\u2026",
+  "Mapping restaurants\u2026",
+  "Locating a bar\u2026",
+  "Searching trails\u2026",
+  "Browsing markets\u2026",
+  "Pinning a museum\u2026",
+];
+
+const SkeletonStopReel: React.FC<{
+  index: number;
+  isLast: boolean;
+  colors: Colors;
+}> = React.memo(({ index, isLast, colors }) => {
+  const s = useMemo(() => createStyles(colors), [colors]);
+  const reelTranslateY = useSharedValue(0);
+  const [titleIdx, setTitleIdx] = useState(index % STOP_TITLES.length);
+  const titleOpacity = useSharedValue(1);
+
+  const reelEmojis = useMemo(() => {
+    const items: string[] = [];
+    for (let i = 0; i < 3; i++) items.push(...GEN_EMOJIS);
+    return items;
+  }, []);
+
+  // Spin emoji reel — staggered per row
+  useEffect(() => {
+    const interval = 2200 + index * 250;
+    const delay = index * 300;
+    const spin = () => {
+      const landIdx =
+        2 * GEN_EMOJIS.length +
+        Math.floor(Math.random() * GEN_EMOJIS.length);
+      reelTranslateY.value = 0;
+      reelTranslateY.value = withTiming(-landIdx * 28, {
+        duration: 1200,
+        easing: Easing.out(Easing.cubic),
+      });
+    };
+    const startTimer = setTimeout(() => {
+      spin();
+      const id = setInterval(spin, interval);
+      return () => clearInterval(id);
+    }, delay);
+    const id = setInterval(() => {
+      reelTranslateY.value = 0;
+      const landIdx =
+        2 * GEN_EMOJIS.length +
+        Math.floor(Math.random() * GEN_EMOJIS.length);
+      reelTranslateY.value = withTiming(-landIdx * 28, {
+        duration: 1200,
+        easing: Easing.out(Easing.cubic),
+      });
+    }, 2200 + index * 250);
+    return () => {
+      clearTimeout(startTimer);
+      clearInterval(id);
+    };
+  }, [index]);
+
+  // Rotate title text — staggered
+  useEffect(() => {
+    const interval = 2600 + index * 200;
+    const delay = index * 350;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    const startTimer = setTimeout(() => {
+      intervalId = setInterval(() => {
+        titleOpacity.value = withSequence(
+          withTiming(0, { duration: 250 }),
+          withTiming(1, { duration: 250 }),
+        );
+        setTimeout(() => {
+          setTitleIdx((i) => (i + 1) % STOP_TITLES.length);
+        }, 250);
+      }, interval);
+    }, delay);
+    return () => {
+      clearTimeout(startTimer);
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [index]);
+
+  const reelStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: reelTranslateY.value }],
+  }));
+
+  const titleAnimStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+  }));
+
+  return (
+    <View style={s.skeletonStop}>
+      <View style={s.skeletonStopLeft}>
+        <SkeletonBar width={36} height={12} colors={colors} />
+        <View style={s.skeletonDot} />
+        {!isLast && (
+          <View
+            style={[s.skeletonLine, { backgroundColor: colors.border.default }]}
+          />
+        )}
+      </View>
+      <View style={s.skeletonStopContent}>
+        <View style={{ width: 28, height: 28, overflow: "hidden" }}>
+          <Animated.View style={reelStyle}>
+            {reelEmojis.map((emoji, i) => (
+              <Text
+                key={i}
+                style={{ height: 28, lineHeight: 28, fontSize: 20, textAlign: "center" }}
+              >
+                {emoji}
+              </Text>
+            ))}
+          </Animated.View>
+        </View>
+        <View style={{ flex: 1, gap: 4, justifyContent: "center" }}>
+          <Animated.Text
+            style={[
+              {
+                fontSize: fontSize.sm,
+                fontFamily: fontFamily.mono,
+                color: colors.text.secondary,
+              },
+              titleAnimStyle,
+            ]}
+            numberOfLines={1}
+          >
+            {STOP_TITLES[titleIdx]}
+          </Animated.Text>
+        </View>
+      </View>
+    </View>
+  );
+});
+
+SkeletonStopReel.displayName = "SkeletonStopReel";
+
+// --- Skeleton stops container (animates count) ---
+
+const STOP_PATTERNS = [3, 4, 5, 4, 6, 5, 3, 5, 4];
+
+const SkeletonStops: React.FC<{ colors: Colors }> = React.memo(({ colors }) => {
+  const [stopCount, setStopCount] = useState(3);
+  const patternIdx = useRef(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      patternIdx.current = (patternIdx.current + 1) % STOP_PATTERNS.length;
+      setStopCount(STOP_PATTERNS[patternIdx.current]);
+    }, 3200);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <View>
+      {Array.from({ length: stopCount }, (_, i) => (
+        <Animated.View
+          key={i}
+          entering={FadeIn.duration(300).delay(i * 60)}
+          exiting={FadeOut.duration(200)}
+        >
+          <SkeletonStopReel
+            index={i}
+            isLast={i === stopCount - 1}
+            colors={colors}
+          />
+        </Animated.View>
+      ))}
+    </View>
+  );
+});
+
+SkeletonStops.displayName = "SkeletonStops";
+
+// --- Generating state constants ---
+
+const GEN_EMOJIS = [
+  "\u{1F5FA}\u{FE0F}", "\u{1F3AF}", "\u{1F3AA}", "\u{1F3AD}", "\u{1F3A8}",
+  "\u{1F3B5}", "\u{1F37D}\u{FE0F}", "\u{2615}", "\u{1F3DE}\u{FE0F}", "\u{1F6B6}",
+  "\u{1F3D5}\u{FE0F}", "\u{1F30A}", "\u{1F3DB}\u{FE0F}", "\u{1F3A4}",
+  "\u{1F9D7}", "\u{1F366}", "\u{1F6B2}", "\u{1F3B6}",
+];
+
+const GEN_MESSAGES = [
+  "Scanning local events\u2026",
+  "Searching verified venues\u2026",
+  "Scouting nearby trails\u2026",
+  "Pulling weather forecast\u2026",
+  "Building the route\u2026",
+  "Optimizing stop order\u2026",
+  "Finalizing your plan\u2026",
+];
+
+const SKELETON_TITLES = [
+  "Sunset District Crawl",
+  "Hidden Gem Day Trip",
+  "Culture & Coffee Walk",
+  "Neighborhood Explorer",
+  "Urban Adventure Loop",
+  "Local Flavor Tour",
+];
+
+const SKELETON_SUMMARIES = [
+  "A mix of outdoor spots and cozy indoor finds",
+  "Hitting the best-rated places near you",
+  "Balancing chill vibes with hidden discoveries",
+  "An afternoon of art, food, and fresh air",
+  "From morning coffee to evening cocktails",
+  "Exploring off-the-beaten-path favorites",
+];
+
+const REEL_H = 28;
+const REEL_SPINS = 2;
+
+const GeneratingEmojiReel: React.FC = React.memo(() => {
+  const translateY = useSharedValue(0);
+
+  const reelEmojis = useMemo(() => {
+    const items: string[] = [];
+    for (let i = 0; i < REEL_SPINS + 1; i++) items.push(...GEN_EMOJIS);
+    return items;
+  }, []);
+
+  const spin = useCallback(() => {
+    const landIdx =
+      REEL_SPINS * GEN_EMOJIS.length +
+      Math.floor(Math.random() * GEN_EMOJIS.length);
+    translateY.value = 0;
+    translateY.value = withTiming(-landIdx * REEL_H, {
+      duration: 1200,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, []);
+
+  useEffect(() => {
+    spin();
+    const timer = setInterval(spin, 2800);
+    return () => clearInterval(timer);
+  }, [spin]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return (
+    <View style={{ height: REEL_H, overflow: "hidden" }}>
+      <Animated.View style={animStyle}>
+        {reelEmojis.map((emoji, i) => (
+          <Text
+            key={i}
+            style={{ height: REEL_H, lineHeight: REEL_H, fontSize: 22, textAlign: "center" }}
+          >
+            {emoji}
+          </Text>
+        ))}
+      </Animated.View>
+    </View>
+  );
+});
+
+GeneratingEmojiReel.displayName = "GeneratingEmojiReel";
+
 // --- Hero stat pill ---
 
 const STAT_COLORS = ["#93c5fd", "#86efac", "#fcd34d", "#c4b5fd", "#f9a8d4"];
@@ -136,17 +450,89 @@ const ItineraryDetailScreen = () => {
   const displayItinerary =
     isThisActive && activeItinerary ? activeItinerary : itinerary;
 
+  // Generating state
+  const [genMsgIdx, setGenMsgIdx] = useState(0);
+  const [skelTitleIdx, setSkelTitleIdx] = useState(0);
+  const [skelSummaryIdx, setSkelSummaryIdx] = useState(0);
+  const genTextOpacity = useSharedValue(1);
+  const skelHeroOpacity = useSharedValue(1);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
-    if (!id) return;
+    if (!id || id === "undefined") return;
     apiClient.itineraries
       .getById(id)
-      .then(setItinerary)
+      .then((data) => {
+        setItinerary(data);
+        // If still generating, start polling
+        if (data.status === "GENERATING") {
+          pollRef.current = setInterval(async () => {
+            try {
+              const updated = await apiClient.itineraries.getById(id);
+              if (updated.status !== "GENERATING") {
+                setItinerary(updated);
+                if (pollRef.current) clearInterval(pollRef.current);
+                // Clear the generating row in the itineraries list
+                const jobStore = useItineraryJobStore.getState();
+                if (jobStore.activeItineraryId === id) {
+                  jobStore.completeJob();
+                }
+              }
+            } catch {
+              // ignore transient fetch errors during polling
+            }
+          }, 3000);
+        }
+      })
       .catch((err) => {
         console.error("[ItineraryDetail] Failed to fetch:", err);
         setError("Failed to load itinerary");
       })
       .finally(() => setIsLoading(false));
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, [id]);
+
+  // Rotate generating messages
+  useEffect(() => {
+    if (itinerary?.status !== "GENERATING") return;
+    const timer = setInterval(() => {
+      genTextOpacity.value = withSequence(
+        withTiming(0, { duration: 250 }),
+        withTiming(1, { duration: 250 }),
+      );
+      setTimeout(() => {
+        setGenMsgIdx((i) => (i + 1) % GEN_MESSAGES.length);
+      }, 250);
+    }, 2800);
+    return () => clearInterval(timer);
+  }, [itinerary?.status]);
+
+  const genTextAnimStyle = useAnimatedStyle(() => ({
+    opacity: genTextOpacity.value,
+  }));
+
+  // Rotate skeleton hero title/summary
+  useEffect(() => {
+    if (itinerary?.status !== "GENERATING") return;
+    const timer = setInterval(() => {
+      skelHeroOpacity.value = withSequence(
+        withTiming(0, { duration: 300 }),
+        withTiming(1, { duration: 300 }),
+      );
+      setTimeout(() => {
+        setSkelTitleIdx((i) => (i + 1) % SKELETON_TITLES.length);
+        setSkelSummaryIdx((i) => (i + 1) % SKELETON_SUMMARIES.length);
+      }, 300);
+    }, 3400);
+    return () => clearInterval(timer);
+  }, [itinerary?.status]);
+
+  const skelHeroAnimStyle = useAnimatedStyle(() => ({
+    opacity: skelHeroOpacity.value,
+  }));
 
   // Listen for check-in events from push notifications
   useEffect(() => {
@@ -351,6 +737,81 @@ const ItineraryDetailScreen = () => {
         <View style={styles.centered}>
           <ActivityIndicator color={colors.accent.primary} />
         </View>
+      </Screen>
+    );
+  }
+
+  if (itinerary?.status === "GENERATING") {
+    return (
+      <Screen
+        isScrollable={false}
+        showBackButton
+        onBack={handleBack}
+        noAnimation
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollPadding}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Skeleton hero */}
+          <View style={styles.hero}>
+            {itinerary.title ? (
+              <Text style={styles.heroTitle}>{itinerary.title}</Text>
+            ) : (
+              <Animated.Text
+                style={[styles.heroTitle, { color: colors.text.secondary }, skelHeroAnimStyle]}
+                numberOfLines={1}
+              >
+                {SKELETON_TITLES[skelTitleIdx]}
+              </Animated.Text>
+            )}
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <SkeletonBar width={72} height={16} colors={colors} />
+              <SkeletonBar width={90} height={16} colors={colors} />
+            </View>
+            <Animated.Text
+              style={[
+                styles.heroSummary,
+                { color: colors.text.disabled },
+                skelHeroAnimStyle,
+              ]}
+              numberOfLines={1}
+            >
+              {SKELETON_SUMMARIES[skelSummaryIdx]}
+            </Animated.Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <SkeletonBar width={80} height={24} colors={colors} rounded />
+              <SkeletonBar width={64} height={24} colors={colors} rounded />
+              <SkeletonBar width={56} height={24} colors={colors} rounded />
+            </View>
+          </View>
+
+          {/* Skeleton map */}
+          <View style={{ marginTop: spacing.lg }}>
+            <SkeletonBar width="100%" height={160} colors={colors} />
+          </View>
+
+          {/* Status row */}
+          <View style={styles.skeletonStatusRow}>
+            <GeneratingEmojiReel />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Animated.Text
+                style={[styles.skeletonStatusTitle, genTextAnimStyle]}
+                numberOfLines={1}
+              >
+                {GEN_MESSAGES[genMsgIdx]}
+              </Animated.Text>
+              <Text style={styles.skeletonStatusSub}>
+                {itinerary.city
+                  ? `Crafting your ${itinerary.city} adventure`
+                  : "Crafting your adventure"}
+              </Text>
+            </View>
+          </View>
+
+          {/* Skeleton timeline stops — roulette reels that shuffle in/out */}
+          <SkeletonStops colors={colors} />
+        </ScrollView>
       </Screen>
     );
   }
@@ -844,6 +1305,59 @@ const createStyles = (colors: Colors) =>
       alignItems: "center",
       justifyContent: "center",
     },
+
+    /* Skeleton generating state */
+    skeletonStatusRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing._10,
+      marginTop: spacing.lg,
+      paddingVertical: spacing.md,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border.default,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.default,
+    },
+    skeletonStatusTitle: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+    },
+    skeletonStatusSub: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    skeletonStop: {
+      flexDirection: "row",
+      paddingTop: spacing.md,
+      minHeight: 64,
+    },
+    skeletonStopLeft: {
+      width: 44,
+      alignItems: "center",
+      gap: spacing.xs,
+    },
+    skeletonDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.border.default,
+    },
+    skeletonLine: {
+      width: 1,
+      flex: 1,
+      minHeight: 24,
+    },
+    skeletonStopContent: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.sm,
+      paddingBottom: spacing.md,
+    },
+
     errorText: {
       fontFamily: fontFamily.mono,
       fontSize: fontSize.sm,
