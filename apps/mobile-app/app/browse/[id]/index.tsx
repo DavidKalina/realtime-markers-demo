@@ -350,12 +350,13 @@ const SORT_TABS: { key: SortMode; label: string }[] = [
   { key: "top_rated", label: "Top Rated" },
 ];
 
-const MAX_SECTIONS = 4;
-const MAX_PER_SECTION = 4;
+const MAX_SECTIONS = 6;
+const MAX_PER_SECTION = 8;
 
 const AdventuresTab: React.FC<{ districtId: string }> = ({ districtId }) => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const router = useRouter();
   const [sortMode, setSortMode] = useState<SortMode>("popular");
   const [itineraries, setItineraries] = useState<BrowseItineraryPreview[]>([]);
 
@@ -405,26 +406,43 @@ const AdventuresTab: React.FC<{ districtId: string }> = ({ districtId }) => {
     ).slice(0, MAX_SECTIONS);
   }, [groupedByIntention]);
 
+  const handleViewAll = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/browse/${districtId}/all`);
+  }, [districtId, router]);
+
   return (
     <>
-      <View style={styles.sortBar}>
-        {SORT_TABS.map((tab) => {
-          const isActive = sortMode === tab.key;
-          return (
-            <Pressable
-              key={tab.key}
-              style={[styles.sortButton, isActive && styles.sortButtonActive]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setSortMode(tab.key);
-              }}
-            >
-              <Text style={[styles.sortText, isActive && styles.sortTextActive]}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+      <View style={styles.sortBarRow}>
+        <View style={styles.sortBar}>
+          {SORT_TABS.map((tab) => {
+            const isActive = sortMode === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                style={[styles.sortButton, isActive && styles.sortButtonActive]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSortMode(tab.key);
+                }}
+              >
+                <Text style={[styles.sortText, isActive && styles.sortTextActive]}>
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.viewAllButton,
+            pressed && { opacity: 0.6 },
+          ]}
+          onPress={handleViewAll}
+        >
+          <Text style={styles.viewAllText}>View All</Text>
+          <ChevronRight size={12} color={colors.text.secondary} />
+        </Pressable>
       </View>
 
       {sortedIntentions.length === 0 ? (
@@ -820,11 +838,27 @@ const createStyles = (colors: Colors) =>
     },
 
     /* Sort sub-tabs (within adventures) */
-    sortBar: {
+    sortBarRow: {
       flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
       marginHorizontal: spacing.lg,
       marginBottom: spacing.md,
+    },
+    sortBar: {
+      flexDirection: "row",
       gap: spacing.sm,
+    },
+    viewAllButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 2,
+    },
+    viewAllText: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
     },
     sortButton: {
       paddingHorizontal: spacing.md,

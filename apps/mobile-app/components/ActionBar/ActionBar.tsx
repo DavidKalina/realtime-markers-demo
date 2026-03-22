@@ -10,6 +10,7 @@ import {
   Camera,
   CompassIcon,
   GlobeIcon,
+  HexagonIcon,
   LucideIcon,
   LucideSword,
   User,
@@ -72,8 +73,8 @@ const TABS: TabConfig[] = [
   },
   {
     key: "browse",
-    label: "Browse",
-    icon: GlobeIcon,
+    label: "Districts",
+    icon: HexagonIcon,
     route: "/browse",
   },
   {
