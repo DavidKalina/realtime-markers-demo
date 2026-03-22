@@ -162,9 +162,12 @@ export class DistrictService {
       [bbox.minLat, bbox.maxLat, bbox.minLng, bbox.maxLng],
     );
 
-    if (itineraries.length < DBSCAN_MIN_POINTS) {
+    // Filter to only itineraries with embeddings
+    const embeddable = itineraries.filter((it) => it.embedding);
+
+    if (embeddable.length < DBSCAN_MIN_POINTS) {
       console.log(
-        `[DistrictService] Only ${itineraries.length} itineraries in region ${geohash}, skipping`,
+        `[DistrictService] Only ${embeddable.length} embeddable itineraries (${itineraries.length} total) in region ${geohash}, skipping`,
       );
       return;
     }
@@ -172,17 +175,10 @@ export class DistrictService {
     // Only debounce after confirming we have itineraries to cluster
     await this.redisService.set(debounceKey, "1", DEBOUNCE_TTL_SECONDS);
 
-    // Check if any itineraries have real embeddings
-    const hasEmbeddings = itineraries.some((it) => it.embedding);
-
-    // Parse or synthesize embeddings
-    const embeddings = itineraries.map((it) => {
-      if (it.embedding) {
-        return this.embeddingService.parseSqlEmbedding(it.embedding);
-      }
-      // Fallback: create a simple feature vector from activity types + intention
-      return this.synthesizeEmbedding(it);
-    });
+    // Parse embeddings
+    const embeddings = embeddable.map((it) =>
+      this.embeddingService.parseSqlEmbedding(it.embedding),
+    );
 
     // Run DBSCAN with cosine distance
     const dbscan = new DBSCAN();
@@ -211,7 +207,7 @@ export class DistrictService {
     const matchedDistrictIds = new Set<string>();
 
     for (const clusterIndices of clusters) {
-      const memberItineraries = clusterIndices.map((i) => itineraries[i]);
+      const memberItineraries = clusterIndices.map((i) => embeddable[i]);
       const memberEmbeddings = clusterIndices.map((i) => embeddings[i]);
 
       // Compute centroid embedding (element-wise mean)
@@ -350,7 +346,7 @@ export class DistrictService {
     }
 
     console.log(
-      `[DistrictService] Clustered region ${geohash}: ${clusters.length} clusters from ${itineraries.length} itineraries`,
+      `[DistrictService] Clustered region ${geohash}: ${clusters.length} clusters from ${embeddable.length} itineraries`,
     );
   }
 
