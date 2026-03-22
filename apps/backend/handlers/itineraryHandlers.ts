@@ -157,8 +157,7 @@ export const listItinerariesHandler: Handler = withErrorHandling(async (c) => {
 });
 
 export const getItineraryHandler: Handler = withErrorHandling(async (c) => {
-  const user = requireAuth(c);
-  const userId = user.id;
+  requireAuth(c);
 
   const id = c.req.param("id");
   if (!id) {
@@ -166,7 +165,7 @@ export const getItineraryHandler: Handler = withErrorHandling(async (c) => {
   }
 
   const itineraryService = c.get("itineraryService");
-  const itinerary = await itineraryService.getById(id, userId);
+  const itinerary = await itineraryService.getById(id);
 
   if (!itinerary) {
     return c.json({ error: "Itinerary not found" }, 404);

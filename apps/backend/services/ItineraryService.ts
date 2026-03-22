@@ -142,7 +142,7 @@ export interface ItineraryService {
     userId: string,
     options?: ListByUserOptions,
   ): Promise<{ data: Itinerary[]; nextCursor: string | null }>;
-  getById(id: string, userId: string): Promise<Itinerary | null>;
+  getById(id: string, userId?: string): Promise<Itinerary | null>;
   deleteById(id: string, userId: string): Promise<boolean>;
   generateShareToken(id: string, userId: string): Promise<string | null>;
   getByShareToken(shareToken: string): Promise<Itinerary | null>;
@@ -756,9 +756,11 @@ DIVERSITY IS CRITICAL — the 5 suggestions must feel like 5 completely differen
     return { data, nextCursor };
   }
 
-  async getById(id: string, userId: string): Promise<Itinerary | null> {
+  async getById(id: string, userId?: string): Promise<Itinerary | null> {
+    const where: Record<string, string> = { id };
+    if (userId) where.userId = userId;
     return this.dataSource.getRepository(Itinerary).findOne({
-      where: { id, userId },
+      where,
       relations: ["items"],
       order: { items: { sortOrder: "ASC" } },
     });
