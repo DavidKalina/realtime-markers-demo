@@ -348,8 +348,8 @@ const SORT_TABS: { key: SortMode; label: string }[] = [
   { key: "top_rated", label: "Top Rated" },
 ];
 
-const MAX_SECTIONS = 5;
-const MAX_PER_SECTION = 6;
+const MAX_SECTIONS = 4;
+const MAX_PER_SECTION = 4;
 
 const AdventuresTab: React.FC<{ districtId: string }> = ({ districtId }) => {
   const colors = useColors();
