@@ -7,13 +7,21 @@ export interface BrowseItineraryPreview {
   summary: string | null;
   city: string;
   intention: string | null;
+  entryLatitude: number | null;
+  entryLongitude: number | null;
   durationHours: number;
   rating: number | null;
   timesAdopted: number;
   itemCount: number;
   creatorFirstName: string | null;
   completedAt: string;
-  items: { emoji: string | null; title: string; venueName: string | null }[];
+  items: {
+    emoji: string | null;
+    title: string;
+    venueName: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  }[];
 }
 
 export interface DistrictMomentum {
@@ -73,7 +81,12 @@ export interface DistrictDetailResponse {
 export interface CoverageResponse {
   total: number;
   explored: number;
-  districts: { id: string; name: string; explored: boolean }[];
+  districts: {
+    id: string;
+    name: string;
+    explored: boolean;
+    completedCount: number;
+  }[];
 }
 
 export class DistrictsModule extends BaseApiModule {

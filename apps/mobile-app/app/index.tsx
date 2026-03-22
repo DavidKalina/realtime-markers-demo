@@ -1,11 +1,7 @@
 /* eslint-disable prefer-const */
 import { createStyles as createHomeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
-import MapFilterSheet from "@/components/MapFilterSheet";
-import MapLegend from "@/components/MapLegend/MapLegend";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
-import { ClusteredMapMarkers } from "@/components/Markers/MarkerImplementation";
-import { MarkerInfoHUD } from "@/components/Markers/MarkerInfoHUD";
 import StatusBar from "@/components/StatusBar/StatusBar";
 import { createCameraSettings } from "@/config/cameraConfig";
 import { useRouter } from "expo-router";
@@ -13,13 +9,11 @@ import { useUserLocation } from "@/contexts/LocationContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useAppActive } from "@/hooks/useAppActive";
 import { useCameraFollowMode } from "@/hooks/useCameraFollowMode";
-import { useCategoryPreferences } from "@/hooks/useCategoryPreferences";
 import { useInitialLocation } from "@/hooks/useInitialLocation";
 import { useMapCamera } from "@/hooks/useMapCamera";
 import { useMapLoadingState } from "@/hooks/useMapLoadingState";
 import { useMapMountGate } from "@/hooks/useMapMountGate";
 import { useMapViewport } from "@/hooks/useMapViewport";
-import { useMapWebSocket } from "@/hooks/useMapWebSocket";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { useJobSheetStore } from "@/stores/useJobSheetStore";
 import { useLocationStore } from "@/stores/useLocationStore";
@@ -28,7 +22,7 @@ import MapboxGL from "@rnmapbox/maps";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { ClipboardList, Navigation, Radar } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -37,14 +31,11 @@ import {
   View,
 } from "react-native";
 import RAnimated from "react-native-reanimated";
-import { MapDensityLayers } from "@/components/Markers/MapDensityLayers";
 import AnchorMarkers from "@/components/Markers/AnchorMarkers";
 import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
 import ItineraryRouteLayer from "@/components/Itinerary/ItineraryRouteLayer";
 import ItineraryWaypoints from "@/components/Itinerary/ItineraryWaypoints";
 import AdventureHUD from "@/components/Itinerary/AdventureHUD";
-import ItineraryCarousel from "@/components/Itinerary/ItineraryCarousel";
-import ItineraryMapMarkers from "@/components/Itinerary/ItineraryMapMarkers";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useItineraryReveal } from "@/hooks/useItineraryReveal";
 import { useItineraryPreviewOrbit } from "@/hooks/useItineraryPreviewOrbit";
@@ -53,9 +44,15 @@ import { useRecentItineraries } from "@/hooks/useRecentItineraries";
 import { useFabAnimations } from "@/hooks/useFabAnimations";
 import { useScanAreaRipple } from "@/hooks/useScanAreaRipple";
 import { useAnchorPlanning } from "@/hooks/useAnchorPlanning";
-import { useItineraryBrowsing } from "@/hooks/useItineraryBrowsing";
 import { useMapInteractions } from "@/hooks/useMapInteractions";
 import { useEventBroker } from "@/hooks/useEventBroker";
+import { useDistrictMapData } from "@/hooks/useDistrictMapData";
+import { useDistrictFocus } from "@/hooks/useDistrictFocus";
+import { DistrictZonesLayer } from "@/components/Districts/DistrictZonesLayer";
+import { CommunityItineraryMarkers } from "@/components/Districts/CommunityItineraryMarkers";
+import { CommunityItineraryPreviewCard } from "@/components/Districts/CommunityItineraryPreviewCard";
+import { useDistrictMapStore } from "@/stores/useDistrictMapStore";
+import type { BrowseItineraryPreview } from "@/services/api/modules/districts";
 
 // Set access token at module scope (lightweight, required before MapView renders)
 MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
@@ -152,21 +149,7 @@ function HomeScreenContent() {
     startLocationTracking();
   }, [startLocationTracking]);
 
-  // ── Category filters ────────────────────────────────────────────────
-  const {
-    categories: filterCategories,
-    includedCategoryIds,
-    excludedCategoryIds,
-    hasActiveFilters,
-    handleCategoryFilterChange,
-    clearAllFilters,
-  } = useCategoryPreferences();
-
-  // ── WebSocket & camera ──────────────────────────────────────────────
-  const { updateViewport, currentViewport } = useMapWebSocket(
-    process.env.EXPO_PUBLIC_WEB_SOCKET_URL!,
-  );
-
+  // ── Camera ─────────────────────────────────────────────────────────
   useMapCamera({ cameraRef });
 
   const { isMapLoading, handleMapReady } = useMapLoadingState({
@@ -192,18 +175,8 @@ function HomeScreenContent() {
   const { handlePreviewStop, isOrbiting, isOrbitingRef } =
     useItineraryPreviewOrbit({ cameraRef, isPitched });
 
-  // ── Recent itineraries + browsing ───────────────────────────────────
+  // ── Recent itineraries ─────────────────────────────────────────────
   const { itineraries: recentItineraries } = useRecentItineraries();
-
-  const {
-    selectedItineraryIndex,
-    handleItineraryMarkerSelect,
-    handleCarouselIndexChange,
-    handleCarouselDismiss,
-  } = useItineraryBrowsing({
-    itineraries: recentItineraries,
-    handlePreviewStop,
-  });
 
   // ── DEV: simulate itinerary check-ins ───────────────────────────────
   const { startSimulation, stopSimulation } = useSimulateItinerary(
@@ -220,16 +193,15 @@ function HomeScreenContent() {
 
   // ── Viewport ────────────────────────────────────────────────────────
   const { handleRegionChanging } = useMapViewport({
-    updateViewport,
     isPitched,
     paused: isOrbiting,
     pausedRef: isOrbitingRef,
   });
 
   // ── Map interactions ────────────────────────────────────────────────
-  const { handleMapPress } = useMapInteractions({
-    selectedItineraryIndex,
-    handleCarouselDismiss,
+  const { handleMapPress: baseMapPress } = useMapInteractions({
+    selectedItineraryIndex: null,
+    handleCarouselDismiss: () => {},
   });
 
   // ── Anchor planning ─────────────────────────────────────────────────
@@ -254,6 +226,60 @@ function HomeScreenContent() {
     publish,
   });
 
+  // ── District map data + focus ──────────────────────────────────────
+  useDistrictMapData();
+  useDistrictFocus();
+
+  // ── Community itinerary selection ─────────────────────────────────
+  const [selectedCommunityItinerary, setSelectedCommunityItinerary] =
+    useState<{ itinerary: BrowseItineraryPreview; districtId: string } | null>(
+      null,
+    );
+  const districts = useDistrictMapStore((s) => s.districts);
+
+  const handleDistrictPress = useCallback(
+    (districtId: string) => {
+      if (selectedCommunityItinerary) {
+        setSelectedCommunityItinerary(null);
+        handlePreviewStop(null);
+        return;
+      }
+      router.push(`/browse/${districtId}`);
+    },
+    [router, selectedCommunityItinerary, handlePreviewStop],
+  );
+
+  const handleCommunityMarkerSelect = useCallback(
+    (itinerary: BrowseItineraryPreview, districtId: string) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setSelectedCommunityItinerary({ itinerary, districtId });
+
+      // Fly camera to the itinerary's entry point with 3D orbit
+      if (itinerary.entryLatitude && itinerary.entryLongitude) {
+        handlePreviewStop({
+          coordinate: [itinerary.entryLongitude, itinerary.entryLatitude],
+          emoji: itinerary.items?.[0]?.emoji ?? "\u{1F4CD}",
+          color: "#86efac",
+          title: itinerary.title ?? "",
+        });
+      }
+    },
+    [handlePreviewStop],
+  );
+
+  const handleCommunityDismiss = useCallback(() => {
+    setSelectedCommunityItinerary(null);
+    handlePreviewStop(null); // Stop orbit, restore camera
+  }, [handlePreviewStop]);
+
+  const handleMapPress = useCallback(() => {
+    if (selectedCommunityItinerary) {
+      setSelectedCommunityItinerary(null);
+      handlePreviewStop(null);
+    }
+    baseMapPress();
+  }, [baseMapPress, selectedCommunityItinerary, handlePreviewStop]);
+
   // ── Scan area + ripple ──────────────────────────────────────────────
   const {
     scanAreaRef,
@@ -273,30 +299,13 @@ function HomeScreenContent() {
     [userLocation],
   );
 
-  const shouldRenderMarkers = useMemo(
-    () => Boolean(currentViewport && !isLoadingLocation),
-    [isLoadingLocation, currentViewport],
-  );
-
   const hasActiveQuest = !!activeItinerary;
 
-  // Native density layers (heatmap + circles) for zoom < 14
-  const densityLayersComponent = useMemo(() => {
-    if (!shouldRenderMarkers) return null;
-    return <MapDensityLayers dimmed={hasActiveQuest} />;
-  }, [shouldRenderMarkers, hasActiveQuest]);
-
-  // MarkerView pool for zoom >= 14 (ClusteredMapMarkers returns null below 14)
-  const markersComponent = useMemo(() => {
-    if (!shouldRenderMarkers || !currentViewport) return null;
-    return (
-      <ClusteredMapMarkers
-        viewport={currentViewport}
-        currentZoom={zoomLevel}
-        dimmed={hasActiveQuest}
-      />
-    );
-  }, [shouldRenderMarkers, currentViewport, zoomLevel, hasActiveQuest]);
+  // District Voronoi zones (fog of war)
+  const districtZonesComponent = useMemo(() => {
+    if (isLoadingLocation) return null;
+    return <DistrictZonesLayer dimmed={hasActiveQuest} onDistrictPress={handleDistrictPress} />;
+  }, [isLoadingLocation, hasActiveQuest, handleDistrictPress]);
 
   const userLocationLayer = useMemo(() => {
     if (!locationPermissionGranted) return null;
@@ -305,7 +314,7 @@ function HomeScreenContent() {
     );
   }, [locationPermissionGranted]);
 
-  const aboveActionBar = 0;
+
 
   const cameraSettings = useMemo(
     () => ({
@@ -354,16 +363,6 @@ function HomeScreenContent() {
           </TouchableOpacity>
         </RAnimated.View>
         <RAnimated.View style={fabStyle1}>
-          <MapFilterSheet
-            categories={filterCategories}
-            includedCategoryIds={includedCategoryIds}
-            excludedCategoryIds={excludedCategoryIds}
-            onCategoryFilterChange={handleCategoryFilterChange}
-            onClearAll={clearAllFilters}
-            hasActiveFilters={hasActiveFilters}
-          />
-        </RAnimated.View>
-        <RAnimated.View style={fabStyle2}>
           <TouchableOpacity
             ref={scanAreaRef}
             style={styles.recenterButton}
@@ -391,12 +390,6 @@ function HomeScreenContent() {
       isFollowing,
       recenter,
       handleScanArea,
-      filterCategories,
-      includedCategoryIds,
-      excludedCategoryIds,
-      hasActiveFilters,
-      handleCategoryFilterChange,
-      clearAllFilters,
       hasInFlight,
       openJobSheet,
       handleSimTrigger,
@@ -460,14 +453,13 @@ function HomeScreenContent() {
               defaultSettings={cameraSettings}
               {...staticCameraProps}
             />
-            {densityLayersComponent}
-            {markersComponent}
+            {districtZonesComponent}
             <AnchorMarkers />
             {!activeItinerary && (
-              <ItineraryMapMarkers
-                itineraries={recentItineraries}
-                selectedIndex={selectedItineraryIndex}
-                onSelect={handleItineraryMarkerSelect}
+              <CommunityItineraryMarkers
+                dimmed={false}
+                onSelect={handleCommunityMarkerSelect}
+                selectedId={selectedCommunityItinerary?.itinerary.id ?? null}
               />
             )}
             {itineraryLayersSafe && (
@@ -490,13 +482,21 @@ function HomeScreenContent() {
 
         {rippleEffectComponent}
 
-        <MarkerInfoHUD safeAreaBottom={aboveActionBar} />
-
-        <MapLegend />
-
         {floatingButtonsSection}
 
-        {!selectedItem && !activeItinerary && (
+        {selectedCommunityItinerary && !activeItinerary && (
+          <CommunityItineraryPreviewCard
+            itinerary={selectedCommunityItinerary.itinerary}
+            districtName={
+              districts.find(
+                (d) => d.id === selectedCommunityItinerary.districtId,
+              )?.name ?? ""
+            }
+            onDismiss={handleCommunityDismiss}
+            style={planBannerStyles.dialogBox}
+          />
+        )}
+        {!selectedItem && !activeItinerary && !selectedCommunityItinerary && (
           <>
             <ItineraryDialogBox
               city={anchorCity ?? undefined}
@@ -513,17 +513,6 @@ function HomeScreenContent() {
               onAnchorRemove={handleAnchorRemove}
               style={planBannerStyles.dialogBox}
             />
-            {selectedItineraryIndex != null && anchorAnchors.length === 0 && (
-              <ItineraryCarousel
-                style={planBannerStyles.carousel}
-                itineraries={recentItineraries}
-                activeIndex={selectedItineraryIndex}
-                onIndexChange={handleCarouselIndexChange}
-                onPreviewStop={handlePreviewStop}
-                onBack={handleCarouselDismiss}
-                isOrbiting={isOrbiting}
-              />
-            )}
           </>
         )}
         {activeItinerary && (

@@ -5,7 +5,6 @@ import { BaseEvent, EventTypes } from "@/services/EventBroker";
 import { MapboxViewport } from "@/types/types";
 
 interface UseMapViewportOptions {
-  updateViewport: (viewport: MapboxViewport) => void;
   isPitched: boolean;
   /** When true, viewport updates are suppressed (e.g. during orbit animation) */
   paused?: boolean;
@@ -13,19 +12,7 @@ interface UseMapViewportOptions {
   pausedRef?: React.RefObject<boolean>;
 }
 
-/**
- * Zoom-aware client-side debounce: at high zoom individual markers are visible
- * so we want snappy updates; at low zoom everything is clustered so we can
- * afford a wider debounce window, reducing WebSocket churn and re-clustering.
- */
-function getClientDebounceMs(zoom: number): number {
-  if (zoom >= 14) return 50;
-  if (zoom >= 10) return 120;
-  return 250;
-}
-
 export function useMapViewport({
-  updateViewport,
   isPitched,
   paused,
   pausedRef: externalPausedRef,
@@ -36,44 +23,6 @@ export function useMapViewport({
     useState<MapboxViewport | null>(null);
   const internalPausedRef = useRef(paused);
   internalPausedRef.current = paused;
-
-  // Zoom-aware debounce: fires once at the start (leading) and once after the
-  // last call (trailing). The debounce window scales with zoom — tight at high
-  // zoom where individual markers matter, wider at low zoom where everything
-  // is clustered.
-  const viewportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingViewportRef = useRef<MapboxViewport | null>(null);
-  const hasFiredLeadingRef = useRef(false);
-
-  const debouncedUpdateViewport = useCallback(
-    (viewport: MapboxViewport) => {
-      const zoom = useLocationStore.getState().zoomLevel;
-      const wait = getClientDebounceMs(zoom);
-
-      pendingViewportRef.current = viewport;
-
-      // Leading edge: fire immediately on first call
-      if (!hasFiredLeadingRef.current) {
-        hasFiredLeadingRef.current = true;
-        updateViewport(viewport);
-      }
-
-      // Reset trailing timer
-      if (viewportTimerRef.current) {
-        clearTimeout(viewportTimerRef.current);
-      }
-
-      viewportTimerRef.current = setTimeout(() => {
-        hasFiredLeadingRef.current = false;
-        viewportTimerRef.current = null;
-        if (pendingViewportRef.current) {
-          updateViewport(pendingViewportRef.current);
-          pendingViewportRef.current = null;
-        }
-      }, wait);
-    },
-    [updateViewport],
-  );
 
   const processViewportBounds = useCallback(
     (
@@ -150,20 +99,13 @@ export function useMapViewport({
         if (viewport) {
           const rectangle = calculateViewportRectangle(viewport, isPitched);
           setViewportRectangle(rectangle);
-          if (!internalPausedRef.current && !externalPausedRef?.current) {
-            debouncedUpdateViewport(rectangle);
-          }
+          useLocationStore.getState().updateMapViewport(rectangle);
         }
       } catch (error) {
         console.error("Error processing viewport change:", error);
       }
     },
-    [
-      debouncedUpdateViewport,
-      processViewportBounds,
-      calculateViewportRectangle,
-      isPitched,
-    ],
+    [processViewportBounds, calculateViewportRectangle, isPitched],
   );
 
   const handleRegionChanging = useCallback(
@@ -171,9 +113,6 @@ export function useMapViewport({
       try {
         if (!feature || typeof feature !== "object") return;
 
-        // During orbit the camera only rotates heading/pitch — position and
-        // zoom never change. Skip all state updates to avoid ~30 re-renders/sec
-        // that cascade into marker re-clustering and animation restarts.
         if (internalPausedRef.current || externalPausedRef?.current) return;
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -185,8 +124,6 @@ export function useMapViewport({
           setZoomLevel(zoomLevel);
         }
 
-        // Detect user-initiated panning via Mapbox's native flag — more
-        // reliable than onTouchMove which the native map layer can swallow.
         if (properties.isUserInteraction) {
           publish<BaseEvent>(EventTypes.USER_PANNING_VIEWPORT, {
             timestamp: Date.now(),

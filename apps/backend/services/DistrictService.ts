@@ -23,13 +23,21 @@ export interface BrowseItinerary {
   summary: string | null;
   city: string;
   intention: string | null;
+  entryLatitude: number | null;
+  entryLongitude: number | null;
   durationHours: number;
   rating: number | null;
   timesAdopted: number;
   itemCount: number;
   creatorFirstName: string | null;
   completedAt: string;
-  items: { emoji: string | null; title: string; venueName: string | null }[];
+  items: {
+    emoji: string | null;
+    title: string;
+    venueName: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  }[];
 }
 
 export interface DistrictMomentum {
@@ -89,7 +97,12 @@ export interface DistrictDetailResult {
 export interface CoverageResult {
   total: number;
   explored: number;
-  districts: { id: string; name: string; explored: boolean }[];
+  districts: {
+    id: string;
+    name: string;
+    explored: boolean;
+    completedCount: number;
+  }[];
 }
 
 interface ItineraryRow {
@@ -116,7 +129,7 @@ const CENTROID_MATCH_THRESHOLD = parseFloat(
   process.env.DISTRICT_MATCH_THRESHOLD || "0.85",
 );
 const DEBOUNCE_TTL_SECONDS = 3600;
-const PREVIEW_COUNT = 3;
+const PREVIEW_COUNT = 6;
 
 // --- Service ---
 
@@ -547,6 +560,7 @@ export class DistrictService {
     const rows = await this.dataSource.query(
       `SELECT
         i.id, i.title, i.summary, i.city, i.intention,
+        i.entry_latitude, i.entry_longitude,
         i.duration_hours, i.rating, i.times_adopted,
         i.completed_at, u.first_name AS creator_first_name,
         (SELECT COUNT(*) FROM itinerary_items ii WHERE ii.itinerary_id = i.id) AS item_count
@@ -565,39 +579,7 @@ export class DistrictService {
     const hasMore = rows.length > limit;
     const resultRows = hasMore ? rows.slice(0, limit) : rows;
 
-    // Load items for each itinerary
-    const itineraries: BrowseItinerary[] = [];
-    for (const row of resultRows) {
-      const items = await this.dataSource.query(
-        `SELECT emoji, title, venue_name
-         FROM itinerary_items
-         WHERE itinerary_id = $1
-         ORDER BY sort_order ASC
-         LIMIT 3`,
-        [row.id],
-      );
-
-      itineraries.push({
-        id: row.id,
-        title: row.title,
-        summary: row.summary,
-        city: row.city,
-        intention: row.intention,
-        durationHours: Number(row.duration_hours),
-        rating: row.rating ? Number(row.rating) : null,
-        timesAdopted: Number(row.times_adopted),
-        itemCount: Number(row.item_count),
-        creatorFirstName: row.creator_first_name,
-        completedAt: row.completed_at?.toISOString?.() || row.completed_at,
-        items: items.map(
-          (item: { emoji: string; title: string; venue_name: string }) => ({
-            emoji: item.emoji,
-            title: item.title,
-            venueName: item.venue_name,
-          }),
-        ),
-      });
-    }
+    const itineraries = await this.batchLoadBrowseItineraries(resultRows);
 
     const lastRow = resultRows[resultRows.length - 1];
     const nextCursor =
@@ -690,26 +672,31 @@ export class DistrictService {
       .map((_, i) => `$${i + 2}`)
       .join(", ");
 
-    const explored: { district_id: string }[] = await this.dataSource.query(
-      `SELECT DISTINCT di.district_id
-       FROM district_itineraries di
-       JOIN itineraries i ON i.id = di.itinerary_id
-       WHERE di.district_id IN (${districtPlaceholders})
-         AND i.user_id = $1
-         AND i.completed_at IS NOT NULL
-         AND i.deleted_at IS NULL`,
-      [userId, ...districtIds],
-    );
+    const explored: { district_id: string; completed_count: string }[] =
+      await this.dataSource.query(
+        `SELECT di.district_id, COUNT(*)::text AS completed_count
+         FROM district_itineraries di
+         JOIN itineraries i ON i.id = di.itinerary_id
+         WHERE di.district_id IN (${districtPlaceholders})
+           AND i.user_id = $1
+           AND i.completed_at IS NOT NULL
+           AND i.deleted_at IS NULL
+         GROUP BY di.district_id`,
+        [userId, ...districtIds],
+      );
 
-    const exploredSet = new Set(explored.map((e) => e.district_id));
+    const exploredMap = new Map(
+      explored.map((e) => [e.district_id, Number(e.completed_count)]),
+    );
 
     return {
       total: nearbyDistricts.length,
-      explored: exploredSet.size,
+      explored: exploredMap.size,
       districts: nearbyDistricts.map((d) => ({
         id: d.id,
         name: d.name,
-        explored: exploredSet.has(d.id),
+        explored: exploredMap.has(d.id),
+        completedCount: exploredMap.get(d.id) ?? 0,
       })),
     };
   }
@@ -839,6 +826,82 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
     }
   }
 
+  private async batchLoadBrowseItineraries(
+    rows: Record<string, unknown>[],
+  ): Promise<BrowseItinerary[]> {
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((r) => r.id as string);
+    const placeholders = ids.map((_, i) => `$${i + 1}`).join(", ");
+
+    // Single query: top 3 items per itinerary using LATERAL join
+    const itemRows: {
+      itinerary_id: string;
+      emoji: string | null;
+      title: string;
+      venue_name: string | null;
+      latitude: string | null;
+      longitude: string | null;
+    }[] = await this.dataSource.query(
+      `SELECT sub.itinerary_id, sub.emoji, sub.title, sub.venue_name, sub.latitude, sub.longitude
+       FROM unnest(ARRAY[${placeholders}]::uuid[]) WITH ORDINALITY AS t(id, ord)
+       CROSS JOIN LATERAL (
+         SELECT ii.itinerary_id, ii.emoji, ii.title, ii.venue_name, ii.sort_order, ii.latitude, ii.longitude
+         FROM itinerary_items ii
+         WHERE ii.itinerary_id = t.id
+         ORDER BY ii.sort_order ASC
+         LIMIT 3
+       ) sub
+       ORDER BY t.ord, sub.sort_order`,
+      ids,
+    );
+
+    // Group items by itinerary id
+    const itemsByItinerary = new Map<
+      string,
+      {
+        emoji: string | null;
+        title: string;
+        venueName: string | null;
+        latitude: number | null;
+        longitude: number | null;
+      }[]
+    >();
+    for (const item of itemRows) {
+      let list = itemsByItinerary.get(item.itinerary_id);
+      if (!list) {
+        list = [];
+        itemsByItinerary.set(item.itinerary_id, list);
+      }
+      list.push({
+        emoji: item.emoji,
+        title: item.title,
+        venueName: item.venue_name,
+        latitude: item.latitude ? Number(item.latitude) : null,
+        longitude: item.longitude ? Number(item.longitude) : null,
+      });
+    }
+
+    return rows.map((row) => ({
+      id: row.id as string,
+      title: row.title as string | null,
+      summary: row.summary as string | null,
+      city: row.city as string,
+      intention: row.intention as string | null,
+      entryLatitude: row.entry_latitude ? Number(row.entry_latitude) : null,
+      entryLongitude: row.entry_longitude ? Number(row.entry_longitude) : null,
+      durationHours: Number(row.duration_hours),
+      rating: row.rating ? Number(row.rating) : null,
+      timesAdopted: Number(row.times_adopted),
+      itemCount: Number(row.item_count),
+      creatorFirstName: row.creator_first_name as string | null,
+      completedAt:
+        (row.completed_at as Date)?.toISOString?.() ||
+        (row.completed_at as string),
+      items: itemsByItinerary.get(row.id as string) || [],
+    }));
+  }
+
   private async loadPreviewItineraries(
     districtId: string,
     count: number,
@@ -846,6 +909,7 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
     const rows = await this.dataSource.query(
       `SELECT
         i.id, i.title, i.summary, i.city, i.intention,
+        i.entry_latitude, i.entry_longitude,
         i.duration_hours, i.rating, i.times_adopted,
         i.completed_at, u.first_name AS creator_first_name,
         (SELECT COUNT(*) FROM itinerary_items ii WHERE ii.itinerary_id = i.id) AS item_count
@@ -860,40 +924,7 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
       [districtId, count],
     );
 
-    const previews: BrowseItinerary[] = [];
-    for (const row of rows) {
-      const items = await this.dataSource.query(
-        `SELECT emoji, title, venue_name
-         FROM itinerary_items
-         WHERE itinerary_id = $1
-         ORDER BY sort_order ASC
-         LIMIT 3`,
-        [row.id],
-      );
-
-      previews.push({
-        id: row.id,
-        title: row.title,
-        summary: row.summary,
-        city: row.city,
-        intention: row.intention,
-        durationHours: Number(row.duration_hours),
-        rating: row.rating ? Number(row.rating) : null,
-        timesAdopted: Number(row.times_adopted),
-        itemCount: Number(row.item_count),
-        creatorFirstName: row.creator_first_name,
-        completedAt: row.completed_at?.toISOString?.() || row.completed_at,
-        items: items.map(
-          (item: { emoji: string; title: string; venue_name: string }) => ({
-            emoji: item.emoji,
-            title: item.title,
-            venueName: item.venue_name,
-          }),
-        ),
-      });
-    }
-
-    return previews;
+    return this.batchLoadBrowseItineraries(rows);
   }
 
   // ───── Best Match ─────
@@ -916,6 +947,7 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
     const rows = await this.dataSource.query(
       `SELECT
         i.id, i.title, i.summary, i.city, i.intention,
+        i.entry_latitude, i.entry_longitude,
         i.duration_hours, i.rating, i.times_adopted,
         i.completed_at, u.first_name AS creator_first_name,
         (SELECT COUNT(*) FROM itinerary_items ii WHERE ii.itinerary_id = i.id) AS item_count,
@@ -934,38 +966,8 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
 
     if (rows.length === 0) return null;
 
-    const row = rows[0];
-
-    // Load items for preview
-    const items = await this.dataSource.query(
-      `SELECT emoji, title, venue_name
-       FROM itinerary_items
-       WHERE itinerary_id = $1
-       ORDER BY sort_order ASC
-       LIMIT 3`,
-      [row.id],
-    );
-
-    return {
-      id: row.id,
-      title: row.title,
-      summary: row.summary,
-      city: row.city,
-      intention: row.intention,
-      durationHours: Number(row.duration_hours),
-      rating: row.rating ? Number(row.rating) : null,
-      timesAdopted: Number(row.times_adopted),
-      itemCount: Number(row.item_count),
-      creatorFirstName: row.creator_first_name,
-      completedAt: row.completed_at?.toISOString?.() || row.completed_at,
-      items: items.map(
-        (item: { emoji: string; title: string; venue_name: string }) => ({
-          emoji: item.emoji,
-          title: item.title,
-          venueName: item.venue_name,
-        }),
-      ),
-    };
+    const [result] = await this.batchLoadBrowseItineraries([rows[0]]);
+    return result ?? null;
   }
 
   // ───── District Analytics ─────
