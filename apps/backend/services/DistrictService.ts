@@ -157,6 +157,8 @@ export class DistrictService {
         i.activity_types, i.categories, i.rating, i.times_adopted
       FROM itineraries i
       WHERE i.status = 'READY'
+        AND i.is_published = true
+        AND i.completed_at IS NOT NULL
         AND i.entry_latitude IS NOT NULL
         AND i.entry_longitude IS NOT NULL
         AND i.deleted_at IS NULL

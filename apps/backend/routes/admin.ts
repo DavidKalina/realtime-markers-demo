@@ -8,6 +8,15 @@ import { rateLimit } from "../middleware/rateLimit";
 import { UserRole } from "@realtime-markers/database";
 import { adminCreateItineraryHandler } from "../handlers/adminItineraryHandlers";
 import {
+  listDistrictsHandler,
+  getDistrictDetailHandler,
+  renameDistrictHandler,
+  deleteDistrictHandler,
+  reclusterRegionHandler,
+  reclusterAllHandler,
+  getClusteringConfigHandler,
+} from "../handlers/adminDistrictHandlers";
+import {
   getQueryInsightsHandler,
   getPopularQueriesHandler,
   getLowHitRateQueriesHandler,
@@ -160,6 +169,15 @@ adminRouter.post("/recalculate-counts", async (c) => {
 
 // Itinerary Management
 adminRouter.post("/itineraries", adminCreateItineraryHandler);
+
+// District Management
+adminRouter.get("/districts", listDistrictsHandler);
+adminRouter.get("/districts/config", getClusteringConfigHandler);
+adminRouter.get("/districts/:id", getDistrictDetailHandler);
+adminRouter.post("/districts/:id/rename", renameDistrictHandler);
+adminRouter.post("/districts/:id/recluster", reclusterRegionHandler);
+adminRouter.delete("/districts/:id", deleteDistrictHandler);
+adminRouter.post("/districts/recluster-all", reclusterAllHandler);
 
 // Query Analytics Endpoints
 adminRouter.get("/analytics/queries/insights", getQueryInsightsHandler);

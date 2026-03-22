@@ -6,6 +6,7 @@ import {
   BarChart3,
   Calendar,
   DollarSign,
+  Hexagon,
   Loader2,
   MapPin,
   Plus,
@@ -51,6 +52,11 @@ const tabs = [
     name: "Itineraries",
     href: "/itineraries/create",
     icon: Route,
+  },
+  {
+    name: "Districts",
+    href: "/districts",
+    icon: Hexagon,
   },
   {
     name: "LLM Costs",
