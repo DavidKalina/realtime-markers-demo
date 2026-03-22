@@ -77,6 +77,7 @@ export interface DistrictDetailResult {
     totalAdoptions: number;
     activityTags: string[];
     momentum: DistrictMomentum | null;
+    vitalityScore: number;
   };
   itineraries: BrowseItinerary[];
   nextCursor: string | null;
@@ -138,7 +139,9 @@ export class DistrictService {
     const debounceKey = `district:debounce:${geohash}`;
     const debounced = await this.redisService.get<string>(debounceKey);
     if (debounced) {
-      console.log(`[DistrictService] Skipping cluster for ${geohash} (debounced)`);
+      console.log(
+        `[DistrictService] Skipping cluster for ${geohash} (debounced)`,
+      );
       return;
     }
 
@@ -186,7 +189,8 @@ export class DistrictService {
       embeddings,
       DBSCAN_EPSILON,
       DBSCAN_MIN_POINTS,
-      (a: number[], b: number[]) => 1 - this.embeddingService.calculateSimilarity(a, b),
+      (a: number[], b: number[]) =>
+        1 - this.embeddingService.calculateSimilarity(a, b),
     );
 
     // Load existing active districts in this region
@@ -195,8 +199,9 @@ export class DistrictService {
       name: string;
       description: string;
       embedding_centroid: string;
+      activity_tags: string[];
     }[] = await this.dataSource.query(
-      `SELECT id, name, description, embedding_centroid
+      `SELECT id, name, description, embedding_centroid, activity_tags
        FROM districts
        WHERE centroid_lat BETWEEN $1 AND $2
          AND centroid_lng BETWEEN $3 AND $4
@@ -218,10 +223,19 @@ export class DistrictService {
       const centroidLng =
         memberItineraries.reduce((s, it) => s + Number(it.entry_longitude), 0) /
         memberItineraries.length;
-      const clusterGeohash = ngeohash.encode(centroidLat, centroidLng, GEOHASH_PRECISION);
+      const clusterGeohash = ngeohash.encode(
+        centroidLat,
+        centroidLng,
+        GEOHASH_PRECISION,
+      );
 
       // Try to match against existing district
-      let matchedDistrict: { id: string; name: string; description: string } | null = null;
+      let matchedDistrict: {
+        id: string;
+        name: string;
+        description: string;
+        activity_tags: string[];
+      } | null = null;
       let bestSimilarity = 0;
 
       for (const existing of existingDistricts) {
@@ -233,7 +247,10 @@ export class DistrictService {
           centroidEmbedding,
           existingCentroid,
         );
-        if (similarity >= CENTROID_MATCH_THRESHOLD && similarity > bestSimilarity) {
+        if (
+          similarity >= CENTROID_MATCH_THRESHOLD &&
+          similarity > bestSimilarity
+        ) {
           bestSimilarity = similarity;
           matchedDistrict = existing;
         }
@@ -252,6 +269,36 @@ export class DistrictService {
         // Update existing district
         matchedDistrictIds.add(matchedDistrict.id);
 
+        // Re-name if the activity composition has shifted significantly
+        const oldTags = new Set(matchedDistrict.activity_tags || []);
+        const newTags = new Set(activityTags);
+        const overlap = activityTags.filter((t) => oldTags.has(t)).length;
+        const maxTags = Math.max(oldTags.size, newTags.size, 1);
+        const shouldRename = overlap / maxTags < 0.5;
+
+        let nameUpdate = "";
+        const params: unknown[] = [
+          centroidLat,
+          centroidLng,
+          centroidSql,
+          activityTags,
+          memberItineraries.length,
+          avgRating,
+          totalAdoptions,
+          clusterGeohash,
+          matchedDistrict.id,
+        ];
+
+        if (shouldRename) {
+          const { name, description } =
+            await this.nameDistrict(memberItineraries);
+          nameUpdate = ", name = $10, description = $11";
+          params.push(name, description);
+          console.log(
+            `[DistrictService] Renamed district "${matchedDistrict.name}" → "${name}"`,
+          );
+        }
+
         await this.dataSource.query(
           `UPDATE districts SET
             centroid_lat = $1, centroid_lng = $2,
@@ -259,18 +306,9 @@ export class DistrictService {
             itinerary_count = $5, avg_rating = $6,
             total_adoptions = $7, geohash = $8,
             last_clustered_at = NOW(), updated_at = NOW()
+            ${nameUpdate}
           WHERE id = $9`,
-          [
-            centroidLat,
-            centroidLng,
-            centroidSql,
-            activityTags,
-            memberItineraries.length,
-            avgRating,
-            totalAdoptions,
-            clusterGeohash,
-            matchedDistrict.id,
-          ],
+          params,
         );
 
         // Replace membership
@@ -287,7 +325,8 @@ export class DistrictService {
         );
       } else {
         // Create new district
-        const { name, description } = await this.nameDistrict(memberItineraries);
+        const { name, description } =
+          await this.nameDistrict(memberItineraries);
 
         const [newDistrict] = await this.dataSource.query(
           `INSERT INTO districts
@@ -329,7 +368,9 @@ export class DistrictService {
       .map((d) => d.id);
 
     if (orphanedIds.length > 0) {
-      const orphanPlaceholders = orphanedIds.map((_, i) => `$${i + 1}`).join(", ");
+      const orphanPlaceholders = orphanedIds
+        .map((_, i) => `$${i + 1}`)
+        .join(", ");
       await this.dataSource.query(
         `UPDATE districts SET status = 'archived', updated_at = NOW()
          WHERE id IN (${orphanPlaceholders})`,
@@ -364,23 +405,22 @@ export class DistrictService {
     const geohashSet = new Set<string>();
     for (const c of coords) {
       geohashSet.add(
-        ngeohash.encode(Number(c.entry_latitude), Number(c.entry_longitude), GEOHASH_PRECISION),
+        ngeohash.encode(
+          Number(c.entry_latitude),
+          Number(c.entry_longitude),
+          GEOHASH_PRECISION,
+        ),
       );
     }
     const rows = [...geohashSet].map((gh) => ({ gh }));
 
-    console.log(
-      `[DistrictService] Clustering ${rows.length} geohash regions`,
-    );
+    console.log(`[DistrictService] Clustering ${rows.length} geohash regions`);
 
     for (const { gh } of rows) {
       try {
         await this.clusterRegion(gh);
       } catch (err) {
-        console.error(
-          `[DistrictService] Failed to cluster region ${gh}:`,
-          err,
-        );
+        console.error(`[DistrictService] Failed to cluster region ${gh}:`, err);
       }
     }
   }
@@ -483,11 +523,13 @@ export class DistrictService {
         orderClause = "i.created_at DESC, i.id DESC";
         break;
       case "top_rated":
-        orderClause = "COALESCE(i.rating, 0) DESC, i.created_at DESC, i.id DESC";
+        orderClause =
+          "COALESCE(i.rating, 0) DESC, i.created_at DESC, i.id DESC";
         break;
       case "popular":
       default:
-        orderClause = "(i.times_adopted * 2 + COALESCE(i.rating, 0)) DESC, i.created_at DESC, i.id DESC";
+        orderClause =
+          "(i.times_adopted * 2 + COALESCE(i.rating, 0)) DESC, i.created_at DESC, i.id DESC";
         break;
     }
 
@@ -545,25 +587,37 @@ export class DistrictService {
         itemCount: Number(row.item_count),
         creatorFirstName: row.creator_first_name,
         completedAt: row.completed_at?.toISOString?.() || row.completed_at,
-        items: items.map((item: { emoji: string; title: string; venue_name: string }) => ({
-          emoji: item.emoji,
-          title: item.title,
-          venueName: item.venue_name,
-        })),
+        items: items.map(
+          (item: { emoji: string; title: string; venue_name: string }) => ({
+            emoji: item.emoji,
+            title: item.title,
+            venueName: item.venue_name,
+          }),
+        ),
       });
     }
 
     const lastRow = resultRows[resultRows.length - 1];
-    const nextCursor = hasMore && lastRow
-      ? `${lastRow.completed_at?.toISOString?.() || lastRow.completed_at}|${lastRow.id}`
-      : null;
+    const nextCursor =
+      hasMore && lastRow
+        ? `${lastRow.completed_at?.toISOString?.() || lastRow.completed_at}|${lastRow.id}`
+        : null;
 
-    const [momentum, activityDna, activityHeatmap, bestMatch] = await Promise.all([
-      this.getDistrictMomentum(districtId),
-      this.getDistrictActivityDna(districtId),
-      this.getDistrictActivityHeatmap(districtId),
-      this.getBestMatch(districtId, userId),
-    ]);
+    const [momentum, activityDna, activityHeatmap, bestMatch] =
+      await Promise.all([
+        this.getDistrictMomentum(districtId),
+        this.getDistrictActivityDna(districtId),
+        this.getDistrictActivityHeatmap(districtId),
+        this.getBestMatch(districtId, userId),
+      ]);
+
+    const vitalityScore = computeVitalityScore({
+      itineraryCount: district.itinerary_count,
+      avgRating: Number(district.avg_rating) || 0,
+      totalAdoptions: district.total_adoptions,
+      varietyCount: new Set(activityDna.map((d) => d.activity)).size,
+      momentum,
+    });
 
     return {
       district: {
@@ -577,6 +631,7 @@ export class DistrictService {
         totalAdoptions: district.total_adoptions,
         activityTags: district.activity_tags || [],
         momentum,
+        vitalityScore,
       },
       itineraries,
       nextCursor,
@@ -615,8 +670,12 @@ export class DistrictService {
     const radiusMeters = radiusMiles * 1609.34;
     const nearbyDistricts = districts.filter(
       (d) =>
-        haversineMeters(lat, lng, Number(d.centroid_lat), Number(d.centroid_lng)) <=
-        radiusMeters,
+        haversineMeters(
+          lat,
+          lng,
+          Number(d.centroid_lat),
+          Number(d.centroid_lng),
+        ) <= radiusMeters,
     );
 
     if (nearbyDistricts.length === 0) {
@@ -625,7 +684,9 @@ export class DistrictService {
 
     // Check which districts user has completed itineraries in
     const districtIds = nearbyDistricts.map((d) => d.id);
-    const districtPlaceholders = districtIds.map((_, i) => `$${i + 2}`).join(", ");
+    const districtPlaceholders = districtIds
+      .map((_, i) => `$${i + 2}`)
+      .join(", ");
 
     const explored: { district_id: string }[] = await this.dataSource.query(
       `SELECT DISTINCT di.district_id
@@ -699,7 +760,8 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
     } catch (err) {
       console.error("[DistrictService] Failed to name district:", err);
       // Fallback: use top activity types
-      const fallbackName = allActivityTypes.slice(0, 2).join(" & ") || "New District";
+      const fallbackName =
+        allActivityTypes.slice(0, 2).join(" & ") || "New District";
       return { name: fallbackName, description: null };
     }
   }
@@ -735,9 +797,7 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
   private computeAvgRating(members: ItineraryRow[]): number {
     const rated = members.filter((m) => m.rating != null);
     if (rated.length === 0) return 0;
-    return (
-      rated.reduce((s, m) => s + Number(m.rating), 0) / rated.length
-    );
+    return rated.reduce((s, m) => s + Number(m.rating), 0) / rated.length;
   }
 
   private async insertMembership(
@@ -804,11 +864,13 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
         itemCount: Number(row.item_count),
         creatorFirstName: row.creator_first_name,
         completedAt: row.completed_at?.toISOString?.() || row.completed_at,
-        items: items.map((item: { emoji: string; title: string; venue_name: string }) => ({
-          emoji: item.emoji,
-          title: item.title,
-          venueName: item.venue_name,
-        })),
+        items: items.map(
+          (item: { emoji: string; title: string; venue_name: string }) => ({
+            emoji: item.emoji,
+            title: item.title,
+            venueName: item.venue_name,
+          }),
+        ),
       });
     }
 
@@ -877,11 +939,13 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
       itemCount: Number(row.item_count),
       creatorFirstName: row.creator_first_name,
       completedAt: row.completed_at?.toISOString?.() || row.completed_at,
-      items: items.map((item: { emoji: string; title: string; venue_name: string }) => ({
-        emoji: item.emoji,
-        title: item.title,
-        venueName: item.venue_name,
-      })),
+      items: items.map(
+        (item: { emoji: string; title: string; venue_name: string }) => ({
+          emoji: item.emoji,
+          title: item.title,
+          venueName: item.venue_name,
+        }),
+      ),
     };
   }
 
@@ -919,9 +983,8 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
     districtId: string,
   ): Promise<ActivityDayEntry[]> {
     // Count itinerary activity per day over the last 16 weeks (~112 days)
-    const rows: { date: string; count: number }[] =
-      await this.dataSource.query(
-        `SELECT TO_CHAR(i.created_at, 'YYYY-MM-DD') AS date, COUNT(*)::int AS count
+    const rows: { date: string; count: number }[] = await this.dataSource.query(
+      `SELECT TO_CHAR(i.created_at, 'YYYY-MM-DD') AS date, COUNT(*)::int AS count
          FROM district_itineraries di
          JOIN itineraries i ON i.id = di.itinerary_id
          WHERE di.district_id = $1
@@ -930,8 +993,8 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
            AND i.created_at >= NOW() - INTERVAL '112 days'
          GROUP BY TO_CHAR(i.created_at, 'YYYY-MM-DD')
          ORDER BY date ASC`,
-        [districtId],
-      );
+      [districtId],
+    );
 
     return rows.map((r) => ({ date: r.date, count: r.count }));
   }
@@ -1075,10 +1138,8 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
 
     let momentum: "rising" | "steady" | "cooling" = "steady";
     if (previous) {
-      const countDelta =
-        latest.itinerary_count - previous.itinerary_count;
-      const adoptionDelta =
-        latest.weekly_adoptions - previous.weekly_adoptions;
+      const countDelta = latest.itinerary_count - previous.itinerary_count;
+      const adoptionDelta = latest.weekly_adoptions - previous.weekly_adoptions;
       const score = countDelta * 2 + adoptionDelta;
       if (score > 0) momentum = "rising";
       else if (score < 0) momentum = "cooling";
@@ -1089,14 +1150,56 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
       weeklyNewItineraries: latest.weekly_new_itineraries,
       weeklyAdoptions: latest.weekly_adoptions,
       uniqueExplorers: latest.unique_explorers,
-      history: snapshots
-        .reverse()
-        .map((s) => ({
-          itineraryCount: s.itinerary_count,
-          computedAt: s.computed_at?.toISOString?.() || String(s.computed_at),
-        })),
+      history: snapshots.reverse().map((s) => ({
+        itineraryCount: s.itinerary_count,
+        computedAt: s.computed_at?.toISOString?.() || String(s.computed_at),
+      })),
     };
   }
+}
+
+// ───── Vitality Score ─────
+
+function computeVitalityScore(input: {
+  itineraryCount: number;
+  avgRating: number;
+  totalAdoptions: number;
+  varietyCount: number;
+  momentum: DistrictMomentum | null;
+}): number {
+  // Adoption rate (30%) — log scale, 50 adoptions ≈ 100
+  const adoptionNorm = Math.min(
+    100,
+    (Math.log(input.totalAdoptions + 1) / Math.log(51)) * 100,
+  );
+
+  // Avg rating (25%) — 0-5 → 0-100
+  const ratingNorm = (input.avgRating / 5) * 100;
+
+  // Variety (20%) — 7 unique categories ≈ 100
+  const varietyNorm = Math.min(100, (input.varietyCount / 7) * 100);
+
+  // Volume (15%) — log scale, 50 itineraries ≈ 100
+  const volumeNorm = Math.min(
+    100,
+    (Math.log(input.itineraryCount + 1) / Math.log(51)) * 100,
+  );
+
+  // Momentum (10%) — rising=100, steady=50, cooling=20, unknown=40
+  let momentumNorm = 40;
+  if (input.momentum) {
+    const m = input.momentum.momentum;
+    momentumNorm = m === "rising" ? 100 : m === "steady" ? 50 : 20;
+  }
+
+  const raw =
+    adoptionNorm * 0.3 +
+    ratingNorm * 0.25 +
+    varietyNorm * 0.2 +
+    volumeNorm * 0.15 +
+    momentumNorm * 0.1;
+
+  return Math.round(Math.min(100, Math.max(0, raw)));
 }
 
 // ───── Utilities ─────

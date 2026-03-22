@@ -61,6 +61,7 @@ export interface DistrictDetailResponse {
     totalAdoptions: number;
     activityTags: string[];
     momentum: DistrictMomentum | null;
+    vitalityScore: number;
   };
   itineraries: BrowseItineraryPreview[];
   nextCursor: string | null;

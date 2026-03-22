@@ -575,7 +575,7 @@ export class ServiceInitializer {
     }
 
     const TARGET_PER_CITY = parseInt(
-      process.env.SEED_ITINERARIES_PER_CITY || "5",
+      process.env.SEED_ITINERARIES_PER_CITY || "30",
     );
     const intervalHours = 24;
     const intervalMs = intervalHours * 60 * 60 * 1000;
@@ -619,8 +619,33 @@ export class ServiceInitializer {
           "recharge", "explore", "socialize", "move",
           "learn", "treat_yourself", "lock_in",
         ];
-        const durations = [2, 4, 6, 10];
-        const budgets = [30, 50, 75, 100];
+        // Weighted toward shorter itineraries — more quick hits
+        const durations = [1.5, 2, 2, 3, 3, 4, 6];
+        const budgets = [15, 25, 30, 50, 75, 100];
+        // Mostly 2-3 stops, occasional 1-stop quickie
+        const stopCounts = [1, 2, 2, 2, 3, 3];
+
+        // Build all unique activity combos (1-3 activities each)
+        const activityCombos: string[][] = [];
+        // Singles
+        for (const a of activities) {
+          activityCombos.push([a]);
+        }
+        // Pairs — every unique pair
+        for (let i = 0; i < activities.length; i++) {
+          for (let j = i + 1; j < activities.length; j++) {
+            activityCombos.push([activities[i], activities[j]]);
+          }
+        }
+        // Triples — sample interesting combos (every 3rd pair + a third)
+        for (let i = 0; i < activities.length; i++) {
+          for (let j = i + 1; j < activities.length; j += 3) {
+            const k = (j + 2) % activities.length;
+            if (k !== i && k !== j) {
+              activityCombos.push([activities[i], activities[j], activities[k]]);
+            }
+          }
+        }
 
         let totalEnqueued = 0;
 
@@ -632,18 +657,19 @@ export class ServiceInitializer {
             `[SeedItineraries] ${city}: ${seed_count}/${TARGET_PER_CITY} seeded, generating ${needed} more`,
           );
 
+          // Shuffle combos deterministically per city for even coverage
+          const cityHash = city.split("").reduce((h, c) => h * 31 + c.charCodeAt(0), 0);
+          const shuffledCombos = [...activityCombos].sort(
+            (a, b) => Math.sin(cityHash + activityCombos.indexOf(a) * 7919) -
+                       Math.sin(cityHash + activityCombos.indexOf(b) * 7919),
+          );
+
           for (let i = 0; i < needed; i++) {
-            // Pick varied params to avoid repetition
+            const activityTypes = shuffledCombos[i % shuffledCombos.length];
             const intention = intentions[(totalEnqueued + i) % intentions.length];
             const duration = durations[(totalEnqueued + i) % durations.length];
             const budget = budgets[(totalEnqueued + i) % budgets.length];
-
-            // Pick 2-3 random activities, seeded by index for variety
-            const shuffled = [...activities].sort(
-              () => Math.sin((totalEnqueued + i) * 9301 + 49297) - 0.5,
-            );
-            const activityCount = 2 + ((totalEnqueued + i) % 2);
-            const activityTypes = shuffled.slice(0, activityCount);
+            const stopCount = stopCounts[(totalEnqueued + i) % stopCounts.length];
 
             const plannedDate = new Date();
             plannedDate.setDate(plannedDate.getDate() + 1 + (i % 7));
@@ -656,7 +682,7 @@ export class ServiceInitializer {
               budgetMax: budget,
               durationHours: duration,
               activityTypes,
-              stopCount: 0, // let LLM decide
+              stopCount,
               intention,
               surpriseMe: false,
             });

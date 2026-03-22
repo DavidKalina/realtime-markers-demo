@@ -83,10 +83,10 @@ const HERO_STATS = [
 
 const STAT_COLORS = ["#86efac", "#fbbf24", "#a78bfa", "#60a5fa"];
 
-function getRatingColor(rating: number): string {
-  if (rating >= 4) return "#4ade80";
-  if (rating >= 3) return "#facc15";
-  return "#a3a3a3";
+function getVitalityColor(score: number): string {
+  if (score >= 70) return "#4ade80";
+  if (score >= 40) return "#facc15";
+  return "#f87171";
 }
 
 const AnimatedStatValue: React.FC<{
@@ -129,6 +129,7 @@ const MOMENTUM_CONFIG = {
 const DistrictHero: React.FC<{
   name: string;
   description: string | null;
+  vitalityScore: number;
   itineraryCount: number;
   avgRating: number | null;
   totalAdoptions: number;
@@ -139,6 +140,7 @@ const DistrictHero: React.FC<{
 }> = ({
   name,
   description,
+  vitalityScore,
   itineraryCount,
   avgRating,
   totalAdoptions,
@@ -150,9 +152,8 @@ const DistrictHero: React.FC<{
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const rating = avgRating ?? 0;
-  const ringColor = rating > 0 ? getRatingColor(rating) : colors.accent.primary;
-  const ringTarget = rating > 0 ? rating / 5 : 0;
+  const ringColor = getVitalityColor(vitalityScore);
+  const ringTarget = vitalityScore / 100;
 
   const animatedProgress = useSharedValue(0);
   const animatedCount = useSharedValue(0);
@@ -170,12 +171,12 @@ const DistrictHero: React.FC<{
     animatedCount.value = 0;
     animatedCount.value = withDelay(
       300,
-      withTiming(itineraryCount, {
+      withTiming(vitalityScore, {
         duration: 1800,
         easing: Easing.out(Easing.cubic),
       }),
     );
-  }, [ringTarget, itineraryCount, animatedProgress, animatedCount]);
+  }, [ringTarget, vitalityScore, animatedProgress, animatedCount]);
 
   useAnimatedReaction(
     () => Math.round(animatedCount.value),
@@ -194,11 +195,11 @@ const DistrictHero: React.FC<{
     );
     return {
       adventures: itineraryCount,
-      avgRating: rating,
+      avgRating: avgRating ?? 0,
       adopted: totalAdoptions,
       variety: uniqueIntentions.size,
     };
-  }, [itineraries, itineraryCount, rating, totalAdoptions]);
+  }, [itineraries, itineraryCount, avgRating, totalAdoptions]);
 
   return (
     <Animated.View
@@ -269,6 +270,7 @@ const DistrictHero: React.FC<{
             <Text style={[styles.circleCount, { color: ringColor }]}>
               {displayedCount}
             </Text>
+            <Text style={styles.circleSubLabel}>VITALITY</Text>
           </View>
         </View>
 
@@ -550,6 +552,7 @@ const DistrictDetailScreen = () => {
         <DistrictHero
           name={district.name}
           description={district.description}
+          vitalityScore={district.vitalityScore}
           itineraryCount={district.itineraryCount}
           avgRating={district.avgRating}
           totalAdoptions={district.totalAdoptions}
@@ -698,6 +701,14 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontSize: 32,
       fontWeight: fontWeight.bold,
+    },
+    circleSubLabel: {
+      fontFamily: fontFamily.mono,
+      fontSize: 8,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      letterSpacing: 1.5,
+      marginTop: -2,
     },
     heroStatsColumn: {
       flex: 1,

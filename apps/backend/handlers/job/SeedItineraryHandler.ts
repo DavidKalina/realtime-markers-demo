@@ -69,12 +69,13 @@ export class SeedItineraryHandler extends BaseJobHandler {
         timezone,
       });
 
-      // Auto-publish: set isPublished + a default rating
+      // Auto-publish: set isPublished + a varied rating (3.5-5.0)
+      const rating = 3.5 + Math.round(Math.random() * 3) * 0.5;
       await this.dataSource.query(
         `UPDATE itineraries
-         SET is_published = true, rating = 4, completed_at = NOW(), updated_at = NOW()
+         SET is_published = true, rating = $2, completed_at = NOW(), updated_at = NOW()
          WHERE id = $1`,
-        [itinerary.id],
+        [itinerary.id, rating],
       );
 
       // Notify district clustering via Redis pub/sub
