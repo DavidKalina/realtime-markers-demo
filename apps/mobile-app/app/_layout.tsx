@@ -55,6 +55,7 @@ import { usePathname } from "expo-router";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useBootRedirect } from "@/hooks/useBootRedirect";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useDistrictExplorationReveal } from "@/hooks/useDistrictExplorationReveal";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import XPNotificationOverlay from "@/components/Gamification/XPNotificationOverlay";
@@ -146,6 +147,7 @@ function AppContent({ children }: AppContentProps) {
   useAuthGuard();
   const { isBoot } = useBootRedirect();
   usePushNotifications();
+  useDistrictExplorationReveal();
   const pathname = usePathname();
   const isMapScreen = pathname === "/" || pathname === "/index";
   const jobSheetOpen = useJobSheetStore((s) => s.isOpen);

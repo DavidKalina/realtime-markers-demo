@@ -17,7 +17,7 @@ import {
 import React, { useMemo } from "react";
 import { StatusBar as RNStatusBar, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import DiscoveryIndicator from "../DiscoveryIndicator/DiscoveryIndicator";
+import { DistrictChip } from "../Districts/DistrictChip";
 
 const StatusBar: React.FC = () => {
   const colors = useColors();
@@ -77,7 +77,7 @@ const StatusBar: React.FC = () => {
       )}
 
       <View style={styles.engagementContainer}>
-        <DiscoveryIndicator position="bottom-left" />
+        <DistrictChip />
       </View>
     </View>
   );
@@ -145,8 +145,8 @@ const createStyles = (colors: Colors) =>
     },
     engagementContainer: {
       position: "absolute",
-      left: 0,
-      bottom: -20,
+      left: spacing.md,
+      bottom: -52,
       zIndex: 999,
     },
   });

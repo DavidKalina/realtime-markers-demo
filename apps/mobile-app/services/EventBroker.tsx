@@ -26,6 +26,10 @@ export enum EventTypes {
 
   USER_PANNING_VIEWPORT = "user:panning:viewport",
 
+  // District events
+  DISTRICT_FOCUSED = "district:focused",
+  DISTRICT_EXPLORED = "district:explored",
+
   // UI navigation events
   OPEN_DETAILS = "ui:open:details",
   OPEN_SHARE = "ui:open:share",

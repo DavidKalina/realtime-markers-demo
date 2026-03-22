@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import Reanimated, {
   Easing,
@@ -12,6 +12,8 @@ import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useXPStore, type PendingBadge } from "@/stores/useXPStore";
 import { useColors, fontFamily } from "@/theme";
 import { useRouter } from "expo-router";
+import { useEventBroker } from "@/hooks/useEventBroker";
+import { EventTypes } from "@/services/EventBroker";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -106,6 +108,7 @@ export default function CompletionCelebration() {
   const colors = useColors();
   const router = useRouter();
 
+  const { subscribe } = useEventBroker();
   const contentOpacity = useSharedValue(0);
   const contentScale = useSharedValue(0.8);
 
@@ -115,6 +118,20 @@ export default function CompletionCelebration() {
     totalXP: number;
     badges: PendingBadge[];
   } | null>(null);
+
+  const [exploredDistrict, setExploredDistrict] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!completionData) {
+      setExploredDistrict(null);
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const unsub = subscribe(EventTypes.DISTRICT_EXPLORED, (event: any) => {
+      setExploredDistrict(event.districtName ?? null);
+    });
+    return unsub;
+  }, [completionData, subscribe]);
 
   useEffect(() => {
     if (!completionData) {
@@ -212,6 +229,18 @@ export default function CompletionCelebration() {
             </Text>
             <Text style={[styles.xpValue, { color: colors.accent.primary }]}>
               +{xpData.totalXP}
+            </Text>
+          </View>
+        )}
+
+        {/* District Exploration */}
+        {exploredDistrict && (
+          <View style={[styles.xpRow, { backgroundColor: colors.bg.elevated }]}>
+            <Text style={[styles.xpLabel, { color: colors.text.secondary }]}>
+              {"\u{1F5FA}\uFE0F"} New District
+            </Text>
+            <Text style={[styles.xpValue, { color: "#4ade80" }]}>
+              {exploredDistrict}
             </Text>
           </View>
         )}

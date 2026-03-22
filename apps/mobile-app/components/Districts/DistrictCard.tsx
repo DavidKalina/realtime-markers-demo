@@ -11,70 +11,12 @@ import {
   radius,
 } from "@/theme";
 import type { DistrictBrowseResponse } from "@/services/api/modules/districts";
+import { getDistrictEmoji } from "@/utils/districtUtils";
 
 interface DistrictCardProps {
   district: DistrictBrowseResponse;
   rank: number;
   onPress: (district: DistrictBrowseResponse) => void;
-}
-
-/* ─── Activity tag → emoji mapping ─── */
-
-const TAG_EMOJI: Record<string, string> = {
-  coffee: "\u2615",
-  cafe: "\u2615",
-  restaurant: "\u{1F37D}\uFE0F",
-  food: "\u{1F37D}\uFE0F",
-  dining: "\u{1F37D}\uFE0F",
-  bar: "\u{1F378}",
-  drinks: "\u{1F378}",
-  nightlife: "\u{1F378}",
-  park: "\u{1F333}",
-  nature: "\u{1F333}",
-  outdoors: "\u{1F333}",
-  hiking: "\u{1F97E}",
-  trail: "\u{1F6B6}",
-  museum: "\u{1F3DB}\uFE0F",
-  gallery: "\u{1F5BC}\uFE0F",
-  art: "\u{1F3A8}",
-  market: "\u{1F6D2}",
-  shopping: "\u{1F6CD}\uFE0F",
-  music: "\u{1F3B5}",
-  venue: "\u{1F3A4}",
-  fitness: "\u{1F3CB}\uFE0F",
-  gym: "\u{1F3CB}\uFE0F",
-  yoga: "\u{1F9D8}",
-  wellness: "\u{1F9D8}",
-  beach: "\u{1F3D6}\uFE0F",
-  water: "\u{1F30A}",
-  brewery: "\u{1F37A}",
-  bakery: "\u{1F950}",
-  books: "\u{1F4DA}",
-  library: "\u{1F4DA}",
-  sports: "\u26BD",
-  theater: "\u{1F3AD}",
-  cinema: "\u{1F3AC}",
-  attraction: "\u{1F3A0}",
-};
-
-function getDistrictEmoji(district: DistrictBrowseResponse): string {
-  // Try matching top activity tag
-  for (const tag of district.activityTags) {
-    const key = tag.toLowerCase();
-    if (TAG_EMOJI[key]) return TAG_EMOJI[key];
-    // Partial match
-    for (const [k, v] of Object.entries(TAG_EMOJI)) {
-      if (key.includes(k) || k.includes(key)) return v;
-    }
-  }
-
-  // Fall back to first preview itinerary item emoji
-  for (const preview of district.previewItineraries) {
-    const firstEmoji = preview.items?.[0]?.emoji;
-    if (firstEmoji) return firstEmoji;
-  }
-
-  return "\u{1F4CD}"; // pin fallback
 }
 
 const DistrictCard: React.FC<DistrictCardProps> = ({
