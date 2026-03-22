@@ -1,3 +1,4 @@
+/** @deprecated Replaced by useDistrictCoverage hook. */
 import { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/services/ApiClient";
 import type { ThirdSpaceScoreResponse } from "@/services/api/modules/leaderboard";

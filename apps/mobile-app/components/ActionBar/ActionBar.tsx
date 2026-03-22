@@ -41,7 +41,7 @@ const BUTTON_RELEASE_ANIMATION = {
 };
 
 // Define route type to match expo-router's expected types
-type AppRoute = "/spaces" | "/scan" | "/itineraries" | "/user" | "/";
+type AppRoute = "/browse" | "/spaces" | "/scan" | "/itineraries" | "/user" | "/";
 
 interface TabConfig {
   key: string;
@@ -71,10 +71,10 @@ const TABS: TabConfig[] = [
     requiresLocation: true,
   },
   {
-    key: "spaces",
-    label: "Spaces",
+    key: "browse",
+    label: "Browse",
     icon: GlobeIcon,
-    route: "/spaces",
+    route: "/browse",
   },
   {
     key: "scan",
@@ -95,7 +95,8 @@ const ROUTE_TO_TAB: Record<string, string> = {
 // Map pathname to active tab key
 const getActiveTabKey = (pathname: string): string | null => {
   if (pathname === "/") return "locate";
-  if (pathname.startsWith("/spaces")) return "spaces";
+  if (pathname.startsWith("/browse")) return "browse";
+  if (pathname.startsWith("/spaces")) return "browse";
   if (pathname.startsWith("/itineraries")) return "itineraries";
   return ROUTE_TO_TAB[pathname] ?? null;
 };

@@ -25,6 +25,7 @@ const CATEGORY_COLORS = [
 ];
 
 const CATEGORY_EMOJI: Record<string, string> = {
+  // Venue categories
   cafe: "\u2615",
   restaurant: "\uD83C\uDF7D\uFE0F",
   bar: "\uD83C\uDF7B",
@@ -35,6 +36,20 @@ const CATEGORY_EMOJI: Record<string, string> = {
   venue: "\uD83C\uDFB5",
   attraction: "\u2B50",
   trail: "\uD83E\uDD7E",
+  // Activity types
+  food: "\uD83C\uDF7D\uFE0F",
+  coffee: "\u2615",
+  music: "\uD83C\uDFB5",
+  art: "\uD83C\uDFA8",
+  outdoors: "\uD83C\uDF33",
+  boarding: "\uD83D\uDEF9",
+  hiking: "\uD83E\uDD7E",
+  walking: "\uD83D\uDEB6",
+  nightlife: "\uD83C\uDF78",
+  brews: "\uD83C\uDF7A",
+  thrifting: "\uD83D\uDECD\uFE0F",
+  sports: "\u26BD",
+  culture: "\uD83C\uDFDB\uFE0F",
   other: "\uD83D\uDCCD",
 };
 

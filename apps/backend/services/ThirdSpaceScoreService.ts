@@ -1,3 +1,4 @@
+/** @deprecated Replaced by DistrictService. Disable via DISABLE_TSS_COMPUTATION=true. */
 import { DataSource } from "typeorm";
 import { normalizeCity, isCityNormalized } from "@realtime-markers/database";
 import type { RedisService } from "./shared/RedisService";

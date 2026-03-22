@@ -15,3 +15,6 @@ export * from "./ItineraryItem";
 export * from "./ItineraryCheckin";
 export * from "./UserBadge";
 export * from "./AdventureScoreSnapshot";
+export * from "./District";
+export * from "./DistrictItinerary";
+export * from "./DistrictSnapshot";

@@ -1,3 +1,4 @@
+/** @deprecated Replaced by Districts feature. Use DistrictCard instead. */
 import React, { useEffect, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ChevronRight } from "lucide-react-native";

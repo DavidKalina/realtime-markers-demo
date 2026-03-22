@@ -520,6 +520,8 @@ interface ItineraryDialogBoxProps {
   onNearbySelect?: (place: NearbyPlace, note?: string) => void;
   /** Called when user keeps the raw pin */
   onNearbyKeepPin?: (note?: string) => void;
+  /** Pre-fill activity types (e.g. from a district's tags) */
+  defaultActivities?: string[];
   /** Called when user dismisses the nearby sheet (remove pin) */
   onNearbyDismiss?: () => void;
   /** Fly the map camera to coordinates (map screen only) */
@@ -555,6 +557,7 @@ export default function ItineraryDialogBox({
   onSearchPlaceAnchor,
   onAnchorEdit,
   onAnchorRemove,
+  defaultActivities,
 }: ItineraryDialogBoxProps) {
   const colors = useColors();
   const router = useRouter();
@@ -623,7 +626,9 @@ export default function ItineraryDialogBox({
   const [budgetMax, setBudgetMax] = useState(50);
   const [durationHours, setDurationHours] = useState(4);
   const [stopCount, setStopCount] = useState(0); // 0 = auto
-  const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
+  const [selectedActivities, setSelectedActivities] = useState<string[]>(
+    defaultActivities ?? [],
+  );
   const [selectedIntention, setSelectedIntention] = useState<string | null>(
     null,
   );

@@ -1,3 +1,4 @@
+/** @deprecated Replaced by Districts feature. Use CoverageHero instead. */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Svg, { Circle, Polyline } from "react-native-svg";

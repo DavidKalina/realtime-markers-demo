@@ -1,3 +1,4 @@
+/** @deprecated Replaced by useBrowseDistricts hook. */
 import { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/services/ApiClient";
 import type {

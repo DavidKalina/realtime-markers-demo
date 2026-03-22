@@ -63,6 +63,8 @@ import { createBadgeService } from "./BadgeService";
 import type { BadgeService } from "./BadgeService";
 import { createAdventureScoreService } from "./AdventureScoreService";
 import type { AdventureScoreService } from "./AdventureScoreService";
+import { createDistrictService } from "./DistrictService";
+import type { DistrictService } from "./DistrictService";
 
 export interface ServiceContainer {
   eventService: EventService;
@@ -90,6 +92,7 @@ export interface ServiceContainer {
   overpassService: OverpassService;
   badgeService: BadgeService;
   adventureScoreService: AdventureScoreService;
+  districtService: DistrictService;
 }
 
 export class ServiceInitializer {
@@ -285,6 +288,13 @@ export class ServiceInitializer {
       pushService: pushNotificationService,
     });
 
+    const districtService = createDistrictService({
+      dataSource: this.dataSource,
+      embeddingService,
+      openAIService,
+      redisService,
+    });
+
     const itineraryCheckinService = createItineraryCheckinService({
       dataSource: this.dataSource,
       pushService: pushNotificationService,
@@ -332,6 +342,7 @@ export class ServiceInitializer {
       overpassService,
       badgeService,
       adventureScoreService,
+      districtService,
     };
   }
 
@@ -550,6 +561,210 @@ export class ServiceInitializer {
     } catch (err) {
       console.error("[NotificationSchedule] Weekly nudge check failed:", err);
     }
+  }
+
+  setupSeedItinerarySchedule(
+    jobQueue: JobQueue,
+    dataSource: DataSource,
+  ): void {
+    if (process.env.DISABLE_SEED_ITINERARIES === "true") {
+      console.log(
+        "Seed itineraries disabled via DISABLE_SEED_ITINERARIES environment variable",
+      );
+      return;
+    }
+
+    const TARGET_PER_CITY = parseInt(
+      process.env.SEED_ITINERARIES_PER_CITY || "5",
+    );
+    const intervalHours = 24;
+    const intervalMs = intervalHours * 60 * 60 * 1000;
+
+    console.log(
+      `Setting up seed itinerary schedule: target=${TARGET_PER_CITY}/city, interval=${intervalHours}h`,
+    );
+
+    const runSeed = async () => {
+      try {
+        // Find an admin user to own the seeded itineraries
+        const [adminUser] = await dataSource.query(
+          `SELECT id FROM users WHERE role = 'ADMIN' LIMIT 1`,
+        );
+        if (!adminUser) {
+          console.log("[SeedItineraries] No admin user found, skipping");
+          return;
+        }
+
+        // Get all cities with published itineraries and count seeded ones
+        const cities: { city: string; seed_count: number }[] =
+          await dataSource.query(
+            `SELECT i.city, COUNT(*) FILTER (
+               WHERE i.user_id = $1 AND i.is_published = true
+             ) AS seed_count
+             FROM itineraries i
+             WHERE i.city IS NOT NULL
+               AND i.status = 'READY'
+               AND i.deleted_at IS NULL
+             GROUP BY i.city
+             HAVING COUNT(*) >= 1`,
+            [adminUser.id],
+          );
+
+        const activities = [
+          "food", "coffee", "music", "art", "outdoors", "boarding",
+          "hiking", "walking", "nightlife", "brews", "thrifting",
+          "sports", "culture",
+        ];
+        const intentions = [
+          "recharge", "explore", "socialize", "move",
+          "learn", "treat_yourself", "lock_in",
+        ];
+        const durations = [2, 4, 6, 10];
+        const budgets = [30, 50, 75, 100];
+
+        let totalEnqueued = 0;
+
+        for (const { city, seed_count } of cities) {
+          const needed = TARGET_PER_CITY - Number(seed_count);
+          if (needed <= 0) continue;
+
+          console.log(
+            `[SeedItineraries] ${city}: ${seed_count}/${TARGET_PER_CITY} seeded, generating ${needed} more`,
+          );
+
+          for (let i = 0; i < needed; i++) {
+            // Pick varied params to avoid repetition
+            const intention = intentions[(totalEnqueued + i) % intentions.length];
+            const duration = durations[(totalEnqueued + i) % durations.length];
+            const budget = budgets[(totalEnqueued + i) % budgets.length];
+
+            // Pick 2-3 random activities, seeded by index for variety
+            const shuffled = [...activities].sort(
+              () => Math.sin((totalEnqueued + i) * 9301 + 49297) - 0.5,
+            );
+            const activityCount = 2 + ((totalEnqueued + i) % 2);
+            const activityTypes = shuffled.slice(0, activityCount);
+
+            const plannedDate = new Date();
+            plannedDate.setDate(plannedDate.getDate() + 1 + (i % 7));
+
+            await jobQueue.enqueue("seed_itinerary", {
+              userId: adminUser.id,
+              city,
+              plannedDate: plannedDate.toISOString(),
+              budgetMin: 0,
+              budgetMax: budget,
+              durationHours: duration,
+              activityTypes,
+              stopCount: 0, // let LLM decide
+              intention,
+              surpriseMe: false,
+            });
+
+            totalEnqueued++;
+          }
+        }
+
+        if (totalEnqueued > 0) {
+          console.log(
+            `[SeedItineraries] Enqueued ${totalEnqueued} seed jobs across ${cities.length} cities`,
+          );
+        } else {
+          console.log("[SeedItineraries] All cities at target, nothing to seed");
+        }
+      } catch (err) {
+        console.error("[SeedItineraries] Seed run failed:", err);
+      }
+    };
+
+    // Run once on startup after 120s delay (let everything initialize)
+    setTimeout(() => {
+      console.log("Running initial seed itinerary check");
+      runSeed();
+    }, 120_000);
+
+    // Run every 24 hours
+    setInterval(() => {
+      console.log("Running scheduled seed itinerary check");
+      runSeed();
+    }, intervalMs);
+  }
+
+  setupDistrictClusteringSchedule(
+    districtService: DistrictService,
+    redisService: RedisService,
+  ): void {
+    if (process.env.DISABLE_DISTRICT_CLUSTERING === "true") {
+      console.log(
+        "District clustering disabled via DISABLE_DISTRICT_CLUSTERING environment variable",
+      );
+      return;
+    }
+
+    const intervalHours = 4;
+    const intervalMs = intervalHours * 60 * 60 * 1000;
+
+    console.log(
+      `Setting up district clustering schedule: interval=${intervalHours}h`,
+    );
+
+    // Subscribe to itinerary changes for incremental clustering
+    const subscriber = redisService.getClient().duplicate();
+    subscriber.subscribe("itinerary_changes", (err) => {
+      if (err) {
+        console.error(
+          "[DistrictClustering] Failed to subscribe to itinerary_changes:",
+          err,
+        );
+      }
+    });
+    subscriber.on("message", async (_channel: string, message: string) => {
+      try {
+        const data = JSON.parse(message);
+        if (
+          data.operation === "CREATE" &&
+          data.record?.entryLatitude &&
+          data.record?.entryLongitude
+        ) {
+          const ngeohash = await import("ngeohash");
+          const gh = ngeohash.default.encode(
+            Number(data.record.entryLatitude),
+            Number(data.record.entryLongitude),
+            4,
+          );
+          console.log(
+            `[DistrictClustering] Itinerary published, clustering region ${gh}`,
+          );
+          await districtService.clusterRegion(gh);
+        }
+      } catch (err) {
+        console.error(
+          "[DistrictClustering] Error processing itinerary change:",
+          err,
+        );
+      }
+    });
+
+    // Run once on startup after 5min delay (gives seed itineraries time to generate + get embeddings)
+    setTimeout(async () => {
+      console.log("Running initial district clustering");
+      try {
+        await districtService.clusterAllRegions();
+        await districtService.computeAllSnapshots();
+      } catch (err) {
+        console.error("Initial district clustering failed:", err);
+      }
+    }, 5 * 60 * 1000);
+
+    // Run every 4 hours
+    setInterval(async () => {
+      console.log("Running scheduled district clustering");
+      try {
+        await districtService.clusterAllRegions();
+      } catch (err) {
+        console.error("Scheduled district clustering failed:", err);
+      }
+    }, intervalMs);
   }
 
   setupThirdSpaceScoreSchedule(

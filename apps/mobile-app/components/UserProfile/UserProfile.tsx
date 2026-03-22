@@ -58,6 +58,7 @@ import AdventureFootprint from "./AdventureFootprint";
 import PendingItineraries from "./PendingItineraries";
 import PersonalScoreHero from "./PersonalScoreHero";
 import NextBadgeProgress from "./NextBadgeProgress";
+import AdventurePreferences from "./AdventurePreferences";
 
 /* ─── Types ─── */
 
@@ -353,6 +354,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             thumbColor={colors.bg.elevated}
           />
         </View>
+      </View>
+
+      {/* Adventure Preferences */}
+      <View style={styles.tabSection}>
+        <Text style={styles.sectionLabel}>PREFERENCES</Text>
+        <AdventurePreferences />
       </View>
 
       {/* Saved Events */}

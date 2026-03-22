@@ -49,6 +49,14 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
     options: { animation: "slide_from_right", animationDuration: 250 },
   },
   {
+    name: "browse/index",
+    options: { animation: "fade", animationDuration: 150 },
+  },
+  {
+    name: "browse/[id]",
+    options: { animation: "slide_from_right", animationDuration: 250 },
+  },
+  {
     name: "spaces/index",
     options: { animation: "fade", animationDuration: 150 },
   },
