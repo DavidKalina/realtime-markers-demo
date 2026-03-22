@@ -113,6 +113,18 @@ async function initializeServices() {
   // Setup push notification schedules (streak-at-risk, weekly nudge)
   serviceInitializer.setupNotificationSchedule();
 
+  // Setup district clustering schedule
+  serviceInitializer.setupDistrictClusteringSchedule(
+    services.districtService,
+    services.redisService,
+  );
+
+  // Setup seed itinerary schedule (auto-populate cities with varied content)
+  serviceInitializer.setupSeedItinerarySchedule(
+    services.jobQueue,
+    dataSource,
+  );
+
   console.log("All services initialized successfully");
   return services;
 }

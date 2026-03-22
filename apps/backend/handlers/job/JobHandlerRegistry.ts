@@ -12,7 +12,9 @@ import type { TicketmasterService } from "../../services/TicketmasterService";
 import type { CategoryProcessingService } from "../../services/CategoryProcessingService";
 import type { IEmbeddingService } from "../../services/event-processing/interfaces/IEmbeddingService";
 import { GenerateItineraryHandler } from "./GenerateItineraryHandler";
+import { SeedItineraryHandler } from "./SeedItineraryHandler";
 import type { ItineraryService } from "../../services/ItineraryService";
+import type { DataSource } from "typeorm";
 
 export class JobHandlerRegistry {
   private handlers: Map<string, JobHandler> = new Map();
@@ -28,6 +30,7 @@ export class JobHandlerRegistry {
     private readonly categoryProcessingService: CategoryProcessingService | null = null,
     private readonly embeddingService: IEmbeddingService | null = null,
     private readonly itineraryService: ItineraryService | null = null,
+    private readonly dataSource: DataSource | null = null,
   ) {
     this.registerHandlers();
   }
@@ -44,9 +47,14 @@ export class JobHandlerRegistry {
     );
     this.registerHandler(new CleanupEventsHandler(this.eventService));
 
-    // Register itinerary handler
+    // Register itinerary handlers
     if (this.itineraryService) {
       this.registerHandler(new GenerateItineraryHandler(this.itineraryService));
+      if (this.dataSource) {
+        this.registerHandler(
+          new SeedItineraryHandler(this.itineraryService, this.dataSource, this.redisService),
+        );
+      }
     }
 
     // Conditionally register import handler (opt-in via TICKETMASTER_API_KEY)

@@ -20,6 +20,9 @@ import {
   ItineraryCheckin,
   UserBadge,
   AdventureScoreSnapshot,
+  District,
+  DistrictItinerary,
+  DistrictSnapshot,
 } from "@realtime-markers/database";
 
 import { dirname, join } from "path";
@@ -48,6 +51,9 @@ const AppDataSource = new DataSource({
     ItineraryCheckin,
     UserBadge,
     AdventureScoreSnapshot,
+    District,
+    DistrictItinerary,
+    DistrictSnapshot,
   ],
   migrations: [join(currentDir, "migrations", "*.ts")],
   migrationsTableName: "migrations",

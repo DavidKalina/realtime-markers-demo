@@ -22,6 +22,7 @@ import type { ItineraryCheckinService } from "../services/ItineraryCheckinServic
 import type { OverpassService } from "../services/shared/OverpassService";
 import type { BadgeService } from "../services/BadgeService";
 import type { AdventureScoreService } from "../services/AdventureScoreService";
+import type { DistrictService } from "../services/DistrictService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -47,6 +48,7 @@ export interface AppVariables {
   overpassService: OverpassService;
   badgeService: BadgeService;
   adventureScoreService: AdventureScoreService;
+  districtService: DistrictService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

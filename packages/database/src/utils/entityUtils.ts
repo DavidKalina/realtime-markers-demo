@@ -21,6 +21,9 @@ const ENTITY_TO_TABLE_MAPPING: Record<string, string> = {
   ItineraryCheckin: "itinerary_checkins",
   UserBadge: "user_badges",
   AdventureScoreSnapshot: "adventure_score_snapshots",
+  District: "districts",
+  DistrictItinerary: "district_itineraries",
+  DistrictSnapshot: "district_snapshots",
 };
 
 /**

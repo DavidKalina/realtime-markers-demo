@@ -36,6 +36,7 @@ export function setupContext(
     c.set("overpassService", services.overpassService);
     c.set("badgeService", services.badgeService);
     c.set("adventureScoreService", services.adventureScoreService);
+    c.set("districtService", services.districtService);
     await next();
   });
 }

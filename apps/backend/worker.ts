@@ -203,6 +203,8 @@ async function initializeWorker() {
     geocodingService,
     overpassService,
     weatherService,
+    embeddingService,
+    redisService,
   });
 
   jobHandlerRegistry = new JobHandlerRegistry(
@@ -216,6 +218,7 @@ async function initializeWorker() {
     categoryProcessingService,
     embeddingService,
     itineraryService,
+    AppDataSource,
   );
 
   console.log("Worker initialized successfully");
