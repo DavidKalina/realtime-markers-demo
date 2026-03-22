@@ -110,8 +110,8 @@ interface ItineraryRow {
 // --- Constants ---
 
 const GEOHASH_PRECISION = 4;
-const DBSCAN_EPSILON = 0.35;
-const DBSCAN_MIN_POINTS = 3;
+const DBSCAN_EPSILON = parseFloat(process.env.DBSCAN_EPSILON || "0.18");
+const DBSCAN_MIN_POINTS = parseInt(process.env.DBSCAN_MIN_POINTS || "3");
 const CENTROID_MATCH_THRESHOLD = parseFloat(
   process.env.DISTRICT_MATCH_THRESHOLD || "0.85",
 );
@@ -744,21 +744,38 @@ Bad examples: "Coffee and Activities", "Outdoor Fun District", "Food Area", "Mix
 Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
 
     try {
-      const response = await this.openAIService.executeResponse({
-        model: OpenAIModel.GPT4OMini,
-        instructions:
-          "You generate creative, concise district names. Respond with valid JSON only.",
-        input: prompt,
-        max_output_tokens: 150,
-      });
+      const completion = await this.openAIService.executeChatCompletion(
+        {
+          model: OpenAIModel.GPT4OMini,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You generate creative, concise district names for an adventure app. Respond with ONLY valid JSON, no markdown fences.",
+            },
+            { role: "user", content: prompt },
+          ],
+          max_tokens: 150,
+          response_format: { type: "json_object" },
+        },
+        "district-naming",
+      );
 
-      const parsed = JSON.parse(response);
+      const raw = completion.choices[0]?.message?.content || "{}";
+      const parsed = JSON.parse(raw);
       return {
         name: parsed.name || "Unnamed District",
         description: parsed.description || null,
       };
     } catch (err) {
-      console.error("[DistrictService] Failed to name district:", err);
+      console.error(
+        "[DistrictService] Failed to name district:",
+        err instanceof Error ? err.message : err,
+        "| activities:",
+        allActivityTypes.join(", "),
+        "| titles:",
+        sampleTitles.join("; "),
+      );
       // Fallback: use top activity types
       const fallbackName =
         allActivityTypes.slice(0, 2).join(" & ") || "New District";
