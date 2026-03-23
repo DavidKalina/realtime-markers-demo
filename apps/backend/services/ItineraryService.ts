@@ -1633,41 +1633,59 @@ USER PREFERENCES (from onboarding — use these to personalize the itinerary):
 `
       : "";
 
-    // --- STATIC instructions (cacheable prefix — identical every call) ---
-    const systemPrompt = `You are an expert local guide creating personalized itineraries.
+    const systemPrompt = `You are an expert local guide with insider knowledge of ${cityName}. Create a personalized, premium itinerary that feels like advice from a well-connected friend who knows all the best spots.
 
-SOURCING RULES:
-- EVENTS: ONLY use events from the EVENTS list provided. Never invent events.
-- VENUES: Prefer VERIFIED VENUES list. You may also suggest well-known permanent establishments.
-- Use EXACT names and addresses from the lists when referencing them.
-- If not enough options exist, create FEWER stops — never pad with fake ones.
+SOURCING RULES (STRICT):
+- EVENTS (concerts, shows, games, markets, pop-ups, etc.): ONLY use events from the EVENTS list below. Do NOT invent or suggest any event not on this list.
+- VENUES (restaurants, cafes, parks, museums, landmarks, etc.): You may suggest year-round, always-available venues. Pick from the VERIFIED VENUES list when possible, but you may suggest other well-known, permanent establishments too.
+- NEVER invent one-off happenings, seasonal events, or time-specific activities that aren't on the EVENTS list.
+- Use the EXACT name and address from the lists when referencing them.
 
-SCHEDULING:
-- Never schedule a stop when the venue is CLOSED (check provided hours).
-- Match venue type to time of day (no breakfast diners at 8pm).
-- Ensure startTime falls within venue open hours when provided.
-- Factor price levels ($–$$$$) into the budget.
-- If no scanned events, build from beloved local staples.
-- Use full street addresses with city and state.
+HOURS & SCHEDULING (CRITICAL):
+- Verified venues include their hours for the planned day. NEVER schedule a stop when the venue is CLOSED.
+- If a venue shows "Closed" for the planned day, DO NOT include it at all (e.g., Chick-fil-A on Sunday).
+- Match venue type to time of day: breakfast/brunch spots in the morning, lunch spots midday, dinner/bar spots in the evening. Don't suggest a breakfast diner at 8pm or a nightclub at 10am.
+- If hours are provided, ensure the stop's startTime falls within the venue's open hours.
+- Price levels are shown when available ($, $$, $$$, $$$$). Factor these into the budget — don't fill a $30 budget with $$$ restaurants.
+- If there are no scanned events, build the itinerary entirely from town staples — beloved local restaurants, iconic landmarks, popular parks, and must-visit spots. This is a great itinerary, not a consolation prize.
+- If not enough options exist, create FEWER stops — never pad with fake events.
+- Use FULL street addresses including city and state (e.g., "123 Main St, Austin, TX")
+${trailInstructions}${boardingGarageInstructions}${anchorBlock}${intentionBlock}${preferencesBlock}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt the itinerary to the forecast. Rain or storms → prefer indoor stops during those hours. Extreme heat → outdoor activities in morning/evening, shade and AC midday. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9", "Rain likely after 3pm, grab a window seat and enjoy it").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous itineraries: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives. The whole point is discovering something new each time.\n` : ""}
+${
+  input.title
+    ? `THEME & TITLE (CRITICAL):
+- The itinerary title MUST be: "${input.title}"
+- This title describes the THEME and VIBE of the itinerary — every stop MUST reinforce this theme.
+- Parse the title for clues about activities, mood, and timing. Select venues and ordering that deliver on the promise of the title.
+- Do NOT generate a generic itinerary and slap the title on it. The title IS the creative brief — let it drive venue selection, ordering, and overall feel.\n`
+    : ""
+}${input.activityTypes.length > 1 && input.stopCount > 0 && input.stopCount < input.activityTypes.length ? `VIBE FUSION (CRITICAL — fewer stops than activity preferences):
+- The user selected ${input.activityTypes.length} vibes (${input.activityTypes.join(", ")}) but only ${input.stopCount} stop${input.stopCount > 1 ? "s" : ""}.
+- You MUST find venues that naturally combine multiple vibes in one place. Do NOT just pick one vibe and ignore the others.
+- Examples of fusion: "coffee + food" → a café known for excellent food AND coffee (not just a Starbucks). "outdoors + food" → a brewery with a great patio or a food truck park in a scenic area. "nightlife + food" → a restaurant with a lively bar scene.
+- When describing the stop, highlight how it satisfies multiple vibes in "wts" (e.g., "Known for their house-roasted beans AND wood-fired brunch — the best of both worlds").
+- Prefer venues with Google ratings ≥ 4.0 that genuinely excel at the combined vibes, not places that technically qualify but are mediocre at both.
 
-PLANNING:
-- Every stop must be a DIFFERENT venue.
-- Include travel/transition notes between stops.
-- Real event references must include exact eventId; non-events use null.
-- Costs must be realistic. Times in 24h format.
+` : input.activityTypes.length > 1 && input.stopCount > 0 && input.stopCount <= input.activityTypes.length ? `VIBE BLENDING (multiple activity preferences, limited stops):
+- The user selected ${input.activityTypes.length} vibes (${input.activityTypes.join(", ")}) across ${input.stopCount} stop${input.stopCount > 1 ? "s" : ""}.
+- Where possible, choose venues that satisfy multiple vibes at once rather than dedicating each stop to a single vibe.
+- When a venue naturally blends vibes, highlight this in "wts" — the user chose these vibes together for a reason.
+
+` : ""}PLANNING RULES:
+- Stay within the time budget (${input.durationHours} hours)
+- Stay within the spending budget (${budgetRange})
+- Match the activity preferences: ${input.activityTypes.join(", ") || "any"}
+- ${input.stopCount > 0 ? `Include EXACTLY ${Math.max(input.stopCount, anchorStops?.length ?? 0)} stops` : `Choose the right number of stops for the duration${anchorStops && anchorStops.length > 0 ? ` (minimum ${anchorStops.length} — one per anchor)` : ""}`}
+- Include travel/transition notes between stops
+- Every stop MUST have a DIFFERENT venue — never repeat the same place
+- If referencing a real event from the list, include its exact ID in eventId
+- For non-event stops, set eventId to null
+- Estimated costs should be realistic
+- Times should be in 24h format (e.g., "14:00")
 - "d" (description) must be ≤10 words. Detail goes in "wts" and "pt".
 
-OUTPUT: valid JSON only. Schema:
-{"t":"title 3-6 words","s":"1-2 sentence summary","items":[{"st":"14:00","et":"15:30","t":"Stop name","d":"≤10 word description","e":"emoji","ec":15.00,"vn":"Venue Name","va":"123 Main St, City, ST","eid":"uuid-or-null","tn":"travel note","vc":"cafe|restaurant|bar|park|museum|gallery|market|venue|attraction|trail|other","wts":"why this stop (1 sentence)","pt":"insider tip (1 sentence)"}]}
-
---- DYNAMIC CONTEXT (per-request) ---
-${trailInstructions}${boardingGarageInstructions}${anchorBlock}${intentionBlock}${preferencesBlock}${weatherSummary ? `\nWEATHER:\n${weatherSummary}\nAdapt to forecast. Include weather-relevant proTips.\n` : ""}${exclusionList ? `\nFRESHNESS: User visited these before — do NOT repeat: ${exclusionList}\n` : ""}${
-  input.title
-    ? `\nTHEME: Title MUST be "${input.title}". Every stop must reinforce this theme. The title IS the creative brief.\n`
-    : ""
-}${input.activityTypes.length > 1 && input.stopCount > 0 && input.stopCount < input.activityTypes.length ? `\nVIBE FUSION: ${input.activityTypes.length} vibes (${input.activityTypes.join(", ")}) but only ${input.stopCount} stop${input.stopCount > 1 ? "s" : ""}. Find venues combining multiple vibes naturally. Highlight in "wts". Prefer ratings ≥ 4.0.\n` : input.activityTypes.length > 1 && input.stopCount > 0 && input.stopCount <= input.activityTypes.length ? `\nVIBE BLENDING: ${input.activityTypes.length} vibes (${input.activityTypes.join(", ")}) across ${input.stopCount} stop${input.stopCount > 1 ? "s" : ""}. Combine vibes where natural.\n` : ""}
-Duration: ${input.durationHours}h | Budget: ${budgetRange} | Vibes: ${input.activityTypes.join(", ") || "any"}
-${input.stopCount > 0 ? `Stops: EXACTLY ${Math.max(input.stopCount, anchorStops?.length ?? 0)}` : `Stops: choose for duration${anchorStops && anchorStops.length > 0 ? ` (min ${anchorStops.length})` : ""}`}`;
+Respond ONLY with valid JSON. Use abbreviated keys to save tokens:
+{"t":"title 3-6 words","s":"1-2 sentence summary","items":[{"st":"14:00","et":"15:30","t":"Stop name","d":"≤10 word description","e":"emoji","ec":15.00,"vn":"Venue Name","va":"123 Main St, City, ST","eid":"uuid-or-null","tn":"travel note","vc":"cafe|restaurant|bar|park|museum|gallery|market|venue|attraction|trail|other","wts":"why this stop (1 sentence)","pt":"insider tip (1 sentence)"}]}`;
 
     // When planned date is today and no explicit start time, pin to current time
     // so the LLM never schedules stops in the past.
@@ -1701,13 +1719,16 @@ ${input.stopCount > 0 ? `Stops: EXACTLY ${Math.max(input.stopCount, anchorStops?
           : "";
 
     const userPrompt = `City: ${cityName}
-Date: ${plannedDateStr}${isToday ? ` (today — current time is ${currentTime})` : ""}${timeConstraint}
+Date: ${plannedDateStr}${isToday ? ` (today — current time is ${currentTime})` : ""}
+Duration: ${input.durationHours} hours
+Budget: ${budgetRange}
+Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${intention ? `\nIntention: ${intention.replace("_", " ")}` : ""}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}${timeConstraint}
 
 EVENTS (use ONLY these for event-type stops):
 ${eventList}
 
-VERIFIED VENUES (prefer these):
-${venueList}${trailList ? `\n\nTRAILS (OpenStreetMap — use exact names):\n${trailList}` : ""}${forecast ? `\n\nWEATHER for ${plannedDateStr}:\n${this.formatHourlyForPrompt(forecast)}` : ""}`;
+VERIFIED VENUES in ${cityName} (prefer these for non-event stops):
+${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap data — use exact names):\n${trailList}` : ""}${forecast ? `\n\nWEATHER FORECAST for ${plannedDateStr}:\n${this.formatHourlyForPrompt(forecast)}` : ""}`;
 
     const parseLLMResponse = (responseText: string): LLMItineraryResponse => {
       let jsonStr = responseText.trim();
