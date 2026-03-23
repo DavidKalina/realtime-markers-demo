@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { Delaunay } from "d3-delaunay";
 import { useDistrictMapStore } from "@/stores/useDistrictMapStore";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { getDistrictColor } from "@/utils/districtUtils";
 import type { FeatureCollection, Feature, Polygon } from "geojson";
 
@@ -26,10 +25,9 @@ export function useDistrictVoronoi(): FeatureCollection<
 > | null {
   const districts = useDistrictMapStore((s) => s.districts);
   const coverageMap = useDistrictMapStore((s) => s.coverageMap);
-  const mapViewport = useLocationStore((s) => s.mapViewport);
 
   return useMemo(() => {
-    if (!mapViewport || districts.length === 0) return null;
+    if (districts.length === 0) return null;
 
     // Build Delaunay from centroids [lng, lat]
     const points: [number, number][] = districts.map((d) => [
@@ -86,5 +84,5 @@ export function useDistrictVoronoi(): FeatureCollection<
       type: "FeatureCollection",
       features,
     };
-  }, [districts, coverageMap, mapViewport]);
+  }, [districts, coverageMap]);
 }

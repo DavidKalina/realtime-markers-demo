@@ -1,10 +1,8 @@
 // components/Districts/DistrictZonesLayer.tsx
 //
 // Renders district Voronoi zones on the map using native Mapbox layers.
-// - Explored districts: green tint with solid borders
-// - Unexplored districts: dark fog with dashed borders (fog of war)
-// - District name labels at polygon centroids
-// Layers are zoom-interpolated to be visible at zoom 8–15.
+// Each district is tinted with its activity color (amber, green, blue, etc.)
+// with soft green borders and name labels at centroids.
 
 import React, { useCallback, useMemo } from "react";
 import MapboxGL from "@rnmapbox/maps";
@@ -54,40 +52,26 @@ const DistrictZonesLayerInner: React.FC<DistrictZonesLayerProps> = ({
     };
   }, [districts, coverageMap]);
 
-  // ── Fill style (fog of war) ────────────────────────────────────────
+  // ── Fill style — always show district activity color ──────────────
   const fillStyle = useMemo(
     () => ({
-      fillColor: [
-        "case",
-        ["get", "explored"],
-        ["get", "color"], // Explored: district's activity color
-        "rgba(10, 10, 20, 1)", // Unexplored: dark blue-shifted fog
-      ] as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-      fillOpacityTransition: { duration: 500, delay: 0 },
+      fillColor: ["get", "color"] as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       fillOpacity: [
         "interpolate",
         ["linear"],
         ["zoom"],
-        5,
-        ["case", ["get", "explored"], 0.06 * baseOpacity, 0.2 * baseOpacity] as any,
-        8,
-        ["case", ["get", "explored"], 0.08 * baseOpacity, 0.3 * baseOpacity] as any,
-        12,
-        ["case", ["get", "explored"], 0.12 * baseOpacity, 0.4 * baseOpacity] as any,
-        16,
-        ["case", ["get", "explored"], 0.07 * baseOpacity, 0.22 * baseOpacity] as any,
-        20,
-        ["case", ["get", "explored"], 0.04 * baseOpacity, 0.12 * baseOpacity] as any,
+        5, 0.1 * baseOpacity,
+        8, 0.12 * baseOpacity,
+        12, 0.15 * baseOpacity,
+        16, 0.12 * baseOpacity,
+        20, 0.1 * baseOpacity,
       ] as any, // eslint-disable-line @typescript-eslint/no-explicit-any
     }),
     [baseOpacity],
   );
 
-  // ── Border styles (split: lineDasharray doesn't support data expressions) ──
-  const exploredLineFilter = ["==", ["get", "explored"], true] as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  const unexploredLineFilter = ["==", ["get", "explored"], false] as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-
-  const exploredLineStyle = useMemo(
+  // ── Border style ─────────────────────────────────────────────────
+  const lineStyle = useMemo(
     () => ({
       lineColor: "rgba(134, 239, 172, 0.5)",
       lineBlur: 3,
@@ -100,37 +84,12 @@ const DistrictZonesLayerInner: React.FC<DistrictZonesLayerProps> = ({
       ] as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       lineOpacity: [
         "interpolate", ["linear"], ["zoom"],
-        5, 0.1 * baseOpacity,
-        9, 0.25 * baseOpacity,
+        5, 0.15 * baseOpacity,
+        9, 0.3 * baseOpacity,
         12, 0.7 * baseOpacity,
-        16, 0.3 * baseOpacity,
-        20, 0.15 * baseOpacity,
+        16, 0.4 * baseOpacity,
+        20, 0.25 * baseOpacity,
       ] as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-      lineOpacityTransition: { duration: 500, delay: 0 },
-    }),
-    [baseOpacity],
-  );
-
-  const unexploredLineStyle = useMemo(
-    () => ({
-      lineColor: "rgba(255, 255, 255, 0.15)",
-      lineWidth: [
-        "interpolate", ["linear"], ["zoom"],
-        5, 0.3,
-        10, 0.5,
-        13, 1.5,
-        18, 0.75,
-      ] as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-      lineDasharray: [4, 4],
-      lineOpacity: [
-        "interpolate", ["linear"], ["zoom"],
-        5, 0.05 * baseOpacity,
-        9, 0.15 * baseOpacity,
-        12, 0.5 * baseOpacity,
-        16, 0.2 * baseOpacity,
-        20, 0.1 * baseOpacity,
-      ] as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-      lineOpacityTransition: { duration: 500, delay: 0 },
     }),
     [baseOpacity],
   );
@@ -149,12 +108,7 @@ const DistrictZonesLayerInner: React.FC<DistrictZonesLayerProps> = ({
         16, 12,
       ] as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       textFont: ["DIN Pro Bold"],
-      textColor: [
-        "case",
-        ["get", "explored"],
-        ["get", "color"], // Explored: district's activity color
-        "rgba(255, 255, 255, 0.3)", // Unexplored: dim
-      ] as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+      textColor: ["get", "color"] as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       textHaloColor: "rgba(0, 0, 0, 0.7)",
       textHaloWidth: 1,
       textAllowOverlap: false,
@@ -198,15 +152,8 @@ const DistrictZonesLayerInner: React.FC<DistrictZonesLayerProps> = ({
         style={fillStyle}
       />
       <MapboxGL.LineLayer
-        id="district-border-explored"
-        filter={exploredLineFilter}
-        style={exploredLineStyle}
-        aboveLayerID="district-fill"
-      />
-      <MapboxGL.LineLayer
-        id="district-border-unexplored"
-        filter={unexploredLineFilter}
-        style={unexploredLineStyle}
+        id="district-border"
+        style={lineStyle}
         aboveLayerID="district-fill"
       />
     </MapboxGL.ShapeSource>

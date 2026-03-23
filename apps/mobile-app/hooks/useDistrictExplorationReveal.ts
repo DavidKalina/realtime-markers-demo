@@ -53,4 +53,5 @@ export function useDistrictExplorationReveal(): void {
 
     return () => clearTimeout(timer);
   }, [completionData, userLocation]);
+
 }

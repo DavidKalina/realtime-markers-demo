@@ -304,8 +304,8 @@ function HomeScreenContent() {
   // District Voronoi zones (fog of war)
   const districtZonesComponent = useMemo(() => {
     if (isLoadingLocation) return null;
-    return <DistrictZonesLayer dimmed={hasActiveQuest} onDistrictPress={handleDistrictPress} />;
-  }, [isLoadingLocation, hasActiveQuest, handleDistrictPress]);
+    return <DistrictZonesLayer dimmed={hasActiveQuest} />;
+  }, [isLoadingLocation, hasActiveQuest]);
 
   const userLocationLayer = useMemo(() => {
     if (!locationPermissionGranted) return null;
