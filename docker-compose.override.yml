@@ -1,0 +1,34 @@
+# Dev overrides — auto-loaded by `docker compose up`
+# Mounts source code and enables hot reload via `bun --watch`
+services:
+  backend:
+    volumes:
+      - ./apps/backend:/app/apps/backend
+      - ./packages/database:/app/packages/database
+      - /app/apps/backend/node_modules
+      - /app/packages/database/node_modules
+    command: ["bun", "--watch", "run", "/app/apps/backend/index.ts"]
+
+  worker:
+    volumes:
+      - ./apps/backend:/app/apps/backend
+      - ./packages/database:/app/packages/database
+      - /app/apps/backend/node_modules
+      - /app/packages/database/node_modules
+    command: ["bun", "--watch", "run", "/app/apps/backend/worker.ts"]
+
+  filter-processor:
+    build:
+      context: .
+      dockerfile: apps/filter-processor/Dockerfile
+      target: base
+    volumes:
+      - ./apps/filter-processor:/app/apps/filter-processor
+      - /app/apps/filter-processor/node_modules
+    command: ["bun", "--watch", "run", "/app/apps/filter-processor/src/index.ts"]
+
+  websocket:
+    volumes:
+      - ./apps/websocket:/app/apps/websocket
+      - /app/apps/websocket/node_modules
+    command: ["bun", "--watch", "run", "/app/apps/websocket/src/index.ts"]

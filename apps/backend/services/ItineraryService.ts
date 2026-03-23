@@ -48,6 +48,29 @@ export interface CreateItineraryInput {
   timezone?: string;
 }
 
+// Abbreviated keys from LLM to save output tokens
+interface LLMItineraryItemRaw {
+  st: string;
+  et: string;
+  t: string;
+  d: string;
+  e: string;
+  ec: number | null;
+  vn: string | null;
+  va: string | null;
+  eid: string | null;
+  tn: string | null;
+  vc: string | null;
+  wts: string | null;
+  pt: string | null;
+}
+
+interface LLMItineraryResponseRaw {
+  t: string;
+  s: string;
+  items: LLMItineraryItemRaw[];
+}
+
 interface LLMItineraryItem {
   startTime: string;
   endTime: string;
@@ -68,6 +91,28 @@ interface LLMItineraryResponse {
   title: string;
   summary: string;
   items: LLMItineraryItem[];
+}
+
+function expandLLMResponse(raw: LLMItineraryResponseRaw): LLMItineraryResponse {
+  return {
+    title: raw.t,
+    summary: raw.s,
+    items: raw.items.map((i) => ({
+      startTime: i.st,
+      endTime: i.et,
+      title: i.t,
+      description: i.d,
+      emoji: i.e,
+      estimatedCost: i.ec,
+      venueName: i.vn,
+      venueAddress: i.va,
+      eventId: i.eid,
+      travelNote: i.tn,
+      venueCategory: i.vc,
+      whyThisStop: i.wts,
+      proTip: i.pt,
+    })),
+  };
 }
 
 interface CityEvent {
@@ -597,7 +642,7 @@ class ItineraryServiceImpl implements ItineraryService {
     const month = now.toLocaleDateString("en-US", { month: "long" });
 
     const completion = await this.openAIService.executeChatCompletion({
-      model: OpenAIModel.GPT4OMini,
+      model: OpenAIModel.GPT54Nano,
       messages: [
         {
           role: "system",
@@ -1618,13 +1663,13 @@ ${
 - The user selected ${input.activityTypes.length} vibes (${input.activityTypes.join(", ")}) but only ${input.stopCount} stop${input.stopCount > 1 ? "s" : ""}.
 - You MUST find venues that naturally combine multiple vibes in one place. Do NOT just pick one vibe and ignore the others.
 - Examples of fusion: "coffee + food" → a café known for excellent food AND coffee (not just a Starbucks). "outdoors + food" → a brewery with a great patio or a food truck park in a scenic area. "nightlife + food" → a restaurant with a lively bar scene.
-- When describing the stop, highlight how it satisfies multiple vibes in "whyThisStop" (e.g., "Known for their house-roasted beans AND wood-fired brunch — the best of both worlds").
+- When describing the stop, highlight how it satisfies multiple vibes in "wts" (e.g., "Known for their house-roasted beans AND wood-fired brunch — the best of both worlds").
 - Prefer venues with Google ratings ≥ 4.0 that genuinely excel at the combined vibes, not places that technically qualify but are mediocre at both.
 
 ` : input.activityTypes.length > 1 && input.stopCount > 0 && input.stopCount <= input.activityTypes.length ? `VIBE BLENDING (multiple activity preferences, limited stops):
 - The user selected ${input.activityTypes.length} vibes (${input.activityTypes.join(", ")}) across ${input.stopCount} stop${input.stopCount > 1 ? "s" : ""}.
 - Where possible, choose venues that satisfy multiple vibes at once rather than dedicating each stop to a single vibe.
-- When a venue naturally blends vibes, highlight this in "whyThisStop" — the user chose these vibes together for a reason.
+- When a venue naturally blends vibes, highlight this in "wts" — the user chose these vibes together for a reason.
 
 ` : ""}PLANNING RULES:
 - Stay within the time budget (${input.durationHours} hours)
@@ -1637,30 +1682,10 @@ ${
 - For non-event stops, set eventId to null
 - Estimated costs should be realistic
 - Times should be in 24h format (e.g., "14:00")
-- "description" MUST be a single short sentence (max 10 words). Do NOT write long descriptions — the detail goes in whyThisStop and proTip instead
+- "d" (description) must be ≤10 words. Detail goes in "wts" and "pt".
 
-Respond ONLY with valid JSON matching this schema:
-{
-  "title": "A catchy 3-6 word title for the itinerary",
-  "summary": "A 1-2 sentence exciting summary of the day plan",
-  "items": [
-    {
-      "startTime": "14:00",
-      "endTime": "15:30",
-      "title": "Stop name",
-      "description": "One concise sentence — what to do here",
-      "emoji": "single emoji",
-      "estimatedCost": 15.00,
-      "venueName": "Venue Name",
-      "venueAddress": "123 Main St, City, ST",
-      "eventId": "uuid-or-null",
-      "travelNote": "10 min walk from previous stop",
-      "venueCategory": "cafe|restaurant|bar|park|museum|gallery|market|venue|attraction|trail|other",
-      "whyThisStop": "One sentence on why this stop is special or a hidden gem",
-      "proTip": "Insider tip: best seat, what to order, timing trick, etc."
-    }
-  ]
-}`;
+Respond ONLY with valid JSON. Use abbreviated keys to save tokens:
+{"t":"title 3-6 words","s":"1-2 sentence summary","items":[{"st":"14:00","et":"15:30","t":"Stop name","d":"≤10 word description","e":"emoji","ec":15.00,"vn":"Venue Name","va":"123 Main St, City, ST","eid":"uuid-or-null","tn":"travel note","vc":"cafe|restaurant|bar|park|museum|gallery|market|venue|attraction|trail|other","wts":"why this stop (1 sentence)","pt":"insider tip (1 sentence)"}]}`;
 
     // When planned date is today and no explicit start time, pin to current time
     // so the LLM never schedules stops in the past.
@@ -1728,9 +1753,10 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
         throw new Error("No JSON object found in LLM response");
       }
 
+      let raw: LLMItineraryResponseRaw;
       // Try to repair truncated JSON by closing open structures
       try {
-        return JSON.parse(jsonStr);
+        raw = JSON.parse(jsonStr);
       } catch {
         let repaired = jsonStr;
         // Remove trailing incomplete key-value or string
@@ -1750,8 +1776,10 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
 
         for (let i = 0; i < openBrackets; i++) repaired += "]";
         for (let i = 0; i < openBraces; i++) repaired += "}";
-        return JSON.parse(repaired);
+        raw = JSON.parse(repaired);
       }
+
+      return expandLLMResponse(raw);
     };
 
     const callLLM = async (): Promise<string> => {
@@ -2023,7 +2051,7 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
         .join("; ");
 
       const completion = await this.openAIService.executeChatCompletion({
-        model: OpenAIModel.GPT4OMini,
+        model: OpenAIModel.GPT54Nano,
         messages: [
           {
             role: "system",
