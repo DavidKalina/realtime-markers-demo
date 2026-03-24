@@ -1,9 +1,10 @@
 // apps/filter-processor/src/services/FilterProcessor.ts
 import Redis from "ioredis";
-import { Filter, BoundingBox, Event } from "../types/types";
+import { Filter, BoundingBox, Event, CommunityItinerary } from "../types/types";
 import { FilterMatcher } from "../handlers/FilterMatcher";
 import { ViewportProcessor } from "../handlers/ViewportProcessor";
 import { EventPublisher } from "../handlers/EventPublisher";
+import { ItineraryPublisher } from "../handlers/ItineraryPublisher";
 import { MapMojiFilterService } from "./MapMojiFilterService";
 import { createUnifiedSpatialCacheService } from "./UnifiedSpatialCacheService";
 import { createUserStateService } from "./UserStateService";
@@ -14,7 +15,9 @@ import { createVectorService } from "./VectorService";
 
 import { UnifiedMessageHandler } from "./UnifiedMessageHandler";
 import { createEventInitializationService } from "./EventInitializationService";
+import { createItineraryInitializationService } from "./ItineraryInitializationService";
 import { createUnifiedFilteringService } from "./UnifiedFilteringService";
+import { createItineraryFilteringService } from "./ItineraryFilteringService";
 import { createClientConfigService } from "./ClientConfigService";
 
 export interface FilterProcessor {
@@ -61,11 +64,18 @@ export interface FilterProcessorConfig {
       viewportUpdates?: string;
       initialRequest?: string;
       eventChanges?: string;
+      itineraryChanges?: string;
       jobCreated?: string;
       jobUpdates?: string;
     };
   };
   eventInitializationConfig?: {
+    backendUrl?: string;
+    pageSize?: number;
+    maxRetries?: number;
+    retryDelay?: number;
+  };
+  itineraryInitializationConfig?: {
     backendUrl?: string;
     pageSize?: number;
     maxRetries?: number;
@@ -95,6 +105,7 @@ export function createFilterProcessor(
     eventFilteringConfig = {},
     redisConfig = {},
     eventInitializationConfig = {},
+    itineraryInitializationConfig = {},
     jobProcessingConfig = {},
     userUpdateBatcherConfig = {},
   } = config;
@@ -144,10 +155,17 @@ export function createFilterProcessor(
     eventInitializationConfig,
   );
 
+  // Create itinerary initialization service
+  const itineraryInitializationService = createItineraryInitializationService(
+    unifiedSpatialCacheService,
+    itineraryInitializationConfig,
+  );
+
   // Create handlers with service dependencies
   const vectorService = createVectorService();
   const filterMatcher = new FilterMatcher(vectorService);
   const eventPublisher = new EventPublisher(redisPub);
+  const itineraryPublisher = new ItineraryPublisher(redisPub);
   const mapMojiFilter = new MapMojiFilterService();
 
   // Create client configuration service
@@ -164,6 +182,11 @@ export function createFilterProcessor(
     },
   );
 
+  // Create itinerary filtering service
+  const itineraryFilteringService = createItineraryFilteringService(
+    itineraryPublisher,
+  );
+
   // Create user update batcher service (replaces deprecated BatchScoreUpdateService)
   const userUpdateBatcherService = createHybridUserUpdateBatcherService(
     unifiedFilteringService,
@@ -172,6 +195,7 @@ export function createFilterProcessor(
     (userId: string) => userStateService.getUserFilters(userId),
     (userId: string) => userStateService.getUserViewport(userId) || null,
     userUpdateBatcherConfig,
+    itineraryFilteringService,
   );
 
   // Set the callback now that userUpdateBatcherService is available
@@ -204,7 +228,6 @@ export function createFilterProcessor(
         data.record,
       );
 
-      // Log processing results for monitoring
       if (result.success) {
         console.log(
           `[FilterProcessor] Event ${data.operation} processed successfully: ${result.entityId} (${result.affectedUsersCount} affected users, ${result.processingTimeMs}ms)`,
@@ -212,6 +235,26 @@ export function createFilterProcessor(
       } else {
         console.error(
           `[FilterProcessor] Event ${data.operation} failed: ${result.error}`,
+        );
+      }
+    },
+    onItineraryUpdate: async (data: {
+      operation: string;
+      record: CommunityItinerary;
+    }) => {
+      const result = await unifiedMessageHandler.handleEntityMessage(
+        "itinerary",
+        data.operation,
+        data.record,
+      );
+
+      if (result.success) {
+        console.log(
+          `[FilterProcessor] Itinerary ${data.operation} processed: ${result.entityId} (${result.affectedUsersCount} affected users, ${result.processingTimeMs}ms)`,
+        );
+      } else {
+        console.error(
+          `[FilterProcessor] Itinerary ${data.operation} failed: ${result.error}`,
         );
       }
     },
@@ -257,6 +300,10 @@ export function createFilterProcessor(
       console.log("📦 Initializing events...");
       await eventInitializationService.initializeEntities();
 
+      // Initialize itineraries from backend
+      console.log("📦 Initializing itineraries...");
+      await itineraryInitializationService.initializeEntities();
+
       // Subscribe to Redis channels
       console.log("🔌 Subscribing to Redis channels...");
       await redisMessageHandler.subscribeToChannels();
@@ -265,10 +312,12 @@ export function createFilterProcessor(
       console.log("⚡ Starting user update batcher service...");
       userUpdateBatcherService.startPeriodicSweeper();
 
+      const cacheStats = unifiedSpatialCacheService.getStats();
       console.log("✅ Filter Processor initialized successfully:", {
-        events: unifiedSpatialCacheService.getStats().spatialIndexSize,
+        events: cacheStats.spatialIndexSize,
+        itineraries: cacheStats.itineraryCacheSize,
         users: userStateService.getStats().totalUsers,
-        entityTypes: ["event"],
+        entityTypes: ["event", "itinerary"],
       });
     } catch (error) {
       console.error("❌ Error initializing Filter Processor:", error);
@@ -354,6 +403,7 @@ export function createFilterProcessor(
 
         // Track viewport in UnifiedMessageHandler for affected user calculation
         unifiedMessageHandler.trackUserViewport("event", userId, viewport);
+        unifiedMessageHandler.trackUserViewport("itinerary", userId, viewport);
         // Mark user as dirty for batch processing
         userUpdateBatcherService.markUserAsDirty(userId, {
           reason: "viewport_change",
@@ -423,9 +473,11 @@ export function createFilterProcessor(
 
     // Clean up viewport tracking in UnifiedMessageHandler
     unifiedMessageHandler.removeUserViewport("event", userId);
+    unifiedMessageHandler.removeUserViewport("itinerary", userId);
 
     // Clean up per-user diff state to prevent memory leaks
     unifiedFilteringService.clearUserState(userId);
+    itineraryFilteringService.clearUserState(userId);
 
     // Clean up user data
     userStateService.unregisterUser(userId);
@@ -455,6 +507,9 @@ export function createFilterProcessor(
       ...userStateService.getStats(),
       ...redisMessageHandler.getStats(),
       ...eventInitializationService.getStats(),
+      itineraryInit: itineraryInitializationService.getStats(),
+      itineraryFiltering: itineraryFilteringService.getStats(),
+      itineraryPublisher: itineraryPublisher.getStats(),
       ...jobProcessingService.getStats(),
       ...userUpdateBatcherService.getStats(),
       unifiedMessageHandler: unifiedMessageHandler.getMetrics(),

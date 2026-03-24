@@ -47,6 +47,8 @@ import { useAnchorPlanning } from "@/hooks/useAnchorPlanning";
 import { useMapInteractions } from "@/hooks/useMapInteractions";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useDistrictMapData } from "@/hooks/useDistrictMapData";
+import { useMapWebSocket } from "@/hooks/useMapWebSocket";
+import { webSocketService } from "@/services/WebSocketService";
 import { useDistrictFocus } from "@/hooks/useDistrictFocus";
 import { DistrictZonesLayer } from "@/components/Districts/DistrictZonesLayer";
 import { CommunityItineraryMarkers } from "@/components/Districts/CommunityItineraryMarkers";
@@ -192,11 +194,22 @@ function HomeScreenContent() {
   }, [activeItinerary, startSimulation, stopSimulation]);
 
   // ── Viewport ────────────────────────────────────────────────────────
-  const { handleRegionChanging } = useMapViewport({
+  const { handleRegionChanging, viewportRectangle } = useMapViewport({
     isPitched,
     paused: isOrbiting,
     pausedRef: isOrbitingRef,
   });
+
+  // ── WebSocket — handles incoming streamed events + itineraries ─────
+  const wsUrl = process.env.EXPO_PUBLIC_WEB_SOCKET_URL ?? "";
+  useMapWebSocket(wsUrl);
+
+  // Send viewport updates to WebSocket server directly (no state loop)
+  useEffect(() => {
+    if (viewportRectangle) {
+      webSocketService.sendViewportUpdate(viewportRectangle, zoomLevel);
+    }
+  }, [viewportRectangle, zoomLevel]);
 
   // ── Map interactions ────────────────────────────────────────────────
   const { handleMapPress: baseMapPress } = useMapInteractions({
@@ -486,13 +499,12 @@ function HomeScreenContent() {
             />
             {districtZonesComponent}
             <AnchorMarkers />
-            {!activeItinerary && (
-              <CommunityItineraryMarkers
-                dimmed={false}
-                onSelect={handleCommunityMarkerSelect}
-                selectedId={selectedCommunityItinerary?.itinerary.id ?? null}
-              />
-            )}
+            <CommunityItineraryMarkers
+              dimmed={false}
+              hidden={!!activeItinerary}
+              onSelect={handleCommunityMarkerSelect}
+              selectedId={selectedCommunityItinerary?.itinerary.id ?? null}
+            />
             {itineraryLayersSafe && (
               <ItineraryRouteLayer revealedStopCount={revealedStopCount} />
             )}

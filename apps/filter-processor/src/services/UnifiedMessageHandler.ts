@@ -196,11 +196,18 @@ export class UnifiedMessageHandler {
             location.coordinates[0] as number,
             location.coordinates[1] as number,
           ];
-          console.log(
-            "[UnifiedMessageHandler] Extracted coordinates for DELETE:",
-            coordinates,
-          );
         }
+      }
+      // Itinerary DELETE: extract from entryLongitude/entryLatitude
+      if (
+        !coordinates &&
+        entityData.entryLongitude != null &&
+        entityData.entryLatitude != null
+      ) {
+        coordinates = [
+          entityData.entryLongitude as number,
+          entityData.entryLatitude as number,
+        ];
       }
 
       // For DELETE, use minimal entity data for processing
@@ -244,6 +251,19 @@ export class UnifiedMessageHandler {
     } else {
       // For CREATE and UPDATE operations, validate and normalize the full entity
       entity = this.validateAndNormalizeEntity(data, entityType, operation);
+
+      // Null means entity can't be indexed (e.g. itinerary without coordinates) — skip
+      if (!entity) {
+        return {
+          success: true,
+          entityId: (data as Record<string, unknown>)?.id as string ?? "unknown",
+          entityType,
+          operation,
+          affectedUsersCount: 0,
+          processingTimeMs: Date.now() - startTime,
+        };
+      }
+
       entityId = entity.id;
 
       // Get affected users for CREATE and UPDATE operations
@@ -251,7 +271,7 @@ export class UnifiedMessageHandler {
     }
 
     // Process with retry logic
-    await this.processWithRetry(operation, entity);
+    await this.processWithRetry(operation, entity, entityType);
 
     // Mark affected users as dirty if callback is provided
     if (this.onUserDirty && affectedUsers.size > 0) {
@@ -325,7 +345,7 @@ export class UnifiedMessageHandler {
     data: unknown,
     entityType: string,
     operation?: string,
-  ): Event {
+  ): EventLike {
     try {
       // For DELETE operations, we only need the entity ID
       if (operation?.toUpperCase() === "DELETE") {
@@ -338,25 +358,33 @@ export class UnifiedMessageHandler {
           throw new Error("Missing required entity ID for deletion");
         }
 
-        // For DELETE, return a minimal object with just the ID
-        return { id: entityData.id } as Event;
+        return { id: entityData.id };
       }
 
-      // For CREATE and UPDATE operations, normalize and validate the full entity
       if (typeof data !== "object" || data === null) {
-        throw new Error("Invalid event data");
+        throw new Error(`Invalid ${entityType} data`);
       }
 
-      const event = data as Event;
+      if (entityType === "itinerary") {
+        const itinerary = data as Record<string, unknown>;
+        if (!itinerary.id) {
+          throw new Error("Missing required itinerary field: id");
+        }
+        // Itineraries without entry coordinates can't be spatially indexed — skip silently
+        if (itinerary.entryLatitude == null || itinerary.entryLongitude == null) {
+          return null as unknown as EventLike;
+        }
+        return data as EventLike;
+      }
 
+      // Event validation
+      const event = data as Event;
       if (!event.id || !event.title || !event.location) {
         throw new Error("Missing required event fields");
       }
-
       if (!(event.id && event.title && event.location && event.createdAt)) {
         throw new Error(`Invalid entity data for type: ${entityType}`);
       }
-
       return event;
     } catch (error) {
       console.warn(
@@ -370,22 +398,42 @@ export class UnifiedMessageHandler {
   private async processWithRetry(
     operation: string,
     entity: EventLike,
+    entityType: string = "event",
   ): Promise<void> {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= this.config.maxRetries; attempt++) {
       try {
-        switch (operation.toUpperCase()) {
-          case "CREATE":
-          case "INSERT":
-            this.spatialCache.addEvent(entity as Event);
-            break;
-          case "UPDATE":
-            this.spatialCache.updateEvent(entity as Event);
-            break;
-          case "DELETE":
-            this.spatialCache.removeEvent(entity.id);
-            break;
+        if (entityType === "itinerary") {
+          switch (operation.toUpperCase()) {
+            case "CREATE":
+            case "INSERT":
+              this.spatialCache.addItinerary(
+                entity as unknown as import("../types/types").CommunityItinerary,
+              );
+              break;
+            case "UPDATE":
+              this.spatialCache.updateItinerary(
+                entity as unknown as import("../types/types").CommunityItinerary,
+              );
+              break;
+            case "DELETE":
+              this.spatialCache.removeItinerary(entity.id);
+              break;
+          }
+        } else {
+          switch (operation.toUpperCase()) {
+            case "CREATE":
+            case "INSERT":
+              this.spatialCache.addEvent(entity as Event);
+              break;
+            case "UPDATE":
+              this.spatialCache.updateEvent(entity as Event);
+              break;
+            case "DELETE":
+              this.spatialCache.removeEvent(entity.id);
+              break;
+          }
         }
         return; // Success
       } catch (error) {
@@ -429,15 +477,32 @@ export class UnifiedMessageHandler {
     }
 
     // 3. Find users whose viewports intersect the entity's location
-    // Events always have location (hasLocation = true)
-    if (
-      entity.location &&
-      (op === "CREATE" || op === "ADD" || op === "UPDATE" || op === "DELETE")
-    ) {
-      const coords = entity.location.coordinates;
-      const entityBounds = coords
-        ? { minX: coords[0], minY: coords[1], maxX: coords[0], maxY: coords[1] }
-        : null;
+    if (op === "CREATE" || op === "ADD" || op === "UPDATE" || op === "DELETE") {
+      // Build entity bounds from either event location or itinerary entry coordinates
+      let entityBounds: {
+        minX: number;
+        minY: number;
+        maxX: number;
+        maxY: number;
+      } | null = null;
+
+      if (entity.location?.coordinates) {
+        const coords = entity.location.coordinates;
+        entityBounds = {
+          minX: coords[0],
+          minY: coords[1],
+          maxX: coords[0],
+          maxY: coords[1],
+        };
+      } else {
+        // Itinerary: use entryLongitude/entryLatitude
+        const rec = entity as Record<string, unknown>;
+        if (rec.entryLongitude != null && rec.entryLatitude != null) {
+          const lng = rec.entryLongitude as number;
+          const lat = rec.entryLatitude as number;
+          entityBounds = { minX: lng, minY: lat, maxX: lng, maxY: lat };
+        }
+      }
 
       if (entityBounds && this.viewportProcessor) {
         try {
@@ -449,7 +514,7 @@ export class UnifiedMessageHandler {
           );
 
           for (const { userId } of intersectingViewportUsers) {
-            // Further check: Does this user have access to this specific entity?
+            // Itineraries are always public; events check privacy/sharedWith
             const isAccessible =
               !entity.isPrivate ||
               entity.creatorId === userId ||
@@ -457,9 +522,6 @@ export class UnifiedMessageHandler {
 
             if (isAccessible) {
               affectedUsers.add(userId);
-              console.log(
-                `[UnifiedMessageHandler] Added user ${userId} to affected users for ${operation} operation on event ${entity.id}`,
-              );
             }
           }
         } catch (error) {
@@ -506,13 +568,32 @@ export class UnifiedMessageHandler {
     try {
       const opUpper = operation.toUpperCase();
 
-      // Helper to choose per-user channel
+      // Helper to choose per-user channel based on entity type
+      const channelSuffix =
+        entityType === "itinerary" ? "filtered-itineraries" : "filtered-events";
       const channelForUser = (userId: string): string =>
-        `user:${userId}:filtered-events`;
+        `user:${userId}:${channelSuffix}`;
 
       // Build payload in mobile-friendly shape
       const buildPayload = (): ((userId: string) => string) => {
         const timestamp = new Date().toISOString();
+
+        if (entityType === "itinerary") {
+          if (opUpper === "DELETE") {
+            const id = entity.id;
+            return () =>
+              JSON.stringify({ type: "delete-itinerary", id, timestamp });
+          }
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { embedding, ...itineraryData } = entity as Record<
+            string,
+            unknown
+          >;
+          const type =
+            opUpper === "UPDATE" ? "update-itinerary" : "add-itinerary";
+          return () =>
+            JSON.stringify({ type, itinerary: itineraryData, timestamp });
+        }
 
         if (opUpper === "DELETE") {
           const id = entity.id;
@@ -520,9 +601,6 @@ export class UnifiedMessageHandler {
         }
 
         const ev = entity as Event;
-        // Include all display-critical fields so mobile markers render
-        // correctly on first paint (emoji, categories, color, etc.).
-        // Only strip embedding and rsvps (same as EventPublisher).
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { embedding, rsvps, ...eventData } = ev;
         const type = opUpper === "UPDATE" ? "update-event" : "add-event";

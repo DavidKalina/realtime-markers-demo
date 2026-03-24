@@ -229,6 +229,7 @@ export interface InternalItinerary {
   items: {
     id: string;
     title: string;
+    emoji: string | null;
     latitude: number | null;
     longitude: number | null;
     venueCategory: string | null;
@@ -1081,6 +1082,20 @@ DIVERSITY IS CRITICAL — the 5 suggestions must feel like 5 completely differen
 
       // Increment times_adopted on source
       await itineraryRepo.increment({ id: source.id }, "timesAdopted", 1);
+
+      // Publish the updated source itinerary so streaming clients see the new adoption count
+      const updatedSource = await itineraryRepo.findOne({
+        where: { id: source.id },
+        relations: ["items"],
+      });
+      if (updatedSource) {
+        this.publishItineraryChange(updatedSource, "UPDATE").catch((err) => {
+          console.error(
+            "[ItineraryService] Failed to publish adoption update:",
+            err,
+          );
+        });
+      }
 
       saved.items = newItems;
       return saved;
@@ -1952,16 +1967,23 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
     const offset = (page - 1) * pageSize;
     const repo = this.dataSource.getRepository(Itinerary);
 
-    const [itineraries, total] = await repo.findAndCount({
-      where: {
-        isPublished: true,
-        status: ItineraryStatus.READY,
-      },
-      relations: ["items"],
-      order: { updatedAt: "DESC", items: { sortOrder: "ASC" } },
-      skip: offset,
-      take: pageSize,
-    });
+    const where = {
+      isPublished: true,
+      status: ItineraryStatus.READY,
+    };
+
+    // Count separately — findAndCount with relations + order on a relation
+    // column + take produces an incorrect total (TypeORM DISTINCT/LIMIT bug).
+    const [itineraries, total] = await Promise.all([
+      repo.find({
+        where,
+        relations: ["items"],
+        order: { updatedAt: "DESC", items: { sortOrder: "ASC" } },
+        skip: offset,
+        take: pageSize,
+      }),
+      repo.count({ where }),
+    ]);
 
     const results: InternalItinerary[] = itineraries.map((it) => ({
       id: it.id,
@@ -1978,6 +2000,7 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
       items: (it.items || []).map((item) => ({
         id: item.id,
         title: item.title,
+        emoji: item.emoji || null,
         latitude: item.latitude != null ? Number(item.latitude) : null,
         longitude: item.longitude != null ? Number(item.longitude) : null,
         venueCategory: item.venueCategory || null,

@@ -8,17 +8,24 @@ import {
 } from "@/services/EventBroker";
 import { Marker, MapboxViewport } from "@/types/types";
 import { useLocationStore } from "@/stores/useLocationStore";
+import {
+  useDistrictMapStore,
+  type StreamedItinerary,
+} from "@/stores/useDistrictMapStore";
 import { convertEventToMarker } from "@/utils/convertEventToMarker";
 import { MessageTypes } from "./constants";
+import type { ItineraryMessageBatcher } from "./itineraryBatcher";
 
 interface UseViewportMessageHandlerArgs {
   setClientId: React.Dispatch<React.SetStateAction<string | null>>;
   currentViewportRef: React.RefObject<MapboxViewport | null>;
+  itineraryBatcher: ItineraryMessageBatcher;
 }
 
 export function useViewportMessageHandler({
   setClientId,
   currentViewportRef,
+  itineraryBatcher,
 }: UseViewportMessageHandlerArgs) {
   const handleViewportMessage = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -247,6 +254,45 @@ export function useViewportMessageHandler({
             break;
           }
 
+          case MessageTypes.REPLACE_ALL_ITINERARIES: {
+            if (__DEV__) {
+              console.log(
+                "[useMapWebsocket] Received REPLACE_ALL_ITINERARIES:",
+                data.itineraries?.length,
+              );
+            }
+            if (!Array.isArray(data.itineraries)) {
+              useDistrictMapStore.getState().setStreamedItineraries([]);
+              break;
+            }
+            itineraryBatcher.enqueueReplaceAll(
+              data.itineraries as StreamedItinerary[],
+            );
+            break;
+          }
+
+          case MessageTypes.ADD_ITINERARY: {
+            if (!data.itinerary?.id) break;
+            itineraryBatcher.enqueueAdd(
+              data.itinerary as StreamedItinerary,
+            );
+            break;
+          }
+
+          case MessageTypes.UPDATE_ITINERARY: {
+            if (!data.itinerary?.id) break;
+            itineraryBatcher.enqueueUpdate(
+              data.itinerary as StreamedItinerary,
+            );
+            break;
+          }
+
+          case MessageTypes.DELETE_ITINERARY: {
+            if (!data.id) break;
+            itineraryBatcher.enqueueDelete(data.id);
+            break;
+          }
+
           case MessageTypes.SESSION_UPDATE: {
             if (__DEV__) {
               console.debug("[useMapWebsocket] Received SESSION_UPDATE:", data);
@@ -271,7 +317,7 @@ export function useViewportMessageHandler({
         );
       }
     },
-    [setClientId, currentViewportRef],
+    [setClientId, currentViewportRef, itineraryBatcher],
   );
 
   return { handleViewportMessage };
