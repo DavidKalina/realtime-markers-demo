@@ -296,10 +296,6 @@ export function createFilterProcessor(
     try {
       console.log("🚀 Initializing Filter Processor...");
 
-      // Initialize events from backend
-      console.log("📦 Initializing events...");
-      await eventInitializationService.initializeEntities();
-
       // Initialize itineraries from backend
       console.log("📦 Initializing itineraries...");
       await itineraryInitializationService.initializeEntities();

@@ -166,7 +166,9 @@ const CommunityItineraryMarkersInner: React.FC<
   }, [districts]);
 
   // Streamed itineraries from WebSocket — the only data source
+  // Wait for districts so every marker gets a proper cluster assignment
   const allMarkers = useMemo((): MarkerData[] => {
+    if (!districtLookup) return [];
     return streamedItineraries
       .filter((itin) => itin.entryLatitude && itin.entryLongitude)
       .map((itin) => {

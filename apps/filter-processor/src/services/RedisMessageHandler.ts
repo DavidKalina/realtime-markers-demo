@@ -88,9 +88,6 @@ export function createRedisMessageHandler(
       // Subscribe to initial event requests from WebSocket server
       await redisSub.subscribe(initialRequest);
 
-      // Subscribe to raw events feed
-      await redisSub.psubscribe(eventChanges);
-
       // Subscribe to itinerary changes feed
       await redisSub.psubscribe(itineraryChanges);
 
