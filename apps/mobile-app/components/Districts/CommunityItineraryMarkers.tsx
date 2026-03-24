@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InteractionManager, StyleSheet, Text, View } from "react-native";
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
@@ -66,6 +67,17 @@ const CommunityMarkerPin = React.memo(
     const opacity = useSharedValue(0);
     const hiddenOpacity = useSharedValue(hidden ? 0 : 1);
     const dimFactor = useDerivedValue(() => (dimmed ? 0.35 : 1));
+    const isMounted = useRef(true);
+
+    // Track mount state for safe callbacks
+    useEffect(() => {
+      isMounted.current = true;
+      return () => {
+        isMounted.current = false;
+        cancelAnimation(scale);
+        cancelAnimation(opacity);
+      };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Entrance animation — runs once on mount
     useEffect(() => {
@@ -77,7 +89,7 @@ const CommunityMarkerPin = React.memo(
       opacity.value = withDelay(delay, withTiming(1, { duration: 200 }));
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Exit animation — scale/fade out, then notify parent
+    // Exit animation — scale/fade out, then notify parent (data deletions only)
     const onExitCompleteRef = useRef(onExitComplete);
     onExitCompleteRef.current = onExitComplete;
 
@@ -85,7 +97,7 @@ const CommunityMarkerPin = React.memo(
       if (!removing) return;
       scale.value = withTiming(0, { duration: 200 });
       opacity.value = withTiming(0, { duration: 200 }, (finished) => {
-        if (finished && onExitCompleteRef.current) {
+        if (finished && onExitCompleteRef.current && isMounted.current) {
           scheduleOnRN(onExitCompleteRef.current);
         }
       });
@@ -144,10 +156,12 @@ const CommunityItineraryMarkersInner: React.FC<
   // Track which markers are already mounted so re-renders don't re-stagger
   const mountedIds = useRef(new Set<string>());
 
-  // Pending-removal queue for exit animations
+  // Exit animation queue — only for DATA deletions (not viewport culling).
+  // Keeping exiting MarkerViews alive while new ones mount causes native
+  // assertion failures in RNMBXMapView.insertReactSubview.
   const removingMarkers = useRef(new Map<string, MarkerData>());
   const [exitTick, setExitTick] = useState(0);
-  const prevVisibleIds = useRef(new Set<string>());
+  const prevAllMarkerIds = useRef(new Set<string>());
 
   // Progressive mounting for large initial batches
   const [mountedChunkCount, setMountedChunkCount] = useState(0);
@@ -178,13 +192,11 @@ const CommunityItineraryMarkersInner: React.FC<
         let districtId = "";
         let borderColor = DEFAULT_BORDER_COLOR;
 
-        if (districtLookup) {
-          const idx = districtLookup.delaunay.find(lng, lat);
-          const district = districtLookup.sorted[idx];
-          if (district) {
-            districtId = district.id;
-            borderColor = getDistrictColor(district);
-          }
+        const idx = districtLookup.delaunay.find(lng, lat);
+        const district = districtLookup.sorted[idx];
+        if (district) {
+          districtId = district.id;
+          borderColor = getDistrictColor(district);
         }
 
         return {
@@ -196,6 +208,62 @@ const CommunityItineraryMarkersInner: React.FC<
         };
       });
   }, [streamedItineraries, districtLookup]);
+
+  // Cache marker data so we can look up deleted markers for exit animation.
+  // This ref is updated AFTER exit detection so deleted markers are still available.
+  const allMarkersMap = useRef(new Map<string, MarkerData>());
+
+  // Detect DATA deletions (marker removed from allMarkers entirely).
+  // Only these get exit animations — viewport culling just unmounts instantly,
+  // because keeping exiting MarkerViews alive during panning causes native
+  // assertion failures in RNMBXMapView.insertReactSubview.
+  const allMarkerIds = useMemo(
+    () => new Set(allMarkers.map((m) => m.itinerary.id)),
+    [allMarkers],
+  );
+
+  // Callback for when a marker finishes its exit animation
+  const handleExitComplete = useCallback((id: string) => {
+    removingMarkers.current.delete(id);
+    mountedIds.current.delete(id);
+    setExitTick((t) => t + 1);
+  }, []);
+
+  // Queue deleted markers for exit animation, then update cache
+  useEffect(() => {
+    let changed = false;
+
+    // Markers that disappeared from data → exit animation
+    for (const id of prevAllMarkerIds.current) {
+      if (!allMarkerIds.has(id) && !removingMarkers.current.has(id)) {
+        const cachedMarker = allMarkersMap.current.get(id);
+        if (cachedMarker) {
+          removingMarkers.current.set(id, cachedMarker);
+          changed = true;
+        }
+      }
+    }
+
+    // Markers that came back → cancel exit
+    for (const id of allMarkerIds) {
+      if (removingMarkers.current.has(id)) {
+        removingMarkers.current.delete(id);
+        changed = true;
+      }
+    }
+
+    prevAllMarkerIds.current = allMarkerIds;
+
+    // NOW update the cache (after we've used the old data for lookups)
+    allMarkersMap.current.clear();
+    for (const m of allMarkers) {
+      allMarkersMap.current.set(m.itinerary.id, m);
+    }
+
+    if (changed) {
+      setExitTick((t) => t + 1);
+    }
+  }, [allMarkerIds, allMarkers]);
 
   // Viewport culling with 10% buffer + hard cap at MAX_VISIBLE_MARKERS
   const visibleMarkers = useMemo(() => {
@@ -236,45 +304,6 @@ const CommunityItineraryMarkersInner: React.FC<
 
     return inViewport;
   }, [allMarkers, mapViewport, selectedId]);
-
-  // Detect markers leaving the visible set → queue them for exit animation
-  useEffect(() => {
-    const currentIds = new Set(visibleMarkers.map((m) => m.itinerary.id));
-    let changed = false;
-
-    // Markers that disappeared → add to removing queue
-    for (const id of prevVisibleIds.current) {
-      if (!currentIds.has(id)) {
-        const markerData = allMarkers.find((m) => m.itinerary.id === id);
-        if (markerData) {
-          removingMarkers.current.set(id, markerData);
-          changed = true;
-        }
-      }
-    }
-
-    // Markers that reappeared → remove from removing queue
-    for (const id of currentIds) {
-      if (removingMarkers.current.has(id)) {
-        removingMarkers.current.delete(id);
-        changed = true;
-      }
-    }
-
-    prevVisibleIds.current = currentIds;
-
-    // Force re-render so renderList picks up the new removing markers
-    if (changed) {
-      setExitTick((t) => t + 1);
-    }
-  }, [visibleMarkers, allMarkers]);
-
-  // Callback for when a marker finishes its exit animation
-  const handleExitComplete = useCallback((id: string) => {
-    removingMarkers.current.delete(id);
-    mountedIds.current.delete(id);
-    setExitTick((t) => t + 1);
-  }, []);
 
   // Assign stagger indices — only new (unmounted) markers get staggered
   const staggerResult = useMemo(() => {
@@ -320,7 +349,7 @@ const CommunityItineraryMarkersInner: React.FC<
     InteractionManager.runAfterInteractions(scheduleNext);
   }, [staggerResult]);
 
-  // Build final render list: visible markers + exiting markers
+  // Build final render list: visible markers + data-deleted markers animating out
   const renderList = useMemo(() => {
     let list = staggerResult.items;
 
@@ -332,7 +361,7 @@ const CommunityItineraryMarkersInner: React.FC<
       );
     }
 
-    // Append markers that are animating out
+    // Append data-deleted markers that are animating out (NOT viewport-culled ones)
     const exitItems = Array.from(
       removingMarkers.current.values(),
     ).map((marker) => ({
