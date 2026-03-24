@@ -128,6 +128,8 @@ const DBSCAN_MIN_POINTS = parseInt(process.env.DBSCAN_MIN_POINTS || "3");
 const CENTROID_MATCH_THRESHOLD = parseFloat(
   process.env.DISTRICT_MATCH_THRESHOLD || "0.85",
 );
+const GEO_WEIGHT = parseFloat(process.env.DISTRICT_GEO_WEIGHT || "0.25");
+const GEO_MAX_METERS = 5000; // distances beyond 5km are clamped to 1.0
 const DEBOUNCE_TTL_SECONDS = 3600;
 const PREVIEW_COUNT = 6;
 
@@ -198,14 +200,36 @@ export class DistrictService {
       this.embeddingService.parseSqlEmbedding(it.embedding),
     );
 
-    // Run DBSCAN with cosine distance
+    // Build index-based dataset for DBSCAN so the distance function
+    // can access both embeddings and coordinates for each point.
+    const indices = embeddable.map((_, i) => [i]);
+
+    // Run DBSCAN with hybrid distance: thematic (cosine) + geographic
     const dbscan = new DBSCAN();
     const clusters: number[][] = dbscan.run(
-      embeddings,
+      indices,
       DBSCAN_EPSILON,
       DBSCAN_MIN_POINTS,
-      (a: number[], b: number[]) =>
-        1 - this.embeddingService.calculateSimilarity(a, b),
+      (a: number[], b: number[]) => {
+        const i = a[0];
+        const j = b[0];
+
+        // Thematic distance: cosine distance on embeddings
+        const cosineDist =
+          1 - this.embeddingService.calculateSimilarity(embeddings[i], embeddings[j]);
+
+        // Geographic distance: haversine normalized to [0, 1]
+        const meters = haversineMeters(
+          Number(embeddable[i].entry_latitude),
+          Number(embeddable[i].entry_longitude),
+          Number(embeddable[j].entry_latitude),
+          Number(embeddable[j].entry_longitude),
+        );
+        const geoDist = Math.min(meters / GEO_MAX_METERS, 1);
+
+        // Blend: primarily thematic, with geographic penalty
+        return (1 - GEO_WEIGHT) * cosineDist + GEO_WEIGHT * geoDist;
+      },
     );
 
     // Load existing active districts in this region
