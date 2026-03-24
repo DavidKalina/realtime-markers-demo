@@ -123,7 +123,7 @@ interface ItineraryRow {
 // --- Constants ---
 
 const GEOHASH_PRECISION = 4;
-const DBSCAN_EPSILON = parseFloat(process.env.DBSCAN_EPSILON || "0.18");
+const DBSCAN_EPSILON = parseFloat(process.env.DBSCAN_EPSILON || "0.24");
 const DBSCAN_MIN_POINTS = parseInt(process.env.DBSCAN_MIN_POINTS || "3");
 const CENTROID_MATCH_THRESHOLD = parseFloat(
   process.env.DISTRICT_MATCH_THRESHOLD || "0.85",
