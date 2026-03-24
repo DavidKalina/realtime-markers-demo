@@ -112,22 +112,22 @@ export function createRedisService(
   setupErrorHandling(globalSubClient, "global subscriber");
   setupErrorHandling(userPatternSubClient, "user pattern subscriber");
 
-  // Subscribe to all user filtered-events channels via pattern
-  userPatternSubClient.psubscribe("user:*:filtered-events", (err, count) => {
+  // Subscribe to all user filtered-* channels via pattern (events + itineraries)
+  userPatternSubClient.psubscribe("user:*:filtered-*", (err, count) => {
     if (err) {
       console.error(
-        "Error pattern-subscribing to user:*:filtered-events:",
+        "Error pattern-subscribing to user:*:filtered-*:",
         err,
       );
     } else {
       console.log(
-        `Pattern-subscribed to user:*:filtered-events, total subscriptions: ${count}`,
+        `Pattern-subscribed to user:*:filtered-*, total subscriptions: ${count}`,
       );
     }
   });
 
   // Route pattern messages to the registered callback
-  const userChannelRegex = /^user:([^:]+):filtered-events$/;
+  const userChannelRegex = /^user:([^:]+):filtered-(?:events|itineraries)$/;
   userPatternSubClient.on(
     "pmessage",
     (_pattern: string, channel: string, message: string) => {

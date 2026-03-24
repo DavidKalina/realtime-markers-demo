@@ -17,6 +17,12 @@ export const MessageTypes = {
   // For backward compatibility
   SESSION_UPDATE: "session_update",
 
+  // Community itinerary streaming
+  REPLACE_ALL_ITINERARIES: "replace-all-itineraries",
+  ADD_ITINERARY: "add-itinerary",
+  UPDATE_ITINERARY: "update-itinerary",
+  DELETE_ITINERARY: "delete-itinerary",
+
   // New event type for discovered events
   EVENT_DISCOVERED: "event_discovered",
 

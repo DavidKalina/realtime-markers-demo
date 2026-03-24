@@ -146,7 +146,34 @@ export interface Filter {
 }
 
 /**
- * Item stored in the RBush spatial index
+ * Community itinerary — lightweight shape for the spatial index & streaming.
+ * Matches the InternalItinerary type from the backend.
+ */
+export interface CommunityItinerary {
+  id: string;
+  title: string | null;
+  summary: string | null;
+  city: string;
+  categories: string[];
+  embedding: string | null;
+  entryLatitude: number | null;
+  entryLongitude: number | null;
+  rating: number | null;
+  timesAdopted: number;
+  items: {
+    id: string;
+    title: string;
+    emoji?: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    venueCategory: string | null;
+    sortOrder: number;
+  }[];
+}
+
+/**
+ * Item stored in the RBush spatial index.
+ * Discriminated union — events and itineraries share the same R-tree.
  */
 export interface SpatialItem {
   minX: number; // longitude
@@ -155,7 +182,8 @@ export interface SpatialItem {
   maxY: number; // latitude
   id: string;
   event?: Event;
-  type: "event";
+  itinerary?: CommunityItinerary;
+  type: "event" | "itinerary";
 }
 
 /**

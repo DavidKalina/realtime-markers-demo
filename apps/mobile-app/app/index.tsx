@@ -47,6 +47,8 @@ import { useAnchorPlanning } from "@/hooks/useAnchorPlanning";
 import { useMapInteractions } from "@/hooks/useMapInteractions";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { useDistrictMapData } from "@/hooks/useDistrictMapData";
+import { useMapWebSocket } from "@/hooks/useMapWebSocket";
+import { webSocketService } from "@/services/WebSocketService";
 import { useDistrictFocus } from "@/hooks/useDistrictFocus";
 import { DistrictZonesLayer } from "@/components/Districts/DistrictZonesLayer";
 import { CommunityItineraryMarkers } from "@/components/Districts/CommunityItineraryMarkers";
@@ -114,7 +116,7 @@ function HomeScreenContent() {
   const router = useRouter();
   const { publish } = useEventBroker();
   const activeItinerary = useActiveItineraryStore((s) => s.itinerary);
-  const { mapStyle, isPitched } = useMapStyle();
+  const { mapStyle, isPitched, currentStyle } = useMapStyle();
   const { activeCount } = useJobProgressContext();
   const openJobSheet = useJobSheetStore((s) => s.open);
   const hasInFlight = activeCount > 0;
@@ -192,11 +194,22 @@ function HomeScreenContent() {
   }, [activeItinerary, startSimulation, stopSimulation]);
 
   // ── Viewport ────────────────────────────────────────────────────────
-  const { handleRegionChanging } = useMapViewport({
+  const { handleRegionChanging, viewportRectangle } = useMapViewport({
     isPitched,
     paused: isOrbiting,
     pausedRef: isOrbitingRef,
   });
+
+  // ── WebSocket — handles incoming streamed events + itineraries ─────
+  const wsUrl = process.env.EXPO_PUBLIC_WEB_SOCKET_URL ?? "";
+  useMapWebSocket(wsUrl);
+
+  // Send viewport updates to WebSocket server directly (no state loop)
+  useEffect(() => {
+    if (viewportRectangle) {
+      webSocketService.sendViewportUpdate(viewportRectangle, zoomLevel);
+    }
+  }, [viewportRectangle, zoomLevel]);
 
   // ── Map interactions ────────────────────────────────────────────────
   const { handleMapPress: baseMapPress } = useMapInteractions({
@@ -319,7 +332,7 @@ function HomeScreenContent() {
   const cameraSettings = useMemo(
     () => ({
       ...defaultCameraSettings,
-      pitch: isPitched ? 52 : 0,
+      pitch: isPitched ? 58 : 0,
     }),
     [defaultCameraSettings, isPitched],
   );
@@ -453,15 +466,45 @@ function HomeScreenContent() {
               defaultSettings={cameraSettings}
               {...staticCameraProps}
             />
+            {/* Terrain: 3D elevation from Mapbox DEM tiles */}
+            <MapboxGL.RasterDemSource
+              id="mapbox-dem"
+              url="mapbox://mapbox.mapbox-terrain-dem-v1"
+              tileSize={514}
+              maxZoomLevel={14}
+            >
+              <MapboxGL.Terrain style={{ exaggeration: 1.5 }} />
+            </MapboxGL.RasterDemSource>
+            {/* Atmosphere: distance fog for diorama depth */}
+            <MapboxGL.Atmosphere
+              style={{
+                color: currentStyle === "dark" ? "#2a2a4a" : "#c9d6df",
+                highColor: currentStyle === "dark" ? "#141428" : "#87CEEB",
+                horizonBlend: 0.12,
+                starIntensity: currentStyle === "dark" ? 0.2 : 0,
+                range: [0.2, 2],
+                spaceColor: currentStyle === "dark" ? "#0a0a1e" : "#dce6f0",
+              }}
+            />
+            {/* Sky: atmospheric scattering dome */}
+            <MapboxGL.SkyLayer
+              id="sky-diorama"
+              style={{
+                skyType: "atmosphere",
+                skyAtmosphereSun: [280, 70],
+                skyAtmosphereSunIntensity: currentStyle === "dark" ? 2 : 8,
+                skyAtmosphereColor: currentStyle === "dark" ? "#1a1a2e" : "#87CEEB",
+                skyAtmosphereHaloColor: currentStyle === "dark" ? "#2a1a3e" : "#f0e68c",
+              }}
+            />
             {districtZonesComponent}
             <AnchorMarkers />
-            {!activeItinerary && (
-              <CommunityItineraryMarkers
-                dimmed={false}
-                onSelect={handleCommunityMarkerSelect}
-                selectedId={selectedCommunityItinerary?.itinerary.id ?? null}
-              />
-            )}
+            <CommunityItineraryMarkers
+              dimmed={false}
+              hidden={!!activeItinerary}
+              onSelect={handleCommunityMarkerSelect}
+              selectedId={selectedCommunityItinerary?.itinerary.id ?? null}
+            />
             {itineraryLayersSafe && (
               <ItineraryRouteLayer revealedStopCount={revealedStopCount} />
             )}

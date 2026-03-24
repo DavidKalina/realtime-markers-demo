@@ -84,6 +84,19 @@ class WebSocketService {
     }
   }
 
+  sendViewportUpdate(
+    viewport: { north: number; south: number; east: number; west: number },
+    zoom?: number,
+  ): void {
+    this.send(
+      JSON.stringify({
+        type: MessageTypes.VIEWPORT_UPDATE,
+        viewport,
+        zoom,
+      }),
+    );
+  }
+
   isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
   }

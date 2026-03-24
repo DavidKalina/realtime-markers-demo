@@ -1,5 +1,6 @@
 import { BoundingBox, Filter } from "../types/types";
 import type { UnifiedFilteringService } from "./UnifiedFilteringService";
+import type { ItineraryFilteringService } from "./ItineraryFilteringService";
 import type { UnifiedSpatialCacheService } from "./UnifiedSpatialCacheService";
 
 export interface ViewportProcessor {
@@ -44,6 +45,7 @@ export function createHybridUserUpdateBatcherService(
   getUserFilters: (userId: string) => Filter[],
   getUserViewport: (userId: string) => BoundingBox | null,
   config: HybridUserUpdateBatcherConfig = {},
+  itineraryFilteringService?: ItineraryFilteringService,
 ): HybridUserUpdateBatcherService {
   const {
     debounceTimeoutMs = 40,
@@ -215,6 +217,25 @@ export function createHybridUserUpdateBatcherService(
           viewport,
           filters,
         );
+
+        // 6. Call the itinerary filtering service (if available)
+        if (itineraryFilteringService) {
+          const itineraries = viewport
+            ? eventCacheService.getItinerariesInViewport(viewport)
+            : eventCacheService.getAllItineraries();
+
+          console.log(
+            `[HybridBatcher] Processing itineraries for user ${userId}:`,
+            { itineraryCount: itineraries.length, viewport: !!viewport },
+          );
+
+          await itineraryFilteringService.calculateAndSendDiff(
+            userId,
+            itineraries,
+            viewport,
+            filters,
+          );
+        }
 
         stats.totalUsersProcessed++;
       } catch (error) {

@@ -1,5 +1,8 @@
 import { create } from "zustand";
-import type { DistrictBrowseResponse } from "@/services/api/modules/districts";
+import type {
+  DistrictBrowseResponse,
+  BrowseItineraryPreview,
+} from "@/services/api/modules/districts";
 
 /** Max districts to keep in memory. Farthest from viewport center are pruned. */
 const MAX_DISTRICTS = 50;
@@ -11,11 +14,68 @@ const distSq = (
   lng: number,
 ): number => (d.centroidLat - lat) ** 2 + (d.centroidLng - lng) ** 2;
 
+/**
+ * Shape of an itinerary as streamed from the FilterProcessor via WebSocket.
+ * A subset of the full itinerary — just what's needed for map markers.
+ */
+export interface StreamedItinerary {
+  id: string;
+  title: string | null;
+  summary: string | null;
+  city: string;
+  categories?: string[];
+  entryLatitude: number | null;
+  entryLongitude: number | null;
+  rating: number | null;
+  timesAdopted: number;
+  items?: {
+    id?: string;
+    title: string;
+    emoji?: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    venueCategory?: string | null;
+    sortOrder?: number;
+  }[];
+}
+
+/** Convert a streamed itinerary into BrowseItineraryPreview for rendering. */
+export function streamedToBrowsePreview(
+  s: StreamedItinerary,
+): BrowseItineraryPreview {
+  return {
+    id: s.id,
+    title: s.title,
+    summary: s.summary,
+    city: s.city,
+    intention: null,
+    entryLatitude: s.entryLatitude,
+    entryLongitude: s.entryLongitude,
+    durationHours: 0,
+    rating: s.rating,
+    timesAdopted: s.timesAdopted,
+    itemCount: s.items?.length ?? 0,
+    creatorFirstName: null,
+    completedAt: "",
+    items:
+      s.items?.map((item) => ({
+        emoji: item.emoji ?? null,
+        title: item.title,
+        venueName: null,
+        latitude: item.latitude,
+        longitude: item.longitude,
+      })) ?? [],
+  };
+}
+
 interface DistrictMapState {
   // Data
   districts: DistrictBrowseResponse[];
   coverageMap: Record<string, boolean>;
   completedCountMap: Record<string, number>;
+
+  // Streamed itineraries from WebSocket (replaces district preview data for map)
+  streamedItineraries: BrowseItineraryPreview[];
 
   // Focused district (closest to viewport center)
   focusedDistrictId: string | null;
@@ -31,6 +91,10 @@ interface DistrictMapState {
   setCoverage: (
     coverage: { id: string; explored: boolean; completedCount: number }[],
   ) => void;
+  setStreamedItineraries: (itineraries: BrowseItineraryPreview[]) => void;
+  addStreamedItinerary: (itinerary: BrowseItineraryPreview) => void;
+  updateStreamedItinerary: (itinerary: BrowseItineraryPreview) => void;
+  deleteStreamedItinerary: (id: string) => void;
   setFocusedDistrict: (id: string | null) => void;
   markExplored: (districtId: string) => void;
   setLoading: (loading: boolean) => void;
@@ -41,6 +105,7 @@ export const useDistrictMapStore = create<DistrictMapState>((set) => ({
   districts: [],
   coverageMap: {},
   completedCountMap: {},
+  streamedItineraries: [],
   focusedDistrictId: null,
   isLoading: false,
 
@@ -80,6 +145,33 @@ export const useDistrictMapStore = create<DistrictMapState>((set) => ({
       },
     })),
 
+  setStreamedItineraries: (itineraries) =>
+    set({ streamedItineraries: itineraries }),
+
+  addStreamedItinerary: (itinerary) =>
+    set((state) => {
+      if (state.streamedItineraries.some((it) => it.id === itinerary.id)) {
+        return state; // already exists
+      }
+      return {
+        streamedItineraries: [...state.streamedItineraries, itinerary],
+      };
+    }),
+
+  updateStreamedItinerary: (itinerary) =>
+    set((state) => ({
+      streamedItineraries: state.streamedItineraries.map((it) =>
+        it.id === itinerary.id ? itinerary : it,
+      ),
+    })),
+
+  deleteStreamedItinerary: (id) =>
+    set((state) => ({
+      streamedItineraries: state.streamedItineraries.filter(
+        (it) => it.id !== id,
+      ),
+    })),
+
   setFocusedDistrict: (id) => set({ focusedDistrictId: id }),
 
   markExplored: (districtId) =>
@@ -94,6 +186,7 @@ export const useDistrictMapStore = create<DistrictMapState>((set) => ({
       districts: [],
       coverageMap: {},
       completedCountMap: {},
+      streamedItineraries: [],
       focusedDistrictId: null,
       isLoading: false,
     }),

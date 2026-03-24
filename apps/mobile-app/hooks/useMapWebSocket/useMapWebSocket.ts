@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageTypes } from "./constants";
 import type { MapWebSocketResult } from "./types";
 import { useViewportMessageHandler } from "./useMessageHandler";
+import { ItineraryMessageBatcher } from "./itineraryBatcher";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const useMapWebSocket = (url: string): MapWebSocketResult => {
@@ -62,10 +63,17 @@ export const useMapWebSocket = (url: string): MapWebSocketResult => {
     [sendViewportUpdateToServer],
   );
 
+  // Itinerary message batcher — coalesces rapid WS messages into single store updates
+  const itineraryBatcherRef = useRef(new ItineraryMessageBatcher());
+  useEffect(() => {
+    return () => itineraryBatcherRef.current.destroy();
+  }, []);
+
   // Handle viewport messages from WebSocketService
   const { handleViewportMessage } = useViewportMessageHandler({
     setClientId,
     currentViewportRef,
+    itineraryBatcher: itineraryBatcherRef.current,
   });
 
   // Subscribe to viewport messages forwarded by WebSocketService

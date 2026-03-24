@@ -1,13 +1,28 @@
 import RBush from "rbush";
-import { Event, SpatialItem } from "../types/types";
+import { Event, CommunityItinerary, SpatialItem } from "../types/types";
 
 export interface UnifiedSpatialCacheService {
+  // Event methods
   addEvent(event: Event): void;
   updateEvent(event: Event): void;
   removeEvent(eventId: string): void;
   getEvent(eventId: string): Event | undefined;
   getAllEvents(): Event[];
 
+  // Itinerary methods
+  addItinerary(itinerary: CommunityItinerary): void;
+  updateItinerary(itinerary: CommunityItinerary): void;
+  removeItinerary(itineraryId: string): void;
+  getItinerary(itineraryId: string): CommunityItinerary | undefined;
+  getAllItineraries(): CommunityItinerary[];
+  getItinerariesInViewport(viewport: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  }): CommunityItinerary[];
+
+  // Shared spatial methods
   addToSpatialIndex(event: Event): boolean;
   updateSpatialIndex(event: Event): void;
   removeFromSpatialIndex(eventId: string): void;
@@ -23,6 +38,8 @@ export interface UnifiedSpatialCacheService {
     cacheSize: number;
     spatialIndexSize: number;
     spatialIndexFailures: number;
+    itineraryCacheSize: number;
+    itinerarySpatialIndexSize: number;
   };
   verifyEventInSpatialIndex(eventId: string, expectedEvent: Event): boolean;
   getSpatialIndex(): RBush<SpatialItem>;
@@ -39,11 +56,17 @@ export function createUnifiedSpatialCacheService(
 ): UnifiedSpatialCacheService {
   const { maxCacheSize = 10000, enableSpatialIndex = true } = config;
 
-  // Private state
+  // Private state — events
   const eventCache = new Map<string, Event>();
-  const spatialIndex = new RBush<SpatialItem>();
   const spatialItemMap = new Map<string, SpatialItem>();
   let spatialIndexFailures = 0;
+
+  // Private state — itineraries (share the same RBush)
+  const itineraryCache = new Map<string, CommunityItinerary>();
+  const itinerarySpatialItemMap = new Map<string, SpatialItem>();
+
+  // Shared spatial index for both events and itineraries
+  const spatialIndex = new RBush<SpatialItem>();
 
   function eventToSpatialItem(event: Event): SpatialItem {
     // Validate location and coordinates
@@ -158,7 +181,6 @@ export function createUnifiedSpatialCacheService(
     maxY: number;
   }): Event[] {
     if (!enableSpatialIndex) {
-      // Fallback to cache if spatial index is disabled
       return getAllEvents();
     }
 
@@ -168,10 +190,98 @@ export function createUnifiedSpatialCacheService(
       .filter((event): event is Event => event !== undefined);
   }
 
+  // ── Itinerary methods ──────────────────────────────────────────────
+
+  function itineraryToSpatialItem(
+    itinerary: CommunityItinerary,
+  ): SpatialItem {
+    if (itinerary.entryLongitude == null || itinerary.entryLatitude == null) {
+      throw new Error(
+        `Itinerary ${itinerary.id} has no entry coordinates`,
+      );
+    }
+    const lng = itinerary.entryLongitude;
+    const lat = itinerary.entryLatitude;
+    return {
+      minX: lng,
+      minY: lat,
+      maxX: lng,
+      maxY: lat,
+      id: itinerary.id,
+      itinerary,
+      type: "itinerary",
+    };
+  }
+
+  function addItinerary(itinerary: CommunityItinerary): void {
+    itineraryCache.set(itinerary.id, itinerary);
+
+    if (enableSpatialIndex) {
+      try {
+        const spatialItem = itineraryToSpatialItem(itinerary);
+        spatialIndex.insert(spatialItem);
+        itinerarySpatialItemMap.set(itinerary.id, spatialItem);
+      } catch (error) {
+        spatialIndexFailures++;
+        itineraryCache.delete(itinerary.id);
+        console.warn(
+          `[SpatialCache] Failed to add itinerary ${itinerary.id} to spatial index:`,
+          error,
+        );
+      }
+    }
+  }
+
+  function updateItinerary(itinerary: CommunityItinerary): void {
+    removeItinerary(itinerary.id);
+    addItinerary(itinerary);
+  }
+
+  function removeItinerary(itineraryId: string): void {
+    itineraryCache.delete(itineraryId);
+    const itemToRemove = itinerarySpatialItemMap.get(itineraryId);
+    if (itemToRemove) {
+      spatialIndex.remove(itemToRemove);
+      itinerarySpatialItemMap.delete(itineraryId);
+    }
+  }
+
+  function getItinerary(
+    itineraryId: string,
+  ): CommunityItinerary | undefined {
+    return itineraryCache.get(itineraryId);
+  }
+
+  function getAllItineraries(): CommunityItinerary[] {
+    return Array.from(itineraryCache.values());
+  }
+
+  function getItinerariesInViewport(viewport: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  }): CommunityItinerary[] {
+    if (!enableSpatialIndex) {
+      return getAllItineraries();
+    }
+
+    const spatialItems = spatialIndex.search(viewport);
+    return spatialItems
+      .map((item) => item.itinerary)
+      .filter(
+        (itin): itin is CommunityItinerary => itin !== undefined,
+      );
+  }
+
+  // ── Shared methods ─────────────────────────────────────────────────
+
   function clearAll(): void {
     eventCache.clear();
     spatialIndex.clear();
     spatialItemMap.clear();
+    itineraryCache.clear();
+    itinerarySpatialItemMap.clear();
   }
 
   function bulkLoad(events: Event[]): void {
@@ -215,11 +325,15 @@ export function createUnifiedSpatialCacheService(
     cacheSize: number;
     spatialIndexSize: number;
     spatialIndexFailures: number;
+    itineraryCacheSize: number;
+    itinerarySpatialIndexSize: number;
   } {
     return {
       cacheSize: eventCache.size,
       spatialIndexSize: spatialItemMap.size,
       spatialIndexFailures,
+      itineraryCacheSize: itineraryCache.size,
+      itinerarySpatialIndexSize: itinerarySpatialItemMap.size,
     };
   }
 
@@ -299,6 +413,12 @@ export function createUnifiedSpatialCacheService(
     removeEvent,
     getEvent,
     getAllEvents,
+    addItinerary,
+    updateItinerary,
+    removeItinerary,
+    getItinerary,
+    getAllItineraries,
+    getItinerariesInViewport,
     addToSpatialIndex,
     updateSpatialIndex,
     removeFromSpatialIndex,
