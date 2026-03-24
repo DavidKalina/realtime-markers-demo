@@ -1,5 +1,5 @@
 import Redis from "ioredis";
-import { Event, Filter, BoundingBox } from "../types/types";
+import { Event, CommunityItinerary, Filter, BoundingBox } from "../types/types";
 
 export interface RedisMessageHandler {
   subscribeToChannels(): Promise<void>;
@@ -20,6 +20,10 @@ export interface MessageHandlers {
     operation: string;
     record: Event;
   }) => Promise<void>;
+  onItineraryUpdate: (data: {
+    operation: string;
+    record: CommunityItinerary;
+  }) => Promise<void>;
   onJobCreated: (data: {
     type: string;
     data: { jobId: string; jobType?: string };
@@ -37,6 +41,7 @@ export interface RedisMessageHandlerConfig {
     viewportUpdates?: string;
     initialRequest?: string;
     eventChanges?: string;
+    itineraryChanges?: string;
     jobCreated?: string;
     jobUpdates?: string;
   };
@@ -52,6 +57,7 @@ export function createRedisMessageHandler(
     viewportUpdates = "viewport-updates",
     initialRequest = "filter-processor:request-initial",
     eventChanges = "event_changes",
+    itineraryChanges = "itinerary_changes",
     jobCreated = "job_created",
     jobUpdates = "job_updates",
   } = config.channels || {};
@@ -63,6 +69,7 @@ export function createRedisMessageHandler(
     viewportUpdatesProcessed: 0,
     initialRequestsProcessed: 0,
     eventUpdatesProcessed: 0,
+    itineraryUpdatesProcessed: 0,
     jobNotificationsProcessed: 0,
     errors: 0,
   };
@@ -81,8 +88,8 @@ export function createRedisMessageHandler(
       // Subscribe to initial event requests from WebSocket server
       await redisSub.subscribe(initialRequest);
 
-      // Subscribe to raw events feed
-      await redisSub.psubscribe(eventChanges);
+      // Subscribe to itinerary changes feed
+      await redisSub.psubscribe(itineraryChanges);
 
       // Subscribe to job notifications
       await redisSub.subscribe(jobCreated);
@@ -168,7 +175,6 @@ export function createRedisMessageHandler(
         const data = JSON.parse(message);
         const eventData = data.data || data;
 
-        // Validate the event data
         if (!eventData.record || !eventData.record.id) {
           console.error(
             "[RedisMessageHandler] Invalid event data received:",
@@ -180,6 +186,22 @@ export function createRedisMessageHandler(
 
         await handlers.onEventUpdate(eventData);
         stats.eventUpdatesProcessed++;
+      } else if (channel.startsWith(itineraryChanges)) {
+        stats.messagesReceived++;
+        const data = JSON.parse(message);
+        const itineraryData = data.data || data;
+
+        if (!itineraryData.record || !itineraryData.record.id) {
+          console.error(
+            "[RedisMessageHandler] Invalid itinerary data received:",
+            data,
+          );
+          stats.errors++;
+          return;
+        }
+
+        await handlers.onItineraryUpdate(itineraryData);
+        stats.itineraryUpdatesProcessed++;
       }
     } catch (error) {
       console.error(

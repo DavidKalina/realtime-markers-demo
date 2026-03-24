@@ -203,12 +203,13 @@ export function createClientConnectionService(
           message,
         );
 
-        if (channel === `user:${userId}:filtered-events`) {
+        if (
+          channel === `user:${userId}:filtered-events` ||
+          channel === `user:${userId}:filtered-itineraries`
+        ) {
           console.log(
-            `[WebSocket] Processing filtered events for user ${userId}:`,
-            message,
+            `[WebSocket] Processing filtered data for user ${userId} on ${channel}`,
           );
-          // Forward the filtered events to all clients for this user
           this.forwardMessageToUserClients(userId, message);
         } else {
           console.log(
@@ -297,6 +298,56 @@ export function createClientConnectionService(
           }
 
           if (handledBatchUpdate) return;
+        }
+
+        // Transform batch-update-itineraries messages for mobile app
+        if (parsedMessage.type === "batch-update-itineraries") {
+          let handledBatch = false;
+
+          if (parsedMessage.updates.deletes?.length > 0) {
+            for (const itineraryId of parsedMessage.updates.deletes) {
+              sendToAllClients(
+                clientIds,
+                {
+                  type: "delete-itinerary",
+                  id: itineraryId,
+                  timestamp: parsedMessage.timestamp,
+                },
+                "delete-itinerary",
+              );
+            }
+            handledBatch = true;
+          }
+
+          if (parsedMessage.updates.updates?.length > 0) {
+            for (const itinerary of parsedMessage.updates.updates) {
+              sendToAllClients(
+                clientIds,
+                {
+                  type: "update-itinerary",
+                  itinerary,
+                  timestamp: parsedMessage.timestamp,
+                },
+                "update-itinerary",
+              );
+            }
+            handledBatch = true;
+          }
+
+          if (parsedMessage.updates.creates !== undefined) {
+            sendToAllClients(
+              clientIds,
+              {
+                type: "replace-all-itineraries",
+                itineraries: parsedMessage.updates.creates,
+                timestamp: parsedMessage.timestamp,
+              },
+              "replace-all-itineraries",
+            );
+            handledBatch = true;
+          }
+
+          if (handledBatch) return;
         }
 
         // Enhanced logging for relevance score updates
