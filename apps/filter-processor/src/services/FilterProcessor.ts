@@ -310,10 +310,8 @@ export function createFilterProcessor(
 
       const cacheStats = unifiedSpatialCacheService.getStats();
       console.log("✅ Filter Processor initialized successfully:", {
-        events: cacheStats.spatialIndexSize,
         itineraries: cacheStats.itineraryCacheSize,
         users: userStateService.getStats().totalUsers,
-        entityTypes: ["event", "itinerary"],
       });
     } catch (error) {
       console.error("❌ Error initializing Filter Processor:", error);
