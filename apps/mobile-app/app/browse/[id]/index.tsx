@@ -12,20 +12,18 @@ import * as Haptics from "expo-haptics";
 import Animated, {
   Easing,
   FadeIn,
-  FadeOut,
-  LinearTransition,
   useAnimatedProps,
   useAnimatedReaction,
+  useAnimatedStyle,
   useSharedValue,
   withDelay,
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import Svg, { Circle } from "react-native-svg";
-import { ChevronRight } from "lucide-react-native";
+import { ChevronDown, ChevronRight } from "lucide-react-native";
 import Screen from "@/components/Layout/Screen";
 import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
-import ItineraryBrowseCard from "@/components/Itinerary/ItineraryBrowseCard";
 import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
 import ActivityHeatmap from "@/components/UserProfile/ActivityHeatmap";
 import VenueDnaChart from "@/components/UserProfile/VenueDnaChart";
@@ -65,6 +63,16 @@ const INTENTION_ORDER = [
   "other",
 ];
 
+/* ─── Sort config ─── */
+
+type SortMode = "popular" | "recent" | "top_rated";
+
+const SORT_CHIPS: { key: SortMode; label: string; emoji: string }[] = [
+  { key: "popular", label: "Hot", emoji: "\u{1F525}" },
+  { key: "recent", label: "Fresh", emoji: "\u{1F331}" },
+  { key: "top_rated", label: "Legendary", emoji: "\u2B50" },
+];
+
 /* ─── Hero ─── */
 
 const CIRCLE_SIZE = 120;
@@ -75,7 +83,7 @@ const CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const HERO_STATS = [
-  { label: "Adventures", derive: "adventures" },
+  { label: "Sidequests", derive: "adventures" },
   { label: "Avg Rating", derive: "avgRating" },
   { label: "Adopted", derive: "adopted" },
   { label: "Variety", derive: "variety" },
@@ -136,6 +144,8 @@ const DistrictHero: React.FC<{
   activityTags: string[];
   itineraries: BrowseItineraryPreview[];
   momentum: import("@/services/api/modules/districts").DistrictMomentum | null;
+  activityDna: { activity: string; pct: number }[];
+  activityHeatmap: { date: string; count: number }[];
   onExploreMap?: () => void;
 }> = ({
   name,
@@ -147,10 +157,13 @@ const DistrictHero: React.FC<{
   activityTags,
   itineraries,
   momentum,
+  activityDna,
+  activityHeatmap,
   onExploreMap,
 }) => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const [intelExpanded, setIntelExpanded] = useState(false);
 
   const ringColor = getVitalityColor(vitalityScore);
   const ringTarget = vitalityScore / 100;
@@ -200,6 +213,22 @@ const DistrictHero: React.FC<{
       variety: uniqueIntentions.size,
     };
   }, [itineraries, itineraryCount, avgRating, totalAdoptions]);
+
+  const hasIntel =
+    (activityDna && activityDna.length > 0) ||
+    (activityHeatmap && activityHeatmap.length > 0);
+
+  const intelRotation = useSharedValue(0);
+
+  useEffect(() => {
+    intelRotation.value = withTiming(intelExpanded ? 180 : 0, {
+      duration: 200,
+    });
+  }, [intelExpanded, intelRotation]);
+
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${intelRotation.value}deg` }],
+  }));
 
   return (
     <Animated.View
@@ -336,153 +365,293 @@ const DistrictHero: React.FC<{
           <ChevronRight size={14} color={ringColor} />
         </Pressable>
       )}
+
+      {/* District Intel (collapsible insights) */}
+      {hasIntel && (
+        <>
+          <Pressable
+            style={({ pressed }) => [
+              styles.intelToggle,
+              pressed && { opacity: 0.6 },
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setIntelExpanded((prev) => !prev);
+            }}
+          >
+            <Text style={styles.intelToggleText}>DISTRICT INTEL</Text>
+            <Animated.View style={chevronStyle}>
+              <ChevronDown size={14} color={colors.text.secondary} />
+            </Animated.View>
+          </Pressable>
+
+          {intelExpanded && (
+            <Animated.View
+              entering={FadeIn.duration(200)}
+              style={styles.intelContent}
+            >
+              {activityDna && activityDna.length > 0 && (
+                <VenueDnaChart
+                  data={activityDna.map((d) => ({
+                    category: d.activity,
+                    pct: d.pct,
+                    count: 0,
+                  }))}
+                />
+              )}
+              {activityHeatmap && activityHeatmap.length > 0 && (
+                <ActivityHeatmap data={activityHeatmap} />
+              )}
+            </Animated.View>
+          )}
+        </>
+      )}
     </Animated.View>
   );
 };
 
-/* ─── Adventures tab (own fetch) ─── */
+/* ─── Pinned Quest ─── */
 
-type SortMode = "popular" | "recent" | "top_rated";
-
-const SORT_TABS: { key: SortMode; label: string }[] = [
-  { key: "popular", label: "Popular" },
-  { key: "recent", label: "Recent" },
-  { key: "top_rated", label: "Top Rated" },
-];
-
-const MAX_SECTIONS = 6;
-const MAX_PER_SECTION = 8;
-
-const AdventuresTab: React.FC<{ districtId: string }> = ({ districtId }) => {
+const PinnedQuest: React.FC<{
+  quest: BrowseItineraryPreview;
+  onPress: () => void;
+}> = ({ quest, onPress }) => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const router = useRouter();
-  const [sortMode, setSortMode] = useState<SortMode>("popular");
-  const [itineraries, setItineraries] = useState<BrowseItineraryPreview[]>([]);
 
-  // Fetch when districtId or sortMode changes
-  useEffect(() => {
-    let cancelled = false;
-    const fetchItineraries = async () => {
-      try {
-        const result = await apiClient.districts.getDetail(districtId, {
-          sort: sortMode,
-        });
-        if (!cancelled) setItineraries(result.itineraries);
-      } catch (err) {
-        console.error("Error fetching sorted itineraries:", err);
-      }
-    };
-    fetchItineraries();
-    return () => { cancelled = true; };
-  }, [districtId, sortMode]);
-
-  const refetchItineraries = useCallback(async () => {
-    try {
-      const result = await apiClient.districts.getDetail(districtId, {
-        sort: sortMode,
-      });
-      setItineraries(result.itineraries);
-    } catch (err) {
-      console.error("Error refetching itineraries:", err);
+  const firstEmoji = useMemo(() => {
+    for (const i of quest.items) {
+      if (i.emoji) return i.emoji;
     }
-  }, [districtId, sortMode]);
+    return "\u{1F5FA}\u{FE0F}";
+  }, [quest.items]);
 
-  const groupedByIntention = useMemo(() => {
-    if (itineraries.length === 0) return null;
-    const groups: Record<string, BrowseItineraryPreview[]> = {};
-    for (const it of itineraries) {
-      const key = it.intention || "other";
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(it);
+  const reason = useMemo(() => {
+    if (quest.timesAdopted === 0) return "Uncharted \u2014 be the first";
+    if (quest.rating && quest.rating >= 4) return "Highly rated in this district";
+    if (quest.intention) {
+      const meta = INTENTION_LABELS[quest.intention];
+      if (meta) return `Matches your ${meta.label.toLowerCase()} vibe`;
     }
-    return groups;
-  }, [itineraries]);
+    return "Recommended for you";
+  }, [quest]);
 
-  const sortedIntentions = useMemo(() => {
-    if (!groupedByIntention) return [];
-    return INTENTION_ORDER.filter(
-      (key) => groupedByIntention[key] && groupedByIntention[key].length > 0,
-    ).slice(0, MAX_SECTIONS);
-  }, [groupedByIntention]);
+  const meta = useMemo(() => {
+    const parts: string[] = [];
+    parts.push(`${quest.itemCount} stops`);
+    parts.push(`${quest.durationHours}h`);
+    if (quest.timesAdopted > 0) {
+      parts.push(`${quest.timesAdopted} adventurer${quest.timesAdopted !== 1 ? "s" : ""}`);
+    }
+    return parts.join(" \u00B7 ");
+  }, [quest]);
 
-  const handleViewAll = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push(`/browse/${districtId}/all`);
-  }, [districtId, router]);
+  const stars = quest.rating
+    ? "\u2605".repeat(quest.rating) + "\u2606".repeat(5 - quest.rating)
+    : null;
 
   return (
-    <>
-      <View style={styles.sortBarRow}>
-        <View style={styles.sortBar}>
-          {SORT_TABS.map((tab) => {
-            const isActive = sortMode === tab.key;
+    <Pressable
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
+      style={({ pressed }) => [
+        styles.pinnedQuest,
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      <Text style={styles.pinnedLabel}>PINNED QUEST</Text>
+      <View style={styles.pinnedBody}>
+        <Text style={styles.pinnedEmoji}>{firstEmoji}</Text>
+        <View style={styles.pinnedInfo}>
+          <View style={styles.pinnedTitleRow}>
+            <Text style={styles.pinnedTitle} numberOfLines={1}>
+              {quest.title || "Untitled Sidequest"}
+            </Text>
+            {stars && <Text style={styles.pinnedStars}>{stars}</Text>}
+          </View>
+          <Text style={styles.pinnedMeta} numberOfLines={1}>{meta}</Text>
+          <Text style={styles.pinnedReason}>{reason}</Text>
+        </View>
+        <ChevronRight size={14} color={colors.text.disabled} />
+      </View>
+    </Pressable>
+  );
+};
+
+/* ─── Quest Log Item ─── */
+
+const MAX_EMOJI_PREVIEW = 4;
+
+const QuestLogItem: React.FC<{
+  item: BrowseItineraryPreview;
+  onPress: (id: string) => void;
+}> = React.memo(({ item, onPress }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const handlePress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress(item.id);
+  }, [item.id, onPress]);
+
+  const firstEmoji = useMemo(() => {
+    for (const i of item.items) {
+      if (i.emoji) return i.emoji;
+    }
+    return "\u{1F5FA}\u{FE0F}";
+  }, [item.items]);
+
+  const emojiTrail = useMemo(() => {
+    const emojis = item.items
+      .slice(1, MAX_EMOJI_PREVIEW + 1)
+      .map((i) => i.emoji || "\u{1F4CD}")
+      .join(" ");
+    const extra = item.itemCount - (MAX_EMOJI_PREVIEW + 1);
+    return extra > 0 ? `${emojis} +${extra}` : emojis;
+  }, [item.items, item.itemCount]);
+
+  const meta = useMemo(() => {
+    const parts: string[] = [];
+    parts.push(`${item.itemCount} stops`);
+    parts.push(`${item.durationHours}h`);
+    if (item.creatorFirstName) {
+      parts.push(`by ${item.creatorFirstName}`);
+    }
+    return parts.join(" \u00B7 ");
+  }, [item]);
+
+  const stars = item.rating
+    ? "\u2605".repeat(item.rating) + "\u2606".repeat(5 - item.rating)
+    : null;
+
+  const isUncharted = item.timesAdopted === 0;
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      style={({ pressed }) => [styles.questRow, pressed && { opacity: 0.7 }]}
+    >
+      <Text style={styles.questEmoji}>{firstEmoji}</Text>
+      <View style={styles.questInfo}>
+        <View style={styles.questTitleRow}>
+          <Text style={styles.questTitle} numberOfLines={1}>
+            {item.title || "Untitled Sidequest"}
+          </Text>
+          {stars && <Text style={styles.questStars}>{stars}</Text>}
+        </View>
+        <View style={styles.questMetaRow}>
+          <Text style={styles.questMeta} numberOfLines={1}>{meta}</Text>
+          {isUncharted ? (
+            <View style={styles.unchartedBadge}>
+              <Text style={styles.unchartedText}>UNCHARTED</Text>
+            </View>
+          ) : (
+            <Text style={styles.questAdopters}>
+              {item.timesAdopted} adventurer{item.timesAdopted !== 1 ? "s" : ""}
+            </Text>
+          )}
+        </View>
+        {emojiTrail.length > 0 && (
+          <Text style={styles.questEmojiTrail} numberOfLines={1}>
+            {emojiTrail}
+          </Text>
+        )}
+      </View>
+      <ChevronRight size={14} color={colors.text.disabled} />
+    </Pressable>
+  );
+});
+
+QuestLogItem.displayName = "QuestLogItem";
+
+/* ─── Quest Filters ─── */
+
+const QuestFilters: React.FC<{
+  sortMode: SortMode;
+  onSortChange: (mode: SortMode) => void;
+  intentionFilter: string | null;
+  onIntentionChange: (intention: string | null) => void;
+  availableIntentions: string[];
+}> = ({ sortMode, onSortChange, intentionFilter, onIntentionChange, availableIntentions }) => {
+  const colors = useColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  return (
+    <View style={styles.filtersContainer}>
+      {/* Sort row */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRow}
+      >
+        {SORT_CHIPS.map((chip) => {
+          const isActive = sortMode === chip.key;
+          return (
+            <Pressable
+              key={chip.key}
+              style={[styles.filterChip, isActive && styles.filterChipActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onSortChange(chip.key);
+              }}
+            >
+              <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                {chip.emoji} {chip.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {/* Intention row */}
+      {availableIntentions.length > 1 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
+          <Pressable
+            style={[
+              styles.filterChip,
+              intentionFilter === null && styles.filterChipActive,
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onIntentionChange(null);
+            }}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                intentionFilter === null && styles.filterChipTextActive,
+              ]}
+            >
+              All
+            </Text>
+          </Pressable>
+          {availableIntentions.map((key) => {
+            const meta = INTENTION_LABELS[key] || { label: key, emoji: "\u{1F30D}" };
+            const isActive = intentionFilter === key;
             return (
               <Pressable
-                key={tab.key}
-                style={[styles.sortButton, isActive && styles.sortButtonActive]}
+                key={key}
+                style={[styles.filterChip, isActive && styles.filterChipActive]}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSortMode(tab.key);
+                  onIntentionChange(isActive ? null : key);
                 }}
               >
-                <Text style={[styles.sortText, isActive && styles.sortTextActive]}>
-                  {tab.label}
+                <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                  {meta.emoji} {meta.label}
                 </Text>
               </Pressable>
             );
           })}
-        </View>
-        <Pressable
-          style={({ pressed }) => [
-            styles.viewAllButton,
-            pressed && { opacity: 0.6 },
-          ]}
-          onPress={handleViewAll}
-        >
-          <Text style={styles.viewAllText}>View All</Text>
-          <ChevronRight size={12} color={colors.text.secondary} />
-        </Pressable>
-      </View>
-
-      {sortedIntentions.length === 0 ? (
-        <View style={styles.emptyInline}>
-          <Text style={styles.emptyText}>
-            No adventures in this district yet.
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.tabContent}>
-          {sortedIntentions.map((intentionKey) => {
-            const items = groupedByIntention![intentionKey].slice(0, MAX_PER_SECTION);
-            const meta = INTENTION_LABELS[intentionKey] || {
-              label: intentionKey,
-              emoji: "\u{1F30D}",
-            };
-            return (
-              <View key={intentionKey} style={styles.intentionSection}>
-                <Text style={styles.sectionTitle}>
-                  {meta.emoji} {meta.label.toUpperCase()}
-                </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.horizontalScroll}
-                >
-                  {items.map((it) => (
-                    <ItineraryBrowseCard
-                      key={it.id}
-                      itinerary={it as any}
-                      onAdopted={refetchItineraries}
-                    />
-                  ))}
-                </ScrollView>
-              </View>
-            );
-          })}
-        </View>
+        </ScrollView>
       )}
-    </>
+    </View>
   );
 };
 
@@ -493,10 +662,48 @@ const DistrictDetailScreen = () => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"adventures" | "insights">("adventures");
+  const [sortMode, setSortMode] = useState<SortMode>("popular");
+  const [intentionFilter, setIntentionFilter] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [questItineraries, setQuestItineraries] = useState<BrowseItineraryPreview[]>([]);
 
   const { data, isLoading, refetch } = useDistrictDetail(id || null);
+
+  // Fetch quest log when sort changes
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    const fetchQuests = async () => {
+      try {
+        const result = await apiClient.districts.getDetail(id, {
+          sort: sortMode,
+        });
+        if (!cancelled) setQuestItineraries(result.itineraries);
+      } catch (err) {
+        console.error("Error fetching sorted quests:", err);
+      }
+    };
+    fetchQuests();
+    return () => { cancelled = true; };
+  }, [id, sortMode]);
+
+  // Derive available intentions from quest data
+  const availableIntentions = useMemo(() => {
+    const present = new Set<string>();
+    for (const it of questItineraries) {
+      const key = it.intention || "other";
+      present.add(key);
+    }
+    return INTENTION_ORDER.filter((k) => present.has(k));
+  }, [questItineraries]);
+
+  // Filter by intention client-side
+  const filteredQuests = useMemo(() => {
+    if (!intentionFilter) return questItineraries;
+    return questItineraries.filter(
+      (it) => (it.intention || "other") === intentionFilter,
+    );
+  }, [questItineraries, intentionFilter]);
 
   const handleExploreMap = useCallback(() => {
     if (!data?.district) return;
@@ -507,12 +714,39 @@ const DistrictDetailScreen = () => {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     await refetch();
+    // Also re-fetch quest log
+    if (id) {
+      try {
+        const result = await apiClient.districts.getDetail(id, {
+          sort: sortMode,
+        });
+        setQuestItineraries(result.itineraries);
+      } catch {}
+    }
     setIsRefreshing(false);
-  }, [refetch]);
+  }, [refetch, id, sortMode]);
 
   const handleSearch = useCallback(() => {
     router.push("/search");
   }, [router]);
+
+  const handleQuestPress = useCallback(
+    (itineraryId: string) => {
+      router.push({
+        pathname: "/itineraries/[id]" as const,
+        params: { id: itineraryId },
+      });
+    },
+    [router],
+  );
+
+  const handlePinnedPress = useCallback(() => {
+    if (!data?.bestMatch) return;
+    router.push({
+      pathname: "/itineraries/[id]" as const,
+      params: { id: data.bestMatch.id },
+    });
+  }, [data?.bestMatch, router]);
 
   const dominantActivities = useMemo(() => {
     if (!data?.activityDna || data.activityDna.length === 0) {
@@ -577,69 +811,45 @@ const DistrictDetailScreen = () => {
           activityTags={district.activityTags}
           itineraries={data.itineraries}
           momentum={district.momentum}
+          activityDna={data.activityDna || []}
+          activityHeatmap={data.activityHeatmap || []}
           onExploreMap={handleExploreMap}
         />
 
-        {/* Best Match */}
+        {/* Pinned Quest */}
         {data.bestMatch && (
-          <View style={styles.bestMatchSection}>
-            <Text style={styles.bestMatchLabel}>BEST MATCH FOR YOU</Text>
-            <ItineraryBrowseCard
-              itinerary={data.bestMatch as any}
-              onAdopted={refetch}
-            />
-          </View>
+          <PinnedQuest quest={data.bestMatch} onPress={handlePinnedPress} />
         )}
 
-        {/* Top-level tabs: Adventures / Insights */}
+        {/* Quest Filters */}
         {!isLoading && (
-          <View>
-            <View style={styles.tabBar}>
-              {(["adventures", "insights"] as const).map((tab) => {
-                const isActive = activeTab === tab;
-                return (
-                  <Pressable
-                    key={tab}
-                    style={[styles.tabButton, isActive && styles.tabButtonActive]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setActiveTab(tab);
-                    }}
-                  >
-                    <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
-                      {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+          <QuestFilters
+            sortMode={sortMode}
+            onSortChange={setSortMode}
+            intentionFilter={intentionFilter}
+            onIntentionChange={setIntentionFilter}
+            availableIntentions={availableIntentions}
+          />
+        )}
 
-            <View>
-              {activeTab === "adventures" && (
-                <AdventuresTab districtId={district.id} />
-              )}
-
-              {activeTab === "insights" && (
-                <View style={styles.insightsContent}>
-                  {data.activityDna && data.activityDna.length > 0 && (
-                    <VenueDnaChart
-                      data={data.activityDna.map((d) => ({
-                        category: d.activity,
-                        pct: d.pct,
-                        count: 0,
-                      }))}
-                    />
-                  )}
-                  {data.activityHeatmap && data.activityHeatmap.length > 0 && (
-                    <ActivityHeatmap data={data.activityHeatmap} />
-                  )}
-                  {(!data.activityDna || data.activityDna.length === 0) &&
-                    (!data.activityHeatmap || data.activityHeatmap.length === 0) && (
-                      <Text style={styles.emptyText}>No insights yet</Text>
-                    )}
-                </View>
-              )}
-            </View>
+        {/* Quest Log */}
+        {!isLoading && (
+          <View style={styles.questLog}>
+            {filteredQuests.length === 0 ? (
+              <View style={styles.emptyInline}>
+                <Text style={styles.emptyText}>
+                  No sidequests posted yet {"\u2014"} be the first
+                </Text>
+              </View>
+            ) : (
+              filteredQuests.map((it) => (
+                <QuestLogItem
+                  key={it.id}
+                  item={it}
+                  onPress={handleQuestPress}
+                />
+              ))
+            )}
           </View>
         )}
 
@@ -661,7 +871,7 @@ const createStyles = (colors: Colors) =>
 
     /* Hero */
     heroContainer: {
-      marginBottom: spacing["3xl"],
+      marginBottom: spacing.lg,
       paddingHorizontal: spacing.lg,
       gap: spacing.md,
     },
@@ -763,22 +973,6 @@ const createStyles = (colors: Colors) =>
       color: colors.text.secondary,
       lineHeight: 20,
     },
-    tagsRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: spacing.xs,
-    },
-    tag: {
-      backgroundColor: colors.bg.elevated,
-      borderRadius: radius.sm,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 2,
-    },
-    tagText: {
-      fontFamily: fontFamily.mono,
-      fontSize: fontSize.xs,
-      color: colors.text.secondary,
-    },
     exploreButton: {
       flexDirection: "row",
       alignItems: "center",
@@ -794,121 +988,191 @@ const createStyles = (colors: Colors) =>
       letterSpacing: 0.5,
     },
 
-    /* Best match */
-    bestMatchSection: {
-      paddingHorizontal: spacing.lg,
-      marginBottom: spacing.lg,
-    },
-    bestMatchLabel: {
-      fontSize: 10,
-      fontWeight: fontWeight.semibold,
-      color: colors.accent.primary,
-      fontFamily: fontFamily.mono,
-      letterSpacing: 1.5,
-      marginBottom: spacing.xs,
-    },
-
-    /* Tab bar */
-    tabBar: {
+    /* District Intel (collapsible) */
+    intelToggle: {
       flexDirection: "row",
-      marginHorizontal: spacing.lg,
-      marginBottom: spacing.md,
-      backgroundColor: colors.bg.card,
-      borderRadius: radius.lg,
-      padding: 2,
-    },
-    tabButton: {
-      flex: 1,
-      paddingVertical: spacing.sm,
-      borderRadius: radius.lg - 2,
       alignItems: "center",
       justifyContent: "center",
+      gap: spacing.xs,
+      paddingVertical: spacing.sm,
     },
-    tabButtonActive: {
-      backgroundColor: colors.bg.elevated,
-    },
-    tabText: {
-      fontSize: fontSize.xs,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.secondary,
-    },
-    tabTextActive: {
-      color: colors.text.primary,
-    },
-
-    /* Sort sub-tabs (within adventures) */
-    sortBarRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginHorizontal: spacing.lg,
-      marginBottom: spacing.md,
-    },
-    sortBar: {
-      flexDirection: "row",
-      gap: spacing.sm,
-    },
-    viewAllButton: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 2,
-    },
-    viewAllText: {
-      fontSize: fontSize.xs,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.secondary,
-    },
-    sortButton: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      borderRadius: radius.sm,
-    },
-    sortButtonActive: {
-      backgroundColor: colors.bg.elevated,
-    },
-    sortText: {
-      fontSize: fontSize.xs,
-      fontFamily: fontFamily.mono,
-      color: colors.text.secondary,
-    },
-    sortTextActive: {
-      color: colors.text.primary,
-      fontWeight: fontWeight.semibold,
-    },
-
-    /* Insights content */
-    insightsContent: {
-      paddingHorizontal: spacing.lg,
-      gap: spacing["2xl"],
-      paddingTop: spacing.md,
-    },
-
-    /* Tab content */
-    tabContent: {
-      paddingHorizontal: spacing.lg,
-    },
-    sectionTitle: {
+    intelToggleText: {
       fontSize: 10,
       fontWeight: fontWeight.semibold,
-      color: colors.text.disabled,
+      color: colors.text.secondary,
       fontFamily: fontFamily.mono,
       letterSpacing: 1.5,
-      marginTop: spacing.sm,
-      marginBottom: spacing.xs,
     },
-    intentionSection: {
+    intelContent: {
+      gap: spacing["2xl"],
+      paddingTop: spacing.sm,
+    },
+
+    /* Pinned Quest */
+    pinnedQuest: {
+      marginHorizontal: spacing.lg,
+      marginBottom: spacing.lg,
+      borderLeftWidth: 3,
+      borderLeftColor: "#4ade80",
+      backgroundColor: colors.bg.card,
+      borderRadius: radius.sm,
+      padding: spacing.md,
+    },
+    pinnedLabel: {
+      fontSize: 10,
+      fontWeight: fontWeight.semibold,
+      color: "#4ade80",
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1.5,
+      marginBottom: spacing.sm,
+    },
+    pinnedBody: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing._10,
+    },
+    pinnedEmoji: {
+      fontSize: fontSize.xl,
+    },
+    pinnedInfo: {
+      flex: 1,
+      gap: 2,
+    },
+    pinnedTitleRow: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: spacing.sm,
+    },
+    pinnedTitle: {
+      flex: 1,
+      fontSize: fontSize.sm,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+    },
+    pinnedStars: {
+      fontSize: 10,
+      color: "#fbbf24",
+      letterSpacing: 1,
+    },
+    pinnedMeta: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    pinnedReason: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: "#4ade80",
+      fontStyle: "italic",
+      marginTop: 2,
+    },
+
+    /* Quest Filters */
+    filtersContainer: {
+      gap: spacing.sm,
       marginBottom: spacing.md,
     },
-    horizontalScroll: {
-      paddingRight: spacing.lg,
+    filterRow: {
+      paddingHorizontal: spacing.lg,
+      gap: spacing.sm,
+    },
+    filterChip: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing._6,
+      borderRadius: radius.sm,
+      backgroundColor: colors.bg.card,
+    },
+    filterChipActive: {
+      backgroundColor: colors.bg.elevated,
+    },
+    filterChipText: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    filterChipTextActive: {
+      color: colors.text.primary,
+      fontWeight: fontWeight.semibold,
+    },
+
+    /* Quest Log */
+    questLog: {
+      paddingHorizontal: spacing.lg,
+    },
+    questRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: spacing._10,
+      gap: spacing._10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border.default,
+    },
+    questEmoji: {
+      fontSize: fontSize.lg,
+    },
+    questInfo: {
+      flex: 1,
+      gap: 2,
+    },
+    questTitleRow: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: spacing.sm,
+    },
+    questTitle: {
+      flex: 1,
+      fontSize: 13,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+      lineHeight: 18,
+    },
+    questStars: {
+      fontSize: 10,
+      color: "#fbbf24",
+      letterSpacing: 1,
+    },
+    questMetaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: spacing.sm,
+    },
+    questMeta: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      lineHeight: 16,
+      flexShrink: 1,
+    },
+    questEmojiTrail: {
+      fontSize: 12,
+      letterSpacing: 2,
+      marginTop: 1,
+    },
+    questAdopters: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+    },
+    unchartedBadge: {
+      backgroundColor: "rgba(251, 191, 36, 0.15)",
+      paddingHorizontal: spacing._6,
+      paddingVertical: 1,
+      borderRadius: radius.sm,
+    },
+    unchartedText: {
+      fontSize: 9,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: "#fbbf24",
+      letterSpacing: 1,
     },
 
     /* Empty */
     emptyInline: {
       paddingVertical: spacing["3xl"],
-      paddingHorizontal: spacing.lg,
       alignItems: "center",
     },
     emptyText: {

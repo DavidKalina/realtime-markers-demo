@@ -180,12 +180,12 @@ const AdventureHUD: React.FC<AdventureHUDProps> = ({ style }) => {
 
               <View style={s.titleCol}>
                 <Text style={s.cardTitle} numberOfLines={1}>
-                  {itinerary.title || "Active Adventure"}
+                  {itinerary.title || "Active Sidequest"}
                 </Text>
                 <Text style={s.cardMeta} numberOfLines={1}>
                   {nextStop
-                    ? `Next: ${nextStop.title}`
-                    : `${checked}/${total} stops`}
+                    ? `Next stop: ${nextStop.title}`
+                    : `${checked}/${total} stops cleared`}
                 </Text>
               </View>
 
@@ -215,10 +215,10 @@ const AdventureHUD: React.FC<AdventureHUDProps> = ({ style }) => {
               <View style={s.footerRow}>
                 <Pressable style={s.cancelButton} onPress={dismiss}>
                   <X size={14} color={colors.text.secondary} />
-                  <Text style={s.cancelText}>Cancel</Text>
+                  <Text style={s.cancelText}>Abandon</Text>
                 </Pressable>
                 <Pressable style={s.viewButton} onPress={handleViewDetail}>
-                  <Text style={s.viewButtonText}>View Details</Text>
+                  <Text style={s.viewButtonText}>Quest Details</Text>
                 </Pressable>
               </View>
             </>

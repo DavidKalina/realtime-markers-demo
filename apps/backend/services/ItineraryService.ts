@@ -1,4 +1,4 @@
-import { type DataSource, Not, IsNull, LessThan } from "typeorm";
+import { type DataSource, Not, IsNull, LessThan, MoreThan } from "typeorm";
 import {
   Itinerary,
   ItineraryItem,
@@ -648,7 +648,7 @@ class ItineraryServiceImpl implements ItineraryService {
         {
           role: "system",
           content:
-            "You are an adventure planner. Generate exactly 5 diverse itinerary suggestions for someone looking to get out and do something. Include options in the user's city AND nearby cities/towns within ~30 miles. Each should feel meaningfully different in vibe, cost, activity type, and location. Return ONLY valid JSON.",
+            "You are a sidequest architect. Generate exactly 5 diverse sidequest suggestions — real-world mini-adventures for someone looking to get off the couch and explore. Include options in the user's city AND nearby cities/towns within ~30 miles. Each should feel meaningfully different in vibe, cost, activity type, and location. Frame them as quests to embark on, not errands to run. Return ONLY valid JSON.",
         },
         {
           role: "user",
@@ -657,12 +657,12 @@ Day: ${dayOfWeek}, ${dateStr}
 Current hour: ${hour}:00
 Month: ${month}
 
-Generate 5 adventure suggestions as a JSON object: { "suggestions": [...] }
+Generate 5 sidequest suggestions as a JSON object: { "suggestions": [...] }
 
 Include a mix of options in ${city} AND nearby cities/towns within ~30 miles. At least 2 suggestions should be in a different city/town than the user's.
 
 Each suggestion must have:
-- title (catchy, max 6 words — describe the VIBE or THEME, never reference specific venue names. Focus on the activity + mood, like combining an activity with food or a time of day)
+- title (catchy, max 6 words — describe the VIBE or THEME like a quest name, never reference specific venue names. Focus on the activity + mood, like combining an activity with food or a time of day. Think quest board, not shopping catalog.)
 - emoji (single emoji best representing the adventure)
 - city (the city/town where this adventure takes place, e.g. "Tempe, AZ" — use "City, ST" format)
 - costTier ("$" = free/under $20, "$$" = $20-60, "$$$" = $60+)
@@ -672,7 +672,7 @@ Each suggestion must have:
 - intention (one of: recharge, explore, socialize, move, learn, treat_yourself, lock_in)
 - budgetMax (number in dollars matching the costTier)
 
-DIVERSITY IS CRITICAL — the 5 suggestions must feel like 5 completely different days, not variations of the same idea:
+DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different days, not variations of the same idea:
 - Each title MUST use different words — no repeating "explore", "discover", "hidden", etc. across titles
 - Mix categories: one food-focused, one outdoors/active, one arts/culture, one nightlife/social, one wildcard
 - Vary cost: at least one "$" and one "$$$"
@@ -1648,7 +1648,7 @@ USER PREFERENCES (from onboarding — use these to personalize the itinerary):
 `
       : "";
 
-    const systemPrompt = `You are an expert local guide with insider knowledge of ${cityName}. Create a personalized, premium itinerary that feels like advice from a well-connected friend who knows all the best spots.
+    const systemPrompt = `You are a sidequest architect with insider knowledge of ${cityName}. Craft a personalized, premium sidequest — a real-world mini-adventure that feels like advice from a well-connected friend who knows all the best spots.
 
 SOURCING RULES (STRICT):
 - EVENTS (concerts, shows, games, markets, pop-ups, etc.): ONLY use events from the EVENTS list below. Do NOT invent or suggest any event not on this list.
@@ -1662,7 +1662,7 @@ HOURS & SCHEDULING (CRITICAL):
 - Match venue type to time of day: breakfast/brunch spots in the morning, lunch spots midday, dinner/bar spots in the evening. Don't suggest a breakfast diner at 8pm or a nightclub at 10am.
 - If hours are provided, ensure the stop's startTime falls within the venue's open hours.
 - Price levels are shown when available ($, $$, $$$, $$$$). Factor these into the budget — don't fill a $30 budget with $$$ restaurants.
-- If there are no scanned events, build the itinerary entirely from town staples — beloved local restaurants, iconic landmarks, popular parks, and must-visit spots. This is a great itinerary, not a consolation prize.
+- If there are no scanned events, build the sidequest entirely from town staples — beloved local restaurants, iconic landmarks, popular parks, and must-visit spots. This is a great sidequest, not a consolation prize.
 - If not enough options exist, create FEWER stops — never pad with fake events.
 - Use FULL street addresses including city and state (e.g., "123 Main St, Austin, TX")
 ${trailInstructions}${boardingGarageInstructions}${anchorBlock}${intentionBlock}${preferencesBlock}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt the itinerary to the forecast. Rain or storms → prefer indoor stops during those hours. Extreme heat → outdoor activities in morning/evening, shade and AC midday. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9", "Rain likely after 3pm, grab a window seat and enjoy it").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous itineraries: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives. The whole point is discovering something new each time.\n` : ""}
@@ -1967,10 +1967,17 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
     const offset = (page - 1) * pageSize;
     const repo = this.dataSource.getRepository(Itinerary);
 
-    const where = {
-      isPublished: true,
-      status: ItineraryStatus.READY,
-    };
+    // Include published itineraries AND recent READY ones with coordinates
+    // so freshly generated quests also appear as community markers on the map.
+    const recentCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const where = [
+      { isPublished: true, status: ItineraryStatus.READY },
+      {
+        status: ItineraryStatus.READY,
+        entryLatitude: Not(IsNull()),
+        createdAt: MoreThan(recentCutoff),
+      },
+    ];
 
     // Count separately — findAndCount with relations + order on a relation
     // column + take produces an incorrect total (TypeORM DISTINCT/LIMIT bug).
@@ -2166,6 +2173,19 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
         `[ItineraryService] Enhanced itinerary ${itineraryId}:`,
         Object.keys(updates),
       );
+    }
+
+    // Publish to community map so freshly generated itineraries appear as markers
+    if (updates.entryLatitude != null && updates.entryLongitude != null) {
+      const fresh = await repo.findOne({ where: { id: itineraryId } });
+      if (fresh) {
+        this.publishItineraryChange(fresh, "CREATE").catch((err) => {
+          console.error(
+            `[ItineraryService] Failed to publish new itinerary ${itineraryId}:`,
+            err,
+          );
+        });
+      }
     }
   }
 

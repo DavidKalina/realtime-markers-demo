@@ -112,7 +112,7 @@ const CommunityItineraryPreviewCardInner: React.FC<
 
         {/* Adopt CTA */}
         <Pressable style={styles.adoptButton} onPress={handlePress}>
-          <Text style={styles.adoptText}>Adopt Quest</Text>
+          <Text style={styles.adoptText}>Claim Quest</Text>
         </Pressable>
 
         {/* Dismiss tap zone */}

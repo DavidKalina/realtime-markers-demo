@@ -123,12 +123,12 @@ interface ItineraryRow {
 // --- Constants ---
 
 const GEOHASH_PRECISION = 4;
-const DBSCAN_EPSILON = parseFloat(process.env.DBSCAN_EPSILON || "0.24");
-const DBSCAN_MIN_POINTS = parseInt(process.env.DBSCAN_MIN_POINTS || "3");
+const DBSCAN_EPSILON = parseFloat(process.env.DBSCAN_EPSILON || "0.18");
+const DBSCAN_MIN_POINTS = parseInt(process.env.DBSCAN_MIN_POINTS || "6");
 const CENTROID_MATCH_THRESHOLD = parseFloat(
   process.env.DISTRICT_MATCH_THRESHOLD || "0.85",
 );
-const GEO_WEIGHT = parseFloat(process.env.DISTRICT_GEO_WEIGHT || "0.25");
+const GEO_WEIGHT = parseFloat(process.env.DISTRICT_GEO_WEIGHT || "0.4");
 const GEO_MAX_METERS = 5000; // distances beyond 5km are clamped to 1.0
 const DEBOUNCE_TTL_SECONDS = 3600;
 const PREVIEW_COUNT = 6;
@@ -742,17 +742,17 @@ export class DistrictService {
       .filter(Boolean);
     const cities = [...new Set(members.map((m) => m.city))];
 
-    const prompt = `You are naming a themed district for an adventure app. The district groups similar itineraries by vibe.
+    const prompt = `You are naming a quest district for a sidequest app. Each district is a zone on the quest board — a cluster of similar sidequests grouped by vibe and theme.
 
 Activity types: ${allActivityTypes.join(", ")}
 Category tags: ${allCategories.join(", ")}
-Sample itinerary titles: ${sampleTitles.join("; ")}
+Sample sidequest titles: ${sampleTitles.join("; ")}
 Cities represented: ${cities.join(", ")}
 
-Create a creative, memorable 2-4 word district name and a one-sentence description (under 80 chars).
+Create a creative, memorable 2-4 word district name and a one-sentence description (under 80 chars). The name MUST incorporate the dominant activity — make it obvious what kind of sidequests live here. Think RPG zone names that tell you what you'll be doing.
 
-Good examples: "Boards & Brews", "Sunset Escapades", "Art Walk Alley", "Trail Mix", "Night Owl Circuit", "Savory Symphony"
-Bad examples: "Coffee and Activities", "Outdoor Fun District", "Food Area", "Mixed Activities Zone"
+Good examples: "Shred City" (boarding), "Brew Halls" (coffee/beer), "Trail Trials" (hiking), "Canvas Quarter" (art), "The Noodle Mile" (food), "Iron Yard" (fitness), "Vinyl Row" (music), "Night Owl Circuit" (nightlife)
+Bad examples: "Sunset Escapades" (too vague), "Outdoor Fun District" (generic), "Mixed Activities Zone" (boring), "The Grind Path" (unclear activity)
 
 Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
 
@@ -764,7 +764,7 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
             {
               role: "system",
               content:
-                "You generate creative, concise district names for an adventure app. Respond with ONLY valid JSON, no markdown fences.",
+                "You generate creative district names for a sidequest app. Names must incorporate the dominant activity so it's obvious what kind of quests live there (e.g. 'Brew Halls' for coffee, 'Shred City' for boarding). Respond with ONLY valid JSON, no markdown fences.",
             },
             { role: "user", content: prompt },
           ],

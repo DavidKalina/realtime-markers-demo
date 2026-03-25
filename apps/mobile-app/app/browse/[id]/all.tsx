@@ -28,9 +28,9 @@ import type { BrowseItineraryPreview } from "@/services/api/modules/districts";
 type SortMode = "popular" | "recent" | "top_rated";
 
 const SORT_TABS: { key: SortMode; label: string }[] = [
-  { key: "popular", label: "Popular" },
-  { key: "recent", label: "Recent" },
-  { key: "top_rated", label: "Top Rated" },
+  { key: "popular", label: "\u{1F525} Hot" },
+  { key: "recent", label: "\u{1F331} Fresh" },
+  { key: "top_rated", label: "\u2B50 Legendary" },
 ];
 
 const PAGE_SIZE = 20;
@@ -66,11 +66,15 @@ const BrowseListItem: React.FC<{
     return extra > 0 ? `${emojis} +${extra}` : emojis;
   }, [item.items, item.itemCount]);
 
+  const isUncharted = item.timesAdopted === 0;
+
   const meta = useMemo(() => {
     const parts: string[] = [];
     parts.push(`${item.itemCount} stops`);
     parts.push(`${item.durationHours}h`);
-    if (item.timesAdopted > 0) parts.push(`${item.timesAdopted} tried`);
+    if (item.timesAdopted > 0) {
+      parts.push(`${item.timesAdopted} adventurer${item.timesAdopted !== 1 ? "s" : ""}`);
+    }
     return parts.join(" \u00B7 ");
   }, [item]);
 
@@ -89,16 +93,23 @@ const BrowseListItem: React.FC<{
       <View style={styles.info}>
         <View style={styles.titleRow}>
           <Text style={styles.title} numberOfLines={1}>
-            {item.title || "Untitled Adventure"}
+            {item.title || "Untitled Sidequest"}
           </Text>
           {stars && <Text style={styles.stars}>{stars}</Text>}
         </View>
-        <Text style={styles.meta} numberOfLines={1}>
-          {item.creatorFirstName
-            ? `by ${item.creatorFirstName}`
-            : "by Explorer"}{" "}
-          \u00B7 {meta}
-        </Text>
+        <View style={styles.metaRow}>
+          <Text style={styles.meta} numberOfLines={1}>
+            {item.creatorFirstName
+              ? `by ${item.creatorFirstName}`
+              : "by Explorer"}{" "}
+            \u00B7 {meta}
+          </Text>
+          {isUncharted && (
+            <View style={styles.unchartedBadge}>
+              <Text style={styles.unchartedText}>UNCHARTED</Text>
+            </View>
+          )}
+        </View>
         {emojiTrail.length > 0 && (
           <Text style={styles.emojiTrail} numberOfLines={1}>
             {emojiTrail}
@@ -242,7 +253,7 @@ const AllItinerariesScreen = () => {
     if (isLoading) return null;
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No adventures in this district yet.</Text>
+        <Text style={styles.emptyText}>No sidequests posted yet {"\u2014"} be the first</Text>
       </View>
     );
   }, [isLoading, styles]);
@@ -250,7 +261,7 @@ const AllItinerariesScreen = () => {
   return (
     <Screen
       isScrollable={false}
-      bannerDescription={districtName || "All Adventures"}
+      bannerDescription={districtName || "All Sidequests"}
       noAnimation
     >
       {isLoading ? (
@@ -337,11 +348,31 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       color: colors.text.secondary,
       lineHeight: 16,
+      flexShrink: 1,
+    },
+    metaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: spacing.sm,
     },
     emojiTrail: {
       fontSize: 12,
       letterSpacing: 2,
       marginTop: 1,
+    },
+    unchartedBadge: {
+      backgroundColor: "rgba(251, 191, 36, 0.15)",
+      paddingHorizontal: spacing._6,
+      paddingVertical: 1,
+      borderRadius: radius.sm,
+    },
+    unchartedText: {
+      fontSize: 9,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: "#fbbf24",
+      letterSpacing: 1,
     },
 
     /* Sort bar */
