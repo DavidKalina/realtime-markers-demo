@@ -1,136 +1,95 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { InteractionManager, StyleSheet, Text, View } from "react-native";
+// components/Districts/CommunityItineraryMarkers.tsx
+//
+// GPU-rendered community itinerary markers using Mapbox native layers.
+// Instead of spawning 60+ native MarkerView instances (which crashes physical
+// devices), we render ALL markers via ShapeSource → CircleLayer + SymbolLayer.
+//
+// Emoji icons are pre-rasterised by EmojiMapImageGenerator (hidden SVGs →
+// toDataURL → base64 PNGs) and registered with MapboxGL.Images so the
+// SymbolLayer can reference them via iconImage.
+//
+// Only the SELECTED marker gets a single native MarkerView for the
+// interactive glow/animation treatment.
+
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
-  useDerivedValue,
   useSharedValue,
-  withDelay,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { scheduleOnRN } from "react-native-worklets";
 import MapboxGL from "@rnmapbox/maps";
 import { Delaunay } from "d3-delaunay";
 import { useDistrictMapStore } from "@/stores/useDistrictMapStore";
-import { useLocationStore } from "@/stores/useLocationStore";
 import { getDistrictColor } from "@/utils/districtUtils";
+import { markerImageKey } from "./EmojiMapImageGenerator";
 import type { BrowseItineraryPreview } from "@/services/api/modules/districts";
+import type { FeatureCollection, Point } from "geojson";
 
 interface CommunityItineraryMarkersProps {
   dimmed?: boolean;
   hidden?: boolean;
   onSelect: (itinerary: BrowseItineraryPreview, districtId: string) => void;
   selectedId: string | null;
+  /** Pre-rasterised emoji images from EmojiMapImageGenerator */
+  emojiImages: Record<string, { uri: string }>;
 }
 
-interface MarkerData {
-  itinerary: BrowseItineraryPreview;
-  districtId: string;
-  coordinate: [number, number];
+interface MarkerFeatureProperties {
+  id: string;
   emoji: string;
+  emojiKey: string;
   borderColor: string;
+  districtId: string;
+  /** JSON-stringified BrowseItineraryPreview for tap handler lookup */
+  itineraryJson: string;
 }
 
-/** Max markers to render as native views at once. */
-const MAX_VISIBLE_MARKERS = 60;
-/** New markers per chunk for progressive mounting on large batches. */
-const CHUNK_SIZE = 12;
-/** Stagger delay between each new marker entrance (ms). */
-const STAGGER_DELAY_MS = 30;
+const DEFAULT_BORDER_COLOR = "#86efac";
 
 // ---------------------------------------------------------------------------
-// Single marker — handles entrance + exit + hidden animations
+// Selected marker overlay — the only native MarkerView we ever mount
 // ---------------------------------------------------------------------------
 
-const CommunityMarkerPin = React.memo(
+const SelectedMarkerOverlay = React.memo(
   ({
-    marker,
-    isSelected,
-    onSelect,
-    staggerIndex,
-    dimmed,
-    hidden,
-    removing,
-    onExitComplete,
+    coordinate,
+    emoji,
+    borderColor,
   }: {
-    marker: MarkerData;
-    isSelected: boolean;
-    onSelect: () => void;
-    staggerIndex: number;
-    dimmed: boolean;
-    hidden: boolean;
-    removing?: boolean;
-    onExitComplete?: () => void;
+    coordinate: [number, number];
+    emoji: string;
+    borderColor: string;
   }) => {
-    const scale = useSharedValue(0);
+    const scale = useSharedValue(0.6);
     const opacity = useSharedValue(0);
-    const hiddenOpacity = useSharedValue(hidden ? 0 : 1);
-    const dimFactor = useDerivedValue(() => (dimmed ? 0.35 : 1));
-    const isMounted = useRef(true);
 
-    // Track mount state for safe callbacks
     useEffect(() => {
-      isMounted.current = true;
+      scale.value = withSpring(1, { damping: 12, stiffness: 200, mass: 0.7 });
+      opacity.value = withTiming(1, { duration: 180 });
       return () => {
-        isMounted.current = false;
         cancelAnimation(scale);
         cancelAnimation(opacity);
       };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Entrance animation — runs once on mount
-    useEffect(() => {
-      const delay = staggerIndex * STAGGER_DELAY_MS;
-      scale.value = withDelay(
-        delay,
-        withSpring(1, { damping: 10, stiffness: 180, mass: 0.8 }),
-      );
-      opacity.value = withDelay(delay, withTiming(1, { duration: 200 }));
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Exit animation — scale/fade out, then notify parent (data deletions only)
-    const onExitCompleteRef = useRef(onExitComplete);
-    onExitCompleteRef.current = onExitComplete;
-
-    useEffect(() => {
-      if (!removing) return;
-      scale.value = withTiming(0, { duration: 200 });
-      opacity.value = withTiming(0, { duration: 200 }, (finished) => {
-        if (finished && onExitCompleteRef.current && isMounted.current) {
-          scheduleOnRN(onExitCompleteRef.current);
-        }
-      });
-    }, [removing]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Hidden toggle — fade without re-entrance spring
-    useEffect(() => {
-      hiddenOpacity.value = withTiming(hidden ? 0 : 1, { duration: 250 });
-    }, [hidden]); // eslint-disable-line react-hooks/exhaustive-deps
-
     const animStyle = useAnimatedStyle(() => ({
-      opacity: opacity.value * hiddenOpacity.value * dimFactor.value,
+      opacity: opacity.value,
       transform: [{ scale: scale.value }],
     }));
 
     return (
       <MapboxGL.MarkerView
-        key={marker.itinerary.id}
-        id={`community-${marker.itinerary.id}`}
-        coordinate={marker.coordinate}
+        id="community-selected"
+        coordinate={coordinate}
         anchor={{ x: 0.5, y: 0.5 }}
-        allowOverlap={false}
+        allowOverlap
       >
         <Animated.View style={animStyle}>
-          <View
-            style={[
-              styles.marker,
-              { borderColor: marker.borderColor },
-              isSelected && styles.markerSelected,
-            ]}
-            onTouchEnd={hidden || removing ? undefined : onSelect}
-          >
-            <Text style={styles.emoji}>{marker.emoji}</Text>
+          <View style={[styles.selectedMarker, { borderColor }]}>
+            <Text style={styles.selectedEmoji}>{emoji}</Text>
           </View>
         </Animated.View>
       </MapboxGL.MarkerView>
@@ -139,33 +98,20 @@ const CommunityMarkerPin = React.memo(
 );
 
 // ---------------------------------------------------------------------------
-// Main component — viewport culling + staggered mount + exit queue
+// Main component — GPU-native layers + single MarkerView for selection
 // ---------------------------------------------------------------------------
-
-const DEFAULT_BORDER_COLOR = "#86efac";
 
 const CommunityItineraryMarkersInner: React.FC<
   CommunityItineraryMarkersProps
-> = ({ dimmed = false, hidden = false, onSelect, selectedId }) => {
+> = ({ dimmed = false, hidden = false, onSelect, selectedId, emojiImages }) => {
   const streamedItineraries = useDistrictMapStore(
     (s) => s.streamedItineraries,
   );
   const districts = useDistrictMapStore((s) => s.districts);
-  const mapViewport = useLocationStore((s) => s.mapViewport);
 
-  // Track which markers are already mounted so re-renders don't re-stagger
-  const mountedIds = useRef(new Set<string>());
-
-  // Exit animation queue — only for DATA deletions (not viewport culling).
-  // Keeping exiting MarkerViews alive while new ones mount causes native
-  // assertion failures in RNMBXMapView.insertReactSubview.
-  const removingMarkers = useRef(new Map<string, MarkerData>());
-  const [exitTick, setExitTick] = useState(0);
-  const prevAllMarkerIds = useRef(new Set<string>());
-
-  // Progressive mounting for large initial batches
-  const [mountedChunkCount, setMountedChunkCount] = useState(0);
-  const chunkingActive = useRef(false);
+  // Stable ref for onSelect to avoid GeoJSON rebuilds
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
 
   // Build a Delaunay lookup from district centroids for point → district mapping
   const districtLookup = useMemo(() => {
@@ -179,11 +125,16 @@ const CommunityItineraryMarkersInner: React.FC<
     return { delaunay, sorted };
   }, [districts]);
 
-  // Streamed itineraries from WebSocket — the only data source
-  // Wait for districts so every marker gets a proper cluster assignment
-  const allMarkers = useMemo((): MarkerData[] => {
-    if (!districtLookup) return [];
-    return streamedItineraries
+  // Build GeoJSON FeatureCollection for the ShapeSource
+  const geojson = useMemo(() => {
+    if (!districtLookup) {
+      return {
+        type: "FeatureCollection" as const,
+        features: [],
+      } as FeatureCollection<Point, MarkerFeatureProperties>;
+    }
+
+    const features = streamedItineraries
       .filter((itin) => itin.entryLatitude && itin.entryLongitude)
       .map((itin) => {
         const lng = itin.entryLongitude!;
@@ -199,202 +150,115 @@ const CommunityItineraryMarkersInner: React.FC<
           borderColor = getDistrictColor(district);
         }
 
+        const emoji = itin.items?.[0]?.emoji ?? "\u{1F4CD}";
+
         return {
-          itinerary: itin,
-          districtId,
-          coordinate: [lng, lat] as [number, number],
-          emoji: itin.items?.[0]?.emoji ?? "\u{1F4CD}",
-          borderColor,
+          type: "Feature" as const,
+          properties: {
+            id: itin.id,
+            emoji,
+            emojiKey: markerImageKey(emoji, borderColor),
+            borderColor,
+            districtId,
+            itineraryJson: JSON.stringify(itin),
+          },
+          geometry: {
+            type: "Point" as const,
+            coordinates: [lng, lat],
+          },
         };
       });
+
+    return {
+      type: "FeatureCollection" as const,
+      features,
+    } as FeatureCollection<Point, MarkerFeatureProperties>;
   }, [streamedItineraries, districtLookup]);
 
-  // Cache marker data so we can look up deleted markers for exit animation.
-  // This ref is updated AFTER exit detection so deleted markers are still available.
-  const allMarkersMap = useRef(new Map<string, MarkerData>());
+  // Find selected marker data for the overlay MarkerView
+  const selectedMarker = useMemo(() => {
+    if (!selectedId) return null;
+    const feature = geojson.features.find(
+      (f) => f.properties.id === selectedId,
+    );
+    if (!feature) return null;
+    return {
+      coordinate: feature.geometry.coordinates as [number, number],
+      emoji: feature.properties.emoji,
+      borderColor: feature.properties.borderColor,
+    };
+  }, [selectedId, geojson]);
 
-  // Detect DATA deletions (marker removed from allMarkers entirely).
-  // Only these get exit animations — viewport culling just unmounts instantly,
-  // because keeping exiting MarkerViews alive during panning causes native
-  // assertion failures in RNMBXMapView.insertReactSubview.
-  const allMarkerIds = useMemo(
-    () => new Set(allMarkers.map((m) => m.itinerary.id)),
-    [allMarkers],
+  const baseOpacity = dimmed ? 0.35 : 1;
+  const layerOpacity = hidden ? 0 : baseOpacity;
+
+  // ── Emoji icon style (GPU-rendered via pre-rasterised images) ────
+  const emojiIconStyle = useMemo(
+    () => ({
+      iconImage: ["get", "emojiKey"] as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+      iconSize: [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        6, 0.08,
+        9, 0.12,
+        12, 0.16,
+        15, 0.2,
+        18, 0.25,
+      ] as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+      iconAllowOverlap: true,
+      iconIgnorePlacement: true,
+      iconOpacity: layerOpacity,
+    }),
+    [layerOpacity],
   );
 
-  // Callback for when a marker finishes its exit animation
-  const handleExitComplete = useCallback((id: string) => {
-    removingMarkers.current.delete(id);
-    mountedIds.current.delete(id);
-    setExitTick((t) => t + 1);
+  // ── Tap handler ──────────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handlePress = useCallback((event: any) => {
+    const feature = event?.features?.[0];
+    if (!feature?.properties) return;
+
+    const { id, districtId, itineraryJson } = feature.properties;
+    if (!id || !itineraryJson) return;
+
+    try {
+      const itinerary: BrowseItineraryPreview = JSON.parse(itineraryJson);
+      onSelectRef.current(itinerary, districtId ?? "");
+    } catch {
+      // Malformed JSON — ignore tap
+    }
   }, []);
 
-  // Queue deleted markers for exit animation, then update cache
-  useEffect(() => {
-    let changed = false;
+  if (geojson.features.length === 0) return null;
 
-    // Markers that disappeared from data → exit animation
-    for (const id of prevAllMarkerIds.current) {
-      if (!allMarkerIds.has(id) && !removingMarkers.current.has(id)) {
-        const cachedMarker = allMarkersMap.current.get(id);
-        if (cachedMarker) {
-          removingMarkers.current.set(id, cachedMarker);
-          changed = true;
-        }
-      }
-    }
-
-    // Markers that came back → cancel exit
-    for (const id of allMarkerIds) {
-      if (removingMarkers.current.has(id)) {
-        removingMarkers.current.delete(id);
-        changed = true;
-      }
-    }
-
-    prevAllMarkerIds.current = allMarkerIds;
-
-    // NOW update the cache (after we've used the old data for lookups)
-    allMarkersMap.current.clear();
-    for (const m of allMarkers) {
-      allMarkersMap.current.set(m.itinerary.id, m);
-    }
-
-    if (changed) {
-      setExitTick((t) => t + 1);
-    }
-  }, [allMarkerIds, allMarkers]);
-
-  // Viewport culling with 10% buffer + hard cap at MAX_VISIBLE_MARKERS
-  const visibleMarkers = useMemo(() => {
-    if (!mapViewport) return allMarkers.slice(0, MAX_VISIBLE_MARKERS);
-
-    const lngSpan = mapViewport.east - mapViewport.west;
-    const latSpan = mapViewport.north - mapViewport.south;
-    const lngBuffer = lngSpan * 0.1;
-    const latBuffer = latSpan * 0.1;
-
-    const centerLng = (mapViewport.east + mapViewport.west) / 2;
-    const centerLat = (mapViewport.north + mapViewport.south) / 2;
-
-    const inViewport = allMarkers.filter((m) => {
-      if (m.itinerary.id === selectedId) return true;
-      const [lng, lat] = m.coordinate;
-      return (
-        lng >= mapViewport.west - lngBuffer &&
-        lng <= mapViewport.east + lngBuffer &&
-        lat >= mapViewport.south - latBuffer &&
-        lat <= mapViewport.north + latBuffer
-      );
-    });
-
-    // Cap at MAX_VISIBLE_MARKERS, prioritizing closest to center
-    if (inViewport.length > MAX_VISIBLE_MARKERS) {
-      inViewport.sort((a, b) => {
-        const dA =
-          (a.coordinate[0] - centerLng) ** 2 +
-          (a.coordinate[1] - centerLat) ** 2;
-        const dB =
-          (b.coordinate[0] - centerLng) ** 2 +
-          (b.coordinate[1] - centerLat) ** 2;
-        return dA - dB;
-      });
-      return inViewport.slice(0, MAX_VISIBLE_MARKERS);
-    }
-
-    return inViewport;
-  }, [allMarkers, mapViewport, selectedId]);
-
-  // Assign stagger indices — only new (unmounted) markers get staggered
-  const staggerResult = useMemo(() => {
-    let newCount = 0;
-    const result = visibleMarkers.map((m) => {
-      const alreadyMounted = mountedIds.current.has(m.itinerary.id);
-      const staggerIndex = alreadyMounted ? 0 : newCount++;
-      return { marker: m, staggerIndex, removing: false as const };
-    });
-
-    // Update mounted set
-    const currentIds = new Set(visibleMarkers.map((m) => m.itinerary.id));
-    for (const id of mountedIds.current) {
-      if (!currentIds.has(id)) mountedIds.current.delete(id);
-    }
-    for (const id of currentIds) {
-      mountedIds.current.add(id);
-    }
-
-    return { items: result, newCount };
-  }, [visibleMarkers]);
-
-  // Progressive chunking — schedule via useEffect (not inside useMemo)
-  useEffect(() => {
-    if (staggerResult.newCount <= CHUNK_SIZE || chunkingActive.current) return;
-
-    chunkingActive.current = true;
-    setMountedChunkCount(1);
-
-    const totalChunks = Math.ceil(staggerResult.newCount / CHUNK_SIZE);
-    let chunk = 1;
-    const scheduleNext = () => {
-      chunk++;
-      if (chunk <= totalChunks) {
-        InteractionManager.runAfterInteractions(() => {
-          setMountedChunkCount(chunk);
-          scheduleNext();
-        });
-      } else {
-        chunkingActive.current = false;
-      }
-    };
-    InteractionManager.runAfterInteractions(scheduleNext);
-  }, [staggerResult]);
-
-  // Build final render list: visible markers + data-deleted markers animating out
-  const renderList = useMemo(() => {
-    let list = staggerResult.items;
-
-    // Apply chunking limit for large initial batches
-    if (chunkingActive.current) {
-      const maxIndex = mountedChunkCount * CHUNK_SIZE;
-      list = list.filter(
-        (item) => item.staggerIndex === 0 || item.staggerIndex < maxIndex,
-      );
-    }
-
-    // Append data-deleted markers that are animating out (NOT viewport-culled ones)
-    const exitItems = Array.from(
-      removingMarkers.current.values(),
-    ).map((marker) => ({
-      marker,
-      staggerIndex: 0,
-      removing: true as const,
-    }));
-
-    return [...list, ...exitItems];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [staggerResult, mountedChunkCount, exitTick]);
-
-  if (renderList.length === 0) return null;
-
+  // SymbolLayer must always be mounted (rnmapbox typing requires it).
+  // When images aren't ready yet, the layer is harmless — Mapbox just
+  // skips features whose iconImage isn't registered.
   return (
     <>
-      {renderList.map(({ marker, staggerIndex, removing }) => (
-        <CommunityMarkerPin
-          key={marker.itinerary.id}
-          marker={marker}
-          isSelected={marker.itinerary.id === selectedId}
-          onSelect={() => onSelect(marker.itinerary, marker.districtId)}
-          staggerIndex={staggerIndex}
-          dimmed={dimmed}
-          hidden={hidden}
-          removing={removing}
-          onExitComplete={
-            removing
-              ? () => handleExitComplete(marker.itinerary.id)
-              : undefined
-          }
+      <MapboxGL.Images images={emojiImages} />
+
+      <MapboxGL.ShapeSource
+        id="community-itineraries"
+        shape={geojson}
+        onPress={hidden ? undefined : handlePress}
+        hitbox={{ width: 44, height: 44 }}
+      >
+        <MapboxGL.SymbolLayer
+          id="community-emoji-icon"
+          style={emojiIconStyle}
         />
-      ))}
+      </MapboxGL.ShapeSource>
+
+      {selectedMarker ? (
+        <SelectedMarkerOverlay
+          key={selectedId!}
+          coordinate={selectedMarker.coordinate}
+          emoji={selectedMarker.emoji}
+          borderColor={selectedMarker.borderColor}
+        />
+      ) : null}
     </>
   );
 };
@@ -404,28 +268,22 @@ export const CommunityItineraryMarkers = React.memo(
 );
 
 const styles = StyleSheet.create({
-  marker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(26, 26, 26, 0.85)",
-    borderWidth: 2,
+  selectedMarker: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(26, 26, 26, 0.95)",
+    borderWidth: 2.5,
     alignItems: "center",
     justifyContent: "center",
-  },
-  markerSelected: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 2.5,
     shadowColor: "#86efac",
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.7,
+    shadowRadius: 10,
+    elevation: 8,
   },
-  emoji: {
-    fontSize: 16,
+  selectedEmoji: {
+    fontSize: 20,
     textAlign: "center",
   },
 });

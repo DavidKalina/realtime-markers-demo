@@ -53,7 +53,14 @@ import { useDistrictFocus } from "@/hooks/useDistrictFocus";
 import { DistrictZonesLayer } from "@/components/Districts/DistrictZonesLayer";
 import { CommunityItineraryMarkers } from "@/components/Districts/CommunityItineraryMarkers";
 import { CommunityItineraryPreviewCard } from "@/components/Districts/CommunityItineraryPreviewCard";
+import {
+  EmojiMapImageGenerator,
+  markerImageKey,
+  type MarkerImageSpec,
+} from "@/components/Districts/EmojiMapImageGenerator";
 import { useDistrictMapStore } from "@/stores/useDistrictMapStore";
+import { getDistrictColor } from "@/utils/districtUtils";
+import { Delaunay } from "d3-delaunay";
 import type { BrowseItineraryPreview } from "@/services/api/modules/districts";
 
 // Set access token at module scope (lightweight, required before MapView renders)
@@ -249,6 +256,38 @@ function HomeScreenContent() {
       null,
     );
   const districts = useDistrictMapStore((s) => s.districts);
+  const streamedItineraries = useDistrictMapStore(
+    (s) => s.streamedItineraries,
+  );
+
+  // Pre-rasterise emoji-in-circle images for GPU-rendered community markers
+  const [emojiImages, setEmojiImages] = useState<
+    Record<string, { uri: string }>
+  >({});
+  const markerImageSpecs = useMemo((): MarkerImageSpec[] => {
+    if (districts.length === 0 || streamedItineraries.length === 0) return [];
+    const sorted = [...districts].sort((a, b) => a.id.localeCompare(b.id));
+    const points: [number, number][] = sorted.map((d) => [
+      d.centroidLng,
+      d.centroidLat,
+    ]);
+    const delaunay = Delaunay.from(points);
+    const seen = new Set<string>();
+    const specs: MarkerImageSpec[] = [];
+    for (const itin of streamedItineraries) {
+      if (!itin.entryLatitude || !itin.entryLongitude) continue;
+      const emoji = itin.items?.[0]?.emoji ?? "\u{1F4CD}";
+      const idx = delaunay.find(itin.entryLongitude, itin.entryLatitude);
+      const district = sorted[idx];
+      const borderColor = district ? getDistrictColor(district) : "#86efac";
+      const key = markerImageKey(emoji, borderColor);
+      if (!seen.has(key)) {
+        seen.add(key);
+        specs.push({ emoji, borderColor });
+      }
+    }
+    return specs;
+  }, [districts, streamedItineraries]);
 
   const handleDistrictPress = useCallback(
     (districtId: string) => {
@@ -451,6 +490,12 @@ function HomeScreenContent() {
       {statusBarSection}
 
       <View style={styles.mapContainer} onLayout={onContainerLayout}>
+        {/* Hidden off-screen SVG renderer — captures emojis as PNG for Mapbox */}
+        <EmojiMapImageGenerator
+          specs={markerImageSpecs}
+          onImagesReady={setEmojiImages}
+        />
+
         {isMapSafeToMount && isAppActive && (
           <MapboxGL.MapView
             onPress={handleMapPress}
@@ -504,6 +549,7 @@ function HomeScreenContent() {
               hidden={!!activeItinerary}
               onSelect={handleCommunityMarkerSelect}
               selectedId={selectedCommunityItinerary?.itinerary.id ?? null}
+              emojiImages={emojiImages}
             />
             {itineraryLayersSafe && (
               <ItineraryRouteLayer revealedStopCount={revealedStopCount} />
