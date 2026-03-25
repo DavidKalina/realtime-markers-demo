@@ -567,9 +567,9 @@ export class ServiceInitializer {
     jobQueue: JobQueue,
     dataSource: DataSource,
   ): void {
-    if (process.env.DISABLE_SEED_ITINERARIES === "true") {
+    if (process.env.ENABLE_SEED_ITINERARIES !== "true") {
       console.log(
-        "Seed itineraries disabled via DISABLE_SEED_ITINERARIES environment variable",
+        "Seed itineraries disabled (set ENABLE_SEED_ITINERARIES=true to enable)",
       );
       return;
     }

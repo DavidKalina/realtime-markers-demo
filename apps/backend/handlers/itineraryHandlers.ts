@@ -5,9 +5,24 @@ import {
 } from "../utils/handlerUtils";
 import { toDate } from "date-fns-tz";
 
+const MAX_ITINERARIES_PER_DAY = 3;
+
 export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
   const userId = user.id;
+
+  // Enforce daily itinerary creation cap (applies to all users including admins)
+  const itineraryService = c.get("itineraryService");
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const todayCount = await itineraryService.countCreatedSince(userId, since);
+  if (todayCount >= MAX_ITINERARIES_PER_DAY) {
+    return c.json(
+      {
+        error: `You can create up to ${MAX_ITINERARIES_PER_DAY} itineraries per day. Please try again later.`,
+      },
+      429,
+    );
+  }
 
   const body = await c.req.json<{
     city: string;
@@ -67,7 +82,6 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
   }
 
   // Create shell itinerary record upfront so we have an ID immediately
-  const itineraryService = c.get("itineraryService");
   const shell = await itineraryService.createShell(userId, {
     city: body.city || "",
     plannedDate: resolvedPlannedDate,

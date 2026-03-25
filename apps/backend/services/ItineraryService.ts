@@ -1,4 +1,4 @@
-import { type DataSource, Not, IsNull, LessThan, MoreThan } from "typeorm";
+import { type DataSource, Not, IsNull, LessThan, MoreThan, MoreThanOrEqual } from "typeorm";
 import {
   Itinerary,
   ItineraryItem,
@@ -198,6 +198,7 @@ export interface ItineraryService {
     rating: number,
     comment?: string,
   ): Promise<Itinerary | null>;
+  countCreatedSince(userId: string, since: Date): Promise<number>;
   listCompleted(userId: string, limit?: number): Promise<Itinerary[]>;
   browsePublished(options: BrowsePublishedOptions): Promise<BrowseItinerary[]>;
   adoptItinerary(sourceId: string, userId: string): Promise<Itinerary>;
@@ -902,6 +903,15 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
     }
 
     return itinerary;
+  }
+
+  async countCreatedSince(userId: string, since: Date): Promise<number> {
+    return this.dataSource.getRepository(Itinerary).count({
+      where: {
+        userId,
+        createdAt: MoreThanOrEqual(since),
+      },
+    });
   }
 
   async listCompleted(userId: string, limit = 20): Promise<Itinerary[]> {
