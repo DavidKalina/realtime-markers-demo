@@ -2228,6 +2228,7 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
         .map((item) => ({
           id: item.id,
           title: item.title,
+          emoji: item.emoji ?? null,
           latitude: item.latitude != null ? Number(item.latitude) : null,
           longitude: item.longitude != null ? Number(item.longitude) : null,
           venueCategory: item.venueCategory,
