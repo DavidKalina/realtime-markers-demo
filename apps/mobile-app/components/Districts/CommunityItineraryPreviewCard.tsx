@@ -44,6 +44,7 @@ const CommunityItineraryPreviewCardInner: React.FC<
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       const result = await apiClient.itineraries.adopt(itinerary.id);
+      console.log(result)
       onDismiss();
       if (result.id) {
         router.push(`/itineraries/${result.id}` as never);

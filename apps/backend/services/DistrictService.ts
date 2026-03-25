@@ -593,6 +593,7 @@ export class DistrictService {
       JOIN users u ON u.id = i.user_id
       WHERE di.district_id = $1
         AND i.status = 'READY'
+        AND i.is_published = true
         AND i.deleted_at IS NULL
         ${cursorClause}
       ORDER BY ${orderClause}
@@ -942,6 +943,7 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
       JOIN users u ON u.id = i.user_id
       WHERE di.district_id = $1
         AND i.status = 'READY'
+        AND i.is_published = true
         AND i.deleted_at IS NULL
       ORDER BY (i.times_adopted * 2 + COALESCE(i.rating, 0)) DESC
       LIMIT $2`,
@@ -981,6 +983,7 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
       JOIN users u ON u.id = i.user_id
       WHERE di.district_id = $1
         AND i.status = 'READY'
+        AND i.is_published = true
         AND i.deleted_at IS NULL
         AND i.embedding IS NOT NULL
       ORDER BY i.embedding::vector <=> $2::vector ASC

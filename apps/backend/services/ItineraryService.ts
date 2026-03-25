@@ -2228,8 +2228,8 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
         .map((item) => ({
           id: item.id,
           title: item.title,
-          latitude: item.latitude,
-          longitude: item.longitude,
+          latitude: item.latitude != null ? Number(item.latitude) : null,
+          longitude: item.longitude != null ? Number(item.longitude) : null,
           venueCategory: item.venueCategory,
           sortOrder: item.sortOrder,
         }));
@@ -2243,9 +2243,9 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
           city: full.city,
           categories: full.categories,
           embedding: full.embedding,
-          entryLatitude: full.entryLatitude,
-          entryLongitude: full.entryLongitude,
-          rating: full.rating,
+          entryLatitude: full.entryLatitude != null ? Number(full.entryLatitude) : null,
+          entryLongitude: full.entryLongitude != null ? Number(full.entryLongitude) : null,
+          rating: full.rating != null ? Number(full.rating) : null,
           timesAdopted: full.timesAdopted,
           items,
         },

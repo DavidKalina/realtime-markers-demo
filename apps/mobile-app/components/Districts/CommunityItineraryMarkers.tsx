@@ -134,8 +134,8 @@ const CommunityItineraryMarkersInner: React.FC<
     const features = streamedItineraries
       .filter((itin) => itin.entryLatitude && itin.entryLongitude)
       .map((itin) => {
-        const lng = itin.entryLongitude!;
-        const lat = itin.entryLatitude!;
+        const lng = Number(itin.entryLongitude);
+        const lat = Number(itin.entryLatitude);
 
         let districtId = "";
         let borderColor = DEFAULT_BORDER_COLOR;
