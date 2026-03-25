@@ -128,6 +128,8 @@ export interface GoogleGeocodingService extends ILocationResolutionService {
 export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
   private static readonly CACHE_TTL_SECONDS = 604800; // 7 days
   private static readonly CACHE_PREFIX = "geocache:";
+  private static readonly PLACES_CACHE_TTL_SECONDS = 172800; // 48 hours
+  private static readonly PLACES_CACHE_PREFIX = "places-category:";
   private openAIService: OpenAIService;
   private redisService: RedisService;
 
@@ -274,7 +276,7 @@ export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": process.env.GOOGLE_GEOCODING_API_KEY || "",
           "X-Goog-FieldMask":
-            "places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.id,places.businessStatus,places.primaryTypeDisplayName",
+            "places.displayName,places.formattedAddress,places.location,places.types,places.id,places.businessStatus,places.primaryTypeDisplayName",
         },
         body: JSON.stringify(requestBody),
       });
@@ -1141,6 +1143,16 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
     maxResults = 5,
   ): Promise<VerifiedVenue[]> {
     try {
+      // Check Redis cache first (keyed by category + city + center rounded to ~1km)
+      const roundedLat = Math.round(cityCenter.lat * 100) / 100;
+      const roundedLng = Math.round(cityCenter.lng * 100) / 100;
+      const cacheKey = `${GoogleGeocodingServiceImpl.PLACES_CACHE_PREFIX}${category}:${city}:${roundedLat},${roundedLng}`;
+      const cached = await this.redisService.get<VerifiedVenue[]>(cacheKey);
+      if (cached) {
+        console.log(`[searchPlacesByCategory] Cache hit for "${category}" in ${city}`);
+        return cached.slice(0, maxResults);
+      }
+
       const url = "https://places.googleapis.com/v1/places:searchText";
       const requestBody = {
         textQuery: `${category} in ${city}`,
@@ -1206,6 +1218,15 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           openingHours,
           primaryType: place.primaryTypeDisplayName?.text ?? undefined,
         });
+      }
+
+      // Cache results for 48 hours
+      if (venues.length > 0) {
+        await this.redisService.set(
+          cacheKey,
+          venues,
+          GoogleGeocodingServiceImpl.PLACES_CACHE_TTL_SECONDS,
+        );
       }
 
       return venues;
@@ -1677,7 +1698,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           "Content-Type": "application/json",
           "X-Goog-Api-Key": process.env.GOOGLE_GEOCODING_API_KEY || "",
           "X-Goog-FieldMask":
-            "places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.id,places.primaryTypeDisplayName",
+            "places.displayName,places.formattedAddress,places.location,places.types,places.id,places.primaryTypeDisplayName",
         },
         body: JSON.stringify(requestBody),
         signal: AbortSignal.timeout(8000),

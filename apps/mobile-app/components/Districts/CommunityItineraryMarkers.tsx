@@ -118,6 +118,10 @@ const CommunityItineraryMarkersInner: React.FC<
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
 
+  // Cheap lookup map — stores references (not copies) so taps always
+  // resolve against the same snapshot that produced the visible markers.
+  const itineraryById = useRef(new Map<string, BrowseItineraryPreview>());
+
   // Build GeoJSON FeatureCollection for the ShapeSource
   const geojson = useMemo(() => {
     if (!districtLookup) {
@@ -160,6 +164,15 @@ const CommunityItineraryMarkersInner: React.FC<
           },
         };
       });
+
+    // Update the lookup map with the same itineraries used to build features
+    const lookup = new Map<string, BrowseItineraryPreview>();
+    for (const itin of streamedItineraries) {
+      if (itin.entryLatitude && itin.entryLongitude) {
+        lookup.set(itin.id, itin);
+      }
+    }
+    itineraryById.current = lookup;
 
     return {
       type: "FeatureCollection" as const,
@@ -206,7 +219,8 @@ const CommunityItineraryMarkersInner: React.FC<
     [layerOpacity],
   );
 
-  // ── Tap handler — looks up itinerary by id from the store ─────────
+  // ── Tap handler — resolves itinerary from the ref map (same snapshot
+  //    that produced the visible markers, immune to store churn) ──────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handlePress = useCallback((event: any) => {
     const feature = event?.features?.[0];
@@ -215,9 +229,7 @@ const CommunityItineraryMarkersInner: React.FC<
     const { id, districtId } = feature.properties;
     if (!id) return;
 
-    const itinerary = useDistrictMapStore
-      .getState()
-      .streamedItineraries.find((it) => it.id === id);
+    const itinerary = itineraryById.current.get(id);
     if (!itinerary) return;
 
     onSelectRef.current(itinerary, districtId ?? "");

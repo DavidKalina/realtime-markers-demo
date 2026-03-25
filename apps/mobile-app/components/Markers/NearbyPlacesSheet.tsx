@@ -120,12 +120,6 @@ export default function NearbyPlacesSheet({
                     {place.primaryType}
                   </Text>
                 )}
-                {place.rating != null && (
-                  <Text style={styles.placeRating}>
-                    {"★"}
-                    {place.rating.toFixed(1)}
-                  </Text>
-                )}
                 {place.distance != null && (
                   <Text style={styles.placeDistance}>
                     {place.distance < 1000
@@ -225,11 +219,6 @@ const createStyles = (colors: Colors) =>
       alignItems: "center",
       gap: 6,
       marginTop: 2,
-    },
-    placeRating: {
-      fontFamily: fontFamily.mono,
-      fontSize: 10,
-      color: colors.accent.primary,
     },
     placeDistance: {
       fontFamily: fontFamily.mono,
