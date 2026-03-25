@@ -51,7 +51,7 @@ import { useMapWebSocket } from "@/hooks/useMapWebSocket";
 import { webSocketService } from "@/services/WebSocketService";
 import { useDistrictFocus } from "@/hooks/useDistrictFocus";
 import { DistrictZonesLayer } from "@/components/Districts/DistrictZonesLayer";
-import { CommunityItineraryMarkers } from "@/components/Districts/CommunityItineraryMarkers";
+import { CommunityItineraryMarkers, type DistrictLookup } from "@/components/Districts/CommunityItineraryMarkers";
 import { CommunityItineraryPreviewCard } from "@/components/Districts/CommunityItineraryPreviewCard";
 import {
   EmojiMapImageGenerator,
@@ -260,25 +260,32 @@ function HomeScreenContent() {
     (s) => s.streamedItineraries,
   );
 
-  // Pre-rasterise emoji-in-circle images for GPU-rendered community markers
-  const [emojiImages, setEmojiImages] = useState<
-    Record<string, { uri: string }>
-  >({});
-  const markerImageSpecs = useMemo((): MarkerImageSpec[] => {
-    if (districts.length === 0 || streamedItineraries.length === 0) return [];
+  // Shared Delaunay lookup — computed once, used by both markerImageSpecs
+  // and CommunityItineraryMarkers for point → district mapping
+  const districtLookup = useMemo((): DistrictLookup | null => {
+    if (districts.length === 0) return null;
     const sorted = [...districts].sort((a, b) => a.id.localeCompare(b.id));
     const points: [number, number][] = sorted.map((d) => [
       d.centroidLng,
       d.centroidLat,
     ]);
     const delaunay = Delaunay.from(points);
+    return { delaunay, sorted };
+  }, [districts]);
+
+  // Pre-rasterise emoji-in-circle images for GPU-rendered community markers
+  const [emojiImages, setEmojiImages] = useState<
+    Record<string, { uri: string }>
+  >({});
+  const markerImageSpecs = useMemo((): MarkerImageSpec[] => {
+    if (!districtLookup || streamedItineraries.length === 0) return [];
     const seen = new Set<string>();
     const specs: MarkerImageSpec[] = [];
     for (const itin of streamedItineraries) {
       if (!itin.entryLatitude || !itin.entryLongitude) continue;
       const emoji = itin.items?.[0]?.emoji ?? "\u{1F4CD}";
-      const idx = delaunay.find(itin.entryLongitude, itin.entryLatitude);
-      const district = sorted[idx];
+      const idx = districtLookup.delaunay.find(itin.entryLongitude, itin.entryLatitude);
+      const district = districtLookup.sorted[idx];
       const borderColor = district ? getDistrictColor(district) : "#86efac";
       const key = markerImageKey(emoji, borderColor);
       if (!seen.has(key)) {
@@ -287,7 +294,7 @@ function HomeScreenContent() {
       }
     }
     return specs;
-  }, [districts, streamedItineraries]);
+  }, [districtLookup, streamedItineraries]);
 
   const handleDistrictPress = useCallback(
     (districtId: string) => {
@@ -551,6 +558,7 @@ function HomeScreenContent() {
               onSelect={handleCommunityMarkerSelect}
               selectedId={selectedCommunityItinerary?.itinerary.id ?? null}
               emojiImages={emojiImages}
+              districtLookup={districtLookup}
             />
             {itineraryLayersSafe && (
               <ItineraryRouteLayer revealedStopCount={revealedStopCount} />

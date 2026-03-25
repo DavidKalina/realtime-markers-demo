@@ -21,12 +21,18 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import MapboxGL from "@rnmapbox/maps";
-import { Delaunay } from "d3-delaunay";
 import { useDistrictMapStore } from "@/stores/useDistrictMapStore";
 import { getDistrictColor } from "@/utils/districtUtils";
 import { markerImageKey } from "./EmojiMapImageGenerator";
-import type { BrowseItineraryPreview } from "@/services/api/modules/districts";
+import type { BrowseItineraryPreview, DistrictBrowseResponse } from "@/services/api/modules/districts";
 import type { FeatureCollection, Point } from "geojson";
+import type { Delaunay } from "d3-delaunay";
+
+/** Shared Delaunay lookup, computed once in the parent */
+export interface DistrictLookup {
+  delaunay: Delaunay<[number, number][]>;
+  sorted: DistrictBrowseResponse[];
+}
 
 interface CommunityItineraryMarkersProps {
   dimmed?: boolean;
@@ -35,6 +41,8 @@ interface CommunityItineraryMarkersProps {
   selectedId: string | null;
   /** Pre-rasterised emoji images from EmojiMapImageGenerator */
   emojiImages: Record<string, { uri: string }>;
+  /** Pre-computed Delaunay lookup from parent — avoids duplicate O(N log N) */
+  districtLookup: DistrictLookup | null;
 }
 
 interface MarkerFeatureProperties {
@@ -43,8 +51,6 @@ interface MarkerFeatureProperties {
   emojiKey: string;
   borderColor: string;
   districtId: string;
-  /** JSON-stringified BrowseItineraryPreview for tap handler lookup */
-  itineraryJson: string;
 }
 
 const DEFAULT_BORDER_COLOR = "#86efac";
@@ -103,27 +109,14 @@ const SelectedMarkerOverlay = React.memo(
 
 const CommunityItineraryMarkersInner: React.FC<
   CommunityItineraryMarkersProps
-> = ({ dimmed = false, hidden = false, onSelect, selectedId, emojiImages }) => {
+> = ({ dimmed = false, hidden = false, onSelect, selectedId, emojiImages, districtLookup }) => {
   const streamedItineraries = useDistrictMapStore(
     (s) => s.streamedItineraries,
   );
-  const districts = useDistrictMapStore((s) => s.districts);
 
   // Stable ref for onSelect to avoid GeoJSON rebuilds
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
-
-  // Build a Delaunay lookup from district centroids for point → district mapping
-  const districtLookup = useMemo(() => {
-    if (districts.length === 0) return null;
-    const sorted = [...districts].sort((a, b) => a.id.localeCompare(b.id));
-    const points: [number, number][] = sorted.map((d) => [
-      d.centroidLng,
-      d.centroidLat,
-    ]);
-    const delaunay = Delaunay.from(points);
-    return { delaunay, sorted };
-  }, [districts]);
 
   // Build GeoJSON FeatureCollection for the ShapeSource
   const geojson = useMemo(() => {
@@ -160,7 +153,6 @@ const CommunityItineraryMarkersInner: React.FC<
             emojiKey: markerImageKey(emoji, borderColor),
             borderColor,
             districtId,
-            itineraryJson: JSON.stringify(itin),
           },
           geometry: {
             type: "Point" as const,
@@ -214,21 +206,21 @@ const CommunityItineraryMarkersInner: React.FC<
     [layerOpacity],
   );
 
-  // ── Tap handler ──────────────────────────────────────────────────
+  // ── Tap handler — looks up itinerary by id from the store ─────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handlePress = useCallback((event: any) => {
     const feature = event?.features?.[0];
     if (!feature?.properties) return;
 
-    const { id, districtId, itineraryJson } = feature.properties;
-    if (!id || !itineraryJson) return;
+    const { id, districtId } = feature.properties;
+    if (!id) return;
 
-    try {
-      const itinerary: BrowseItineraryPreview = JSON.parse(itineraryJson);
-      onSelectRef.current(itinerary, districtId ?? "");
-    } catch {
-      // Malformed JSON — ignore tap
-    }
+    const itinerary = useDistrictMapStore
+      .getState()
+      .streamedItineraries.find((it) => it.id === id);
+    if (!itinerary) return;
+
+    onSelectRef.current(itinerary, districtId ?? "");
   }, []);
 
   if (geojson.features.length === 0) return null;
