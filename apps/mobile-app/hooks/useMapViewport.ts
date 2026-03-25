@@ -139,8 +139,35 @@ export function useMapViewport({
     [handleMapViewportChange, setZoomLevel, publish],
   );
 
+  // Fires once when the camera finishes moving (programmatic fly-to, gesture
+  // settle, initial load).  Without this, mapViewport stays stale after any
+  // non-gesture camera change — which breaks useDistrictFocus.
+  const handleRegionDidChange = useCallback(
+    (feature: unknown) => {
+      try {
+        if (!feature || typeof feature !== "object") return;
+        if (internalPausedRef.current || externalPausedRef?.current) return;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const properties = (feature as any).properties;
+        if (!properties) return;
+
+        const zoomLevel = properties.zoomLevel;
+        if (typeof zoomLevel === "number") {
+          setZoomLevel(zoomLevel);
+        }
+
+        handleMapViewportChange(feature);
+      } catch (error) {
+        console.error("Error handling region did change:", error);
+      }
+    },
+    [handleMapViewportChange, setZoomLevel, externalPausedRef],
+  );
+
   return {
     viewportRectangle,
     handleRegionChanging,
+    handleRegionDidChange,
   };
 }

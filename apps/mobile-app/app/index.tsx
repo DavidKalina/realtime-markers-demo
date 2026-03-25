@@ -201,7 +201,7 @@ function HomeScreenContent() {
   }, [activeItinerary, startSimulation, stopSimulation]);
 
   // ── Viewport ────────────────────────────────────────────────────────
-  const { handleRegionChanging, viewportRectangle } = useMapViewport({
+  const { handleRegionChanging, handleRegionDidChange, viewportRectangle } = useMapViewport({
     isPitched,
     paused: isOrbiting,
     pausedRef: isOrbitingRef,
@@ -504,6 +504,7 @@ function HomeScreenContent() {
             styleURL={mapStyle}
             onDidFinishLoadingMap={handleMapReady}
             onRegionIsChanging={handleRegionChanging}
+            onRegionDidChange={handleRegionDidChange}
             {...mapViewProps}
           >
             <MapboxGL.Camera

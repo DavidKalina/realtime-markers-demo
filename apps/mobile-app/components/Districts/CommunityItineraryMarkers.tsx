@@ -205,9 +205,11 @@ const CommunityItineraryMarkersInner: React.FC<
         15, 0.2,
         18, 0.25,
       ] as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-      iconAllowOverlap: true,
-      iconIgnorePlacement: true,
+      iconAllowOverlap: false,
+      iconIgnorePlacement: false,
+      iconPadding: 4,
       iconOpacity: layerOpacity,
+      iconOpacityTransition: { duration: 300, delay: 0 },
     }),
     [layerOpacity],
   );
