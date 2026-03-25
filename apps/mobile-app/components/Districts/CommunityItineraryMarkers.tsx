@@ -191,7 +191,6 @@ const CommunityItineraryMarkersInner: React.FC<
 
   const baseOpacity = dimmed ? 0.35 : 1;
   const layerOpacity = hidden ? 0 : baseOpacity;
-
   // ── Emoji icon style (GPU-rendered via pre-rasterised images) ────
   const emojiIconStyle = useMemo(
     () => ({

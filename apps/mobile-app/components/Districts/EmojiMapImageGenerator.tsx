@@ -5,17 +5,20 @@
 // via react-native-svg's toDataURL() and handed back as base64 PNGs for
 // MapboxGL.Images / SymbolLayer iconImage.
 //
+// Uses a ref-based queue so incoming WebSocket specs never clobber an
+// in-progress capture batch.
+//
 // Must be mounted OUTSIDE MapboxGL.MapView (regular RN views can't be
 // MapView children).
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import Svg, { Circle, Text as SvgText } from "react-native-svg";
 
 /** Size (in points) of each captured marker image. */
 const ICON_SIZE = 64;
 const HALF = ICON_SIZE / 2;
-const CIRCLE_R = HALF - 3; // leave room for stroke
+const CIRCLE_R = HALF - 3;
 const STROKE_W = 3;
 
 export interface MarkerImageSpec {
@@ -46,43 +49,85 @@ const EmojiMapImageGeneratorInner: React.FC<EmojiMapImageGeneratorProps> = ({
 }) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const svgRefs = useRef<Map<string, any>>(new Map());
-  const capturedSet = useRef<Set<string>>(new Set());
+  const capturedKeys = useRef<Set<string>>(new Set());
   const imagesRef = useRef<Record<string, { uri: string }>>({});
-  const [toRender, setToRender] = useState<MarkerImageSpec[]>([]);
-  const onImagesReadyRef = useRef(onImagesReady);
-  onImagesReadyRef.current = onImagesReady;
+  const onReadyRef = useRef(onImagesReady);
+  onReadyRef.current = onImagesReady;
 
-  // Determine which specs still need capturing
-  useEffect(() => {
-    const needed = specs.filter(
-      (s) => !capturedSet.current.has(markerImageKey(s.emoji, s.borderColor)),
-    );
-    if (needed.length > 0) {
-      setToRender(needed);
-    } else if (Object.keys(imagesRef.current).length > 0) {
-      onImagesReadyRef.current({ ...imagesRef.current });
+  // Ref-based queue — never clobbered by state updates
+  const queue = useRef<MarkerImageSpec[]>([]);
+  const isBusy = useRef(false);
+  const lastEmittedCount = useRef(0);
+
+  // The batch currently mounted as hidden SVGs
+  const [batch, setBatch] = useState<MarkerImageSpec[]>([]);
+
+  // Emit images to parent only when count actually changed
+  const emitIfNew = useCallback(() => {
+    const count = Object.keys(imagesRef.current).length;
+    if (count > 0 && count !== lastEmittedCount.current) {
+      lastEmittedCount.current = count;
+      onReadyRef.current({ ...imagesRef.current });
     }
-  }, [specs]);
+  }, []);
 
-  // After hidden SVGs mount, capture each to a base64 PNG
+  // Pull everything off the queue into the next batch
+  const processQueue = useCallback(() => {
+    if (queue.current.length === 0) {
+      isBusy.current = false;
+      setBatch([]);
+      return;
+    }
+    isBusy.current = true;
+    const next = queue.current.splice(0);
+    setBatch(next);
+  }, []);
+
+  // When specs change, enqueue anything not yet captured or in-flight
   useEffect(() => {
-    if (toRender.length === 0) return;
+    const inFlight = new Set(
+      batch.map((s) => markerImageKey(s.emoji, s.borderColor)),
+    );
+    const queued = new Set(
+      queue.current.map((s) => markerImageKey(s.emoji, s.borderColor)),
+    );
+
+    const fresh: MarkerImageSpec[] = [];
+    for (const s of specs) {
+      const key = markerImageKey(s.emoji, s.borderColor);
+      if (!capturedKeys.current.has(key) && !inFlight.has(key) && !queued.has(key)) {
+        fresh.push(s);
+      }
+    }
+
+    if (fresh.length > 0) {
+      queue.current.push(...fresh);
+      if (!isBusy.current) processQueue();
+    } else {
+      emitIfNew();
+    }
+  }, [specs, batch, processQueue, emitIfNew]);
+
+  // After batch SVGs mount, wait for layout then capture
+  useEffect(() => {
+    if (batch.length === 0) return;
 
     const timer = setTimeout(() => {
-      let remaining = toRender.length;
+      let remaining = batch.length;
 
       const finish = () => {
         remaining--;
         if (remaining <= 0) {
-          onImagesReadyRef.current({ ...imagesRef.current });
-          setToRender([]);
+          emitIfNew();
+          processQueue(); // drain any specs that arrived mid-capture
         }
       };
 
-      for (const spec of toRender) {
+      for (const spec of batch) {
         const key = markerImageKey(spec.emoji, spec.borderColor);
         const ref = svgRefs.current.get(key);
         if (!ref || typeof ref.toDataURL !== "function") {
+          capturedKeys.current.add(key); // mark so we don't retry forever
           finish();
           continue;
         }
@@ -91,20 +136,20 @@ const EmojiMapImageGeneratorInner: React.FC<EmojiMapImageGeneratorProps> = ({
           imagesRef.current[key] = {
             uri: `data:image/png;base64,${base64}`,
           };
-          capturedSet.current.add(key);
+          capturedKeys.current.add(key);
           finish();
         });
       }
-    }, 150); // Small delay for SVG layout
+    }, 150);
 
     return () => clearTimeout(timer);
-  }, [toRender]);
+  }, [batch, emitIfNew, processQueue]);
 
-  if (toRender.length === 0) return null;
+  if (batch.length === 0) return null;
 
   return (
     <View style={hiddenStyles.container} pointerEvents="none">
-      {toRender.map((spec) => {
+      {batch.map((spec) => {
         const key = markerImageKey(spec.emoji, spec.borderColor);
         return (
           <Svg
@@ -117,7 +162,6 @@ const EmojiMapImageGeneratorInner: React.FC<EmojiMapImageGeneratorProps> = ({
             height={ICON_SIZE}
             viewBox={`0 0 ${ICON_SIZE} ${ICON_SIZE}`}
           >
-            {/* Dark circle with district-colored border */}
             <Circle
               cx={HALF}
               cy={HALF}
@@ -126,7 +170,6 @@ const EmojiMapImageGeneratorInner: React.FC<EmojiMapImageGeneratorProps> = ({
               stroke={spec.borderColor}
               strokeWidth={STROKE_W}
             />
-            {/* Emoji centred inside */}
             <SvgText
               x={HALF}
               y={HALF + 10}
