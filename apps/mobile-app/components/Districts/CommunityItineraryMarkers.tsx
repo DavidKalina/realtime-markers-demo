@@ -11,7 +11,7 @@
 // Only the SELECTED marker gets a single native MarkerView for the
 // interactive glow/animation treatment.
 
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
@@ -194,8 +194,18 @@ const CommunityItineraryMarkersInner: React.FC<
     };
   }, [selectedId, geojson]);
 
+  // Start at 0 so Mapbox's native iconOpacityTransition fades markers in
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    if (geojson.features.length > 0 && !revealed) {
+      // Defer to next frame so Mapbox registers the 0-opacity state first
+      const raf = requestAnimationFrame(() => setRevealed(true));
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [geojson.features.length, revealed]);
+
   const baseOpacity = dimmed ? 0.35 : 1;
-  const layerOpacity = hidden ? 0 : baseOpacity;
+  const layerOpacity = hidden || !revealed ? 0 : baseOpacity;
   // ── Emoji icon style (GPU-rendered via pre-rasterised images) ────
   const emojiIconStyle = useMemo(
     () => ({
@@ -214,7 +224,7 @@ const CommunityItineraryMarkersInner: React.FC<
       iconIgnorePlacement: false,
       iconPadding: 4,
       iconOpacity: layerOpacity,
-      iconOpacityTransition: { duration: 300, delay: 0 },
+      iconOpacityTransition: { duration: 800, delay: 0 },
     }),
     [layerOpacity],
   );
