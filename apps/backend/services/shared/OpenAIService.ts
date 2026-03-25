@@ -312,8 +312,13 @@ export class OpenAIServiceImpl implements OpenAIService {
     caller: string = "unknown",
   ): Promise<ChatCompletion> {
     const start = Date.now();
+    // Newer models require max_completion_tokens instead of max_tokens
+    const { max_tokens, ...rest } = params;
     const nonStreamingParams: ChatCompletionCreateParamsNonStreaming = {
-      ...params,
+      ...rest,
+      ...(max_tokens != null
+        ? { max_completion_tokens: max_tokens }
+        : {}),
       stream: false,
     };
     const response =
