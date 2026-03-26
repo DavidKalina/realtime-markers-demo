@@ -34,8 +34,8 @@ export class Itinerary {
   user!: Relation<User>;
 
   @Index()
-  @Column({ type: "varchar", length: 255 })
-  city!: string;
+  @Column({ type: "varchar", length: 255, nullable: true })
+  city?: string;
 
   @Column({ name: "planned_date", type: "timestamptz", nullable: true })
   plannedDate?: Date;
@@ -113,6 +113,34 @@ export class Itinerary {
 
   @Column({ type: "text", array: true, default: "'{}'" })
   categories!: string[];
+
+  @Column({
+    name: "center_latitude",
+    type: "numeric",
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
+  centerLatitude?: number;
+
+  @Column({
+    name: "center_longitude",
+    type: "numeric",
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
+  centerLongitude?: number;
+
+  @Column({
+    name: "radius_miles",
+    type: "numeric",
+    precision: 6,
+    scale: 2,
+    nullable: true,
+    default: 10,
+  })
+  radiusMiles?: number;
 
   @Column({
     name: "entry_latitude",

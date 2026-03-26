@@ -4,8 +4,6 @@ import { BaseApiClient } from "../base/ApiClient";
 export interface ItineraryItemResponse {
   id: string;
   sortOrder: number;
-  startTime?: string;
-  endTime?: string;
   title: string;
   description?: string;
   emoji?: string;
@@ -13,7 +11,6 @@ export interface ItineraryItemResponse {
   venueName?: string;
   venueAddress?: string;
   eventId?: string;
-  travelNote?: string;
   latitude?: number;
   longitude?: number;
   googlePlaceId?: string;
@@ -22,6 +19,7 @@ export interface ItineraryItemResponse {
   whyThisStop?: string;
   proTip?: string;
   checkedInAt?: string;
+  openingHours?: string[];
   entryLatitude?: number;
   entryLongitude?: number;
   entryPointName?: string;
@@ -55,6 +53,9 @@ export interface DayForecast {
 export interface ItineraryResponse {
   id: string;
   city: string;
+  centerLatitude?: number;
+  centerLongitude?: number;
+  radiusMiles?: number;
   plannedDate?: string;
   budgetMin: number;
   budgetMax: number;
@@ -108,14 +109,15 @@ export interface AnchorStopParam {
 
 export interface CreateItineraryParams {
   city?: string;
+  centerLatitude?: number;
+  centerLongitude?: number;
+  radiusMiles?: number;
   plannedDate?: string; // ISO 8601 datetime string — optional for templates
   budgetMin?: number;
   budgetMax?: number;
   durationHours?: number; // defaults to 4 for templates
   activityTypes?: string[];
   stopCount?: number;
-  startTime?: string; // HH:MM (24h)
-  endTime?: string; // HH:MM (24h)
   intention?: string;
   title?: string;
   anchorStops?: AnchorStopParam[];
@@ -263,7 +265,7 @@ export class ItinerariesModule extends BaseApiModule {
   }
 
   async browse(
-    city: string,
+    location: { lat: number; lng: number; radiusMiles?: number } | { city: string },
     options?: {
       sort?: "popular" | "recent" | "top_rated";
       intention?: string;
@@ -271,9 +273,14 @@ export class ItinerariesModule extends BaseApiModule {
       cursor?: string;
     },
   ): Promise<{ data: BrowseItineraryResponse[] }> {
-    const params = new URLSearchParams({
-      city: encodeURIComponent(city),
-    });
+    const params = new URLSearchParams();
+    if ("lat" in location) {
+      params.set("lat", String(location.lat));
+      params.set("lng", String(location.lng));
+      if (location.radiusMiles) params.set("radiusMiles", String(location.radiusMiles));
+    } else {
+      params.set("city", encodeURIComponent(location.city));
+    }
     if (options?.sort) params.set("sort", options.sort);
     if (options?.intention) params.set("intention", options.intention);
     if (options?.limit) params.set("limit", String(options.limit));
@@ -311,9 +318,15 @@ export class ItinerariesModule extends BaseApiModule {
     }>(response);
   }
 
-  async getPopularStops(city: string, limit = 15): Promise<PopularStop[]> {
+  async getPopularStops(
+    center: { lat: number; lng: number },
+    radiusMiles = 15,
+    limit = 15,
+  ): Promise<PopularStop[]> {
     const params = new URLSearchParams({
-      city: encodeURIComponent(city),
+      lat: String(center.lat),
+      lng: String(center.lng),
+      radiusMiles: String(radiusMiles),
       limit: String(limit),
     });
     const response = await fetch(
@@ -327,13 +340,14 @@ export class ItinerariesModule extends BaseApiModule {
 export interface ItinerarySuggestion {
   title: string;
   emoji: string;
-  city: string;
   costTier: "$" | "$$" | "$$$";
   durationHours: number;
   stopCount: number;
   activityTypes: string[];
   intention: string;
   budgetMax: number;
+  radiusMiles: number;
+  radiusLabel: string; // "Walkable" | "Short drive" | "Day trip"
 }
 
 export interface PopularStop {

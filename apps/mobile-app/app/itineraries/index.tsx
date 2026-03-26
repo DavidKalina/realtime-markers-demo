@@ -14,7 +14,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { ChevronDown } from "lucide-react-native";
 import Animated, {
@@ -34,7 +34,8 @@ import { scheduleOnRN } from "react-native-worklets";
 import Screen from "@/components/Layout/Screen";
 import { usePullToAction } from "@/hooks/usePullToAction";
 import EmptyState from "@/components/Layout/EmptyState";
-import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
+import { useConversationStore } from "@/stores/useConversationStore";
+import { buildSidequestSteps } from "@/utils/conversationSteps";
 import { apiClient } from "@/services/ApiClient";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
 import {
@@ -601,6 +602,18 @@ const ItinerariesListScreen = () => {
     (s) => s.itinerary?.id ?? null,
   );
 
+  const startConversation = useConversationStore((s) => s.startConversation);
+  useFocusEffect(
+    useCallback(() => {
+      startConversation({
+        steps: buildSidequestSteps(),
+        trigger: "open",
+        autoExpand: expand === "1",
+        collapsedLabel: "Plan a sidequest",
+      });
+    }, [expand, startConversation]),
+  );
+
   // Filter state
   const [activeSort, setActiveSort] = useState<SortValue>("newest");
   const [activeIntention, setActiveIntention] = useState<string | null>(null);
@@ -795,12 +808,6 @@ const ItinerariesListScreen = () => {
       showBackButton
       onBack={handleBack}
       noAnimation
-      bottomContent={
-        <ItineraryDialogBox
-          defaultExpanded={expand === "1"}
-          style={{ marginBottom: 0 }}
-        />
-      }
     >
       <Animated.FlatList
         data={itineraries}

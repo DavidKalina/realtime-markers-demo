@@ -1,11 +1,12 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Screen from "@/components/Layout/Screen";
 import CityDetailContent from "@/components/LandingPage/CityDetailContent";
-import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
+import { useConversationStore } from "@/stores/useConversationStore";
+import { buildSidequestSteps } from "@/utils/conversationSteps";
 import useThirdSpaceScore from "@/hooks/useThirdSpaceScore";
 import usePopularStops from "@/hooks/usePopularStops";
 import useBrowseItineraries from "@/hooks/useBrowseItineraries";
@@ -18,6 +19,7 @@ const CityDetailScreen = () => {
   const [showItinerary, setShowItinerary] = useState(true);
 
   const decodedCity = city ? decodeURIComponent(city) : "";
+  const startConversation = useConversationStore((s) => s.startConversation);
 
   const { score: thirdSpaceScore, refetch: refetchScore } = useThirdSpaceScore(
     decodedCity || null,
@@ -38,6 +40,19 @@ const CityDetailScreen = () => {
     if (!groupedByIntention) return true;
     return Object.keys(groupedByIntention).length === 0;
   }, [isLoading, groupedByIntention]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (showItinerary) {
+        startConversation({
+          steps: buildSidequestSteps(),
+          trigger: "open",
+          autoExpand: hasNoAdventures,
+          collapsedLabel: "Plan a sidequest",
+        });
+      }
+    }, [showItinerary, hasNoAdventures, startConversation]),
+  );
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -69,16 +84,6 @@ const CityDetailScreen = () => {
       isScrollable={false}
       bannerDescription="Third Space Score & Adventures"
       noAnimation
-      bottomContent={
-        showItinerary ? (
-          <ItineraryDialogBox
-            city={decodedCity}
-            style={{ height: 105, marginBottom: 0 }}
-            onDismiss={() => setShowItinerary(false)}
-            autoExpand={hasNoAdventures}
-          />
-        ) : undefined
-      }
     >
       <View style={{ flex: 1 }}>
         <CityDetailContent

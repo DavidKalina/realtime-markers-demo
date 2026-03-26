@@ -12,15 +12,16 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
   const itineraryService = c.get("itineraryService");
 
   const body = await c.req.json<{
-    city: string;
+    city?: string;
+    centerLatitude?: number;
+    centerLongitude?: number;
+    radiusMiles?: number;
     plannedDate?: string;
     budgetMin?: number;
     budgetMax?: number;
     durationHours?: number;
     activityTypes?: string[];
     stopCount?: number;
-    startTime?: string;
-    endTime?: string;
     intention?: string;
     title?: string;
     surpriseMe?: boolean;
@@ -41,8 +42,10 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
   const isTemplate = body.isTemplate === true;
   const hasAnchors =
     Array.isArray(body.anchorStops) && body.anchorStops.length > 0;
-  if (!hasAnchors && (!body.city || typeof body.city !== "string")) {
-    return c.json({ error: "city is required" }, 400);
+  const hasCenter =
+    body.centerLatitude != null && body.centerLongitude != null;
+  if (!hasAnchors && !hasCenter && (!body.city || typeof body.city !== "string")) {
+    return c.json({ error: "city or centerLatitude/centerLongitude is required" }, 400);
   }
 
   // Resolve planned date — optional for templates
@@ -75,7 +78,10 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
 
   // Create shell itinerary record upfront so we have an ID immediately
   const shell = await itineraryService.createShell(userId, {
-    city: body.city || "",
+    city: body.city,
+    centerLatitude: body.centerLatitude,
+    centerLongitude: body.centerLongitude,
+    radiusMiles: body.radiusMiles,
     plannedDate: resolvedPlannedDate,
     budgetMin: body.budgetMin ?? 0,
     budgetMax: body.budgetMax ?? (isTemplate ? 100 : 0),
@@ -93,7 +99,10 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
     userId,
     creatorId: userId,
     itineraryId: shell.id,
-    city: body.city || "",
+    ...(body.city && { city: body.city }),
+    ...(body.centerLatitude != null && { centerLatitude: body.centerLatitude }),
+    ...(body.centerLongitude != null && { centerLongitude: body.centerLongitude }),
+    ...(body.radiusMiles != null && { radiusMiles: body.radiusMiles }),
     ...(resolvedPlannedDate && { plannedDate: resolvedPlannedDate }),
     budgetMin: body.budgetMin ?? 0,
     budgetMax: body.budgetMax ?? (isTemplate ? 100 : 0),
@@ -103,8 +112,6 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
     isTemplate,
     ...(body.constraints && { constraints: body.constraints }),
     ...(body.timezone && { timezone: body.timezone }),
-    ...(body.startTime && { startTime: body.startTime }),
-    ...(body.endTime && { endTime: body.endTime }),
     ...(body.intention && { intention: body.intention }),
     ...(body.title && { title: body.title }),
     ...(body.surpriseMe && { surpriseMe: true }),
@@ -360,9 +367,13 @@ export const listCompletedHandler: Handler = withErrorHandling(async (c) => {
 
 export const browseItinerariesHandler: Handler = withErrorHandling(
   async (c) => {
-    const city = c.req.query("city");
-    if (!city || typeof city !== "string") {
-      return c.json({ error: "city query parameter is required" }, 400);
+    const city = c.req.query("city") || undefined;
+    const lat = c.req.query("lat");
+    const lng = c.req.query("lng");
+    const radiusMiles = c.req.query("radiusMiles");
+
+    if (!city && (!lat || !lng)) {
+      return c.json({ error: "city or lat/lng query parameters are required" }, 400);
     }
 
     const sort = (c.req.query("sort") || "popular") as
@@ -379,7 +390,10 @@ export const browseItinerariesHandler: Handler = withErrorHandling(
 
     const itineraryService = c.get("itineraryService");
     const data = await itineraryService.browsePublished({
-      city: decodeURIComponent(city),
+      city: city ? decodeURIComponent(city) : undefined,
+      centerLatitude: lat ? parseFloat(lat) : undefined,
+      centerLongitude: lng ? parseFloat(lng) : undefined,
+      radiusMiles: radiusMiles ? parseFloat(radiusMiles) : undefined,
       sort,
       intention,
       limit,
@@ -406,15 +420,18 @@ export const adoptItineraryHandler: Handler = withErrorHandling(async (c) => {
 });
 
 export const getPopularStopsHandler: Handler = withErrorHandling(async (c) => {
-  const city = c.req.query("city");
-  if (!city || typeof city !== "string") {
-    return c.json({ error: "city query parameter is required" }, 400);
+  const lat = c.req.query("lat");
+  const lng = c.req.query("lng");
+  if (!lat || !lng) {
+    return c.json({ error: "lat and lng query parameters are required" }, 400);
   }
 
+  const radiusMiles = parseFloat(c.req.query("radiusMiles") || "15");
   const limit = Math.min(parseInt(c.req.query("limit") || "15", 10), 30);
   const itineraryService = c.get("itineraryService");
   const stops = await itineraryService.getPopularStops(
-    decodeURIComponent(city),
+    { lat: parseFloat(lat), lng: parseFloat(lng) },
+    radiusMiles,
     limit,
   );
 

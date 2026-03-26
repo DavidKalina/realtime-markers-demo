@@ -5,7 +5,6 @@ import {
   ItineraryStatus,
   User,
   normalizeCity,
-  isCityNormalized,
 } from "@realtime-markers/database";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
@@ -18,7 +17,7 @@ import type { WeatherService, DayForecast } from "./shared/WeatherService";
 import type { GamificationService } from "./GamificationService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
 import type { RedisService } from "./shared/RedisService";
-import { formatInTimeZone, toDate } from "date-fns-tz";
+import { formatInTimeZone } from "date-fns-tz";
 
 export interface AnchorStopInput {
   coordinates: [number, number]; // [lng, lat]
@@ -33,15 +32,16 @@ export interface AnchorStopInput {
 export interface CreateItineraryInput {
   itineraryId?: string; // Pre-created shell record ID
   title?: string; // Suggested title (e.g. from Get Away preview)
-  city: string;
+  city?: string; // Display label — optional, reverse-geocoded from center if missing
+  centerLatitude?: number; // Center point for radius-based scoping
+  centerLongitude?: number;
+  radiusMiles?: number; // How far from center (default 10)
   plannedDate?: Date; // ISO 8601 timestamptz — null for templates
   budgetMin: number;
   budgetMax: number;
   durationHours: number;
   activityTypes: string[];
   stopCount: number; // 0 = let LLM decide
-  startTime?: string; // HH:MM (24h) — optional fixed start
-  endTime?: string; // HH:MM (24h) — optional fixed end
   intention?: string; // recharge | explore | socialize | move | learn | treat_yourself | lock_in
   anchorStops?: AnchorStopInput[];
   surpriseMe?: boolean;
@@ -52,8 +52,6 @@ export interface CreateItineraryInput {
 
 // Abbreviated keys from LLM to save output tokens
 interface LLMItineraryItemRaw {
-  st: string;
-  et: string;
   t: string;
   d: string;
   e: string;
@@ -61,7 +59,6 @@ interface LLMItineraryItemRaw {
   vn: string | null;
   va: string | null;
   eid: string | null;
-  tn: string | null;
   vc: string | null;
   wts: string | null;
   pt: string | null;
@@ -74,8 +71,6 @@ interface LLMItineraryResponseRaw {
 }
 
 interface LLMItineraryItem {
-  startTime: string;
-  endTime: string;
   title: string;
   description: string;
   emoji: string;
@@ -83,7 +78,6 @@ interface LLMItineraryItem {
   venueName: string | null;
   venueAddress: string | null;
   eventId: string | null;
-  travelNote: string | null;
   venueCategory: string | null;
   whyThisStop: string | null;
   proTip: string | null;
@@ -100,8 +94,6 @@ function expandLLMResponse(raw: LLMItineraryResponseRaw): LLMItineraryResponse {
     title: raw.t,
     summary: raw.s,
     items: raw.items.map((i) => ({
-      startTime: i.st,
-      endTime: i.et,
       title: i.t,
       description: i.d,
       emoji: i.e,
@@ -109,7 +101,6 @@ function expandLLMResponse(raw: LLMItineraryResponseRaw): LLMItineraryResponse {
       venueName: i.vn,
       venueAddress: i.va,
       eventId: i.eid,
-      travelNote: i.tn,
       venueCategory: i.vc,
       whyThisStop: i.wts,
       proTip: i.pt,
@@ -155,13 +146,14 @@ export interface PopularStop {
 export interface ItinerarySuggestion {
   title: string;
   emoji: string;
-  city: string;
   costTier: "$" | "$$" | "$$$";
   durationHours: number;
   stopCount: number;
   activityTypes: string[];
   intention: string;
   budgetMax: number;
+  radiusMiles: number;
+  radiusLabel: string; // "Walkable" | "Short drive" | "Day trip"
 }
 
 export type ListByUserSort = "newest" | "oldest" | "upcoming" | "top_rated";
@@ -193,7 +185,11 @@ export interface ItineraryService {
   deleteById(id: string, userId: string): Promise<boolean>;
   generateShareToken(id: string, userId: string): Promise<string | null>;
   getByShareToken(shareToken: string): Promise<Itinerary | null>;
-  getPopularStops(city: string, limit?: number): Promise<PopularStop[]>;
+  getPopularStops(
+    center: { lat: number; lng: number },
+    radiusMiles?: number,
+    limit?: number,
+  ): Promise<PopularStop[]>;
   rateItinerary(
     id: string,
     userId: string,
@@ -241,7 +237,10 @@ export interface InternalItinerary {
 }
 
 export interface BrowsePublishedOptions {
-  city: string;
+  city?: string; // Legacy — prefer center + radius
+  centerLatitude?: number;
+  centerLongitude?: number;
+  radiusMiles?: number;
   intention?: string;
   sort?: "popular" | "recent" | "top_rated";
   limit?: number;
@@ -317,9 +316,11 @@ class ItineraryServiceImpl implements ItineraryService {
       activityTypes: input.activityTypes,
       intention: input.intention,
       status: ItineraryStatus.GENERATING,
-      timezone: input.timezone,
       isTemplate: input.isTemplate ?? false,
       constraints: input.constraints,
+      centerLatitude: input.centerLatitude,
+      centerLongitude: input.centerLongitude,
+      radiusMiles: input.radiusMiles ?? 10,
     });
     await itineraryRepo.save(shell);
     return shell;
@@ -332,18 +333,44 @@ class ItineraryServiceImpl implements ItineraryService {
     const itineraryRepo = this.dataSource.getRepository(Itinerary);
     const itemRepo = this.dataSource.getRepository(ItineraryItem);
 
-    // Infer city from anchor stops if not provided
-    let city = input.city ? normalizeCity(input.city) : undefined;
-    if (!city && input.anchorStops && input.anchorStops.length > 0) {
+    const radiusMiles = input.radiusMiles ?? 10;
+    const radiusMeters = Math.round(radiusMiles * 1609);
+
+    // Resolve center point: explicit center > anchor stops > geocode city
+    let cityCenter: { lat: number; lng: number } | undefined;
+    if (input.centerLatitude != null && input.centerLongitude != null) {
+      cityCenter = { lat: input.centerLatitude, lng: input.centerLongitude };
+    } else if (input.anchorStops && input.anchorStops.length > 0) {
       const [lng, lat] = input.anchorStops[0].coordinates;
+      cityCenter = { lat, lng };
+      console.log(
+        `[ItineraryService] Using first anchor stop as center: ${lat}, ${lng}`,
+      );
+    } else if (input.city) {
       try {
-        city = await this.geocodingService.reverseGeocodeCityState(lat, lng);
-        console.log(`[ItineraryService] Inferred city from anchor: ${city}`);
+        const [lng, lat] = await this.geocodingService.geocodeAddress(input.city);
+        if (lat !== 0 || lng !== 0) {
+          cityCenter = { lat, lng };
+        }
       } catch (err) {
-        console.warn(
-          "[ItineraryService] Failed to reverse-geocode city from anchor:",
-          err,
+        console.warn("[ItineraryService] Geocoding threw for:", input.city, err);
+      }
+      if (!cityCenter) {
+        cityCenter = await this.geocodeCityFallback(input.city);
+      }
+    }
+
+    // Resolve display city label via reverse geocoding if not provided
+    let city = input.city ? normalizeCity(input.city) : undefined;
+    if (!city && cityCenter) {
+      try {
+        city = await this.geocodingService.reverseGeocodeCityState(
+          cityCenter.lat,
+          cityCenter.lng,
         );
+        console.log(`[ItineraryService] Reverse-geocoded city label: ${city}`);
+      } catch (err) {
+        console.warn("[ItineraryService] Failed to reverse-geocode city:", err);
         city = "Unknown";
       }
     }
@@ -358,11 +385,14 @@ class ItineraryServiceImpl implements ItineraryService {
         throw new Error("Itinerary shell record not found");
       }
       itinerary = existing;
-      // Update city if it was inferred from anchors
-      if (city && !itinerary.city) {
-        itinerary.city = city;
-        await itineraryRepo.save(itinerary);
+      // Update city and center if resolved
+      if (city && !itinerary.city) itinerary.city = city;
+      if (cityCenter) {
+        itinerary.centerLatitude = cityCenter.lat;
+        itinerary.centerLongitude = cityCenter.lng;
       }
+      itinerary.radiusMiles = radiusMiles;
+      await itineraryRepo.save(itinerary);
     } else {
       itinerary = itineraryRepo.create({
         userId,
@@ -374,7 +404,9 @@ class ItineraryServiceImpl implements ItineraryService {
         activityTypes: input.activityTypes,
         intention: input.intention,
         status: ItineraryStatus.GENERATING,
-        timezone: input.timezone,
+        centerLatitude: cityCenter?.lat,
+        centerLongitude: cityCenter?.lng,
+        radiusMiles,
       });
       await itineraryRepo.save(itinerary);
     }
@@ -403,50 +435,19 @@ class ItineraryServiceImpl implements ItineraryService {
         preferenceEmbedding = userRecord?.preferenceEmbedding ?? null;
       }
 
-      // Fetch events in the city for that date (ranked by preference if available)
-      const events = await this.fetchCityEvents(
-        city,
-        plannedDateStr,
-        preferenceEmbedding,
-      );
-
-      // Geocode city center early — needed for venue search, weather, and trails
-      // If anchor stops provided, use first anchor's coordinates as city center
-      let cityCenter: { lat: number; lng: number } | undefined;
-      if (input.anchorStops && input.anchorStops.length > 0) {
-        const [lng, lat] = input.anchorStops[0].coordinates;
-        cityCenter = { lat, lng };
-        console.log(
-          `[ItineraryService] Using first anchor stop as city center: ${lat}, ${lng}`,
-        );
-      } else {
-        try {
-          const [lng, lat] = await this.geocodingService.geocodeAddress(city);
-          if (lat !== 0 || lng !== 0) {
-            cityCenter = { lat, lng };
-          } else {
-            console.warn(
-              "[ItineraryService] Google geocoding returned [0,0] for:",
-              city,
-            );
-          }
-        } catch (err) {
-          console.warn(
-            "[ItineraryService] Google geocoding threw for:",
-            city,
-            err,
-          );
-        }
-
-        // Fallback: Open-Meteo free geocoding (no API key needed)
-        if (!cityCenter) {
-          cityCenter = await this.geocodeCityFallback(city);
-        }
-      }
+      // Fetch nearby events for that date (proximity-based)
+      const events = cityCenter
+        ? await this.fetchNearbyEvents(
+            cityCenter,
+            radiusMeters,
+            plannedDateStr,
+            preferenceEmbedding,
+          )
+        : [];
 
       // Pre-fetch verified venues from Google Places
       const verifiedVenues = cityCenter
-        ? await this.fetchVerifiedVenues(input, city, cityCenter)
+        ? await this.fetchVerifiedVenues(input, city ?? "Unknown", cityCenter, radiusMeters)
         : [];
 
       // Fetch trails based on activity type
@@ -519,7 +520,9 @@ class ItineraryServiceImpl implements ItineraryService {
               plannedDateStr,
             )
           : Promise.resolve(null),
-        this.fetchPreviousVenues(userId, city),
+        cityCenter
+          ? this.fetchPreviousVenues(userId, cityCenter, radiusMeters)
+          : Promise.resolve([]),
       ]);
 
       // Build and call LLM with events + verified venues + trails + context
@@ -565,13 +568,24 @@ class ItineraryServiceImpl implements ItineraryService {
         validatedItems.map((v) => v.item.venueName || v.item.title),
       );
 
-      // Save items with geocoded data
-      const items = validatedItems.map((vi, idx) =>
-        itemRepo.create({
+      // Build a lookup of venue opening hours from verified venues
+      const venueHoursMap = new Map(
+        verifiedVenues
+          .filter((v) => v.openingHours && v.openingHours.length > 0)
+          .map((v) => [v.name.toLowerCase(), v.openingHours!]),
+      );
+
+      // Save items with geocoded data (no start/end times — unordered bundle)
+      const items = validatedItems.map((vi, idx) => {
+        // Attach opening hours from the matched verified venue
+        const hours =
+          vi.item.venueName
+            ? venueHoursMap.get(vi.item.venueName.toLowerCase())
+            : undefined;
+
+        return itemRepo.create({
           itineraryId: itinerary.id,
           sortOrder: idx,
-          startTime: vi.item.startTime,
-          endTime: vi.item.endTime,
           title: vi.item.title,
           description: vi.item.description,
           emoji: vi.item.emoji,
@@ -580,7 +594,6 @@ class ItineraryServiceImpl implements ItineraryService {
           venueAddress:
             vi.geo?.canonicalAddress ?? vi.item.venueAddress ?? undefined,
           eventId: vi.item.eventId ?? undefined,
-          travelNote: vi.item.travelNote ?? undefined,
           venueCategory: vi.item.venueCategory ?? undefined,
           whyThisStop: vi.item.whyThisStop ?? undefined,
           proTip: vi.item.proTip ?? undefined,
@@ -588,8 +601,9 @@ class ItineraryServiceImpl implements ItineraryService {
           longitude: vi.geo?.longitude ?? undefined,
           googlePlaceId: vi.geo?.googlePlaceId ?? undefined,
           googleRating: vi.geo?.googleRating ?? undefined,
-        }),
-      );
+          openingHours: hours ?? undefined,
+        });
+      });
       await itemRepo.save(items);
 
       // Update itinerary with title, summary, forecast, and READY status
@@ -597,17 +611,6 @@ class ItineraryServiceImpl implements ItineraryService {
       itinerary.summary = llmResult.summary;
       itinerary.forecast = forecast as Record<string, unknown> | undefined;
       itinerary.status = ItineraryStatus.READY;
-
-      // Set plannedDate to the first stop's start time on the planned day
-      const firstItem = items
-        .slice()
-        .sort((a, b) => a.sortOrder - b.sortOrder)[0];
-      if (firstItem?.startTime) {
-        itinerary.plannedDate = toDate(
-          `${plannedDateStr}T${firstItem.startTime}:00`,
-          { timeZone: tz },
-        );
-      }
 
       await itineraryRepo.save(itinerary);
 
@@ -651,29 +654,30 @@ class ItineraryServiceImpl implements ItineraryService {
         {
           role: "system",
           content:
-            "You are a sidequest architect. Generate exactly 5 diverse sidequest suggestions — real-world mini-adventures for someone looking to get off the couch and explore. Include options in the user's city AND nearby cities/towns within ~30 miles. Each should feel meaningfully different in vibe, cost, activity type, and location. Frame them as quests to embark on, not errands to run. Return ONLY valid JSON.",
+            "You are a sidequest architect. Generate exactly 5 diverse sidequest suggestions — real-world mini-adventures for someone looking to get off the couch and explore. Each should feel meaningfully different in vibe, cost, activity type, and range. Frame them as quests to embark on, not errands to run. Return ONLY valid JSON.",
         },
         {
           role: "user",
-          content: `User location: ${city}
+          content: `User is near: ${city}
 Day: ${dayOfWeek}, ${dateStr}
 Current hour: ${hour}:00
 Month: ${month}
 
 Generate 5 sidequest suggestions as a JSON object: { "suggestions": [...] }
 
-Include a mix of options in ${city} AND nearby cities/towns within ~30 miles. At least 2 suggestions should be in a different city/town than the user's.
+Each suggestion is a bundle of things to do — no rigid schedule, just a curated set of stops. Vary the radius: some walkable, some requiring a short drive, one that's a day-trip distance.
 
 Each suggestion must have:
-- title (catchy, max 6 words — describe the VIBE or THEME like a quest name, never reference specific venue names. Focus on the activity + mood, like combining an activity with food or a time of day. Think quest board, not shopping catalog.)
+- title (catchy, max 6 words — describe the VIBE or THEME like a quest name, never reference specific venue names. Focus on the activity + mood. Think quest board, not shopping catalog.)
 - emoji (single emoji best representing the adventure)
-- city (the city/town where this adventure takes place, e.g. "Tempe, AZ" — use "City, ST" format)
 - costTier ("$" = free/under $20, "$$" = $20-60, "$$$" = $60+)
 - durationHours (number, 2-8 range, appropriate for time of day)
 - stopCount (number of stops, 1-3 — a quick single-stop outing, a two-stop combo, or a three-stop crawl)
 - activityTypes (1-2 from: food, coffee, music, art, outdoors, hiking, walking, nightlife, sports, culture)
 - intention (one of: recharge, explore, socialize, move, learn, treat_yourself, lock_in)
 - budgetMax (number in dollars matching the costTier)
+- radiusMiles (number: 2 for walkable, 10 for short drive, 50 for day trip)
+- radiusLabel (one of: "Walkable", "Short drive", "Day trip")
 
 DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different days, not variations of the same idea:
 - Each title MUST use different words — no repeating "explore", "discover", "hidden", etc. across titles
@@ -681,6 +685,7 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
 - Vary cost: at least one "$" and one "$$$"
 - Vary duration: range from 2h to 6h+
 - Vary stop count: mix of 1-stop, 2-stop, and 3-stop suggestions
+- Vary radius: at least one "Walkable", one "Short drive", one "Day trip"
 - Vary energy: one lazy/chill, one high-energy
 - Consider the time of day and season`,
         },
@@ -943,8 +948,26 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
       .innerJoin(User, "u", "u.id = i.user_id")
       .leftJoinAndSelect("i.items", "item")
       .where("i.is_published = true")
-      .andWhere("i.city = :city", { city })
       .andWhere("i.status = :status", { status: ItineraryStatus.READY });
+
+    // Prefer proximity-based scoping, fall back to city string match
+    if (options.centerLatitude != null && options.centerLongitude != null) {
+      const browseRadiusMeters = (options.radiusMiles ?? 15) * 1609;
+      qb.andWhere(
+        `ST_DWithin(
+          ST_SetSRID(ST_MakePoint(i.center_longitude, i.center_latitude), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(:browseLng, :browseLat), 4326)::geography,
+          :browseRadius
+        )`,
+        {
+          browseLng: options.centerLongitude,
+          browseLat: options.centerLatitude,
+          browseRadius: browseRadiusMeters,
+        },
+      );
+    } else if (city) {
+      qb.andWhere("i.city = :city", { city });
+    }
 
     if (excludeUserId) {
       qb.andWhere("i.user_id != :excludeUserId", { excludeUserId });
@@ -1039,19 +1062,10 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
       const itineraryRepo = manager.getRepository(Itinerary);
       const itemRepo = manager.getRepository(ItineraryItem);
 
-      // Use first stop's start time on today's date
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const firstSourceItem = (source.items || [])
-        .slice()
-        .sort((a, b) => a.sortOrder - b.sortOrder)[0];
-      const adoptedPlannedDate = firstSourceItem?.startTime
-        ? new Date(`${todayStr}T${firstSourceItem.startTime}:00`)
-        : new Date();
-
       const newItinerary = itineraryRepo.create({
         userId,
         city: source.city,
-        plannedDate: adoptedPlannedDate,
+        plannedDate: new Date(), // Adopted for today
         budgetMin: source.budgetMin,
         budgetMax: source.budgetMax,
         durationHours: source.durationHours,
@@ -1061,6 +1075,9 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
         intention: source.intention,
         status: ItineraryStatus.READY,
         sourceItineraryId: source.id,
+        centerLatitude: source.centerLatitude,
+        centerLongitude: source.centerLongitude,
+        radiusMiles: source.radiusMiles,
       });
       const saved = await itineraryRepo.save(newItinerary);
 
@@ -1068,8 +1085,6 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
         itemRepo.create({
           itineraryId: saved.id,
           sortOrder: item.sortOrder,
-          startTime: item.startTime,
-          endTime: item.endTime,
           title: item.title,
           description: item.description,
           emoji: item.emoji,
@@ -1077,7 +1092,6 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
           venueName: item.venueName,
           venueAddress: item.venueAddress,
           eventId: item.eventId,
-          travelNote: item.travelNote,
           latitude: item.latitude,
           longitude: item.longitude,
           googlePlaceId: item.googlePlaceId,
@@ -1085,6 +1099,7 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
           venueCategory: item.venueCategory,
           whyThisStop: item.whyThisStop,
           proTip: item.proTip,
+          openingHours: item.openingHours,
           entryLatitude: item.entryLatitude,
           entryLongitude: item.entryLongitude,
           entryPointName: item.entryPointName,
@@ -1146,13 +1161,13 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
     return undefined;
   }
 
-  private async fetchCityEvents(
-    city: string,
+  private async fetchNearbyEvents(
+    center: { lat: number; lng: number },
+    radiusMeters: number,
     date: string,
     preferenceEmbedding?: string | null,
   ): Promise<CityEvent[]> {
-    // When user has a preference embedding, rank events by similarity
-    // so the most relevant ones appear first in the LLM prompt
+    // Use PostGIS proximity instead of city string match
     if (preferenceEmbedding) {
       return this.dataSource.query(
         `
@@ -1174,18 +1189,22 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
             ''
           ) AS categories
         FROM events e
-        WHERE LOWER(e.city) = LOWER($1)
+        WHERE ST_DWithin(
+            e.location::geography,
+            ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+            $3
+          )
           AND e.status IN ('PENDING', 'VERIFIED')
-          AND DATE(e.event_date) = $2
+          AND DATE(e.event_date) = $4
         ORDER BY
           CASE WHEN e.embedding IS NOT NULL
-            THEN e.embedding::vector <=> $3::vector
+            THEN e.embedding::vector <=> $5::vector
             ELSE 2
           END ASC,
           e.event_date ASC
         LIMIT 50
         `,
-        [city, date, preferenceEmbedding],
+        [center.lng, center.lat, radiusMeters, date, preferenceEmbedding],
       );
     }
 
@@ -1209,13 +1228,17 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
           ''
         ) AS categories
       FROM events e
-      WHERE LOWER(e.city) = LOWER($1)
+      WHERE ST_DWithin(
+          e.location::geography,
+          ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+          $3
+        )
         AND e.status IN ('PENDING', 'VERIFIED')
-        AND DATE(e.event_date) = $2
+        AND DATE(e.event_date) = $4
       ORDER BY e.event_date ASC
       LIMIT 50
       `,
-      [city, date],
+      [center.lng, center.lat, radiusMeters, date],
     );
   }
 
@@ -1223,6 +1246,7 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
     input: CreateItineraryInput,
     city: string,
     cityCenter: { lat: number; lng: number },
+    radiusMeters = 15000,
   ): Promise<VerifiedVenue[]> {
     // Map activity types / categories to Google Places search terms
     const searchTerms = new Set<string>();
@@ -1261,7 +1285,7 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
     const terms = [...searchTerms].slice(0, 4);
     const results = await Promise.allSettled(
       terms.map((term) =>
-        this.geocodingService.searchPlacesByCategory(term, city, cityCenter, 5),
+        this.geocodingService.searchPlacesByCategory(term, city, cityCenter, 5, radiusMeters),
       ),
     );
 
@@ -1286,7 +1310,8 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
 
   private async fetchPreviousVenues(
     userId: string,
-    city: string,
+    center: { lat: number; lng: number },
+    radiusMeters: number,
   ): Promise<string[]> {
     try {
       const rows: { venue_name: string }[] = await this.dataSource.query(
@@ -1295,18 +1320,23 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
         FROM itinerary_items ii
         JOIN itineraries i ON i.id = ii.itinerary_id
         WHERE i.user_id = $1
-          AND LOWER(i.city) = LOWER($2)
+          AND i.center_latitude IS NOT NULL
+          AND ST_DWithin(
+            ST_SetSRID(ST_MakePoint(i.center_longitude, i.center_latitude), 4326)::geography,
+            ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography,
+            $4
+          )
           AND i.status = 'READY'
           AND ii.venue_name IS NOT NULL
         ORDER BY ii.venue_name
         LIMIT 100
         `,
-        [userId, city],
+        [userId, center.lng, center.lat, radiusMeters],
       );
       const venues = rows.map((r) => r.venue_name);
       if (venues.length > 0) {
         console.log(
-          `[ItineraryService] Found ${venues.length} previously used venues in ${city} for user`,
+          `[ItineraryService] Found ${venues.length} previously used venues near ${center.lat},${center.lng} for user`,
         );
       }
       return venues;
@@ -1660,7 +1690,7 @@ USER PREFERENCES (from onboarding — use these to personalize the itinerary):
 `
       : "";
 
-    const systemPrompt = `You are a sidequest architect with insider knowledge of ${cityName}. Craft a personalized, premium sidequest — a real-world mini-adventure that feels like advice from a well-connected friend who knows all the best spots.
+    const systemPrompt = `You are a sidequest architect with insider knowledge of the ${cityName} area. Curate a set of stops for a real-world mini-adventure — a bundle of things to do, tackleable in any order. This is advice from a well-connected friend, not a rigid schedule.
 
 SOURCING RULES (STRICT):
 - EVENTS (concerts, shows, games, markets, pop-ups, etc.): ONLY use events from the EVENTS list below. Do NOT invent or suggest any event not on this list.
@@ -1668,92 +1698,63 @@ SOURCING RULES (STRICT):
 - NEVER invent one-off happenings, seasonal events, or time-specific activities that aren't on the EVENTS list.
 - Use the EXACT name and address from the lists when referencing them.
 
-HOURS & SCHEDULING (CRITICAL):
-- Verified venues include their hours for the planned day. NEVER schedule a stop when the venue is CLOSED.
-- If a venue shows "Closed" for the planned day, DO NOT include it at all (e.g., Chick-fil-A on Sunday).
-- Match venue type to time of day: breakfast/brunch spots in the morning, lunch spots midday, dinner/bar spots in the evening. Don't suggest a breakfast diner at 8pm or a nightclub at 10am.
-- If hours are provided, ensure the stop's startTime falls within the venue's open hours.
+VENUE AVAILABILITY:
+- Verified venues include their hours for the planned day. Do NOT include venues that are CLOSED on the planned day (e.g., Chick-fil-A on Sunday).
 - Price levels are shown when available ($, $$, $$$, $$$$). Factor these into the budget — don't fill a $30 budget with $$$ restaurants.
-- If there are no scanned events, build the sidequest entirely from town staples — beloved local restaurants, iconic landmarks, popular parks, and must-visit spots. This is a great sidequest, not a consolation prize.
+- If there are no scanned events, build the sidequest entirely from town staples — beloved local restaurants, iconic landmarks, popular parks, and must-visit spots.
 - If not enough options exist, create FEWER stops — never pad with fake events.
 - Use FULL street addresses including city and state (e.g., "123 Main St, Austin, TX")
-${trailInstructions}${boardingGarageInstructions}${anchorBlock}${intentionBlock}${preferencesBlock}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt the itinerary to the forecast. Rain or storms → prefer indoor stops during those hours. Extreme heat → outdoor activities in morning/evening, shade and AC midday. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9", "Rain likely after 3pm, grab a window seat and enjoy it").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous itineraries: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives. The whole point is discovering something new each time.\n` : ""}
+${trailInstructions}${boardingGarageInstructions}${anchorBlock}${intentionBlock}${preferencesBlock}${weatherSummary ? `\nWEATHER AWARENESS:\n${weatherSummary}\n- Adapt stops to the forecast. Rain/storms → prefer indoor stops. Extreme heat → shade and AC options. Cold/wind → suggest layering in proTip. Perfect weather → maximize outdoor time.\n- Include weather-relevant proTips (e.g., "Bring sunscreen — UV index peaks at 9").\n` : ""}${exclusionList ? `\nFRESHNESS RULE:\n- The user has visited these venues in previous sidequests: ${exclusionList}\n- Do NOT repeat any of them. Dig deeper — find hidden gems, newer spots, or lesser-known alternatives.\n` : ""}
 ${
   input.title
     ? `THEME & TITLE (CRITICAL):
-- The itinerary title MUST be: "${input.title}"
-- This title describes the THEME and VIBE of the itinerary — every stop MUST reinforce this theme.
-- Parse the title for clues about activities, mood, and timing. Select venues and ordering that deliver on the promise of the title.
-- Do NOT generate a generic itinerary and slap the title on it. The title IS the creative brief — let it drive venue selection, ordering, and overall feel.\n`
+- The sidequest title MUST be: "${input.title}"
+- This title describes the THEME and VIBE — every stop MUST reinforce this theme.
+- The title IS the creative brief — let it drive venue selection and overall feel.\n`
     : ""
 }${input.activityTypes.length > 1 && input.stopCount > 0 && input.stopCount < input.activityTypes.length ? `VIBE FUSION (CRITICAL — fewer stops than activity preferences):
 - The user selected ${input.activityTypes.length} vibes (${input.activityTypes.join(", ")}) but only ${input.stopCount} stop${input.stopCount > 1 ? "s" : ""}.
-- You MUST find venues that naturally combine multiple vibes in one place. Do NOT just pick one vibe and ignore the others.
-- Examples of fusion: "coffee + food" → a café known for excellent food AND coffee (not just a Starbucks). "outdoors + food" → a brewery with a great patio or a food truck park in a scenic area. "nightlife + food" → a restaurant with a lively bar scene.
-- When describing the stop, highlight how it satisfies multiple vibes in "wts" (e.g., "Known for their house-roasted beans AND wood-fired brunch — the best of both worlds").
-- Prefer venues with Google ratings ≥ 4.0 that genuinely excel at the combined vibes, not places that technically qualify but are mediocre at both.
+- You MUST find venues that naturally combine multiple vibes in one place.
+- Highlight how each stop satisfies multiple vibes in "wts".
+- Prefer venues with Google ratings ≥ 4.0 that genuinely excel at the combined vibes.
 
 ` : input.activityTypes.length > 1 && input.stopCount > 0 && input.stopCount <= input.activityTypes.length ? `VIBE BLENDING (multiple activity preferences, limited stops):
 - The user selected ${input.activityTypes.length} vibes (${input.activityTypes.join(", ")}) across ${input.stopCount} stop${input.stopCount > 1 ? "s" : ""}.
-- Where possible, choose venues that satisfy multiple vibes at once rather than dedicating each stop to a single vibe.
-- When a venue naturally blends vibes, highlight this in "wts" — the user chose these vibes together for a reason.
+- Where possible, choose venues that satisfy multiple vibes at once.
 
-` : ""}PLANNING RULES:
-- Stay within the time budget (${input.durationHours} hours)
+` : ""}CURATION RULES:
+- This is an UNORDERED bundle — the user can visit stops in any order. Don't assume a sequence.
 - Stay within the spending budget (${budgetRange})
 - Match the activity preferences: ${input.activityTypes.join(", ") || "any"}
-- ${input.stopCount > 0 ? `Include EXACTLY ${Math.max(input.stopCount, anchorStops?.length ?? 0)} stops` : `Choose the right number of stops for the duration${anchorStops && anchorStops.length > 0 ? ` (minimum ${anchorStops.length} — one per anchor)` : ""}`}
-- Include travel/transition notes between stops
+- ${input.stopCount > 0 ? `Include EXACTLY ${Math.max(input.stopCount, anchorStops?.length ?? 0)} stops` : `Choose the right number of stops for a ~${input.durationHours}-hour adventure${anchorStops && anchorStops.length > 0 ? ` (minimum ${anchorStops.length} — one per anchor)` : ""}`}
 - Every stop MUST have a DIFFERENT venue — never repeat the same place
 - If referencing a real event from the list, include its exact ID in eventId
 - For non-event stops, set eventId to null
 - Estimated costs should be realistic
-- Times should be in 24h format (e.g., "14:00")
 - "d" (description) must be ≤10 words. Detail goes in "wts" and "pt".
 
 Respond ONLY with valid JSON. Use abbreviated keys to save tokens:
-{"t":"title 3-6 words","s":"1-2 sentence summary","items":[{"st":"14:00","et":"15:30","t":"Stop name","d":"≤10 word description","e":"emoji","ec":15.00,"vn":"Venue Name","va":"123 Main St, City, ST","eid":"uuid-or-null","tn":"travel note","vc":"cafe|restaurant|bar|park|museum|gallery|market|venue|attraction|trail|other","wts":"why this stop (1 sentence)","pt":"insider tip (1 sentence)"}]}`;
-
-    // When planned date is today and no explicit start time, pin to current time
-    // so the LLM never schedules stops in the past.
+{"t":"title 3-6 words","s":"1-2 sentence summary","items":[{"t":"Stop name","d":"≤10 word description","e":"emoji","ec":15.00,"vn":"Venue Name","va":"123 Main St, City, ST","eid":"uuid-or-null","vc":"cafe|restaurant|bar|park|museum|gallery|market|venue|attraction|trail|other","wts":"why this stop (1 sentence)","pt":"insider tip (1 sentence)"}]}`;
 
     const tz = input.timezone ?? "America/Denver";
 
-    const today = formatInTimeZone(new Date(), tz, "yyyy-MM-dd");
-
-    const currentHour = parseInt(formatInTimeZone(new Date(), tz, "HH"), 10);
-
-    const currentTime = formatInTimeZone(new Date(), tz, "HH:mm");
-
     const plannedDateStr = input.plannedDate
       ? formatInTimeZone(input.plannedDate, tz, "yyyy-MM-dd")
-      : today;
-    const isToday = plannedDateStr === today;
+      : formatInTimeZone(new Date(), tz, "yyyy-MM-dd");
 
-    const effectiveStartTime =
-      input.startTime ??
-      (isToday
-        ? `${String(Math.min(currentHour + 1, 23)).padStart(2, "0")}:00`
-        : undefined);
+    const radiusMiles = input.radiusMiles ?? 10;
 
-    const timeConstraint =
-      effectiveStartTime && input.endTime
-        ? `\nTime window: ${effectiveStartTime} – ${input.endTime} (schedule all stops within this window)`
-        : effectiveStartTime
-          ? `\nStart time: ${effectiveStartTime} (begin the itinerary at this time — do NOT schedule anything before this)`
-          : "";
-
-    const userPrompt = `City: ${cityName}
-Date: ${plannedDateStr}${isToday ? ` (today — current time is ${currentTime})` : ""}
-Duration: ${input.durationHours} hours
+    const userPrompt = `Area: within ${radiusMiles} miles of center point (near ${cityName})
+Date: ${plannedDateStr}
+Duration: ~${input.durationHours} hours
 Budget: ${budgetRange}
-Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${intention ? `\nIntention: ${intention.replace("_", " ")}` : ""}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}${timeConstraint}
+Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${intention ? `\nIntention: ${intention.replace("_", " ")}` : ""}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}
 
 EVENTS (use ONLY these for event-type stops):
 ${eventList}
 
-VERIFIED VENUES in ${cityName} (prefer these for non-event stops):
-${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap data — use exact names):\n${trailList}` : ""}${forecast ? `\n\nWEATHER FORECAST for ${plannedDateStr}:\n${this.formatHourlyForPrompt(forecast)}` : ""}`;
+VERIFIED VENUES nearby (prefer these for non-event stops):
+${venueList}${trailList ? `\n\nPAVED TRAILS nearby (real OpenStreetMap data — use exact names):\n${trailList}` : ""}${forecast ? `\n\nWEATHER FORECAST for ${plannedDateStr}:\n${this.formatHourlyForPrompt(forecast)}` : ""}`;
 
     const parseLLMResponse = (responseText: string): LLMItineraryResponse => {
       let jsonStr = responseText.trim();
@@ -1841,7 +1842,12 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
     return parsed;
   }
 
-  async getPopularStops(city: string, limit = 15): Promise<PopularStop[]> {
+  async getPopularStops(
+    center: { lat: number; lng: number },
+    radiusMiles = 15,
+    limit = 15,
+  ): Promise<PopularStop[]> {
+    const radiusMeters = Math.round(radiusMiles * 1609);
     const rows: {
       venue_name: string;
       venue_category: string | null;
@@ -1866,7 +1872,12 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
         COUNT(ii.checked_in_at)::int AS completions
       FROM itinerary_items ii
       JOIN itineraries i ON i.id = ii.itinerary_id
-      WHERE LOWER(i.city) = LOWER($1)
+      WHERE i.center_latitude IS NOT NULL
+        AND ST_DWithin(
+          ST_SetSRID(ST_MakePoint(i.center_longitude, i.center_latitude), 4326)::geography,
+          ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+          $3
+        )
         AND i.status = 'READY'
         AND ii.venue_name IS NOT NULL
       GROUP BY COALESCE(ii.google_place_id, LOWER(ii.venue_name))
@@ -1876,9 +1887,9 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
         COUNT(*)::float
         * POWER(COUNT(ii.checked_in_at)::float / GREATEST(COUNT(*), 1), 2)
         DESC
-      LIMIT $2
+      LIMIT $4
       `,
-      [city, limit],
+      [center.lng, center.lat, radiusMeters, limit],
     );
 
     return rows.map((r) => {

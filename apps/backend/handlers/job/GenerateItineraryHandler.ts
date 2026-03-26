@@ -32,14 +32,15 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         itineraryId,
         title,
         city,
+        centerLatitude,
+        centerLongitude,
+        radiusMiles,
         plannedDate,
         budgetMin,
         budgetMax,
         durationHours,
         activityTypes,
         stopCount,
-        startTime,
-        endTime,
         intention,
         anchorStops,
         surpriseMe,
@@ -49,15 +50,16 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         userId: string;
         itineraryId?: string;
         title?: string;
-        city: string;
+        city?: string;
+        centerLatitude?: number;
+        centerLongitude?: number;
+        radiusMiles?: number;
         plannedDate?: string;
         budgetMin: number;
         budgetMax: number;
         durationHours: number;
         activityTypes: string[];
         stopCount: number;
-        startTime?: string;
-        endTime?: string;
         intention?: string;
         surpriseMe?: boolean;
         timezone?: string;
@@ -74,7 +76,7 @@ export class GenerateItineraryHandler extends BaseJobHandler {
       };
 
       await tracker.step("fetch_events");
-      await tracker.stepProgress(50, "Searching city events");
+      await tracker.stepProgress(50, "Searching nearby events");
 
       await tracker.step("generate");
       await tracker.stepProgress(10, "Calling AI planner");
@@ -83,6 +85,9 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         itineraryId,
         title,
         city,
+        centerLatitude,
+        centerLongitude,
+        radiusMiles,
         plannedDate: plannedDate ? new Date(plannedDate) : undefined,
         isTemplate,
         budgetMin,
@@ -90,8 +95,6 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         durationHours,
         activityTypes,
         stopCount,
-        startTime,
-        endTime,
         intention,
         anchorStops,
         surpriseMe,

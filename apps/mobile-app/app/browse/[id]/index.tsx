@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, {
   Easing,
@@ -24,7 +24,8 @@ import Svg, { Circle } from "react-native-svg";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
 import Screen from "@/components/Layout/Screen";
 import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
-import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
+import { useConversationStore } from "@/stores/useConversationStore";
+import { buildSidequestSteps } from "@/utils/conversationSteps";
 import ActivityHeatmap from "@/components/UserProfile/ActivityHeatmap";
 import VenueDnaChart from "@/components/UserProfile/VenueDnaChart";
 import useDistrictDetail from "@/hooks/useDistrictDetail";
@@ -762,6 +763,19 @@ const DistrictDetailScreen = () => {
     return result.length > 0 ? result : data.district.activityTags.slice(0, 2);
   }, [data?.activityDna, data?.district?.activityTags]);
 
+  const startConversation = useConversationStore((s) => s.startConversation);
+  useFocusEffect(
+    useCallback(() => {
+      startConversation({
+        steps: buildSidequestSteps({
+          defaultActivities: dominantActivities,
+        }),
+        trigger: "open",
+        collapsedLabel: "Plan a sidequest",
+      });
+    }, [dominantActivities, startConversation]),
+  );
+
   if (isLoading && !data) {
     return (
       <Screen isScrollable={false} noAnimation>
@@ -789,12 +803,6 @@ const DistrictDetailScreen = () => {
       isScrollable={false}
       bannerDescription={district.name}
       noAnimation
-      bottomContent={
-        <ItineraryDialogBox
-          defaultActivities={dominantActivities}
-          style={{ height: 105, marginBottom: 0 }}
-        />
-      }
     >
       <PullToActionScrollView
         onRefresh={handleRefresh}

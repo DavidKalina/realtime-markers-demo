@@ -60,6 +60,7 @@ import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import XPNotificationOverlay from "@/components/Gamification/XPNotificationOverlay";
 import CalendarPrompt from "@/components/Itinerary/CalendarPrompt";
+import ConversationOverlay from "@/components/Itinerary/ConversationOverlay";
 import CompletionCelebration from "@/components/Gamification/CompletionCelebration";
 import { JobTrackerBottomSheet } from "@/components/AreaScan/AreaScanBottomSheet";
 import { useJobSheetStore } from "@/stores/useJobSheetStore";
@@ -155,6 +156,7 @@ function AppContent({ children }: AppContentProps) {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       {children}
+      {!isBoot && <ConversationOverlay />}
       {!isBoot && <ActionBar />}
       {!isBoot && <XPNotificationOverlay />}
       {!isBoot && <CalendarPrompt />}

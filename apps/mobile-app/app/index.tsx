@@ -4,7 +4,9 @@ import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { MapRippleEffect } from "@/components/MapRippleEffect/MapRippleEffect";
 import StatusBar from "@/components/StatusBar/StatusBar";
 import { createCameraSettings } from "@/config/cameraConfig";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useConversationStore } from "@/stores/useConversationStore";
+import { buildSidequestSteps } from "@/utils/conversationSteps";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useAppActive } from "@/hooks/useAppActive";
@@ -32,7 +34,6 @@ import {
 } from "react-native";
 import RAnimated from "react-native-reanimated";
 import AnchorMarkers from "@/components/Markers/AnchorMarkers";
-import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
 import ItineraryRouteLayer from "@/components/Itinerary/ItineraryRouteLayer";
 import ItineraryWaypoints from "@/components/Itinerary/ItineraryWaypoints";
 import AdventureHUD from "@/components/Itinerary/AdventureHUD";
@@ -245,6 +246,18 @@ function HomeScreenContent() {
     activeItinerary,
     publish,
   });
+
+  // ── Global conversation overlay ─────────────────────────────────────
+  const startConversation = useConversationStore((s) => s.startConversation);
+  useFocusEffect(
+    useCallback(() => {
+      startConversation({
+        steps: buildSidequestSteps(),
+        trigger: "open",
+        collapsedLabel: "Plan a sidequest",
+      });
+    }, [startConversation]),
+  );
 
   // ── District map data + focus ──────────────────────────────────────
   useDistrictMapData();
@@ -593,25 +606,6 @@ function HomeScreenContent() {
             onDismiss={handleCommunityDismiss}
             style={planBannerStyles.dialogBox}
           />
-        )}
-        {!selectedItem && !activeItinerary && !selectedCommunityItinerary && (
-          <>
-            <ItineraryDialogBox
-              city={anchorCity ?? undefined}
-              anchorStops={anchorAnchors.length > 0 ? anchorAnchors : undefined}
-              onDismiss={handleAnchorDismiss}
-              onItineraryResult={handleItineraryResult}
-              nearbyPlaces={nearbyPlacesInput}
-              onNearbySelect={handleNearbySelect}
-              onNearbyKeepPin={handleNearbyKeepPin}
-              onNearbyDismiss={handleNearbyDismiss}
-              onFlyTo={handleSearchFlyTo}
-              onSearchPlaceAnchor={handleSearchPlaceAnchor}
-              onAnchorEdit={handleAnchorEdit}
-              onAnchorRemove={handleAnchorRemove}
-              style={planBannerStyles.dialogBox}
-            />
-          </>
         )}
         {activeItinerary && (
           <AdventureHUD style={planBannerStyles.dialogBox} />

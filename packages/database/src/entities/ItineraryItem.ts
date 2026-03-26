@@ -142,6 +142,9 @@ export class ItineraryItem {
   })
   entryPointName?: string;
 
+  @Column({ name: "opening_hours", type: "jsonb", nullable: true })
+  openingHours?: string[];
+
   @Column({ type: "text", nullable: true })
   embedding?: string;
 

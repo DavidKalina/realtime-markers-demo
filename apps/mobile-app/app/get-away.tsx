@@ -350,9 +350,9 @@ const SlotRow: React.FC<SlotRowProps> = React.memo(
                 <Text style={styles.slotTitle} numberOfLines={1}>
                   {suggestion.title}
                 </Text>
-                {suggestion.city && (
+                {suggestion.radiusLabel && (
                   <Text style={styles.slotCityLabel} numberOfLines={1}>
-                    {suggestion.city}
+                    {suggestion.radiusLabel}
                   </Text>
                 )}
               </View>
@@ -582,8 +582,12 @@ export default function GetAwayScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       try {
+        const [lng, lat] = userLocation || [0, 0];
         const result = await apiClient.itineraries.create({
-          city: suggestion.city || city || undefined,
+          centerLatitude: lat,
+          centerLongitude: lng,
+          radiusMiles: suggestion.radiusMiles || 10,
+          city: city || undefined,
           plannedDate: new Date().toISOString().slice(0, 10),
           budgetMin: 0,
           budgetMax: suggestion.budgetMax,
@@ -618,7 +622,7 @@ export default function GetAwayScreen() {
         );
       }
     },
-    [city, trackJob, itineraryJobStore, router, markPicked],
+    [city, userLocation, trackJob, itineraryJobStore, router, markPicked],
   );
 
   const handleView = useCallback(

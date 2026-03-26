@@ -67,6 +67,7 @@ export interface GoogleGeocodingService extends ILocationResolutionService {
     city: string,
     cityCenter: { lat: number; lng: number },
     maxResults?: number,
+    radiusMeters?: number,
   ): Promise<VerifiedVenue[]>;
   searchCityState(
     query: string,
@@ -1141,28 +1142,31 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
     city: string,
     cityCenter: { lat: number; lng: number },
     maxResults = 5,
+    radiusMeters = 15000,
   ): Promise<VerifiedVenue[]> {
     try {
-      // Check Redis cache first (keyed by category + city + center rounded to ~1km)
+      // Check Redis cache first (keyed by category + center rounded to ~1km + radius)
       const roundedLat = Math.round(cityCenter.lat * 100) / 100;
       const roundedLng = Math.round(cityCenter.lng * 100) / 100;
-      const cacheKey = `${GoogleGeocodingServiceImpl.PLACES_CACHE_PREFIX}${category}:${city}:${roundedLat},${roundedLng}`;
+      const cacheKey = `${GoogleGeocodingServiceImpl.PLACES_CACHE_PREFIX}${category}:${roundedLat},${roundedLng}:${radiusMeters}`;
       const cached = await this.redisService.get<VerifiedVenue[]>(cacheKey);
       if (cached) {
-        console.log(`[searchPlacesByCategory] Cache hit for "${category}" in ${city}`);
+        console.log(`[searchPlacesByCategory] Cache hit for "${category}" near ${roundedLat},${roundedLng}`);
         return cached.slice(0, maxResults);
       }
 
       const url = "https://places.googleapis.com/v1/places:searchText";
+      // For large radii (>25km), include city/region name for relevance
+      const textQuery = radiusMeters > 25000 && city ? `${category} in ${city}` : category;
       const requestBody = {
-        textQuery: `${category} in ${city}`,
+        textQuery,
         locationBias: {
           circle: {
             center: {
               latitude: cityCenter.lat,
               longitude: cityCenter.lng,
             },
-            radius: 15000.0,
+            radius: Math.min(radiusMeters, 50000.0),
           },
         },
       };
@@ -1232,7 +1236,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
       return venues;
     } catch (error) {
       console.error(
-        `[searchPlacesByCategory] Error for "${category}" in ${city}:`,
+        `[searchPlacesByCategory] Error for "${category}" near ${cityCenter.lat},${cityCenter.lng}:`,
         error,
       );
       return [];

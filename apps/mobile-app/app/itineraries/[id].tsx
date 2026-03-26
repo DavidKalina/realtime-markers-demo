@@ -100,27 +100,18 @@ const AnimatedNumber: React.FC<{
   );
 };
 
-// Compute temp range scoped to the itinerary's actual hours
+// Compute temp range for the day (daytime hours 7am-10pm)
 function scopedForecast(
   forecast: ItineraryResponse["forecast"],
-  items: ItineraryItemResponse[],
 ): { low: number; high: number; condition: string } | null {
-  if (!forecast?.hourly?.length || !items.length) return null;
-  const itemsWithTimes = items.filter((i) => i.startTime && i.endTime);
-  if (!itemsWithTimes.length) return null;
-  const startHour = Math.min(
-    ...itemsWithTimes.map((i) => parseInt(i.startTime!.split(":")[0], 10)),
+  if (!forecast?.hourly?.length) return null;
+  const daytime = forecast.hourly.filter(
+    (h) => h.hour >= 7 && h.hour <= 22,
   );
-  const endHour = Math.max(
-    ...itemsWithTimes.map((i) => parseInt(i.endTime!.split(":")[0], 10)),
-  );
-  const relevant = forecast.hourly.filter(
-    (h) => h.hour >= startHour && h.hour <= endHour,
-  );
-  if (!relevant.length) return null;
+  if (!daytime.length) return null;
   return {
-    low: Math.round(Math.min(...relevant.map((h) => h.tempF))),
-    high: Math.round(Math.max(...relevant.map((h) => h.tempF))),
+    low: Math.round(Math.min(...daytime.map((h) => h.tempF))),
+    high: Math.round(Math.max(...daytime.map((h) => h.tempF))),
     condition: forecast.dominantCondition,
   };
 }
@@ -889,15 +880,6 @@ const ItineraryDetailScreen = () => {
     0,
   );
   const sortedForStats = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
-  const firstTime =
-    sortedForStats.length > 0 && sortedForStats[0].startTime
-      ? formatTime(sortedForStats[0].startTime)
-      : null;
-  const lastTime =
-    sortedForStats.length > 0 &&
-    sortedForStats[sortedForStats.length - 1].endTime
-      ? formatTime(sortedForStats[sortedForStats.length - 1].endTime)
-      : null;
 
   // Check-in progress
   const checkedInCount = items.filter((i) => i.checkedInAt).length;
@@ -956,7 +938,7 @@ const ItineraryDetailScreen = () => {
               .easing(Easing.out(Easing.cubic))}
             style={styles.chipRow}
           >
-            {firstTime && lastTime && (
+            {itinerary.durationHours > 0 && (
               <View
                 style={[
                   styles.statChip,
@@ -964,7 +946,7 @@ const ItineraryDetailScreen = () => {
                 ]}
               >
                 <Text style={[styles.statChipValue, { color: STAT_COLORS[0] }]}>
-                  {firstTime} – {lastTime}
+                  ~{itinerary.durationHours}h
                 </Text>
               </View>
             )}
@@ -1002,7 +984,6 @@ const ItineraryDetailScreen = () => {
               (() => {
                 const scoped = scopedForecast(
                   displayItinerary.forecast,
-                  displayItinerary.items,
                 );
                 const low = scoped?.low ?? displayItinerary.forecast.tempLowF;
                 const high =
@@ -1113,7 +1094,6 @@ const ItineraryDetailScreen = () => {
         {/* ── Timeline ── */}
         <ItineraryTimeline
           items={items}
-          forecast={displayItinerary?.forecast}
           isActive={isThisActive}
           onCheckin={isThisActive ? handleManualCheckin : undefined}
           onItemPress={handleItemPress}
@@ -1248,10 +1228,9 @@ const ItineraryDetailScreen = () => {
                       <Text style={styles.itemDetailTitle}>
                         {selectedItem.title}
                       </Text>
-                      {selectedItem.startTime && selectedItem.endTime && (
+                      {selectedItem.venueCategory && (
                         <Text style={styles.itemDetailTime}>
-                          {formatTime(selectedItem.startTime)} –{" "}
-                          {formatTime(selectedItem.endTime)}
+                          {selectedItem.venueCategory}
                         </Text>
                       )}
                     </View>
@@ -1322,13 +1301,6 @@ const ItineraryDetailScreen = () => {
                         </Text>
                       </View>
                     )}
-                    {selectedItem.travelNote && (
-                      <View style={styles.itemDetailChip}>
-                        <Text style={styles.itemDetailChipText}>
-                          {selectedItem.travelNote}
-                        </Text>
-                      </View>
-                    )}
                   </View>
                 </ScrollView>
               </Pressable>
@@ -1342,12 +1314,6 @@ const ItineraryDetailScreen = () => {
 
 export default ItineraryDetailScreen;
 
-function formatTime(time24: string): string {
-  const [h, m] = time24.split(":").map(Number);
-  const suffix = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
-}
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({

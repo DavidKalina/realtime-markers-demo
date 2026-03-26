@@ -24,34 +24,81 @@ import {
   spacing,
   type Colors,
 } from "@/theme";
-import type {
-  ItineraryItemResponse,
-  DayForecast,
-  HourlyForecast,
-} from "@/services/api/modules/itineraries";
+import type { ItineraryItemResponse } from "@/services/api/modules/itineraries";
 
-// WMO weather code → emoji mapping
-function weatherEmoji(code: number): string {
-  if (code === 0) return "\u2600\uFE0F"; // Clear sky
-  if (code <= 3) return "\u26C5"; // Partly cloudy / overcast
-  if (code <= 48) return "\uD83C\uDF2B\uFE0F"; // Fog
-  if (code <= 57) return "\uD83C\uDF27\uFE0F"; // Drizzle
-  if (code <= 67) return "\uD83C\uDF27\uFE0F"; // Rain
-  if (code <= 77) return "\u2744\uFE0F"; // Snow
-  if (code <= 82) return "\uD83C\uDF26\uFE0F"; // Rain showers
-  if (code <= 86) return "\uD83C\uDF28\uFE0F"; // Snow showers
-  if (code >= 95) return "\u26C8\uFE0F"; // Thunderstorm
-  return "\u2601\uFE0F"; // Fallback cloudy
-}
+/**
+ * Parse Google opening hours for the current day and return a display label.
+ * Input format: ["Monday: 9:00 AM – 5:00 PM", "Tuesday: 10:00 AM – 6:00 PM", ...]
+ */
+function getBusinessHoursLabel(
+  openingHours: string[] | undefined,
+): { label: string; isOpen: boolean } | null {
+  if (!openingHours || openingHours.length === 0) return null;
 
-function getHourlyForTime(
-  forecast: DayForecast | undefined,
-  startTime: string,
-): HourlyForecast | null {
-  if (!forecast?.hourly) return null;
-  const hour = parseInt(startTime.split(":")[0], 10);
-  if (isNaN(hour)) return null;
-  return forecast.hourly.find((h) => h.hour === hour) ?? null;
+  const now = new Date();
+  const dayName = now.toLocaleDateString("en-US", { weekday: "long" });
+  const todayHours = openingHours.find((h) => h.startsWith(dayName));
+
+  if (!todayHours) return null;
+
+  // "Monday: Closed"
+  if (todayHours.includes("Closed")) {
+    return { label: "Closed today", isOpen: false };
+  }
+
+  // "Monday: Open 24 hours"
+  if (todayHours.includes("Open 24 hours")) {
+    return { label: "Open 24h", isOpen: true };
+  }
+
+  // "Monday: 9:00 AM – 5:00 PM" or "Monday: 9:00 AM – 12:00 PM, 1:00 PM – 5:00 PM"
+  const timePart = todayHours.substring(todayHours.indexOf(":") + 1).trim();
+  // Parse the closing time from the last range
+  const ranges = timePart.split(",").map((r) => r.trim());
+  const lastRange = ranges[ranges.length - 1];
+  const closePart = lastRange.split("\u2013")[1]?.trim() ?? lastRange.split("-")[1]?.trim();
+
+  if (!closePart) return { label: timePart, isOpen: true };
+
+  // Parse close time to compare with now
+  const closeMatch = closePart.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (closeMatch) {
+    let closeHour = parseInt(closeMatch[1], 10);
+    const closeMin = parseInt(closeMatch[2], 10);
+    const period = closeMatch[3].toUpperCase();
+    if (period === "PM" && closeHour !== 12) closeHour += 12;
+    if (period === "AM" && closeHour === 12) closeHour = 0;
+
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const closeMinutes = closeHour * 60 + closeMin;
+
+    // Also check if we're before open
+    const openPart = ranges[0].split("\u2013")[0]?.trim() ?? ranges[0].split("-")[0]?.trim();
+    const openMatch = openPart?.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    let openMinutes = 0;
+    if (openMatch) {
+      let openHour = parseInt(openMatch[1], 10);
+      const openMin = parseInt(openMatch[2], 10);
+      const openPeriod = openMatch[3].toUpperCase();
+      if (openPeriod === "PM" && openHour !== 12) openHour += 12;
+      if (openPeriod === "AM" && openHour === 12) openHour = 0;
+      openMinutes = openHour * 60 + openMin;
+    }
+
+    if (currentMinutes < openMinutes) {
+      return { label: `Opens ${openPart}`, isOpen: false };
+    }
+    if (currentMinutes >= closeMinutes) {
+      return { label: "Closed now", isOpen: false };
+    }
+    // Less than 1 hour until close
+    if (closeMinutes - currentMinutes <= 60) {
+      return { label: `Closes ${closePart}`, isOpen: true };
+    }
+    return { label: "Open now", isOpen: true };
+  }
+
+  return { label: timePart, isOpen: true };
 }
 
 // Rotating accent colors for each stop
@@ -69,7 +116,6 @@ const CHECKIN_GREEN = "#22c55e";
 
 interface ItineraryTimelineProps {
   items: ItineraryItemResponse[];
-  forecast?: DayForecast;
   isActive?: boolean;
   onCheckin?: (itemId: string) => void;
   onItemPress?: (item: ItineraryItemResponse) => void;
@@ -118,7 +164,6 @@ interface TimelineStopProps {
   isActive?: boolean;
   onCheckin?: (itemId: string) => void;
   onItemPress?: (item: ItineraryItemResponse) => void;
-  weather?: HourlyForecast | null;
 }
 
 const CONTENT_DURATION = 350;
@@ -137,7 +182,6 @@ const TimelineStop = React.memo(
     isActive,
     onCheckin,
     onItemPress,
-    weather,
   }: TimelineStopProps) => {
     const colors = useColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -149,7 +193,6 @@ const TimelineStop = React.memo(
     const dotScale = useSharedValue(0);
     const contentOpacity = useSharedValue(0);
     const contentTranslateX = useSharedValue(12);
-    const travelOpacity = useSharedValue(0);
     const checkinScale = useSharedValue(isCheckedIn ? 1 : 0);
 
     // Stable callbacks for scheduleOnRN
@@ -162,19 +205,9 @@ const TimelineStop = React.memo(
     useEffect(() => {
       if (!isRevealed) return;
 
-      const hasTravelNote = !isFirst && !!item.travelNote;
       let t = 0;
 
-      // Step 1: If there's a travel note, fade it in first
-      if (hasTravelNote) {
-        travelOpacity.value = withDelay(
-          t,
-          withTiming(1, { duration: 200, easing: Easing.out(Easing.cubic) }),
-        );
-        t += 180;
-      }
-
-      // Step 2: Grow the rail line down (if not first and no travel note, show lineAbove)
+      // Step 1: Grow the rail line down
       if (!isFirst) {
         railProgress.value = withDelay(
           t,
@@ -255,28 +288,14 @@ const TimelineStop = React.memo(
       transform: [{ translateX: contentTranslateX.value }],
     }));
 
-    const travelAnimStyle = useAnimatedStyle(() => ({
-      opacity: travelOpacity.value,
-    }));
+    const hoursInfo = getBusinessHoursLabel(item.openingHours);
 
     return (
       <View>
-        {/* Travel note connector */}
-        {!isFirst && item.travelNote && (
-          <Animated.View style={[styles.travelRow, travelAnimStyle]}>
-            <View style={styles.travelRail}>
-              <View
-                style={[styles.travelDash, { backgroundColor: stopColor }]}
-              />
-            </View>
-            <Text style={styles.travelText}>{item.travelNote}</Text>
-          </Animated.View>
-        )}
-
         <View style={styles.stopRow}>
           {/* Rail */}
           <View style={styles.rail}>
-            {!isFirst && !item.travelNote && (
+            {!isFirst && (
               <Animated.View
                 style={[
                   styles.lineAbove,
@@ -326,17 +345,19 @@ const TimelineStop = React.memo(
             >
               <View style={{ gap: 3 }}>
                 <View style={styles.statRow}>
-                  <Text style={styles.timeText}>
-                    {formatTime(item.startTime)} – {formatTime(item.endTime)}
-                  </Text>
+                  {hoursInfo && (
+                    <Text
+                      style={[
+                        styles.hoursText,
+                        { color: hoursInfo.isOpen ? CHECKIN_GREEN : colors.text.secondary },
+                      ]}
+                    >
+                      {hoursInfo.label}
+                    </Text>
+                  )}
                   <View style={styles.statRight}>
                     {cost > 0 && isRevealed && (
                       <AnimatedCost value={cost} startDelay={200} />
-                    )}
-                    {weather && (
-                      <Text style={styles.weatherText}>
-                        {weatherEmoji(weather.weatherCode)} {weather.tempF}°
-                      </Text>
                     )}
                   </View>
                 </View>
@@ -380,7 +401,6 @@ const TimelineStop = React.memo(
 
 export default function ItineraryTimeline({
   items,
-  forecast,
   isActive,
   onCheckin,
   onItemPress,
@@ -497,7 +517,6 @@ export default function ItineraryTimeline({
             isActive={isActive}
             onCheckin={onCheckin}
             onItemPress={onItemPress}
-            weather={getHourlyForTime(forecast, item.startTime)}
           />
         </View>
       ))}
@@ -538,12 +557,6 @@ function extractCity(address: string): string {
   return address;
 }
 
-function formatTime(time24: string): string {
-  const [h, m] = time24.split(":").map(Number);
-  const suffix = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
-}
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
@@ -586,31 +599,22 @@ const createStyles = (colors: Colors) =>
       gap: 3,
     },
 
-    // --- Stat row (time + cost) ---
+    // --- Stat row (hours + cost) ---
     statRow: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
     },
-    timeText: {
+    hoursText: {
       fontSize: 11,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.semibold,
-      color: colors.text.secondary,
       letterSpacing: 0.3,
     },
     statRight: {
       flexDirection: "row",
       alignItems: "center",
       gap: 8,
-    },
-    weatherText: {
-      fontSize: 11,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.secondary,
-      minWidth: 52,
-      textAlign: "right",
     },
     costValue: {
       fontSize: fontSize.sm,
@@ -656,32 +660,6 @@ const createStyles = (colors: Colors) =>
       color: CHECKIN_GREEN,
       letterSpacing: 0.5,
       marginTop: 2,
-    },
-
-    // --- Travel connector ---
-    travelRow: {
-      flexDirection: "row",
-      gap: spacing.sm,
-      alignItems: "center",
-      paddingVertical: spacing.xs,
-    },
-    travelRail: {
-      width: 32,
-      alignItems: "center",
-    },
-    travelDash: {
-      width: 2,
-      height: 16,
-      opacity: 0.25,
-    },
-    travelText: {
-      flex: 1,
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.regular,
-      color: colors.text.secondary,
-      fontStyle: "italic",
-      letterSpacing: 0.2,
     },
 
     // --- Total row ---

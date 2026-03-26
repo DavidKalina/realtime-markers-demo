@@ -42,9 +42,10 @@ import {
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useProfileInsights } from "@/hooks/useProfileInsights";
+import { useConversationStore } from "@/stores/useConversationStore";
+import { buildSidequestSteps } from "@/utils/conversationSteps";
 import Screen from "../Layout/Screen";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
-import ItineraryDialogBox from "../Itinerary/ItineraryDialogBox";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
 import UserStatsCard from "./UserStatsCard";
 import ActiveQuestBanner from "./ActiveQuestBanner";
@@ -88,6 +89,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { isPitched, togglePitch } = useMapStyle();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
   const { resetOnboarding } = useOnboarding();
+  const startConversation = useConversationStore((s) => s.startConversation);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("adventures");
   const {
@@ -195,6 +197,26 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tab);
   }, []);
+
+  /* ─── Launch global conversation ─── */
+  const launchConversation = useCallback(() => {
+    startConversation({
+      steps: buildSidequestSteps({
+        displayName: profileData?.displayName,
+      }),
+      trigger: "open",
+      collapsedLabel: "What's next?",
+    });
+  }, [profileData?.displayName, startConversation]);
+
+  // Show the collapsed conversation bar when this page is focused
+  useFocusEffect(
+    useCallback(() => {
+      if (!loading && profileData) {
+        launchConversation();
+      }
+    }, [loading, profileData, launchConversation]),
+  );
 
   /* ─── Tab renderers ─── */
 
@@ -438,7 +460,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         showBackButton
         onBack={handleBack}
         noAnimation
-        bottomContent={<ItineraryDialogBox style={{ marginBottom: 0 }} />}
       >
         <PullToActionScrollView
           onSearch={handleSearch}

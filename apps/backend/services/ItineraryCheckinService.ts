@@ -1,5 +1,5 @@
 import type { DataSource } from "typeorm";
-import { IsNull, LessThan } from "typeorm";
+import { IsNull } from "typeorm";
 import {
   Itinerary,
   ItineraryCheckin,
@@ -19,7 +19,6 @@ import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 const CHECKIN_RADIUS_METERS = 75;
 const COMPLETION_MILESTONES = [5, 10, 25, 50, 100];
 const THROTTLE_TTL = 60; // 1 minute between proximity checks for checkins
-const FIRST_STOP_REMINDER_MINUTES = 5;
 
 // Streak milestone XP bonuses
 const STREAK_MILESTONES: Record<number, number> = {
@@ -79,7 +78,6 @@ interface NearbyItem {
   title: string;
   emoji: string;
   sort_order: number;
-  start_time: string;
   distance_meters: number;
 }
 
@@ -89,7 +87,6 @@ interface ProcessCheckinParams {
   itineraryId: string;
   itemId: string;
   sortOrder: number;
-  plannedTime: string;
   source: "proximity" | "manual";
   userLatitude?: number;
   userLongitude?: number;
@@ -148,7 +145,6 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
         ii.title,
         ii.emoji,
         ii.sort_order,
-        ii.start_time,
         ST_Distance(
           ST_SetSRID(ST_MakePoint(ii.longitude, ii.latitude), 4326)::geography,
           ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography
@@ -178,7 +174,6 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
       itineraryId: user.activeItineraryId,
       itemId: item.id,
       sortOrder: item.sort_order,
-      plannedTime: item.start_time,
       source: "proximity",
       userLatitude: lat,
       userLongitude: lng,
@@ -248,7 +243,6 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
       itineraryId,
       itemId,
       sortOrder: item.sortOrder,
-      plannedTime: item.startTime,
       source: "manual",
     });
 
@@ -268,7 +262,6 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
       itineraryId,
       itemId,
       sortOrder,
-      plannedTime,
       source,
       userLatitude,
       userLongitude,
@@ -281,19 +274,7 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
       .getRepository(ItineraryItem)
       .update({ id: itemId }, { checkedInAt: now });
 
-    // Find skipped items (lower sortOrder, still unchecked)
-    const skippedItems = await this.dataSource
-      .getRepository(ItineraryItem)
-      .find({
-        where: {
-          itineraryId,
-          checkedInAt: IsNull(),
-          sortOrder: LessThan(sortOrder),
-        },
-        select: ["id"],
-      });
-
-    // Write analytics record
+    // Write analytics record (no plannedTime or skippedItemIds — stops are unordered)
     const checkinRecord = this.dataSource
       .getRepository(ItineraryCheckin)
       .create({
@@ -303,10 +284,8 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
         userLatitude,
         userLongitude,
         distanceMeters,
-        plannedTime,
         source,
         itemSortOrder: sortOrder,
-        skippedItemIds: skippedItems.map((s) => s.id),
         checkedInAt: now,
       });
     await this.dataSource.getRepository(ItineraryCheckin).save(checkinRecord);
@@ -404,9 +383,6 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
     }
   }
 
-  // Track scheduled first-stop reminders so they can be cancelled on deactivation
-  private firstStopTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
   async activateItinerary(
     userId: string,
     itineraryId: string,
@@ -423,8 +399,8 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
       .getRepository(User)
       .update({ id: userId }, { activeItineraryId: itineraryId });
 
-    // Schedule "head to first stop" push notification
-    this.scheduleFirstStopReminder(userId, itinerary);
+    // Send "adventure ready" push notification
+    this.sendActivationNotification(userId, itinerary);
 
     console.log(
       `[ItineraryCheckin] User ${userId} activated itinerary ${itineraryId}`,
@@ -433,13 +409,6 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
   }
 
   async deactivateItinerary(userId: string): Promise<boolean> {
-    // Cancel any pending first-stop reminder
-    const existingTimer = this.firstStopTimers.get(userId);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-      this.firstStopTimers.delete(userId);
-    }
-
     const result = await this.dataSource
       .getRepository(User)
       .update({ id: userId }, { activeItineraryId: null });
@@ -447,63 +416,29 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
     return (result.affected ?? 0) > 0;
   }
 
-  private scheduleFirstStopReminder(
+  private sendActivationNotification(
     userId: string,
     itinerary: Itinerary,
   ): void {
-    // Cancel any previous reminder for this user
-    const existingTimer = this.firstStopTimers.get(userId);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-    }
+    const itemCount = (itinerary.items || []).length;
+    const title = itinerary.title || "Your sidequest";
 
-    const firstItem = (itinerary.items || [])
-      .slice()
-      .sort((a, b) => a.sortOrder - b.sortOrder)[0];
-
-    if (!firstItem?.startTime || !itinerary.plannedDate) return;
-
-    // plannedDate is already the timestamptz of the first stop's start time
-    const firstStopTime = new Date(itinerary.plannedDate);
-    const reminderTime = new Date(
-      firstStopTime.getTime() - FIRST_STOP_REMINDER_MINUTES * 60 * 1000,
-    );
-    const delayMs = reminderTime.getTime() - Date.now();
-
-    if (delayMs <= 0) {
-      // Already past the reminder time — skip
-      return;
-    }
-
-    const venueName = firstItem.venueName || firstItem.title;
-    const timer = setTimeout(async () => {
-      this.firstStopTimers.delete(userId);
-      try {
-        await this.pushService.sendToUser(userId, {
-          title: `${firstItem.emoji ?? "📍"} Time to head out!`,
-          body: `Make your way over to "${venueName}" — your adventure starts in ${FIRST_STOP_REMINDER_MINUTES} minutes!`,
-          sound: "default",
-          data: {
-            type: "itinerary_reminder",
-            itineraryId: itinerary.id,
-            itemId: firstItem.id,
-          },
-        });
-        console.log(
-          `[ItineraryCheckin] Sent first-stop reminder to user ${userId} for "${venueName}"`,
-        );
-      } catch (err) {
+    this.pushService
+      .sendToUser(userId, {
+        title: "🗺️ Adventure activated!",
+        body: `"${title}" is ready — ${itemCount} stop${itemCount === 1 ? "" : "s"} to explore. Head to any one to get started!`,
+        sound: "default",
+        data: {
+          type: "itinerary_reminder",
+          itineraryId: itinerary.id,
+        },
+      })
+      .catch((err) => {
         console.error(
-          "[ItineraryCheckin] Failed to send first-stop reminder:",
+          "[ItineraryCheckin] Failed to send activation notification:",
           err,
         );
-      }
-    }, delayMs);
-
-    this.firstStopTimers.set(userId, timer);
-    console.log(
-      `[ItineraryCheckin] Scheduled first-stop reminder for user ${userId} in ${Math.round(delayMs / 60000)}min`,
-    );
+      });
   }
 
   private refreshCityScoreForItinerary(itineraryId: string): void {
