@@ -12,7 +12,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { X } from "lucide-react-native";
+import { ArrowRight, X } from "lucide-react-native";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useUserLocation } from "@/contexts/LocationContext";
 import {
@@ -249,55 +249,57 @@ export default function MapPickerContent({
             style={styles.hintOverlay}
             pointerEvents="none"
           >
-            <Text style={styles.hintText}>Long-press to drop a pin</Text>
+            <Text style={styles.hintText}>
+              Long-press to pin spots, or go for nearby
+            </Text>
           </Animated.View>
         )}
       </View>
 
-      {/* Horizontal chip bar */}
-      {pins.length > 0 && (
-        <Animated.View entering={FadeIn.duration(200)} style={styles.chipBar}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipScroll}
-          >
-            {pins.map((pin, idx) => (
-              <Animated.View
-                key={pin.id}
-                entering={FadeIn.duration(200)}
-                style={styles.chip}
+      {/* Bottom bar — always rendered so the map doesn't resize */}
+      <View style={styles.chipBar}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipScroll}
+          style={styles.chipScrollWrap}
+        >
+          {pins.map((pin, idx) => (
+            <Animated.View
+              key={pin.id}
+              entering={FadeIn.duration(200)}
+              style={styles.chip}
+            >
+              <View style={styles.chipBadge}>
+                <Text style={styles.chipBadgeText}>{idx + 1}</Text>
+              </View>
+              <Text style={styles.chipCoords} numberOfLines={1}>
+                {pin.coordinates[1].toFixed(4)},{" "}
+                {pin.coordinates[0].toFixed(4)}
+              </Text>
+              <Pressable
+                onPress={() => handleRemovePin(pin.id)}
+                hitSlop={6}
+                style={styles.chipRemove}
               >
-                <View style={styles.chipBadge}>
-                  <Text style={styles.chipBadgeText}>{idx + 1}</Text>
-                </View>
-                <Text style={styles.chipCoords} numberOfLines={1}>
-                  {pin.coordinates[1].toFixed(4)},{" "}
-                  {pin.coordinates[0].toFixed(4)}
-                </Text>
-                <Pressable
-                  onPress={() => handleRemovePin(pin.id)}
-                  hitSlop={6}
-                  style={styles.chipRemove}
-                >
-                  <X size={10} color={colors.text.disabled} strokeWidth={3} />
-                </Pressable>
-              </Animated.View>
-            ))}
-          </ScrollView>
-
-          <View style={styles.chipBarRight}>
-            <Text style={styles.pinCount}>
-              {pins.length}/{maxPins}
-            </Text>
-            {onConfirm && (
-              <Pressable style={styles.confirmButton} onPress={onConfirm}>
-                <Text style={styles.confirmText}>Let's go</Text>
+                <X size={10} color={colors.text.disabled} strokeWidth={3} />
               </Pressable>
-            )}
-          </View>
-        </Animated.View>
-      )}
+            </Animated.View>
+          ))}
+        </ScrollView>
+
+        {pins.length > 0 && (
+          <Text style={styles.pinCount}>
+            {pins.length}/{maxPins}
+          </Text>
+        )}
+
+        {onConfirm && (
+          <Pressable style={styles.confirmButton} onPress={onConfirm}>
+            <ArrowRight size={20} color={GREEN_ACCENT} strokeWidth={2.5} />
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -394,10 +396,14 @@ const createStyles = (colors: Colors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 8,
+      height: 36,
+    },
+    chipScrollWrap: {
+      flex: 1,
     },
     chipScroll: {
       gap: 6,
-      paddingRight: 4,
+      alignItems: "center",
     },
     chip: {
       flexDirection: "row",
@@ -434,30 +440,22 @@ const createStyles = (colors: Colors) =>
       marginLeft: 2,
       padding: 2,
     },
-    chipBarRight: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-      flexShrink: 0,
-    },
     pinCount: {
       fontFamily: fontFamily.mono,
       fontSize: 10,
       color: colors.text.disabled,
       letterSpacing: 0.5,
+      flexShrink: 0,
     },
     confirmButton: {
       backgroundColor: GREEN_MUTED,
       borderRadius: radius.full,
       borderWidth: 1,
       borderColor: "rgba(134, 239, 172, 0.25)",
-      paddingHorizontal: 16,
-      paddingVertical: 6,
-    },
-    confirmText: {
-      fontFamily: fontFamily.mono,
-      fontSize: 12,
-      fontWeight: "700",
-      color: GREEN_ACCENT,
+      width: 36,
+      height: 36,
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
     },
   });
