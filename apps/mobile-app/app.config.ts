@@ -10,7 +10,6 @@ export default {
     icon: "./assets/app-icon.png",
     scheme: "myapp",
     userInterfaceStyle: "automatic",
-    newArchEnabled: true,
     updates: {
       enabled: true,
       fallbackToCacheTimeout: 0,

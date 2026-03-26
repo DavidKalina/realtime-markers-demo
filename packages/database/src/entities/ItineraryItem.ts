@@ -31,11 +31,11 @@ export class ItineraryItem {
   @Column({ name: "sort_order", type: "int" })
   sortOrder!: number;
 
-  @Column({ name: "start_time", type: "varchar", length: 5 })
-  startTime!: string; // "14:00"
+  @Column({ name: "start_time", type: "varchar", length: 5, nullable: true })
+  startTime?: string; // "14:00" — null for templates
 
-  @Column({ name: "end_time", type: "varchar", length: 5 })
-  endTime!: string; // "15:30"
+  @Column({ name: "end_time", type: "varchar", length: 5, nullable: true })
+  endTime?: string; // "15:30" — null for templates
 
   @Column({ type: "varchar", length: 500 })
   title!: string;

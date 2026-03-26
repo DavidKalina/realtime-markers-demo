@@ -106,11 +106,13 @@ function scopedForecast(
   items: ItineraryItemResponse[],
 ): { low: number; high: number; condition: string } | null {
   if (!forecast?.hourly?.length || !items.length) return null;
+  const itemsWithTimes = items.filter((i) => i.startTime && i.endTime);
+  if (!itemsWithTimes.length) return null;
   const startHour = Math.min(
-    ...items.map((i) => parseInt(i.startTime.split(":")[0], 10)),
+    ...itemsWithTimes.map((i) => parseInt(i.startTime!.split(":")[0], 10)),
   );
   const endHour = Math.max(
-    ...items.map((i) => parseInt(i.endTime.split(":")[0], 10)),
+    ...itemsWithTimes.map((i) => parseInt(i.endTime!.split(":")[0], 10)),
   );
   const relevant = forecast.hourly.filter(
     (h) => h.hour >= startHour && h.hour <= endHour,
@@ -888,9 +890,12 @@ const ItineraryDetailScreen = () => {
   );
   const sortedForStats = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
   const firstTime =
-    sortedForStats.length > 0 ? formatTime(sortedForStats[0].startTime) : null;
+    sortedForStats.length > 0 && sortedForStats[0].startTime
+      ? formatTime(sortedForStats[0].startTime)
+      : null;
   const lastTime =
-    sortedForStats.length > 0
+    sortedForStats.length > 0 &&
+    sortedForStats[sortedForStats.length - 1].endTime
       ? formatTime(sortedForStats[sortedForStats.length - 1].endTime)
       : null;
 
@@ -922,10 +927,14 @@ const ItineraryDetailScreen = () => {
               <View style={styles.heroLabelPill}>
                 <Text style={styles.heroLabelText}>ITINERARY</Text>
               </View>
-              <Text style={styles.heroDot}> · </Text>
-              <Text style={styles.heroDate}>
-                {formatDate(itinerary.plannedDate)}
-              </Text>
+              {itinerary.plannedDate && (
+                <>
+                  <Text style={styles.heroDot}> · </Text>
+                  <Text style={styles.heroDate}>
+                    {formatDate(itinerary.plannedDate)}
+                  </Text>
+                </>
+              )}
             </View>
           </Animated.View>
 
@@ -1239,10 +1248,12 @@ const ItineraryDetailScreen = () => {
                       <Text style={styles.itemDetailTitle}>
                         {selectedItem.title}
                       </Text>
-                      <Text style={styles.itemDetailTime}>
-                        {formatTime(selectedItem.startTime)} –{" "}
-                        {formatTime(selectedItem.endTime)}
-                      </Text>
+                      {selectedItem.startTime && selectedItem.endTime && (
+                        <Text style={styles.itemDetailTime}>
+                          {formatTime(selectedItem.startTime)} –{" "}
+                          {formatTime(selectedItem.endTime)}
+                        </Text>
+                      )}
                     </View>
                   </View>
 

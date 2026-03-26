@@ -44,12 +44,13 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         anchorStops,
         surpriseMe,
         timezone,
+        isTemplate,
       } = job.data as {
         userId: string;
         itineraryId?: string;
         title?: string;
         city: string;
-        plannedDate: string;
+        plannedDate?: string;
         budgetMin: number;
         budgetMax: number;
         durationHours: number;
@@ -60,6 +61,7 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         intention?: string;
         surpriseMe?: boolean;
         timezone?: string;
+        isTemplate?: boolean;
         anchorStops?: {
           coordinates: [number, number];
           label?: string;
@@ -81,7 +83,8 @@ export class GenerateItineraryHandler extends BaseJobHandler {
         itineraryId,
         title,
         city,
-        plannedDate: new Date(plannedDate),
+        plannedDate: plannedDate ? new Date(plannedDate) : undefined,
+        isTemplate,
         budgetMin,
         budgetMax,
         durationHours,

@@ -5,31 +5,18 @@ import {
 } from "../utils/handlerUtils";
 import { toDate } from "date-fns-tz";
 
-const MAX_ITINERARIES_PER_DAY = 3;
-
 export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
   const userId = user.id;
 
-  // Enforce daily itinerary creation cap (applies to all users including admins)
   const itineraryService = c.get("itineraryService");
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const todayCount = await itineraryService.countCreatedSince(userId, since);
-  if (todayCount >= MAX_ITINERARIES_PER_DAY) {
-    return c.json(
-      {
-        error: `You can create up to ${MAX_ITINERARIES_PER_DAY} itineraries per day. Please try again later.`,
-      },
-      429,
-    );
-  }
 
   const body = await c.req.json<{
     city: string;
-    plannedDate: string;
+    plannedDate?: string;
     budgetMin?: number;
     budgetMax?: number;
-    durationHours: number;
+    durationHours?: number;
     activityTypes?: string[];
     stopCount?: number;
     startTime?: string;
@@ -38,6 +25,8 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
     title?: string;
     surpriseMe?: boolean;
     timezone?: string;
+    isTemplate?: boolean;
+    constraints?: Record<string, unknown>;
     anchorStops?: {
       coordinates: [number, number];
       label?: string;
@@ -49,35 +38,38 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
     }[];
   }>();
 
+  const isTemplate = body.isTemplate === true;
   const hasAnchors =
     Array.isArray(body.anchorStops) && body.anchorStops.length > 0;
   if (!hasAnchors && (!body.city || typeof body.city !== "string")) {
     return c.json({ error: "city is required" }, 400);
   }
-  if (!body.plannedDate) {
-    return c.json({ error: "plannedDate is required" }, 400);
+
+  // Resolve planned date — optional for templates
+  let resolvedPlannedDate: Date | undefined;
+  if (body.plannedDate) {
+    // Accept YYYY-MM-DD (convert to midnight in provided timezone) or full ISO 8601
+    if (/^\d{4}-\d{2}-\d{2}$/.test(body.plannedDate)) {
+      const tz = body.timezone || "UTC";
+      resolvedPlannedDate = toDate(`${body.plannedDate}T00:00:00`, {
+        timeZone: tz,
+      });
+    } else {
+      resolvedPlannedDate = new Date(body.plannedDate);
+    }
+    if (isNaN(resolvedPlannedDate.getTime())) {
+      return c.json(
+        { error: "plannedDate must be a valid ISO 8601 date string" },
+        400,
+      );
+    }
+  } else if (!isTemplate) {
+    return c.json({ error: "plannedDate is required for non-template itineraries" }, 400);
   }
-  // Accept YYYY-MM-DD (convert to midnight in provided timezone) or full ISO 8601
-  let resolvedPlannedDate: Date;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(body.plannedDate)) {
-    const tz = body.timezone || "UTC";
-    resolvedPlannedDate = toDate(`${body.plannedDate}T00:00:00`, {
-      timeZone: tz,
-    });
-  } else {
-    resolvedPlannedDate = new Date(body.plannedDate);
-  }
-  if (isNaN(resolvedPlannedDate.getTime())) {
-    return c.json(
-      { error: "plannedDate must be a valid ISO 8601 date string" },
-      400,
-    );
-  }
-  if (
-    typeof body.durationHours !== "number" ||
-    body.durationHours < 0.5 ||
-    body.durationHours > 24
-  ) {
+
+  // durationHours defaults to 4 for templates
+  const durationHours = body.durationHours ?? (isTemplate ? 4 : 0);
+  if (durationHours < 0.5 || durationHours > 24) {
     return c.json({ error: "durationHours must be between 0.5 and 24" }, 400);
   }
 
@@ -86,11 +78,13 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
     city: body.city || "",
     plannedDate: resolvedPlannedDate,
     budgetMin: body.budgetMin ?? 0,
-    budgetMax: body.budgetMax ?? 0,
-    durationHours: body.durationHours,
+    budgetMax: body.budgetMax ?? (isTemplate ? 100 : 0),
+    durationHours,
     activityTypes: body.activityTypes ?? [],
     intention: body.intention,
     title: body.title,
+    isTemplate,
+    constraints: body.constraints,
   });
 
   const jobQueue = c.get("jobQueue");
@@ -100,12 +94,14 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
     creatorId: userId,
     itineraryId: shell.id,
     city: body.city || "",
-    plannedDate: resolvedPlannedDate,
+    ...(resolvedPlannedDate && { plannedDate: resolvedPlannedDate }),
     budgetMin: body.budgetMin ?? 0,
-    budgetMax: body.budgetMax ?? 0,
-    durationHours: body.durationHours,
+    budgetMax: body.budgetMax ?? (isTemplate ? 100 : 0),
+    durationHours,
     activityTypes: body.activityTypes ?? [],
     stopCount: body.stopCount ?? 0,
+    isTemplate,
+    ...(body.constraints && { constraints: body.constraints }),
     ...(body.timezone && { timezone: body.timezone }),
     ...(body.startTime && { startTime: body.startTime }),
     ...(body.endTime && { endTime: body.endTime }),

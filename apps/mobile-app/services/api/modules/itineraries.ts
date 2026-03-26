@@ -4,8 +4,8 @@ import { BaseApiClient } from "../base/ApiClient";
 export interface ItineraryItemResponse {
   id: string;
   sortOrder: number;
-  startTime: string;
-  endTime: string;
+  startTime?: string;
+  endTime?: string;
   title: string;
   description?: string;
   emoji?: string;
@@ -55,7 +55,7 @@ export interface DayForecast {
 export interface ItineraryResponse {
   id: string;
   city: string;
-  plannedDate: string;
+  plannedDate?: string;
   budgetMin: number;
   budgetMax: number;
   durationHours: number;
@@ -73,6 +73,8 @@ export interface ItineraryResponse {
   isPublished?: boolean;
   timesAdopted?: number;
   sourceItineraryId?: string;
+  isTemplate?: boolean;
+  constraints?: Record<string, unknown>;
 }
 
 export interface BrowseItineraryResponse {
@@ -106,10 +108,10 @@ export interface AnchorStopParam {
 
 export interface CreateItineraryParams {
   city?: string;
-  plannedDate: string; // ISO 8601 datetime string (e.g. "2026-03-25T00:00:00-06:00")
+  plannedDate?: string; // ISO 8601 datetime string — optional for templates
   budgetMin?: number;
   budgetMax?: number;
-  durationHours: number;
+  durationHours?: number; // defaults to 4 for templates
   activityTypes?: string[];
   stopCount?: number;
   startTime?: string; // HH:MM (24h)
@@ -119,6 +121,8 @@ export interface CreateItineraryParams {
   anchorStops?: AnchorStopParam[];
   surpriseMe?: boolean;
   timezone?: string;
+  isTemplate?: boolean;
+  constraints?: Record<string, unknown>;
 }
 
 export class ItinerariesModule extends BaseApiModule {

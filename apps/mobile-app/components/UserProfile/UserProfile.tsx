@@ -56,7 +56,6 @@ import AdventureDnaChart from "./AdventureDnaChart";
 import StreakCalendar from "./StreakCalendar";
 import AdventureFootprint from "./AdventureFootprint";
 import PendingItineraries from "./PendingItineraries";
-import DailyQuota from "./DailyQuota";
 import PersonalScoreHero from "./PersonalScoreHero";
 import NextBadgeProgress from "./NextBadgeProgress";
 import AdventurePreferences from "./AdventurePreferences";
@@ -202,9 +201,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const renderAdventuresTab = () => (
     <>
       {/* Daily Itinerary Quota */}
-      <View style={styles.tabSection}>
-        <DailyQuota onRefetchRef={quotaRefetchRef} />
-      </View>
 
       {/* Pending Itineraries */}
       <View style={styles.tabSection}>

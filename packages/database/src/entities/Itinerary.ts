@@ -37,8 +37,8 @@ export class Itinerary {
   @Column({ type: "varchar", length: 255 })
   city!: string;
 
-  @Column({ name: "planned_date", type: "timestamptz" })
-  plannedDate!: Date;
+  @Column({ name: "planned_date", type: "timestamptz", nullable: true })
+  plannedDate?: Date;
 
   @Column({
     name: "budget_min",
@@ -83,6 +83,12 @@ export class Itinerary {
 
   @Column({ type: "varchar", length: 50, nullable: true })
   intention?: string;
+
+  @Column({ name: "is_template", type: "boolean", default: false })
+  isTemplate!: boolean;
+
+  @Column({ type: "jsonb", nullable: true })
+  constraints?: Record<string, unknown>;
 
   @Column({ type: "jsonb", nullable: true })
   forecast?: Record<string, unknown>;

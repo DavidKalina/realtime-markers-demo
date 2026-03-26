@@ -17,6 +17,7 @@ async function scheduleReminders(
   itinerary: ItineraryResponse,
 ): Promise<string[]> {
   const ids: string[] = [];
+  if (!itinerary.plannedDate) return ids;
   const plannedDate = new Date(itinerary.plannedDate);
   const now = new Date();
 
@@ -166,6 +167,7 @@ export default function CalendarPrompt() {
 }
 
 async function promptCalendar(itinerary: ItineraryResponse) {
+  if (!itinerary.plannedDate) return;
   // Don't prompt if the planned date is today (already happening)
   const today = formatInTimeZone(new Date(), getUserTimezone(), "yyyy-MM-dd");
   const plannedDay = itinerary.plannedDate.split("T")[0];

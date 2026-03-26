@@ -34,7 +34,7 @@ export interface CreateItineraryInput {
   itineraryId?: string; // Pre-created shell record ID
   title?: string; // Suggested title (e.g. from Get Away preview)
   city: string;
-  plannedDate: Date; // ISO 8601 timestamptz
+  plannedDate?: Date; // ISO 8601 timestamptz — null for templates
   budgetMin: number;
   budgetMax: number;
   durationHours: number;
@@ -46,6 +46,8 @@ export interface CreateItineraryInput {
   anchorStops?: AnchorStopInput[];
   surpriseMe?: boolean;
   timezone?: string;
+  isTemplate?: boolean; // true = sidequest template (no date/times)
+  constraints?: Record<string, unknown>; // AI-modifiable parameters
 }
 
 // Abbreviated keys from LLM to save output tokens
@@ -308,7 +310,7 @@ class ItineraryServiceImpl implements ItineraryService {
       userId,
       city,
       title: input.title,
-      plannedDate: input.plannedDate,
+      plannedDate: input.plannedDate ?? undefined,
       budgetMin: input.budgetMin,
       budgetMax: input.budgetMax,
       durationHours: input.durationHours,
@@ -316,6 +318,8 @@ class ItineraryServiceImpl implements ItineraryService {
       intention: input.intention,
       status: ItineraryStatus.GENERATING,
       timezone: input.timezone,
+      isTemplate: input.isTemplate ?? false,
+      constraints: input.constraints,
     });
     await itineraryRepo.save(shell);
     return shell;
@@ -377,11 +381,9 @@ class ItineraryServiceImpl implements ItineraryService {
 
     try {
       const tz = input.timezone ?? "UTC";
-      const plannedDateStr = formatInTimeZone(
-        input.plannedDate,
-        tz,
-        "yyyy-MM-dd",
-      );
+      const plannedDateStr = input.plannedDate
+        ? formatInTimeZone(input.plannedDate, tz, "yyyy-MM-dd")
+        : formatInTimeZone(new Date(), tz, "yyyy-MM-dd");
 
       // Fetch user's onboarding preferences (skip for "Surprise Me" — keep it fresh)
       let userPreferences: {
@@ -1528,7 +1530,7 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
               if (v.openingHours && v.openingHours.length > 0) {
                 // Find the hours for the planned day
                 const dayOfWeek = new Date(
-                  input.plannedDate,
+                  input.plannedDate ?? new Date(),
                 ).toLocaleDateString("en-US", { weekday: "long" });
                 const dayHours = v.openingHours.find((h) =>
                   h.startsWith(dayOfWeek),
@@ -1723,11 +1725,9 @@ Respond ONLY with valid JSON. Use abbreviated keys to save tokens:
 
     const currentTime = formatInTimeZone(new Date(), tz, "HH:mm");
 
-    const plannedDateStr = formatInTimeZone(
-      input.plannedDate,
-      tz,
-      "yyyy-MM-dd",
-    );
+    const plannedDateStr = input.plannedDate
+      ? formatInTimeZone(input.plannedDate, tz, "yyyy-MM-dd")
+      : today;
     const isToday = plannedDateStr === today;
 
     const effectiveStartTime =
