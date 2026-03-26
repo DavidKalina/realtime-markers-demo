@@ -1,7 +1,6 @@
 import React, { useCallback } from "react";
-import { Platform, View } from "react-native";
+import { View } from "react-native";
 import { useRouter, usePathname } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { apiClient } from "@/services/ApiClient";
@@ -116,23 +115,17 @@ export default function ConversationOverlay() {
 
   const colors = useColors();
   const pathname = usePathname();
-  const insets = useSafeAreaInsets();
   const isMapScreen = pathname === "/" || pathname === "/index";
 
   if (!visible) return null;
 
   // On the map screen, float over the map so expanding doesn't shrink it
   if (isMapScreen) {
-    // Match ActionBar total height: 60 base + iOS safe area padding
-    const actionBarHeight =
-      60 +
-      (Platform.OS === "ios" ? insets.bottom + insets.bottom * 1.45 : 0);
-
     return (
       <View
         style={{
           position: "absolute",
-          bottom: actionBarHeight,
+          bottom: 84,
           left: 0,
           right: 0,
           zIndex: 10,
