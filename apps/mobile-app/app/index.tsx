@@ -32,7 +32,7 @@ import {
 } from "react-native";
 import RAnimated from "react-native-reanimated";
 import AnchorMarkers from "@/components/Markers/AnchorMarkers";
-import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
+import QuestDialogBox from "@/components/Quest/QuestDialogBox";
 import ItineraryRouteLayer from "@/components/Itinerary/ItineraryRouteLayer";
 import ItineraryWaypoints from "@/components/Itinerary/ItineraryWaypoints";
 import AdventureHUD from "@/components/Itinerary/AdventureHUD";
@@ -43,9 +43,7 @@ import { useSimulateItinerary } from "@/hooks/useSimulateItinerary";
 import { useRecentItineraries } from "@/hooks/useRecentItineraries";
 import { useFabAnimations } from "@/hooks/useFabAnimations";
 import { useScanAreaRipple } from "@/hooks/useScanAreaRipple";
-import { useAnchorPlanning } from "@/hooks/useAnchorPlanning";
 import { useMapInteractions } from "@/hooks/useMapInteractions";
-import { useEventBroker } from "@/hooks/useEventBroker";
 import { useDistrictMapData } from "@/hooks/useDistrictMapData";
 import { useMapWebSocket } from "@/hooks/useMapWebSocket";
 import { webSocketService } from "@/services/WebSocketService";
@@ -121,7 +119,6 @@ function HomeScreenContent() {
   const mapRef = useRef<MapboxGL.MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const router = useRouter();
-  const { publish } = useEventBroker();
   const activeItinerary = useActiveItineraryStore((s) => s.itinerary);
   const { mapStyle, isPitched, currentStyle } = useMapStyle();
   const { activeCount } = useJobProgressContext();
@@ -222,28 +219,6 @@ function HomeScreenContent() {
   const { handleMapPress: baseMapPress } = useMapInteractions({
     selectedItineraryIndex: null,
     handleCarouselDismiss: () => {},
-  });
-
-  // ── Anchor planning ─────────────────────────────────────────────────
-  const {
-    anchorAnchors,
-    anchorCity,
-    nearbyPlacesInput,
-    handleMapLongPress,
-    handleNearbySelect,
-    handleNearbyKeepPin,
-    handleNearbyDismiss,
-    handleAnchorEdit,
-    handleAnchorRemove,
-    handleItineraryResult,
-    handleAnchorDismiss,
-    handleSearchFlyTo,
-    handleSearchPlaceAnchor,
-  } = useAnchorPlanning({
-    cameraRef,
-    zoomLevel,
-    activeItinerary,
-    publish,
   });
 
   // ── District map data + focus ──────────────────────────────────────
@@ -506,7 +481,6 @@ function HomeScreenContent() {
         {isMapSafeToMount && isAppActive && (
           <MapboxGL.MapView
             onPress={handleMapPress}
-            onLongPress={handleMapLongPress}
             ref={mapRef}
             styleURL={mapStyle}
             onDidFinishLoadingMap={handleMapReady}
@@ -595,23 +569,7 @@ function HomeScreenContent() {
           />
         )}
         {!selectedItem && !activeItinerary && !selectedCommunityItinerary && (
-          <>
-            <ItineraryDialogBox
-              city={anchorCity ?? undefined}
-              anchorStops={anchorAnchors.length > 0 ? anchorAnchors : undefined}
-              onDismiss={handleAnchorDismiss}
-              onItineraryResult={handleItineraryResult}
-              nearbyPlaces={nearbyPlacesInput}
-              onNearbySelect={handleNearbySelect}
-              onNearbyKeepPin={handleNearbyKeepPin}
-              onNearbyDismiss={handleNearbyDismiss}
-              onFlyTo={handleSearchFlyTo}
-              onSearchPlaceAnchor={handleSearchPlaceAnchor}
-              onAnchorEdit={handleAnchorEdit}
-              onAnchorRemove={handleAnchorRemove}
-              style={planBannerStyles.dialogBox}
-            />
-          </>
+          <QuestDialogBox style={planBannerStyles.dialogBox} />
         )}
         {activeItinerary && (
           <AdventureHUD style={planBannerStyles.dialogBox} />

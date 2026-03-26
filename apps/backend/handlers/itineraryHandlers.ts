@@ -6,6 +6,7 @@ import {
 import { toDate } from "date-fns-tz";
 
 const MAX_ITINERARIES_PER_DAY = 3;
+const MAX_SIDEQUESTS_PER_DAY = 20;
 
 export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
@@ -124,6 +125,86 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
           note: a.note,
         })),
       }),
+  });
+
+  return c.json(
+    {
+      itineraryId: shell.id,
+      jobId,
+      streamUrl: `/api/jobs/${jobId}/stream`,
+    },
+    202,
+  );
+});
+
+export const createSidequestHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const userId = user.id;
+
+  const itineraryService = c.get("itineraryService");
+
+  const body = await c.req.json<{
+    prompt: string;
+    radiusMiles: number;
+    budgetMax: number;
+    latitude: number;
+    longitude: number;
+    timezone?: string;
+  }>();
+
+  // Validate inputs
+  if (typeof body.prompt !== "string" || body.prompt.length > 200) {
+    return c.json(
+      { error: "prompt must be a string of 200 characters or fewer" },
+      400,
+    );
+  }
+  if (
+    typeof body.radiusMiles !== "number" ||
+    body.radiusMiles < 0.5 ||
+    body.radiusMiles > 25
+  ) {
+    return c.json(
+      { error: "radiusMiles must be a number between 0.5 and 25" },
+      400,
+    );
+  }
+  if (
+    typeof body.budgetMax !== "number" ||
+    body.budgetMax < 0 ||
+    body.budgetMax > 500
+  ) {
+    return c.json(
+      { error: "budgetMax must be a number between 0 and 500" },
+      400,
+    );
+  }
+  if (typeof body.latitude !== "number" || typeof body.longitude !== "number") {
+    return c.json({ error: "latitude and longitude are required" }, 400);
+  }
+
+  // Create shell record
+  const shell = await itineraryService.createSidequestShell(userId, {
+    prompt: body.prompt,
+    radiusMiles: body.radiusMiles,
+    budgetMax: body.budgetMax,
+    latitude: body.latitude,
+    longitude: body.longitude,
+    timezone: body.timezone,
+  });
+
+  // Enqueue generation job
+  const jobQueue = c.get("jobQueue");
+  const jobId = await jobQueue.enqueue("generate_sidequest", {
+    userId,
+    creatorId: userId,
+    itineraryId: shell.id,
+    prompt: body.prompt,
+    radiusMiles: body.radiusMiles,
+    budgetMax: body.budgetMax,
+    latitude: body.latitude,
+    longitude: body.longitude,
+    ...(body.timezone && { timezone: body.timezone }),
   });
 
   return c.json(

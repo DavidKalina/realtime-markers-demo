@@ -2,6 +2,7 @@ import { type DataSource, Not, IsNull, LessThan, MoreThan, MoreThanOrEqual } fro
 import {
   Itinerary,
   ItineraryItem,
+  ItineraryMode,
   ItineraryStatus,
   User,
   normalizeCity,
@@ -45,6 +46,16 @@ export interface CreateItineraryInput {
   intention?: string; // recharge | explore | socialize | move | learn | treat_yourself | lock_in
   anchorStops?: AnchorStopInput[];
   surpriseMe?: boolean;
+  timezone?: string;
+}
+
+export interface CreateSidequestInput {
+  itineraryId?: string; // Pre-created shell record ID
+  prompt: string; // Free-text quest description, e.g. "Coffee followed by longboarding"
+  radiusMiles: number; // Distance slider value, 0.5-25
+  budgetMax: number; // From budget tier selector
+  latitude: number; // User's current location
+  longitude: number;
   timezone?: string;
 }
 
@@ -214,6 +225,15 @@ export interface ItineraryService {
       hasMore: boolean;
     };
   }>;
+  createSidequestShell(
+    userId: string,
+    input: CreateSidequestInput,
+  ): Promise<Itinerary>;
+  createSidequest(
+    userId: string,
+    input: CreateSidequestInput,
+  ): Promise<Itinerary>;
+  countSidequestsCreatedSince(userId: string, since: Date): Promise<number>;
 }
 
 export interface InternalItinerary {
@@ -685,6 +705,7 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
       ],
       temperature: 1.0,
       max_tokens: 800,
+      response_format: { type: "json_object" },
     });
 
     let raw = completion.choices[0].message.content?.trim();
@@ -2105,6 +2126,7 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
         ],
         temperature: 0.3,
         max_tokens: 100,
+        response_format: { type: "json_object" },
       });
 
       const raw = completion.choices[0].message.content?.trim();
@@ -2197,6 +2219,463 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
         });
       }
     }
+  }
+
+  // ── Sidequest methods ──────────────────────────────────────────────
+
+  async countSidequestsCreatedSince(
+    userId: string,
+    since: Date,
+  ): Promise<number> {
+    return this.dataSource.getRepository(Itinerary).count({
+      where: {
+        userId,
+        mode: ItineraryMode.SIDEQUEST,
+        status: ItineraryStatus.READY,
+        createdAt: MoreThanOrEqual(since),
+      },
+    });
+  }
+
+  async createSidequestShell(
+    userId: string,
+    input: CreateSidequestInput,
+  ): Promise<Itinerary> {
+    const itineraryRepo = this.dataSource.getRepository(Itinerary);
+
+    // Reverse geocode for city
+    let city = "Unknown";
+    try {
+      city = await this.geocodingService.reverseGeocodeCityState(
+        input.latitude,
+        input.longitude,
+      );
+    } catch (err) {
+      console.warn("[ItineraryService] Sidequest city lookup failed:", err);
+    }
+
+    const shell = itineraryRepo.create({
+      userId,
+      city: normalizeCity(city),
+      prompt: input.prompt,
+      radiusMiles: input.radiusMiles,
+      mode: ItineraryMode.SIDEQUEST,
+      status: ItineraryStatus.GENERATING,
+      plannedDate: new Date(),
+      budgetMin: 0,
+      budgetMax: input.budgetMax,
+      durationHours: 2,
+      activityTypes: [],
+    });
+    await itineraryRepo.save(shell);
+    return shell;
+  }
+
+  async createSidequest(
+    userId: string,
+    input: CreateSidequestInput,
+  ): Promise<Itinerary> {
+    const itineraryRepo = this.dataSource.getRepository(Itinerary);
+    const itemRepo = this.dataSource.getRepository(ItineraryItem);
+
+    // Load or create shell
+    let itinerary: Itinerary;
+    if (input.itineraryId) {
+      const existing = await itineraryRepo.findOne({
+        where: { id: input.itineraryId, userId },
+      });
+      if (!existing) throw new Error("Sidequest shell not found");
+      itinerary = existing;
+    } else {
+      itinerary = await this.createSidequestShell(userId, input);
+    }
+
+    try {
+      // Reverse geocode for city context
+      const city =
+        itinerary.city ||
+        (await this.geocodingService.reverseGeocodeCityState(
+          input.latitude,
+          input.longitude,
+        ));
+      const cityCenter = { lat: input.latitude, lng: input.longitude };
+      const radiusMeters = Math.round(input.radiusMiles * 1609.34);
+
+      // ── Agentic tool-calling loop ───────────────────────────────────
+      const agentResult = await this.runSidequestAgent(
+        input,
+        city,
+        cityCenter,
+        radiusMeters,
+      );
+
+      // Validate and enrich items (reuse existing method)
+      const validatedItems = await this.validateAndEnrichItems(
+        agentResult.llmResult.items,
+        [],
+        agentResult.verifiedVenues,
+        city,
+        cityCenter,
+        agentResult.trails,
+      );
+      console.log(
+        `[ItineraryService] Sidequest after validation: ${validatedItems.length} items`,
+      );
+      const llmResult = agentResult.llmResult;
+
+      // Save items
+      const items = validatedItems.map((vi, idx) =>
+        itemRepo.create({
+          itineraryId: itinerary.id,
+          sortOrder: idx,
+          startTime: vi.item.startTime,
+          endTime: vi.item.endTime,
+          title: vi.item.title,
+          description: vi.item.description,
+          emoji: vi.item.emoji,
+          estimatedCost: vi.item.estimatedCost ?? undefined,
+          venueName: vi.item.venueName ?? undefined,
+          venueAddress:
+            vi.geo?.canonicalAddress ?? vi.item.venueAddress ?? undefined,
+          travelNote: vi.item.travelNote ?? undefined,
+          venueCategory: vi.item.venueCategory ?? undefined,
+          whyThisStop: vi.item.whyThisStop ?? undefined,
+          proTip: vi.item.proTip ?? undefined,
+          latitude: vi.geo?.latitude ?? undefined,
+          longitude: vi.geo?.longitude ?? undefined,
+          googlePlaceId: vi.geo?.googlePlaceId ?? undefined,
+          googleRating: vi.geo?.googleRating ?? undefined,
+        }),
+      );
+      await itemRepo.save(items);
+
+      // Update itinerary with title, summary, and READY status
+      itinerary.title = llmResult.title;
+      itinerary.summary = llmResult.summary;
+      itinerary.status = ItineraryStatus.READY;
+      await itineraryRepo.save(itinerary);
+
+      itinerary.items = items;
+
+      // Generate enhancements async (embedding, categories, entry points, publish to map)
+      this.generateItineraryEnhancements(itinerary.id, items).catch((err) => {
+        console.error(
+          `[ItineraryService] Failed to generate sidequest enhancements for ${itinerary.id}:`,
+          err,
+        );
+      });
+
+      return itinerary;
+    } catch (error) {
+      console.error("[ItineraryService] Sidequest generation failed:", error);
+      itinerary.status = ItineraryStatus.FAILED;
+      await itineraryRepo.save(itinerary);
+      throw error;
+    }
+  }
+
+  /**
+   * Agentic sidequest generation using the Responses API with web search +
+   * function tools.  The LLM can browse the web for discovery, call
+   * search_places for structured venue data / coordinates, and submit_quest
+   * when it's satisfied.
+   */
+  private async runSidequestAgent(
+    input: CreateSidequestInput,
+    city: string,
+    cityCenter: { lat: number; lng: number },
+    radiusMeters: number,
+  ): Promise<{
+    llmResult: LLMItineraryResponse;
+    verifiedVenues: VerifiedVenue[];
+    trails: Trail[];
+  }> {
+    const now = new Date();
+    const hour = now.getHours();
+    const dayOfWeek = now.toLocaleDateString("en-US", { weekday: "long" });
+    const MAX_TOOL_ROUNDS = 10;
+
+    type ResponseInputItem =
+      import("openai/resources/responses/responses").ResponseInputItem;
+    type Tool = import("openai/resources/responses/responses").Tool;
+    type ResponseOutputItem =
+      import("openai/resources/responses/responses").ResponseOutputItem;
+
+    const promptText = input.prompt
+      ? `User wants: "${input.prompt}"`
+      : "User wants a surprise — craft something unexpected and delightful based on what's nearby.";
+
+    const tools: Tool[] = [
+      // Built-in web search — for discovery, reviews, blog posts, trail info
+      {
+        type: "web_search",
+        user_location: {
+          type: "approximate",
+          city,
+          country: "US",
+        },
+        search_context_size: "medium",
+      },
+      // Google Places — for structured venue data with coordinates
+      {
+        type: "function",
+        name: "search_places",
+        description:
+          "Search Google Places for verified venues matching a query near a city/town. Returns name, address, rating, and exact coordinates. Use this to verify and get coordinates for places you discover via web search.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: {
+              type: "string",
+              description:
+                "Search query, e.g. 'Poudre River Trail' or 'specialty coffee roaster'",
+            },
+            near: {
+              type: "string",
+              description:
+                "City/town to search near, e.g. 'Fort Collins, CO'",
+            },
+          },
+          required: ["query", "near"],
+        },
+        strict: false,
+      },
+      // Submit the final quest
+      {
+        type: "function",
+        name: "submit_quest",
+        description:
+          "Submit the final sidequest with 1-2 stops. Call this once you've found and verified great venues.",
+        parameters: {
+          type: "object",
+          properties: {
+            t: { type: "string", description: "Quest title (3-6 words, evocative, no venue names)" },
+            s: { type: "string", description: "Quest summary (1-2 sentences)" },
+            items: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  st: { type: "string", description: "Start time HH:MM" },
+                  et: { type: "string", description: "End time HH:MM" },
+                  t: { type: "string", description: "Waypoint title" },
+                  d: { type: "string", description: "Description ≤10 words" },
+                  e: { type: "string", description: "Single emoji" },
+                  ec: { type: "number", description: "Estimated cost" },
+                  vn: { type: "string", description: "Venue name (exact from search_places results)" },
+                  va: { type: "string", description: "Venue address (exact from search_places results)" },
+                  eid: { type: ["string", "null"] },
+                  tn: { type: ["string", "null"], description: "Travel note" },
+                  vc: { type: "string", description: "Category: cafe|trail|park|restaurant|bar|museum|gallery|market|venue|attraction|other" },
+                  wts: { type: "string", description: "Why this stop was chosen" },
+                  pt: { type: "string", description: "Practical tip" },
+                },
+                required: ["st", "et", "t", "d", "e", "ec", "vn", "va", "vc", "wts", "pt"],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ["t", "s", "items"],
+          additionalProperties: false,
+        },
+        strict: false,
+      },
+    ];
+
+    const instructions = `You are a Sidequest Master. Craft a 1-2 stop real-world sidequest for an adventurer.
+
+You have web search for discovery and search_places for getting verified venue data with exact coordinates.
+
+APPROACH:
+1. Use web search to research the best options for the user's request within their ${input.radiusMiles}-mile radius. Look for highly-rated, interesting, or unique spots — blog recommendations, AllTrails reviews, local guides, etc.
+2. Don't just pick the closest results — explore the full radius. Search for options in different nearby towns.
+3. Once you've found promising spots, call search_places to verify them. IMPORTANT: set the "near" parameter to the actual city/town where the venue is located (e.g. "Fort Collins, CO"), NOT the user's home city. This ensures accurate results.
+4. Call submit_quest with 1-2 stops using ONLY venues confirmed by search_places.
+
+CONSTRAINTS:
+- 1-2 stops max.
+- Budget: $${input.budgetMax} (0 = free only).
+- Use EXACT venue names and addresses from search_places — do not invent venues.
+- Current time: ${hour}:00, ${dayOfWeek} — don't pick closed venues.
+- Title: 3-6 words, evocative. Summary: 1-2 sentences.
+- whyThisStop: why this venue over alternatives. proTip: practical tip (parking, best entrance, what to order).`;
+
+    const inputItems: ResponseInputItem[] = [
+      {
+        role: "user",
+        content: `${promptText}\nLocation: ${city} (${input.latitude.toFixed(4)}, ${input.longitude.toFixed(4)})\nRadius: ${input.radiusMiles} miles\nBudget: $${input.budgetMax}`,
+      },
+    ];
+
+    // Accumulated data from tool calls
+    const allVenues: VerifiedVenue[] = [];
+    const seenVenueIds = new Set<string>();
+
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      let response: Awaited<ReturnType<typeof this.openAIService.executeResponseWithTools>>;
+      try {
+        response = await this.openAIService.executeResponseWithTools(
+          {
+            model: OpenAIModel.GPT54Nano,
+            instructions,
+            input: inputItems,
+            tools,
+            temperature: 0.8,
+            max_output_tokens: 2500,
+          },
+          "sidequest_agent",
+        );
+      } catch (err: unknown) {
+        // Retry once on transient OpenAI 500s
+        const status = (err as { status?: number }).status;
+        if (status && status >= 500 && round < MAX_TOOL_ROUNDS - 1) {
+          console.warn(
+            `[SidequestAgent] OpenAI ${status} on round ${round + 1}, retrying...`,
+          );
+          await new Promise((r) => setTimeout(r, 1000));
+          continue;
+        }
+        throw err;
+      }
+
+      console.log(
+        `[SidequestAgent] Round ${round + 1}: status=${response.status}, output items=${response.output.length}`,
+      );
+
+      // Check if the model called any of our function tools
+      const functionCalls = response.output.filter(
+        (item): item is import("openai/resources/responses/responses").ResponseFunctionToolCall =>
+          item.type === "function_call",
+      );
+
+      // If no function calls and status is completed, the model is done
+      // (web_search is handled automatically by the API)
+      if (functionCalls.length === 0) {
+        if (response.status === "completed") {
+          console.log(
+            `[SidequestAgent] Model completed without submit_quest, retrying...`,
+          );
+          // Push all output back as input and ask it to submit
+          inputItems.push(
+            ...response.output as ResponseInputItem[],
+            {
+              role: "user",
+              content: "Now call submit_quest with your final 1-2 stop quest based on what you found.",
+            },
+          );
+          continue;
+        }
+        break;
+      }
+
+      // Feed all output items back as input (including web_search results the API resolved)
+      const feedbackItems: ResponseInputItem[] = [
+        ...response.output as ResponseInputItem[],
+      ];
+
+      // Process our function tool calls
+      for (const call of functionCalls) {
+        let args: Record<string, unknown>;
+        try {
+          args = JSON.parse(call.arguments);
+        } catch {
+          feedbackItems.push({
+            type: "function_call_output",
+            call_id: call.call_id,
+            output: "Invalid JSON arguments",
+          });
+          continue;
+        }
+
+        console.log(
+          `[SidequestAgent] Round ${round + 1}: ${call.name}(${JSON.stringify(args)})`,
+        );
+
+        if (call.name === "search_places") {
+          const query = args.query as string;
+          const near = args.near as string;
+          try {
+            const venues =
+              await this.geocodingService.searchPlacesByCategory(
+                query,
+                near,
+                cityCenter,
+                5,
+                radiusMeters,
+              );
+            for (const v of venues) {
+              if (!seenVenueIds.has(v.placeId)) {
+                seenVenueIds.add(v.placeId);
+                allVenues.push(v);
+              }
+            }
+            const resultText =
+              venues.length > 0
+                ? venues
+                    .map((v) => {
+                      const [lng, lat] = v.coordinates;
+                      const dist = this.haversineDistanceMiles(
+                        input.latitude,
+                        input.longitude,
+                        lat,
+                        lng,
+                      );
+                      return `- ${v.name} (${v.address}) ~${dist.toFixed(1)}mi${v.rating ? ` ★${v.rating}` : ""}`;
+                    })
+                    .join("\n")
+                : "No results found for this search.";
+            feedbackItems.push({
+              type: "function_call_output",
+              call_id: call.call_id,
+              output: resultText,
+            });
+          } catch (err) {
+            feedbackItems.push({
+              type: "function_call_output",
+              call_id: call.call_id,
+              output: `Search failed: ${err instanceof Error ? err.message : "unknown error"}`,
+            });
+          }
+        } else if (call.name === "submit_quest") {
+          console.log(
+            `[SidequestAgent] Quest submitted after ${round + 1} rounds`,
+          );
+          const questData = args as unknown as LLMItineraryResponseRaw;
+          if (questData.items && questData.items.length > 2) {
+            questData.items = questData.items.slice(0, 2);
+          }
+          return {
+            llmResult: expandLLMResponse(questData),
+            verifiedVenues: allVenues,
+            trails: [], // Trails discovered via web search, verified via search_places
+          };
+        }
+      }
+
+      // Feed results back for the next round
+      inputItems.push(...feedbackItems);
+    }
+
+    throw new Error(
+      "Sidequest agent failed to submit a quest within the allowed rounds",
+    );
+  }
+
+  private haversineDistanceMiles(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
+    const R = 3958.8; // Earth radius in miles
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
   private async publishItineraryChange(

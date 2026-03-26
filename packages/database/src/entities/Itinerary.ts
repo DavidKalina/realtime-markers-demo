@@ -20,6 +20,11 @@ export enum ItineraryStatus {
   FAILED = "FAILED",
 }
 
+export enum ItineraryMode {
+  ITINERARY = "ITINERARY",
+  SIDEQUEST = "SIDEQUEST",
+}
+
 @Entity("itineraries")
 export class Itinerary {
   @PrimaryGeneratedColumn("uuid")
@@ -76,6 +81,26 @@ export class Itinerary {
     default: ItineraryStatus.GENERATING,
   })
   status!: ItineraryStatus;
+
+  @Index()
+  @Column({
+    type: "enum",
+    enum: ItineraryMode,
+    default: ItineraryMode.ITINERARY,
+  })
+  mode!: ItineraryMode;
+
+  @Column({ type: "text", nullable: true })
+  prompt?: string;
+
+  @Column({
+    name: "radius_miles",
+    type: "numeric",
+    precision: 5,
+    scale: 1,
+    nullable: true,
+  })
+  radiusMiles?: number;
 
   @Index({ unique: true })
   @Column({ name: "share_token", type: "uuid", nullable: true })

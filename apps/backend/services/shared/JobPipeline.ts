@@ -8,7 +8,8 @@ export type JobType =
   | "process_flyer"
   | "cleanup_outdated_events"
   | "import_external_events"
-  | "generate_itinerary";
+  | "generate_itinerary"
+  | "generate_sidequest";
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
 export interface PipelineStep<TStepId extends string> {
@@ -115,6 +116,16 @@ export const ITINERARY_PIPELINE = definePipeline<ItineraryStepId>(
     { id: "fetch_events", label: "Finding events", weight: 1 },
     { id: "generate", label: "Building itinerary", weight: 6 },
     { id: "save", label: "Saving plan", weight: 1 },
+  ],
+);
+
+export type SidequestStepId = "generate" | "save";
+
+export const SIDEQUEST_PIPELINE = definePipeline<SidequestStepId>(
+  "generate_sidequest",
+  [
+    { id: "generate", label: "Forging your quest", weight: 5 },
+    { id: "save", label: "Inscribing the quest log", weight: 1 },
   ],
 );
 

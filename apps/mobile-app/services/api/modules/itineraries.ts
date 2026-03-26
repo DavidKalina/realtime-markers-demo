@@ -121,9 +121,36 @@ export interface CreateItineraryParams {
   timezone?: string;
 }
 
+export interface CreateSidequestParams {
+  prompt: string;
+  radiusMiles: number;
+  budgetMax: number;
+  latitude: number;
+  longitude: number;
+  timezone?: string;
+}
+
 export class ItinerariesModule extends BaseApiModule {
   constructor(client: BaseApiClient) {
     super(client);
+  }
+
+  async createSidequest(
+    params: CreateSidequestParams,
+  ): Promise<{ itineraryId: string; jobId: string; streamUrl: string }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/itineraries/sidequest`,
+      {
+        method: "POST",
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse<{
+      itineraryId: string;
+      jobId: string;
+      streamUrl: string;
+    }>(response);
   }
 
   async create(

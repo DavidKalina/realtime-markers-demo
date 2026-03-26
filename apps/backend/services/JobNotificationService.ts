@@ -178,6 +178,15 @@ export class JobNotificationService {
         };
       }
 
+      case "generate_sidequest": {
+        const questTitle = (result.title as string) || "Your sidequest";
+        const waypointCount = (result.itemCount as number) || 0;
+        return {
+          title: "Quest ready, adventurer!",
+          body: `"${questTitle}" — ${waypointCount} waypoint${waypointCount > 1 ? "s" : ""} await. Tap to embark.`,
+        };
+      }
+
       default:
         // Don't send notifications for other job types
         return null;
@@ -253,6 +262,14 @@ export class JobNotificationService {
           title: "Itinerary generation failed",
           body:
             message || "We couldn't build your itinerary. Please try again.",
+        };
+
+      case "generate_sidequest":
+        return {
+          title: "Quest forging failed",
+          body:
+            message ||
+            "The quest master couldn't complete your request. Try again.",
         };
 
       default:

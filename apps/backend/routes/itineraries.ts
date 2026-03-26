@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import {
   createItineraryHandler,
+  createSidequestHandler,
   listItinerariesHandler,
   getItineraryHandler,
   deleteItineraryHandler,
@@ -61,6 +62,7 @@ itineraryRouter.get("/browse", readRateLimit, browseItinerariesHandler);
 itineraryRouter.post("/suggestions", suggestRateLimit, suggestItinerariesHandler);
 itineraryRouter.get("/:id", readRateLimit, getItineraryHandler);
 itineraryRouter.post("/", writeRateLimit, createItineraryHandler);
+itineraryRouter.post("/sidequest", writeRateLimit, createSidequestHandler);
 itineraryRouter.post("/deactivate", writeRateLimit, deactivateItineraryHandler);
 itineraryRouter.post("/:id/share", writeRateLimit, shareItineraryHandler);
 itineraryRouter.post("/:id/activate", writeRateLimit, activateItineraryHandler);

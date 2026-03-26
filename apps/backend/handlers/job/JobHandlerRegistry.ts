@@ -12,6 +12,7 @@ import type { TicketmasterService } from "../../services/TicketmasterService";
 import type { CategoryProcessingService } from "../../services/CategoryProcessingService";
 import type { IEmbeddingService } from "../../services/event-processing/interfaces/IEmbeddingService";
 import { GenerateItineraryHandler } from "./GenerateItineraryHandler";
+import { GenerateSidequestHandler } from "./GenerateSidequestHandler";
 import { SeedItineraryHandler } from "./SeedItineraryHandler";
 import type { ItineraryService } from "../../services/ItineraryService";
 import type { DataSource } from "typeorm";
@@ -50,6 +51,7 @@ export class JobHandlerRegistry {
     // Register itinerary handlers
     if (this.itineraryService) {
       this.registerHandler(new GenerateItineraryHandler(this.itineraryService));
+      this.registerHandler(new GenerateSidequestHandler(this.itineraryService));
       if (this.dataSource) {
         this.registerHandler(
           new SeedItineraryHandler(this.itineraryService, this.dataSource, this.redisService),

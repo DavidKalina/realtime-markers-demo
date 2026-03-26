@@ -1141,12 +1141,14 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
     city: string,
     cityCenter: { lat: number; lng: number },
     maxResults = 5,
+    radiusMeters = 15000,
   ): Promise<VerifiedVenue[]> {
     try {
-      // Check Redis cache first (keyed by category + city + center rounded to ~1km)
+      // Check Redis cache first (keyed by category + city + center + radius rounded to ~1km)
       const roundedLat = Math.round(cityCenter.lat * 100) / 100;
       const roundedLng = Math.round(cityCenter.lng * 100) / 100;
-      const cacheKey = `${GoogleGeocodingServiceImpl.PLACES_CACHE_PREFIX}${category}:${city}:${roundedLat},${roundedLng}`;
+      const roundedRadius = Math.round(radiusMeters / 1000);
+      const cacheKey = `${GoogleGeocodingServiceImpl.PLACES_CACHE_PREFIX}${category}:${city}:${roundedLat},${roundedLng}:${roundedRadius}`;
       const cached = await this.redisService.get<VerifiedVenue[]>(cacheKey);
       if (cached) {
         console.log(`[searchPlacesByCategory] Cache hit for "${category}" in ${city}`);
@@ -1154,6 +1156,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
       }
 
       const url = "https://places.googleapis.com/v1/places:searchText";
+      const clampedRadius = Math.min(50000, Math.max(500, radiusMeters));
       const requestBody = {
         textQuery: `${category} in ${city}`,
         locationBias: {
@@ -1162,7 +1165,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
               latitude: cityCenter.lat,
               longitude: cityCenter.lng,
             },
-            radius: 15000.0,
+            radius: clampedRadius,
           },
         },
       };
