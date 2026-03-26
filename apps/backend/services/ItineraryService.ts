@@ -47,6 +47,7 @@ export interface CreateItineraryInput {
   surpriseMe?: boolean;
   timezone?: string;
   isTemplate?: boolean; // true = sidequest template (no date/times)
+  timeOfDay?: string; // right_now | morning | afternoon | evening
   constraints?: Record<string, unknown>; // AI-modifiable parameters
 }
 
@@ -1700,6 +1701,7 @@ SOURCING RULES (STRICT):
 
 VENUE AVAILABILITY:
 - Verified venues include their hours for the planned day. Do NOT include venues that are CLOSED on the planned day (e.g., Chick-fil-A on Sunday).
+- If a time of day is specified, only include venues that are OPEN during that window. A breakfast spot won't work for an evening plan.
 - Price levels are shown when available ($, $$, $$$, $$$$). Factor these into the budget — don't fill a $30 budget with $$$ restaurants.
 - If there are no scanned events, build the sidequest entirely from town staples — beloved local restaurants, iconic landmarks, popular parks, and must-visit spots.
 - If not enough options exist, create FEWER stops — never pad with fake events.
@@ -1744,9 +1746,17 @@ Respond ONLY with valid JSON. Use abbreviated keys to save tokens:
 
     const radiusMiles = input.radiusMiles ?? 10;
 
+    const timeOfDayDescriptions: Record<string, string> = {
+      right_now: "starting immediately — only suggest places open right now",
+      morning: "morning outing (roughly 7am–12pm) — prioritize breakfast spots, coffee, morning-friendly venues",
+      afternoon: "afternoon adventure (roughly 12pm–5pm) — lunch spots, matinees, daytime activities",
+      evening: "evening plans (roughly 5pm–late) — dinner spots, bars, nightlife, sunset-friendly venues",
+    };
+    const timeOfDayHint = input.timeOfDay ? timeOfDayDescriptions[input.timeOfDay] ?? input.timeOfDay : "";
+
     const userPrompt = `Area: within ${radiusMiles} miles of center point (near ${cityName})
 Date: ${plannedDateStr}
-Duration: ~${input.durationHours} hours
+Duration: ~${input.durationHours} hours${timeOfDayHint ? `\nTime of day: ${timeOfDayHint}` : ""}
 Budget: ${budgetRange}
 Activity preferences: ${input.activityTypes.join(", ") || "anything fun"}${intention ? `\nIntention: ${intention.replace("_", " ")}` : ""}${input.stopCount > 0 ? `\nNumber of stops: exactly ${input.stopCount}` : ""}
 

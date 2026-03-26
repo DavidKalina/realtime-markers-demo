@@ -14,7 +14,7 @@ export interface BuildSidequestStepsOptions {
 
 /**
  * Build the standard sidequest conversation steps.
- * Vibes → Intention → Where (near me / pick on map) → Generating
+ * Vibes → Intention → Duration → Time of day → Where (near me / pick on map) → Generating
  */
 export function buildSidequestSteps(
   options?: BuildSidequestStepsOptions,
@@ -44,7 +44,8 @@ export function buildSidequestSteps(
         prompt: `Hey ${name}! Looks like you're into ${labels.join(", ")}. What's the intention?`,
         options: intentOpts,
         hideInput: true,
-        onResponse: (intention) => buildWhereStep(preSelected, intention, labels as string[]),
+        onResponse: (intention) =>
+          buildTimingStep(preSelected, intention, labels as string[]),
       },
     ];
   }
@@ -65,12 +66,30 @@ export function buildSidequestSteps(
             prompt: `${labels.join(", ")} — nice combo. What's the intention?`,
             options: intentOpts,
             hideInput: true,
-            onResponse: (intention) => buildWhereStep(picked, intention, labels as string[]),
+            onResponse: (intention) =>
+              buildTimingStep(picked, intention, labels as string[]),
           },
         ];
       },
     },
   ];
+}
+
+/** Duration + time-of-day on one screen — rendered via TimingPickerContent */
+function buildTimingStep(
+  activityTypes: string[],
+  intention: string,
+  labels: string[],
+): ConversationStep {
+  return {
+    prompt: "How much time do you have, and when?",
+    contentType: "timing-picker" as const,
+    hideInput: true,
+    onResponse: () => {
+      // duration + timeOfDay already merged into store by TimingPickerContent
+      return buildWhereStep(activityTypes, intention, labels);
+    },
+  };
 }
 
 /** Shared "where" step — unified map picker for both near-me and pin selection */
@@ -80,7 +99,7 @@ function buildWhereStep(
   labels: string[],
 ): ConversationStep {
   const store = useConversationStore.getState();
-  store.setData({ activityTypes, intention: _intention });
+  store.mergeData({ activityTypes, intention: _intention });
   store.setMapPins([]);
 
   return {

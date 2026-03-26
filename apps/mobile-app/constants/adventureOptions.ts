@@ -35,3 +35,17 @@ export const PACE_OPTIONS: AdventureOption[] = [
   { label: "Balanced", value: "balanced", emoji: "⚖️" },
   { label: "Send It", value: "send_it", emoji: "🚀" },
 ];
+
+export const DURATION_OPTIONS: AdventureOption[] = [
+  { label: "1-2 hours", value: "1.5", emoji: "⚡" },
+  { label: "Half day", value: "4", emoji: "🌤️" },
+  { label: "Full day", value: "8", emoji: "☀️" },
+  { label: "All day+", value: "12", emoji: "🌅" },
+];
+
+export const TIME_OF_DAY_OPTIONS: AdventureOption[] = [
+  { label: "Right now", value: "right_now", emoji: "🚀" },
+  { label: "Morning", value: "morning", emoji: "🌅" },
+  { label: "Afternoon", value: "afternoon", emoji: "☀️" },
+  { label: "Evening", value: "evening", emoji: "🌙" },
+];

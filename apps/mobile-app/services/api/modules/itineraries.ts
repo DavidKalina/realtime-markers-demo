@@ -124,6 +124,7 @@ export interface CreateItineraryParams {
   surpriseMe?: boolean;
   timezone?: string;
   isTemplate?: boolean;
+  timeOfDay?: string;
   constraints?: Record<string, unknown>;
 }
 

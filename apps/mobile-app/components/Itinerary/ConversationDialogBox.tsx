@@ -8,6 +8,7 @@ import React, {
 import {
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -48,12 +49,15 @@ import {
   type ContentType,
   type EngineState,
 } from "@/hooks/useConversationEngine";
+import type { ItineraryResponse } from "@/services/api/modules/itineraries";
+import ItineraryTimeline from "./ItineraryTimeline";
 
 /* ── Constants ─────────────────────────────────────────────── */
 
 const COLLAPSED_HEIGHT = 44;
 const SHEEN_WIDTH = 100;
 const EXPANDED_HEIGHT = 450;
+const EXPANDED_RESULT_HEIGHT = 620;
 const GREEN_ACCENT = "#86efac";
 const GREEN_MUTED = "rgba(134, 239, 172, 0.12)";
 
@@ -494,6 +498,157 @@ const genStyles = StyleSheet.create({
   },
 });
 
+/* ── Weather condition emoji ────────────────────────────── */
+
+function conditionEmoji(condition: string): string {
+  const c = condition.toLowerCase();
+  if (c.includes("thunder")) return "\u26C8\uFE0F";
+  if (c.includes("snow") || c.includes("sleet")) return "\u2744\uFE0F";
+  if (c.includes("rain") || c.includes("drizzle") || c.includes("shower"))
+    return "\uD83C\uDF27\uFE0F";
+  if (c.includes("fog") || c.includes("mist")) return "\uD83C\uDF2B\uFE0F";
+  if (c.includes("partly") || c.includes("partial")) return "\u26C5";
+  if (c.includes("cloud") || c.includes("overcast")) return "\u2601\uFE0F";
+  if (c.includes("clear") || c.includes("sunny")) return "\u2600\uFE0F";
+  return "\uD83C\uDF24\uFE0F";
+}
+
+/* ── Result content (shown after itinerary generation) ──── */
+
+const ResultContent = React.memo(function ResultContent({
+  result,
+  colors,
+  onViewItinerary,
+  onBuildAnother,
+}: {
+  result: ItineraryResponse;
+  colors: Colors;
+  onViewItinerary?: () => void;
+  onBuildAnother?: () => void;
+}) {
+  const scrollRef = useRef<ScrollView>(null);
+  const rs = useMemo(() => createResultStyles(colors), [colors]);
+
+  const forecast = result.forecast;
+  const items = result.items ?? [];
+
+  const forecastChips = useMemo(() => {
+    if (!forecast) return null;
+    return {
+      low: forecast.tempLowF,
+      high: forecast.tempHighF,
+      condition: forecast.dominantCondition,
+    };
+  }, [forecast]);
+
+  return (
+    <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} bounces>
+      <Text style={rs.title}>{result.title}</Text>
+      {result.summary && <Text style={rs.summary}>{result.summary}</Text>}
+      {forecastChips && (
+        <View style={rs.forecastRow}>
+          <View style={rs.forecastChip}>
+            <Text style={rs.forecastText}>
+              {conditionEmoji(forecastChips.condition)}{" "}
+              {forecastChips.low === forecastChips.high
+                ? `${forecastChips.high}°F`
+                : `${forecastChips.low}–${forecastChips.high}°F`}
+            </Text>
+          </View>
+          <View style={rs.forecastChip}>
+            <Text style={rs.forecastText}>{forecastChips.condition}</Text>
+          </View>
+        </View>
+      )}
+      <ItineraryTimeline items={items} scrollRef={scrollRef} />
+      <View style={rs.footerRow}>
+        <Pressable style={rs.resetButton} onPress={onBuildAnother}>
+          <Text style={rs.resetButtonText}>Build another</Text>
+        </Pressable>
+        <Pressable style={rs.viewButton} onPress={onViewItinerary}>
+          <Text style={rs.viewButtonText}>View Itinerary</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
+  );
+});
+
+const createResultStyles = (colors: Colors) =>
+  StyleSheet.create({
+    title: {
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.md,
+      color: colors.text.primary,
+      fontWeight: "700",
+    },
+    summary: {
+      fontFamily: fontFamily.mono,
+      fontSize: 13,
+      color: colors.text.secondary,
+      marginTop: 4,
+      marginBottom: spacing.sm,
+      lineHeight: 19,
+    },
+    forecastRow: {
+      flexDirection: "row",
+      gap: 6,
+      marginBottom: spacing.sm,
+    },
+    forecastChip: {
+      alignSelf: "flex-start",
+      borderWidth: 1,
+      borderColor: "rgba(253, 186, 116, 0.25)",
+      borderRadius: radius.full,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    forecastText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 11,
+      fontWeight: "700",
+      color: "#f9a8d4",
+    },
+    footerRow: {
+      flexDirection: "row",
+      gap: 8,
+      marginTop: spacing.lg,
+      marginBottom: spacing.sm,
+    },
+    resetButton: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.border.accent,
+      borderRadius: radius.md,
+      paddingVertical: 10,
+      alignItems: "center",
+    },
+    resetButtonText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 12,
+      color: colors.text.secondary,
+      fontWeight: "600",
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+    viewButton: {
+      flex: 1,
+      backgroundColor: GREEN_MUTED,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: "rgba(134, 239, 172, 0.25)",
+      paddingVertical: 10,
+      alignItems: "center",
+    },
+    viewButtonText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 12,
+      color: GREEN_ACCENT,
+      fontWeight: "700",
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+  });
+
 /* ── Option row (compact list item with radio or checkbox) ── */
 
 const OptionRow = React.memo(function OptionRow({
@@ -575,6 +730,12 @@ export interface ConversationDialogBoxProps {
   onComplete?: (responses: Record<number, string>) => void;
   /** Called on dismiss */
   onDismiss?: () => void;
+  /** Itinerary result to render inline after generation completes */
+  itineraryResult?: ItineraryResponse | null;
+  /** Called when user taps "View Itinerary" in the result */
+  onViewItinerary?: () => void;
+  /** Called when user taps "Build another" in the result */
+  onBuildAnother?: () => void;
   /** Stream speed override (ms per character, default 25) */
   streamSpeed?: number;
   /**
@@ -598,6 +759,9 @@ export default function ConversationDialogBox({
   meta,
   onComplete,
   onDismiss,
+  itineraryResult,
+  onViewItinerary,
+  onBuildAnother,
   streamSpeed,
   renderContent,
 }: ConversationDialogBoxProps) {
@@ -645,6 +809,9 @@ export default function ConversationDialogBox({
       return () => clearTimeout(t);
     }
   }, [engine.isActive, engine.waitingForUser, engine.isStreaming, engine.displayText]);
+
+  // ── Result phase: animate in when itineraryResult arrives ──
+  const [showResult, setShowResult] = useState(false);
 
   // Animation shared values
   const animHeight = useSharedValue(
@@ -729,6 +896,44 @@ export default function ConversationDialogBox({
       handleExpand();
     }
   }, [autoExpand]);
+
+  // Reset result phase when itineraryResult is cleared — animate back to conversation height
+  useEffect(() => {
+    if (!itineraryResult && showResult) {
+      contentOpacity.value = withTiming(0, { duration: 150 }, (fin) => {
+        if (!fin) return;
+        animHeight.value = withTiming(
+          EXPANDED_HEIGHT,
+          { duration: 350, easing: Easing.out(Easing.cubic) },
+          (fin2) => {
+            if (!fin2) return;
+            scheduleOnRN(setShowResult, false);
+            contentOpacity.value = withTiming(1, { duration: 200 });
+          },
+        );
+      });
+    }
+  }, [itineraryResult, showResult]);
+
+  // Transition to result when itineraryResult arrives
+  useEffect(() => {
+    if (!itineraryResult || showResult) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Fade out current content, expand height, then fade in result
+    contentOpacity.value = withTiming(0, { duration: 200 }, (fin) => {
+      if (!fin) return;
+      animHeight.value = withTiming(
+        EXPANDED_RESULT_HEIGHT,
+        { duration: 400, easing: Easing.out(Easing.cubic) },
+        (fin2) => {
+          if (!fin2) return;
+          scheduleOnRN(setShowResult, true);
+          contentOpacity.value = withTiming(1, { duration: 250 });
+        },
+      );
+    });
+  }, [itineraryResult, showResult]);
 
   // Sheen while collapsed
   useEffect(() => {
@@ -970,9 +1175,9 @@ export default function ConversationDialogBox({
         </Reanimated.View>
       )}
 
-      {/* ═══ Expanded content: 3-zone layout ═══ */}
+      {/* ═══ Expanded content ═══ */}
       <Reanimated.View style={[styles.expandedContainer, contentAnimStyle]}>
-        {phase === "active" && (
+        {phase === "active" && !showResult && (
           <>
             {/* Header */}
             <View style={styles.headerRow}>
@@ -1024,6 +1229,26 @@ export default function ConversationDialogBox({
                 </Pressable>
               </Reanimated.View>
             )}
+          </>
+        )}
+
+        {/* ═══ Result phase: itinerary inline ═══ */}
+        {showResult && itineraryResult && (
+          <>
+            <View style={styles.headerRow}>
+              <Text style={styles.headerTitle}>Your Sidequest</Text>
+              <Pressable onPress={handleDismiss} style={styles.dismissButton}>
+                <Text style={styles.dismissText}>✕</Text>
+              </Pressable>
+            </View>
+            <View style={styles.contentZone}>
+              <ResultContent
+                result={itineraryResult}
+                colors={colors}
+                onViewItinerary={onViewItinerary}
+                onBuildAnother={onBuildAnother}
+              />
+            </View>
           </>
         )}
       </Reanimated.View>

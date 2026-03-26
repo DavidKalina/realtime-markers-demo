@@ -27,6 +27,7 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
     surpriseMe?: boolean;
     timezone?: string;
     isTemplate?: boolean;
+    timeOfDay?: string;
     constraints?: Record<string, unknown>;
     anchorStops?: {
       coordinates: [number, number];
@@ -114,6 +115,7 @@ export const createItineraryHandler: Handler = withErrorHandling(async (c) => {
     ...(body.timezone && { timezone: body.timezone }),
     ...(body.intention && { intention: body.intention }),
     ...(body.title && { title: body.title }),
+    ...(body.timeOfDay && { timeOfDay: body.timeOfDay }),
     ...(body.surpriseMe && { surpriseMe: true }),
     ...(body.anchorStops &&
       body.anchorStops.length > 0 && {

@@ -5,6 +5,8 @@ import type { MapPin } from "@/components/Itinerary/MapPickerContent";
 export interface ConversationData {
   activityTypes: string[];
   intention: string;
+  durationHours?: number;
+  timeOfDay?: string;
   mapPins?: MapPin[];
 }
 
