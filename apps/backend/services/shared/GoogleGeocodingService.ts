@@ -4,8 +4,26 @@ import { normalizeCity } from "@realtime-markers/database";
 import { OpenAIModel, type OpenAIService } from "./OpenAIService";
 import type { RedisService } from "./RedisService";
 import type { Point } from "geojson";
-import type { LocationResolutionResult } from "../event-processing/dto/LocationResolutionResult";
-import type { ILocationResolutionService } from "../event-processing/interfaces/ILocationResolutionService";
+
+export interface LocationResolutionResult {
+  address: string;
+  coordinates: Point;
+  confidence: number;
+  timezone?: string;
+  resolvedAt?: string;
+  locationNotes?: string;
+  error?: string;
+}
+
+interface ILocationResolutionService {
+  resolveLocation(
+    locationClues: string[],
+    userContext?: {
+      cityState?: string;
+      coordinates?: { lat: number; lng: number };
+    },
+  ): Promise<LocationResolutionResult>;
+}
 
 interface CachedLocation {
   cluesHash: string;
@@ -123,6 +141,16 @@ export interface GoogleGeocodingService extends ILocationResolutionService {
       coordinates: [number, number];
     };
   }>;
+  searchEntryPoint(
+    lat: number,
+    lng: number,
+    venueCategory: string,
+  ): Promise<{
+    latitude: number;
+    longitude: number;
+    name: string;
+    placeId: string;
+  } | null>;
 }
 
 export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {

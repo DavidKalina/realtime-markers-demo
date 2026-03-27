@@ -10,19 +10,13 @@ export function setupContext(
   services: ServiceContainer,
 ): void {
   app.use("*", async (c, next) => {
-    c.set("eventService", services.eventService);
-    c.set("eventProcessingService", services.eventProcessingService);
     c.set("jobQueue", services.jobQueue);
     c.set("redisClient", services.redisService.getClient());
     c.set("redisService", services.redisService);
-    c.set("userPreferencesService", services.userPreferencesService);
     c.set("storageService", services.storageService);
     c.set("authService", services.authService);
     c.set("geocodingService", services.geocodingService);
-    c.set("embeddingService", services.embeddingService);
-    c.set("categoryProcessingService", services.categoryProcessingService);
     c.set("emailService", services.emailService);
-    c.set("thirdSpaceScoreService", services.thirdSpaceScoreService);
     c.set("sidequestService", services.sidequestService);
     c.set("sidequestCheckinService", services.sidequestCheckinService);
     c.set("overpassService", services.overpassService);

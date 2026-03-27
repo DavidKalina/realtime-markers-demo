@@ -9,12 +9,10 @@ export type AuthHandler = (
 // Helper function to get services from context
 function getServices(c: Context<AppContext>) {
   const authService = c.get("authService");
-  const userPreferencesService = c.get("userPreferencesService");
   const redisService = c.get("redisService");
 
   return {
     authService,
-    userPreferencesService,
     redisService,
   };
 }

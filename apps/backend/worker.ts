@@ -9,34 +9,13 @@ import {
   createRedisService,
   type RedisService,
 } from "./services/shared/RedisService";
-import {
-  createEventService,
-  type EventService,
-} from "./services/EventServiceRefactored";
-import {
-  createEventProcessingService,
-  type EventProcessingService,
-} from "./services/EventProcessingService";
-import {
-  createStorageService,
-  type StorageService,
-} from "./services/shared/StorageService";
 import { JobHandlerRegistry } from "./handlers/job/JobHandlerRegistry";
 import { Redis } from "ioredis";
-import { createCategoryProcessingService } from "./services/CategoryProcessingService";
-import { EventSimilarityService } from "./services/event-processing/EventSimilarityService";
-import { createImageProcessingService } from "./services/event-processing/ImageProcessingService";
-import { createEventExtractionService } from "./services/event-processing/EventExtractionService";
 import { createGoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
 import { createConfigService } from "./services/shared/ConfigService";
-import { Category, Event } from "@realtime-markers/database";
 import { createEmbeddingService } from "./services/shared/EmbeddingService";
-import { createEmbeddingCacheService } from "./services/shared/EmbeddingCacheService";
 import { createOpenAIService } from "./services/shared/OpenAIService";
 import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
-import { createEventCacheService } from "./services/shared/EventCacheService";
-import { createImageProcessingCacheService } from "./services/shared/ImageProcessingCacheService";
-import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
 
 
 // Constants
@@ -48,9 +27,6 @@ const JOB_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 let activeJobs = 0;
 let jobQueue: JobQueue;
 let redisService: RedisService;
-let eventService: EventService;
-let eventProcessingService: EventProcessingService;
-let storageService: StorageService;
 let jobHandlerRegistry: JobHandlerRegistry;
 
 async function initializeWorker() {
@@ -70,7 +46,7 @@ async function initializeWorker() {
   // Create RedisService instance
   redisService = createRedisService(redisClient);
 
-  // Initialize job queue first
+  // Initialize job queue
   jobQueue = createJobQueue({
     redisService,
   });
@@ -78,93 +54,19 @@ async function initializeWorker() {
   // Initialize config service
   const configService = createConfigService();
 
-  // Initialize repositories
-  const categoryRepository = AppDataSource.getRepository(Category);
-  const eventRepository = AppDataSource.getRepository(Event);
-
-  // Initialize category processing service
-  const categoryProcessingService = createCategoryProcessingService({
-    categoryRepository,
-    openAIService: createOpenAIService({
-      redisService,
-      openAICacheService: createOpenAICacheService(),
-      dataSource: AppDataSource,
-    }),
-    categoryCacheService: createCategoryCacheService(redisClient),
-  });
-
-  // Create OpenAIService instance with dependencies
+  // Create OpenAIService
   const openAIService = createOpenAIService({
     redisService,
     openAICacheService: createOpenAICacheService(),
     dataSource: AppDataSource,
   });
 
-  // Create EventCacheService instance
-  const eventCacheService = createEventCacheService(redisClient);
-
-  // Create ImageProcessingCacheService instance
-  const imageProcessingCacheService = createImageProcessingCacheService();
-
-  // Initialize event similarity service
-  const eventSimilarityService = new EventSimilarityService(
-    eventRepository,
-    configService,
-  );
-
-  // Create the image processing service
-  const imageProcessingService = createImageProcessingService(
-    openAIService,
-    imageProcessingCacheService,
-  );
-
-  // Create the event extraction service
-  const eventExtractionService = createEventExtractionService({
-    categoryProcessingService,
-    locationResolutionService: createGoogleGeocodingService(
-      openAIService,
-      redisService,
-    ),
-    openAIService,
-    configService,
-  });
-
-  // Create embedding service with dependencies
+  // Create embedding service
   const embeddingService = createEmbeddingService({
     openAIService,
     configService,
-    embeddingCacheService: createEmbeddingCacheService({ configService }),
   });
 
-  // Create event processing service with all dependencies
-  eventProcessingService = createEventProcessingService({
-    categoryProcessingService,
-    eventSimilarityService,
-    locationResolutionService: createGoogleGeocodingService(
-      openAIService,
-      redisService,
-    ),
-    imageProcessingService,
-    embeddingService,
-    configService,
-    eventExtractionService,
-    jobQueue,
-  });
-
-  // Initialize event service
-  eventService = createEventService({
-    dataSource: AppDataSource,
-    redisService,
-    locationService: createGoogleGeocodingService(openAIService, redisService),
-    eventCacheService,
-    openaiService: openAIService,
-    embeddingService,
-  });
-
-  // Initialize storage service
-  storageService = createStorageService();
-
-  // Initialize job handler registry
   const geocodingService = createGoogleGeocodingService(
     openAIService,
     redisService,
@@ -186,14 +88,8 @@ async function initializeWorker() {
   });
 
   jobHandlerRegistry = new JobHandlerRegistry(
-    eventProcessingService,
-    eventService,
     jobQueue,
     redisService,
-    storageService,
-    geocodingService,
-    categoryProcessingService,
-    embeddingService,
     sidequestService,
   );
 
@@ -236,19 +132,14 @@ async function processJobs() {
     const job = typeof jobData === "string" ? JSON.parse(jobData) : jobData;
     console.log(`[Worker] Processing job ${jobId} of type ${job.type}`);
 
-    // Note: We don't update job progress here because:
-    // 1. Jobs start with "pending" status when created
-    // 2. Job handlers will update status and progress when they start
-    // 3. This avoids duplicate SSE messages
-
     // Get handler for job type
     const handler = jobHandlerRegistry.getHandler(job.type);
     if (!handler) {
       throw new Error(`No handler found for job type: ${job.type}`);
     }
 
-    // Process the job with progress updates
-    await processJobWithProgress(jobId, job, handler);
+    // Process the job
+    await handler.handle(jobId, job, jobHandlerRegistry.getContext());
 
     // Clear timeout
     clearTimeout(timeoutId);
@@ -258,44 +149,19 @@ async function processJobs() {
     clearTimeout(timeoutId);
     console.error(`Error processing job ${jobId}:`, error);
 
-    // Update job with error
     await jobQueue.failJob(
       jobId,
       error instanceof Error ? error.message : "Unknown error",
-      "We encountered an error while processing your event. Please try again with a different image or contact support if the issue persists.",
+      "Something went wrong. Please try again.",
     );
   } finally {
     activeJobs--;
   }
 }
 
-async function processJobWithProgress(
-  jobId: string,
-  job: JobData,
-  handler: {
-    handle: (
-      jobId: string,
-      job: JobData,
-      context: { jobQueue: JobQueue; redisService: RedisService },
-    ) => Promise<void>;
-  },
-): Promise<void> {
-  // Note: We don't need to update status to "processing" here because:
-  // 1. Jobs start with "pending" status when created
-  // 2. Job handlers will update status to "processing" when they start
-  // 3. This avoids duplicate SSE messages
-
-  // Process the job
-  await handler.handle(jobId, job, jobHandlerRegistry.getContext());
-
-  // Note: Job handlers are responsible for calling completeJob or failJob
-  // No need to call completeJob here as it would override the handler's result
-}
-
 // Start the worker
 initializeWorker()
   .then(() => {
-    // Start polling for jobs
     console.log("Starting job polling...");
     setInterval(processJobs, POLLING_INTERVAL);
   })

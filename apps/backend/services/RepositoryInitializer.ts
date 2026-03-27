@@ -1,23 +1,9 @@
 import { DataSource, Repository } from "typeorm";
-import {
-  Category,
-  Event,
-  User,
-  UserEventSave,
-  UserEventDiscovery,
-  UserEventRsvp,
-  Filter,
-} from "@realtime-markers/database";
+import { User } from "@realtime-markers/database";
 import { ensureDatabaseReadyForServices } from "../utils/databaseInitializer";
 
 export interface RepositoryContainer {
-  categoryRepository: Repository<Category>;
-  eventRepository: Repository<Event>;
   userRepository: Repository<User>;
-  userEventSaveRepository: Repository<UserEventSave>;
-  userEventDiscoveryRepository: Repository<UserEventDiscovery>;
-  userEventRsvpRepository: Repository<UserEventRsvp>;
-  filterRepository: Repository<Filter>;
 }
 
 export class RepositoryInitializer {
@@ -44,14 +30,7 @@ export class RepositoryInitializer {
     // Create repositories only once
     if (!this.repositories) {
       this.repositories = {
-        categoryRepository: this.dataSource.getRepository(Category),
-        eventRepository: this.dataSource.getRepository(Event),
         userRepository: this.dataSource.getRepository(User),
-        userEventSaveRepository: this.dataSource.getRepository(UserEventSave),
-        userEventDiscoveryRepository:
-          this.dataSource.getRepository(UserEventDiscovery),
-        userEventRsvpRepository: this.dataSource.getRepository(UserEventRsvp),
-        filterRepository: this.dataSource.getRepository(Filter),
       };
     }
 

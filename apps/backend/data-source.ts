@@ -5,14 +5,6 @@ import { DataSource } from "typeorm";
 // Import all entities from the shared package
 import {
   User,
-  Event,
-  Category,
-  Filter,
-  QueryAnalytics,
-  UserEventView,
-  UserEventDiscovery,
-  UserEventRsvp,
-  UserEventSave,
   UserPushToken,
   LlmUsageLog,
   Sidequest,
@@ -35,14 +27,6 @@ const AppDataSource = new DataSource({
   url: process.env.DATABASE_URL,
   entities: [
     User,
-    Event,
-    Category,
-    Filter,
-    QueryAnalytics,
-    UserEventView,
-    UserEventDiscovery,
-    UserEventRsvp,
-    UserEventSave,
     UserPushToken,
     LlmUsageLog,
     Sidequest,
@@ -99,7 +83,7 @@ const ensureDatabaseReady = async (): Promise<void> => {
     console.log("Ensuring database is fully ready...");
 
     // Check that essential tables exist (only the most critical ones)
-    const essentialTables = ["users", "events", "categories"];
+    const essentialTables = ["users", "sidequests"];
 
     for (const tableName of essentialTables) {
       const tableExists = await AppDataSource.query(

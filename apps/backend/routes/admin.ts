@@ -26,41 +26,6 @@ adminRouter.use(
 adminRouter.use("*", authMiddleware);
 adminRouter.use("*", adminAuthMiddleware);
 
-adminRouter.get("/images/:id/image", async (c) => {
-  try {
-    const id = c.req.param("id");
-    const eventService = c.get("eventService");
-    const storageService = c.get("storageService"); // Make sure this is available in context
-
-    const event = await eventService.getEventById(id);
-
-    if (!event) {
-      return c.json({ error: "Event not found" }, 404);
-    }
-
-    if (!event.originalImageUrl) {
-      return c.json(
-        { error: "No original image available for this event" },
-        404,
-      );
-    }
-
-    // Generate a signed URL that expires in 1 hour
-    const signedUrl = await storageService.getSignedUrl(
-      event.originalImageUrl,
-      3600,
-    );
-
-    return c.json({
-      eventId: event.id,
-      originalImageUrl: signedUrl,
-    });
-  } catch (error) {
-    console.error("Error fetching original image:", error);
-    return c.json({ error: "Failed to fetch original image" }, 500);
-  }
-});
-
 adminRouter.get("/cache/health", async (c) => {
   try {
     const redisClient = c.get("redisClient");
@@ -116,30 +81,6 @@ adminRouter.get("/health", async (c) => {
   } catch (error) {
     console.error("Error checking system health:", error);
     return c.json({ error: "Failed to check system health" }, 500);
-  }
-});
-
-// Recalculate scan and save counts
-adminRouter.post("/recalculate-counts", async (c) => {
-  try {
-    const eventService = c.get("eventService");
-    const result = await eventService.recalculateCounts();
-
-    return c.json({
-      success: true,
-      message: "Counts recalculated successfully",
-      result,
-    });
-  } catch (error) {
-    console.error("Error recalculating counts:", error);
-    return c.json(
-      {
-        success: false,
-        error: "Failed to recalculate counts",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      500,
-    );
   }
 });
 

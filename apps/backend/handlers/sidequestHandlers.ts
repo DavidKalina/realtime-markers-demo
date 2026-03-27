@@ -60,7 +60,7 @@ export const createSidequestHandler: Handler = withErrorHandling(async (c) => {
   }
 
   // Create shell record
-  const shell = await sidequestService.createSidequestShell(userId, {
+  const shell = await sidequestService.createShell(userId, {
     prompt: body.prompt,
     radiusMiles: body.radiusMiles,
     budgetMax: body.budgetMax,

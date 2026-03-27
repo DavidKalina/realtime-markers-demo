@@ -4,40 +4,23 @@ import { createConfigService } from "./shared/ConfigService";
 import { createRedisService } from "./shared/RedisService";
 import { createOpenAIService } from "./shared/OpenAIService";
 import { createOpenAICacheService } from "./shared/OpenAICacheService";
-import { createEventCacheService } from "./shared/EventCacheService";
-import { createImageProcessingCacheService } from "./shared/ImageProcessingCacheService";
-import { createCategoryCacheService } from "./shared/CategoryCacheService";
-import { createEmbeddingCacheService } from "./shared/EmbeddingCacheService";
-import { createCategoryProcessingService } from "./CategoryProcessingService";
 import { createEmbeddingService } from "./shared/EmbeddingService";
-import { createEventService } from "./EventServiceRefactored";
-import { EventSimilarityService } from "./event-processing/EventSimilarityService";
-import { createImageProcessingService } from "./event-processing/ImageProcessingService";
 import { createStorageService } from "./shared/StorageService";
-import { createEventExtractionService } from "./event-processing/EventExtractionService";
-import { createEventProcessingService } from "./EventProcessingService";
-import { createUserPreferencesService } from "./UserPreferences";
 import { createAuthService } from "./AuthService";
 import { createEmailService, MockEmailService } from "./shared/EmailService";
 import { createGoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import { createJobQueue } from "./JobQueue";
 
-import { createThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 import { RepositoryInitializer } from "./RepositoryInitializer";
-import type { EventService } from "./EventServiceRefactored";
-import type { EventProcessingService } from "./EventProcessingService";
-import type { CategoryProcessingService } from "./CategoryProcessingService";
-import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import type { StorageService } from "./shared/StorageService";
 import type { AuthService } from "./AuthService";
 import type { OpenAIService } from "./shared/OpenAIService";
-import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
+import type { EmbeddingServiceImpl } from "./shared/EmbeddingService";
 import type { EmailService } from "./shared/EmailService";
 import type { JobQueue } from "./JobQueue";
 import type { RedisService } from "./shared/RedisService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 
-import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 import { pushNotificationService } from "./PushNotificationService";
 import { createSidequestService } from "./SidequestService";
 import type { SidequestService } from "./SidequestService";
@@ -49,19 +32,14 @@ import { createAdventureScoreService } from "./AdventureScoreService";
 import type { AdventureScoreService } from "./AdventureScoreService";
 
 export interface ServiceContainer {
-  eventService: EventService;
-  eventProcessingService: EventProcessingService;
-  categoryProcessingService: CategoryProcessingService;
-  userPreferencesService: UserPreferencesServiceImpl;
   storageService: StorageService;
   authService: AuthService;
   openAIService: OpenAIService;
-  embeddingService: IEmbeddingService;
+  embeddingService: EmbeddingServiceImpl;
   emailService: EmailService;
   jobQueue: JobQueue;
   redisService: RedisService;
   geocodingService: GoogleGeocodingService;
-  thirdSpaceScoreService: ThirdSpaceScoreService;
   sidequestService: SidequestService;
   sidequestCheckinService: SidequestCheckinService;
   overpassService: OverpassService;
@@ -91,12 +69,6 @@ export class ServiceInitializer {
 
     // Initialize cache services
     const openAICacheService = createOpenAICacheService();
-    const eventCacheService = createEventCacheService(this.redisClient);
-    const imageProcessingCacheService = createImageProcessingCacheService();
-    const categoryCacheService = createCategoryCacheService(this.redisClient);
-    const embeddingCacheService = createEmbeddingCacheService({
-      configService,
-    });
 
     // Initialize AI services
     const openAIService = createOpenAIService({
@@ -108,75 +80,9 @@ export class ServiceInitializer {
     const embeddingService = createEmbeddingService({
       openAIService,
       configService,
-      embeddingCacheService,
-    });
-
-    // Initialize processing services
-    const categoryProcessingService = createCategoryProcessingService({
-      categoryRepository: repositories.categoryRepository,
-      openAIService,
-      categoryCacheService,
-    });
-
-    const eventSimilarityService = new EventSimilarityService(
-      repositories.eventRepository,
-      configService,
-    );
-
-    const imageProcessingService = createImageProcessingService(
-      openAIService,
-      imageProcessingCacheService,
-    );
-
-    const eventExtractionService = createEventExtractionService({
-      categoryProcessingService,
-      locationResolutionService: createGoogleGeocodingService(
-        openAIService,
-        redisService,
-      ),
-      openAIService,
-      configService,
-    });
-
-    const eventProcessingService = createEventProcessingService({
-      categoryProcessingService,
-      eventSimilarityService,
-      locationResolutionService: createGoogleGeocodingService(
-        openAIService,
-        redisService,
-      ),
-      imageProcessingService,
-      embeddingService,
-      configService,
-      eventExtractionService,
     });
 
     // Initialize business services
-    const thirdSpaceScoreService = createThirdSpaceScoreService({
-      dataSource: this.dataSource,
-      redisService,
-    });
-
-    const eventService = createEventService({
-      dataSource: this.dataSource,
-      redisService,
-      locationService: createGoogleGeocodingService(
-        openAIService,
-        redisService,
-      ),
-      eventCacheService,
-      openaiService: openAIService,
-      embeddingService,
-      thirdSpaceScoreService,
-    });
-
-    const userPreferencesService = createUserPreferencesService({
-      dataSource: this.dataSource,
-      redisService,
-      embeddingService,
-      openAIService,
-    });
-
     const storageService = createStorageService();
 
     const emailService = process.env.RESEND_API_KEY
@@ -190,7 +96,6 @@ export class ServiceInitializer {
     const authService = createAuthService({
       userRepository: repositories.userRepository,
       dataSource: this.dataSource,
-      userPreferencesService,
       openAIService,
       emailService,
     });
@@ -220,16 +125,11 @@ export class ServiceInitializer {
       dataSource: this.dataSource,
       pushService: pushNotificationService,
       redisService,
-      thirdSpaceScoreService,
     });
 
     console.log("Services initialized successfully");
 
     return {
-      eventService,
-      eventProcessingService,
-      categoryProcessingService,
-      userPreferencesService,
       storageService,
       authService,
       openAIService,
@@ -238,46 +138,11 @@ export class ServiceInitializer {
       jobQueue,
       redisService,
       geocodingService,
-      thirdSpaceScoreService,
       sidequestService,
       sidequestCheckinService,
       overpassService,
       adventureScoreService,
     };
-  }
-
-  setupCleanupSchedule(jobQueue: JobQueue): void {
-    // Allow disabling daily cleanup via environment variable
-    if (process.env.DISABLE_DAILY_CLEANUP === "true") {
-      console.log(
-        "Daily event cleanup disabled via DISABLE_DAILY_CLEANUP environment variable",
-      );
-      return;
-    }
-
-    const CLEANUP_HOUR = parseInt(process.env.CLEANUP_HOUR || "3");
-    const BATCH_SIZE = parseInt(process.env.CLEANUP_BATCH_SIZE || "100");
-    let lastRunDate = "";
-
-    console.log(
-      `Setting up daily cleanup schedule: hour=${CLEANUP_HOUR}, batchSize=${BATCH_SIZE}`,
-    );
-
-    setInterval(() => {
-      const now = new Date();
-      const today = now.toISOString().split("T")[0];
-
-      if (
-        now.getHours() === CLEANUP_HOUR &&
-        now.getMinutes() >= 0 &&
-        now.getMinutes() <= 15 &&
-        lastRunDate !== today
-      ) {
-        console.log("Scheduling daily event cleanup");
-        jobQueue.enqueueCleanupJob(BATCH_SIZE);
-        lastRunDate = today;
-      }
-    }, 60 * 1000);
   }
 
   setupNotificationSchedule(): void {

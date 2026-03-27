@@ -3,7 +3,7 @@ import pgvector from "pgvector";
 import ngeohash from "ngeohash";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const DBSCAN = require("density-clustering").DBSCAN;
-import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
+import type { IEmbeddingService } from "./shared/EmbeddingService";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
 import type { RedisService } from "./shared/RedisService";
@@ -787,7 +787,7 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
       // Fallback: use top activity types
       const fallbackName =
         allActivityTypes.slice(0, 2).join(" & ") || "New District";
-      return { name: fallbackName, description: null };
+      return { name: fallbackName, description: "" };
     }
   }
 

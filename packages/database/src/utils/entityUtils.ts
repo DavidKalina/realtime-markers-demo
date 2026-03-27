@@ -6,14 +6,6 @@
  */
 const ENTITY_TO_TABLE_MAPPING: Record<string, string> = {
   User: "users",
-  Event: "events",
-  Category: "categories",
-  Filter: "filters",
-  QueryAnalytics: "query_analytics",
-  UserEventView: "user_event_views",
-  UserEventDiscovery: "user_event_discoveries",
-  UserEventRsvp: "user_event_rsvps",
-  UserEventSave: "user_event_saves",
   UserPushToken: "user_push_tokens",
   LlmUsageLog: "llm_usage_logs",
   Sidequest: "sidequests",

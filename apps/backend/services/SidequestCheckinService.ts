@@ -12,8 +12,6 @@ import type {
   PushNotificationPayload,
 } from "./PushNotificationService";
 import type { RedisService } from "./shared/RedisService";
-import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
-
 const CHECKIN_RADIUS_METERS = 75;
 const COMPLETION_MILESTONES = [5, 10, 25, 50, 100];
 const THROTTLE_TTL = 60;
@@ -56,7 +54,6 @@ interface SidequestCheckinServiceDeps {
   dataSource: DataSource;
   pushService: PushNotificationService;
   redisService: RedisService;
-  thirdSpaceScoreService?: ThirdSpaceScoreService;
 }
 
 interface NearbyObjective {
@@ -87,13 +84,10 @@ class SidequestCheckinServiceImpl implements SidequestCheckinService {
   private dataSource: DataSource;
   private pushService: PushNotificationService;
   private redisService: RedisService;
-  private thirdSpaceScoreService?: ThirdSpaceScoreService;
-
   constructor(deps: SidequestCheckinServiceDeps) {
     this.dataSource = deps.dataSource;
     this.pushService = deps.pushService;
     this.redisService = deps.redisService;
-    this.thirdSpaceScoreService = deps.thirdSpaceScoreService;
   }
 
   async checkAndNotify(
@@ -293,14 +287,12 @@ class SidequestCheckinServiceImpl implements SidequestCheckinService {
         .update({ id: sidequestId }, { completedAt }),
       this.dataSource
         .getRepository(User)
-        .update({ id: userId }, { activeSidequestId: null }),
+        .update({ id: userId }, { activeSidequestId: null as unknown as string }),
     ]);
 
     console.log(
       `[SidequestCheckin] User ${userId} completed sidequest ${sidequestId}`,
     );
-
-    this.refreshCityScoreForSidequest(sidequestId);
 
     this.checkCompletionMilestone(userId).catch((err) => {
       console.error("[SidequestCheckin] Milestone check failed:", err);
@@ -359,23 +351,9 @@ class SidequestCheckinServiceImpl implements SidequestCheckinService {
   async deactivateSidequest(userId: string): Promise<boolean> {
     const result = await this.dataSource
       .getRepository(User)
-      .update({ id: userId }, { activeSidequestId: null });
+      .update({ id: userId }, { activeSidequestId: null as unknown as string });
 
     return (result.affected ?? 0) > 0;
-  }
-
-  private refreshCityScoreForSidequest(sidequestId: string): void {
-    this.dataSource
-      .getRepository(Sidequest)
-      .findOne({ where: { id: sidequestId }, select: ["city"] })
-      .then((sidequest) => {
-        if (sidequest?.city) {
-          this.thirdSpaceScoreService
-            ?.refreshCityScore(sidequest.city)
-            .catch(() => {});
-        }
-      })
-      .catch(() => {});
   }
 
   private async updateStreak(userId: string, now: Date): Promise<void> {

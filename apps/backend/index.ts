@@ -96,9 +96,6 @@ async function initializeServices() {
   const serviceInitializer = new ServiceInitializer(dataSource, redisClient);
   const services = await serviceInitializer.initialize();
 
-  // Setup cleanup schedule
-  serviceInitializer.setupCleanupSchedule(services.jobQueue);
-
   // Setup push notification schedules (streak-at-risk, weekly nudge)
   serviceInitializer.setupNotificationSchedule();
 

@@ -13,11 +13,6 @@ import {
 } from "typeorm";
 import type { Relation } from "typeorm";
 import { Sidequest } from "./Sidequest";
-import type { Event } from "./Event";
-import type { UserEventDiscovery } from "./UserEventDiscovery";
-import type { UserEventRsvp } from "./UserEventRsvp";
-import type { UserEventSave } from "./UserEventSave";
-import type { UserEventView } from "./UserEventView";
 import type { UserPushToken } from "./UserPushToken";
 
 export enum UserRole {
@@ -111,21 +106,6 @@ export class User {
 
   @OneToMany("UserPushToken", "user")
   pushTokens!: Relation<UserPushToken>[];
-
-  @OneToMany("Event", "creator")
-  createdEvents!: Relation<Event>[];
-
-  @OneToMany("UserEventDiscovery", "user")
-  discoveries!: Relation<UserEventDiscovery>[];
-
-  @OneToMany("UserEventRsvp", "user")
-  rsvps!: Relation<UserEventRsvp>[];
-
-  @OneToMany("UserEventSave", "user")
-  savedEvents!: Relation<UserEventSave>[];
-
-  @OneToMany("UserEventView", "user")
-  viewedEvents!: Relation<UserEventView>[];
 
   @Column({ name: "preference_embedding", type: "text", nullable: true })
   preferenceEmbedding?: string;

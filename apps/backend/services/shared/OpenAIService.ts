@@ -263,7 +263,7 @@ export class OpenAIServiceImpl implements OpenAIService {
       }
     };
 
-    return customFetch;
+    return customFetch as unknown as typeof fetch;
   }
 
   private async checkRateLimit(

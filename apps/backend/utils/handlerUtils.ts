@@ -68,16 +68,6 @@ export const requireBodyField = async <T>(
   return field;
 };
 
-// Event existence validation
-export const requireEvent = async (c: Context<AppContext>, eventId: string) => {
-  const eventService = c.get("eventService");
-  const event = await eventService.getEventById(eventId);
-  if (!event) {
-    throw new NotFoundError("Event not found");
-  }
-  return event;
-};
-
 // Error handling utility
 export const handleError = (
   c: Context<AppContext>,
@@ -152,10 +142,6 @@ export const validateEnum = (
 };
 
 // Service getter utilities
-export const getEventService = (c: Context<AppContext>) => {
-  return c.get("eventService");
-};
-
 export const getAuthService = (c: Context<AppContext>) => {
   return c.get("authService");
 };

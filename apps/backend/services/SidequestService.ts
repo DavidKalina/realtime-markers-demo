@@ -14,7 +14,7 @@ import type {
   VerifiedVenue,
 } from "./shared/GoogleGeocodingService";
 import type { OverpassService, Trail } from "./shared/OverpassService";
-import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
+import type { IEmbeddingService } from "./shared/EmbeddingService";
 import type { RedisService } from "./shared/RedisService";
 import type { AgentCandidate } from "./shared/JobPipeline";
 import { OpenAIResponsesAgent } from "./shared/OpenAIResponsesAgent";
@@ -1517,7 +1517,7 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
 
     // Save updates
     if (Object.keys(updates).length > 0) {
-      await repo.update(sidequestId, updates);
+      await repo.update(sidequestId, updates as Record<string, unknown>);
     }
 
     // Publish to community map
