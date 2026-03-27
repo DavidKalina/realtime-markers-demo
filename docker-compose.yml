@@ -242,9 +242,6 @@ services:
 
     restart: unless-stopped
 
-  # filter-processor: disabled — kept in repo, re-enable when discovery features return
-  # websocket: disabled — not needed until community features are active
-  # web-dashboard: deleted
 
 networks:
   marker-network:

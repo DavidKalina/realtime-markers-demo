@@ -23,10 +23,6 @@ jobs:
             dockerfile: apps/backend/Dockerfile
           - service: worker
             dockerfile: apps/backend/worker.Dockerfile
-          - service: websocket
-            dockerfile: apps/websocket/Dockerfile
-          - service: filter-processor
-            dockerfile: apps/filter-processor/Dockerfile
           - service: web-dashboard
             dockerfile: apps/web-dashboard/Dockerfile
           - service: postgres
