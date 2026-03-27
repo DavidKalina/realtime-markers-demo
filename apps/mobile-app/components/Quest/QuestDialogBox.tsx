@@ -677,7 +677,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
     enterGenerating();
 
     try {
-      const result = await apiClient.itineraries.createSidequest({
+      const result = await apiClient.sidequests.createSidequest({
         prompt: prompt.trim(),
         radiusMiles: 30,
         budgetMax: selectedBudget.value,
@@ -687,8 +687,8 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
       });
 
       trackJob(result.jobId);
-      startJob(result.jobId, result.itineraryId);
-      onQuestCreated?.(result.itineraryId);
+      startJob(result.jobId, result.sidequestId);
+      onQuestCreated?.(result.sidequestId);
     } catch (err) {
       console.error("[QuestDialogBox] Failed to create sidequest:", err);
       // Revert to form on error

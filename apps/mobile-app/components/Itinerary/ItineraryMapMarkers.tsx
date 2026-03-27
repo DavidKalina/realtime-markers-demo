@@ -9,7 +9,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import MapboxGL from "@rnmapbox/maps";
-import type { ItineraryResponse } from "@/services/api/modules/itineraries";
+import type { ItineraryResponse } from "@/services/api/modules/sidequests";
 import { Pressable } from "react-native";
 import * as Haptics from "expo-haptics";
 

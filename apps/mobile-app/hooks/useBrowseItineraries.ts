@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { apiClient } from "@/services/ApiClient";
-import type { BrowseItineraryResponse } from "@/services/api/modules/itineraries";
+import type { BrowseItineraryResponse } from "@/services/api/modules/sidequests";
 
 export type { BrowseItineraryResponse };
 
@@ -19,7 +19,7 @@ export default function useBrowseItineraries(city: string | null) {
     setIsLoading(true);
 
     try {
-      const result = await apiClient.itineraries.browse(city, { limit: 50 });
+      const result = await apiClient.sidequests.browse(city, { limit: 50 });
       if (id === fetchIdRef.current) {
         setItineraries(result.data);
       }

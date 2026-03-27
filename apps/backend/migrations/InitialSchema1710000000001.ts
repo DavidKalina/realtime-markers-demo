@@ -16,31 +16,6 @@ export class InitialSchema1710000000001 implements MigrationInterface {
     `);
     await queryRunner.query(`
       DO $$ BEGIN
-        CREATE TYPE "event_status_enum" AS ENUM ('PENDING', 'VERIFIED', 'REJECTED', 'EXPIRED');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
-    `);
-    await queryRunner.query(`
-      DO $$ BEGIN
-        CREATE TYPE "event_source_enum" AS ENUM ('SCAN', 'TICKETMASTER');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
-    `);
-    await queryRunner.query(`
-      DO $$ BEGIN
-        CREATE TYPE "recurrence_frequency_enum" AS ENUM ('DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'YEARLY');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
-    `);
-    await queryRunner.query(`
-      DO $$ BEGIN
-        CREATE TYPE "day_of_week_enum" AS ENUM ('MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
-    `);
-    await queryRunner.query(`
-      DO $$ BEGIN
-        CREATE TYPE "rsvp_status_enum" AS ENUM ('GOING', 'NOT_GOING');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$
-    `);
-    await queryRunner.query(`
-      DO $$ BEGIN
         CREATE TYPE "sidequest_status_enum" AS ENUM ('GENERATING', 'READY', 'FAILED');
       EXCEPTION WHEN duplicate_object THEN NULL; END $$
     `);
@@ -84,187 +59,12 @@ export class InitialSchema1710000000001 implements MigrationInterface {
     `);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_users_email" ON "users" ("email")`);
 
-    // ── categories ──────────────────────────────────────────────────────
+    // Handle existing databases: add active_sidequest_id if users table existed but column doesn't
     await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS "categories" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "name" varchar NOT NULL,
-        "description" text,
-        "icon" varchar,
-        "created_at" timestamptz NOT NULL DEFAULT now(),
-        "updated_at" timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_categories" PRIMARY KEY ("id"),
-        CONSTRAINT "UQ_categories_name" UNIQUE ("name")
-      )
+      DO $$ BEGIN
+        ALTER TABLE "users" ADD COLUMN "active_sidequest_id" uuid;
+      EXCEPTION WHEN duplicate_column THEN NULL; END $$
     `);
-
-    // ── events ──────────────────────────────────────────────────────────
-    await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS "events" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "emoji" varchar NOT NULL DEFAULT '📍',
-        "emoji_description" varchar,
-        "title" varchar NOT NULL,
-        "description" text,
-        "event_date" timestamptz NOT NULL,
-        "end_date" timestamptz,
-        "timezone" varchar DEFAULT 'UTC',
-        "address" text,
-        "city" varchar,
-        "location_notes" text,
-        "location" geometry(Point, 4326),
-        "scan_count" integer NOT NULL DEFAULT 0,
-        "save_count" integer NOT NULL DEFAULT 0,
-        "view_count" integer NOT NULL DEFAULT 0,
-        "confidence_score" float,
-        "embedding" text,
-        "status" "event_status_enum" NOT NULL DEFAULT 'PENDING',
-        "qr_url" text,
-        "qr_code_data" text,
-        "qr_image_path" text,
-        "has_qr_code" boolean NOT NULL DEFAULT false,
-        "is_official" boolean NOT NULL DEFAULT false,
-        "source" "event_source_enum" NOT NULL DEFAULT 'SCAN',
-        "external_id" varchar,
-        "external_url" text,
-        "qr_generated_at" timestamptz,
-        "qr_detected_in_image" boolean NOT NULL DEFAULT false,
-        "detected_qr_data" text,
-        "event_digest" jsonb,
-        "original_image_url" text,
-        "creator_id" uuid,
-        "is_recurring" boolean NOT NULL DEFAULT false,
-        "recurrence_frequency" "recurrence_frequency_enum",
-        "recurrence_days" "day_of_week_enum"[],
-        "recurrence_start_date" timestamptz,
-        "recurrence_end_date" timestamptz,
-        "recurrence_interval" integer,
-        "recurrence_time" time,
-        "recurrence_exceptions" date[],
-        "created_at" timestamptz NOT NULL DEFAULT now(),
-        "updated_at" timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_events" PRIMARY KEY ("id")
-      )
-    `);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_events_event_date" ON "events" ("event_date")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_events_end_date" ON "events" ("end_date")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_events_address" ON "events" ("address")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_events_status" ON "events" ("status")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_events_creator_id" ON "events" ("creator_id")`);
-
-    // ── event_categories (junction) ─────────────────────────────────────
-    await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS "event_categories" (
-        "event_id" uuid NOT NULL,
-        "category_id" uuid NOT NULL,
-        CONSTRAINT "PK_event_categories" PRIMARY KEY ("event_id", "category_id")
-      )
-    `);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_event_categories_event" ON "event_categories" ("event_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_event_categories_category" ON "event_categories" ("category_id")`);
-
-    // ── filters ─────────────────────────────────────────────────────────
-    await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS "filters" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "user_id" uuid NOT NULL,
-        "name" varchar NOT NULL,
-        "is_active" boolean NOT NULL DEFAULT true,
-        "semantic_query" text,
-        "embedding" text,
-        "emoji" varchar,
-        "criteria" jsonb NOT NULL,
-        "created_at" timestamptz NOT NULL DEFAULT now(),
-        "updated_at" timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_filters" PRIMARY KEY ("id")
-      )
-    `);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_filters_user_id" ON "filters" ("user_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_filters_is_active" ON "filters" ("is_active")`);
-
-    // ── query_analytics ─────────────────────────────────────────────────
-    await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS "query_analytics" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "query" text NOT NULL,
-        "normalized_query" text NOT NULL,
-        "total_searches" integer NOT NULL DEFAULT 0,
-        "total_hits" integer NOT NULL DEFAULT 0,
-        "zero_result_searches" integer NOT NULL DEFAULT 0,
-        "average_results_per_search" float NOT NULL DEFAULT 0,
-        "hit_rate" float NOT NULL DEFAULT 0,
-        "first_searched_at" timestamp,
-        "last_searched_at" timestamp,
-        "top_results" jsonb,
-        "search_categories" jsonb,
-        "is_popular" boolean NOT NULL DEFAULT false,
-        "needs_attention" boolean NOT NULL DEFAULT false,
-        "created_at" timestamptz NOT NULL DEFAULT now(),
-        "updated_at" timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_query_analytics" PRIMARY KEY ("id")
-      )
-    `);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_query_analytics_query" ON "query_analytics" ("query")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_query_analytics_normalized" ON "query_analytics" ("normalized_query")`);
-
-    // ── user_event_discoveries ──────────────────────────────────────────
-    await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS "user_event_discoveries" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "user_id" uuid NOT NULL,
-        "event_id" uuid NOT NULL,
-        "discovered_at" timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_user_event_discoveries" PRIMARY KEY ("id"),
-        CONSTRAINT "UQ_user_event_discoveries" UNIQUE ("user_id", "event_id")
-      )
-    `);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_ued_user_id" ON "user_event_discoveries" ("user_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_ued_discovered_at" ON "user_event_discoveries" ("discovered_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_ued_user_discovered" ON "user_event_discoveries" ("user_id", "discovered_at")`);
-
-    // ── user_event_rsvps ────────────────────────────────────────────────
-    await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS "user_event_rsvps" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "user_id" uuid NOT NULL,
-        "event_id" uuid NOT NULL,
-        "status" "rsvp_status_enum" NOT NULL DEFAULT 'GOING',
-        "created_at" timestamptz NOT NULL DEFAULT now(),
-        "updated_at" timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_user_event_rsvps" PRIMARY KEY ("id"),
-        CONSTRAINT "UQ_user_event_rsvps" UNIQUE ("user_id", "event_id")
-      )
-    `);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_uer_user_id" ON "user_event_rsvps" ("user_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_uer_user_created" ON "user_event_rsvps" ("user_id", "created_at")`);
-
-    // ── user_event_saves ────────────────────────────────────────────────
-    await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS "user_event_saves" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "user_id" uuid NOT NULL,
-        "event_id" uuid NOT NULL,
-        "saved_at" timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_user_event_saves" PRIMARY KEY ("id"),
-        CONSTRAINT "UQ_user_event_saves" UNIQUE ("user_id", "event_id")
-      )
-    `);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_ues_user_id" ON "user_event_saves" ("user_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_ues_user_saved" ON "user_event_saves" ("user_id", "saved_at")`);
-
-    // ── user_event_views ────────────────────────────────────────────────
-    await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS "user_event_views" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "user_id" uuid NOT NULL,
-        "event_id" uuid NOT NULL,
-        "viewed_at" timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_user_event_views" PRIMARY KEY ("id"),
-        CONSTRAINT "UQ_user_event_views" UNIQUE ("user_id", "event_id")
-      )
-    `);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_uev_user_id" ON "user_event_views" ("user_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_uev_user_viewed" ON "user_event_views" ("user_id", "viewed_at")`);
 
     // ── user_push_tokens ────────────────────────────────────────────────
     await queryRunner.query(`
@@ -456,54 +256,48 @@ export class InitialSchema1710000000001 implements MigrationInterface {
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_oc_user_sidequest" ON "objective_checkins" ("user_id", "sidequest_id")`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_oc_sidequest_id" ON "objective_checkins" ("sidequest_id")`);
 
-    // ── Foreign Keys ────────────────────────────────────────────────────
-    // users
-    await queryRunner.query(`ALTER TABLE "users" ADD CONSTRAINT "FK_users_active_sidequest" FOREIGN KEY ("active_sidequest_id") REFERENCES "sidequests"("id") ON DELETE SET NULL`);
+    // ── Foreign Keys (idempotent) ───────────────────────────────────────
+    // Use DO blocks to skip if constraint already exists
+    const addFKIfNotExists = async (name: string, sql: string) => {
+      await queryRunner.query(`
+        DO $$ BEGIN
+          ${sql};
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$
+      `);
+    };
 
-    // events
-    await queryRunner.query(`ALTER TABLE "events" ADD CONSTRAINT "FK_events_creator" FOREIGN KEY ("creator_id") REFERENCES "users"("id") ON DELETE SET NULL`);
+    await addFKIfNotExists("FK_users_active_sidequest",
+      `ALTER TABLE "users" ADD CONSTRAINT "FK_users_active_sidequest" FOREIGN KEY ("active_sidequest_id") REFERENCES "sidequests"("id") ON DELETE SET NULL`);
 
-    // event_categories
-    await queryRunner.query(`ALTER TABLE "event_categories" ADD CONSTRAINT "FK_ec_event" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE ON UPDATE CASCADE`);
-    await queryRunner.query(`ALTER TABLE "event_categories" ADD CONSTRAINT "FK_ec_category" FOREIGN KEY ("category_id") REFERENCES "categories"("id") ON DELETE CASCADE ON UPDATE CASCADE`);
+    await addFKIfNotExists("FK_upt_user",
+      `ALTER TABLE "user_push_tokens" ADD CONSTRAINT "FK_upt_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE`);
 
-    // filters
-    await queryRunner.query(`ALTER TABLE "filters" ADD CONSTRAINT "FK_filters_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE`);
+    await addFKIfNotExists("FK_ub_user",
+      `ALTER TABLE "user_badges" ADD CONSTRAINT "FK_ub_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE`);
 
-    // user_event_*
-    await queryRunner.query(`ALTER TABLE "user_event_discoveries" ADD CONSTRAINT "FK_ued_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE "user_event_discoveries" ADD CONSTRAINT "FK_ued_event" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE "user_event_rsvps" ADD CONSTRAINT "FK_uer_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE "user_event_rsvps" ADD CONSTRAINT "FK_uer_event" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE "user_event_saves" ADD CONSTRAINT "FK_ues_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE "user_event_saves" ADD CONSTRAINT "FK_ues_event" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE "user_event_views" ADD CONSTRAINT "FK_uev_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE "user_event_views" ADD CONSTRAINT "FK_uev_event" FOREIGN KEY ("event_id") REFERENCES "events"("id") ON DELETE CASCADE`);
+    await addFKIfNotExists("FK_ds_district",
+      `ALTER TABLE "district_snapshots" ADD CONSTRAINT "FK_ds_district" FOREIGN KEY ("district_id") REFERENCES "districts"("id") ON DELETE CASCADE`);
 
-    // user_push_tokens
-    await queryRunner.query(`ALTER TABLE "user_push_tokens" ADD CONSTRAINT "FK_upt_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE`);
+    await addFKIfNotExists("FK_sidequests_user",
+      `ALTER TABLE "sidequests" ADD CONSTRAINT "FK_sidequests_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE`);
 
-    // user_badges
-    await queryRunner.query(`ALTER TABLE "user_badges" ADD CONSTRAINT "FK_ub_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE`);
+    await addFKIfNotExists("FK_sidequests_parent",
+      `ALTER TABLE "sidequests" ADD CONSTRAINT "FK_sidequests_parent" FOREIGN KEY ("parent_id") REFERENCES "sidequests"("id") ON DELETE CASCADE`);
 
-    // district_snapshots
-    await queryRunner.query(`ALTER TABLE "district_snapshots" ADD CONSTRAINT "FK_ds_district" FOREIGN KEY ("district_id") REFERENCES "districts"("id") ON DELETE CASCADE`);
+    await addFKIfNotExists("FK_objectives_sidequest",
+      `ALTER TABLE "objectives" ADD CONSTRAINT "FK_objectives_sidequest" FOREIGN KEY ("sidequest_id") REFERENCES "sidequests"("id") ON DELETE CASCADE`);
 
-    // sidequests
-    await queryRunner.query(`ALTER TABLE "sidequests" ADD CONSTRAINT "FK_sidequests_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE "sidequests" ADD CONSTRAINT "FK_sidequests_parent" FOREIGN KEY ("parent_id") REFERENCES "sidequests"("id") ON DELETE CASCADE`);
+    await addFKIfNotExists("FK_oc_user",
+      `ALTER TABLE "objective_checkins" ADD CONSTRAINT "FK_oc_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE`);
 
-    // objectives
-    await queryRunner.query(`ALTER TABLE "objectives" ADD CONSTRAINT "FK_objectives_sidequest" FOREIGN KEY ("sidequest_id") REFERENCES "sidequests"("id") ON DELETE CASCADE`);
+    await addFKIfNotExists("FK_oc_sidequest",
+      `ALTER TABLE "objective_checkins" ADD CONSTRAINT "FK_oc_sidequest" FOREIGN KEY ("sidequest_id") REFERENCES "sidequests"("id") ON DELETE CASCADE`);
 
-    // objective_checkins
-    await queryRunner.query(`ALTER TABLE "objective_checkins" ADD CONSTRAINT "FK_oc_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE "objective_checkins" ADD CONSTRAINT "FK_oc_sidequest" FOREIGN KEY ("sidequest_id") REFERENCES "sidequests"("id") ON DELETE CASCADE`);
-    await queryRunner.query(`ALTER TABLE "objective_checkins" ADD CONSTRAINT "FK_oc_objective" FOREIGN KEY ("objective_id") REFERENCES "objectives"("id") ON DELETE CASCADE`);
+    await addFKIfNotExists("FK_oc_objective",
+      `ALTER TABLE "objective_checkins" ADD CONSTRAINT "FK_oc_objective" FOREIGN KEY ("objective_id") REFERENCES "objectives"("id") ON DELETE CASCADE`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Drop tables in reverse dependency order
     await queryRunner.query(`DROP TABLE IF EXISTS "objective_checkins" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "objectives" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "sidequests" CASCADE`);
@@ -513,24 +307,9 @@ export class InitialSchema1710000000001 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "user_badges" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "llm_usage_logs" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "user_push_tokens" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "user_event_views" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "user_event_saves" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "user_event_rsvps" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "user_event_discoveries" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "query_analytics" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "filters" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "event_categories" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "events" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "categories" CASCADE`);
     await queryRunner.query(`DROP TABLE IF EXISTS "users" CASCADE`);
 
-    // Drop enums
     await queryRunner.query(`DROP TYPE IF EXISTS "sidequest_status_enum"`);
-    await queryRunner.query(`DROP TYPE IF EXISTS "rsvp_status_enum"`);
-    await queryRunner.query(`DROP TYPE IF EXISTS "day_of_week_enum"`);
-    await queryRunner.query(`DROP TYPE IF EXISTS "recurrence_frequency_enum"`);
-    await queryRunner.query(`DROP TYPE IF EXISTS "event_source_enum"`);
-    await queryRunner.query(`DROP TYPE IF EXISTS "event_status_enum"`);
     await queryRunner.query(`DROP TYPE IF EXISTS "user_role_enum"`);
   }
 }

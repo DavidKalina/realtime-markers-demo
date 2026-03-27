@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { ItineraryResponse } from "@/services/api/modules/itineraries";
+import type { ItineraryResponse } from "@/services/api/modules/sidequests";
 import {
   getFirstStop,
   type ItineraryPreviewStop,

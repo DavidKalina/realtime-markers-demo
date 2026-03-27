@@ -3,7 +3,7 @@
 import { BaseApiClient } from "./api/base/ApiClient";
 import { AuthModule } from "./api/modules/auth";
 import { PushNotificationsModule } from "./api/modules/pushNotifications";
-import { ItinerariesModule } from "./api/modules/itineraries";
+import { SidequestsModule } from "./api/modules/sidequests";
 import { AdventureScoreModule } from "./api/modules/adventureScore";
 import { OnboardingModule } from "./api/modules/onboarding";
 import { ProfileInsightsModule } from "./api/modules/profileInsights";
@@ -13,7 +13,7 @@ import { DistrictsModule } from "./api/modules/districts";
 export * from "./api/base/types";
 export * from "./api/modules/auth";
 export * from "./api/modules/pushNotifications";
-export * from "./api/modules/itineraries";
+export * from "./api/modules/sidequests";
 export * from "./api/modules/adventureScore";
 export * from "./api/modules/onboarding";
 export * from "./api/modules/profileInsights";
@@ -23,7 +23,7 @@ class ApiClient extends BaseApiClient {
   private static instance: ApiClient | null = null;
   private _auth: AuthModule | null = null;
   private _pushNotifications: PushNotificationsModule | null = null;
-  private _itineraries: ItinerariesModule | null = null;
+  private _sidequests: SidequestsModule | null = null;
   private _adventureScore: AdventureScoreModule | null = null;
   private _onboarding: OnboardingModule | null = null;
   private _profileInsights: ProfileInsightsModule | null = null;
@@ -59,11 +59,11 @@ class ApiClient extends BaseApiClient {
     return this._pushNotifications;
   }
 
-  public get itineraries(): ItinerariesModule {
-    if (!this._itineraries) {
-      this._itineraries = new ItinerariesModule(this);
+  public get sidequests(): SidequestsModule {
+    if (!this._sidequests) {
+      this._sidequests = new SidequestsModule(this);
     }
-    return this._itineraries;
+    return this._sidequests;
   }
 
   public get adventureScore(): AdventureScoreModule {

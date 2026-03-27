@@ -19,7 +19,7 @@ import {
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { apiClient } from "@/services/ApiClient";
-import type { ItineraryResponse } from "@/services/api/modules/itineraries";
+import type { ItineraryResponse } from "@/services/api/modules/sidequests";
 import {
   useColors,
   type Colors,
@@ -62,7 +62,7 @@ const RecentCompletions: React.FC<RecentCompletionsProps> = ({
 
   const fetchCompletions = useCallback(async () => {
     try {
-      const result = await apiClient.itineraries.listCompleted();
+      const result = await apiClient.sidequests.listCompleted();
       setCompletions(result.data.filter((it) => it.rating == null));
     } catch (err) {
       console.error("[RecentCompletions] Failed to fetch:", err);
@@ -175,7 +175,7 @@ const CompletionCard: React.FC<{
     if (!selectedRating) return;
     setSubmitting(true);
     try {
-      await apiClient.itineraries.rate(
+      await apiClient.sidequests.rate(
         itinerary.id,
         selectedRating,
         comment.trim() || undefined,

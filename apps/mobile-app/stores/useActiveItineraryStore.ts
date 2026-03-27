@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type {
   ItineraryResponse,
   ItineraryItemResponse,
-} from "@/services/api/modules/itineraries";
+} from "@/services/api/modules/sidequests";
 import { apiClient } from "@/services/ApiClient";
 import { startBackgroundLocationTracking } from "@/hooks/useBackgroundLocation";
 
@@ -98,7 +98,7 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
     activate: async (itinerary) => {
       set({ isLoading: true });
       try {
-        const { success } = await apiClient.itineraries.activate(itinerary.id);
+        const { success } = await apiClient.sidequests.activate(itinerary.id);
         if (success) {
           set({ itinerary, isLoading: false });
           // Start background location tracking when user activates an itinerary
@@ -118,7 +118,7 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
     deactivate: async () => {
       set({ isLoading: true });
       try {
-        await apiClient.itineraries.deactivate();
+        await apiClient.sidequests.deactivate();
       } catch (err) {
         console.error("[ActiveItinerary] Failed to deactivate:", err);
       }
@@ -161,7 +161,7 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
       if (!itinerary) return;
 
       try {
-        const fetched = await apiClient.itineraries.getById(itinerary.id);
+        const fetched = await apiClient.sidequests.getById(itinerary.id);
         const replays = detectMissedCheckins(itinerary.items, fetched.items);
 
         if (replays.length > 0) {
@@ -180,7 +180,7 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
 
     loadActive: async () => {
       try {
-        const result = await apiClient.itineraries.getActive();
+        const result = await apiClient.sidequests.getActive();
         if (result.active && result.itinerary) {
           const { itinerary: prev } = get();
           const fetched = result.itinerary;

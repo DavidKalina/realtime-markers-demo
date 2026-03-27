@@ -53,7 +53,6 @@ import VenueDnaChart from "./VenueDnaChart";
 import AdventureDnaChart from "./AdventureDnaChart";
 import StreakCalendar from "./StreakCalendar";
 import AdventureFootprint from "./AdventureFootprint";
-import PendingItineraries from "./PendingItineraries";
 import DailyQuota from "./DailyQuota";
 import PersonalScoreHero from "./PersonalScoreHero";
 import AdventurePreferences from "./AdventurePreferences";
@@ -113,7 +112,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { data: insights, refetch: refetchInsights } = useProfileInsights();
 
   const completionsRefetchRef = useRef<(() => Promise<void>) | null>(null);
-  const pendingRefetchRef = useRef<(() => Promise<void>) | null>(null);
   const quotaRefetchRef = useRef<(() => Promise<void>) | null>(null);
   const scoreRefetchRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -126,7 +124,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         refetchInsights(),
         useActiveItineraryStore.getState().refresh(),
         completionsRefetchRef.current?.(),
-        pendingRefetchRef.current?.(),
         quotaRefetchRef.current?.(),
         scoreRefetchRef.current?.(),
       ]);
@@ -162,11 +159,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       {/* Daily Itinerary Quota */}
       <View style={styles.tabSection}>
         <DailyQuota onRefetchRef={quotaRefetchRef} />
-      </View>
-
-      {/* Pending Itineraries */}
-      <View style={styles.tabSection}>
-        <PendingItineraries onRefetchRef={pendingRefetchRef} />
       </View>
 
       {/* Recent Completions (rate unrated) */}

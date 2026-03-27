@@ -1,4 +1,4 @@
-import type { ItineraryResponse } from "@/services/api/modules/itineraries";
+import type { ItineraryResponse } from "@/services/api/modules/sidequests";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import {
   fontFamily,

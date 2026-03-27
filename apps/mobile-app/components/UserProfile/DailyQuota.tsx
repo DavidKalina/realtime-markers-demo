@@ -24,7 +24,7 @@ const DailyQuota: React.FC<DailyQuotaProps> = ({ onRefetchRef }) => {
 
   const fetchQuota = useCallback(async () => {
     try {
-      const result = await apiClient.itineraries.list(50);
+      const result = await apiClient.sidequests.list(50);
       const since = Date.now() - 24 * 60 * 60 * 1000;
       const count = result.data.filter(
         (it) => new Date(it.createdAt).getTime() >= since,

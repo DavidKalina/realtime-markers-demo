@@ -50,7 +50,7 @@ import {
 import type {
   ItineraryItemResponse,
   ItineraryResponse,
-} from "@/services/api/modules/itineraries";
+} from "@/services/api/modules/sidequests";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
 import {
@@ -501,7 +501,7 @@ const ItineraryDetailScreen = () => {
 
   useEffect(() => {
     if (!id || id === "undefined") return;
-    apiClient.itineraries
+    apiClient.sidequests
       .getById(id)
       .then((data) => {
         setItinerary(data);
@@ -509,7 +509,7 @@ const ItineraryDetailScreen = () => {
         if (data.status === "GENERATING") {
           pollRef.current = setInterval(async () => {
             try {
-              const updated = await apiClient.itineraries.getById(id);
+              const updated = await apiClient.sidequests.getById(id);
               if (updated.status !== "GENERATING") {
                 setItinerary(updated);
                 if (pollRef.current) clearInterval(pollRef.current);
@@ -607,7 +607,7 @@ const ItineraryDetailScreen = () => {
 
   const handleRefresh = useCallback(async () => {
     if (!id) return;
-    const data = await apiClient.itineraries.getById(id);
+    const data = await apiClient.sidequests.getById(id);
     setItinerary(data);
   }, [id]);
 
@@ -621,7 +621,7 @@ const ItineraryDetailScreen = () => {
         onPress: async () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           try {
-            await apiClient.itineraries.deleteById(id);
+            await apiClient.sidequests.deleteById(id);
             router.back();
           } catch (err) {
             console.error("[ItineraryDetail] Failed to delete:", err);
@@ -636,7 +636,7 @@ const ItineraryDetailScreen = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
-      const { shareToken } = await apiClient.itineraries.share(id);
+      const { shareToken } = await apiClient.sidequests.share(id);
       const webUrl =
         process.env.EXPO_PUBLIC_WEB_URL || "https://dashboard.mapmoji.app";
       const shareUrl = `${webUrl}/i/${shareToken}`;
@@ -677,7 +677,7 @@ const ItineraryDetailScreen = () => {
       if (!id) return;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       try {
-        const result = await apiClient.itineraries.checkin(id, itemId);
+        const result = await apiClient.sidequests.checkin(id, itemId);
         if (result.success && result.checkedInAt) {
           markCheckedIn(itemId, result.checkedInAt);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

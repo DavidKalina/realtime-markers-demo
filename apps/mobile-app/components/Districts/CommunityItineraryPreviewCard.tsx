@@ -43,7 +43,7 @@ const CommunityItineraryPreviewCardInner: React.FC<
   const handleAdopt = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      const result = await apiClient.itineraries.adopt(itinerary.id);
+      const result = await apiClient.sidequests.adopt(itinerary.id);
       console.log(result)
       onDismiss();
       if (result.id) {

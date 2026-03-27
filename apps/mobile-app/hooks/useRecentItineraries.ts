@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiClient } from "@/services/ApiClient";
-import type { ItineraryResponse } from "@/services/api/modules/itineraries";
+import type { ItineraryResponse } from "@/services/api/modules/sidequests";
 
 /**
  * Fetches the user's recent READY (uncompleted) itineraries.
@@ -12,7 +12,7 @@ export function useRecentItineraries() {
 
   const fetch = useCallback(async () => {
     try {
-      const result = await apiClient.itineraries.list(10);
+      const result = await apiClient.sidequests.list(10);
       setItineraries(
         (result.data ?? []).filter(
           (it) => it.status === "READY" && !it.completedAt,

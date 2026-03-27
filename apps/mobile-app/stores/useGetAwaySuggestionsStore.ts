@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ItinerarySuggestion } from "@/services/api/modules/itineraries";
+import type { ItinerarySuggestion } from "@/services/api/modules/sidequests";
 import { apiClient } from "@/services/ApiClient";
 
 const STALE_MS = 5 * 60 * 1000; // 5 minutes
@@ -48,7 +48,7 @@ export const useGetAwaySuggestionsStore = create<GetAwaySuggestionsStore>(
       set({ isLoading: true, error: null });
 
       try {
-        const result = await apiClient.itineraries.suggestions(
+        const result = await apiClient.sidequests.suggestions(
           latitude,
           longitude,
         );

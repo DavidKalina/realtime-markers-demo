@@ -36,7 +36,7 @@ import { usePullToAction } from "@/hooks/usePullToAction";
 import EmptyState from "@/components/Layout/EmptyState";
 import QuestDialogBox from "@/components/Quest/QuestDialogBox";
 import { apiClient } from "@/services/ApiClient";
-import type { ItineraryResponse } from "@/services/api/modules/itineraries";
+import type { ItineraryResponse } from "@/services/api/modules/sidequests";
 import {
   useColors,
   fontFamily,
@@ -626,7 +626,7 @@ const ItinerariesListScreen = () => {
   const fetchItineraries = useCallback(
     async (cursor?: string) => {
       try {
-        const result = await apiClient.itineraries.list(
+        const result = await apiClient.sidequests.list(
           PAGE_SIZE,
           cursor,
           filters,
@@ -740,7 +740,7 @@ const ItinerariesListScreen = () => {
               );
               setItineraries((prev) => prev.filter((it) => it.id !== id));
               try {
-                await apiClient.itineraries.deleteById(id);
+                await apiClient.sidequests.deleteById(id);
               } catch (err) {
                 console.error("[Itineraries] Failed to delete:", err);
                 fetchItineraries();

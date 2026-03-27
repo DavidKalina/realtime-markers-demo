@@ -12,7 +12,7 @@ import {
   radius,
   type Colors,
 } from "@/theme";
-import type { BrowseItineraryResponse } from "@/services/api/modules/itineraries";
+import type { BrowseItineraryResponse } from "@/services/api/modules/sidequests";
 
 interface Props {
   itinerary: BrowseItineraryResponse;

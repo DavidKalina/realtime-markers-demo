@@ -135,16 +135,16 @@ export interface CreateSidequestParams {
   note?: string;
 }
 
-export class ItinerariesModule extends BaseApiModule {
+export class SidequestsModule extends BaseApiModule {
   constructor(client: BaseApiClient) {
     super(client);
   }
 
   async createSidequest(
     params: CreateSidequestParams,
-  ): Promise<{ itineraryId: string; jobId: string; streamUrl: string }> {
+  ): Promise<{ sidequestId: string; jobId: string; streamUrl: string }> {
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries/sidequest`,
+      `${this.client.baseUrl}/api/sidequests`,
       {
         method: "POST",
         body: JSON.stringify(params),
@@ -152,7 +152,7 @@ export class ItinerariesModule extends BaseApiModule {
       },
     );
     return this.handleResponse<{
-      itineraryId: string;
+      sidequestId: string;
       jobId: string;
       streamUrl: string;
     }>(response);
@@ -160,9 +160,9 @@ export class ItinerariesModule extends BaseApiModule {
 
   async create(
     params: CreateItineraryParams,
-  ): Promise<{ itineraryId: string; jobId: string; streamUrl: string }> {
+  ): Promise<{ sidequestId: string; jobId: string; streamUrl: string }> {
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries`,
+      `${this.client.baseUrl}/api/sidequests`,
       {
         method: "POST",
         body: JSON.stringify(params),
@@ -170,7 +170,7 @@ export class ItinerariesModule extends BaseApiModule {
       },
     );
     return this.handleResponse<{
-      itineraryId: string;
+      sidequestId: string;
       jobId: string;
       streamUrl: string;
     }>(response);
@@ -191,7 +191,7 @@ export class ItinerariesModule extends BaseApiModule {
     if (filters?.intention) params.set("intention", filters.intention);
     if (filters?.status) params.set("status", filters.status);
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries?${params}`,
+      `${this.client.baseUrl}/api/sidequests?${params}`,
     );
     const json = await response.json();
     // Handle both paginated { data, nextCursor } and legacy array responses
@@ -203,14 +203,14 @@ export class ItinerariesModule extends BaseApiModule {
 
   async getById(id: string): Promise<ItineraryResponse> {
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries/${id}`,
+      `${this.client.baseUrl}/api/sidequests/${id}`,
     );
     return this.handleResponse<ItineraryResponse>(response);
   }
 
   async deleteById(id: string): Promise<void> {
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries/${id}`,
+      `${this.client.baseUrl}/api/sidequests/${id}`,
       { method: "DELETE" },
     );
     await this.handleResponse(response);
@@ -218,7 +218,7 @@ export class ItinerariesModule extends BaseApiModule {
 
   async share(id: string): Promise<{ shareToken: string }> {
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries/${id}/share`,
+      `${this.client.baseUrl}/api/sidequests/${id}/share`,
       { method: "POST" },
     );
     return this.handleResponse<{ shareToken: string }>(response);
@@ -226,7 +226,7 @@ export class ItinerariesModule extends BaseApiModule {
 
   async activate(id: string): Promise<{ success: boolean }> {
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries/${id}/activate`,
+      `${this.client.baseUrl}/api/sidequests/${id}/activate`,
       { method: "POST" },
     );
     return this.handleResponse<{ success: boolean }>(response);
@@ -234,7 +234,7 @@ export class ItinerariesModule extends BaseApiModule {
 
   async deactivate(): Promise<{ success: boolean }> {
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries/deactivate`,
+      `${this.client.baseUrl}/api/sidequests/deactivate`,
       { method: "POST" },
     );
     return this.handleResponse<{ success: boolean }>(response);
@@ -245,7 +245,7 @@ export class ItinerariesModule extends BaseApiModule {
     itinerary?: ItineraryResponse;
   }> {
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries/active`,
+      `${this.client.baseUrl}/api/sidequests/active`,
     );
     return this.handleResponse<{
       active: boolean;
@@ -258,7 +258,7 @@ export class ItinerariesModule extends BaseApiModule {
     itemId: string,
   ): Promise<{ success: boolean; checkedInAt?: string }> {
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries/${itineraryId}/items/${itemId}/checkin`,
+      `${this.client.baseUrl}/api/sidequests/${itineraryId}/objectives/${itemId}/checkin`,
       { method: "POST" },
     );
     return this.handleResponse<{ success: boolean; checkedInAt?: string }>(
@@ -272,7 +272,7 @@ export class ItinerariesModule extends BaseApiModule {
     comment?: string,
   ): Promise<{ success: boolean; rating: number }> {
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries/${id}/rate`,
+      `${this.client.baseUrl}/api/sidequests/${id}/rate`,
       {
         method: "POST",
         body: JSON.stringify({ rating, ...(comment && { comment }) }),
@@ -285,7 +285,7 @@ export class ItinerariesModule extends BaseApiModule {
   async listCompleted(limit = 20): Promise<{ data: ItineraryResponse[] }> {
     const params = new URLSearchParams({ limit: String(limit) });
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries/completed?${params}`,
+      `${this.client.baseUrl}/api/sidequests/completed?${params}`,
     );
     return this.handleResponse<{ data: ItineraryResponse[] }>(response);
   }
@@ -308,14 +308,14 @@ export class ItinerariesModule extends BaseApiModule {
     if (options?.cursor) params.set("cursor", options.cursor);
 
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries/browse?${params}`,
+      `${this.client.baseUrl}/api/sidequests/browse?${params}`,
     );
     return this.handleResponse<{ data: BrowseItineraryResponse[] }>(response);
   }
 
   async adopt(id: string): Promise<ItineraryResponse> {
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries/${id}/adopt`,
+      `${this.client.baseUrl}/api/sidequests/${id}/adopt`,
       { method: "POST" },
     );
     return this.handleResponse<ItineraryResponse>(response);
@@ -326,7 +326,7 @@ export class ItinerariesModule extends BaseApiModule {
     longitude: number,
   ): Promise<{ city: string; suggestions: ItinerarySuggestion[] }> {
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/itineraries/suggestions`,
+      `${this.client.baseUrl}/api/sidequests/suggestions`,
       {
         method: "POST",
         body: JSON.stringify({ latitude, longitude }),
@@ -345,7 +345,7 @@ export class ItinerariesModule extends BaseApiModule {
       limit: String(limit),
     });
     const response = await fetch(
-      `${this.client.baseUrl}/api/public/itineraries/popular-stops?${params}`,
+      `${this.client.baseUrl}/api/public/sidequests/popular-stops?${params}`,
     );
     const json = await this.handleResponse<{ data: PopularStop[] }>(response);
     return json.data;

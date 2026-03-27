@@ -21,7 +21,7 @@ import Animated, {
 import { X } from "lucide-react-native";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { apiClient } from "@/services/ApiClient";
-import type { ItinerarySuggestion } from "@/services/api/modules/itineraries";
+import type { ItinerarySuggestion } from "@/services/api/modules/sidequests";
 import { useJobProgress } from "@/hooks/useJobProgress";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
 import { useGetAwaySuggestionsStore } from "@/stores/useGetAwaySuggestionsStore";
@@ -582,7 +582,7 @@ export default function GetAwayScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       try {
-        const result = await apiClient.itineraries.create({
+        const result = await apiClient.sidequests.create({
           city: suggestion.city || city || undefined,
           plannedDate: new Date().toISOString().slice(0, 10),
           budgetMin: 0,
@@ -596,17 +596,17 @@ export default function GetAwayScreen() {
           timezone: getUserTimezone(),
         });
 
-        if (result.itineraryId) {
-          markPicked(suggestionIndex, result.itineraryId);
+        if (result.sidequestId) {
+          markPicked(suggestionIndex, result.sidequestId);
         }
 
         trackJob(result.jobId);
-        itineraryJobStore.startJob(result.jobId, result.itineraryId);
+        itineraryJobStore.startJob(result.jobId, result.sidequestId);
         router.dismiss();
-        if (result.itineraryId) {
+        if (result.sidequestId) {
           router.push({
             pathname: "/itineraries/[id]" as const,
-            params: { id: result.itineraryId },
+            params: { id: result.sidequestId },
           });
         } else {
           router.push("/itineraries" as const);

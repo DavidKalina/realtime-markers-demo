@@ -15,7 +15,7 @@ import MapboxGL from "@rnmapbox/maps";
 import { Check } from "lucide-react-native";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { spring } from "@/theme";
-import type { ItineraryItemResponse } from "@/services/api/modules/itineraries";
+import type { ItineraryItemResponse } from "@/services/api/modules/sidequests";
 
 const STOP_COLORS = [
   "#93c5fd",

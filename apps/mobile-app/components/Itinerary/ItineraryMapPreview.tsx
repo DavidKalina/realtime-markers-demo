@@ -25,7 +25,7 @@ import {
   radius,
   type Colors,
 } from "@/theme";
-import type { ItineraryItemResponse } from "@/services/api/modules/itineraries";
+import type { ItineraryItemResponse } from "@/services/api/modules/sidequests";
 import { useFlyOverCamera } from "@/hooks/useFlyOverCamera";
 
 // Well-known city centers for fallback (avoids geocoding API call)

@@ -28,7 +28,7 @@ import type {
   ItineraryItemResponse,
   DayForecast,
   HourlyForecast,
-} from "@/services/api/modules/itineraries";
+} from "@/services/api/modules/sidequests";
 
 // WMO weather code → emoji mapping
 function weatherEmoji(code: number): string {
