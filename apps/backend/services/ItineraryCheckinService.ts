@@ -12,8 +12,6 @@ import type {
   PushNotificationPayload,
 } from "./PushNotificationService";
 import type { RedisService } from "./shared/RedisService";
-import type { GamificationService } from "./GamificationService";
-import type { BadgeService } from "./BadgeService";
 import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 
 const CHECKIN_RADIUS_METERS = 75;
@@ -69,8 +67,6 @@ interface ItineraryCheckinServiceDeps {
   dataSource: DataSource;
   pushService: PushNotificationService;
   redisService: RedisService;
-  gamificationService: GamificationService;
-  badgeService: BadgeService;
   thirdSpaceScoreService?: ThirdSpaceScoreService;
 }
 
@@ -106,16 +102,12 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
   private dataSource: DataSource;
   private pushService: PushNotificationService;
   private redisService: RedisService;
-  private gamificationService: GamificationService;
-  private badgeService: BadgeService;
   private thirdSpaceScoreService?: ThirdSpaceScoreService;
 
   constructor(deps: ItineraryCheckinServiceDeps) {
     this.dataSource = deps.dataSource;
     this.pushService = deps.pushService;
     this.redisService = deps.redisService;
-    this.gamificationService = deps.gamificationService;
-    this.badgeService = deps.badgeService;
     this.thirdSpaceScoreService = deps.thirdSpaceScoreService;
   }
 
@@ -316,18 +308,9 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
       where: { itineraryId, checkedInAt: IsNull() },
     });
 
-    // Award XP and update streak
-    try {
-      await this.gamificationService.awardXP(userId, 50, "itinerary_checkin");
-    } catch (err) {
-      console.error("[ItineraryCheckin] Failed to award check-in XP:", err);
-    }
+    // Update streak
     await this.updateStreak(userId, now);
 
-    // Check badge progress (fire-and-forget)
-    this.badgeService.checkBadges(userId).catch((err) => {
-      console.error("[ItineraryCheckin] Badge check failed:", err);
-    });
 
     // Handle completion
     if (remaining === 0) {
@@ -354,16 +337,6 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
         .getRepository(User)
         .update({ id: userId }, { activeItineraryId: null }),
     ]);
-
-    try {
-      await this.gamificationService.awardXP(
-        userId,
-        200,
-        "itinerary_completion",
-      );
-    } catch (err) {
-      console.error("[ItineraryCheckin] Failed to award completion XP:", err);
-    }
 
     console.log(
       `[ItineraryCheckin] User ${userId} completed itinerary ${itineraryId}`,
@@ -571,18 +544,6 @@ class ItineraryCheckinServiceImpl implements ItineraryCheckinService {
         `[ItineraryCheckin] Streak updated for user ${userId}: week=${newStreak}, longest=${newLongest}`,
       );
 
-      // Check for milestone XP bonus
-      const milestoneXP = STREAK_MILESTONES[newStreak];
-      if (milestoneXP) {
-        await this.gamificationService.awardXP(
-          userId,
-          milestoneXP,
-          `streak_milestone_${newStreak}`,
-        );
-        console.log(
-          `[ItineraryCheckin] Streak milestone ${newStreak} weeks! Awarded ${milestoneXP} XP to user ${userId}`,
-        );
-      }
     } catch (err) {
       console.error("[ItineraryCheckin] Failed to update streak:", err);
     }

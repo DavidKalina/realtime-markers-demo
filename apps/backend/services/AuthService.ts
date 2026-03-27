@@ -13,8 +13,28 @@ import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import { addDays, format } from "date-fns";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
-import { getTierForXP } from "./GamificationService";
 import type { EmailService } from "./shared/EmailService";
+
+// Tier definitions (previously in GamificationService)
+const TIERS = [
+  { name: "Explorer", minXp: 0, emoji: "\u{1F9ED}" },
+  { name: "Scout", minXp: 500, emoji: "\u{1F52D}" },
+  { name: "Curator", minXp: 2000, emoji: "\u{2B50}" },
+  { name: "Ambassador", minXp: 5000, emoji: "\u{1F451}" },
+] as const;
+
+function getTierForXP(xp: number): {
+  name: string;
+  emoji: string;
+  index: number;
+} {
+  for (let i = TIERS.length - 1; i >= 0; i--) {
+    if (xp >= TIERS[i].minXp) {
+      return { name: TIERS[i].name, emoji: TIERS[i].emoji, index: i };
+    }
+  }
+  return { name: TIERS[0].name, emoji: TIERS[0].emoji, index: 0 };
+}
 
 // Create a registration-specific interface that includes password
 export interface UserRegistrationData extends Omit<UserInput, "passwordHash"> {

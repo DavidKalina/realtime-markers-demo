@@ -57,8 +57,6 @@ import { useBootRedirect } from "@/hooks/useBootRedirect";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
-import XPNotificationOverlay from "@/components/Gamification/XPNotificationOverlay";
-import CompletionCelebration from "@/components/Gamification/CompletionCelebration";
 import { SENTRY_CONFIG, STACK_SCREEN_OPTIONS, SCREEN_CONFIGS } from "@/config";
 
 // Initialize Sentry — guarded so a native SDK failure doesn't crash the app
@@ -130,8 +128,6 @@ function AppContent({ children }: AppContentProps) {
     <GestureHandlerRootView style={{ flex: 1 }}>
       {children}
       {!isBoot && <ActionBar />}
-      {!isBoot && <XPNotificationOverlay />}
-      {!isBoot && <CompletionCelebration />}
       {isBoot && (
         <LoadingOverlay message="Loading..." subMessage="Setting things up" />
       )}

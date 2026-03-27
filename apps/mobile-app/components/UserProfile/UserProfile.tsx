@@ -26,7 +26,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useProfile } from "@/hooks/useProfile";
 import useUserStats from "@/hooks/useUserStats";
-import { useXPStore } from "@/stores/useXPStore";
 import {
   useColors,
   useTheme,
@@ -49,7 +48,6 @@ import DeleteAccountModalComponent from "./DeleteAccountModal";
 import UserStatsCard from "./UserStatsCard";
 import ActiveQuestBanner from "./ActiveQuestBanner";
 import RecentCompletions from "./RecentCompletions";
-import BadgeGrid from "./BadgeGrid";
 import ActivityHeatmap from "./ActivityHeatmap";
 import VenueDnaChart from "./VenueDnaChart";
 import AdventureDnaChart from "./AdventureDnaChart";
@@ -58,7 +56,6 @@ import AdventureFootprint from "./AdventureFootprint";
 import PendingItineraries from "./PendingItineraries";
 import DailyQuota from "./DailyQuota";
 import PersonalScoreHero from "./PersonalScoreHero";
-import NextBadgeProgress from "./NextBadgeProgress";
 import AdventurePreferences from "./AdventurePreferences";
 
 /* ─── Types ─── */
@@ -118,40 +115,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const completionsRefetchRef = useRef<(() => Promise<void>) | null>(null);
   const pendingRefetchRef = useRef<(() => Promise<void>) | null>(null);
   const quotaRefetchRef = useRef<(() => Promise<void>) | null>(null);
-  const badgesRefetchRef = useRef<(() => Promise<void>) | null>(null);
   const scoreRefetchRef = useRef<(() => Promise<void>) | null>(null);
-
-  // Consume pending XP on each focus, but only animate AFTER fresh data arrives
-  const consume = useXPStore((s) => s.consume);
-  const liveHasPending = useXPStore((s) => s.hasPending);
-  const isHandlingLive = useRef(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      const store = useXPStore.getState();
-      if (store.hasPending) {
-        consume();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        refetch();
-      }
-    }, [consume, refetch]),
-  );
-
-  // Live XP: handle new events arriving while already on this screen
-  useEffect(() => {
-    if (liveHasPending && !isHandlingLive.current) {
-      isHandlingLive.current = true;
-      const result = consume();
-      if (result.totalXP > 0) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        refetch().then(() => {
-          isHandlingLive.current = false;
-        });
-      } else {
-        isHandlingLive.current = false;
-      }
-    }
-  }, [liveHasPending, consume, refetch]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -164,7 +128,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         completionsRefetchRef.current?.(),
         pendingRefetchRef.current?.(),
         quotaRefetchRef.current?.(),
-        badgesRefetchRef.current?.(),
         scoreRefetchRef.current?.(),
       ]);
     } finally {
@@ -204,11 +167,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       {/* Pending Itineraries */}
       <View style={styles.tabSection}>
         <PendingItineraries onRefetchRef={pendingRefetchRef} />
-      </View>
-
-      {/* Next Badge Progress */}
-      <View style={styles.tabSection}>
-        <NextBadgeProgress onViewBadges={() => handleTabPress("insights")} />
       </View>
 
       {/* Recent Completions (rate unrated) */}
@@ -282,14 +240,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           }
         />
       </Animated.View>
-      {/* Badges */}
-      <Animated.View
-        entering={FadeIn.duration(duration.normal).delay(80)}
-        style={styles.tabSection}
-      >
-        <BadgeGrid onRefetchRef={badgesRefetchRef} />
-      </Animated.View>
-
       {/* Stats */}
       <Animated.View
         entering={FadeIn.duration(duration.normal).delay(320)}

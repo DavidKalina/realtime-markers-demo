@@ -31,7 +31,6 @@ import type { QueryAnalyticsService } from "./QueryAnalyticsService";
 import { createQueryAnalyticsService } from "./QueryAnalyticsService";
 import type { QueryInsights, QueryCluster } from "./QueryAnalyticsService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
-import type { GamificationService } from "./GamificationService";
 import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 import type { CreateEventInput } from "../types/event";
 
@@ -266,7 +265,6 @@ export interface EventServiceDependencies {
   eventCacheService: EventCacheService;
   openaiService: OpenAIService;
   embeddingService: IEmbeddingService;
-  gamificationService?: GamificationService;
   thirdSpaceScoreService?: ThirdSpaceScoreService;
 }
 
@@ -303,7 +301,6 @@ export class EventServiceRefactored implements EventService {
     this.engagementService = createUserEngagementService({
       dataSource: dependencies.dataSource,
       redisService: dependencies.redisService,
-      gamificationService: dependencies.gamificationService!,
       thirdSpaceScoreService: dependencies.thirdSpaceScoreService,
     });
 

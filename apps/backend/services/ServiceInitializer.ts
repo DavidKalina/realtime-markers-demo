@@ -21,7 +21,7 @@ import { createAuthService } from "./AuthService";
 import { createEmailService, MockEmailService } from "./shared/EmailService";
 import { createGoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import { createJobQueue } from "./JobQueue";
-import { createGamificationService } from "./GamificationService";
+
 import { createThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 import { RepositoryInitializer } from "./RepositoryInitializer";
 import type { EventService } from "./EventServiceRefactored";
@@ -36,7 +36,7 @@ import type { EmailService } from "./shared/EmailService";
 import type { JobQueue } from "./JobQueue";
 import type { RedisService } from "./shared/RedisService";
 import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
-import type { GamificationService } from "./GamificationService";
+
 import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 import { pushNotificationService } from "./PushNotificationService";
 import { createItineraryService } from "./ItineraryService";
@@ -46,8 +46,6 @@ import type { OverpassService } from "./shared/OverpassService";
 import { createWeatherService } from "./shared/WeatherService";
 import { createItineraryCheckinService } from "./ItineraryCheckinService";
 import type { ItineraryCheckinService } from "./ItineraryCheckinService";
-import { createBadgeService } from "./BadgeService";
-import type { BadgeService } from "./BadgeService";
 import { createAdventureScoreService } from "./AdventureScoreService";
 import type { AdventureScoreService } from "./AdventureScoreService";
 
@@ -64,12 +62,10 @@ export interface ServiceContainer {
   jobQueue: JobQueue;
   redisService: RedisService;
   geocodingService: GoogleGeocodingService;
-  gamificationService: GamificationService;
   thirdSpaceScoreService: ThirdSpaceScoreService;
   itineraryService: ItineraryService;
   itineraryCheckinService: ItineraryCheckinService;
   overpassService: OverpassService;
-  badgeService: BadgeService;
   adventureScoreService: AdventureScoreService;
 }
 
@@ -157,11 +153,6 @@ export class ServiceInitializer {
     });
 
     // Initialize business services
-    const gamificationService = createGamificationService({
-      dataSource: this.dataSource,
-      redisService,
-    });
-
     const thirdSpaceScoreService = createThirdSpaceScoreService({
       dataSource: this.dataSource,
       redisService,
@@ -177,7 +168,6 @@ export class ServiceInitializer {
       eventCacheService,
       openaiService: openAIService,
       embeddingService,
-      gamificationService,
       thirdSpaceScoreService,
     });
 
@@ -221,7 +211,6 @@ export class ServiceInitializer {
       geocodingService,
       overpassService,
       weatherService,
-      gamificationService,
       embeddingService,
       redisService,
     });
@@ -231,19 +220,10 @@ export class ServiceInitializer {
       redisService,
     });
 
-    const badgeService = createBadgeService({
-      dataSource: this.dataSource,
-      gamificationService,
-      redisService,
-      pushService: pushNotificationService,
-    });
-
     const itineraryCheckinService = createItineraryCheckinService({
       dataSource: this.dataSource,
       pushService: pushNotificationService,
       redisService,
-      gamificationService,
-      badgeService,
       thirdSpaceScoreService,
     });
 
@@ -262,12 +242,10 @@ export class ServiceInitializer {
       jobQueue,
       redisService,
       geocodingService,
-      gamificationService,
       thirdSpaceScoreService,
       itineraryService,
       itineraryCheckinService,
       overpassService,
-      badgeService,
       adventureScoreService,
     };
   }

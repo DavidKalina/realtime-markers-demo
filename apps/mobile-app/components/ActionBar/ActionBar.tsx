@@ -23,7 +23,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, fontWeight } from "@/theme";
-import { useXPStore } from "@/stores/useXPStore";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
 import { createStyles } from "./styles";
 
@@ -153,7 +152,6 @@ export const ActionBar: React.FC = React.memo(() => {
   const insets = useSafeAreaInsets();
   const { userLocation } = useUserLocation();
   const router = useRouter();
-  const hasPendingXP = useXPStore((s) => s.hasPending);
   const hasItineraryReady = useItineraryJobStore((s) => s.hasReady);
   const isItineraryGenerating = useItineraryJobStore((s) => !!s.activeJobId);
 
@@ -217,9 +215,8 @@ export const ActionBar: React.FC = React.memo(() => {
             isActive={activeTab === tab.key}
             disabled={!!tab.requiresLocation && !userLocation}
             showBadge={
-              (tab.key === "user" && hasPendingXP) ||
-              (tab.key === "itineraries" &&
-                (hasItineraryReady || isItineraryGenerating))
+              tab.key === "itineraries" &&
+                (hasItineraryReady || isItineraryGenerating)
             }
             onPress={() => handleTabPress(tab)}
           />

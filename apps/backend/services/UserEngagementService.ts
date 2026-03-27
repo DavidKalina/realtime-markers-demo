@@ -9,7 +9,6 @@ import {
   UserEventView,
 } from "@realtime-markers/database";
 import type { RedisService } from "./shared/RedisService";
-import type { GamificationService } from "./GamificationService";
 import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 
 export interface EventEngagementMetrics {
@@ -72,7 +71,6 @@ export interface UserEngagementService {
 export interface UserEngagementServiceDependencies {
   dataSource: DataSource;
   redisService: RedisService;
-  gamificationService: GamificationService;
   thirdSpaceScoreService?: ThirdSpaceScoreService;
 }
 
@@ -84,7 +82,6 @@ export class UserEngagementServiceImpl implements UserEngagementService {
   private userEventDiscoveryRepository: Repository<UserEventDiscovery>;
   private userEventViewRepository: Repository<UserEventView>;
   private redisService: RedisService;
-  private gamificationService: GamificationService;
   private thirdSpaceScoreService?: ThirdSpaceScoreService;
 
   constructor(private dependencies: UserEngagementServiceDependencies) {
@@ -99,7 +96,6 @@ export class UserEngagementServiceImpl implements UserEngagementService {
     this.userEventViewRepository =
       dependencies.dataSource.getRepository(UserEventView);
     this.redisService = dependencies.redisService;
-    this.gamificationService = dependencies.gamificationService;
     this.thirdSpaceScoreService = dependencies.thirdSpaceScoreService;
   }
 
@@ -184,21 +180,6 @@ export class UserEngagementServiceImpl implements UserEngagementService {
         // Save both the updated event and user
         await transactionalEntityManager.save(event);
         await transactionalEntityManager.save(user);
-
-        // Award XP for saving (not unsaving) — pass the transactionalEntityManager
-        // so awardXP shares this transaction's connection and lock.
-        if (saved) {
-          try {
-            await this.gamificationService.awardXP(
-              userId,
-              10,
-              "save_event",
-              transactionalEntityManager,
-            );
-          } catch (error) {
-            console.error("Error awarding XP for save:", error);
-          }
-        }
 
         // Publish the updated event to Redis for filter processor to recalculate popularity scores
         await this.redisService.publish("event_changes", {
@@ -386,19 +367,6 @@ export class UserEngagementServiceImpl implements UserEngagementService {
           });
           await transactionalEntityManager.save(newRsvp);
           changeType = "RSVP_ADDED";
-
-          // Award XP for first RSVP to an event — pass the transactionalEntityManager
-          // so awardXP shares this transaction's connection.
-          try {
-            await this.gamificationService.awardXP(
-              userId,
-              15,
-              "rsvp_event",
-              transactionalEntityManager,
-            );
-          } catch (error) {
-            console.error("Error awarding XP for RSVP:", error);
-          }
         }
 
         // Get updated counts
@@ -505,28 +473,6 @@ export class UserEngagementServiceImpl implements UserEngagementService {
             event.scanCount = previousScanCount + 1;
             await transactionalEntityManager.save(event);
 
-            // Award XP for scanning/discovering an event — pass the
-            // transactionalEntityManager so awardXP shares this
-            // transaction's connection and lock.
-            try {
-              await this.gamificationService.awardXP(
-                userId,
-                25,
-                "scan_event",
-                transactionalEntityManager,
-              );
-              // First-to-scan bonus: if this event had 0 scans before
-              if (previousScanCount === 0) {
-                await this.gamificationService.awardXP(
-                  userId,
-                  25,
-                  "first_scan_bonus",
-                  transactionalEntityManager,
-                );
-              }
-            } catch (error) {
-              console.error("Error awarding XP for scan:", error);
-            }
           }
 
           // Also increment the user's discovery count
@@ -610,17 +556,6 @@ export class UserEngagementServiceImpl implements UserEngagementService {
             if (user) {
               user.viewCount = (user.viewCount || 0) + 1;
               await transactionalEntityManager.save(user);
-
-              try {
-                await this.gamificationService.awardXP(
-                  userId,
-                  5,
-                  "view_event",
-                  transactionalEntityManager,
-                );
-              } catch (error) {
-                console.error("Error awarding XP for view:", error);
-              }
             }
           }
 

@@ -10,7 +10,6 @@ import { CategoriesModule } from "./api/modules/categories";
 import { PushNotificationsModule } from "./api/modules/pushNotifications";
 import { AreaScanModule } from "./api/modules/areaScan";
 import { ItinerariesModule } from "./api/modules/itineraries";
-import { BadgesModule } from "./api/modules/badges";
 import { AdventureScoreModule } from "./api/modules/adventureScore";
 import { OnboardingModule } from "./api/modules/onboarding";
 import { ProfileInsightsModule } from "./api/modules/profileInsights";
@@ -27,7 +26,6 @@ export * from "./api/modules/places";
 export * from "./api/modules/pushNotifications";
 export * from "./api/modules/areaScan";
 export * from "./api/modules/itineraries";
-export * from "./api/modules/badges";
 export * from "./api/modules/adventureScore";
 export * from "./api/modules/onboarding";
 export * from "./api/modules/profileInsights";
@@ -44,7 +42,6 @@ class ApiClient extends BaseApiClient {
   private _pushNotifications: PushNotificationsModule | null = null;
   private _areaScan: AreaScanModule | null = null;
   private _itineraries: ItinerariesModule | null = null;
-  private _badges: BadgesModule | null = null;
   private _adventureScore: AdventureScoreModule | null = null;
   private _onboarding: OnboardingModule | null = null;
   private _profileInsights: ProfileInsightsModule | null = null;
@@ -128,13 +125,6 @@ class ApiClient extends BaseApiClient {
       this._itineraries = new ItinerariesModule(this);
     }
     return this._itineraries;
-  }
-
-  public get badges(): BadgesModule {
-    if (!this._badges) {
-      this._badges = new BadgesModule(this);
-    }
-    return this._badges;
   }
 
   public get adventureScore(): AdventureScoreModule {

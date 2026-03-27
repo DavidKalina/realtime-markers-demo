@@ -37,7 +37,7 @@ import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
 import { createEventCacheService } from "./services/shared/EventCacheService";
 import { createImageProcessingCacheService } from "./services/shared/ImageProcessingCacheService";
 import { createCategoryCacheService } from "./services/shared/CategoryCacheService";
-import { createGamificationService } from "./services/GamificationService";
+
 
 // Constants
 const POLLING_INTERVAL = 1000; // 1 second
@@ -151,12 +151,6 @@ async function initializeWorker() {
     jobQueue,
   });
 
-  // Initialize gamification service
-  const gamificationService = createGamificationService({
-    dataSource: AppDataSource,
-    redisService,
-  });
-
   // Initialize event service
   eventService = createEventService({
     dataSource: AppDataSource,
@@ -165,7 +159,6 @@ async function initializeWorker() {
     eventCacheService,
     openaiService: openAIService,
     embeddingService,
-    gamificationService,
   });
 
   // Initialize storage service

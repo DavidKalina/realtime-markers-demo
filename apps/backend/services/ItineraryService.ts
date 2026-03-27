@@ -16,7 +16,7 @@ import type {
 } from "./shared/GoogleGeocodingService";
 import type { OverpassService, Trail } from "./shared/OverpassService";
 import type { WeatherService, DayForecast } from "./shared/WeatherService";
-import type { GamificationService } from "./GamificationService";
+
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
 import type { RedisService } from "./shared/RedisService";
 import type { AgentCandidate } from "./shared/JobPipeline";
@@ -304,7 +304,6 @@ interface ItineraryServiceDeps {
   geocodingService: GoogleGeocodingService;
   overpassService: OverpassService;
   weatherService: WeatherService;
-  gamificationService?: GamificationService;
   embeddingService?: IEmbeddingService;
   redisService?: RedisService;
 }
@@ -315,7 +314,6 @@ class ItineraryServiceImpl implements ItineraryService {
   private geocodingService: GoogleGeocodingService;
   private overpassService: OverpassService;
   private weatherService: WeatherService;
-  private gamificationService?: GamificationService;
   private embeddingService?: IEmbeddingService;
   private redisService?: RedisService;
 
@@ -325,7 +323,6 @@ class ItineraryServiceImpl implements ItineraryService {
     this.geocodingService = deps.geocodingService;
     this.overpassService = deps.overpassService;
     this.weatherService = deps.weatherService;
-    this.gamificationService = deps.gamificationService;
     this.embeddingService = deps.embeddingService;
     this.redisService = deps.redisService;
   }
@@ -924,15 +921,6 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
           err,
         );
       });
-    }
-
-    // Award XP for rating
-    if (this.gamificationService) {
-      try {
-        await this.gamificationService.awardXP(userId, 25, "rate_itinerary");
-      } catch (err) {
-        console.error("[ItineraryService] Failed to award XP for rating:", err);
-      }
     }
 
     return itinerary;

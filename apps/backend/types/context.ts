@@ -15,7 +15,6 @@ import type { ThirdSpaceScoreService } from "../services/ThirdSpaceScoreService"
 import type { ItineraryService } from "../services/ItineraryService";
 import type { ItineraryCheckinService } from "../services/ItineraryCheckinService";
 import type { OverpassService } from "../services/shared/OverpassService";
-import type { BadgeService } from "../services/BadgeService";
 import type { AdventureScoreService } from "../services/AdventureScoreService";
 
 export interface AppVariables {
@@ -35,7 +34,6 @@ export interface AppVariables {
   itineraryService: ItineraryService;
   itineraryCheckinService: ItineraryCheckinService;
   overpassService: OverpassService;
-  badgeService: BadgeService;
   adventureScoreService: AdventureScoreService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
