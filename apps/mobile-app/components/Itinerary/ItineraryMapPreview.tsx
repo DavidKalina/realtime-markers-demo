@@ -153,7 +153,7 @@ export default function ItineraryMapPreview({
   const s = useMemo(() => createComponentStyles(colors), [colors]);
   const { mapStyle } = useMapStyle();
 
-  const cameraRef = useRef<MapboxGL.Camera>(null);
+  const cameraRef = useRef<MapboxGL.Camera>(null) as React.RefObject<MapboxGL.Camera>;
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStopIndex, setCurrentStopIndex] = useState(-1);
   const [revealedStops, setRevealedStops] = useState<Set<number>>(new Set());

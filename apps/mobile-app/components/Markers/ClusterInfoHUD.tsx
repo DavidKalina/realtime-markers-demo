@@ -143,7 +143,7 @@ const createStyles = (colors: Colors) =>
       fontSize: fontSize.sm,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.semibold,
-      lineHeight: lineHeight.snug,
+      lineHeight: lineHeight.tight,
     },
     badge: {
       backgroundColor: colors.bg.primary,

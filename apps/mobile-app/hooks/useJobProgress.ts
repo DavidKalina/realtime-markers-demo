@@ -168,7 +168,8 @@ export function useJobProgress(): UseJobProgressReturn {
           }
         });
 
-        es.addEventListener("done", () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (es as any).addEventListener("done", () => {
           es.close();
           eventSourcesRef.current.delete(jobId);
         });

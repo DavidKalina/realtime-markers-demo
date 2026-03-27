@@ -29,14 +29,14 @@ import {
 } from "react-native";
 import RAnimated from "react-native-reanimated";
 import AnchorMarkers from "@/components/Markers/AnchorMarkers";
-import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
+import QuestDialogBox from "@/components/Quest/QuestDialogBox";
 import ItineraryRouteLayer from "@/components/Itinerary/ItineraryRouteLayer";
 import ItineraryWaypoints from "@/components/Itinerary/ItineraryWaypoints";
 import AdventureHUD from "@/components/Itinerary/AdventureHUD";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useItineraryReveal } from "@/hooks/useItineraryReveal";
 import { useItineraryPreviewOrbit } from "@/hooks/useItineraryPreviewOrbit";
-import { useSimulateItinerary } from "@/hooks/useSimulateItinerary";
+// useSimulateItinerary removed (event system deleted)
 import { useRecentItineraries } from "@/hooks/useRecentItineraries";
 import { useFabAnimations } from "@/hooks/useFabAnimations";
 import { useMapInteractions } from "@/hooks/useMapInteractions";
@@ -160,18 +160,7 @@ function HomeScreenContent() {
   // ── Recent itineraries ─────────────────────────────────────────────
   const { itineraries: recentItineraries } = useRecentItineraries();
 
-  // ── DEV: simulate itinerary check-ins ───────────────────────────────
-  const { startSimulation, stopSimulation } = useSimulateItinerary(
-    userLocation ?? null,
-  );
-  const handleSimTrigger = useCallback(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    if (activeItinerary) {
-      stopSimulation();
-    } else {
-      startSimulation();
-    }
-  }, [activeItinerary, startSimulation, stopSimulation]);
+  // DEV simulation removed (event system deleted)
 
   // ── Viewport ────────────────────────────────────────────────────────
   const { handleRegionChanging, handleRegionDidChange } = useMapViewport({
@@ -352,7 +341,7 @@ function HomeScreenContent() {
         {floatingButtonsSection}
 
         {!selectedItem && !activeItinerary && (
-          <ItineraryDialogBox style={planBannerStyles.dialogBox} />
+          <QuestDialogBox style={planBannerStyles.dialogBox} />
         )}
         {activeItinerary && (
           <AdventureHUD style={planBannerStyles.dialogBox} />

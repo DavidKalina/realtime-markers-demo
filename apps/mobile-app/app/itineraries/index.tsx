@@ -34,7 +34,7 @@ import { scheduleOnRN } from "react-native-worklets";
 import Screen from "@/components/Layout/Screen";
 import { usePullToAction } from "@/hooks/usePullToAction";
 import EmptyState from "@/components/Layout/EmptyState";
-import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
+import QuestDialogBox from "@/components/Quest/QuestDialogBox";
 import { apiClient } from "@/services/ApiClient";
 import type { ItineraryResponse } from "@/services/api/modules/itineraries";
 import {
@@ -796,8 +796,7 @@ const ItinerariesListScreen = () => {
       onBack={handleBack}
       noAnimation
       bottomContent={
-        <ItineraryDialogBox
-          defaultExpanded={expand === "1"}
+        <QuestDialogBox
           style={{ marginBottom: 0 }}
         />
       }

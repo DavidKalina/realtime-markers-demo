@@ -26,7 +26,7 @@ import EndOfList from "./EndOfList";
 
 interface InfiniteScrollFlatListProps<T> extends Omit<
   FlatListProps<T>,
-  "data" | "renderItem" | "onRefresh" | "refreshing"
+  "data" | "renderItem" | "onRefresh" | "refreshing" | "CellRendererComponent"
 > {
   data: T[];
   renderItem: (item: T, index: number) => React.ReactElement;

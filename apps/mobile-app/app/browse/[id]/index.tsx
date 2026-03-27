@@ -24,7 +24,7 @@ import Svg, { Circle } from "react-native-svg";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
 import Screen from "@/components/Layout/Screen";
 import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
-import ItineraryDialogBox from "@/components/Itinerary/ItineraryDialogBox";
+import QuestDialogBox from "@/components/Quest/QuestDialogBox";
 import ActivityHeatmap from "@/components/UserProfile/ActivityHeatmap";
 import VenueDnaChart from "@/components/UserProfile/VenueDnaChart";
 import useDistrictDetail from "@/hooks/useDistrictDetail";
@@ -790,8 +790,7 @@ const DistrictDetailScreen = () => {
       bannerDescription={district.name}
       noAnimation
       bottomContent={
-        <ItineraryDialogBox
-          defaultActivities={dominantActivities}
+        <QuestDialogBox
           style={{ height: 105, marginBottom: 0 }}
         />
       }

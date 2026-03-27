@@ -1,4 +1,8 @@
-import { NativeStackNavigationOptions } from "@react-navigation/native-stack";
+interface ScreenTransitionOptions {
+  animation?: "fade_from_bottom" | "slide_from_right" | "fade" | "slide_from_left" | "none";
+  animationDuration?: number;
+  presentation?: "modal" | "card" | "transparentModal" | "containedModal" | "containedTransparentModal" | "fullScreenModal" | "formSheet";
+}
 
 export const STACK_SCREEN_OPTIONS = {
   headerShown: false,
@@ -13,10 +17,7 @@ export const STACK_SCREEN_OPTIONS = {
 
 interface ScreenConfig {
   name: string;
-  options?: Pick<
-    NativeStackNavigationOptions,
-    "animation" | "animationDuration" | "presentation"
-  >;
+  options?: ScreenTransitionOptions;
 }
 
 export const SCREEN_CONFIGS: readonly ScreenConfig[] = [

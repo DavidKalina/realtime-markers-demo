@@ -1,6 +1,6 @@
 // stores/useLocationStore.ts - Unified selection model (legacy fields removed)
 import { create } from "zustand";
-import { EventType, MapboxViewport, Marker } from "@/types/types";
+import { MapboxViewport, Marker } from "@/types/types";
 import type { MapItem, MarkerItem } from "@/types/map";
 
 interface LocationStoreState {
@@ -42,7 +42,7 @@ interface LocationStoreState {
   setShowActions: (show: boolean) => void;
 
   // Action handlers
-  handleSelectEventFromSearch: (event: EventType) => void;
+  handleSelectEventFromSearch: (event: { id: string }) => void;
   handleSelectEventFromMap: (marker: Marker) => void;
   updateMapViewport: (viewport: MapboxViewport) => void;
   setConnectionStatus: (isConnected: boolean) => void;
@@ -182,7 +182,7 @@ export const useLocationStore = create<LocationStoreState>((set, get) => ({
   // View state handlers
   setShowActions: (show: boolean) => set({ showActions: show }),
 
-  handleSelectEventFromSearch: (event: EventType) => {
+  handleSelectEventFromSearch: (event: { id: string }) => {
     const { markers, selectMapItem } = get();
     if (event.id) {
       const marker = markers.find((m) => m.id === event.id);

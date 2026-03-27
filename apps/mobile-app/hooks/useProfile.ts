@@ -142,13 +142,15 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
 
   // Memoize formatted date
   const memberSince = useMemo(() => {
-    return profileData?.createdAt
-      ? new Date(profileData.createdAt).toLocaleDateString("en-US", {
+    // createdAt may come from API response but isn't in the UserProfile type
+    const createdAt = (profileData as Record<string, unknown> | null)?.createdAt;
+    return typeof createdAt === "string"
+      ? new Date(createdAt).toLocaleDateString("en-US", {
           month: "long",
           year: "numeric",
         })
       : "Loading...";
-  }, [profileData?.createdAt]);
+  }, [profileData]);
 
   // Handle back button
   const handleBack = useCallback(() => {

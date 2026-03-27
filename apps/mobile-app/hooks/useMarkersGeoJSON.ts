@@ -12,7 +12,8 @@ export function useMarkersGeoJSON(
     () => ({
       type: "FeatureCollection" as const,
       features: markers.map((m) => {
-        const category = m.data.categories?.[0] ?? "unknown";
+        const categories = m.data.categories as string[] | undefined;
+        const category = categories?.[0] ?? "unknown";
         return {
           type: "Feature" as const,
           geometry: {

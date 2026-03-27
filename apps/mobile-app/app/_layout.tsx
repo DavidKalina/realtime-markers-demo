@@ -49,7 +49,7 @@ import { LocationProvider } from "@/contexts/LocationContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
 import { JobProgressProvider } from "@/contexts/JobProgressContext";
-import { WebSocketProvider } from "@/contexts/WebSocketContext";
+// WebSocketProvider removed (event system deleted)
 import { ThemeProvider, useTheme } from "@/theme";
 import { usePathname } from "expo-router";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
@@ -104,17 +104,15 @@ function AppProviders({ children }: AppProvidersProps) {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <WebSocketProvider>
-          <OnboardingProvider>
-            <LocationProvider>
-              <JobProgressProvider>
-                <MapStyleProvider>
-                  <NavigationThemeBridge>{children}</NavigationThemeBridge>
-                </MapStyleProvider>
-              </JobProgressProvider>
-            </LocationProvider>
-          </OnboardingProvider>
-        </WebSocketProvider>
+        <OnboardingProvider>
+          <LocationProvider>
+            <JobProgressProvider>
+              <MapStyleProvider>
+                <NavigationThemeBridge>{children}</NavigationThemeBridge>
+              </MapStyleProvider>
+            </JobProgressProvider>
+          </LocationProvider>
+        </OnboardingProvider>
       </AuthProvider>
     </ThemeProvider>
   );

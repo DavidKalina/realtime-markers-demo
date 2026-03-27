@@ -43,7 +43,7 @@ import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useProfileInsights } from "@/hooks/useProfileInsights";
 import Screen from "../Layout/Screen";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
-import ItineraryDialogBox from "../Itinerary/ItineraryDialogBox";
+import QuestDialogBox from "../Quest/QuestDialogBox";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
 import UserStatsCard from "./UserStatsCard";
 import ActiveQuestBanner from "./ActiveQuestBanner";
@@ -376,7 +376,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         showBackButton
         onBack={handleBack}
         noAnimation
-        bottomContent={<ItineraryDialogBox style={{ marginBottom: 0 }} />}
+        bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} />}
       >
         <PullToActionScrollView
           onSearch={handleSearch}

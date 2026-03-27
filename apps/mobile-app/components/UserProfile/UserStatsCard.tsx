@@ -9,11 +9,23 @@ import {
   fontWeight,
   fontFamily,
 } from "@/theme";
-import {
-  BAR_COLORS,
-  formatNumber,
-} from "@/components/AreaScan/AreaScanComponents";
-import type { UserStats } from "@/services/ApiClient";
+import type { UserStats } from "@/hooks/useUserStats";
+
+const BAR_COLORS = [
+  "#f87171",
+  "#fb923c",
+  "#facc15",
+  "#4ade80",
+  "#60a5fa",
+  "#a78bfa",
+  "#f472b6",
+];
+
+const formatNumber = (n: number): string => {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+};
 
 interface UserStatsCardProps {
   stats: UserStats | null;

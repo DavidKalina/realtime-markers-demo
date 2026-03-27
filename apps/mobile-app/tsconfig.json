@@ -10,7 +10,6 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts",
-    "../websocket/SessionManager.ts"
+    "expo-env.d.ts"
   ]
 }

@@ -289,7 +289,9 @@ const PoolSlot = React.memo(
           <Animated.View style={{ opacity }}>
             <ClusterSlotContent {...data.content.props} />
           </Animated.View>
-        ) : null}
+        ) : (
+          <Animated.View style={{ opacity: 0 }} />
+        )}
       </MapboxGL.MarkerView>
     );
   },

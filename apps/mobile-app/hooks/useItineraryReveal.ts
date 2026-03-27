@@ -33,10 +33,8 @@ const REPLAY_FLY_MS = 1200;
 const seenItineraryIds = new Set<string>();
 
 interface UseItineraryRevealOptions {
-  cameraRef: React.RefObject<{
-    setCamera: (opts: Record<string, unknown>) => void;
-    fitBounds: (...args: unknown[]) => void;
-  } | null>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cameraRef: React.RefObject<any>;
 }
 
 interface UseItineraryRevealResult {
@@ -178,13 +176,14 @@ export function useItineraryReveal({
   useEffect(() => {
     const unsub = eventBroker.on(
       EventTypes.ITINERARY_CHECKIN,
-      (data: { itineraryId: string; itemId: string; completed: boolean }) => {
+      (data) => {
+        const { itineraryId, itemId, completed } = data as unknown as { itineraryId: string; itemId: string; completed: boolean };
 
         const current = useActiveItineraryStore.getState().itinerary;
 
         // 1. Fly to the checked-in stop first so the user sees the celebration
         if (current) {
-          const checkedItem = current.items.find((i) => i.id === data.itemId);
+          const checkedItem = current.items.find((i) => i.id === itemId);
           if (checkedItem?.latitude && checkedItem?.longitude) {
             cameraRef.current?.setCamera({
               centerCoordinate: [
@@ -201,7 +200,7 @@ export function useItineraryReveal({
         const timeouts: ReturnType<typeof setTimeout>[] = [];
 
         // 2. Mark checked in (triggers the pin celebration animation)
-        markCheckedIn(data.itemId, new Date().toISOString());
+        markCheckedIn(itemId, new Date().toISOString());
 
         // 3. After celebration plays, fly to the next unchecked stop
 

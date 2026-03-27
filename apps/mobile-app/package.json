@@ -88,6 +88,7 @@
     "@babel/core": "^7.25.2",
     "@sentry/cli": "^2.43.0",
     "@types/d3-delaunay": "^6.0.4",
+    "@types/geojson": "^7946.0.16",
     "@types/jest": "^29.5.12",
     "@types/lodash": "^4.17.16",
     "@types/react": "~19.1.17",

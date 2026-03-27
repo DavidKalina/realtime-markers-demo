@@ -1,9 +1,7 @@
 import { create } from "zustand";
 import * as Haptics from "expo-haptics";
-import {
-  CHAR_DELAY_MS,
-  AUTO_ADVANCE_MS,
-} from "@/components/AreaScan/AreaScanComponents";
+const CHAR_DELAY_MS = 25;
+const AUTO_ADVANCE_MS = 3000;
 
 // --- Module-scope mutable state (non-reactive, avoids re-renders) ---
 

@@ -150,7 +150,7 @@ export const useNetworkQuality = () => {
   useEffect(() => {
     isMounted.current = true;
     let isSubscribed = true;
-    let intervalId: NodeJS.Timeout | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
     let appStateSubscription: { remove: () => void } | null = null;
     let netInfoUnsubscribe: (() => void) | null = null;
 
