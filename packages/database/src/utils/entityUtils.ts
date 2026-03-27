@@ -16,13 +16,12 @@ const ENTITY_TO_TABLE_MAPPING: Record<string, string> = {
   UserEventSave: "user_event_saves",
   UserPushToken: "user_push_tokens",
   LlmUsageLog: "llm_usage_logs",
-  Itinerary: "itineraries",
-  ItineraryItem: "itinerary_items",
-  ItineraryCheckin: "itinerary_checkins",
+  Sidequest: "sidequests",
+  Objective: "objectives",
+  ObjectiveCheckin: "objective_checkins",
   UserBadge: "user_badges",
   AdventureScoreSnapshot: "adventure_score_snapshots",
   District: "districts",
-  DistrictItinerary: "district_itineraries",
   DistrictSnapshot: "district_snapshots",
 };
 

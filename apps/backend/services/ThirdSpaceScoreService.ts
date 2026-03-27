@@ -130,7 +130,7 @@ export class ThirdSpaceScoreService {
           ELSE 0
         END
       ), 0) AS raw
-      FROM itineraries
+      FROM sidequests
       WHERE LOWER(city) = LOWER($1)
         AND completed_at IS NOT NULL
         AND completed_at >= NOW() - INTERVAL '30 days'`,
@@ -143,7 +143,7 @@ export class ThirdSpaceScoreService {
       `SELECT
         COUNT(*) FILTER (WHERE completed_at IS NOT NULL)::float AS completed,
         COUNT(*)::float AS total
-      FROM itineraries
+      FROM sidequests
       WHERE LOWER(city) = LOWER($1)
         AND created_at >= NOW() - INTERVAL '30 days'`,
       [city],
@@ -154,13 +154,13 @@ export class ThirdSpaceScoreService {
 
     const checkinRateRows = await this.dataSource.query(
       `SELECT
-        COUNT(*) FILTER (WHERE ii.checked_in_at IS NOT NULL)::float AS checked_in,
+        COUNT(*) FILTER (WHERE o.checked_in_at IS NOT NULL)::float AS checked_in,
         COUNT(*)::float AS total_items
-      FROM itinerary_items ii
-      JOIN itineraries i ON i.id = ii.itinerary_id
-      WHERE LOWER(i.city) = LOWER($1)
-        AND i.completed_at IS NOT NULL
-        AND i.completed_at >= NOW() - INTERVAL '30 days'`,
+      FROM objectives o
+      JOIN sidequests s ON s.id = o.sidequest_id
+      WHERE LOWER(s.city) = LOWER($1)
+        AND s.completed_at IS NOT NULL
+        AND s.completed_at >= NOW() - INTERVAL '30 days'`,
       [city],
     );
     const checkedIn = parseFloat(checkinRateRows[0]?.checked_in || "0");
@@ -172,7 +172,7 @@ export class ThirdSpaceScoreService {
     // 3. Satisfaction: avg rating of completed itineraries, normalized 0-100
     const satisfactionRows = await this.dataSource.query(
       `SELECT AVG(rating) AS avg_rating
-      FROM itineraries
+      FROM sidequests
       WHERE LOWER(city) = LOWER($1)
         AND completed_at IS NOT NULL
         AND rating IS NOT NULL`,
@@ -185,13 +185,13 @@ export class ThirdSpaceScoreService {
     // 4. Variety: Shannon entropy of intentions + activity types
     const varietyRows = await this.dataSource.query(
       `SELECT label, COUNT(*)::int AS cnt FROM (
-        SELECT intention AS label FROM itineraries
+        SELECT intention AS label FROM sidequests
         WHERE LOWER(city) = LOWER($1)
           AND completed_at IS NOT NULL
           AND completed_at >= NOW() - INTERVAL '30 days'
           AND intention IS NOT NULL
         UNION ALL
-        SELECT UNNEST(activity_types) AS label FROM itineraries
+        SELECT UNNEST(activity_types) AS label FROM sidequests
         WHERE LOWER(city) = LOWER($1)
           AND completed_at IS NOT NULL
           AND completed_at >= NOW() - INTERVAL '30 days'
@@ -216,7 +216,7 @@ export class ThirdSpaceScoreService {
     // 5. Community: unique users with itineraries in 30d
     const communityRows = await this.dataSource.query(
       `SELECT COUNT(DISTINCT user_id)::int AS raw
-      FROM itineraries
+      FROM sidequests
       WHERE LOWER(city) = LOWER($1)
         AND created_at >= NOW() - INTERVAL '30 days'`,
       [city],
@@ -283,7 +283,7 @@ export class ThirdSpaceScoreService {
 
   async computeAllCities(): Promise<void> {
     const rows = await this.dataSource.query(
-      `SELECT DISTINCT city FROM itineraries WHERE city IS NOT NULL`,
+      `SELECT DISTINCT city FROM sidequests WHERE city IS NOT NULL`,
     );
     // Deduplicate after normalizing — raw DB values may differ in casing/format
     const seen = new Set<string>();
@@ -367,13 +367,13 @@ export class ThirdSpaceScoreService {
 
     // Centroid from itinerary items with coordinates
     const centroidRows = await this.dataSource.query(
-      `SELECT AVG(ii.latitude) AS lat, AVG(ii.longitude) AS lng
-       FROM itinerary_items ii
-       JOIN itineraries i ON i.id = ii.itinerary_id
-       WHERE LOWER(i.city) = LOWER($1)
-         AND i.created_at >= NOW() - INTERVAL '30 days'
-         AND ii.latitude IS NOT NULL
-         AND ii.longitude IS NOT NULL`,
+      `SELECT AVG(o.latitude) AS lat, AVG(o.longitude) AS lng
+       FROM objectives o
+       JOIN sidequests s ON s.id = o.sidequest_id
+       WHERE LOWER(s.city) = LOWER($1)
+         AND s.created_at >= NOW() - INTERVAL '30 days'
+         AND o.latitude IS NOT NULL
+         AND o.longitude IS NOT NULL`,
       [city],
     );
     const centroid = centroidRows[0]?.lat
@@ -415,16 +415,16 @@ export class ThirdSpaceScoreService {
         u.avatar_url AS "avatarUrl",
         u.current_tier AS "currentTier",
         u.current_streak AS "streakWeeks",
-        COUNT(*) FILTER (WHERE i.completed_at IS NOT NULL)::int AS "completionCount",
+        COUNT(*) FILTER (WHERE s.completed_at IS NOT NULL)::int AS "completionCount",
         COUNT(*)::int AS "totalCount",
-        COUNT(DISTINCT i.intention) FILTER (WHERE i.intention IS NOT NULL)::int AS "intentionCount"
-      FROM itineraries i
-      JOIN users u ON u.id = i.user_id
-      WHERE LOWER(i.city) = LOWER($1)
-        AND i.created_at >= NOW() - INTERVAL '30 days'
+        COUNT(DISTINCT s.intention) FILTER (WHERE s.intention IS NOT NULL)::int AS "intentionCount"
+      FROM sidequests s
+      JOIN users u ON u.id = s.user_id
+      WHERE LOWER(s.city) = LOWER($1)
+        AND s.created_at >= NOW() - INTERVAL '30 days'
       GROUP BY u.id, u.first_name, u.last_name, u.avatar_url, u.current_tier, u.current_streak
-      ORDER BY COUNT(*) FILTER (WHERE i.completed_at IS NOT NULL) DESC,
-               COUNT(DISTINCT i.intention) DESC
+      ORDER BY COUNT(*) FILTER (WHERE s.completed_at IS NOT NULL) DESC,
+               COUNT(DISTINCT s.intention) DESC
       LIMIT $2`,
       [city, limit],
     );
@@ -487,16 +487,16 @@ export class ThirdSpaceScoreService {
 
     // Adventure count + centroid per city from itineraries
     const adventureStats = await this.dataSource.query(
-      `SELECT LOWER(i.city) AS city_key,
-              COUNT(*) FILTER (WHERE i.completed_at IS NOT NULL)::int AS adventure_count,
-              AVG(ii.latitude) AS centroid_lat,
-              AVG(ii.longitude) AS centroid_lng
-       FROM itineraries i
-       LEFT JOIN itinerary_items ii ON ii.itinerary_id = i.id
-         AND ii.latitude IS NOT NULL AND ii.longitude IS NOT NULL
-       WHERE i.city IS NOT NULL
-         AND i.created_at >= NOW() - INTERVAL '30 days'
-       GROUP BY LOWER(i.city)`,
+      `SELECT LOWER(s.city) AS city_key,
+              COUNT(*) FILTER (WHERE s.completed_at IS NOT NULL)::int AS adventure_count,
+              AVG(o.latitude) AS centroid_lat,
+              AVG(o.longitude) AS centroid_lng
+       FROM sidequests s
+       LEFT JOIN objectives o ON o.sidequest_id = s.id
+         AND o.latitude IS NOT NULL AND o.longitude IS NOT NULL
+       WHERE s.city IS NOT NULL
+         AND s.created_at >= NOW() - INTERVAL '30 days'
+       GROUP BY LOWER(s.city)`,
     );
     const statsMap = new Map<
       string,

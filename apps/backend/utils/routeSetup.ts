@@ -8,7 +8,7 @@ import { categoriesRouter } from "../routes/categories";
 import { jobStreamingRouter } from "../routes/jobStreaming";
 import { pushNotificationRouter } from "../routes/pushNotifications";
 import { usersRouter } from "../routes/users";
-import { itineraryRouter, publicItineraryRouter } from "../routes/itineraries";
+import { sidequestRouter, publicSidequestRouter } from "../routes/sidequests";
 import type { AppContext } from "../types/context";
 
 /**
@@ -16,7 +16,7 @@ import type { AppContext } from "../types/context";
  */
 export function setupRoutes(app: Hono<AppContext>): void {
   // Public routes (no auth required) — must come before authenticated routes
-  app.route("/api/public/itineraries", publicItineraryRouter);
+  app.route("/api/public/sidequests", publicSidequestRouter);
 
   // Register all route modules
   app.route("/api/events", eventsRouter);
@@ -26,7 +26,7 @@ export function setupRoutes(app: Hono<AppContext>): void {
   app.route("/api/categories", categoriesRouter);
   app.route("/api/push-notifications", pushNotificationRouter);
   app.route("/api/users", usersRouter);
-  app.route("/api/itineraries", itineraryRouter);
+  app.route("/api/sidequests", sidequestRouter);
 
   // Job streaming routes (must be before jobs router)
   app.route("/api/jobs", jobStreamingRouter);

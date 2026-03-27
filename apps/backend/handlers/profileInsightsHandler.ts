@@ -45,9 +45,9 @@ interface ProfileInsightsResponse {
   activityHeatmap: ActivityDay[];
   // Venue DNA (category breakdown from check-ins)
   venueDna: VenueCategory[];
-  // Vibe DNA (activity type breakdown from completed itineraries)
+  // Vibe DNA (activity type breakdown from completed sidequests)
   vibeDna: VibeCount[];
-  // Intention DNA (intention breakdown from completed itineraries)
+  // Intention DNA (intention breakdown from completed sidequests)
   intentionDna: IntentionCount[];
   // Streak calendar (weekly activity for last 16 weeks)
   streakCalendar: WeekActivity[];
@@ -55,10 +55,10 @@ interface ProfileInsightsResponse {
   footprint: {
     totalDistanceMiles: number;
     totalCheckins: number;
-    totalCompletedItineraries: number;
+    totalCompletedSidequests: number;
     totalUniqueVenues: number;
     totalStopsVisited: number;
-    avgStopsPerItinerary: number;
+    avgStopsPerSidequest: number;
     cities: CityFootprint[];
   };
 }
@@ -86,7 +86,7 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     // 1. Activity heatmap — daily check-in counts for last 16 weeks
     AppDataSource.query(
       `SELECT DATE(checked_in_at) AS date, COUNT(*)::int AS count
-       FROM itinerary_checkins
+       FROM objective_checkins
        WHERE user_id = $1
          AND checked_in_at >= NOW() - INTERVAL '16 weeks'
        GROUP BY DATE(checked_in_at)
@@ -97,13 +97,13 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     // 2. Venue DNA — category breakdown from all check-ins
     AppDataSource.query(
       `SELECT
-         ii.venue_category AS category,
+         o.venue_category AS category,
          COUNT(*)::int AS count
-       FROM itinerary_checkins ic
-       JOIN itinerary_items ii ON ii.id = ic.itinerary_item_id
-       WHERE ic.user_id = $1
-         AND ii.venue_category IS NOT NULL
-       GROUP BY ii.venue_category
+       FROM objective_checkins oc
+       JOIN objectives o ON o.id = oc.objective_id
+       WHERE oc.user_id = $1
+         AND o.venue_category IS NOT NULL
+       GROUP BY o.venue_category
        ORDER BY count DESC
        LIMIT 8`,
       [user.id],
@@ -114,7 +114,7 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
       `SELECT
          DATE_TRUNC('week', checked_in_at)::date AS week_start,
          COUNT(*)::int AS count
-       FROM itinerary_checkins
+       FROM objective_checkins
        WHERE user_id = $1
          AND checked_in_at >= NOW() - INTERVAL '16 weeks'
        GROUP BY week_start
@@ -127,19 +127,19 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
       `SELECT COALESCE(SUM(distance_m), 0)::float AS total_meters FROM (
          SELECT
            ST_Distance(
-             ST_SetSRID(ST_MakePoint(ii.longitude, ii.latitude), 4326)::geography,
+             ST_SetSRID(ST_MakePoint(o.longitude, o.latitude), 4326)::geography,
              ST_SetSRID(ST_MakePoint(
-               LEAD(ii.longitude) OVER (PARTITION BY ii.itinerary_id ORDER BY ii.sort_order),
-               LEAD(ii.latitude) OVER (PARTITION BY ii.itinerary_id ORDER BY ii.sort_order)
+               LEAD(o.longitude) OVER (PARTITION BY o.sidequest_id ORDER BY o.objective_sort_order),
+               LEAD(o.latitude) OVER (PARTITION BY o.sidequest_id ORDER BY o.objective_sort_order)
              ), 4326)::geography
            ) AS distance_m
-         FROM itinerary_items ii
-         JOIN itineraries i ON i.id = ii.itinerary_id
-         WHERE i.user_id = $1
-           AND i.completed_at IS NOT NULL
-           AND ii.checked_in_at IS NOT NULL
-           AND ii.latitude IS NOT NULL
-           AND ii.longitude IS NOT NULL
+         FROM objectives o
+         JOIN sidequests s ON s.id = o.sidequest_id
+         WHERE s.user_id = $1
+           AND s.completed_at IS NOT NULL
+           AND o.checked_in_at IS NOT NULL
+           AND o.latitude IS NOT NULL
+           AND o.longitude IS NOT NULL
        ) sub
        WHERE distance_m IS NOT NULL`,
       [user.id],
@@ -148,42 +148,42 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     // 4b. Summary stats
     AppDataSource.query(
       `SELECT
-         COUNT(DISTINCT ic.id)::int AS total_checkins,
-         COUNT(DISTINCT i.id)::int AS total_completed,
-         COUNT(DISTINCT COALESCE(ii.google_place_id, LOWER(ii.venue_name)))::int AS unique_venues,
-         COUNT(DISTINCT ic.itinerary_item_id)::int AS total_stops_visited
-       FROM itinerary_checkins ic
-       JOIN itinerary_items ii ON ii.id = ic.itinerary_item_id
-       JOIN itineraries i ON i.id = ic.itinerary_id
-       WHERE ic.user_id = $1
-         AND i.completed_at IS NOT NULL`,
+         COUNT(DISTINCT oc.id)::int AS total_checkins,
+         COUNT(DISTINCT s.id)::int AS total_completed,
+         COUNT(DISTINCT COALESCE(o.google_place_id, LOWER(o.venue_name)))::int AS unique_venues,
+         COUNT(DISTINCT oc.objective_id)::int AS total_stops_visited
+       FROM objective_checkins oc
+       JOIN objectives o ON o.id = oc.objective_id
+       JOIN sidequests s ON s.id = oc.sidequest_id
+       WHERE oc.user_id = $1
+         AND s.completed_at IS NOT NULL`,
       [user.id],
     ),
 
     // 4c. Per-city footprint
     AppDataSource.query(
       `SELECT
-         i.city,
-         COUNT(DISTINCT i.id)::int AS completed_count,
-         COUNT(DISTINCT ic.id)::int AS checkin_count,
-         COUNT(DISTINCT COALESCE(ii.google_place_id, LOWER(ii.venue_name)))::int AS unique_venues
-       FROM itinerary_checkins ic
-       JOIN itinerary_items ii ON ii.id = ic.itinerary_item_id
-       JOIN itineraries i ON i.id = ic.itinerary_id
-       WHERE ic.user_id = $1
-         AND i.completed_at IS NOT NULL
-       GROUP BY i.city
+         s.city,
+         COUNT(DISTINCT s.id)::int AS completed_count,
+         COUNT(DISTINCT oc.id)::int AS checkin_count,
+         COUNT(DISTINCT COALESCE(o.google_place_id, LOWER(o.venue_name)))::int AS unique_venues
+       FROM objective_checkins oc
+       JOIN objectives o ON o.id = oc.objective_id
+       JOIN sidequests s ON s.id = oc.sidequest_id
+       WHERE oc.user_id = $1
+         AND s.completed_at IS NOT NULL
+       GROUP BY s.city
        ORDER BY completed_count DESC
        LIMIT 10`,
       [user.id],
     ),
 
-    // 5. Vibe DNA — activity type breakdown from completed itineraries
+    // 5. Vibe DNA — activity type breakdown from completed sidequests
     AppDataSource.query(
       `SELECT vibe, COUNT(*)::int AS count
        FROM (
          SELECT UNNEST(activity_types) AS vibe
-         FROM itineraries
+         FROM sidequests
          WHERE user_id = $1
            AND completed_at IS NOT NULL
            AND deleted_at IS NULL
@@ -195,10 +195,10 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
       [user.id],
     ),
 
-    // 6. Intention DNA — intention breakdown from completed itineraries
+    // 6. Intention DNA — intention breakdown from completed sidequests
     AppDataSource.query(
       `SELECT intention, COUNT(*)::int AS count
-       FROM itineraries
+       FROM sidequests
        WHERE user_id = $1
          AND completed_at IS NOT NULL
          AND deleted_at IS NULL
@@ -285,10 +285,10 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     footprint: {
       totalDistanceMiles: Math.round((totalMeters / 1609.34) * 10) / 10,
       totalCheckins: (summary.total_checkins as number) || 0,
-      totalCompletedItineraries: totalCompleted,
+      totalCompletedSidequests: totalCompleted,
       totalUniqueVenues: (summary.unique_venues as number) || 0,
       totalStopsVisited,
-      avgStopsPerItinerary:
+      avgStopsPerSidequest:
         totalCompleted > 0
           ? Math.round((totalStopsVisited / totalCompleted) * 10) / 10
           : 0,

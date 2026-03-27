@@ -9,11 +9,8 @@ import { StorageService } from "../../services/shared/StorageService";
 import type { GoogleGeocodingService } from "../../services/shared/GoogleGeocodingService";
 import type { CategoryProcessingService } from "../../services/CategoryProcessingService";
 import type { IEmbeddingService } from "../../services/event-processing/interfaces/IEmbeddingService";
-import { GenerateItineraryHandler } from "./GenerateItineraryHandler";
 import { GenerateSidequestHandler } from "./GenerateSidequestHandler";
-import { SeedItineraryHandler } from "./SeedItineraryHandler";
-import type { ItineraryService } from "../../services/ItineraryService";
-import type { DataSource } from "typeorm";
+import type { SidequestService } from "../../services/SidequestService";
 
 export class JobHandlerRegistry {
   private handlers: Map<string, JobHandler> = new Map();
@@ -27,14 +24,12 @@ export class JobHandlerRegistry {
     private readonly geocodingService: GoogleGeocodingService,
     private readonly categoryProcessingService: CategoryProcessingService | null = null,
     private readonly embeddingService: IEmbeddingService | null = null,
-    private readonly itineraryService: ItineraryService | null = null,
-    private readonly dataSource: DataSource | null = null,
+    private readonly sidequestService: SidequestService | null = null,
   ) {
     this.registerHandlers();
   }
 
   private registerHandlers(): void {
-    // Register all job handlers
     this.registerHandler(
       new ProcessFlyerHandler(
         this.eventProcessingService,
@@ -45,17 +40,9 @@ export class JobHandlerRegistry {
     );
     this.registerHandler(new CleanupEventsHandler(this.eventService));
 
-    // Register itinerary handlers
-    if (this.itineraryService) {
-      this.registerHandler(new GenerateItineraryHandler(this.itineraryService));
-      this.registerHandler(new GenerateSidequestHandler(this.itineraryService));
-      if (this.dataSource) {
-        this.registerHandler(
-          new SeedItineraryHandler(this.itineraryService, this.dataSource, this.redisService),
-        );
-      }
+    if (this.sidequestService) {
+      this.registerHandler(new GenerateSidequestHandler(this.sidequestService));
     }
-
   }
 
   private registerHandler(handler: JobHandler): void {

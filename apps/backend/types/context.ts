@@ -12,8 +12,8 @@ import type { IEmbeddingService } from "../services/event-processing/interfaces/
 import type { CategoryProcessingService } from "../services/CategoryProcessingService";
 import type { EmailService } from "../services/shared/EmailService";
 import type { ThirdSpaceScoreService } from "../services/ThirdSpaceScoreService";
-import type { ItineraryService } from "../services/ItineraryService";
-import type { ItineraryCheckinService } from "../services/ItineraryCheckinService";
+import type { SidequestService } from "../services/SidequestService";
+import type { SidequestCheckinService } from "../services/SidequestCheckinService";
 import type { OverpassService } from "../services/shared/OverpassService";
 import type { AdventureScoreService } from "../services/AdventureScoreService";
 
@@ -31,8 +31,8 @@ export interface AppVariables {
   categoryProcessingService: CategoryProcessingService;
   emailService: EmailService;
   thirdSpaceScoreService: ThirdSpaceScoreService;
-  itineraryService: ItineraryService;
-  itineraryCheckinService: ItineraryCheckinService;
+  sidequestService: SidequestService;
+  sidequestCheckinService: SidequestCheckinService;
   overpassService: OverpassService;
   adventureScoreService: AdventureScoreService;
   user?: { id: string; email: string; role: string; userId?: string };

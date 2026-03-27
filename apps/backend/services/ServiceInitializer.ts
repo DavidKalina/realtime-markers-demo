@@ -39,13 +39,12 @@ import type { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 
 import type { ThirdSpaceScoreService } from "./ThirdSpaceScoreService";
 import { pushNotificationService } from "./PushNotificationService";
-import { createItineraryService } from "./ItineraryService";
-import type { ItineraryService } from "./ItineraryService";
+import { createSidequestService } from "./SidequestService";
+import type { SidequestService } from "./SidequestService";
 import { createOverpassService } from "./shared/OverpassService";
 import type { OverpassService } from "./shared/OverpassService";
-import { createWeatherService } from "./shared/WeatherService";
-import { createItineraryCheckinService } from "./ItineraryCheckinService";
-import type { ItineraryCheckinService } from "./ItineraryCheckinService";
+import { createSidequestCheckinService } from "./SidequestCheckinService";
+import type { SidequestCheckinService } from "./SidequestCheckinService";
 import { createAdventureScoreService } from "./AdventureScoreService";
 import type { AdventureScoreService } from "./AdventureScoreService";
 
@@ -63,8 +62,8 @@ export interface ServiceContainer {
   redisService: RedisService;
   geocodingService: GoogleGeocodingService;
   thirdSpaceScoreService: ThirdSpaceScoreService;
-  itineraryService: ItineraryService;
-  itineraryCheckinService: ItineraryCheckinService;
+  sidequestService: SidequestService;
+  sidequestCheckinService: SidequestCheckinService;
   overpassService: OverpassService;
   adventureScoreService: AdventureScoreService;
 }
@@ -203,14 +202,11 @@ export class ServiceInitializer {
 
     const overpassService = createOverpassService({ redisService });
 
-    const weatherService = createWeatherService({ redisService });
-
-    const itineraryService = createItineraryService({
+    const sidequestService = createSidequestService({
       dataSource: this.dataSource,
       openAIService,
       geocodingService,
       overpassService,
-      weatherService,
       embeddingService,
       redisService,
     });
@@ -220,7 +216,7 @@ export class ServiceInitializer {
       redisService,
     });
 
-    const itineraryCheckinService = createItineraryCheckinService({
+    const sidequestCheckinService = createSidequestCheckinService({
       dataSource: this.dataSource,
       pushService: pushNotificationService,
       redisService,
@@ -243,8 +239,8 @@ export class ServiceInitializer {
       redisService,
       geocodingService,
       thirdSpaceScoreService,
-      itineraryService,
-      itineraryCheckinService,
+      sidequestService,
+      sidequestCheckinService,
       overpassService,
       adventureScoreService,
     };
@@ -370,9 +366,9 @@ export class ServiceInitializer {
       const usersWithoutPlans: { id: string }[] = await this.dataSource.query(
         `SELECT u.id FROM users u
          WHERE u.id NOT IN (
-           SELECT DISTINCT i.user_id FROM itineraries i
-           WHERE i.planned_date >= CURRENT_DATE
-           AND i.status = 'READY'
+           SELECT DISTINCT s.user_id FROM sidequests s
+           WHERE s.planned_date >= CURRENT_DATE
+           AND s.status = 'READY'
          )
          AND EXISTS (
            SELECT 1 FROM user_push_tokens upt

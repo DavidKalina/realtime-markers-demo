@@ -23,8 +23,8 @@ export function setupContext(
     c.set("categoryProcessingService", services.categoryProcessingService);
     c.set("emailService", services.emailService);
     c.set("thirdSpaceScoreService", services.thirdSpaceScoreService);
-    c.set("itineraryService", services.itineraryService);
-    c.set("itineraryCheckinService", services.itineraryCheckinService);
+    c.set("sidequestService", services.sidequestService);
+    c.set("sidequestCheckinService", services.sidequestCheckinService);
     c.set("overpassService", services.overpassService);
     c.set("adventureScoreService", services.adventureScoreService);
     await next();

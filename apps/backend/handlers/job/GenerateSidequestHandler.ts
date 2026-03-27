@@ -1,7 +1,7 @@
 import type { JobData } from "../../services/JobQueue";
 import type { JobHandlerContext } from "./BaseJobHandler";
 import { BaseJobHandler } from "./BaseJobHandler";
-import type { ItineraryService, SidequestProgressCallback } from "../../services/ItineraryService";
+import type { SidequestService, SidequestProgressCallback } from "../../services/SidequestService";
 import {
   createJobTracker,
   SIDEQUEST_PIPELINE,
@@ -11,7 +11,7 @@ import { jobNotificationService } from "../../services/JobNotificationService";
 export class GenerateSidequestHandler extends BaseJobHandler {
   readonly jobType = "generate_sidequest";
 
-  constructor(private readonly itineraryService: ItineraryService) {
+  constructor(private readonly sidequestService: SidequestService) {
     super();
   }
 
@@ -29,7 +29,7 @@ export class GenerateSidequestHandler extends BaseJobHandler {
     try {
       const {
         userId,
-        itineraryId,
+        sidequestId,
         prompt,
         radiusMiles,
         budgetMax,
@@ -43,7 +43,7 @@ export class GenerateSidequestHandler extends BaseJobHandler {
         note,
       } = job.data as {
         userId: string;
-        itineraryId?: string;
+        sidequestId?: string;
         prompt: string;
         radiusMiles: number;
         budgetMax: number;
@@ -63,10 +63,10 @@ export class GenerateSidequestHandler extends BaseJobHandler {
         await tracker.stepProgress(progress, label, undefined, candidates);
       };
 
-      const itinerary = await this.itineraryService.createSidequest(
+      const sidequest = await this.sidequestService.create(
         userId,
         {
-          itineraryId,
+          sidequestId,
           prompt,
           radiusMiles,
           budgetMax,
@@ -84,10 +84,10 @@ export class GenerateSidequestHandler extends BaseJobHandler {
 
       await tracker.step("save");
       await tracker.complete({
-        itineraryId: itinerary.id,
-        title: itinerary.title,
-        summary: itinerary.summary,
-        itemCount: itinerary.items?.length ?? 0,
+        sidequestId: sidequest.id,
+        title: sidequest.title,
+        summary: sidequest.summary,
+        optionCount: sidequest.children?.length ?? 3,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";

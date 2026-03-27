@@ -4,7 +4,7 @@ import {
   type Handler,
 } from "../utils/handlerUtils";
 
-export const suggestItinerariesHandler: Handler = withErrorHandling(
+export const suggestSidequestsHandler: Handler = withErrorHandling(
   async (c) => {
     requireAuth(c);
 
@@ -24,8 +24,8 @@ export const suggestItinerariesHandler: Handler = withErrorHandling(
       return c.json({ error: "Invalid coordinates" }, 400);
     }
 
-    const itineraryService = c.get("itineraryService");
-    const result = await itineraryService.generateSuggestions(
+    const sidequestService = c.get("sidequestService");
+    const result = await sidequestService.generateSuggestions(
       latitude,
       longitude,
     );

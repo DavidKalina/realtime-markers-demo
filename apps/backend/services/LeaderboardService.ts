@@ -58,13 +58,13 @@ export class LeaderboardService {
         u.last_name AS "lastName",
         u.avatar_url AS "avatarUrl",
         u.current_tier AS "currentTier",
-        COUNT(ic.id)::int AS "checkinCount"
-      FROM itinerary_checkins ic
-      JOIN itinerary_items ii ON ii.id = ic.itinerary_item_id
-      JOIN itineraries i ON i.id = ii.itinerary_id
-      JOIN users u ON u.id = ic.user_id
-      WHERE (LOWER(i.city) = LOWER($1) OR LOWER(i.city) = LOWER($4))
-        AND ic.checked_in_at >= $2
+        COUNT(oc.id)::int AS "checkinCount"
+      FROM objective_checkins oc
+      JOIN objectives o ON o.id = oc.objective_id
+      JOIN sidequests s ON s.id = o.sidequest_id
+      JOIN users u ON u.id = oc.user_id
+      WHERE (LOWER(s.city) = LOWER($1) OR LOWER(s.city) = LOWER($4))
+        AND oc.checked_in_at >= $2
       GROUP BY u.id, u.first_name, u.last_name, u.avatar_url, u.current_tier
       ORDER BY "checkinCount" DESC, u.first_name ASC
       LIMIT $3`,

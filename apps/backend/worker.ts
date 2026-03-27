@@ -170,21 +170,17 @@ async function initializeWorker() {
     redisService,
   );
 
-  // Initialize itinerary service
-  const { createItineraryService } =
-    await import("./services/ItineraryService");
+  // Initialize sidequest service
+  const { createSidequestService } =
+    await import("./services/SidequestService");
   const { createOverpassService } =
     await import("./services/shared/OverpassService");
-  const { createWeatherService } =
-    await import("./services/shared/WeatherService");
   const overpassService = createOverpassService({ redisService });
-  const weatherService = createWeatherService({ redisService });
-  const itineraryService = createItineraryService({
+  const sidequestService = createSidequestService({
     dataSource: AppDataSource,
     openAIService,
     geocodingService,
     overpassService,
-    weatherService,
     embeddingService,
     redisService,
   });
@@ -198,8 +194,7 @@ async function initializeWorker() {
     geocodingService,
     categoryProcessingService,
     embeddingService,
-    itineraryService,
-    AppDataSource,
+    sidequestService,
   );
 
   console.log("Worker initialized successfully");

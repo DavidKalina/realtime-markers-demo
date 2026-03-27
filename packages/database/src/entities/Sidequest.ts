@@ -12,21 +12,16 @@ import {
   type Relation,
 } from "typeorm";
 import { User } from "./User";
-import { ItineraryItem } from "./ItineraryItem";
+import { Objective } from "./Objective";
 
-export enum ItineraryStatus {
+export enum SidequestStatus {
   GENERATING = "GENERATING",
   READY = "READY",
   FAILED = "FAILED",
 }
 
-export enum ItineraryMode {
-  ITINERARY = "ITINERARY",
-  SIDEQUEST = "SIDEQUEST",
-}
-
-@Entity("itineraries")
-export class Itinerary {
+@Entity("sidequests")
+export class Sidequest {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
@@ -42,54 +37,6 @@ export class Itinerary {
   @Column({ type: "varchar", length: 255 })
   city!: string;
 
-  @Column({ name: "planned_date", type: "timestamptz" })
-  plannedDate!: Date;
-
-  @Column({
-    name: "budget_min",
-    type: "numeric",
-    precision: 10,
-    scale: 2,
-    default: 0,
-  })
-  budgetMin!: number;
-
-  @Column({
-    name: "budget_max",
-    type: "numeric",
-    precision: 10,
-    scale: 2,
-    default: 0,
-  })
-  budgetMax!: number;
-
-  @Column({ name: "duration_hours", type: "numeric", precision: 4, scale: 1 })
-  durationHours!: number;
-
-  @Column({ name: "activity_types", type: "text", array: true, default: "{}" })
-  activityTypes!: string[];
-
-  @Column({ type: "varchar", length: 500, nullable: true })
-  title?: string;
-
-  @Column({ type: "text", nullable: true })
-  summary?: string;
-
-  @Column({
-    type: "enum",
-    enum: ItineraryStatus,
-    default: ItineraryStatus.GENERATING,
-  })
-  status!: ItineraryStatus;
-
-  @Index()
-  @Column({
-    type: "enum",
-    enum: ItineraryMode,
-    default: ItineraryMode.ITINERARY,
-  })
-  mode!: ItineraryMode;
-
   @Column({ type: "text", nullable: true })
   prompt?: string;
 
@@ -102,15 +49,52 @@ export class Itinerary {
   })
   radiusMiles?: number;
 
-  @Index({ unique: true })
-  @Column({ name: "share_token", type: "uuid", nullable: true })
-  shareToken?: string;
+  @Column({
+    name: "budget_max",
+    type: "numeric",
+    precision: 10,
+    scale: 2,
+    default: 0,
+  })
+  budgetMax!: number;
+
+  @Column({ type: "varchar", length: 500, nullable: true })
+  title?: string;
+
+  @Column({ type: "text", nullable: true })
+  summary?: string;
+
+  @Column({
+    type: "enum",
+    enum: SidequestStatus,
+    default: SidequestStatus.GENERATING,
+  })
+  status!: SidequestStatus;
+
+  @Column({ name: "activity_types", type: "text", array: true, default: "{}" })
+  activityTypes!: string[];
 
   @Column({ type: "varchar", length: 50, nullable: true })
   intention?: string;
 
-  @Column({ type: "jsonb", nullable: true })
-  forecast?: Record<string, unknown>;
+  // Self-reference: child options link to parent shell
+  @Index()
+  @Column({ name: "parent_id", type: "uuid", nullable: true })
+  parentId?: string;
+
+  @ManyToOne(() => Sidequest, (s) => s.children, {
+    onDelete: "CASCADE",
+    nullable: true,
+  })
+  @JoinColumn({ name: "parent_id" })
+  parent?: Relation<Sidequest>;
+
+  @OneToMany(() => Sidequest, (s) => s.parent)
+  children!: Relation<Sidequest[]>;
+
+  @Index({ unique: true })
+  @Column({ name: "share_token", type: "uuid", nullable: true })
+  shareToken?: string;
 
   @Column({ type: "smallint", nullable: true })
   rating?: number;
@@ -151,15 +135,8 @@ export class Itinerary {
   })
   entryLongitude?: number;
 
-  @Column({ name: "source_itinerary_id", type: "uuid", nullable: true })
-  sourceItineraryId?: string;
-
-  @ManyToOne(() => Itinerary, { onDelete: "SET NULL", nullable: true })
-  @JoinColumn({ name: "source_itinerary_id" })
-  sourceItinerary?: Relation<Itinerary>;
-
-  @OneToMany(() => ItineraryItem, (item) => item.itinerary, { cascade: true })
-  items!: Relation<ItineraryItem[]>;
+  @OneToMany(() => Objective, (o) => o.sidequest, { cascade: true })
+  objectives!: Relation<Objective[]>;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

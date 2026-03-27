@@ -169,15 +169,6 @@ export class JobNotificationService {
       case "process_flyer":
         return this.createFlyerCompletionNotification(result);
 
-      case "generate_itinerary": {
-        const title = (result.title as string) || "Your itinerary";
-        const itemCount = (result.itemCount as number) || 0;
-        return {
-          title: "Your itinerary is ready!",
-          body: `"${title}" — ${itemCount} stops planned. Tap to view your day.`,
-        };
-      }
-
       case "generate_sidequest": {
         const questTitle = (result.title as string) || "Your sidequest";
         const waypointCount = (result.itemCount as number) || 0;
@@ -255,13 +246,6 @@ export class JobNotificationService {
           body:
             message ||
             "There was an error processing your flyer. Please try again with a different image.",
-        };
-
-      case "generate_itinerary":
-        return {
-          title: "Itinerary generation failed",
-          body:
-            message || "We couldn't build your itinerary. Please try again.",
         };
 
       case "generate_sidequest":

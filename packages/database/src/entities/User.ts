@@ -12,7 +12,7 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 import type { Relation } from "typeorm";
-import { Itinerary } from "./Itinerary";
+import { Sidequest } from "./Sidequest";
 import type { Event } from "./Event";
 import type { UserEventDiscovery } from "./UserEventDiscovery";
 import type { UserEventRsvp } from "./UserEventRsvp";
@@ -138,12 +138,12 @@ export class User {
     pace: string;
   };
 
-  @Column({ name: "active_itinerary_id", type: "uuid", nullable: true })
-  activeItineraryId?: string;
+  @Column({ name: "active_sidequest_id", type: "uuid", nullable: true })
+  activeSidequestId?: string;
 
-  @ManyToOne(() => Itinerary, { onDelete: "SET NULL", nullable: true })
-  @JoinColumn({ name: "active_itinerary_id" })
-  activeItinerary?: Relation<Itinerary>;
+  @ManyToOne(() => Sidequest, { onDelete: "SET NULL", nullable: true })
+  @JoinColumn({ name: "active_sidequest_id" })
+  activeSidequest?: Relation<Sidequest>;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;
