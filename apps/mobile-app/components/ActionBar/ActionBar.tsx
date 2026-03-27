@@ -7,10 +7,7 @@ import {
 import * as Haptics from "expo-haptics";
 import { usePathname, useRouter } from "expo-router";
 import {
-  Camera,
   CompassIcon,
-  GlobeIcon,
-  HexagonIcon,
   LucideIcon,
   LucideSword,
   User,
@@ -42,7 +39,7 @@ const BUTTON_RELEASE_ANIMATION = {
 };
 
 // Define route type to match expo-router's expected types
-type AppRoute = "/browse" | "/spaces" | "/scan" | "/itineraries" | "/user" | "/";
+type AppRoute = "/itineraries" | "/user" | "/";
 
 interface TabConfig {
   key: string;
@@ -71,33 +68,18 @@ const TABS: TabConfig[] = [
     icon: CompassIcon,
     requiresLocation: true,
   },
-  {
-    key: "browse",
-    label: "Districts",
-    icon: HexagonIcon,
-    route: "/browse",
-  },
-  {
-    key: "scan",
-    label: "Scan",
-    icon: Camera,
-    route: "/scan",
-  },
 ];
 
 const HIDDEN_ROUTES = ["/register", "/login", "/onboarding"];
 
 // Static route → tab key mapping (no dependency on colors)
 const ROUTE_TO_TAB: Record<string, string> = {
-  "/scan": "scan",
   "/user": "user",
 };
 
 // Map pathname to active tab key
 const getActiveTabKey = (pathname: string): string | null => {
   if (pathname === "/") return "locate";
-  if (pathname.startsWith("/browse")) return "browse";
-  if (pathname.startsWith("/spaces")) return "browse";
   if (pathname.startsWith("/itineraries")) return "itineraries";
   return ROUTE_TO_TAB[pathname] ?? null;
 };

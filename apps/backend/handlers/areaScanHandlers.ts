@@ -144,55 +144,6 @@ export const clusterProfileHandler: Handler = withErrorHandling(async (c) => {
   });
 });
 
-export const eventHypeHandler: Handler = withErrorHandling(async (c) => {
-  const body = await c.req.json<{ eventId: string }>();
-  const { eventId } = body;
-
-  if (!eventId || typeof eventId !== "string") {
-    return c.json({ error: "eventId is required" }, 400);
-  }
-
-  const eventHypeService = c.get("eventHypeService");
-  const redisService = c.get("redisService");
-
-  const result = await eventHypeService.getEventHype(eventId);
-  const text = result.text || "No hype available.";
-
-  // Only cache actual GPT-5 responses, not fallback text
-  if (!result.cached && result.text && result.text !== "No hype available.") {
-    const cacheKey = `event-hype:${eventId}`;
-    await redisService.set(cacheKey, text, 86400);
-  }
-
-  return c.json({ text, cached: result.cached });
-});
-
-export const cityHypeHandler: Handler = withErrorHandling(async (c) => {
-  const body = await c.req.json<{ city: string }>();
-  const { city } = body;
-
-  if (!city || typeof city !== "string") {
-    return c.json({ error: "city is required" }, 400);
-  }
-
-  const cityHypeService = c.get("cityHypeService");
-  const redisService = c.get("redisService");
-
-  const result = await cityHypeService.getCityHype(city);
-  const text = result.text || "No city insight available.";
-
-  if (
-    !result.cached &&
-    result.text &&
-    result.text !== "No city insight available."
-  ) {
-    const cacheKey = `city-hype:${city}`;
-    await redisService.set(cacheKey, text, 86400);
-  }
-
-  return c.json({ text, cached: result.cached });
-});
-
 export const trailDetailHandler: Handler = withErrorHandling(async (c) => {
   const wayId = Number(c.req.param("id"));
   if (!wayId || isNaN(wayId)) {

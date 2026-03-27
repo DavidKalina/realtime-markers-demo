@@ -31,30 +31,8 @@ export const useFilterStore = create<FilterState>((set) => ({
 
   // Actions
   fetchFilters: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      // Fetch available filters from the API
-      const userFilters = await apiClient.filters.getFilters();
-
-      // Clear any stale date filters from previous sessions.
-      // Date presets (Tonight, This Weekend, etc.) are session-specific and
-      // should not persist across app launches. Category preferences are
-      // preserved by the server's clearFilters endpoint.
-      await apiClient.filters.clearFilters();
-      await AsyncStorage.removeItem(ACTIVE_FILTERS_KEY);
-
-      set({
-        filters: userFilters,
-        activeFilterIds: [],
-      });
-    } catch (err) {
-      set({
-        error: `Failed to load filters: ${err instanceof Error ? err.message : "Unknown error"}`,
-      });
-      console.error("Error fetching filters:", err);
-    } finally {
-      set({ isLoading: false });
-    }
+    // Filters route is disabled — no-op
+    set({ filters: [], activeFilterIds: [], isLoading: false, error: null });
   },
 
   createFilter: async (filter: Partial<Filter> & { name: string }) => {

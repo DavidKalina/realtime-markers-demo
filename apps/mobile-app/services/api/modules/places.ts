@@ -177,4 +177,20 @@ export class PlacesApiClient extends BaseApiModule {
 
     return this.handleResponse<CityStateSearchResult>(response);
   }
+
+  async reverseGeocode(
+    lat: number,
+    lng: number,
+  ): Promise<{ cityState: string | null }> {
+    const url = `${this.client.baseUrl}/api/places/reverse-geocode`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lat, lng }),
+    });
+    const data = await response.json().catch(() => ({}));
+    const { city, state } = data.address?.addressComponents ?? {};
+    const cityState = city && state ? `${city}, ${state}` : city ?? null;
+    return { cityState };
+  }
 }

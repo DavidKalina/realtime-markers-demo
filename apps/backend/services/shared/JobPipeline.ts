@@ -34,6 +34,15 @@ export interface JobExtractions {
   confidence?: number;
 }
 
+export interface AgentCandidate {
+  name: string;
+  coordinates: [number, number]; // [lng, lat]
+  type: "venue" | "trail";
+  rating?: number;
+  distanceMiles?: number;
+  query?: string;
+}
+
 export interface JobProgressMessage {
   jobId: string;
   jobType: JobType;
@@ -45,6 +54,7 @@ export interface JobProgressMessage {
   totalSteps: number;
   stepProgress: number;
   extractions?: JobExtractions;
+  candidates?: AgentCandidate[];
   error?: string;
   message?: string;
   result?: JobData["result"];
@@ -137,6 +147,7 @@ export interface JobTracker<TStepId extends string> {
     progress: number,
     label?: string,
     extractions?: JobExtractions,
+    candidates?: AgentCandidate[],
   ): Promise<void>;
   complete(result: JobData["result"], eventId?: string): Promise<void>;
   fail(error: string, message?: string): Promise<void>;
@@ -192,6 +203,7 @@ export function createJobTracker<TStepId extends string>(
         stepProgress: msg.stepProgress,
         stepDescription: msg.stepLabel,
         ...(msg.extractions ? { extractions: msg.extractions } : {}),
+        ...(msg.candidates ? { candidates: msg.candidates } : {}),
       },
       ...(msg.result ? { result: msg.result } : {}),
       ...(msg.error ? { error: msg.error } : {}),
@@ -244,6 +256,7 @@ export function createJobTracker<TStepId extends string>(
       progress: number,
       label?: string,
       extractions?: JobExtractions,
+      candidates?: AgentCandidate[],
     ): Promise<void> {
       currentStepProgress = Math.min(100, Math.max(0, progress));
       const overrides: Partial<JobProgressMessage> = {};
@@ -252,6 +265,9 @@ export function createJobTracker<TStepId extends string>(
       }
       if (extractions) {
         overrides.extractions = extractions;
+      }
+      if (candidates) {
+        overrides.candidates = candidates;
       }
       await publish(buildMessage(overrides));
     },

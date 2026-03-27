@@ -2,8 +2,6 @@ import { Hono } from "hono";
 import {
   areaScanHandler,
   clusterProfileHandler,
-  eventHypeHandler,
-  cityHypeHandler,
   trailDetailHandler,
 } from "../handlers/areaScanHandlers";
 import type { AppContext } from "../types/context";
@@ -29,6 +27,4 @@ areaScanRouter.use(
 
 areaScanRouter.post("/", areaScanHandler);
 areaScanRouter.post("/cluster", clusterProfileHandler);
-areaScanRouter.post("/event", eventHypeHandler);
-areaScanRouter.post("/city", cityHypeHandler);
 areaScanRouter.get("/trail/:id", trailDetailHandler);

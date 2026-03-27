@@ -29,21 +29,3 @@ services:
     environment:
       - TRUST_PROXY=true # Allow requests from external sources
 
-  filter-processor:
-    ports:
-      - "8082:8082" # External filter processor access
-    labels: [] # Remove Traefik labels
-
-  websocket:
-    ports:
-      - "8081:8081" # External WebSocket access
-    labels: [] # Remove Traefik labels
-    environment:
-      - TRUST_PROXY=true # Allow WebSocket connections from external sources
-
-  web-dashboard:
-    ports:
-      - "3001:3001" # External web dashboard access
-    labels: [] # Remove Traefik labels
-    environment:
-      - NODE_ENV=development # Ensure dev mode for better debugging

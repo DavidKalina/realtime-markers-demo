@@ -87,8 +87,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 await import("@/stores/useActiveItineraryStore");
               useActiveItineraryStore.getState().loadActive();
 
-              // Sync filters and active filter IDs
-              await fetchFilters();
+              // Sync filters (route may be disabled)
+              await fetchFilters().catch(() => {});
             }
           } catch {
             // Profile fetch failed, auth state will be cleared by ApiClient

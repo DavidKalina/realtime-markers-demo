@@ -17,18 +17,3 @@ services:
       - /app/packages/database/node_modules
     command: ["bun", "--watch", "run", "/app/apps/backend/worker.ts"]
 
-  filter-processor:
-    build:
-      context: .
-      dockerfile: apps/filter-processor/Dockerfile
-      target: base
-    volumes:
-      - ./apps/filter-processor:/app/apps/filter-processor
-      - /app/apps/filter-processor/node_modules
-    command: ["bun", "--watch", "run", "/app/apps/filter-processor/src/index.ts"]
-
-  websocket:
-    volumes:
-      - ./apps/websocket:/app/apps/websocket
-      - /app/apps/websocket/node_modules
-    command: ["bun", "--watch", "run", "/app/apps/websocket/src/index.ts"]

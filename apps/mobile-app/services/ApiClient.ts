@@ -9,7 +9,6 @@ import { RSVPModule } from "./api/modules/rsvp";
 import { CategoriesModule } from "./api/modules/categories";
 import { PushNotificationsModule } from "./api/modules/pushNotifications";
 import { AreaScanModule } from "./api/modules/areaScan";
-import { LeaderboardModule } from "./api/modules/leaderboard";
 import { ItinerariesModule } from "./api/modules/itineraries";
 import { BadgesModule } from "./api/modules/badges";
 import { AdventureScoreModule } from "./api/modules/adventureScore";
@@ -27,7 +26,6 @@ export * from "./api/modules/rsvp";
 export * from "./api/modules/places";
 export * from "./api/modules/pushNotifications";
 export * from "./api/modules/areaScan";
-export * from "./api/modules/leaderboard";
 export * from "./api/modules/itineraries";
 export * from "./api/modules/badges";
 export * from "./api/modules/adventureScore";
@@ -45,7 +43,6 @@ class ApiClient extends BaseApiClient {
   private _categories: CategoriesModule | null = null;
   private _pushNotifications: PushNotificationsModule | null = null;
   private _areaScan: AreaScanModule | null = null;
-  private _leaderboard: LeaderboardModule | null = null;
   private _itineraries: ItinerariesModule | null = null;
   private _badges: BadgesModule | null = null;
   private _adventureScore: AdventureScoreModule | null = null;
@@ -124,13 +121,6 @@ class ApiClient extends BaseApiClient {
       this._areaScan = new AreaScanModule(this);
     }
     return this._areaScan;
-  }
-
-  public get leaderboard(): LeaderboardModule {
-    if (!this._leaderboard) {
-      this._leaderboard = new LeaderboardModule(this);
-    }
-    return this._leaderboard;
   }
 
   public get itineraries(): ItinerariesModule {

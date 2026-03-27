@@ -390,47 +390,6 @@ export class EventApiClient extends BaseApiModule {
     };
   }
 
-  // Event interaction methods
-  async toggleSaveEvent(
-    eventId: string,
-  ): Promise<{ saved: boolean; saveCount: number }> {
-    const url = `${this.client.baseUrl}/api/events/${eventId}/save`;
-    const response = await this.fetchWithAuth(url, {
-      method: "POST",
-    });
-    return this.handleResponse<{ saved: boolean; saveCount: number }>(response);
-  }
-
-  async isEventSaved(eventId: string): Promise<{ isSaved: boolean }> {
-    const url = `${this.client.baseUrl}/api/events/${eventId}/saved`;
-    const response = await this.fetchWithAuth(url);
-    return this.handleResponse<{ isSaved: boolean }>(response);
-  }
-
-  async getSavedEvents(params: GetEventsParams = {}): Promise<{
-    events: EventType[];
-    nextCursor?: string;
-    prevCursor?: string;
-  }> {
-    const queryParams = new URLSearchParams();
-    if (params.cursor) queryParams.append("cursor", params.cursor);
-    if (params.limit) queryParams.append("limit", params.limit.toString());
-    if (params.direction) queryParams.append("direction", params.direction);
-
-    const url = `${this.client.baseUrl}/api/events/saved?${queryParams.toString()}`;
-    const response = await this.fetchWithAuth(url);
-    const data = await this.handleResponse<{
-      events: ApiEvent[];
-      nextCursor?: string;
-      prevCursor?: string;
-    }>(response);
-
-    return {
-      events: data.events.map(mapEventToEventType),
-      nextCursor: data.nextCursor,
-      prevCursor: data.prevCursor,
-    };
-  }
 
   async getUserEvents(params: GetEventsParams = {}): Promise<{
     events: EventType[];

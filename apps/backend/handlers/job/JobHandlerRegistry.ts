@@ -1,14 +1,12 @@
 import type { JobHandler, JobHandlerContext } from "./BaseJobHandler";
 import { ProcessFlyerHandler } from "./ProcessFlyerHandler";
 import { CleanupEventsHandler } from "./CleanupEventsHandler";
-import { ImportEventsHandler } from "./ImportEventsHandler";
 import type { EventProcessingService } from "../../services/EventProcessingService";
 import type { EventService } from "../../services/EventServiceRefactored";
 import type { JobQueue } from "../../services/JobQueue";
 import type { RedisService } from "../../services/shared/RedisService";
 import { StorageService } from "../../services/shared/StorageService";
 import type { GoogleGeocodingService } from "../../services/shared/GoogleGeocodingService";
-import type { TicketmasterService } from "../../services/TicketmasterService";
 import type { CategoryProcessingService } from "../../services/CategoryProcessingService";
 import type { IEmbeddingService } from "../../services/event-processing/interfaces/IEmbeddingService";
 import { GenerateItineraryHandler } from "./GenerateItineraryHandler";
@@ -27,7 +25,6 @@ export class JobHandlerRegistry {
     private readonly redisService: RedisService,
     private readonly storageService: StorageService,
     private readonly geocodingService: GoogleGeocodingService,
-    private readonly ticketmasterService: TicketmasterService | null = null,
     private readonly categoryProcessingService: CategoryProcessingService | null = null,
     private readonly embeddingService: IEmbeddingService | null = null,
     private readonly itineraryService: ItineraryService | null = null,
@@ -59,21 +56,6 @@ export class JobHandlerRegistry {
       }
     }
 
-    // Conditionally register import handler (opt-in via TICKETMASTER_API_KEY)
-    if (
-      this.ticketmasterService &&
-      this.categoryProcessingService &&
-      this.embeddingService
-    ) {
-      this.registerHandler(
-        new ImportEventsHandler(
-          this.eventService,
-          this.ticketmasterService,
-          this.categoryProcessingService,
-          this.embeddingService,
-        ),
-      );
-    }
   }
 
   private registerHandler(handler: JobHandler): void {

@@ -25,7 +25,6 @@ eventsRouter.use(
 eventsRouter.use("*", authMiddleware);
 
 // Static/specific paths should come before dynamic ones
-eventsRouter.get("/saved", handlers.getSavedEventsHandler);
 eventsRouter.get("/discovered", handlers.getDiscoveredEventsHandler);
 eventsRouter.get("/my-events", handlers.getUserEventsHandler);
 eventsRouter.get("/nearby", handlers.getNearbyEventsHandler);
@@ -42,10 +41,8 @@ eventsRouter.post("/", handlers.createEventHandler);
 // Dynamic routes with IDs
 eventsRouter.delete("/:id", handlers.deleteEventHandler);
 eventsRouter.put("/:id", handlers.updateEventHandler);
-eventsRouter.post("/:id/save", handlers.toggleSaveEventHandler);
 eventsRouter.post("/:id/rsvp", handlers.toggleRsvpEventHandler);
 eventsRouter.get("/:id/rsvped", handlers.isEventRsvpedHandler);
-eventsRouter.get("/:id/saved", handlers.isEventSavedHandler);
 eventsRouter.get("/:id/engagement", handlers.getEventEngagementHandler);
 eventsRouter.post("/:id/view", handlers.trackEventViewHandler);
 eventsRouter.get("/:id", handlers.getEventByIdHandler);

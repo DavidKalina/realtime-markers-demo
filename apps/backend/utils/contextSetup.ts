@@ -22,21 +22,12 @@ export function setupContext(
     c.set("embeddingService", services.embeddingService);
     c.set("categoryProcessingService", services.categoryProcessingService);
     c.set("emailService", services.emailService);
-    c.set("areaScanService", services.areaScanService);
-    c.set("eventHypeService", services.eventHypeService);
-    c.set("cityHypeService", services.cityHypeService);
-    c.set(
-      "proximityNotificationService",
-      services.proximityNotificationService,
-    );
-    c.set("leaderboardService", services.leaderboardService);
     c.set("thirdSpaceScoreService", services.thirdSpaceScoreService);
     c.set("itineraryService", services.itineraryService);
     c.set("itineraryCheckinService", services.itineraryCheckinService);
     c.set("overpassService", services.overpassService);
     c.set("badgeService", services.badgeService);
     c.set("adventureScoreService", services.adventureScoreService);
-    c.set("districtService", services.districtService);
     await next();
   });
 }

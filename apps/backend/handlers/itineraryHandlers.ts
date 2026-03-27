@@ -150,6 +150,11 @@ export const createSidequestHandler: Handler = withErrorHandling(async (c) => {
     latitude: number;
     longitude: number;
     timezone?: string;
+    activityTypes?: string[];
+    intention?: string;
+    city?: string;
+    surpriseMe?: boolean;
+    note?: string;
   }>();
 
   // Validate inputs
@@ -162,10 +167,10 @@ export const createSidequestHandler: Handler = withErrorHandling(async (c) => {
   if (
     typeof body.radiusMiles !== "number" ||
     body.radiusMiles < 0.5 ||
-    body.radiusMiles > 25
+    body.radiusMiles > 50
   ) {
     return c.json(
-      { error: "radiusMiles must be a number between 0.5 and 25" },
+      { error: "radiusMiles must be a number between 0.5 and 50" },
       400,
     );
   }
@@ -191,6 +196,11 @@ export const createSidequestHandler: Handler = withErrorHandling(async (c) => {
     latitude: body.latitude,
     longitude: body.longitude,
     timezone: body.timezone,
+    activityTypes: body.activityTypes,
+    intention: body.intention,
+    city: body.city,
+    surpriseMe: body.surpriseMe,
+    note: body.note,
   });
 
   // Enqueue generation job
@@ -205,6 +215,11 @@ export const createSidequestHandler: Handler = withErrorHandling(async (c) => {
     latitude: body.latitude,
     longitude: body.longitude,
     ...(body.timezone && { timezone: body.timezone }),
+    ...(body.activityTypes && { activityTypes: body.activityTypes }),
+    ...(body.intention && { intention: body.intention }),
+    ...(body.city && { city: body.city }),
+    ...(body.surpriseMe && { surpriseMe: body.surpriseMe }),
+    ...(body.note && { note: body.note }),
   });
 
   return c.json(

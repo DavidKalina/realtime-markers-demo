@@ -65,7 +65,7 @@ export interface GoogleGeocodingService extends ILocationResolutionService {
   searchPlacesByCategory(
     category: string,
     city: string,
-    cityCenter: { lat: number; lng: number },
+    cityCenter?: { lat: number; lng: number },
     maxResults?: number,
   ): Promise<VerifiedVenue[]>;
   searchCityState(
@@ -1139,16 +1139,15 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
   public async searchPlacesByCategory(
     category: string,
     city: string,
-    cityCenter: { lat: number; lng: number },
+    cityCenter?: { lat: number; lng: number },
     maxResults = 5,
     radiusMeters = 15000,
   ): Promise<VerifiedVenue[]> {
     try {
       // Check Redis cache first (keyed by category + city + center + radius rounded to ~1km)
-      const roundedLat = Math.round(cityCenter.lat * 100) / 100;
-      const roundedLng = Math.round(cityCenter.lng * 100) / 100;
-      const roundedRadius = Math.round(radiusMeters / 1000);
-      const cacheKey = `${GoogleGeocodingServiceImpl.PLACES_CACHE_PREFIX}${category}:${city}:${roundedLat},${roundedLng}:${roundedRadius}`;
+      const cacheKey = cityCenter
+        ? `${GoogleGeocodingServiceImpl.PLACES_CACHE_PREFIX}${category}:${city}:${Math.round(cityCenter.lat * 100) / 100},${Math.round(cityCenter.lng * 100) / 100}:${Math.round(radiusMeters / 1000)}`
+        : `${GoogleGeocodingServiceImpl.PLACES_CACHE_PREFIX}${category}:${city}`;
       const cached = await this.redisService.get<VerifiedVenue[]>(cacheKey);
       if (cached) {
         console.log(`[searchPlacesByCategory] Cache hit for "${category}" in ${city}`);
@@ -1156,10 +1155,12 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
       }
 
       const url = "https://places.googleapis.com/v1/places:searchText";
-      const clampedRadius = Math.min(50000, Math.max(500, radiusMeters));
-      const requestBody = {
+      const requestBody: Record<string, unknown> = {
         textQuery: `${category} in ${city}`,
-        locationBias: {
+      };
+      if (cityCenter) {
+        const clampedRadius = Math.min(50000, Math.max(500, radiusMeters));
+        requestBody.locationBias = {
           circle: {
             center: {
               latitude: cityCenter.lat,
@@ -1167,8 +1168,8 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
             },
             radius: clampedRadius,
           },
-        },
-      };
+        };
+      }
 
       const response = await fetch(url, {
         method: "POST",

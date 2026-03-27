@@ -1,7 +1,7 @@
 import type { JobData } from "../../services/JobQueue";
 import type { JobHandlerContext } from "./BaseJobHandler";
 import { BaseJobHandler } from "./BaseJobHandler";
-import type { ItineraryService } from "../../services/ItineraryService";
+import type { ItineraryService, SidequestProgressCallback } from "../../services/ItineraryService";
 import {
   createJobTracker,
   SIDEQUEST_PIPELINE,
@@ -36,6 +36,11 @@ export class GenerateSidequestHandler extends BaseJobHandler {
         latitude,
         longitude,
         timezone,
+        activityTypes,
+        intention,
+        city,
+        surpriseMe,
+        note,
       } = job.data as {
         userId: string;
         itineraryId?: string;
@@ -45,22 +50,37 @@ export class GenerateSidequestHandler extends BaseJobHandler {
         latitude: number;
         longitude: number;
         timezone?: string;
+        activityTypes?: string[];
+        intention?: string;
+        city?: string;
+        surpriseMe?: boolean;
+        note?: string;
       };
 
       await tracker.step("generate");
-      await tracker.stepProgress(10, "Scouting nearby waypoints");
 
-      const itinerary = await this.itineraryService.createSidequest(userId, {
-        itineraryId,
-        prompt,
-        radiusMiles,
-        budgetMax,
-        latitude,
-        longitude,
-        timezone,
-      });
+      const onProgress: SidequestProgressCallback = async (progress, label, candidates) => {
+        await tracker.stepProgress(progress, label, undefined, candidates);
+      };
 
-      await tracker.stepProgress(90, "Quest forged");
+      const itinerary = await this.itineraryService.createSidequest(
+        userId,
+        {
+          itineraryId,
+          prompt,
+          radiusMiles,
+          budgetMax,
+          latitude,
+          longitude,
+          timezone,
+          activityTypes,
+          intention,
+          city,
+          surpriseMe,
+          note,
+        },
+        onProgress,
+      );
 
       await tracker.step("save");
       await tracker.complete({

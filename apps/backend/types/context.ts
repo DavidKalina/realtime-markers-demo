@@ -11,18 +11,12 @@ import type { GoogleGeocodingService } from "../services/shared/GoogleGeocodingS
 import type { IEmbeddingService } from "../services/event-processing/interfaces/IEmbeddingService";
 import type { CategoryProcessingService } from "../services/CategoryProcessingService";
 import type { EmailService } from "../services/shared/EmailService";
-import type { AreaScanService } from "../services/AreaScanService";
-import type { EventHypeService } from "../services/EventHypeService";
-import type { CityHypeService } from "../services/CityHypeService";
-import type { ProximityNotificationService } from "../services/ProximityNotificationService";
-import type { LeaderboardService } from "../services/LeaderboardService";
 import type { ThirdSpaceScoreService } from "../services/ThirdSpaceScoreService";
 import type { ItineraryService } from "../services/ItineraryService";
 import type { ItineraryCheckinService } from "../services/ItineraryCheckinService";
 import type { OverpassService } from "../services/shared/OverpassService";
 import type { BadgeService } from "../services/BadgeService";
 import type { AdventureScoreService } from "../services/AdventureScoreService";
-import type { DistrictService } from "../services/DistrictService";
 
 export interface AppVariables {
   eventService: EventService;
@@ -37,18 +31,12 @@ export interface AppVariables {
   embeddingService: IEmbeddingService;
   categoryProcessingService: CategoryProcessingService;
   emailService: EmailService;
-  areaScanService: AreaScanService;
-  eventHypeService: EventHypeService;
-  cityHypeService: CityHypeService;
-  proximityNotificationService: ProximityNotificationService;
-  leaderboardService: LeaderboardService;
   thirdSpaceScoreService: ThirdSpaceScoreService;
   itineraryService: ItineraryService;
   itineraryCheckinService: ItineraryCheckinService;
   overpassService: OverpassService;
   badgeService: BadgeService;
   adventureScoreService: AdventureScoreService;
-  districtService: DistrictService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

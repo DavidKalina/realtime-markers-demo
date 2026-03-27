@@ -182,11 +182,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     togglePitch();
   };
 
-  const handleSavedPress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/saved" as const);
-  }, [router]);
-
   const handleSearch = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push("/search" as const);
@@ -368,17 +363,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       <View style={styles.tabSection}>
         <Text style={styles.sectionLabel}>PREFERENCES</Text>
         <AdventurePreferences />
-      </View>
-
-      {/* Saved Events */}
-      <View style={styles.tabSection}>
-        <Pressable
-          style={[styles.inlineAction, styles.inlineActionLast]}
-          onPress={handleSavedPress}
-        >
-          <Text style={styles.inlineRowLabel}>Saved Events</Text>
-          <ChevronRight size={14} color={colors.text.secondary} />
-        </Pressable>
       </View>
 
       {/* Actions */}

@@ -6,7 +6,7 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import Screen from "@/components/Layout/Screen";
 import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
 import { DistrictCard, CoverageHero } from "@/components/Districts";
-import { ScoreHeroSkeleton } from "@/components/LandingPage/Skeletons";
+import { ActivityIndicator } from "react-native";
 import useBrowseDistricts from "@/hooks/useBrowseDistricts";
 import useDistrictCoverage from "@/hooks/useDistrictCoverage";
 import { useUserLocation } from "@/contexts/LocationContext";
@@ -89,7 +89,7 @@ const BrowseScreen = () => {
         {/* Hero */}
         {isCoverageLoading && (
           <Animated.View exiting={FadeOut.duration(duration.fast)}>
-            <ScoreHeroSkeleton />
+            <ActivityIndicator size="large" />
           </Animated.View>
         )}
 

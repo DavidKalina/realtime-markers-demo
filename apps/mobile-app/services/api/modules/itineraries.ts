@@ -128,6 +128,11 @@ export interface CreateSidequestParams {
   latitude: number;
   longitude: number;
   timezone?: string;
+  activityTypes?: string[];
+  intention?: string;
+  city?: string;
+  surpriseMe?: boolean;
+  note?: string;
 }
 
 export class ItinerariesModule extends BaseApiModule {

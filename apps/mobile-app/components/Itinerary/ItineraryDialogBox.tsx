@@ -54,7 +54,6 @@ import {
 import { useRouter } from "expo-router";
 import { useJobProgress } from "@/hooks/useJobProgress";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
-import useThirdSpaces from "@/hooks/useThirdSpaces";
 import { useUserLocation } from "@/contexts/LocationContext";
 import ItineraryTimeline from "./ItineraryTimeline";
 import { getUserTimezone } from "@/utils/dateTimeFormatting";
@@ -569,53 +568,24 @@ export default function ItineraryDialogBox({
   );
   const [statusText, setStatusText] = useState("Plan your Sidequest");
 
-  // City state — chip picker when no city prop provided
+  // City state — reverse geocode user location
   const { userLocation } = useUserLocation();
-  const {
-    closestCities,
-    topCities,
-    isLoading: citiesLoading,
-  } = useThirdSpaces(
-    cityProp ? undefined : userLocation?.[1],
-    cityProp ? undefined : userLocation?.[0],
-  );
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const city = cityProp ?? selectedCity ?? "";
 
-  // Auto-select the closest city when location data arrives
+  // Auto-detect city from user location via reverse geocode
   useEffect(() => {
-    if (!cityProp && !selectedCity && closestCities.length > 0) {
-      setSelectedCity(closestCities[0].city);
-    }
-  }, [cityProp, selectedCity, closestCities]);
-
-  // Build deduplicated city list: closest first, then top
-  const cityOptions = useMemo(() => {
-    if (cityProp) return [];
-    const seen = new Set<string>();
-    const result: { city: string; label: string; distanceMiles?: number }[] =
-      [];
-    for (const c of closestCities) {
-      if (!seen.has(c.city)) {
-        seen.add(c.city);
-        const shortName = c.city.split(",")[0].trim();
-        result.push({
-          city: c.city,
-          label: c.distanceMiles
-            ? `${shortName} · ${Math.round(c.distanceMiles)}mi`
-            : shortName,
-          distanceMiles: c.distanceMiles,
-        });
-      }
-    }
-    for (const c of topCities) {
-      if (!seen.has(c.city)) {
-        seen.add(c.city);
-        result.push({ city: c.city, label: c.city.split(",")[0].trim() });
-      }
-    }
-    return result;
-  }, [cityProp, closestCities, topCities]);
+    if (cityProp || selectedCity || !userLocation) return;
+    const [lng, lat] = userLocation;
+    apiClient.places
+      .reverseGeocode(lat, lng)
+      .then((result) => {
+        if (result.cityState) {
+          setSelectedCity(result.cityState);
+        }
+      })
+      .catch((err) => console.error("City lookup failed:", err));
+  }, [cityProp, selectedCity, userLocation]);
 
   // Pre-fill from onboarding preferences
   const onboardingProfile = user?.onboardingProfile;
@@ -1090,7 +1060,7 @@ export default function ItineraryDialogBox({
     });
   }, [onboardingProfile]);
 
-  // Fire-and-forget generate with explicit params (avoids stale closure from setState)
+  // Fire-and-forget generate via the agentic sidequest flow
   const fireGenerate = useCallback(
     async (params: {
       duration: number;
@@ -1102,6 +1072,8 @@ export default function ItineraryDialogBox({
       intention?: string;
       surpriseMe?: boolean;
     }) => {
+      if (!userLocation) return;
+
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setPhase("generating");
       setError(null);
@@ -1121,32 +1093,26 @@ export default function ItineraryDialogBox({
         easing: Easing.out(Easing.cubic),
       });
 
+      // Build prompt from activities + free-text note
+      const vibeWords = params.activities.length > 0
+        ? params.activities.join(" and ")
+        : "";
+      const promptParts: string[] = [];
+      if (vibeWords) promptParts.push(vibeWords);
+      const prompt = promptParts.join(" — ") || "";
+
       try {
-        const { itineraryId, jobId } = await apiClient.itineraries.create({
-          city: city || undefined,
-          plannedDate,
-          budgetMin: 0,
+        const { itineraryId, jobId } = await apiClient.itineraries.createSidequest({
+          prompt,
+          radiusMiles: 30,
           budgetMax: params.budget,
-          durationHours: params.duration,
-          activityTypes: params.activities,
+          latitude: userLocation[1],
+          longitude: userLocation[0],
           timezone: getUserTimezone(),
-          stopCount: params.stops || undefined,
-          ...(params.intention && { intention: params.intention }),
-          ...(params.surpriseMe && { surpriseMe: true }),
-          ...(params.startTime && { startTime: params.startTime }),
-          ...(params.endTime && { endTime: params.endTime }),
-          ...(anchorStops &&
-            anchorStops.length > 0 && {
-              anchorStops: anchorStops.map((a) => ({
-                coordinates: a.coordinates,
-                label: a.label,
-                address: a.address,
-                placeId: a.placeId,
-                primaryType: a.primaryType,
-                rating: a.rating,
-                note: a.note,
-              })),
-            }),
+          activityTypes: params.activities.length > 0 ? params.activities : undefined,
+          intention: params.intention,
+          city: city || undefined,
+          surpriseMe: params.surpriseMe,
         });
         setActiveJobId(jobId);
         trackJob(jobId);
@@ -1165,7 +1131,7 @@ export default function ItineraryDialogBox({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     },
-    [city, plannedDate, trackJob, anchorStops],
+    [city, userLocation, trackJob],
   );
 
   const hasAnchors = useMemo(
@@ -1546,37 +1512,30 @@ export default function ItineraryDialogBox({
                   </ScrollView>
                 </View>
               )}
-              {/* City picker — shown when no city prop and no anchor stops */}
+              {/* City display — shown when no city prop and no anchor stops */}
               {!cityProp && !hasAnchors && (
                 <View style={styles.cityInputSection}>
                   <Text style={styles.sectionLabel}>Where?</Text>
-                  {citiesLoading && cityOptions.length === 0 ? (
+                  {!selectedCity ? (
                     <View style={styles.cityLoadingRow}>
                       <ActivityIndicator size="small" color={GREEN_ACCENT} />
                       <Text style={styles.cityLoadingText}>
-                        Finding cities nearby...
+                        Finding your city...
                       </Text>
                     </View>
-                  ) : cityOptions.length > 0 ? (
+                  ) : (
                     <Reanimated.View entering={FadeIn.duration(300)}>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.pillRow}
-                      >
-                        {cityOptions.map((opt) => (
-                          <PillItem
-                            key={opt.city}
-                            label={opt.label}
-                            value={opt.city}
-                            isActive={selectedCity === opt.city}
-                            onSelect={setSelectedCity}
-                            styles={styles}
-                          />
-                        ))}
-                      </ScrollView>
+                      <View style={styles.pillRow}>
+                        <PillItem
+                          label={selectedCity.split(",")[0].trim()}
+                          value={selectedCity}
+                          isActive={true}
+                          onSelect={setSelectedCity}
+                          styles={styles}
+                        />
+                      </View>
                     </Reanimated.View>
-                  ) : null}
+                  )}
                 </View>
               )}
 

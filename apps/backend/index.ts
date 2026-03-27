@@ -15,9 +15,6 @@ import { setupMiddlewares, setupErrorHandlers } from "./utils/middlewareSetup";
 import { setupRoutes } from "./utils/routeSetup";
 import { setupContext } from "./utils/contextSetup";
 import { ServiceInitializer } from "./services/ServiceInitializer";
-import { DiscoveryNotificationService } from "./services/DiscoveryNotificationService";
-import { pushNotificationService } from "./services/PushNotificationService";
-import Redis from "ioredis";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -102,28 +99,8 @@ async function initializeServices() {
   // Setup cleanup schedule
   serviceInitializer.setupCleanupSchedule(services.jobQueue);
 
-  // Setup event import schedule (opt-in via env vars)
-  serviceInitializer.setupEventImportSchedule(services.jobQueue);
-
-  // Setup Third Space Score computation schedule
-  serviceInitializer.setupThirdSpaceScoreSchedule(
-    services.thirdSpaceScoreService,
-  );
-
   // Setup push notification schedules (streak-at-risk, weekly nudge)
   serviceInitializer.setupNotificationSchedule();
-
-  // Setup district clustering schedule
-  serviceInitializer.setupDistrictClusteringSchedule(
-    services.districtService,
-    services.redisService,
-  );
-
-  // Setup seed itinerary schedule (auto-populate cities with varied content)
-  serviceInitializer.setupSeedItinerarySchedule(
-    services.jobQueue,
-    dataSource,
-  );
 
   console.log("All services initialized successfully");
   return services;
@@ -137,26 +114,6 @@ setupContext(app, services);
 
 // Setup routes
 setupRoutes(app);
-
-// Start discovery push notification subscriber (dedicated Redis connection)
-const discoverySubscriber = new Redis({
-  host: process.env.REDIS_HOST || "redis",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD,
-  maxRetriesPerRequest: 3,
-  enableOfflineQueue: true,
-  connectTimeout: 10000,
-  lazyConnect: true,
-});
-const discoveryNotificationService = new DiscoveryNotificationService(
-  discoverySubscriber,
-  pushNotificationService,
-);
-discoveryNotificationService
-  .start()
-  .catch((err) =>
-    console.error("Failed to start DiscoveryNotificationService:", err),
-  );
 
 // 404 handler
 app.notFound((c) => {

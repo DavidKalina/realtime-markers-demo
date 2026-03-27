@@ -55,15 +55,10 @@ import { usePathname } from "expo-router";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useBootRedirect } from "@/hooks/useBootRedirect";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { useDistrictExplorationReveal } from "@/hooks/useDistrictExplorationReveal";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import XPNotificationOverlay from "@/components/Gamification/XPNotificationOverlay";
-import CalendarPrompt from "@/components/Itinerary/CalendarPrompt";
 import CompletionCelebration from "@/components/Gamification/CompletionCelebration";
-import { JobTrackerBottomSheet } from "@/components/AreaScan/AreaScanBottomSheet";
-import { useJobSheetStore } from "@/stores/useJobSheetStore";
-import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { SENTRY_CONFIG, STACK_SCREEN_OPTIONS, SCREEN_CONFIGS } from "@/config";
 
 // Initialize Sentry — guarded so a native SDK failure doesn't crash the app
@@ -127,40 +122,16 @@ function AppProviders({ children }: AppProvidersProps) {
   );
 }
 
-// App content component
-function JobSheetAutoOpen() {
-  const { activeJobs } = useJobProgressContext();
-  const { isOpen, open } = useJobSheetStore();
-  const prevCount = useRef(0);
-
-  useEffect(() => {
-    if (activeJobs.length > prevCount.current && !isOpen) {
-      open();
-    }
-    prevCount.current = activeJobs.length;
-  }, [activeJobs.length, isOpen, open]);
-
-  return null;
-}
-
 function AppContent({ children }: AppContentProps) {
   useAuthGuard();
   const { isBoot } = useBootRedirect();
   usePushNotifications();
-  useDistrictExplorationReveal();
-  const pathname = usePathname();
-  const isMapScreen = pathname === "/" || pathname === "/index";
-  const jobSheetOpen = useJobSheetStore((s) => s.isOpen);
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       {children}
       {!isBoot && <ActionBar />}
       {!isBoot && <XPNotificationOverlay />}
-      {!isBoot && <CalendarPrompt />}
       {!isBoot && <CompletionCelebration />}
-      {!isBoot && <JobSheetAutoOpen />}
-      {!isBoot && isMapScreen && jobSheetOpen && <JobTrackerBottomSheet />}
       {isBoot && (
         <LoadingOverlay message="Loading..." subMessage="Setting things up" />
       )}

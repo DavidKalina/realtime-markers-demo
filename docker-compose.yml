@@ -242,127 +242,9 @@ services:
 
     restart: unless-stopped
 
-  # New Filter Processor Service
-  filter-processor:
-    build:
-      context: .
-      dockerfile: apps/filter-processor/Dockerfile
-    environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB:-markersdb}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-markersdb}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - NODE_ENV=production
-      - HEALTH_PORT=8082
-      - BACKEND_URL=http://backend:3000
-      - FILTER_PROCESSOR_URL=http://filter-processor:8082
-    # Remove port exposure - only accessible via Traefik
-    # ports:
-    #   - "127.0.0.1:8082:8082"
-    networks:
-      - marker-network
-    depends_on:
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
-    volumes: []
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:8082/health",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-
-    restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.filter-processor.rule=Host(`${FILTER_PROCESSOR_HOST}`)"
-      - "traefik.http.services.filter-processor.loadbalancer.server.port=8082"
-      - "traefik.http.routers.filter-processor.tls.certresolver=letsencrypt"
-
-  websocket:
-    build:
-      context: .
-      dockerfile: apps/websocket/Dockerfile
-    environment:
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - BACKEND_URL=http://backend:3000
-      - FILTER_PROCESSOR_URL=http://filter-processor:8082
-    # Remove port exposure - only accessible via Traefik
-    # ports:
-    #   - "127.0.0.1:8081:8081"
-    networks:
-      - marker-network
-    depends_on:
-      redis:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
-      filter-processor:
-        condition: service_healthy
-    volumes: []
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8081/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-
-    restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.websocket.rule=Host(`${WEBSOCKET_HOST}`)"
-      - "traefik.http.services.websocket.loadbalancer.server.port=8081"
-      - "traefik.http.routers.websocket.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.websocket.middlewares=websocket-headers"
-      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolallowmethods=GET,POST,OPTIONS"
-      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolalloworiginlist=*"
-      - "traefik.http.middlewares.websocket-headers.headers.accesscontrolallowheaders=*"
-
-  # Web Dashboard Service with Environment-based Build Selection
-  web-dashboard:
-    build:
-      context: .
-      dockerfile: ${WEB_DASHBOARD_DOCKERFILE:-apps/web-dashboard/Dockerfile}
-      args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://${API_HOST:-api.localhost}}
-        - NEXT_PUBLIC_MAPBOX_TOKEN=${NEXT_PUBLIC_MAPBOX_TOKEN}
-    environment:
-      - NODE_ENV=${WEB_DASHBOARD_NODE_ENV:-production}
-      - PORT=3001
-    # Remove port exposure - only accessible via Traefik
-    # ports:
-    #   - "127.0.0.1:3001:3001"
-    networks:
-      - marker-network
-    volumes:
-      - web_dashboard_next_cache:/app/apps/web-dashboard/.next
-    working_dir: /app/apps/web-dashboard
-    command: ${WEB_DASHBOARD_COMMAND:-pnpm start}
-
-    restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.dashboard.rule=Host(`${DASHBOARD_HOST}`)"
-      - "traefik.http.services.dashboard.loadbalancer.server.port=3001"
-      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+  # filter-processor: disabled — kept in repo, re-enable when discovery features return
+  # websocket: disabled — not needed until community features are active
+  # web-dashboard: deleted
 
 networks:
   marker-network:
@@ -371,5 +253,4 @@ networks:
 volumes:
   postgres_data:
   redis_data:
-  web_dashboard_next_cache:
   traefik-certificates:

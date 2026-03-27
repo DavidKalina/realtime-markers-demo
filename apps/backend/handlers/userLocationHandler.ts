@@ -30,13 +30,6 @@ export const updateLocationHandler: Handler = withErrorHandling(async (c) => {
     await redisService.storeUserCity(user.id, cityState);
   }
 
-  // Fire-and-forget: check for nearby events and send push notification
-  c.get("proximityNotificationService")
-    .checkAndNotify(user.id, lat, lng)
-    .catch((err: unknown) =>
-      console.error("[ProximityNotification] check failed:", err),
-    );
-
   // Fire-and-forget: check for itinerary stop proximity and auto-checkin
   c.get("itineraryCheckinService")
     .checkAndNotify(user.id, lat, lng)

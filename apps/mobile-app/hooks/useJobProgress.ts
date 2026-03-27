@@ -4,6 +4,15 @@ import { apiClient } from "@/services/ApiClient";
 
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
+export interface AgentCandidate {
+  name: string;
+  coordinates: [number, number]; // [lng, lat]
+  type: "venue" | "trail";
+  rating?: number;
+  distanceMiles?: number;
+  query?: string;
+}
+
 export interface JobExtractions {
   title?: string;
   emoji?: string;
@@ -20,6 +29,7 @@ export interface TrackedJob {
   progress: number;
   stepLabel: string;
   extractions?: JobExtractions;
+  candidates?: AgentCandidate[];
   result?: Record<string, unknown>;
   error?: string;
 }
@@ -103,6 +113,29 @@ export function useJobProgress(): UseJobProgressReturn {
                 data.extractions ||
                 data.progressDetails?.extractions ||
                 undefined;
+
+              // Accumulate candidates across SSE messages (dedupe by name+coords)
+              const incomingCandidates: AgentCandidate[] | undefined =
+                data.progressDetails?.candidates;
+              let mergedCandidates = existing?.candidates;
+              if (incomingCandidates && incomingCandidates.length > 0) {
+                const seen = new Set(
+                  (existing?.candidates ?? []).map(
+                    (c) => `${c.name}:${c.coordinates[0]}:${c.coordinates[1]}`,
+                  ),
+                );
+                const newUnique = incomingCandidates.filter(
+                  (c) =>
+                    !seen.has(
+                      `${c.name}:${c.coordinates[0]}:${c.coordinates[1]}`,
+                    ),
+                );
+                mergedCandidates = [
+                  ...(existing?.candidates ?? []),
+                  ...newUnique,
+                ];
+              }
+
               next.set(jobId, {
                 jobId,
                 status: data.status || existing?.status || "processing",
@@ -115,6 +148,7 @@ export function useJobProgress(): UseJobProgressReturn {
                 extractions: incomingExtractions
                   ? { ...existing?.extractions, ...incomingExtractions }
                   : existing?.extractions,
+                candidates: mergedCandidates,
                 result: data.result || existing?.result,
                 error: data.error || existing?.error,
               });

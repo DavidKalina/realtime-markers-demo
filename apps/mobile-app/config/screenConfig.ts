@@ -29,10 +29,6 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
   { name: "scan" },
   { name: "user" },
   {
-    name: "saved/index",
-    options: { animation: "fade", animationDuration: 150 },
-  },
-  {
     name: "cluster",
     options: { animation: "fade_from_bottom", animationDuration: 250 },
   },
@@ -54,14 +50,6 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
   },
   {
     name: "browse/[id]",
-    options: { animation: "slide_from_right", animationDuration: 250 },
-  },
-  {
-    name: "spaces/index",
-    options: { animation: "fade", animationDuration: 150 },
-  },
-  {
-    name: "spaces/[city]",
     options: { animation: "slide_from_right", animationDuration: 250 },
   },
   {

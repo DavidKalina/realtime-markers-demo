@@ -19,7 +19,14 @@ import type { WeatherService, DayForecast } from "./shared/WeatherService";
 import type { GamificationService } from "./GamificationService";
 import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
 import type { RedisService } from "./shared/RedisService";
+import type { AgentCandidate } from "./shared/JobPipeline";
 import { formatInTimeZone, toDate } from "date-fns-tz";
+
+export type SidequestProgressCallback = (
+  progress: number,
+  label: string,
+  candidates?: AgentCandidate[],
+) => Promise<void>;
 
 export interface AnchorStopInput {
   coordinates: [number, number]; // [lng, lat]
@@ -52,11 +59,16 @@ export interface CreateItineraryInput {
 export interface CreateSidequestInput {
   itineraryId?: string; // Pre-created shell record ID
   prompt: string; // Free-text quest description, e.g. "Coffee followed by longboarding"
-  radiusMiles: number; // Distance slider value, 0.5-25
+  radiusMiles: number; // Max travel distance, 0.5-50
   budgetMax: number; // From budget tier selector
   latitude: number; // User's current location
   longitude: number;
   timezone?: string;
+  activityTypes?: string[]; // Vibes: food, coffee, hiking, etc.
+  intention?: string; // recharge | explore | socialize | move | learn | treat_yourself | lock_in
+  city?: string; // Optional target city override
+  surpriseMe?: boolean; // Skip user prefs, go wild
+  note?: string; // Custom note / additional context from the user
 }
 
 // Abbreviated keys from LLM to save output tokens
@@ -2256,7 +2268,7 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
 
     const shell = itineraryRepo.create({
       userId,
-      city: normalizeCity(city),
+      city: normalizeCity(input.city || city),
       prompt: input.prompt,
       radiusMiles: input.radiusMiles,
       mode: ItineraryMode.SIDEQUEST,
@@ -2265,7 +2277,8 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
       budgetMin: 0,
       budgetMax: input.budgetMax,
       durationHours: 2,
-      activityTypes: [],
+      activityTypes: input.activityTypes ?? [],
+      intention: input.intention,
     });
     await itineraryRepo.save(shell);
     return shell;
@@ -2274,6 +2287,7 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
   async createSidequest(
     userId: string,
     input: CreateSidequestInput,
+    onProgress?: SidequestProgressCallback,
   ): Promise<Itinerary> {
     const itineraryRepo = this.dataSource.getRepository(Itinerary);
     const itemRepo = this.dataSource.getRepository(ItineraryItem);
@@ -2307,6 +2321,7 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
         city,
         cityCenter,
         radiusMeters,
+        onProgress,
       );
 
       // Validate and enrich items (reuse existing method)
@@ -2385,6 +2400,7 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
     city: string,
     cityCenter: { lat: number; lng: number },
     radiusMeters: number,
+    onProgress?: SidequestProgressCallback,
   ): Promise<{
     llmResult: LLMItineraryResponse;
     verifiedVenues: VerifiedVenue[];
@@ -2393,7 +2409,7 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
     const now = new Date();
     const hour = now.getHours();
     const dayOfWeek = now.toLocaleDateString("en-US", { weekday: "long" });
-    const MAX_TOOL_ROUNDS = 10;
+    const MAX_TOOL_ROUNDS = 12;
 
     type ResponseInputItem =
       import("openai/resources/responses/responses").ResponseInputItem;
@@ -2440,6 +2456,41 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
         },
         strict: false,
       },
+      // Overpass trails — for hiking, boarding, biking, scenic walks
+      {
+        type: "function",
+        name: "search_trails",
+        description:
+          "Search for trails near a location. Returns trail name, surface type, length, and distance. Use for hiking, biking, longboarding, skating, or scenic walk requests. You can pass coordinates of a previously found venue to find trails near it.",
+        parameters: {
+          type: "object",
+          properties: {
+            type: {
+              type: "string",
+              enum: ["paved", "hiking"],
+              description:
+                "paved = smooth surfaces for longboarding/skating/biking. hiking = all trail surfaces including dirt, gravel, etc.",
+            },
+            lat: {
+              type: "number",
+              description:
+                "Search center latitude. Use user's location or a previously found venue's coordinates.",
+            },
+            lng: {
+              type: "number",
+              description:
+                "Search center longitude. Use user's location or a previously found venue's coordinates.",
+            },
+            radius_miles: {
+              type: "number",
+              description:
+                "Search radius in miles. Defaults to 10 if omitted.",
+            },
+          },
+          required: ["type", "lat", "lng"],
+        },
+        strict: false,
+      },
       // Submit the final quest
       {
         type: "function",
@@ -2482,20 +2533,45 @@ ${venueList}${trailList ? `\n\nPAVED TRAILS near ${cityName} (real OpenStreetMap
       },
     ];
 
+    // Build optional context blocks for the agent
+    const vibesBlock = input.activityTypes?.length
+      ? `\nVIBES: ${input.activityTypes.join(", ")} — prioritize venues and trails that match these activity types. If multiple vibes are specified, try to find stops that naturally blend them (e.g. "coffee + outdoors" → a café with a great patio near a trail).`
+      : "";
+
+    const intentionMap: Record<string, string> = {
+      recharge: "Recharge — solo-friendly, calm, restorative spots. Quiet cafes, nature, gentle pacing.",
+      explore: "Explore — new neighborhoods, hidden gems, off-the-beaten-path discovery.",
+      socialize: "Socialize — lively atmosphere, communal seating, bars/breweries, social energy.",
+      move: "Move — trails, outdoor activities, physical movement, scenic routes.",
+      learn: "Learn — museums, bookstores, galleries, cultural/historical venues.",
+      treat_yourself: "Treat Yourself — premium food, scenic spots, indulgent experiences. Quality over quantity.",
+      lock_in: "Lock In — productive focus spots, cozy cafes with WiFi, libraries, quiet corners for deep work.",
+    };
+    const intentionBlock = input.intention && intentionMap[input.intention]
+      ? `\nINTENTION: ${intentionMap[input.intention]}`
+      : "";
+
+    const noteBlock = input.note
+      ? `\nUSER NOTE: "${input.note}" — incorporate this context into venue selection and quest theming.`
+      : "";
+
     const instructions = `You are a Sidequest Master. Craft a 1-2 stop real-world sidequest for an adventurer.
 
-You have web search for discovery and search_places for getting verified venue data with exact coordinates.
+You have web search for discovery, search_places for verified venue data, and search_trails for trail/path discovery.
 
 APPROACH:
-1. Use web search to research the best options for the user's request within their ${input.radiusMiles}-mile radius. Look for highly-rated, interesting, or unique spots — blog recommendations, AllTrails reviews, local guides, etc.
-2. Don't just pick the closest results — explore the full radius. Search for options in different nearby towns.
-3. Once you've found promising spots, call search_places to verify them. IMPORTANT: set the "near" parameter to the actual city/town where the venue is located (e.g. "Fort Collins, CO"), NOT the user's home city. This ensures accurate results.
-4. Call submit_quest with 1-2 stops using ONLY venues confirmed by search_places.
-
+1. Break the user's request into distinct stop types mentally.
+2. For venues (restaurants, cafes, shops, museums): use web_search to discover, then search_places to verify with exact coordinates.
+3. For trails/paths (hiking, boarding, biking, scenic walks): use search_trails directly — it searches OpenStreetMap for real trails with surface type, length, and lighting info.
+4. For multi-stop quests: search for later stops NEAR earlier ones. Pass the first stop's coordinates as lat/lng to search_trails or use the nearby city for search_places.
+5. Focus on RELEVANCE and QUALITY — find the best match for what the user asked for, regardless of distance from their starting point. Search broadly across the region.
+6. Call submit_quest with 1-2 stops using ONLY venues confirmed by search_places or trails found by search_trails.
+${vibesBlock}${intentionBlock}${noteBlock}
 CONSTRAINTS:
-- 1-2 stops max.
+- 1-2 stops max. For 2-stop quests, stops MUST be within 10 miles of each other.
 - Budget: $${input.budgetMax} (0 = free only).
 - Use EXACT venue names and addresses from search_places — do not invent venues.
+- For trail stops, you MUST use a trail returned by search_trails — do NOT use trails from web search or your own knowledge. Use the exact trail name from search_trails results as the venue name. The coordinates from search_trails results are the source of truth for trail locations.
 - Current time: ${hour}:00, ${dayOfWeek} — don't pick closed venues.
 - Title: 3-6 words, evocative. Summary: 1-2 sentences.
 - whyThisStop: why this venue over alternatives. proTip: practical tip (parking, best entrance, what to order).`;
@@ -2503,20 +2579,22 @@ CONSTRAINTS:
     const inputItems: ResponseInputItem[] = [
       {
         role: "user",
-        content: `${promptText}\nLocation: ${city} (${input.latitude.toFixed(4)}, ${input.longitude.toFixed(4)})\nRadius: ${input.radiusMiles} miles\nBudget: $${input.budgetMax}`,
+        content: `${promptText}\nUser is near: ${city} (search this area AND surrounding cities/towns — do NOT limit to just this city)\nBudget: $${input.budgetMax}${input.activityTypes?.length ? `\nVibes: ${input.activityTypes.join(", ")}` : ""}${input.intention ? `\nIntention: ${input.intention.replace("_", " ")}` : ""}`,
       },
     ];
 
     // Accumulated data from tool calls
     const allVenues: VerifiedVenue[] = [];
     const seenVenueIds = new Set<string>();
+    const allTrails: Trail[] = [];
+    const seenTrailIds = new Set<number>();
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       let response: Awaited<ReturnType<typeof this.openAIService.executeResponseWithTools>>;
       try {
         response = await this.openAIService.executeResponseWithTools(
           {
-            model: OpenAIModel.GPT54Nano,
+            model: OpenAIModel.GPT54Mini,
             instructions,
             input: inputItems,
             tools,
@@ -2599,9 +2677,8 @@ CONSTRAINTS:
               await this.geocodingService.searchPlacesByCategory(
                 query,
                 near,
-                cityCenter,
+                undefined,
                 5,
-                radiusMeters,
               );
             for (const v of venues) {
               if (!seenVenueIds.has(v.placeId)) {
@@ -2614,13 +2691,7 @@ CONSTRAINTS:
                 ? venues
                     .map((v) => {
                       const [lng, lat] = v.coordinates;
-                      const dist = this.haversineDistanceMiles(
-                        input.latitude,
-                        input.longitude,
-                        lat,
-                        lng,
-                      );
-                      return `- ${v.name} (${v.address}) ~${dist.toFixed(1)}mi${v.rating ? ` ★${v.rating}` : ""}`;
+                      return `- ${v.name} (${v.address}) [${lat.toFixed(4)},${lng.toFixed(4)}]${v.rating ? ` ★${v.rating}` : ""}`;
                     })
                     .join("\n")
                 : "No results found for this search.";
@@ -2629,6 +2700,20 @@ CONSTRAINTS:
               call_id: call.call_id,
               output: resultText,
             });
+            if (onProgress && venues.length > 0) {
+              const progressPct = Math.round(10 + (round / MAX_TOOL_ROUNDS) * 75);
+              await onProgress(
+                progressPct,
+                `Found ${venues.length} spots for "${query}"`,
+                venues.map((v) => ({
+                  name: v.name,
+                  coordinates: v.coordinates,
+                  type: "venue" as const,
+                  rating: v.rating,
+                  query,
+                })),
+              );
+            }
           } catch (err) {
             feedbackItems.push({
               type: "function_call_output",
@@ -2636,18 +2721,134 @@ CONSTRAINTS:
               output: `Search failed: ${err instanceof Error ? err.message : "unknown error"}`,
             });
           }
+        } else if (call.name === "search_trails") {
+          const trailType = (args.type as string) || "paved";
+          const searchLat = args.lat as number;
+          const searchLng = args.lng as number;
+          const searchRadiusMiles = (args.radius_miles as number) || 10;
+          const searchRadiusMeters = searchRadiusMiles * 1609.34;
+          try {
+            const foundTrails =
+              trailType === "hiking"
+                ? await this.overpassService.fetchHikingTrails(
+                    searchLat,
+                    searchLng,
+                    searchRadiusMeters,
+                    10,
+                  )
+                : await this.overpassService.fetchPavedTrails(
+                    searchLat,
+                    searchLng,
+                    searchRadiusMeters,
+                    10,
+                  );
+            for (const t of foundTrails) {
+              if (!seenTrailIds.has(t.id)) {
+                seenTrailIds.add(t.id);
+                allTrails.push(t);
+              }
+            }
+            const resultText =
+              foundTrails.length > 0
+                ? foundTrails
+                    .map((t) => {
+                      const [tLng, tLat] = t.center;
+                      const distFromCenter = this.haversineDistanceMiles(
+                        searchLat,
+                        searchLng,
+                        tLat,
+                        tLng,
+                      );
+                      return `- ${t.name} (${t.surface}, ${(t.lengthMeters / 1000).toFixed(1)}km${t.lit ? ", lit" : ""}) [${tLat.toFixed(4)},${tLng.toFixed(4)}] ~${distFromCenter.toFixed(1)}mi away`;
+                    })
+                    .join("\n")
+                : `No ${trailType} trails found in this area.`;
+            feedbackItems.push({
+              type: "function_call_output",
+              call_id: call.call_id,
+              output: resultText,
+            });
+            if (onProgress && foundTrails.length > 0) {
+              const progressPct = Math.round(10 + (round / MAX_TOOL_ROUNDS) * 75);
+              await onProgress(
+                progressPct,
+                `Discovered ${foundTrails.length} ${trailType} trails nearby`,
+                foundTrails.map((t) => {
+                  const [tLng, tLat] = t.center;
+                  return {
+                    name: t.name,
+                    coordinates: t.center as [number, number],
+                    type: "trail" as const,
+                    distanceMiles: this.haversineDistanceMiles(
+                      searchLat,
+                      searchLng,
+                      tLat,
+                      tLng,
+                    ),
+                    query: `${trailType} trails`,
+                  };
+                }),
+              );
+            }
+          } catch (err) {
+            feedbackItems.push({
+              type: "function_call_output",
+              call_id: call.call_id,
+              output: `Trail search failed: ${err instanceof Error ? err.message : "unknown error"}`,
+            });
+          }
         } else if (call.name === "submit_quest") {
-          console.log(
-            `[SidequestAgent] Quest submitted after ${round + 1} rounds`,
-          );
           const questData = args as unknown as LLMItineraryResponseRaw;
           if (questData.items && questData.items.length > 2) {
             questData.items = questData.items.slice(0, 2);
           }
+
+          // Validate trail stops against actual search_trails results
+          const trailItems = (questData.items || []).filter(
+            (item) => item.vc === "trail",
+          );
+          const unmatchedTrails: string[] = [];
+          for (const item of trailItems) {
+            const itemName = (item.vn || "").toLowerCase().trim();
+            const matched = allTrails.some((t) => {
+              const trailName = t.name.toLowerCase().trim();
+              return (
+                trailName === itemName ||
+                trailName.includes(itemName) ||
+                itemName.includes(trailName)
+              );
+            });
+            if (!matched && allTrails.length > 0) {
+              unmatchedTrails.push(item.vn || "unknown");
+            }
+          }
+
+          if (unmatchedTrails.length > 0) {
+            const availableTrails = allTrails
+              .slice(0, 5)
+              .map((t) => t.name)
+              .join(", ");
+            console.log(
+              `[SidequestAgent] Rejected submit — unverified trail(s): ${unmatchedTrails.join(", ")}`,
+            );
+            feedbackItems.push({
+              type: "function_call_output",
+              call_id: call.call_id,
+              output: `REJECTED: Trail "${unmatchedTrails.join(", ")}" was not found in your search_trails results. You MUST use a trail from your actual search results. Available trails: ${availableTrails}. Call submit_quest again with a trail from that list.`,
+            });
+            continue;
+          }
+
+          console.log(
+            `[SidequestAgent] Quest submitted after ${round + 1} rounds`,
+          );
+          if (onProgress) {
+            await onProgress(85, "Quest forged — saving your adventure");
+          }
           return {
             llmResult: expandLLMResponse(questData),
             verifiedVenues: allVenues,
-            trails: [], // Trails discovered via web search, verified via search_places
+            trails: allTrails,
           };
         }
       }

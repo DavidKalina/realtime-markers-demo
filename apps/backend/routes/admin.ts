@@ -6,28 +6,7 @@ import { adminAuthMiddleware } from "../middleware/adminMiddleware";
 import { ip } from "../middleware/ip";
 import { rateLimit } from "../middleware/rateLimit";
 import { UserRole } from "@realtime-markers/database";
-import { adminCreateItineraryHandler } from "../handlers/adminItineraryHandlers";
-import {
-  listDistrictsHandler,
-  getDistrictDetailHandler,
-  renameDistrictHandler,
-  deleteDistrictHandler,
-  reclusterRegionHandler,
-  reclusterAllHandler,
-  getClusteringConfigHandler,
-} from "../handlers/adminDistrictHandlers";
-import {
-  getQueryInsightsHandler,
-  getPopularQueriesHandler,
-  getLowHitRateQueriesHandler,
-  getZeroResultQueriesHandler,
-  getQueryStatsHandler,
-  updateQueryFlagsHandler,
-  getQueryClustersHandler,
-  findSimilarQueriesHandler,
-} from "../handlers/queryAnalyticsHandlers";
 import { UserService } from "../services/UserService";
-import { dashboardRouter } from "./dashboard";
 
 export const adminRouter = new Hono<AppContext>();
 
@@ -46,9 +25,6 @@ adminRouter.use(
 );
 adminRouter.use("*", authMiddleware);
 adminRouter.use("*", adminAuthMiddleware);
-
-// Mount dashboard router under /dashboard path
-adminRouter.route("/dashboard", dashboardRouter);
 
 adminRouter.get("/images/:id/image", async (c) => {
   try {
@@ -166,28 +142,6 @@ adminRouter.post("/recalculate-counts", async (c) => {
     );
   }
 });
-
-// Itinerary Management
-adminRouter.post("/itineraries", adminCreateItineraryHandler);
-
-// District Management
-adminRouter.get("/districts", listDistrictsHandler);
-adminRouter.get("/districts/config", getClusteringConfigHandler);
-adminRouter.get("/districts/:id", getDistrictDetailHandler);
-adminRouter.post("/districts/:id/rename", renameDistrictHandler);
-adminRouter.post("/districts/:id/recluster", reclusterRegionHandler);
-adminRouter.delete("/districts/:id", deleteDistrictHandler);
-adminRouter.post("/districts/recluster-all", reclusterAllHandler);
-
-// Query Analytics Endpoints
-adminRouter.get("/analytics/queries/insights", getQueryInsightsHandler);
-adminRouter.get("/analytics/queries/popular", getPopularQueriesHandler);
-adminRouter.get("/analytics/queries/low-hit-rate", getLowHitRateQueriesHandler);
-adminRouter.get("/analytics/queries/zero-results", getZeroResultQueriesHandler);
-adminRouter.get("/analytics/queries/:query/stats", getQueryStatsHandler);
-adminRouter.post("/analytics/queries/update-flags", updateQueryFlagsHandler);
-adminRouter.get("/analytics/queries/clusters", getQueryClustersHandler);
-adminRouter.get("/analytics/queries/:query/similar", findSimilarQueriesHandler);
 
 // User Management Endpoints
 adminRouter.get("/users", async (c) => {
