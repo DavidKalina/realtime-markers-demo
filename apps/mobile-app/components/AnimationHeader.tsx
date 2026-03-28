@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from "react";
-import { View, StyleSheet, Dimensions } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { useColors, fontSize, fontFamily, type Colors } from "@/theme";
 import Animated, {
   useAnimatedStyle,
@@ -8,8 +8,6 @@ import Animated, {
   withTiming,
   Easing,
 } from "react-native-reanimated";
-
-const { width } = Dimensions.get("window");
 
 const TITLE = "Sidequests";
 const CHAR_STAGGER = 60;
@@ -65,11 +63,9 @@ const AppHeader = () => {
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
     container: {
-      width: width,
       justifyContent: "center",
       alignItems: "center",
       position: "relative",
-      alignSelf: "center",
     },
     titleRow: {
       flexDirection: "row",
@@ -77,7 +73,7 @@ const createStyles = (colors: Colors) =>
       alignItems: "center",
     },
     text: {
-      fontSize: 42,
+      fontSize: 34,
       fontFamily: fontFamily.display,
       letterSpacing: 1,
       color: colors.fixed.white,

@@ -87,10 +87,45 @@ const OptionsOverlay: React.FC<{
     }, OPTIONS_TIMEOUT);
 
     // Fetch options immediately, then poll until all are resolved
+    const stopPolling = () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+
     const fetchOptions = async () => {
       try {
+        // Check parent status — if it failed or was deleted (user already
+        // selected), bail immediately instead of spinning for 90s.
+        let parentGone = false;
+        try {
+          const parent = await apiClient.sidequests.getById(parentId);
+          if (parent.status === "FAILED") {
+            stopPolling();
+            setTimedOut(true);
+            setIsLoading(false);
+            return;
+          }
+        } catch {
+          // 404 = parent was soft-deleted (user already selected a card)
+          parentGone = true;
+        }
+
         const result = await apiClient.sidequests.getOptions(parentId);
         const opts = result.data ?? [];
+
+        if (parentGone && opts.length === 0) {
+          stopPolling();
+          setIsLoading(false);
+          onSelected();
+          return;
+        }
+
         if (opts.length > 0) {
           setOptions(opts);
           setIsLoading(false);
@@ -99,17 +134,12 @@ const OptionsOverlay: React.FC<{
             (o: SidequestResponse) =>
               o.status === "READY" || o.status === "FAILED",
           );
-          if (allResolved && pollRef.current) {
-            clearInterval(pollRef.current);
-            pollRef.current = null;
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current);
-              timeoutRef.current = null;
-            }
+          if (allResolved) {
+            stopPolling();
           }
         }
       } catch {
-        // Keep polling
+        // Keep polling on network errors
       }
     };
 
@@ -195,7 +225,9 @@ const OptionsOverlay: React.FC<{
                   </Text>
                 </Pressable>
               </View>
-            ) : timedOut || options.length === 0 ? (
+            ) : timedOut ||
+              options.length === 0 ||
+              options.every((o) => o.status === "FAILED") ? (
               <View style={overlayStyles.loading}>
                 <Text style={{ fontSize: 48 }}>{"\u{1F61E}"}</Text>
                 <Text
@@ -346,12 +378,22 @@ const ItinerariesListScreen = () => {
 
   // When a job completes (via push notification or SSE), open the fan-out
   // overlay so the user can pick one of the 3 generated options.
+  // Skip if the user already selected a card (no remaining options).
   useEffect(() => {
     return eventBroker.on<SidequestJobCompletedEvent>(
       EventTypes.SIDEQUEST_JOB_COMPLETED,
-      (event) => {
+      async (event) => {
         fetchItineraries();
         if (event.itineraryId) {
+          try {
+            const result = await apiClient.sidequests.getOptions(
+              event.itineraryId,
+            );
+            const opts = result.data ?? [];
+            if (opts.length === 0) return;
+          } catch {
+            return;
+          }
           optionsParentId.current = event.itineraryId;
           setShowOptions(true);
         }

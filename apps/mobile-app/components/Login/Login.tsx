@@ -314,14 +314,17 @@ const Login: React.FC = () => {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingView}
         >
-          {/* Header area — flex: 1 compresses when keyboard opens */}
-          <View style={styles.headerArea}>
-            <AppHeader />
-          </View>
+          {/* Top spacer */}
+          <View style={{ flex: 1 }} />
 
-          <View style={styles.deckArea}>
+          {/* Header row — title + mini deck, centered */}
+          <View style={styles.headerRow}>
+            <AppHeader />
             <MiniDeck />
           </View>
+
+          {/* Bottom spacer */}
+          <View style={{ flex: 1 }} />
 
           {/* Form card — anchored at bottom */}
           <Animated.View
@@ -440,17 +443,11 @@ const createStyles = (colors: Colors) =>
       flex: 1,
     },
 
-    headerArea: {
-      flex: 1,
-      justifyContent: "flex-end",
+    headerRow: {
+      flexDirection: "row",
       alignItems: "center",
-      overflow: "visible",
-    },
-
-    deckArea: {
-      flex: 1,
       justifyContent: "center",
-      alignItems: "center",
+      gap: spacing.md,
       overflow: "visible",
     },
 

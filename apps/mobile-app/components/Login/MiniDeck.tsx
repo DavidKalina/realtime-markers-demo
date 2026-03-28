@@ -13,8 +13,8 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
-const CARD_WIDTH = 52;
-const CARD_HEIGHT = 74; // ~5:7 ratio
+const CARD_WIDTH = 40;
+const CARD_HEIGHT = 56; // ~5:7 ratio
 const CARD_COUNT = 5;
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -172,7 +172,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     height: CARD_HEIGHT + 20,
-    marginTop: spacing.md,
     overflow: "visible",
   },
   deckContainer: {
@@ -198,7 +197,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   cardIcon: {
-    fontSize: 18,
+    fontSize: 14,
     marginBottom: 2,
   },
   cardLine: {

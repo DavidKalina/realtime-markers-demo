@@ -405,7 +405,10 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
         latitude: userLocation[1],
         longitude: userLocation[0],
         timezone: getUserTimezone(),
-        activityTypes: Array.from(selectedVibes),
+        activityTypes: Array.from(selectedVibes).map((value) => {
+          const opt = ACTIVITY_OPTIONS.find((o) => o.value === value);
+          return opt ? `${opt.emoji} ${opt.label}` : value;
+        }),
         intention: selectedIntention ?? undefined,
       });
 

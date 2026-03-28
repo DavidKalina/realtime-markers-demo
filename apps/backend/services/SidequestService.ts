@@ -339,12 +339,14 @@ class SidequestServiceImpl implements SidequestService {
       for (let i = 0; i < results.length; i++) {
         if (results[i].status === "rejected") {
           const reason = (results[i] as PromiseRejectedResult).reason;
-          console.error(
-            `[SidequestService] Option ${i} failed:`,
-            reason,
+          const msg = reason instanceof Error ? reason.message : String(reason);
+          const isSkip = msg.startsWith("TIER_SKIPPED:");
+          console[isSkip ? "log" : "error"](
+            `[SidequestService] Option ${i} ${isSkip ? "skipped" : "failed"}:`,
+            msg,
           );
-          children[i].status = SidequestStatus.FAILED;
-          await repo.save(children[i]);
+          // Remove skipped/failed options so only viable cards are shown
+          await repo.softDelete({ id: children[i].id });
         }
       }
 
@@ -405,7 +407,7 @@ class SidequestServiceImpl implements SidequestService {
       : "User wants a surprise — craft something unexpected and delightful based on what's nearby.";
 
     const vibesBlock = input.activityTypes?.length
-      ? `\nVIBES: ${input.activityTypes.join(", ")} — prioritize venues and trails that match these activity types. If multiple vibes are specified, try to find stops that naturally blend them (e.g. "coffee + outdoors" → a café with a great patio near a trail).`
+      ? `\nACTIVITIES: ${input.activityTypes.join(", ")} — these are the LITERAL activities the user wants to do, not a vibe or aesthetic. Search for places where the user can actually DO these things. "disc golf" means find a disc golf course, "reading" means find a bookstore or library, "coffee" means find a café. At least one stop MUST directly enable one of these activities.`
       : "";
 
     const intentionMap: Record<string, string> = {
@@ -485,6 +487,7 @@ CONSTRAINTS:
 - Current time: ${hour}:00, ${dayOfWeek} — don't pick closed venues.
 - Title: 3-6 words, evocative. Summary: 1-2 sentences.
 - hook: why this venue over alternatives (1 sentence).
+- If 2+ searches return zero or irrelevant results, call skip_tier instead of forcing a weak quest. The user will still see cards from the other tiers.
 ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are closed. Focus on: 24-hour diners, late-night food spots, convenience stores with character, night walks/viewpoints, stargazing spots, or "plan for tomorrow morning" quests (pick a great breakfast/brunch/coffee spot the user can hit first thing). If search_places returns nothing, try broader queries like "24 hour restaurant", "late night food", or "diner". If still nothing, build a quest around a scenic night walk, a viewpoint, or a park — no venue required.` : ""}`;
 
     type Tool = import("openai/resources/responses/responses").Tool;
@@ -540,6 +543,24 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are clo
             },
           },
           required: ["type", "lat", "lng"],
+        },
+        strict: false,
+      },
+      {
+        type: "function",
+        name: "skip_tier",
+        description:
+          "Call this if your searches consistently return no results or nothing worthwhile for this tier. Bow out early so the user still gets the other tiers without waiting.",
+        parameters: {
+          type: "object",
+          properties: {
+            reason: {
+              type: "string",
+              description: "Brief reason for skipping (e.g. 'no venues found within radius')",
+            },
+          },
+          required: ["reason"],
+          additionalProperties: false,
         },
         strict: false,
       },
@@ -687,6 +708,10 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are clo
         }
       },
 
+      skip_tier: async () => {
+        return { output: "Tier skipped", terminal: true };
+      },
+
       submit_quest: async (args) => {
         const questData = args as unknown as LLMResponseRaw;
         if (questData.items && questData.items.length > 2) {
@@ -740,6 +765,12 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are clo
       maxOutputTokens: 2500,
       caller: `sidequest_option_${optionIndex}`,
     }, initialMessage);
+
+    if (agentResult.terminalTool === "skip_tier") {
+      const reason = (agentResult.result as unknown as Record<string, string>).reason ?? "no results";
+      console.log(`[SidequestService] Option ${optionIndex} (${tier.name}) skipped: ${reason}`);
+      throw new Error(`TIER_SKIPPED: ${reason}`);
+    }
 
     const llmResult = expandLLMResponse(agentResult.result);
 

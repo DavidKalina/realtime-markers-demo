@@ -1,3 +1,4 @@
+import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { Check } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
@@ -21,6 +22,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { scheduleOnRN } from "react-native-worklets";
 
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
+import { getCategoryColor } from "@/utils/categoryColors";
 import {
   fontFamily,
   fontSize,
@@ -32,35 +34,93 @@ import {
 } from "@/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CARD_WIDTH = SCREEN_WIDTH * 0.72;
+const CARD_WIDTH = SCREEN_WIDTH * 0.78;
 const CARD_HEIGHT = CARD_WIDTH * 1.4; // ~5:7 trading card ratio
 const CARD_GAP = 12;
 const SNAP_WIDTH = CARD_WIDTH + CARD_GAP; // distance between card centers
 const BOB_AMPLITUDE = 3;
 const BOB_DURATION = 2400;
 
-const TIER_DISPLAY: Record<
+const TIER_LABELS: Record<string, string> = {
+  QUICK: "QUICK & EASY",
+  SWEET_SPOT: "SWEET SPOT",
+  BEST: "BEST PACKAGE",
+};
+
+// Per-tier visual treatment for badges — neutral palette, different text colors
+const TIER_BADGE_STYLE: Record<
   string,
-  { label: string; bg: string; text: string; border: string }
+  {
+    bg: string;
+    border: string;
+    text: string;
+    glowRadius: number;
+    glowOpacity: number;
+    glowColor: string;
+    borderWidth: number;
+    shimmer: boolean;
+  }
 > = {
   QUICK: {
-    label: "QUICK & EASY",
-    bg: "rgba(134, 239, 172, 0.12)",
-    text: "rgba(134, 239, 172, 0.9)",
-    border: "rgba(134, 239, 172, 0.25)",
+    bg: "rgba(255, 255, 255, 0.06)",
+    border: "rgba(255, 255, 255, 0.12)",
+    text: "rgba(255, 255, 255, 0.5)",
+    glowRadius: 0,
+    glowOpacity: 0,
+    glowColor: "transparent",
+    borderWidth: 1,
+    shimmer: false,
   },
   SWEET_SPOT: {
-    label: "SWEET SPOT",
-    bg: "rgba(251, 191, 36, 0.12)",
-    text: "rgba(251, 191, 36, 0.9)",
+    bg: "rgba(251, 191, 36, 0.1)",
     border: "rgba(251, 191, 36, 0.25)",
+    text: "rgba(251, 191, 36, 0.9)",
+    glowRadius: 6,
+    glowOpacity: 0.3,
+    glowColor: "rgba(251, 191, 36, 1)",
+    borderWidth: 1.5,
+    shimmer: false,
   },
   BEST: {
-    label: "BEST PACKAGE",
-    bg: "rgba(168, 85, 247, 0.12)",
-    text: "rgba(168, 85, 247, 0.9)",
-    border: "rgba(168, 85, 247, 0.25)",
+    bg: "rgba(168, 85, 247, 0.1)",
+    border: "rgba(168, 85, 247, 0.3)",
+    text: "rgba(168, 85, 247, 0.95)",
+    glowRadius: 10,
+    glowOpacity: 0.5,
+    glowColor: "rgba(168, 85, 247, 1)",
+    borderWidth: 2,
+    shimmer: true,
   },
+};
+
+/** Convert a hex color (#rrggbb) into bg / text / border rgba variants. */
+function hexToCardColors(hex: string): {
+  bg: string;
+  text: string;
+  border: string;
+} {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return {
+    bg: `rgba(${r}, ${g}, ${b}, 0.12)`,
+    text: `rgba(${r}, ${g}, ${b}, 0.9)`,
+    border: `rgba(${r}, ${g}, ${b}, 0.25)`,
+  };
+}
+
+/** Pick a color source from the sidequest's categories or activity types. */
+function getCardColorKey(option: SidequestResponse): string {
+  return (
+    option.categories?.[0] ?? option.activityTypes?.[0] ?? option.tier ?? "QUICK"
+  );
+}
+
+// Tier-only fallback colors (green / amber / purple)
+const TIER_FALLBACK_COLORS: Record<string, string> = {
+  QUICK: "#86efac",
+  SWEET_SPOT: "#fbbf24",
+  BEST: "#a855f7",
 };
 
 interface QuestCardDeckProps {
@@ -168,6 +228,69 @@ const CardSheen: React.FC<{
 
 CardSheen.displayName = "CardSheen";
 
+// --- Tier badge with per-tier holographic treatment ---
+
+const TierBadge: React.FC<{
+  tier: string;
+  label: string;
+}> = React.memo(({ tier, label }) => {
+  const s = TIER_BADGE_STYLE[tier] ?? TIER_BADGE_STYLE.QUICK;
+
+  // Shimmer animation for BEST tier
+  const shimmerOpacity = useSharedValue(0.4);
+  useEffect(() => {
+    if (s.shimmer) {
+      shimmerOpacity.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.4, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        false,
+      );
+    }
+  }, [s.shimmer]);
+
+  const shimmerStyle = useAnimatedStyle(() => ({
+    opacity: s.shimmer ? shimmerOpacity.value : 1,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          borderRadius: radius.sm,
+          backgroundColor: s.bg,
+          borderColor: s.border,
+          borderWidth: s.borderWidth,
+          shadowColor: s.glowColor,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: s.glowOpacity,
+          shadowRadius: s.glowRadius,
+          elevation: s.glowRadius > 0 ? 4 : 0,
+        },
+        shimmerStyle,
+      ]}
+    >
+      <Text
+        style={{
+          fontSize: 9,
+          fontWeight: fontWeight.bold,
+          fontFamily: fontFamily.mono,
+          letterSpacing: 0.8,
+          color: s.text,
+        }}
+      >
+        {label}
+      </Text>
+    </Animated.View>
+  );
+});
+
+TierBadge.displayName = "TierBadge";
+
 // --- Tug animation constants ---
 const TUG_FORCE = 14;
 const TUG_INTERVAL = 2200;
@@ -205,7 +328,15 @@ const QuestCard: React.FC<{
     colors,
   }) => {
     const s = useMemo(() => createCardStyles(colors), [colors]);
-    const tierMeta = TIER_DISPLAY[option.tier ?? "QUICK"] ?? TIER_DISPLAY.QUICK;
+    const colorKey = getCardColorKey(option);
+    const cardHex =
+      getCategoryColor(colorKey) ??
+      TIER_FALLBACK_COLORS[option.tier ?? "QUICK"] ??
+      TIER_FALLBACK_COLORS.QUICK;
+    const tierMeta = {
+      label: TIER_LABELS[option.tier ?? "QUICK"] ?? TIER_LABELS.QUICK,
+      ...hexToCardColors(cardHex),
+    };
     const isBrowse = mode === "browse";
     const isReady = isBrowse || option.status === "READY";
 
@@ -445,20 +576,10 @@ const QuestCard: React.FC<{
         >
           {/* Top: Tier badge + status */}
           <View style={s.tierRow}>
-            <View
-              style={[
-                s.tierBadge,
-                {
-                  backgroundColor: tierMeta.bg,
-                  borderColor: tierMeta.border,
-                  borderWidth: 1,
-                },
-              ]}
-            >
-              <Text style={[s.tierBadgeText, { color: tierMeta.text }]}>
-                {tierMeta.label}
-              </Text>
-            </View>
+            <TierBadge
+              tier={option.tier ?? "QUICK"}
+              label={tierMeta.label}
+            />
             {isBrowse ? (
               <View
                 style={[
@@ -595,7 +716,7 @@ const QuestCard: React.FC<{
             <Animated.View style={[s.stops, stopsAnimStyle]}>
               {(isBrowse ? objectives.slice(0, 4) : objectives).map(
                 (obj, i, arr) => (
-                  <View key={obj.id} style={s.timelineRow}>
+                  <View key={obj.id ?? i} style={s.timelineRow}>
                     <View style={s.timelineTrack}>
                       <View
                         style={[
@@ -653,7 +774,7 @@ const QuestCard: React.FC<{
                 for (const obj of objectives) {
                   if (obj.venueCategory) tags.add(obj.venueCategory);
                 }
-                const tagList = [...tags].slice(0, 5);
+                const tagList = [...tags].slice(0, 3);
                 if (tagList.length === 0) return null;
                 return (
                   <View style={s.tagRow}>
@@ -715,12 +836,36 @@ const QuestCard: React.FC<{
             </Animated.View>
           </View>
         </Pressable>
+
+        {/* Blur overlay for off-center cards */}
+        <BlurOverlay scrollX={scrollX} index={index} />
       </Animated.View>
     );
   },
 );
 
 QuestCard.displayName = "QuestCard";
+
+const BlurOverlay: React.FC<{
+  scrollX: SharedValue<number>;
+  index: number;
+}> = React.memo(({ scrollX, index }) => {
+  const blurStyle = useAnimatedStyle(() => {
+    const cardCenter = index * SNAP_WIDTH;
+    const dist = Math.abs(cardCenter + scrollX.value);
+    const opacity = interpolate(dist, [0, SNAP_WIDTH * 0.4, SNAP_WIDTH], [0, 0, 1], "clamp");
+    return { opacity };
+  });
+
+  return (
+    <Animated.View
+      style={[StyleSheet.absoluteFill, { borderRadius: radius.lg, overflow: "hidden" }, blurStyle]}
+      pointerEvents="none"
+    >
+      <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+    </Animated.View>
+  );
+});
 
 // --- Deck component ---
 
@@ -829,7 +974,7 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
       <View style={s.dots}>
         {options.map((_, i) => (
           <DotIndicator
-            key={options[i].id}
+            key={options[i].id ?? i}
             index={i}
             scrollX={scrollX}
             colors={colors}
@@ -865,7 +1010,7 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
           <Animated.View style={[s.carouselStrip, stripStyle]}>
             {options.map((option, idx) => (
               <QuestCard
-                key={option.id}
+                key={option.id ?? idx}
                 option={option}
                 index={idx}
                 totalCards={totalCards}
@@ -998,6 +1143,7 @@ const createCardStyles = (colors: Colors) =>
     tierRow: {
       flexDirection: "row",
       alignItems: "center",
+      gap: spacing.sm,
     },
     heroBlock: {
       gap: 6,
