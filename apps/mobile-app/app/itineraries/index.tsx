@@ -17,11 +17,7 @@ import {
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { BlurView } from "expo-blur";
-import Animated, {
-  Easing,
-  FadeIn,
-  FadeOut,
-} from "react-native-reanimated";
+import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
 import Screen from "@/components/Layout/Screen";
 import EmptyState from "@/components/Layout/EmptyState";
 import QuestDialogBox from "@/components/Quest/QuestDialogBox";
@@ -71,6 +67,7 @@ const OptionsOverlay: React.FC<{
     // Reset state when overlay becomes visible
     setTimedOut(false);
     setIsLoading(true);
+    setIsSelecting(false);
     setOptions([]);
 
     if (mockOptions) {
@@ -149,102 +146,115 @@ const OptionsOverlay: React.FC<{
     [isSelecting, onSelected, mockOptions],
   );
 
-  if (!visible) return null;
-
   return (
-    <Modal visible transparent animationType="none" statusBarTranslucent>
-      <Animated.View
-        entering={FadeIn.duration(300)}
-        exiting={FadeOut.duration(200)}
-        style={overlayStyles.container}
-      >
-        <BlurView tint="dark" intensity={60} style={StyleSheet.absoluteFill} pointerEvents="none" />
-        <View style={overlayStyles.content}>
-          {isLoading && !timedOut ? (
-            <View style={overlayStyles.loading}>
-              <ActivityIndicator color="#86efac" size="large" />
-              <Text
-                style={[
-                  overlayStyles.loadingText,
-                  { color: colors.text.secondary },
-                ]}
-              >
-                Revealing your options...
-              </Text>
-              <Pressable
-                style={[
-                  overlayStyles.dismissBtn,
-                  { borderColor: colors.border.default },
-                ]}
-                onPress={onSelected}
-              >
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+    >
+      {visible && (
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          exiting={FadeOut.duration(200)}
+          style={overlayStyles.container}
+        >
+          <BlurView
+            tint="dark"
+            intensity={60}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          <View style={overlayStyles.content}>
+            {isLoading && !timedOut ? (
+              <View style={overlayStyles.loading}>
+                <ActivityIndicator color="#86efac" size="large" />
                 <Text
-                  style={{
-                    color: colors.text.secondary,
-                    fontFamily: fontFamily.mono,
-                    fontSize: 12,
-                  }}
+                  style={[
+                    overlayStyles.loadingText,
+                    { color: colors.text.secondary },
+                  ]}
                 >
-                  Cancel
+                  Revealing your options...
                 </Text>
-              </Pressable>
-            </View>
-          ) : timedOut || options.length === 0 ? (
-            <View style={overlayStyles.loading}>
-              <Text style={{ fontSize: 48 }}>{"\u{1F61E}"}</Text>
-              <Text
-                style={[
-                  overlayStyles.loadingText,
-                  { color: colors.text.secondary },
-                ]}
-              >
-                Generation failed. Try again!
-              </Text>
-              <Pressable
-                style={[
-                  overlayStyles.dismissBtn,
-                  { borderColor: colors.border.default },
-                ]}
-                onPress={onSelected}
-              >
+                <Pressable
+                  style={[
+                    overlayStyles.dismissBtn,
+                    { borderColor: colors.border.default },
+                  ]}
+                  onPress={onSelected}
+                >
+                  <Text
+                    style={{
+                      color: colors.text.secondary,
+                      fontFamily: fontFamily.mono,
+                      fontSize: 12,
+                    }}
+                  >
+                    Cancel
+                  </Text>
+                </Pressable>
+              </View>
+            ) : timedOut || options.length === 0 ? (
+              <View style={overlayStyles.loading}>
+                <Text style={{ fontSize: 48 }}>{"\u{1F61E}"}</Text>
                 <Text
-                  style={{
-                    color: colors.text.primary,
-                    fontFamily: fontFamily.mono,
-                  }}
+                  style={[
+                    overlayStyles.loadingText,
+                    { color: colors.text.secondary },
+                  ]}
                 >
-                  Dismiss
+                  Generation failed. Try again!
                 </Text>
-              </Pressable>
-            </View>
-          ) : (
-            <>
-              <QuestCardDeck
-                options={options}
-                onSelect={handleSelect}
-                isSelecting={isSelecting}
-              />
-              <Pressable
-                style={[
-                  overlayStyles.dismissBtn,
-                  { borderColor: colors.border.default, marginTop: spacing.lg },
-                ]}
-                onPress={onSelected}
-              >
-                <Text
-                  style={{
-                    color: colors.text.secondary,
-                    fontFamily: fontFamily.mono,
-                    fontSize: 12,
-                  }}
+                <Pressable
+                  style={[
+                    overlayStyles.dismissBtn,
+                    { borderColor: colors.border.default },
+                  ]}
+                  onPress={onSelected}
                 >
-                  Dismiss
-                </Text>
-              </Pressable>
-            </>
-          )}
-        </View>
-      </Animated.View>
+                  <Text
+                    style={{
+                      color: colors.text.primary,
+                      fontFamily: fontFamily.mono,
+                    }}
+                  >
+                    Dismiss
+                  </Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                <QuestCardDeck
+                  options={options}
+                  onSelect={handleSelect}
+                  isSelecting={isSelecting}
+                />
+                <Pressable
+                  style={[
+                    overlayStyles.dismissBtn,
+                    {
+                      borderColor: colors.border.default,
+                      marginTop: spacing.lg,
+                    },
+                  ]}
+                  onPress={onSelected}
+                >
+                  <Text
+                    style={{
+                      color: colors.text.secondary,
+                      fontFamily: fontFamily.mono,
+                      fontSize: 12,
+                    }}
+                  >
+                    Dismiss
+                  </Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </Animated.View>
+      )}
     </Modal>
   );
 });
@@ -382,7 +392,9 @@ const ItinerariesListScreen = () => {
   const handleOptionSelected = useCallback(() => {
     setShowOptions(false);
     clearReady();
-    fetchItineraries();
+    // Small delay to let the backend commit the child-to-parent promotion
+    // before we re-fetch the list, avoiding stale/empty data.
+    setTimeout(() => fetchItineraries(), 500);
     AsyncStorage.removeItem(PENDING_GENERATION_KEY).catch(() => {});
   }, [clearReady, fetchItineraries]);
 
@@ -398,24 +410,21 @@ const ItinerariesListScreen = () => {
     [router],
   );
 
-  const handleDelete = useCallback(
-    (option: SidequestResponse) => {
-      const title = option.title || "this sidequest";
+  const handleDelete = useCallback((option: SidequestResponse) => {
+    const title = option.title || "this sidequest";
 
-      Alert.alert("Delete sidequest", `Delete "${title}"?`, [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setDiscardingId(option.id);
-          },
+    Alert.alert("Delete sidequest", `Delete "${title}"?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setDiscardingId(option.id);
         },
-      ]);
-    },
-    [],
-  );
+      },
+    ]);
+  }, []);
 
   const handleDiscardComplete = useCallback(
     async (id: string) => {

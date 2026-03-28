@@ -44,7 +44,7 @@ import {
 // ── Constants ──────────────────────────────────────────────────────────
 
 const COLLAPSED_HEIGHT = 44;
-const FORM_HEIGHT = 500;
+const FORM_HEIGHT = 540;
 const SHEEN_WIDTH = 100;
 const ANIM_DURATION = 300;
 const GREEN_ACCENT = "#86efac";
