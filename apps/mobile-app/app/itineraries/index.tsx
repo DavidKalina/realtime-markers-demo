@@ -115,10 +115,18 @@ const BrowseCardSheen: React.FC<{
   }, [index]);
 
   const sheenStyle = useAnimatedStyle(() => {
-    const travel = interpolate(sheenPos.value, [0, 1], [-SHEEN_BAND, SHEEN_TRAVEL]);
+    const travel = interpolate(
+      sheenPos.value,
+      [0, 1],
+      [-SHEEN_BAND, SHEEN_TRAVEL],
+    );
     const tx = Math.cos(SHEEN_ANGLE) * travel;
     const ty = Math.sin(SHEEN_ANGLE) * travel;
-    const opacity = interpolate(sheenPos.value, [0, 0.05, 0.5, 0.95, 1], [0, 0.8, 1, 0.8, 0]);
+    const opacity = interpolate(
+      sheenPos.value,
+      [0, 0.05, 0.5, 0.95, 1],
+      [0, 0.8, 1, 0.8, 0],
+    );
     return {
       opacity,
       transform: [
@@ -144,7 +152,11 @@ const BrowseCardSheen: React.FC<{
             <Stop offset="1" stopColor={tierColor} stopOpacity="0" />
           </LinearGradient>
         </Defs>
-        <Rect width={SHEEN_BAND} height={SHEEN_TRAVEL} fill={`url(#${gradId})`} />
+        <Rect
+          width={SHEEN_BAND}
+          height={SHEEN_TRAVEL}
+          fill={`url(#${gradId})`}
+        />
       </Svg>
     </Animated.View>
   );
@@ -229,19 +241,23 @@ const SidequestCard: React.FC<{
     }, [item.id, onDiscardComplete]);
     useEffect(() => {
       if (isDiscarding) {
-        discardProgress.value = withTiming(1, {
-          duration: 350,
-          easing: Easing.in(Easing.ease),
-        }, () => {
-          scheduleOnRN(discardDone);
-        });
+        discardProgress.value = withTiming(
+          1,
+          {
+            duration: 350,
+            easing: Easing.in(Easing.ease),
+          },
+          () => {
+            scheduleOnRN(discardDone);
+          },
+        );
       }
     }, [isDiscarding]);
 
     const animatedStyle = useAnimatedStyle(() => {
       const d = discardProgress.value;
       const pos =
-        ((index - activeIndex.value) % totalCards + totalCards) % totalCards;
+        (((index - activeIndex.value) % totalCards) + totalCards) % totalCards;
       const isFront = pos === 0;
       const absX = Math.abs(swipeX.value);
       const dragProgress = isFront
@@ -290,7 +306,10 @@ const SidequestCard: React.FC<{
       return {
         transform: [
           { translateX: translateX + discardX },
-          { translateY: baseTranslateY + bobY.value + dragLiftY - backCardPush + discardY },
+          {
+            translateY:
+              baseTranslateY + bobY.value + dragLiftY - backCardPush + discardY,
+          },
           { scale: (scale + backCardScalePush) * discardScale },
           { rotate: `${rotate + discardRotate}deg` },
         ],
@@ -322,7 +341,9 @@ const SidequestCard: React.FC<{
         ? "rgba(251, 191, 36, 0.12)"
         : tierMeta.bg;
 
-    const sortedObjectives = [...objectives].sort((a, b) => a.sortOrder - b.sortOrder);
+    const sortedObjectives = [...objectives].sort(
+      (a, b) => a.sortOrder - b.sortOrder,
+    );
     const stopCount = sortedObjectives.length;
 
     // Tags from categories + activity types + venue categories
@@ -337,7 +358,9 @@ const SidequestCard: React.FC<{
     }, [item.categories, item.activityTypes, objectives]);
 
     return (
-      <Animated.View style={[s.card, { borderColor: tierMeta.border }, animatedStyle]}>
+      <Animated.View
+        style={[s.card, { borderColor: tierMeta.border }, animatedStyle]}
+      >
         {/* Tier-colored top stripe */}
         <View style={[s.tierStripe, { backgroundColor: tierMeta.text }]} />
 
@@ -351,16 +374,28 @@ const SidequestCard: React.FC<{
         >
           {/* Top: tier badge + status */}
           <View style={s.topRow}>
-            <View style={[s.tierBadge, { backgroundColor: tierMeta.bg, borderColor: tierMeta.border }]}>
+            <View
+              style={[
+                s.tierBadge,
+                { backgroundColor: tierMeta.bg, borderColor: tierMeta.border },
+              ]}
+            >
               <Text style={[s.tierBadgeText, { color: tierMeta.text }]}>
                 {tierMeta.label}
               </Text>
             </View>
-            <View style={[s.statusBadge, { backgroundColor: statusBg, borderColor: statusColor }]}>
+            <View
+              style={[
+                s.statusBadge,
+                { backgroundColor: statusBg, borderColor: statusColor },
+              ]}
+            >
               {isCompleted && (
                 <Check size={9} color={statusColor} strokeWidth={3} />
               )}
-              {isActive && <View style={[s.activeDot, { backgroundColor: statusColor }]} />}
+              {isActive && (
+                <View style={[s.activeDot, { backgroundColor: statusColor }]} />
+              )}
               <Text style={[s.statusText, { color: statusColor }]}>
                 {isCompleted
                   ? `DONE${item.rating ? " " + "\u2605".repeat(item.rating) : ""}`
@@ -392,23 +427,46 @@ const SidequestCard: React.FC<{
             {sortedObjectives.slice(0, 4).map((obj, i) => (
               <View key={obj.id} style={s.timelineRow}>
                 <View style={s.timelineTrack}>
-                  <View style={[s.timelineCircle, { borderColor: tierMeta.border, backgroundColor: obj.checkedInAt ? tierMeta.bg : "transparent" }]}>
-                    <Text style={s.timelineEmoji}>{obj.emoji ?? "\u{1F4CD}"}</Text>
+                  <View
+                    style={[
+                      s.timelineCircle,
+                      {
+                        borderColor: tierMeta.border,
+                        backgroundColor: obj.checkedInAt
+                          ? tierMeta.bg
+                          : "transparent",
+                      },
+                    ]}
+                  >
+                    <Text style={s.timelineEmoji}>
+                      {obj.emoji ?? "\u{1F4CD}"}
+                    </Text>
                   </View>
                   {i < Math.min(sortedObjectives.length, 4) - 1 && (
-                    <View style={[s.timelineLine, { backgroundColor: tierMeta.border }]} />
+                    <View
+                      style={[
+                        s.timelineLine,
+                        { backgroundColor: tierMeta.border },
+                      ]}
+                    />
                   )}
                 </View>
                 <View style={s.timelineContent}>
                   <Text style={s.stopName} numberOfLines={1}>
                     {obj.venueName ?? obj.title}
                   </Text>
-                  {obj.hook && <Text style={s.stopHook} numberOfLines={2}>{obj.hook}</Text>}
+                  {obj.hook && (
+                    <Text style={s.stopHook} numberOfLines={2}>
+                      {obj.hook}
+                    </Text>
+                  )}
                 </View>
               </View>
             ))}
             {sortedObjectives.length > 4 && (
-              <Text style={s.moreStops}>+{sortedObjectives.length - 4} more</Text>
+              <Text style={s.moreStops}>
+                +{sortedObjectives.length - 4} more
+              </Text>
             )}
           </View>
 
@@ -419,8 +477,13 @@ const SidequestCard: React.FC<{
           {tags.length > 0 && (
             <View style={s.tagRow}>
               {tags.map((tag) => (
-                <View key={tag} style={[s.tagChip, { borderColor: tierMeta.border }]}>
-                  <Text style={[s.tagText, { color: tierMeta.text }]}>{tag.toUpperCase()}</Text>
+                <View
+                  key={tag}
+                  style={[s.tagChip, { borderColor: tierMeta.border }]}
+                >
+                  <Text style={[s.tagText, { color: tierMeta.text }]}>
+                    {tag.toUpperCase()}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -440,7 +503,9 @@ const SidequestCard: React.FC<{
             )}
             {isActive && stopCount > 0 && (
               <View style={s.statPill}>
-                <Text style={s.statValue}>{Math.round((checkedInCount / stopCount) * 100)}%</Text>
+                <Text style={s.statValue}>
+                  {Math.round((checkedInCount / stopCount) * 100)}%
+                </Text>
                 <Text style={s.statLabel}>DONE</Text>
               </View>
             )}
@@ -455,9 +520,6 @@ const SidequestCard: React.FC<{
 
 SidequestCard.displayName = "SidequestCard";
 
-
-
-
 // --- Dot indicator ---
 
 const DotIndicator: React.FC<{
@@ -468,7 +530,7 @@ const DotIndicator: React.FC<{
 }> = React.memo(({ index, activeIndex, totalCards, colors }) => {
   const animStyle = useAnimatedStyle(() => {
     const pos =
-      ((index - activeIndex.value) % totalCards + totalCards) % totalCards;
+      (((index - activeIndex.value) % totalCards) + totalCards) % totalCards;
     const isActive = pos === 0;
     return {
       width: withTiming(isActive ? 16 : 6, { duration: 200 }),
@@ -570,7 +632,8 @@ const OptionsOverlay: React.FC<{
           setIsLoading(false);
           // Stop polling when all options are resolved (READY or FAILED)
           const allResolved = opts.every(
-            (o: SidequestResponse) => o.status === "READY" || o.status === "FAILED",
+            (o: SidequestResponse) =>
+              o.status === "READY" || o.status === "FAILED",
           );
           if (allResolved && pollRef.current) {
             clearInterval(pollRef.current);
@@ -628,11 +691,7 @@ const OptionsOverlay: React.FC<{
         exiting={FadeOut.duration(200)}
         style={overlayStyles.container}
       >
-        <BlurView
-          tint="dark"
-          intensity={60}
-          style={StyleSheet.absoluteFill}
-        />
+        <BlurView tint="dark" intensity={60} style={StyleSheet.absoluteFill} />
         <View style={overlayStyles.content}>
           {isLoading && !timedOut ? (
             <View style={overlayStyles.loading}>
@@ -652,7 +711,13 @@ const OptionsOverlay: React.FC<{
                 ]}
                 onPress={onSelected}
               >
-                <Text style={{ color: colors.text.secondary, fontFamily: fontFamily.mono, fontSize: 12 }}>
+                <Text
+                  style={{
+                    color: colors.text.secondary,
+                    fontFamily: fontFamily.mono,
+                    fontSize: 12,
+                  }}
+                >
                   Cancel
                 </Text>
               </Pressable>
@@ -675,7 +740,12 @@ const OptionsOverlay: React.FC<{
                 ]}
                 onPress={onSelected}
               >
-                <Text style={{ color: colors.text.primary, fontFamily: fontFamily.mono }}>
+                <Text
+                  style={{
+                    color: colors.text.primary,
+                    fontFamily: fontFamily.mono,
+                  }}
+                >
                   Dismiss
                 </Text>
               </Pressable>
@@ -694,7 +764,13 @@ const OptionsOverlay: React.FC<{
                 ]}
                 onPress={onSelected}
               >
-                <Text style={{ color: colors.text.secondary, fontFamily: fontFamily.mono, fontSize: 12 }}>
+                <Text
+                  style={{
+                    color: colors.text.secondary,
+                    fontFamily: fontFamily.mono,
+                    fontSize: 12,
+                  }}
+                >
                   Dismiss
                 </Text>
               </Pressable>
@@ -846,9 +922,7 @@ const ItinerariesListScreen = () => {
           text: "Delete",
           style: "destructive",
           onPress: () => {
-            Haptics.notificationAsync(
-              Haptics.NotificationFeedbackType.Success,
-            );
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             setDiscardingId(id);
           },
         },
@@ -901,7 +975,8 @@ const ItinerariesListScreen = () => {
       if (Math.abs(e.translationX) > SWIPE_THRESHOLD) {
         const direction = e.translationX > 0 ? 1 : -1;
         // Fling off with velocity-aware spring for a snappy, organic exit
-        const velocity = Math.abs(e.velocityX) > 500 ? e.velocityX : direction * 800;
+        const velocity =
+          Math.abs(e.velocityX) > 500 ? e.velocityX : direction * 800;
         swipeX.value = withSpring(
           direction * SCREEN_WIDTH * 1.2,
           { damping: 18, stiffness: 140, mass: 0.8, velocity },
@@ -913,7 +988,11 @@ const ItinerariesListScreen = () => {
         );
       } else {
         // Bouncy snap-back
-        swipeX.value = withSpring(0, { damping: 12, stiffness: 180, mass: 0.7 });
+        swipeX.value = withSpring(0, {
+          damping: 12,
+          stiffness: 180,
+          mass: 0.7,
+        });
       }
     });
 
@@ -924,50 +1003,191 @@ const ItinerariesListScreen = () => {
   // Ready versions of the mock options (with full content)
   const MOCK_READY = {
     quick: {
-      id: "sim-quick", city: "San Francisco", budgetMax: 30,
-      activityTypes: ["coffee", "walk"], categories: ["outdoor", "caffeine", "morning"],
-      title: "Morning Buzz Walk", summary: "Quick caffeine hit and a stroll through the park",
-      status: "READY" as const, tier: "QUICK" as const, children: [], createdAt: new Date().toISOString(),
+      id: "sim-quick",
+      city: "San Francisco",
+      budgetMax: 30,
+      activityTypes: ["coffee", "walk"],
+      categories: ["outdoor", "caffeine", "morning"],
+      title: "Morning Buzz Walk",
+      summary: "Quick caffeine hit and a stroll through the park",
+      status: "READY" as const,
+      tier: "QUICK" as const,
+      children: [],
+      createdAt: new Date().toISOString(),
       objectives: [
-        { id: "q1", sortOrder: 0, title: "Coffee Stop", emoji: "\u2615", venueName: "Blue Bottle Coffee", venueAddress: "315 Linden St", venueCategory: "cafe", hook: "Best pour-over in Hayes Valley", estimatedCost: 6 },
-        { id: "q2", sortOrder: 1, title: "Park Walk", emoji: "\u{1F33F}", venueName: "Golden Gate Park", venueAddress: "Golden Gate Park", venueCategory: "park", hook: "Morning fog through the eucalyptus grove", estimatedCost: 0 },
+        {
+          id: "q1",
+          sortOrder: 0,
+          title: "Coffee Stop",
+          emoji: "\u2615",
+          venueName: "Blue Bottle Coffee",
+          venueAddress: "315 Linden St",
+          venueCategory: "cafe",
+          hook: "Best pour-over in Hayes Valley",
+          estimatedCost: 6,
+        },
+        {
+          id: "q2",
+          sortOrder: 1,
+          title: "Park Walk",
+          emoji: "\u{1F33F}",
+          venueName: "Golden Gate Park",
+          venueAddress: "Golden Gate Park",
+          venueCategory: "park",
+          hook: "Morning fog through the eucalyptus grove",
+          estimatedCost: 0,
+        },
       ],
     },
     sweet: {
-      id: "sim-sweet", city: "San Francisco", budgetMax: 50,
-      activityTypes: ["food", "explore"], categories: ["culture", "neighborhood", "brunch"],
-      title: "Mission District Drift", summary: "Pastries, murals, and a sunny park hang",
-      status: "READY" as const, tier: "SWEET_SPOT" as const, children: [], createdAt: new Date().toISOString(),
+      id: "sim-sweet",
+      city: "San Francisco",
+      budgetMax: 50,
+      activityTypes: ["food", "explore"],
+      categories: ["culture", "neighborhood", "brunch"],
+      title: "Mission District Drift",
+      summary: "Pastries, murals, and a sunny park hang",
+      status: "READY" as const,
+      tier: "SWEET_SPOT" as const,
+      children: [],
+      createdAt: new Date().toISOString(),
       objectives: [
-        { id: "s1", sortOrder: 0, title: "Pastry Run", emoji: "\u{1F950}", venueName: "Tartine Bakery", venueAddress: "600 Guerrero St", venueCategory: "bakery", hook: "The morning bun is legendary", estimatedCost: 12 },
-        { id: "s2", sortOrder: 1, title: "Park Hang", emoji: "\u{1F3DE}\u{FE0F}", venueName: "Mission Dolores Park", venueAddress: "Dolores St & 19th", venueCategory: "park", hook: "Best city skyline view from the hilltop", estimatedCost: 0 },
+        {
+          id: "s1",
+          sortOrder: 0,
+          title: "Pastry Run",
+          emoji: "\u{1F950}",
+          venueName: "Tartine Bakery",
+          venueAddress: "600 Guerrero St",
+          venueCategory: "bakery",
+          hook: "The morning bun is legendary",
+          estimatedCost: 12,
+        },
+        {
+          id: "s2",
+          sortOrder: 1,
+          title: "Park Hang",
+          emoji: "\u{1F3DE}\u{FE0F}",
+          venueName: "Mission Dolores Park",
+          venueAddress: "Dolores St & 19th",
+          venueCategory: "park",
+          hook: "Best city skyline view from the hilltop",
+          estimatedCost: 0,
+        },
       ],
     },
     best: {
-      id: "sim-best", city: "San Francisco", budgetMax: 80,
-      activityTypes: ["food", "drinks", "culture"], categories: ["nightlife", "waterfront", "premium"],
-      title: "Full Send: Fort Mason to Mission", summary: "Cocktails, ice cream, and a waterfront sunset",
-      status: "READY" as const, tier: "BEST" as const, children: [], createdAt: new Date().toISOString(),
+      id: "sim-best",
+      city: "San Francisco",
+      budgetMax: 80,
+      activityTypes: ["food", "drinks", "culture"],
+      categories: ["nightlife", "waterfront", "premium"],
+      title: "Full Send: Fort Mason to Mission",
+      summary: "Cocktails, ice cream, and a waterfront sunset",
+      status: "READY" as const,
+      tier: "BEST" as const,
+      children: [],
+      createdAt: new Date().toISOString(),
       objectives: [
-        { id: "b1", sortOrder: 0, title: "Cocktail Hour", emoji: "\u{1F378}", venueName: "The Interval", venueAddress: "Fort Mason Center", venueCategory: "cocktail bar", hook: "Craft cocktails inside a library of civilization", estimatedCost: 18 },
-        { id: "b2", sortOrder: 1, title: "Sweet Finish", emoji: "\u{1F366}", venueName: "Bi-Rite Creamery", venueAddress: "3692 18th St", venueCategory: "ice cream", hook: "Salted caramel soft serve, need I say more", estimatedCost: 8 },
+        {
+          id: "b1",
+          sortOrder: 0,
+          title: "Cocktail Hour",
+          emoji: "\u{1F378}",
+          venueName: "The Interval",
+          venueAddress: "Fort Mason Center",
+          venueCategory: "cocktail bar",
+          hook: "Craft cocktails inside a library of civilization",
+          estimatedCost: 18,
+        },
+        {
+          id: "b2",
+          sortOrder: 1,
+          title: "Sweet Finish",
+          emoji: "\u{1F366}",
+          venueName: "Bi-Rite Creamery",
+          venueAddress: "3692 18th St",
+          venueCategory: "ice cream",
+          hook: "Salted caramel soft serve, need I say more",
+          estimatedCost: 8,
+        },
       ],
     },
   };
 
   // Start with 3 GENERATING skeleton cards, resolve them one by one
   const [MOCK_OPTIONS, setMockOptions] = useState<SidequestResponse[]>([
-    { id: "sim-quick", status: "GENERATING" as const, tier: "QUICK" as const, city: "San Francisco", budgetMax: 30, activityTypes: [], objectives: [], children: [], createdAt: new Date().toISOString() },
-    { id: "sim-sweet", status: "GENERATING" as const, tier: "SWEET_SPOT" as const, city: "San Francisco", budgetMax: 50, activityTypes: [], objectives: [], children: [], createdAt: new Date().toISOString() },
-    { id: "sim-best", status: "GENERATING" as const, tier: "BEST" as const, city: "San Francisco", budgetMax: 80, activityTypes: [], objectives: [], children: [], createdAt: new Date().toISOString() },
+    {
+      id: "sim-quick",
+      status: "GENERATING" as const,
+      tier: "QUICK" as const,
+      city: "San Francisco",
+      budgetMax: 30,
+      activityTypes: [],
+      objectives: [],
+      children: [],
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "sim-sweet",
+      status: "GENERATING" as const,
+      tier: "SWEET_SPOT" as const,
+      city: "San Francisco",
+      budgetMax: 50,
+      activityTypes: [],
+      objectives: [],
+      children: [],
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "sim-best",
+      status: "GENERATING" as const,
+      tier: "BEST" as const,
+      city: "San Francisco",
+      budgetMax: 80,
+      activityTypes: [],
+      objectives: [],
+      children: [],
+      createdAt: new Date().toISOString(),
+    },
   ] as unknown as SidequestResponse[]);
 
   const startSimulation = useCallback(() => {
     // Reset to generating skeletons
     setMockOptions([
-      { id: "sim-quick", status: "GENERATING", tier: "QUICK", city: "San Francisco", budgetMax: 30, activityTypes: [], objectives: [], children: [], createdAt: new Date().toISOString() },
-      { id: "sim-sweet", status: "GENERATING", tier: "SWEET_SPOT", city: "San Francisco", budgetMax: 50, activityTypes: [], objectives: [], children: [], createdAt: new Date().toISOString() },
-      { id: "sim-best", status: "GENERATING", tier: "BEST", city: "San Francisco", budgetMax: 80, activityTypes: [], objectives: [], children: [], createdAt: new Date().toISOString() },
+      {
+        id: "sim-quick",
+        status: "GENERATING",
+        tier: "QUICK",
+        city: "San Francisco",
+        budgetMax: 30,
+        activityTypes: [],
+        objectives: [],
+        children: [],
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: "sim-sweet",
+        status: "GENERATING",
+        tier: "SWEET_SPOT",
+        city: "San Francisco",
+        budgetMax: 50,
+        activityTypes: [],
+        objectives: [],
+        children: [],
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: "sim-best",
+        status: "GENERATING",
+        tier: "BEST",
+        city: "San Francisco",
+        budgetMax: 80,
+        activityTypes: [],
+        objectives: [],
+        children: [],
+        createdAt: new Date().toISOString(),
+      },
     ] as unknown as SidequestResponse[]);
 
     setSimulating(true);
@@ -975,13 +1195,31 @@ const ItinerariesListScreen = () => {
 
     // Resolve cards one by one with staggered delays
     setTimeout(() => {
-      setMockOptions((prev) => prev.map((o) => o.id === "sim-quick" ? MOCK_READY.quick as unknown as SidequestResponse : o));
+      setMockOptions((prev) =>
+        prev.map((o) =>
+          o.id === "sim-quick"
+            ? (MOCK_READY.quick as unknown as SidequestResponse)
+            : o,
+        ),
+      );
     }, 4000);
     setTimeout(() => {
-      setMockOptions((prev) => prev.map((o) => o.id === "sim-sweet" ? MOCK_READY.sweet as unknown as SidequestResponse : o));
+      setMockOptions((prev) =>
+        prev.map((o) =>
+          o.id === "sim-sweet"
+            ? (MOCK_READY.sweet as unknown as SidequestResponse)
+            : o,
+        ),
+      );
     }, 7000);
     setTimeout(() => {
-      setMockOptions((prev) => prev.map((o) => o.id === "sim-best" ? MOCK_READY.best as unknown as SidequestResponse : o));
+      setMockOptions((prev) =>
+        prev.map((o) =>
+          o.id === "sim-best"
+            ? (MOCK_READY.best as unknown as SidequestResponse)
+            : o,
+        ),
+      );
     }, 10000);
   }, []);
 
@@ -1041,7 +1279,13 @@ const ItinerariesListScreen = () => {
               borderColor: "rgba(134, 239, 172, 0.3)",
             }}
           >
-            <Text style={{ fontFamily: fontFamily.mono, fontSize: 11, color: "#86efac" }}>
+            <Text
+              style={{
+                fontFamily: fontFamily.mono,
+                fontSize: 11,
+                color: "#86efac",
+              }}
+            >
               DEV: Simulate Generation
             </Text>
           </Pressable>
@@ -1075,10 +1319,7 @@ const ItinerariesListScreen = () => {
       noAnimation
       bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} />}
     >
-      <Animated.View
-        entering={FadeIn.duration(400)}
-        style={styles.deckScreen}
-      >
+      <Animated.View entering={FadeIn.duration(400)} style={styles.deckScreen}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>YOUR QUESTS</Text>
@@ -1138,7 +1379,9 @@ const ItinerariesListScreen = () => {
           )}
         </Animated.View>
 
-        <Text style={styles.hint}>{"Swipe to browse \u00B7 Tap to open \u00B7 Hold to delete"}</Text>
+        <Text style={styles.hint}>
+          {"Swipe to browse \u00B7 Tap to open \u00B7 Hold to delete"}
+        </Text>
 
         {/* DEV: Simulate generation flow */}
         {__DEV__ && (
@@ -1154,7 +1397,13 @@ const ItinerariesListScreen = () => {
               borderColor: "rgba(134, 239, 172, 0.3)",
             }}
           >
-            <Text style={{ fontFamily: fontFamily.mono, fontSize: 11, color: "#86efac" }}>
+            <Text
+              style={{
+                fontFamily: fontFamily.mono,
+                fontSize: 11,
+                color: "#86efac",
+              }}
+            >
               DEV: Simulate Generation
             </Text>
           </Pressable>

@@ -1,12 +1,16 @@
 import * as Haptics from "expo-haptics";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef
+} from "react";
 import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
   FadeInDown,
   interpolate,
-  type SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -14,6 +18,7 @@ import Animated, {
   withSequence,
   withSpring,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { scheduleOnRN } from "react-native-worklets";
@@ -30,11 +35,11 @@ import {
 } from "@/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
-const CARD_WIDTH = SCREEN_WIDTH * 0.78;
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.15;
+const CARD_WIDTH = SCREEN_WIDTH * 0.72;
 const CARD_HEIGHT = CARD_WIDTH * 1.4; // ~5:7 trading card ratio
-const CARD_VERTICAL_OFFSET = 14;
-const CARD_SCALE_STEP = 0.05;
+const CARD_GAP = 12;
+const SNAP_WIDTH = CARD_WIDTH + CARD_GAP; // distance between card centers
 const BOB_AMPLITUDE = 3;
 const BOB_DURATION = 2400;
 
@@ -109,7 +114,11 @@ const CardSheen: React.FC<{
     const travel = interpolate(progress, [0, 1], [-SHEEN_BAND, SHEEN_TRAVEL]);
     const tx = Math.cos(SHEEN_ANGLE) * travel;
     const ty = Math.sin(SHEEN_ANGLE) * travel;
-    const opacity = interpolate(progress, [0, 0.05, 0.5, 0.95, 1], [0, 0.8, 1, 0.8, 0]);
+    const opacity = interpolate(
+      progress,
+      [0, 0.05, 0.5, 0.95, 1],
+      [0, 0.8, 1, 0.8, 0],
+    );
 
     return {
       opacity,
@@ -137,7 +146,11 @@ const CardSheen: React.FC<{
             <Stop offset="1" stopColor={tierColor} stopOpacity="0" />
           </LinearGradient>
         </Defs>
-        <Rect width={SHEEN_BAND} height={SHEEN_TRAVEL} fill={`url(#${gradId})`} />
+        <Rect
+          width={SHEEN_BAND}
+          height={SHEEN_TRAVEL}
+          fill={`url(#${gradId})`}
+        />
       </Svg>
     </Animated.View>
   );
@@ -155,16 +168,22 @@ const QuestCard: React.FC<{
   option: SidequestResponse;
   index: number;
   totalCards: number;
-  activeIndex: SharedValue<number>;
-  swipeX: SharedValue<number>;
+  scrollX: SharedValue<number>;
   sheenTrigger: SharedValue<number>;
   onSelect: (option: SidequestResponse) => void;
   colors: Colors;
 }> = React.memo(
-  ({ option, index, totalCards, activeIndex, swipeX, sheenTrigger, onSelect, colors }) => {
+  ({
+    option,
+    index,
+    totalCards,
+    scrollX,
+    sheenTrigger,
+    onSelect,
+    colors,
+  }) => {
     const s = useMemo(() => createCardStyles(colors), [colors]);
-    const tierMeta =
-      TIER_DISPLAY[option.tier ?? "QUICK"] ?? TIER_DISPLAY.QUICK;
+    const tierMeta = TIER_DISPLAY[option.tier ?? "QUICK"] ?? TIER_DISPLAY.QUICK;
     const isReady = option.status === "READY";
 
     // Track when card transitions from generating to ready
@@ -184,11 +203,17 @@ const QuestCard: React.FC<{
         wasGenerating.current = false;
 
         const fadeIn = (sv: typeof heroReveal, delay: number) => {
-          sv.value = withDelay(delay, withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }));
+          sv.value = withDelay(
+            delay,
+            withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }),
+          );
         };
 
         // 1. Fade out skeleton
-        skeletonOpacity.value = withTiming(0, { duration: 300, easing: Easing.in(Easing.cubic) });
+        skeletonOpacity.value = withTiming(0, {
+          duration: 300,
+          easing: Easing.in(Easing.cubic),
+        });
 
         // 2. Stagger content in
         fadeIn(heroReveal, 200);
@@ -199,16 +224,17 @@ const QuestCard: React.FC<{
 
         // 3. Reveal sheen
         revealSheen.value = 0;
-        revealSheen.value = withDelay(500, withTiming(1, { duration: 700, easing: Easing.inOut(Easing.ease) }));
+        revealSheen.value = withDelay(
+          500,
+          withTiming(1, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+        );
       }
     }, [isReady]);
 
     const makeRevealStyle = (sv: typeof heroReveal) =>
       useAnimatedStyle(() => ({
         opacity: sv.value,
-        transform: [
-          { translateY: interpolate(sv.value, [0, 1], [12, 0]) },
-        ],
+        transform: [{ translateY: interpolate(sv.value, [0, 1], [12, 0]) }],
       }));
 
     const heroAnimStyle = makeRevealStyle(heroReveal);
@@ -228,8 +254,14 @@ const QuestCard: React.FC<{
         index * 300,
         withRepeat(
           withSequence(
-            withTiming(-BOB_AMPLITUDE, { duration: BOB_DURATION / 2, easing: Easing.inOut(Easing.ease) }),
-            withTiming(BOB_AMPLITUDE, { duration: BOB_DURATION / 2, easing: Easing.inOut(Easing.ease) }),
+            withTiming(-BOB_AMPLITUDE, {
+              duration: BOB_DURATION / 2,
+              easing: Easing.inOut(Easing.ease),
+            }),
+            withTiming(BOB_AMPLITUDE, {
+              duration: BOB_DURATION / 2,
+              easing: Easing.inOut(Easing.ease),
+            }),
           ),
           -1,
           true,
@@ -248,21 +280,33 @@ const QuestCard: React.FC<{
         const angle = Math.random() * Math.PI * 2;
         const force = TUG_FORCE * (0.6 + Math.random() * 0.4);
         tugX.value = withSequence(
-          withTiming(Math.cos(angle) * force, { duration: 250, easing: Easing.out(Easing.cubic) }),
+          withTiming(Math.cos(angle) * force, {
+            duration: 250,
+            easing: Easing.out(Easing.cubic),
+          }),
           withSpring(0, { damping: 8, stiffness: 120, mass: 0.8 }),
         );
         tugY.value = withSequence(
-          withTiming(Math.sin(angle) * force, { duration: 250, easing: Easing.out(Easing.cubic) }),
+          withTiming(Math.sin(angle) * force, {
+            duration: 250,
+            easing: Easing.out(Easing.cubic),
+          }),
           withSpring(0, { damping: 8, stiffness: 120, mass: 0.8 }),
         );
         tugRotate.value = withSequence(
-          withTiming((Math.random() - 0.5) * 5, { duration: 250, easing: Easing.out(Easing.cubic) }),
+          withTiming((Math.random() - 0.5) * 5, {
+            duration: 250,
+            easing: Easing.out(Easing.cubic),
+          }),
           withSpring(0, { damping: 10, stiffness: 150 }),
         );
       };
       const timeout = setTimeout(tug, 400 + index * 500);
       const interval = setInterval(tug, TUG_INTERVAL + index * 150);
-      return () => { clearTimeout(timeout); clearInterval(interval); };
+      return () => {
+        clearTimeout(timeout);
+        clearInterval(interval);
+      };
     }, [isReady, index]);
 
     // Stop tug when ready
@@ -275,41 +319,51 @@ const QuestCard: React.FC<{
     }, [isReady]);
 
     const animatedStyle = useAnimatedStyle(() => {
-      const pos = ((index - activeIndex.value) % totalCards + totalCards) % totalCards;
-      const isFront = pos === 0;
-      const translateX = isFront ? swipeX.value : 0;
-      const baseTranslateY = pos * CARD_VERTICAL_OFFSET;
-      const scale = 1 - pos * CARD_SCALE_STEP;
-      const rotate = isFront
-        ? interpolate(swipeX.value, [-SCREEN_WIDTH, 0, SCREEN_WIDTH], [-15, 0, 15])
-        : 0;
-      const opacity = isFront
-        ? interpolate(Math.abs(swipeX.value), [0, SCREEN_WIDTH * 0.5], [1, 0.7])
-        : interpolate(pos, [0, 1, 2], [1, 0.85, 0.7]);
+      // Distance from this card's center to the viewport center
+      const cardCenter = index * SNAP_WIDTH;
+      const dist = cardCenter + scrollX.value; // scrollX is negative when scrolled right
+      const absDist = Math.abs(dist);
+      const scale = interpolate(absDist, [0, SNAP_WIDTH], [1, 0.9], "clamp");
+      const opacity = interpolate(absDist, [0, SNAP_WIDTH], [1, 0.6], "clamp");
 
       return {
         transform: [
-          { translateX: translateX + tugX.value },
-          { translateY: baseTranslateY + bobY.value + tugY.value },
+          { translateX: tugX.value },
+          { translateY: bobY.value + tugY.value },
           { scale },
-          { rotate: `${rotate + tugRotate.value}deg` },
+          { rotate: `${tugRotate.value}deg` },
         ],
         opacity,
-        zIndex: totalCards - pos,
       };
     });
 
-    const objectives = (option.objectives ?? []).sort((a, b) => a.sortOrder - b.sortOrder);
-    const totalCost = objectives.reduce((sum, o) => sum + (Number(o.estimatedCost) || 0), 0);
+    const objectives = (option.objectives ?? []).sort(
+      (a, b) => a.sortOrder - b.sortOrder,
+    );
+    const totalCost = objectives.reduce(
+      (sum, o) => sum + (Number(o.estimatedCost) || 0),
+      0,
+    );
     const stopCount = objectives.length;
 
     return (
-      <Animated.View style={[s.card, { borderColor: tierMeta.border }, isReady ? undefined : s.cardGenerating, animatedStyle]}>
+      <Animated.View
+        style={[
+          s.card,
+          { borderColor: tierMeta.border },
+          isReady ? undefined : s.cardGenerating,
+          animatedStyle,
+        ]}
+      >
         {/* Tier-colored top stripe */}
         <View style={[s.tierStripe, { backgroundColor: tierMeta.text }]} />
 
         {/* Sheen: on swipe trigger + on reveal */}
-        <CardSheen tierColor={tierMeta.text} sheenTrigger={isReady ? sheenTrigger : revealSheen} index={index} />
+        <CardSheen
+          tierColor={tierMeta.text}
+          sheenTrigger={isReady ? sheenTrigger : revealSheen}
+          index={index}
+        />
 
         <Pressable
           style={s.cardInner}
@@ -317,13 +371,28 @@ const QuestCard: React.FC<{
         >
           {/* Top: Tier badge (always visible) */}
           <View style={s.tierRow}>
-            <View style={[s.tierBadge, { backgroundColor: tierMeta.bg, borderColor: tierMeta.border, borderWidth: 1 }]}>
+            <View
+              style={[
+                s.tierBadge,
+                {
+                  backgroundColor: tierMeta.bg,
+                  borderColor: tierMeta.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
               <Text style={[s.tierBadgeText, { color: tierMeta.text }]}>
                 {tierMeta.label}
               </Text>
             </View>
             {!isReady && (
-              <Animated.Text style={[s.forgingLabel, { color: tierMeta.text }, skeletonAnimStyle]}>
+              <Animated.Text
+                style={[
+                  s.forgingLabel,
+                  { color: tierMeta.text },
+                  skeletonAnimStyle,
+                ]}
+              >
                 FORGING{"\u2026"}
               </Animated.Text>
             )}
@@ -332,98 +401,167 @@ const QuestCard: React.FC<{
           {/* --- GENERATING skeleton (stays rendered, fades out) --- */}
           {!isReady && (
             <Animated.View style={[s.skeletonBody, skeletonAnimStyle]}>
-              <View style={[s.skeletonBar, s.skeletonBarWide, { backgroundColor: tierMeta.border }]} />
-              <View style={[s.skeletonBar, s.skeletonBarMedium, { backgroundColor: tierMeta.border }]} />
+              <View
+                style={[
+                  s.skeletonBar,
+                  s.skeletonBarWide,
+                  { backgroundColor: tierMeta.border },
+                ]}
+              />
+              <View
+                style={[
+                  s.skeletonBar,
+                  s.skeletonBarMedium,
+                  { backgroundColor: tierMeta.border },
+                ]}
+              />
               <View style={s.skeletonDivider} />
               <View style={s.skeletonStopRow}>
-                <View style={[s.skeletonDot, { borderColor: tierMeta.border }]} />
-                <View style={[s.skeletonBar, { flex: 1, backgroundColor: tierMeta.border }]} />
+                <View
+                  style={[s.skeletonDot, { borderColor: tierMeta.border }]}
+                />
+                <View
+                  style={[
+                    s.skeletonBar,
+                    { flex: 1, backgroundColor: tierMeta.border },
+                  ]}
+                />
               </View>
               <View style={s.skeletonStopRow}>
-                <View style={[s.skeletonDot, { borderColor: tierMeta.border }]} />
-                <View style={[s.skeletonBar, { flex: 1, backgroundColor: tierMeta.border }]} />
+                <View
+                  style={[s.skeletonDot, { borderColor: tierMeta.border }]}
+                />
+                <View
+                  style={[
+                    s.skeletonBar,
+                    { flex: 1, backgroundColor: tierMeta.border },
+                  ]}
+                />
               </View>
             </Animated.View>
           )}
 
           {/* --- READY content (staggered reveal) --- */}
-          <View style={s.readyContent} pointerEvents={isReady ? "auto" : "none"}>
-              {/* Hero */}
-              <Animated.View style={[s.heroBlock, heroAnimStyle]}>
-                <Text style={s.emoji}>{objectives[0]?.emoji ?? "\u{1F3AF}"}</Text>
-                <Text style={s.title} numberOfLines={2}>{option.title ?? "Sidequest"}</Text>
-                {option.summary && (
-                  <Text style={s.summary} numberOfLines={2}>{option.summary}</Text>
-                )}
-              </Animated.View>
+          <View
+            style={s.readyContent}
+            pointerEvents={isReady ? "auto" : "none"}
+          >
+            {/* Hero */}
+            <Animated.View style={[s.heroBlock, heroAnimStyle]}>
+              <Text style={s.emoji}>{objectives[0]?.emoji ?? "\u{1F3AF}"}</Text>
+              <Text style={s.title} numberOfLines={2}>
+                {option.title ?? "Sidequest"}
+              </Text>
+              {option.summary && (
+                <Text style={s.summary} numberOfLines={2}>
+                  {option.summary}
+                </Text>
+              )}
+            </Animated.View>
 
-              <Animated.View style={dividerAnimStyle}>
-                <View style={s.divider} />
-              </Animated.View>
+            <Animated.View style={dividerAnimStyle}>
+              <View style={s.divider} />
+            </Animated.View>
 
-              {/* Timeline */}
-              <Animated.View style={[s.stops, stopsAnimStyle]}>
-                {objectives.map((obj, i) => (
-                  <View key={obj.id} style={s.timelineRow}>
-                    <View style={s.timelineTrack}>
-                      <View style={[s.timelineCircle, { borderColor: tierMeta.border, backgroundColor: tierMeta.bg }]}>
-                        <Text style={s.timelineEmoji}>{obj.emoji ?? "\u{1F4CD}"}</Text>
+            {/* Timeline */}
+            <Animated.View style={[s.stops, stopsAnimStyle]}>
+              {objectives.map((obj, i) => (
+                <View key={obj.id} style={s.timelineRow}>
+                  <View style={s.timelineTrack}>
+                    <View
+                      style={[
+                        s.timelineCircle,
+                        {
+                          borderColor: tierMeta.border,
+                          backgroundColor: tierMeta.bg,
+                        },
+                      ]}
+                    >
+                      <Text style={s.timelineEmoji}>
+                        {obj.emoji ?? "\u{1F4CD}"}
+                      </Text>
+                    </View>
+                    {i < objectives.length - 1 && (
+                      <View
+                        style={[
+                          s.timelineLine,
+                          { backgroundColor: tierMeta.border },
+                        ]}
+                      />
+                    )}
+                  </View>
+                  <View style={s.timelineContent}>
+                    <Text style={s.stopName} numberOfLines={1}>
+                      {obj.venueName ?? obj.title}
+                    </Text>
+                    {obj.hook && (
+                      <Text style={s.stopHook} numberOfLines={2}>
+                        {obj.hook}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </Animated.View>
+
+            <View style={{ flex: 1 }} />
+
+            {/* Tags */}
+            <Animated.View style={tagsAnimStyle}>
+              {(() => {
+                const tags = new Set<string>();
+                for (const c of option.categories ?? []) tags.add(c);
+                for (const a of option.activityTypes ?? []) tags.add(a);
+                for (const obj of objectives) {
+                  if (obj.venueCategory) tags.add(obj.venueCategory);
+                }
+                const tagList = [...tags].slice(0, 5);
+                if (tagList.length === 0) return null;
+                return (
+                  <View style={s.tagRow}>
+                    {tagList.map((tag) => (
+                      <View
+                        key={tag}
+                        style={[s.tagChip, { borderColor: tierMeta.border }]}
+                      >
+                        <Text style={[s.tagText, { color: tierMeta.text }]}>
+                          {tag.toUpperCase()}
+                        </Text>
                       </View>
-                      {i < objectives.length - 1 && (
-                        <View style={[s.timelineLine, { backgroundColor: tierMeta.border }]} />
-                      )}
-                    </View>
-                    <View style={s.timelineContent}>
-                      <Text style={s.stopName} numberOfLines={1}>{obj.venueName ?? obj.title}</Text>
-                      {obj.hook && <Text style={s.stopHook} numberOfLines={2}>{obj.hook}</Text>}
-                    </View>
+                    ))}
                   </View>
-                ))}
-              </Animated.View>
+                );
+              })()}
+            </Animated.View>
 
-              <View style={{ flex: 1 }} />
-
-              {/* Tags */}
-              <Animated.View style={tagsAnimStyle}>
-                {(() => {
-                  const tags = new Set<string>();
-                  for (const c of option.categories ?? []) tags.add(c);
-                  for (const a of option.activityTypes ?? []) tags.add(a);
-                  for (const obj of objectives) {
-                    if (obj.venueCategory) tags.add(obj.venueCategory);
-                  }
-                  const tagList = [...tags].slice(0, 5);
-                  if (tagList.length === 0) return null;
-                  return (
-                    <View style={s.tagRow}>
-                      {tagList.map((tag) => (
-                        <View key={tag} style={[s.tagChip, { borderColor: tierMeta.border }]}>
-                          <Text style={[s.tagText, { color: tierMeta.text }]}>{tag.toUpperCase()}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  );
-                })()}
-              </Animated.View>
-
-              {/* Stats bar */}
-              <Animated.View style={[s.statsBar, statsAnimStyle]}>
+            {/* Stats bar */}
+            <Animated.View style={[s.statsBar, statsAnimStyle]}>
+              <View style={s.statPill}>
+                <Text style={s.statValue}>{stopCount}</Text>
+                <Text style={s.statLabel}>STOPS</Text>
+              </View>
+              {totalCost > 0 && (
                 <View style={s.statPill}>
-                  <Text style={s.statValue}>{stopCount}</Text>
-                  <Text style={s.statLabel}>STOPS</Text>
+                  <Text style={s.statValue}>~${totalCost}</Text>
+                  <Text style={s.statLabel}>EST.</Text>
                 </View>
-                {totalCost > 0 && (
-                  <View style={s.statPill}>
-                    <Text style={s.statValue}>~${totalCost}</Text>
-                    <Text style={s.statLabel}>EST.</Text>
-                  </View>
-                )}
-                <View style={{ flex: 1 }} />
-                <View style={[s.selectHint, { borderColor: tierMeta.border, backgroundColor: tierMeta.bg }]}>
-                  <Text style={[s.selectHintText, { color: tierMeta.text }]}>TAP TO SELECT</Text>
-                </View>
-              </Animated.View>
-            </View>
+              )}
+              <View style={{ flex: 1 }} />
+              <View
+                style={[
+                  s.selectHint,
+                  {
+                    borderColor: tierMeta.border,
+                    backgroundColor: tierMeta.bg,
+                  },
+                ]}
+              >
+                <Text style={[s.selectHintText, { color: tierMeta.text }]}>
+                  TAP TO SELECT
+                </Text>
+              </View>
+            </Animated.View>
+          </View>
         </Pressable>
       </Animated.View>
     );
@@ -443,8 +581,10 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
   const s = useMemo(() => createDeckStyles(colors), [colors]);
   const totalCards = options.length;
 
-  const activeIndex = useSharedValue(0);
-  const swipeX = useSharedValue(0);
+  // scrollX tracks the offset of the carousel strip.
+  // 0 = first card centered, -SNAP_WIDTH = second card centered, etc.
+  const scrollX = useSharedValue(0);
+  const activeIdx = useSharedValue(0);
   const sheenTrigger = useSharedValue(0);
 
   const handleSelect = useCallback(
@@ -456,7 +596,7 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
     [isSelecting, onSelect],
   );
 
-  const onSwipeComplete = useCallback(() => {
+  const onSnapComplete = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     sheenTrigger.value = sheenTrigger.value + 1;
   }, []);
@@ -466,27 +606,32 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
     .failOffsetY([-10, 10])
     .enabled(!isSelecting)
     .onUpdate((e) => {
-      swipeX.value = e.translationX;
+      scrollX.value = -activeIdx.value * SNAP_WIDTH + e.translationX;
     })
     .onEnd((e) => {
-      if (Math.abs(e.translationX) > SWIPE_THRESHOLD) {
-        // Swipe completed — animate out then cycle
-        const direction = e.translationX > 0 ? 1 : -1;
-        swipeX.value = withTiming(
-          direction * SCREEN_WIDTH,
-          { duration: 200, easing: Easing.in(Easing.cubic) },
-          () => {
-            // Cycle to next card
-            activeIndex.value = (activeIndex.value + 1) % totalCards;
-            swipeX.value = 0;
-            scheduleOnRN(onSwipeComplete);
-          },
-        );
-      } else {
-        // Snap back
-        swipeX.value = withSpring(0, { damping: 20, stiffness: 200 });
-      }
+      // Determine which card to snap to based on velocity + position
+      const projected = scrollX.value + e.velocityX * 0.15;
+      let snapIdx = Math.round(-projected / SNAP_WIDTH);
+      snapIdx = Math.max(0, Math.min(totalCards - 1, snapIdx));
+      const changed = snapIdx !== activeIdx.value;
+      activeIdx.value = snapIdx;
+      scrollX.value = withSpring(-snapIdx * SNAP_WIDTH, {
+        damping: 20,
+        stiffness: 200,
+      }, () => {
+        if (changed) {
+          scheduleOnRN(onSnapComplete);
+        }
+      });
     });
+
+  // Offset so the first card is centered in the viewport
+  const centerOffset = (SCREEN_WIDTH - CARD_WIDTH) / 2;
+
+  // Animated style for the carousel strip
+  const stripStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: scrollX.value + centerOffset }],
+  }));
 
   // Dot indicators
   const DotIndicators = useMemo(
@@ -496,8 +641,7 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
           <DotIndicator
             key={options[i].id}
             index={i}
-            activeIndex={activeIndex}
-            totalCards={totalCards}
+            scrollX={scrollX}
             colors={colors}
           />
         ))}
@@ -517,24 +661,21 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
       <Text style={s.hint}>Swipe to browse · Tap to select</Text>
 
       <GestureDetector gesture={panGesture}>
-        <Animated.View style={s.deckContainer}>
-          {/* Render in reverse so the front card is on top for touches */}
-          {[...options].reverse().map((option, reversedIdx) => {
-            const originalIdx = totalCards - 1 - reversedIdx;
-            return (
+        <Animated.View style={s.carouselClip}>
+          <Animated.View style={[s.carouselStrip, stripStyle]}>
+            {options.map((option, idx) => (
               <QuestCard
                 key={option.id}
                 option={option}
-                index={originalIdx}
+                index={idx}
                 totalCards={totalCards}
-                activeIndex={activeIndex}
-                swipeX={swipeX}
+                scrollX={scrollX}
                 sheenTrigger={sheenTrigger}
                 onSelect={handleSelect}
                 colors={colors}
               />
-            );
-          })}
+            ))}
+          </Animated.View>
         </Animated.View>
       </GestureDetector>
 
@@ -547,18 +688,17 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
 
 const DotIndicator: React.FC<{
   index: number;
-  activeIndex: SharedValue<number>;
-  totalCards: number;
+  scrollX: SharedValue<number>;
   colors: Colors;
-}> = React.memo(({ index, activeIndex, totalCards, colors }) => {
+}> = React.memo(({ index, scrollX, colors }) => {
   const animStyle = useAnimatedStyle(() => {
-    const pos =
-      ((index - activeIndex.value) % totalCards + totalCards) % totalCards;
-    const isActive = pos === 0;
+    const activePos = -scrollX.value / SNAP_WIDTH;
+    const dist = Math.abs(index - activePos);
+    const isActive = dist < 0.5;
     return {
-      width: isActive ? 16 : 6,
+      width: withSpring(isActive ? 16 : 6, { damping: 15, stiffness: 200 }),
       backgroundColor: isActive ? "#86efac" : colors.border.default,
-      opacity: isActive ? 1 : 0.5,
+      opacity: interpolate(dist, [0, 1], [1, 0.5], "clamp"),
     };
   });
 
@@ -597,10 +737,14 @@ const createDeckStyles = (colors: Colors) =>
       color: colors.text.disabled,
       marginBottom: spacing.xs,
     },
-    deckContainer: {
-      height: CARD_HEIGHT + CARD_VERTICAL_OFFSET * 2 + 20,
-      alignItems: "center",
-      position: "relative",
+    carouselClip: {
+      height: CARD_HEIGHT + 20,
+      width: SCREEN_WIDTH,
+      alignSelf: "center",
+    },
+    carouselStrip: {
+      flexDirection: "row",
+      gap: CARD_GAP,
     },
     dots: {
       flexDirection: "row",
@@ -613,10 +757,8 @@ const createDeckStyles = (colors: Colors) =>
 const createCardStyles = (colors: Colors) =>
   StyleSheet.create({
     card: {
-      position: "absolute",
       width: CARD_WIDTH,
       height: CARD_HEIGHT,
-      top: 0,
       backgroundColor: colors.bg.elevated,
       borderRadius: radius.lg,
       borderWidth: 1,
