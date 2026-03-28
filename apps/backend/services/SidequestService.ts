@@ -808,9 +808,11 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are clo
     const parentId = child.parentId;
 
     // Promote selected child to top-level
-    // Must use null — TypeORM skips undefined properties during save()
-    (child as Record<string, unknown>).parentId = null;
-    await repo.save(child);
+    // Use update() instead of save() — save() can skip nullable FK columns
+    // when the associated @ManyToOne relation wasn't loaded, causing
+    // parent_id to remain set and the child to be accidentally soft-deleted below.
+    await repo.update(child.id, { parentId: null as unknown as string });
+    child.parentId = undefined;
 
     // Soft-delete parent shell and rejected siblings
     await repo.softDelete({ parentId });
