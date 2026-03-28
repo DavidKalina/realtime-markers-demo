@@ -1,7 +1,6 @@
 // theme/index.ts - Barrel re-export of all design tokens
 
 export { colors } from "./tokens/colors";
-export { lightColors } from "./tokens/lightColors";
 export { spacing } from "./tokens/spacing";
 export {
   typography,

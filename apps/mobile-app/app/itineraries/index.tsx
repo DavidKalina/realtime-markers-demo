@@ -8,7 +8,6 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Modal,
   Pressable,
   StyleSheet,
@@ -18,25 +17,11 @@ import {
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { BlurView } from "expo-blur";
-import { Check } from "lucide-react-native";
 import Animated, {
   Easing,
   FadeIn,
-  FadeInDown,
   FadeOut,
-  interpolate,
-  type SharedValue,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming,
 } from "react-native-reanimated";
-import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { scheduleOnRN } from "react-native-worklets";
 import Screen from "@/components/Layout/Screen";
 import EmptyState from "@/components/Layout/EmptyState";
 import QuestDialogBox from "@/components/Quest/QuestDialogBox";
@@ -50,7 +35,6 @@ import {
   useColors,
   fontFamily,
   fontWeight,
-  fontSize,
   spacing,
   radius,
   type Colors,
@@ -59,526 +43,6 @@ import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { eventBroker, EventTypes } from "@/services/EventBroker";
 import type { SidequestJobCompletedEvent } from "@/services/EventBroker";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
-const CARD_WIDTH = SCREEN_WIDTH * 0.78;
-const CARD_HEIGHT = CARD_WIDTH * 1.4;
-const CARD_VERTICAL_OFFSET = 14;
-const CARD_SCALE_STEP = 0.05;
-const BOB_AMPLITUDE = 3;
-const BOB_DURATION = 2400;
-
-const TIER_DISPLAY: Record<
-  string,
-  { label: string; bg: string; text: string; border: string }
-> = {
-  QUICK: {
-    label: "QUICK & EASY",
-    bg: "rgba(134, 239, 172, 0.12)",
-    text: "rgba(134, 239, 172, 0.9)",
-    border: "rgba(134, 239, 172, 0.25)",
-  },
-  SWEET_SPOT: {
-    label: "SWEET SPOT",
-    bg: "rgba(251, 191, 36, 0.12)",
-    text: "rgba(251, 191, 36, 0.9)",
-    border: "rgba(251, 191, 36, 0.25)",
-  },
-  BEST: {
-    label: "BEST PACKAGE",
-    bg: "rgba(168, 85, 247, 0.12)",
-    text: "rgba(168, 85, 247, 0.9)",
-    border: "rgba(168, 85, 247, 0.25)",
-  },
-};
-
-const DEFAULT_TIER = TIER_DISPLAY.QUICK;
-
-// --- Diagonal card sheen sweep (matches QuestCardDeck) ---
-
-const SHEEN_BAND = 100;
-const SHEEN_TRAVEL = Math.sqrt(CARD_WIDTH ** 2 + CARD_HEIGHT ** 2) + SHEEN_BAND;
-const SHEEN_ANGLE = Math.atan2(CARD_HEIGHT, CARD_WIDTH);
-
-const BrowseCardSheen: React.FC<{
-  tierColor: string;
-  index: number;
-}> = React.memo(({ tierColor, index }) => {
-  const sheenPos = useSharedValue(0);
-
-  useEffect(() => {
-    sheenPos.value = withDelay(
-      300 + index * 400,
-      withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
-    );
-  }, [index]);
-
-  const sheenStyle = useAnimatedStyle(() => {
-    const travel = interpolate(
-      sheenPos.value,
-      [0, 1],
-      [-SHEEN_BAND, SHEEN_TRAVEL],
-    );
-    const tx = Math.cos(SHEEN_ANGLE) * travel;
-    const ty = Math.sin(SHEEN_ANGLE) * travel;
-    const opacity = interpolate(
-      sheenPos.value,
-      [0, 0.05, 0.5, 0.95, 1],
-      [0, 0.8, 1, 0.8, 0],
-    );
-    return {
-      opacity,
-      transform: [
-        { translateX: tx - SHEEN_BAND / 2 },
-        { translateY: ty - CARD_HEIGHT },
-        { rotate: `${SHEEN_ANGLE}rad` },
-      ],
-    };
-  });
-
-  const gradId = `browseSheen${index}`;
-
-  return (
-    <Animated.View
-      style={[{ position: "absolute", top: 0, left: 0, zIndex: 5 }, sheenStyle]}
-      pointerEvents="none"
-    >
-      <Svg width={SHEEN_BAND} height={SHEEN_TRAVEL}>
-        <Defs>
-          <LinearGradient id={gradId} x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0" stopColor={tierColor} stopOpacity="0" />
-            <Stop offset="0.5" stopColor={tierColor} stopOpacity="0.18" />
-            <Stop offset="1" stopColor={tierColor} stopOpacity="0" />
-          </LinearGradient>
-        </Defs>
-        <Rect
-          width={SHEEN_BAND}
-          height={SHEEN_TRAVEL}
-          fill={`url(#${gradId})`}
-        />
-      </Svg>
-    </Animated.View>
-  );
-});
-
-BrowseCardSheen.displayName = "BrowseCardSheen";
-
-// --- Single sidequest card (matches QuestCardDeck style) ---
-
-const SidequestCard: React.FC<{
-  item: ItineraryResponse;
-  index: number;
-  totalCards: number;
-  activeIndex: SharedValue<number>;
-  swipeX: SharedValue<number>;
-  isDiscarding: boolean;
-  activeItineraryId: string | null;
-  onPress: (id: string) => void;
-  onDelete: (id: string) => void;
-  onDiscardComplete: (id: string) => void;
-  colors: Colors;
-}> = React.memo(
-  ({
-    item,
-    index,
-    totalCards,
-    activeIndex,
-    swipeX,
-    isDiscarding,
-    activeItineraryId,
-    onPress,
-    onDelete,
-    onDiscardComplete,
-    colors,
-  }) => {
-    const s = useMemo(() => createCardStyles(colors), [colors]);
-    const isActive = item.id === activeItineraryId;
-    const isCompleted = !!item.completedAt;
-    const tierMeta = TIER_DISPLAY[item.tier ?? "QUICK"] ?? DEFAULT_TIER;
-
-    const objectives = item.objectives ?? [];
-
-    const totalCost = objectives.reduce(
-      (sum, o) => sum + (Number(o.estimatedCost) || 0),
-      0,
-    );
-    const checkedInCount = objectives.filter((o) => o.checkedInAt).length;
-
-    const firstEmoji = useMemo(() => {
-      for (const o of objectives) {
-        if (o.emoji) return o.emoji;
-      }
-      return "\u{1F5FA}\u{FE0F}";
-    }, [objectives]);
-
-    // Bob animation
-    const bobY = useSharedValue(0);
-    useEffect(() => {
-      bobY.value = withDelay(
-        index * 300,
-        withRepeat(
-          withSequence(
-            withTiming(-BOB_AMPLITUDE, {
-              duration: BOB_DURATION / 2,
-              easing: Easing.inOut(Easing.ease),
-            }),
-            withTiming(BOB_AMPLITUDE, {
-              duration: BOB_DURATION / 2,
-              easing: Easing.inOut(Easing.ease),
-            }),
-          ),
-          -1,
-          true,
-        ),
-      );
-    }, [index]);
-
-    // Discard animation
-    const discardProgress = useSharedValue(0);
-    const discardDone = useCallback(() => {
-      onDiscardComplete(item.id);
-    }, [item.id, onDiscardComplete]);
-    useEffect(() => {
-      if (isDiscarding) {
-        discardProgress.value = withTiming(
-          1,
-          {
-            duration: 350,
-            easing: Easing.in(Easing.ease),
-          },
-          () => {
-            scheduleOnRN(discardDone);
-          },
-        );
-      }
-    }, [isDiscarding]);
-
-    const animatedStyle = useAnimatedStyle(() => {
-      const d = discardProgress.value;
-      const pos =
-        (((index - activeIndex.value) % totalCards) + totalCards) % totalCards;
-      const isFront = pos === 0;
-      const absX = Math.abs(swipeX.value);
-      const dragProgress = isFront
-        ? interpolate(absX, [0, SWIPE_THRESHOLD], [0, 1], "clamp")
-        : 0;
-
-      // Front card: drag with a playful arc (lifts up as you drag)
-      const translateX = isFront ? swipeX.value : 0;
-      const dragLiftY = isFront
-        ? interpolate(absX, [0, SWIPE_THRESHOLD, SCREEN_WIDTH], [0, -18, -8])
-        : 0;
-      const baseTranslateY = pos * CARD_VERTICAL_OFFSET;
-
-      // Front card scales up slightly when dragged ("picked up" feel)
-      const dragScaleBoost = interpolate(dragProgress, [0, 1], [0, 0.03]);
-      const scale = 1 - pos * CARD_SCALE_STEP + (isFront ? dragScaleBoost : 0);
-
-      // Asymmetric rotation — more tilt, with a playful wobble curve
-      const rotate = isFront
-        ? interpolate(
-            swipeX.value,
-            [-SCREEN_WIDTH, -SWIPE_THRESHOLD, 0, SWIPE_THRESHOLD, SCREEN_WIDTH],
-            [-22, -10, 0, 10, 22],
-          )
-        : 0;
-
-      const opacity = isFront
-        ? interpolate(absX, [0, SCREEN_WIDTH * 0.6], [1, 0.4])
-        : interpolate(pos, [0, 1, 2], [1, 0.85, 0.7]);
-
-      // Back cards eagerly step forward as front card is dragged away
-      const backCardPush = isFront
-        ? 0
-        : interpolate(dragProgress, [0, 1], [0, CARD_VERTICAL_OFFSET * 0.5]);
-      const backCardScalePush = isFront
-        ? 0
-        : interpolate(dragProgress, [0, 1], [0, CARD_SCALE_STEP * 0.5]);
-
-      // Discard animation: fly down-right with rotation, shrink, fade out
-      const discardX = interpolate(d, [0, 1], [0, SCREEN_WIDTH * 0.6]);
-      const discardY = interpolate(d, [0, 1], [0, CARD_HEIGHT * 0.8]);
-      const discardRotate = interpolate(d, [0, 1], [0, 25]);
-      const discardScale = interpolate(d, [0, 1], [1, 0.7]);
-      const discardOpacity = interpolate(d, [0, 0.6, 1], [1, 0.5, 0]);
-
-      return {
-        transform: [
-          { translateX: translateX + discardX },
-          {
-            translateY:
-              baseTranslateY + bobY.value + dragLiftY - backCardPush + discardY,
-          },
-          { scale: (scale + backCardScalePush) * discardScale },
-          { rotate: `${rotate + discardRotate}deg` },
-        ],
-        opacity: opacity * discardOpacity,
-        zIndex: totalCards - pos,
-      };
-    });
-
-    const handlePress = useCallback(() => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      onPress(item.id);
-    }, [item.id, onPress]);
-
-    const handleLongPress = useCallback(() => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      onDelete(item.id);
-    }, [item.id, onDelete]);
-
-    // Status info for the badge
-    const statusColor = isCompleted
-      ? "rgba(134, 239, 172, 0.9)"
-      : isActive
-        ? "rgba(251, 191, 36, 0.9)"
-        : tierMeta.text;
-
-    const statusBg = isCompleted
-      ? "rgba(134, 239, 172, 0.12)"
-      : isActive
-        ? "rgba(251, 191, 36, 0.12)"
-        : tierMeta.bg;
-
-    const sortedObjectives = [...objectives].sort(
-      (a, b) => a.sortOrder - b.sortOrder,
-    );
-    const stopCount = sortedObjectives.length;
-
-    // Tags from categories + activity types + venue categories
-    const tags = useMemo(() => {
-      const set = new Set<string>();
-      for (const c of item.categories ?? []) set.add(c);
-      for (const a of item.activityTypes ?? []) set.add(a);
-      for (const obj of objectives) {
-        if (obj.venueCategory) set.add(obj.venueCategory);
-      }
-      return [...set].slice(0, 5);
-    }, [item.categories, item.activityTypes, objectives]);
-
-    return (
-      <Animated.View
-        style={[s.card, { borderColor: tierMeta.border }, animatedStyle]}
-      >
-        {/* Tier-colored top stripe */}
-        <View style={[s.tierStripe, { backgroundColor: tierMeta.text }]} />
-
-        {/* Diagonal sheen */}
-        <BrowseCardSheen tierColor={tierMeta.text} index={index} />
-
-        <Pressable
-          style={s.cardInner}
-          onPress={handlePress}
-          onLongPress={handleLongPress}
-        >
-          {/* Top: tier badge + status */}
-          <View style={s.topRow}>
-            <View
-              style={[
-                s.tierBadge,
-                { backgroundColor: tierMeta.bg, borderColor: tierMeta.border },
-              ]}
-            >
-              <Text style={[s.tierBadgeText, { color: tierMeta.text }]}>
-                {tierMeta.label}
-              </Text>
-            </View>
-            <View
-              style={[
-                s.statusBadge,
-                { backgroundColor: statusBg, borderColor: statusColor },
-              ]}
-            >
-              {isCompleted && (
-                <Check size={9} color={statusColor} strokeWidth={3} />
-              )}
-              {isActive && (
-                <View style={[s.activeDot, { backgroundColor: statusColor }]} />
-              )}
-              <Text style={[s.statusText, { color: statusColor }]}>
-                {isCompleted
-                  ? `DONE${item.rating ? " " + "\u2605".repeat(item.rating) : ""}`
-                  : isActive
-                    ? `${checkedInCount}/${stopCount}`
-                    : "READY"}
-              </Text>
-            </View>
-          </View>
-
-          {/* Hero: emoji + title + summary */}
-          <View style={s.heroBlock}>
-            <Text style={s.emoji}>{firstEmoji}</Text>
-            <Text style={s.title} numberOfLines={2}>
-              {item.title || "Untitled Sidequest"}
-            </Text>
-            {item.summary && (
-              <Text style={s.summary} numberOfLines={2}>
-                {item.summary}
-              </Text>
-            )}
-          </View>
-
-          {/* Divider */}
-          <View style={s.divider} />
-
-          {/* Timeline stops */}
-          <View style={s.stops}>
-            {sortedObjectives.slice(0, 4).map((obj, i) => (
-              <View key={obj.id} style={s.timelineRow}>
-                <View style={s.timelineTrack}>
-                  <View
-                    style={[
-                      s.timelineCircle,
-                      {
-                        borderColor: tierMeta.border,
-                        backgroundColor: obj.checkedInAt
-                          ? tierMeta.bg
-                          : "transparent",
-                      },
-                    ]}
-                  >
-                    <Text style={s.timelineEmoji}>
-                      {obj.emoji ?? "\u{1F4CD}"}
-                    </Text>
-                  </View>
-                  {i < Math.min(sortedObjectives.length, 4) - 1 && (
-                    <View
-                      style={[
-                        s.timelineLine,
-                        { backgroundColor: tierMeta.border },
-                      ]}
-                    />
-                  )}
-                </View>
-                <View style={s.timelineContent}>
-                  <Text style={s.stopName} numberOfLines={1}>
-                    {obj.venueName ?? obj.title}
-                  </Text>
-                  {obj.hook && (
-                    <Text style={s.stopHook} numberOfLines={2}>
-                      {obj.hook}
-                    </Text>
-                  )}
-                </View>
-              </View>
-            ))}
-            {sortedObjectives.length > 4 && (
-              <Text style={s.moreStops}>
-                +{sortedObjectives.length - 4} more
-              </Text>
-            )}
-          </View>
-
-          {/* Spacer */}
-          <View style={{ flex: 1 }} />
-
-          {/* Tags */}
-          {tags.length > 0 && (
-            <View style={s.tagRow}>
-              {tags.map((tag) => (
-                <View
-                  key={tag}
-                  style={[s.tagChip, { borderColor: tierMeta.border }]}
-                >
-                  <Text style={[s.tagText, { color: tierMeta.text }]}>
-                    {tag.toUpperCase()}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Bottom stats bar */}
-          <View style={s.statsBar}>
-            <View style={s.statPill}>
-              <Text style={s.statValue}>{stopCount}</Text>
-              <Text style={s.statLabel}>STOPS</Text>
-            </View>
-            {totalCost > 0 && (
-              <View style={s.statPill}>
-                <Text style={s.statValue}>~${totalCost.toFixed(0)}</Text>
-                <Text style={s.statLabel}>EST.</Text>
-              </View>
-            )}
-            {isActive && stopCount > 0 && (
-              <View style={s.statPill}>
-                <Text style={s.statValue}>
-                  {Math.round((checkedInCount / stopCount) * 100)}%
-                </Text>
-                <Text style={s.statLabel}>DONE</Text>
-              </View>
-            )}
-            <View style={{ flex: 1 }} />
-            <Text style={s.cityText}>{item.city}</Text>
-          </View>
-        </Pressable>
-      </Animated.View>
-    );
-  },
-);
-
-SidequestCard.displayName = "SidequestCard";
-
-// --- Dot indicator ---
-
-const DotIndicator: React.FC<{
-  index: number;
-  activeIndex: SharedValue<number>;
-  totalCards: number;
-  colors: Colors;
-}> = React.memo(({ index, activeIndex, totalCards, colors }) => {
-  const animStyle = useAnimatedStyle(() => {
-    const pos =
-      (((index - activeIndex.value) % totalCards) + totalCards) % totalCards;
-    const isActive = pos === 0;
-    return {
-      width: withTiming(isActive ? 16 : 6, { duration: 200 }),
-      backgroundColor: isActive ? "#86efac" : colors.border.default,
-      opacity: withTiming(isActive ? 1 : 0.4, { duration: 200 }),
-    };
-  });
-
-  return <Animated.View style={[dotStyles.dot, animStyle]} />;
-});
-
-DotIndicator.displayName = "DotIndicator";
-
-const dotStyles = StyleSheet.create({
-  dot: { height: 6, borderRadius: 3 },
-});
-
-// --- Counter badge ---
-
-const CountBadge: React.FC<{
-  activeIndex: SharedValue<number>;
-  totalCards: number;
-  colors: Colors;
-}> = React.memo(({ activeIndex, totalCards, colors }) => {
-  const [displayed, setDisplayed] = useState(1);
-
-  useAnimatedStyle(() => {
-    const pos = Math.round(activeIndex.value) % totalCards;
-    const current = pos + 1;
-    scheduleOnRN(setDisplayed, current);
-    return {};
-  });
-
-  return (
-    <Text
-      style={{
-        fontSize: 11,
-        fontFamily: fontFamily.mono,
-        fontWeight: fontWeight.semibold,
-        color: colors.text.secondary,
-      }}
-    >
-      {displayed} / {totalCards}
-    </Text>
-  );
-});
-
-CountBadge.displayName = "CountBadge";
 
 // --- Options overlay (fan-out after generation) ---
 
@@ -836,13 +300,9 @@ const ItinerariesListScreen = () => {
 
   const PAGE_SIZE = 20;
   const [itineraries, setItineraries] = useState<ItineraryResponse[]>([]);
-  const [discardingId, setDiscardingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const cursorRef = useRef<string | null>(null);
   const hasMoreRef = useRef(true);
-
-  const activeIndex = useSharedValue(0);
-  const swipeX = useSharedValue(0);
 
   const fetchItineraries = useCallback(async (cursor?: string) => {
     try {
@@ -894,53 +354,39 @@ const ItinerariesListScreen = () => {
     fetchItineraries();
   }, [clearReady, fetchItineraries]);
 
-  // Build the deck (only real sidequests — generating card is shown separately)
-  const deckItems = useMemo(() => {
-    return itineraries.map((it) => ({ id: it.id, item: it }));
-  }, [itineraries]);
-
-  const totalCards = deckItems.length;
+  const totalCards = itineraries.length;
 
   const handlePress = useCallback(
-    (id: string) => {
+    (option: SidequestResponse) => {
       router.push({
         pathname: "/itineraries/[id]" as const,
-        params: { id },
+        params: { id: option.id },
       });
     },
     [router],
   );
 
   const handleDelete = useCallback(
-    (id: string) => {
-      const itinerary = itineraries.find((it) => it.id === id);
-      const title = itinerary?.title || "this sidequest";
+    (option: SidequestResponse) => {
+      const title = option.title || "this sidequest";
 
       Alert.alert("Delete sidequest", `Delete "${title}"?`, [
         { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => {
+          onPress: async () => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setDiscardingId(id);
+            setItineraries((prev) => prev.filter((it) => it.id !== option.id));
+            try {
+              await apiClient.sidequests.deleteById(option.id);
+            } catch (err) {
+              console.error("[Itineraries] Failed to delete:", err);
+              fetchItineraries();
+            }
           },
         },
       ]);
-    },
-    [itineraries],
-  );
-
-  const handleDiscardComplete = useCallback(
-    async (id: string) => {
-      setDiscardingId(null);
-      setItineraries((prev) => prev.filter((it) => it.id !== id));
-      try {
-        await apiClient.sidequests.deleteById(id);
-      } catch (err) {
-        console.error("[Itineraries] Failed to delete:", err);
-        fetchItineraries();
-      }
     },
     [fetchItineraries],
   );
@@ -949,52 +395,6 @@ const ItinerariesListScreen = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
   }, [router]);
-
-  // Load more when approaching end of deck
-  const checkLoadMore = useCallback(() => {
-    if (!hasMoreRef.current) return;
-    const currentPos = Math.round(activeIndex.value);
-    if (currentPos >= totalCards - 3) {
-      fetchItineraries(cursorRef.current ?? undefined);
-    }
-  }, [totalCards, fetchItineraries]);
-
-  const onSwipeComplete = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    checkLoadMore();
-  }, [checkLoadMore]);
-
-  const panGesture = Gesture.Pan()
-    .activeOffsetX([-15, 15])
-    .failOffsetY([-10, 10])
-    .enabled(totalCards > 1)
-    .onUpdate((e) => {
-      swipeX.value = e.translationX;
-    })
-    .onEnd((e) => {
-      if (Math.abs(e.translationX) > SWIPE_THRESHOLD) {
-        const direction = e.translationX > 0 ? 1 : -1;
-        // Fling off with velocity-aware spring for a snappy, organic exit
-        const velocity =
-          Math.abs(e.velocityX) > 500 ? e.velocityX : direction * 800;
-        swipeX.value = withSpring(
-          direction * SCREEN_WIDTH * 1.2,
-          { damping: 18, stiffness: 140, mass: 0.8, velocity },
-          () => {
-            activeIndex.value = (activeIndex.value + 1) % totalCards;
-            swipeX.value = 0;
-            scheduleOnRN(onSwipeComplete);
-          },
-        );
-      } else {
-        // Bouncy snap-back
-        swipeX.value = withSpring(0, {
-          damping: 12,
-          stiffness: 180,
-          mass: 0.7,
-        });
-      }
-    });
 
   // --- DEV: Simulation mode ---
   const [simulating, setSimulating] = useState(false);
@@ -1319,69 +719,14 @@ const ItinerariesListScreen = () => {
       noAnimation
       bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} />}
     >
-      <Animated.View entering={FadeIn.duration(400)} style={styles.deckScreen}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>YOUR QUESTS</Text>
-          <CountBadge
-            activeIndex={activeIndex}
-            totalCards={totalCards}
-            colors={colors}
-          />
-        </View>
-
-        {/* Card deck */}
-        <GestureDetector gesture={panGesture}>
-          <Animated.View style={styles.deckContainer}>
-            {[...deckItems].reverse().map((deckItem, reversedIdx) => {
-              const originalIdx = totalCards - 1 - reversedIdx;
-              return (
-                <SidequestCard
-                  key={deckItem.id}
-                  item={(deckItem as { item: ItineraryResponse }).item}
-                  index={originalIdx}
-                  totalCards={totalCards}
-                  activeIndex={activeIndex}
-                  swipeX={swipeX}
-                  isDiscarding={discardingId === deckItem.id}
-                  activeItineraryId={activeItineraryId}
-                  onPress={handlePress}
-                  onDelete={handleDelete}
-                  onDiscardComplete={handleDiscardComplete}
-                  colors={colors}
-                />
-              );
-            })}
-          </Animated.View>
-        </GestureDetector>
-
-        {/* Dots */}
-        <Animated.View
-          entering={FadeInDown.delay(300).duration(400)}
-          style={styles.dotsRow}
-        >
-          {deckItems.length <= 8 ? (
-            deckItems.map((_, i) => (
-              <DotIndicator
-                key={deckItems[i].id}
-                index={i}
-                activeIndex={activeIndex}
-                totalCards={totalCards}
-                colors={colors}
-              />
-            ))
-          ) : (
-            <CountBadge
-              activeIndex={activeIndex}
-              totalCards={totalCards}
-              colors={colors}
-            />
-          )}
-        </Animated.View>
-
-        <Text style={styles.hint}>
-          {"Swipe to browse \u00B7 Tap to open \u00B7 Hold to delete"}
-        </Text>
+      <View style={styles.deckScreen}>
+        <QuestCardDeck
+          options={itineraries}
+          mode="browse"
+          activeItineraryId={activeItineraryId}
+          onPress={handlePress}
+          onDelete={handleDelete}
+        />
 
         {/* DEV: Simulate generation flow */}
         {__DEV__ && (
@@ -1408,7 +753,7 @@ const ItinerariesListScreen = () => {
             </Text>
           </Pressable>
         )}
-      </Animated.View>
+      </View>
 
       {/* Options fan-out overlay */}
       {simulating ? (
@@ -1445,239 +790,5 @@ const createScreenStyles = (colors: Colors) =>
     deckScreen: {
       flex: 1,
       alignItems: "center",
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      width: "100%",
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-    },
-    headerTitle: {
-      fontSize: 11,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.bold,
-      color: colors.text.label,
-      letterSpacing: 1.5,
-    },
-    deckContainer: {
-      flex: 1,
-      width: CARD_WIDTH,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    dotsRow: {
-      flexDirection: "row",
-      justifyContent: "center",
-      alignItems: "center",
-      gap: 6,
-      marginTop: spacing.md,
-    },
-    hint: {
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      color: colors.text.disabled,
-      marginTop: spacing.sm,
-    },
-  });
-
-// --- Card styles (matches QuestCardDeck) ---
-
-const createCardStyles = (colors: Colors) =>
-  StyleSheet.create({
-    card: {
-      position: "absolute",
-      width: CARD_WIDTH,
-      height: CARD_HEIGHT,
-      top: 0,
-      backgroundColor: colors.bg.elevated,
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      overflow: "hidden",
-      shadowColor: colors.fixed.black,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 12,
-      elevation: 6,
-    },
-    cardInner: {
-      flex: 1,
-      padding: spacing.lg,
-      paddingTop: spacing.lg + 2,
-      gap: spacing.sm,
-      overflow: "hidden",
-    },
-    tierStripe: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      height: 3,
-      opacity: 0.8,
-    },
-    topRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
-    tierBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: radius.sm,
-      borderWidth: 1,
-    },
-    tierBadgeText: {
-      fontSize: 9,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      letterSpacing: 0.8,
-    },
-    statusBadge: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: radius.sm,
-      borderWidth: 1,
-    },
-    statusText: {
-      fontSize: 9,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.bold,
-      letterSpacing: 0.8,
-    },
-    activeDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-    },
-    heroBlock: {
-      gap: 6,
-    },
-    emoji: {
-      fontSize: 36,
-    },
-    title: {
-      fontSize: 18,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      color: colors.text.primary,
-      lineHeight: 24,
-    },
-    summary: {
-      fontSize: fontSize.sm,
-      fontFamily: fontFamily.mono,
-      color: colors.text.secondary,
-      lineHeight: 18,
-    },
-    divider: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: colors.border.default,
-      marginVertical: 2,
-    },
-    stops: {
-      gap: 0,
-    },
-    timelineRow: {
-      flexDirection: "row",
-      minHeight: 44,
-    },
-    timelineTrack: {
-      width: 32,
-      alignItems: "center",
-    },
-    timelineCircle: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      borderWidth: 1.5,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    timelineEmoji: {
-      fontSize: 13,
-    },
-    timelineLine: {
-      width: 1.5,
-      flex: 1,
-      marginVertical: 2,
-      opacity: 0.4,
-    },
-    timelineContent: {
-      flex: 1,
-      paddingLeft: 8,
-      paddingTop: 3,
-      paddingBottom: 8,
-      gap: 1,
-    },
-    stopName: {
-      flex: 1,
-      fontSize: fontSize.sm,
-      fontFamily: fontFamily.mono,
-      color: colors.text.primary,
-    },
-    stopHook: {
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      color: colors.text.secondary,
-      fontStyle: "italic",
-    },
-    moreStops: {
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      color: colors.text.disabled,
-      paddingLeft: 40,
-      paddingTop: 2,
-    },
-    tagRow: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 5,
-    },
-    tagChip: {
-      paddingHorizontal: 7,
-      paddingVertical: 2,
-      borderRadius: radius.full,
-      borderWidth: 1,
-      backgroundColor: "rgba(255, 255, 255, 0.03)",
-    },
-    tagText: {
-      fontSize: 8,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      letterSpacing: 0.5,
-    },
-    statsBar: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.md,
-      paddingTop: spacing.sm,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border.default,
-    },
-    statPill: {
-      alignItems: "center",
-      gap: 1,
-    },
-    statValue: {
-      fontSize: 14,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      color: colors.text.primary,
-    },
-    statLabel: {
-      fontSize: 8,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      color: colors.text.disabled,
-      letterSpacing: 1,
-    },
-    cityText: {
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.secondary,
     },
   });

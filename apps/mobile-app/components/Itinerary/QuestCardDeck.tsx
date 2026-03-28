@@ -1,10 +1,6 @@
 import * as Haptics from "expo-haptics";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef
-} from "react";
+import { Check } from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -69,8 +65,16 @@ const TIER_DISPLAY: Record<
 
 interface QuestCardDeckProps {
   options: SidequestResponse[];
-  onSelect: (option: SidequestResponse) => void;
-  isSelecting: boolean;
+  /** "select" = generation picker (default), "browse" = existing quest deck */
+  mode?: "select" | "browse";
+  onSelect?: (option: SidequestResponse) => void;
+  isSelecting?: boolean;
+  /** Browse mode: which sidequest is currently active (in-progress) */
+  activeItineraryId?: string | null;
+  /** Browse mode: tap a card */
+  onPress?: (option: SidequestResponse) => void;
+  /** Browse mode: long-press a card */
+  onDelete?: (option: SidequestResponse) => void;
 }
 
 // --- Diagonal card sheen sweep ---
@@ -170,7 +174,11 @@ const QuestCard: React.FC<{
   totalCards: number;
   scrollX: SharedValue<number>;
   sheenTrigger: SharedValue<number>;
-  onSelect: (option: SidequestResponse) => void;
+  onSelect?: (option: SidequestResponse) => void;
+  onPress?: (option: SidequestResponse) => void;
+  onDelete?: (option: SidequestResponse) => void;
+  mode: "select" | "browse";
+  activeItineraryId?: string | null;
   colors: Colors;
 }> = React.memo(
   ({
@@ -180,11 +188,23 @@ const QuestCard: React.FC<{
     scrollX,
     sheenTrigger,
     onSelect,
+    onPress,
+    onDelete,
+    mode,
+    activeItineraryId,
     colors,
   }) => {
     const s = useMemo(() => createCardStyles(colors), [colors]);
     const tierMeta = TIER_DISPLAY[option.tier ?? "QUICK"] ?? TIER_DISPLAY.QUICK;
-    const isReady = option.status === "READY";
+    const isBrowse = mode === "browse";
+    const isReady = isBrowse || option.status === "READY";
+
+    // Browse-mode state
+    const isActiveQuest = isBrowse && option.id === activeItineraryId;
+    const isCompleted = isBrowse && !!option.completedAt;
+    const checkedInCount = isBrowse
+      ? (option.objectives ?? []).filter((o) => o.checkedInAt).length
+      : 0;
 
     // Track when card transitions from generating to ready
     const wasGenerating = useRef(!isReady);
@@ -367,9 +387,28 @@ const QuestCard: React.FC<{
 
         <Pressable
           style={s.cardInner}
-          onPress={isReady ? () => onSelect(option) : undefined}
+          onPress={
+            isBrowse
+              ? onPress
+                ? () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onPress(option);
+                  }
+                : undefined
+              : isReady
+                ? () => onSelect?.(option)
+                : undefined
+          }
+          onLongPress={
+            isBrowse && onDelete
+              ? () => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                  onDelete(option);
+                }
+              : undefined
+          }
         >
-          {/* Top: Tier badge (always visible) */}
+          {/* Top: Tier badge + status */}
           <View style={s.tierRow}>
             <View
               style={[
@@ -385,16 +424,70 @@ const QuestCard: React.FC<{
                 {tierMeta.label}
               </Text>
             </View>
-            {!isReady && (
-              <Animated.Text
+            {isBrowse ? (
+              <View
                 style={[
-                  s.forgingLabel,
-                  { color: tierMeta.text },
-                  skeletonAnimStyle,
+                  s.statusBadge,
+                  {
+                    backgroundColor: isCompleted
+                      ? "rgba(134, 239, 172, 0.12)"
+                      : isActiveQuest
+                        ? "rgba(251, 191, 36, 0.12)"
+                        : tierMeta.bg,
+                    borderColor: isCompleted
+                      ? "rgba(134, 239, 172, 0.9)"
+                      : isActiveQuest
+                        ? "rgba(251, 191, 36, 0.9)"
+                        : tierMeta.border,
+                  },
                 ]}
               >
-                FORGING{"\u2026"}
-              </Animated.Text>
+                {isCompleted && (
+                  <Check
+                    size={9}
+                    color="rgba(134, 239, 172, 0.9)"
+                    strokeWidth={3}
+                  />
+                )}
+                {isActiveQuest && (
+                  <View
+                    style={[
+                      s.activeDot,
+                      { backgroundColor: "rgba(251, 191, 36, 0.9)" },
+                    ]}
+                  />
+                )}
+                <Text
+                  style={[
+                    s.statusText,
+                    {
+                      color: isCompleted
+                        ? "rgba(134, 239, 172, 0.9)"
+                        : isActiveQuest
+                          ? "rgba(251, 191, 36, 0.9)"
+                          : tierMeta.text,
+                    },
+                  ]}
+                >
+                  {isCompleted
+                    ? `DONE${option.rating ? " " + "\u2605".repeat(option.rating) : ""}`
+                    : isActiveQuest
+                      ? `${checkedInCount}/${stopCount}`
+                      : "READY"}
+                </Text>
+              </View>
+            ) : (
+              !isReady && (
+                <Animated.Text
+                  style={[
+                    s.forgingLabel,
+                    { color: tierMeta.text },
+                    skeletonAnimStyle,
+                  ]}
+                >
+                  FORGING{"\u2026"}
+                </Animated.Text>
+              )
             )}
           </View>
 
@@ -465,43 +558,53 @@ const QuestCard: React.FC<{
 
             {/* Timeline */}
             <Animated.View style={[s.stops, stopsAnimStyle]}>
-              {objectives.map((obj, i) => (
-                <View key={obj.id} style={s.timelineRow}>
-                  <View style={s.timelineTrack}>
-                    <View
-                      style={[
-                        s.timelineCircle,
-                        {
-                          borderColor: tierMeta.border,
-                          backgroundColor: tierMeta.bg,
-                        },
-                      ]}
-                    >
-                      <Text style={s.timelineEmoji}>
-                        {obj.emoji ?? "\u{1F4CD}"}
-                      </Text>
-                    </View>
-                    {i < objectives.length - 1 && (
+              {(isBrowse ? objectives.slice(0, 4) : objectives).map(
+                (obj, i, arr) => (
+                  <View key={obj.id} style={s.timelineRow}>
+                    <View style={s.timelineTrack}>
                       <View
                         style={[
-                          s.timelineLine,
-                          { backgroundColor: tierMeta.border },
+                          s.timelineCircle,
+                          {
+                            borderColor: tierMeta.border,
+                            backgroundColor:
+                              isBrowse && obj.checkedInAt
+                                ? tierMeta.bg
+                                : isBrowse
+                                  ? "transparent"
+                                  : tierMeta.bg,
+                          },
                         ]}
-                      />
-                    )}
-                  </View>
-                  <View style={s.timelineContent}>
-                    <Text style={s.stopName} numberOfLines={1}>
-                      {obj.venueName ?? obj.title}
-                    </Text>
-                    {obj.hook && (
-                      <Text style={s.stopHook} numberOfLines={2}>
-                        {obj.hook}
+                      >
+                        <Text style={s.timelineEmoji}>
+                          {obj.emoji ?? "\u{1F4CD}"}
+                        </Text>
+                      </View>
+                      {i < arr.length - 1 && (
+                        <View
+                          style={[
+                            s.timelineLine,
+                            { backgroundColor: tierMeta.border },
+                          ]}
+                        />
+                      )}
+                    </View>
+                    <View style={s.timelineContent}>
+                      <Text style={s.stopName} numberOfLines={1}>
+                        {obj.venueName ?? obj.title}
                       </Text>
-                    )}
+                      {obj.hook && (
+                        <Text style={s.stopHook} numberOfLines={2}>
+                          {obj.hook}
+                        </Text>
+                      )}
+                    </View>
                   </View>
-                </View>
-              ))}
+                ),
+              )}
+              {isBrowse && objectives.length > 4 && (
+                <Text style={s.moreStops}>+{objectives.length - 4} more</Text>
+              )}
             </Animated.View>
 
             <View style={{ flex: 1 }} />
@@ -546,20 +649,34 @@ const QuestCard: React.FC<{
                   <Text style={s.statLabel}>EST.</Text>
                 </View>
               )}
+              {isBrowse && isActiveQuest && stopCount > 0 && (
+                <View style={s.statPill}>
+                  <Text style={s.statValue}>
+                    {Math.round((checkedInCount / stopCount) * 100)}%
+                  </Text>
+                  <Text style={s.statLabel}>DONE</Text>
+                </View>
+              )}
               <View style={{ flex: 1 }} />
-              <View
-                style={[
-                  s.selectHint,
-                  {
-                    borderColor: tierMeta.border,
-                    backgroundColor: tierMeta.bg,
-                  },
-                ]}
-              >
-                <Text style={[s.selectHintText, { color: tierMeta.text }]}>
-                  TAP TO SELECT
-                </Text>
-              </View>
+              {isBrowse ? (
+                option.city ? (
+                  <Text style={s.cityText}>{option.city}</Text>
+                ) : null
+              ) : (
+                <View
+                  style={[
+                    s.selectHint,
+                    {
+                      borderColor: tierMeta.border,
+                      backgroundColor: tierMeta.bg,
+                    },
+                  ]}
+                >
+                  <Text style={[s.selectHintText, { color: tierMeta.text }]}>
+                    TAP TO SELECT
+                  </Text>
+                </View>
+              )}
             </Animated.View>
           </View>
         </Pressable>
@@ -574,12 +691,17 @@ QuestCard.displayName = "QuestCard";
 
 const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
   options,
+  mode = "select",
   onSelect,
   isSelecting,
+  activeItineraryId,
+  onPress,
+  onDelete,
 }) => {
   const colors = useColors();
   const s = useMemo(() => createDeckStyles(colors), [colors]);
   const totalCards = options.length;
+  const isBrowse = mode === "browse";
 
   // scrollX tracks the offset of the carousel strip.
   // 0 = first card centered, -SNAP_WIDTH = second card centered, etc.
@@ -591,7 +713,7 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
     (option: SidequestResponse) => {
       if (isSelecting) return;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      onSelect(option);
+      onSelect?.(option);
     },
     [isSelecting, onSelect],
   );
@@ -604,7 +726,7 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
   const panGesture = Gesture.Pan()
     .activeOffsetX([-15, 15])
     .failOffsetY([-10, 10])
-    .enabled(!isSelecting)
+    .enabled(!isSelecting && totalCards > 1)
     .onUpdate((e) => {
       scrollX.value = -activeIdx.value * SNAP_WIDTH + e.translationX;
     })
@@ -615,14 +737,18 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
       snapIdx = Math.max(0, Math.min(totalCards - 1, snapIdx));
       const changed = snapIdx !== activeIdx.value;
       activeIdx.value = snapIdx;
-      scrollX.value = withSpring(-snapIdx * SNAP_WIDTH, {
-        damping: 20,
-        stiffness: 200,
-      }, () => {
-        if (changed) {
-          scheduleOnRN(onSnapComplete);
-        }
-      });
+      scrollX.value = withSpring(
+        -snapIdx * SNAP_WIDTH,
+        {
+          damping: 20,
+          stiffness: 200,
+        },
+        () => {
+          if (changed) {
+            scheduleOnRN(onSnapComplete);
+          }
+        },
+      );
     });
 
   // Offset so the first card is centered in the viewport
@@ -652,13 +778,19 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
 
   return (
     <Animated.View
-      entering={FadeInDown.delay(500)
+      entering={FadeInDown.delay(isBrowse ? 200 : 500)
         .duration(450)
         .easing(Easing.out(Easing.cubic))}
       style={s.container}
     >
-      <Text style={s.label}>CHOOSE YOUR QUEST</Text>
-      <Text style={s.hint}>Swipe to browse · Tap to select</Text>
+      <Text style={s.label}>
+        {isBrowse ? "YOUR QUESTS" : "CHOOSE YOUR QUEST"}
+      </Text>
+      <Text style={s.hint}>
+        {isBrowse
+          ? "Swipe to browse \u00B7 Tap to open \u00B7 Hold to delete"
+          : "Swipe to browse \u00B7 Tap to select"}
+      </Text>
 
       <GestureDetector gesture={panGesture}>
         <Animated.View style={s.carouselClip}>
@@ -672,6 +804,10 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
                 scrollX={scrollX}
                 sheenTrigger={sheenTrigger}
                 onSelect={handleSelect}
+                onPress={onPress}
+                onDelete={onDelete}
+                mode={mode}
+                activeItineraryId={activeItineraryId}
                 colors={colors}
               />
             ))}
@@ -975,5 +1111,38 @@ const createCardStyles = (colors: Colors) =>
       fontSize: fontSize.sm,
       fontFamily: fontFamily.mono,
       color: colors.text.primary,
+    },
+    moreStops: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+      paddingLeft: 40,
+      paddingTop: 2,
+    },
+    statusBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+    },
+    statusText: {
+      fontSize: 9,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      letterSpacing: 0.8,
+    },
+    activeDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+    },
+    cityText: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
     },
   });

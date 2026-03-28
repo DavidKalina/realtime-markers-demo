@@ -1,62 +1,57 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from "react-native";
-import Animated, {
-  FadeIn,
-  FadeOut,
-  LinearTransition,
-} from "react-native-reanimated";
-import { useRouter } from "expo-router";
-import { useFocusEffect } from "expo-router";
-import * as Haptics from "expo-haptics";
-import { ChevronRight } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
+import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useProfile } from "@/hooks/useProfile";
+import { useProfileInsights } from "@/hooks/useProfileInsights";
 import useUserStats from "@/hooks/useUserStats";
-import { useJobProgressContext } from "@/contexts/JobProgressContext";
+import { apiClient } from "@/services/ApiClient";
+import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import {
-  useColors,
-  useTheme,
-  type Colors,
-  type ThemeMode,
   duration,
   fontFamily,
   fontSize,
   fontWeight,
   radius,
   spacing,
+  useColors,
+  type Colors,
 } from "@/theme";
-import { apiClient } from "@/services/ApiClient";
 import { getUserTimezone } from "@/utils/dateTimeFormatting";
-import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
-import { useProfileInsights } from "@/hooks/useProfileInsights";
-import Screen from "../Layout/Screen";
+import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
+import { ChevronRight } from "lucide-react-native";
+import React, {
+  useCallback,
+  useMemo,
+  useRef,
+  useState
+} from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View
+} from "react-native";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from "react-native-reanimated";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
+import Screen from "../Layout/Screen";
 import QuestDialogBox from "../Quest/QuestDialogBox";
-import DeleteAccountModalComponent from "./DeleteAccountModal";
-import UserStatsCard from "./UserStatsCard";
 import ActiveQuestBanner from "./ActiveQuestBanner";
-import RecentCompletions from "./RecentCompletions";
 import ActivityHeatmap from "./ActivityHeatmap";
-import VenueDnaChart from "./VenueDnaChart";
 import AdventureDnaChart from "./AdventureDnaChart";
-import StreakCalendar from "./StreakCalendar";
 import AdventureFootprint from "./AdventureFootprint";
-import PersonalScoreHero from "./PersonalScoreHero";
 import AdventurePreferences from "./AdventurePreferences";
+import DeleteAccountModalComponent from "./DeleteAccountModal";
+import PersonalScoreHero from "./PersonalScoreHero";
+import RecentCompletions from "./RecentCompletions";
+import StreakCalendar from "./StreakCalendar";
+import UserStatsCard from "./UserStatsCard";
+import VenueDnaChart from "./VenueDnaChart";
 
 /* ─── Types ─── */
 
@@ -72,18 +67,12 @@ interface UserProfileProps {
   onBack?: () => void;
 }
 
-const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
-  { key: "light", label: "Light" },
-  { key: "dark", label: "Dark" },
-  { key: "system", label: "System" },
-];
 
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { user } = useAuth();
-  const { mode: themeMode, setMode: setThemeMode } = useTheme();
   const { userLocation } = useUserLocation();
   const { trackJob } = useJobProgressContext();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -132,10 +121,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     }
   }, [refetch, refetchStats, refetchInsights]);
 
-  const handleThemeChange = (mode: ThemeMode) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setThemeMode(mode);
-  };
 
   const handleSearch = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -280,32 +265,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             </Text>
           </View>
         ) : null}
-      </View>
-
-      {/* Appearance */}
-      <View style={styles.tabSection}>
-        <Text style={styles.sectionLabel}>APPEARANCE</Text>
-        <View style={styles.inlineRow}>
-          <Text style={styles.inlineRowLabel}>Theme</Text>
-          <View style={styles.pillGroup}>
-            {THEME_OPTIONS.map(({ key, label }) => (
-              <Pressable
-                key={key}
-                style={[styles.pill, themeMode === key && styles.pillActive]}
-                onPress={() => handleThemeChange(key)}
-              >
-                <Text
-                  style={[
-                    styles.pillText,
-                    themeMode === key && styles.pillTextActive,
-                  ]}
-                >
-                  {label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
       </View>
 
       {/* Adventure Preferences */}
@@ -600,32 +559,6 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.medium,
       textAlign: "right",
-    },
-    // Theme pills (compact)
-    pillGroup: {
-      flexDirection: "row",
-      gap: spacing.xs,
-    },
-    pill: {
-      paddingVertical: spacing.xs,
-      paddingHorizontal: spacing.md,
-      borderRadius: radius.full,
-      backgroundColor: colors.bg.elevated,
-      borderWidth: 1,
-      borderColor: colors.border.medium,
-    },
-    pillActive: {
-      backgroundColor: colors.accent.muted,
-      borderColor: colors.accent.border,
-    },
-    pillText: {
-      fontSize: fontSize.xs,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.secondary,
-    },
-    pillTextActive: {
-      color: colors.accent.primary,
     },
     // Inline actions
     inlineAction: {
