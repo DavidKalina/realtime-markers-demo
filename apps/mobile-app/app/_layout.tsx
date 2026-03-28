@@ -12,45 +12,13 @@ import { Stack, useNavigationContainerRef } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
-import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { isRunningInExpoGo } from "expo";
 
-// Suppress known React Native dev-only error triggered during reload
-// when Mapbox native modules send messages through the packager WebSocket.
-// LogBox handles the console.error path; the global handler catches the
-// native exception path that shows a red screen.
-LogBox.ignoreLogs([
-  "RCTPackagerConnection received message with not supported version",
-]);
-
-if (__DEV__) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const errorUtils = (global as any).ErrorUtils;
-  const originalHandler = errorUtils?.getGlobalHandler?.();
-  if (originalHandler) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    errorUtils.setGlobalHandler((error: any, isFatal: boolean) => {
-      if (
-        typeof error?.message === "string" &&
-        error.message.includes(
-          "RCTPackagerConnection received message with not supported version",
-        )
-      ) {
-        return;
-      }
-      originalHandler(error, isFatal);
-    });
-  }
-}
-
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
-import { MapStyleProvider } from "@/contexts/MapStyleContext";
 import { JobProgressProvider } from "@/contexts/JobProgressContext";
-// WebSocketProvider removed (event system deleted)
 import { ThemeProvider, useTheme } from "@/theme";
-import { usePathname } from "expo-router";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
 import { SENTRY_CONFIG, STACK_SCREEN_OPTIONS, SCREEN_CONFIGS } from "@/config";
@@ -102,9 +70,7 @@ function AppProviders({ children }: AppProvidersProps) {
       <AuthProvider>
         <LocationProvider>
           <JobProgressProvider>
-            <MapStyleProvider>
-              <NavigationThemeBridge>{children}</NavigationThemeBridge>
-            </MapStyleProvider>
+            <NavigationThemeBridge>{children}</NavigationThemeBridge>
           </JobProgressProvider>
         </LocationProvider>
       </AuthProvider>

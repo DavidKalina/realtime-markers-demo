@@ -23,7 +23,6 @@ import { useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { ChevronRight } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
-import { useMapStyle } from "@/contexts/MapStyleContext";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useProfile } from "@/hooks/useProfile";
 import useUserStats from "@/hooks/useUserStats";
@@ -88,7 +87,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { user } = useAuth();
-  const { isPitched, togglePitch } = useMapStyle();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
   const { userLocation } = useUserLocation();
   const { trackJob } = useJobProgress();
@@ -142,11 +140,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const handleThemeChange = (mode: ThemeMode) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setThemeMode(mode);
-  };
-
-  const handlePitchChange = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    togglePitch();
   };
 
   const handleSearch = useCallback(() => {
@@ -319,18 +312,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               </Pressable>
             ))}
           </View>
-        </View>
-        <View style={styles.inlineRow}>
-          <Text style={styles.inlineRowLabel}>3D Buildings</Text>
-          <Switch
-            value={isPitched}
-            onValueChange={handlePitchChange}
-            trackColor={{
-              false: colors.border.medium,
-              true: colors.accent.primary,
-            }}
-            thumbColor={colors.bg.elevated}
-          />
         </View>
       </View>
 

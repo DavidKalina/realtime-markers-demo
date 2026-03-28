@@ -1,9 +1,3 @@
-import { useUserLocation } from "@/contexts/LocationContext";
-import { useEventBroker } from "@/hooks/useEventBroker";
-import {
-  CameraAnimateToLocationEvent,
-  EventTypes,
-} from "@/services/EventBroker";
 import * as Haptics from "expo-haptics";
 import { usePathname, useRouter } from "expo-router";
 import {
@@ -148,9 +142,7 @@ export const ActionBar: React.FC = React.memo(() => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const pathname = usePathname();
-  const { publish } = useEventBroker();
   const insets = useSafeAreaInsets();
-  const { userLocation } = useUserLocation();
   const router = useRouter();
   const hasItineraryReady = useItineraryJobStore((s) => s.hasReady);
   const isItineraryGenerating = useItineraryJobStore((s) => !!s.activeJobId);
@@ -164,22 +156,7 @@ export const ActionBar: React.FC = React.memo(() => {
       }
 
       if (tab.key === "locate") {
-        if (pathname === "/") {
-          if (userLocation) {
-            publish<CameraAnimateToLocationEvent>(
-              EventTypes.CAMERA_ANIMATE_TO_LOCATION,
-              {
-                timestamp: Date.now(),
-                source: "ActionBar",
-                coordinates: userLocation,
-                duration: 1000,
-                zoomLevel: 15,
-              },
-            );
-          }
-        } else {
-          router.push("/");
-        }
+        router.push("/");
       } else if (tab.route) {
         if (tab.key === "itineraries" && hasItineraryReady) {
           useItineraryJobStore.getState().clearReady();
@@ -187,7 +164,7 @@ export const ActionBar: React.FC = React.memo(() => {
         router.push(tab.route);
       }
     },
-    [publish, userLocation, router, pathname],
+    [router, pathname],
   );
 
   const containerStyle = useMemo(
@@ -213,7 +190,7 @@ export const ActionBar: React.FC = React.memo(() => {
             key={tab.key}
             tab={tab}
             isActive={activeTab === tab.key}
-            disabled={!!tab.requiresLocation && !userLocation}
+            disabled={false}
             showBadge={
               tab.key === "itineraries" &&
                 (hasItineraryReady || isItineraryGenerating)

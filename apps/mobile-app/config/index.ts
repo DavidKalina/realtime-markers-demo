@@ -1,4 +1,3 @@
-export { DEFAULT_CAMERA_SETTINGS, createCameraSettings } from "./cameraConfig";
 export { SENTRY_CONFIG } from "./sentryConfig";
 export {
   STACK_SCREEN_OPTIONS,

@@ -11,7 +11,6 @@ import { Alert } from "react-native";
 import * as Location from "expo-location";
 import { useEventBroker } from "@/hooks/useEventBroker";
 import { EventTypes, BaseEvent } from "@/services/EventBroker";
-import MapboxGL from "@rnmapbox/maps";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Define the event types
@@ -218,36 +217,8 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({
           coordinates: userCoords,
         });
       } catch (expoError) {
-        console.warn("Expo location failed, trying Mapbox:", expoError);
-
-        // Fallback to Mapbox location
-        try {
-          const mapboxLocation =
-            await MapboxGL.locationManager.getLastKnownLocation();
-
-          if (mapboxLocation) {
-            const userCoords: [number, number] = [
-              mapboxLocation.coords.longitude,
-              mapboxLocation.coords.latitude,
-            ];
-            setUserLocation(userCoords);
-            await cacheLocation(userCoords);
-
-            publish<UserLocationEvent>(EventTypes.USER_LOCATION_UPDATED, {
-              timestamp: Date.now(),
-              source: "LocationContext",
-              coordinates: userCoords,
-            });
-          } else {
-            throw new Error("No location available from Mapbox");
-          }
-        } catch (mapboxError) {
-          console.error("Both location services failed:", {
-            expoError,
-            mapboxError,
-          });
-          throw new Error("Failed to get location from both services");
-        }
+        console.error("Location service failed:", expoError);
+        throw new Error("Failed to get location");
       }
     } catch (error) {
       console.error("Error getting location:", error);

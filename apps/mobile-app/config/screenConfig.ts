@@ -29,10 +29,6 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
   { name: "scan" },
   { name: "user" },
   {
-    name: "cluster",
-    options: { animation: "fade_from_bottom", animationDuration: 250 },
-  },
-  {
     name: "search/index",
     options: { presentation: "modal" },
   },
