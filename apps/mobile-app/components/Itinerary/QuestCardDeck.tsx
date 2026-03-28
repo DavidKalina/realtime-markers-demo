@@ -7,6 +7,7 @@ import Animated, {
   Easing,
   FadeInDown,
   interpolate,
+  LinearTransition,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -399,6 +400,7 @@ const QuestCard: React.FC<{
 
     return (
       <Animated.View
+        layout={LinearTransition.springify().damping(28).stiffness(180)}
         style={[
           s.card,
           { borderColor: tierMeta.border },
