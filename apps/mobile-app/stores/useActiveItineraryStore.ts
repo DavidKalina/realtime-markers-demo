@@ -1,10 +1,21 @@
+import * as Location from "expo-location";
 import { create } from "zustand";
 import type {
   ItineraryResponse,
   ItineraryItemResponse,
 } from "@/services/api/modules/sidequests";
 import { apiClient } from "@/services/ApiClient";
-import { startBackgroundLocationTracking } from "@/hooks/useBackgroundLocation";
+import {
+  startBackgroundLocationTracking,
+  stopBackgroundLocationTracking,
+} from "@/hooks/useBackgroundLocation";
+import {
+  startGeofencing,
+  updateGeofences,
+  stopGeofencing,
+  ensureGeofencesFromStore,
+} from "@/hooks/useGeofencing";
+import { sendLocationToBackend } from "@/utils/sendLocationToBackend";
 
 export interface CompletionData {
   itinerary: ItineraryResponse;
@@ -101,9 +112,17 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
         const { success } = await apiClient.sidequests.activate(itinerary.id);
         if (success) {
           set({ itinerary, isLoading: false });
-          // Start background location tracking when user activates an itinerary
-          // (contextual moment — they're about to go out)
+          // Start background location tracking + geofencing when user activates
           startBackgroundLocationTracking().catch(() => {});
+          startGeofencing(itinerary.objectives).catch(() => {});
+          // Immediate proximity check in case user is already at a venue
+          Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          })
+            .then((loc) =>
+              sendLocationToBackend(loc.coords.latitude, loc.coords.longitude),
+            )
+            .catch(() => {});
           return true;
         }
         set({ isLoading: false });
@@ -122,6 +141,8 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
       } catch (err) {
         console.error("[ActiveItinerary] Failed to deactivate:", err);
       }
+      stopGeofencing().catch(() => {});
+      stopBackgroundLocationTracking().catch(() => {});
       set({ itinerary: null, isLoading: false });
     },
 
@@ -138,6 +159,9 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
 
       // Always update the itinerary first so the pin celebration animation plays
       set({ itinerary: updatedItinerary });
+
+      // Update geofences: remove the checked-in objective's region
+      updateGeofences(updatedObjectives).catch(() => {});
 
       if (allChecked) {
         // Delay clearing the itinerary so the last pin's check-in animation
@@ -199,6 +223,9 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
 
           set({ itinerary: fetched });
         }
+
+        // Re-register geofences on app restart
+        ensureGeofencesFromStore().catch(() => {});
       } catch (err) {
         console.error("[ActiveItinerary] Failed to load active:", err);
       }
@@ -210,12 +237,14 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
       return replays;
     },
 
-    clear: () =>
+    clear: () => {
+      stopGeofencing().catch(() => {});
       set({
         itinerary: null,
         isLoading: false,
         completionData: null,
         pendingCheckinReplays: [],
-      }),
+      });
+    },
   }),
 );

@@ -24,10 +24,12 @@ export async function startBackgroundLocationTracking(): Promise<boolean> {
       return false;
     }
 
+    // Relaxed cadence — geofencing is the primary proximity trigger,
+    // background polling serves as a fallback for edge cases
     await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
-      accuracy: Location.Accuracy.Balanced,
-      deferredUpdatesDistance: 500, // 500m minimum movement
-      deferredUpdatesInterval: 900000, // 15 min minimum
+      accuracy: Location.Accuracy.Low,
+      deferredUpdatesDistance: 1000, // 1km minimum movement
+      deferredUpdatesInterval: 1800000, // 30 min minimum
       pausesUpdatesAutomatically: true, // iOS battery optimization
       activityType: Location.ActivityType.OtherNavigation,
       foregroundService: {
@@ -40,5 +42,19 @@ export async function startBackgroundLocationTracking(): Promise<boolean> {
   } catch (error) {
     console.error("[BackgroundLocation] Failed to start:", error);
     return false;
+  }
+}
+
+export async function stopBackgroundLocationTracking(): Promise<void> {
+  try {
+    const isRunning = await Location.hasStartedLocationUpdatesAsync(
+      BACKGROUND_LOCATION_TASK,
+    );
+    if (isRunning) {
+      await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+      console.log("[BackgroundLocation] Stopped");
+    }
+  } catch (error) {
+    console.error("[BackgroundLocation] Failed to stop:", error);
   }
 }

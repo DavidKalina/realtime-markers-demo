@@ -1,4 +1,5 @@
 import "@/tasks/backgroundLocationTask";
+import "@/tasks/geofenceTask";
 
 import React, { useEffect } from "react";
 import {

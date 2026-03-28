@@ -1,5 +1,6 @@
 import * as TaskManager from "expo-task-manager";
-import * as SecureStore from "expo-secure-store";
+
+import { sendLocationToBackend } from "@/utils/sendLocationToBackend";
 
 export const BACKGROUND_LOCATION_TASK = "background-location-task";
 
@@ -40,30 +41,7 @@ TaskManager.defineTask(
     const { longitude: lng, latitude: lat } = location.coords;
 
     try {
-      const token = await SecureStore.getItemAsync("accessToken");
-      if (!token) {
-        console.log("[BackgroundLocation] No auth token, skipping");
-        return;
-      }
-
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-      if (!apiUrl) {
-        console.error("[BackgroundLocation] No API URL configured");
-        return;
-      }
-
-      const response = await fetch(`${apiUrl}/api/users/location`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ lng, lat }),
-      });
-
-      if (!response.ok) {
-        console.error("[BackgroundLocation] API error:", response.status);
-      }
+      await sendLocationToBackend(lat, lng);
     } catch (err) {
       console.error("[BackgroundLocation] Failed to send location:", err);
     }
