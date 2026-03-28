@@ -467,7 +467,17 @@ const ItineraryDetailScreen = () => {
 
   // Compass overlay
   const [showCompass, setShowCompass] = useState(false);
-  const { userLocation } = useUserLocation();
+  const { userLocation, startLocationTracking, stopLocationTracking } = useUserLocation();
+
+  // Start continuous location tracking while this sidequest is active
+  useEffect(() => {
+    if (isThisActive) {
+      startLocationTracking();
+    }
+    return () => {
+      stopLocationTracking();
+    };
+  }, [isThisActive, startLocationTracking, stopLocationTracking]);
 
   // Use active store's data if this sidequest is active (has live checkin data)
   const displaySidequest =

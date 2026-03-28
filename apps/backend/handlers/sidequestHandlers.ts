@@ -410,3 +410,10 @@ export const selectSidequestOptionHandler: Handler = withErrorHandling(
     return c.json({ success: true });
   },
 );
+
+export const getDeckStatsHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const sidequestService = c.get("sidequestService") as SidequestService;
+  const stats = await sidequestService.getDeckStats(user.id);
+  return c.json(stats);
+});

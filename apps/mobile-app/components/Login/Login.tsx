@@ -12,7 +12,14 @@ import {
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ChevronDown, Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
+import {
+  ChevronDown,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  User,
+} from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -43,8 +50,7 @@ import Animated, {
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import AppHeader from "../AnimationHeader";
 import Input from "../Input/Input";
-
-
+import MiniDeck from "./MiniDeck";
 
 // Gradient overlay component
 const GradientOverlay: React.FC = React.memo(() => (
@@ -63,11 +69,31 @@ const GradientOverlay: React.FC = React.memo(() => (
 ));
 
 const DEV_ACCOUNTS = [
-  { email: "user@example.com", password: "user123", label: "Alex Explorer (User)" },
-  { email: "moderator@example.com", password: "moderator123", label: "Morgan Mod (Moderator)" },
-  { email: "admin@example.com", password: "admin123", label: "Sam Admin (Admin)" },
-  { email: "scout@example.com", password: "scout123", label: "Jamie Scout (User)" },
-  { email: "curator@example.com", password: "curator123", label: "Riley Curator (User)" },
+  {
+    email: "user@example.com",
+    password: "user123",
+    label: "Alex Explorer (User)",
+  },
+  {
+    email: "moderator@example.com",
+    password: "moderator123",
+    label: "Morgan Mod (Moderator)",
+  },
+  {
+    email: "admin@example.com",
+    password: "admin123",
+    label: "Sam Admin (Admin)",
+  },
+  {
+    email: "scout@example.com",
+    password: "scout123",
+    label: "Jamie Scout (User)",
+  },
+  {
+    email: "curator@example.com",
+    password: "curator123",
+    label: "Riley Curator (User)",
+  },
 ];
 
 const DevAccountPicker: React.FC<{
@@ -75,8 +101,6 @@ const DevAccountPicker: React.FC<{
 }> = React.memo(({ onSelect }) => {
   const colors = useColors();
   const [open, setOpen] = useState(false);
-
-  if (!__DEV__) return null;
 
   return (
     <View style={{ marginBottom: spacing.lg }}>
@@ -97,7 +121,13 @@ const DevAccountPicker: React.FC<{
           paddingVertical: spacing.sm,
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: spacing.sm,
+          }}
+        >
           <User size={14} color={colors.accent.primary} />
           <Text
             style={{
@@ -187,12 +217,14 @@ const Login: React.FC = () => {
   const passwordInputRef = useRef<TextInput>(null);
   const buttonScale = useSharedValue(1);
 
-
-  const handleDevSelect = useCallback((devEmail: string, devPassword: string) => {
-    setEmail(devEmail);
-    setPassword(devPassword);
-    setError(null);
-  }, []);
+  const handleDevSelect = useCallback(
+    (devEmail: string, devPassword: string) => {
+      setEmail(devEmail);
+      setPassword(devPassword);
+      setError(null);
+    },
+    [],
+  );
 
   const buttonAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -285,6 +317,10 @@ const Login: React.FC = () => {
           {/* Header area — flex: 1 compresses when keyboard opens */}
           <View style={styles.headerArea}>
             <AppHeader />
+          </View>
+
+          <View style={styles.deckArea}>
+            <MiniDeck />
           </View>
 
           {/* Form card — anchored at bottom */}
@@ -406,8 +442,16 @@ const createStyles = (colors: Colors) =>
 
     headerArea: {
       flex: 1,
+      justifyContent: "flex-end",
+      alignItems: "center",
+      overflow: "visible",
+    },
+
+    deckArea: {
+      flex: 1,
       justifyContent: "center",
       alignItems: "center",
+      overflow: "visible",
     },
 
     formWrapper: {

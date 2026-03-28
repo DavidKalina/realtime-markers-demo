@@ -1,10 +1,9 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { useJobProgressContext } from "@/contexts/JobProgressContext";
-import { useUserLocation } from "@/contexts/LocationContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useProfileInsights } from "@/hooks/useProfileInsights";
 import useUserStats from "@/hooks/useUserStats";
 import { apiClient } from "@/services/ApiClient";
+import type { DeckStatsResponse } from "@/services/api/modules/deckStats";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import {
   duration,
@@ -16,12 +15,12 @@ import {
   useColors,
   type Colors,
 } from "@/theme";
-import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { ChevronRight } from "lucide-react-native";
 import React, {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState
@@ -46,8 +45,9 @@ import ActivityHeatmap from "./ActivityHeatmap";
 import AdventureDnaChart from "./AdventureDnaChart";
 import AdventureFootprint from "./AdventureFootprint";
 import AdventurePreferences from "./AdventurePreferences";
+import DeckComposition from "./DeckComposition";
+import DeckHero from "./DeckHero";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
-import PersonalScoreHero from "./PersonalScoreHero";
 import RecentCompletions from "./RecentCompletions";
 import StreakCalendar from "./StreakCalendar";
 import UserStatsCard from "./UserStatsCard";
@@ -73,10 +73,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { user } = useAuth();
-  const { userLocation } = useUserLocation();
-  const { trackJob } = useJobProgressContext();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isGetAwayLoading, setIsGetAwayLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("adventures");
   const {
     loading,
@@ -102,8 +99,22 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
   const { data: insights, refetch: refetchInsights } = useProfileInsights();
 
+  const [deckStats, setDeckStats] = useState<DeckStatsResponse | null>(null);
+
+  const fetchDeckStats = useCallback(async () => {
+    try {
+      const stats = await apiClient.deckStats.getStats();
+      setDeckStats(stats);
+    } catch (err) {
+      console.error("[UserProfile] Failed to fetch deck stats:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDeckStats();
+  }, [fetchDeckStats]);
+
   const completionsRefetchRef = useRef<(() => Promise<void>) | null>(null);
-  const scoreRefetchRef = useRef<(() => Promise<void>) | null>(null);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -112,49 +123,20 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         refetch(),
         refetchStats(),
         refetchInsights(),
+        fetchDeckStats(),
         useActiveItineraryStore.getState().refresh(),
         completionsRefetchRef.current?.(),
-        scoreRefetchRef.current?.(),
       ]);
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetch, refetchStats, refetchInsights]);
+  }, [refetch, refetchStats, refetchInsights, fetchDeckStats]);
 
 
   const handleSearch = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push("/search" as const);
   }, [router]);
-
-  const handleGetAway = useCallback(async () => {
-    if (!userLocation || isGetAwayLoading) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsGetAwayLoading(true);
-
-    try {
-      const result = await apiClient.sidequests.createSidequest({
-        prompt: "",
-        radiusMiles: 30,
-        budgetMax: 50,
-        latitude: userLocation[1],
-        longitude: userLocation[0],
-        timezone: getUserTimezone(),
-        surpriseMe: true,
-      });
-
-      trackJob(result.jobId, result.sidequestId);
-      router.push({
-        pathname: "/itineraries/[id]" as const,
-        params: { id: result.sidequestId },
-      });
-    } catch (err) {
-      console.error("[UserProfile] Get Away failed:", err);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setIsGetAwayLoading(false);
-    }
-  }, [userLocation, isGetAwayLoading, trackJob, router]);
 
   const handleTabPress = useCallback((tab: ProfileTab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -165,6 +147,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
   const renderAdventuresTab = () => (
     <>
+      {/* Deck Composition */}
+      <View style={styles.tabSection}>
+        <DeckComposition data={deckStats} />
+      </View>
+
       {/* Recent Completions (rate unrated) */}
       <View style={styles.tabSection}>
         <RecentCompletions onRefetchRef={completionsRefetchRef} />
@@ -340,16 +327,16 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
           {!loading && (
             <>
-              {/* Hero: Personal Score */}
+              {/* Hero: Deck Summary */}
               <Animated.View
                 entering={FadeIn.duration(duration.normal)}
                 style={styles.heroSection}
               >
-                <PersonalScoreHero
+                <DeckHero
+                  data={deckStats}
                   totalXp={profileData?.totalXp || 0}
                   currentStreak={profileData?.currentStreak || 0}
                   longestStreak={profileData?.longestStreak || 0}
-                  onRefetchRef={scoreRefetchRef}
                 />
               </Animated.View>
 
@@ -359,36 +346,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 style={styles.heroSection}
               >
                 <ActiveQuestBanner />
-              </Animated.View>
-
-              {/* Get Away button */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(130)}
-                style={styles.heroSection}
-              >
-                <Pressable
-                  style={[
-                    styles.getAwayButton,
-                    isGetAwayLoading && { opacity: 0.6 },
-                  ]}
-                  disabled={isGetAwayLoading}
-                  onPress={handleGetAway}
-                >
-                  {isGetAwayLoading ? (
-                    <ActivityIndicator size="small" color={colors.text.inverse} />
-                  ) : (
-                    <Text style={styles.getAwayEmoji}>{"\u{1F3B2}"}</Text>
-                  )}
-                  <View style={styles.getAwayInfo}>
-                    <Text style={styles.getAwayTitle}>Get Away</Text>
-                    <Text style={styles.getAwaySub}>
-                      {isGetAwayLoading
-                        ? "Generating adventure..."
-                        : "Instant adventure near you"}
-                    </Text>
-                  </View>
-                  <ChevronRight size={14} color={colors.text.inverse} />
-                </Pressable>
               </Animated.View>
 
               {/* Tab bar */}
@@ -468,32 +425,6 @@ const createStyles = (colors: Colors) =>
     heroSection: {
       paddingHorizontal: spacing.lg,
       marginBottom: spacing.lg,
-    },
-    getAwayButton: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.accent.primary,
-      borderRadius: radius.lg,
-      padding: spacing.md,
-      gap: spacing.sm,
-    },
-    getAwayEmoji: {
-      fontSize: 22,
-    },
-    getAwayInfo: {
-      flex: 1,
-    },
-    getAwayTitle: {
-      fontSize: fontSize.sm,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      color: colors.text.inverse,
-    },
-    getAwaySub: {
-      fontSize: fontSize.xs,
-      fontFamily: fontFamily.mono,
-      color: colors.text.inverse,
-      opacity: 0.8,
     },
     // Tab bar (pill-shaped, matches CityDetailContent)
     tabBar: {
@@ -583,25 +514,6 @@ const createStyles = (colors: Colors) =>
       fontSize: fontSize.sm,
       fontWeight: fontWeight.medium,
       fontFamily: fontFamily.mono,
-    },
-    // Surprise Me CTA
-    surpriseCta: {
-      borderWidth: 1.5,
-      borderColor: colors.accent.primary,
-      borderRadius: radius.lg,
-      paddingVertical: spacing.md + 2,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    surpriseCtaPressed: {
-      opacity: 0.6,
-    },
-    surpriseCtaText: {
-      fontSize: fontSize.md,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      color: colors.accent.primary,
-      letterSpacing: 0.5,
     },
   });
 

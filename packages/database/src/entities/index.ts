@@ -6,6 +6,6 @@ export * from "./Sidequest";
 export * from "./Objective";
 export * from "./ObjectiveCheckin";
 export * from "./UserBadge";
-export * from "./AdventureScoreSnapshot";
+
 export * from "./District";
 export * from "./DistrictSnapshot";

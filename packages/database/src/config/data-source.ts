@@ -10,7 +10,6 @@ import {
   Objective,
   ObjectiveCheckin,
   UserBadge,
-  AdventureScoreSnapshot,
   District,
   DistrictSnapshot,
 } from "../entities";
@@ -28,7 +27,6 @@ export const createDataSource = (databaseUrl: string): DataSource => {
       Objective,
       ObjectiveCheckin,
       UserBadge,
-      AdventureScoreSnapshot,
       District,
       DistrictSnapshot,
     ],

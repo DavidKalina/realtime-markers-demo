@@ -28,8 +28,6 @@ import { createOverpassService } from "./shared/OverpassService";
 import type { OverpassService } from "./shared/OverpassService";
 import { createSidequestCheckinService } from "./SidequestCheckinService";
 import type { SidequestCheckinService } from "./SidequestCheckinService";
-import { createAdventureScoreService } from "./AdventureScoreService";
-import type { AdventureScoreService } from "./AdventureScoreService";
 
 export interface ServiceContainer {
   storageService: StorageService;
@@ -43,7 +41,6 @@ export interface ServiceContainer {
   sidequestService: SidequestService;
   sidequestCheckinService: SidequestCheckinService;
   overpassService: OverpassService;
-  adventureScoreService: AdventureScoreService;
 }
 
 export class ServiceInitializer {
@@ -116,11 +113,6 @@ export class ServiceInitializer {
       redisService,
     });
 
-    const adventureScoreService = createAdventureScoreService({
-      dataSource: this.dataSource,
-      redisService,
-    });
-
     const sidequestCheckinService = createSidequestCheckinService({
       dataSource: this.dataSource,
       pushService: pushNotificationService,
@@ -141,7 +133,6 @@ export class ServiceInitializer {
       sidequestService,
       sidequestCheckinService,
       overpassService,
-      adventureScoreService,
     };
   }
 

@@ -16,6 +16,7 @@ import {
   browseSidequestsHandler,
   getSidequestOptionsHandler,
   selectSidequestOptionHandler,
+  getDeckStatsHandler,
 } from "../handlers/sidequestHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -49,6 +50,7 @@ sidequestRouter.get("/", readRateLimit, listSidequestsHandler);
 sidequestRouter.get("/completed", readRateLimit, listCompletedHandler);
 sidequestRouter.get("/active", readRateLimit, getActiveSidequestHandler);
 sidequestRouter.get("/browse", readRateLimit, browseSidequestsHandler);
+sidequestRouter.get("/deck-stats", readRateLimit, getDeckStatsHandler);
 sidequestRouter.get("/:id", readRateLimit, getSidequestHandler);
 sidequestRouter.get("/:id/options", readRateLimit, getSidequestOptionsHandler);
 sidequestRouter.post("/", writeRateLimit, createSidequestHandler);

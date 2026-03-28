@@ -20,7 +20,7 @@ export function setupContext(
     c.set("sidequestService", services.sidequestService);
     c.set("sidequestCheckinService", services.sidequestCheckinService);
     c.set("overpassService", services.overpassService);
-    c.set("adventureScoreService", services.adventureScoreService);
+
     await next();
   });
 }

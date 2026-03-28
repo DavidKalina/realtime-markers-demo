@@ -154,6 +154,7 @@ export interface SidequestService {
   ): Promise<Sidequest | null>;
   countCreatedSince(userId: string, since: Date): Promise<number>;
   listCompleted(userId: string, limit?: number): Promise<Sidequest[]>;
+  getDeckStats(userId: string): Promise<DeckStats>;
   browsePublished(options: BrowsePublishedOptions): Promise<BrowseSidequest[]>;
   listPublishedInternal(
     page: number,
@@ -216,6 +217,17 @@ export interface BrowseSidequest {
     title: string;
     venueName: string | null;
   }[];
+}
+
+export interface DeckStats {
+  totalCards: number;
+  cardsPlayed: number;
+  cardsActive: number;
+  cardsInDeck: number;
+  newThisWeek: number;
+  byTier: { tier: string; label: string; count: number }[];
+  byStatus: { status: string; label: string; count: number }[];
+  recentCards: { name: string; tier: string; daysAgo: number }[];
 }
 
 interface SidequestServiceDeps {
@@ -1565,6 +1577,83 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are clo
     } catch (error) {
       console.error("[SidequestService] Error publishing change:", error);
     }
+  }
+
+  async getDeckStats(userId: string): Promise<DeckStats> {
+    const repo = this.dataSource.getRepository(Sidequest);
+
+    // All user's top-level READY sidequests (selected cards)
+    const cards = await repo.find({
+      where: {
+        userId,
+        status: SidequestStatus.READY,
+        parentId: IsNull(),
+      },
+      relations: ["objectives"],
+      order: { createdAt: "DESC" },
+    });
+
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    let completed = 0;
+    let active = 0;
+    let unplayed = 0;
+    let newThisWeek = 0;
+    const tierCounts: Record<string, number> = { QUICK: 0, SWEET_SPOT: 0, BEST: 0 };
+
+    for (const card of cards) {
+      // Tier
+      if (card.tier && tierCounts[card.tier] !== undefined) {
+        tierCounts[card.tier]++;
+      }
+
+      // Status
+      if (card.completedAt) {
+        completed++;
+      } else if (card.objectives?.some((o) => o.checkedInAt)) {
+        active++;
+      } else {
+        unplayed++;
+      }
+
+      // New this week
+      if (card.createdAt >= weekAgo) {
+        newThisWeek++;
+      }
+    }
+
+    const totalCards = cards.length;
+
+    // Recent cards (last 5 added)
+    const recentCards = cards.slice(0, 5).map((card) => {
+      const diffMs = now.getTime() - card.createdAt.getTime();
+      const daysAgo = Math.max(0, Math.floor(diffMs / (24 * 60 * 60 * 1000)));
+      return {
+        name: card.title || "Untitled Quest",
+        tier: card.tier || "QUICK",
+        daysAgo,
+      };
+    });
+
+    return {
+      totalCards,
+      cardsPlayed: completed,
+      cardsActive: active,
+      cardsInDeck: unplayed,
+      newThisWeek,
+      byTier: [
+        { tier: "QUICK", label: "Quick & Easy", count: tierCounts.QUICK },
+        { tier: "SWEET_SPOT", label: "Sweet Spot", count: tierCounts.SWEET_SPOT },
+        { tier: "BEST", label: "Best Package", count: tierCounts.BEST },
+      ],
+      byStatus: [
+        { status: "completed", label: "Completed", count: completed },
+        { status: "active", label: "Active", count: active },
+        { status: "unplayed", label: "Unplayed", count: unplayed },
+      ],
+      recentCards,
+    };
   }
 }
 

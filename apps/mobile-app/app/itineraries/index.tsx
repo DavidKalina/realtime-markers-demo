@@ -50,7 +50,7 @@ const OPTIONS_TIMEOUT = 90_000; // 90 seconds before giving up on polling
 const OptionsOverlay: React.FC<{
   parentId: string;
   visible: boolean;
-  onSelected: () => void;
+  onSelected: (selected?: SidequestResponse) => void;
   colors: Colors;
   mockOptions?: SidequestResponse[];
 }> = React.memo(({ parentId, visible, onSelected, colors, mockOptions }) => {
@@ -137,7 +137,7 @@ const OptionsOverlay: React.FC<{
         if (!mockOptions) {
           await apiClient.sidequests.selectOption(option.id);
         }
-        onSelected();
+        onSelected(option);
       } catch (err) {
         console.error("[OptionsOverlay] Failed to select:", err);
         setIsSelecting(false);
@@ -389,14 +389,22 @@ const ItinerariesListScreen = () => {
     })();
   }, []);
 
-  const handleOptionSelected = useCallback(() => {
-    setShowOptions(false);
-    clearReady();
-    // Small delay to let the backend commit the child-to-parent promotion
-    // before we re-fetch the list, avoiding stale/empty data.
-    setTimeout(() => fetchItineraries(), 500);
-    AsyncStorage.removeItem(PENDING_GENERATION_KEY).catch(() => {});
-  }, [clearReady, fetchItineraries]);
+  const handleOptionSelected = useCallback(
+    (selected?: SidequestResponse) => {
+      setShowOptions(false);
+      clearReady();
+      // Optimistically prepend the selected card so it appears immediately
+      // in browse mode without waiting for the backend round-trip.
+      if (selected) {
+        setItineraries((prev) => [selected, ...prev]);
+      }
+      // Still re-fetch in background to reconcile with the actual server state
+      // (the backend promotes the child → parent, so IDs/fields may shift).
+      setTimeout(() => fetchItineraries(), 800);
+      AsyncStorage.removeItem(PENDING_GENERATION_KEY).catch(() => {});
+    },
+    [clearReady, fetchItineraries],
+  );
 
   const totalCards = itineraries.length;
 
@@ -672,11 +680,17 @@ const ItinerariesListScreen = () => {
     }, 10000);
   }, []);
 
-  const handleSimOptionSelected = useCallback(() => {
-    setSimShowOptions(false);
-    setSimulating(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, []);
+  const handleSimOptionSelected = useCallback(
+    (selected?: SidequestResponse) => {
+      setSimShowOptions(false);
+      setSimulating(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (selected) {
+        setItineraries((prev) => [selected, ...prev]);
+      }
+    },
+    [],
+  );
 
   const effectiveShowOptions = simulating ? simShowOptions : showOptions;
 
@@ -787,7 +801,7 @@ const ItinerariesListScreen = () => {
         />
 
         {/* DEV: Simulate generation flow */}
-        {/* {__DEV__ && (
+        {__DEV__ && (
           <Pressable
             onPress={startSimulation}
             style={{
@@ -810,7 +824,7 @@ const ItinerariesListScreen = () => {
               DEV: Simulate Generation
             </Text>
           </Pressable>
-        )} */}
+        )}
       </View>
 
       {/* Options fan-out overlay */}

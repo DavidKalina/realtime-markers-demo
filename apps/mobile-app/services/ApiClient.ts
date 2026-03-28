@@ -4,7 +4,7 @@ import { BaseApiClient } from "./api/base/ApiClient";
 import { AuthModule } from "./api/modules/auth";
 import { PushNotificationsModule } from "./api/modules/pushNotifications";
 import { SidequestsModule } from "./api/modules/sidequests";
-import { AdventureScoreModule } from "./api/modules/adventureScore";
+import { DeckStatsModule } from "./api/modules/deckStats";
 import { ProfileInsightsModule } from "./api/modules/profileInsights";
 
 // Re-export types and enums
@@ -12,7 +12,8 @@ export * from "./api/base/types";
 export * from "./api/modules/auth";
 export * from "./api/modules/pushNotifications";
 export * from "./api/modules/sidequests";
-export * from "./api/modules/adventureScore";
+
+export * from "./api/modules/deckStats";
 export * from "./api/modules/profileInsights";
 
 class ApiClient extends BaseApiClient {
@@ -20,7 +21,8 @@ class ApiClient extends BaseApiClient {
   private _auth: AuthModule | null = null;
   private _pushNotifications: PushNotificationsModule | null = null;
   private _sidequests: SidequestsModule | null = null;
-  private _adventureScore: AdventureScoreModule | null = null;
+
+  private _deckStats: DeckStatsModule | null = null;
   private _profileInsights: ProfileInsightsModule | null = null;
 
   private constructor(baseUrl: string) {
@@ -60,11 +62,11 @@ class ApiClient extends BaseApiClient {
     return this._sidequests;
   }
 
-  public get adventureScore(): AdventureScoreModule {
-    if (!this._adventureScore) {
-      this._adventureScore = new AdventureScoreModule(this);
+  public get deckStats(): DeckStatsModule {
+    if (!this._deckStats) {
+      this._deckStats = new DeckStatsModule(this);
     }
-    return this._adventureScore;
+    return this._deckStats;
   }
 
   public get profileInsights(): ProfileInsightsModule {

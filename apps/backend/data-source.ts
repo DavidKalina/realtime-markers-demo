@@ -11,7 +11,6 @@ import {
   Objective,
   ObjectiveCheckin,
   UserBadge,
-  AdventureScoreSnapshot,
   District,
   DistrictSnapshot,
 } from "@realtime-markers/database";
@@ -33,14 +32,13 @@ const AppDataSource = new DataSource({
     Objective,
     ObjectiveCheckin,
     UserBadge,
-    AdventureScoreSnapshot,
     District,
     DistrictSnapshot,
   ],
   migrations: [join(currentDir, "migrations", "*.ts")],
   migrationsTableName: "migrations",
-  synchronize: true, // TODO: remove before production — auto-syncs schema from entities
-  migrationsRun: false, // Disable automatic migration running
+  synchronize: false,
+  migrationsRun: true,
   logging: ["error"],
   ssl: false,
   poolSize: 50,

@@ -9,7 +9,6 @@ import type { EmailService } from "../services/shared/EmailService";
 import type { SidequestService } from "../services/SidequestService";
 import type { SidequestCheckinService } from "../services/SidequestCheckinService";
 import type { OverpassService } from "../services/shared/OverpassService";
-import type { AdventureScoreService } from "../services/AdventureScoreService";
 import type { EmbeddingServiceImpl } from "../services/shared/EmbeddingService";
 import type { DistrictService } from "../services/DistrictService";
 
@@ -24,7 +23,7 @@ export interface AppVariables {
   sidequestService: SidequestService;
   sidequestCheckinService: SidequestCheckinService;
   overpassService: OverpassService;
-  adventureScoreService: AdventureScoreService;
+
   embeddingService: EmbeddingServiceImpl;
   districtService: DistrictService;
   user?: { id: string; email: string; role: string; userId?: string };
