@@ -1,7 +1,6 @@
 /* eslint-disable prefer-const */
 import { createStyles as createHomeScreenStyles } from "@/components/homeScreenStyles";
 import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
-import StatusBar from "@/components/StatusBar/StatusBar";
 import { createCameraSettings } from "@/config/cameraConfig";
 import { useRouter } from "expo-router";
 import { useUserLocation } from "@/contexts/LocationContext";
@@ -220,12 +219,7 @@ function HomeScreenContent() {
 
   const statusBarSection = useMemo(() => {
     if (isLoadingLocation) return null;
-    return (
-      <>
-        <StatusBar />
-        <View style={styles.statusBarSpacer} />
-      </>
-    );
+    return <View style={styles.statusBarSpacer} />;
   }, [isLoadingLocation]);
 
   const floatingButtonsSection = useMemo(
