@@ -300,6 +300,7 @@ const ItinerariesListScreen = () => {
 
   const PAGE_SIZE = 20;
   const [itineraries, setItineraries] = useState<ItineraryResponse[]>([]);
+  const [discardingId, setDiscardingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const cursorRef = useRef<string | null>(null);
   const hasMoreRef = useRef(true);
@@ -375,18 +376,26 @@ const ItinerariesListScreen = () => {
         {
           text: "Delete",
           style: "destructive",
-          onPress: async () => {
+          onPress: () => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setItineraries((prev) => prev.filter((it) => it.id !== option.id));
-            try {
-              await apiClient.sidequests.deleteById(option.id);
-            } catch (err) {
-              console.error("[Itineraries] Failed to delete:", err);
-              fetchItineraries();
-            }
+            setDiscardingId(option.id);
           },
         },
       ]);
+    },
+    [],
+  );
+
+  const handleDiscardComplete = useCallback(
+    async (id: string) => {
+      setDiscardingId(null);
+      setItineraries((prev) => prev.filter((it) => it.id !== id));
+      try {
+        await apiClient.sidequests.deleteById(id);
+      } catch (err) {
+        console.error("[Itineraries] Failed to delete:", err);
+        fetchItineraries();
+      }
     },
     [fetchItineraries],
   );
@@ -726,6 +735,8 @@ const ItinerariesListScreen = () => {
           activeItineraryId={activeItineraryId}
           onPress={handlePress}
           onDelete={handleDelete}
+          discardingId={discardingId}
+          onDiscardComplete={handleDiscardComplete}
         />
 
         {/* DEV: Simulate generation flow */}

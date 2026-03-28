@@ -31,7 +31,6 @@ import {
 } from "@/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.15;
 const CARD_WIDTH = SCREEN_WIDTH * 0.72;
 const CARD_HEIGHT = CARD_WIDTH * 1.4; // ~5:7 trading card ratio
 const CARD_GAP = 12;
@@ -73,8 +72,12 @@ interface QuestCardDeckProps {
   activeItineraryId?: string | null;
   /** Browse mode: tap a card */
   onPress?: (option: SidequestResponse) => void;
-  /** Browse mode: long-press a card */
+  /** Browse mode: long-press a card (show confirmation) */
   onDelete?: (option: SidequestResponse) => void;
+  /** Browse mode: ID of card currently being discarded (triggers slide-down) */
+  discardingId?: string | null;
+  /** Browse mode: called after discard animation completes */
+  onDiscardComplete?: (id: string) => void;
 }
 
 // --- Diagonal card sheen sweep ---
@@ -177,6 +180,8 @@ const QuestCard: React.FC<{
   onSelect?: (option: SidequestResponse) => void;
   onPress?: (option: SidequestResponse) => void;
   onDelete?: (option: SidequestResponse) => void;
+  onDiscardComplete?: (id: string) => void;
+  isDiscarding?: boolean;
   mode: "select" | "browse";
   activeItineraryId?: string | null;
   colors: Colors;
@@ -190,6 +195,8 @@ const QuestCard: React.FC<{
     onSelect,
     onPress,
     onDelete,
+    onDiscardComplete,
+    isDiscarding,
     mode,
     activeItineraryId,
     colors,
@@ -205,6 +212,23 @@ const QuestCard: React.FC<{
     const checkedInCount = isBrowse
       ? (option.objectives ?? []).filter((o) => o.checkedInAt).length
       : 0;
+
+    // Discard animation (browse mode delete)
+    const discardProgress = useSharedValue(0);
+    const discardDone = useCallback(() => {
+      onDiscardComplete?.(option.id);
+    }, [option.id, onDiscardComplete]);
+    useEffect(() => {
+      if (isDiscarding) {
+        discardProgress.value = withTiming(
+          1,
+          { duration: 350, easing: Easing.in(Easing.ease) },
+          () => {
+            scheduleOnRN(discardDone);
+          },
+        );
+      }
+    }, [isDiscarding]);
 
     // Track when card transitions from generating to ready
     const wasGenerating = useRef(!isReady);
@@ -346,14 +370,21 @@ const QuestCard: React.FC<{
       const scale = interpolate(absDist, [0, SNAP_WIDTH], [1, 0.9], "clamp");
       const opacity = interpolate(absDist, [0, SNAP_WIDTH], [1, 0.6], "clamp");
 
+      // Discard: slide down + rotate + shrink + fade
+      const d = discardProgress.value;
+      const discardY = interpolate(d, [0, 1], [0, CARD_HEIGHT * 0.8]);
+      const discardRotate = interpolate(d, [0, 1], [0, 15]);
+      const discardScale = interpolate(d, [0, 1], [1, 0.7]);
+      const discardOpacity = interpolate(d, [0, 0.6, 1], [1, 0.5, 0]);
+
       return {
         transform: [
           { translateX: tugX.value },
-          { translateY: bobY.value + tugY.value },
-          { scale },
-          { rotate: `${tugRotate.value}deg` },
+          { translateY: bobY.value + tugY.value + discardY },
+          { scale: scale * discardScale },
+          { rotate: `${tugRotate.value + discardRotate}deg` },
         ],
-        opacity,
+        opacity: opacity * discardOpacity,
       };
     });
 
@@ -697,6 +728,8 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
   activeItineraryId,
   onPress,
   onDelete,
+  discardingId,
+  onDiscardComplete,
 }) => {
   const colors = useColors();
   const s = useMemo(() => createDeckStyles(colors), [colors]);
@@ -806,6 +839,8 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
                 onSelect={handleSelect}
                 onPress={onPress}
                 onDelete={onDelete}
+                onDiscardComplete={onDiscardComplete}
+                isDiscarding={discardingId === option.id}
                 mode={mode}
                 activeItineraryId={activeItineraryId}
                 colors={colors}
@@ -861,16 +896,18 @@ const createDeckStyles = (colors: Colors) =>
       marginTop: spacing.md,
     },
     label: {
-      fontSize: 10,
+      fontSize: 12,
       fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.label,
-      letterSpacing: 1,
+      fontWeight: fontWeight.bold,
+      color: colors.text.primary,
+      letterSpacing: 1.5,
+      paddingHorizontal: spacing.lg,
     },
     hint: {
-      fontSize: 10,
+      fontSize: 11,
       fontFamily: fontFamily.mono,
-      color: colors.text.disabled,
+      color: colors.text.secondary,
+      paddingHorizontal: spacing.lg,
       marginBottom: spacing.xs,
     },
     carouselClip: {
