@@ -39,6 +39,7 @@ const AppDataSource = new DataSource({
   ],
   migrations: [join(currentDir, "migrations", "*.ts")],
   migrationsTableName: "migrations",
+  synchronize: true, // TODO: remove before production — auto-syncs schema from entities
   migrationsRun: false, // Disable automatic migration running
   logging: ["error"],
   ssl: false,

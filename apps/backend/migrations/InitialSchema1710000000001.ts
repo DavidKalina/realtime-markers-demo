@@ -19,6 +19,11 @@ export class InitialSchema1710000000001 implements MigrationInterface {
         CREATE TYPE "sidequest_status_enum" AS ENUM ('GENERATING', 'READY', 'FAILED');
       EXCEPTION WHEN duplicate_object THEN NULL; END $$
     `);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE TYPE "sidequest_tier_enum" AS ENUM ('QUICK', 'SWEET_SPOT', 'BEST');
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$
+    `);
 
     // ── users ───────────────────────────────────────────────────────────
     await queryRunner.query(`
@@ -188,6 +193,7 @@ export class InitialSchema1710000000001 implements MigrationInterface {
         "status" "sidequest_status_enum" NOT NULL DEFAULT 'GENERATING',
         "activity_types" text[] NOT NULL DEFAULT '{}',
         "intention" varchar(50),
+        "tier" "sidequest_tier_enum",
         "parent_id" uuid,
         "share_token" uuid,
         "rating" smallint,

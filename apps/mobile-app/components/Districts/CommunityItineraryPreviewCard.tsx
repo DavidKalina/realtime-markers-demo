@@ -85,7 +85,7 @@ const CommunityItineraryPreviewCardInner: React.FC<
 
         {/* Emoji trail */}
         <View style={styles.emojiTrailRow}>
-          {itinerary.items.map((item, i) => (
+          {itinerary.objectives.map((item, i) => (
             <React.Fragment key={i}>
               {i > 0 && <Text style={styles.emojiArrow}>{"\u2192"}</Text>}
               <Text style={styles.emojiItem}>{item.emoji ?? "\u{1F4CD}"}</Text>

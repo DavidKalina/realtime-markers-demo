@@ -24,35 +24,7 @@ import {
   spacing,
   type Colors,
 } from "@/theme";
-import type {
-  ItineraryItemResponse,
-  DayForecast,
-  HourlyForecast,
-} from "@/services/api/modules/sidequests";
-
-// WMO weather code → emoji mapping
-function weatherEmoji(code: number): string {
-  if (code === 0) return "\u2600\uFE0F"; // Clear sky
-  if (code <= 3) return "\u26C5"; // Partly cloudy / overcast
-  if (code <= 48) return "\uD83C\uDF2B\uFE0F"; // Fog
-  if (code <= 57) return "\uD83C\uDF27\uFE0F"; // Drizzle
-  if (code <= 67) return "\uD83C\uDF27\uFE0F"; // Rain
-  if (code <= 77) return "\u2744\uFE0F"; // Snow
-  if (code <= 82) return "\uD83C\uDF26\uFE0F"; // Rain showers
-  if (code <= 86) return "\uD83C\uDF28\uFE0F"; // Snow showers
-  if (code >= 95) return "\u26C8\uFE0F"; // Thunderstorm
-  return "\u2601\uFE0F"; // Fallback cloudy
-}
-
-function getHourlyForTime(
-  forecast: DayForecast | undefined,
-  startTime: string,
-): HourlyForecast | null {
-  if (!forecast?.hourly) return null;
-  const hour = parseInt(startTime.split(":")[0], 10);
-  if (isNaN(hour)) return null;
-  return forecast.hourly.find((h) => h.hour === hour) ?? null;
-}
+import type { ObjectiveResponse } from "@/services/api/modules/sidequests";
 
 // Rotating accent colors for each stop
 const STOP_COLORS = [
@@ -68,11 +40,10 @@ const STOP_COLORS = [
 const CHECKIN_GREEN = "#22c55e";
 
 interface ItineraryTimelineProps {
-  items: ItineraryItemResponse[];
-  forecast?: DayForecast;
+  items: ObjectiveResponse[];
   isActive?: boolean;
   onCheckin?: (itemId: string) => void;
-  onItemPress?: (item: ItineraryItemResponse) => void;
+  onItemPress?: (item: ObjectiveResponse) => void;
   scrollRef?: React.RefObject<ScrollView | null>;
 }
 
@@ -108,7 +79,7 @@ const AnimatedCost: React.FC<{ value: number; startDelay: number }> = ({
 // --- Single timeline stop (chain-animated) ---
 
 interface TimelineStopProps {
-  item: ItineraryItemResponse;
+  item: ObjectiveResponse;
   index: number;
   isFirst: boolean;
   isLast: boolean;
@@ -117,13 +88,12 @@ interface TimelineStopProps {
   onRevealComplete: () => void;
   isActive?: boolean;
   onCheckin?: (itemId: string) => void;
-  onItemPress?: (item: ItineraryItemResponse) => void;
-  weather?: HourlyForecast | null;
+  onItemPress?: (item: ObjectiveResponse) => void;
 }
 
 const CONTENT_DURATION = 350;
 const RAIL_DURATION = 280;
-const RAIL_PAUSE = 80; // pause before content slides in
+const RAIL_PAUSE = 80;
 
 const TimelineStop = React.memo(
   ({
@@ -137,7 +107,6 @@ const TimelineStop = React.memo(
     isActive,
     onCheckin,
     onItemPress,
-    weather,
   }: TimelineStopProps) => {
     const colors = useColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -145,14 +114,12 @@ const TimelineStop = React.memo(
     const isCheckedIn = !!item.checkedInAt;
 
     // Animation shared values
-    const railProgress = useSharedValue(0); // 0→1: line grows down
+    const railProgress = useSharedValue(0);
     const dotScale = useSharedValue(0);
     const contentOpacity = useSharedValue(0);
     const contentTranslateX = useSharedValue(12);
-    const travelOpacity = useSharedValue(0);
     const checkinScale = useSharedValue(isCheckedIn ? 1 : 0);
 
-    // Stable callbacks for scheduleOnRN
     const onRevealRef = useRef(onRevealComplete);
     onRevealRef.current = onRevealComplete;
     const fireRevealComplete = useCallback(() => {
@@ -162,19 +129,9 @@ const TimelineStop = React.memo(
     useEffect(() => {
       if (!isRevealed) return;
 
-      const hasTravelNote = !isFirst && !!item.travelNote;
       let t = 0;
 
-      // Step 1: If there's a travel note, fade it in first
-      if (hasTravelNote) {
-        travelOpacity.value = withDelay(
-          t,
-          withTiming(1, { duration: 200, easing: Easing.out(Easing.cubic) }),
-        );
-        t += 180;
-      }
-
-      // Step 2: Grow the rail line down (if not first and no travel note, show lineAbove)
+      // Step 1: Grow the rail line down
       if (!isFirst) {
         railProgress.value = withDelay(
           t,
@@ -183,17 +140,17 @@ const TimelineStop = React.memo(
             easing: Easing.out(Easing.cubic),
           }),
         );
-        t += RAIL_DURATION * 0.6; // overlap slightly
+        t += RAIL_DURATION * 0.6;
       }
 
-      // Step 3: Pop in the dot
+      // Step 2: Pop in the dot
       dotScale.value = withDelay(
         t,
         withTiming(1, { duration: 250, easing: Easing.out(Easing.back(1.8)) }),
       );
       t += 150;
 
-      // Step 4: Slide in content from right
+      // Step 3: Slide in content from right
       contentOpacity.value = withDelay(
         t + RAIL_PAUSE,
         withTiming(1, {
@@ -210,7 +167,6 @@ const TimelineStop = React.memo(
             easing: Easing.out(Easing.cubic),
           },
           (finished) => {
-            // Chain: signal the next stop to start
             if (finished) {
               scheduleOnRN(fireRevealComplete);
             }
@@ -219,11 +175,9 @@ const TimelineStop = React.memo(
       );
     }, [isRevealed]);
 
-    // Animate check-in when status changes from unchecked → checked
     const prevCheckedRef = useRef(isCheckedIn);
     useEffect(() => {
       if (isCheckedIn && !prevCheckedRef.current) {
-        // Bounce animation for newly checked-in items
         checkinScale.value = withSequence(
           withTiming(1.3, { duration: 200, easing: Easing.out(Easing.cubic) }),
           withTiming(1, { duration: 150, easing: Easing.out(Easing.cubic) }),
@@ -232,7 +186,6 @@ const TimelineStop = React.memo(
       prevCheckedRef.current = isCheckedIn;
     }, [isCheckedIn]);
 
-    // Animated styles
     const dotAnimStyle = useAnimatedStyle(() => ({
       transform: [{ scale: dotScale.value }],
     }));
@@ -255,122 +208,89 @@ const TimelineStop = React.memo(
       transform: [{ translateX: contentTranslateX.value }],
     }));
 
-    const travelAnimStyle = useAnimatedStyle(() => ({
-      opacity: travelOpacity.value,
-    }));
-
     return (
-      <View>
-        {/* Travel note connector */}
-        {!isFirst && item.travelNote && (
-          <Animated.View style={[styles.travelRow, travelAnimStyle]}>
-            <View style={styles.travelRail}>
-              <View
-                style={[styles.travelDash, { backgroundColor: stopColor }]}
-              />
-            </View>
-            <Text style={styles.travelText}>{item.travelNote}</Text>
-          </Animated.View>
-        )}
-
-        <View style={styles.stopRow}>
-          {/* Rail */}
-          <View style={styles.rail}>
-            {!isFirst && !item.travelNote && (
-              <Animated.View
-                style={[
-                  styles.lineAbove,
-                  { backgroundColor: stopColor, transformOrigin: "top" },
-                  lineAboveAnimStyle,
-                ]}
-              />
-            )}
-            <Pressable
-              disabled={!isActive || isCheckedIn || !onCheckin}
-              onPress={() => onCheckin?.(item.id)}
+      <View style={styles.stopRow}>
+        {/* Rail */}
+        <View style={styles.rail}>
+          {!isFirst && (
+            <Animated.View
+              style={[
+                styles.lineAbove,
+                { backgroundColor: stopColor, transformOrigin: "top" },
+                lineAboveAnimStyle,
+              ]}
+            />
+          )}
+          <Pressable
+            disabled={!isActive || isCheckedIn || !onCheckin}
+            onPress={() => onCheckin?.(item.id)}
+          >
+            <Animated.View
+              style={[
+                styles.dot,
+                { backgroundColor: isCheckedIn ? CHECKIN_GREEN : stopColor },
+                dotAnimStyle,
+              ]}
             >
-              <Animated.View
-                style={[
-                  styles.dot,
-                  { backgroundColor: isCheckedIn ? CHECKIN_GREEN : stopColor },
-                  dotAnimStyle,
-                ]}
-              >
-                {isCheckedIn ? (
-                  <Animated.View style={checkinOverlayStyle}>
-                    <Text style={styles.dotEmoji}>{"\u2713"}</Text>
-                  </Animated.View>
-                ) : (
-                  <Text style={styles.dotEmoji}>
-                    {item.emoji || "\u{1F4CD}"}
-                  </Text>
-                )}
-              </Animated.View>
-            </Pressable>
-            {!isLast && (
-              <Animated.View
-                style={[
-                  styles.lineBelow,
-                  { backgroundColor: stopColor },
-                  lineBelowAnimStyle,
-                ]}
-              />
-            )}
-          </View>
-
-          {/* Content */}
-          <Animated.View style={[styles.content, contentAnimStyle]}>
-            <Pressable
-              onPress={() => onItemPress?.(item)}
-              style={({ pressed }) => pressed && { opacity: 0.7 }}
-            >
-              <View style={{ gap: 3 }}>
-                <View style={styles.statRow}>
-                  <Text style={styles.timeText}>
-                    {formatTime(item.startTime)} – {formatTime(item.endTime)}
-                  </Text>
-                  <View style={styles.statRight}>
-                    {cost > 0 && isRevealed && (
-                      <AnimatedCost value={cost} startDelay={200} />
-                    )}
-                    {weather && (
-                      <Text style={styles.weatherText}>
-                        {weatherEmoji(weather.weatherCode)} {weather.tempF}°
-                      </Text>
-                    )}
-                  </View>
-                </View>
-
-                <Text style={styles.itemTitle}>{item.title}</Text>
-
-                {item.description && (
-                  <Text style={styles.itemDesc} numberOfLines={2}>
-                    {item.description}
-                  </Text>
-                )}
-
-                {item.venueName && (
-                  <Text style={styles.venueText} numberOfLines={1}>
-                    {item.venueName}
-                    {item.venueAddress
-                      ? ` · ${extractCity(item.venueAddress)}`
-                      : ""}
-                  </Text>
-                )}
-
-                {item.eventId && (
-                  <Text style={[styles.eventTag, { color: stopColor }]}>
-                    From scanned event
-                  </Text>
-                )}
-
-                {isCheckedIn && (
-                  <Text style={styles.checkedInTag}>{"\u2705"} Checked in</Text>
-                )}
-              </View>
-            </Pressable>
-          </Animated.View>
+              {isCheckedIn ? (
+                <Animated.View style={checkinOverlayStyle}>
+                  <Text style={styles.dotEmoji}>{"\u2713"}</Text>
+                </Animated.View>
+              ) : (
+                <Text style={styles.dotEmoji}>
+                  {item.emoji || "\u{1F4CD}"}
+                </Text>
+              )}
+            </Animated.View>
+          </Pressable>
+          {!isLast && (
+            <Animated.View
+              style={[
+                styles.lineBelow,
+                { backgroundColor: stopColor },
+                lineBelowAnimStyle,
+              ]}
+            />
+          )}
         </View>
+
+        {/* Content */}
+        <Animated.View style={[styles.content, contentAnimStyle]}>
+          <Pressable
+            onPress={() => onItemPress?.(item)}
+            style={({ pressed }) => pressed && { opacity: 0.7 }}
+          >
+            <View style={{ gap: 3 }}>
+              <View style={styles.statRow}>
+                <Text style={styles.itemTitle}>{item.title}</Text>
+                <View style={styles.statRight}>
+                  {cost > 0 && isRevealed && (
+                    <AnimatedCost value={cost} startDelay={200} />
+                  )}
+                </View>
+              </View>
+
+              {item.description && (
+                <Text style={styles.itemDesc} numberOfLines={2}>
+                  {item.description}
+                </Text>
+              )}
+
+              {item.venueName && (
+                <Text style={styles.venueText} numberOfLines={1}>
+                  {item.venueName}
+                  {item.venueAddress
+                    ? ` · ${extractCity(item.venueAddress)}`
+                    : ""}
+                </Text>
+              )}
+
+              {isCheckedIn && (
+                <Text style={styles.checkedInTag}>{"\u2705"} Checked in</Text>
+              )}
+            </View>
+          </Pressable>
+        </Animated.View>
       </View>
     );
   },
@@ -380,7 +300,6 @@ const TimelineStop = React.memo(
 
 export default function ItineraryTimeline({
   items,
-  forecast,
   isActive,
   onCheckin,
   onItemPress,
@@ -400,11 +319,9 @@ export default function ItineraryTimeline({
     [sorted],
   );
 
-  // Chain state: tracks how many stops have finished their entrance
   const [revealedCount, setRevealedCount] = useState(0);
   const [showTotal, setShowTotal] = useState(false);
 
-  // Track layout positions of each stop for auto-scrolling
   const stopLayoutsRef = useRef<Record<number, { y: number; height: number }>>(
     {},
   );
@@ -417,7 +334,6 @@ export default function ItineraryTimeline({
     [],
   );
 
-  // Kick off the chain: reveal the first stop after a short initial delay
   useEffect(() => {
     if (sorted.length > 0 && revealedCount === 0) {
       const timer = setTimeout(() => setRevealedCount(1), 150);
@@ -427,7 +343,6 @@ export default function ItineraryTimeline({
 
   const handleStopRevealed = useCallback(
     (idx: number) => {
-      // Auto-scroll to show the bottom of the just-revealed stop
       if (scrollRef?.current) {
         const layout = stopLayoutsRef.current[idx];
         if (layout) {
@@ -439,18 +354,15 @@ export default function ItineraryTimeline({
         }
       }
 
-      // Reveal the next stop in the chain
       if (idx + 1 < sorted.length) {
-        setRevealedCount(idx + 2); // +2 because revealedCount is 1-indexed
+        setRevealedCount(idx + 2);
       } else {
-        // Last stop finished — show total
         setShowTotal(true);
       }
     },
     [sorted.length, scrollRef],
   );
 
-  // Total row animation
   const totalOpacity = useSharedValue(0);
   const totalTranslateY = useSharedValue(8);
 
@@ -497,13 +409,12 @@ export default function ItineraryTimeline({
             isActive={isActive}
             onCheckin={onCheckin}
             onItemPress={onItemPress}
-            weather={getHourlyForTime(forecast, item.startTime)}
           />
         </View>
       ))}
 
       {/* Total */}
-      {sorted.length > 0 && (
+      {sorted.length > 0 && totalCost > 0 && (
         <Animated.View style={[styles.totalRow, totalAnimStyle]}>
           <Text style={styles.totalLabel}>ESTIMATED TOTAL</Text>
           {showTotal && <AnimatedCost value={totalCost} startDelay={200} />}
@@ -513,36 +424,23 @@ export default function ItineraryTimeline({
   );
 }
 
-// Pull "City, ST" from a Google address like
-// "1234 Main St, Denver, CO 80205, USA"
-// Parts: [street, city, stateZip, country]
 function extractCity(address: string): string {
   const parts = address.split(",").map((s) => s.trim());
-  // 4+ parts: street, city, "CO 80205", "USA"
   if (parts.length >= 4) {
     const city = parts[parts.length - 3];
     const state = parts[parts.length - 2].replace(/\s*\d{5}(-\d{4})?$/, "");
     return state ? `${city}, ${state}` : city;
   }
-  // 3 parts: "city, CO 80205, USA" or "city, state zip"
   if (parts.length === 3) {
     const city = parts[0];
     const state = parts[1].replace(/\s*\d{5}(-\d{4})?$/, "");
     return state ? `${city}, ${state}` : city;
   }
-  // 2 parts: "city, state"
   if (parts.length === 2) {
     const state = parts[1].replace(/\s*\d{5}(-\d{4})?$/, "");
     return state ? `${parts[0]}, ${state}` : parts[0];
   }
   return address;
-}
-
-function formatTime(time24: string): string {
-  const [h, m] = time24.split(":").map(Number);
-  const suffix = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
 const createStyles = (colors: Colors) =>
@@ -586,31 +484,16 @@ const createStyles = (colors: Colors) =>
       gap: 3,
     },
 
-    // --- Stat row (time + cost) ---
+    // --- Stat row ---
     statRow: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
     },
-    timeText: {
-      fontSize: 11,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.secondary,
-      letterSpacing: 0.3,
-    },
     statRight: {
       flexDirection: "row",
       alignItems: "center",
       gap: 8,
-    },
-    weatherText: {
-      fontSize: 11,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.secondary,
-      minWidth: 52,
-      textAlign: "right",
     },
     costValue: {
       fontSize: fontSize.sm,
@@ -626,6 +509,7 @@ const createStyles = (colors: Colors) =>
       fontWeight: fontWeight.bold,
       color: colors.text.primary,
       lineHeight: 20,
+      flex: 1,
     },
     itemDesc: {
       fontSize: 11,
@@ -641,14 +525,6 @@ const createStyles = (colors: Colors) =>
       color: colors.text.detail,
       lineHeight: 16,
     },
-    eventTag: {
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      letterSpacing: 0.5,
-      textTransform: "uppercase",
-      marginTop: 2,
-    },
     checkedInTag: {
       fontSize: 10,
       fontFamily: fontFamily.mono,
@@ -656,32 +532,6 @@ const createStyles = (colors: Colors) =>
       color: CHECKIN_GREEN,
       letterSpacing: 0.5,
       marginTop: 2,
-    },
-
-    // --- Travel connector ---
-    travelRow: {
-      flexDirection: "row",
-      gap: spacing.sm,
-      alignItems: "center",
-      paddingVertical: spacing.xs,
-    },
-    travelRail: {
-      width: 32,
-      alignItems: "center",
-    },
-    travelDash: {
-      width: 2,
-      height: 16,
-      opacity: 0.25,
-    },
-    travelText: {
-      flex: 1,
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.regular,
-      color: colors.text.secondary,
-      fontStyle: "italic",
-      letterSpacing: 0.2,
     },
 
     // --- Total row ---

@@ -3,6 +3,7 @@ import {
   Sidequest,
   Objective,
   SidequestStatus,
+  SidequestTier,
   User,
   normalizeCity,
   isCityNormalized,
@@ -311,7 +312,8 @@ class SidequestServiceImpl implements SidequestService {
     }
 
     try {
-      // Create 3 child option records
+      // Create 3 child option records — one per tier
+      const tiers = [SidequestTier.QUICK, SidequestTier.SWEET_SPOT, SidequestTier.BEST];
       const children: Sidequest[] = [];
       for (let i = 0; i < 3; i++) {
         const child = repo.create({
@@ -324,6 +326,7 @@ class SidequestServiceImpl implements SidequestService {
           budgetMax: parent.budgetMax,
           activityTypes: parent.activityTypes,
           intention: parent.intention,
+          tier: tiers[i],
         });
         children.push(child);
       }
@@ -355,6 +358,12 @@ class SidequestServiceImpl implements SidequestService {
         throw new Error("All 3 sidequest options failed to generate");
       }
 
+      // Set parent title/summary from the first successful child
+      const readyChild = children.find((c) => c.status === SidequestStatus.READY);
+      if (readyChild) {
+        parent.title = readyChild.title;
+        parent.summary = readyChild.summary;
+      }
       parent.status = SidequestStatus.READY;
       await repo.save(parent);
 
@@ -420,7 +429,43 @@ class SidequestServiceImpl implements SidequestService {
       ? `\nUSER NOTE: "${input.note}" — incorporate this context into venue selection and quest theming.`
       : "";
 
-    const instructions = `You are a Sidequest Master. Craft a 1-2 stop real-world sidequest for an adventurer. This is option ${optionIndex + 1} of 3 — make it DISTINCT from what a generic recommendation would produce. Be creative and specific.
+    const budgetMax = input.budgetMax;
+    const tierConfig = [
+      {
+        name: "Quick & Easy",
+        budgetCeiling: budgetMax === 0 ? 0 : Math.max(Math.round(budgetMax * 0.4), 5),
+        radiusMultiplier: 0.5,
+        philosophy: `You are the QUICK & EASY Sidequest Master. Your specialty is low-friction, nearby, budget-friendly quests the user can start almost immediately.
+Prioritize: proximity to the user's location, affordability ($0–low cost), minimal planning needed, places that are easy to get to.
+Tradeoff: you sacrifice "best in class" for convenience and speed. A solid neighborhood café beats a famous one across town.
+Personality: practical, encouraging, "you can do this right now" energy.
+IMPORTANT: Pick WALKABLE, casual, no-frills spots. Think dive bars, neighborhood joints, hole-in-the-wall gems — NOT the popular/well-known places everyone already goes to.`,
+      },
+      {
+        name: "Sweet Spot",
+        budgetCeiling: Math.round(budgetMax * 0.75),
+        radiusMultiplier: 1.0,
+        philosophy: `You are the SWEET SPOT Sidequest Master. Your specialty is balanced quests that trade a bit of convenience for noticeably better quality and excitement.
+Prioritize: relevance to the user's request, interesting/unique venues, a step up in experience quality. Worth a short drive or slightly higher spend.
+Tradeoff: you go a bit further out or spend a bit more, but only when it meaningfully upgrades the experience.
+Personality: curated, confident, "this is worth the extra effort" energy.
+IMPORTANT: Pick DIFFERENT venues from what a "quick & cheap" option would suggest. Go for mid-range quality spots in a different neighborhood or part of town.`,
+      },
+      {
+        name: "Best Package",
+        budgetCeiling: budgetMax,
+        radiusMultiplier: 1.5,
+        philosophy: `You are the BEST PACKAGE Sidequest Master. Your specialty is crafting the highest-quality overall experience — the quest someone would brag about.
+Prioritize: the best combination of venue quality, atmosphere, uniqueness, and how well it matches the user's request. Top-rated spots, hidden gems with rave reviews, or genuinely special experiences.
+Tradeoff: not necessarily the furthest or the most expensive — but the BEST overall package. A $5 hole-in-the-wall with 4.9 stars and legendary vibes beats a $50 tourist trap.
+Personality: bold, opinionated, "trust me, this is THE one" energy.
+IMPORTANT: Go for the PREMIUM experience — a different area of town, higher-rated venues, or a totally different angle on the user's request. Do NOT overlap with obvious/popular choices.`,
+      },
+    ];
+
+    const tier = tierConfig[optionIndex] ?? tierConfig[1];
+
+    const instructions = `${tier.philosophy}
 
 You have web search for discovery, search_places for verified venue data, and search_trails for trail/path discovery.
 
@@ -429,12 +474,16 @@ APPROACH:
 2. For venues (restaurants, cafes, shops, museums): use web_search to discover, then search_places to verify with exact coordinates.
 3. For trails/paths (hiking, boarding, biking, scenic walks): use search_trails directly — it searches OpenStreetMap for real trails with surface type, length, and lighting info.
 4. For multi-stop quests: search for later stops NEAR earlier ones. Pass the first stop's coordinates as lat/lng to search_trails or use the nearby city for search_places.
-5. Focus on RELEVANCE and QUALITY — find the best match for what the user asked for, regardless of distance from their starting point. Search broadly across the region.
+5. Focus on your tier's priorities — ${tier.name === "Quick & Easy" ? "stay close and keep it cheap" : tier.name === "Sweet Spot" ? "balance convenience with quality" : "find the best overall experience regardless of distance or cost"}.
 6. Call submit_quest with 1-2 stops using ONLY venues confirmed by search_places or trails found by search_trails.
 ${vibesBlock}${intentionBlock}${noteBlock}
+DIVERSITY RULE: You are one of 3 parallel agents generating options. To ensure the user gets MEANINGFULLY DIFFERENT choices:
+- ${tier.name === "Quick & Easy" ? "Pick the CLOSEST, most casual spots. Prioritize walkability and low cost. Think neighborhood gems, not popular destinations." : tier.name === "Sweet Spot" ? "Pick a DIFFERENT neighborhood or area than the most obvious nearby spots. Look for interesting mid-range venues the user might not know about." : "Search FURTHER out or for a completely different angle. Find the highest-rated or most unique option, even if it requires more effort to get there."}
+- Use DIFFERENT search queries than generic ones — be specific and creative with your search_places queries to find distinct venues.
+
 CONSTRAINTS:
 - 1-2 stops max. For 2-stop quests, stops MUST be within 10 miles of each other.
-- Budget: $${input.budgetMax} (0 = free only).
+- Budget: $${tier.budgetCeiling} max for this tier (0 = free only).
 - Use EXACT venue names and addresses from search_places — do not invent venues.
 - For trail stops, you MUST use a trail returned by search_trails — do NOT use trails from web search or your own knowledge. Use the exact trail name from search_trails results as the venue name. The coordinates from search_trails results are the source of truth for trail locations.
 - Current time: ${hour}:00, ${dayOfWeek} — don't pick closed venues.
@@ -679,7 +728,8 @@ CONSTRAINTS:
       },
     };
 
-    const initialMessage = `${promptText}\nUser is near: ${city} (search this area AND surrounding cities/towns — do NOT limit to just this city)\nBudget: $${input.budgetMax}${input.activityTypes?.length ? `\nVibes: ${input.activityTypes.join(", ")}` : ""}${input.intention ? `\nIntention: ${input.intention.replace("_", " ")}` : ""}`;
+    const tierRadius = Math.round(input.radiusMiles * tier.radiusMultiplier);
+    const initialMessage = `[${tier.name.toUpperCase()} TIER]\n${promptText}\nUser is near: ${city} (search this area AND surrounding cities/towns — do NOT limit to just this city)\nSearch radius: ~${tierRadius} miles from user\nBudget: $${tier.budgetCeiling} max${input.activityTypes?.length ? `\nVibes: ${input.activityTypes.join(", ")}` : ""}${input.intention ? `\nIntention: ${input.intention.replace("_", " ")}` : ""}`;
 
     const agentResult = await this.agent.run<LLMResponseRaw>({
       instructions,
@@ -762,6 +812,14 @@ CONSTRAINTS:
       .set({ status: SidequestStatus.FAILED })
       .where("parent_id = :parentId", { parentId: child.parentId })
       .andWhere("id != :childId", { childId })
+      .execute();
+
+    // Copy selected child's title/summary to parent
+    await repo
+      .createQueryBuilder()
+      .update(Sidequest)
+      .set({ title: child.title, summary: child.summary })
+      .where("id = :parentId", { parentId: child.parentId })
       .execute();
 
     return child;
@@ -858,6 +916,8 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
       .getRepository(Sidequest)
       .createQueryBuilder("s")
       .leftJoinAndSelect("s.objectives", "obj")
+      .leftJoinAndSelect("s.children", "child")
+      .leftJoinAndSelect("child.objectives", "childObj")
       .where("s.user_id = :userId", { userId })
       .andWhere("s.parent_id IS NULL");
 

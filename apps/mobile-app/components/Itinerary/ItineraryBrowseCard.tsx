@@ -34,7 +34,7 @@ const ItineraryBrowseCard: React.FC<Props> = ({ itinerary }) => {
     });
   }, [itinerary.id, router]);
 
-  const emojiPreview = itinerary.items
+  const emojiPreview = itinerary.objectives
     .slice(0, MAX_EMOJI_PREVIEW)
     .map((i) => i.emoji || "\u{1F4CD}")
     .join(" ");

@@ -71,7 +71,7 @@ export class ObjectiveCheckin {
     name: "source",
     type: "varchar",
     length: 20,
-    default: "'proximity'",
+    default: () => "'proximity'",
   })
   source!: string; // "proximity" | "manual"
 
@@ -82,7 +82,7 @@ export class ObjectiveCheckin {
     name: "skipped_objective_ids",
     type: "uuid",
     array: true,
-    default: "'{}'",
+    default: () => "'{}'",
   })
   skippedObjectiveIds!: string[];
 

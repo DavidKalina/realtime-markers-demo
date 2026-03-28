@@ -67,10 +67,10 @@ const ItineraryPin = React.memo(
   }) => {
     const firstStop = useMemo(
       () =>
-        [...itinerary.items]
+        [...itinerary.objectives]
           .sort((a, b) => a.sortOrder - b.sortOrder)
           .find((i) => i.latitude != null && i.longitude != null),
-      [itinerary.items],
+      [itinerary.objectives],
     );
 
     const handlePress = useCallback(() => {

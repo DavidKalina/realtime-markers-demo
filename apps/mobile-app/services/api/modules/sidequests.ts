@@ -1,90 +1,59 @@
 import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
 
-export interface ItineraryItemResponse {
+export interface ObjectiveResponse {
   id: string;
   sortOrder: number;
-  startTime: string;
-  endTime: string;
   title: string;
   description?: string;
   emoji?: string;
   estimatedCost?: number;
   venueName?: string;
   venueAddress?: string;
-  eventId?: string;
-  travelNote?: string;
+  venueCategory?: string;
   latitude?: number;
   longitude?: number;
-  googlePlaceId?: string;
-  googleRating?: number;
-  venueCategory?: string;
-  whyThisStop?: string;
-  proTip?: string;
+  hook?: string;
   checkedInAt?: string;
   entryLatitude?: number;
   entryLongitude?: number;
   entryPointName?: string;
 }
 
-export interface HourlyForecast {
-  hour: number;
-  tempF: number;
-  feelsLikeF: number;
-  precipProbability: number;
-  precipMm: number;
-  windSpeedMph: number;
-  windGustsMph: number;
-  uvIndex: number;
-  weatherCode: number;
-  condition: string;
-}
-
-export interface DayForecast {
-  date: string;
-  sunrise: string;
-  sunset: string;
-  tempHighF: number;
-  tempLowF: number;
-  precipProbabilityMax: number;
-  uvIndexMax: number;
-  dominantCondition: string;
-  hourly: HourlyForecast[];
-}
-
-export interface ItineraryResponse {
+export interface SidequestResponse {
   id: string;
   city: string;
-  plannedDate: string;
-  budgetMin: number;
   budgetMax: number;
-  durationHours: number;
   activityTypes: string[];
+  prompt?: string;
   intention?: string;
   title?: string;
   summary?: string;
   status: "GENERATING" | "READY" | "FAILED";
-  items: ItineraryItemResponse[];
-  forecast?: DayForecast;
+  tier?: "QUICK" | "SWEET_SPOT" | "BEST";
+  categories?: string[];
+  objectives: ObjectiveResponse[];
+  children?: SidequestResponse[];
+  parentId?: string;
   rating?: number;
   ratingComment?: string;
   completedAt?: string;
   createdAt: string;
   isPublished?: boolean;
   timesAdopted?: number;
-  sourceItineraryId?: string;
 }
 
-export interface BrowseItineraryResponse {
+export interface BrowseSidequestResponse {
   id: string;
   title: string | null;
   summary: string | null;
   city: string;
   intention: string | null;
-  durationHours: number;
+  durationHours?: number;
   rating: number | null;
   timesAdopted: number;
-  itemCount: number;
+  itemCount?: number;
+  objectiveCount?: number;
   creatorFirstName: string | null;
   completedAt: string;
   items: {
@@ -92,33 +61,11 @@ export interface BrowseItineraryResponse {
     title: string;
     venueName: string | null;
   }[];
-}
-
-export interface AnchorStopParam {
-  coordinates: [number, number]; // [lng, lat]
-  label?: string;
-  address?: string;
-  placeId?: string;
-  primaryType?: string;
-  rating?: number;
-  note?: string;
-}
-
-export interface CreateItineraryParams {
-  city?: string;
-  plannedDate: string; // ISO 8601 datetime string (e.g. "2026-03-25T00:00:00-06:00")
-  budgetMin?: number;
-  budgetMax?: number;
-  durationHours: number;
-  activityTypes?: string[];
-  stopCount?: number;
-  startTime?: string; // HH:MM (24h)
-  endTime?: string; // HH:MM (24h)
-  intention?: string;
-  title?: string;
-  anchorStops?: AnchorStopParam[];
-  surpriseMe?: boolean;
-  timezone?: string;
+  objectives?: {
+    emoji: string | null;
+    title: string;
+    venueName: string | null;
+  }[];
 }
 
 export interface CreateSidequestParams {
@@ -158,24 +105,6 @@ export class SidequestsModule extends BaseApiModule {
     }>(response);
   }
 
-  async create(
-    params: CreateItineraryParams,
-  ): Promise<{ sidequestId: string; jobId: string; streamUrl: string }> {
-    const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests`,
-      {
-        method: "POST",
-        body: JSON.stringify(params),
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-    return this.handleResponse<{
-      sidequestId: string;
-      jobId: string;
-      streamUrl: string;
-    }>(response);
-  }
-
   async list(
     limit = 20,
     cursor?: string,
@@ -184,7 +113,7 @@ export class SidequestsModule extends BaseApiModule {
       intention?: string;
       status?: string;
     },
-  ): Promise<{ data: ItineraryResponse[]; nextCursor: string | null }> {
+  ): Promise<{ data: SidequestResponse[]; nextCursor: string | null }> {
     const params = new URLSearchParams({ limit: String(limit) });
     if (cursor) params.set("cursor", cursor);
     if (filters?.sort) params.set("sort", filters.sort);
@@ -194,18 +123,34 @@ export class SidequestsModule extends BaseApiModule {
       `${this.client.baseUrl}/api/sidequests?${params}`,
     );
     const json = await response.json();
-    // Handle both paginated { data, nextCursor } and legacy array responses
     if (Array.isArray(json)) {
       return { data: json, nextCursor: null };
     }
     return json;
   }
 
-  async getById(id: string): Promise<ItineraryResponse> {
+  async getById(id: string): Promise<SidequestResponse> {
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/${id}`,
     );
-    return this.handleResponse<ItineraryResponse>(response);
+    return this.handleResponse<SidequestResponse>(response);
+  }
+
+  async getOptions(
+    parentId: string,
+  ): Promise<{ data: SidequestResponse[] }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/${parentId}/options`,
+    );
+    return this.handleResponse<{ data: SidequestResponse[] }>(response);
+  }
+
+  async selectOption(childId: string): Promise<{ success: boolean }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/${childId}/select`,
+      { method: "POST" },
+    );
+    return this.handleResponse<{ success: boolean }>(response);
   }
 
   async deleteById(id: string): Promise<void> {
@@ -242,23 +187,23 @@ export class SidequestsModule extends BaseApiModule {
 
   async getActive(): Promise<{
     active: boolean;
-    itinerary?: ItineraryResponse;
+    sidequest?: SidequestResponse;
   }> {
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/active`,
     );
     return this.handleResponse<{
       active: boolean;
-      itinerary?: ItineraryResponse;
+      sidequest?: SidequestResponse;
     }>(response);
   }
 
   async checkin(
-    itineraryId: string,
-    itemId: string,
+    sidequestId: string,
+    objectiveId: string,
   ): Promise<{ success: boolean; checkedInAt?: string }> {
     const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests/${itineraryId}/objectives/${itemId}/checkin`,
+      `${this.client.baseUrl}/api/sidequests/${sidequestId}/objectives/${objectiveId}/checkin`,
       { method: "POST" },
     );
     return this.handleResponse<{ success: boolean; checkedInAt?: string }>(
@@ -282,12 +227,12 @@ export class SidequestsModule extends BaseApiModule {
     return this.handleResponse<{ success: boolean; rating: number }>(response);
   }
 
-  async listCompleted(limit = 20): Promise<{ data: ItineraryResponse[] }> {
+  async listCompleted(limit = 20): Promise<{ data: SidequestResponse[] }> {
     const params = new URLSearchParams({ limit: String(limit) });
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/completed?${params}`,
     );
-    return this.handleResponse<{ data: ItineraryResponse[] }>(response);
+    return this.handleResponse<{ data: SidequestResponse[] }>(response);
   }
 
   async browse(
@@ -298,7 +243,7 @@ export class SidequestsModule extends BaseApiModule {
       limit?: number;
       cursor?: string;
     },
-  ): Promise<{ data: BrowseItineraryResponse[] }> {
+  ): Promise<{ data: BrowseSidequestResponse[] }> {
     const params = new URLSearchParams({
       city: encodeURIComponent(city),
     });
@@ -310,21 +255,21 @@ export class SidequestsModule extends BaseApiModule {
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/browse?${params}`,
     );
-    return this.handleResponse<{ data: BrowseItineraryResponse[] }>(response);
+    return this.handleResponse<{ data: BrowseSidequestResponse[] }>(response);
   }
 
-  async adopt(id: string): Promise<ItineraryResponse> {
+  async adopt(id: string): Promise<SidequestResponse> {
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/${id}/adopt`,
       { method: "POST" },
     );
-    return this.handleResponse<ItineraryResponse>(response);
+    return this.handleResponse<SidequestResponse>(response);
   }
 
   async suggestions(
     latitude: number,
     longitude: number,
-  ): Promise<{ city: string; suggestions: ItinerarySuggestion[] }> {
+  ): Promise<{ city: string; suggestions: SidequestSuggestion[] }> {
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/suggestions`,
       {
@@ -335,7 +280,7 @@ export class SidequestsModule extends BaseApiModule {
     );
     return this.handleResponse<{
       city: string;
-      suggestions: ItinerarySuggestion[];
+      suggestions: SidequestSuggestion[];
     }>(response);
   }
 
@@ -352,7 +297,13 @@ export class SidequestsModule extends BaseApiModule {
   }
 }
 
-export interface ItinerarySuggestion {
+// Backward-compat aliases for files still using old names
+export type ItineraryResponse = SidequestResponse;
+export type ItineraryItemResponse = ObjectiveResponse;
+export type BrowseItineraryResponse = BrowseSidequestResponse;
+export type ItinerarySuggestion = SidequestSuggestion;
+
+export interface SidequestSuggestion {
   title: string;
   emoji: string;
   city: string;

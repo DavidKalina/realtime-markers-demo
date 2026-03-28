@@ -95,7 +95,7 @@ class CalendarService {
       if (!calendarId) return null;
 
       // Determine start/end time from items
-      const items = itinerary.items;
+      const items = itinerary.objectives;
       const firstItem = items[0];
       const lastItem = items[items.length - 1];
 

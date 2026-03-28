@@ -20,6 +20,12 @@ export enum SidequestStatus {
   FAILED = "FAILED",
 }
 
+export enum SidequestTier {
+  QUICK = "QUICK",
+  SWEET_SPOT = "SWEET_SPOT",
+  BEST = "BEST",
+}
+
 @Entity("sidequests")
 export class Sidequest {
   @PrimaryGeneratedColumn("uuid")
@@ -77,6 +83,13 @@ export class Sidequest {
   @Column({ type: "varchar", length: 50, nullable: true })
   intention?: string;
 
+  @Column({
+    type: "enum",
+    enum: SidequestTier,
+    nullable: true,
+  })
+  tier?: SidequestTier;
+
   // Self-reference: child options link to parent shell
   @Index()
   @Column({ name: "parent_id", type: "uuid", nullable: true })
@@ -114,7 +127,7 @@ export class Sidequest {
   @Column({ type: "text", nullable: true })
   embedding?: string;
 
-  @Column({ type: "text", array: true, default: "'{}'" })
+  @Column({ type: "text", array: true, default: () => "'{}'" })
   categories!: string[];
 
   @Column({

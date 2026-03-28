@@ -245,11 +245,11 @@ export default function ItineraryWaypoints({ revealedStopCount }: Props) {
   const itinerary = useActiveItineraryStore((s) => s.itinerary);
 
   const sortedItems = useMemo(() => {
-    if (!itinerary?.items?.length) return [];
-    return [...itinerary.items]
+    if (!itinerary?.objectives?.length) return [];
+    return [...itinerary.objectives]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .filter((item) => item.latitude != null && item.longitude != null);
-  }, [itinerary?.items]);
+  }, [itinerary?.objectives]);
 
   // During reveal, only show pins up to revealedStopCount
   const visibleItems =

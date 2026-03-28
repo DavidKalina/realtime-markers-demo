@@ -116,7 +116,7 @@ export function useItineraryReveal({
           const current = useActiveItineraryStore.getState().itinerary;
           if (!current) return;
 
-          const item = current.items.find((i) => i.id === replay.itemId);
+          const item = current.objectives.find((i) => i.id === replay.itemId);
           if (item?.latitude && item?.longitude) {
             cameraRef.current?.setCamera({
               centerCoordinate: [Number(item.longitude), Number(item.latitude)],
@@ -135,7 +135,7 @@ export function useItineraryReveal({
               const updated = useActiveItineraryStore.getState().itinerary;
               if (!updated) return;
 
-              const nextStop = [...updated.items]
+              const nextStop = [...updated.objectives]
                 .sort((a, b) => a.sortOrder - b.sortOrder)
                 .find((i) => !i.checkedInAt);
 
@@ -183,7 +183,7 @@ export function useItineraryReveal({
 
         // 1. Fly to the checked-in stop first so the user sees the celebration
         if (current) {
-          const checkedItem = current.items.find((i) => i.id === itemId);
+          const checkedItem = current.objectives.find((i) => i.id === itemId);
           if (checkedItem?.latitude && checkedItem?.longitude) {
             cameraRef.current?.setCamera({
               centerCoordinate: [
@@ -211,7 +211,7 @@ export function useItineraryReveal({
           setTimeout(() => {
             const updated = useActiveItineraryStore.getState().itinerary;
             if (updated) {
-              const nextStop = [...updated.items]
+              const nextStop = [...updated.objectives]
                 .sort((a, b) => a.sortOrder - b.sortOrder)
                 .find((i) => !i.checkedInAt);
               if (nextStop?.latitude && nextStop?.longitude) {
@@ -266,7 +266,7 @@ export function useItineraryReveal({
     }
     revealedIdRef.current = activeItinerary.id;
 
-    const geoItems = [...activeItinerary.items]
+    const geoItems = [...activeItinerary.objectives]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .filter((i) => i.latitude != null && i.longitude != null);
 

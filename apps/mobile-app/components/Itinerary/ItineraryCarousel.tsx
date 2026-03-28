@@ -61,7 +61,7 @@ interface ItineraryCarouselProps {
 export function getFirstStop(
   itinerary: ItineraryResponse,
 ): ItineraryPreviewStop | null {
-  const firstItem = [...itinerary.items]
+  const firstItem = [...itinerary.objectives]
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .find((i) => i.latitude != null && i.longitude != null);
   if (!firstItem) return null;
@@ -218,13 +218,13 @@ const ItineraryCarousel: React.FC<ItineraryCarouselProps> = ({
 
   const current = itineraries[activeIndex];
   if (!current) return null;
-  const sortedItems = [...current.items].sort(
+  const sortedItems = [...current.objectives].sort(
     (a, b) => a.sortOrder - b.sortOrder,
   );
   const meta = [
     current.city,
     `${current.durationHours}h`,
-    `${current.items.length} stops`,
+    `${current.objectives.length} stops`,
   ].join(" \u00B7 ");
 
   return (

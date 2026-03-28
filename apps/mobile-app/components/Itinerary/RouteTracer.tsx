@@ -29,15 +29,15 @@ export default function RouteTracer({ revealedLineCount, mapRef }: Props) {
   const itinerary = useActiveItineraryStore((s) => s.itinerary);
 
   const allCoords = useMemo(() => {
-    if (!itinerary?.items?.length) return [];
-    return [...itinerary.items]
+    if (!itinerary?.objectives?.length) return [];
+    return [...itinerary.objectives]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .filter((item) => item.latitude != null && item.longitude != null)
       .map((item): [number, number] => [
         Number(item.longitude),
         Number(item.latitude),
       ]);
-  }, [itinerary?.items]);
+  }, [itinerary?.objectives]);
 
   const isRevealing = revealedLineCount !== null;
 

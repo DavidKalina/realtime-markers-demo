@@ -1,5 +1,6 @@
 import ItineraryMapPreview from "@/components/Itinerary/ItineraryMapPreview";
 import ItineraryTimeline from "@/components/Itinerary/ItineraryTimeline";
+
 import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
 import Screen from "@/components/Layout/Screen";
 import * as Haptics from "expo-haptics";
@@ -48,8 +49,8 @@ import {
   EventTypes,
 } from "@/services/EventBroker";
 import type {
-  ItineraryItemResponse,
-  ItineraryResponse,
+  ObjectiveResponse,
+  SidequestResponse,
 } from "@/services/api/modules/sidequests";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
@@ -100,28 +101,6 @@ const AnimatedNumber: React.FC<{
   );
 };
 
-// Compute temp range scoped to the itinerary's actual hours
-function scopedForecast(
-  forecast: ItineraryResponse["forecast"],
-  items: ItineraryItemResponse[],
-): { low: number; high: number; condition: string } | null {
-  if (!forecast?.hourly?.length || !items.length) return null;
-  const startHour = Math.min(
-    ...items.map((i) => parseInt(i.startTime.split(":")[0], 10)),
-  );
-  const endHour = Math.max(
-    ...items.map((i) => parseInt(i.endTime.split(":")[0], 10)),
-  );
-  const relevant = forecast.hourly.filter(
-    (h) => h.hour >= startHour && h.hour <= endHour,
-  );
-  if (!relevant.length) return null;
-  return {
-    low: Math.round(Math.min(...relevant.map((h) => h.tempF))),
-    high: Math.round(Math.max(...relevant.map((h) => h.tempF))),
-    condition: forecast.dominantCondition,
-  };
-}
 
 // --- Skeleton pulse bar ---
 
@@ -168,9 +147,9 @@ const SkeletonBar: React.FC<{
 
 SkeletonBar.displayName = "SkeletonBar";
 
-type ItineraryCheckinEvent = BaseEvent & {
-  itineraryId: string;
-  itemId: string;
+type SidequestCheckinEvent = BaseEvent & {
+  sidequestId: string;
+  objectiveId: string;
   completed: boolean;
 };
 
@@ -474,7 +453,7 @@ const ItineraryDetailScreen = () => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const [itinerary, setItinerary] = useState<ItineraryResponse | null>(null);
+  const [itinerary, setItinerary] = useState<SidequestResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -487,9 +466,11 @@ const ItineraryDetailScreen = () => {
 
   const isThisActive = activeItinerary?.id === id;
 
-  // Use active store's items if this itinerary is active (has live checkin data)
-  const displayItinerary =
-    isThisActive && activeItinerary ? activeItinerary : itinerary;
+  // Use active store's data if this sidequest is active (has live checkin data)
+  const displaySidequest =
+    isThisActive && activeItinerary
+      ? activeItinerary
+      : itinerary;
 
   // Generating state
   const [genMsgIdx, setGenMsgIdx] = useState(0);
@@ -503,8 +484,9 @@ const ItineraryDetailScreen = () => {
     if (!id || id === "undefined") return;
     apiClient.sidequests
       .getById(id)
-      .then((data) => {
+      .then(async (data) => {
         setItinerary(data);
+
         // If still generating, start polling
         if (data.status === "GENERATING") {
           pollRef.current = setInterval(async () => {
@@ -513,7 +495,6 @@ const ItineraryDetailScreen = () => {
               if (updated.status !== "GENERATING") {
                 setItinerary(updated);
                 if (pollRef.current) clearInterval(pollRef.current);
-                // Clear the generating row in the itineraries list
                 const jobStore = useItineraryJobStore.getState();
                 if (jobStore.activeItineraryId === id) {
                   jobStore.completeJob();
@@ -526,8 +507,8 @@ const ItineraryDetailScreen = () => {
         }
       })
       .catch((err) => {
-        console.error("[ItineraryDetail] Failed to fetch:", err);
-        setError("Failed to load itinerary");
+        console.error("[SidequestDetail] Failed to fetch:", err);
+        setError("Failed to load sidequest");
       })
       .finally(() => setIsLoading(false));
 
@@ -577,9 +558,9 @@ const ItineraryDetailScreen = () => {
 
   // Listen for check-in events from push notifications
   useEffect(() => {
-    const handler = (data: ItineraryCheckinEvent) => {
-      if (data.itineraryId === id) {
-        markCheckedIn(data.itemId, new Date().toISOString());
+    const handler = (data: SidequestCheckinEvent) => {
+      if (data.sidequestId === id) {
+        markCheckedIn(data.objectiveId, new Date().toISOString());
         Haptics.notificationAsync(
           data.completed
             ? Haptics.NotificationFeedbackType.Success
@@ -588,7 +569,7 @@ const ItineraryDetailScreen = () => {
       }
     };
 
-    const unsub = eventBroker.on<ItineraryCheckinEvent>(
+    const unsub = eventBroker.on<SidequestCheckinEvent>(
       EventTypes.ITINERARY_CHECKIN,
       handler,
     );
@@ -690,9 +671,10 @@ const ItineraryDetailScreen = () => {
   );
 
   const handleNavigate = useCallback(() => {
-    if (!itinerary) return;
+    const source = itinerary;
+    if (!source) return;
 
-    const sortedItems = (itinerary.items ?? [])
+    const sortedItems = (source.objectives ?? [])
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .filter((item) => item.venueAddress || item.venueName || item.title);
 
@@ -751,21 +733,13 @@ const ItineraryDetailScreen = () => {
     }
   }, [itinerary]);
 
-  // Item detail modal
+  // Objective detail modal
   const [selectedItem, setSelectedItem] =
-    useState<ItineraryItemResponse | null>(null);
+    useState<ObjectiveResponse | null>(null);
 
-  const handleItemPress = useCallback((item: ItineraryItemResponse) => {
+  const handleItemPress = useCallback((item: ObjectiveResponse) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedItem(item);
-  }, []);
-  const formatDate = useCallback((dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
   }, []);
 
   // --- Loading / Error states ---
@@ -881,22 +855,15 @@ const ItineraryDetailScreen = () => {
 
   // --- Computed values ---
 
-  const items = displayItinerary?.items ?? [];
-  const totalCost = items.reduce(
+  const objectives = displaySidequest?.objectives ?? [];
+  const totalCost = objectives.reduce(
     (sum, i) => sum + (Number(i.estimatedCost) || 0),
     0,
   );
-  const sortedForStats = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
-  const firstTime =
-    sortedForStats.length > 0 ? formatTime(sortedForStats[0].startTime) : null;
-  const lastTime =
-    sortedForStats.length > 0
-      ? formatTime(sortedForStats[sortedForStats.length - 1].endTime)
-      : null;
 
   // Check-in progress
-  const checkedInCount = items.filter((i) => i.checkedInAt).length;
-  const totalStops = items.length;
+  const checkedInCount = objectives.filter((i) => i.checkedInAt).length;
+  const totalStops = objectives.length;
   const progressPct = totalStops > 0 ? checkedInCount / totalStops : 0;
 
   return (
@@ -917,26 +884,28 @@ const ItineraryDetailScreen = () => {
               .duration(450)
               .easing(Easing.out(Easing.cubic))}
           >
-            <Text style={styles.heroTitle}>{itinerary.title}</Text>
+            <Text style={styles.heroTitle}>
+              {(itinerary)?.title ?? "Sidequest"}
+            </Text>
             <View style={styles.heroLabelRow}>
               <View style={styles.heroLabelPill}>
-                <Text style={styles.heroLabelText}>ITINERARY</Text>
+                <Text style={styles.heroLabelText}>SIDEQUEST</Text>
               </View>
               <Text style={styles.heroDot}> · </Text>
-              <Text style={styles.heroDate}>
-                {formatDate(itinerary.plannedDate)}
-              </Text>
+              <Text style={styles.heroDate}>{itinerary.city}</Text>
             </View>
           </Animated.View>
 
           {/* Summary */}
-          {itinerary.summary && (
+          {(itinerary)?.summary && (
             <Animated.View
               entering={FadeInDown.delay(200)
                 .duration(450)
                 .easing(Easing.out(Easing.cubic))}
             >
-              <Text style={styles.heroSummary}>{itinerary.summary}</Text>
+              <Text style={styles.heroSummary}>
+                {(itinerary)?.summary}
+              </Text>
             </Animated.View>
           )}
 
@@ -947,18 +916,6 @@ const ItineraryDetailScreen = () => {
               .easing(Easing.out(Easing.cubic))}
             style={styles.chipRow}
           >
-            {firstTime && lastTime && (
-              <View
-                style={[
-                  styles.statChip,
-                  { borderColor: "rgba(147, 197, 253, 0.25)" },
-                ]}
-              >
-                <Text style={[styles.statChipValue, { color: STAT_COLORS[0] }]}>
-                  {firstTime} – {lastTime}
-                </Text>
-              </View>
-            )}
             <View
               style={[
                 styles.statChip,
@@ -966,7 +923,7 @@ const ItineraryDetailScreen = () => {
               ]}
             >
               <AnimatedNumber
-                value={items.length}
+                value={objectives.length}
                 suffix=" stops"
                 delay={400}
                 color={STAT_COLORS[1]}
@@ -989,66 +946,6 @@ const ItineraryDetailScreen = () => {
                 />
               </View>
             )}
-            {displayItinerary?.forecast &&
-              (() => {
-                const scoped = scopedForecast(
-                  displayItinerary.forecast,
-                  displayItinerary.items,
-                );
-                const low = scoped?.low ?? displayItinerary.forecast.tempLowF;
-                const high =
-                  scoped?.high ?? displayItinerary.forecast.tempHighF;
-                const condition =
-                  scoped?.condition ??
-                  displayItinerary.forecast.dominantCondition;
-                return low === high ? (
-                  <View
-                    style={[
-                      styles.statChip,
-                      { borderColor: "rgba(253, 186, 116, 0.25)" },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.statChipValue, { color: STAT_COLORS[4] }]}
-                    >
-                      {high}°F {condition}
-                    </Text>
-                  </View>
-                ) : (
-                  <>
-                    <View
-                      style={[
-                        styles.statChip,
-                        { borderColor: "rgba(253, 186, 116, 0.25)" },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.statChipValue,
-                          { color: STAT_COLORS[4] },
-                        ]}
-                      >
-                        {low}–{high}°F
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.statChip,
-                        { borderColor: "rgba(253, 186, 116, 0.25)" },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.statChipValue,
-                          { color: STAT_COLORS[4] },
-                        ]}
-                      >
-                        {condition}
-                      </Text>
-                    </View>
-                  </>
-                );
-              })()}
           </Animated.View>
 
           {/* Vibe tags */}
@@ -1101,25 +998,28 @@ const ItineraryDetailScreen = () => {
           </Animated.View>
         )}
 
-        {/* ── Timeline ── */}
-        <ItineraryTimeline
-          items={items}
-          forecast={displayItinerary?.forecast}
-          isActive={isThisActive}
-          onCheckin={isThisActive ? handleManualCheckin : undefined}
-          onItemPress={handleItemPress}
-        />
+        {/* ── Timeline (only when objectives are available) ── */}
+        {objectives.length > 0 && (
+          <ItineraryTimeline
+            items={objectives}
+            isActive={isThisActive}
+            onCheckin={isThisActive ? handleManualCheckin : undefined}
+            onItemPress={handleItemPress}
+          />
+        )}
 
         {/* ── Map Preview ── */}
-        <Animated.View
-          entering={FadeInDown.delay(700)
-            .duration(450)
-            .easing(Easing.out(Easing.cubic))}
-          style={styles.mapPreviewSection}
-        >
-          <Text style={styles.mapPreviewLabel}>ROUTE MAP</Text>
-          <ItineraryMapPreview items={items} city={itinerary.city} />
-        </Animated.View>
+        {objectives.length > 0 && (
+          <Animated.View
+            entering={FadeInDown.delay(700)
+              .duration(450)
+              .easing(Easing.out(Easing.cubic))}
+            style={styles.mapPreviewSection}
+          >
+            <Text style={styles.mapPreviewLabel}>ROUTE MAP</Text>
+            <ItineraryMapPreview items={objectives} city={itinerary.city} />
+          </Animated.View>
+        )}
 
         {/* ── Actions ── */}
         <Animated.View
@@ -1239,10 +1139,6 @@ const ItineraryDetailScreen = () => {
                       <Text style={styles.itemDetailTitle}>
                         {selectedItem.title}
                       </Text>
-                      <Text style={styles.itemDetailTime}>
-                        {formatTime(selectedItem.startTime)} –{" "}
-                        {formatTime(selectedItem.endTime)}
-                      </Text>
                     </View>
                   </View>
 
@@ -1253,24 +1149,14 @@ const ItineraryDetailScreen = () => {
                     </Text>
                   )}
 
-                  {/* Why this stop */}
-                  {selectedItem.whyThisStop && (
-                    <View style={styles.itemDetailSection}>
-                      <Text style={styles.itemDetailSectionLabel}>
+                  {/* Hook (why this stop) */}
+                  {selectedItem.hook && (
+                    <View style={styles.itemDetailProTip}>
+                      <Text style={styles.itemDetailProTipLabel}>
                         WHY THIS STOP
                       </Text>
-                      <Text style={styles.itemDetailSectionText}>
-                        {selectedItem.whyThisStop}
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Pro tip */}
-                  {selectedItem.proTip && (
-                    <View style={styles.itemDetailProTip}>
-                      <Text style={styles.itemDetailProTipLabel}>PRO TIP</Text>
                       <Text style={styles.itemDetailProTipText}>
-                        {selectedItem.proTip}
+                        {selectedItem.hook}
                       </Text>
                     </View>
                   )}
@@ -1294,31 +1180,19 @@ const ItineraryDetailScreen = () => {
                           {selectedItem.venueCategory}
                         </Text>
                       )}
-                      {selectedItem.googleRating != null && (
-                        <Text style={styles.itemDetailMeta}>
-                          {"\u2B50"} {selectedItem.googleRating} on Google
-                        </Text>
-                      )}
                     </View>
                   )}
 
-                  {/* Cost + travel chips */}
-                  <View style={styles.itemDetailChipRow}>
-                    {Number(selectedItem.estimatedCost) > 0 && (
+                  {/* Cost chip */}
+                  {Number(selectedItem.estimatedCost) > 0 && (
+                    <View style={styles.itemDetailChipRow}>
                       <View style={styles.itemDetailChipGreen}>
                         <Text style={styles.itemDetailChipGreenText}>
                           ~${Number(selectedItem.estimatedCost)}
                         </Text>
                       </View>
-                    )}
-                    {selectedItem.travelNote && (
-                      <View style={styles.itemDetailChip}>
-                        <Text style={styles.itemDetailChipText}>
-                          {selectedItem.travelNote}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
+                    </View>
+                  )}
                 </ScrollView>
               </Pressable>
             </Animated.View>
@@ -1330,13 +1204,6 @@ const ItineraryDetailScreen = () => {
 };
 
 export default ItineraryDetailScreen;
-
-function formatTime(time24: string): string {
-  const [h, m] = time24.split(":").map(Number);
-  const suffix = h >= 12 ? "PM" : "AM";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
-}
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({

@@ -7,6 +7,7 @@ import {
   View,
   type ViewStyle,
   type LayoutChangeEvent,
+  ScrollView,
 } from "react-native";
 import Reanimated, {
   Easing,
@@ -34,17 +35,20 @@ import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
 import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import {
-  BUDGET_TIERS,
   QUEST_STATUS_MESSAGES,
   GEN_EMOJIS,
   STOP_TITLES,
-  type BudgetTier,
 } from "@/constants/questOptions";
+import {
+  ACTIVITY_OPTIONS,
+  INTENTION_OPTIONS,
+  type AdventureOption,
+} from "@/constants/adventureOptions";
 
 // ── Constants ──────────────────────────────────────────────────────────
 
 const COLLAPSED_HEIGHT = 44;
-const FORM_HEIGHT = 300;
+const FORM_HEIGHT = 500;
 const GENERATING_HEIGHT = 260;
 const SHEEN_WIDTH = 100;
 const ANIM_DURATION = 300;
@@ -52,14 +56,15 @@ const GREEN_ACCENT = "#86efac";
 const GREEN_MUTED = "rgba(134, 239, 172, 0.12)";
 const REEL_H = 24;
 const REEL_SPINS = 2;
+const DEFAULT_BUDGET = 50;
+const DEFAULT_RADIUS = 30;
 
 type Phase = "collapsed" | "form" | "generating";
 
-// ── Styles (matches ItineraryDialogBox aesthetic) ─────────────────────
+// ── Styles ─────────────────────────────────────────────────────────────
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
-    // Main container — identical to ItineraryDialogBox.bubble
     bubble: {
       backgroundColor: colors.bg.card,
       paddingHorizontal: 16,
@@ -71,7 +76,6 @@ const createStyles = (colors: Colors) =>
       borderColor: colors.border.subtle,
       marginBottom: -spacing.lg,
     },
-    // Status text overlay (collapsed / generating)
     statusOverlay: {
       ...StyleSheet.absoluteFillObject,
       justifyContent: "center",
@@ -92,7 +96,6 @@ const createStyles = (colors: Colors) =>
       left: 0,
       zIndex: 1,
     },
-    // Header row — same as ItineraryDialogBox
     headerRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -126,7 +129,6 @@ const createStyles = (colors: Colors) =>
       color: colors.text.secondary,
       fontWeight: "600",
     },
-    // Section labels
     sectionLabel: {
       fontFamily: fontFamily.mono,
       fontSize: 11,
@@ -135,7 +137,6 @@ const createStyles = (colors: Colors) =>
       letterSpacing: 1.5,
       marginBottom: 6,
     },
-    // Text input
     promptInput: {
       fontFamily: fontFamily.mono,
       fontSize: 13,
@@ -146,45 +147,39 @@ const createStyles = (colors: Colors) =>
       borderColor: colors.border.default,
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.sm,
-      minHeight: 72,
+      minHeight: 52,
     },
-    // Budget chips — same style as ItineraryDialogBox pills
-    chipRow: {
+    chipWrap: {
       flexDirection: "row",
+      flexWrap: "wrap",
       gap: 6,
     },
     chip: {
-      flex: 1,
-      paddingVertical: 6,
-      paddingHorizontal: spacing.sm,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingVertical: 5,
+      paddingHorizontal: 10,
       borderRadius: radius.full,
       backgroundColor: colors.bg.elevated,
       borderWidth: 1,
       borderColor: colors.border.default,
-      alignItems: "center",
     },
     chipSelected: {
       backgroundColor: GREEN_MUTED,
       borderColor: "rgba(134, 239, 172, 0.4)",
     },
+    chipEmoji: {
+      fontSize: 13,
+    },
     chipLabel: {
       fontFamily: fontFamily.mono,
-      fontSize: 12,
+      fontSize: 11,
       color: colors.text.secondary,
     },
     chipLabelSelected: {
       color: GREEN_ACCENT,
     },
-    chipSublabel: {
-      fontFamily: fontFamily.mono,
-      fontSize: 9,
-      color: colors.text.secondary,
-      marginTop: 1,
-    },
-    chipSublabelSelected: {
-      color: GREEN_ACCENT,
-    },
-    // Footer / Embark button — same as ItineraryDialogBox generateButton
     footerRow: {
       flexDirection: "row",
       gap: 8,
@@ -219,40 +214,42 @@ const createStyles = (colors: Colors) =>
     },
     formSection: {
       gap: spacing.md,
+      paddingBottom: spacing.xl,
     },
   });
 
-// ── Budget chip ────────────────────────────────────────────────────────
+// ── Toggle chip ────────────────────────────────────────────────────────
 
-const BudgetChip = React.memo(function BudgetChip({
-  tier,
+const ToggleChip = React.memo(function ToggleChip({
+  option,
   selected,
   onPress,
   styles,
 }: {
-  tier: BudgetTier;
+  option: AdventureOption;
   selected: boolean;
-  onPress: (tier: BudgetTier) => void;
+  onPress: (value: string) => void;
   styles: ReturnType<typeof createStyles>;
 }) {
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress(tier);
-  }, [tier, onPress]);
+    onPress(option.value);
+  }, [option.value, onPress]);
 
   return (
     <Pressable
       style={[styles.chip, selected && styles.chipSelected]}
       onPress={handlePress}
     >
+      <Text style={styles.chipEmoji}>{option.emoji}</Text>
       <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-        {tier.label}
+        {option.label}
       </Text>
     </Pressable>
   );
 });
 
-// ── Generating skeleton components ──────────────────────────────────────
+// ── Generating skeleton components ─────────────────────────────────────
 
 const EmojiReel: React.FC = React.memo(() => {
   const translateY = useSharedValue(0);
@@ -321,7 +318,6 @@ const SkeletonStopRow: React.FC<{
     return items;
   }, []);
 
-  // Spin emoji reel — staggered per row
   useEffect(() => {
     const interval = 2200 + index * 250;
     const delay = index * 300;
@@ -354,7 +350,6 @@ const SkeletonStopRow: React.FC<{
     };
   }, [index]);
 
-  // Rotate title text — staggered
   useEffect(() => {
     const interval = 2600 + index * 200;
     const delay = index * 350;
@@ -485,9 +480,8 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
 
   // ── Form state ──────────────────────────────────────────────────────
   const [prompt, setPrompt] = useState("");
-  const [selectedBudget, setSelectedBudget] = useState<BudgetTier>(
-    BUDGET_TIERS[1],
-  );
+  const [selectedVibes, setSelectedVibes] = useState<Set<string>>(new Set());
+  const [selectedIntention, setSelectedIntention] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("collapsed");
   const [statusText, setStatusText] = useState("Begin a Sidequest");
   const promptInputRef = useRef<TextInput>(null);
@@ -608,9 +602,8 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
   const enterGenerating = useCallback(() => {
     setPhase("generating");
     setStatusText(QUEST_STATUS_MESSAGES[0]);
-    // Fade out form, then fade in generating content
     contentOpacity.value = withTiming(0, { duration: 150 });
-    statusOpacity.value = 0; // status overlay hidden — generating has its own content
+    statusOpacity.value = 0;
     genContentOpacity.value = withDelay(200, withTiming(1, { duration: 250 }));
     animHeight.value = withTiming(GENERATING_HEIGHT, {
       duration: ANIM_DURATION,
@@ -625,7 +618,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
     return () => clearTimeout(timer);
   }, [startSheen]);
 
-  // Watch tracked jobs — handle completion/failure
+  // Watch tracked jobs
   useEffect(() => {
     if (!activeJobId) return;
     const job = activeJobs.find((j) => j.jobId === activeJobId);
@@ -637,10 +630,9 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
     }
   }, [activeJobs, activeJobId, completeJob, failJob]);
 
-  // When activeJobId clears (via completeJob/failJob), animate back to collapsed
+  // When activeJobId clears, animate back to collapsed
   useEffect(() => {
     if (phase === "generating" && !activeJobId) {
-      // Fade out generating content, collapse, show status
       genContentOpacity.value = withTiming(0, { duration: 150 });
       animHeight.value = withDelay(
         150,
@@ -654,11 +646,12 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
       setPhase("collapsed");
       setStatusText("Begin a Sidequest");
       setPrompt("");
-      setSelectedBudget(BUDGET_TIERS[1]);
+      setSelectedVibes(new Set());
+      setSelectedIntention(null);
     }
   }, [activeJobId, phase]);
 
-  // Update status text from job step label — fade transition
+  // Update status text from job step label
   useEffect(() => {
     if (phase === "generating" && stepLabel) {
       genStatusTextOpacity.value = withSequence(
@@ -668,6 +661,23 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
       setTimeout(() => setStatusText(stepLabel), 200);
     }
   }, [phase, stepLabel]);
+
+  // ── Handlers ────────────────────────────────────────────────────────
+  const toggleVibe = useCallback((value: string) => {
+    setSelectedVibes((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) {
+        next.delete(value);
+      } else {
+        next.add(value);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleIntention = useCallback((value: string) => {
+    setSelectedIntention((prev) => (prev === value ? null : value));
+  }, []);
 
   // ── Embark (submit) ─────────────────────────────────────────────────
   const handleEmbark = useCallback(async () => {
@@ -679,11 +689,13 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
     try {
       const result = await apiClient.sidequests.createSidequest({
         prompt: prompt.trim(),
-        radiusMiles: 30,
-        budgetMax: selectedBudget.value,
+        radiusMiles: DEFAULT_RADIUS,
+        budgetMax: DEFAULT_BUDGET,
         latitude: userLocation[1],
         longitude: userLocation[0],
         timezone: getUserTimezone(),
+        activityTypes: Array.from(selectedVibes),
+        intention: selectedIntention ?? undefined,
       });
 
       trackJob(result.jobId);
@@ -691,7 +703,6 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
       onQuestCreated?.(result.sidequestId);
     } catch (err) {
       console.error("[QuestDialogBox] Failed to create sidequest:", err);
-      // Revert to form on error
       cancelAnimation(sheenPos);
       sheenActive.value = 0;
       setPhase("form");
@@ -706,7 +717,8 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
   }, [
     userLocation,
     prompt,
-    selectedBudget,
+    selectedVibes,
+    selectedIntention,
     enterGenerating,
     trackJob,
     startJob,
@@ -718,10 +730,6 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
     contentOpacity,
   ]);
 
-  const handleBudgetSelect = useCallback((tier: BudgetTier) => {
-    setSelectedBudget(tier);
-  }, []);
-
   const canEmbark = !activeJobId;
 
   // ── Render ──────────────────────────────────────────────────────────
@@ -730,7 +738,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
       style={[styles.bubble, style, animatedContainerStyle]}
       onLayout={handleLayout}
     >
-      {/* Status text overlay (collapsed / generating) */}
+      {/* Status text overlay (collapsed) */}
       <Pressable
         style={StyleSheet.absoluteFill}
         onPress={phase === "collapsed" ? expand : undefined}
@@ -743,7 +751,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
         </Reanimated.View>
       </Pressable>
 
-      {/* Sheen sweep — identical to ItineraryDialogBox */}
+      {/* Sheen sweep */}
       {containerMeasured && (
         <Reanimated.View
           style={[styles.sheenBeam, sheenAnimStyle]}
@@ -776,55 +784,73 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
           </Pressable>
         </View>
 
-        <View style={styles.formSection}>
-          {/* Prompt */}
-          <View>
-            <Text style={styles.sectionLabel}>Quest Prompt</Text>
-            <TextInput
-              ref={promptInputRef}
-              style={styles.promptInput}
-              value={prompt}
-              onChangeText={setPrompt}
-              placeholder="Describe your quest... or leave blank for a surprise"
-              placeholderTextColor={colors.text.secondary}
-              maxLength={200}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              blurOnSubmit
-            />
-          </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.formSection}>
+            {/* Prompt */}
+            <View>
+              <Text style={styles.sectionLabel}>Quest Prompt</Text>
+              <TextInput
+                ref={promptInputRef}
+                style={styles.promptInput}
+                value={prompt}
+                onChangeText={setPrompt}
+                placeholder="What are you in the mood for?"
+                placeholderTextColor={colors.text.secondary}
+                maxLength={200}
+                multiline
+                numberOfLines={2}
+                textAlignVertical="top"
+                blurOnSubmit
+              />
+            </View>
 
-          {/* Budget chips */}
-          <View>
-            <Text style={styles.sectionLabel}>Gold Budget</Text>
-            <View style={styles.chipRow}>
-              {BUDGET_TIERS.map((tier) => (
-                <BudgetChip
-                  key={tier.value}
-                  tier={tier}
-                  selected={selectedBudget.value === tier.value}
-                  onPress={handleBudgetSelect}
-                  styles={styles}
-                />
-              ))}
+            {/* Vibes (multi-select) */}
+            <View>
+              <Text style={styles.sectionLabel}>Vibes</Text>
+              <View style={styles.chipWrap}>
+                {ACTIVITY_OPTIONS.map((opt) => (
+                  <ToggleChip
+                    key={opt.value}
+                    option={opt}
+                    selected={selectedVibes.has(opt.value)}
+                    onPress={toggleVibe}
+                    styles={styles}
+                  />
+                ))}
+              </View>
+            </View>
+
+            {/* Intention (single-select) */}
+            <View>
+              <Text style={styles.sectionLabel}>Intention</Text>
+              <View style={styles.chipWrap}>
+                {INTENTION_OPTIONS.map((opt) => (
+                  <ToggleChip
+                    key={opt.value}
+                    option={opt}
+                    selected={selectedIntention === opt.value}
+                    onPress={toggleIntention}
+                    styles={styles}
+                  />
+                ))}
+              </View>
+            </View>
+
+            {/* Embark button */}
+            <View style={styles.footerRow}>
+              <Pressable
+                style={[
+                  styles.embarkButton,
+                  !canEmbark && styles.embarkButtonDisabled,
+                ]}
+                onPress={handleEmbark}
+                disabled={!canEmbark}
+              >
+                <Text style={styles.embarkText}>Embark</Text>
+              </Pressable>
             </View>
           </View>
-
-          {/* Embark button */}
-          <View style={styles.footerRow}>
-            <Pressable
-              style={[
-                styles.embarkButton,
-                !canEmbark && styles.embarkButtonDisabled,
-              ]}
-              onPress={handleEmbark}
-              disabled={!canEmbark}
-            >
-              <Text style={styles.embarkText}>Embark</Text>
-            </Pressable>
-          </View>
-        </View>
+        </ScrollView>
       </Reanimated.View>
 
       {/* Generating skeleton content */}
@@ -834,7 +860,6 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
           pointerEvents="none"
         >
           <View style={genStyles.container}>
-            {/* Status row: emoji reel + step label */}
             <View style={genStyles.statusRow}>
               <EmojiReel />
               <View style={genStyles.statusTextCol}>
@@ -864,7 +889,6 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
               </View>
             </View>
 
-            {/* Skeleton stop rows */}
             <View>
               <SkeletonStopRow index={0} isLast={false} colors={colors} />
               <SkeletonStopRow index={1} isLast={true} colors={colors} />

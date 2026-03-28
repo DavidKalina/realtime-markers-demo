@@ -158,6 +158,7 @@ export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
   private static readonly CACHE_PREFIX = "geocache:";
   private static readonly PLACES_CACHE_TTL_SECONDS = 172800; // 48 hours
   private static readonly PLACES_CACHE_PREFIX = "places-category:";
+  private placesInflight = new Map<string, Promise<VerifiedVenue[]>>();
   private openAIService: OpenAIService;
   private redisService: RedisService;
 
@@ -1172,16 +1173,50 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
     radiusMeters = 15000,
   ): Promise<VerifiedVenue[]> {
     try {
-      // Check Redis cache first (keyed by category + city + center + radius rounded to ~1km)
+      // Coarser cache key — round coords to ~5km so nearby searches share results
       const cacheKey = cityCenter
-        ? `${GoogleGeocodingServiceImpl.PLACES_CACHE_PREFIX}${category}:${city}:${Math.round(cityCenter.lat * 100) / 100},${Math.round(cityCenter.lng * 100) / 100}:${Math.round(radiusMeters / 1000)}`
-        : `${GoogleGeocodingServiceImpl.PLACES_CACHE_PREFIX}${category}:${city}`;
+        ? `${GoogleGeocodingServiceImpl.PLACES_CACHE_PREFIX}${category.toLowerCase()}:${city.toLowerCase()}:${Math.round(cityCenter.lat * 20) / 20},${Math.round(cityCenter.lng * 20) / 20}`
+        : `${GoogleGeocodingServiceImpl.PLACES_CACHE_PREFIX}${category.toLowerCase()}:${city.toLowerCase()}`;
       const cached = await this.redisService.get<VerifiedVenue[]>(cacheKey);
       if (cached) {
         console.log(`[searchPlacesByCategory] Cache hit for "${category}" in ${city}`);
         return cached.slice(0, maxResults);
       }
 
+      // Dedup concurrent identical requests (3 parallel options often search the same thing)
+      const inflight = this.placesInflight.get(cacheKey);
+      if (inflight) {
+        console.log(`[searchPlacesByCategory] Joining inflight request for "${category}" in ${city}`);
+        const result = await inflight;
+        return result.slice(0, maxResults);
+      }
+
+      const fetchPromise = this.fetchPlaces(category, city, cityCenter, maxResults, radiusMeters, cacheKey);
+      this.placesInflight.set(cacheKey, fetchPromise);
+      try {
+        const result = await fetchPromise;
+        return result.slice(0, maxResults);
+      } finally {
+        this.placesInflight.delete(cacheKey);
+      }
+    } catch (error) {
+      console.error(
+        `[searchPlacesByCategory] Error for "${category}" in ${city}:`,
+        error,
+      );
+      return [];
+    }
+  }
+
+  private async fetchPlaces(
+    category: string,
+    city: string,
+    cityCenter: { lat: number; lng: number } | undefined,
+    maxResults: number,
+    radiusMeters: number,
+    cacheKey: string,
+  ): Promise<VerifiedVenue[]> {
+    try {
       const url = "https://places.googleapis.com/v1/places:searchText";
       const requestBody: Record<string, unknown> = {
         textQuery: `${category} in ${city}`,
@@ -1264,7 +1299,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
       return venues;
     } catch (error) {
       console.error(
-        `[searchPlacesByCategory] Error for "${category}" in ${city}:`,
+        `[searchPlacesByCategory] fetchPlaces error for "${category}" in ${city}:`,
         error,
       );
       return [];

@@ -150,8 +150,8 @@ const CompletionCard: React.FC<{
   const [submitting, setSubmitting] = useState(false);
 
   const sortedItems = useMemo(
-    () => [...itinerary.items].sort((a, b) => a.sortOrder - b.sortOrder),
-    [itinerary.items],
+    () => [...itinerary.objectives].sort((a, b) => a.sortOrder - b.sortOrder),
+    [itinerary.objectives],
   );
 
   const completedDate = itinerary.completedAt
@@ -161,7 +161,7 @@ const CompletionCard: React.FC<{
       })
     : "";
 
-  const totalCost = itinerary.items.reduce(
+  const totalCost = itinerary.objectives.reduce(
     (sum, i) => sum + (Number(i.estimatedCost) || 0),
     0,
   );

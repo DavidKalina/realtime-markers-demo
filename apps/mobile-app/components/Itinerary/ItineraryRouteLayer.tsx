@@ -16,15 +16,15 @@ export default function ItineraryRouteLayer({ revealedStopCount }: Props) {
   const itinerary = useActiveItineraryStore((s) => s.itinerary);
 
   const allCoords = useMemo(() => {
-    if (!itinerary?.items?.length) return [];
-    return [...itinerary.items]
+    if (!itinerary?.objectives?.length) return [];
+    return [...itinerary.objectives]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .filter((item) => item.latitude != null && item.longitude != null)
       .map((item): [number, number] => [
         Number(item.longitude),
         Number(item.latitude),
       ]);
-  }, [itinerary?.items]);
+  }, [itinerary?.objectives]);
 
   const isRevealing = revealedStopCount !== null;
 
@@ -48,10 +48,10 @@ export default function ItineraryRouteLayer({ revealedStopCount }: Props) {
   // ── Normal mode: completed / upcoming split ───────────────
 
   const { completedCoords, upcomingCoords } = useMemo(() => {
-    if (isRevealing || !itinerary?.items?.length || allCoords.length < 2)
+    if (isRevealing || !itinerary?.objectives?.length || allCoords.length < 2)
       return { completedCoords: null, upcomingCoords: null };
 
-    const sorted = [...itinerary.items]
+    const sorted = [...itinerary.objectives]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .filter((item) => item.latitude != null && item.longitude != null);
 
@@ -68,7 +68,7 @@ export default function ItineraryRouteLayer({ revealedStopCount }: Props) {
       upcomingCoords:
         splitIdx < allCoords.length - 1 ? allCoords.slice(splitIdx) : null,
     };
-  }, [isRevealing, itinerary?.items, allCoords]);
+  }, [isRevealing, itinerary?.objectives, allCoords]);
 
   // Breathing opacity for upcoming dashed line
   const [dashOpacity, setDashOpacity] = useState(0.5);
