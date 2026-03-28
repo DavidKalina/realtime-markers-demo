@@ -39,7 +39,7 @@ const ActiveQuestBanner: React.FC = () => {
     );
   }
 
-  const items = itinerary.items || [];
+  const items = itinerary.objectives || [];
   const checked = items.filter((i) => i.checkedInAt).length;
   const total = items.length;
   const allComplete = total > 0 && checked === total;

@@ -8,6 +8,8 @@ import type {
   ChatCompletion,
   ChatCompletionMessageParam,
   ChatCompletionCreateParamsNonStreaming,
+  ChatCompletionTool,
+  ChatCompletionToolChoiceOption,
 } from "openai/resources/chat/completions";
 
 export enum OpenAIModel {
@@ -90,6 +92,8 @@ export interface OpenAIService {
       max_tokens?: number;
       max_completion_tokens?: number;
       response_format?: { type: "json_object" | "text" };
+      tools?: ChatCompletionTool[];
+      tool_choice?: ChatCompletionToolChoiceOption;
     },
     caller?: string,
   ): Promise<ChatCompletion>;
@@ -98,6 +102,18 @@ export interface OpenAIService {
     params: ResponsesCreateParams,
     caller?: string,
   ): Promise<string>;
+
+  executeResponseWithTools(
+    params: {
+      model: OpenAIModel;
+      instructions?: string;
+      input: import("openai/resources/responses/responses").ResponseInputItem[];
+      tools?: import("openai/resources/responses/responses").Tool[];
+      max_output_tokens?: number;
+      temperature?: number;
+    },
+    caller?: string,
+  ): Promise<import("openai/resources/responses/responses").Response>;
 
   generateEmbedding(
     text: string,
@@ -247,7 +263,7 @@ export class OpenAIServiceImpl implements OpenAIService {
       }
     };
 
-    return customFetch;
+    return customFetch as unknown as typeof fetch;
   }
 
   private async checkRateLimit(
@@ -308,6 +324,8 @@ export class OpenAIServiceImpl implements OpenAIService {
       max_tokens?: number;
       max_completion_tokens?: number;
       response_format?: { type: "json_object" | "text" };
+      tools?: ChatCompletionTool[];
+      tool_choice?: ChatCompletionToolChoiceOption;
     },
     caller: string = "unknown",
   ): Promise<ChatCompletion> {
@@ -367,6 +385,43 @@ export class OpenAIServiceImpl implements OpenAIService {
     }
 
     return response.output_text;
+  }
+
+  async executeResponseWithTools(
+    params: {
+      model: OpenAIModel;
+      instructions?: string;
+      input: import("openai/resources/responses/responses").ResponseInputItem[];
+      tools?: import("openai/resources/responses/responses").Tool[];
+      max_output_tokens?: number;
+      temperature?: number;
+    },
+    caller: string = "unknown",
+  ): Promise<import("openai/resources/responses/responses").Response> {
+    const start = Date.now();
+    const response = await this.openai.responses.create({
+      model: params.model,
+      instructions: params.instructions,
+      input: params.input,
+      tools: params.tools,
+      max_output_tokens: params.max_output_tokens,
+      temperature: params.temperature,
+    });
+    const durationMs = Date.now() - start;
+
+    if (response.usage) {
+      this.logUsage({
+        model: params.model,
+        operation: "response_with_tools",
+        caller,
+        promptTokens: response.usage.input_tokens,
+        completionTokens: response.usage.output_tokens,
+        totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+        durationMs,
+      });
+    }
+
+    return response;
   }
 
   async generateEmbedding(

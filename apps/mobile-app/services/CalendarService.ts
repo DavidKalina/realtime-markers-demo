@@ -1,7 +1,7 @@
 import * as Calendar from "expo-calendar";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { ItineraryResponse } from "@/services/api/modules/itineraries";
+import type { ItineraryResponse } from "@/services/api/modules/sidequests";
 
 const CALENDAR_EVENT_KEY_PREFIX = "calendar_event_id:";
 const APP_CALENDAR_TITLE = "A Third Space";
@@ -95,7 +95,7 @@ class CalendarService {
       if (!calendarId) return null;
 
       // Determine start/end time from items
-      const items = itinerary.items;
+      const items = itinerary.objectives;
       const firstItem = items[0];
       const lastItem = items[items.length - 1];
 

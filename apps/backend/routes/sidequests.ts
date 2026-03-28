@@ -1,0 +1,84 @@
+import { Hono } from "hono";
+import {
+  createSidequestHandler,
+  listSidequestsHandler,
+  getSidequestHandler,
+  deleteSidequestHandler,
+  shareSidequestHandler,
+  getSharedSidequestHandler,
+  activateSidequestHandler,
+  deactivateSidequestHandler,
+  getActiveSidequestHandler,
+  checkinObjectiveHandler,
+  getPopularStopsHandler,
+  rateSidequestHandler,
+  listCompletedHandler,
+  browseSidequestsHandler,
+  getSidequestOptionsHandler,
+  selectSidequestOptionHandler,
+} from "../handlers/sidequestHandlers";
+import type { AppContext } from "../types/context";
+import { authMiddleware } from "../middleware/authMiddleware";
+import { ip } from "../middleware/ip";
+import { rateLimit } from "../middleware/rateLimit";
+
+export const sidequestRouter = new Hono<AppContext>();
+
+sidequestRouter.use("*", ip());
+sidequestRouter.use("*", authMiddleware);
+
+const readRateLimit = rateLimit({
+  maxRequests: 120,
+  windowMs: 60 * 60 * 1000,
+  keyGenerator: (c) => {
+    const user = c.get("user");
+    return `sidequest-read:${user?.userId || user?.id || "anon"}`;
+  },
+});
+
+const writeRateLimit = rateLimit({
+  maxRequests: 20,
+  windowMs: 60 * 60 * 1000,
+  keyGenerator: (c) => {
+    const user = c.get("user");
+    return `sidequest-write:${user?.userId || user?.id || "anon"}`;
+  },
+});
+
+sidequestRouter.get("/", readRateLimit, listSidequestsHandler);
+sidequestRouter.get("/completed", readRateLimit, listCompletedHandler);
+sidequestRouter.get("/active", readRateLimit, getActiveSidequestHandler);
+sidequestRouter.get("/browse", readRateLimit, browseSidequestsHandler);
+sidequestRouter.get("/:id", readRateLimit, getSidequestHandler);
+sidequestRouter.get("/:id/options", readRateLimit, getSidequestOptionsHandler);
+sidequestRouter.post("/", writeRateLimit, createSidequestHandler);
+sidequestRouter.post("/deactivate", writeRateLimit, deactivateSidequestHandler);
+sidequestRouter.post("/:id/share", writeRateLimit, shareSidequestHandler);
+sidequestRouter.post("/:id/activate", writeRateLimit, activateSidequestHandler);
+sidequestRouter.post("/:id/rate", writeRateLimit, rateSidequestHandler);
+sidequestRouter.post("/:id/select", writeRateLimit, selectSidequestOptionHandler);
+sidequestRouter.post(
+  "/:id/objectives/:objectiveId/checkin",
+  writeRateLimit,
+  checkinObjectiveHandler,
+);
+sidequestRouter.delete("/:id", writeRateLimit, deleteSidequestHandler);
+
+// Public shared sidequest router (no auth)
+export const publicSidequestRouter = new Hono<AppContext>();
+
+publicSidequestRouter.use("*", ip());
+publicSidequestRouter.use(
+  "*",
+  rateLimit({
+    maxRequests: 30,
+    windowMs: 60 * 1000,
+    keyGenerator: (c) => {
+      const ipInfo = c.get("ip");
+      return `public-sidequest:${ipInfo.isPrivate ? "private" : "public"}:${ipInfo.ip}`;
+    },
+  }),
+);
+
+publicSidequestRouter.get("/popular-stops", getPopularStopsHandler);
+publicSidequestRouter.get("/:shareToken", getSharedSidequestHandler);

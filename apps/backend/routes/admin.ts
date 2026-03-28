@@ -6,28 +6,7 @@ import { adminAuthMiddleware } from "../middleware/adminMiddleware";
 import { ip } from "../middleware/ip";
 import { rateLimit } from "../middleware/rateLimit";
 import { UserRole } from "@realtime-markers/database";
-import { adminCreateItineraryHandler } from "../handlers/adminItineraryHandlers";
-import {
-  listDistrictsHandler,
-  getDistrictDetailHandler,
-  renameDistrictHandler,
-  deleteDistrictHandler,
-  reclusterRegionHandler,
-  reclusterAllHandler,
-  getClusteringConfigHandler,
-} from "../handlers/adminDistrictHandlers";
-import {
-  getQueryInsightsHandler,
-  getPopularQueriesHandler,
-  getLowHitRateQueriesHandler,
-  getZeroResultQueriesHandler,
-  getQueryStatsHandler,
-  updateQueryFlagsHandler,
-  getQueryClustersHandler,
-  findSimilarQueriesHandler,
-} from "../handlers/queryAnalyticsHandlers";
 import { UserService } from "../services/UserService";
-import { dashboardRouter } from "./dashboard";
 
 export const adminRouter = new Hono<AppContext>();
 
@@ -46,44 +25,6 @@ adminRouter.use(
 );
 adminRouter.use("*", authMiddleware);
 adminRouter.use("*", adminAuthMiddleware);
-
-// Mount dashboard router under /dashboard path
-adminRouter.route("/dashboard", dashboardRouter);
-
-adminRouter.get("/images/:id/image", async (c) => {
-  try {
-    const id = c.req.param("id");
-    const eventService = c.get("eventService");
-    const storageService = c.get("storageService"); // Make sure this is available in context
-
-    const event = await eventService.getEventById(id);
-
-    if (!event) {
-      return c.json({ error: "Event not found" }, 404);
-    }
-
-    if (!event.originalImageUrl) {
-      return c.json(
-        { error: "No original image available for this event" },
-        404,
-      );
-    }
-
-    // Generate a signed URL that expires in 1 hour
-    const signedUrl = await storageService.getSignedUrl(
-      event.originalImageUrl,
-      3600,
-    );
-
-    return c.json({
-      eventId: event.id,
-      originalImageUrl: signedUrl,
-    });
-  } catch (error) {
-    console.error("Error fetching original image:", error);
-    return c.json({ error: "Failed to fetch original image" }, 500);
-  }
-});
 
 adminRouter.get("/cache/health", async (c) => {
   try {
@@ -142,52 +83,6 @@ adminRouter.get("/health", async (c) => {
     return c.json({ error: "Failed to check system health" }, 500);
   }
 });
-
-// Recalculate scan and save counts
-adminRouter.post("/recalculate-counts", async (c) => {
-  try {
-    const eventService = c.get("eventService");
-    const result = await eventService.recalculateCounts();
-
-    return c.json({
-      success: true,
-      message: "Counts recalculated successfully",
-      result,
-    });
-  } catch (error) {
-    console.error("Error recalculating counts:", error);
-    return c.json(
-      {
-        success: false,
-        error: "Failed to recalculate counts",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      500,
-    );
-  }
-});
-
-// Itinerary Management
-adminRouter.post("/itineraries", adminCreateItineraryHandler);
-
-// District Management
-adminRouter.get("/districts", listDistrictsHandler);
-adminRouter.get("/districts/config", getClusteringConfigHandler);
-adminRouter.get("/districts/:id", getDistrictDetailHandler);
-adminRouter.post("/districts/:id/rename", renameDistrictHandler);
-adminRouter.post("/districts/:id/recluster", reclusterRegionHandler);
-adminRouter.delete("/districts/:id", deleteDistrictHandler);
-adminRouter.post("/districts/recluster-all", reclusterAllHandler);
-
-// Query Analytics Endpoints
-adminRouter.get("/analytics/queries/insights", getQueryInsightsHandler);
-adminRouter.get("/analytics/queries/popular", getPopularQueriesHandler);
-adminRouter.get("/analytics/queries/low-hit-rate", getLowHitRateQueriesHandler);
-adminRouter.get("/analytics/queries/zero-results", getZeroResultQueriesHandler);
-adminRouter.get("/analytics/queries/:query/stats", getQueryStatsHandler);
-adminRouter.post("/analytics/queries/update-flags", updateQueryFlagsHandler);
-adminRouter.get("/analytics/queries/clusters", getQueryClustersHandler);
-adminRouter.get("/analytics/queries/:query/similar", findSimilarQueriesHandler);
 
 // User Management Endpoints
 adminRouter.get("/users", async (c) => {

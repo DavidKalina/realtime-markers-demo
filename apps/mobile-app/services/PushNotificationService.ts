@@ -15,12 +15,16 @@ Notifications.setNotificationHandler({
         shouldShowAlert: false,
         shouldPlaySound: false,
         shouldSetBadge: false,
+        shouldShowBanner: false,
+        shouldShowList: false,
       };
     }
     return {
       shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
     };
   },
 });
@@ -205,6 +209,18 @@ export class PushNotificationService {
             completed: data.completed as boolean,
           });
         }
+
+        // When a sidequest generation job completes, notify the UI so it
+        // can refresh the card deck (fallback for dropped SSE connections)
+        if (data?.type === "job_completion" && data.jobType === "generate_sidequest") {
+          eventBroker.emit(EventTypes.SIDEQUEST_JOB_COMPLETED, {
+            timestamp: Date.now(),
+            source: "PushNotification",
+            jobId: data.jobId as string,
+            jobType: data.jobType as string,
+            itineraryId: (data.result as Record<string, unknown>)?.itineraryId as string | undefined,
+          });
+        }
       },
     );
 
@@ -302,6 +318,34 @@ export class PushNotificationService {
         timestamp: Date.now(),
         source: "PushNotification",
         path: `/itineraries/${data.itineraryId}`,
+      });
+    } else if (data?.type === "job_completion" && data.jobType === "generate_sidequest") {
+      // Sidequest generation completed — navigate to itineraries and refresh
+      eventBroker.emit(EventTypes.SIDEQUEST_JOB_COMPLETED, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        jobId: data.jobId as string,
+        jobType: data.jobType as string,
+        itineraryId: (data.result as Record<string, unknown>)?.itineraryId as string | undefined,
+      });
+      eventBroker.emit(EventTypes.NAVIGATE_TO_SCREEN, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        path: "/itineraries",
+      });
+    } else if (data?.type === "job_failure" && data.jobType === "generate_sidequest") {
+      // Sidequest generation failed — notify and navigate
+      eventBroker.emit(EventTypes.NOTIFICATION, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        title: "Quest generation failed",
+        message: (data.message as string) || "Try again.",
+        notificationType: "error" as const,
+      });
+      eventBroker.emit(EventTypes.NAVIGATE_TO_SCREEN, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        path: "/itineraries",
       });
     } else if (data?.type === "event") {
       // Navigate to event details

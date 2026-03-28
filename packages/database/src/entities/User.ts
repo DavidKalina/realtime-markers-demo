@@ -12,12 +12,7 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 import type { Relation } from "typeorm";
-import { Itinerary } from "./Itinerary";
-import type { Event } from "./Event";
-import type { UserEventDiscovery } from "./UserEventDiscovery";
-import type { UserEventRsvp } from "./UserEventRsvp";
-import type { UserEventSave } from "./UserEventSave";
-import type { UserEventView } from "./UserEventView";
+import { Sidequest } from "./Sidequest";
 import type { UserPushToken } from "./UserPushToken";
 
 export enum UserRole {
@@ -112,21 +107,6 @@ export class User {
   @OneToMany("UserPushToken", "user")
   pushTokens!: Relation<UserPushToken>[];
 
-  @OneToMany("Event", "creator")
-  createdEvents!: Relation<Event>[];
-
-  @OneToMany("UserEventDiscovery", "user")
-  discoveries!: Relation<UserEventDiscovery>[];
-
-  @OneToMany("UserEventRsvp", "user")
-  rsvps!: Relation<UserEventRsvp>[];
-
-  @OneToMany("UserEventSave", "user")
-  savedEvents!: Relation<UserEventSave>[];
-
-  @OneToMany("UserEventView", "user")
-  viewedEvents!: Relation<UserEventView>[];
-
   @Column({ name: "preference_embedding", type: "text", nullable: true })
   preferenceEmbedding?: string;
 
@@ -138,12 +118,12 @@ export class User {
     pace: string;
   };
 
-  @Column({ name: "active_itinerary_id", type: "uuid", nullable: true })
-  activeItineraryId?: string;
+  @Column({ name: "active_sidequest_id", type: "uuid", nullable: true })
+  activeSidequestId?: string;
 
-  @ManyToOne(() => Itinerary, { onDelete: "SET NULL", nullable: true })
-  @JoinColumn({ name: "active_itinerary_id" })
-  activeItinerary?: Relation<Itinerary>;
+  @ManyToOne(() => Sidequest, { onDelete: "SET NULL", nullable: true })
+  @JoinColumn({ name: "active_sidequest_id" })
+  activeSidequest?: Relation<Sidequest>;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

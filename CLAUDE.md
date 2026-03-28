@@ -20,5 +20,8 @@
   4. `packages/database/src/utils/entityUtils.ts` — add to `ENTITY_TO_TABLE_MAPPING`
   5. `apps/backend/data-source.ts` — add entity to `entities` array
 - **Migrations are auto-discovered** — just create a file in `apps/backend/migrations/` and it's picked up via glob pattern. No manual registration needed.
-- The app is **events-only** — do not add new entity types (e.g. civic engagements, private events) without explicit product direction
+- The app is **events + sidequests** — core entities are `Sidequest` (table: `sidequests`) and `Objective` (table: `objectives`). The old `Itinerary`/`ItineraryItem` entities have been removed.
+- Sidequest generation produces **3 parallel options** via `OpenAIResponsesAgent` — parent shell + 3 child sidequests, user picks one
+- Services: `SidequestService` (was ItineraryService), `SidequestCheckinService` (was ItineraryCheckinService)
+- Routes: `/api/sidequests` (was /api/itineraries)
 - **Do not use `runOnJS` from react-native-reanimated** — it is deprecated. Use `scheduleOnRN` from `react-native-worklets` instead to call JS functions from worklet callbacks.

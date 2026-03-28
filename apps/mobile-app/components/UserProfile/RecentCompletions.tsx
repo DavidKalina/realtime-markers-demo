@@ -19,7 +19,7 @@ import {
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { apiClient } from "@/services/ApiClient";
-import type { ItineraryResponse } from "@/services/api/modules/itineraries";
+import type { ItineraryResponse } from "@/services/api/modules/sidequests";
 import {
   useColors,
   type Colors,
@@ -62,7 +62,7 @@ const RecentCompletions: React.FC<RecentCompletionsProps> = ({
 
   const fetchCompletions = useCallback(async () => {
     try {
-      const result = await apiClient.itineraries.listCompleted();
+      const result = await apiClient.sidequests.listCompleted();
       setCompletions(result.data.filter((it) => it.rating == null));
     } catch (err) {
       console.error("[RecentCompletions] Failed to fetch:", err);
@@ -150,8 +150,8 @@ const CompletionCard: React.FC<{
   const [submitting, setSubmitting] = useState(false);
 
   const sortedItems = useMemo(
-    () => [...itinerary.items].sort((a, b) => a.sortOrder - b.sortOrder),
-    [itinerary.items],
+    () => [...itinerary.objectives].sort((a, b) => a.sortOrder - b.sortOrder),
+    [itinerary.objectives],
   );
 
   const completedDate = itinerary.completedAt
@@ -161,7 +161,7 @@ const CompletionCard: React.FC<{
       })
     : "";
 
-  const totalCost = itinerary.items.reduce(
+  const totalCost = itinerary.objectives.reduce(
     (sum, i) => sum + (Number(i.estimatedCost) || 0),
     0,
   );
@@ -175,7 +175,7 @@ const CompletionCard: React.FC<{
     if (!selectedRating) return;
     setSubmitting(true);
     try {
-      await apiClient.itineraries.rate(
+      await apiClient.sidequests.rate(
         itinerary.id,
         selectedRating,
         comment.trim() || undefined,

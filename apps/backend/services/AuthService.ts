@@ -9,16 +9,38 @@ import type {
   UserUpdate,
   UserProfile,
 } from "@realtime-markers/database";
-import type { UserPreferencesServiceImpl } from "./UserPreferences";
 import { addDays, format } from "date-fns";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
-import { getTierForXP } from "./GamificationService";
 import type { EmailService } from "./shared/EmailService";
 
+// Tier definitions (previously in GamificationService)
+const TIERS = [
+  { name: "Explorer", minXp: 0, emoji: "\u{1F9ED}" },
+  { name: "Scout", minXp: 500, emoji: "\u{1F52D}" },
+  { name: "Curator", minXp: 2000, emoji: "\u{2B50}" },
+  { name: "Ambassador", minXp: 5000, emoji: "\u{1F451}" },
+] as const;
+
+function getTierForXP(xp: number): {
+  name: string;
+  emoji: string;
+  index: number;
+} {
+  for (let i = TIERS.length - 1; i >= 0; i--) {
+    if (xp >= TIERS[i].minXp) {
+      return { name: TIERS[i].name, emoji: TIERS[i].emoji, index: i };
+    }
+  }
+  return { name: TIERS[0].name, emoji: TIERS[0].emoji, index: 0 };
+}
+
 // Create a registration-specific interface that includes password
-export interface UserRegistrationData extends Omit<UserInput, "passwordHash"> {
+export interface UserRegistrationData {
+  email: string;
   password: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface AuthTokens {
@@ -28,7 +50,6 @@ export interface AuthTokens {
 
 export interface AuthServiceDependencies {
   userRepository: Repository<User>;
-  userPreferencesService: UserPreferencesServiceImpl;
   dataSource: DataSource;
   openAIService: OpenAIService;
   emailService: EmailService;
@@ -40,14 +61,12 @@ export class AuthService {
   private refreshSecret: string;
   private accessTokenExpiry: SignOptions["expiresIn"];
   private refreshTokenExpiry: SignOptions["expiresIn"];
-  private userPreferencesService: UserPreferencesServiceImpl;
   private dataSource: DataSource;
   private openAIService: OpenAIService;
   private emailService: EmailService;
 
   constructor(private dependencies: AuthServiceDependencies) {
     this.userRepository = dependencies.userRepository;
-    this.userPreferencesService = dependencies.userPreferencesService;
     this.dataSource = dependencies.dataSource;
     this.openAIService = dependencies.openAIService;
     this.emailService = dependencies.emailService;
@@ -161,26 +180,6 @@ export class AuthService {
     const savedUser = await this.userRepository.save(newUser);
 
     const now = new Date();
-    const twoWeeksFromNow = addDays(now, 14);
-
-    const defaultFilter = await this.userPreferencesService.createFilter(
-      savedUser.id,
-      {
-        name: "First Two Weeks",
-        isActive: true,
-        criteria: {
-          dateRange: {
-            start: format(now, "yyyy-MM-dd"),
-            end: format(twoWeeksFromNow, "yyyy-MM-dd"),
-          },
-        },
-      },
-    );
-
-    // Apply the filter
-    await this.userPreferencesService.applyFilters(savedUser.id, [
-      defaultFilter.id,
-    ]);
     return this.toUserProfile(savedUser);
   }
 
@@ -450,7 +449,7 @@ export class AuthService {
       }
     }
 
-    await this.userRepository.update(userId, userData);
+    await this.userRepository.update(userId, userData as Record<string, unknown>);
     return this.getUserProfile(userId);
   }
 
@@ -832,27 +831,6 @@ export class AuthService {
 
         user = await this.userRepository.save(user);
 
-        // Create default filter for new user
-        const now = new Date();
-        const twoWeeksFromNow = addDays(now, 14);
-
-        const defaultFilter = await this.userPreferencesService.createFilter(
-          user.id,
-          {
-            name: "First Two Weeks",
-            isActive: true,
-            criteria: {
-              dateRange: {
-                start: format(now, "yyyy-MM-dd"),
-                end: format(twoWeeksFromNow, "yyyy-MM-dd"),
-              },
-            },
-          },
-        );
-
-        await this.userPreferencesService.applyFilters(user.id, [
-          defaultFilter.id,
-        ]);
       }
 
       // Generate tokens

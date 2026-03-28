@@ -1,5 +1,23 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiClient, UserStats } from "@/services/ApiClient";
+import { apiClient } from "@/services/ApiClient";
+
+interface CategoryBreakdown {
+  name: string;
+  icon: string | null;
+  count: number;
+}
+
+interface CityBreakdown {
+  city: string;
+  count: number;
+}
+
+export interface UserStats {
+  categoryBreakdown: CategoryBreakdown[];
+  cityBreakdown: CityBreakdown[];
+  globalRank: number;
+  totalUsers: number;
+}
 
 let cachedStats: UserStats | null = null;
 let cacheTimestamp = 0;
@@ -25,21 +43,9 @@ const useUserStats = (): UseUserStatsReturn => {
 
     try {
       setIsLoading(true);
-      const data = await apiClient.leaderboard.getMyStats();
-      cachedStats = data;
-      cacheTimestamp = Date.now();
-      setStats(data);
-    } catch (err) {
-      console.error("Error fetching user stats:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const refetch = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const data = await apiClient.leaderboard.getMyStats();
+      const url = `${apiClient.baseUrl}/api/users/me/stats`;
+      const response = await apiClient.fetchWithAuth(url);
+      const data = await response.json();
       cachedStats = data;
       cacheTimestamp = Date.now();
       setStats(data);
@@ -54,7 +60,7 @@ const useUserStats = (): UseUserStatsReturn => {
     fetchStats();
   }, [fetchStats]);
 
-  return { stats, isLoading, refetch };
+  return { stats, isLoading, refetch: fetchStats };
 };
 
 export default useUserStats;

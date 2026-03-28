@@ -1,4 +1,8 @@
-import { NativeStackNavigationOptions } from "@react-navigation/native-stack";
+interface ScreenTransitionOptions {
+  animation?: "fade_from_bottom" | "slide_from_right" | "fade" | "slide_from_left" | "none";
+  animationDuration?: number;
+  presentation?: "modal" | "card" | "transparentModal" | "containedModal" | "containedTransparentModal" | "fullScreenModal" | "formSheet";
+}
 
 export const STACK_SCREEN_OPTIONS = {
   headerShown: false,
@@ -13,10 +17,7 @@ export const STACK_SCREEN_OPTIONS = {
 
 interface ScreenConfig {
   name: string;
-  options?: Pick<
-    NativeStackNavigationOptions,
-    "animation" | "animationDuration" | "presentation"
-  >;
+  options?: ScreenTransitionOptions;
 }
 
 export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
@@ -24,44 +25,15 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
   { name: "login" },
   { name: "forgot-password" },
   { name: "reset-password" },
-  { name: "onboarding" },
   { name: "index" },
   { name: "scan" },
   { name: "user" },
   {
-    name: "saved/index",
-    options: { animation: "fade", animationDuration: 150 },
-  },
-  {
-    name: "cluster",
-    options: { animation: "fade_from_bottom", animationDuration: 250 },
-  },
-  {
     name: "search/index",
     options: { presentation: "modal" },
   },
-  {
-    name: "get-away",
-    options: { presentation: "modal" },
-  },
-  {
+{
     name: "category/[id]",
-    options: { animation: "slide_from_right", animationDuration: 250 },
-  },
-  {
-    name: "browse/index",
-    options: { animation: "fade", animationDuration: 150 },
-  },
-  {
-    name: "browse/[id]",
-    options: { animation: "slide_from_right", animationDuration: 250 },
-  },
-  {
-    name: "spaces/index",
-    options: { animation: "fade", animationDuration: 150 },
-  },
-  {
-    name: "spaces/[city]",
     options: { animation: "slide_from_right", animationDuration: 250 },
   },
   {

@@ -1,20 +1,14 @@
 import { Redis } from "ioredis";
 
 export type RedisChannel =
-  | "event_changes"
   | "notifications"
   | "user_updates"
   | "location_updates"
   | "job_created"
   | "job_updates"
   | "level-update"
-  | "discovered_events"
-  | "filter-changes"
-  | "viewport-updates"
-  | `user:${string}:filtered-events`
   | `job:${string}:updates`
-  | "push:discovery"
-  | "itinerary_changes";
+  | "sidequest_changes";
 
 // Define base interface for messages that require timestamps
 interface TimestampedMessage {
@@ -149,40 +143,6 @@ export class RedisServiceImpl implements RedisService {
           ? { timestamp: new Date().toISOString() }
           : {}),
       };
-
-      // For filtered events, ensure the message format matches what FilterProcessor expects
-      if (channel.startsWith("user:") && channel.endsWith(":filtered-events")) {
-        await this.redis.publish(channel, JSON.stringify(messageWithTimestamp));
-        return;
-      }
-
-      // For filter changes, ensure the format matches what FilterProcessor expects
-      if (channel === "filter-changes") {
-        const filterMessage = message as FilterChangeMessage;
-        await this.redis.publish(
-          channel,
-          JSON.stringify({
-            userId: filterMessage.userId,
-            filters: filterMessage.filters,
-            timestamp: filterMessage.timestamp || new Date().toISOString(),
-          }),
-        );
-        return;
-      }
-
-      // For viewport updates, ensure the format matches what FilterProcessor expects
-      if (channel === "viewport-updates") {
-        const viewportMessage = message as ViewportUpdateMessage;
-        await this.redis.publish(
-          channel,
-          JSON.stringify({
-            userId: viewportMessage.userId,
-            viewport: viewportMessage.viewport,
-            timestamp: viewportMessage.timestamp || new Date().toISOString(),
-          }),
-        );
-        return;
-      }
 
       // For notifications, ensure the format matches what WebSocket expects
       if (channel === "notifications") {

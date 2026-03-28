@@ -101,12 +101,6 @@ export default {
         },
       ],
       [
-        "@rnmapbox/maps",
-        {
-          RNMapboxMapsDownloadToken: process.env.MAPBOX_DOWNLOADS_TOKEN,
-        },
-      ],
-      [
         "expo-location",
         {
           locationAlwaysAndWhenInUsePermission:

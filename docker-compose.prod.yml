@@ -35,59 +35,6 @@ services:
           memory: 512M
           cpus: "0.5"
 
-  websocket:
-    image: ghcr.io/davidkalina/rtm-websocket:latest
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: "1.0"
-        reservations:
-          memory: 256M
-          cpus: "0.5"
-
-  filter-processor:
-    image: ghcr.io/davidkalina/rtm-filter-processor:latest
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: "1.0"
-        reservations:
-          memory: 512M
-          cpus: "0.5"
-
-  web-dashboard:
-    image: ghcr.io/davidkalina/rtm-web-dashboard:latest
-    # Remove development volumes — use baked-in code from the image
-    volumes: []
-    environment:
-      - NODE_ENV=production
-      - PORT=3001
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://backend:3000/api/health",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "0.5"
-        reservations:
-          memory: 256M
-          cpus: "0.25"
-
   # Production Traefik configuration
   traefik:
     command:

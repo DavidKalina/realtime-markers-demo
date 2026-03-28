@@ -45,15 +45,9 @@ alias dc-prod="docker compose -f docker-compose.yml -f docker-compose.prod.yml u
 
 # Service-specific aliases
 alias dc-logs-backend="docker compose logs -f backend"
-alias dc-logs-ws="docker compose logs -f websocket"
-alias dc-logs-filter="docker compose logs -f filter-processor"
-alias dc-logs-dashboard="docker compose logs -f web-dashboard"
 
 # Shell access aliases
 alias dc-shell-backend="docker compose exec backend sh"
-alias dc-shell-ws="docker compose exec websocket sh"
-alias dc-shell-filter="docker compose exec filter-processor sh"
-alias dc-shell-dashboard="docker compose exec web-dashboard sh"
 alias dc-shell-postgres="docker compose exec postgres psql -U postgres -d markersdb"
 
 # Database aliases
@@ -84,10 +78,10 @@ show_aliases() {
     echo "  dc-dev, dc-prod"
     echo ""
     echo "Service Logs:"
-    echo "  dc-logs-backend, dc-logs-ws, dc-logs-filter, dc-logs-dashboard"
+    echo "  dc-logs-backend"
     echo ""
     echo "Shell Access:"
-    echo "  dc-shell-backend, dc-shell-ws, dc-shell-filter, dc-shell-dashboard, dc-shell-postgres"
+    echo "  dc-shell-backend, dc-shell-postgres"
     echo ""
     echo "Database:"
     echo "  dc-reset-db, dc-migrate, dc-seed"
@@ -132,26 +126,6 @@ health_check() {
         print_warning "Backend: Not responding"
     fi
     
-    # Check websocket
-    if curl -s http://localhost:8081/health > /dev/null 2>&1; then
-        print_status "WebSocket: OK"
-    else
-        print_warning "WebSocket: Not responding"
-    fi
-    
-    # Check filter-processor
-    if curl -s http://localhost:8082/health > /dev/null 2>&1; then
-        print_status "Filter Processor: OK"
-    else
-        print_warning "Filter Processor: Not responding"
-    fi
-    
-    # Check web-dashboard
-    if curl -s http://localhost:3001 > /dev/null 2>&1; then
-        print_status "Web Dashboard: OK"
-    else
-        print_warning "Web Dashboard: Not responding"
-    fi
 }
 
 # Function to show logs for all services in parallel
@@ -184,7 +158,6 @@ project_info() {
     echo "Services:"
     echo "  - Backend (Node.js/Express)"
     echo "  - WebSocket (Real-time communication)"
-    echo "  - Filter Processor (Event filtering)"
     echo "  - Web Dashboard (React/Next.js)"
     echo "  - Mobile App (React Native/Expo)"
     echo "  - PostgreSQL (Database)"

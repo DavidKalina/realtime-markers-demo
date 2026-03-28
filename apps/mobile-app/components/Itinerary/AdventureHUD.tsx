@@ -142,7 +142,7 @@ const AdventureHUD: React.FC<AdventureHUDProps> = ({ style }) => {
 
   if (!itinerary) return null;
 
-  const items = itinerary.items || [];
+  const items = itinerary.objectives || [];
   const sortedItems = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
   const checked = items.filter((i) => i.checkedInAt).length;
   const total = items.length;

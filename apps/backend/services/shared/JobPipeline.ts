@@ -8,7 +8,7 @@ export type JobType =
   | "process_flyer"
   | "cleanup_outdated_events"
   | "import_external_events"
-  | "generate_itinerary";
+  | "generate_sidequest";
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
 export interface PipelineStep<TStepId extends string> {
@@ -33,6 +33,15 @@ export interface JobExtractions {
   confidence?: number;
 }
 
+export interface AgentCandidate {
+  name: string;
+  coordinates: [number, number]; // [lng, lat]
+  type: "venue" | "trail";
+  rating?: number;
+  distanceMiles?: number;
+  query?: string;
+}
+
 export interface JobProgressMessage {
   jobId: string;
   jobType: JobType;
@@ -44,6 +53,7 @@ export interface JobProgressMessage {
   totalSteps: number;
   stepProgress: number;
   extractions?: JobExtractions;
+  candidates?: AgentCandidate[];
   error?: string;
   message?: string;
   result?: JobData["result"];
@@ -107,14 +117,13 @@ export const IMPORT_PIPELINE = definePipeline<ImportStepId>(
   ],
 );
 
-export type ItineraryStepId = "fetch_events" | "generate" | "save";
+export type SidequestStepId = "generate" | "save";
 
-export const ITINERARY_PIPELINE = definePipeline<ItineraryStepId>(
-  "generate_itinerary",
+export const SIDEQUEST_PIPELINE = definePipeline<SidequestStepId>(
+  "generate_sidequest",
   [
-    { id: "fetch_events", label: "Finding events", weight: 1 },
-    { id: "generate", label: "Building itinerary", weight: 6 },
-    { id: "save", label: "Saving plan", weight: 1 },
+    { id: "generate", label: "Forging your quest", weight: 5 },
+    { id: "save", label: "Inscribing the quest log", weight: 1 },
   ],
 );
 
@@ -126,6 +135,7 @@ export interface JobTracker<TStepId extends string> {
     progress: number,
     label?: string,
     extractions?: JobExtractions,
+    candidates?: AgentCandidate[],
   ): Promise<void>;
   complete(result: JobData["result"], eventId?: string): Promise<void>;
   fail(error: string, message?: string): Promise<void>;
@@ -181,6 +191,7 @@ export function createJobTracker<TStepId extends string>(
         stepProgress: msg.stepProgress,
         stepDescription: msg.stepLabel,
         ...(msg.extractions ? { extractions: msg.extractions } : {}),
+        ...(msg.candidates ? { candidates: msg.candidates } : {}),
       },
       ...(msg.result ? { result: msg.result } : {}),
       ...(msg.error ? { error: msg.error } : {}),
@@ -233,6 +244,7 @@ export function createJobTracker<TStepId extends string>(
       progress: number,
       label?: string,
       extractions?: JobExtractions,
+      candidates?: AgentCandidate[],
     ): Promise<void> {
       currentStepProgress = Math.min(100, Math.max(0, progress));
       const overrides: Partial<JobProgressMessage> = {};
@@ -241,6 +253,9 @@ export function createJobTracker<TStepId extends string>(
       }
       if (extractions) {
         overrides.extractions = extractions;
+      }
+      if (candidates) {
+        overrides.candidates = candidates;
       }
       await publish(buildMessage(overrides));
     },

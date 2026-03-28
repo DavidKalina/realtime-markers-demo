@@ -23,10 +23,10 @@ import { useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { ChevronRight } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
-import { useMapStyle } from "@/contexts/MapStyleContext";
+import { useUserLocation } from "@/contexts/LocationContext";
 import { useProfile } from "@/hooks/useProfile";
 import useUserStats from "@/hooks/useUserStats";
-import { useXPStore } from "@/stores/useXPStore";
+import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import {
   useColors,
   useTheme,
@@ -39,26 +39,23 @@ import {
   radius,
   spacing,
 } from "@/theme";
+import { apiClient } from "@/services/ApiClient";
+import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
-import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useProfileInsights } from "@/hooks/useProfileInsights";
 import Screen from "../Layout/Screen";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
-import ItineraryDialogBox from "../Itinerary/ItineraryDialogBox";
+import QuestDialogBox from "../Quest/QuestDialogBox";
 import DeleteAccountModalComponent from "./DeleteAccountModal";
 import UserStatsCard from "./UserStatsCard";
 import ActiveQuestBanner from "./ActiveQuestBanner";
 import RecentCompletions from "./RecentCompletions";
-import BadgeGrid from "./BadgeGrid";
 import ActivityHeatmap from "./ActivityHeatmap";
 import VenueDnaChart from "./VenueDnaChart";
 import AdventureDnaChart from "./AdventureDnaChart";
 import StreakCalendar from "./StreakCalendar";
 import AdventureFootprint from "./AdventureFootprint";
-import PendingItineraries from "./PendingItineraries";
-import DailyQuota from "./DailyQuota";
 import PersonalScoreHero from "./PersonalScoreHero";
-import NextBadgeProgress from "./NextBadgeProgress";
 import AdventurePreferences from "./AdventurePreferences";
 
 /* ─── Types ─── */
@@ -86,10 +83,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { user } = useAuth();
-  const { isPitched, togglePitch } = useMapStyle();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
-  const { resetOnboarding } = useOnboarding();
+  const { userLocation } = useUserLocation();
+  const { trackJob } = useJobProgressContext();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isGetAwayLoading, setIsGetAwayLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("adventures");
   const {
     loading,
@@ -116,42 +114,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { data: insights, refetch: refetchInsights } = useProfileInsights();
 
   const completionsRefetchRef = useRef<(() => Promise<void>) | null>(null);
-  const pendingRefetchRef = useRef<(() => Promise<void>) | null>(null);
-  const quotaRefetchRef = useRef<(() => Promise<void>) | null>(null);
-  const badgesRefetchRef = useRef<(() => Promise<void>) | null>(null);
   const scoreRefetchRef = useRef<(() => Promise<void>) | null>(null);
-
-  // Consume pending XP on each focus, but only animate AFTER fresh data arrives
-  const consume = useXPStore((s) => s.consume);
-  const liveHasPending = useXPStore((s) => s.hasPending);
-  const isHandlingLive = useRef(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      const store = useXPStore.getState();
-      if (store.hasPending) {
-        consume();
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        refetch();
-      }
-    }, [consume, refetch]),
-  );
-
-  // Live XP: handle new events arriving while already on this screen
-  useEffect(() => {
-    if (liveHasPending && !isHandlingLive.current) {
-      isHandlingLive.current = true;
-      const result = consume();
-      if (result.totalXP > 0) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        refetch().then(() => {
-          isHandlingLive.current = false;
-        });
-      } else {
-        isHandlingLive.current = false;
-      }
-    }
-  }, [liveHasPending, consume, refetch]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -162,9 +125,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         refetchInsights(),
         useActiveItineraryStore.getState().refresh(),
         completionsRefetchRef.current?.(),
-        pendingRefetchRef.current?.(),
-        quotaRefetchRef.current?.(),
-        badgesRefetchRef.current?.(),
         scoreRefetchRef.current?.(),
       ]);
     } finally {
@@ -177,20 +137,39 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     setThemeMode(mode);
   };
 
-  const handlePitchChange = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    togglePitch();
-  };
-
-  const handleSavedPress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/saved" as const);
-  }, [router]);
-
   const handleSearch = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push("/search" as const);
   }, [router]);
+
+  const handleGetAway = useCallback(async () => {
+    if (!userLocation || isGetAwayLoading) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsGetAwayLoading(true);
+
+    try {
+      const result = await apiClient.sidequests.createSidequest({
+        prompt: "",
+        radiusMiles: 30,
+        budgetMax: 50,
+        latitude: userLocation[1],
+        longitude: userLocation[0],
+        timezone: getUserTimezone(),
+        surpriseMe: true,
+      });
+
+      trackJob(result.jobId, result.sidequestId);
+      router.push({
+        pathname: "/itineraries/[id]" as const,
+        params: { id: result.sidequestId },
+      });
+    } catch (err) {
+      console.error("[UserProfile] Get Away failed:", err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsGetAwayLoading(false);
+    }
+  }, [userLocation, isGetAwayLoading, trackJob, router]);
 
   const handleTabPress = useCallback((tab: ProfileTab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -201,21 +180,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
   const renderAdventuresTab = () => (
     <>
-      {/* Daily Itinerary Quota */}
-      <View style={styles.tabSection}>
-        <DailyQuota onRefetchRef={quotaRefetchRef} />
-      </View>
-
-      {/* Pending Itineraries */}
-      <View style={styles.tabSection}>
-        <PendingItineraries onRefetchRef={pendingRefetchRef} />
-      </View>
-
-      {/* Next Badge Progress */}
-      <View style={styles.tabSection}>
-        <NextBadgeProgress onViewBadges={() => handleTabPress("insights")} />
-      </View>
-
       {/* Recent Completions (rate unrated) */}
       <View style={styles.tabSection}>
         <RecentCompletions onRefetchRef={completionsRefetchRef} />
@@ -287,14 +251,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           }
         />
       </Animated.View>
-      {/* Badges */}
-      <Animated.View
-        entering={FadeIn.duration(duration.normal).delay(80)}
-        style={styles.tabSection}
-      >
-        <BadgeGrid onRefetchRef={badgesRefetchRef} />
-      </Animated.View>
-
       {/* Stats */}
       <Animated.View
         entering={FadeIn.duration(duration.normal).delay(320)}
@@ -350,35 +306,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             ))}
           </View>
         </View>
-        <View style={styles.inlineRow}>
-          <Text style={styles.inlineRowLabel}>3D Buildings</Text>
-          <Switch
-            value={isPitched}
-            onValueChange={handlePitchChange}
-            trackColor={{
-              false: colors.border.medium,
-              true: colors.accent.primary,
-            }}
-            thumbColor={colors.bg.elevated}
-          />
-        </View>
       </View>
 
       {/* Adventure Preferences */}
       <View style={styles.tabSection}>
         <Text style={styles.sectionLabel}>PREFERENCES</Text>
         <AdventurePreferences />
-      </View>
-
-      {/* Saved Events */}
-      <View style={styles.tabSection}>
-        <Pressable
-          style={[styles.inlineAction, styles.inlineActionLast]}
-          onPress={handleSavedPress}
-        >
-          <Text style={styles.inlineRowLabel}>Saved Events</Text>
-          <ChevronRight size={14} color={colors.text.secondary} />
-        </Pressable>
       </View>
 
       {/* Actions */}
@@ -406,19 +339,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           <Text style={styles.deleteText}>Delete Account</Text>
           <ChevronRight size={14} color={colors.status.error.text} />
         </Pressable>
-        {__DEV__ && (
-          <Pressable
-            style={[styles.inlineAction, styles.inlineActionLast]}
-            onPress={async () => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              await resetOnboarding();
-              router.replace("/onboarding" as const);
-            }}
-          >
-            <Text style={styles.inlineRowLabel}>Replay Onboarding</Text>
-            <ChevronRight size={14} color={colors.text.secondary} />
-          </Pressable>
-        )}
       </View>
     </>
   );
@@ -442,7 +362,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         showBackButton
         onBack={handleBack}
         noAnimation
-        bottomContent={<ItineraryDialogBox style={{ marginBottom: 0 }} />}
+        bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} />}
       >
         <PullToActionScrollView
           onSearch={handleSearch}
@@ -488,17 +408,24 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 style={styles.heroSection}
               >
                 <Pressable
-                  style={styles.getAwayButton}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    router.push("/get-away" as const);
-                  }}
+                  style={[
+                    styles.getAwayButton,
+                    isGetAwayLoading && { opacity: 0.6 },
+                  ]}
+                  disabled={isGetAwayLoading}
+                  onPress={handleGetAway}
                 >
-                  <Text style={styles.getAwayEmoji}>{"\u{1F3B2}"}</Text>
+                  {isGetAwayLoading ? (
+                    <ActivityIndicator size="small" color={colors.text.inverse} />
+                  ) : (
+                    <Text style={styles.getAwayEmoji}>{"\u{1F3B2}"}</Text>
+                  )}
                   <View style={styles.getAwayInfo}>
                     <Text style={styles.getAwayTitle}>Get Away</Text>
                     <Text style={styles.getAwaySub}>
-                      Instant adventure near you
+                      {isGetAwayLoading
+                        ? "Generating adventure..."
+                        : "Instant adventure near you"}
                     </Text>
                   </View>
                   <ChevronRight size={14} color={colors.text.inverse} />

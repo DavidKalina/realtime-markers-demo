@@ -1,16 +1,6 @@
-import { useUserLocation } from "@/contexts/LocationContext";
-import { useEventBroker } from "@/hooks/useEventBroker";
-import {
-  CameraAnimateToLocationEvent,
-  EventTypes,
-} from "@/services/EventBroker";
 import * as Haptics from "expo-haptics";
 import { usePathname, useRouter } from "expo-router";
 import {
-  Camera,
-  CompassIcon,
-  GlobeIcon,
-  HexagonIcon,
   LucideIcon,
   LucideSword,
   User,
@@ -26,8 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, fontWeight } from "@/theme";
-import { useXPStore } from "@/stores/useXPStore";
-import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
+import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { createStyles } from "./styles";
 
 // Pre-define animation configurations
@@ -42,7 +31,7 @@ const BUTTON_RELEASE_ANIMATION = {
 };
 
 // Define route type to match expo-router's expected types
-type AppRoute = "/browse" | "/spaces" | "/scan" | "/itineraries" | "/user" | "/";
+type AppRoute = "/itineraries" | "/user" | "/";
 
 interface TabConfig {
   key: string;
@@ -65,39 +54,18 @@ const TABS: TabConfig[] = [
     icon: LucideSword,
     route: "/itineraries",
   },
-  {
-    key: "locate",
-    label: "Discover",
-    icon: CompassIcon,
-    requiresLocation: true,
-  },
-  {
-    key: "browse",
-    label: "Districts",
-    icon: HexagonIcon,
-    route: "/browse",
-  },
-  {
-    key: "scan",
-    label: "Scan",
-    icon: Camera,
-    route: "/scan",
-  },
 ];
 
 const HIDDEN_ROUTES = ["/register", "/login", "/onboarding"];
 
 // Static route → tab key mapping (no dependency on colors)
 const ROUTE_TO_TAB: Record<string, string> = {
-  "/scan": "scan",
   "/user": "user",
 };
 
 // Map pathname to active tab key
 const getActiveTabKey = (pathname: string): string | null => {
-  if (pathname === "/") return "locate";
-  if (pathname.startsWith("/browse")) return "browse";
-  if (pathname.startsWith("/spaces")) return "browse";
+  if (pathname === "/" || pathname === "/user") return "user";
   if (pathname.startsWith("/itineraries")) return "itineraries";
   return ROUTE_TO_TAB[pathname] ?? null;
 };
@@ -167,13 +135,9 @@ export const ActionBar: React.FC = React.memo(() => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const pathname = usePathname();
-  const { publish } = useEventBroker();
   const insets = useSafeAreaInsets();
-  const { userLocation } = useUserLocation();
   const router = useRouter();
-  const hasPendingXP = useXPStore((s) => s.hasPending);
-  const hasItineraryReady = useItineraryJobStore((s) => s.hasReady);
-  const isItineraryGenerating = useItineraryJobStore((s) => !!s.activeJobId);
+  const { hasReady: hasItineraryReady, isGenerating: isItineraryGenerating, clearReady } = useJobProgressContext();
 
   const activeTab = useMemo(() => getActiveTabKey(pathname), [pathname]);
 
@@ -183,31 +147,14 @@ export const ActionBar: React.FC = React.memo(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
       }
 
-      if (tab.key === "locate") {
-        if (pathname === "/") {
-          if (userLocation) {
-            publish<CameraAnimateToLocationEvent>(
-              EventTypes.CAMERA_ANIMATE_TO_LOCATION,
-              {
-                timestamp: Date.now(),
-                source: "ActionBar",
-                coordinates: userLocation,
-                duration: 1000,
-                zoomLevel: 15,
-              },
-            );
-          }
-        } else {
-          router.push("/");
-        }
-      } else if (tab.route) {
+      if (tab.route) {
         if (tab.key === "itineraries" && hasItineraryReady) {
-          useItineraryJobStore.getState().clearReady();
+          clearReady();
         }
         router.push(tab.route);
       }
     },
-    [publish, userLocation, router, pathname],
+    [router, pathname, hasItineraryReady, clearReady],
   );
 
   const containerStyle = useMemo(
@@ -233,11 +180,10 @@ export const ActionBar: React.FC = React.memo(() => {
             key={tab.key}
             tab={tab}
             isActive={activeTab === tab.key}
-            disabled={!!tab.requiresLocation && !userLocation}
+            disabled={false}
             showBadge={
-              (tab.key === "user" && hasPendingXP) ||
-              (tab.key === "itineraries" &&
-                (hasItineraryReady || isItineraryGenerating))
+              tab.key === "itineraries" &&
+                (hasItineraryReady || isItineraryGenerating)
             }
             onPress={() => handleTabPress(tab)}
           />

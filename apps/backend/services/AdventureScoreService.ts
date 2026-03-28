@@ -182,7 +182,7 @@ export class AdventureScoreService {
           ELSE 0
         END
       ), 0) AS raw
-      FROM itinerary_checkins
+      FROM objective_checkins
       WHERE user_id = $1
         AND checked_in_at >= NOW() - INTERVAL '30 days'`,
       [userId],
@@ -208,12 +208,12 @@ export class AdventureScoreService {
    */
   private async computeDiversity(userId: string): Promise<number> {
     const rows = await this.dataSource.query(
-      `SELECT LOWER(ii.venue_category) AS cat, COUNT(*)::int AS cnt
-       FROM itinerary_checkins ic
-       JOIN itinerary_items ii ON ii.id = ic.itinerary_item_id
-       WHERE ic.user_id = $1
-         AND ii.venue_category IS NOT NULL
-       GROUP BY LOWER(ii.venue_category)`,
+      `SELECT LOWER(o.venue_category) AS cat, COUNT(*)::int AS cnt
+       FROM objective_checkins oc
+       JOIN objectives o ON o.id = oc.objective_id
+       WHERE oc.user_id = $1
+         AND o.venue_category IS NOT NULL
+       GROUP BY LOWER(o.venue_category)`,
       [userId],
     );
     if (rows.length === 0) return 0;
@@ -235,7 +235,7 @@ export class AdventureScoreService {
       `SELECT
         COUNT(*)::int AS total,
         COUNT(completed_at)::int AS completed
-       FROM itineraries
+       FROM sidequests
        WHERE user_id = $1`,
       [userId],
     );
@@ -250,11 +250,11 @@ export class AdventureScoreService {
    */
   private async computeDiscovery(userId: string): Promise<number> {
     const result = await this.dataSource.query(
-      `SELECT COUNT(DISTINCT ii.venue_name)::int AS cnt
-       FROM itinerary_checkins ic
-       JOIN itinerary_items ii ON ii.id = ic.itinerary_item_id
-       WHERE ic.user_id = $1
-         AND ii.venue_name IS NOT NULL`,
+      `SELECT COUNT(DISTINCT o.venue_name)::int AS cnt
+       FROM objective_checkins oc
+       JOIN objectives o ON o.id = oc.objective_id
+       WHERE oc.user_id = $1
+         AND o.venue_name IS NOT NULL`,
       [userId],
     );
     return Number(result[0]?.cnt ?? 0);

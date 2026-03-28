@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { updateLocationHandler } from "../handlers/userLocationHandler";
 import { getUserStats } from "../handlers/userStatsHandler";
-import { getUserBadges } from "../handlers/badgeHandlers";
 import { getAdventureScore } from "../handlers/adventureScoreHandler";
 import { getProfileInsights } from "../handlers/profileInsightsHandler";
 import { submitOnboardingProfile } from "../handlers/onboardingProfileHandler";
@@ -29,7 +28,6 @@ usersRouter.post("/location", authMiddleware, updateLocationHandler);
 
 // Stats route (before /:userId to avoid param conflict)
 usersRouter.get("/me/stats", authMiddleware, getUserStats);
-usersRouter.get("/me/badges", authMiddleware, getUserBadges);
 usersRouter.get("/me/adventure-score", authMiddleware, getAdventureScore);
 usersRouter.get("/me/profile-insights", authMiddleware, getProfileInsights);
 usersRouter.post(

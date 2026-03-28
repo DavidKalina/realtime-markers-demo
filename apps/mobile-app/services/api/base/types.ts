@@ -1,8 +1,4 @@
-import type {
-  UserProfile,
-  CategorySummary,
-  EventDigest,
-} from "@realtime-markers/database";
+import type { UserProfile } from "@realtime-markers/database";
 
 // Base API types
 export interface Location {
@@ -17,6 +13,13 @@ export interface AuthTokens {
 
 // Re-export shared types for consistency
 export type User = UserProfile;
+
+export interface CategorySummary {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+}
 export type Category = CategorySummary;
 
 export interface LoginResponse {
@@ -42,7 +45,7 @@ export interface ApiEvent {
   id: string;
   title: string;
   description?: string;
-  eventDigest?: EventDigest | null;
+  eventDigest?: Record<string, unknown> | null;
   eventDate: string;
   endDate?: string;
   location: { type: string; coordinates: [number, number] };

@@ -4,11 +4,8 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToMany,
   Index,
-  type Relation,
 } from "typeorm";
-import { DistrictItinerary } from "./DistrictItinerary";
 
 @Entity("districts")
 export class District {
@@ -52,9 +49,6 @@ export class District {
   })
   activityTags!: string[];
 
-  @Column({ name: "itinerary_count", type: "int", default: 0 })
-  itineraryCount!: number;
-
   @Column({
     name: "avg_rating",
     type: "numeric",
@@ -73,9 +67,6 @@ export class District {
 
   @Column({ name: "last_clustered_at", type: "timestamptz", nullable: true })
   lastClusteredAt?: Date;
-
-  @OneToMany(() => DistrictItinerary, (di) => di.district, { cascade: true })
-  districtItineraries!: Relation<DistrictItinerary[]>;
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

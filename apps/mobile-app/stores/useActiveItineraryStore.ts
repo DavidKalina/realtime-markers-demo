@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type {
   ItineraryResponse,
   ItineraryItemResponse,
-} from "@/services/api/modules/itineraries";
+} from "@/services/api/modules/sidequests";
 import { apiClient } from "@/services/ApiClient";
 import { startBackgroundLocationTracking } from "@/hooks/useBackgroundLocation";
 
@@ -80,7 +80,7 @@ function nullCheckins(
   const replayIds = new Set(replays.map((r) => r.itemId));
   return {
     ...itinerary,
-    items: itinerary.items.map((item) =>
+    objectives: itinerary.objectives.map((item) =>
       replayIds.has(item.id)
         ? { ...item, checkedInAt: undefined }
         : item,
@@ -98,7 +98,7 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
     activate: async (itinerary) => {
       set({ isLoading: true });
       try {
-        const { success } = await apiClient.itineraries.activate(itinerary.id);
+        const { success } = await apiClient.sidequests.activate(itinerary.id);
         if (success) {
           set({ itinerary, isLoading: false });
           // Start background location tracking when user activates an itinerary
@@ -118,7 +118,7 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
     deactivate: async () => {
       set({ isLoading: true });
       try {
-        await apiClient.itineraries.deactivate();
+        await apiClient.sidequests.deactivate();
       } catch (err) {
         console.error("[ActiveItinerary] Failed to deactivate:", err);
       }
@@ -129,12 +129,12 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
       const { itinerary } = get();
       if (!itinerary) return;
 
-      const updatedItems = itinerary.items.map((item) =>
+      const updatedObjectives = itinerary.objectives.map((item) =>
         item.id === itemId ? { ...item, checkedInAt } : item,
       );
 
-      const allChecked = updatedItems.every((item) => item.checkedInAt);
-      const updatedItinerary = { ...itinerary, items: updatedItems };
+      const allChecked = updatedObjectives.every((item) => item.checkedInAt);
+      const updatedItinerary = { ...itinerary, objectives: updatedObjectives };
 
       // Always update the itinerary first so the pin celebration animation plays
       set({ itinerary: updatedItinerary });
@@ -161,8 +161,8 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
       if (!itinerary) return;
 
       try {
-        const fetched = await apiClient.itineraries.getById(itinerary.id);
-        const replays = detectMissedCheckins(itinerary.items, fetched.items);
+        const fetched = await apiClient.sidequests.getById(itinerary.id);
+        const replays = detectMissedCheckins(itinerary.objectives, fetched.objectives);
 
         if (replays.length > 0) {
           // Null the new check-ins so the animation can play during replay
@@ -180,14 +180,14 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
 
     loadActive: async () => {
       try {
-        const result = await apiClient.itineraries.getActive();
-        if (result.active && result.itinerary) {
+        const result = await apiClient.sidequests.getActive();
+        if (result.active && result.sidequest) {
           const { itinerary: prev } = get();
-          const fetched = result.itinerary;
+          const fetched = result.sidequest;
 
           // Detect check-ins that happened while app was killed/backgrounded
           if (prev && prev.id === fetched.id) {
-            const replays = detectMissedCheckins(prev.items, fetched.items);
+            const replays = detectMissedCheckins(prev.objectives, fetched.objectives);
             if (replays.length > 0) {
               set({
                 itinerary: nullCheckins(fetched, replays),

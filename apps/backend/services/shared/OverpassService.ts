@@ -49,7 +49,21 @@ interface OverpassServiceDeps {
 }
 
 const CACHE_TTL = 60 * 60 * 24; // 24 hours — trail data doesn't change often
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+const OVERPASS_ENDPOINTS = [
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+  "https://overpass-api.de/api/interpreter",
+];
+let currentEndpointIdx = 0;
+
+function getOverpassUrl(): string {
+  return OVERPASS_ENDPOINTS[currentEndpointIdx];
+}
+
+function rotateEndpoint(): void {
+  currentEndpointIdx = (currentEndpointIdx + 1) % OVERPASS_ENDPOINTS.length;
+  console.log(`[OverpassService] Rotating to ${OVERPASS_ENDPOINTS[currentEndpointIdx]}`);
+}
 
 // Surfaces safe for longboarding
 const GOOD_SURFACES = new Set([
@@ -78,11 +92,91 @@ const HIKING_SURFACES = new Set([
   "unpaved",
 ]);
 
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1500;
+const MIN_REQUEST_GAP_MS = 1200; // minimum gap between Overpass requests
+
 class OverpassServiceImpl implements OverpassService {
   private redisService: RedisService;
+  private requestQueue: Promise<void> = Promise.resolve();
+  private lastRequestTime = 0;
 
   constructor(deps: OverpassServiceDeps) {
     this.redisService = deps.redisService;
+  }
+
+  /** Serialize all Overpass requests so only one runs at a time with a minimum gap. */
+  private enqueue<T>(fn: () => Promise<T>): Promise<T> {
+    const task = this.requestQueue.then(async () => {
+      const now = Date.now();
+      const elapsed = now - this.lastRequestTime;
+      if (elapsed < MIN_REQUEST_GAP_MS) {
+        await new Promise((r) => setTimeout(r, MIN_REQUEST_GAP_MS - elapsed));
+      }
+      this.lastRequestTime = Date.now();
+      return fn();
+    });
+    // Keep the queue chain alive but don't let errors break it
+    this.requestQueue = task.then(
+      () => {},
+      () => {},
+    );
+    return task;
+  }
+
+  private async fetchWithRetry(
+    query: string,
+    timeoutMs: number,
+  ): Promise<OverpassResponse | null> {
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const url = getOverpassUrl();
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "ThirdPlace/1.0 (trail-search; contact@thirdplace.app)",
+          },
+          body: `data=${encodeURIComponent(query)}`,
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+
+        if (response.ok) {
+          return (await response.json()) as OverpassResponse;
+        }
+
+        const status = response.status;
+        if (status === 429 || status === 504) {
+          // Rotate to a different mirror on rate limit or timeout
+          rotateEndpoint();
+          if (attempt < MAX_RETRIES) {
+            const delay = BASE_DELAY_MS * 2 ** attempt + Math.random() * 500;
+            console.warn(
+              `[OverpassService] Got ${status} from ${url}, rotating & retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${MAX_RETRIES})`,
+            );
+            await new Promise((r) => setTimeout(r, delay));
+            continue;
+          }
+        }
+
+        console.error(`[OverpassService] API returned ${status} from ${url}`);
+        return null;
+      } catch (err) {
+        rotateEndpoint();
+        if (attempt < MAX_RETRIES) {
+          const delay = BASE_DELAY_MS * 2 ** attempt + Math.random() * 500;
+          console.warn(
+            `[OverpassService] Fetch error from ${url}, rotating & retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${MAX_RETRIES}):`,
+            (err as Error).message,
+          );
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
+        }
+        console.error("[OverpassService] Fetch failed after retries:", err);
+        return null;
+      }
+    }
+    return null;
   }
 
   async fetchPavedTrails(
@@ -116,25 +210,8 @@ class OverpassServiceImpl implements OverpassService {
 out geom;
 `;
 
-    let data: OverpassResponse;
-    try {
-      const response = await fetch(OVERPASS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: AbortSignal.timeout(20000),
-      });
-
-      if (!response.ok) {
-        console.error(`[OverpassService] API returned ${response.status}`);
-        return [];
-      }
-
-      data = (await response.json()) as OverpassResponse;
-    } catch (err) {
-      console.error("[OverpassService] Fetch failed:", err);
-      return [];
-    }
+    const data = await this.enqueue(() => this.fetchWithRetry(query, 20000));
+    if (!data) return [];
 
     const trails = this.parseTrails(data, maxResults);
 
@@ -179,27 +256,8 @@ out geom;
 out geom;
 `;
 
-    let data: OverpassResponse;
-    try {
-      const response = await fetch(OVERPASS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: AbortSignal.timeout(20000),
-      });
-
-      if (!response.ok) {
-        console.error(
-          `[OverpassService] Hiking API returned ${response.status}`,
-        );
-        return [];
-      }
-
-      data = (await response.json()) as OverpassResponse;
-    } catch (err) {
-      console.error("[OverpassService] Hiking fetch failed:", err);
-      return [];
-    }
+    const data = await this.enqueue(() => this.fetchWithRetry(query, 20000));
+    if (!data) return [];
 
     const trails = this.parseTrails(data, maxResults, HIKING_SURFACES, false);
 
@@ -305,21 +363,9 @@ out geom;
     const query = `[out:json][timeout:10];way(${wayId});out geom;`;
 
     try {
-      const response = await fetch(OVERPASS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: AbortSignal.timeout(15000),
-      });
+      const data = await this.enqueue(() => this.fetchWithRetry(query, 15000));
+      if (!data) return null;
 
-      if (!response.ok) {
-        console.error(
-          `[OverpassService] API returned ${response.status} for way ${wayId}`,
-        );
-        return null;
-      }
-
-      const data = (await response.json()) as OverpassResponse;
       const element = data.elements.find(
         (e) => e.type === "way" && e.id === wayId,
       );
@@ -386,27 +432,8 @@ out geom;
 out body;
 `;
 
-    let data: OverpassResponse;
-    try {
-      const response = await fetch(OVERPASS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: AbortSignal.timeout(20000),
-      });
-
-      if (!response.ok) {
-        console.error(
-          `[OverpassService] Cities API returned ${response.status}`,
-        );
-        return [];
-      }
-
-      data = (await response.json()) as OverpassResponse;
-    } catch (err) {
-      console.error("[OverpassService] Cities fetch failed:", err);
-      return [];
-    }
+    const data = await this.enqueue(() => this.fetchWithRetry(query, 20000));
+    if (!data) return [];
 
     const cities: NearbyCity[] = [];
     const seen = new Set<string>();

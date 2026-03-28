@@ -1,5 +1,4 @@
 // src/contexts/AuthContext.tsx
-import { useFilterStore } from "@/stores/useFilterStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { apiClient, User } from "../services/ApiClient";
@@ -50,8 +49,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(
     apiClient.isAuthenticated(),
   );
-  const { fetchFilters } = useFilterStore();
-
   // Re-register push token if permission was already granted (no prompt).
   // The actual permission prompt is deferred to a contextual moment (e.g. first scan).
   const setupPushNotifications = async (userId: string) => {
@@ -87,8 +84,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 await import("@/stores/useActiveItineraryStore");
               useActiveItineraryStore.getState().loadActive();
 
-              // Sync filters and active filter IDs
-              await fetchFilters();
             }
           } catch {
             // Profile fetch failed, auth state will be cleared by ApiClient
@@ -143,14 +138,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const unsubLevel = eventBroker.on<LevelUpdateEvent>(
       EventTypes.LEVEL_UPDATE,
       (event) => {
-        if (event.data?.action === "level_up" && event.data?.title) {
+        const title = event.data?.title;
+        if (event.data?.action === "level_up" && title) {
           const totalXp = (event.data as unknown as { totalXp?: number })
             ?.totalXp;
           setUser((prev) =>
             prev
               ? {
                   ...prev,
-                  currentTier: event.data.title,
+                  currentTier: title,
                   ...(totalXp != null ? { totalXp } : {}),
                 }
               : prev,

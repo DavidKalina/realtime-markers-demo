@@ -4,6 +4,15 @@ import { apiClient } from "@/services/ApiClient";
 
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
+export interface AgentCandidate {
+  name: string;
+  coordinates: [number, number]; // [lng, lat]
+  type: "venue" | "trail";
+  rating?: number;
+  distanceMiles?: number;
+  query?: string;
+}
+
 export interface JobExtractions {
   title?: string;
   emoji?: string;
@@ -16,10 +25,12 @@ export interface JobExtractions {
 
 export interface TrackedJob {
   jobId: string;
+  itineraryId?: string;
   status: JobStatus;
   progress: number;
   stepLabel: string;
   extractions?: JobExtractions;
+  candidates?: AgentCandidate[];
   result?: Record<string, unknown>;
   error?: string;
 }
@@ -27,7 +38,7 @@ export interface TrackedJob {
 export interface UseJobProgressReturn {
   activeJobs: TrackedJob[];
   activeCount: number;
-  trackJob: (jobId: string) => void;
+  trackJob: (jobId: string, itineraryId?: string) => void;
   dismissJob: (jobId: string) => void;
 }
 
@@ -59,7 +70,7 @@ export function useJobProgress(): UseJobProgressReturn {
   }, []);
 
   const trackJob = useCallback(
-    (jobId: string) => {
+    (jobId: string, itineraryId?: string) => {
       // Don't track the same job twice
       if (eventSourcesRef.current.has(jobId)) return;
 
@@ -68,6 +79,7 @@ export function useJobProgress(): UseJobProgressReturn {
         const next = new Map(prev);
         next.set(jobId, {
           jobId,
+          itineraryId,
           status: "pending",
           progress: 0,
           stepLabel: "Starting",
@@ -103,8 +115,32 @@ export function useJobProgress(): UseJobProgressReturn {
                 data.extractions ||
                 data.progressDetails?.extractions ||
                 undefined;
+
+              // Accumulate candidates across SSE messages (dedupe by name+coords)
+              const incomingCandidates: AgentCandidate[] | undefined =
+                data.progressDetails?.candidates;
+              let mergedCandidates = existing?.candidates;
+              if (incomingCandidates && incomingCandidates.length > 0) {
+                const seen = new Set(
+                  (existing?.candidates ?? []).map(
+                    (c) => `${c.name}:${c.coordinates[0]}:${c.coordinates[1]}`,
+                  ),
+                );
+                const newUnique = incomingCandidates.filter(
+                  (c) =>
+                    !seen.has(
+                      `${c.name}:${c.coordinates[0]}:${c.coordinates[1]}`,
+                    ),
+                );
+                mergedCandidates = [
+                  ...(existing?.candidates ?? []),
+                  ...newUnique,
+                ];
+              }
+
               next.set(jobId, {
                 jobId,
+                itineraryId: existing?.itineraryId,
                 status: data.status || existing?.status || "processing",
                 progress: data.progress ?? existing?.progress ?? 0,
                 stepLabel:
@@ -115,6 +151,7 @@ export function useJobProgress(): UseJobProgressReturn {
                 extractions: incomingExtractions
                   ? { ...existing?.extractions, ...incomingExtractions }
                   : existing?.extractions,
+                candidates: mergedCandidates,
                 result: data.result || existing?.result,
                 error: data.error || existing?.error,
               });
@@ -134,14 +171,34 @@ export function useJobProgress(): UseJobProgressReturn {
           }
         });
 
-        es.addEventListener("done", () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (es as any).addEventListener("done", () => {
           es.close();
           eventSourcesRef.current.delete(jobId);
         });
 
         es.addEventListener("error", (event) => {
           console.error("[useJobProgress] SSE error:", event);
-          // Don't reconnect — the backend will close when done
+          // Mark the job as failed so the UI can recover
+          setJobs((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(jobId);
+            // Only mark as failed if still in a non-terminal state
+            if (
+              existing &&
+              existing.status !== "completed" &&
+              existing.status !== "failed"
+            ) {
+              next.set(jobId, {
+                ...existing,
+                status: "failed",
+                error: "Connection lost. Please try again.",
+              });
+            }
+            return next;
+          });
+          es.close();
+          eventSourcesRef.current.delete(jobId);
         });
       })();
     },

@@ -3,7 +3,7 @@ import pgvector from "pgvector";
 import ngeohash from "ngeohash";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const DBSCAN = require("density-clustering").DBSCAN;
-import type { IEmbeddingService } from "./event-processing/interfaces/IEmbeddingService";
+import type { IEmbeddingService } from "./shared/EmbeddingService";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
 import type { RedisService } from "./shared/RedisService";
@@ -17,7 +17,7 @@ export interface DistrictServiceDependencies {
   redisService: RedisService;
 }
 
-export interface BrowseItinerary {
+export interface BrowseSidequest {
   id: string;
   title: string | null;
   summary: string | null;
@@ -25,7 +25,6 @@ export interface BrowseItinerary {
   intention: string | null;
   entryLatitude: number | null;
   entryLongitude: number | null;
-  durationHours: number;
   rating: number | null;
   timesAdopted: number;
   itemCount: number;
@@ -42,7 +41,7 @@ export interface BrowseItinerary {
 
 export interface DistrictMomentum {
   momentum: "rising" | "steady" | "cooling";
-  weeklyNewItineraries: number;
+  weeklyNewSidequests: number;
   weeklyAdoptions: number;
   uniqueExplorers: number;
   history: { itineraryCount: number; computedAt: string }[];
@@ -54,12 +53,12 @@ export interface DistrictBrowseResult {
   description: string | null;
   centroidLat: number;
   centroidLng: number;
-  itineraryCount: number;
+  sidequestCount: number;
   avgRating: number | null;
   totalAdoptions: number;
   activityTags: string[];
   distanceMiles: number;
-  previewItineraries: BrowseItinerary[];
+  previewSidequests: BrowseSidequest[];
   momentum: DistrictMomentum | null;
 }
 
@@ -80,18 +79,18 @@ export interface DistrictDetailResult {
     description: string | null;
     centroidLat: number;
     centroidLng: number;
-    itineraryCount: number;
+    sidequestCount: number;
     avgRating: number | null;
     totalAdoptions: number;
     activityTags: string[];
     momentum: DistrictMomentum | null;
     vitalityScore: number;
   };
-  itineraries: BrowseItinerary[];
+  sidequests: BrowseSidequest[];
   nextCursor: string | null;
   activityDna: ActivityDnaEntry[];
   activityHeatmap: ActivityDayEntry[];
-  bestMatch: BrowseItinerary | null;
+  bestMatch: BrowseSidequest | null;
 }
 
 export interface CoverageResult {
@@ -105,7 +104,7 @@ export interface CoverageResult {
   }[];
 }
 
-interface ItineraryRow {
+interface SidequestRow {
   id: string;
   title: string | null;
   summary: string | null;
@@ -165,39 +164,39 @@ export class DistrictService {
     const cells = [geohash, ...Object.values(neighbors)];
     const bbox = geohashCellsBoundingBox(cells);
 
-    const itineraries: ItineraryRow[] = await this.dataSource.query(
+    const sidequests: SidequestRow[] = await this.dataSource.query(
       `SELECT
-        i.id, i.title, i.summary, i.city, i.intention,
-        i.embedding, i.entry_latitude, i.entry_longitude,
-        i.activity_types, i.categories, i.rating, i.times_adopted
-      FROM itineraries i
-      WHERE i.status = 'READY'
-        AND i.is_published = true
-        AND i.completed_at IS NOT NULL
-        AND i.entry_latitude IS NOT NULL
-        AND i.entry_longitude IS NOT NULL
-        AND i.deleted_at IS NULL
-        AND i.entry_latitude BETWEEN $1 AND $2
-        AND i.entry_longitude BETWEEN $3 AND $4`,
+        s.id, s.title, s.summary, s.city, s.intention,
+        s.embedding, s.entry_latitude, s.entry_longitude,
+        s.activity_types, s.categories, s.rating, s.times_adopted
+      FROM sidequests s
+      WHERE s.status = 'READY'
+        AND s.is_published = true
+        AND s.completed_at IS NOT NULL
+        AND s.entry_latitude IS NOT NULL
+        AND s.entry_longitude IS NOT NULL
+        AND s.deleted_at IS NULL
+        AND s.entry_latitude BETWEEN $1 AND $2
+        AND s.entry_longitude BETWEEN $3 AND $4`,
       [bbox.minLat, bbox.maxLat, bbox.minLng, bbox.maxLng],
     );
 
-    // Filter to only itineraries with embeddings
-    const embeddable = itineraries.filter((it) => it.embedding);
+    // Filter to only sidequests with embeddings
+    const embeddable = sidequests.filter((sq) => sq.embedding);
 
     if (embeddable.length < DBSCAN_MIN_POINTS) {
       console.log(
-        `[DistrictService] Only ${embeddable.length} embeddable itineraries (${itineraries.length} total) in region ${geohash}, skipping`,
+        `[DistrictService] Only ${embeddable.length} embeddable sidequests (${sidequests.length} total) in region ${geohash}, skipping`,
       );
       return;
     }
 
-    // Only debounce after confirming we have itineraries to cluster
+    // Only debounce after confirming we have sidequests to cluster
     await this.redisService.set(debounceKey, "1", DEBOUNCE_TTL_SECONDS);
 
     // Parse embeddings
-    const embeddings = embeddable.map((it) =>
-      this.embeddingService.parseSqlEmbedding(it.embedding),
+    const embeddings = embeddable.map((sq) =>
+      this.embeddingService.parseSqlEmbedding(sq.embedding),
     );
 
     // Build index-based dataset for DBSCAN so the distance function
@@ -251,17 +250,17 @@ export class DistrictService {
     const matchedDistrictIds = new Set<string>();
 
     for (const clusterIndices of clusters) {
-      const memberItineraries = clusterIndices.map((i) => embeddable[i]);
+      const memberSidequests = clusterIndices.map((i) => embeddable[i]);
       const memberEmbeddings = clusterIndices.map((i) => embeddings[i]);
 
       // Compute centroid embedding (element-wise mean)
       const centroidEmbedding = this.computeCentroid(memberEmbeddings);
       const centroidLat =
-        memberItineraries.reduce((s, it) => s + Number(it.entry_latitude), 0) /
-        memberItineraries.length;
+        memberSidequests.reduce((s, sq) => s + Number(sq.entry_latitude), 0) /
+        memberSidequests.length;
       const centroidLng =
-        memberItineraries.reduce((s, it) => s + Number(it.entry_longitude), 0) /
-        memberItineraries.length;
+        memberSidequests.reduce((s, sq) => s + Number(sq.entry_longitude), 0) /
+        memberSidequests.length;
       const clusterGeohash = ngeohash.encode(
         centroidLat,
         centroidLng,
@@ -296,10 +295,10 @@ export class DistrictService {
       }
 
       // Compute aggregated stats
-      const activityTags = this.aggregateActivityTags(memberItineraries);
-      const avgRating = this.computeAvgRating(memberItineraries);
-      const totalAdoptions = memberItineraries.reduce(
-        (s, it) => s + Number(it.times_adopted),
+      const activityTags = this.aggregateActivityTags(memberSidequests);
+      const avgRating = this.computeAvgRating(memberSidequests);
+      const totalAdoptions = memberSidequests.reduce(
+        (s, sq) => s + Number(sq.times_adopted),
         0,
       );
       const centroidSql = pgvector.toSql(centroidEmbedding);
@@ -321,7 +320,6 @@ export class DistrictService {
           centroidLng,
           centroidSql,
           activityTags,
-          memberItineraries.length,
           avgRating,
           totalAdoptions,
           clusterGeohash,
@@ -330,8 +328,8 @@ export class DistrictService {
 
         if (shouldRename) {
           const { name, description } =
-            await this.nameDistrict(memberItineraries);
-          nameUpdate = ", name = $10, description = $11";
+            await this.nameDistrict(memberSidequests);
+          nameUpdate = ", name = $9, description = $10";
           params.push(name, description);
           console.log(
             `[DistrictService] Renamed district "${matchedDistrict.name}" → "${name}"`,
@@ -342,37 +340,28 @@ export class DistrictService {
           `UPDATE districts SET
             centroid_lat = $1, centroid_lng = $2,
             embedding_centroid = $3, activity_tags = $4,
-            itinerary_count = $5, avg_rating = $6,
-            total_adoptions = $7, geohash = $8,
+            avg_rating = $5,
+            total_adoptions = $6, geohash = $7,
             last_clustered_at = NOW(), updated_at = NOW()
             ${nameUpdate}
-          WHERE id = $9`,
+          WHERE id = $8`,
           params,
         );
 
-        // Replace membership
-        await this.dataSource.query(
-          `DELETE FROM district_itineraries WHERE district_id = $1`,
-          [matchedDistrict.id],
-        );
-
-        await this.insertMembership(
-          matchedDistrict.id,
-          memberItineraries,
-          centroidEmbedding,
-          memberEmbeddings,
+        console.log(
+          `[DistrictService] Updated district "${matchedDistrict.name}" with ${memberSidequests.length} sidequests`,
         );
       } else {
         // Create new district
         const { name, description } =
-          await this.nameDistrict(memberItineraries);
+          await this.nameDistrict(memberSidequests);
 
-        const [newDistrict] = await this.dataSource.query(
+        await this.dataSource.query(
           `INSERT INTO districts
             (name, description, geohash, centroid_lat, centroid_lng,
-             embedding_centroid, activity_tags, itinerary_count,
+             embedding_centroid, activity_tags,
              avg_rating, total_adoptions, last_clustered_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
           RETURNING id`,
           [
             name,
@@ -382,21 +371,13 @@ export class DistrictService {
             centroidLng,
             centroidSql,
             activityTags,
-            memberItineraries.length,
             avgRating,
             totalAdoptions,
           ],
         );
 
-        await this.insertMembership(
-          newDistrict.id,
-          memberItineraries,
-          centroidEmbedding,
-          memberEmbeddings,
-        );
-
         console.log(
-          `[DistrictService] Created district "${name}" with ${memberItineraries.length} itineraries`,
+          `[DistrictService] Created district "${name}" with ${memberSidequests.length} sidequests`,
         );
       }
     }
@@ -415,18 +396,13 @@ export class DistrictService {
          WHERE id IN (${orphanPlaceholders})`,
         orphanedIds,
       );
-      await this.dataSource.query(
-        `DELETE FROM district_itineraries
-         WHERE district_id IN (${orphanPlaceholders})`,
-        orphanedIds,
-      );
       console.log(
         `[DistrictService] Archived ${orphanedIds.length} orphaned districts`,
       );
     }
 
     console.log(
-      `[DistrictService] Clustered region ${geohash}: ${clusters.length} clusters from ${embeddable.length} itineraries`,
+      `[DistrictService] Clustered region ${geohash}: ${clusters.length} clusters from ${embeddable.length} sidequests`,
     );
   }
 
@@ -434,7 +410,7 @@ export class DistrictService {
     const coords: { entry_latitude: number; entry_longitude: number }[] =
       await this.dataSource.query(
         `SELECT DISTINCT entry_latitude, entry_longitude
-         FROM itineraries
+         FROM sidequests
          WHERE status = 'READY'
            AND embedding IS NOT NULL
            AND entry_latitude IS NOT NULL
@@ -482,19 +458,17 @@ export class DistrictService {
       description: string | null;
       centroid_lat: number;
       centroid_lng: number;
-      itinerary_count: number;
       avg_rating: number;
       total_adoptions: number;
       activity_tags: string[];
     }[] = await this.dataSource.query(
       `SELECT id, name, description, centroid_lat, centroid_lng,
-              itinerary_count, avg_rating, total_adoptions, activity_tags
+              avg_rating, total_adoptions, activity_tags
        FROM districts
        WHERE centroid_lat BETWEEN $1 AND $2
          AND centroid_lng BETWEEN $3 AND $4
          AND status = 'active'
-         AND itinerary_count >= ${DBSCAN_MIN_POINTS}
-       ORDER BY itinerary_count DESC`,
+       ORDER BY total_adoptions DESC`,
       [bbox.minLat, bbox.maxLat, bbox.minLng, bbox.maxLng],
     );
 
@@ -510,11 +484,13 @@ export class DistrictService {
       );
       if (distMeters > radiusMeters) continue;
 
-      // Load preview itineraries + momentum
+      // Load preview sidequests + momentum
       const [previews, momentum] = await Promise.all([
-        this.loadPreviewItineraries(d.id, PREVIEW_COUNT),
+        this.loadPreviewSidequests(d.id, PREVIEW_COUNT),
         this.getDistrictMomentum(d.id),
       ]);
+
+      const sidequestCount = previews.length;
 
       results.push({
         id: d.id,
@@ -522,18 +498,18 @@ export class DistrictService {
         description: d.description,
         centroidLat: Number(d.centroid_lat),
         centroidLng: Number(d.centroid_lng),
-        itineraryCount: d.itinerary_count,
+        sidequestCount,
         avgRating: Number(d.avg_rating) || null,
         totalAdoptions: d.total_adoptions,
         activityTags: d.activity_tags || [],
         distanceMiles: distMeters / 1609.34,
-        previewItineraries: previews,
+        previewSidequests: previews,
         momentum,
       });
     }
 
-    // Sort by itinerary count descending, cap at 15
-    results.sort((a, b) => b.itineraryCount - a.itineraryCount);
+    // Sort by sidequest count descending, cap at 15
+    results.sort((a, b) => b.sidequestCount - a.sidequestCount);
 
     return results.slice(0, 15);
   }
@@ -547,7 +523,7 @@ export class DistrictService {
   ): Promise<DistrictDetailResult> {
     const [district] = await this.dataSource.query(
       `SELECT id, name, description, centroid_lat, centroid_lng,
-              itinerary_count, avg_rating, total_adoptions, activity_tags
+              avg_rating, total_adoptions, activity_tags
        FROM districts WHERE id = $1`,
       [districtId],
     );
@@ -556,55 +532,70 @@ export class DistrictService {
       throw new Error("District not found");
     }
 
+    // TODO: Without the district_itineraries junction table, we query sidequests
+    // by proximity to the district centroid. This is a simplified approach.
     let orderClause: string;
     switch (sort) {
       case "recent":
-        orderClause = "i.created_at DESC, i.id DESC";
+        orderClause = "s.created_at DESC, s.id DESC";
         break;
       case "top_rated":
         orderClause =
-          "COALESCE(i.rating, 0) DESC, i.created_at DESC, i.id DESC";
+          "COALESCE(s.rating, 0) DESC, s.created_at DESC, s.id DESC";
         break;
       case "popular":
       default:
         orderClause =
-          "(i.times_adopted * 2 + COALESCE(i.rating, 0)) DESC, i.created_at DESC, i.id DESC";
+          "(s.times_adopted * 2 + COALESCE(s.rating, 0)) DESC, s.created_at DESC, s.id DESC";
         break;
     }
 
     let cursorClause = "";
-    const params: unknown[] = [districtId, limit + 1];
+    const proximityRadiusKm = 5;
+    const params: unknown[] = [
+      Number(district.centroid_lat),
+      Number(district.centroid_lng),
+      proximityRadiusKm * 1000,
+      limit + 1,
+    ];
 
     if (cursor) {
       const [cursorDate, cursorId] = cursor.split("|");
-      cursorClause = `AND (i.completed_at < $3 OR (i.completed_at = $3 AND i.id < $4))`;
+      cursorClause = `AND (s.completed_at < $5 OR (s.completed_at = $5 AND s.id < $6))`;
       params.push(cursorDate, cursorId);
     }
 
     const rows = await this.dataSource.query(
       `SELECT
-        i.id, i.title, i.summary, i.city, i.intention,
-        i.entry_latitude, i.entry_longitude,
-        i.duration_hours, i.rating, i.times_adopted,
-        i.completed_at, u.first_name AS creator_first_name,
-        (SELECT COUNT(*) FROM itinerary_items ii WHERE ii.itinerary_id = i.id) AS item_count
-      FROM district_itineraries di
-      JOIN itineraries i ON i.id = di.itinerary_id
-      JOIN users u ON u.id = i.user_id
-      WHERE di.district_id = $1
-        AND i.status = 'READY'
-        AND i.is_published = true
-        AND i.deleted_at IS NULL
+        s.id, s.title, s.summary, s.city, s.intention,
+        s.entry_latitude, s.entry_longitude,
+        s.rating, s.times_adopted,
+        s.completed_at, u.first_name AS creator_first_name,
+        (SELECT COUNT(*) FROM objectives o WHERE o.sidequest_id = s.id) AS item_count
+      FROM sidequests s
+      JOIN users u ON u.id = s.user_id
+      WHERE s.status = 'READY'
+        AND s.is_published = true
+        AND s.deleted_at IS NULL
+        AND s.entry_latitude IS NOT NULL
+        AND s.entry_longitude IS NOT NULL
+        AND (
+          6371000 * acos(
+            cos(radians($1)) * cos(radians(s.entry_latitude))
+            * cos(radians(s.entry_longitude) - radians($2))
+            + sin(radians($1)) * sin(radians(s.entry_latitude))
+          )
+        ) <= $3
         ${cursorClause}
       ORDER BY ${orderClause}
-      LIMIT $2`,
+      LIMIT $4`,
       params,
     );
 
     const hasMore = rows.length > limit;
     const resultRows = hasMore ? rows.slice(0, limit) : rows;
 
-    const itineraries = await this.batchLoadBrowseItineraries(resultRows);
+    const sidequests = await this.batchLoadBrowseSidequests(resultRows);
 
     const lastRow = resultRows[resultRows.length - 1];
     const nextCursor =
@@ -621,7 +612,7 @@ export class DistrictService {
       ]);
 
     const vitalityScore = computeVitalityScore({
-      itineraryCount: district.itinerary_count,
+      sidequestCount: sidequests.length,
       avgRating: Number(district.avg_rating) || 0,
       totalAdoptions: district.total_adoptions,
       varietyCount: new Set(activityDna.map((d) => d.activity)).size,
@@ -635,14 +626,14 @@ export class DistrictService {
         description: district.description,
         centroidLat: Number(district.centroid_lat),
         centroidLng: Number(district.centroid_lng),
-        itineraryCount: district.itinerary_count,
+        sidequestCount: sidequests.length,
         avgRating: Number(district.avg_rating) || null,
         totalAdoptions: district.total_adoptions,
         activityTags: district.activity_tags || [],
         momentum,
         vitalityScore,
       },
-      itineraries,
+      sidequests,
       nextCursor,
       activityDna,
       activityHeatmap,
@@ -671,8 +662,7 @@ export class DistrictService {
        FROM districts
        WHERE centroid_lat BETWEEN $1 AND $2
          AND centroid_lng BETWEEN $3 AND $4
-         AND status = 'active'
-         AND itinerary_count >= ${DBSCAN_MIN_POINTS}`,
+         AND status = 'active'`,
       [bbox.minLat, bbox.maxLat, bbox.minLng, bbox.maxLng],
     );
 
@@ -691,28 +681,32 @@ export class DistrictService {
       return { total: 0, explored: 0, districts: [] };
     }
 
-    // Check which districts user has completed itineraries in
-    const districtIds = nearbyDistricts.map((d) => d.id);
-    const districtPlaceholders = districtIds
-      .map((_, i) => `$${i + 2}`)
-      .join(", ");
-
-    const explored: { district_id: string; completed_count: string }[] =
-      await this.dataSource.query(
-        `SELECT di.district_id, COUNT(*)::text AS completed_count
-         FROM district_itineraries di
-         JOIN itineraries i ON i.id = di.itinerary_id
-         WHERE di.district_id IN (${districtPlaceholders})
-           AND i.user_id = $1
-           AND i.completed_at IS NOT NULL
-           AND i.deleted_at IS NULL
-         GROUP BY di.district_id`,
-        [userId, ...districtIds],
+    // Check which districts user has completed sidequests near (by proximity to centroid)
+    // TODO: Without junction table, we approximate by checking if user has completed
+    // sidequests within proximity of each district centroid
+    const exploredMap = new Map<string, number>();
+    for (const d of nearbyDistricts) {
+      const [result] = await this.dataSource.query(
+        `SELECT COUNT(*)::int AS count
+         FROM sidequests s
+         WHERE s.user_id = $1
+           AND s.completed_at IS NOT NULL
+           AND s.deleted_at IS NULL
+           AND s.entry_latitude IS NOT NULL
+           AND s.entry_longitude IS NOT NULL
+           AND (
+             6371000 * acos(
+               cos(radians($2)) * cos(radians(s.entry_latitude))
+               * cos(radians(s.entry_longitude) - radians($3))
+               + sin(radians($2)) * sin(radians(s.entry_latitude))
+             )
+           ) <= 5000`,
+        [userId, Number(d.centroid_lat), Number(d.centroid_lng)],
       );
-
-    const exploredMap = new Map(
-      explored.map((e) => [e.district_id, Number(e.completed_count)]),
-    );
+      if (result.count > 0) {
+        exploredMap.set(d.id, result.count);
+      }
+    }
 
     return {
       total: nearbyDistricts.length,
@@ -729,7 +723,7 @@ export class DistrictService {
   // ───── Helpers ─────
 
   private async nameDistrict(
-    members: ItineraryRow[],
+    members: SidequestRow[],
   ): Promise<{ name: string; description: string }> {
     const allActivityTypes = [
       ...new Set(members.flatMap((m) => m.activity_types || [])),
@@ -793,7 +787,7 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
       // Fallback: use top activity types
       const fallbackName =
         allActivityTypes.slice(0, 2).join(" & ") || "New District";
-      return { name: fallbackName, description: null };
+      return { name: fallbackName, description: "" };
     }
   }
 
@@ -812,7 +806,7 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
     return centroid;
   }
 
-  private aggregateActivityTags(members: ItineraryRow[]): string[] {
+  private aggregateActivityTags(members: SidequestRow[]): string[] {
     const counts = new Map<string, number>();
     for (const m of members) {
       for (const tag of m.activity_types || []) {
@@ -825,64 +819,44 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
       .map(([tag]) => tag);
   }
 
-  private computeAvgRating(members: ItineraryRow[]): number {
+  private computeAvgRating(members: SidequestRow[]): number {
     const rated = members.filter((m) => m.rating != null);
     if (rated.length === 0) return 0;
     return rated.reduce((s, m) => s + Number(m.rating), 0) / rated.length;
   }
 
-  private async insertMembership(
-    districtId: string,
-    members: ItineraryRow[],
-    centroidEmbedding: number[],
-    memberEmbeddings: number[][],
-  ): Promise<void> {
-    for (let i = 0; i < members.length; i++) {
-      const similarity = this.embeddingService.calculateSimilarity(
-        memberEmbeddings[i],
-        centroidEmbedding,
-      );
-      await this.dataSource.query(
-        `INSERT INTO district_itineraries (district_id, itinerary_id, similarity)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (district_id, itinerary_id) DO UPDATE SET similarity = $3`,
-        [districtId, members[i].id, similarity],
-      );
-    }
-  }
-
-  private async batchLoadBrowseItineraries(
+  private async batchLoadBrowseSidequests(
     rows: Record<string, unknown>[],
-  ): Promise<BrowseItinerary[]> {
+  ): Promise<BrowseSidequest[]> {
     if (rows.length === 0) return [];
 
     const ids = rows.map((r) => r.id as string);
     const placeholders = ids.map((_, i) => `$${i + 1}`).join(", ");
 
-    // Single query: top 3 items per itinerary using LATERAL join
+    // Single query: top 3 objectives per sidequest using LATERAL join
     const itemRows: {
-      itinerary_id: string;
+      sidequest_id: string;
       emoji: string | null;
       title: string;
       venue_name: string | null;
       latitude: string | null;
       longitude: string | null;
     }[] = await this.dataSource.query(
-      `SELECT sub.itinerary_id, sub.emoji, sub.title, sub.venue_name, sub.latitude, sub.longitude
+      `SELECT sub.sidequest_id, sub.emoji, sub.title, sub.venue_name, sub.latitude, sub.longitude
        FROM unnest(ARRAY[${placeholders}]::uuid[]) WITH ORDINALITY AS t(id, ord)
        CROSS JOIN LATERAL (
-         SELECT ii.itinerary_id, ii.emoji, ii.title, ii.venue_name, ii.sort_order, ii.latitude, ii.longitude
-         FROM itinerary_items ii
-         WHERE ii.itinerary_id = t.id
-         ORDER BY ii.sort_order ASC
+         SELECT o.sidequest_id, o.emoji, o.title, o.venue_name, o.sort_order, o.latitude, o.longitude
+         FROM objectives o
+         WHERE o.sidequest_id = t.id
+         ORDER BY o.sort_order ASC
          LIMIT 3
        ) sub
        ORDER BY t.ord, sub.sort_order`,
       ids,
     );
 
-    // Group items by itinerary id
-    const itemsByItinerary = new Map<
+    // Group items by sidequest id
+    const itemsBySidequest = new Map<
       string,
       {
         emoji: string | null;
@@ -893,10 +867,10 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
       }[]
     >();
     for (const item of itemRows) {
-      let list = itemsByItinerary.get(item.itinerary_id);
+      let list = itemsBySidequest.get(item.sidequest_id);
       if (!list) {
         list = [];
-        itemsByItinerary.set(item.itinerary_id, list);
+        itemsBySidequest.set(item.sidequest_id, list);
       }
       list.push({
         emoji: item.emoji,
@@ -915,7 +889,6 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
       intention: row.intention as string | null,
       entryLatitude: row.entry_latitude ? Number(row.entry_latitude) : null,
       entryLongitude: row.entry_longitude ? Number(row.entry_longitude) : null,
-      durationHours: Number(row.duration_hours),
       rating: row.rating ? Number(row.rating) : null,
       timesAdopted: Number(row.times_adopted),
       itemCount: Number(row.item_count),
@@ -923,34 +896,49 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
       completedAt:
         (row.completed_at as Date)?.toISOString?.() ||
         (row.completed_at as string),
-      items: itemsByItinerary.get(row.id as string) || [],
+      items: itemsBySidequest.get(row.id as string) || [],
     }));
   }
 
-  private async loadPreviewItineraries(
+  private async loadPreviewSidequests(
     districtId: string,
     count: number,
-  ): Promise<BrowseItinerary[]> {
-    const rows = await this.dataSource.query(
-      `SELECT
-        i.id, i.title, i.summary, i.city, i.intention,
-        i.entry_latitude, i.entry_longitude,
-        i.duration_hours, i.rating, i.times_adopted,
-        i.completed_at, u.first_name AS creator_first_name,
-        (SELECT COUNT(*) FROM itinerary_items ii WHERE ii.itinerary_id = i.id) AS item_count
-      FROM district_itineraries di
-      JOIN itineraries i ON i.id = di.itinerary_id
-      JOIN users u ON u.id = i.user_id
-      WHERE di.district_id = $1
-        AND i.status = 'READY'
-        AND i.is_published = true
-        AND i.deleted_at IS NULL
-      ORDER BY (i.times_adopted * 2 + COALESCE(i.rating, 0)) DESC
-      LIMIT $2`,
-      [districtId, count],
+  ): Promise<BrowseSidequest[]> {
+    // Query sidequests by proximity to district centroid since junction table is removed
+    const [district] = await this.dataSource.query(
+      `SELECT centroid_lat, centroid_lng FROM districts WHERE id = $1`,
+      [districtId],
     );
 
-    return this.batchLoadBrowseItineraries(rows);
+    if (!district) return [];
+
+    const rows = await this.dataSource.query(
+      `SELECT
+        s.id, s.title, s.summary, s.city, s.intention,
+        s.entry_latitude, s.entry_longitude,
+        s.rating, s.times_adopted,
+        s.completed_at, u.first_name AS creator_first_name,
+        (SELECT COUNT(*) FROM objectives o WHERE o.sidequest_id = s.id) AS item_count
+      FROM sidequests s
+      JOIN users u ON u.id = s.user_id
+      WHERE s.status = 'READY'
+        AND s.is_published = true
+        AND s.deleted_at IS NULL
+        AND s.entry_latitude IS NOT NULL
+        AND s.entry_longitude IS NOT NULL
+        AND (
+          6371000 * acos(
+            cos(radians($1)) * cos(radians(s.entry_latitude))
+            * cos(radians(s.entry_longitude) - radians($2))
+            + sin(radians($1)) * sin(radians(s.entry_latitude))
+          )
+        ) <= 5000
+      ORDER BY (s.times_adopted * 2 + COALESCE(s.rating, 0)) DESC
+      LIMIT $3`,
+      [Number(district.centroid_lat), Number(district.centroid_lng), count],
+    );
+
+    return this.batchLoadBrowseSidequests(rows);
   }
 
   // ───── Best Match ─────
@@ -958,7 +946,7 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
   private async getBestMatch(
     districtId: string,
     userId?: string,
-  ): Promise<BrowseItinerary | null> {
+  ): Promise<BrowseSidequest | null> {
     if (!userId) return null;
 
     // Get user's preference embedding
@@ -969,31 +957,46 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
 
     if (!user?.preference_embedding) return null;
 
-    // Find the itinerary in this district with highest embedding similarity
+    // Get district centroid for proximity filter
+    const [district] = await this.dataSource.query(
+      `SELECT centroid_lat, centroid_lng FROM districts WHERE id = $1`,
+      [districtId],
+    );
+
+    if (!district) return null;
+
+    // Find the sidequest near this district with highest embedding similarity
     const rows = await this.dataSource.query(
       `SELECT
-        i.id, i.title, i.summary, i.city, i.intention,
-        i.entry_latitude, i.entry_longitude,
-        i.duration_hours, i.rating, i.times_adopted,
-        i.completed_at, u.first_name AS creator_first_name,
-        (SELECT COUNT(*) FROM itinerary_items ii WHERE ii.itinerary_id = i.id) AS item_count,
-        1 - (i.embedding::vector <=> $2::vector) AS similarity
-      FROM district_itineraries di
-      JOIN itineraries i ON i.id = di.itinerary_id
-      JOIN users u ON u.id = i.user_id
-      WHERE di.district_id = $1
-        AND i.status = 'READY'
-        AND i.is_published = true
-        AND i.deleted_at IS NULL
-        AND i.embedding IS NOT NULL
-      ORDER BY i.embedding::vector <=> $2::vector ASC
+        s.id, s.title, s.summary, s.city, s.intention,
+        s.entry_latitude, s.entry_longitude,
+        s.rating, s.times_adopted,
+        s.completed_at, u.first_name AS creator_first_name,
+        (SELECT COUNT(*) FROM objectives o WHERE o.sidequest_id = s.id) AS item_count,
+        1 - (s.embedding::vector <=> $3::vector) AS similarity
+      FROM sidequests s
+      JOIN users u ON u.id = s.user_id
+      WHERE s.status = 'READY'
+        AND s.is_published = true
+        AND s.deleted_at IS NULL
+        AND s.embedding IS NOT NULL
+        AND s.entry_latitude IS NOT NULL
+        AND s.entry_longitude IS NOT NULL
+        AND (
+          6371000 * acos(
+            cos(radians($1)) * cos(radians(s.entry_latitude))
+            * cos(radians(s.entry_longitude) - radians($2))
+            + sin(radians($1)) * sin(radians(s.entry_latitude))
+          )
+        ) <= 5000
+      ORDER BY s.embedding::vector <=> $3::vector ASC
       LIMIT 1`,
-      [districtId, user.preference_embedding],
+      [Number(district.centroid_lat), Number(district.centroid_lng), user.preference_embedding],
     );
 
     if (rows.length === 0) return null;
 
-    const [result] = await this.batchLoadBrowseItineraries([rows[0]]);
+    const [result] = await this.batchLoadBrowseSidequests([rows[0]]);
     return result ?? null;
   }
 
@@ -1002,20 +1005,35 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
   private async getDistrictActivityDna(
     districtId: string,
   ): Promise<ActivityDnaEntry[]> {
-    // Unnest activity_types from all itineraries in the district, count occurrences
+    // Get district centroid for proximity filter
+    const [district] = await this.dataSource.query(
+      `SELECT centroid_lat, centroid_lng FROM districts WHERE id = $1`,
+      [districtId],
+    );
+
+    if (!district) return [];
+
+    // Unnest activity_types from all sidequests near the district centroid
     const rows: { activity: string; count: number }[] =
       await this.dataSource.query(
-        `SELECT unnest(i.activity_types) AS activity, COUNT(*)::int AS count
-         FROM district_itineraries di
-         JOIN itineraries i ON i.id = di.itinerary_id
-         WHERE di.district_id = $1
-           AND i.status = 'READY'
-           AND i.deleted_at IS NULL
-           AND i.activity_types IS NOT NULL
+        `SELECT unnest(s.activity_types) AS activity, COUNT(*)::int AS count
+         FROM sidequests s
+         WHERE s.status = 'READY'
+           AND s.deleted_at IS NULL
+           AND s.activity_types IS NOT NULL
+           AND s.entry_latitude IS NOT NULL
+           AND s.entry_longitude IS NOT NULL
+           AND (
+             6371000 * acos(
+               cos(radians($1)) * cos(radians(s.entry_latitude))
+               * cos(radians(s.entry_longitude) - radians($2))
+               + sin(radians($1)) * sin(radians(s.entry_latitude))
+             )
+           ) <= 5000
          GROUP BY activity
          ORDER BY count DESC
          LIMIT 10`,
-        [districtId],
+        [Number(district.centroid_lat), Number(district.centroid_lng)],
       );
 
     if (rows.length === 0) return [];
@@ -1030,18 +1048,33 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
   private async getDistrictActivityHeatmap(
     districtId: string,
   ): Promise<ActivityDayEntry[]> {
-    // Count itinerary activity per day over the last 16 weeks (~112 days)
-    const rows: { date: string; count: number }[] = await this.dataSource.query(
-      `SELECT TO_CHAR(i.created_at, 'YYYY-MM-DD') AS date, COUNT(*)::int AS count
-         FROM district_itineraries di
-         JOIN itineraries i ON i.id = di.itinerary_id
-         WHERE di.district_id = $1
-           AND i.status = 'READY'
-           AND i.deleted_at IS NULL
-           AND i.created_at >= NOW() - INTERVAL '112 days'
-         GROUP BY TO_CHAR(i.created_at, 'YYYY-MM-DD')
-         ORDER BY date ASC`,
+    // Get district centroid for proximity filter
+    const [district] = await this.dataSource.query(
+      `SELECT centroid_lat, centroid_lng FROM districts WHERE id = $1`,
       [districtId],
+    );
+
+    if (!district) return [];
+
+    // Count sidequest activity per day over the last 16 weeks (~112 days)
+    const rows: { date: string; count: number }[] = await this.dataSource.query(
+      `SELECT TO_CHAR(s.created_at, 'YYYY-MM-DD') AS date, COUNT(*)::int AS count
+         FROM sidequests s
+         WHERE s.status = 'READY'
+           AND s.deleted_at IS NULL
+           AND s.created_at >= NOW() - INTERVAL '112 days'
+           AND s.entry_latitude IS NOT NULL
+           AND s.entry_longitude IS NOT NULL
+           AND (
+             6371000 * acos(
+               cos(radians($1)) * cos(radians(s.entry_latitude))
+               * cos(radians(s.entry_longitude) - radians($2))
+               + sin(radians($1)) * sin(radians(s.entry_latitude))
+             )
+           ) <= 5000
+         GROUP BY TO_CHAR(s.created_at, 'YYYY-MM-DD')
+         ORDER BY date ASC`,
+      [Number(district.centroid_lat), Number(district.centroid_lng)],
     );
 
     return rows.map((r) => ({ date: r.date, count: r.count }));
@@ -1088,62 +1121,109 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    // Current itinerary count
-    const [{ count: itineraryCount }] = await this.dataSource.query(
+    // Get district centroid for proximity-based counting
+    const [district] = await this.dataSource.query(
+      `SELECT centroid_lat, centroid_lng FROM districts WHERE id = $1`,
+      [districtId],
+    );
+
+    if (!district) return;
+
+    const centroidLat = Number(district.centroid_lat);
+    const centroidLng = Number(district.centroid_lng);
+
+    // Current sidequest count (by proximity)
+    const [{ count: sidequestCount }] = await this.dataSource.query(
       `SELECT COUNT(*)::int AS count
-       FROM district_itineraries di
-       JOIN itineraries i ON i.id = di.itinerary_id
-       WHERE di.district_id = $1
-         AND i.status = 'READY'
-         AND i.deleted_at IS NULL`,
-      [districtId],
+       FROM sidequests s
+       WHERE s.status = 'READY'
+         AND s.deleted_at IS NULL
+         AND s.entry_latitude IS NOT NULL
+         AND s.entry_longitude IS NOT NULL
+         AND (
+           6371000 * acos(
+             cos(radians($1)) * cos(radians(s.entry_latitude))
+             * cos(radians(s.entry_longitude) - radians($2))
+             + sin(radians($1)) * sin(radians(s.entry_latitude))
+           )
+         ) <= 5000`,
+      [centroidLat, centroidLng],
     );
 
-    // Unique explorers (users with completed itineraries in this district)
+    // Unique explorers (users with completed sidequests near this district)
     const [{ count: uniqueExplorers }] = await this.dataSource.query(
-      `SELECT COUNT(DISTINCT i.user_id)::int AS count
-       FROM district_itineraries di
-       JOIN itineraries i ON i.id = di.itinerary_id
-       WHERE di.district_id = $1
-         AND i.completed_at IS NOT NULL
-         AND i.deleted_at IS NULL`,
-      [districtId],
+      `SELECT COUNT(DISTINCT s.user_id)::int AS count
+       FROM sidequests s
+       WHERE s.completed_at IS NOT NULL
+         AND s.deleted_at IS NULL
+         AND s.entry_latitude IS NOT NULL
+         AND s.entry_longitude IS NOT NULL
+         AND (
+           6371000 * acos(
+             cos(radians($1)) * cos(radians(s.entry_latitude))
+             * cos(radians(s.entry_longitude) - radians($2))
+             + sin(radians($1)) * sin(radians(s.entry_latitude))
+           )
+         ) <= 5000`,
+      [centroidLat, centroidLng],
     );
 
-    // Weekly adoptions
+    // Weekly adoptions — simplified: count sidequests with times_adopted > 0 created this week
     const [{ count: weeklyAdoptions }] = await this.dataSource.query(
       `SELECT COUNT(*)::int AS count
-       FROM district_itineraries di
-       JOIN itineraries i ON i.id = di.itinerary_id
-       WHERE di.district_id = $1
-         AND i.source_itinerary_id IS NOT NULL
-         AND i.created_at >= $2
-         AND i.deleted_at IS NULL`,
-      [districtId, weekAgo.toISOString()],
+       FROM sidequests s
+       WHERE s.times_adopted > 0
+         AND s.created_at >= $3
+         AND s.deleted_at IS NULL
+         AND s.entry_latitude IS NOT NULL
+         AND s.entry_longitude IS NOT NULL
+         AND (
+           6371000 * acos(
+             cos(radians($1)) * cos(radians(s.entry_latitude))
+             * cos(radians(s.entry_longitude) - radians($2))
+             + sin(radians($1)) * sin(radians(s.entry_latitude))
+           )
+         ) <= 5000`,
+      [centroidLat, centroidLng, weekAgo.toISOString()],
     );
 
-    // Weekly new itineraries
-    const [{ count: weeklyNewItineraries }] = await this.dataSource.query(
+    // Weekly new sidequests
+    const [{ count: weeklyNewSidequests }] = await this.dataSource.query(
       `SELECT COUNT(*)::int AS count
-       FROM district_itineraries di
-       JOIN itineraries i ON i.id = di.itinerary_id
-       WHERE di.district_id = $1
-         AND i.created_at >= $2
-         AND i.deleted_at IS NULL`,
-      [districtId, weekAgo.toISOString()],
+       FROM sidequests s
+       WHERE s.created_at >= $3
+         AND s.deleted_at IS NULL
+         AND s.entry_latitude IS NOT NULL
+         AND s.entry_longitude IS NOT NULL
+         AND (
+           6371000 * acos(
+             cos(radians($1)) * cos(radians(s.entry_latitude))
+             * cos(radians(s.entry_longitude) - radians($2))
+             + sin(radians($1)) * sin(radians(s.entry_latitude))
+           )
+         ) <= 5000`,
+      [centroidLat, centroidLng, weekAgo.toISOString()],
     );
 
     // Average rating
     const [{ avg: avgRating }] = await this.dataSource.query(
-      `SELECT COALESCE(AVG(i.rating), 0)::numeric(3,2) AS avg
-       FROM district_itineraries di
-       JOIN itineraries i ON i.id = di.itinerary_id
-       WHERE di.district_id = $1
-         AND i.rating IS NOT NULL
-         AND i.deleted_at IS NULL`,
-      [districtId],
+      `SELECT COALESCE(AVG(s.rating), 0)::numeric(3,2) AS avg
+       FROM sidequests s
+       WHERE s.rating IS NOT NULL
+         AND s.deleted_at IS NULL
+         AND s.entry_latitude IS NOT NULL
+         AND s.entry_longitude IS NOT NULL
+         AND (
+           6371000 * acos(
+             cos(radians($1)) * cos(radians(s.entry_latitude))
+             * cos(radians(s.entry_longitude) - radians($2))
+             + sin(radians($1)) * sin(radians(s.entry_latitude))
+           )
+         ) <= 5000`,
+      [centroidLat, centroidLng],
     );
 
+    // Note: district_snapshots table still uses itinerary_count column name (not yet renamed)
     await this.dataSource.query(
       `INSERT INTO district_snapshots
         (district_id, itinerary_count, unique_explorers,
@@ -1151,10 +1231,10 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         districtId,
-        itineraryCount,
+        sidequestCount,
         uniqueExplorers,
         weeklyAdoptions,
-        weeklyNewItineraries,
+        weeklyNewSidequests,
         avgRating,
       ],
     );
@@ -1163,6 +1243,7 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
   async getDistrictMomentum(
     districtId: string,
   ): Promise<DistrictMomentum | null> {
+    // Note: district_snapshots table still uses old column names (itinerary_count, weekly_new_itineraries)
     const snapshots: {
       itinerary_count: number;
       unique_explorers: number;
@@ -1195,7 +1276,7 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
 
     return {
       momentum,
-      weeklyNewItineraries: latest.weekly_new_itineraries,
+      weeklyNewSidequests: latest.weekly_new_itineraries,
       weeklyAdoptions: latest.weekly_adoptions,
       uniqueExplorers: latest.unique_explorers,
       history: snapshots.reverse().map((s) => ({
@@ -1209,7 +1290,7 @@ Respond with ONLY valid JSON: {"name": "...", "description": "..."}`;
 // ───── Vitality Score ─────
 
 function computeVitalityScore(input: {
-  itineraryCount: number;
+  sidequestCount: number;
   avgRating: number;
   totalAdoptions: number;
   varietyCount: number;
@@ -1227,10 +1308,10 @@ function computeVitalityScore(input: {
   // Variety (20%) — 7 unique categories ≈ 100
   const varietyNorm = Math.min(100, (input.varietyCount / 7) * 100);
 
-  // Volume (15%) — log scale, 50 itineraries ≈ 100
+  // Volume (15%) — log scale, 50 sidequests ≈ 100
   const volumeNorm = Math.min(
     100,
-    (Math.log(input.itineraryCount + 1) / Math.log(51)) * 100,
+    (Math.log(input.sidequestCount + 1) / Math.log(51)) * 100,
   );
 
   // Momentum (10%) — rising=100, steady=50, cooling=20, unknown=40

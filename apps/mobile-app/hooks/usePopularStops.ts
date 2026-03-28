@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { apiClient } from "@/services/ApiClient";
-import type { PopularStop } from "@/services/api/modules/itineraries";
+import type { PopularStop } from "@/services/api/modules/sidequests";
 
 export { type PopularStop };
 
@@ -19,7 +19,7 @@ export default function usePopularStops(city: string | null) {
     setIsLoading(true);
 
     try {
-      const data = await apiClient.itineraries.getPopularStops(city);
+      const data = await apiClient.sidequests.getPopularStops(city);
       if (id === fetchIdRef.current) {
         setStops(data);
       }

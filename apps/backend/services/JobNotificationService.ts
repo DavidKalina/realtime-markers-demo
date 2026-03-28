@@ -169,12 +169,12 @@ export class JobNotificationService {
       case "process_flyer":
         return this.createFlyerCompletionNotification(result);
 
-      case "generate_itinerary": {
-        const title = (result.title as string) || "Your itinerary";
-        const itemCount = (result.itemCount as number) || 0;
+      case "generate_sidequest": {
+        const questTitle = (result.title as string) || "Your sidequest";
+        const waypointCount = (result.itemCount as number) || 0;
         return {
-          title: "Your itinerary is ready!",
-          body: `"${title}" — ${itemCount} stops planned. Tap to view your day.`,
+          title: "Quest ready, adventurer!",
+          body: `"${questTitle}" — ${waypointCount} waypoint${waypointCount > 1 ? "s" : ""} await. Tap to embark.`,
         };
       }
 
@@ -248,11 +248,12 @@ export class JobNotificationService {
             "There was an error processing your flyer. Please try again with a different image.",
         };
 
-      case "generate_itinerary":
+      case "generate_sidequest":
         return {
-          title: "Itinerary generation failed",
+          title: "Quest forging failed",
           body:
-            message || "We couldn't build your itinerary. Please try again.",
+            message ||
+            "The quest master couldn't complete your request. Try again.",
         };
 
       default:

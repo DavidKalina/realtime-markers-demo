@@ -36,21 +36,21 @@ export const getUserStats: Handler = withErrorHandling(async (c) => {
   const [categoryRows, cityRows, rankRows] = await Promise.all([
     // Category breakdown from itinerary item venue categories
     AppDataSource.query(
-      `SELECT ii.venue_category AS name, NULL AS icon, COUNT(*)::int AS count
-       FROM itinerary_checkins ic
-       JOIN itinerary_items ii ON ii.id = ic.itinerary_item_id
-       WHERE ic.user_id = $1 AND ii.venue_category IS NOT NULL
-       GROUP BY ii.venue_category
+      `SELECT o.venue_category AS name, NULL AS icon, COUNT(*)::int AS count
+       FROM objective_checkins oc
+       JOIN objectives o ON o.id = oc.objective_id
+       WHERE oc.user_id = $1 AND o.venue_category IS NOT NULL
+       GROUP BY o.venue_category
        ORDER BY count DESC
        LIMIT 10`,
       [user.id],
     ),
     // City breakdown from completed itineraries
     AppDataSource.query(
-      `SELECT i.city, COUNT(*)::int AS count
-       FROM itineraries i
-       WHERE i.user_id = $1 AND i.city IS NOT NULL AND i.completed_at IS NOT NULL
-       GROUP BY i.city
+      `SELECT s.city, COUNT(*)::int AS count
+       FROM sidequests s
+       WHERE s.user_id = $1 AND s.city IS NOT NULL AND s.completed_at IS NOT NULL
+       GROUP BY s.city
        ORDER BY count DESC`,
       [user.id],
     ),

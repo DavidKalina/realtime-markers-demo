@@ -14,12 +14,8 @@
     "logs": "docker compose logs -f",
     "logs:backend": "docker compose logs -f backend",
     "logs:websocket": "docker compose logs -f websocket",
-    "logs:filter": "docker compose logs -f filter-processor",
-    "logs:dashboard": "docker compose logs -f web-dashboard",
     "shell:backend": "docker compose exec backend sh",
     "shell:websocket": "docker compose exec websocket sh",
-    "shell:filter": "docker compose exec filter-processor sh",
-    "shell:dashboard": "docker compose exec web-dashboard sh",
     "shell:postgres": "docker compose exec postgres psql -U postgres -d markersdb",
     "db:reset": "docker compose down && docker volume rm realtime-markers-demo_postgres_data && docker compose up -d postgres && sleep 10 && docker compose exec backend pnpm migration:run",
     "db:migrate": "docker compose exec backend pnpm migration:run",
@@ -45,5 +41,6 @@
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "websocket": "^1.0.35"
-  }
+  },
+  "packageManager": "pnpm@10.13.1+sha1.aa8c167c4509c97519542ef77a09e4b8ab59fb6a"
 }

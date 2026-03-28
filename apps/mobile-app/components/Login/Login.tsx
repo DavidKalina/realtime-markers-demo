@@ -9,20 +9,11 @@ import {
   spring,
   type Colors,
 } from "@/theme";
-import { useAppActive } from "@/hooks/useAppActive";
-import { useFlyOverCamera } from "@/hooks/useFlyOverCamera";
-import { useMapMountGate } from "@/hooks/useMapMountGate";
-import {
-  MarkerSVG,
-  MARKER_WIDTH,
-  MARKER_HEIGHT,
-} from "@/components/Markers/MarkerSVGs";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
 import React, {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -42,7 +33,6 @@ import {
   View,
 } from "react-native";
 import Animated, {
-  BounceIn,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
@@ -50,109 +40,10 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
-import MapboxGL from "@rnmapbox/maps";
-import { useMapStyle } from "@/contexts/MapStyleContext";
 import AppHeader from "../AnimationHeader";
 import Input from "../Input/Input";
 
-// Set access token at module scope (login renders before home screen)
-MapboxGL.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN!);
 
-// Flyover center: NYC / Empire State Building area
-const FLYOVER_CENTER: [number, number] = [-73.9857, 40.7484];
-
-// Simulated event markers scattered around the flyover center
-const SIMULATED_MARKERS: {
-  id: string;
-  emoji: string;
-  title: string;
-  coordinate: [number, number];
-}[] = [
-  {
-    id: "m1",
-    emoji: "🎵",
-    title: "Jazz Night",
-    coordinate: [-73.9877, 40.7504],
-  },
-  { id: "m2", emoji: "🎨", title: "Art Walk", coordinate: [-73.9837, 40.7464] },
-  {
-    id: "m3",
-    emoji: "🍕",
-    title: "Food Fest",
-    coordinate: [-73.9897, 40.7474],
-  },
-  {
-    id: "m4",
-    emoji: "🎭",
-    title: "Comedy Show",
-    coordinate: [-73.9827, 40.7514],
-  },
-  {
-    id: "m5",
-    emoji: "🎸",
-    title: "Live Music",
-    coordinate: [-73.9867, 40.7444],
-  },
-  {
-    id: "m6",
-    emoji: "📸",
-    title: "Photo Tour",
-    coordinate: [-73.9817, 40.7494],
-  },
-  {
-    id: "m7",
-    emoji: "🍷",
-    title: "Wine Tasting",
-    coordinate: [-73.9907, 40.7454],
-  },
-  {
-    id: "m8",
-    emoji: "🧘",
-    title: "Yoga Class",
-    coordinate: [-73.9847, 40.7524],
-  },
-  {
-    id: "m9",
-    emoji: "🎪",
-    title: "Street Fair",
-    coordinate: [-73.9887, 40.7434],
-  },
-  { id: "m10", emoji: "🏃", title: "Fun Run", coordinate: [-73.9807, 40.7484] },
-];
-
-// Lightweight marker pin — static visual only
-const SimulatedMarkerPin: React.FC<{ emoji: string }> = React.memo(
-  ({ emoji }) => (
-    <View style={markerStyles.pin}>
-      <MarkerSVG />
-      <View style={markerStyles.emojiContainer}>
-        <Text style={markerStyles.emoji}>{emoji}</Text>
-      </View>
-    </View>
-  ),
-);
-
-const markerStyles = StyleSheet.create({
-  pin: {
-    width: MARKER_WIDTH,
-    height: MARKER_HEIGHT,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emojiContainer: {
-    position: "absolute",
-    top: 10,
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    height: 28,
-  },
-  emoji: {
-    fontSize: 18,
-    textAlign: "center",
-  },
-});
 
 // Gradient overlay component
 const GradientOverlay: React.FC = React.memo(() => (
@@ -175,7 +66,6 @@ const Login: React.FC = () => {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { login } = useAuth();
-  const { mapStyle } = useMapStyle();
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -187,43 +77,6 @@ const Login: React.FC = () => {
   const passwordInputRef = useRef<TextInput>(null);
   const buttonScale = useSharedValue(1);
 
-  // Map and camera refs
-  const cameraRef = useRef<MapboxGL.Camera>(null);
-  const { flyOver, stopFlyOver } = useFlyOverCamera({
-    cameraRef: cameraRef as React.RefObject<MapboxGL.Camera>,
-  });
-
-  // Global mount gate — waits for the container's onLayout + a few RAF frames
-  // so reanimated entering animations finish before MapView registers its
-  // native component descriptor (avoids ComponentDescriptorRegistry deadlock).
-  // See: https://github.com/facebook/react-native/issues/53128
-  const { isMapSafeToMount, onContainerLayout } = useMapMountGate("login");
-  const isAppActive = useAppActive();
-
-  // Simulated markers — start with 3, add one every ~2.5 seconds
-  const [visibleMarkerCount, setVisibleMarkerCount] = useState(3);
-  useEffect(() => {
-    if (visibleMarkerCount >= SIMULATED_MARKERS.length) return;
-    const interval = setInterval(() => {
-      setVisibleMarkerCount((prev) => {
-        if (prev >= SIMULATED_MARKERS.length) {
-          clearInterval(interval);
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 2500);
-    return () => clearInterval(interval);
-  }, [visibleMarkerCount]);
-
-  const handleMapLoaded = useCallback(() => {
-    if (!isMounted.current) return;
-    flyOver(FLYOVER_CENTER, {
-      speed: 0.3,
-      minZoom: 14.5,
-      maxZoom: 16.5,
-    });
-  }, [flyOver]);
 
   const buttonAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -231,13 +84,11 @@ const Login: React.FC = () => {
     };
   });
 
-  // Cleanup effect
   useEffect(() => {
     return () => {
       isMounted.current = false;
-      stopFlyOver();
     };
-  }, [stopFlyOver]);
+  }, []);
 
   const togglePasswordVisibility = () => {
     Haptics.selectionAsync();
@@ -264,6 +115,7 @@ const Login: React.FC = () => {
 
     try {
       await login(email, password);
+      router.replace("/");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -299,54 +151,10 @@ const Login: React.FC = () => {
   };
 
   return (
-    <View style={styles.container} onLayout={onContainerLayout}>
+    <View style={styles.container}>
       <StatusBar
         barStyle="light-content"
         backgroundColor={colors.fixed.black}
-      />
-
-      {/* Layer 1: Map background */}
-      {isMapSafeToMount && isAppActive && (
-        <MapboxGL.MapView
-          style={StyleSheet.absoluteFill}
-          styleURL={mapStyle}
-          logoEnabled={false}
-          attributionEnabled={false}
-          scaleBarEnabled={false}
-          scrollEnabled={false}
-          zoomEnabled={false}
-          rotateEnabled={false}
-          pitchEnabled={false}
-          onDidFinishLoadingMap={handleMapLoaded}
-        >
-          <MapboxGL.Camera
-            ref={cameraRef}
-            defaultSettings={{
-              centerCoordinate: FLYOVER_CENTER,
-              zoomLevel: 15,
-              pitch: 50,
-            }}
-          />
-          {SIMULATED_MARKERS.slice(0, visibleMarkerCount).map((marker) => (
-            <MapboxGL.MarkerView
-              key={marker.id}
-              coordinate={marker.coordinate}
-              allowOverlap
-            >
-              <Animated.View entering={BounceIn.duration(600)}>
-                <SimulatedMarkerPin emoji={marker.emoji} />
-              </Animated.View>
-            </MapboxGL.MarkerView>
-          ))}
-        </MapboxGL.MapView>
-      )}
-
-      {/* Layer 2: Blur overlay — softens the flyover map */}
-      <BlurView
-        intensity={15}
-        tint="dark"
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
       />
 
       {/* Layer 3: Gradient overlay */}
