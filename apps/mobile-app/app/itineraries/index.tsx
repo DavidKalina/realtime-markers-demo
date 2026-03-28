@@ -228,15 +228,16 @@ const SidequestCard: React.FC<{
 
     // Discard animation
     const discardProgress = useSharedValue(0);
+    const discardDone = useCallback(() => {
+      onDiscardComplete(item.id);
+    }, [item.id, onDiscardComplete]);
     useEffect(() => {
       if (isDiscarding) {
         discardProgress.value = withTiming(1, {
           duration: 350,
           easing: Easing.in(Easing.ease),
         }, () => {
-          scheduleOnRN(() => {
-            onDiscardComplete(item.id);
-          })();
+          scheduleOnRN(discardDone);
         });
       }
     }, [isDiscarding]);
@@ -760,6 +761,7 @@ const ItinerariesListScreen = () => {
 
   const PAGE_SIZE = 20;
   const [itineraries, setItineraries] = useState<ItineraryResponse[]>([]);
+  const [discardingId, setDiscardingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const cursorRef = useRef<string | null>(null);
   const hasMoreRef = useRef(true);
@@ -844,22 +846,30 @@ const ItinerariesListScreen = () => {
         {
           text: "Delete",
           style: "destructive",
-          onPress: async () => {
+          onPress: () => {
             Haptics.notificationAsync(
               Haptics.NotificationFeedbackType.Success,
             );
-            setItineraries((prev) => prev.filter((it) => it.id !== id));
-            try {
-              await apiClient.sidequests.deleteById(id);
-            } catch (err) {
-              console.error("[Itineraries] Failed to delete:", err);
-              fetchItineraries();
-            }
+            setDiscardingId(id);
           },
         },
       ]);
     },
-    [itineraries, fetchItineraries],
+    [itineraries],
+  );
+
+  const handleDiscardComplete = useCallback(
+    async (id: string) => {
+      setDiscardingId(null);
+      setItineraries((prev) => prev.filter((it) => it.id !== id));
+      try {
+        await apiClient.sidequests.deleteById(id);
+      } catch (err) {
+        console.error("[Itineraries] Failed to delete:", err);
+        fetchItineraries();
+      }
+    },
+    [fetchItineraries],
   );
 
   const handleBack = useCallback(() => {
@@ -1090,9 +1100,11 @@ const ItinerariesListScreen = () => {
                   totalCards={totalCards}
                   activeIndex={activeIndex}
                   swipeX={swipeX}
+                  isDiscarding={discardingId === deckItem.id}
                   activeItineraryId={activeItineraryId}
                   onPress={handlePress}
                   onDelete={handleDelete}
+                  onDiscardComplete={handleDiscardComplete}
                   colors={colors}
                 />
               );
