@@ -5,7 +5,7 @@ export default {
   expo: {
     name: "Sidequests",
     slug: "mobile-app",
-    version: "1.25.7",
+    version: "2.0.0",
     orientation: "portrait",
     icon: "./assets/app-icon.png",
     scheme: "myapp",
@@ -44,7 +44,7 @@ export default {
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "258",
+      buildNumber: "259",
     },
     android: {
       label: "Sidequests",
