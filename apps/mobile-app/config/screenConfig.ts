@@ -25,7 +25,6 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
   { name: "login" },
   { name: "forgot-password" },
   { name: "reset-password" },
-  { name: "onboarding" },
   { name: "index" },
   { name: "scan" },
   { name: "user" },

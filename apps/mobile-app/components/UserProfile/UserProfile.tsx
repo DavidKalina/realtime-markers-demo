@@ -47,7 +47,6 @@ import {
   useItineraryJobStore,
   clearStaleJobIfNeeded,
 } from "@/stores/useItineraryJobStore";
-import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useProfileInsights } from "@/hooks/useProfileInsights";
 import Screen from "../Layout/Screen";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
@@ -91,7 +90,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { user } = useAuth();
   const { isPitched, togglePitch } = useMapStyle();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
-  const { resetOnboarding } = useOnboarding();
   const { userLocation } = useUserLocation();
   const { trackJob } = useJobProgress();
   const startJob = useItineraryJobStore((s) => s.startJob);
@@ -367,19 +365,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           <Text style={styles.deleteText}>Delete Account</Text>
           <ChevronRight size={14} color={colors.status.error.text} />
         </Pressable>
-        {__DEV__ && (
-          <Pressable
-            style={[styles.inlineAction, styles.inlineActionLast]}
-            onPress={async () => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              await resetOnboarding();
-              router.replace("/onboarding" as const);
-            }}
-          >
-            <Text style={styles.inlineRowLabel}>Replay Onboarding</Text>
-            <ChevronRight size={14} color={colors.text.secondary} />
-          </Pressable>
-        )}
       </View>
     </>
   );

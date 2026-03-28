@@ -17,7 +17,6 @@ import {
 import React, { useMemo } from "react";
 import { StatusBar as RNStatusBar, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { DistrictChip } from "../Districts/DistrictChip";
 
 const StatusBar: React.FC = () => {
   const colors = useColors();
@@ -76,9 +75,7 @@ const StatusBar: React.FC = () => {
         </View>
       )}
 
-      <View style={styles.engagementContainer}>
-        <DistrictChip />
-      </View>
+      <View style={styles.engagementContainer} />
     </View>
   );
 };

@@ -5,9 +5,7 @@ import { AuthModule } from "./api/modules/auth";
 import { PushNotificationsModule } from "./api/modules/pushNotifications";
 import { SidequestsModule } from "./api/modules/sidequests";
 import { AdventureScoreModule } from "./api/modules/adventureScore";
-import { OnboardingModule } from "./api/modules/onboarding";
 import { ProfileInsightsModule } from "./api/modules/profileInsights";
-import { DistrictsModule } from "./api/modules/districts";
 
 // Re-export types and enums
 export * from "./api/base/types";
@@ -15,9 +13,7 @@ export * from "./api/modules/auth";
 export * from "./api/modules/pushNotifications";
 export * from "./api/modules/sidequests";
 export * from "./api/modules/adventureScore";
-export * from "./api/modules/onboarding";
 export * from "./api/modules/profileInsights";
-export * from "./api/modules/districts";
 
 class ApiClient extends BaseApiClient {
   private static instance: ApiClient | null = null;
@@ -25,9 +21,7 @@ class ApiClient extends BaseApiClient {
   private _pushNotifications: PushNotificationsModule | null = null;
   private _sidequests: SidequestsModule | null = null;
   private _adventureScore: AdventureScoreModule | null = null;
-  private _onboarding: OnboardingModule | null = null;
   private _profileInsights: ProfileInsightsModule | null = null;
-  private _districts: DistrictsModule | null = null;
 
   private constructor(baseUrl: string) {
     super(baseUrl);
@@ -73,25 +67,11 @@ class ApiClient extends BaseApiClient {
     return this._adventureScore;
   }
 
-  public get onboarding(): OnboardingModule {
-    if (!this._onboarding) {
-      this._onboarding = new OnboardingModule(this);
-    }
-    return this._onboarding;
-  }
-
   public get profileInsights(): ProfileInsightsModule {
     if (!this._profileInsights) {
       this._profileInsights = new ProfileInsightsModule(this);
     }
     return this._profileInsights;
-  }
-
-  public get districts(): DistrictsModule {
-    if (!this._districts) {
-      this._districts = new DistrictsModule(this);
-    }
-    return this._districts;
   }
 
   override setBaseUrl(baseUrl: string): void {

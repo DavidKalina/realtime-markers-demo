@@ -46,17 +46,13 @@ if (__DEV__) {
 
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
-import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { MapStyleProvider } from "@/contexts/MapStyleContext";
 import { JobProgressProvider } from "@/contexts/JobProgressContext";
 // WebSocketProvider removed (event system deleted)
 import { ThemeProvider, useTheme } from "@/theme";
 import { usePathname } from "expo-router";
-import { useAuthGuard } from "@/hooks/useAuthGuard";
-import { useBootRedirect } from "@/hooks/useBootRedirect";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
-import { LoadingOverlay } from "@/components/Loading/LoadingOverlay";
 import { SENTRY_CONFIG, STACK_SCREEN_OPTIONS, SCREEN_CONFIGS } from "@/config";
 
 // Initialize Sentry — guarded so a native SDK failure doesn't crash the app
@@ -104,31 +100,24 @@ function AppProviders({ children }: AppProvidersProps) {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <OnboardingProvider>
-          <LocationProvider>
-            <JobProgressProvider>
-              <MapStyleProvider>
-                <NavigationThemeBridge>{children}</NavigationThemeBridge>
-              </MapStyleProvider>
-            </JobProgressProvider>
-          </LocationProvider>
-        </OnboardingProvider>
+        <LocationProvider>
+          <JobProgressProvider>
+            <MapStyleProvider>
+              <NavigationThemeBridge>{children}</NavigationThemeBridge>
+            </MapStyleProvider>
+          </JobProgressProvider>
+        </LocationProvider>
       </AuthProvider>
     </ThemeProvider>
   );
 }
 
 function AppContent({ children }: AppContentProps) {
-  useAuthGuard();
-  const { isBoot } = useBootRedirect();
   usePushNotifications();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       {children}
-      {!isBoot && <ActionBar />}
-      {isBoot && (
-        <LoadingOverlay message="Loading..." subMessage="Setting things up" />
-      )}
+      <ActionBar />
       <StatusBar style="auto" />
     </GestureHandlerRootView>
   );
