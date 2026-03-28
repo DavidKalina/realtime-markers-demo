@@ -3,39 +3,71 @@
 import type { Colors } from "@/theme";
 
 /**
- * 10-color palette chosen for dark-theme readability and hue diversity.
- * Every consumer (markers, clusters, filter sheet, charts) must go through
- * getCategoryColor() so the same category name always maps to the same color.
+ * Explicit category → color mapping for all known categories.
+ * Each category gets a visually distinct color on dark backgrounds.
  */
-export const CATEGORY_PALETTE = [
-  "#93c5fd", // blue
-  "#86efac", // green
-  "#fcd34d", // amber
-  "#c4b5fd", // violet
-  "#fda4af", // rose
-  "#34d399", // emerald
-  "#fbbf24", // yellow
-  "#a78bfa", // purple
-  "#fb7185", // pink
-  "#22d3ee", // cyan
-] as const;
+const CATEGORY_COLOR_MAP: Record<string, string> = {
+  // Venue categories
+  cafe: "#fbbf24", // amber
+  coffee: "#fbbf24", // amber (alias)
+  restaurant: "#f97316", // orange
+  food: "#f97316", // orange (alias)
+  bar: "#f472b6", // pink
+  nightlife: "#f472b6", // pink (alias)
+  brews: "#fb923c", // light orange
+  trail: "#4ade80", // green
+  hiking: "#4ade80", // green (alias)
+  park: "#34d399", // emerald
+  outdoors: "#34d399", // emerald (alias)
+  walking: "#86efac", // mint
+  museum: "#c084fc", // violet
+  culture: "#c084fc", // violet (alias)
+  gallery: "#a78bfa", // purple
+  art: "#a78bfa", // purple (alias)
+  market: "#fcd34d", // yellow
+  thrifting: "#fcd34d", // yellow (alias)
+  venue: "#60a5fa", // blue
+  music: "#60a5fa", // blue (alias)
+  attraction: "#38bdf8", // sky
+  sports: "#2dd4bf", // teal
+  boarding: "#22d3ee", // cyan
+  reading: "#93c5fd", // light blue
+  disc_golf: "#a3e635", // lime
+  other: "#94a3b8", // slate
+};
 
 /**
- * Deterministic hash → palette index so the same category name always
- * returns the same color regardless of array order or list position.
+ * Fallback palette for unknown categories, indexed by hash.
  */
+export const CATEGORY_PALETTE = [
+  "#93c5fd",
+  "#86efac",
+  "#fcd34d",
+  "#c4b5fd",
+  "#fda4af",
+  "#34d399",
+  "#fbbf24",
+  "#a78bfa",
+  "#fb7185",
+  "#22d3ee",
+] as const;
+
 function hashString(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0; // Convert to 32-bit int
+    hash |= 0;
   }
   return Math.abs(hash);
 }
 
 /** Return a single hex color for a category name. */
 export function getCategoryColor(name: string): string {
-  return CATEGORY_PALETTE[hashString(name) % CATEGORY_PALETTE.length];
+  const key = name.toLowerCase().trim();
+  return (
+    CATEGORY_COLOR_MAP[key] ??
+    CATEGORY_PALETTE[hashString(key) % CATEGORY_PALETTE.length]
+  );
 }
 
 /** Darken a hex color by a factor (0-1, where 0 = black). */

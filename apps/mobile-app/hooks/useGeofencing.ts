@@ -16,8 +16,8 @@ function buildRegions(
     .filter((o) => !o.checkedInAt && o.latitude != null && o.longitude != null)
     .map((o) => ({
       identifier: o.id,
-      latitude: o.entryLatitude ?? o.latitude!,
-      longitude: o.entryLongitude ?? o.longitude!,
+      latitude: Number(o.entryLatitude ?? o.latitude),
+      longitude: Number(o.entryLongitude ?? o.longitude),
       radius: GEOFENCE_RADIUS_M,
       notifyOnEnter: true,
       notifyOnExit: false,
