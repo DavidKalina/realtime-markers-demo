@@ -4,6 +4,8 @@ import bcrypt from "bcryptjs";
 
 export interface SeededUser {
   email: string;
+  firstName: string;
+  lastName: string;
   passwordHash: string;
   role: UserRole;
   isVerified: boolean;
@@ -12,26 +14,48 @@ export interface SeededUser {
 export const SEEDED_USERS: Omit<SeededUser, "passwordHash">[] = [
   {
     email: "user@example.com",
+    firstName: "Alex",
+    lastName: "Explorer",
     role: UserRole.USER,
     isVerified: true,
   },
   {
     email: "moderator@example.com",
+    firstName: "Morgan",
+    lastName: "Mod",
     role: UserRole.MODERATOR,
     isVerified: true,
   },
   {
     email: "admin@example.com",
+    firstName: "Sam",
+    lastName: "Admin",
     role: UserRole.ADMIN,
+    isVerified: true,
+  },
+  {
+    email: "scout@example.com",
+    firstName: "Jamie",
+    lastName: "Scout",
+    role: UserRole.USER,
+    isVerified: true,
+  },
+  {
+    email: "curator@example.com",
+    firstName: "Riley",
+    lastName: "Curator",
+    role: UserRole.USER,
     isVerified: true,
   },
 ];
 
-export const SEEDED_PASSWORDS = {
+export const SEEDED_PASSWORDS: Record<string, string> = {
   "user@example.com": "user123",
   "moderator@example.com": "moderator123",
   "admin@example.com": "admin123",
-} as const;
+  "scout@example.com": "scout123",
+  "curator@example.com": "curator123",
+};
 
 export async function seedUsers(dataSource: DataSource): Promise<void> {
   const userRepository = dataSource.getRepository(User);

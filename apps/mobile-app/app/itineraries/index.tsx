@@ -39,10 +39,13 @@ import {
   radius,
   type Colors,
 } from "@/theme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { eventBroker, EventTypes } from "@/services/EventBroker";
 import type { SidequestJobCompletedEvent } from "@/services/EventBroker";
+
+const PENDING_GENERATION_KEY = "pendingGenerationParentId";
 
 // --- Options overlay (fan-out after generation) ---
 
@@ -155,7 +158,7 @@ const OptionsOverlay: React.FC<{
         exiting={FadeOut.duration(200)}
         style={overlayStyles.container}
       >
-        <BlurView tint="dark" intensity={60} style={StyleSheet.absoluteFill} />
+        <BlurView tint="dark" intensity={60} style={StyleSheet.absoluteFill} pointerEvents="none" />
         <View style={overlayStyles.content}>
           {isLoading && !timedOut ? (
             <View style={overlayStyles.loading}>
@@ -349,10 +352,33 @@ const ItinerariesListScreen = () => {
     }
   }, [isGenerating, activeJobItineraryId]);
 
+  // Resume pending generation after app restart — check AsyncStorage for a
+  // parentId saved when generation was triggered. If found, re-open the
+  // overlay so it resumes polling until all options resolve.
+  useEffect(() => {
+    (async () => {
+      try {
+        const parentId = await AsyncStorage.getItem(PENDING_GENERATION_KEY);
+        if (!parentId) return;
+        const result = await apiClient.sidequests.getOptions(parentId);
+        const opts = result.data ?? [];
+        if (opts.length === 0) {
+          await AsyncStorage.removeItem(PENDING_GENERATION_KEY);
+          return;
+        }
+        optionsParentId.current = parentId;
+        setShowOptions(true);
+      } catch {
+        AsyncStorage.removeItem(PENDING_GENERATION_KEY).catch(() => {});
+      }
+    })();
+  }, []);
+
   const handleOptionSelected = useCallback(() => {
     setShowOptions(false);
     clearReady();
     fetchItineraries();
+    AsyncStorage.removeItem(PENDING_GENERATION_KEY).catch(() => {});
   }, [clearReady, fetchItineraries]);
 
   const totalCards = itineraries.length;
@@ -728,10 +754,17 @@ const ItinerariesListScreen = () => {
       noAnimation
       bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} />}
     >
+      <View style={styles.headerRow}>
+        <Text style={styles.headerLabel}>YOUR QUESTS</Text>
+        <Text style={styles.headerHint}>
+          Swipe to browse {"\u00B7"} Tap to open {"\u00B7"} Hold to delete
+        </Text>
+      </View>
       <View style={styles.deckScreen}>
         <QuestCardDeck
           options={itineraries}
           mode="browse"
+          hideHeader
           activeItineraryId={activeItineraryId}
           onPress={handlePress}
           onDelete={handleDelete}
@@ -740,7 +773,7 @@ const ItinerariesListScreen = () => {
         />
 
         {/* DEV: Simulate generation flow */}
-        {__DEV__ && (
+        {/* {__DEV__ && (
           <Pressable
             onPress={startSimulation}
             style={{
@@ -763,7 +796,7 @@ const ItinerariesListScreen = () => {
               DEV: Simulate Generation
             </Text>
           </Pressable>
-        )}
+        )} */}
       </View>
 
       {/* Options fan-out overlay */}
@@ -798,8 +831,25 @@ const createScreenStyles = (colors: Colors) =>
       alignItems: "center",
       justifyContent: "center",
     },
+    headerRow: {
+      paddingHorizontal: spacing.lg,
+      gap: spacing.xs,
+    },
+    headerLabel: {
+      fontSize: 12,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: colors.text.primary,
+      letterSpacing: 1.5,
+    },
+    headerHint: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
     deckScreen: {
       flex: 1,
       alignItems: "center",
+      justifyContent: "center",
     },
   });

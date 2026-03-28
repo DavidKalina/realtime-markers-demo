@@ -12,8 +12,9 @@ import {
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
+import { ChevronDown, Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
 import React, {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -61,6 +62,115 @@ const GradientOverlay: React.FC = React.memo(() => (
   </View>
 ));
 
+const DEV_ACCOUNTS = [
+  { email: "user@example.com", password: "user123", label: "Alex Explorer (User)" },
+  { email: "moderator@example.com", password: "moderator123", label: "Morgan Mod (Moderator)" },
+  { email: "admin@example.com", password: "admin123", label: "Sam Admin (Admin)" },
+  { email: "scout@example.com", password: "scout123", label: "Jamie Scout (User)" },
+  { email: "curator@example.com", password: "curator123", label: "Riley Curator (User)" },
+];
+
+const DevAccountPicker: React.FC<{
+  onSelect: (email: string, password: string) => void;
+}> = React.memo(({ onSelect }) => {
+  const colors = useColors();
+  const [open, setOpen] = useState(false);
+
+  if (!__DEV__) return null;
+
+  return (
+    <View style={{ marginBottom: spacing.lg }}>
+      <TouchableOpacity
+        onPress={() => {
+          Haptics.selectionAsync();
+          setOpen(!open);
+        }}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: "rgba(134, 239, 172, 0.08)",
+          borderRadius: radius.md,
+          borderWidth: 1,
+          borderColor: "rgba(134, 239, 172, 0.2)",
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+          <User size={14} color={colors.accent.primary} />
+          <Text
+            style={{
+              color: colors.accent.primary,
+              fontSize: fontSize.xs,
+              fontFamily: fontFamily.mono,
+              fontWeight: fontWeight.medium,
+            }}
+          >
+            Dev Accounts
+          </Text>
+        </View>
+        <ChevronDown
+          size={14}
+          color={colors.accent.primary}
+          style={{ transform: [{ rotate: open ? "180deg" : "0deg" }] }}
+        />
+      </TouchableOpacity>
+
+      {open && (
+        <Animated.View
+          entering={FadeInDown.duration(200).springify()}
+          style={{
+            marginTop: spacing.xs,
+            borderRadius: radius.md,
+            backgroundColor: "rgba(42, 42, 42, 0.9)",
+            borderWidth: 1,
+            borderColor: "rgba(134, 239, 172, 0.15)",
+            overflow: "hidden",
+          }}
+        >
+          {DEV_ACCOUNTS.map((account, index) => (
+            <TouchableOpacity
+              key={account.email}
+              onPress={() => {
+                Haptics.selectionAsync();
+                onSelect(account.email, account.password);
+                setOpen(false);
+              }}
+              style={{
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+                borderBottomWidth: index < DEV_ACCOUNTS.length - 1 ? 1 : 0,
+                borderBottomColor: "rgba(255, 255, 255, 0.06)",
+              }}
+            >
+              <Text
+                style={{
+                  color: colors.text.primary,
+                  fontSize: fontSize.xs,
+                  fontFamily: fontFamily.mono,
+                }}
+              >
+                {account.label}
+              </Text>
+              <Text
+                style={{
+                  color: colors.text.detail,
+                  fontSize: 10,
+                  fontFamily: fontFamily.mono,
+                  marginTop: 2,
+                }}
+              >
+                {account.email}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </Animated.View>
+      )}
+    </View>
+  );
+});
+
 const Login: React.FC = () => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -77,6 +187,12 @@ const Login: React.FC = () => {
   const passwordInputRef = useRef<TextInput>(null);
   const buttonScale = useSharedValue(1);
 
+
+  const handleDevSelect = useCallback((devEmail: string, devPassword: string) => {
+    setEmail(devEmail);
+    setPassword(devPassword);
+    setError(null);
+  }, []);
 
   const buttonAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -181,6 +297,8 @@ const Login: React.FC = () => {
               {Platform.OS === "android" && (
                 <View style={styles.androidBlurFallback} />
               )}
+
+              <DevAccountPicker onSelect={handleDevSelect} />
 
               {error && (
                 <View style={styles.errorContainer}>

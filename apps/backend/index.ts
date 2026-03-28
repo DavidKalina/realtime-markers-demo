@@ -11,6 +11,7 @@ import {
   ensureDatabaseReadyForServices,
   getDatabaseStatus,
 } from "./utils/databaseInitializer";
+import { seedUsers } from "./utils/userSeeder";
 import { setupMiddlewares, setupErrorHandlers } from "./utils/middlewareSetup";
 import { setupRoutes } from "./utils/routeSetup";
 import { setupContext } from "./utils/contextSetup";
@@ -98,6 +99,11 @@ async function initializeServices() {
 
   // Setup push notification schedules (streak-at-risk, weekly nudge)
   serviceInitializer.setupNotificationSchedule();
+
+  // Seed dev users on startup (idempotent — skips if they already exist)
+  await seedUsers(dataSource).catch((err) =>
+    console.warn("User seeding skipped:", err.message),
+  );
 
   console.log("All services initialized successfully");
   return services;

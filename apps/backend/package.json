@@ -23,6 +23,7 @@
     "migration:run": "bunx tsx ./node_modules/typeorm/cli.js migration:run -d ./data-source.ts",
     "migration:revert": "bunx tsx ./node_modules/typeorm/cli.js migration:revert -d ./data-source.ts",
     "check-db": "bun run scripts/check-database-setup.ts",
+    "seed": "bun run scripts/seed.ts",
     "test": "bun test",
     "test:email": "bun run scripts/test-email.ts",
     "test:push": "bun run scripts/test-push-notifications.ts"

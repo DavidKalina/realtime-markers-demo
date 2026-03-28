@@ -1,6 +1,6 @@
 import "@/tasks/backgroundLocationTask";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import {
   DarkTheme,
   DefaultTheme,
@@ -8,14 +8,14 @@ import {
 } from "@react-navigation/native";
 import * as Sentry from "@sentry/react-native";
 import { useFonts } from "expo-font";
-import { Stack, useNavigationContainerRef } from "expo-router";
+import { Stack, useNavigationContainerRef, useRootNavigationState, useSegments, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { isRunningInExpoGo } from "expo";
 
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { JobProgressProvider } from "@/contexts/JobProgressContext";
 import { ThemeProvider, useTheme } from "@/theme";
@@ -78,12 +78,47 @@ function AppProviders({ children }: AppProvidersProps) {
   );
 }
 
+const PUBLIC_SEGMENTS = ["login", "register", "forgot-password", "reset-password"];
+
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  const segments = useSegments();
+  const navigationState = useRootNavigationState();
+
+  useEffect(() => {
+    // Wait for both auth and the navigator to be ready
+    if (isLoading || !navigationState?.key) return;
+
+    const currentSegment = segments[0] ?? "";
+    const isPublicRoute = PUBLIC_SEGMENTS.includes(currentSegment);
+
+    if (!isAuthenticated && !isPublicRoute) {
+      router.replace("/login");
+    } else if (isAuthenticated && isPublicRoute) {
+      router.replace("/");
+    }
+  }, [isAuthenticated, isLoading, segments, navigationState?.key]);
+
+  // Hide splash screen once auth has resolved
+  useEffect(() => {
+    if (!isLoading) {
+      SplashScreen.hideAsync();
+    }
+  }, [isLoading]);
+
+  // Always render children so the Stack navigator mounts its screens.
+  // The splash screen stays visible until auth resolves.
+  return <>{children}</>;
+}
+
 function AppContent({ children }: AppContentProps) {
   usePushNotifications();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      {children}
-      <ActionBar />
+      <AuthGuard>
+        {children}
+        <ActionBar />
+      </AuthGuard>
       <StatusBar style="auto" />
     </GestureHandlerRootView>
   );
@@ -108,12 +143,8 @@ function RootLayout() {
     Bungee: require("../assets/fonts/Bungee-Regular.ttf"),
   });
 
-  // Hide splash screen when fonts are loaded
-  useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
+  // Note: splash screen is hidden by AuthGuard once auth resolves,
+  // not here — fonts load first, then auth check completes.
 
   // Show nothing while fonts are loading
   if (!fontsLoaded) {

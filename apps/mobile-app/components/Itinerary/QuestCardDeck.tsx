@@ -79,6 +79,8 @@ interface QuestCardDeckProps {
   discardingId?: string | null;
   /** Browse mode: called after discard animation completes */
   onDiscardComplete?: (id: string) => void;
+  /** Hide the built-in label + hint text (render them externally) */
+  hideHeader?: boolean;
 }
 
 // --- Diagonal card sheen sweep ---
@@ -732,6 +734,7 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
   onDelete,
   discardingId,
   onDiscardComplete,
+  hideHeader,
 }) => {
   const colors = useColors();
   const s = useMemo(() => createDeckStyles(colors), [colors]);
@@ -775,8 +778,8 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
       scrollX.value = withSpring(
         -snapIdx * SNAP_WIDTH,
         {
-          damping: 20,
-          stiffness: 200,
+          damping: 32,
+          stiffness: 160,
         },
         () => {
           if (changed) {
@@ -818,14 +821,18 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
         .easing(Easing.out(Easing.cubic))}
       style={s.container}
     >
-      <Text style={s.label}>
-        {isBrowse ? "YOUR QUESTS" : "CHOOSE YOUR QUEST"}
-      </Text>
-      <Text style={s.hint}>
-        {isBrowse
-          ? "Swipe to browse \u00B7 Tap to open \u00B7 Hold to delete"
-          : "Swipe to browse \u00B7 Tap to select"}
-      </Text>
+      {!hideHeader && (
+        <>
+          <Text style={s.label}>
+            {isBrowse ? "YOUR QUESTS" : "CHOOSE YOUR QUEST"}
+          </Text>
+          <Text style={s.hint}>
+            {isBrowse
+              ? "Swipe to browse \u00B7 Tap to open \u00B7 Hold to delete"
+              : "Swipe to browse \u00B7 Tap to select"}
+          </Text>
+        </>
+      )}
 
       <GestureDetector gesture={panGesture}>
         <Animated.View style={s.carouselClip}>

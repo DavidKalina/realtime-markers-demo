@@ -1,5 +1,4 @@
 // src/contexts/AuthContext.tsx
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { apiClient, User } from "../services/ApiClient";
 import { oAuthService } from "../services/OAuthService";
@@ -46,9 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<User | null>(apiClient.getCurrentUser());
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    apiClient.isAuthenticated(),
-  );
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   // Re-register push token if permission was already granted (no prompt).
   // The actual permission prompt is deferred to a contextual moment (e.g. first scan).
   const setupPushNotifications = async (userId: string) => {
@@ -162,15 +159,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
-  // Reset loading state when auth state changes
-  useEffect(() => {
-    if (user?.id && isAuthenticated) {
-      const timer = setTimeout(() => {
-        setIsLoading(false);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [user?.id, isAuthenticated]);
 
   const refreshAuth = async (): Promise<boolean> => {
     setIsLoading(true);

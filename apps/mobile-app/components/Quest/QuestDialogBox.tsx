@@ -28,9 +28,12 @@ import {
   radius,
   type Colors,
 } from "@/theme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiClient } from "@/services/ApiClient";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { pushNotificationService } from "@/services/PushNotificationService";
 import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import {
   ACTIVITY_OPTIONS,
@@ -251,6 +254,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { userLocation } = useUserLocation();
   const { trackJob, isGenerating } = useJobProgressContext();
+  const { user } = useAuth();
 
   // ── Form state ──────────────────────────────────────────────────────
   const [prompt, setPrompt] = useState("");
@@ -390,6 +394,16 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
       trackJob(result.jobId, result.sidequestId);
       onQuestCreated?.(result.sidequestId);
 
+      // Persist the generating parent so the overlay can resume after app restart
+      AsyncStorage.setItem("pendingGenerationParentId", result.sidequestId).catch(() => {});
+
+      // Prompt for push notification permission (if not already granted) so the
+      // user gets notified when generation completes in the background.
+      // Fire-and-forget — don't block the UI on the permission dialog.
+      if (user?.id) {
+        pushNotificationService.setupPushNotifications(user.id).catch(() => {});
+      }
+
       // Collapse and reset form — the OptionsOverlay / QuestCardDeck handles generation UI
       collapse();
       setPrompt("");
@@ -407,6 +421,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
     collapse,
     trackJob,
     onQuestCreated,
+    user?.id,
   ]);
 
   const canEmbark = !isGenerating;
