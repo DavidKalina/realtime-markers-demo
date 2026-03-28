@@ -762,24 +762,50 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
   }, []);
 
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-15, 15])
+    .activeOffsetX([-10, 10])
     .failOffsetY([-10, 10])
     .enabled(!isSelecting && totalCards > 1)
     .onUpdate((e) => {
       scrollX.value = -activeIdx.value * SNAP_WIDTH + e.translationX;
     })
     .onEnd((e) => {
-      // Determine which card to snap to based on velocity + position
-      const projected = scrollX.value + e.velocityX * 0.15;
-      let snapIdx = Math.round(-projected / SNAP_WIDTH);
+      // Physics-based snapping: velocity determines how many cards to skip
+      const vel = e.velocityX;
+      const absVel = Math.abs(vel);
+
+      // How many cards the velocity alone would carry you past
+      // At ~500px/s skip 1, ~1200px/s skip 2, ~2000px/s skip 3, etc.
+      const velocityCards = Math.floor(absVel / 600);
+
+      // Position-based: which card is closest to where the finger released
+      const positionIdx = Math.round(-scrollX.value / SNAP_WIDTH);
+
+      // Combine: use position as base, then add velocity-driven card skips
+      const direction = vel > 0 ? -1 : 1; // negative vel = swipe left = go forward
+      let snapIdx: number;
+      if (absVel > 300) {
+        // Fast swipe: jump from current card by velocity amount
+        snapIdx = activeIdx.value + direction * Math.max(1, velocityCards);
+      } else {
+        // Slow swipe: snap to nearest card based on position
+        snapIdx = positionIdx;
+      }
       snapIdx = Math.max(0, Math.min(totalCards - 1, snapIdx));
+
       const changed = snapIdx !== activeIdx.value;
       activeIdx.value = snapIdx;
+
+      // Adaptive spring: harder swipes are faster but heavily damped (no bounce)
+      const intensity = Math.min(absVel / 1500, 1); // 0..1
+      const damping = interpolate(intensity, [0, 1], [40, 32]);
+      const stiffness = interpolate(intensity, [0, 1], [150, 280]);
+
       scrollX.value = withSpring(
         -snapIdx * SNAP_WIDTH,
         {
-          damping: 32,
-          stiffness: 160,
+          damping,
+          stiffness,
+          velocity: vel,
         },
         () => {
           if (changed) {
