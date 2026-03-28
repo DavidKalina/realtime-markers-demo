@@ -54,7 +54,10 @@ import {
   radius,
   type Colors,
 } from "@/theme";
-import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
+import {
+  useItineraryJobStore,
+  clearStaleJobIfNeeded,
+} from "@/stores/useItineraryJobStore";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useJobProgress } from "@/hooks/useJobProgress";
 import { eventBroker, EventTypes } from "@/services/EventBroker";
@@ -367,6 +370,8 @@ CountBadge.displayName = "CountBadge";
 
 // --- Options overlay (fan-out after generation) ---
 
+const OPTIONS_TIMEOUT = 90_000; // 90 seconds before giving up on polling
+
 const OptionsOverlay: React.FC<{
   parentId: string;
   visible: boolean;
@@ -377,16 +382,33 @@ const OptionsOverlay: React.FC<{
   const [options, setOptions] = useState<SidequestResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSelecting, setIsSelecting] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!visible || !parentId) return;
+
+    // Reset state when overlay becomes visible
+    setTimedOut(false);
+    setIsLoading(true);
+    setOptions([]);
 
     if (mockOptions) {
       setOptions(mockOptions);
       setIsLoading(false);
       return;
     }
+
+    // Set a timeout so we don't poll forever
+    timeoutRef.current = setTimeout(() => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      setTimedOut(true);
+      setIsLoading(false);
+    }, OPTIONS_TIMEOUT);
 
     // Fetch options immediately, then poll until all are resolved
     const fetchOptions = async () => {
@@ -403,6 +425,10 @@ const OptionsOverlay: React.FC<{
           if (allResolved && pollRef.current) {
             clearInterval(pollRef.current);
             pollRef.current = null;
+            if (timeoutRef.current) {
+              clearTimeout(timeoutRef.current);
+              timeoutRef.current = null;
+            }
           }
         }
       } catch {
@@ -417,6 +443,10 @@ const OptionsOverlay: React.FC<{
       if (pollRef.current) {
         clearInterval(pollRef.current);
         pollRef.current = null;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
     };
   }, [visible, parentId, mockOptions]);
@@ -454,7 +484,7 @@ const OptionsOverlay: React.FC<{
           style={StyleSheet.absoluteFill}
         />
         <View style={overlayStyles.content}>
-          {isLoading ? (
+          {isLoading && !timedOut ? (
             <View style={overlayStyles.loading}>
               <ActivityIndicator color="#86efac" size="large" />
               <Text
@@ -465,8 +495,19 @@ const OptionsOverlay: React.FC<{
               >
                 Revealing your options...
               </Text>
+              <Pressable
+                style={[
+                  overlayStyles.dismissBtn,
+                  { borderColor: colors.border.default },
+                ]}
+                onPress={onSelected}
+              >
+                <Text style={{ color: colors.text.secondary, fontFamily: fontFamily.mono, fontSize: 12 }}>
+                  Cancel
+                </Text>
+              </Pressable>
             </View>
-          ) : options.length === 0 ? (
+          ) : timedOut || options.length === 0 ? (
             <View style={overlayStyles.loading}>
               <Text style={{ fontSize: 48 }}>{"\u{1F61E}"}</Text>
               <Text
@@ -550,6 +591,11 @@ const ItinerariesListScreen = () => {
   const activeItineraryId = useActiveItineraryStore(
     (s) => s.itinerary?.id ?? null,
   );
+
+  // Clear any stale job on mount (e.g. from a crashed previous session)
+  useEffect(() => {
+    clearStaleJobIfNeeded();
+  }, []);
 
   // --- SSE job progress ---
   const { activeJobs, trackJob } = useJobProgress();

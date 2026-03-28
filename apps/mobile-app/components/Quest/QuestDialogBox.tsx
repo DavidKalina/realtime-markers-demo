@@ -32,7 +32,10 @@ import {
 import { apiClient } from "@/services/ApiClient";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
-import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
+import {
+  useItineraryJobStore,
+  clearStaleJobIfNeeded,
+} from "@/stores/useItineraryJobStore";
 import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import {
   QUEST_STATUS_MESSAGES,
@@ -682,6 +685,9 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
   // ── Embark (submit) ─────────────────────────────────────────────────
   const handleEmbark = useCallback(async () => {
     if (!userLocation) return;
+
+    // Clear any stale job from a previous session before starting
+    clearStaleJobIfNeeded();
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     enterGenerating();

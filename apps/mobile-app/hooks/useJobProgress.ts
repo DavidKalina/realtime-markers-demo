@@ -176,7 +176,26 @@ export function useJobProgress(): UseJobProgressReturn {
 
         es.addEventListener("error", (event) => {
           console.error("[useJobProgress] SSE error:", event);
-          // Don't reconnect — the backend will close when done
+          // Mark the job as failed so the UI can recover
+          setJobs((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(jobId);
+            // Only mark as failed if still in a non-terminal state
+            if (
+              existing &&
+              existing.status !== "completed" &&
+              existing.status !== "failed"
+            ) {
+              next.set(jobId, {
+                ...existing,
+                status: "failed",
+                error: "Connection lost. Please try again.",
+              });
+            }
+            return next;
+          });
+          es.close();
+          eventSourcesRef.current.delete(jobId);
         });
       })();
     },
