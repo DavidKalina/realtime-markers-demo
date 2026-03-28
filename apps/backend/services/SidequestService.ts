@@ -117,18 +117,6 @@ export interface PopularStop {
   score: number;
 }
 
-export interface SidequestSuggestion {
-  title: string;
-  emoji: string;
-  city: string;
-  costTier: "$" | "$$" | "$$$";
-  durationHours: number;
-  stopCount: number;
-  activityTypes: string[];
-  intention: string;
-  budgetMax: number;
-}
-
 export type ListByUserSort = "newest" | "oldest" | "upcoming" | "top_rated";
 export type ListByUserStatus = "completed" | "upcoming";
 
@@ -149,10 +137,6 @@ export interface SidequestService {
   ): Promise<Sidequest>;
   getOptions(parentId: string): Promise<Sidequest[]>;
   selectOption(childId: string, userId: string): Promise<Sidequest>;
-  generateSuggestions(
-    latitude: number,
-    longitude: number,
-  ): Promise<{ city: string; suggestions: SidequestSuggestion[] }>;
   listByUser(
     userId: string,
     options?: ListByUserOptions,
@@ -488,7 +472,8 @@ CONSTRAINTS:
 - For trail stops, you MUST use a trail returned by search_trails — do NOT use trails from web search or your own knowledge. Use the exact trail name from search_trails results as the venue name. The coordinates from search_trails results are the source of truth for trail locations.
 - Current time: ${hour}:00, ${dayOfWeek} — don't pick closed venues.
 - Title: 3-6 words, evocative. Summary: 1-2 sentences.
-- hook: why this venue over alternatives (1 sentence).`;
+- hook: why this venue over alternatives (1 sentence).
+${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are closed. Focus on: 24-hour diners, late-night food spots, convenience stores with character, night walks/viewpoints, stargazing spots, or "plan for tomorrow morning" quests (pick a great breakfast/brunch/coffee spot the user can hit first thing). If search_places returns nothing, try broader queries like "24 hour restaurant", "late night food", or "diner". If still nothing, build a quest around a scenic night walk, a viewpoint, or a park — no venue required.` : ""}`;
 
     type Tool = import("openai/resources/responses/responses").Tool;
     const tools: Tool[] = [
@@ -600,6 +585,7 @@ CONSTRAINTS:
               allVenues.push(v);
             }
           }
+          const isLateNight = hour >= 22 || hour < 6;
           const resultText =
             venues.length > 0
               ? venues
@@ -608,7 +594,9 @@ CONSTRAINTS:
                     return `- ${v.name} (${v.address}) [${lat.toFixed(4)},${lng.toFixed(4)}]${v.rating ? ` ★${v.rating}` : ""}`;
                   })
                   .join("\n")
-              : "No results found for this search.";
+              : isLateNight
+                ? `No results found — it's late (${hour}:00). Try searching for "24 hour restaurant", "late night food", or "diner" near ${near}. If nothing works, build a quest around a night walk, scenic viewpoint, or plan a "tomorrow morning" stop (breakfast/coffee spot).`
+                : "No results found for this search.";
           if (onProgress && venues.length > 0) {
             await onProgress(
               Math.round(10 + optionIndex * 25),
@@ -805,105 +793,18 @@ CONSTRAINTS:
       throw new Error("Option not found or not a child sidequest");
     }
 
-    // Mark siblings as FAILED (soft-reject)
-    await repo
-      .createQueryBuilder()
-      .update(Sidequest)
-      .set({ status: SidequestStatus.FAILED })
-      .where("parent_id = :parentId", { parentId: child.parentId })
-      .andWhere("id != :childId", { childId })
-      .execute();
+    const parentId = child.parentId;
 
-    // Copy selected child's title/summary to parent
-    await repo
-      .createQueryBuilder()
-      .update(Sidequest)
-      .set({ title: child.title, summary: child.summary })
-      .where("id = :parentId", { parentId: child.parentId })
-      .execute();
+    // Promote selected child to top-level
+    // Must use null — TypeORM skips undefined properties during save()
+    (child as Record<string, unknown>).parentId = null;
+    await repo.save(child);
+
+    // Soft-delete parent shell and rejected siblings
+    await repo.softDelete({ parentId });
+    await repo.softDelete({ id: parentId });
 
     return child;
-  }
-
-  async generateSuggestions(
-    latitude: number,
-    longitude: number,
-  ): Promise<{ city: string; suggestions: SidequestSuggestion[] }> {
-    const city = await this.geocodingService.reverseGeocodeCityState(
-      latitude,
-      longitude,
-    );
-
-    const now = new Date();
-    const dayOfWeek = now.toLocaleDateString("en-US", { weekday: "long" });
-    const dateStr = now.toISOString().split("T")[0];
-    const hour = now.getHours();
-    const month = now.toLocaleDateString("en-US", { month: "long" });
-
-    const completion = await this.openAIService.executeChatCompletion({
-      model: OpenAIModel.GPT54Nano,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a sidequest architect. Generate exactly 5 diverse sidequest suggestions — real-world mini-adventures for someone looking to get off the couch and explore. Include options in the user's city AND nearby cities/towns within ~30 miles. Each should feel meaningfully different in vibe, cost, activity type, and location. Frame them as quests to embark on, not errands to run. Return ONLY valid JSON.",
-        },
-        {
-          role: "user",
-          content: `User location: ${city}
-Day: ${dayOfWeek}, ${dateStr}
-Current hour: ${hour}:00
-Month: ${month}
-
-Generate 5 sidequest suggestions as a JSON object: { "suggestions": [...] }
-
-Include a mix of options in ${city} AND nearby cities/towns within ~30 miles. At least 2 suggestions should be in a different city/town than the user's.
-
-Each suggestion must have:
-- title (catchy, max 6 words — describe the VIBE or THEME like a quest name, never reference specific venue names. Focus on the activity + mood, like combining an activity with food or a time of day. Think quest board, not shopping catalog.)
-- emoji (single emoji best representing the adventure)
-- city (the city/town where this adventure takes place, e.g. "Tempe, AZ" — use "City, ST" format)
-- costTier ("$" = free/under $20, "$$" = $20-60, "$$$" = $60+)
-- durationHours (number, 2-8 range, appropriate for time of day)
-- stopCount (number of stops, 1-3 — a quick single-stop outing, a two-stop combo, or a three-stop crawl)
-- activityTypes (1-2 from: food, coffee, music, art, outdoors, hiking, walking, nightlife, sports, culture)
-- intention (one of: recharge, explore, socialize, move, learn, treat_yourself, lock_in)
-- budgetMax (number in dollars matching the costTier)
-
-DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different days, not variations of the same idea:
-- Each title MUST use different words — no repeating "explore", "discover", "hidden", etc. across titles
-- Mix categories: one food-focused, one outdoors/active, one arts/culture, one nightlife/social, one wildcard
-- Vary cost: at least one "$" and one "$$$"
-- Vary duration: range from 2h to 6h+
-- Vary stop count: mix of 1-stop, 2-stop, and 3-stop suggestions
-- Vary energy: one lazy/chill, one high-energy
-- Consider the time of day and season`,
-        },
-      ],
-      temperature: 1.0,
-      max_tokens: 800,
-      response_format: { type: "json_object" },
-    });
-
-    let raw = completion.choices[0].message.content?.trim();
-    if (!raw) {
-      throw new Error("No response from LLM for suggestions");
-    }
-
-    if (raw.startsWith("```")) {
-      raw = raw.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
-    }
-
-    try {
-      const parsed = JSON.parse(raw);
-      const suggestions: SidequestSuggestion[] = Array.isArray(parsed)
-        ? parsed
-        : parsed.suggestions;
-      return { city, suggestions };
-    } catch {
-      console.error("Failed to parse suggestions LLM response:", raw);
-      throw new Error("Failed to parse suggestions response");
-    }
   }
 
   async listByUser(
@@ -916,8 +817,6 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
       .getRepository(Sidequest)
       .createQueryBuilder("s")
       .leftJoinAndSelect("s.objectives", "obj")
-      .leftJoinAndSelect("s.children", "child")
-      .leftJoinAndSelect("child.objectives", "childObj")
       .where("s.user_id = :userId", { userId })
       .andWhere("s.parent_id IS NULL");
 
@@ -992,7 +891,7 @@ DIVERSITY IS CRITICAL — the 5 sidequests must feel like 5 completely different
     if (userId) where.userId = userId;
     return this.dataSource.getRepository(Sidequest).findOne({
       where,
-      relations: ["objectives", "children", "children.objectives"],
+      relations: ["objectives"],
       order: { objectives: { sortOrder: "ASC" } },
     });
   }

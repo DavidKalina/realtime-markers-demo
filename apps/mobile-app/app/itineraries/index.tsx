@@ -34,6 +34,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { scheduleOnRN } from "react-native-worklets";
 import Screen from "@/components/Layout/Screen";
@@ -65,14 +66,97 @@ import type { SidequestJobCompletedEvent } from "@/services/EventBroker";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
-const CARD_WIDTH = SCREEN_WIDTH * 0.82;
+const CARD_WIDTH = SCREEN_WIDTH * 0.78;
 const CARD_HEIGHT = CARD_WIDTH * 1.4;
-const CARD_VERTICAL_OFFSET = 12;
-const CARD_SCALE_STEP = 0.04;
+const CARD_VERTICAL_OFFSET = 14;
+const CARD_SCALE_STEP = 0.05;
 const BOB_AMPLITUDE = 3;
-const BOB_DURATION = 2600;
+const BOB_DURATION = 2400;
 
-// --- Single sidequest card ---
+const TIER_DISPLAY: Record<
+  string,
+  { label: string; bg: string; text: string; border: string }
+> = {
+  QUICK: {
+    label: "QUICK & EASY",
+    bg: "rgba(134, 239, 172, 0.12)",
+    text: "rgba(134, 239, 172, 0.9)",
+    border: "rgba(134, 239, 172, 0.25)",
+  },
+  SWEET_SPOT: {
+    label: "SWEET SPOT",
+    bg: "rgba(251, 191, 36, 0.12)",
+    text: "rgba(251, 191, 36, 0.9)",
+    border: "rgba(251, 191, 36, 0.25)",
+  },
+  BEST: {
+    label: "BEST PACKAGE",
+    bg: "rgba(168, 85, 247, 0.12)",
+    text: "rgba(168, 85, 247, 0.9)",
+    border: "rgba(168, 85, 247, 0.25)",
+  },
+};
+
+const DEFAULT_TIER = TIER_DISPLAY.QUICK;
+
+// --- Diagonal card sheen sweep (matches QuestCardDeck) ---
+
+const SHEEN_BAND = 100;
+const SHEEN_TRAVEL = Math.sqrt(CARD_WIDTH ** 2 + CARD_HEIGHT ** 2) + SHEEN_BAND;
+const SHEEN_ANGLE = Math.atan2(CARD_HEIGHT, CARD_WIDTH);
+
+const BrowseCardSheen: React.FC<{
+  tierColor: string;
+  index: number;
+}> = React.memo(({ tierColor, index }) => {
+  const sheenPos = useSharedValue(0);
+
+  useEffect(() => {
+    sheenPos.value = withDelay(
+      300 + index * 400,
+      withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+    );
+  }, [index]);
+
+  const sheenStyle = useAnimatedStyle(() => {
+    const travel = interpolate(sheenPos.value, [0, 1], [-SHEEN_BAND, SHEEN_TRAVEL]);
+    const tx = Math.cos(SHEEN_ANGLE) * travel;
+    const ty = Math.sin(SHEEN_ANGLE) * travel;
+    const opacity = interpolate(sheenPos.value, [0, 0.05, 0.5, 0.95, 1], [0, 0.8, 1, 0.8, 0]);
+    return {
+      opacity,
+      transform: [
+        { translateX: tx - SHEEN_BAND / 2 },
+        { translateY: ty - CARD_HEIGHT },
+        { rotate: `${SHEEN_ANGLE}rad` },
+      ],
+    };
+  });
+
+  const gradId = `browseSheen${index}`;
+
+  return (
+    <Animated.View
+      style={[{ position: "absolute", top: 0, left: 0, zIndex: 5 }, sheenStyle]}
+      pointerEvents="none"
+    >
+      <Svg width={SHEEN_BAND} height={SHEEN_TRAVEL}>
+        <Defs>
+          <LinearGradient id={gradId} x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0" stopColor={tierColor} stopOpacity="0" />
+            <Stop offset="0.5" stopColor={tierColor} stopOpacity="0.18" />
+            <Stop offset="1" stopColor={tierColor} stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+        <Rect width={SHEEN_BAND} height={SHEEN_TRAVEL} fill={`url(#${gradId})`} />
+      </Svg>
+    </Animated.View>
+  );
+});
+
+BrowseCardSheen.displayName = "BrowseCardSheen";
+
+// --- Single sidequest card (matches QuestCardDeck style) ---
 
 const SidequestCard: React.FC<{
   item: ItineraryResponse;
@@ -99,19 +183,9 @@ const SidequestCard: React.FC<{
     const s = useMemo(() => createCardStyles(colors), [colors]);
     const isActive = item.id === activeItineraryId;
     const isCompleted = !!item.completedAt;
+    const tierMeta = TIER_DISPLAY[item.tier ?? "QUICK"] ?? DEFAULT_TIER;
 
-    // Use parent's objectives if available; otherwise preview from first child
-    const hasOwnObjectives = (item.objectives ?? []).length > 0;
-    const previewChild = !hasOwnObjectives
-      ? (item.children ?? []).find((c) => (c.objectives ?? []).length > 0)
-      : null;
-    const objectives = hasOwnObjectives
-      ? item.objectives
-      : previewChild?.objectives ?? [];
-    const childCount = (item.children ?? []).filter(
-      (c) => c.status === "READY",
-    ).length;
-    const hasUnselectedOptions = !hasOwnObjectives && childCount > 0;
+    const objectives = item.objectives ?? [];
 
     const totalCost = objectives.reduce(
       (sum, o) => sum + (Number(o.estimatedCost) || 0),
@@ -130,7 +204,7 @@ const SidequestCard: React.FC<{
     const bobY = useSharedValue(0);
     useEffect(() => {
       bobY.value = withDelay(
-        index * 250,
+        index * 300,
         withRepeat(
           withSequence(
             withTiming(-BOB_AMPLITUDE, {
@@ -159,16 +233,16 @@ const SidequestCard: React.FC<{
         ? interpolate(
             swipeX.value,
             [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
-            [-12, 0, 12],
+            [-15, 0, 15],
           )
         : 0;
       const opacity = isFront
         ? interpolate(
             Math.abs(swipeX.value),
             [0, SCREEN_WIDTH * 0.5],
-            [1, 0.6],
+            [1, 0.7],
           )
-        : interpolate(pos, [0, 1, 2, 3], [1, 0.9, 0.8, 0.7]);
+        : interpolate(pos, [0, 1, 2], [1, 0.85, 0.7]);
 
       return {
         transform: [
@@ -192,33 +266,53 @@ const SidequestCard: React.FC<{
       onDelete(item.id);
     }, [item.id, onDelete]);
 
+    // Status info for the badge
     const statusColor = isCompleted
       ? "rgba(134, 239, 172, 0.9)"
       : isActive
         ? "rgba(251, 191, 36, 0.9)"
-        : "rgba(147, 197, 253, 0.6)";
+        : tierMeta.text;
 
     const statusBg = isCompleted
       ? "rgba(134, 239, 172, 0.12)"
       : isActive
         ? "rgba(251, 191, 36, 0.12)"
-        : "rgba(147, 197, 253, 0.08)";
+        : tierMeta.bg;
 
     const sortedObjectives = [...objectives].sort((a, b) => a.sortOrder - b.sortOrder);
     const stopCount = sortedObjectives.length;
 
+    // Tags from categories + activity types + venue categories
+    const tags = useMemo(() => {
+      const set = new Set<string>();
+      for (const c of item.categories ?? []) set.add(c);
+      for (const a of item.activityTypes ?? []) set.add(a);
+      for (const obj of objectives) {
+        if (obj.venueCategory) set.add(obj.venueCategory);
+      }
+      return [...set].slice(0, 5);
+    }, [item.categories, item.activityTypes, objectives]);
+
     return (
-      <Animated.View style={[s.card, animatedStyle]}>
-        {/* Status stripe */}
-        <View style={[s.statusStripe, { backgroundColor: statusColor }]} />
+      <Animated.View style={[s.card, { borderColor: tierMeta.border }, animatedStyle]}>
+        {/* Tier-colored top stripe */}
+        <View style={[s.tierStripe, { backgroundColor: tierMeta.text }]} />
+
+        {/* Diagonal sheen */}
+        <BrowseCardSheen tierColor={tierMeta.text} index={index} />
 
         <Pressable
           style={s.cardInner}
           onPress={handlePress}
           onLongPress={handleLongPress}
         >
-          {/* Top: status badge + city */}
+          {/* Top: tier badge + status */}
           <View style={s.topRow}>
+            <View style={[s.tierBadge, { backgroundColor: tierMeta.bg, borderColor: tierMeta.border }]}>
+              <Text style={[s.tierBadgeText, { color: tierMeta.text }]}>
+                {tierMeta.label}
+              </Text>
+            </View>
             <View style={[s.statusBadge, { backgroundColor: statusBg, borderColor: statusColor }]}>
               {isCompleted && (
                 <Check size={9} color={statusColor} strokeWidth={3} />
@@ -232,7 +326,6 @@ const SidequestCard: React.FC<{
                     : "READY"}
               </Text>
             </View>
-            <Text style={s.cityText}>{item.city}</Text>
           </View>
 
           {/* Hero: emoji + title + summary */}
@@ -256,17 +349,18 @@ const SidequestCard: React.FC<{
             {sortedObjectives.slice(0, 4).map((obj, i) => (
               <View key={obj.id} style={s.timelineRow}>
                 <View style={s.timelineTrack}>
-                  <View style={[s.timelineCircle, obj.checkedInAt && s.timelineCircleChecked]}>
+                  <View style={[s.timelineCircle, { borderColor: tierMeta.border, backgroundColor: obj.checkedInAt ? tierMeta.bg : "transparent" }]}>
                     <Text style={s.timelineEmoji}>{obj.emoji ?? "\u{1F4CD}"}</Text>
                   </View>
                   {i < Math.min(sortedObjectives.length, 4) - 1 && (
-                    <View style={s.timelineLine} />
+                    <View style={[s.timelineLine, { backgroundColor: tierMeta.border }]} />
                   )}
                 </View>
                 <View style={s.timelineContent}>
                   <Text style={s.stopName} numberOfLines={1}>
                     {obj.venueName ?? obj.title}
                   </Text>
+                  {obj.hook && <Text style={s.stopHook} numberOfLines={2}>{obj.hook}</Text>}
                 </View>
               </View>
             ))}
@@ -277,6 +371,17 @@ const SidequestCard: React.FC<{
 
           {/* Spacer */}
           <View style={{ flex: 1 }} />
+
+          {/* Tags */}
+          {tags.length > 0 && (
+            <View style={s.tagRow}>
+              {tags.map((tag) => (
+                <View key={tag} style={[s.tagChip, { borderColor: tierMeta.border }]}>
+                  <Text style={[s.tagText, { color: tierMeta.text }]}>{tag.toUpperCase()}</Text>
+                </View>
+              ))}
+            </View>
+          )}
 
           {/* Bottom stats bar */}
           <View style={s.statsBar}>
@@ -296,6 +401,8 @@ const SidequestCard: React.FC<{
                 <Text style={s.statLabel}>DONE</Text>
               </View>
             )}
+            <View style={{ flex: 1 }} />
+            <Text style={s.cityText}>{item.city}</Text>
           </View>
         </Pressable>
       </Animated.View>
@@ -531,11 +638,24 @@ const OptionsOverlay: React.FC<{
               </Pressable>
             </View>
           ) : (
-            <QuestCardDeck
-              options={options}
-              onSelect={handleSelect}
-              isSelecting={isSelecting}
-            />
+            <>
+              <QuestCardDeck
+                options={options}
+                onSelect={handleSelect}
+                isSelecting={isSelecting}
+              />
+              <Pressable
+                style={[
+                  overlayStyles.dismissBtn,
+                  { borderColor: colors.border.default, marginTop: spacing.lg },
+                ]}
+                onPress={onSelected}
+              >
+                <Text style={{ color: colors.text.secondary, fontFamily: fontFamily.mono, fontSize: 12 }}>
+                  Dismiss
+                </Text>
+              </Pressable>
+            </>
           )}
         </View>
       </Animated.View>
@@ -1053,7 +1173,7 @@ const createScreenStyles = (colors: Colors) =>
     },
     deckContainer: {
       width: CARD_WIDTH,
-      height: CARD_HEIGHT + CARD_VERTICAL_OFFSET * 3 + 20,
+      height: CARD_HEIGHT + CARD_VERTICAL_OFFSET * 2 + 20,
       alignItems: "center",
     },
     dotsRow: {
@@ -1071,7 +1191,7 @@ const createScreenStyles = (colors: Colors) =>
     },
   });
 
-// --- Card styles ---
+// --- Card styles (matches QuestCardDeck) ---
 
 const createCardStyles = (colors: Colors) =>
   StyleSheet.create({
@@ -1081,23 +1201,23 @@ const createCardStyles = (colors: Colors) =>
       height: CARD_HEIGHT,
       top: 0,
       backgroundColor: colors.bg.elevated,
-      borderRadius: radius.xl,
+      borderRadius: radius.lg,
       borderWidth: 1,
-      borderColor: colors.border.default,
       overflow: "hidden",
       shadowColor: colors.fixed.black,
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.2,
-      shadowRadius: 16,
-      elevation: 8,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+      elevation: 6,
     },
     cardInner: {
       flex: 1,
       padding: spacing.lg,
       paddingTop: spacing.lg + 2,
       gap: spacing.sm,
+      overflow: "hidden",
     },
-    statusStripe: {
+    tierStripe: {
       position: "absolute",
       top: 0,
       left: 0,
@@ -1109,6 +1229,18 @@ const createCardStyles = (colors: Colors) =>
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
+    },
+    tierBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+    },
+    tierBadgeText: {
+      fontSize: 9,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 0.8,
     },
     statusBadge: {
       flexDirection: "row",
@@ -1124,12 +1256,6 @@ const createCardStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.bold,
       letterSpacing: 0.8,
-    },
-    cityText: {
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.secondary,
     },
     activeDot: {
       width: 6,
@@ -1165,7 +1291,7 @@ const createCardStyles = (colors: Colors) =>
     },
     timelineRow: {
       flexDirection: "row",
-      minHeight: 40,
+      minHeight: 44,
     },
     timelineTrack: {
       width: 32,
@@ -1176,14 +1302,8 @@ const createCardStyles = (colors: Colors) =>
       height: 28,
       borderRadius: 14,
       borderWidth: 1.5,
-      borderColor: colors.border.default,
-      backgroundColor: colors.bg.elevated,
       alignItems: "center",
       justifyContent: "center",
-    },
-    timelineCircleChecked: {
-      borderColor: "rgba(134, 239, 172, 0.5)",
-      backgroundColor: "rgba(134, 239, 172, 0.1)",
     },
     timelineEmoji: {
       fontSize: 13,
@@ -1192,19 +1312,26 @@ const createCardStyles = (colors: Colors) =>
       width: 1.5,
       flex: 1,
       marginVertical: 2,
-      backgroundColor: colors.border.default,
       opacity: 0.4,
     },
     timelineContent: {
       flex: 1,
       paddingLeft: 8,
-      paddingTop: 5,
-      paddingBottom: 6,
+      paddingTop: 3,
+      paddingBottom: 8,
+      gap: 1,
     },
     stopName: {
-      fontSize: 12,
+      flex: 1,
+      fontSize: fontSize.sm,
       fontFamily: fontFamily.mono,
       color: colors.text.primary,
+    },
+    stopHook: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      fontStyle: "italic",
     },
     moreStops: {
       fontSize: 10,
@@ -1212,6 +1339,24 @@ const createCardStyles = (colors: Colors) =>
       color: colors.text.disabled,
       paddingLeft: 40,
       paddingTop: 2,
+    },
+    tagRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 5,
+    },
+    tagChip: {
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
+    },
+    tagText: {
+      fontSize: 8,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 0.5,
     },
     statsBar: {
       flexDirection: "row",
@@ -1237,5 +1382,11 @@ const createCardStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       color: colors.text.disabled,
       letterSpacing: 1,
+    },
+    cityText: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
     },
   });

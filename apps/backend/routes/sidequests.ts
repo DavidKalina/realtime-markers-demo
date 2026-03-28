@@ -17,7 +17,6 @@ import {
   getSidequestOptionsHandler,
   selectSidequestOptionHandler,
 } from "../handlers/sidequestHandlers";
-import { suggestSidequestsHandler } from "../handlers/sidequestSuggestionHandler";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
@@ -46,20 +45,10 @@ const writeRateLimit = rateLimit({
   },
 });
 
-const suggestRateLimit = rateLimit({
-  maxRequests: 10,
-  windowMs: 60 * 60 * 1000,
-  keyGenerator: (c) => {
-    const user = c.get("user");
-    return `sidequest-suggest:${user?.userId || user?.id || "anon"}`;
-  },
-});
-
 sidequestRouter.get("/", readRateLimit, listSidequestsHandler);
 sidequestRouter.get("/completed", readRateLimit, listCompletedHandler);
 sidequestRouter.get("/active", readRateLimit, getActiveSidequestHandler);
 sidequestRouter.get("/browse", readRateLimit, browseSidequestsHandler);
-sidequestRouter.post("/suggestions", suggestRateLimit, suggestSidequestsHandler);
 sidequestRouter.get("/:id", readRateLimit, getSidequestHandler);
 sidequestRouter.get("/:id/options", readRateLimit, getSidequestOptionsHandler);
 sidequestRouter.post("/", writeRateLimit, createSidequestHandler);

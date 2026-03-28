@@ -1,5 +1,5 @@
-import ItineraryMapPreview from "@/components/Itinerary/ItineraryMapPreview";
 import ItineraryTimeline from "@/components/Itinerary/ItineraryTimeline";
+import QuestCompass, { MiniCompassPreview } from "@/components/Itinerary/QuestCompass";
 
 import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
 import Screen from "@/components/Layout/Screen";
@@ -22,7 +22,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   View,
@@ -42,6 +41,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 
+import { useUserLocation } from "@/contexts/LocationContext";
 import { apiClient } from "@/services/ApiClient";
 import {
   type BaseEvent,
@@ -466,6 +466,10 @@ const ItineraryDetailScreen = () => {
 
   const isThisActive = activeItinerary?.id === id;
 
+  // Compass overlay
+  const [showCompass, setShowCompass] = useState(false);
+  const { userLocation } = useUserLocation();
+
   // Use active store's data if this sidequest is active (has live checkin data)
   const displaySidequest =
     isThisActive && activeItinerary
@@ -612,25 +616,6 @@ const ItineraryDetailScreen = () => {
     ]);
   }, [id, router]);
 
-  const handleShare = useCallback(async () => {
-    if (!id || !itinerary) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    try {
-      const { shareToken } = await apiClient.sidequests.share(id);
-      const webUrl =
-        process.env.EXPO_PUBLIC_WEB_URL || "https://dashboard.mapmoji.app";
-      const shareUrl = `${webUrl}/i/${shareToken}`;
-
-      await Share.share({
-        message: shareUrl,
-        url: shareUrl,
-      });
-    } catch (err) {
-      console.error("[ItineraryDetail] Failed to share:", err);
-    }
-  }, [id, itinerary]);
-
   const handleActivate = useCallback(async () => {
     if (!itinerary) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -741,6 +726,31 @@ const ItineraryDetailScreen = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedItem(item);
   }, []);
+
+  // Next unchecked objective for mini compass
+  const displayedNextObjective = useMemo(
+    () =>
+      [...(displaySidequest?.objectives ?? [])]
+        .filter((o) => !o.checkedInAt && o.latitude != null && o.longitude != null)
+        .sort((a, b) => a.sortOrder - b.sortOrder)[0] ?? null,
+    [displaySidequest?.objectives],
+  );
+
+  const miniDistance = useMemo(() => {
+    if (!userLocation || !displayedNextObjective?.latitude || !displayedNextObjective?.longitude)
+      return "";
+    const [lng, lat] = userLocation;
+    const R = 6371000;
+    const dLat = ((displayedNextObjective.latitude - lat) * Math.PI) / 180;
+    const dLng = ((displayedNextObjective.longitude - lng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat * Math.PI) / 180) *
+        Math.cos((displayedNextObjective.latitude * Math.PI) / 180) *
+        Math.sin(dLng / 2) ** 2;
+    const m = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
+  }, [userLocation, displayedNextObjective]);
 
   // --- Loading / Error states ---
 
@@ -1008,16 +1018,27 @@ const ItineraryDetailScreen = () => {
           />
         )}
 
-        {/* ── Map Preview ── */}
-        {objectives.length > 0 && (
+        {/* ── Mini Compass Preview ── */}
+        {isThisActive && displayedNextObjective && userLocation && (
           <Animated.View
             entering={FadeInDown.delay(700)
               .duration(450)
               .easing(Easing.out(Easing.cubic))}
             style={styles.mapPreviewSection}
           >
-            <Text style={styles.mapPreviewLabel}>ROUTE MAP</Text>
-            <ItineraryMapPreview items={objectives} city={itinerary.city} />
+            <Text style={styles.mapPreviewLabel}>COMPASS</Text>
+            <MiniCompassPreview
+              userLocation={userLocation}
+              objectiveLat={displayedNextObjective.latitude!}
+              objectiveLng={displayedNextObjective.longitude!}
+              distanceLabel={miniDistance}
+              venueName={displayedNextObjective.venueName ?? displayedNextObjective.title}
+              emoji={displayedNextObjective.emoji ?? "\u{1F4CD}"}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowCompass(true);
+              }}
+            />
           </Animated.View>
         )}
 
@@ -1043,6 +1064,19 @@ const ItineraryDetailScreen = () => {
                 </Pressable>
                 <Pressable
                   style={({ pressed }) => [
+                    styles.compassButton,
+                    styles.rowButton,
+                    pressed && styles.compassButtonPressed,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setShowCompass(true);
+                  }}
+                >
+                  <Text style={styles.compassButtonText}>Compass</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [
                     styles.endButton,
                     styles.rowButton,
                     pressed && styles.endButtonPressed,
@@ -1052,44 +1086,22 @@ const ItineraryDetailScreen = () => {
                   <Text style={styles.endButtonText}>End</Text>
                 </Pressable>
               </View>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.shareButton,
-                  pressed && styles.shareButtonPressed,
-                ]}
-                onPress={handleShare}
-              >
-                <Text style={styles.shareButtonText}>Share</Text>
-              </Pressable>
             </>
           ) : (
             <>
-              <View style={styles.buttonRow}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.startButton,
-                    styles.rowButton,
-                    pressed && styles.startButtonPressed,
-                    isActivating && styles.startButtonDisabled,
-                  ]}
-                  onPress={handleActivate}
-                  disabled={isActivating}
-                >
-                  <Text style={styles.startButtonText}>
-                    {isActivating ? "Activating..." : "Start"}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.shareButton,
-                    styles.rowButton,
-                    pressed && styles.shareButtonPressed,
-                  ]}
-                  onPress={handleShare}
-                >
-                  <Text style={styles.shareButtonText}>Share</Text>
-                </Pressable>
-              </View>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.startButton,
+                  pressed && styles.startButtonPressed,
+                  isActivating && styles.startButtonDisabled,
+                ]}
+                onPress={handleActivate}
+                disabled={isActivating}
+              >
+                <Text style={styles.startButtonText}>
+                  {isActivating ? "Activating..." : "Start"}
+                </Text>
+              </Pressable>
               <Pressable style={styles.deleteButton} onPress={handleDelete}>
                 <Text style={styles.deleteButtonText}>Delete</Text>
               </Pressable>
@@ -1097,6 +1109,16 @@ const ItineraryDetailScreen = () => {
           )}
         </Animated.View>
       </PullToActionScrollView>
+
+      {/* Quest Compass overlay */}
+      {isThisActive && (
+        <QuestCompass
+          visible={showCompass}
+          onDismiss={() => setShowCompass(false)}
+          objectives={objectives}
+          userLocation={userLocation}
+        />
+      )}
 
       {/* Item detail modal */}
       <Modal
@@ -1477,6 +1499,25 @@ const createStyles = (colors: Colors) =>
       textTransform: "uppercase",
       letterSpacing: 1.5,
     },
+    compassButton: {
+      backgroundColor: "rgba(147, 197, 253, 0.12)",
+      borderWidth: 1,
+      borderColor: "rgba(147, 197, 253, 0.3)",
+      paddingVertical: 14,
+      alignItems: "center",
+      borderRadius: radius.md,
+    },
+    compassButtonPressed: {
+      backgroundColor: "rgba(147, 197, 253, 0.2)",
+    },
+    compassButtonText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 13,
+      color: "#93c5fd",
+      fontWeight: fontWeight.bold,
+      textTransform: "uppercase",
+      letterSpacing: 1.5,
+    },
     endButton: {
       borderWidth: 1,
       borderColor: "rgba(252, 165, 165, 0.3)",
@@ -1491,25 +1532,6 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontSize: 13,
       color: "#fca5a5",
-      fontWeight: fontWeight.bold,
-      textTransform: "uppercase",
-      letterSpacing: 1.5,
-    },
-    shareButton: {
-      backgroundColor: "rgba(147, 197, 253, 0.12)",
-      borderWidth: 1,
-      borderColor: "rgba(147, 197, 253, 0.3)",
-      paddingVertical: 14,
-      alignItems: "center",
-      borderRadius: radius.md,
-    },
-    shareButtonPressed: {
-      backgroundColor: "rgba(147, 197, 253, 0.2)",
-    },
-    shareButtonText: {
-      fontFamily: fontFamily.mono,
-      fontSize: 13,
-      color: "#93c5fd",
       fontWeight: fontWeight.bold,
       textTransform: "uppercase",
       letterSpacing: 1.5,

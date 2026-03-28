@@ -266,24 +266,6 @@ export class SidequestsModule extends BaseApiModule {
     return this.handleResponse<SidequestResponse>(response);
   }
 
-  async suggestions(
-    latitude: number,
-    longitude: number,
-  ): Promise<{ city: string; suggestions: SidequestSuggestion[] }> {
-    const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests/suggestions`,
-      {
-        method: "POST",
-        body: JSON.stringify({ latitude, longitude }),
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-    return this.handleResponse<{
-      city: string;
-      suggestions: SidequestSuggestion[];
-    }>(response);
-  }
-
   async getPopularStops(city: string, limit = 15): Promise<PopularStop[]> {
     const params = new URLSearchParams({
       city: encodeURIComponent(city),
@@ -301,20 +283,6 @@ export class SidequestsModule extends BaseApiModule {
 export type ItineraryResponse = SidequestResponse;
 export type ItineraryItemResponse = ObjectiveResponse;
 export type BrowseItineraryResponse = BrowseSidequestResponse;
-export type ItinerarySuggestion = SidequestSuggestion;
-
-export interface SidequestSuggestion {
-  title: string;
-  emoji: string;
-  city: string;
-  costTier: "$" | "$$" | "$$$";
-  durationHours: number;
-  stopCount: number;
-  activityTypes: string[];
-  intention: string;
-  budgetMax: number;
-}
-
 export interface PopularStop {
   venueName: string;
   venueCategory: string | null;

@@ -37,11 +37,7 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
     name: "search/index",
     options: { presentation: "modal" },
   },
-  {
-    name: "get-away",
-    options: { presentation: "modal" },
-  },
-  {
+{
     name: "category/[id]",
     options: { animation: "slide_from_right", animationDuration: 250 },
   },

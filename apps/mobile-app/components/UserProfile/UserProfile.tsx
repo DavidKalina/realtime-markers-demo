@@ -24,8 +24,10 @@ import * as Haptics from "expo-haptics";
 import { ChevronRight } from "lucide-react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMapStyle } from "@/contexts/MapStyleContext";
+import { useUserLocation } from "@/contexts/LocationContext";
 import { useProfile } from "@/hooks/useProfile";
 import useUserStats from "@/hooks/useUserStats";
+import { useJobProgress } from "@/hooks/useJobProgress";
 import {
   useColors,
   useTheme,
@@ -38,7 +40,13 @@ import {
   radius,
   spacing,
 } from "@/theme";
+import { apiClient } from "@/services/ApiClient";
+import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
+import {
+  useItineraryJobStore,
+  clearStaleJobIfNeeded,
+} from "@/stores/useItineraryJobStore";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useProfileInsights } from "@/hooks/useProfileInsights";
 import Screen from "../Layout/Screen";
@@ -84,7 +92,11 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { isPitched, togglePitch } = useMapStyle();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
   const { resetOnboarding } = useOnboarding();
+  const { userLocation } = useUserLocation();
+  const { trackJob } = useJobProgress();
+  const startJob = useItineraryJobStore((s) => s.startJob);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isGetAwayLoading, setIsGetAwayLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("adventures");
   const {
     loading,
@@ -143,6 +155,37 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push("/search" as const);
   }, [router]);
+
+  const handleGetAway = useCallback(async () => {
+    if (!userLocation || isGetAwayLoading) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    clearStaleJobIfNeeded();
+    setIsGetAwayLoading(true);
+
+    try {
+      const result = await apiClient.sidequests.createSidequest({
+        prompt: "",
+        radiusMiles: 30,
+        budgetMax: 50,
+        latitude: userLocation[1],
+        longitude: userLocation[0],
+        timezone: getUserTimezone(),
+        surpriseMe: true,
+      });
+
+      trackJob(result.jobId);
+      startJob(result.jobId, result.sidequestId);
+      router.push({
+        pathname: "/itineraries/[id]" as const,
+        params: { id: result.sidequestId },
+      });
+    } catch (err) {
+      console.error("[UserProfile] Get Away failed:", err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsGetAwayLoading(false);
+    }
+  }, [userLocation, isGetAwayLoading, trackJob, startJob, router]);
 
   const handleTabPress = useCallback((tab: ProfileTab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -406,17 +449,24 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
                 style={styles.heroSection}
               >
                 <Pressable
-                  style={styles.getAwayButton}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    router.push("/get-away" as const);
-                  }}
+                  style={[
+                    styles.getAwayButton,
+                    isGetAwayLoading && { opacity: 0.6 },
+                  ]}
+                  disabled={isGetAwayLoading}
+                  onPress={handleGetAway}
                 >
-                  <Text style={styles.getAwayEmoji}>{"\u{1F3B2}"}</Text>
+                  {isGetAwayLoading ? (
+                    <ActivityIndicator size="small" color={colors.text.inverse} />
+                  ) : (
+                    <Text style={styles.getAwayEmoji}>{"\u{1F3B2}"}</Text>
+                  )}
                   <View style={styles.getAwayInfo}>
                     <Text style={styles.getAwayTitle}>Get Away</Text>
                     <Text style={styles.getAwaySub}>
-                      Instant adventure near you
+                      {isGetAwayLoading
+                        ? "Generating adventure..."
+                        : "Instant adventure near you"}
                     </Text>
                   </View>
                   <ChevronRight size={14} color={colors.text.inverse} />
