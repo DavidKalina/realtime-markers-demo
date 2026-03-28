@@ -23,8 +23,6 @@ jobs:
             dockerfile: apps/backend/Dockerfile
           - service: worker
             dockerfile: apps/backend/worker.Dockerfile
-          - service: web-dashboard
-            dockerfile: apps/web-dashboard/Dockerfile
           - service: postgres
             dockerfile: postgres.Dockerfile
     steps:
