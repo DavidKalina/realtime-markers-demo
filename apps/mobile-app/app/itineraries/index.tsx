@@ -56,10 +56,7 @@ import {
 } from "@/theme";
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
-import {
-  useJobProgress,
-  type AgentCandidate,
-} from "@/hooks/useJobProgress";
+import { useJobProgress } from "@/hooks/useJobProgress";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
@@ -69,21 +66,6 @@ const CARD_VERTICAL_OFFSET = 12;
 const CARD_SCALE_STEP = 0.04;
 const BOB_AMPLITUDE = 3;
 const BOB_DURATION = 2600;
-
-// --- Generating card tier flip labels ---
-
-const TIER_FACES = [
-  { label: "QUICK & EASY", color: "rgba(134, 239, 172, 0.9)", glow: "rgba(134, 239, 172, 0.15)" },
-  { label: "SWEET SPOT", color: "rgba(251, 191, 36, 0.9)", glow: "rgba(251, 191, 36, 0.15)" },
-  { label: "BEST PACKAGE", color: "rgba(168, 85, 247, 0.9)", glow: "rgba(168, 85, 247, 0.15)" },
-];
-
-const FALLBACK_STEPS = [
-  "Scanning local venues\u2026",
-  "Scouting nearby trails\u2026",
-  "Building the route\u2026",
-  "Finalizing your plan\u2026",
-];
 
 // --- Single sidequest card ---
 
@@ -205,113 +187,109 @@ const SidequestCard: React.FC<{
       onDelete(item.id);
     }, [item.id, onDelete]);
 
+    const statusColor = isCompleted
+      ? "rgba(134, 239, 172, 0.9)"
+      : isActive
+        ? "rgba(251, 191, 36, 0.9)"
+        : "rgba(147, 197, 253, 0.6)";
+
+    const statusBg = isCompleted
+      ? "rgba(134, 239, 172, 0.12)"
+      : isActive
+        ? "rgba(251, 191, 36, 0.12)"
+        : "rgba(147, 197, 253, 0.08)";
+
+    const sortedObjectives = [...objectives].sort((a, b) => a.sortOrder - b.sortOrder);
+    const stopCount = sortedObjectives.length;
+
     return (
       <Animated.View style={[s.card, animatedStyle]}>
+        {/* Status stripe */}
+        <View style={[s.statusStripe, { backgroundColor: statusColor }]} />
+
         <Pressable
           style={s.cardInner}
           onPress={handlePress}
           onLongPress={handleLongPress}
         >
-          {/* Status stripe */}
-          <View
-            style={[
-              s.statusStripe,
-              {
-                backgroundColor: isCompleted
-                  ? "rgba(134, 239, 172, 0.8)"
-                  : isActive
-                    ? "rgba(251, 191, 36, 0.8)"
-                    : hasUnselectedOptions
-                      ? "rgba(168, 85, 247, 0.6)"
-                      : "rgba(147, 197, 253, 0.4)",
-              },
-            ]}
-          />
-
-          {/* Top row: status + city */}
+          {/* Top: status badge + city */}
           <View style={s.topRow}>
-            <View style={s.statusRow}>
+            <View style={[s.statusBadge, { backgroundColor: statusBg, borderColor: statusColor }]}>
               {isCompleted && (
-                <View style={s.completedBadge}>
-                  <Check size={10} color="#fff" strokeWidth={3} />
-                </View>
+                <Check size={9} color={statusColor} strokeWidth={3} />
               )}
-              {isActive && <View style={s.activeDot} />}
-              <Text style={s.statusText}>
+              {isActive && <View style={[s.activeDot, { backgroundColor: statusColor }]} />}
+              <Text style={[s.statusText, { color: statusColor }]}>
                 {isCompleted
-                  ? `COMPLETED${item.rating ? " " + "\u2605".repeat(item.rating) : ""}`
+                  ? `DONE${item.rating ? " " + "\u2605".repeat(item.rating) : ""}`
                   : isActive
-                    ? `${checkedInCount}/${objectives.length} STOPS`
-                    : hasUnselectedOptions
-                      ? `${childCount} OPTIONS`
-                      : "READY"}
+                    ? `${checkedInCount}/${stopCount}`
+                    : "READY"}
               </Text>
             </View>
             <Text style={s.cityText}>{item.city}</Text>
           </View>
 
-          {/* Big emoji */}
-          <View style={s.emojiBlock}>
-            <Text style={s.bigEmoji}>{firstEmoji}</Text>
-          </View>
-
-          {/* Title */}
-          <Text style={s.title} numberOfLines={2}>
-            {item.title || "Untitled Sidequest"}
-          </Text>
-
-          {/* Summary */}
-          {item.summary && (
-            <Text style={s.summary} numberOfLines={2}>
-              {item.summary}
+          {/* Hero: emoji + title + summary */}
+          <View style={s.heroBlock}>
+            <Text style={s.emoji}>{firstEmoji}</Text>
+            <Text style={s.title} numberOfLines={2}>
+              {item.title || "Untitled Sidequest"}
             </Text>
-          )}
+            {item.summary && (
+              <Text style={s.summary} numberOfLines={2}>
+                {item.summary}
+              </Text>
+            )}
+          </View>
 
           {/* Divider */}
           <View style={s.divider} />
 
-          {/* Stops list */}
+          {/* Timeline stops */}
           <View style={s.stops}>
-            {objectives
-              .sort((a, b) => a.sortOrder - b.sortOrder)
-              .slice(0, 5)
-              .map((obj) => (
-                <View key={obj.id} style={s.stopRow}>
-                  <Text style={s.stopEmoji}>{obj.emoji ?? "\u{1F4CD}"}</Text>
+            {sortedObjectives.slice(0, 4).map((obj, i) => (
+              <View key={obj.id} style={s.timelineRow}>
+                <View style={s.timelineTrack}>
+                  <View style={[s.timelineCircle, obj.checkedInAt && s.timelineCircleChecked]}>
+                    <Text style={s.timelineEmoji}>{obj.emoji ?? "\u{1F4CD}"}</Text>
+                  </View>
+                  {i < Math.min(sortedObjectives.length, 4) - 1 && (
+                    <View style={s.timelineLine} />
+                  )}
+                </View>
+                <View style={s.timelineContent}>
                   <Text style={s.stopName} numberOfLines={1}>
                     {obj.venueName ?? obj.title}
                   </Text>
-                  {obj.checkedInAt && (
-                    <View style={s.checkedDot} />
-                  )}
                 </View>
-              ))}
-            {objectives.length > 5 && (
-              <Text style={s.moreStops}>
-                +{objectives.length - 5} more
-              </Text>
+              </View>
+            ))}
+            {sortedObjectives.length > 4 && (
+              <Text style={s.moreStops}>+{sortedObjectives.length - 4} more</Text>
             )}
           </View>
 
-          {/* Unselected options hint */}
-          {hasUnselectedOptions && (
-            <View style={s.optionsHint}>
-              <Text style={s.optionsHintText}>
-                {childCount} options to choose from
-              </Text>
-            </View>
-          )}
+          {/* Spacer */}
+          <View style={{ flex: 1 }} />
 
-          {/* Bottom stats */}
-          <View style={s.bottomRow}>
-            <Text style={s.stat}>{objectives.length} stops</Text>
+          {/* Bottom stats bar */}
+          <View style={s.statsBar}>
+            <View style={s.statPill}>
+              <Text style={s.statValue}>{stopCount}</Text>
+              <Text style={s.statLabel}>STOPS</Text>
+            </View>
             {totalCost > 0 && (
-              <Text style={s.stat}>~${totalCost.toFixed(0)}</Text>
+              <View style={s.statPill}>
+                <Text style={s.statValue}>~${totalCost.toFixed(0)}</Text>
+                <Text style={s.statLabel}>EST.</Text>
+              </View>
             )}
-            {(item.activityTypes ?? []).length > 0 && (
-              <Text style={s.stat} numberOfLines={1}>
-                {item.activityTypes.slice(0, 2).join(" \u00B7 ")}
-              </Text>
+            {isActive && stopCount > 0 && (
+              <View style={s.statPill}>
+                <Text style={s.statValue}>{Math.round((checkedInCount / stopCount) * 100)}%</Text>
+                <Text style={s.statLabel}>DONE</Text>
+              </View>
             )}
           </View>
         </Pressable>
@@ -322,288 +300,8 @@ const SidequestCard: React.FC<{
 
 SidequestCard.displayName = "SidequestCard";
 
-// --- Individual tier card in the generating stack ---
 
-const TUG_FORCE = 18;
-const TUG_INTERVAL = 2200;
-const SHUFFLE_INTERVAL = 3200;
-const GEN_STACK_OFFSET = 6;
-const GEN_SCALE_STEP = 0.03;
-const GEN_STACK_ROTATE = 1.5; // degrees fan per stack position
 
-const GeneratingTierCard: React.FC<{
-  tierIndex: number;
-  frontIdx: SharedValue<number>;
-  onPress: () => void;
-  colors: Colors;
-}> = React.memo(({ tierIndex, frontIdx, onPress, colors }) => {
-  const s = useMemo(() => createCardStyles(colors), [colors]);
-  const tier = TIER_FACES[tierIndex];
-
-  // Each card gets its own tug
-  const tugX = useSharedValue(0);
-  const tugY = useSharedValue(0);
-  const tugRotate = useSharedValue(0);
-
-  useEffect(() => {
-    const tug = () => {
-      const angle = Math.random() * Math.PI * 2;
-      const force = TUG_FORCE * (0.6 + Math.random() * 0.4);
-      const targetX = Math.cos(angle) * force;
-      const targetY = Math.sin(angle) * force;
-      const targetRotate = (Math.random() - 0.5) * 6;
-
-      tugX.value = withSequence(
-        withTiming(targetX, { duration: 250, easing: Easing.out(Easing.cubic) }),
-        withSpring(0, { damping: 8, stiffness: 120, mass: 0.8 }),
-      );
-      tugY.value = withSequence(
-        withTiming(targetY, { duration: 250, easing: Easing.out(Easing.cubic) }),
-        withSpring(0, { damping: 8, stiffness: 120, mass: 0.8 }),
-      );
-      tugRotate.value = withSequence(
-        withTiming(targetRotate, { duration: 250, easing: Easing.out(Easing.cubic) }),
-        withSpring(0, { damping: 10, stiffness: 150 }),
-      );
-    };
-
-    const timeout = setTimeout(tug, 400 + tierIndex * 600);
-    const interval = setInterval(tug, TUG_INTERVAL + tierIndex * 200);
-    return () => {
-      clearTimeout(timeout);
-      clearInterval(interval);
-    };
-  }, [tierIndex]);
-
-  // Shuffle lift: driven by parent when this card leaves the front
-  const liftY = useSharedValue(0);
-  const liftX = useSharedValue(0);
-  const liftRotate = useSharedValue(0);
-  const prevPos = useSharedValue(-1);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    const rawPos = ((tierIndex - frontIdx.value) % 3 + 3) % 3;
-    const pos = Math.round(rawPos);
-
-    // Detect when this card just left the front (pos went 0 -> 2)
-    if (prevPos.value === 0 && pos === 2) {
-      // Lift up and to the side, then settle behind
-      liftY.value = withSequence(
-        withTiming(-60, { duration: 250, easing: Easing.out(Easing.cubic) }),
-        withTiming(0, { duration: 350, easing: Easing.inOut(Easing.cubic) }),
-      );
-      liftX.value = withSequence(
-        withTiming(30, { duration: 250, easing: Easing.out(Easing.cubic) }),
-        withTiming(0, { duration: 350, easing: Easing.inOut(Easing.cubic) }),
-      );
-      liftRotate.value = withSequence(
-        withTiming(8, { duration: 250, easing: Easing.out(Easing.cubic) }),
-        withTiming(0, { duration: 350, easing: Easing.inOut(Easing.cubic) }),
-      );
-    }
-    prevPos.value = pos;
-
-    const stackY = pos * GEN_STACK_OFFSET;
-    const stackRotate = (pos - 1) * GEN_STACK_ROTATE; // fan: -1.5, 0, +1.5
-    const scale = 1 - pos * GEN_SCALE_STEP;
-    const opacity = interpolate(pos, [0, 1, 2], [1, 0.88, 0.75]);
-
-    return {
-      transform: [
-        { translateX: tugX.value + liftX.value },
-        { translateY: stackY + tugY.value + liftY.value },
-        { scale },
-        { rotate: `${tugRotate.value + stackRotate + liftRotate.value}deg` },
-      ],
-      opacity,
-      zIndex: 3 - pos,
-    };
-  });
-
-  return (
-    <Animated.View
-      style={[s.card, s.generatingCard, s.generatingCardCentered, animatedStyle]}
-    >
-      <Pressable style={s.cardInner} onPress={onPress}>
-        {/* Tier-colored stripe */}
-        <View
-          style={[s.statusStripe, { backgroundColor: tier.color }]}
-        />
-
-        <View style={s.topRow}>
-          <Text style={[s.statusText, { color: tier.color }]}>
-            FORGING
-          </Text>
-        </View>
-
-        <View style={s.genCenter}>
-          <View style={[s.genTierBadge, { backgroundColor: tier.glow }]}>
-            <Text style={[s.genTierText, { color: tier.color }]}>
-              {tier.label}
-            </Text>
-          </View>
-        </View>
-      </Pressable>
-    </Animated.View>
-  );
-});
-
-GeneratingTierCard.displayName = "GeneratingTierCard";
-
-// --- Generating card stack (3 shuffling tier cards + SSE content overlay) ---
-
-const GeneratingCard: React.FC<{
-  onPress: () => void;
-  stepLabel: string;
-  candidates: AgentCandidate[];
-  colors: Colors;
-}> = React.memo(
-  ({ onPress, stepLabel, candidates, colors }) => {
-    const s = useMemo(() => createCardStyles(colors), [colors]);
-
-    // --- Shuffle: cycle which card is on top ---
-    const frontIdx = useSharedValue(0);
-
-    useEffect(() => {
-      const shuffle = setInterval(() => {
-        frontIdx.value = (Math.round(frontIdx.value) + 1) % 3;
-      }, SHUFFLE_INTERVAL);
-      return () => clearInterval(shuffle);
-    }, []);
-
-    // --- Drip-feed queue for step labels ---
-    const STEP_DRIP_MS = 1800;
-    const [displayStep, setDisplayStep] = useState(FALLBACK_STEPS[0]);
-    const textOpacity = useSharedValue(1);
-    const stepQueueRef = useRef<string[]>([]);
-    const stepDripTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-    const fallbackIdx = useRef(0);
-    const lastStepRef = useRef<string>("");
-
-    useEffect(() => {
-      if (stepLabel && stepLabel !== lastStepRef.current) {
-        lastStepRef.current = stepLabel;
-        stepQueueRef.current.push(stepLabel);
-      }
-    }, [stepLabel]);
-
-    useEffect(() => {
-      const drip = () => {
-        if (stepQueueRef.current.length > 0) {
-          const next = stepQueueRef.current.shift()!;
-          textOpacity.value = withSequence(
-            withTiming(0, { duration: 200 }),
-            withTiming(1, { duration: 200 }),
-          );
-          setTimeout(() => setDisplayStep(next), 200);
-        } else {
-          fallbackIdx.current = (fallbackIdx.current + 1) % FALLBACK_STEPS.length;
-          textOpacity.value = withSequence(
-            withTiming(0, { duration: 200 }),
-            withTiming(1, { duration: 200 }),
-          );
-          setTimeout(() => setDisplayStep(FALLBACK_STEPS[fallbackIdx.current]), 200);
-        }
-      };
-
-      stepDripTimer.current = setInterval(drip, STEP_DRIP_MS);
-      return () => {
-        if (stepDripTimer.current) clearInterval(stepDripTimer.current);
-      };
-    }, []);
-
-    // --- Drip-feed queue for candidates ---
-    const CANDIDATE_DRIP_MS = 2200;
-    const [displayCandidate, setDisplayCandidate] = useState<AgentCandidate | null>(null);
-    const candidateOpacity = useSharedValue(0);
-    const candidateQueueRef = useRef<AgentCandidate[]>([]);
-    const candidateSeenRef = useRef(0);
-
-    useEffect(() => {
-      if (candidates.length > candidateSeenRef.current) {
-        const newOnes = candidates.slice(candidateSeenRef.current);
-        candidateSeenRef.current = candidates.length;
-        candidateQueueRef.current.push(...newOnes);
-      }
-    }, [candidates.length]);
-
-    useEffect(() => {
-      const drip = () => {
-        if (candidateQueueRef.current.length === 0) return;
-        const next = candidateQueueRef.current.shift()!;
-        candidateOpacity.value = withSequence(
-          withTiming(0, { duration: 150 }),
-          withTiming(1, { duration: 250 }),
-        );
-        setTimeout(() => setDisplayCandidate(next), 150);
-      };
-
-      const kickoff = setTimeout(drip, 400);
-      const timer = setInterval(drip, CANDIDATE_DRIP_MS);
-      return () => {
-        clearTimeout(kickoff);
-        clearInterval(timer);
-      };
-    }, []);
-
-    const candidateAnimStyle = useAnimatedStyle(() => ({
-      opacity: candidateOpacity.value,
-    }));
-
-    const textAnimStyle = useAnimatedStyle(() => ({
-      opacity: textOpacity.value,
-    }));
-
-    return (
-      <View style={s.genStackWrapper}>
-        {/* 3 shuffling tier cards */}
-        {TIER_FACES.map((_, i) => (
-          <GeneratingTierCard
-            key={i}
-            tierIndex={i}
-            frontIdx={frontIdx}
-            onPress={onPress}
-            colors={colors}
-          />
-        ))}
-
-        {/* SSE content overlay (sits above the cards, passes touches through) */}
-        <View style={s.genOverlay} pointerEvents="none">
-          <Animated.Text style={[s.genTitle, textAnimStyle]}>
-            {displayStep}
-          </Animated.Text>
-
-          {displayCandidate && (
-            <Animated.View style={[s.genCandidateRow, candidateAnimStyle]}>
-              <Text style={s.genCandidateIcon}>
-                {displayCandidate.type === "trail" ? "\u{1F6B6}" : "\u{1F4CD}"}
-              </Text>
-              <Text style={s.genCandidateName} numberOfLines={1}>
-                {displayCandidate.name}
-              </Text>
-              {displayCandidate.rating && (
-                <Text style={s.genCandidateRating}>
-                  {"\u2605"}{displayCandidate.rating.toFixed(1)}
-                </Text>
-              )}
-            </Animated.View>
-          )}
-
-          {candidates.length > 0 && (
-            <Text style={s.genSub}>
-              {candidates.length} venue{candidates.length !== 1 ? "s" : ""} discovered
-            </Text>
-          )}
-          {candidates.length === 0 && (
-            <Text style={s.genSub}>Crafting your adventure</Text>
-          )}
-        </View>
-      </View>
-    );
-  },
-);
-
-GeneratingCard.displayName = "GeneratingCard";
 
 // --- Dot indicator ---
 
@@ -677,35 +375,53 @@ const OptionsOverlay: React.FC<{
   const [options, setOptions] = useState<SidequestResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSelecting, setIsSelecting] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!visible || !parentId) return;
 
-    // Use mock options if provided (simulation mode)
     if (mockOptions) {
       setOptions(mockOptions);
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
-    apiClient.sidequests
-      .getOptions(parentId)
-      .then((result) => {
-        const ready = (result.data ?? []).filter(
-          (o: SidequestResponse) => o.status === "READY",
-        );
-        setOptions(ready);
-      })
-      .catch((err) => {
-        console.error("[OptionsOverlay] Failed to fetch options:", err);
-      })
-      .finally(() => setIsLoading(false));
+    // Fetch options immediately, then poll until all are resolved
+    const fetchOptions = async () => {
+      try {
+        const result = await apiClient.sidequests.getOptions(parentId);
+        const opts = result.data ?? [];
+        if (opts.length > 0) {
+          setOptions(opts);
+          setIsLoading(false);
+          // Stop polling when all options are resolved (READY or FAILED)
+          const allResolved = opts.every(
+            (o: SidequestResponse) => o.status === "READY" || o.status === "FAILED",
+          );
+          if (allResolved && pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+        }
+      } catch {
+        // Keep polling
+      }
+    };
+
+    fetchOptions();
+    pollRef.current = setInterval(fetchOptions, 2500);
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
   }, [visible, parentId, mockOptions]);
 
   const handleSelect = useCallback(
     async (option: SidequestResponse) => {
-      if (isSelecting) return;
+      if (isSelecting || option.status !== "READY") return;
       setIsSelecting(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       try {
@@ -843,12 +559,6 @@ const ItinerariesListScreen = () => {
     }
   }, [activeJobId, trackJob]);
 
-  const trackedJob = activeJobId
-    ? activeJobs.find((j) => j.jobId === activeJobId)
-    : undefined;
-  const sseStepLabel = trackedJob?.stepLabel ?? "";
-  const sseCandidates = trackedJob?.candidates ?? [];
-
   // --- Options overlay state ---
   const [showOptions, setShowOptions] = useState(false);
   const optionsParentId = useRef<string | null>(null);
@@ -888,13 +598,13 @@ const ItinerariesListScreen = () => {
     fetchItineraries();
   }, [fetchItineraries]);
 
-  // Show options overlay when generation completes
+  // Show options overlay immediately when generation starts
   useEffect(() => {
-    if (hasReady && activeJobItineraryId) {
+    if (isGenerating && activeJobItineraryId) {
       optionsParentId.current = activeJobItineraryId;
       setShowOptions(true);
     }
-  }, [hasReady, activeJobItineraryId]);
+  }, [isGenerating, activeJobItineraryId]);
 
   const handleOptionSelected = useCallback(() => {
     setShowOptions(false);
@@ -918,15 +628,6 @@ const ItinerariesListScreen = () => {
     },
     [router],
   );
-
-  const handleGeneratingPress = useCallback(() => {
-    if (!activeJobItineraryId) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push({
-      pathname: "/itineraries/[id]" as const,
-      params: { id: activeJobItineraryId },
-    });
-  }, [activeJobItineraryId, router]);
 
   const handleDelete = useCallback(
     (id: string) => {
@@ -1001,116 +702,78 @@ const ItinerariesListScreen = () => {
 
   // --- DEV: Simulation mode ---
   const [simulating, setSimulating] = useState(false);
-  const [simStep, setSimStep] = useState("");
-  const [simCandidates, setSimCandidates] = useState<AgentCandidate[]>([]);
   const [simShowOptions, setSimShowOptions] = useState(false);
 
-  const MOCK_STEPS = [
-    "Searching verified venues\u2026",
-    "Scanning local events\u2026",
-    "Scouting nearby trails\u2026",
-    "Checking what\u2019s open\u2026",
-    "Building the route\u2026",
-    "Optimizing stop order\u2026",
-    "Finalizing your plan\u2026",
-  ];
+  // Ready versions of the mock options (with full content)
+  const MOCK_READY = {
+    quick: {
+      id: "sim-quick", city: "San Francisco", budgetMax: 30,
+      activityTypes: ["coffee", "walk"], categories: ["outdoor", "caffeine", "morning"],
+      title: "Morning Buzz Walk", summary: "Quick caffeine hit and a stroll through the park",
+      status: "READY" as const, tier: "QUICK" as const, children: [], createdAt: new Date().toISOString(),
+      objectives: [
+        { id: "q1", sortOrder: 0, title: "Coffee Stop", emoji: "\u2615", venueName: "Blue Bottle Coffee", venueAddress: "315 Linden St", venueCategory: "cafe", hook: "Best pour-over in Hayes Valley", estimatedCost: 6 },
+        { id: "q2", sortOrder: 1, title: "Park Walk", emoji: "\u{1F33F}", venueName: "Golden Gate Park", venueAddress: "Golden Gate Park", venueCategory: "park", hook: "Morning fog through the eucalyptus grove", estimatedCost: 0 },
+      ],
+    },
+    sweet: {
+      id: "sim-sweet", city: "San Francisco", budgetMax: 50,
+      activityTypes: ["food", "explore"], categories: ["culture", "neighborhood", "brunch"],
+      title: "Mission District Drift", summary: "Pastries, murals, and a sunny park hang",
+      status: "READY" as const, tier: "SWEET_SPOT" as const, children: [], createdAt: new Date().toISOString(),
+      objectives: [
+        { id: "s1", sortOrder: 0, title: "Pastry Run", emoji: "\u{1F950}", venueName: "Tartine Bakery", venueAddress: "600 Guerrero St", venueCategory: "bakery", hook: "The morning bun is legendary", estimatedCost: 12 },
+        { id: "s2", sortOrder: 1, title: "Park Hang", emoji: "\u{1F3DE}\u{FE0F}", venueName: "Mission Dolores Park", venueAddress: "Dolores St & 19th", venueCategory: "park", hook: "Best city skyline view from the hilltop", estimatedCost: 0 },
+      ],
+    },
+    best: {
+      id: "sim-best", city: "San Francisco", budgetMax: 80,
+      activityTypes: ["food", "drinks", "culture"], categories: ["nightlife", "waterfront", "premium"],
+      title: "Full Send: Fort Mason to Mission", summary: "Cocktails, ice cream, and a waterfront sunset",
+      status: "READY" as const, tier: "BEST" as const, children: [], createdAt: new Date().toISOString(),
+      objectives: [
+        { id: "b1", sortOrder: 0, title: "Cocktail Hour", emoji: "\u{1F378}", venueName: "The Interval", venueAddress: "Fort Mason Center", venueCategory: "cocktail bar", hook: "Craft cocktails inside a library of civilization", estimatedCost: 18 },
+        { id: "b2", sortOrder: 1, title: "Sweet Finish", emoji: "\u{1F366}", venueName: "Bi-Rite Creamery", venueAddress: "3692 18th St", venueCategory: "ice cream", hook: "Salted caramel soft serve, need I say more", estimatedCost: 8 },
+      ],
+    },
+  };
 
-  const MOCK_CANDIDATES: AgentCandidate[] = [
-    { name: "Blue Bottle Coffee", coordinates: [-122.41, 37.78], type: "venue", rating: 4.5, distanceMiles: 0.3, query: "coffee" },
-    { name: "Golden Gate Park", coordinates: [-122.48, 37.77], type: "trail", rating: 4.8, distanceMiles: 1.2, query: "park" },
-    { name: "Tartine Bakery", coordinates: [-122.42, 37.76], type: "venue", rating: 4.6, distanceMiles: 0.5, query: "bakery" },
-    { name: "Mission Dolores Park", coordinates: [-122.43, 37.76], type: "trail", rating: 4.7, distanceMiles: 0.8, query: "park" },
-    { name: "Bi-Rite Creamery", coordinates: [-122.43, 37.76], type: "venue", rating: 4.4, distanceMiles: 0.6, query: "ice cream" },
-    { name: "The Interval", coordinates: [-122.42, 37.80], type: "venue", rating: 4.3, distanceMiles: 1.0, query: "bar" },
-  ];
-
-  const MOCK_OPTIONS: SidequestResponse[] = [
-    {
-      id: "sim-quick",
-      city: "San Francisco",
-      budgetMax: 30,
-      activityTypes: ["coffee", "walk"],
-      title: "Morning Buzz Walk",
-      summary: "Quick caffeine hit and a stroll through the park",
-      status: "READY" as const,
-      tier: "QUICK" as const,
-      objectives: [
-        { id: "q1", sortOrder: 0, title: "Coffee Stop", emoji: "\u2615", venueName: "Blue Bottle Coffee", venueAddress: "315 Linden St", hook: "Best pour-over in Hayes Valley", estimatedCost: 6 },
-        { id: "q2", sortOrder: 1, title: "Park Walk", emoji: "\u{1F33F}", venueName: "Golden Gate Park", venueAddress: "Golden Gate Park", hook: "Morning fog through the eucalyptus grove", estimatedCost: 0 },
-      ],
-      children: [],
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "sim-sweet",
-      city: "San Francisco",
-      budgetMax: 50,
-      activityTypes: ["food", "explore"],
-      title: "Mission District Drift",
-      summary: "Pastries, murals, and a sunny park hang",
-      status: "READY" as const,
-      tier: "SWEET_SPOT" as const,
-      objectives: [
-        { id: "s1", sortOrder: 0, title: "Pastry Run", emoji: "\u{1F950}", venueName: "Tartine Bakery", venueAddress: "600 Guerrero St", hook: "The morning bun is legendary", estimatedCost: 12 },
-        { id: "s2", sortOrder: 1, title: "Park Hang", emoji: "\u{1F3DE}\u{FE0F}", venueName: "Mission Dolores Park", venueAddress: "Dolores St & 19th", hook: "Best city skyline view from the hilltop", estimatedCost: 0 },
-      ],
-      children: [],
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "sim-best",
-      city: "San Francisco",
-      budgetMax: 80,
-      activityTypes: ["food", "drinks", "culture"],
-      title: "Full Send: Fort Mason to Mission",
-      summary: "Cocktails, ice cream, and a waterfront sunset",
-      status: "READY" as const,
-      tier: "BEST" as const,
-      objectives: [
-        { id: "b1", sortOrder: 0, title: "Cocktail Hour", emoji: "\u{1F378}", venueName: "The Interval", venueAddress: "Fort Mason Center", hook: "Craft cocktails inside a library of civilization", estimatedCost: 18 },
-        { id: "b2", sortOrder: 1, title: "Sweet Finish", emoji: "\u{1F366}", venueName: "Bi-Rite Creamery", venueAddress: "3692 18th St", hook: "Salted caramel soft serve, need I say more", estimatedCost: 8 },
-      ],
-      children: [],
-      createdAt: new Date().toISOString(),
-    },
-  ] as unknown as SidequestResponse[];
+  // Start with 3 GENERATING skeleton cards, resolve them one by one
+  const [MOCK_OPTIONS, setMockOptions] = useState<SidequestResponse[]>([
+    { id: "sim-quick", status: "GENERATING" as const, tier: "QUICK" as const, city: "San Francisco", budgetMax: 30, activityTypes: [], objectives: [], children: [], createdAt: new Date().toISOString() },
+    { id: "sim-sweet", status: "GENERATING" as const, tier: "SWEET_SPOT" as const, city: "San Francisco", budgetMax: 50, activityTypes: [], objectives: [], children: [], createdAt: new Date().toISOString() },
+    { id: "sim-best", status: "GENERATING" as const, tier: "BEST" as const, city: "San Francisco", budgetMax: 80, activityTypes: [], objectives: [], children: [], createdAt: new Date().toISOString() },
+  ] as unknown as SidequestResponse[]);
 
   const startSimulation = useCallback(() => {
+    // Reset to generating skeletons
+    setMockOptions([
+      { id: "sim-quick", status: "GENERATING", tier: "QUICK", city: "San Francisco", budgetMax: 30, activityTypes: [], objectives: [], children: [], createdAt: new Date().toISOString() },
+      { id: "sim-sweet", status: "GENERATING", tier: "SWEET_SPOT", city: "San Francisco", budgetMax: 50, activityTypes: [], objectives: [], children: [], createdAt: new Date().toISOString() },
+      { id: "sim-best", status: "GENERATING", tier: "BEST", city: "San Francisco", budgetMax: 80, activityTypes: [], objectives: [], children: [], createdAt: new Date().toISOString() },
+    ] as unknown as SidequestResponse[]);
+
     setSimulating(true);
-    setSimStep("");
-    setSimCandidates([]);
-    setSimShowOptions(false);
+    setSimShowOptions(true);
 
-    // Drip mock steps
-    MOCK_STEPS.forEach((step, i) => {
-      setTimeout(() => setSimStep(step), (i + 1) * 1200);
-    });
-
-    // Drip mock candidates
-    MOCK_CANDIDATES.forEach((c, i) => {
-      setTimeout(() => {
-        setSimCandidates((prev) => [...prev, c]);
-      }, 2000 + i * 1500);
-    });
-
-    // Show options overlay after "generation" completes
+    // Resolve cards one by one with staggered delays
     setTimeout(() => {
-      setSimShowOptions(true);
-    }, MOCK_STEPS.length * 1200 + 2000);
+      setMockOptions((prev) => prev.map((o) => o.id === "sim-quick" ? MOCK_READY.quick as unknown as SidequestResponse : o));
+    }, 4000);
+    setTimeout(() => {
+      setMockOptions((prev) => prev.map((o) => o.id === "sim-sweet" ? MOCK_READY.sweet as unknown as SidequestResponse : o));
+    }, 7000);
+    setTimeout(() => {
+      setMockOptions((prev) => prev.map((o) => o.id === "sim-best" ? MOCK_READY.best as unknown as SidequestResponse : o));
+    }, 10000);
   }, []);
 
   const handleSimOptionSelected = useCallback(() => {
     setSimShowOptions(false);
     setSimulating(false);
-    setSimStep("");
-    setSimCandidates([]);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, []);
 
-  // Use sim data when simulating
-  const effectiveIsGenerating = isGenerating || simulating;
-  const effectiveStepLabel = simulating ? simStep : sseStepLabel;
-  const effectiveCandidates = simulating ? simCandidates : sseCandidates;
   const effectiveShowOptions = simulating ? simShowOptions : showOptions;
 
   // --- Render ---
@@ -1126,55 +789,6 @@ const ItinerariesListScreen = () => {
         <View style={styles.centered}>
           <ActivityIndicator color={colors.accent.primary} />
         </View>
-      </Screen>
-    );
-  }
-
-  // When generating (real or simulated), show only the generating card
-  if (effectiveIsGenerating) {
-    return (
-      <Screen
-        isScrollable={false}
-        showBackButton
-        onBack={handleBack}
-        noAnimation
-        bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} />}
-      >
-        <Animated.View
-          entering={FadeIn.duration(400)}
-          style={styles.deckScreen}
-        >
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>FORGING QUEST</Text>
-          </View>
-
-          <View style={styles.deckContainer}>
-            <GeneratingCard
-              onPress={handleGeneratingPress}
-              stepLabel={effectiveStepLabel}
-              candidates={effectiveCandidates}
-              colors={colors}
-            />
-          </View>
-        </Animated.View>
-
-        {/* Options fan-out overlay */}
-        {simulating ? (
-          <OptionsOverlay
-            parentId="__sim__"
-            visible={effectiveShowOptions}
-            onSelected={handleSimOptionSelected}
-            colors={colors}
-            mockOptions={MOCK_OPTIONS}
-          />
-        ) : (
-          <OptionsOverlay
-            parentId={optionsParentId.current ?? ""}
-            visible={effectiveShowOptions}
-            onSelected={handleOptionSelected}
-            colors={colors}
-          />
-        )}
       </Screen>
     );
   }
@@ -1214,6 +828,23 @@ const ItinerariesListScreen = () => {
               DEV: Simulate Generation
             </Text>
           </Pressable>
+        )}
+        {/* Options overlay (works from any screen state since it's a Modal) */}
+        {simulating ? (
+          <OptionsOverlay
+            parentId="__sim__"
+            visible={effectiveShowOptions}
+            onSelected={handleSimOptionSelected}
+            colors={colors}
+            mockOptions={MOCK_OPTIONS}
+          />
+        ) : (
+          <OptionsOverlay
+            parentId={optionsParentId.current ?? ""}
+            visible={effectiveShowOptions}
+            onSelected={handleOptionSelected}
+            colors={colors}
+          />
         )}
       </Screen>
     );
@@ -1312,12 +943,22 @@ const ItinerariesListScreen = () => {
       </Animated.View>
 
       {/* Options fan-out overlay */}
-      <OptionsOverlay
-        parentId={optionsParentId.current ?? ""}
-        visible={showOptions}
-        onSelected={handleOptionSelected}
-        colors={colors}
-      />
+      {simulating ? (
+        <OptionsOverlay
+          parentId="__sim__"
+          visible={effectiveShowOptions}
+          onSelected={handleSimOptionSelected}
+          colors={colors}
+          mockOptions={MOCK_OPTIONS}
+        />
+      ) : (
+        <OptionsOverlay
+          parentId={optionsParentId.current ?? ""}
+          visible={effectiveShowOptions}
+          onSelected={handleOptionSelected}
+          colors={colors}
+        />
+      )}
     </Screen>
   );
 };
@@ -1392,17 +1033,10 @@ const createCardStyles = (colors: Colors) =>
       shadowRadius: 16,
       elevation: 8,
     },
-    generatingCard: {
-      borderColor: "rgba(134, 239, 172, 0.25)",
-      borderStyle: "dashed",
-    },
-    generatingCardCentered: {
-      top: 0,
-      left: 0,
-    },
     cardInner: {
       flex: 1,
       padding: spacing.lg,
+      paddingTop: spacing.lg + 2,
       gap: spacing.sm,
     },
     statusStripe: {
@@ -1411,24 +1045,27 @@ const createCardStyles = (colors: Colors) =>
       left: 0,
       right: 0,
       height: 3,
+      opacity: 0.8,
     },
     topRow: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      marginTop: spacing.xs,
     },
-    statusRow: {
+    statusBadge: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: radius.sm,
+      borderWidth: 1,
     },
     statusText: {
       fontSize: 9,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.bold,
-      color: colors.text.secondary,
-      letterSpacing: 1,
+      letterSpacing: 0.8,
     },
     cityText: {
       fontSize: 10,
@@ -1436,26 +1073,16 @@ const createCardStyles = (colors: Colors) =>
       fontWeight: fontWeight.semibold,
       color: colors.text.secondary,
     },
-    completedBadge: {
-      width: 16,
-      height: 16,
-      borderRadius: 8,
-      backgroundColor: "#86efac",
-      alignItems: "center",
-      justifyContent: "center",
-    },
     activeDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: "#fbbf24",
+      width: 6,
+      height: 6,
+      borderRadius: 3,
     },
-    emojiBlock: {
-      alignItems: "center",
-      paddingVertical: spacing.sm,
+    heroBlock: {
+      gap: 6,
     },
-    bigEmoji: {
-      fontSize: 48,
+    emoji: {
+      fontSize: 36,
     },
     title: {
       fontSize: 18,
@@ -1463,149 +1090,94 @@ const createCardStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       color: colors.text.primary,
       lineHeight: 24,
-      textAlign: "center",
     },
     summary: {
-      fontSize: 12,
+      fontSize: fontSize.sm,
       fontFamily: fontFamily.mono,
       color: colors.text.secondary,
       lineHeight: 18,
-      textAlign: "center",
     },
     divider: {
       height: StyleSheet.hairlineWidth,
       backgroundColor: colors.border.default,
-      marginVertical: spacing.xs,
+      marginVertical: 2,
     },
     stops: {
-      flex: 1,
-      gap: 6,
+      gap: 0,
     },
-    stopRow: {
+    timelineRow: {
       flexDirection: "row",
+      minHeight: 40,
+    },
+    timelineTrack: {
+      width: 32,
       alignItems: "center",
-      gap: 8,
     },
-    stopEmoji: {
-      fontSize: 14,
-      width: 20,
-      textAlign: "center",
-    },
-    stopName: {
-      flex: 1,
-      fontSize: 12,
-      fontFamily: fontFamily.mono,
-      color: colors.text.primary,
-    },
-    checkedDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: "#86efac",
-    },
-    moreStops: {
-      fontSize: 11,
-      fontFamily: fontFamily.mono,
-      color: colors.text.disabled,
-      paddingLeft: 28,
-    },
-    optionsHint: {
-      backgroundColor: "rgba(168, 85, 247, 0.1)",
-      borderWidth: 1,
-      borderColor: "rgba(168, 85, 247, 0.25)",
-      borderRadius: radius.sm,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 4,
-      alignSelf: "center",
-    },
-    optionsHintText: {
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: "rgba(168, 85, 247, 0.9)",
-      letterSpacing: 0.5,
-    },
-    bottomRow: {
-      flexDirection: "row",
-      gap: spacing.md,
-      paddingTop: spacing.xs,
-    },
-    stat: {
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.disabled,
-    },
-
-    // Generating card
-    genStackWrapper: {
-      width: CARD_WIDTH,
-      height: CARD_HEIGHT,
-      alignSelf: "center",
-    },
-    genOverlay: {
-      position: "absolute",
-      bottom: spacing.xl,
-      left: spacing.lg,
-      right: spacing.lg,
-      alignItems: "center",
-      gap: spacing.sm,
-      zIndex: 10,
-    },
-    genCenter: {
-      flex: 1,
+    timelineCircle: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: colors.border.default,
+      backgroundColor: colors.bg.elevated,
       alignItems: "center",
       justifyContent: "center",
-      gap: spacing.md,
     },
-    genTierBadge: {
-      paddingHorizontal: 12,
-      paddingVertical: 4,
-      borderRadius: radius.sm,
+    timelineCircleChecked: {
+      borderColor: "rgba(134, 239, 172, 0.5)",
+      backgroundColor: "rgba(134, 239, 172, 0.1)",
     },
-    genTierText: {
-      fontSize: 10,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      letterSpacing: 1,
+    timelineEmoji: {
+      fontSize: 13,
     },
-    genTitle: {
-      fontSize: 14,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.primary,
-      textAlign: "center",
-    },
-    genCandidateRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-      paddingHorizontal: spacing.md,
-      paddingVertical: 6,
-      backgroundColor: "rgba(134, 239, 172, 0.06)",
-      borderRadius: radius.sm,
-      borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.12)",
-      maxWidth: "90%",
-    },
-    genCandidateIcon: {
-      fontSize: 14,
-    },
-    genCandidateName: {
+    timelineLine: {
+      width: 1.5,
       flex: 1,
+      marginVertical: 2,
+      backgroundColor: colors.border.default,
+      opacity: 0.4,
+    },
+    timelineContent: {
+      flex: 1,
+      paddingLeft: 8,
+      paddingTop: 5,
+      paddingBottom: 6,
+    },
+    stopName: {
       fontSize: 12,
       fontFamily: fontFamily.mono,
       color: colors.text.primary,
     },
-    genCandidateRating: {
+    moreStops: {
       fontSize: 10,
       fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: "rgba(251, 191, 36, 0.9)",
+      color: colors.text.disabled,
+      paddingLeft: 40,
+      paddingTop: 2,
     },
-    genSub: {
-      fontSize: 11,
+    statsBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      paddingTop: spacing.sm,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border.default,
+    },
+    statPill: {
+      alignItems: "center",
+      gap: 1,
+    },
+    statValue: {
+      fontSize: 14,
+      fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
-      color: colors.text.secondary,
+      color: colors.text.primary,
+    },
+    statLabel: {
+      fontSize: 8,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+      letterSpacing: 1,
     },
   });

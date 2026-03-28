@@ -1,5 +1,5 @@
 import * as Haptics from "expo-haptics";
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -145,7 +145,11 @@ const CardSheen: React.FC<{
 
 CardSheen.displayName = "CardSheen";
 
-// --- Individual animated card ---
+// --- Tug animation constants ---
+const TUG_FORCE = 14;
+const TUG_INTERVAL = 2200;
+
+// --- Individual animated card (handles GENERATING + READY states) ---
 
 const QuestCard: React.FC<{
   option: SidequestResponse;
@@ -161,23 +165,40 @@ const QuestCard: React.FC<{
     const s = useMemo(() => createCardStyles(colors), [colors]);
     const tierMeta =
       TIER_DISPLAY[option.tier ?? "QUICK"] ?? TIER_DISPLAY.QUICK;
+    const isReady = option.status === "READY";
 
-    // Bob animation — each card has a different phase
+    // Track when card transitions from generating to ready
+    const wasGenerating = useRef(!isReady);
+    const revealSheen = useSharedValue(0);
+    const contentOpacity = useSharedValue(isReady ? 1 : 0);
+
+    useEffect(() => {
+      if (isReady && wasGenerating.current) {
+        wasGenerating.current = false;
+        // Reveal content with fade
+        contentOpacity.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) });
+        // Fire a reveal sheen
+        revealSheen.value = 0;
+        revealSheen.value = withDelay(
+          200,
+          withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+        );
+      }
+    }, [isReady]);
+
+    const contentAnimStyle = useAnimatedStyle(() => ({
+      opacity: contentOpacity.value,
+    }));
+
+    // Bob animation
     const bobY = useSharedValue(0);
-
     useEffect(() => {
       bobY.value = withDelay(
         index * 300,
         withRepeat(
           withSequence(
-            withTiming(-BOB_AMPLITUDE, {
-              duration: BOB_DURATION / 2,
-              easing: Easing.inOut(Easing.ease),
-            }),
-            withTiming(BOB_AMPLITUDE, {
-              duration: BOB_DURATION / 2,
-              easing: Easing.inOut(Easing.ease),
-            }),
+            withTiming(-BOB_AMPLITUDE, { duration: BOB_DURATION / 2, easing: Easing.inOut(Easing.ease) }),
+            withTiming(BOB_AMPLITUDE, { duration: BOB_DURATION / 2, easing: Easing.inOut(Easing.ease) }),
           ),
           -1,
           true,
@@ -185,37 +206,62 @@ const QuestCard: React.FC<{
       );
     }, [index]);
 
+    // Tug animation (only while generating)
+    const tugX = useSharedValue(0);
+    const tugY = useSharedValue(0);
+    const tugRotate = useSharedValue(0);
+
+    useEffect(() => {
+      if (isReady) return;
+      const tug = () => {
+        const angle = Math.random() * Math.PI * 2;
+        const force = TUG_FORCE * (0.6 + Math.random() * 0.4);
+        tugX.value = withSequence(
+          withTiming(Math.cos(angle) * force, { duration: 250, easing: Easing.out(Easing.cubic) }),
+          withSpring(0, { damping: 8, stiffness: 120, mass: 0.8 }),
+        );
+        tugY.value = withSequence(
+          withTiming(Math.sin(angle) * force, { duration: 250, easing: Easing.out(Easing.cubic) }),
+          withSpring(0, { damping: 8, stiffness: 120, mass: 0.8 }),
+        );
+        tugRotate.value = withSequence(
+          withTiming((Math.random() - 0.5) * 5, { duration: 250, easing: Easing.out(Easing.cubic) }),
+          withSpring(0, { damping: 10, stiffness: 150 }),
+        );
+      };
+      const timeout = setTimeout(tug, 400 + index * 500);
+      const interval = setInterval(tug, TUG_INTERVAL + index * 150);
+      return () => { clearTimeout(timeout); clearInterval(interval); };
+    }, [isReady, index]);
+
+    // Stop tug when ready
+    useEffect(() => {
+      if (isReady) {
+        tugX.value = withSpring(0, { damping: 12, stiffness: 100 });
+        tugY.value = withSpring(0, { damping: 12, stiffness: 100 });
+        tugRotate.value = withSpring(0, { damping: 12, stiffness: 100 });
+      }
+    }, [isReady]);
+
     const animatedStyle = useAnimatedStyle(() => {
       const pos = ((index - activeIndex.value) % totalCards + totalCards) % totalCards;
-
-      // Front card (pos === 0) responds to swipe
       const isFront = pos === 0;
       const translateX = isFront ? swipeX.value : 0;
-
-      // Stack offset: cards behind shift down and scale down
       const baseTranslateY = pos * CARD_VERTICAL_OFFSET;
       const scale = 1 - pos * CARD_SCALE_STEP;
-
-      // Rotation on swipe for front card
       const rotate = isFront
         ? interpolate(swipeX.value, [-SCREEN_WIDTH, 0, SCREEN_WIDTH], [-15, 0, 15])
         : 0;
-
-      // Opacity: front card fades slightly during swipe, back cards are slightly dimmer
       const opacity = isFront
-        ? interpolate(
-            Math.abs(swipeX.value),
-            [0, SCREEN_WIDTH * 0.5],
-            [1, 0.7],
-          )
+        ? interpolate(Math.abs(swipeX.value), [0, SCREEN_WIDTH * 0.5], [1, 0.7])
         : interpolate(pos, [0, 1, 2], [1, 0.85, 0.7]);
 
       return {
         transform: [
-          { translateX },
-          { translateY: baseTranslateY + bobY.value },
+          { translateX: translateX + tugX.value },
+          { translateY: baseTranslateY + bobY.value + tugY.value },
           { scale },
-          { rotate: `${rotate}deg` },
+          { rotate: `${rotate + tugRotate.value}deg` },
         ],
         opacity,
         zIndex: totalCards - pos,
@@ -227,92 +273,122 @@ const QuestCard: React.FC<{
     const stopCount = objectives.length;
 
     return (
-      <Animated.View style={[s.card, { borderColor: tierMeta.border }, animatedStyle]}>
+      <Animated.View style={[s.card, { borderColor: tierMeta.border }, isReady ? undefined : s.cardGenerating, animatedStyle]}>
         {/* Tier-colored top stripe */}
         <View style={[s.tierStripe, { backgroundColor: tierMeta.text }]} />
 
-        {/* Diagonal sheen sweep */}
-        <CardSheen tierColor={tierMeta.text} sheenTrigger={sheenTrigger} index={index} />
+        {/* Sheen: on swipe trigger + on reveal */}
+        <CardSheen tierColor={tierMeta.text} sheenTrigger={isReady ? sheenTrigger : revealSheen} index={index} />
 
         <Pressable
           style={s.cardInner}
-          onPress={() => onSelect(option)}
+          onPress={isReady ? () => onSelect(option) : undefined}
         >
-          {/* Top: Tier badge */}
+          {/* Top: Tier badge (always visible) */}
           <View style={s.tierRow}>
             <View style={[s.tierBadge, { backgroundColor: tierMeta.bg, borderColor: tierMeta.border, borderWidth: 1 }]}>
               <Text style={[s.tierBadgeText, { color: tierMeta.text }]}>
                 {tierMeta.label}
               </Text>
             </View>
-          </View>
-
-          {/* Hero: emoji + title + summary */}
-          <View style={s.heroBlock}>
-            <Text style={s.emoji}>
-              {objectives[0]?.emoji ?? "\u{1F3AF}"}
-            </Text>
-            <Text style={s.title} numberOfLines={2}>{option.title ?? "Sidequest"}</Text>
-            {option.summary && (
-              <Text style={s.summary} numberOfLines={2}>
-                {option.summary}
-              </Text>
+            {!isReady && (
+              <Text style={[s.forgingLabel, { color: tierMeta.text }]}>FORGING\u2026</Text>
             )}
           </View>
 
-          {/* Divider */}
-          <View style={s.divider} />
+          {/* --- GENERATING skeleton --- */}
+          {!isReady && (
+            <View style={s.skeletonBody}>
+              <View style={[s.skeletonBar, s.skeletonBarWide, { backgroundColor: tierMeta.border }]} />
+              <View style={[s.skeletonBar, s.skeletonBarMedium, { backgroundColor: tierMeta.border }]} />
+              <View style={s.skeletonDivider} />
+              <View style={s.skeletonStopRow}>
+                <View style={[s.skeletonDot, { borderColor: tierMeta.border }]} />
+                <View style={[s.skeletonBar, { flex: 1, backgroundColor: tierMeta.border }]} />
+              </View>
+              <View style={s.skeletonStopRow}>
+                <View style={[s.skeletonDot, { borderColor: tierMeta.border }]} />
+                <View style={[s.skeletonBar, { flex: 1, backgroundColor: tierMeta.border }]} />
+              </View>
+            </View>
+          )}
 
-          {/* Stops timeline */}
-          <View style={s.stops}>
-            {objectives.map((obj, i) => (
-              <View key={obj.id} style={s.timelineRow}>
-                {/* Timeline track: circle + connector line */}
-                <View style={s.timelineTrack}>
-                  <View style={[s.timelineCircle, { borderColor: tierMeta.border, backgroundColor: tierMeta.bg }]}>
-                    <Text style={s.timelineEmoji}>{obj.emoji ?? "\u{1F4CD}"}</Text>
+          {/* --- READY content --- */}
+          {isReady && (
+            <Animated.View style={[{ flex: 1, gap: spacing.sm }, contentAnimStyle]}>
+              {/* Hero */}
+              <View style={s.heroBlock}>
+                <Text style={s.emoji}>{objectives[0]?.emoji ?? "\u{1F3AF}"}</Text>
+                <Text style={s.title} numberOfLines={2}>{option.title ?? "Sidequest"}</Text>
+                {option.summary && (
+                  <Text style={s.summary} numberOfLines={2}>{option.summary}</Text>
+                )}
+              </View>
+
+              <View style={s.divider} />
+
+              {/* Timeline */}
+              <View style={s.stops}>
+                {objectives.map((obj, i) => (
+                  <View key={obj.id} style={s.timelineRow}>
+                    <View style={s.timelineTrack}>
+                      <View style={[s.timelineCircle, { borderColor: tierMeta.border, backgroundColor: tierMeta.bg }]}>
+                        <Text style={s.timelineEmoji}>{obj.emoji ?? "\u{1F4CD}"}</Text>
+                      </View>
+                      {i < objectives.length - 1 && (
+                        <View style={[s.timelineLine, { backgroundColor: tierMeta.border }]} />
+                      )}
+                    </View>
+                    <View style={s.timelineContent}>
+                      <Text style={s.stopName} numberOfLines={1}>{obj.venueName ?? obj.title}</Text>
+                      {obj.hook && <Text style={s.stopHook} numberOfLines={2}>{obj.hook}</Text>}
+                    </View>
                   </View>
-                  {i < objectives.length - 1 && (
-                    <View style={[s.timelineLine, { backgroundColor: tierMeta.border }]} />
-                  )}
+                ))}
+              </View>
+
+              <View style={{ flex: 1 }} />
+
+              {/* Tags */}
+              {(() => {
+                const tags = new Set<string>();
+                for (const c of option.categories ?? []) tags.add(c);
+                for (const a of option.activityTypes ?? []) tags.add(a);
+                for (const obj of objectives) {
+                  if (obj.venueCategory) tags.add(obj.venueCategory);
+                }
+                const tagList = [...tags].slice(0, 5);
+                if (tagList.length === 0) return null;
+                return (
+                  <View style={s.tagRow}>
+                    {tagList.map((tag) => (
+                      <View key={tag} style={[s.tagChip, { borderColor: tierMeta.border }]}>
+                        <Text style={[s.tagText, { color: tierMeta.text }]}>{tag.toUpperCase()}</Text>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })()}
+
+              {/* Stats bar */}
+              <View style={s.statsBar}>
+                <View style={s.statPill}>
+                  <Text style={s.statValue}>{stopCount}</Text>
+                  <Text style={s.statLabel}>STOPS</Text>
                 </View>
-                {/* Stop content */}
-                <View style={s.timelineContent}>
-                  <Text style={s.stopName} numberOfLines={1}>
-                    {obj.venueName ?? obj.title}
-                  </Text>
-                  {obj.hook && (
-                    <Text style={s.stopHook} numberOfLines={2}>
-                      {obj.hook}
-                    </Text>
-                  )}
+                {totalCost > 0 && (
+                  <View style={s.statPill}>
+                    <Text style={s.statValue}>~${totalCost}</Text>
+                    <Text style={s.statLabel}>EST.</Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }} />
+                <View style={[s.selectHint, { borderColor: tierMeta.border, backgroundColor: tierMeta.bg }]}>
+                  <Text style={[s.selectHintText, { color: tierMeta.text }]}>TAP TO SELECT</Text>
                 </View>
               </View>
-            ))}
-          </View>
-
-          {/* Spacer to push footer down */}
-          <View style={{ flex: 1 }} />
-
-          {/* Bottom stats bar */}
-          <View style={s.statsBar}>
-            <View style={s.statPill}>
-              <Text style={s.statValue}>{stopCount}</Text>
-              <Text style={s.statLabel}>STOPS</Text>
-            </View>
-            {totalCost > 0 && (
-              <View style={s.statPill}>
-                <Text style={s.statValue}>~${totalCost}</Text>
-                <Text style={s.statLabel}>EST.</Text>
-              </View>
-            )}
-            <View style={{ flex: 1 }} />
-            <View style={[s.selectHint, { borderColor: tierMeta.border, backgroundColor: tierMeta.bg }]}>
-              <Text style={[s.selectHintText, { color: tierMeta.text }]}>
-                TAP TO SELECT
-              </Text>
-            </View>
-          </View>
+            </Animated.View>
+          )}
         </Pressable>
       </Animated.View>
     );
@@ -516,6 +592,9 @@ const createCardStyles = (colors: Colors) =>
       shadowRadius: 12,
       elevation: 6,
     },
+    cardGenerating: {
+      borderStyle: "dashed",
+    },
     tierStripe: {
       position: "absolute",
       top: 0,
@@ -552,6 +631,48 @@ const createCardStyles = (colors: Colors) =>
       height: StyleSheet.hairlineWidth,
       backgroundColor: colors.border.default,
       marginVertical: 2,
+    },
+    forgingLabel: {
+      fontSize: 9,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1,
+      marginLeft: "auto",
+    },
+    skeletonBody: {
+      flex: 1,
+      gap: spacing.md,
+      paddingTop: spacing.md,
+    },
+    skeletonBar: {
+      height: 10,
+      borderRadius: 5,
+      opacity: 0.2,
+    },
+    skeletonBarWide: {
+      width: "70%",
+      height: 14,
+      borderRadius: 7,
+    },
+    skeletonBarMedium: {
+      width: "50%",
+    },
+    skeletonDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border.default,
+      marginVertical: spacing.xs,
+    },
+    skeletonStopRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    skeletonDot: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      opacity: 0.3,
     },
     tierBadge: {
       paddingHorizontal: 10,
@@ -610,6 +731,24 @@ const createCardStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       color: colors.text.secondary,
       fontStyle: "italic",
+    },
+    tagRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 5,
+    },
+    tagChip: {
+      paddingHorizontal: 7,
+      paddingVertical: 2,
+      borderRadius: radius.full,
+      borderWidth: 1,
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
+    },
+    tagText: {
+      fontSize: 8,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 0.5,
     },
     statsBar: {
       flexDirection: "row",
