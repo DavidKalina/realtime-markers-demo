@@ -129,8 +129,8 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
            ST_Distance(
              ST_SetSRID(ST_MakePoint(o.longitude, o.latitude), 4326)::geography,
              ST_SetSRID(ST_MakePoint(
-               LEAD(o.longitude) OVER (PARTITION BY o.sidequest_id ORDER BY o.objective_sort_order),
-               LEAD(o.latitude) OVER (PARTITION BY o.sidequest_id ORDER BY o.objective_sort_order)
+               LEAD(o.longitude) OVER (PARTITION BY o.sidequest_id ORDER BY o.sort_order),
+               LEAD(o.latitude) OVER (PARTITION BY o.sidequest_id ORDER BY o.sort_order)
              ), 4326)::geography
            ) AS distance_m
          FROM objectives o
@@ -150,7 +150,7 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
       `SELECT
          COUNT(DISTINCT oc.id)::int AS total_checkins,
          COUNT(DISTINCT s.id)::int AS total_completed,
-         COUNT(DISTINCT COALESCE(o.google_place_id, LOWER(o.venue_name)))::int AS unique_venues,
+         COUNT(DISTINCT LOWER(o.venue_name))::int AS unique_venues,
          COUNT(DISTINCT oc.objective_id)::int AS total_stops_visited
        FROM objective_checkins oc
        JOIN objectives o ON o.id = oc.objective_id
@@ -166,7 +166,7 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
          s.city,
          COUNT(DISTINCT s.id)::int AS completed_count,
          COUNT(DISTINCT oc.id)::int AS checkin_count,
-         COUNT(DISTINCT COALESCE(o.google_place_id, LOWER(o.venue_name)))::int AS unique_venues
+         COUNT(DISTINCT LOWER(o.venue_name))::int AS unique_venues
        FROM objective_checkins oc
        JOIN objectives o ON o.id = oc.objective_id
        JOIN sidequests s ON s.id = oc.sidequest_id

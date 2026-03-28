@@ -1,7 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { usePathname, useRouter } from "expo-router";
 import {
-  CompassIcon,
   LucideIcon,
   LucideSword,
   User,
@@ -55,12 +54,6 @@ const TABS: TabConfig[] = [
     icon: LucideSword,
     route: "/itineraries",
   },
-  {
-    key: "locate",
-    label: "Discover",
-    icon: CompassIcon,
-    requiresLocation: true,
-  },
 ];
 
 const HIDDEN_ROUTES = ["/register", "/login", "/onboarding"];
@@ -72,7 +65,7 @@ const ROUTE_TO_TAB: Record<string, string> = {
 
 // Map pathname to active tab key
 const getActiveTabKey = (pathname: string): string | null => {
-  if (pathname === "/") return "locate";
+  if (pathname === "/" || pathname === "/user") return "user";
   if (pathname.startsWith("/itineraries")) return "itineraries";
   return ROUTE_TO_TAB[pathname] ?? null;
 };
@@ -155,9 +148,7 @@ export const ActionBar: React.FC = React.memo(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
       }
 
-      if (tab.key === "locate") {
-        router.push("/");
-      } else if (tab.route) {
+      if (tab.route) {
         if (tab.key === "itineraries" && hasItineraryReady) {
           useItineraryJobStore.getState().clearReady();
         }

@@ -164,9 +164,11 @@ const SidequestCard: React.FC<{
   totalCards: number;
   activeIndex: SharedValue<number>;
   swipeX: SharedValue<number>;
+  isDiscarding: boolean;
   activeItineraryId: string | null;
   onPress: (id: string) => void;
   onDelete: (id: string) => void;
+  onDiscardComplete: (id: string) => void;
   colors: Colors;
 }> = React.memo(
   ({
@@ -175,9 +177,11 @@ const SidequestCard: React.FC<{
     totalCards,
     activeIndex,
     swipeX,
+    isDiscarding,
     activeItineraryId,
     onPress,
     onDelete,
+    onDiscardComplete,
     colors,
   }) => {
     const s = useMemo(() => createCardStyles(colors), [colors]);
@@ -222,7 +226,23 @@ const SidequestCard: React.FC<{
       );
     }, [index]);
 
+    // Discard animation
+    const discardProgress = useSharedValue(0);
+    useEffect(() => {
+      if (isDiscarding) {
+        discardProgress.value = withTiming(1, {
+          duration: 350,
+          easing: Easing.in(Easing.ease),
+        }, () => {
+          scheduleOnRN(() => {
+            onDiscardComplete(item.id);
+          })();
+        });
+      }
+    }, [isDiscarding]);
+
     const animatedStyle = useAnimatedStyle(() => {
+      const d = discardProgress.value;
       const pos =
         ((index - activeIndex.value) % totalCards + totalCards) % totalCards;
       const isFront = pos === 0;
@@ -244,14 +264,21 @@ const SidequestCard: React.FC<{
           )
         : interpolate(pos, [0, 1, 2], [1, 0.85, 0.7]);
 
+      // Discard animation: fly down-right with rotation, shrink, fade out
+      const discardX = interpolate(d, [0, 1], [0, SCREEN_WIDTH * 0.6]);
+      const discardY = interpolate(d, [0, 1], [0, CARD_HEIGHT * 0.8]);
+      const discardRotate = interpolate(d, [0, 1], [0, 25]);
+      const discardScale = interpolate(d, [0, 1], [1, 0.7]);
+      const discardOpacity = interpolate(d, [0, 0.6, 1], [1, 0.5, 0]);
+
       return {
         transform: [
-          { translateX },
-          { translateY: baseTranslateY + bobY.value },
-          { scale },
-          { rotate: `${rotate}deg` },
+          { translateX: translateX + discardX },
+          { translateY: baseTranslateY + bobY.value + discardY },
+          { scale: scale * discardScale },
+          { rotate: `${rotate + discardRotate}deg` },
         ],
-        opacity,
+        opacity: opacity * discardOpacity,
         zIndex: totalCards - pos,
       };
     });
@@ -1097,7 +1124,7 @@ const ItinerariesListScreen = () => {
           )}
         </Animated.View>
 
-        <Text style={styles.hint}>Swipe to browse \u00B7 Tap to open \u00B7 Hold to delete</Text>
+        <Text style={styles.hint}>{"Swipe to browse \u00B7 Tap to open \u00B7 Hold to delete"}</Text>
 
         {/* DEV: Simulate generation flow */}
         {__DEV__ && (
@@ -1172,9 +1199,10 @@ const createScreenStyles = (colors: Colors) =>
       letterSpacing: 1.5,
     },
     deckContainer: {
+      flex: 1,
       width: CARD_WIDTH,
-      height: CARD_HEIGHT + CARD_VERTICAL_OFFSET * 2 + 20,
       alignItems: "center",
+      justifyContent: "center",
     },
     dotsRow: {
       flexDirection: "row",
