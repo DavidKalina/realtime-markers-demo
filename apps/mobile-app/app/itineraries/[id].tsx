@@ -53,7 +53,6 @@ import type {
   SidequestResponse,
 } from "@/services/api/modules/sidequests";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
-import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
 import {
   fontFamily,
   fontSize,
@@ -499,10 +498,6 @@ const ItineraryDetailScreen = () => {
               if (updated.status !== "GENERATING") {
                 setItinerary(updated);
                 if (pollRef.current) clearInterval(pollRef.current);
-                const jobStore = useItineraryJobStore.getState();
-                if (jobStore.activeItineraryId === id) {
-                  jobStore.completeJob();
-                }
               }
             } catch {
               // ignore transient fetch errors during polling

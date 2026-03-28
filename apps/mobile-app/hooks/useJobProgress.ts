@@ -25,6 +25,7 @@ export interface JobExtractions {
 
 export interface TrackedJob {
   jobId: string;
+  itineraryId?: string;
   status: JobStatus;
   progress: number;
   stepLabel: string;
@@ -37,7 +38,7 @@ export interface TrackedJob {
 export interface UseJobProgressReturn {
   activeJobs: TrackedJob[];
   activeCount: number;
-  trackJob: (jobId: string) => void;
+  trackJob: (jobId: string, itineraryId?: string) => void;
   dismissJob: (jobId: string) => void;
 }
 
@@ -69,7 +70,7 @@ export function useJobProgress(): UseJobProgressReturn {
   }, []);
 
   const trackJob = useCallback(
-    (jobId: string) => {
+    (jobId: string, itineraryId?: string) => {
       // Don't track the same job twice
       if (eventSourcesRef.current.has(jobId)) return;
 
@@ -78,6 +79,7 @@ export function useJobProgress(): UseJobProgressReturn {
         const next = new Map(prev);
         next.set(jobId, {
           jobId,
+          itineraryId,
           status: "pending",
           progress: 0,
           stepLabel: "Starting",
@@ -138,6 +140,7 @@ export function useJobProgress(): UseJobProgressReturn {
 
               next.set(jobId, {
                 jobId,
+                itineraryId: existing?.itineraryId,
                 status: data.status || existing?.status || "processing",
                 progress: data.progress ?? existing?.progress ?? 0,
                 stepLabel:

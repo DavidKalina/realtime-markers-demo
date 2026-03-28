@@ -16,7 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, fontWeight } from "@/theme";
-import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
+import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { createStyles } from "./styles";
 
 // Pre-define animation configurations
@@ -137,8 +137,7 @@ export const ActionBar: React.FC = React.memo(() => {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const hasItineraryReady = useItineraryJobStore((s) => s.hasReady);
-  const isItineraryGenerating = useItineraryJobStore((s) => !!s.activeJobId);
+  const { hasReady: hasItineraryReady, isGenerating: isItineraryGenerating, clearReady } = useJobProgressContext();
 
   const activeTab = useMemo(() => getActiveTabKey(pathname), [pathname]);
 
@@ -150,12 +149,12 @@ export const ActionBar: React.FC = React.memo(() => {
 
       if (tab.route) {
         if (tab.key === "itineraries" && hasItineraryReady) {
-          useItineraryJobStore.getState().clearReady();
+          clearReady();
         }
         router.push(tab.route);
       }
     },
-    [router, pathname],
+    [router, pathname, hasItineraryReady, clearReady],
   );
 
   const containerStyle = useMemo(

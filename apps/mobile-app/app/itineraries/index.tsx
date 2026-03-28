@@ -55,12 +55,8 @@ import {
   radius,
   type Colors,
 } from "@/theme";
-import {
-  useItineraryJobStore,
-  clearStaleJobIfNeeded,
-} from "@/stores/useItineraryJobStore";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
-import { useJobProgress } from "@/hooks/useJobProgress";
+import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { eventBroker, EventTypes } from "@/services/EventBroker";
 import type { SidequestJobCompletedEvent } from "@/services/EventBroker";
 
@@ -247,23 +243,42 @@ const SidequestCard: React.FC<{
       const pos =
         ((index - activeIndex.value) % totalCards + totalCards) % totalCards;
       const isFront = pos === 0;
+      const absX = Math.abs(swipeX.value);
+      const dragProgress = isFront
+        ? interpolate(absX, [0, SWIPE_THRESHOLD], [0, 1], "clamp")
+        : 0;
+
+      // Front card: drag with a playful arc (lifts up as you drag)
       const translateX = isFront ? swipeX.value : 0;
+      const dragLiftY = isFront
+        ? interpolate(absX, [0, SWIPE_THRESHOLD, SCREEN_WIDTH], [0, -18, -8])
+        : 0;
       const baseTranslateY = pos * CARD_VERTICAL_OFFSET;
-      const scale = 1 - pos * CARD_SCALE_STEP;
+
+      // Front card scales up slightly when dragged ("picked up" feel)
+      const dragScaleBoost = interpolate(dragProgress, [0, 1], [0, 0.03]);
+      const scale = 1 - pos * CARD_SCALE_STEP + (isFront ? dragScaleBoost : 0);
+
+      // Asymmetric rotation — more tilt, with a playful wobble curve
       const rotate = isFront
         ? interpolate(
             swipeX.value,
-            [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
-            [-15, 0, 15],
+            [-SCREEN_WIDTH, -SWIPE_THRESHOLD, 0, SWIPE_THRESHOLD, SCREEN_WIDTH],
+            [-22, -10, 0, 10, 22],
           )
         : 0;
+
       const opacity = isFront
-        ? interpolate(
-            Math.abs(swipeX.value),
-            [0, SCREEN_WIDTH * 0.5],
-            [1, 0.7],
-          )
+        ? interpolate(absX, [0, SCREEN_WIDTH * 0.6], [1, 0.4])
         : interpolate(pos, [0, 1, 2], [1, 0.85, 0.7]);
+
+      // Back cards eagerly step forward as front card is dragged away
+      const backCardPush = isFront
+        ? 0
+        : interpolate(dragProgress, [0, 1], [0, CARD_VERTICAL_OFFSET * 0.5]);
+      const backCardScalePush = isFront
+        ? 0
+        : interpolate(dragProgress, [0, 1], [0, CARD_SCALE_STEP * 0.5]);
 
       // Discard animation: fly down-right with rotation, shrink, fade out
       const discardX = interpolate(d, [0, 1], [0, SCREEN_WIDTH * 0.6]);
@@ -275,8 +290,8 @@ const SidequestCard: React.FC<{
       return {
         transform: [
           { translateX: translateX + discardX },
-          { translateY: baseTranslateY + bobY.value + discardY },
-          { scale: scale * discardScale },
+          { translateY: baseTranslateY + bobY.value + dragLiftY - backCardPush + discardY },
+          { scale: (scale + backCardScalePush) * discardScale },
           { rotate: `${rotate + discardRotate}deg` },
         ],
         opacity: opacity * discardOpacity,
@@ -729,31 +744,15 @@ const ItinerariesListScreen = () => {
   const router = useRouter();
   const colors = useColors();
   const styles = useMemo(() => createScreenStyles(colors), [colors]);
-  const activeJobId = useItineraryJobStore((s) => s.activeJobId);
-  const isGenerating = !!activeJobId;
-  const activeJobItineraryId = useItineraryJobStore(
-    (s) => s.activeItineraryId,
-  );
-  const hasReady = useItineraryJobStore((s) => s.hasReady);
-  const clearReady = useItineraryJobStore((s) => s.clearReady);
+  const {
+    isGenerating,
+    activeItineraryId: activeJobItineraryId,
+    hasReady,
+    clearReady,
+  } = useJobProgressContext();
   const activeItineraryId = useActiveItineraryStore(
     (s) => s.itinerary?.id ?? null,
   );
-
-  // Clear any stale job on mount (e.g. from a crashed previous session)
-  useEffect(() => {
-    clearStaleJobIfNeeded();
-  }, []);
-
-  // --- SSE job progress ---
-  const { activeJobs, trackJob } = useJobProgress();
-
-  // Track the active job for SSE streaming
-  useEffect(() => {
-    if (activeJobId) {
-      trackJob(activeJobId);
-    }
-  }, [activeJobId, trackJob]);
 
   // --- Options overlay state ---
   const [showOptions, setShowOptions] = useState(false);
@@ -901,9 +900,11 @@ const ItinerariesListScreen = () => {
     .onEnd((e) => {
       if (Math.abs(e.translationX) > SWIPE_THRESHOLD) {
         const direction = e.translationX > 0 ? 1 : -1;
-        swipeX.value = withTiming(
-          direction * SCREEN_WIDTH,
-          { duration: 200, easing: Easing.in(Easing.cubic) },
+        // Fling off with velocity-aware spring for a snappy, organic exit
+        const velocity = Math.abs(e.velocityX) > 500 ? e.velocityX : direction * 800;
+        swipeX.value = withSpring(
+          direction * SCREEN_WIDTH * 1.2,
+          { damping: 18, stiffness: 140, mass: 0.8, velocity },
           () => {
             activeIndex.value = (activeIndex.value + 1) % totalCards;
             swipeX.value = 0;
@@ -911,7 +912,8 @@ const ItinerariesListScreen = () => {
           },
         );
       } else {
-        swipeX.value = withSpring(0, { damping: 20, stiffness: 200 });
+        // Bouncy snap-back
+        swipeX.value = withSpring(0, { damping: 12, stiffness: 180, mass: 0.7 });
       }
     });
 

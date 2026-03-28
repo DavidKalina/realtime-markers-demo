@@ -26,7 +26,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useProfile } from "@/hooks/useProfile";
 import useUserStats from "@/hooks/useUserStats";
-import { useJobProgress } from "@/hooks/useJobProgress";
+import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import {
   useColors,
   useTheme,
@@ -42,10 +42,6 @@ import {
 import { apiClient } from "@/services/ApiClient";
 import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
-import {
-  useItineraryJobStore,
-  clearStaleJobIfNeeded,
-} from "@/stores/useItineraryJobStore";
 import { useProfileInsights } from "@/hooks/useProfileInsights";
 import Screen from "../Layout/Screen";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
@@ -89,8 +85,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { user } = useAuth();
   const { mode: themeMode, setMode: setThemeMode } = useTheme();
   const { userLocation } = useUserLocation();
-  const { trackJob } = useJobProgress();
-  const startJob = useItineraryJobStore((s) => s.startJob);
+  const { trackJob } = useJobProgressContext();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isGetAwayLoading, setIsGetAwayLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("adventures");
@@ -150,7 +145,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const handleGetAway = useCallback(async () => {
     if (!userLocation || isGetAwayLoading) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    clearStaleJobIfNeeded();
     setIsGetAwayLoading(true);
 
     try {
@@ -164,8 +158,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         surpriseMe: true,
       });
 
-      trackJob(result.jobId);
-      startJob(result.jobId, result.sidequestId);
+      trackJob(result.jobId, result.sidequestId);
       router.push({
         pathname: "/itineraries/[id]" as const,
         params: { id: result.sidequestId },
@@ -176,7 +169,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     } finally {
       setIsGetAwayLoading(false);
     }
-  }, [userLocation, isGetAwayLoading, trackJob, startJob, router]);
+  }, [userLocation, isGetAwayLoading, trackJob, router]);
 
   const handleTabPress = useCallback((tab: ProfileTab) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

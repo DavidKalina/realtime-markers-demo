@@ -115,6 +115,7 @@ const Login: React.FC = () => {
 
     try {
       await login(email, password);
+      router.replace("/");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

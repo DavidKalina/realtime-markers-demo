@@ -32,10 +32,6 @@ import {
 import { apiClient } from "@/services/ApiClient";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
-import {
-  useItineraryJobStore,
-  clearStaleJobIfNeeded,
-} from "@/stores/useItineraryJobStore";
 import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import {
   QUEST_STATUS_MESSAGES,
@@ -474,12 +470,8 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { userLocation } = useUserLocation();
-  const { trackJob, activeJobs } = useJobProgressContext();
-  const startJob = useItineraryJobStore((s) => s.startJob);
-  const completeJob = useItineraryJobStore((s) => s.completeJob);
-  const failJob = useItineraryJobStore((s) => s.failJob);
-  const activeJobId = useItineraryJobStore((s) => s.activeJobId);
-  const stepLabel = useItineraryJobStore((s) => s.stepLabel);
+  const { trackJob, activeJobs, isGenerating, activeJobId, stepLabel } = useJobProgressContext();
+  const submittedJobIdRef = useRef<string | null>(null);
 
   // ── Form state ──────────────────────────────────────────────────────
   const [prompt, setPrompt] = useState("");
@@ -621,38 +613,30 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
     return () => clearTimeout(timer);
   }, [startSheen]);
 
-  // Watch tracked jobs
+  // When the submitted job reaches a terminal status, animate back to collapsed
   useEffect(() => {
-    if (!activeJobId) return;
-    const job = activeJobs.find((j) => j.jobId === activeJobId);
+    if (phase !== "generating" || !submittedJobIdRef.current) return;
+    const job = activeJobs.find((j) => j.jobId === submittedJobIdRef.current);
     if (!job) return;
-    if (job.status === "completed") {
-      completeJob();
-    } else if (job.status === "failed") {
-      failJob();
-    }
-  }, [activeJobs, activeJobId, completeJob, failJob]);
+    if (job.status !== "completed" && job.status !== "failed") return;
 
-  // When activeJobId clears, animate back to collapsed
-  useEffect(() => {
-    if (phase === "generating" && !activeJobId) {
-      genContentOpacity.value = withTiming(0, { duration: 150 });
-      animHeight.value = withDelay(
-        150,
-        withTiming(COLLAPSED_HEIGHT, {
-          duration: ANIM_DURATION,
-          easing: Easing.out(Easing.cubic),
-        }),
-      );
-      statusOpacity.value = withDelay(300, withTiming(1, { duration: 200 }));
-      startSheen();
-      setPhase("collapsed");
-      setStatusText("Draw a Sidequest \u{1F0CF}");
-      setPrompt("");
-      setSelectedVibes(new Set());
-      setSelectedIntention(null);
-    }
-  }, [activeJobId, phase]);
+    submittedJobIdRef.current = null;
+    genContentOpacity.value = withTiming(0, { duration: 150 });
+    animHeight.value = withDelay(
+      150,
+      withTiming(COLLAPSED_HEIGHT, {
+        duration: ANIM_DURATION,
+        easing: Easing.out(Easing.cubic),
+      }),
+    );
+    statusOpacity.value = withDelay(300, withTiming(1, { duration: 200 }));
+    startSheen();
+    setPhase("collapsed");
+    setStatusText("Draw a Sidequest \u{1F0CF}");
+    setPrompt("");
+    setSelectedVibes(new Set());
+    setSelectedIntention(null);
+  }, [activeJobs, phase]);
 
   // Update status text from job step label
   useEffect(() => {
@@ -686,9 +670,6 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
   const handleEmbark = useCallback(async () => {
     if (!userLocation) return;
 
-    // Clear any stale job from a previous session before starting
-    clearStaleJobIfNeeded();
-
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     enterGenerating();
 
@@ -704,8 +685,8 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
         intention: selectedIntention ?? undefined,
       });
 
-      trackJob(result.jobId);
-      startJob(result.jobId, result.sidequestId);
+      submittedJobIdRef.current = result.jobId;
+      trackJob(result.jobId, result.sidequestId);
       onQuestCreated?.(result.sidequestId);
     } catch (err) {
       console.error("[QuestDialogBox] Failed to create sidequest:", err);
@@ -727,7 +708,6 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
     selectedIntention,
     enterGenerating,
     trackJob,
-    startJob,
     onQuestCreated,
     sheenPos,
     sheenActive,
@@ -736,7 +716,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
     contentOpacity,
   ]);
 
-  const canEmbark = !activeJobId;
+  const canEmbark = !isGenerating;
 
   // ── Render ──────────────────────────────────────────────────────────
   return (
