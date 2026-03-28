@@ -334,12 +334,17 @@ const ItinerariesListScreen = () => {
     fetchItineraries();
   }, [fetchItineraries]);
 
-  // Refetch when a push notification signals job completion (SSE fallback)
+  // When a job completes (via push notification or SSE), open the fan-out
+  // overlay so the user can pick one of the 3 generated options.
   useEffect(() => {
     return eventBroker.on<SidequestJobCompletedEvent>(
       EventTypes.SIDEQUEST_JOB_COMPLETED,
-      () => {
+      (event) => {
         fetchItineraries();
+        if (event.itineraryId) {
+          optionsParentId.current = event.itineraryId;
+          setShowOptions(true);
+        }
       },
     );
   }, [fetchItineraries]);

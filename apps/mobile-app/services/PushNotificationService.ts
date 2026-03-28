@@ -2,6 +2,7 @@ import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiClient, DeviceInfo } from "./ApiClient";
 import { eventBroker, EventTypes } from "./EventBroker";
 
@@ -211,14 +212,15 @@ export class PushNotificationService {
         }
 
         // When a sidequest generation job completes, notify the UI so it
-        // can refresh the card deck (fallback for dropped SSE connections)
+        // can open the fan-out overlay (fallback for dropped SSE connections)
         if (data?.type === "job_completion" && data.jobType === "generate_sidequest") {
+          const parentId = (data.result as Record<string, unknown>)?.sidequestId as string | undefined;
           eventBroker.emit(EventTypes.SIDEQUEST_JOB_COMPLETED, {
             timestamp: Date.now(),
             source: "PushNotification",
             jobId: data.jobId as string,
             jobType: data.jobType as string,
-            itineraryId: (data.result as Record<string, unknown>)?.itineraryId as string | undefined,
+            itineraryId: parentId,
           });
         }
       },
@@ -320,13 +322,18 @@ export class PushNotificationService {
         path: `/itineraries/${data.itineraryId}`,
       });
     } else if (data?.type === "job_completion" && data.jobType === "generate_sidequest") {
-      // Sidequest generation completed — navigate to itineraries and refresh
+      // Sidequest generation completed — persist the parent ID so the
+      // itineraries screen opens the fan-out overlay (works even on cold start).
+      const parentId = (data.result as Record<string, unknown>)?.sidequestId as string | undefined;
+      if (parentId) {
+        AsyncStorage.setItem("pendingGenerationParentId", parentId).catch(() => {});
+      }
       eventBroker.emit(EventTypes.SIDEQUEST_JOB_COMPLETED, {
         timestamp: Date.now(),
         source: "PushNotification",
         jobId: data.jobId as string,
         jobType: data.jobType as string,
-        itineraryId: (data.result as Record<string, unknown>)?.itineraryId as string | undefined,
+        itineraryId: parentId,
       });
       eventBroker.emit(EventTypes.NAVIGATE_TO_SCREEN, {
         timestamp: Date.now(),

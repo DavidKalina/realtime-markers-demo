@@ -171,7 +171,7 @@ export class JobNotificationService {
 
       case "generate_sidequest": {
         const questTitle = (result.title as string) || "Your sidequest";
-        const waypointCount = (result.itemCount as number) || 0;
+        const waypointCount = (result.optionCount as number) || 0;
         return {
           title: "Quest ready, adventurer!",
           body: `"${questTitle}" — ${waypointCount} waypoint${waypointCount > 1 ? "s" : ""} await. Tap to embark.`,

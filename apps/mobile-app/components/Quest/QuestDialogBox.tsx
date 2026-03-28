@@ -59,6 +59,7 @@ type Phase = "collapsed" | "form";
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
     bubble: {
+      height: COLLAPSED_HEIGHT,
       backgroundColor: colors.bg.card,
       paddingHorizontal: 16,
       paddingVertical: 12,
@@ -68,6 +69,23 @@ const createStyles = (colors: Colors) =>
       borderTopWidth: 1,
       borderColor: colors.border.subtle,
       marginBottom: -spacing.lg,
+    },
+    expandedOverlay: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      overflow: "hidden",
+    },
+    expandedInner: {
+      flex: 1,
+      backgroundColor: colors.bg.card,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderTopLeftRadius: 16,
+      borderTopRightRadius: 16,
+      borderTopWidth: 1,
+      borderColor: colors.border.subtle,
     },
     statusOverlay: {
       ...StyleSheet.absoluteFillObject,
@@ -263,7 +281,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
   const [phase, setPhase] = useState<Phase>("collapsed");
 
   // ── Animation shared values ─────────────────────────────────────────
-  const animHeight = useSharedValue(COLLAPSED_HEIGHT);
+  const animHeight = useSharedValue(0);
   const contentOpacity = useSharedValue(0);
   const statusOpacity = useSharedValue(1);
   const sheenPos = useSharedValue(0);
@@ -280,7 +298,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
   }, [containerWidthSV]);
 
   // ── Animated styles ─────────────────────────────────────────────────
-  const animatedContainerStyle = useAnimatedStyle(() => ({
+  const animatedExpandedStyle = useAnimatedStyle(() => ({
     height: animHeight.value,
   }));
 
@@ -343,7 +361,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
     setPhase("collapsed");
     contentOpacity.value = withTiming(0, { duration: 150 });
     statusOpacity.value = withDelay(150, withTiming(1, { duration: 200 }));
-    animHeight.value = withTiming(COLLAPSED_HEIGHT, {
+    animHeight.value = withTiming(0, {
       duration: ANIM_DURATION,
       easing: Easing.out(Easing.cubic),
     });
@@ -428,125 +446,128 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
 
   // ── Render ──────────────────────────────────────────────────────────
   return (
-    <Reanimated.View
-      style={[styles.bubble, style, animatedContainerStyle]}
-      onLayout={handleLayout}
-    >
-      {/* Status text overlay (collapsed) */}
-      <Pressable
-        style={StyleSheet.absoluteFill}
-        onPress={phase === "collapsed" ? expand : undefined}
-      >
-        <Reanimated.View
-          style={[styles.statusOverlay, statusAnimStyle]}
-          pointerEvents="none"
+    <View style={[{ height: COLLAPSED_HEIGHT }, style]} onLayout={handleLayout}>
+      {/* Collapsed bar — always participates in layout */}
+      <View style={styles.bubble}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={phase === "collapsed" ? expand : undefined}
         >
-          <Text style={styles.statusText}>Draw a Sidequest {"\u{1F0CF}"}</Text>
-        </Reanimated.View>
-      </Pressable>
+          <Reanimated.View
+            style={[styles.statusOverlay, statusAnimStyle]}
+            pointerEvents="none"
+          >
+            <Text style={styles.statusText}>Draw a Sidequest {"\u{1F0CF}"}</Text>
+          </Reanimated.View>
+        </Pressable>
 
-      {/* Sheen sweep */}
-      {containerMeasured && (
-        <Reanimated.View
-          style={[styles.sheenBeam, sheenAnimStyle]}
-          pointerEvents="none"
-        >
-          <Svg width={SHEEN_WIDTH} height={COLLAPSED_HEIGHT}>
-            <Defs>
-              <LinearGradient id="questSheen" x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor={GREEN_ACCENT} stopOpacity="0" />
-                <Stop offset="0.5" stopColor={GREEN_ACCENT} stopOpacity="0.15" />
-                <Stop offset="1" stopColor={GREEN_ACCENT} stopOpacity="0" />
-              </LinearGradient>
-            </Defs>
-            <Rect
-              width={SHEEN_WIDTH}
-              height={COLLAPSED_HEIGHT}
-              fill="url(#questSheen)"
-            />
-          </Svg>
-        </Reanimated.View>
-      )}
-
-      {/* Expanded form content */}
-      <Reanimated.View style={contentAnimStyle} pointerEvents={phase === "form" ? "auto" : "none"}>
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Draw a Sidequest {"\u{1F0CF}"}</Text>
-          <Pressable onPress={collapse} style={styles.dismissButton}>
-            <Text style={styles.dismissText}>✕</Text>
-          </Pressable>
-        </View>
-
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={styles.formSection}>
-            {/* Prompt */}
-            <View>
-              <Text style={styles.sectionLabel}>Quest Prompt</Text>
-              <TextInput
-                style={styles.promptInput}
-                value={prompt}
-                onChangeText={setPrompt}
-                placeholder="What are you in the mood for?"
-                placeholderTextColor={colors.text.secondary}
-                maxLength={200}
-                multiline
-                numberOfLines={2}
-                textAlignVertical="top"
-                blurOnSubmit
+        {/* Sheen sweep */}
+        {containerMeasured && (
+          <Reanimated.View
+            style={[styles.sheenBeam, sheenAnimStyle]}
+            pointerEvents="none"
+          >
+            <Svg width={SHEEN_WIDTH} height={COLLAPSED_HEIGHT}>
+              <Defs>
+                <LinearGradient id="questSheen" x1="0" y1="0" x2="1" y2="0">
+                  <Stop offset="0" stopColor={GREEN_ACCENT} stopOpacity="0" />
+                  <Stop offset="0.5" stopColor={GREEN_ACCENT} stopOpacity="0.15" />
+                  <Stop offset="1" stopColor={GREEN_ACCENT} stopOpacity="0" />
+                </LinearGradient>
+              </Defs>
+              <Rect
+                width={SHEEN_WIDTH}
+                height={COLLAPSED_HEIGHT}
+                fill="url(#questSheen)"
               />
-            </View>
+            </Svg>
+          </Reanimated.View>
+        )}
+      </View>
 
-            {/* Vibes (multi-select) */}
-            <View>
-              <Text style={styles.sectionLabel}>Vibes</Text>
-              <View style={styles.chipWrap}>
-                {ACTIVITY_OPTIONS.map((opt) => (
-                  <ToggleChip
-                    key={opt.value}
-                    option={opt}
-                    selected={selectedVibes.has(opt.value)}
-                    onPress={toggleVibe}
-                    styles={styles}
-                  />
-                ))}
-              </View>
-            </View>
-
-            {/* Intention (single-select) */}
-            <View>
-              <Text style={styles.sectionLabel}>Intention</Text>
-              <View style={styles.chipWrap}>
-                {INTENTION_OPTIONS.map((opt) => (
-                  <ToggleChip
-                    key={opt.value}
-                    option={opt}
-                    selected={selectedIntention === opt.value}
-                    onPress={toggleIntention}
-                    styles={styles}
-                  />
-                ))}
-              </View>
-            </View>
-
-            {/* Embark button */}
-            <View style={styles.footerRow}>
-              <Pressable
-                style={[
-                  styles.embarkButton,
-                  !canEmbark && styles.embarkButtonDisabled,
-                ]}
-                onPress={handleEmbark}
-                disabled={!canEmbark}
-              >
-                <Text style={styles.embarkText}>Embark</Text>
-              </Pressable>
-            </View>
+      {/* Expanded form — absolutely positioned so it overlays upward */}
+      <Reanimated.View
+        style={[styles.expandedOverlay, animatedExpandedStyle]}
+        pointerEvents={phase === "form" ? "auto" : "none"}
+      >
+        <Reanimated.View style={[styles.expandedInner, contentAnimStyle]}>
+          {/* Header */}
+          <View style={styles.headerRow}>
+            <Text style={styles.headerTitle}>Draw a Sidequest {"\u{1F0CF}"}</Text>
+            <Pressable onPress={collapse} style={styles.dismissButton}>
+              <Text style={styles.dismissText}>✕</Text>
+            </Pressable>
           </View>
-        </ScrollView>
-      </Reanimated.View>
 
-    </Reanimated.View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.formSection}>
+              {/* Prompt */}
+              <View>
+                <Text style={styles.sectionLabel}>Quest Prompt</Text>
+                <TextInput
+                  style={styles.promptInput}
+                  value={prompt}
+                  onChangeText={setPrompt}
+                  placeholder="What are you in the mood for?"
+                  placeholderTextColor={colors.text.secondary}
+                  maxLength={200}
+                  multiline
+                  numberOfLines={2}
+                  textAlignVertical="top"
+                  blurOnSubmit
+                />
+              </View>
+
+              {/* Vibes (multi-select) */}
+              <View>
+                <Text style={styles.sectionLabel}>Vibes</Text>
+                <View style={styles.chipWrap}>
+                  {ACTIVITY_OPTIONS.map((opt) => (
+                    <ToggleChip
+                      key={opt.value}
+                      option={opt}
+                      selected={selectedVibes.has(opt.value)}
+                      onPress={toggleVibe}
+                      styles={styles}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              {/* Intention (single-select) */}
+              <View>
+                <Text style={styles.sectionLabel}>Intention</Text>
+                <View style={styles.chipWrap}>
+                  {INTENTION_OPTIONS.map((opt) => (
+                    <ToggleChip
+                      key={opt.value}
+                      option={opt}
+                      selected={selectedIntention === opt.value}
+                      onPress={toggleIntention}
+                      styles={styles}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              {/* Embark button */}
+              <View style={styles.footerRow}>
+                <Pressable
+                  style={[
+                    styles.embarkButton,
+                    !canEmbark && styles.embarkButtonDisabled,
+                  ]}
+                  onPress={handleEmbark}
+                  disabled={!canEmbark}
+                >
+                  <Text style={styles.embarkText}>Embark</Text>
+                </Pressable>
+              </View>
+            </View>
+          </ScrollView>
+        </Reanimated.View>
+      </Reanimated.View>
+    </View>
   );
 }
 
