@@ -170,24 +170,55 @@ const QuestCard: React.FC<{
     // Track when card transitions from generating to ready
     const wasGenerating = useRef(!isReady);
     const revealSheen = useSharedValue(0);
-    const contentOpacity = useSharedValue(isReady ? 1 : 0);
+    const skeletonOpacity = useSharedValue(isReady ? 0 : 1);
+
+    // Staggered content reveal — each section gets its own opacity + slide
+    const heroReveal = useSharedValue(isReady ? 1 : 0);
+    const dividerReveal = useSharedValue(isReady ? 1 : 0);
+    const stopsReveal = useSharedValue(isReady ? 1 : 0);
+    const tagsReveal = useSharedValue(isReady ? 1 : 0);
+    const statsReveal = useSharedValue(isReady ? 1 : 0);
 
     useEffect(() => {
       if (isReady && wasGenerating.current) {
         wasGenerating.current = false;
-        // Reveal content with fade
-        contentOpacity.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) });
-        // Fire a reveal sheen
+
+        const fadeIn = (sv: typeof heroReveal, delay: number) => {
+          sv.value = withDelay(delay, withTiming(1, { duration: 400, easing: Easing.out(Easing.cubic) }));
+        };
+
+        // 1. Fade out skeleton
+        skeletonOpacity.value = withTiming(0, { duration: 300, easing: Easing.in(Easing.cubic) });
+
+        // 2. Stagger content in
+        fadeIn(heroReveal, 200);
+        fadeIn(dividerReveal, 350);
+        fadeIn(stopsReveal, 450);
+        fadeIn(tagsReveal, 600);
+        fadeIn(statsReveal, 700);
+
+        // 3. Reveal sheen
         revealSheen.value = 0;
-        revealSheen.value = withDelay(
-          200,
-          withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
-        );
+        revealSheen.value = withDelay(500, withTiming(1, { duration: 700, easing: Easing.inOut(Easing.ease) }));
       }
     }, [isReady]);
 
-    const contentAnimStyle = useAnimatedStyle(() => ({
-      opacity: contentOpacity.value,
+    const makeRevealStyle = (sv: typeof heroReveal) =>
+      useAnimatedStyle(() => ({
+        opacity: sv.value,
+        transform: [
+          { translateY: interpolate(sv.value, [0, 1], [12, 0]) },
+        ],
+      }));
+
+    const heroAnimStyle = makeRevealStyle(heroReveal);
+    const dividerAnimStyle = makeRevealStyle(dividerReveal);
+    const stopsAnimStyle = makeRevealStyle(stopsReveal);
+    const tagsAnimStyle = makeRevealStyle(tagsReveal);
+    const statsAnimStyle = makeRevealStyle(statsReveal);
+
+    const skeletonAnimStyle = useAnimatedStyle(() => ({
+      opacity: skeletonOpacity.value,
     }));
 
     // Bob animation
@@ -292,13 +323,15 @@ const QuestCard: React.FC<{
               </Text>
             </View>
             {!isReady && (
-              <Text style={[s.forgingLabel, { color: tierMeta.text }]}>FORGING\u2026</Text>
+              <Animated.Text style={[s.forgingLabel, { color: tierMeta.text }, skeletonAnimStyle]}>
+                FORGING{"\u2026"}
+              </Animated.Text>
             )}
           </View>
 
-          {/* --- GENERATING skeleton --- */}
+          {/* --- GENERATING skeleton (stays rendered, fades out) --- */}
           {!isReady && (
-            <View style={s.skeletonBody}>
+            <Animated.View style={[s.skeletonBody, skeletonAnimStyle]}>
               <View style={[s.skeletonBar, s.skeletonBarWide, { backgroundColor: tierMeta.border }]} />
               <View style={[s.skeletonBar, s.skeletonBarMedium, { backgroundColor: tierMeta.border }]} />
               <View style={s.skeletonDivider} />
@@ -310,25 +343,26 @@ const QuestCard: React.FC<{
                 <View style={[s.skeletonDot, { borderColor: tierMeta.border }]} />
                 <View style={[s.skeletonBar, { flex: 1, backgroundColor: tierMeta.border }]} />
               </View>
-            </View>
+            </Animated.View>
           )}
 
-          {/* --- READY content --- */}
-          {isReady && (
-            <Animated.View style={[{ flex: 1, gap: spacing.sm }, contentAnimStyle]}>
+          {/* --- READY content (staggered reveal) --- */}
+          <View style={s.readyContent} pointerEvents={isReady ? "auto" : "none"}>
               {/* Hero */}
-              <View style={s.heroBlock}>
+              <Animated.View style={[s.heroBlock, heroAnimStyle]}>
                 <Text style={s.emoji}>{objectives[0]?.emoji ?? "\u{1F3AF}"}</Text>
                 <Text style={s.title} numberOfLines={2}>{option.title ?? "Sidequest"}</Text>
                 {option.summary && (
                   <Text style={s.summary} numberOfLines={2}>{option.summary}</Text>
                 )}
-              </View>
+              </Animated.View>
 
-              <View style={s.divider} />
+              <Animated.View style={dividerAnimStyle}>
+                <View style={s.divider} />
+              </Animated.View>
 
               {/* Timeline */}
-              <View style={s.stops}>
+              <Animated.View style={[s.stops, stopsAnimStyle]}>
                 {objectives.map((obj, i) => (
                   <View key={obj.id} style={s.timelineRow}>
                     <View style={s.timelineTrack}>
@@ -345,33 +379,35 @@ const QuestCard: React.FC<{
                     </View>
                   </View>
                 ))}
-              </View>
+              </Animated.View>
 
               <View style={{ flex: 1 }} />
 
               {/* Tags */}
-              {(() => {
-                const tags = new Set<string>();
-                for (const c of option.categories ?? []) tags.add(c);
-                for (const a of option.activityTypes ?? []) tags.add(a);
-                for (const obj of objectives) {
-                  if (obj.venueCategory) tags.add(obj.venueCategory);
-                }
-                const tagList = [...tags].slice(0, 5);
-                if (tagList.length === 0) return null;
-                return (
-                  <View style={s.tagRow}>
-                    {tagList.map((tag) => (
-                      <View key={tag} style={[s.tagChip, { borderColor: tierMeta.border }]}>
-                        <Text style={[s.tagText, { color: tierMeta.text }]}>{tag.toUpperCase()}</Text>
-                      </View>
-                    ))}
-                  </View>
-                );
-              })()}
+              <Animated.View style={tagsAnimStyle}>
+                {(() => {
+                  const tags = new Set<string>();
+                  for (const c of option.categories ?? []) tags.add(c);
+                  for (const a of option.activityTypes ?? []) tags.add(a);
+                  for (const obj of objectives) {
+                    if (obj.venueCategory) tags.add(obj.venueCategory);
+                  }
+                  const tagList = [...tags].slice(0, 5);
+                  if (tagList.length === 0) return null;
+                  return (
+                    <View style={s.tagRow}>
+                      {tagList.map((tag) => (
+                        <View key={tag} style={[s.tagChip, { borderColor: tierMeta.border }]}>
+                          <Text style={[s.tagText, { color: tierMeta.text }]}>{tag.toUpperCase()}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })()}
+              </Animated.View>
 
               {/* Stats bar */}
-              <View style={s.statsBar}>
+              <Animated.View style={[s.statsBar, statsAnimStyle]}>
                 <View style={s.statPill}>
                   <Text style={s.statValue}>{stopCount}</Text>
                   <Text style={s.statLabel}>STOPS</Text>
@@ -386,9 +422,8 @@ const QuestCard: React.FC<{
                 <View style={[s.selectHint, { borderColor: tierMeta.border, backgroundColor: tierMeta.bg }]}>
                   <Text style={[s.selectHintText, { color: tierMeta.text }]}>TAP TO SELECT</Text>
                 </View>
-              </View>
-            </Animated.View>
-          )}
+              </Animated.View>
+            </View>
         </Pressable>
       </Animated.View>
     );
@@ -638,6 +673,12 @@ const createCardStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       letterSpacing: 1,
       marginLeft: "auto",
+    },
+    readyContent: {
+      ...StyleSheet.absoluteFillObject,
+      top: 42,
+      padding: spacing.lg,
+      gap: spacing.sm,
     },
     skeletonBody: {
       flex: 1,

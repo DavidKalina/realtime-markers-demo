@@ -483,7 +483,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
   const [selectedVibes, setSelectedVibes] = useState<Set<string>>(new Set());
   const [selectedIntention, setSelectedIntention] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("collapsed");
-  const [statusText, setStatusText] = useState("Begin a Sidequest");
+  const [statusText, setStatusText] = useState("Draw a Sidequest \u{1F0CF}");
   const promptInputRef = useRef<TextInput>(null);
 
   // ── Rotating status message ─────────────────────────────────────────
@@ -589,7 +589,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
 
   const collapse = useCallback(() => {
     setPhase("collapsed");
-    setStatusText("Begin a Sidequest");
+    setStatusText("Draw a Sidequest \u{1F0CF}");
     contentOpacity.value = withTiming(0, { duration: 150 });
     statusOpacity.value = withDelay(150, withTiming(1, { duration: 200 }));
     animHeight.value = withTiming(COLLAPSED_HEIGHT, {
@@ -644,7 +644,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
       statusOpacity.value = withDelay(300, withTiming(1, { duration: 200 }));
       startSheen();
       setPhase("collapsed");
-      setStatusText("Begin a Sidequest");
+      setStatusText("Draw a Sidequest \u{1F0CF}");
       setPrompt("");
       setSelectedVibes(new Set());
       setSelectedIntention(null);
@@ -778,7 +778,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
       <Reanimated.View style={contentAnimStyle} pointerEvents={phase === "form" ? "auto" : "none"}>
         {/* Header */}
         <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Begin a Sidequest</Text>
+          <Text style={styles.headerTitle}>Draw a Sidequest {"\u{1F0CF}"}</Text>
           <Pressable onPress={collapse} style={styles.dismissButton}>
             <Text style={styles.dismissText}>✕</Text>
           </Pressable>

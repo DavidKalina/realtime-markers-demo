@@ -57,6 +57,8 @@ import {
 import { useItineraryJobStore } from "@/stores/useItineraryJobStore";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useJobProgress } from "@/hooks/useJobProgress";
+import { eventBroker, EventTypes } from "@/services/EventBroker";
+import type { SidequestJobCompletedEvent } from "@/services/EventBroker";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
@@ -598,6 +600,16 @@ const ItinerariesListScreen = () => {
     fetchItineraries();
   }, [fetchItineraries]);
 
+  // Refetch when a push notification signals job completion (SSE fallback)
+  useEffect(() => {
+    return eventBroker.on<SidequestJobCompletedEvent>(
+      EventTypes.SIDEQUEST_JOB_COMPLETED,
+      () => {
+        fetchItineraries();
+      },
+    );
+  }, [fetchItineraries]);
+
   // Show options overlay immediately when generation starts
   useEffect(() => {
     if (isGenerating && activeJobItineraryId) {
@@ -803,7 +815,7 @@ const ItinerariesListScreen = () => {
         bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} />}
       >
         <EmptyState
-          emoji="\u{1F5FA}\u{FE0F}"
+          emoji={"\u{1F5FA}\u{FE0F}"}
           title="No quests yet"
           subtitle="Create your first sidequest below"
           style={{ justifyContent: "flex-start", paddingTop: spacing["3xl"] }}
