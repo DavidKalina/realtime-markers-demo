@@ -18,6 +18,8 @@ export const ACTIVITY_OPTIONS: AdventureOption[] = [
   { label: "Thrifting", value: "thrifting", emoji: "🛍️" },
   { label: "Sports", value: "sports", emoji: "⚽" },
   { label: "Culture", value: "culture", emoji: "🏛️" },
+  { label: "Disc Golf", value: "disc_golf", emoji: "🥏" },
+  { label: "Reading", value: "reading", emoji: "📖" },
 ];
 
 export const INTENTION_OPTIONS: AdventureOption[] = [

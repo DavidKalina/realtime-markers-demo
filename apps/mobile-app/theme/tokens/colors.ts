@@ -3,10 +3,10 @@
 export const colors = {
   // Background colors
   bg: {
-    primary: "#1a1a1a",
-    card: "#2a2a2a",
-    cardAlt: "#232323",
-    elevated: "#333333",
+    primary: "#000000",
+    card: "#141414",
+    cardAlt: "#0e0e0e",
+    elevated: "#1c1c1c",
   },
 
   // Text colors
@@ -16,7 +16,7 @@ export const colors = {
     detail: "#b0b0b0",
     label: "#c0c0c0",
     disabled: "#666666",
-    inverse: "#1a1a1a",
+    inverse: "#000000",
   },
 
   // Accent colors
