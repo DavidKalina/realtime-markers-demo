@@ -9,7 +9,9 @@ import Animated, {
   FadeInDown,
   interpolate,
   LinearTransition,
+  useAnimatedReaction,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withDelay,
   withRepeat,
@@ -41,6 +43,9 @@ const CARD_GAP = 12;
 const SNAP_WIDTH = CARD_WIDTH + CARD_GAP; // distance between card centers
 const BOB_AMPLITUDE = 3;
 const BOB_DURATION = 2400;
+
+/** Only cards within ±ANIMATION_WINDOW of the active card run heavy effects. */
+const ANIMATION_WINDOW = 1;
 
 const TIER_LABELS: Record<string, string> = {
   QUICK: "QUICK & EASY",
@@ -310,6 +315,7 @@ const QuestCard: React.FC<{
   index: number;
   totalCards: number;
   scrollX: SharedValue<number>;
+  activeIdx: SharedValue<number>;
   sheenTrigger: SharedValue<number>;
   onSelect?: (option: SidequestResponse) => void;
   onPress?: (option: SidequestResponse) => void;
@@ -325,6 +331,7 @@ const QuestCard: React.FC<{
     index,
     totalCards,
     scrollX,
+    activeIdx,
     sheenTrigger,
     onSelect,
     onPress,
@@ -434,27 +441,49 @@ const QuestCard: React.FC<{
       opacity: skeletonOpacity.value,
     }));
 
-    // Bob animation
+    // Track whether this card is within the animation window
+    const [isNearby, setIsNearby] = React.useState(
+      Math.abs(index) <= ANIMATION_WINDOW,
+    );
+    const setNearbyTrue = useCallback(() => setIsNearby(true), []);
+    const setNearbyFalse = useCallback(() => setIsNearby(false), []);
+    const isNearbyDerived = useDerivedValue(
+      () => Math.abs(index - activeIdx.value) <= ANIMATION_WINDOW,
+    );
+    useAnimatedReaction(
+      () => isNearbyDerived.value,
+      (nearby, prev) => {
+        if (nearby !== prev) {
+          scheduleOnRN(nearby ? setNearbyTrue : setNearbyFalse);
+        }
+      },
+    );
+
+    // Bob animation — only runs when nearby
     const bobY = useSharedValue(0);
     useEffect(() => {
-      bobY.value = withDelay(
-        index * 300,
-        withRepeat(
-          withSequence(
-            withTiming(-BOB_AMPLITUDE, {
-              duration: BOB_DURATION / 2,
-              easing: Easing.inOut(Easing.ease),
-            }),
-            withTiming(BOB_AMPLITUDE, {
-              duration: BOB_DURATION / 2,
-              easing: Easing.inOut(Easing.ease),
-            }),
+      if (isNearby) {
+        bobY.value = withDelay(
+          index * 300,
+          withRepeat(
+            withSequence(
+              withTiming(-BOB_AMPLITUDE, {
+                duration: BOB_DURATION / 2,
+                easing: Easing.inOut(Easing.ease),
+              }),
+              withTiming(BOB_AMPLITUDE, {
+                duration: BOB_DURATION / 2,
+                easing: Easing.inOut(Easing.ease),
+              }),
+            ),
+            -1,
+            true,
           ),
-          -1,
-          true,
-        ),
-      );
-    }, [index]);
+        );
+      } else {
+        bobY.value = withTiming(0, { duration: 200 });
+      }
+    }, [index, isNearby]);
 
     // Tug animation (only while generating)
     const tugX = useSharedValue(0);
@@ -462,7 +491,7 @@ const QuestCard: React.FC<{
     const tugRotate = useSharedValue(0);
 
     useEffect(() => {
-      if (isReady) return;
+      if (isReady || !isNearby) return;
       const tug = () => {
         const angle = Math.random() * Math.PI * 2;
         const force = TUG_FORCE * (0.6 + Math.random() * 0.4);
@@ -494,7 +523,7 @@ const QuestCard: React.FC<{
         clearTimeout(timeout);
         clearInterval(interval);
       };
-    }, [isReady, index]);
+    }, [isReady, isNearby, index]);
 
     // Stop tug when ready
     useEffect(() => {
@@ -558,8 +587,8 @@ const QuestCard: React.FC<{
           animatedStyle,
         ]}
       >
-        {/* Holographic foil overlay */}
-        {isReady && (
+        {/* Holographic foil overlay — only rendered for nearby cards */}
+        {isReady && isNearby && (
           <HolographicFoil
             width={CARD_WIDTH}
             height={CARD_HEIGHT}
@@ -572,12 +601,14 @@ const QuestCard: React.FC<{
           />
         )}
 
-        {/* Sheen sweep */}
-        <CardSheen
-          tierColor={tierMeta.text}
-          sheenTrigger={isReady ? sheenTrigger : revealSheen}
-          index={index}
-        />
+        {/* Sheen sweep — only rendered for nearby cards */}
+        {isNearby && (
+          <CardSheen
+            tierColor={tierMeta.text}
+            sheenTrigger={isReady ? sheenTrigger : revealSheen}
+            index={index}
+          />
+        )}
 
         <Pressable
           style={s.cardInner}
@@ -736,8 +767,8 @@ const QuestCard: React.FC<{
           </View>
         </Pressable>
 
-        {/* Blur overlay for off-center cards */}
-        <BlurOverlay scrollX={scrollX} index={index} />
+        {/* Blur overlay for off-center cards — only rendered for nearby cards */}
+        {isNearby && <BlurOverlay scrollX={scrollX} index={index} />}
       </Animated.View>
     );
   },
@@ -923,6 +954,7 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
                 index={idx}
                 totalCards={totalCards}
                 scrollX={scrollX}
+                activeIdx={activeIdx}
                 sheenTrigger={sheenTrigger}
                 onSelect={handleSelect}
                 onPress={onPress}
