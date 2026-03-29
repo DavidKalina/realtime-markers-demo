@@ -723,7 +723,7 @@ const QuestCard: React.FC<{
           {/* ═══ SERIAL FOOTER ═══ */}
           <View style={s.serialRow}>
             <Text style={s.serialNumber}>
-              SQ{"\u00B7"}{option.id.slice(0, 8).toUpperCase()}
+              SQ{"\u00B7"}{(option.id ?? "").slice(0, 8).toUpperCase()}
             </Text>
             <Text style={s.serialNumber}>
               {"\u00B7"} {stopCount} STOPS
@@ -790,6 +790,15 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
   const scrollX = useSharedValue(0);
   const activeIdx = useSharedValue(0);
   const sheenTrigger = useSharedValue(0);
+
+  // Reset scroll to first card when a new set of options arrives (select mode only)
+  const optionIds = options.map((o) => o.id).join(",");
+  useEffect(() => {
+    if (!isBrowse) {
+      activeIdx.value = 0;
+      scrollX.value = withSpring(0, { damping: 20, stiffness: 150 });
+    }
+  }, [optionIds]);
 
   const handleSelect = useCallback(
     (option: SidequestResponse) => {

@@ -9,7 +9,8 @@ import {
 } from "react-native-reanimated";
 
 /** Hash a string (UUID) into a stable float 0..1 */
-export function hashString(str: string): number {
+export function hashString(str: string | undefined): number {
+  if (!str) return 0;
   let h = 0;
   for (let i = 0; i < str.length; i++) {
     h = (h * 31 + str.charCodeAt(i)) | 0;
