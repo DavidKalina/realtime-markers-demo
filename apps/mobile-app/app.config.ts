@@ -5,9 +5,9 @@ export default {
   expo: {
     name: "Sidequests",
     slug: "mobile-app",
-    version: "2.0.8",
+    version: "2.0.9",
     orientation: "portrait",
-    icon: "./assets/app-icon-deck.svg",
+    icon: "./assets/app-icon-deck.png",
     scheme: "myapp",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
@@ -44,12 +44,12 @@ export default {
       },
       supportsTablet: true,
       bundleIdentifier: "com.tenuto.mobileapp",
-      buildNumber: "267",
+      buildNumber: "268",
     },
     android: {
       label: "Sidequests",
       adaptiveIcon: {
-        foregroundImage: "./assets/app-icon-deck.svg",
+        foregroundImage: "./assets/app-icon-deck.png",
         backgroundColor: "#ffffff",
       },
     },
@@ -69,7 +69,7 @@ export default {
       [
         "expo-notifications",
         {
-          icon: "./assets/app-icon-deck.svg",
+          icon: "./assets/notification-icon.png",
           color: "#ffffff",
           defaultChannel: "default",
           enableBackgroundRemoteNotifications: true,
