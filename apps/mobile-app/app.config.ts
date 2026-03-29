@@ -94,7 +94,7 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/app-icon.svg",
+          image: "./assets/app-icon-deck.png",
           imageWidth: 200,
           resizeMode: "contain",
           backgroundColor: "#ffffff",
