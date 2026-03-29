@@ -413,13 +413,11 @@ const ItinerariesListScreen = () => {
     );
   }, [fetchItineraries]);
 
-  // Show options overlay immediately when generation starts
-  useEffect(() => {
-    if (isGenerating && activeJobItineraryId) {
-      optionsParentId.current = activeJobItineraryId;
-      setShowOptions(true);
-    }
-  }, [isGenerating, activeJobItineraryId]);
+  // Show options overlay when QuestDialogBox reports a new quest
+  const handleQuestCreated = useCallback((parentId: string) => {
+    optionsParentId.current = parentId;
+    setShowOptions(true);
+  }, []);
 
   // Resume pending generation after app restart — check AsyncStorage for a
   // parentId saved when generation was triggered. If found, re-open the
@@ -871,7 +869,7 @@ const ItinerariesListScreen = () => {
         showBackButton
         onBack={handleBack}
         noAnimation
-        bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} />}
+        bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} onQuestCreated={handleQuestCreated} />}
       >
         <EmptyState
           emoji={"\u{1F5FA}\u{FE0F}"}
@@ -908,7 +906,7 @@ const ItinerariesListScreen = () => {
       showBackButton
       onBack={handleBack}
       noAnimation
-      bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} />}
+      bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} onQuestCreated={handleQuestCreated} />}
     >
       <View style={styles.headerRow}>
         <View style={styles.headerTitleRow}>

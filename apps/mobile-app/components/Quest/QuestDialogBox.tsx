@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -279,6 +280,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
   const [selectedVibes, setSelectedVibes] = useState<Set<string>>(new Set());
   const [selectedIntention, setSelectedIntention] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("collapsed");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ── Animation shared values ─────────────────────────────────────────
   const animHeight = useSharedValue(0);
@@ -395,7 +397,8 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
   const handleEmbark = useCallback(async () => {
     if (!userLocation) return;
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setIsSubmitting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
       const result = await apiClient.sidequests.createSidequest({
@@ -413,7 +416,6 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
       });
 
       trackJob(result.jobId, result.sidequestId);
-      onQuestCreated?.(result.sidequestId);
 
       // Persist the generating parent so the overlay can resume after app restart
       AsyncStorage.setItem("pendingGenerationParentId", result.sidequestId).catch(() => {});
@@ -425,14 +427,19 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
         pushNotificationService.setupPushNotifications(user.id).catch(() => {});
       }
 
-      // Collapse and reset form — the OptionsOverlay / QuestCardDeck handles generation UI
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Collapse form first, then notify parent to show the overlay
       collapse();
       setPrompt("");
       setSelectedVibes(new Set());
       setSelectedIntention(null);
+      onQuestCreated?.(result.sidequestId);
     } catch (err) {
       console.error("[QuestDialogBox] Failed to create sidequest:", err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsSubmitting(false);
     }
   }, [
     userLocation,
@@ -445,7 +452,7 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
     user?.id,
   ]);
 
-  const canEmbark = !isGenerating;
+  const canEmbark = !isGenerating && !isSubmitting;
 
   // ── Render ──────────────────────────────────────────────────────────
   return (
@@ -563,7 +570,11 @@ function QuestDialogBox({ style, onQuestCreated }: QuestDialogBoxProps) {
                   onPress={handleEmbark}
                   disabled={!canEmbark}
                 >
-                  <Text style={styles.embarkText}>Embark</Text>
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color={GREEN_ACCENT} />
+                  ) : (
+                    <Text style={styles.embarkText}>Embark</Text>
+                  )}
                 </Pressable>
               </View>
             </View>

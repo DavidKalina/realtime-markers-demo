@@ -1,8 +1,21 @@
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
-import { Check } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useRef } from "react";
-import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
+import { Check, X } from "lucide-react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Dimensions,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import {
   Directions,
   Gesture,
@@ -27,6 +40,7 @@ import Animated, {
 import { scheduleOnRN } from "react-native-worklets";
 
 import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
+import { useGyroTilt } from "@/hooks/useGyroTilt";
 import HolographicFoil, {
   hashString,
 } from "@/components/effects/HolographicFoil";
@@ -61,6 +75,14 @@ const TIER_LABELS: Record<string, string> = {
   SWEET_SPOT: "SWEET SPOT",
   BEST: "BEST PACKAGE",
 };
+
+const TIER_DESCRIPTIONS: Record<string, string> = {
+  QUICK: "One stop, minimal effort",
+  SWEET_SPOT: "Balanced adventure",
+  BEST: "The full experience",
+};
+
+const TIER_LABEL_HEIGHT = 36;
 
 // Per-tier visual treatment for badges — neutral palette, different text colors
 const TIER_BADGE_STYLE: Record<
@@ -373,6 +395,7 @@ const QuestCard: React.FC<{
   onSelect?: (option: SidequestResponse) => void;
   onPress?: (option: SidequestResponse) => void;
   onDelete?: (option: SidequestResponse) => void;
+  onInspect?: (option: SidequestResponse) => void;
   onDiscardComplete?: (id: string) => void;
   isDiscarding?: boolean;
   isFiltered?: boolean;
@@ -393,6 +416,7 @@ const QuestCard: React.FC<{
     onSelect,
     onPress,
     onDelete,
+    onInspect,
     onDiscardComplete,
     isDiscarding,
     isFiltered,
@@ -729,10 +753,9 @@ const QuestCard: React.FC<{
                     : undefined
               }
               onLongPress={
-                isBrowse && onDelete && !onToggleMarkForDelete
+                isBrowse
                   ? () => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                      onDelete(option);
+                      onInspect?.(option);
                     }
                   : undefined
               }
@@ -1097,6 +1120,345 @@ const BlurOverlay: React.FC<{
   );
 });
 
+// --- Inspect overlay (long-press → gyro tilt + sheen) ---
+
+const TILT_SHEEN_SKSL = `
+uniform float2 resolution;
+uniform float tiltX;
+uniform float tiltY;
+
+half4 main(float2 xy) {
+  vec2 uv = xy / resolution;
+
+  // Map tilt to a moving sheen band along the diagonal
+  float diag = uv.x + uv.y;
+  float center = 1.0 + tiltY * 0.06 + tiltX * 0.04;
+  float bandWidth = 0.25;
+
+  float dist = abs(diag - center) / bandWidth;
+  float band = exp(-dist * dist * 2.0);
+
+  // Secondary, fainter band offset
+  float dist2 = abs(diag - center + 0.35) / (bandWidth * 1.4);
+  float band2 = exp(-dist2 * dist2 * 2.0) * 0.3;
+
+  // Intensity scales with tilt magnitude
+  float tiltMag = length(vec2(tiltX, tiltY));
+  float intensity = smoothstep(1.0, 8.0, tiltMag);
+
+  float alpha = (band + band2) * intensity * 0.6;
+  vec3 color = vec3(1.0, 1.0, 1.0);
+  return half4(color * alpha, alpha);
+}
+`;
+
+const tiltSheenShader = Skia.RuntimeEffect.Make(TILT_SHEEN_SKSL)!;
+
+const INSPECT_CARD_W = SCREEN_WIDTH * 0.85;
+const INSPECT_CARD_H = INSPECT_CARD_W * 1.4;
+
+const InspectOverlay: React.FC<{
+  card: SidequestResponse | null;
+  visible: boolean;
+  onDismiss: () => void;
+  colors: Colors;
+}> = React.memo(({ card, visible, onDismiss, colors }) => {
+  const { tiltX, tiltY } = useGyroTilt(visible);
+
+  const backdropOpacity = useSharedValue(0);
+  const cardScale = useSharedValue(0.88);
+  const cardOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (visible && card) {
+      backdropOpacity.value = withTiming(1, {
+        duration: 300,
+        easing: Easing.out(Easing.ease),
+      });
+      cardScale.value = withSpring(1, { damping: 16, stiffness: 130 });
+      cardOpacity.value = withTiming(1, { duration: 250 });
+    }
+  }, [visible, card?.id]);
+
+  const dismiss = useCallback(() => {
+    cardScale.value = withTiming(0.85, {
+      duration: 250,
+      easing: Easing.in(Easing.cubic),
+    });
+    cardOpacity.value = withTiming(0, { duration: 200 });
+    backdropOpacity.value = withTiming(
+      0,
+      { duration: 300, easing: Easing.in(Easing.ease) },
+      () => {
+        scheduleOnRN(onDismiss);
+      },
+    );
+  }, [onDismiss]);
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+
+  const cardContainerStyle = useAnimatedStyle(() => ({
+    opacity: cardOpacity.value,
+    transform: [
+      { perspective: 800 },
+      { rotateX: `${-tiltX.value * 0.6}deg` },
+      { rotateY: `${tiltY.value * 0.6}deg` },
+      { scale: cardScale.value },
+    ],
+  }));
+
+  // Tilt-driven sheen uniforms
+  const sheenUniforms = useDerivedValue(() => ({
+    resolution: [INSPECT_CARD_W, INSPECT_CARD_H] as [number, number],
+    tiltX: tiltX.value,
+    tiltY: tiltY.value,
+  }));
+
+  const s = useMemo(() => createCardStyles(colors), [colors]);
+
+  if (!card) return null;
+
+  const colorKey = getCardColorKey(card);
+  const cardHex =
+    getCategoryColor(colorKey) ??
+    TIER_FALLBACK_COLORS[card.tier ?? "QUICK"] ??
+    TIER_FALLBACK_COLORS.QUICK;
+  const tierMeta = {
+    label: TIER_LABELS[card.tier ?? "QUICK"] ?? TIER_LABELS.QUICK,
+    ...hexToCardColors(cardHex),
+  };
+  const objectives = (card.objectives ?? []).sort(
+    (a, b) => a.sortOrder - b.sortOrder,
+  );
+  const totalCost = objectives.reduce(
+    (sum, o) => sum + (Number(o.estimatedCost) || 0),
+    0,
+  );
+  const cardTags: string[] = [];
+  for (const c of card.categories ?? []) cardTags.push(c.toUpperCase());
+  for (const a of card.activityTypes ?? []) {
+    const u = a.toUpperCase();
+    if (!cardTags.includes(u)) cardTags.push(u);
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+    >
+      <View style={inspectStyles.root}>
+        <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
+          <BlurView
+            tint="dark"
+            intensity={60}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
+
+        <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
+
+        {/* Close */}
+        <Pressable
+          style={inspectStyles.closeButton}
+          hitSlop={16}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            dismiss();
+          }}
+        >
+          <X size={18} color={colors.text.secondary} />
+        </Pressable>
+
+        {/* Card */}
+        <Animated.View style={[inspectStyles.cardWrap, cardContainerStyle]}>
+          <View
+            style={[
+              s.card,
+              {
+                width: INSPECT_CARD_W,
+                height: INSPECT_CARD_H,
+                borderColor: tierMeta.text,
+              },
+            ]}
+          >
+            {/* Gyro-driven sheen */}
+            {tiltSheenShader && (
+              <Canvas
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: INSPECT_CARD_W,
+                  height: INSPECT_CARD_H,
+                  zIndex: 5,
+                }}
+                pointerEvents="none"
+              >
+                <Fill>
+                  <Shader source={tiltSheenShader} uniforms={sheenUniforms} />
+                </Fill>
+              </Canvas>
+            )}
+
+            <View style={s.cardInner}>
+              {/* ═══ HEADER ═══ */}
+              <View style={s.headerBand}>
+                <Text style={[s.headerTier, { color: tierMeta.text }]}>
+                  {"\u2605"} {tierMeta.label}
+                </Text>
+                <View style={{ flex: 1 }} />
+                {(() => {
+                  const cats = (card.categories ?? []).slice(0, 2);
+                  if (cats.length === 0) return null;
+                  return (
+                    <Text style={s.headerCats}>
+                      {cats.map((c) => c.toUpperCase()).join(" \u00B7 ")}
+                    </Text>
+                  );
+                })()}
+              </View>
+
+              {/* ═══ ART ZONE ═══ */}
+              <View style={[s.artZone, { borderColor: tierMeta.border }]}>
+                <View style={s.artOverlay} />
+                <Text style={s.artEmoji}>
+                  {objectives[0]?.emoji ?? "\u{1F3AF}"}
+                </Text>
+              </View>
+
+              {/* ═══ TITLE ═══ */}
+              <View style={s.titlePlate}>
+                <Text style={s.title} numberOfLines={2}>
+                  {card.title ?? "Sidequest"}
+                </Text>
+                {card.summary && (
+                  <Text style={s.subtitle} numberOfLines={1}>
+                    {card.summary
+                      .toUpperCase()
+                      .split(/[.,:!]/, 1)[0]
+                      .slice(0, 28)}
+                  </Text>
+                )}
+              </View>
+
+              {/* ═══ STOPS ═══ */}
+              <View style={s.stopsSection}>
+                {objectives.slice(0, 3).map((obj, i) => (
+                  <View key={obj.id ?? i} style={s.stopRow}>
+                    <View
+                      style={[
+                        s.stopCircle,
+                        {
+                          borderColor: tierMeta.border,
+                          backgroundColor: obj.checkedInAt
+                            ? tierMeta.bg
+                            : "transparent",
+                        },
+                      ]}
+                    >
+                      <Text style={s.stopEmoji}>
+                        {obj.emoji ?? "\u{1F4CD}"}
+                      </Text>
+                    </View>
+                    <View style={s.stopText}>
+                      <Text style={s.stopName}>
+                        {(obj.venueName || obj.title || "Stop")
+                          .split("|")[0]
+                          .trim()}
+                      </Text>
+                      {obj.hook && (
+                        <Text style={s.stopHook} numberOfLines={1}>
+                          {obj.hook}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                ))}
+                {objectives.length > 3 && (
+                  <Text style={s.moreStops}>+{objectives.length - 3} more</Text>
+                )}
+              </View>
+
+              {/* ═══ FLAVOR TEXT ═══ */}
+              {card.summary && objectives.length <= 3 && (
+                <View style={[s.flavorBlock, { borderColor: tierMeta.border }]}>
+                  <Text style={s.flavorText}>
+                    {"\u201C"}
+                    {card.summary.split(/[.!]/)[0].trim()}.{"\u201D"}
+                  </Text>
+                  <Text style={s.flavorAttrib}>{"\u2014"} Quest lore</Text>
+                </View>
+              )}
+
+              <View style={{ flex: 1 }} />
+
+              {/* ═══ TAGS ═══ */}
+              <View style={s.tagRow}>
+                {cardTags.slice(0, 3).map((tag) => (
+                  <View
+                    key={tag}
+                    style={[s.tagChip, { borderColor: tierMeta.border }]}
+                  >
+                    <Text style={[s.tagText, { color: tierMeta.text }]}>
+                      {tag}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* ═══ SERIAL FOOTER ═══ */}
+              <View style={s.serialRow}>
+                <Text style={s.serialNumber}>
+                  SQ{"\u00B7"}
+                  {(card.id ?? "").slice(0, 8).toUpperCase()}
+                </Text>
+                <Text style={s.serialStat}>
+                  {"\u00B7"} {objectives.length} STOPS
+                  {totalCost > 0 ? ` \u00B7 $${totalCost}` : ""}
+                </Text>
+                <View style={{ flex: 1 }} />
+                <Text style={s.serialStat}>
+                  {card.city?.toUpperCase() ?? ""}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+});
+
+InspectOverlay.displayName = "InspectOverlay";
+
+const inspectStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeButton: {
+    position: "absolute",
+    top: 56,
+    right: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  cardWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
+
 // --- Deck component ---
 
 const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
@@ -1128,6 +1490,18 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
   const scrollX = useSharedValue(0);
   const activeIdx = useSharedValue(0);
   const sheenTrigger = useSharedValue(0);
+
+  // Inspect overlay (long-press)
+  const [inspectCard, setInspectCard] = useState<SidequestResponse | null>(
+    null,
+  );
+  const handleInspect = useCallback((option: SidequestResponse) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setInspectCard(option);
+  }, []);
+  const handleInspectDismiss = useCallback(() => {
+    setInspectCard(null);
+  }, []);
 
   // Promotion animation: 0 → 1 over ~3s
   const promotionProgress = useSharedValue(0);
@@ -1289,41 +1663,80 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
       )}
 
       <GestureDetector gesture={panGesture}>
-        <Animated.View style={s.carouselClip}>
+        <Animated.View
+          style={[
+            s.carouselClip,
+            !isBrowse && { height: CARD_HEIGHT + 20 + TIER_LABEL_HEIGHT },
+          ]}
+        >
           <Animated.View style={[s.carouselStrip, stripStyle]}>
             {options.map((option, idx) => (
-              <QuestCard
-                key={option.id ?? idx}
-                option={option}
-                index={idx}
-                totalCards={totalCards}
-                scrollX={scrollX}
-                activeIdx={activeIdx}
-                sheenTrigger={sheenTrigger}
-                onSelect={handleSelect}
-                onPress={onPress}
-                onDelete={onDelete}
-                onDiscardComplete={onDiscardComplete}
-                isDiscarding={
-                  discardingId === option.id ||
-                  (batchDiscardingIds?.has(option.id) ?? false)
-                }
-                isFiltered={filteredIds != null && !filteredIds.has(option.id)}
-                isMarkedForDelete={markedForDeleteIds?.has(option.id) ?? false}
-                onToggleMarkForDelete={onToggleMarkForDelete}
-                mode={mode}
-                activeItineraryId={activeItineraryId}
-                colors={colors}
-                promotionProgress={
-                  promotingId === option.id ? promotionProgress : undefined
-                }
-              />
+              <View key={option.id ?? idx} style={{ width: CARD_WIDTH }}>
+                {!isBrowse && (
+                  <View style={s.tierLabelRow}>
+                    <Text
+                      style={[
+                        s.tierLabelText,
+                        {
+                          color: (
+                            TIER_BADGE_STYLE[option.tier ?? "QUICK"] ??
+                            TIER_BADGE_STYLE.QUICK
+                          ).text,
+                        },
+                      ]}
+                    >
+                      {TIER_LABELS[option.tier ?? "QUICK"] ?? TIER_LABELS.QUICK}
+                    </Text>
+                    <Text style={s.tierDescText}>
+                      {TIER_DESCRIPTIONS[option.tier ?? "QUICK"] ??
+                        TIER_DESCRIPTIONS.QUICK}
+                    </Text>
+                  </View>
+                )}
+                <QuestCard
+                  option={option}
+                  index={idx}
+                  totalCards={totalCards}
+                  scrollX={scrollX}
+                  activeIdx={activeIdx}
+                  sheenTrigger={sheenTrigger}
+                  onSelect={handleSelect}
+                  onPress={onPress}
+                  onDelete={onDelete}
+                  onInspect={isBrowse ? handleInspect : undefined}
+                  onDiscardComplete={onDiscardComplete}
+                  isDiscarding={
+                    discardingId === option.id ||
+                    (batchDiscardingIds?.has(option.id) ?? false)
+                  }
+                  isFiltered={
+                    filteredIds != null && !filteredIds.has(option.id)
+                  }
+                  isMarkedForDelete={
+                    markedForDeleteIds?.has(option.id) ?? false
+                  }
+                  onToggleMarkForDelete={onToggleMarkForDelete}
+                  mode={mode}
+                  activeItineraryId={activeItineraryId}
+                  colors={colors}
+                  promotionProgress={
+                    promotingId === option.id ? promotionProgress : undefined
+                  }
+                />
+              </View>
             ))}
           </Animated.View>
         </Animated.View>
       </GestureDetector>
 
       {totalCards > 1 && DotIndicators}
+
+      <InspectOverlay
+        card={inspectCard}
+        visible={inspectCard !== null}
+        onDismiss={handleInspectDismiss}
+        colors={colors}
+      />
     </Animated.View>
   );
 };
@@ -1391,6 +1804,30 @@ const createDeckStyles = (colors: Colors) =>
     carouselStrip: {
       flexDirection: "row",
       gap: CARD_GAP,
+    },
+    tierLabelRow: {
+      height: TIER_LABEL_HEIGHT,
+      paddingHorizontal: spacing.sm,
+      marginBottom: 8,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 2,
+    },
+    tierLabelText: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      letterSpacing: 1.2,
+      textAlign: "center",
+    },
+    tierDescText: {
+      fontSize: 9,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      letterSpacing: 0.4,
+      textAlign: "center",
+      opacity: 0.9,
     },
     dots: {
       flexDirection: "row",

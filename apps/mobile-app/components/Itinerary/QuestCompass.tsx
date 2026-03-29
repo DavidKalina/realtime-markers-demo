@@ -1,3 +1,6 @@
+import { BlurView } from "expo-blur";
+import * as Haptics from "expo-haptics";
+import { X } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
@@ -7,8 +10,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { BlurView } from "expo-blur";
-import * as Haptics from "expo-haptics";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -22,12 +23,11 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { scheduleOnRN } from "react-native-worklets";
 import Svg, { Polygon } from "react-native-svg";
-import { X } from "lucide-react-native";
+import { scheduleOnRN } from "react-native-worklets";
 
-import type { ObjectiveResponse } from "@/services/api/modules/sidequests";
 import { useCompassHeading } from "@/hooks/useCompassHeading";
+import type { ObjectiveResponse } from "@/services/api/modules/sidequests";
 import {
   fontFamily,
   fontSize,
@@ -479,7 +479,7 @@ const QuestCompass: React.FC<QuestCompassProps> = ({
                     {/* Needle (always points at objective) */}
                     <Animated.View style={[s.needleContainer, needleStyle]}>
                       <NeedleArrow
-                        color={isNearby ? accentColor : colors.accent.primary}
+                        color={accentColor}
                       />
                     </Animated.View>
 

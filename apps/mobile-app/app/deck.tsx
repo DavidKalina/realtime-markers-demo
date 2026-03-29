@@ -23,6 +23,8 @@ import type { SidequestResponse } from "@/services/api/modules/sidequests";
 import { fontFamily, fontWeight, radius, spacing, useColors } from "@/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+const TIER_ORDER = ["QUICK", "SWEET_SPOT", "BEST"] as const;
+
 function getNextTier(current: string): string | null {
   const idx = TIER_ORDER.indexOf(current as (typeof TIER_ORDER)[number]);
   if (idx < 0 || idx >= TIER_ORDER.length - 1) return null;
@@ -57,7 +59,10 @@ const PromotionOverlay: React.FC<{
     if (visible && card) {
       setModalVisible(true);
       setClosing(false);
-      backdropOpacity.value = withTiming(1, { duration: 350, easing: Easing.out(Easing.ease) });
+      backdropOpacity.value = withTiming(1, {
+        duration: 350,
+        easing: Easing.out(Easing.ease),
+      });
       cardScale.value = withSpring(1, { damping: 18, stiffness: 140 });
       cardOpacity.value = withTiming(1, { duration: 300 });
       // Start promotion after entrance settles
@@ -157,7 +162,9 @@ const DeckScreen = () => {
   const [cards, setCards] = useState<SidequestResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [overlayVisible, setOverlayVisible] = useState(false);
-  const [promotingCard, setPromotingCard] = useState<SidequestResponse | null>(null);
+  const [promotingCard, setPromotingCard] = useState<SidequestResponse | null>(
+    null,
+  );
 
   const activeCardRef = useRef(0);
 
@@ -213,13 +220,19 @@ const DeckScreen = () => {
 
   const activeCard = cards[activeCardRef.current];
   const canPromote =
-    !overlayVisible && activeCard && getNextTier(activeCard.tier ?? "QUICK") !== null;
+    !overlayVisible &&
+    activeCard &&
+    getNextTier(activeCard.tier ?? "QUICK") !== null;
 
   return (
     <View
       style={[
         styles.container,
-        { paddingTop: insets.top, paddingBottom: insets.bottom, backgroundColor: colors.bg.primary },
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+          backgroundColor: colors.bg.primary,
+        },
       ]}
     >
       <View style={styles.deckArea}>
@@ -230,42 +243,40 @@ const DeckScreen = () => {
             No completed sidequests yet
           </Text>
         ) : (
-          <QuestCardDeck
-            options={cards}
-            mode="browse"
-            hideHeader
-          />
+          <QuestCardDeck options={cards} mode="browse" hideHeader />
         )}
       </View>
 
-      <Pressable
-        style={[
-          styles.promoteButton,
-          {
-            backgroundColor: canPromote
-              ? "rgba(168, 85, 247, 0.15)"
-              : "rgba(255, 255, 255, 0.04)",
-            borderColor: canPromote
-              ? "rgba(168, 85, 247, 0.4)"
-              : "rgba(255, 255, 255, 0.08)",
-          },
-        ]}
-        onPress={handlePromote}
-        disabled={!canPromote}
-      >
-        <Text
+      {cards.length > 0 ? (
+        <Pressable
           style={[
-            styles.promoteText,
+            styles.promoteButton,
             {
-              color: canPromote
-                ? "rgba(168, 85, 247, 0.95)"
-                : "rgba(255, 255, 255, 0.2)",
+              backgroundColor: canPromote
+                ? "rgba(168, 85, 247, 0.15)"
+                : "rgba(255, 255, 255, 0.04)",
+              borderColor: canPromote
+                ? "rgba(168, 85, 247, 0.4)"
+                : "rgba(255, 255, 255, 0.08)",
             },
           ]}
+          onPress={handlePromote}
+          disabled={!canPromote}
         >
-          PROMOTE
-        </Text>
-      </Pressable>
+          <Text
+            style={[
+              styles.promoteText,
+              {
+                color: canPromote
+                  ? "rgba(168, 85, 247, 0.95)"
+                  : "rgba(255, 255, 255, 0.2)",
+              },
+            ]}
+          >
+            PROMOTE
+          </Text>
+        </Pressable>
+      ) : null}
 
       <PromotionOverlay
         card={promotingCard}

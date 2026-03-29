@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
+  FadeIn,
   useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
@@ -17,6 +18,7 @@ import {
   fontFamily,
   spacing,
   radius,
+  duration,
 } from "@/theme";
 import type { DeckStatsResponse } from "@/services/api/modules/deckStats";
 
@@ -99,6 +101,33 @@ const AnimatedCounter: React.FC<{
   return <Text style={style}>{displayed.toLocaleString()}</Text>;
 };
 
+/* ─── Stat pill (inline label + value) ─── */
+
+const StatPill: React.FC<{
+  label: string;
+  value: number;
+  color: string;
+  delay: number;
+  colors: Colors;
+}> = ({ label, value, color, delay, colors }) => {
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  return (
+    <Animated.View
+      entering={FadeIn.duration(duration.normal).delay(delay)}
+      style={styles.statPill}
+    >
+      <View style={[styles.statPillDot, { backgroundColor: color }]} />
+      <AnimatedCounter
+        value={value}
+        delay={delay}
+        style={[styles.statPillValue, { color }]}
+      />
+      <Text style={styles.statPillLabel}>{label}</Text>
+    </Animated.View>
+  );
+};
+
 /* ─── Component ─── */
 
 interface DeckHeroProps {
@@ -119,7 +148,6 @@ const DeckHero: React.FC<DeckHeroProps> = ({
 
   // Fade-in stagger
   const heroOpacity = useSharedValue(0);
-  const statsOpacity = useSharedValue(0);
 
   useEffect(() => {
     if (!data) return;
@@ -127,21 +155,20 @@ const DeckHero: React.FC<DeckHeroProps> = ({
       100,
       withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }),
     );
-    statsOpacity.value = withDelay(
-      400,
-      withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }),
-    );
-  }, [data, heroOpacity, statsOpacity]);
+  }, [data, heroOpacity]);
 
   const heroAnimStyle = useAnimatedStyle(() => ({
     opacity: heroOpacity.value,
   }));
 
-  const statsAnimStyle = useAnimatedStyle(() => ({
-    opacity: statsOpacity.value,
-  }));
-
   if (!data) return null;
+
+  const hasBreakdown =
+    data.cardsPlayed > 0 || data.cardsActive > 0 || data.cardsInDeck > 0;
+  const hasXp = totalXp > 0;
+  const hasStreak = currentStreak > 0 || longestStreak > 0;
+  const hasAnyStats = hasBreakdown || hasXp || hasStreak;
+  const isNewUser = data.totalCards === 0 && !hasAnyStats;
 
   return (
     <View style={styles.container}>
@@ -158,71 +185,78 @@ const DeckHero: React.FC<DeckHeroProps> = ({
               delay={300}
               style={styles.bigNumber}
             />
-            <Text style={styles.bigNumberUnit}>cards</Text>
+            <Text style={styles.bigNumberUnit}>
+              {data.totalCards === 1 ? "card" : "cards"}
+            </Text>
           </View>
           {data.newThisWeek > 0 && (
             <Text style={styles.newBadge}>+{data.newThisWeek} this week</Text>
           )}
+          {isNewUser && (
+            <Text style={styles.emptyHint}>Draw your first sidequest below</Text>
+          )}
         </View>
       </Animated.View>
 
-      {/* Stats row */}
-      <Animated.View style={[styles.statsRow, statsAnimStyle]}>
-        <View style={styles.stat}>
-          <AnimatedCounter
-            value={data.cardsPlayed}
-            delay={500}
-            style={[styles.statValue, { color: TIER_COLORS.QUICK }]}
-          />
-          <Text style={styles.statLabel}>PLAYED</Text>
+      {/* Inline stat pills — only rendered when non-zero */}
+      {hasAnyStats && (
+        <View style={styles.pillsRow}>
+          {data.cardsPlayed > 0 && (
+            <StatPill
+              label="played"
+              value={data.cardsPlayed}
+              color={TIER_COLORS.QUICK}
+              delay={400}
+              colors={colors}
+            />
+          )}
+          {data.cardsActive > 0 && (
+            <StatPill
+              label="active"
+              value={data.cardsActive}
+              color={TIER_COLORS.SWEET_SPOT}
+              delay={500}
+              colors={colors}
+            />
+          )}
+          {data.cardsInDeck > 0 && (
+            <StatPill
+              label="in deck"
+              value={data.cardsInDeck}
+              color={TIER_COLORS.BEST}
+              delay={600}
+              colors={colors}
+            />
+          )}
+          {hasXp && (
+            <StatPill
+              label="xp"
+              value={totalXp}
+              color="#93c5fd"
+              delay={700}
+              colors={colors}
+            />
+          )}
+          {currentStreak > 0 && (
+            <StatPill
+              label={currentStreak === 1 ? "week streak" : "week streak"}
+              value={currentStreak}
+              color="#fbbf24"
+              delay={800}
+              colors={colors}
+            />
+          )}
+          {longestStreak > 0 && longestStreak !== currentStreak && (
+            <StatPill
+              label="best"
+              value={longestStreak}
+              color="#fbbf24"
+              delay={900}
+              colors={colors}
+            />
+          )}
         </View>
-        <View style={styles.statDivider} />
-        <View style={styles.stat}>
-          <AnimatedCounter
-            value={data.cardsActive}
-            delay={600}
-            style={[styles.statValue, { color: TIER_COLORS.SWEET_SPOT }]}
-          />
-          <Text style={styles.statLabel}>ACTIVE</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.stat}>
-          <AnimatedCounter
-            value={data.cardsInDeck}
-            delay={700}
-            style={[styles.statValue, { color: TIER_COLORS.BEST }]}
-          />
-          <Text style={styles.statLabel}>IN DECK</Text>
-        </View>
-      </Animated.View>
-
-      {/* Bottom row: XP + streak */}
-      <Animated.View style={[styles.bottomRow, statsAnimStyle]}>
-        <View style={styles.bottomStat}>
-          <AnimatedCounter
-            value={totalXp}
-            delay={800}
-            style={styles.bottomStatValue}
-          />
-          <Text style={styles.bottomStatLabel}>XP</Text>
-        </View>
-        <View style={styles.bottomStat}>
-          <AnimatedCounter
-            value={currentStreak}
-            delay={900}
-            style={styles.bottomStatValue}
-          />
-          <Text style={styles.bottomStatLabel}>STREAK</Text>
-        </View>
-        <View style={styles.bottomStat}>
-          <AnimatedCounter
-            value={longestStreak}
-            delay={1000}
-            style={styles.bottomStatValue}
-          />
-          <Text style={styles.bottomStatLabel}>BEST</Text>
-        </View>
-      </Animated.View>
+      )}
     </View>
   );
 };
@@ -301,60 +335,43 @@ const createStyles = (colors: Colors) =>
       color: TIER_COLORS.QUICK,
       marginTop: 2,
     },
-    // Stats row
-    statsRow: {
+    emptyHint: {
+      fontSize: fontSize.xs,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+      marginTop: 4,
+    },
+    // Stat pills
+    pillsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.sm,
+    },
+    statPill: {
       flexDirection: "row",
       alignItems: "center",
+      gap: 5,
       backgroundColor: colors.bg.elevated,
-      borderRadius: radius.lg,
-      padding: spacing.md,
+      borderRadius: radius.full,
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: 5,
       borderWidth: 1,
       borderColor: colors.border.default,
     },
-    stat: {
-      flex: 1,
-      alignItems: "center",
-      gap: 2,
+    statPillDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
     },
-    statDivider: {
-      width: 1,
-      height: 28,
-      backgroundColor: colors.border.default,
-    },
-    statValue: {
-      fontSize: fontSize.lg,
+    statPillValue: {
+      fontSize: fontSize.sm,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
     },
-    statLabel: {
-      fontSize: 9,
+    statPillLabel: {
+      fontSize: fontSize.xs,
       fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
       color: colors.text.secondary,
-      letterSpacing: 1,
-    },
-    // Bottom row
-    bottomRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-    },
-    bottomStat: {
-      flexDirection: "row",
-      alignItems: "baseline",
-      gap: 4,
-    },
-    bottomStatValue: {
-      fontSize: fontSize.lg,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.bold,
-      color: colors.text.primary,
-    },
-    bottomStatLabel: {
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.secondary,
-      letterSpacing: 1,
     },
   });
 
