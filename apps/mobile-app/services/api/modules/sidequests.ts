@@ -162,6 +162,18 @@ export class SidequestsModule extends BaseApiModule {
     await this.handleResponse(response);
   }
 
+  async batchDelete(ids: string[]): Promise<{ deletedCount: number }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/batch-delete`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      },
+    );
+    return this.handleResponse<{ deletedCount: number }>(response);
+  }
+
   async share(id: string): Promise<{ shareToken: string }> {
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/${id}/share`,

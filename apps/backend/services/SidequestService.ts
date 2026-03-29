@@ -1,4 +1,4 @@
-import { type DataSource, Not, IsNull, MoreThan, MoreThanOrEqual } from "typeorm";
+import { type DataSource, Not, IsNull, In, MoreThan, MoreThanOrEqual } from "typeorm";
 import {
   Sidequest,
   Objective,
@@ -143,6 +143,7 @@ export interface SidequestService {
   ): Promise<{ data: Sidequest[]; nextCursor: string | null }>;
   getById(id: string, userId?: string): Promise<Sidequest | null>;
   deleteById(id: string, userId: string): Promise<boolean>;
+  deleteByIds(ids: string[], userId: string): Promise<number>;
   generateShareToken(id: string, userId: string): Promise<string | null>;
   getByShareToken(shareToken: string): Promise<Sidequest | null>;
   getPopularStops(city: string, limit?: number): Promise<PopularStop[]>;
@@ -964,6 +965,9 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are clo
 
     // Use raw SQL for pgvector ordering — TypeORM's query builder
     // can't parse the ::vector cast in orderBy expressions.
+    // Cosine distance threshold: 0 = identical, 2 = opposite. 0.55 keeps only
+    // genuinely relevant matches.
+    const MAX_DISTANCE = 0.55;
     const rawRows: { id: string }[] = await this.dataSource.query(
       `SELECT s.id
        FROM sidequests s
@@ -972,9 +976,10 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are clo
          AND s.status = 'READY'
          AND s.embedding IS NOT NULL
          AND s.deleted_at IS NULL
+         AND (s.embedding::vector <=> $2::vector) < $4
        ORDER BY s.embedding::vector <=> $2::vector ASC
        LIMIT $3`,
-      [userId, queryEmbeddingSql, limit],
+      [userId, queryEmbeddingSql, limit, MAX_DISTANCE],
     );
 
     if (rawRows.length === 0) return [];
@@ -1022,6 +1027,30 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are clo
     }
 
     return deleted;
+  }
+
+  async deleteByIds(ids: string[], userId: string): Promise<number> {
+    if (ids.length === 0) return 0;
+
+    const repo = this.dataSource.getRepository(Sidequest);
+
+    const sidequests = await repo.find({
+      where: { id: In(ids), userId },
+      select: ["id", "isPublished"],
+    });
+
+    const result = await repo.softDelete({ id: In(ids), userId });
+    const deletedCount = result.affected ?? 0;
+
+    for (const sq of sidequests) {
+      if (sq.isPublished) {
+        this.publishChange({ id: sq.id } as Sidequest, "DELETE").catch((err) => {
+          console.error("[SidequestService] Failed to publish deletion:", err);
+        });
+      }
+    }
+
+    return deletedCount;
   }
 
   async generateShareToken(id: string, userId: string): Promise<string | null> {
@@ -1500,22 +1529,29 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are clo
       updates.entryLongitude = firstGeoObj.longitude;
     }
 
-    // 2. Generate embedding
+    // 2. Generate embedding — weight categories and title heavily so
+    //    searches like "coffee" or "longboarding" match well.
     if (this.embeddingService) {
       try {
+        const categories = (sidequest.categories ?? []).join(", ");
+        const title = sidequest.title || "";
         const stopsText = sortedObjectives
           .map(
             (obj) =>
               `${obj.title}${obj.venueCategory ? ` (${obj.venueCategory})` : ""}`,
           )
           .join(", ");
-        const textRepr = `${sidequest.title || ""}. ${sidequest.summary || ""}. Stops: ${stopsText}`;
+        const summary = sidequest.summary || "";
+
+        // Repeat components to weight them: categories 6x, title 4x, stops 3x, summary 1x
+        const parts: string[] = [];
+        if (categories) parts.push(...Array(6).fill(categories));
+        if (title) parts.push(...Array(4).fill(title));
+        if (stopsText) parts.push(...Array(3).fill(stopsText));
+        if (summary) parts.push(summary);
 
         const embeddingSql =
-          await this.embeddingService.getStructuredEmbeddingSql({
-            text: textRepr,
-            weights: { text: 5 },
-          });
+          await this.embeddingService.getEmbeddingSql(parts.join(". "));
         updates.embedding = embeddingSql;
       } catch (error) {
         console.error(

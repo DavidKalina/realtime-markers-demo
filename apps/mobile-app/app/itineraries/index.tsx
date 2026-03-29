@@ -221,7 +221,7 @@ const OptionsOverlay: React.FC<{
                     overlayStyles.dismissBtn,
                     { borderColor: colors.border.default },
                   ]}
-                  onPress={onSelected}
+                  onPress={() => onSelected()}
                 >
                   <Text
                     style={{
@@ -252,7 +252,7 @@ const OptionsOverlay: React.FC<{
                     overlayStyles.dismissBtn,
                     { borderColor: colors.border.default },
                   ]}
-                  onPress={onSelected}
+                  onPress={() => onSelected()}
                 >
                   <Text
                     style={{
@@ -279,7 +279,7 @@ const OptionsOverlay: React.FC<{
                       marginTop: spacing.lg,
                     },
                   ]}
-                  onPress={onSelected}
+                  onPress={() => onSelected()}
                 >
                   <Text
                     style={{
@@ -355,6 +355,9 @@ const ItinerariesListScreen = () => {
   const PAGE_SIZE = 20;
   const [itineraries, setItineraries] = useState<ItineraryResponse[]>([]);
   const [discardingId, setDiscardingId] = useState<string | null>(null);
+  const [markedIds, setMarkedIds] = useState<Set<string>>(new Set());
+  const [batchDiscardingIds, setBatchDiscardingIds] = useState<Set<string> | null>(null);
+  const batchDiscardCount = useRef(0);
   const [isLoading, setIsLoading] = useState(true);
   const cursorRef = useRef<string | null>(null);
   const hasMoreRef = useRef(true);
@@ -507,7 +510,9 @@ const ItinerariesListScreen = () => {
     }, 400);
   }, []);
 
-  const displayedCards = isSearching ? searchResults : itineraries;
+  const displayedCards = isSearching && searchQuery.trim().length > 0
+    ? searchResults
+    : itineraries;
   const totalCards = itineraries.length;
 
   const handlePress = useCallback(
@@ -549,6 +554,52 @@ const ItinerariesListScreen = () => {
     },
     [fetchItineraries],
   );
+
+  const handleToggleMarkForDelete = useCallback(
+    (option: SidequestResponse) => {
+      setMarkedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(option.id)) {
+          next.delete(option.id);
+        } else {
+          next.add(option.id);
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const handleBatchDelete = useCallback(() => {
+    const ids = Array.from(markedIds);
+    if (ids.length === 0) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    batchDiscardCount.current = 0;
+    setBatchDiscardingIds(new Set(ids));
+  }, [markedIds]);
+
+  const handleBatchDiscardComplete = useCallback(
+    (id: string) => {
+      batchDiscardCount.current += 1;
+      const totalExpected = batchDiscardingIds?.size ?? 0;
+      if (batchDiscardCount.current >= totalExpected) {
+        const ids = Array.from(batchDiscardingIds!);
+        setBatchDiscardingIds(null);
+        setMarkedIds(new Set());
+        setItineraries((prev) => prev.filter((it) => !ids.includes(it.id)));
+        apiClient.sidequests.batchDelete(ids).catch((err) => {
+          console.error("[Itineraries] Batch delete failed:", err);
+          fetchItineraries();
+        });
+      }
+    },
+    [batchDiscardingIds, fetchItineraries],
+  );
+
+  const handleClearMarked = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setMarkedIds(new Set());
+  }, []);
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -927,7 +978,9 @@ const ItinerariesListScreen = () => {
           </Animated.View>
         ) : (
           <Text style={styles.headerHint}>
-            Swipe to browse {"\u00B7"} Tap to open {"\u00B7"} Hold to delete
+            {markedIds.size > 0
+              ? `${markedIds.size} selected \u00B7 Swipe up to mark more`
+              : `Swipe to browse \u00B7 Tap to open \u00B7 Swipe up to mark`}
           </Text>
         )}
         {isSearching && searchQuery.length > 0 && !isSearchLoading && searchResults.length === 0 && (
@@ -943,7 +996,16 @@ const ItinerariesListScreen = () => {
           onPress={handlePress}
           onDelete={isSearching ? undefined : handleDelete}
           discardingId={discardingId}
-          onDiscardComplete={handleDiscardComplete}
+          onDiscardComplete={
+            batchDiscardingIds
+              ? handleBatchDiscardComplete
+              : handleDiscardComplete
+          }
+          markedForDeleteIds={markedIds.size > 0 ? markedIds : null}
+          onToggleMarkForDelete={
+            isSearching ? undefined : handleToggleMarkForDelete
+          }
+          batchDiscardingIds={batchDiscardingIds}
         />
 
         {/* DEV: Simulate generation flow */}
@@ -972,6 +1034,26 @@ const ItinerariesListScreen = () => {
           </Pressable>
         )}
       </View>
+
+      {/* Batch-delete action bar */}
+      {markedIds.size > 0 && !batchDiscardingIds && (
+        <Animated.View
+          entering={FadeInUp.duration(200)}
+          exiting={FadeOutUp.duration(150)}
+          style={styles.deleteBar}
+        >
+          <Text style={styles.deleteBarText}>
+            {markedIds.size} selected
+          </Text>
+          <View style={{ flex: 1 }} />
+          <Pressable onPress={handleClearMarked} style={styles.deleteBarClear}>
+            <Text style={styles.deleteBarClearText}>Clear</Text>
+          </Pressable>
+          <Pressable onPress={handleBatchDelete} style={styles.deleteBarButton}>
+            <Text style={styles.deleteBarButtonText}>Delete All</Text>
+          </Pressable>
+        </Animated.View>
+      )}
 
       {/* Options fan-out overlay */}
       {simulating ? (
@@ -1050,5 +1132,50 @@ const createScreenStyles = (colors: Colors) =>
       fontSize: fontSize.xs,
       color: colors.text.secondary,
       marginTop: spacing.xs,
+    },
+    deleteBar: {
+      position: "absolute" as const,
+      bottom: 100,
+      left: spacing.lg,
+      right: spacing.lg,
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderRadius: radius.lg,
+      backgroundColor: "rgba(30, 30, 30, 0.9)",
+      borderWidth: 1,
+      borderColor: "rgba(239, 68, 68, 0.3)",
+    },
+    deleteBarText: {
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+      color: colors.text.primary,
+      fontWeight: fontWeight.bold,
+    },
+    deleteBarClear: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border.default,
+    },
+    deleteBarClearText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 11,
+      color: colors.text.secondary,
+    },
+    deleteBarButton: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.xs,
+      borderRadius: radius.sm,
+      backgroundColor: "rgba(239, 68, 68, 0.85)",
+    },
+    deleteBarButtonText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 11,
+      fontWeight: fontWeight.bold,
+      color: "#fff",
     },
   });

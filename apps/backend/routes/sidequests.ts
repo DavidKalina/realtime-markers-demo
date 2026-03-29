@@ -4,6 +4,7 @@ import {
   listSidequestsHandler,
   getSidequestHandler,
   deleteSidequestHandler,
+  batchDeleteSidequestHandler,
   shareSidequestHandler,
   getSharedSidequestHandler,
   activateSidequestHandler,
@@ -57,6 +58,7 @@ sidequestRouter.get("/deck-stats", readRateLimit, getDeckStatsHandler);
 sidequestRouter.get("/:id", readRateLimit, getSidequestHandler);
 sidequestRouter.get("/:id/options", readRateLimit, getSidequestOptionsHandler);
 sidequestRouter.post("/", writeRateLimit, createSidequestHandler);
+sidequestRouter.post("/batch-delete", writeRateLimit, batchDeleteSidequestHandler);
 sidequestRouter.post("/deactivate", writeRateLimit, deactivateSidequestHandler);
 sidequestRouter.post("/:id/share", writeRateLimit, shareSidequestHandler);
 sidequestRouter.post("/:id/activate", writeRateLimit, activateSidequestHandler);

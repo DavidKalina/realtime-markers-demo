@@ -174,6 +174,36 @@ export const deleteSidequestHandler: Handler = withErrorHandling(async (c) => {
   return c.json({ success: true });
 });
 
+export const batchDeleteSidequestHandler: Handler = withErrorHandling(
+  async (c) => {
+    const user = requireAuth(c);
+    const userId = user.id;
+
+    const body = await c.req.json<{ ids: unknown }>();
+    const { ids } = body;
+
+    if (
+      !Array.isArray(ids) ||
+      ids.length === 0 ||
+      ids.length > 50 ||
+      !ids.every((id) => typeof id === "string")
+    ) {
+      return c.json(
+        { error: "ids must be a non-empty array of strings (max 50)" },
+        400,
+      );
+    }
+
+    const sidequestService = c.get("sidequestService") as SidequestService;
+    const deletedCount = await sidequestService.deleteByIds(
+      ids as string[],
+      userId,
+    );
+
+    return c.json({ success: true, deletedCount });
+  },
+);
+
 export const shareSidequestHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
   const userId = user.id;
