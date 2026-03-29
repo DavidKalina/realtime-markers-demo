@@ -3,7 +3,11 @@ import * as Haptics from "expo-haptics";
 import { Check } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import {
+  Directions,
+  Gesture,
+  GestureDetector,
+} from "react-native-gesture-handler";
 import Animated, {
   Easing,
   FadeInDown,
@@ -161,6 +165,14 @@ interface QuestCardDeckProps {
   onPromotionMidpoint?: () => void;
   /** Called when the full promotion animation completes */
   onPromotionComplete?: () => void;
+  /** Search filter: when set, cards NOT in this set animate out */
+  filteredIds?: Set<string> | null;
+  /** Batch-delete: set of IDs marked for deletion */
+  markedForDeleteIds?: Set<string> | null;
+  /** Batch-delete: called when user swipes down on a card to toggle mark */
+  onToggleMarkForDelete?: (option: SidequestResponse) => void;
+  /** Batch-delete: IDs currently animating their discard */
+  batchDiscardingIds?: Set<string> | null;
 }
 
 // --- Diagonal card sheen sweep ---
@@ -325,6 +337,9 @@ const QuestCard: React.FC<{
   onDelete?: (option: SidequestResponse) => void;
   onDiscardComplete?: (id: string) => void;
   isDiscarding?: boolean;
+  isFiltered?: boolean;
+  isMarkedForDelete?: boolean;
+  onToggleMarkForDelete?: (option: SidequestResponse) => void;
   mode: "select" | "browse";
   activeItineraryId?: string | null;
   colors: Colors;
@@ -342,6 +357,9 @@ const QuestCard: React.FC<{
     onDelete,
     onDiscardComplete,
     isDiscarding,
+    isFiltered,
+    isMarkedForDelete,
+    onToggleMarkForDelete,
     mode,
     activeItineraryId,
     colors,
@@ -385,6 +403,30 @@ const QuestCard: React.FC<{
         );
       }
     }, [isDiscarding]);
+
+    // Search filter animation — reversible fade/shrink
+    const filterProgress = useSharedValue(isFiltered ? 1 : 0);
+    useEffect(() => {
+      filterProgress.value = withTiming(isFiltered ? 1 : 0, {
+        duration: 300,
+        easing: Easing.inOut(Easing.ease),
+      });
+    }, [isFiltered]);
+
+    // Batch-delete mark animation — red tint + scale-down
+    const markProgress = useSharedValue(isMarkedForDelete ? 1 : 0);
+    useEffect(() => {
+      markProgress.value = withTiming(isMarkedForDelete ? 1 : 0, {
+        duration: 250,
+        easing: Easing.inOut(Easing.ease),
+      });
+    }, [isMarkedForDelete]);
+
+    const markOverlayStyle = useAnimatedStyle(() => ({
+      opacity: interpolate(markProgress.value, [0, 1], [0, 0.35]),
+    }));
+
+
 
     // Track when card transitions from generating to ready
     const wasGenerating = useRef(!isReady);
@@ -506,6 +548,17 @@ const QuestCard: React.FC<{
       const discardScale = interpolate(d, [0, 1], [1, 0.7]);
       const discardOpacity = interpolate(d, [0, 0.6, 1], [1, 0.5, 0]);
 
+      // Search filter: shrink + fade (reversible)
+      const f = filterProgress.value;
+      const filterScale = interpolate(f, [0, 1], [1, 0.75]);
+      const filterOpacity = interpolate(f, [0, 1], [1, 0.15]);
+      const filterY = interpolate(f, [0, 1], [0, CARD_HEIGHT * 0.15]);
+
+      // Batch-delete mark: slight scale-down + nudge down
+      const m = markProgress.value;
+      const markScale = interpolate(m, [0, 1], [1, 0.92]);
+      const markY = interpolate(m, [0, 1], [0, 8]);
+
       // Promotion scale bump
       const promoScale = promotionProgress
         ? interpolate(promotionProgress.value, [0, 0.35, 0.5, 0.65, 1], [1, 1.08, 1.1, 1.08, 1])
@@ -513,11 +566,11 @@ const QuestCard: React.FC<{
 
       return {
         transform: [
-          { translateY: bobY.value + discardY },
-          { scale: scale * discardScale * promoScale },
+          { translateY: bobY.value + discardY + filterY + markY },
+          { scale: scale * discardScale * filterScale * markScale * promoScale },
           { rotate: `${discardRotate}deg` },
         ],
-        opacity: opacity * discardOpacity,
+        opacity: opacity * discardOpacity * filterOpacity,
       };
     });
 
@@ -561,6 +614,23 @@ const QuestCard: React.FC<{
       return [...tags].slice(0, 3);
     }, [option.categories, option.activityTypes]);
 
+    // Swipe-up fling gesture for batch-delete marking
+    const toggleMarkCb = useCallback(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      onToggleMarkForDelete?.(option);
+    }, [option, onToggleMarkForDelete]);
+
+    const swipeUpGesture = useMemo(
+      () =>
+        Gesture.Fling()
+          .direction(Directions.UP)
+          .enabled(isBrowse && !!onToggleMarkForDelete)
+          .onEnd(() => {
+            scheduleOnRN(toggleMarkCb);
+          }),
+      [isBrowse, onToggleMarkForDelete, toggleMarkCb],
+    );
+
     return (
       <Animated.View
         layout={LinearTransition.springify().damping(28).stiffness(180)}
@@ -574,6 +644,7 @@ const QuestCard: React.FC<{
           <PromotionRays progress={promotionProgress} />
         )}
 
+        <GestureDetector gesture={swipeUpGesture}>
         <Animated.View
           style={[
             s.card,
@@ -619,7 +690,7 @@ const QuestCard: React.FC<{
                 : undefined
           }
           onLongPress={
-            isBrowse && onDelete
+            isBrowse && onDelete && !onToggleMarkForDelete
               ? () => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
                   onDelete(option);
@@ -652,9 +723,6 @@ const QuestCard: React.FC<{
             <Text style={s.artEmoji}>
               {objectives[0]?.emoji ?? "\u{1F3AF}"}
             </Text>
-            {option.city && (
-              <Text style={s.artCity}>{option.city}</Text>
-            )}
           </Animated.View>
 
           {/* ═══ TITLE PLATE ═══ */}
@@ -747,16 +815,34 @@ const QuestCard: React.FC<{
             <Text style={s.serialNumber}>
               SQ{"\u00B7"}{(option.id ?? "").slice(0, 8).toUpperCase()}
             </Text>
-            <Text style={s.serialNumber}>
+            <Text style={s.serialStat}>
               {"\u00B7"} {stopCount} STOPS
               {totalCost > 0 ? ` \u00B7 $${totalCost}` : ""}
             </Text>
             <View style={{ flex: 1 }} />
-            <Text style={s.serialNumber}>
+            <Text style={s.serialStat}>
               {option.city?.toUpperCase() ?? ""}
             </Text>
           </View>
         </Pressable>
+
+        {/* Batch-delete mark overlay */}
+        {onToggleMarkForDelete && (
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: "rgba(239, 68, 68, 0.6)",
+                borderRadius: radius.xl,
+                zIndex: 6,
+              },
+              markOverlayStyle,
+            ]}
+            pointerEvents="none"
+          />
+        )}
+
+
 
         {/* Promotion white-out overlay */}
         {promotionProgress && (
@@ -777,6 +863,7 @@ const QuestCard: React.FC<{
         {/* Blur overlay for off-center cards — only rendered for nearby cards */}
         {isNearby && <BlurOverlay scrollX={scrollX} index={index} />}
         </Animated.View>
+        </GestureDetector>
       </Animated.View>
     );
   },
@@ -948,6 +1035,10 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
   promotingId,
   onPromotionMidpoint,
   onPromotionComplete,
+  filteredIds,
+  markedForDeleteIds,
+  onToggleMarkForDelete,
+  batchDiscardingIds,
 }) => {
   const colors = useColors();
   const s = useMemo(() => createDeckStyles(colors), [colors]);
@@ -1113,7 +1204,7 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
           </Text>
           <Text style={s.hint}>
             {isBrowse
-              ? "Swipe to browse \u00B7 Tap to open \u00B7 Hold to delete"
+              ? "Swipe to browse \u00B7 Tap to open \u00B7 Swipe up to mark"
               : "Swipe to browse \u00B7 Tap to select"}
           </Text>
         </>
@@ -1135,7 +1226,13 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
                 onPress={onPress}
                 onDelete={onDelete}
                 onDiscardComplete={onDiscardComplete}
-                isDiscarding={discardingId === option.id}
+                isDiscarding={
+                  discardingId === option.id ||
+                  (batchDiscardingIds?.has(option.id) ?? false)
+                }
+                isFiltered={filteredIds != null && !filteredIds.has(option.id)}
+                isMarkedForDelete={markedForDeleteIds?.has(option.id) ?? false}
+                onToggleMarkForDelete={onToggleMarkForDelete}
                 mode={mode}
                 activeItineraryId={activeItineraryId}
                 colors={colors}
@@ -1486,6 +1583,13 @@ const createCardStyles = (colors: Colors) =>
       color: colors.text.disabled,
       letterSpacing: 1.2,
       opacity: 0.5,
+    },
+    serialStat: {
+      fontSize: 7,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: colors.text.secondary,
+      letterSpacing: 1.2,
     },
     activeDot: {
       width: 6,
