@@ -118,6 +118,9 @@ export class Sidequest {
   @Column({ name: "completed_at", type: "timestamptz", nullable: true })
   completedAt?: Date;
 
+  @Column({ name: "promoted_at", type: "timestamptz", nullable: true })
+  promotedAt?: Date;
+
   @Column({ name: "is_published", type: "boolean", default: false })
   isPublished!: boolean;
 

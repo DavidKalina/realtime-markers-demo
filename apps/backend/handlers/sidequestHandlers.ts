@@ -411,6 +411,42 @@ export const selectSidequestOptionHandler: Handler = withErrorHandling(
   },
 );
 
+export const promoteSidequestHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const id = c.req.param("id");
+  if (!id) {
+    return c.json({ error: "id is required" }, 400);
+  }
+
+  const sidequestService = c.get("sidequestService") as SidequestService;
+  try {
+    const sidequest = await sidequestService.promote(id, user.id);
+    return c.json(sidequest);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Promotion failed";
+    return c.json({ error: message }, 400);
+  }
+});
+
+export const searchSidequestsHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const userId = user.id;
+
+  const q = c.req.query("q");
+  if (!q || typeof q !== "string" || q.trim().length === 0) {
+    return c.json({ error: "q query parameter is required" }, 400);
+  }
+  if (q.length > 200) {
+    return c.json({ error: "q must be 200 characters or fewer" }, 400);
+  }
+
+  const limit = Math.min(parseInt(c.req.query("limit") || "20", 10), 50);
+  const sidequestService = c.get("sidequestService") as SidequestService;
+  const data = await sidequestService.searchByUser(userId, q.trim(), limit);
+
+  return c.json({ data });
+});
+
 export const getDeckStatsHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
   const sidequestService = c.get("sidequestService") as SidequestService;

@@ -154,7 +154,13 @@ export interface SidequestService {
   ): Promise<Sidequest | null>;
   countCreatedSince(userId: string, since: Date): Promise<number>;
   listCompleted(userId: string, limit?: number): Promise<Sidequest[]>;
+  promote(id: string, userId: string): Promise<Sidequest>;
   getDeckStats(userId: string): Promise<DeckStats>;
+  searchByUser(
+    userId: string,
+    query: string,
+    limit?: number,
+  ): Promise<Sidequest[]>;
   browsePublished(options: BrowsePublishedOptions): Promise<BrowseSidequest[]>;
   listPublishedInternal(
     page: number,
@@ -931,6 +937,63 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are clo
     return { data, nextCursor };
   }
 
+  async searchByUser(
+    userId: string,
+    query: string,
+    limit = 20,
+  ): Promise<Sidequest[]> {
+    if (!this.embeddingService) {
+      // Fallback: simple ILIKE search on title/summary
+      return this.dataSource
+        .getRepository(Sidequest)
+        .createQueryBuilder("s")
+        .leftJoinAndSelect("s.objectives", "obj")
+        .where("s.user_id = :userId", { userId })
+        .andWhere("s.parent_id IS NULL")
+        .andWhere("s.status = :status", { status: "READY" })
+        .andWhere(
+          "(s.title ILIKE :q OR s.summary ILIKE :q)",
+          { q: `%${query}%` },
+        )
+        .orderBy("s.createdAt", "DESC")
+        .take(limit)
+        .getMany();
+    }
+
+    const queryEmbeddingSql = await this.embeddingService.getEmbeddingSql(query);
+
+    // Use raw SQL for pgvector ordering — TypeORM's query builder
+    // can't parse the ::vector cast in orderBy expressions.
+    const rawRows: { id: string }[] = await this.dataSource.query(
+      `SELECT s.id
+       FROM sidequests s
+       WHERE s.user_id = $1
+         AND s.parent_id IS NULL
+         AND s.status = 'READY'
+         AND s.embedding IS NOT NULL
+         AND s.deleted_at IS NULL
+       ORDER BY s.embedding::vector <=> $2::vector ASC
+       LIMIT $3`,
+      [userId, queryEmbeddingSql, limit],
+    );
+
+    if (rawRows.length === 0) return [];
+
+    const ids = rawRows.map((r) => r.id);
+    const rows = await this.dataSource
+      .getRepository(Sidequest)
+      .createQueryBuilder("s")
+      .leftJoinAndSelect("s.objectives", "obj")
+      .whereInIds(ids)
+      .getMany();
+
+    // Preserve the similarity ordering from the raw query
+    const idOrder = new Map(ids.map((id, i) => [id, i]));
+    rows.sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
+
+    return rows;
+  }
+
   async getById(id: string, userId?: string): Promise<Sidequest | null> {
     const where: Record<string, string> = { id };
     if (userId) where.userId = userId;
@@ -1028,6 +1091,42 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are clo
       order: { completedAt: "DESC" },
       take: limit,
     });
+  }
+
+  async promote(id: string, userId: string): Promise<Sidequest> {
+    const repo = this.dataSource.getRepository(Sidequest);
+    const sidequest = await repo.findOne({
+      where: { id, userId },
+      relations: ["objectives"],
+    });
+
+    if (!sidequest) {
+      throw new Error("Sidequest not found");
+    }
+    if (!sidequest.completedAt) {
+      throw new Error("Sidequest is not completed");
+    }
+    if (sidequest.promotedAt) {
+      throw new Error("Sidequest is already promoted");
+    }
+
+    const tierOrder: SidequestTier[] = [
+      SidequestTier.QUICK,
+      SidequestTier.SWEET_SPOT,
+      SidequestTier.BEST,
+    ];
+    const currentIdx = tierOrder.indexOf(
+      sidequest.tier ?? SidequestTier.QUICK,
+    );
+    if (currentIdx >= tierOrder.length - 1) {
+      throw new Error("Sidequest is already at the highest tier");
+    }
+
+    sidequest.tier = tierOrder[currentIdx + 1];
+    sidequest.promotedAt = new Date();
+    await repo.save(sidequest);
+
+    return sidequest;
   }
 
   async browsePublished(

@@ -23,6 +23,7 @@ import Animated, {
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { scheduleOnRN } from "react-native-worklets";
 
+import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
 import HolographicFoil, { hashString } from "@/components/effects/HolographicFoil";
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
 import { getCategoryColor, getCategoryFoilVariant } from "@/utils/categoryColors";
@@ -122,11 +123,11 @@ function getCardColorKey(option: SidequestResponse): string {
   );
 }
 
-// Per-tier holographic foil intensity
-const TIER_FOIL_INTENSITY: Record<string, number> = {
-  QUICK: 0.04,
-  SWEET_SPOT: 0.08,
-  BEST: 0.14,
+// Per-tier holographic foil intensity for completed cards
+const FOIL_INTENSITY: Record<string, number> = {
+  QUICK: 0.10,
+  SWEET_SPOT: 0.16,
+  BEST: 0.22,
 };
 
 // Tier-only fallback colors (green / amber / purple)
@@ -154,6 +155,12 @@ interface QuestCardDeckProps {
   onDiscardComplete?: (id: string) => void;
   /** Hide the built-in label + hint text (render them externally) */
   hideHeader?: boolean;
+  /** Promotion: ID of card currently being promoted (tier upgrade animation) */
+  promotingId?: string | null;
+  /** Called at peak white-out so the caller can swap tier data */
+  onPromotionMidpoint?: () => void;
+  /** Called when the full promotion animation completes */
+  onPromotionComplete?: () => void;
 }
 
 // --- Diagonal card sheen sweep ---
@@ -304,10 +311,6 @@ const TierBadge: React.FC<{
 
 TierBadge.displayName = "TierBadge";
 
-// --- Tug animation constants ---
-const TUG_FORCE = 14;
-const TUG_INTERVAL = 2200;
-
 // --- Individual animated card (handles GENERATING + READY states) ---
 
 const QuestCard: React.FC<{
@@ -325,6 +328,7 @@ const QuestCard: React.FC<{
   mode: "select" | "browse";
   activeItineraryId?: string | null;
   colors: Colors;
+  promotionProgress?: SharedValue<number>;
 }> = React.memo(
   ({
     option,
@@ -341,6 +345,7 @@ const QuestCard: React.FC<{
     mode,
     activeItineraryId,
     colors,
+    promotionProgress,
   }) => {
     const s = useMemo(() => createCardStyles(colors), [colors]);
     if (!option) return null;
@@ -358,6 +363,7 @@ const QuestCard: React.FC<{
 
     // Browse-mode state
     const isActiveQuest = isBrowse && option.id === activeItineraryId;
+    const isPromoted = isBrowse && !!option.promotedAt;
     const isCompleted = isBrowse && !!option.completedAt;
     const checkedInCount = isBrowse
       ? (option.objectives ?? []).filter((o) => o.checkedInAt).length
@@ -485,55 +491,6 @@ const QuestCard: React.FC<{
       }
     }, [index, isNearby]);
 
-    // Tug animation (only while generating)
-    const tugX = useSharedValue(0);
-    const tugY = useSharedValue(0);
-    const tugRotate = useSharedValue(0);
-
-    useEffect(() => {
-      if (isReady || !isNearby) return;
-      const tug = () => {
-        const angle = Math.random() * Math.PI * 2;
-        const force = TUG_FORCE * (0.6 + Math.random() * 0.4);
-        tugX.value = withSequence(
-          withTiming(Math.cos(angle) * force, {
-            duration: 250,
-            easing: Easing.out(Easing.cubic),
-          }),
-          withSpring(0, { damping: 8, stiffness: 120, mass: 0.8 }),
-        );
-        tugY.value = withSequence(
-          withTiming(Math.sin(angle) * force, {
-            duration: 250,
-            easing: Easing.out(Easing.cubic),
-          }),
-          withSpring(0, { damping: 8, stiffness: 120, mass: 0.8 }),
-        );
-        tugRotate.value = withSequence(
-          withTiming((Math.random() - 0.5) * 5, {
-            duration: 250,
-            easing: Easing.out(Easing.cubic),
-          }),
-          withSpring(0, { damping: 10, stiffness: 150 }),
-        );
-      };
-      const timeout = setTimeout(tug, 400 + index * 500);
-      const interval = setInterval(tug, TUG_INTERVAL + index * 150);
-      return () => {
-        clearTimeout(timeout);
-        clearInterval(interval);
-      };
-    }, [isReady, isNearby, index]);
-
-    // Stop tug when ready
-    useEffect(() => {
-      if (isReady) {
-        tugX.value = withSpring(0, { damping: 12, stiffness: 100 });
-        tugY.value = withSpring(0, { damping: 12, stiffness: 100 });
-        tugRotate.value = withSpring(0, { damping: 12, stiffness: 100 });
-      }
-    }, [isReady]);
-
     const animatedStyle = useAnimatedStyle(() => {
       // Distance from this card's center to the viewport center
       const cardCenter = index * SNAP_WIDTH;
@@ -549,15 +506,42 @@ const QuestCard: React.FC<{
       const discardScale = interpolate(d, [0, 1], [1, 0.7]);
       const discardOpacity = interpolate(d, [0, 0.6, 1], [1, 0.5, 0]);
 
+      // Promotion scale bump
+      const promoScale = promotionProgress
+        ? interpolate(promotionProgress.value, [0, 0.35, 0.5, 0.65, 1], [1, 1.08, 1.1, 1.08, 1])
+        : 1;
+
       return {
         transform: [
-          { translateX: tugX.value },
-          { translateY: bobY.value + tugY.value + discardY },
-          { scale: scale * discardScale },
-          { rotate: `${tugRotate.value + discardRotate}deg` },
+          { translateY: bobY.value + discardY },
+          { scale: scale * discardScale * promoScale },
+          { rotate: `${discardRotate}deg` },
         ],
         opacity: opacity * discardOpacity,
       };
+    });
+
+    // Promotion white-out overlay style
+    const promotionOverlayStyle = useAnimatedStyle(() => {
+      if (!promotionProgress) return { opacity: 0 };
+      // Ramp up to full white by 0.45, hold briefly, then fade out
+      const whiteOpacity = interpolate(
+        promotionProgress.value,
+        [0, 0.35, 0.45, 0.55, 0.65, 1],
+        [0, 0.9, 1, 1, 0.9, 0],
+      );
+      return { opacity: whiteOpacity };
+    });
+
+    // Promotion border style — shrink border away during the wash
+    const promotionBorderStyle = useAnimatedStyle(() => {
+      if (!promotionProgress) return {};
+      const bw = interpolate(
+        promotionProgress.value,
+        [0, 0.15, 0.4, 0.6, 0.85, 1],
+        [2.5, 0, 0, 0, 0, 2.5],
+      );
+      return { borderWidth: bw };
     });
 
     const objectives = (option.objectives ?? []).sort(
@@ -581,22 +565,32 @@ const QuestCard: React.FC<{
       <Animated.View
         layout={LinearTransition.springify().damping(28).stiffness(180)}
         style={[
-          s.card,
-          { borderColor: tierMeta.text },
-          isReady ? undefined : s.cardGenerating,
+          { width: CARD_WIDTH, height: CARD_HEIGHT, overflow: "visible" },
           animatedStyle,
         ]}
       >
-        {/* Holographic foil overlay — only rendered for nearby cards */}
-        {isReady && isNearby && (
+        {/* Promotion light rays — rendered behind the card */}
+        {promotionProgress && (
+          <PromotionRays progress={promotionProgress} />
+        )}
+
+        <Animated.View
+          style={[
+            s.card,
+            { borderColor: tierMeta.text },
+            isReady ? undefined : s.cardGenerating,
+            promotionProgress ? promotionBorderStyle : undefined,
+          ]}
+        >
+        {/* Holographic foil overlay — only on promoted cards, nearby */}
+        {isReady && isNearby && isPromoted && (
           <HolographicFoil
             width={CARD_WIDTH}
             height={CARD_HEIGHT}
             variant={getCategoryFoilVariant(colorKey)}
             seed={hashString(option.id)}
             intensity={
-              TIER_FOIL_INTENSITY[option.tier ?? "QUICK"] ??
-              TIER_FOIL_INTENSITY.QUICK
+              FOIL_INTENSITY[option.tier ?? "QUICK"] ?? FOIL_INTENSITY.QUICK
             }
           />
         )}
@@ -706,9 +700,6 @@ const QuestCard: React.FC<{
                     >
                       <Text style={s.stopEmoji}>{obj.emoji ?? "\u{1F4CD}"}</Text>
                     </View>
-                    {i < arr.length - 1 && (
-                      <View style={[s.stopLine, { backgroundColor: tierMeta.border }]} />
-                    )}
                     <View style={s.stopText}>
                       <Text style={s.stopName}>
                         {(obj.venueName || obj.title || "Stop").split("|")[0].trim()}
@@ -767,14 +758,158 @@ const QuestCard: React.FC<{
           </View>
         </Pressable>
 
+        {/* Promotion white-out overlay */}
+        {promotionProgress && (
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: "#fff",
+                borderRadius: radius.xl,
+                zIndex: 10,
+              },
+              promotionOverlayStyle,
+            ]}
+            pointerEvents="none"
+          />
+        )}
+
         {/* Blur overlay for off-center cards — only rendered for nearby cards */}
         {isNearby && <BlurOverlay scrollX={scrollX} index={index} />}
+        </Animated.View>
       </Animated.View>
     );
   },
 );
 
 QuestCard.displayName = "QuestCard";
+
+// --- Promotion light rays (Skia shader) ---
+
+// Canvas extends beyond the card on all sides to show rays
+const RAY_OVERFLOW = CARD_HEIGHT * 0.6;
+const RAY_CANVAS_W = CARD_WIDTH + RAY_OVERFLOW * 2;
+const RAY_CANVAS_H = CARD_HEIGHT + RAY_OVERFLOW * 2;
+
+const PROMOTION_RAYS_SKSL = `
+uniform float progress;   // 0..1 animation timeline
+uniform float2 resolution;
+uniform float2 cardSize;  // card width, height
+
+float hash(vec2 p) {
+  float h = dot(p, vec2(127.1, 311.7));
+  return fract(sin(h) * 43758.5453);
+}
+
+float noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash(i);
+  float b = hash(i + vec2(1.0, 0.0));
+  float c = hash(i + vec2(0.0, 1.0));
+  float d = hash(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+half4 main(float2 xy) {
+  vec2 center = resolution * 0.5;
+  vec2 d = xy - center;
+  float dist = length(d / (cardSize * 0.5));  // normalized: 1.0 = card edge
+  float angle = atan(d.y, d.x);
+
+  // --- Ray pattern: 14 beams with staggered entrances ---
+  float rayCount = 14.0;
+  float rayAngle = angle + progress * 0.4;  // slow spin
+  float ray = 0.0;
+
+  // Which ray beam this pixel belongs to (0..rayCount-1)
+  float rayId = floor(mod(rayAngle * rayCount / 6.283 + 0.5, rayCount));
+  // Per-ray stagger: each ray has a unique entrance time based on a hash
+  float rayHash = fract(sin(rayId * 127.1 + 311.7) * 43758.5453);
+  // Rays appear between progress 0.03 and 0.35, each offset by its hash
+  float rayDelay = rayHash * 0.25;
+  float rayAppear = smoothstep(0.03 + rayDelay, 0.15 + rayDelay, progress);
+
+  // Primary rays
+  float r1 = cos(rayAngle * rayCount) * 0.5 + 0.5;
+  r1 = pow(r1, 4.0);  // sharpen beams
+
+  // Secondary thinner rays offset (also staggered)
+  float ray2Id = floor(mod((rayAngle + 0.15) * rayCount * 2.0 / 6.283 + 0.5, rayCount * 2.0));
+  float ray2Hash = fract(sin(ray2Id * 93.7 + 157.3) * 28461.7231);
+  float ray2Delay = ray2Hash * 0.3;
+  float ray2Appear = smoothstep(0.08 + ray2Delay, 0.25 + ray2Delay, progress);
+
+  float r2 = cos((rayAngle + 0.15) * rayCount * 2.0) * 0.5 + 0.5;
+  r2 = pow(r2, 8.0) * 0.5;
+
+  ray = r1 * rayAppear + r2 * ray2Appear;
+
+  // Noise break-up for organic feel
+  float n = noise(vec2(angle * 3.0, dist * 4.0 + progress * 2.0));
+  ray *= 0.7 + n * 0.3;
+
+  // --- Radial envelope: fade from card edge outward ---
+  // Rays grow outward over time
+  float reach = smoothstep(0.05, 0.5, progress);  // how far rays extend
+  float innerFade = smoothstep(0.6, 1.1, dist);
+  float outerFade = smoothstep(1.0 + reach * 2.0, 1.0, dist);
+  float radial = innerFade * outerFade;
+
+  // --- Global fade-out at end ---
+  float disappear = smoothstep(0.95, 0.7, progress);
+
+  // --- Central glow halo just outside card ---
+  float haloAppear = smoothstep(0.0, 0.2, progress);
+  float halo = smoothstep(1.4, 0.8, dist) * smoothstep(0.5, 0.9, dist);
+  halo *= haloAppear * disappear;
+
+  // Combine
+  float brightness = (ray * radial + halo * 0.6) * disappear;
+  brightness = min(brightness, 1.0);
+
+  // Warm white with slight golden tint
+  vec3 color = vec3(1.0, 0.97, 0.92);
+
+  return half4(color * brightness, brightness * 0.85);
+}
+`;
+
+const PROMOTION_RAYS_SOURCE = Skia.RuntimeEffect.Make(PROMOTION_RAYS_SKSL);
+
+const PromotionRays: React.FC<{
+  progress: SharedValue<number>;
+}> = React.memo(({ progress }) => {
+  const uniforms = useDerivedValue(() => ({
+    progress: progress.value,
+    resolution: vec(RAY_CANVAS_W, RAY_CANVAS_H),
+    cardSize: vec(CARD_WIDTH, CARD_HEIGHT),
+  }));
+
+  if (!PROMOTION_RAYS_SOURCE) return null;
+
+  return (
+    <View
+      style={{
+        position: "absolute",
+        top: -RAY_OVERFLOW,
+        left: -RAY_OVERFLOW,
+        width: RAY_CANVAS_W,
+        height: RAY_CANVAS_H,
+      }}
+      pointerEvents="none"
+    >
+      <Canvas style={StyleSheet.absoluteFill}>
+        <Fill>
+          <Shader source={PROMOTION_RAYS_SOURCE} uniforms={uniforms} />
+        </Fill>
+      </Canvas>
+    </View>
+  );
+});
+
+PromotionRays.displayName = "PromotionRays";
 
 const BlurOverlay: React.FC<{
   scrollX: SharedValue<number>;
@@ -810,6 +945,9 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
   discardingId,
   onDiscardComplete,
   hideHeader,
+  promotingId,
+  onPromotionMidpoint,
+  onPromotionComplete,
 }) => {
   const colors = useColors();
   const s = useMemo(() => createDeckStyles(colors), [colors]);
@@ -822,13 +960,48 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
   const activeIdx = useSharedValue(0);
   const sheenTrigger = useSharedValue(0);
 
-  // Reset scroll to first card when a new set of options arrives (select mode only)
+  // Promotion animation: 0 → 1 over ~3s
+  const promotionProgress = useSharedValue(0);
+  const midpointFired = useSharedValue(0);
+  const promotionMidpointCb = useCallback(() => {
+    onPromotionMidpoint?.();
+  }, [onPromotionMidpoint]);
+  const promotionCompleteCb = useCallback(() => {
+    onPromotionComplete?.();
+  }, [onPromotionComplete]);
+
+  useEffect(() => {
+    if (promotingId) {
+      midpointFired.value = 0;
+      promotionProgress.value = 0;
+      promotionProgress.value = withTiming(
+        1,
+        { duration: 3000, easing: Easing.inOut(Easing.ease) },
+        () => {
+          scheduleOnRN(promotionCompleteCb);
+        },
+      );
+    } else {
+      promotionProgress.value = 0;
+    }
+  }, [promotingId]);
+
+  // Fire midpoint callback at ~0.45 progress
+  useAnimatedReaction(
+    () => promotionProgress.value,
+    (val) => {
+      if (val >= 0.45 && midpointFired.value === 0) {
+        midpointFired.value = 1;
+        scheduleOnRN(promotionMidpointCb);
+      }
+    },
+  );
+
+  // Reset scroll to first card when a new set of options arrives
   const optionIds = options.map((o) => o.id).join(",");
   useEffect(() => {
-    if (!isBrowse) {
-      activeIdx.value = 0;
-      scrollX.value = withSpring(0, { damping: 20, stiffness: 150 });
-    }
+    activeIdx.value = 0;
+    scrollX.value = withSpring(0, { damping: 20, stiffness: 150 });
   }, [optionIds]);
 
   const handleSelect = useCallback(
@@ -966,13 +1139,16 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
                 mode={mode}
                 activeItineraryId={activeItineraryId}
                 colors={colors}
+                promotionProgress={
+                  promotingId === option.id ? promotionProgress : undefined
+                }
               />
             ))}
           </Animated.View>
         </Animated.View>
       </GestureDetector>
 
-      {DotIndicators}
+      {totalCards > 1 && DotIndicators}
     </Animated.View>
   );
 };
@@ -1198,14 +1374,6 @@ const createCardStyles = (colors: Colors) =>
     },
     stopEmoji: {
       fontSize: 14,
-    },
-    stopLine: {
-      position: "absolute",
-      top: 32,
-      left: 14,
-      width: 1.5,
-      height: 16,
-      opacity: 0.4,
     },
     stopText: {
       flex: 1,

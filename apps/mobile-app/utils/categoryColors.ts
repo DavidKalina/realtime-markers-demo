@@ -71,21 +71,37 @@ function hashString(str: string): number {
  *   - Chill / browsing (coffee, reading, thrifting) → chrome (smooth metallic)
  *   - High energy (nightlife, boarding) → speckled (glitter)
  */
+/**
+ * Category → foil variant mapping.
+ * All 8 variants are spread across categories by vibe:
+ *   - Warm social (food, drink) → mythic (swirling energy)
+ *   - Nature / movement (outdoors, hiking, sports) → aurora (drifting curtains)
+ *   - Culture / arts (museum, gallery) → prismatic (geometric rainbow)
+ *   - Chill / browsing (coffee, reading, thrifting) → chrome (metallic)
+ *   - High energy (nightlife, boarding) → speckled (glitter)
+ *   - Bars / brews → ember (warm glow)
+ *   - Parks / walking → holographic (organic iridescence)
+ *   - Music / venues → stardust (twinkling field)
+ */
 const CATEGORY_FOIL_MAP: Record<string, FoilVariant> = {
-  // Warm social → ember
-  restaurant: "ember",
-  food: "ember",
+  // Warm social → mythic
+  restaurant: "mythic",
+  food: "mythic",
+
+  // Bars / brews → ember
   bar: "ember",
   brews: "ember",
 
-  // Nature / movement → holographic
-  trail: "holographic",
-  hiking: "holographic",
+  // Nature trails → aurora
+  trail: "aurora",
+  hiking: "aurora",
+  outdoors: "aurora",
+  sports: "aurora",
+  disc_golf: "aurora",
+
+  // Parks / walking → holographic
   park: "holographic",
-  outdoors: "holographic",
   walking: "holographic",
-  sports: "holographic",
-  disc_golf: "holographic",
 
   // Culture / arts → prismatic
   museum: "prismatic",
@@ -101,11 +117,33 @@ const CATEGORY_FOIL_MAP: Record<string, FoilVariant> = {
   market: "chrome",
   thrifting: "chrome",
 
+  // Music / venues → stardust
+  music: "stardust",
+  venue: "stardust",
+
   // High energy → speckled
   nightlife: "speckled",
-  music: "speckled",
   boarding: "speckled",
-  venue: "speckled",
+
+  // Water / coastal → cosmic_ocean
+  beach: "cosmic_ocean",
+  swimming: "cosmic_ocean",
+  fishing: "cosmic_ocean",
+
+  // Desert / markets / vintage → grainy_sahara
+  thrift: "grainy_sahara",
+  antique: "grainy_sahara",
+  flea_market: "grainy_sahara",
+
+  // Camping / nature at night → ember_forest
+  camping: "ember_forest",
+  bonfire: "ember_forest",
+  stargazing: "ember_forest",
+
+  // Underground / niche → noisy_cavern
+  arcade: "noisy_cavern",
+  escape_room: "noisy_cavern",
+  brewery: "noisy_cavern",
 };
 
 const FOIL_VARIANTS: FoilVariant[] = [
@@ -114,6 +152,13 @@ const FOIL_VARIANTS: FoilVariant[] = [
   "chrome",
   "prismatic",
   "ember",
+  "aurora",
+  "stardust",
+  "mythic",
+  "cosmic_ocean",
+  "grainy_sahara",
+  "ember_forest",
+  "noisy_cavern",
 ];
 
 /** Return a foil variant for a category name, or hash-based fallback. */

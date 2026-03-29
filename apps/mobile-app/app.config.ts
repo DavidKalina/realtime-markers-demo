@@ -7,7 +7,7 @@ export default {
     slug: "mobile-app",
     version: "2.0.8",
     orientation: "portrait",
-    icon: "./assets/app-icon.png",
+    icon: "./assets/app-icon-deck.svg",
     scheme: "myapp",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
@@ -49,7 +49,7 @@ export default {
     android: {
       label: "Sidequests",
       adaptiveIcon: {
-        foregroundImage: "./assets/images/app-icon.png",
+        foregroundImage: "./assets/app-icon-deck.svg",
         backgroundColor: "#ffffff",
       },
     },
@@ -69,7 +69,7 @@ export default {
       [
         "expo-notifications",
         {
-          icon: "./assets/images/app-icon.png",
+          icon: "./assets/app-icon-deck.svg",
           color: "#ffffff",
           defaultChannel: "default",
           enableBackgroundRemoteNotifications: true,
@@ -94,7 +94,7 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/images/app-icon.png",
+          image: "./assets/app-icon.svg",
           imageWidth: 200,
           resizeMode: "contain",
           backgroundColor: "#ffffff",

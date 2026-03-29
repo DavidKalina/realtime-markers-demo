@@ -38,6 +38,7 @@ export interface SidequestResponse {
   rating?: number;
   ratingComment?: string;
   completedAt?: string;
+  promotedAt?: string;
   createdAt: string;
   isPublished?: boolean;
   timesAdopted?: number;
@@ -227,6 +228,20 @@ export class SidequestsModule extends BaseApiModule {
     return this.handleResponse<{ success: boolean; rating: number }>(response);
   }
 
+  async search(
+    query: string,
+    limit = 20,
+  ): Promise<{ data: SidequestResponse[] }> {
+    const params = new URLSearchParams({
+      q: query,
+      limit: String(limit),
+    });
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/search?${params}`,
+    );
+    return this.handleResponse<{ data: SidequestResponse[] }>(response);
+  }
+
   async listCompleted(limit = 20): Promise<{ data: SidequestResponse[] }> {
     const params = new URLSearchParams({ limit: String(limit) });
     const response = await this.fetchWithAuth(
@@ -256,6 +271,14 @@ export class SidequestsModule extends BaseApiModule {
       `${this.client.baseUrl}/api/sidequests/browse?${params}`,
     );
     return this.handleResponse<{ data: BrowseSidequestResponse[] }>(response);
+  }
+
+  async promote(id: string): Promise<SidequestResponse> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/${id}/promote`,
+      { method: "POST" },
+    );
+    return this.handleResponse<SidequestResponse>(response);
   }
 
   async adopt(id: string): Promise<SidequestResponse> {

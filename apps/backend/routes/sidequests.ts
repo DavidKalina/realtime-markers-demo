@@ -17,6 +17,8 @@ import {
   getSidequestOptionsHandler,
   selectSidequestOptionHandler,
   getDeckStatsHandler,
+  promoteSidequestHandler,
+  searchSidequestsHandler,
 } from "../handlers/sidequestHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -50,6 +52,7 @@ sidequestRouter.get("/", readRateLimit, listSidequestsHandler);
 sidequestRouter.get("/completed", readRateLimit, listCompletedHandler);
 sidequestRouter.get("/active", readRateLimit, getActiveSidequestHandler);
 sidequestRouter.get("/browse", readRateLimit, browseSidequestsHandler);
+sidequestRouter.get("/search", readRateLimit, searchSidequestsHandler);
 sidequestRouter.get("/deck-stats", readRateLimit, getDeckStatsHandler);
 sidequestRouter.get("/:id", readRateLimit, getSidequestHandler);
 sidequestRouter.get("/:id/options", readRateLimit, getSidequestOptionsHandler);
@@ -59,6 +62,7 @@ sidequestRouter.post("/:id/share", writeRateLimit, shareSidequestHandler);
 sidequestRouter.post("/:id/activate", writeRateLimit, activateSidequestHandler);
 sidequestRouter.post("/:id/rate", writeRateLimit, rateSidequestHandler);
 sidequestRouter.post("/:id/select", writeRateLimit, selectSidequestOptionHandler);
+sidequestRouter.post("/:id/promote", writeRateLimit, promoteSidequestHandler);
 sidequestRouter.post(
   "/:id/objectives/:objectiveId/checkin",
   writeRateLimit,

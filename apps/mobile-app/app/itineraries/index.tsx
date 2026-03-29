@@ -12,12 +12,20 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { BlurView } from "expo-blur";
-import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
+import { Search, X } from "lucide-react-native";
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeInUp,
+  FadeOut,
+  FadeOutUp,
+} from "react-native-reanimated";
 import Screen from "@/components/Layout/Screen";
 import EmptyState from "@/components/Layout/EmptyState";
 import QuestDialogBox from "@/components/Quest/QuestDialogBox";
@@ -30,6 +38,7 @@ import type {
 import {
   useColors,
   fontFamily,
+  fontSize,
   fontWeight,
   spacing,
   radius,
@@ -448,6 +457,57 @@ const ItinerariesListScreen = () => {
     [clearReady, fetchItineraries],
   );
 
+  // --- Search state ---
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SidequestResponse[]>([]);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const searchInputRef = useRef<TextInput>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchOpen = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsSearching(true);
+    setSearchQuery("");
+    setSearchResults([]);
+    setTimeout(() => searchInputRef.current?.focus(), 100);
+  }, []);
+
+  const handleSearchClose = useCallback(() => {
+    setIsSearching(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    setIsSearchLoading(false);
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+  }, []);
+
+  const handleSearchQueryChange = useCallback((text: string) => {
+    setSearchQuery(text);
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    if (text.trim().length === 0) {
+      setSearchResults([]);
+      setIsSearchLoading(false);
+      return;
+    }
+    setIsSearchLoading(true);
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const result = await apiClient.sidequests.search(text.trim());
+        setSearchResults(result.data ?? []);
+      } catch (err) {
+        console.error("[Itineraries] Search failed:", err);
+      } finally {
+        setIsSearchLoading(false);
+      }
+    }, 400);
+  }, []);
+
+  const displayedCards = isSearching ? searchResults : itineraries;
   const totalCards = itineraries.length;
 
   const handlePress = useCallback(
@@ -825,19 +885,63 @@ const ItinerariesListScreen = () => {
       bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} />}
     >
       <View style={styles.headerRow}>
-        <Text style={styles.headerLabel}>YOUR QUESTS</Text>
-        <Text style={styles.headerHint}>
-          Swipe to browse {"\u00B7"} Tap to open {"\u00B7"} Hold to delete
-        </Text>
+        <View style={styles.headerTitleRow}>
+          <Text style={styles.headerLabel}>YOUR QUESTS</Text>
+          <Pressable onPress={isSearching ? handleSearchClose : handleSearchOpen} hitSlop={8}>
+            {isSearching ? (
+              <X size={16} color={colors.text.secondary} />
+            ) : (
+              <Search size={16} color={colors.text.secondary} />
+            )}
+          </Pressable>
+        </View>
+        {isSearching ? (
+          <Animated.View
+            entering={FadeInUp.duration(200)}
+            exiting={FadeOutUp.duration(150)}
+            style={styles.searchRow}
+          >
+            <TextInput
+              ref={searchInputRef}
+              value={searchQuery}
+              onChangeText={handleSearchQueryChange}
+              placeholder="Search your quests..."
+              placeholderTextColor={colors.text.secondary}
+              style={[
+                styles.searchInput,
+                {
+                  color: colors.text.primary,
+                  borderColor: colors.border.default,
+                },
+              ]}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+            {isSearchLoading && (
+              <ActivityIndicator
+                size="small"
+                color={colors.accent.primary}
+              />
+            )}
+          </Animated.View>
+        ) : (
+          <Text style={styles.headerHint}>
+            Swipe to browse {"\u00B7"} Tap to open {"\u00B7"} Hold to delete
+          </Text>
+        )}
+        {isSearching && searchQuery.length > 0 && !isSearchLoading && searchResults.length === 0 && (
+          <Text style={styles.searchEmpty}>No results</Text>
+        )}
       </View>
       <View style={styles.deckScreen}>
         <QuestCardDeck
-          options={itineraries}
+          options={displayedCards}
           mode="browse"
           hideHeader
           activeItineraryId={activeItineraryId}
           onPress={handlePress}
-          onDelete={handleDelete}
+          onDelete={isSearching ? undefined : handleDelete}
           discardingId={discardingId}
           onDiscardComplete={handleDiscardComplete}
         />
@@ -905,6 +1009,11 @@ const createScreenStyles = (colors: Colors) =>
       paddingHorizontal: spacing.lg,
       gap: spacing.xs,
     },
+    headerTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
     headerLabel: {
       fontSize: 12,
       fontFamily: fontFamily.mono,
@@ -921,5 +1030,25 @@ const createScreenStyles = (colors: Colors) =>
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
+    },
+    searchRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+    },
+    searchInput: {
+      flex: 1,
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.sm,
+      borderWidth: 1,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    searchEmpty: {
+      fontFamily: fontFamily.mono,
+      fontSize: fontSize.xs,
+      color: colors.text.secondary,
+      marginTop: spacing.xs,
     },
   });
