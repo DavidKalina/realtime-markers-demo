@@ -43,6 +43,7 @@ import { scheduleOnRN } from "react-native-worklets";
 
 import { useUserLocation } from "@/contexts/LocationContext";
 import { apiClient } from "@/services/ApiClient";
+import { getCategoryColor } from "@/utils/categoryColors";
 import {
   type BaseEvent,
   eventBroker,
@@ -446,11 +447,24 @@ GeneratingEmojiReel.displayName = "GeneratingEmojiReel";
 
 const STAT_COLORS = ["#93c5fd", "#86efac", "#fcd34d", "#c4b5fd", "#f9a8d4"];
 
+/** Parse hex color to r,g,b tuple. */
+function hexToRgb(hex: string): [number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return [r, g, b];
+}
+
+/** Get the accent hex for a sidequest based on its categories/activityTypes. */
+function getSidequestAccent(sq: SidequestResponse | null): string {
+  const key = sq?.categories?.[0] ?? sq?.activityTypes?.[0] ?? "other";
+  return getCategoryColor(key);
+}
+
 const ItineraryDetailScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const colors = useColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [itinerary, setItinerary] = useState<SidequestResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -484,6 +498,10 @@ const ItineraryDetailScreen = () => {
     isThisActive && activeItinerary
       ? activeItinerary
       : itinerary;
+
+  // Derive accent color from sidequest category to match card colors
+  const accentHex = useMemo(() => getSidequestAccent(itinerary), [itinerary]);
+  const styles = useMemo(() => createStyles(colors, accentHex), [colors, accentHex]);
 
   // Generating state
   const [genMsgIdx, setGenMsgIdx] = useState(0);
@@ -934,14 +952,14 @@ const ItineraryDetailScreen = () => {
             <View
               style={[
                 styles.statChip,
-                { borderColor: "rgba(134, 239, 172, 0.25)" },
+                { borderColor: styles.vibePill.borderColor },
               ]}
             >
               <AnimatedNumber
                 value={objectives.length}
                 suffix=" stops"
                 delay={400}
-                color={STAT_COLORS[1]}
+                color={accentHex}
                 style={styles.statChipValue}
               />
             </View>
@@ -949,14 +967,14 @@ const ItineraryDetailScreen = () => {
               <View
                 style={[
                   styles.statChip,
-                  { borderColor: "rgba(196, 181, 253, 0.25)" },
+                  { borderColor: styles.vibePill.borderColor },
                 ]}
               >
                 <AnimatedNumber
                   value={totalCost}
                   prefix="~$"
                   delay={500}
-                  color={STAT_COLORS[3]}
+                  color={accentHex}
                   style={styles.statChipValue}
                 />
               </View>
@@ -1020,6 +1038,7 @@ const ItineraryDetailScreen = () => {
             isActive={isThisActive}
             onCheckin={isThisActive ? handleManualCheckin : undefined}
             onItemPress={handleItemPress}
+            accentColor={accentHex}
           />
         )}
 
@@ -1039,6 +1058,7 @@ const ItineraryDetailScreen = () => {
               distanceLabel={miniDistance}
               venueName={displayedNextObjective.venueName ?? displayedNextObjective.title}
               emoji={displayedNextObjective.emoji ?? "\u{1F4CD}"}
+              accentColor={accentHex}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 setShowCompass(true);
@@ -1093,10 +1113,11 @@ const ItineraryDetailScreen = () => {
               </View>
             </>
           ) : (
-            <>
+            <View style={styles.buttonRow}>
               <Pressable
                 style={({ pressed }) => [
                   styles.startButton,
+                  styles.rowButton,
                   pressed && styles.startButtonPressed,
                   isActivating && styles.startButtonDisabled,
                 ]}
@@ -1107,10 +1128,17 @@ const ItineraryDetailScreen = () => {
                   {isActivating ? "Activating..." : "Start"}
                 </Text>
               </Pressable>
-              <Pressable style={styles.deleteButton} onPress={handleDelete}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.deleteButton,
+                  styles.rowButton,
+                  pressed && styles.deleteButtonPressed,
+                ]}
+                onPress={handleDelete}
+              >
                 <Text style={styles.deleteButtonText}>Delete</Text>
               </Pressable>
-            </>
+            </View>
           )}
         </Animated.View>
       </PullToActionScrollView>
@@ -1122,6 +1150,7 @@ const ItineraryDetailScreen = () => {
           onDismiss={() => setShowCompass(false)}
           objectives={objectives}
           userLocation={userLocation}
+          accentColor={accentHex}
         />
       )}
 
@@ -1148,7 +1177,7 @@ const ItineraryDetailScreen = () => {
               style={styles.itemDetailCard}
             >
               <Pressable>
-                {/* Green accent bar */}
+                {/* Accent bar */}
                 <View style={styles.itemDetailAccent} />
 
                 <ScrollView
@@ -1232,8 +1261,9 @@ const ItineraryDetailScreen = () => {
 
 export default ItineraryDetailScreen;
 
-const createStyles = (colors: Colors) =>
-  StyleSheet.create({
+const createStyles = (colors: Colors, accentHex = "#86efac") => {
+  const [ar, ag, ab] = hexToRgb(accentHex);
+  return StyleSheet.create({
     scrollPadding: {
       paddingHorizontal: spacing.lg,
       paddingBottom: spacing.xl * 3,
@@ -1325,7 +1355,7 @@ const createStyles = (colors: Colors) =>
       gap: 2,
     },
     heroLabelPill: {
-      backgroundColor: "rgba(134, 239, 172, 0.1)",
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.1)`,
       paddingHorizontal: 8,
       paddingVertical: 2,
       borderRadius: radius.full,
@@ -1333,7 +1363,7 @@ const createStyles = (colors: Colors) =>
     heroLabelText: {
       fontSize: 9,
       fontWeight: fontWeight.bold,
-      color: "#86efac",
+      color: accentHex,
       fontFamily: fontFamily.mono,
       letterSpacing: 1.5,
     },
@@ -1382,9 +1412,9 @@ const createStyles = (colors: Colors) =>
       flex: 1,
     },
     vibePill: {
-      backgroundColor: "rgba(249, 168, 212, 0.08)",
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.08)`,
       borderWidth: 1,
-      borderColor: "rgba(249, 168, 212, 0.2)",
+      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.2)`,
       borderRadius: radius.full,
       paddingHorizontal: 10,
       paddingVertical: 3,
@@ -1393,7 +1423,7 @@ const createStyles = (colors: Colors) =>
       fontSize: 10,
       fontWeight: fontWeight.semibold,
       fontFamily: fontFamily.mono,
-      color: "#f9a8d4",
+      color: accentHex,
       textTransform: "lowercase",
       letterSpacing: 0.5,
     },
@@ -1437,7 +1467,7 @@ const createStyles = (colors: Colors) =>
       fontSize: 11,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.bold,
-      color: "#22c55e",
+      color: accentHex,
     },
     progressBarBg: {
       height: 4,
@@ -1447,7 +1477,7 @@ const createStyles = (colors: Colors) =>
     },
     progressBarFill: {
       height: 4,
-      backgroundColor: "#22c55e",
+      backgroundColor: accentHex,
       borderRadius: 2,
     },
 
@@ -1464,15 +1494,15 @@ const createStyles = (colors: Colors) =>
       flex: 1,
     },
     startButton: {
-      backgroundColor: "rgba(134, 239, 172, 0.12)",
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.12)`,
       borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.3)",
+      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.3)`,
       paddingVertical: 14,
       alignItems: "center",
       borderRadius: radius.md,
     },
     startButtonPressed: {
-      backgroundColor: "rgba(134, 239, 172, 0.2)",
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.2)`,
     },
     startButtonDisabled: {
       opacity: 0.5,
@@ -1480,26 +1510,26 @@ const createStyles = (colors: Colors) =>
     startButtonText: {
       fontFamily: fontFamily.mono,
       fontSize: 13,
-      color: "#86efac",
+      color: accentHex,
       fontWeight: fontWeight.bold,
       textTransform: "uppercase",
       letterSpacing: 1.5,
     },
     navigateButton: {
-      backgroundColor: "rgba(134, 239, 172, 0.12)",
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.12)`,
       borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.3)",
+      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.3)`,
       paddingVertical: 14,
       alignItems: "center",
       borderRadius: radius.md,
     },
     navigateButtonPressed: {
-      backgroundColor: "rgba(134, 239, 172, 0.2)",
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.2)`,
     },
     navigateButtonText: {
       fontFamily: fontFamily.mono,
       fontSize: 13,
-      color: "#86efac",
+      color: accentHex,
       fontWeight: fontWeight.bold,
       textTransform: "uppercase",
       letterSpacing: 1.5,
@@ -1542,16 +1572,22 @@ const createStyles = (colors: Colors) =>
       letterSpacing: 1.5,
     },
     deleteButton: {
-      paddingVertical: spacing.sm,
+      borderWidth: 1,
+      borderColor: "rgba(252, 165, 165, 0.3)",
+      paddingVertical: 14,
       alignItems: "center",
+      borderRadius: radius.md,
+    },
+    deleteButtonPressed: {
+      backgroundColor: "rgba(252, 165, 165, 0.08)",
     },
     deleteButtonText: {
       fontFamily: fontFamily.mono,
-      fontSize: 11,
+      fontSize: 13,
       color: "#fca5a5",
-      fontWeight: fontWeight.semibold,
+      fontWeight: fontWeight.bold,
       textTransform: "uppercase",
-      letterSpacing: 1,
+      letterSpacing: 1.5,
     },
 
     // ── Modal shared styles ──
@@ -1574,7 +1610,7 @@ const createStyles = (colors: Colors) =>
       maxWidth: 380,
       maxHeight: "80%",
       borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.2)",
+      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.2)`,
       shadowColor: colors.fixed.black,
       shadowOffset: { width: 0, height: 10 },
       shadowOpacity: 0.25,
@@ -1586,7 +1622,7 @@ const createStyles = (colors: Colors) =>
       borderRadius: 2,
       width: 32,
       marginBottom: spacing.md,
-      backgroundColor: "#86efac",
+      backgroundColor: accentHex,
     },
     itemDetailHeader: {
       flexDirection: "row",
@@ -1598,9 +1634,9 @@ const createStyles = (colors: Colors) =>
       width: 44,
       height: 44,
       borderRadius: 22,
-      backgroundColor: "rgba(134, 239, 172, 0.1)",
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.1)`,
       borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.2)",
+      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.2)`,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -1618,7 +1654,7 @@ const createStyles = (colors: Colors) =>
       fontSize: 11,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.semibold,
-      color: "#86efac",
+      color: accentHex,
       marginTop: 2,
     },
     itemDetailDesc: {
@@ -1637,7 +1673,7 @@ const createStyles = (colors: Colors) =>
       fontSize: 9,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
-      color: "#86efac",
+      color: accentHex,
       letterSpacing: 1.5,
       marginBottom: 2,
     },
@@ -1651,9 +1687,9 @@ const createStyles = (colors: Colors) =>
     itemDetailProTip: {
       marginBottom: spacing.md,
       gap: 4,
-      backgroundColor: "rgba(134, 239, 172, 0.06)",
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.06)`,
       borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.15)",
+      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.15)`,
       borderRadius: radius.md,
       padding: spacing.md,
     },
@@ -1661,7 +1697,7 @@ const createStyles = (colors: Colors) =>
       fontSize: 9,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
-      color: "#86efac",
+      color: accentHex,
       letterSpacing: 1.5,
     },
     itemDetailProTipText: {
@@ -1692,8 +1728,8 @@ const createStyles = (colors: Colors) =>
     },
     itemDetailChipGreen: {
       borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.3)",
-      backgroundColor: "rgba(134, 239, 172, 0.08)",
+      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.3)`,
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.08)`,
       borderRadius: radius.full,
       paddingHorizontal: 10,
       paddingVertical: 4,
@@ -1702,7 +1738,7 @@ const createStyles = (colors: Colors) =>
       fontSize: 10,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.bold,
-      color: "#86efac",
+      color: accentHex,
     },
     itemDetailChip: {
       borderWidth: 1,
@@ -1718,3 +1754,4 @@ const createStyles = (colors: Colors) =>
       color: colors.text.secondary,
     },
   });
+};

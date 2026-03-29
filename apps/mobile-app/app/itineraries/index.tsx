@@ -880,32 +880,7 @@ const ItinerariesListScreen = () => {
           style={{ justifyContent: "flex-start", paddingTop: spacing["3xl"] }}
         />
         {/* DEV: Simulate generation flow */}
-        {__DEV__ && (
-          <Pressable
-            onPress={startSimulation}
-            style={{
-              position: "absolute",
-              bottom: 80,
-              alignSelf: "center",
-              paddingHorizontal: spacing.lg,
-              paddingVertical: spacing.sm,
-              backgroundColor: "rgba(134, 239, 172, 0.15)",
-              borderRadius: radius.sm,
-              borderWidth: 1,
-              borderColor: "rgba(134, 239, 172, 0.3)",
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: fontFamily.mono,
-                fontSize: 11,
-                color: "#86efac",
-              }}
-            >
-              DEV: Simulate Generation
-            </Text>
-          </Pressable>
-        )}
+       
         {/* Options overlay (works from any screen state since it's a Modal) */}
         {simulating ? (
           <OptionsOverlay
@@ -1009,30 +984,7 @@ const ItinerariesListScreen = () => {
         />
 
         {/* DEV: Simulate generation flow */}
-        {__DEV__ && (
-          <Pressable
-            onPress={startSimulation}
-            style={{
-              marginTop: spacing.md,
-              paddingHorizontal: spacing.lg,
-              paddingVertical: spacing.sm,
-              backgroundColor: "rgba(134, 239, 172, 0.15)",
-              borderRadius: radius.sm,
-              borderWidth: 1,
-              borderColor: "rgba(134, 239, 172, 0.3)",
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: fontFamily.mono,
-                fontSize: 11,
-                color: "#86efac",
-              }}
-            >
-              DEV: Simulate Generation
-            </Text>
-          </Pressable>
-        )}
+       
       </View>
 
       {/* Batch-delete action bar */}
@@ -1135,7 +1087,7 @@ const createScreenStyles = (colors: Colors) =>
     },
     deleteBar: {
       position: "absolute" as const,
-      bottom: 100,
+      bottom: 20,
       left: spacing.lg,
       right: spacing.lg,
       flexDirection: "row" as const,

@@ -23,7 +23,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import Svg, { Path, Polygon } from "react-native-svg";
+import Svg, { Polygon } from "react-native-svg";
 import { X } from "lucide-react-native";
 
 import type { ObjectiveResponse } from "@/services/api/modules/sidequests";
@@ -145,70 +145,6 @@ const TickMarks: React.FC<{ color: string }> = React.memo(({ color }) => (
 
 TickMarks.displayName = "TickMarks";
 
-/* ── Pulse Wave ─────────────────────────────────────────────── */
-
-const WAVE_WIDTH = 200;
-const WAVE_HEIGHT = 16;
-const WAVE_STEPS = 60;
-
-// intensity 0-1: 0 = far (flat, slow), 1 = very close (tall, fast)
-function buildSinePath(phase: number, intensity: number): string {
-  const amp = 1 + intensity * 5; // 1px flat → 6px strong
-  const freq = 2 + intensity * 3; // 2 cycles → 5 cycles
-  const points: string[] = [];
-  for (let i = 0; i <= WAVE_STEPS; i++) {
-    const t = i / WAVE_STEPS;
-    const x = t * WAVE_WIDTH;
-    const y =
-      WAVE_HEIGHT / 2 +
-      amp * Math.sin(t * freq * 2 * Math.PI + phase);
-    points.push(`${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`);
-  }
-  return points.join(" ");
-}
-
-const PulseWave: React.FC<{ distanceM: number | null }> = React.memo(
-  ({ distanceM }) => {
-    const [phase, setPhase] = useState(0);
-
-    // intensity: 1.0 at 0m, 0.0 at 5km+
-    const intensity = useMemo(() => {
-      if (distanceM === null) return 0.1;
-      return Math.max(0.05, Math.min(1, 1 - distanceM / 5000));
-    }, [distanceM]);
-
-    // speed: 20ms (fast) at intensity 1 → 80ms (slow) at intensity 0
-    const frameMs = Math.round(80 - intensity * 60);
-
-    useEffect(() => {
-      const id = setInterval(() => {
-        setPhase((p) => p + 0.12);
-      }, frameMs);
-      return () => clearInterval(id);
-    }, [frameMs]);
-
-    const d = useMemo(
-      () => buildSinePath(phase, intensity),
-      [phase, intensity],
-    );
-
-    return (
-      <Svg width={WAVE_WIDTH} height={WAVE_HEIGHT}>
-        <Path
-          d={d}
-          stroke="#86efac"
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          fill="none"
-          opacity={0.3 + intensity * 0.5}
-        />
-      </Svg>
-    );
-  },
-);
-
-PulseWave.displayName = "PulseWave";
-
 /* ── Props ──────────────────────────────────────────────────── */
 
 interface QuestCompassProps {
@@ -216,6 +152,7 @@ interface QuestCompassProps {
   onDismiss: () => void;
   objectives: ObjectiveResponse[];
   userLocation: [number, number] | null; // [lng, lat]
+  accentColor?: string;
 }
 
 /* ── Component ──────────────────────────────────────────────── */
@@ -225,9 +162,10 @@ const QuestCompass: React.FC<QuestCompassProps> = ({
   onDismiss,
   objectives,
   userLocation,
+  accentColor = "#86efac",
 }) => {
   const colors = useColors();
-  const s = useMemo(() => createStyles(colors), [colors]);
+  const s = useMemo(() => createStyles(colors, accentColor), [colors, accentColor]);
 
   /* ── Current objective (first unchecked with coords) ────── */
 
@@ -483,7 +421,6 @@ const QuestCompass: React.FC<QuestCompassProps> = ({
                     {checkedInCount}/{sortedObjectives.length}
                   </Text>
                 </View>
-                <PulseWave distanceM={distanceM} />
               </View>
             )}
 
@@ -523,8 +460,8 @@ const QuestCompass: React.FC<QuestCompassProps> = ({
                     style={[
                       s.ring,
                       isNearby && {
-                        borderColor: "#86efac",
-                        shadowColor: "#86efac",
+                        borderColor: accentColor,
+                        shadowColor: accentColor,
                         shadowOpacity: 0.4,
                         shadowRadius: 16,
                       },
@@ -542,7 +479,7 @@ const QuestCompass: React.FC<QuestCompassProps> = ({
                     {/* Needle (always points at objective) */}
                     <Animated.View style={[s.needleContainer, needleStyle]}>
                       <NeedleArrow
-                        color={isNearby ? "#86efac" : colors.accent.primary}
+                        color={isNearby ? accentColor : colors.accent.primary}
                       />
                     </Animated.View>
 
@@ -606,12 +543,13 @@ interface MiniCompassPreviewProps {
   venueName: string;
   emoji: string;
   onPress: () => void;
+  accentColor?: string;
 }
 
 export const MiniCompassPreview: React.FC<MiniCompassPreviewProps> = React.memo(
-  ({ userLocation, objectiveLat, objectiveLng, distanceLabel, venueName, emoji, onPress }) => {
+  ({ userLocation, objectiveLat, objectiveLng, distanceLabel, venueName, emoji, onPress, accentColor = "#86efac" }) => {
     const colors = useColors();
-    const ms = useMemo(() => createMiniStyles(colors), [colors]);
+    const ms = useMemo(() => createMiniStyles(colors, accentColor), [colors, accentColor]);
     const { heading } = useCompassHeading(true);
     const bearingTo = useSharedValue(0);
 
@@ -669,7 +607,7 @@ export const MiniCompassPreview: React.FC<MiniCompassPreviewProps> = React.memo(
 
             {/* Needle */}
             <Animated.View style={[ms.needleWrap, needleRotation]}>
-              <MiniNeedle color="#86efac" />
+              <MiniNeedle color={accentColor} />
             </Animated.View>
           </View>
         </View>
@@ -690,15 +628,18 @@ export const MiniCompassPreview: React.FC<MiniCompassPreviewProps> = React.memo(
 
 MiniCompassPreview.displayName = "MiniCompassPreview";
 
-const createMiniStyles = (colors: Colors) =>
-  StyleSheet.create({
+const createMiniStyles = (colors: Colors, accentHex = "#86efac") => {
+  const r = parseInt(accentHex.slice(1, 3), 16);
+  const g = parseInt(accentHex.slice(3, 5), 16);
+  const b = parseInt(accentHex.slice(5, 7), 16);
+  return StyleSheet.create({
     container: {
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.md,
-      backgroundColor: "rgba(134, 239, 172, 0.04)",
+      backgroundColor: `rgba(${r}, ${g}, ${b}, 0.04)`,
       borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.12)",
+      borderColor: `rgba(${r}, ${g}, ${b}, 0.12)`,
       borderRadius: 16,
       padding: spacing.md,
     },
@@ -727,7 +668,7 @@ const createMiniStyles = (colors: Colors) =>
       fontSize: 7,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
-      color: "#86efac",
+      color: accentHex,
     },
     needleWrap: {
       position: "absolute",
@@ -759,7 +700,7 @@ const createMiniStyles = (colors: Colors) =>
       fontSize: fontSize.xs,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.bold,
-      color: "#86efac",
+      color: accentHex,
     },
     cta: {
       fontSize: 10,
@@ -767,10 +708,11 @@ const createMiniStyles = (colors: Colors) =>
       color: colors.text.secondary,
     },
   });
+};
 
 /* ── Styles ─────────────────────────────────────────────────── */
 
-const createStyles = (colors: Colors) =>
+const createStyles = (colors: Colors, accentHex = "#86efac") =>
   StyleSheet.create({
     root: {
       flex: 1,
@@ -828,7 +770,7 @@ const createStyles = (colors: Colors) =>
       fontSize: fontSize.xs,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
-      color: "#86efac",
+      color: accentHex,
     },
 
     /* Fallback */
@@ -858,7 +800,7 @@ const createStyles = (colors: Colors) =>
       fontSize: 24,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
-      color: "#86efac",
+      color: accentHex,
     },
     completionSub: {
       fontSize: fontSize.sm,
@@ -904,7 +846,7 @@ const createStyles = (colors: Colors) =>
     cardinalN: {
       top: 24,
       alignSelf: "center",
-      color: "#86efac",
+      color: accentHex,
     },
     cardinalE: {
       right: 24,
@@ -941,7 +883,7 @@ const createStyles = (colors: Colors) =>
       color: colors.text.primary,
     },
     distanceTextNearby: {
-      color: "#86efac",
+      color: accentHex,
     },
     distanceTextAlmost: {
       color: "#fbbf24",

@@ -24,13 +24,17 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
-import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { scheduleOnRN } from "react-native-worklets";
 
 import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
-import HolographicFoil, { hashString } from "@/components/effects/HolographicFoil";
+import HolographicFoil, {
+  hashString,
+} from "@/components/effects/HolographicFoil";
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
-import { getCategoryColor, getCategoryFoilVariant } from "@/utils/categoryColors";
+import {
+  getCategoryColor,
+  getCategoryFoilVariant,
+} from "@/utils/categoryColors";
 import {
   fontFamily,
   fontSize,
@@ -123,13 +127,16 @@ function hexToCardColors(hex: string): {
 /** Pick a color source from the sidequest's categories or activity types. */
 function getCardColorKey(option: SidequestResponse): string {
   return (
-    option.categories?.[0] ?? option.activityTypes?.[0] ?? option.tier ?? "QUICK"
+    option.categories?.[0] ??
+    option.activityTypes?.[0] ??
+    option.tier ??
+    "QUICK"
   );
 }
 
 // Per-tier holographic foil intensity for completed cards
 const FOIL_INTENSITY: Record<string, number> = {
-  QUICK: 0.10,
+  QUICK: 0.1,
   SWEET_SPOT: 0.16,
   BEST: 0.22,
 };
@@ -175,86 +182,114 @@ interface QuestCardDeckProps {
   batchDiscardingIds?: Set<string> | null;
 }
 
-// --- Diagonal card sheen sweep ---
+// --- Diagonal card sheen sweep (Skia shader) ---
 
-const SHEEN_BAND = 100;
-// Total travel: card diagonal + band width
-const SHEEN_TRAVEL = Math.sqrt(CARD_WIDTH ** 2 + CARD_HEIGHT ** 2) + SHEEN_BAND;
-const SHEEN_ANGLE = Math.atan2(CARD_HEIGHT, CARD_WIDTH); // ~59° for 5:7 ratio
+const SHEEN_SKSL = `
+uniform float2 resolution;
+uniform float progress;
+
+half4 main(float2 xy) {
+  vec2 uv = xy / resolution;
+
+  // Project onto diagonal (bottom-left → top-right)
+  float diag = uv.x + uv.y;
+
+  // Sheen band center travels from -0.3 to 2.3 along the diagonal
+  float center = mix(-0.3, 2.3, progress);
+  float bandWidth = 0.22;
+
+  // Smooth Gaussian-ish falloff
+  float dist = abs(diag - center) / bandWidth;
+  float band = exp(-dist * dist * 2.0);
+
+  // Fade in/out at edges of travel
+  float edgeFade = smoothstep(0.0, 0.08, progress) * smoothstep(1.0, 0.92, progress);
+
+  float alpha = band * edgeFade * 0.55;
+  vec3 color = vec3(1.0, 1.0, 1.0);
+  return half4(color * alpha, alpha);
+}
+`;
+
+const sheenShader = Skia.RuntimeEffect.Make(SHEEN_SKSL)!;
+
+const SHEEN_MIN_IDLE_MS = 4000;
+const SHEEN_MAX_IDLE_MS = 9000;
 
 const CardSheen: React.FC<{
-  tierColor: string;
   sheenTrigger: SharedValue<number>;
   index: number;
-}> = React.memo(({ tierColor, sheenTrigger, index }) => {
+}> = React.memo(({ sheenTrigger, index }) => {
   const sheenPos = useSharedValue(0);
   const lastTrigger = useSharedValue(-1);
 
-  // Fire on mount (staggered) and on each trigger change
+  const fireSheen = useCallback(() => {
+    sheenPos.value = 0;
+    sheenPos.value = withTiming(1, {
+      duration: 600,
+      easing: Easing.inOut(Easing.ease),
+    });
+  }, []);
+
+  // Random idle loop
   useEffect(() => {
-    sheenPos.value = withDelay(
-      300 + index * 400,
-      withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
-    );
-  }, [index]);
-
-  const sheenStyle = useAnimatedStyle(() => {
-    // Detect new trigger (swipe happened)
-    if (sheenTrigger.value !== lastTrigger.value) {
-      lastTrigger.value = sheenTrigger.value;
-      if (sheenTrigger.value > 0) {
-        sheenPos.value = 0;
-        sheenPos.value = withDelay(
-          index * 150,
-          withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
-        );
-      }
-    }
-
-    // Translate along the diagonal
-    const progress = sheenPos.value;
-    const travel = interpolate(progress, [0, 1], [-SHEEN_BAND, SHEEN_TRAVEL]);
-    const tx = Math.cos(SHEEN_ANGLE) * travel;
-    const ty = Math.sin(SHEEN_ANGLE) * travel;
-    const opacity = interpolate(
-      progress,
-      [0, 0.05, 0.5, 0.95, 1],
-      [0, 0.8, 1, 0.8, 0],
-    );
-
-    return {
-      opacity,
-      transform: [
-        { translateX: tx - SHEEN_BAND / 2 },
-        { translateY: ty - CARD_HEIGHT },
-        { rotate: `${SHEEN_ANGLE}rad` },
-      ],
+    let timeout: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      const delay =
+        SHEEN_MIN_IDLE_MS +
+        Math.random() * (SHEEN_MAX_IDLE_MS - SHEEN_MIN_IDLE_MS);
+      timeout = setTimeout(() => {
+        fireSheen();
+        schedule();
+      }, delay);
     };
-  });
+    // Initial fire on mount (staggered), then start idle loop
+    const mountDelay = 300 + index * 400;
+    timeout = setTimeout(() => {
+      fireSheen();
+      schedule();
+    }, mountDelay);
+    return () => clearTimeout(timeout);
+  }, [index, fireSheen]);
 
-  // Unique gradient ID per card to avoid SVG conflicts
-  const gradId = `sheen${index}`;
+  // Swipe trigger — ~40% chance to fire
+  useAnimatedReaction(
+    () => sheenTrigger.value,
+    (current) => {
+      if (current !== lastTrigger.value) {
+        lastTrigger.value = current;
+        if (current > 0 && Math.random() < 0.4) {
+          sheenPos.value = 0;
+          sheenPos.value = withDelay(
+            index * 150,
+            withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+          );
+        }
+      }
+    },
+  );
+
+  const uniforms = useDerivedValue(() => ({
+    resolution: [CARD_WIDTH, CARD_HEIGHT] as [number, number],
+    progress: sheenPos.value,
+  }));
 
   return (
-    <Animated.View
-      style={[{ position: "absolute", top: 0, left: 0, zIndex: 5 }, sheenStyle]}
+    <Canvas
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: CARD_WIDTH,
+        height: CARD_HEIGHT,
+        zIndex: 5,
+      }}
       pointerEvents="none"
     >
-      <Svg width={SHEEN_BAND} height={SHEEN_TRAVEL}>
-        <Defs>
-          <LinearGradient id={gradId} x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0" stopColor={tierColor} stopOpacity="0" />
-            <Stop offset="0.5" stopColor={tierColor} stopOpacity="0.18" />
-            <Stop offset="1" stopColor={tierColor} stopOpacity="0" />
-          </LinearGradient>
-        </Defs>
-        <Rect
-          width={SHEEN_BAND}
-          height={SHEEN_TRAVEL}
-          fill={`url(#${gradId})`}
-        />
-      </Svg>
-    </Animated.View>
+      <Fill>
+        <Shader source={sheenShader} uniforms={uniforms} />
+      </Fill>
+    </Canvas>
   );
 });
 
@@ -275,7 +310,10 @@ const TierBadge: React.FC<{
       shimmerOpacity.value = withRepeat(
         withSequence(
           withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.4, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.4, {
+            duration: 1200,
+            easing: Easing.inOut(Easing.ease),
+          }),
         ),
         -1,
         false,
@@ -426,8 +464,6 @@ const QuestCard: React.FC<{
       opacity: interpolate(markProgress.value, [0, 1], [0, 0.35]),
     }));
 
-
-
     // Track when card transitions from generating to ready
     const wasGenerating = useRef(!isReady);
     const revealSheen = useSharedValue(0);
@@ -561,13 +597,19 @@ const QuestCard: React.FC<{
 
       // Promotion scale bump
       const promoScale = promotionProgress
-        ? interpolate(promotionProgress.value, [0, 0.35, 0.5, 0.65, 1], [1, 1.08, 1.1, 1.08, 1])
+        ? interpolate(
+            promotionProgress.value,
+            [0, 0.35, 0.5, 0.65, 1],
+            [1, 1.08, 1.1, 1.08, 1],
+          )
         : 1;
 
       return {
         transform: [
           { translateY: bobY.value + discardY + filterY + markY },
-          { scale: scale * discardScale * filterScale * markScale * promoScale },
+          {
+            scale: scale * discardScale * filterScale * markScale * promoScale,
+          },
           { rotate: `${discardRotate}deg` },
         ],
         opacity: opacity * discardOpacity * filterOpacity,
@@ -640,229 +682,256 @@ const QuestCard: React.FC<{
         ]}
       >
         {/* Promotion light rays — rendered behind the card */}
-        {promotionProgress && (
-          <PromotionRays progress={promotionProgress} />
-        )}
+        {promotionProgress && <PromotionRays progress={promotionProgress} />}
 
         <GestureDetector gesture={swipeUpGesture}>
-        <Animated.View
-          style={[
-            s.card,
-            { borderColor: tierMeta.text },
-            isReady ? undefined : s.cardGenerating,
-            promotionProgress ? promotionBorderStyle : undefined,
-          ]}
-        >
-        {/* Holographic foil overlay — only on promoted cards, nearby */}
-        {isReady && isNearby && isPromoted && (
-          <HolographicFoil
-            width={CARD_WIDTH}
-            height={CARD_HEIGHT}
-            variant={getCategoryFoilVariant(colorKey)}
-            seed={hashString(option.id)}
-            intensity={
-              FOIL_INTENSITY[option.tier ?? "QUICK"] ?? FOIL_INTENSITY.QUICK
-            }
-          />
-        )}
-
-        {/* Sheen sweep — only rendered for nearby cards */}
-        {isNearby && (
-          <CardSheen
-            tierColor={tierMeta.text}
-            sheenTrigger={isReady ? sheenTrigger : revealSheen}
-            index={index}
-          />
-        )}
-
-        <Pressable
-          style={s.cardInner}
-          onPress={
-            isBrowse
-              ? onPress
-                ? () => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onPress(option);
-                  }
-                : undefined
-              : isReady
-                ? () => onSelect?.(option)
-                : undefined
-          }
-          onLongPress={
-            isBrowse && onDelete && !onToggleMarkForDelete
-              ? () => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                  onDelete(option);
-                }
-              : undefined
-          }
-        >
-          {/* ═══ HEADER ═══ */}
-          <View style={s.headerBand}>
-            <Text style={[s.headerTier, { color: tierMeta.text }]}>
-              {"\u2605"} {tierMeta.label}
-            </Text>
-            <View style={{ flex: 1 }} />
-            {(() => {
-              const cats = (option.categories ?? []).slice(0, 2);
-              if (cats.length === 0) return null;
-              return (
-                <Text style={s.headerCats}>
-                  {cats.map((c) => c.toUpperCase()).join(" \u00B7 ")}
-                </Text>
-              );
-            })()}
-          </View>
-
-          {/* ═══ ART ZONE — top ~35% ═══ */}
           <Animated.View
-            style={[s.artZone, { borderColor: tierMeta.border }]}
+            style={[
+              s.card,
+              { borderColor: tierMeta.text },
+              isReady ? undefined : s.cardGenerating,
+              promotionProgress ? promotionBorderStyle : undefined,
+            ]}
           >
-            <View style={s.artOverlay} />
-            <Text style={s.artEmoji}>
-              {objectives[0]?.emoji ?? "\u{1F3AF}"}
-            </Text>
-          </Animated.View>
-
-          {/* ═══ TITLE PLATE ═══ */}
-          <Animated.View style={[s.titlePlate, heroAnimStyle]}>
-            <Text style={s.title} numberOfLines={2}>
-              {option.title ?? "Sidequest"}
-            </Text>
-            {option.summary && (
-              <Text style={s.subtitle} numberOfLines={1}>
-                {option.summary.toUpperCase().split(/[.,:!]/, 1)[0].slice(0, 28)}
-              </Text>
+            {/* Holographic foil overlay — only on promoted cards, nearby */}
+            {isReady && isNearby && isPromoted && (
+              <HolographicFoil
+                width={CARD_WIDTH}
+                height={CARD_HEIGHT}
+                variant={getCategoryFoilVariant(colorKey)}
+                seed={hashString(option.id)}
+                intensity={
+                  FOIL_INTENSITY[option.tier ?? "QUICK"] ?? FOIL_INTENSITY.QUICK
+                }
+              />
             )}
-          </Animated.View>
 
-          {/* ═══ GENERATING SKELETON ═══ */}
-          {!isReady && (
-            <Animated.View style={[s.skeletonBody, skeletonAnimStyle]}>
-              <View style={s.forgingRow}>
-                <Animated.Text style={[s.forgingLabel, { color: tierMeta.text }]}>
-                  FORGING{"\u2026"}
-                </Animated.Text>
-              </View>
-              <View style={[s.skeletonBar, s.skeletonBarWide, { backgroundColor: tierMeta.border }]} />
-              <View style={[s.skeletonBar, s.skeletonBarMedium, { backgroundColor: tierMeta.border }]} />
-            </Animated.View>
-          )}
+            {/* Sheen sweep — only rendered for nearby cards */}
+            {isNearby && (
+              <CardSheen
+                sheenTrigger={isReady ? sheenTrigger : revealSheen}
+                index={index}
+              />
+            )}
 
-          {/* ═══ STOPS ═══ */}
-          {isReady && (
-            <Animated.View style={[s.stopsSection, stopsAnimStyle]}>
-              {(isBrowse ? objectives.slice(0, 3) : objectives).map(
-                (obj, i, arr) => (
-                  <View key={obj.id ?? i} style={s.stopRow}>
-                    <View
-                      style={[
-                        s.stopCircle,
-                        {
-                          borderColor: tierMeta.border,
-                          backgroundColor:
-                            isBrowse && obj.checkedInAt ? tierMeta.bg : "transparent",
-                        },
-                      ]}
-                    >
-                      <Text style={s.stopEmoji}>{obj.emoji ?? "\u{1F4CD}"}</Text>
-                    </View>
-                    <View style={s.stopText}>
-                      <Text style={s.stopName}>
-                        {(obj.venueName || obj.title || "Stop").split("|")[0].trim()}
-                      </Text>
-                      {obj.hook && (
-                        <Text style={s.stopHook} numberOfLines={1}>
-                          {obj.hook}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                ),
-              )}
-              {isBrowse && objectives.length > 3 && (
-                <Text style={s.moreStops}>+{objectives.length - 3} more</Text>
-              )}
-            </Animated.View>
-          )}
-
-          {/* ═══ FLAVOR TEXT — shown when there's room ═══ */}
-          {isReady && option.summary && objectives.length <= 3 && (
-            <Animated.View
-              style={[s.flavorBlock, { borderColor: tierMeta.border }]}
+            <Pressable
+              style={s.cardInner}
+              onPress={
+                isBrowse
+                  ? onPress
+                    ? () => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        onPress(option);
+                      }
+                    : undefined
+                  : isReady
+                    ? () => onSelect?.(option)
+                    : undefined
+              }
+              onLongPress={
+                isBrowse && onDelete && !onToggleMarkForDelete
+                  ? () => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                      onDelete(option);
+                    }
+                  : undefined
+              }
             >
-              <Text style={s.flavorText}>
-                {"\u201C"}{option.summary.split(/[.!]/)[0].trim()}.{"\u201D"}
-              </Text>
-              <Text style={s.flavorAttrib}>{"\u2014"} Quest lore</Text>
-            </Animated.View>
-          )}
-
-          <View style={{ flex: 1 }} />
-
-          {/* ═══ TAG CHIPS ═══ */}
-          <View style={s.tagRow}>
-            {cardTags.map((tag) => (
-              <View key={tag} style={[s.tagChip, { borderColor: tierMeta.border }]}>
-                <Text style={[s.tagText, { color: tierMeta.text }]}>{tag}</Text>
+              {/* ═══ HEADER ═══ */}
+              <View style={s.headerBand}>
+                <Text style={[s.headerTier, { color: tierMeta.text }]}>
+                  {"\u2605"} {tierMeta.label}
+                </Text>
+                <View style={{ flex: 1 }} />
+                {(() => {
+                  const cats = (option.categories ?? []).slice(0, 2);
+                  if (cats.length === 0) return null;
+                  return (
+                    <Text style={s.headerCats}>
+                      {cats.map((c) => c.toUpperCase()).join(" \u00B7 ")}
+                    </Text>
+                  );
+                })()}
               </View>
-            ))}
-          </View>
 
-          {/* ═══ SERIAL FOOTER ═══ */}
-          <View style={s.serialRow}>
-            <Text style={s.serialNumber}>
-              SQ{"\u00B7"}{(option.id ?? "").slice(0, 8).toUpperCase()}
-            </Text>
-            <Text style={s.serialStat}>
-              {"\u00B7"} {stopCount} STOPS
-              {totalCost > 0 ? ` \u00B7 $${totalCost}` : ""}
-            </Text>
-            <View style={{ flex: 1 }} />
-            <Text style={s.serialStat}>
-              {option.city?.toUpperCase() ?? ""}
-            </Text>
-          </View>
-        </Pressable>
+              {/* ═══ ART ZONE — top ~35% ═══ */}
+              <Animated.View
+                style={[s.artZone, { borderColor: tierMeta.border }]}
+              >
+                <View style={s.artOverlay} />
+                <Text style={s.artEmoji}>
+                  {objectives[0]?.emoji ?? "\u{1F3AF}"}
+                </Text>
+              </Animated.View>
 
-        {/* Batch-delete mark overlay */}
-        {onToggleMarkForDelete && (
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                backgroundColor: "rgba(239, 68, 68, 0.6)",
-                borderRadius: radius.xl,
-                zIndex: 6,
-              },
-              markOverlayStyle,
-            ]}
-            pointerEvents="none"
-          />
-        )}
+              {/* ═══ TITLE PLATE ═══ */}
+              <Animated.View style={[s.titlePlate, heroAnimStyle]}>
+                <Text style={s.title} numberOfLines={2}>
+                  {option.title ?? "Sidequest"}
+                </Text>
+                {option.summary && (
+                  <Text style={s.subtitle} numberOfLines={1}>
+                    {option.summary
+                      .toUpperCase()
+                      .split(/[.,:!]/, 1)[0]
+                      .slice(0, 28)}
+                  </Text>
+                )}
+              </Animated.View>
 
+              {/* ═══ GENERATING SKELETON ═══ */}
+              {!isReady && (
+                <Animated.View style={[s.skeletonBody, skeletonAnimStyle]}>
+                  <View style={s.forgingRow}>
+                    <Animated.Text
+                      style={[s.forgingLabel, { color: tierMeta.text }]}
+                    >
+                      FORGING{"\u2026"}
+                    </Animated.Text>
+                  </View>
+                  <View
+                    style={[
+                      s.skeletonBar,
+                      s.skeletonBarWide,
+                      { backgroundColor: tierMeta.border },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      s.skeletonBar,
+                      s.skeletonBarMedium,
+                      { backgroundColor: tierMeta.border },
+                    ]}
+                  />
+                </Animated.View>
+              )}
 
+              {/* ═══ STOPS ═══ */}
+              {isReady && (
+                <Animated.View style={[s.stopsSection, stopsAnimStyle]}>
+                  {(isBrowse ? objectives.slice(0, 3) : objectives).map(
+                    (obj, i, arr) => (
+                      <View key={obj.id ?? i} style={s.stopRow}>
+                        <View
+                          style={[
+                            s.stopCircle,
+                            {
+                              borderColor: tierMeta.border,
+                              backgroundColor:
+                                isBrowse && obj.checkedInAt
+                                  ? tierMeta.bg
+                                  : "transparent",
+                            },
+                          ]}
+                        >
+                          <Text style={s.stopEmoji}>
+                            {obj.emoji ?? "\u{1F4CD}"}
+                          </Text>
+                        </View>
+                        <View style={s.stopText}>
+                          <Text style={s.stopName}>
+                            {(obj.venueName || obj.title || "Stop")
+                              .split("|")[0]
+                              .trim()}
+                          </Text>
+                          {obj.hook && (
+                            <Text style={s.stopHook} numberOfLines={1}>
+                              {obj.hook}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    ),
+                  )}
+                  {isBrowse && objectives.length > 3 && (
+                    <Text style={s.moreStops}>
+                      +{objectives.length - 3} more
+                    </Text>
+                  )}
+                </Animated.View>
+              )}
 
-        {/* Promotion white-out overlay */}
-        {promotionProgress && (
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFill,
-              {
-                backgroundColor: "#fff",
-                borderRadius: radius.xl,
-                zIndex: 10,
-              },
-              promotionOverlayStyle,
-            ]}
-            pointerEvents="none"
-          />
-        )}
+              {/* ═══ FLAVOR TEXT — shown when there's room ═══ */}
+              {isReady && option.summary && objectives.length <= 3 && (
+                <Animated.View
+                  style={[s.flavorBlock, { borderColor: tierMeta.border }]}
+                >
+                  <Text style={s.flavorText}>
+                    {"\u201C"}
+                    {option.summary.split(/[.!]/)[0].trim()}.{"\u201D"}
+                  </Text>
+                  <Text style={s.flavorAttrib}>{"\u2014"} Quest lore</Text>
+                </Animated.View>
+              )}
 
-        {/* Blur overlay for off-center cards — only rendered for nearby cards */}
-        {isNearby && <BlurOverlay scrollX={scrollX} index={index} />}
-        </Animated.View>
+              <View style={{ flex: 1 }} />
+
+              {/* ═══ TAG CHIPS ═══ */}
+              <View style={s.tagRow}>
+                {cardTags.map((tag) => (
+                  <View
+                    key={tag}
+                    style={[s.tagChip, { borderColor: tierMeta.border }]}
+                  >
+                    <Text style={[s.tagText, { color: tierMeta.text }]}>
+                      {tag}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* ═══ SERIAL FOOTER ═══ */}
+              <View style={s.serialRow}>
+                <Text style={s.serialNumber}>
+                  SQ{"\u00B7"}
+                  {(option.id ?? "").slice(0, 8).toUpperCase()}
+                </Text>
+                <Text style={s.serialStat}>
+                  {"\u00B7"} {stopCount} STOPS
+                  {totalCost > 0 ? ` \u00B7 $${totalCost}` : ""}
+                </Text>
+                <View style={{ flex: 1 }} />
+                <Text style={s.serialStat}>
+                  {option.city?.toUpperCase() ?? ""}
+                </Text>
+              </View>
+            </Pressable>
+
+            {/* Batch-delete mark overlay */}
+            {onToggleMarkForDelete && (
+              <Animated.View
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    backgroundColor: "rgba(239, 68, 68, 0.6)",
+                    borderRadius: radius.xl,
+                    zIndex: 6,
+                  },
+                  markOverlayStyle,
+                ]}
+                pointerEvents="none"
+              />
+            )}
+
+            {/* Promotion white-out overlay */}
+            {promotionProgress && (
+              <Animated.View
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    backgroundColor: "#fff",
+                    borderRadius: radius.xl,
+                    zIndex: 10,
+                  },
+                  promotionOverlayStyle,
+                ]}
+                pointerEvents="none"
+              />
+            )}
+
+            {/* Blur overlay for off-center cards — only rendered for nearby cards */}
+            {isNearby && <BlurOverlay scrollX={scrollX} index={index} />}
+          </Animated.View>
         </GestureDetector>
       </Animated.View>
     );
@@ -1005,13 +1074,22 @@ const BlurOverlay: React.FC<{
   const blurStyle = useAnimatedStyle(() => {
     const cardCenter = index * SNAP_WIDTH;
     const dist = Math.abs(cardCenter + scrollX.value);
-    const opacity = interpolate(dist, [0, SNAP_WIDTH * 0.4, SNAP_WIDTH], [0, 0, 1], "clamp");
+    const opacity = interpolate(
+      dist,
+      [0, SNAP_WIDTH * 0.4, SNAP_WIDTH],
+      [0, 0, 1],
+      "clamp",
+    );
     return { opacity };
   });
 
   return (
     <Animated.View
-      style={[StyleSheet.absoluteFill, { borderRadius: radius.sm, overflow: "hidden" }, blurStyle]}
+      style={[
+        StyleSheet.absoluteFill,
+        { borderRadius: radius.sm, overflow: "hidden" },
+        blurStyle,
+      ]}
       pointerEvents="none"
     >
       <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />

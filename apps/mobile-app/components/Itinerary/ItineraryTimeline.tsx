@@ -45,6 +45,7 @@ interface ItineraryTimelineProps {
   onCheckin?: (itemId: string) => void;
   onItemPress?: (item: ObjectiveResponse) => void;
   scrollRef?: React.RefObject<ScrollView | null>;
+  accentColor?: string;
 }
 
 // --- Animated cost counter ---
@@ -304,9 +305,10 @@ export default function ItineraryTimeline({
   onCheckin,
   onItemPress,
   scrollRef,
+  accentColor,
 }: ItineraryTimelineProps) {
   const colors = useColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createStyles(colors, accentColor), [colors, accentColor]);
 
   const sorted = useMemo(
     () => [...items].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -403,7 +405,7 @@ export default function ItineraryTimeline({
             index={idx}
             isFirst={idx === 0}
             isLast={idx === sorted.length - 1}
-            stopColor={STOP_COLORS[idx % STOP_COLORS.length]}
+            stopColor={accentColor ?? STOP_COLORS[idx % STOP_COLORS.length]}
             isRevealed={revealedCount > idx}
             onRevealComplete={() => handleStopRevealed(idx)}
             isActive={isActive}
@@ -443,7 +445,7 @@ function extractCity(address: string): string {
   return address;
 }
 
-const createStyles = (colors: Colors) =>
+const createStyles = (colors: Colors, accentColor?: string) =>
   StyleSheet.create({
     container: {
       paddingVertical: spacing.md,
@@ -499,7 +501,7 @@ const createStyles = (colors: Colors) =>
       fontSize: fontSize.sm,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.bold,
-      color: colors.accent.primary,
+      color: accentColor ?? colors.accent.primary,
     },
 
     // --- Item content ---
