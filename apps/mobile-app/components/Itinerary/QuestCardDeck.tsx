@@ -1056,7 +1056,7 @@ const createCardStyles = (colors: Colors) =>
       width: CARD_WIDTH,
       height: CARD_HEIGHT,
       backgroundColor: colors.bg.elevated,
-      borderRadius: radius.sm,
+      borderRadius: radius.xl,
       borderWidth: 2.5,
       overflow: "hidden",
       shadowColor: colors.fixed.black,
