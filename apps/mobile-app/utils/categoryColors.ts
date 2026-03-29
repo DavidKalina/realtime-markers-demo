@@ -1,5 +1,6 @@
 // utils/categoryColors.ts - Canonical category color palette & helpers
 
+import type { FoilVariant } from "@/components/effects/HolographicFoil";
 import type { Colors } from "@/theme";
 
 /**
@@ -59,6 +60,66 @@ function hashString(str: string): number {
     hash |= 0;
   }
   return Math.abs(hash);
+}
+
+/**
+ * Category → foil variant mapping.
+ * Groups categories by vibe so the shader treatment feels emergent:
+ *   - Warm social (food, drink, nightlife) → ember (rising warmth)
+ *   - Nature / movement (outdoors, hiking, sports) → holographic (organic iridescence)
+ *   - Culture / arts (museum, gallery, music) → prismatic (sharp geometric rainbow)
+ *   - Chill / browsing (coffee, reading, thrifting) → chrome (smooth metallic)
+ *   - High energy (nightlife, boarding) → speckled (glitter)
+ */
+const CATEGORY_FOIL_MAP: Record<string, FoilVariant> = {
+  // Warm social → ember
+  restaurant: "ember",
+  food: "ember",
+  bar: "ember",
+  brews: "ember",
+
+  // Nature / movement → holographic
+  trail: "holographic",
+  hiking: "holographic",
+  park: "holographic",
+  outdoors: "holographic",
+  walking: "holographic",
+  sports: "holographic",
+  disc_golf: "holographic",
+
+  // Culture / arts → prismatic
+  museum: "prismatic",
+  culture: "prismatic",
+  gallery: "prismatic",
+  art: "prismatic",
+  attraction: "prismatic",
+
+  // Chill / browsing → chrome
+  cafe: "chrome",
+  coffee: "chrome",
+  reading: "chrome",
+  market: "chrome",
+  thrifting: "chrome",
+
+  // High energy → speckled
+  nightlife: "speckled",
+  music: "speckled",
+  boarding: "speckled",
+  venue: "speckled",
+};
+
+const FOIL_VARIANTS: FoilVariant[] = [
+  "holographic",
+  "speckled",
+  "chrome",
+  "prismatic",
+  "ember",
+];
+
+/** Return a foil variant for a category name, or hash-based fallback. */
+export function getCategoryFoilVariant(name: string): FoilVariant {
+  const key = name.toLowerCase().trim();
+  return CATEGORY_FOIL_MAP[key] ?? FOIL_VARIANTS[hashString(key) % FOIL_VARIANTS.length];
 }
 
 /** Return a single hex color for a category name. */

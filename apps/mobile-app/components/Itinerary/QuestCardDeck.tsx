@@ -21,8 +21,9 @@ import Animated, {
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { scheduleOnRN } from "react-native-worklets";
 
+import HolographicFoil, { hashString } from "@/components/effects/HolographicFoil";
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
-import { getCategoryColor } from "@/utils/categoryColors";
+import { getCategoryColor, getCategoryFoilVariant } from "@/utils/categoryColors";
 import {
   fontFamily,
   fontSize,
@@ -115,6 +116,13 @@ function getCardColorKey(option: SidequestResponse): string {
     option.categories?.[0] ?? option.activityTypes?.[0] ?? option.tier ?? "QUICK"
   );
 }
+
+// Per-tier holographic foil intensity
+const TIER_FOIL_INTENSITY: Record<string, number> = {
+  QUICK: 0.05,
+  SWEET_SPOT: 0.10,
+  BEST: 0.18,
+};
 
 // Tier-only fallback colors (green / amber / purple)
 const TIER_FALLBACK_COLORS: Record<string, string> = {
@@ -328,6 +336,7 @@ const QuestCard: React.FC<{
     colors,
   }) => {
     const s = useMemo(() => createCardStyles(colors), [colors]);
+    if (!option) return null;
     const colorKey = getCardColorKey(option);
     const cardHex =
       getCategoryColor(colorKey) ??
@@ -531,20 +540,39 @@ const QuestCard: React.FC<{
     );
     const stopCount = objectives.length;
 
+    // Collect tags for chips
+    const cardTags = useMemo(() => {
+      const tags = new Set<string>();
+      for (const c of option.categories ?? []) tags.add(c.toUpperCase());
+      for (const a of option.activityTypes ?? []) tags.add(a.toUpperCase());
+      return [...tags].slice(0, 3);
+    }, [option.categories, option.activityTypes]);
+
     return (
       <Animated.View
         layout={LinearTransition.springify().damping(28).stiffness(180)}
         style={[
           s.card,
-          { borderColor: tierMeta.border },
+          { borderColor: tierMeta.text },
           isReady ? undefined : s.cardGenerating,
           animatedStyle,
         ]}
       >
-        {/* Tier-colored top stripe */}
-        <View style={[s.tierStripe, { backgroundColor: tierMeta.text }]} />
+        {/* Holographic foil overlay */}
+        {isReady && (
+          <HolographicFoil
+            width={CARD_WIDTH}
+            height={CARD_HEIGHT}
+            variant={getCategoryFoilVariant(colorKey)}
+            seed={hashString(option.id)}
+            intensity={
+              TIER_FOIL_INTENSITY[option.tier ?? "QUICK"] ??
+              TIER_FOIL_INTENSITY.QUICK
+            }
+          />
+        )}
 
-        {/* Sheen: on swipe trigger + on reveal */}
+        {/* Sheen sweep */}
         <CardSheen
           tierColor={tierMeta.text}
           sheenTrigger={isReady ? sheenTrigger : revealSheen}
@@ -574,183 +602,88 @@ const QuestCard: React.FC<{
               : undefined
           }
         >
-          {/* Top: Tier badge + status */}
-          <View style={s.tierRow}>
-            <TierBadge
-              tier={option.tier ?? "QUICK"}
-              label={tierMeta.label}
-            />
-            {isBrowse ? (
-              <View
-                style={[
-                  s.statusBadge,
-                  {
-                    backgroundColor: isCompleted
-                      ? "rgba(134, 239, 172, 0.12)"
-                      : isActiveQuest
-                        ? "rgba(251, 191, 36, 0.12)"
-                        : tierMeta.bg,
-                    borderColor: isCompleted
-                      ? "rgba(134, 239, 172, 0.9)"
-                      : isActiveQuest
-                        ? "rgba(251, 191, 36, 0.9)"
-                        : tierMeta.border,
-                  },
-                ]}
-              >
-                {isCompleted && (
-                  <Check
-                    size={9}
-                    color="rgba(134, 239, 172, 0.9)"
-                    strokeWidth={3}
-                  />
-                )}
-                {isActiveQuest && (
-                  <View
-                    style={[
-                      s.activeDot,
-                      { backgroundColor: "rgba(251, 191, 36, 0.9)" },
-                    ]}
-                  />
-                )}
-                <Text
-                  style={[
-                    s.statusText,
-                    {
-                      color: isCompleted
-                        ? "rgba(134, 239, 172, 0.9)"
-                        : isActiveQuest
-                          ? "rgba(251, 191, 36, 0.9)"
-                          : tierMeta.text,
-                    },
-                  ]}
-                >
-                  {isCompleted
-                    ? `DONE${option.rating ? " " + "\u2605".repeat(option.rating) : ""}`
-                    : isActiveQuest
-                      ? `${checkedInCount}/${stopCount}`
-                      : "READY"}
+          {/* ═══ HEADER ═══ */}
+          <View style={s.headerBand}>
+            <Text style={[s.headerTier, { color: tierMeta.text }]}>
+              {"\u2605"} {tierMeta.label}
+            </Text>
+            <View style={{ flex: 1 }} />
+            {(() => {
+              const cats = (option.categories ?? []).slice(0, 2);
+              if (cats.length === 0) return null;
+              return (
+                <Text style={s.headerCats}>
+                  {cats.map((c) => c.toUpperCase()).join(" \u00B7 ")}
                 </Text>
-              </View>
-            ) : (
-              !isReady && (
-                <Animated.Text
-                  style={[
-                    s.forgingLabel,
-                    { color: tierMeta.text },
-                    skeletonAnimStyle,
-                  ]}
-                >
-                  FORGING{"\u2026"}
-                </Animated.Text>
-              )
-            )}
+              );
+            })()}
           </View>
 
-          {/* --- GENERATING skeleton (stays rendered, fades out) --- */}
+          {/* ═══ ART ZONE — top ~35% ═══ */}
+          <Animated.View
+            style={[s.artZone, { borderColor: tierMeta.border }]}
+          >
+            <View style={s.artOverlay} />
+            <Text style={s.artEmoji}>
+              {objectives[0]?.emoji ?? "\u{1F3AF}"}
+            </Text>
+            {option.city && (
+              <Text style={s.artCity}>{option.city}</Text>
+            )}
+          </Animated.View>
+
+          {/* ═══ TITLE PLATE ═══ */}
+          <Animated.View style={[s.titlePlate, heroAnimStyle]}>
+            <Text style={s.title} numberOfLines={2}>
+              {option.title ?? "Sidequest"}
+            </Text>
+            {option.summary && (
+              <Text style={s.subtitle} numberOfLines={1}>
+                {option.summary.toUpperCase().split(/[.,:!]/, 1)[0].slice(0, 28)}
+              </Text>
+            )}
+          </Animated.View>
+
+          {/* ═══ GENERATING SKELETON ═══ */}
           {!isReady && (
             <Animated.View style={[s.skeletonBody, skeletonAnimStyle]}>
-              <View
-                style={[
-                  s.skeletonBar,
-                  s.skeletonBarWide,
-                  { backgroundColor: tierMeta.border },
-                ]}
-              />
-              <View
-                style={[
-                  s.skeletonBar,
-                  s.skeletonBarMedium,
-                  { backgroundColor: tierMeta.border },
-                ]}
-              />
-              <View style={s.skeletonDivider} />
-              <View style={s.skeletonStopRow}>
-                <View
-                  style={[s.skeletonDot, { borderColor: tierMeta.border }]}
-                />
-                <View
-                  style={[
-                    s.skeletonBar,
-                    { flex: 1, backgroundColor: tierMeta.border },
-                  ]}
-                />
+              <View style={s.forgingRow}>
+                <Animated.Text style={[s.forgingLabel, { color: tierMeta.text }]}>
+                  FORGING{"\u2026"}
+                </Animated.Text>
               </View>
-              <View style={s.skeletonStopRow}>
-                <View
-                  style={[s.skeletonDot, { borderColor: tierMeta.border }]}
-                />
-                <View
-                  style={[
-                    s.skeletonBar,
-                    { flex: 1, backgroundColor: tierMeta.border },
-                  ]}
-                />
-              </View>
+              <View style={[s.skeletonBar, s.skeletonBarWide, { backgroundColor: tierMeta.border }]} />
+              <View style={[s.skeletonBar, s.skeletonBarMedium, { backgroundColor: tierMeta.border }]} />
             </Animated.View>
           )}
 
-          {/* --- READY content (staggered reveal) --- */}
-          <View
-            style={s.readyContent}
-            pointerEvents={isReady ? "auto" : "none"}
-          >
-            {/* Hero */}
-            <Animated.View style={[s.heroBlock, heroAnimStyle]}>
-              <Text style={s.emoji}>{objectives[0]?.emoji ?? "\u{1F3AF}"}</Text>
-              <Text style={s.title} numberOfLines={2}>
-                {option.title ?? "Sidequest"}
-              </Text>
-              {option.summary && (
-                <Text style={s.summary} numberOfLines={2}>
-                  {option.summary}
-                </Text>
-              )}
-            </Animated.View>
-
-            <Animated.View style={dividerAnimStyle}>
-              <View style={s.divider} />
-            </Animated.View>
-
-            {/* Timeline */}
-            <Animated.View style={[s.stops, stopsAnimStyle]}>
-              {(isBrowse ? objectives.slice(0, 4) : objectives).map(
+          {/* ═══ STOPS ═══ */}
+          {isReady && (
+            <Animated.View style={[s.stopsSection, stopsAnimStyle]}>
+              {(isBrowse ? objectives.slice(0, 3) : objectives).map(
                 (obj, i, arr) => (
-                  <View key={obj.id ?? i} style={s.timelineRow}>
-                    <View style={s.timelineTrack}>
-                      <View
-                        style={[
-                          s.timelineCircle,
-                          {
-                            borderColor: tierMeta.border,
-                            backgroundColor:
-                              isBrowse && obj.checkedInAt
-                                ? tierMeta.bg
-                                : isBrowse
-                                  ? "transparent"
-                                  : tierMeta.bg,
-                          },
-                        ]}
-                      >
-                        <Text style={s.timelineEmoji}>
-                          {obj.emoji ?? "\u{1F4CD}"}
-                        </Text>
-                      </View>
-                      {i < arr.length - 1 && (
-                        <View
-                          style={[
-                            s.timelineLine,
-                            { backgroundColor: tierMeta.border },
-                          ]}
-                        />
-                      )}
+                  <View key={obj.id ?? i} style={s.stopRow}>
+                    <View
+                      style={[
+                        s.stopCircle,
+                        {
+                          borderColor: tierMeta.border,
+                          backgroundColor:
+                            isBrowse && obj.checkedInAt ? tierMeta.bg : "transparent",
+                        },
+                      ]}
+                    >
+                      <Text style={s.stopEmoji}>{obj.emoji ?? "\u{1F4CD}"}</Text>
                     </View>
-                    <View style={s.timelineContent}>
-                      <Text style={s.stopName} numberOfLines={1}>
-                        {obj.venueName ?? obj.title}
+                    {i < arr.length - 1 && (
+                      <View style={[s.stopLine, { backgroundColor: tierMeta.border }]} />
+                    )}
+                    <View style={s.stopText}>
+                      <Text style={s.stopName}>
+                        {(obj.venueName || obj.title || "Stop").split("|")[0].trim()}
                       </Text>
                       {obj.hook && (
-                        <Text style={s.stopHook} numberOfLines={2}>
+                        <Text style={s.stopHook} numberOfLines={1}>
                           {obj.hook}
                         </Text>
                       )}
@@ -758,82 +691,48 @@ const QuestCard: React.FC<{
                   </View>
                 ),
               )}
-              {isBrowse && objectives.length > 4 && (
-                <Text style={s.moreStops}>+{objectives.length - 4} more</Text>
+              {isBrowse && objectives.length > 3 && (
+                <Text style={s.moreStops}>+{objectives.length - 3} more</Text>
               )}
             </Animated.View>
+          )}
 
-            <View style={{ flex: 1 }} />
-
-            {/* Tags */}
-            <Animated.View style={tagsAnimStyle}>
-              {(() => {
-                const tags = new Set<string>();
-                for (const c of option.categories ?? []) tags.add(c);
-                for (const a of option.activityTypes ?? []) tags.add(a);
-                for (const obj of objectives) {
-                  if (obj.venueCategory) tags.add(obj.venueCategory);
-                }
-                const tagList = [...tags].slice(0, 3);
-                if (tagList.length === 0) return null;
-                return (
-                  <View style={s.tagRow}>
-                    {tagList.map((tag) => (
-                      <View
-                        key={tag}
-                        style={[s.tagChip, { borderColor: tierMeta.border }]}
-                      >
-                        <Text style={[s.tagText, { color: tierMeta.text }]}>
-                          {tag.toUpperCase()}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                );
-              })()}
+          {/* ═══ FLAVOR TEXT — shown when there's room ═══ */}
+          {isReady && option.summary && objectives.length <= 3 && (
+            <Animated.View
+              style={[s.flavorBlock, { borderColor: tierMeta.border }]}
+            >
+              <Text style={s.flavorText}>
+                {"\u201C"}{option.summary.split(/[.!]/)[0].trim()}.{"\u201D"}
+              </Text>
+              <Text style={s.flavorAttrib}>{"\u2014"} Quest lore</Text>
             </Animated.View>
+          )}
 
-            {/* Stats bar */}
-            <Animated.View style={[s.statsBar, statsAnimStyle]}>
-              <View style={s.statPill}>
-                <Text style={s.statValue}>{stopCount}</Text>
-                <Text style={s.statLabel}>STOPS</Text>
+          <View style={{ flex: 1 }} />
+
+          {/* ═══ TAG CHIPS ═══ */}
+          <View style={s.tagRow}>
+            {cardTags.map((tag) => (
+              <View key={tag} style={[s.tagChip, { borderColor: tierMeta.border }]}>
+                <Text style={[s.tagText, { color: tierMeta.text }]}>{tag}</Text>
               </View>
-              {totalCost > 0 && (
-                <View style={s.statPill}>
-                  <Text style={s.statValue}>~${totalCost}</Text>
-                  <Text style={s.statLabel}>EST.</Text>
-                </View>
-              )}
-              {isBrowse && isActiveQuest && stopCount > 0 && (
-                <View style={s.statPill}>
-                  <Text style={s.statValue}>
-                    {Math.round((checkedInCount / stopCount) * 100)}%
-                  </Text>
-                  <Text style={s.statLabel}>DONE</Text>
-                </View>
-              )}
-              <View style={{ flex: 1 }} />
-              {isBrowse ? (
-                option.city ? (
-                  <Text style={s.cityText}>{option.city}</Text>
-                ) : null
-              ) : (
-                <View
-                  style={[
-                    s.selectHint,
-                    {
-                      borderColor: tierMeta.border,
-                      backgroundColor: tierMeta.bg,
-                    },
-                  ]}
-                >
-                  <Text style={[s.selectHintText, { color: tierMeta.text }]}>
-                    TAP TO SELECT
-                  </Text>
-                </View>
-              )}
-            </Animated.View>
+            ))}
+          </View>
+
+          {/* ═══ SERIAL FOOTER ═══ */}
+          <View style={s.serialRow}>
+            <Text style={s.serialNumber}>
+              SQ{"\u00B7"}{option.id.slice(0, 8).toUpperCase()}
+            </Text>
+            <Text style={s.serialNumber}>
+              {"\u00B7"} {stopCount} STOPS
+              {totalCost > 0 ? ` \u00B7 $${totalCost}` : ""}
+            </Text>
+            <View style={{ flex: 1 }} />
+            <Text style={s.serialNumber}>
+              {option.city?.toUpperCase() ?? ""}
+            </Text>
           </View>
         </Pressable>
 
@@ -859,7 +758,7 @@ const BlurOverlay: React.FC<{
 
   return (
     <Animated.View
-      style={[StyleSheet.absoluteFill, { borderRadius: radius.lg, overflow: "hidden" }, blurStyle]}
+      style={[StyleSheet.absoluteFill, { borderRadius: radius.sm, overflow: "hidden" }, blurStyle]}
       pointerEvents="none"
     >
       <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
@@ -1107,79 +1006,121 @@ const createDeckStyles = (colors: Colors) =>
     },
   });
 
+const FRAME_INSET = 5;
+
 const createCardStyles = (colors: Colors) =>
   StyleSheet.create({
+    // ── Outer card ──
     card: {
       width: CARD_WIDTH,
       height: CARD_HEIGHT,
       backgroundColor: colors.bg.elevated,
-      borderRadius: radius.lg,
-      borderWidth: 1,
+      borderRadius: radius.sm,
+      borderWidth: 2.5,
       overflow: "hidden",
       shadowColor: colors.fixed.black,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 12,
-      elevation: 6,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.5,
+      shadowRadius: 24,
+      elevation: 14,
     },
     cardGenerating: {
       borderStyle: "dashed",
     },
-    tierStripe: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      height: 3,
-      opacity: 0.8,
-    },
     cardInner: {
       flex: 1,
-      padding: spacing.lg,
-      paddingTop: spacing.lg + 2,
-      gap: spacing.sm,
+      margin: FRAME_INSET,
+      borderRadius: radius.sm - 3,
+      borderWidth: 1,
+      borderColor: colors.border.default,
       overflow: "hidden",
     },
-    tierRow: {
+    // ── Header band ──
+    headerBand: {
       flexDirection: "row",
       alignItems: "center",
-      gap: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
     },
-    heroBlock: {
-      gap: 6,
+    headerTier: {
+      fontSize: 9,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      letterSpacing: 1,
     },
-    emoji: {
-      fontSize: 36,
+    headerCats: {
+      fontSize: 8,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      letterSpacing: 0.8,
+    },
+    // ── Art zone ──
+    artZone: {
+      alignItems: "center",
+      justifyContent: "center",
+      marginHorizontal: spacing.sm,
+      height: 110,
+      borderRadius: radius.sm - 3,
+      borderWidth: 1,
+      backgroundColor: "rgba(0, 0, 0, 0.3)",
+    },
+    artOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0, 0, 0, 0.15)",
+      borderRadius: radius.sm - 3,
+    },
+    artEmoji: {
+      fontSize: 64,
+      textShadowColor: "rgba(0, 0, 0, 0.6)",
+      textShadowOffset: { width: 0, height: 4 },
+      textShadowRadius: 12,
+    },
+    artCity: {
+      position: "absolute",
+      top: 6,
+      right: 10,
+      fontSize: 8,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      letterSpacing: 0.5,
+    },
+    // ── Title plate ──
+    titlePlate: {
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.xs,
     },
     title: {
-      fontSize: 18,
+      fontSize: 16,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
       color: colors.text.primary,
-      lineHeight: 24,
+      lineHeight: 21,
     },
-    divider: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: colors.border.default,
-      marginVertical: 2,
+    subtitle: {
+      fontSize: 8,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.disabled,
+      letterSpacing: 1.2,
+      marginTop: 2,
     },
+    // ── Skeleton ──
     forgingLabel: {
       fontSize: 9,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
       letterSpacing: 1,
-      marginLeft: "auto",
     },
-    readyContent: {
-      ...StyleSheet.absoluteFillObject,
-      top: 42,
-      padding: spacing.lg,
-      gap: spacing.sm,
+    forgingRow: {
+      alignItems: "center",
+      paddingVertical: spacing.sm,
     },
     skeletonBody: {
-      flex: 1,
       gap: spacing.md,
-      paddingTop: spacing.md,
+      padding: spacing.md,
     },
     skeletonBar: {
       height: 10,
@@ -1194,173 +1135,150 @@ const createCardStyles = (colors: Colors) =>
     skeletonBarMedium: {
       width: "50%",
     },
-    skeletonDivider: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: colors.border.default,
-      marginVertical: spacing.xs,
+    // ── Stops ──
+    stopsSection: {
+      paddingHorizontal: spacing.md,
+      gap: spacing.xs,
     },
-    skeletonStopRow: {
+    stopRow: {
       flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
+      alignItems: "flex-start",
+      gap: spacing.sm,
     },
-    skeletonDot: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      borderWidth: 1.5,
-      opacity: 0.3,
-    },
-    tierBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: radius.sm,
-    },
-    tierBadgeText: {
-      fontSize: 9,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      letterSpacing: 0.8,
-    },
-    summary: {
-      fontSize: fontSize.sm,
-      fontFamily: fontFamily.mono,
-      color: colors.text.secondary,
-      lineHeight: 18,
-    },
-    stops: {
-      gap: 0,
-    },
-    timelineRow: {
-      flexDirection: "row",
-      minHeight: 44,
-    },
-    timelineTrack: {
-      width: 32,
-      alignItems: "center",
-    },
-    timelineCircle: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+    stopCircle: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
       borderWidth: 1.5,
       alignItems: "center",
       justifyContent: "center",
     },
-    timelineEmoji: {
-      fontSize: 13,
+    stopEmoji: {
+      fontSize: 14,
     },
-    timelineLine: {
+    stopLine: {
+      position: "absolute",
+      top: 32,
+      left: 14,
       width: 1.5,
-      flex: 1,
-      marginVertical: 2,
+      height: 16,
       opacity: 0.4,
     },
-    timelineContent: {
+    stopText: {
       flex: 1,
-      paddingLeft: 8,
-      paddingTop: 3,
-      paddingBottom: 8,
+      paddingTop: 2,
       gap: 1,
     },
+    stopName: {
+      fontSize: 12,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+    },
     stopHook: {
+      fontSize: 9,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    moreStops: {
+      fontSize: 9,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+      paddingLeft: 42,
+    },
+    // ── Stats block — 3 bordered cells ──
+    statsBlock: {
+      flexDirection: "row",
+      marginHorizontal: spacing.sm,
+      marginTop: spacing.xs,
+      gap: spacing.xs,
+    },
+    statCell: {
+      flex: 1,
+      alignItems: "center",
+      paddingVertical: spacing.xs,
+      borderRadius: radius.sm - 3,
+      borderWidth: 1,
+      gap: 1,
+    },
+    statLabel: {
+      fontSize: 7,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+      letterSpacing: 0.8,
+    },
+    statValue: {
+      fontSize: 13,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: colors.text.primary,
+    },
+    // ── Tag chips ──
+    // ── Flavor text quote ──
+    flavorBlock: {
+      marginHorizontal: spacing.md,
+      marginTop: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs + 2,
+      borderRadius: radius.sm - 3,
+      borderWidth: 1,
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
+    },
+    flavorText: {
       fontSize: 10,
       fontFamily: fontFamily.mono,
       color: colors.text.secondary,
       fontStyle: "italic",
+      lineHeight: 15,
+    },
+    flavorAttrib: {
+      fontSize: 7,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+      marginTop: 2,
     },
     tagRow: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: 5,
+      gap: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      marginTop: spacing.xs,
     },
     tagChip: {
-      paddingHorizontal: 7,
+      paddingHorizontal: spacing.sm,
       paddingVertical: 2,
-      borderRadius: radius.full,
+      borderRadius: radius.sm - 3,
       borderWidth: 1,
-      backgroundColor: "rgba(255, 255, 255, 0.03)",
     },
     tagText: {
-      fontSize: 8,
+      fontSize: 7,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
-      letterSpacing: 0.5,
+      letterSpacing: 0.8,
     },
-    statsBar: {
+    // ── Serial footer ──
+    serialRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: spacing.md,
-      paddingTop: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      paddingTop: 3,
+      paddingBottom: 3,
+      marginTop: spacing.xs,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.border.default,
     },
-    statPill: {
-      alignItems: "center",
-      gap: 1,
-    },
-    statValue: {
-      fontSize: 14,
-      fontWeight: fontWeight.bold,
+    serialNumber: {
+      fontSize: 7,
       fontFamily: fontFamily.mono,
-      color: colors.text.primary,
-    },
-    statLabel: {
-      fontSize: 8,
       fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
       color: colors.text.disabled,
-      letterSpacing: 1,
-    },
-    selectHint: {
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: radius.sm,
-      borderWidth: 1,
-    },
-    selectHintText: {
-      fontSize: 8,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      letterSpacing: 1,
-    },
-    stopName: {
-      flex: 1,
-      fontSize: fontSize.sm,
-      fontFamily: fontFamily.mono,
-      color: colors.text.primary,
-    },
-    moreStops: {
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      color: colors.text.disabled,
-      paddingLeft: 40,
-      paddingTop: 2,
-    },
-    statusBadge: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: radius.sm,
-      borderWidth: 1,
-    },
-    statusText: {
-      fontSize: 9,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.bold,
-      letterSpacing: 0.8,
+      letterSpacing: 1.2,
+      opacity: 0.5,
     },
     activeDot: {
       width: 6,
       height: 6,
       borderRadius: 3,
-    },
-    cityText: {
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.secondary,
     },
   });
