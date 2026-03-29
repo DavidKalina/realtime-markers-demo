@@ -72,9 +72,9 @@ half4 main(float2 xy) {
     grain * 0.3
   );
 
-  float sat = 0.45 + grain * 0.35;
+  float sat = 0.35 + grain * 0.25;
   vec3 color = hsv2rgb(vec3(hue, sat, 1.0));
-  float alpha = intensity * (0.5 + grain * 0.5);
+  float alpha = intensity * (0.4 + grain * 0.4);
 
   return half4(color * alpha, alpha);
 }
@@ -115,9 +115,9 @@ half4 main(float2 xy) {
 
   // Per-sparkle hue
   float hue = fract(rnd * 3.7 + seed + time * 0.05);
-  vec3 color = hsv2rgb(vec3(hue, 0.3, 1.0));
+  vec3 color = hsv2rgb(vec3(hue, 0.25, 1.0));
 
-  float alpha = sparkle * intensity;
+  float alpha = sparkle * intensity * 0.85;
   return half4(color * alpha, alpha);
 }
 `;
@@ -146,9 +146,9 @@ half4 main(float2 xy) {
 
   // Subtle highlight bands — seed shifts band phase
   float bands = sin(uv.y * 60.0 + reflection * 8.0 + time * 0.5 + seed * 43.0) * 0.5 + 0.5;
-  color += bands * 0.15;
+  color += bands * 0.10;
 
-  float alpha = intensity * (0.4 + reflection * 0.6);
+  float alpha = intensity * (0.3 + reflection * 0.5);
   return half4(color * alpha, alpha);
 }
 `;
@@ -173,13 +173,13 @@ half4 main(float2 xy) {
     time * 0.04
   );
 
-  // Sharper, more saturated than holographic
-  vec3 color = hsv2rgb(vec3(hue, 0.7, 1.0));
+  // Softer prismatic bands
+  vec3 color = hsv2rgb(vec3(hue, 0.45, 1.0));
 
   // Noise-based shimmer on top
   float shimmer = noise(uv * 20.0 + seed * 100.0 + time * 0.6);
 
-  float alpha = intensity * band * (0.6 + shimmer * 0.4);
+  float alpha = intensity * band * (0.4 + shimmer * 0.35);
   return half4(color * alpha, alpha);
 }
 `;
@@ -229,11 +229,17 @@ half4 main(float2 xy) {
 
   glow = min(glow, 1.0);
 
-  // Warm hue range: orange to gold
-  float hue = 0.05 + (hueAccum / max(glow, 0.001)) * 0.08;
-  vec3 color = hsv2rgb(vec3(hue, 0.8, 1.0));
+  // Warm hue range per-card: seed picks a base from red/orange/gold/pink
+  // seed 0..1 maps to hue anchors: 0.0 (red), 0.05 (orange), 0.10 (gold), 0.95 (pink)
+  float baseHue = fract(seed * 4.7);
+  // Clamp to warm region: allow 0.0–0.12 (red→gold) and 0.9–1.0 (pink/magenta)
+  baseHue = baseHue < 0.5
+    ? baseHue * 0.24            // 0..0.12
+    : 0.90 + (baseHue - 0.5) * 0.2; // 0.90..1.0
+  float hue = baseHue + (hueAccum / max(glow, 0.001)) * 0.06;
+  vec3 color = hsv2rgb(vec3(hue, 0.6, 1.0));
 
-  float alpha = glow * intensity;
+  float alpha = glow * intensity * 0.85;
   return half4(color * alpha, alpha);
 }
 `;

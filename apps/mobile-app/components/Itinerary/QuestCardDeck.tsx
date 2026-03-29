@@ -124,9 +124,9 @@ function getCardColorKey(option: SidequestResponse): string {
 
 // Per-tier holographic foil intensity
 const TIER_FOIL_INTENSITY: Record<string, number> = {
-  QUICK: 0.05,
-  SWEET_SPOT: 0.10,
-  BEST: 0.18,
+  QUICK: 0.04,
+  SWEET_SPOT: 0.08,
+  BEST: 0.14,
 };
 
 // Tier-only fallback colors (green / amber / purple)
@@ -835,6 +835,8 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
     (option: SidequestResponse) => {
       if (isSelecting) return;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      activeIdx.value = 0;
+      scrollX.value = withSpring(0, { damping: 20, stiffness: 150 });
       onSelect?.(option);
     },
     [isSelecting, onSelect],
