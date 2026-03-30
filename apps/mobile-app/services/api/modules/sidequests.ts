@@ -78,20 +78,6 @@ export interface BrowseSidequestResponse {
   }[];
 }
 
-export interface CreateSidequestParams {
-  prompt: string;
-  radiusMiles: number;
-  budgetMax: number;
-  latitude: number;
-  longitude: number;
-  timezone?: string;
-  activityTypes?: string[];
-  intention?: string;
-  city?: string;
-  surpriseMe?: boolean;
-  note?: string;
-}
-
 export interface ComfortZoneResponse {
   homeLatitude: number | null;
   homeLongitude: number | null;
@@ -110,24 +96,6 @@ export interface WorldSizeResponse {
 export class SidequestsModule extends BaseApiModule {
   constructor(client: BaseApiClient) {
     super(client);
-  }
-
-  async createSidequest(
-    params: CreateSidequestParams,
-  ): Promise<{ sidequestId: string; jobId: string; streamUrl: string }> {
-    const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests`,
-      {
-        method: "POST",
-        body: JSON.stringify(params),
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-    return this.handleResponse<{
-      sidequestId: string;
-      jobId: string;
-      streamUrl: string;
-    }>(response);
   }
 
   async list(
@@ -159,23 +127,6 @@ export class SidequestsModule extends BaseApiModule {
       `${this.client.baseUrl}/api/sidequests/${id}`,
     );
     return this.handleResponse<SidequestResponse>(response);
-  }
-
-  async getOptions(
-    parentId: string,
-  ): Promise<{ data: SidequestResponse[] }> {
-    const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests/${parentId}/options`,
-    );
-    return this.handleResponse<{ data: SidequestResponse[] }>(response);
-  }
-
-  async selectOption(childId: string): Promise<{ success: boolean }> {
-    const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests/${childId}/select`,
-      { method: "POST" },
-    );
-    return this.handleResponse<{ success: boolean }>(response);
   }
 
   async deleteById(id: string): Promise<void> {
