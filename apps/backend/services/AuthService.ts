@@ -635,6 +635,7 @@ export class AuthService {
       currentStreak: user.currentStreak ?? 0,
       longestStreak: user.longestStreak ?? 0,
       onboardingProfile: user.onboardingProfile,
+      comfortProfile: user.comfortProfile
     };
   }
 
