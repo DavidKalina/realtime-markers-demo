@@ -63,25 +63,9 @@ function hashString(str: string): number {
 }
 
 /**
- * Category → foil variant mapping.
- * Groups categories by vibe so the shader treatment feels emergent:
- *   - Warm social (food, drink, nightlife) → ember (rising warmth)
- *   - Nature / movement (outdoors, hiking, sports) → holographic (organic iridescence)
- *   - Culture / arts (museum, gallery, music) → prismatic (sharp geometric rainbow)
- *   - Chill / browsing (coffee, reading, thrifting) → chrome (smooth metallic)
- *   - High energy (nightlife, boarding) → speckled (glitter)
- */
-/**
- * Category → foil variant mapping.
- * All 8 variants are spread across categories by vibe:
- *   - Warm social (food, drink) → mythic (swirling energy)
- *   - Nature / movement (outdoors, hiking, sports) → aurora (drifting curtains)
- *   - Culture / arts (museum, gallery) → prismatic (geometric rainbow)
- *   - Chill / browsing (coffee, reading, thrifting) → chrome (metallic)
- *   - High energy (nightlife, boarding) → speckled (glitter)
- *   - Bars / brews → ember (warm glow)
- *   - Parks / walking → holographic (organic iridescence)
- *   - Music / venues → stardust (twinkling field)
+ * Category → preferred foil variant mapping.
+ * Each category has a "vibe" variant it prefers. When rarity allows it,
+ * this variant is used. Otherwise it falls back to the rarity pool.
  */
 const CATEGORY_FOIL_MAP: Record<string, FoilVariant> = {
   // Warm social → mythic
@@ -146,7 +130,19 @@ const CATEGORY_FOIL_MAP: Record<string, FoilVariant> = {
   brewery: "noisy_cavern",
 };
 
-const FOIL_VARIANTS: FoilVariant[] = [
+/**
+ * Rarity → foil variant pools, ordered subtle → dramatic.
+ * Category preference picks within the pool when possible.
+ */
+const RARITY_FOIL_POOLS: Record<string, FoilVariant[]> = {
+  common: ["stardust", "chrome"],
+  uncommon: ["holographic", "speckled", "grainy_sahara"],
+  rare: ["prismatic", "ember", "ember_forest"],
+  epic: ["aurora", "cosmic_ocean", "noisy_cavern"],
+  legendary: ["mythic"],
+};
+
+const ALL_FOIL_VARIANTS: FoilVariant[] = [
   "holographic",
   "speckled",
   "chrome",
@@ -161,10 +157,40 @@ const FOIL_VARIANTS: FoilVariant[] = [
   "noisy_cavern",
 ];
 
-/** Return a foil variant for a category name, or hash-based fallback. */
+/**
+ * Pick a foil variant based on rarity + category + distance.
+ *
+ * - Rarity determines the pool (common = subtle, legendary = mythic).
+ * - If the category's preferred variant lives in that pool, use it.
+ * - Otherwise, distance seeds a hash to pick from the pool.
+ */
+export function getFoilVariant(
+  rarity: string | undefined,
+  category: string | undefined,
+  distanceFromHome: number | undefined,
+): FoilVariant {
+  const rarityKey = (rarity ?? "common").toLowerCase();
+  const pool = RARITY_FOIL_POOLS[rarityKey] ?? RARITY_FOIL_POOLS.common;
+
+  // Check if category's preferred variant is available in this rarity pool
+  if (category) {
+    const preferred = CATEGORY_FOIL_MAP[category.toLowerCase().trim()];
+    if (preferred && pool.includes(preferred)) {
+      return preferred;
+    }
+  }
+
+  // Fall back: use distance + category to pick from the pool
+  const seed = hashString(
+    `${category ?? "x"}-${Math.round(distanceFromHome ?? 0)}`,
+  );
+  return pool[seed % pool.length];
+}
+
+/** @deprecated Use getFoilVariant instead */
 export function getCategoryFoilVariant(name: string): FoilVariant {
   const key = name.toLowerCase().trim();
-  return CATEGORY_FOIL_MAP[key] ?? FOIL_VARIANTS[hashString(key) % FOIL_VARIANTS.length];
+  return CATEGORY_FOIL_MAP[key] ?? ALL_FOIL_VARIANTS[hashString(key) % ALL_FOIL_VARIANTS.length];
 }
 
 /** Return a single hex color for a category name. */

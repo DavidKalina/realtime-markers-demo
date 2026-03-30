@@ -1116,6 +1116,57 @@ const ItineraryDetailScreen = () => {
           </Pressable>
         )}
 
+        {/* DEV: Complete sidequest (check in all objectives) */}
+        {__DEV__ && id && objectives.length > 0 && (
+          <Pressable
+            onPress={async () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              const unchecked = objectives.filter((o) => !o.checkedInAt);
+              for (const obj of unchecked) {
+                markCheckedIn(obj.id, new Date().toISOString());
+                apiClient.sidequests.checkin(id, obj.id).catch((err) => {
+                  console.error("[DEV] checkin failed:", err);
+                });
+              }
+              // Open capture modal for the first objective — existing
+              // onDismiss/onComplete handlers navigate to deck when all
+              // objectives are checked in.
+              const first = objectives[0];
+              if (first) {
+                setCaptureObjective({
+                  id: first.id,
+                  title: first.title,
+                  emoji: first.emoji,
+                  suggestedActivities: first.suggestedActivities ?? [],
+                  journalPrompt: first.journalPrompt,
+                });
+              }
+            }}
+            style={{
+              backgroundColor: "rgba(168, 85, 247, 0.1)",
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: "rgba(168, 85, 247, 0.3)",
+              padding: 10,
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <Text
+              style={{
+                color: "rgba(168, 85, 247, 0.95)",
+                fontFamily: "SpaceMono",
+                fontSize: 11,
+                fontWeight: "700",
+                textTransform: "uppercase",
+                letterSpacing: 1.5,
+              }}
+            >
+              DEV: Complete Quest → Deck
+            </Text>
+          </Pressable>
+        )}
+
         {/* ── Timeline (only when objectives are available) ── */}
         {objectives.length > 0 && (
           <ItineraryTimeline

@@ -47,7 +47,7 @@ import HolographicFoil, {
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
 import {
   getCategoryColor,
-  getCategoryFoilVariant,
+  getFoilVariant,
 } from "@/utils/categoryColors";
 import {
   fontFamily,
@@ -70,22 +70,26 @@ const BOB_DURATION = 2400;
 /** Only cards within ±ANIMATION_WINDOW of the active card run heavy effects. */
 const ANIMATION_WINDOW = 1;
 
-const TIER_LABELS: Record<string, string> = {
-  QUICK: "QUICK & EASY",
-  SWEET_SPOT: "SWEET SPOT",
-  BEST: "BEST PACKAGE",
+const RARITY_LABELS: Record<string, string> = {
+  common: "COMMON",
+  uncommon: "UNCOMMON",
+  rare: "RARE",
+  epic: "EPIC",
+  legendary: "LEGENDARY",
 };
 
-const TIER_DESCRIPTIONS: Record<string, string> = {
-  QUICK: "One stop, minimal effort",
-  SWEET_SPOT: "Balanced adventure",
-  BEST: "The full experience",
+const RARITY_DESCRIPTIONS: Record<string, string> = {
+  common: "A familiar favorite",
+  uncommon: "Slightly off the beaten path",
+  rare: "Beyond your usual range",
+  epic: "Deep into new territory",
+  legendary: "A once-in-a-lifetime find",
 };
 
 const TIER_LABEL_HEIGHT = 36;
 
-// Per-tier visual treatment for badges — neutral palette, different text colors
-const TIER_BADGE_STYLE: Record<
+// Per-rarity visual treatment for badges
+const RARITY_BADGE_STYLE: Record<
   string,
   {
     bg: string;
@@ -98,7 +102,7 @@ const TIER_BADGE_STYLE: Record<
     shimmer: boolean;
   }
 > = {
-  QUICK: {
+  common: {
     bg: "rgba(255, 255, 255, 0.06)",
     border: "rgba(255, 255, 255, 0.12)",
     text: "rgba(255, 255, 255, 0.5)",
@@ -108,23 +112,43 @@ const TIER_BADGE_STYLE: Record<
     borderWidth: 1,
     shimmer: false,
   },
-  SWEET_SPOT: {
-    bg: "rgba(251, 191, 36, 0.1)",
-    border: "rgba(251, 191, 36, 0.25)",
-    text: "rgba(251, 191, 36, 0.9)",
+  uncommon: {
+    bg: "rgba(74, 222, 128, 0.1)",
+    border: "rgba(74, 222, 128, 0.25)",
+    text: "rgba(74, 222, 128, 0.9)",
+    glowRadius: 4,
+    glowOpacity: 0.2,
+    glowColor: "rgba(74, 222, 128, 1)",
+    borderWidth: 1,
+    shimmer: false,
+  },
+  rare: {
+    bg: "rgba(96, 165, 250, 0.1)",
+    border: "rgba(96, 165, 250, 0.25)",
+    text: "rgba(96, 165, 250, 0.9)",
     glowRadius: 6,
     glowOpacity: 0.3,
-    glowColor: "rgba(251, 191, 36, 1)",
+    glowColor: "rgba(96, 165, 250, 1)",
     borderWidth: 1.5,
     shimmer: false,
   },
-  BEST: {
+  epic: {
     bg: "rgba(168, 85, 247, 0.1)",
     border: "rgba(168, 85, 247, 0.3)",
     text: "rgba(168, 85, 247, 0.95)",
-    glowRadius: 10,
-    glowOpacity: 0.5,
+    glowRadius: 8,
+    glowOpacity: 0.4,
     glowColor: "rgba(168, 85, 247, 1)",
+    borderWidth: 1.5,
+    shimmer: true,
+  },
+  legendary: {
+    bg: "rgba(251, 191, 36, 0.12)",
+    border: "rgba(251, 191, 36, 0.35)",
+    text: "rgba(251, 191, 36, 0.95)",
+    glowRadius: 12,
+    glowOpacity: 0.5,
+    glowColor: "rgba(251, 191, 36, 1)",
     borderWidth: 2,
     shimmer: true,
   },
@@ -156,11 +180,13 @@ function getCardColorKey(option: SidequestResponse): string {
   );
 }
 
-// Per-tier holographic foil intensity for completed cards
+// Per-rarity holographic foil intensity for completed cards
 const FOIL_INTENSITY: Record<string, number> = {
-  QUICK: 0.1,
-  SWEET_SPOT: 0.16,
-  BEST: 0.22,
+  common: 0.08,
+  uncommon: 0.11,
+  rare: 0.15,
+  epic: 0.19,
+  legendary: 0.24,
 };
 
 // Tier-only fallback colors (green / amber / purple)
@@ -317,13 +343,13 @@ const CardSheen: React.FC<{
 
 CardSheen.displayName = "CardSheen";
 
-// --- Tier badge with per-tier holographic treatment ---
+// --- Rarity badge with per-rarity holographic treatment ---
 
 const TierBadge: React.FC<{
   tier: string;
   label: string;
 }> = React.memo(({ tier, label }) => {
-  const s = TIER_BADGE_STYLE[tier] ?? TIER_BADGE_STYLE.QUICK;
+  const s = RARITY_BADGE_STYLE[tier] ?? RARITY_BADGE_STYLE.common;
 
   // Shimmer animation for BEST tier
   const shimmerOpacity = useSharedValue(0.4);
@@ -434,8 +460,9 @@ const QuestCard: React.FC<{
       getCategoryColor(colorKey) ??
       TIER_FALLBACK_COLORS[option.tier ?? "QUICK"] ??
       TIER_FALLBACK_COLORS.QUICK;
+    const rarityKey = (option.rarity ?? "common").toLowerCase();
     const tierMeta = {
-      label: TIER_LABELS[option.tier ?? "QUICK"] ?? TIER_LABELS.QUICK,
+      label: RARITY_LABELS[rarityKey] ?? RARITY_LABELS.common,
       ...hexToCardColors(cardHex),
     };
     const isBrowse = mode === "browse";
@@ -722,10 +749,10 @@ const QuestCard: React.FC<{
               <HolographicFoil
                 width={CARD_WIDTH}
                 height={CARD_HEIGHT}
-                variant={getCategoryFoilVariant(colorKey)}
+                variant={getFoilVariant(option.rarity, colorKey, option.distanceFromHome)}
                 seed={hashString(option.id)}
                 intensity={
-                  FOIL_INTENSITY[option.tier ?? "QUICK"] ?? FOIL_INTENSITY.QUICK
+                  FOIL_INTENSITY[rarityKey] ?? FOIL_INTENSITY.common
                 }
               />
             )}
@@ -1345,17 +1372,17 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
                         s.tierLabelText,
                         {
                           color: (
-                            TIER_BADGE_STYLE[option.tier ?? "QUICK"] ??
-                            TIER_BADGE_STYLE.QUICK
+                            RARITY_BADGE_STYLE[(option.rarity ?? "common").toLowerCase()] ??
+                            RARITY_BADGE_STYLE.common
                           ).text,
                         },
                       ]}
                     >
-                      {TIER_LABELS[option.tier ?? "QUICK"] ?? TIER_LABELS.QUICK}
+                      {RARITY_LABELS[(option.rarity ?? "common").toLowerCase()] ?? RARITY_LABELS.common}
                     </Text>
                     <Text style={s.tierDescText}>
-                      {TIER_DESCRIPTIONS[option.tier ?? "QUICK"] ??
-                        TIER_DESCRIPTIONS.QUICK}
+                      {RARITY_DESCRIPTIONS[(option.rarity ?? "common").toLowerCase()] ??
+                        RARITY_DESCRIPTIONS.common}
                     </Text>
                   </View>
                 )}
