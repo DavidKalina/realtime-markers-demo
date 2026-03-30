@@ -355,8 +355,12 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
     const fields: Record<string, unknown> = {};
     if (updates.pacePreference) fields.pacePreference = updates.pacePreference;
     if (updates.comfortProfile) {
-      Object.values(updates.comfortProfile).forEach((val) => val.trim());
-      fields.comfortProfile = updates.comfortProfile;
+      fields.comfortProfile = Object.fromEntries(
+        Object.entries(updates.comfortProfile).map(([k, v]) => [
+          k,
+          (v as string).trim()
+        ]),
+      ) as typeof updates.comfortProfile;
     }
 
     if (Object.keys(fields).length > 0) {

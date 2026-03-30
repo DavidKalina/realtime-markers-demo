@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import {
-  createSidequestHandler,
   listSidequestsHandler,
   getSidequestHandler,
   deleteSidequestHandler,
@@ -15,8 +14,6 @@ import {
   rateSidequestHandler,
   listCompletedHandler,
   browseSidequestsHandler,
-  getSidequestOptionsHandler,
-  selectSidequestOptionHandler,
   getDeckStatsHandler,
   promoteSidequestHandler,
   searchSidequestsHandler,
@@ -64,8 +61,6 @@ sidequestRouter.get("/deck-stats", readRateLimit, getDeckStatsHandler);
 sidequestRouter.get("/comfort-zone", readRateLimit, getComfortZoneHandler);
 sidequestRouter.get("/world-size", readRateLimit, getWorldSizeHandler);
 sidequestRouter.get("/:id", readRateLimit, getSidequestHandler);
-sidequestRouter.get("/:id/options", readRateLimit, getSidequestOptionsHandler);
-sidequestRouter.post("/", writeRateLimit, createSidequestHandler);
 sidequestRouter.post("/prescribe", writeRateLimit, prescribeQuestHandler);
 sidequestRouter.post("/batch-delete", writeRateLimit, batchDeleteSidequestHandler);
 sidequestRouter.post("/deactivate", writeRateLimit, deactivateSidequestHandler);
@@ -73,7 +68,6 @@ sidequestRouter.post("/home-anchor", writeRateLimit, setHomeAnchorHandler);
 sidequestRouter.post("/:id/share", writeRateLimit, shareSidequestHandler);
 sidequestRouter.post("/:id/activate", writeRateLimit, activateSidequestHandler);
 sidequestRouter.post("/:id/rate", writeRateLimit, rateSidequestHandler);
-sidequestRouter.post("/:id/select", writeRateLimit, selectSidequestOptionHandler);
 sidequestRouter.post("/:id/promote", writeRateLimit, promoteSidequestHandler);
 sidequestRouter.post(
   "/:id/objectives/:objectiveId/checkin",

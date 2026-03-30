@@ -8,7 +8,6 @@ export type JobType =
   | "process_flyer"
   | "cleanup_outdated_events"
   | "import_external_events"
-  | "generate_sidequest"
   | "prescribe_quest";
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
@@ -115,16 +114,6 @@ export const IMPORT_PIPELINE = definePipeline<ImportStepId>(
     { id: "deduplicate", label: "Checking for duplicates", weight: 1 },
     { id: "create", label: "Importing events", weight: 4 },
     { id: "notify", label: "Completing import", weight: 1 },
-  ],
-);
-
-export type SidequestStepId = "generate" | "save";
-
-export const SIDEQUEST_PIPELINE = definePipeline<SidequestStepId>(
-  "generate_sidequest",
-  [
-    { id: "generate", label: "Forging your quest", weight: 5 },
-    { id: "save", label: "Inscribing the quest log", weight: 1 },
   ],
 );
 

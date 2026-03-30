@@ -1,7 +1,6 @@
 import type { JobHandler, JobHandlerContext } from "./BaseJobHandler";
 import type { JobQueue } from "../../services/JobQueue";
 import type { RedisService } from "../../services/shared/RedisService";
-import { GenerateSidequestHandler } from "./GenerateSidequestHandler";
 import { PrescribeQuestHandler } from "./PrescribeQuestHandler";
 import type { SidequestService } from "../../services/SidequestService";
 
@@ -18,7 +17,6 @@ export class JobHandlerRegistry {
 
   private registerHandlers(): void {
     if (this.sidequestService) {
-      this.registerHandler(new GenerateSidequestHandler(this.sidequestService));
       this.registerHandler(new PrescribeQuestHandler(this.sidequestService));
     }
   }
