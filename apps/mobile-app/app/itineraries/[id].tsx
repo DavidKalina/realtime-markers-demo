@@ -597,6 +597,8 @@ const ItineraryDetailScreen = () => {
   useEffect(() => {
     const handler = (data: SidequestCheckinEvent) => {
       if (data.sidequestId === id) {
+        // markCheckedIn is idempotent — safe to call even if
+        // the geofence task already optimistically updated
         markCheckedIn(data.objectiveId, new Date().toISOString());
         Haptics.notificationAsync(
           data.completed
@@ -604,18 +606,20 @@ const ItineraryDetailScreen = () => {
             : Haptics.NotificationFeedbackType.Warning,
         );
 
-        // Open capture modal for proximity check-ins too
-        const objective = displaySidequest?.objectives?.find(
-          (o) => o.id === data.objectiveId,
-        );
-        if (objective) {
-          setCaptureObjective({
-            id: objective.id,
-            title: objective.title,
-            emoji: objective.emoji,
-            suggestedActivities: objective.suggestedActivities ?? [],
-            journalPrompt: objective.journalPrompt,
-          });
+        // Only open capture modal if not already showing one
+        if (!captureObjective) {
+          const objective = displaySidequest?.objectives?.find(
+            (o) => o.id === data.objectiveId,
+          );
+          if (objective) {
+            setCaptureObjective({
+              id: objective.id,
+              title: objective.title,
+              emoji: objective.emoji,
+              suggestedActivities: objective.suggestedActivities ?? [],
+              journalPrompt: objective.journalPrompt,
+            });
+          }
         }
       }
     };
@@ -689,28 +693,33 @@ const ItineraryDetailScreen = () => {
     async (itemId: string) => {
       if (!id) return;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      try {
-        const result = await apiClient.sidequests.checkin(id, itemId);
-        if (result.success && result.checkedInAt) {
-          markCheckedIn(itemId, result.checkedInAt);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-          // Open capture modal if this is a prescribed quest with wellness fields
-          const objective = displaySidequest?.objectives?.find(
-            (o) => o.id === itemId,
-          );
-          if (objective) {
-            setCaptureObjective({
-              id: objective.id,
-              title: objective.title,
-              emoji: objective.emoji,
-              suggestedActivities: objective.suggestedActivities ?? [],
-              journalPrompt: objective.journalPrompt,
-            });
-          }
-        }
+      // Optimistically update UI immediately
+      const now = new Date().toISOString();
+      markCheckedIn(itemId, now);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Open capture modal right away
+      const objective = displaySidequest?.objectives?.find(
+        (o) => o.id === itemId,
+      );
+      if (objective) {
+        setCaptureObjective({
+          id: objective.id,
+          title: objective.title,
+          emoji: objective.emoji,
+          suggestedActivities: objective.suggestedActivities ?? [],
+          journalPrompt: objective.journalPrompt,
+        });
+      }
+
+      // Fire API call in background — no need to block UI
+      try {
+        await apiClient.sidequests.checkin(id, itemId);
       } catch (err) {
         console.error("[ItineraryDetail] Manual checkin failed:", err);
+        // TODO: could roll back markCheckedIn here, but for now
+        // the server will reconcile on next refresh
       }
     },
     [id, markCheckedIn, displaySidequest],

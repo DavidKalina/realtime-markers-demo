@@ -1,3 +1,4 @@
+import { BlurView } from "expo-blur";
 import { useUserLocation } from "@/contexts/LocationContext";
 import {
   useColors,
@@ -13,74 +14,91 @@ import { apiClient } from "@/services/ApiClient";
 import { useAuth } from "@/contexts/AuthContext";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
-  ScrollView,
-  StatusBar,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 import Animated, {
-  FadeInRight,
+  FadeIn,
+  FadeInDown,
+  FadeOut,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
   withSpring,
+  type SharedValue,
 } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+
+const GREEN_ACCENT = "#86efac";
+const GREEN_MUTED = "rgba(134, 239, 172, 0.12)";
 
 const ACTIVITY_OPTIONS = [
-  "☕ Coffee",
-  "🥾 Hiking",
-  "🎨 Art",
-  "📚 Reading",
-  "🍽️ Food",
-  "🎵 Music",
-  "🏋️ Fitness",
-  "🌳 Nature",
-  "🛹 Skating",
-  "📸 Photography",
-  "🧘 Wellness",
-  "🍺 Drinks",
+  "☕ Coffee", "🥾 Hiking", "🎨 Art", "📚 Reading",
+  "🍽️ Food", "🎵 Music", "🏋️ Fitness", "🌳 Nature",
+  "🛹 Skating", "📸 Photography", "🧘 Wellness", "🍺 Drinks",
 ];
 
 const PACE_OPTIONS = [
   { key: "gentle", emoji: "🐢", label: "Gentle", desc: "Ease me in, stay close" },
   { key: "steady", emoji: "🚶", label: "Steady", desc: "Balanced expansion" },
-  { key: "push", emoji: "🚀", label: "Push Me", desc: "Challenge me, stretch further" },
+  { key: "push_me", emoji: "🚀", label: "Push Me", desc: "Challenge me, stretch further" },
 ];
+
+const PARALLAX = [1.0, 0.93, 0.86, 0.8];
+
+const TOTAL_STEPS = 4;
+
+// ── Parallax widget ───────────────────────────────────────────────────
+
+const ParallaxWidget: React.FC<{
+  scrollY: SharedValue<number>;
+  index: number;
+  enterDelay: number;
+  children: React.ReactNode;
+}> = ({ scrollY, index, enterDelay, children }) => {
+  const rate = PARALLAX[index] ?? 0.7;
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: -scrollY.value * (1 - rate) }],
+  }));
+  return (
+    <Animated.View entering={FadeInDown.delay(enterDelay).duration(400)} style={style}>
+      {children}
+    </Animated.View>
+  );
+};
+
+// ── Screen ────────────────────────────────────────────────────────────
 
 const OnboardingScreen: React.FC = () => {
   const colors = useColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const s = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { userLocation } = useUserLocation();
   const { refreshAuth } = useAuth();
 
   const [step, setStep] = useState(1);
 
-  // Step 2 state
+  // Form state
   const [comfortZone, setComfortZone] = useState("");
   const [barriers, setBarriers] = useState("");
   const [goals, setGoals] = useState("");
-
-  // Step 3 state
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
-  const [pacePreference, setPacePreference] = useState<string>("");
-
-  // Submission state
+  const [pacePreference, setPacePreference] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const buttonScale = useSharedValue(1);
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
+  const buttonStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
   }));
 
@@ -94,6 +112,7 @@ const OnboardingScreen: React.FC = () => {
   const handleNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     animateButton();
+    Keyboard.dismiss();
     setStep((prev) => prev + 1);
   };
 
@@ -121,277 +140,382 @@ const OnboardingScreen: React.FC = () => {
     try {
       await apiClient.sidequests.updateComfortProfile({
         pacePreference,
-        comfortProfile: {
-          comfortZone,
-          barriers,
-          goals,
-        },
+        comfortProfile: { comfortZone, barriers, goals },
       });
 
       if (userLocation) {
-        await apiClient.sidequests.setHomeAnchor(
-          userLocation[1],
-          userLocation[0],
-        );
+        await apiClient.sidequests.setHomeAnchor(userLocation[1], userLocation[0]);
       }
 
-      // Refresh user profile so AuthGuard sees the new comfortProfile
       await refreshAuth();
-
       router.replace("/");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
+    } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error("Onboarding error:", err);
       setError(
         typeof err === "object" && err !== null && "message" in err
-          ? String(err.message)
+          ? String((err as { message: string }).message)
           : "Something went wrong. Please try again.",
       );
       setIsLoading(false);
     }
   };
 
+  // Each step is its own blur page with parallax widgets
   const renderStep = () => {
     switch (step) {
       case 1:
-        return (
-          <Animated.View
-            key="step-1"
-            entering={FadeInRight.duration(300)}
-            style={styles.stepContainer}
-          >
-            <View style={styles.welcomeContainer}>
-              <Text style={styles.displayTitle}>Let's set up your world</Text>
-              <Text style={styles.subtitle}>
-                A few quick questions to personalize your experience
-              </Text>
-            </View>
-            <Animated.View style={buttonAnimatedStyle}>
-              <TouchableOpacity
-                onPress={handleNext}
-                activeOpacity={0.7}
-                style={styles.primaryButton}
-              >
-                <Text style={styles.primaryButtonText}>Get Started</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </Animated.View>
-        );
-
+        return <StepWelcome s={s} colors={colors} buttonStyle={buttonStyle} onNext={handleNext} />;
       case 2:
         return (
-          <Animated.View
-            key="step-2"
-            entering={FadeInRight.duration(300)}
-            style={styles.stepContainer}
-          >
-            <Text style={styles.sectionTitle}>
-              How would you describe your comfort zone?
-            </Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. I mostly stay home and go to familiar places..."
-              placeholderTextColor={colors.text.disabled}
-              value={comfortZone}
-              onChangeText={setComfortZone}
-              multiline
-              maxLength={200}
-              textAlignVertical="top"
-            />
-
-            <Text style={styles.sectionTitle}>
-              What keeps you from getting out more?
-            </Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. Anxiety, not knowing where to go..."
-              placeholderTextColor={colors.text.disabled}
-              value={barriers}
-              onChangeText={setBarriers}
-              multiline
-              maxLength={200}
-              textAlignVertical="top"
-            />
-
-            <Text style={styles.sectionTitle}>What's your goal?</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. Explore my city, find new hangouts..."
-              placeholderTextColor={colors.text.disabled}
-              value={goals}
-              onChangeText={setGoals}
-              multiline
-              maxLength={200}
-              textAlignVertical="top"
-            />
-
-            <Animated.View style={buttonAnimatedStyle}>
-              <TouchableOpacity
-                onPress={handleNext}
-                activeOpacity={0.7}
-                style={styles.primaryButton}
-              >
-                <Text style={styles.primaryButtonText}>Next</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </Animated.View>
+          <StepComfortZone
+            s={s}
+            colors={colors}
+            buttonStyle={buttonStyle}
+            comfortZone={comfortZone}
+            setComfortZone={setComfortZone}
+            barriers={barriers}
+            setBarriers={setBarriers}
+            goals={goals}
+            setGoals={setGoals}
+            onNext={handleNext}
+          />
         );
-
       case 3:
         return (
-          <Animated.View
-            key="step-3"
-            entering={FadeInRight.duration(300)}
-            style={styles.stepContainer}
-          >
-            <Text style={styles.sectionTitle}>What do you enjoy doing?</Text>
-            <View style={styles.chipGrid}>
-              {ACTIVITY_OPTIONS.map((activity) => {
-                const isSelected = selectedActivities.includes(activity);
-                return (
-                  <TouchableOpacity
-                    key={activity}
-                    onPress={() => toggleActivity(activity)}
-                    activeOpacity={0.7}
-                    style={[
-                      styles.chip,
-                      isSelected && styles.chipSelected,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        isSelected && styles.chipTextSelected,
-                      ]}
-                    >
-                      {activity}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Text style={styles.sectionTitle}>What pace feels right?</Text>
-            <View style={styles.paceContainer}>
-              {PACE_OPTIONS.map((option) => {
-                const isSelected = pacePreference === option.key;
-                return (
-                  <TouchableOpacity
-                    key={option.key}
-                    onPress={() => selectPace(option.key)}
-                    activeOpacity={0.7}
-                    style={[
-                      styles.paceCard,
-                      isSelected && styles.paceCardSelected,
-                    ]}
-                  >
-                    <Text style={styles.paceEmoji}>{option.emoji}</Text>
-                    <Text
-                      style={[
-                        styles.paceLabel,
-                        isSelected && styles.paceLabelSelected,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                    <Text style={styles.paceDesc}>{option.desc}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Animated.View style={buttonAnimatedStyle}>
-              <TouchableOpacity
-                onPress={handleNext}
-                activeOpacity={0.7}
-                style={styles.primaryButton}
-              >
-                <Text style={styles.primaryButtonText}>Next</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </Animated.View>
+          <StepActivities
+            s={s}
+            colors={colors}
+            buttonStyle={buttonStyle}
+            selectedActivities={selectedActivities}
+            toggleActivity={toggleActivity}
+            pacePreference={pacePreference}
+            selectPace={selectPace}
+            onNext={handleNext}
+          />
         );
-
       case 4:
         return (
-          <Animated.View
-            key="step-4"
-            entering={FadeInRight.duration(300)}
-            style={styles.stepContainer}
-          >
-            <Text style={styles.sectionTitle}>Set your home base</Text>
-            <Text style={styles.explanationText}>
-              We'll use this as the center of your expanding world
-            </Text>
-
-            <View style={styles.locationCard}>
-              <Text style={styles.locationIcon}>📍</Text>
-              <Text style={styles.locationText}>
-                {userLocation
-                  ? "Using your current location"
-                  : "Waiting for location..."}
-              </Text>
-            </View>
-
-            {error && (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            )}
-
-            <Animated.View style={buttonAnimatedStyle}>
-              <TouchableOpacity
-                onPress={handleFinish}
-                disabled={isLoading}
-                activeOpacity={0.7}
-                style={styles.primaryButton}
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color={colors.text.primary} />
-                ) : (
-                  <Text style={styles.primaryButtonText}>Finish Setup</Text>
-                )}
-              </TouchableOpacity>
-            </Animated.View>
-          </Animated.View>
+          <StepHomeBase
+            s={s}
+            colors={colors}
+            buttonStyle={buttonStyle}
+            userLocation={userLocation}
+            isLoading={isLoading}
+            error={error}
+            onFinish={handleFinish}
+          />
         );
-
       default:
         return null;
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg.primary} />
+    <View style={s.container}>
+      <BlurView
+        tint="dark"
+        intensity={60}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardAvoidingView}
+      {/* Progress dots */}
+      <View style={s.progressContainer}>
+        {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+          <View
+            key={i}
+            style={[s.progressDot, i < step && s.progressDotActive]}
+          />
+        ))}
+      </View>
+
+      {/* Step content with enter/exit animation */}
+      <Animated.View
+        key={step}
+        entering={FadeIn.duration(300)}
+        exiting={FadeOut.duration(150)}
+        style={s.stepWrapper}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.progressContainer}>
-            {[1, 2, 3, 4].map((s) => (
-              <View
-                key={s}
-                style={[
-                  styles.progressDot,
-                  s <= step && styles.progressDotActive,
-                ]}
-              />
-            ))}
-          </View>
-
-          {renderStep()}
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        {renderStep()}
+      </Animated.View>
+    </View>
   );
 };
+
+// ── Step 1: Welcome ───────────────────────────────────────────────────
+
+interface StepProps {
+  s: ReturnType<typeof createStyles>;
+  colors: Colors;
+  buttonStyle: { transform: { scale: number }[] };
+}
+
+const StepWelcome: React.FC<StepProps & { onNext: () => void }> = ({
+  s,
+  buttonStyle,
+  onNext,
+}) => {
+  const scrollY = useSharedValue(0);
+  return (
+    <View style={s.stepContent}>
+      <View style={s.welcomeCenter}>
+        <ParallaxWidget scrollY={scrollY} index={0} enterDelay={100}>
+          <View style={s.headerWidget}>
+            <Text style={s.headerEmoji}>{"\u{1F30D}"}</Text>
+            <Text style={s.headerTitle}>Let&apos;s set up your world</Text>
+            <Text style={s.headerSub}>
+              A few quick questions to personalize your experience
+            </Text>
+          </View>
+        </ParallaxWidget>
+
+        <ParallaxWidget scrollY={scrollY} index={1} enterDelay={300}>
+          <Animated.View style={buttonStyle}>
+            <Pressable onPress={onNext} style={s.primaryButton}>
+              <Text style={s.primaryButtonText}>Get Started</Text>
+            </Pressable>
+          </Animated.View>
+        </ParallaxWidget>
+      </View>
+    </View>
+  );
+};
+
+// ── Step 2: Comfort Zone ──────────────────────────────────────────────
+
+const StepComfortZone: React.FC<
+  StepProps & {
+    comfortZone: string;
+    setComfortZone: (v: string) => void;
+    barriers: string;
+    setBarriers: (v: string) => void;
+    goals: string;
+    setGoals: (v: string) => void;
+    onNext: () => void;
+  }
+> = ({ s, colors, buttonStyle, comfortZone, setComfortZone, barriers, setBarriers, goals, setGoals, onNext }) => {
+  const scrollY = useSharedValue(0);
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollY.value = e.nativeEvent.contentOffset.y;
+    },
+    [scrollY],
+  );
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={s.stepContent}
+    >
+      <Animated.ScrollView
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <ParallaxWidget scrollY={scrollY} index={0} enterDelay={100}>
+          <Text style={s.widgetLabel}>YOUR COMFORT ZONE</Text>
+          <TextInput
+            style={s.textInput}
+            placeholder={"e.g. I mostly stay home and go to familiar places\u2026"}
+            placeholderTextColor={colors.text.disabled}
+            value={comfortZone}
+            onChangeText={setComfortZone}
+            multiline
+            maxLength={200}
+            textAlignVertical="top"
+          />
+        </ParallaxWidget>
+
+        <ParallaxWidget scrollY={scrollY} index={1} enterDelay={200}>
+          <Text style={s.widgetLabel}>WHAT KEEPS YOU FROM GOING OUT?</Text>
+          <TextInput
+            style={s.textInput}
+            placeholder={"e.g. Anxiety, not knowing where to go\u2026"}
+            placeholderTextColor={colors.text.disabled}
+            value={barriers}
+            onChangeText={setBarriers}
+            multiline
+            maxLength={200}
+            textAlignVertical="top"
+          />
+        </ParallaxWidget>
+
+        <ParallaxWidget scrollY={scrollY} index={2} enterDelay={300}>
+          <Text style={s.widgetLabel}>YOUR GOAL</Text>
+          <TextInput
+            style={s.textInput}
+            placeholder={"e.g. Explore my city, find new hangouts\u2026"}
+            placeholderTextColor={colors.text.disabled}
+            value={goals}
+            onChangeText={setGoals}
+            multiline
+            maxLength={200}
+            textAlignVertical="top"
+          />
+        </ParallaxWidget>
+
+        <ParallaxWidget scrollY={scrollY} index={3} enterDelay={400}>
+          <Animated.View style={buttonStyle}>
+            <Pressable onPress={onNext} style={s.primaryButton}>
+              <Text style={s.primaryButtonText}>Next</Text>
+            </Pressable>
+          </Animated.View>
+        </ParallaxWidget>
+      </Animated.ScrollView>
+    </KeyboardAvoidingView>
+  );
+};
+
+// ── Step 3: Activities & Pace ─────────────────────────────────────────
+
+const StepActivities: React.FC<
+  StepProps & {
+    selectedActivities: string[];
+    toggleActivity: (a: string) => void;
+    pacePreference: string;
+    selectPace: (p: string) => void;
+    onNext: () => void;
+  }
+> = ({ s, colors, buttonStyle, selectedActivities, toggleActivity, pacePreference, selectPace, onNext }) => {
+  const scrollY = useSharedValue(0);
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollY.value = e.nativeEvent.contentOffset.y;
+    },
+    [scrollY],
+  );
+
+  return (
+    <Animated.ScrollView
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
+      contentContainerStyle={s.scrollContent}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      style={s.stepContent}
+    >
+      <ParallaxWidget scrollY={scrollY} index={0} enterDelay={100}>
+        <Text style={s.widgetLabel}>WHAT DO YOU ENJOY?</Text>
+        <View style={s.chipGrid}>
+          {ACTIVITY_OPTIONS.map((activity) => {
+            const isSelected = selectedActivities.includes(activity);
+            return (
+              <Pressable
+                key={activity}
+                onPress={() => toggleActivity(activity)}
+                style={[s.chip, isSelected && s.chipActive]}
+              >
+                <Text style={[s.chipText, isSelected && s.chipTextActive]}>
+                  {activity}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ParallaxWidget>
+
+      <ParallaxWidget scrollY={scrollY} index={1} enterDelay={250}>
+        <Text style={s.widgetLabel}>WHAT PACE FEELS RIGHT?</Text>
+        <View style={s.paceContainer}>
+          {PACE_OPTIONS.map((option) => {
+            const isSelected = pacePreference === option.key;
+            return (
+              <Pressable
+                key={option.key}
+                onPress={() => selectPace(option.key)}
+                style={[s.paceCard, isSelected && s.paceCardActive]}
+              >
+                <Text style={s.paceEmoji}>{option.emoji}</Text>
+                <View style={s.paceTextWrap}>
+                  <Text style={[s.paceLabel, isSelected && s.paceLabelActive]}>
+                    {option.label}
+                  </Text>
+                  <Text style={s.paceDesc}>{option.desc}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ParallaxWidget>
+
+      <ParallaxWidget scrollY={scrollY} index={2} enterDelay={400}>
+        <Animated.View style={buttonStyle}>
+          <Pressable onPress={onNext} style={s.primaryButton}>
+            <Text style={s.primaryButtonText}>Next</Text>
+          </Pressable>
+        </Animated.View>
+      </ParallaxWidget>
+    </Animated.ScrollView>
+  );
+};
+
+// ── Step 4: Home Base ─────────────────────────────────────────────────
+
+const StepHomeBase: React.FC<
+  StepProps & {
+    userLocation: [number, number] | null;
+    isLoading: boolean;
+    error: string | null;
+    onFinish: () => void;
+  }
+> = ({ s, colors, buttonStyle, userLocation, isLoading, error, onFinish }) => {
+  const scrollY = useSharedValue(0);
+  return (
+    <View style={s.stepContent}>
+      <View style={{ flex: 1, justifyContent: "center", gap: spacing["2xl"], paddingHorizontal: 28 }}>
+        <ParallaxWidget scrollY={scrollY} index={0} enterDelay={100}>
+          <View style={s.headerWidget}>
+            <Text style={s.headerEmoji}>{"\u{1F3E0}"}</Text>
+            <Text style={s.headerTitle}>Set your home base</Text>
+            <Text style={s.headerSub}>
+              We&apos;ll use this as the center of your expanding world
+            </Text>
+          </View>
+        </ParallaxWidget>
+
+        <ParallaxWidget scrollY={scrollY} index={1} enterDelay={200}>
+          <View style={s.locationRow}>
+            <Text style={s.locationIcon}>{"\u{1F4CD}"}</Text>
+            <Text style={s.locationText}>
+              {userLocation
+                ? "Using your current location"
+                : "Waiting for location..."}
+            </Text>
+          </View>
+        </ParallaxWidget>
+
+        {error && (
+          <View style={s.errorContainer}>
+            <Text style={s.errorText}>{error}</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={{ paddingHorizontal: 28, paddingBottom: 40 }}>
+        <ParallaxWidget scrollY={scrollY} index={2} enterDelay={300}>
+          <Animated.View style={buttonStyle}>
+            <Pressable
+              onPress={onFinish}
+              disabled={isLoading}
+              style={s.finishButton}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#000000" />
+              ) : (
+                <Text style={s.finishButtonText}>Finish Setup</Text>
+              )}
+            </Pressable>
+          </Animated.View>
+        </ParallaxWidget>
+      </View>
+    </View>
+  );
+};
+
+// ── Styles ─────────────────────────────────────────────────────────────
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
@@ -399,152 +523,183 @@ const createStyles = (colors: Colors) =>
       flex: 1,
       backgroundColor: colors.bg.primary,
     },
-    keyboardAvoidingView: {
-      flex: 1,
-    },
-    scrollContent: {
-      flexGrow: 1,
-      paddingHorizontal: spacing.xl,
-      paddingVertical: spacing._10,
-    },
     progressContainer: {
       flexDirection: "row",
       justifyContent: "center",
       gap: spacing.sm,
-      marginBottom: spacing["3xl"],
+      paddingTop: 60,
+      zIndex: 10,
     },
     progressDot: {
       width: 8,
       height: 8,
       borderRadius: radius.full,
-      backgroundColor: colors.border.medium,
+      backgroundColor: "rgba(255, 255, 255, 0.1)",
     },
     progressDotActive: {
-      backgroundColor: colors.accent.primary,
+      backgroundColor: GREEN_ACCENT,
     },
-    stepContainer: {
+    stepWrapper: {
       flex: 1,
-      gap: spacing.xl,
     },
-    welcomeContainer: {
+    stepContent: {
+      flex: 1,
+    },
+    welcomeCenter: {
       flex: 1,
       justifyContent: "center",
+      paddingHorizontal: 28,
+      gap: spacing["3xl"],
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: "center",
+      paddingHorizontal: 28,
+      paddingVertical: 40,
+      gap: spacing["2xl"],
+    },
+
+    // ── Header ──
+    headerWidget: {
       alignItems: "center",
-      gap: spacing.lg,
-      paddingVertical: spacing["5xl"],
+      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
     },
-    displayTitle: {
+    headerEmoji: {
+      fontSize: 48,
+      textShadowColor: "rgba(0, 0, 0, 0.4)",
+      textShadowOffset: { width: 0, height: 4 },
+      textShadowRadius: 12,
+    },
+    headerTitle: {
       fontFamily: fontFamily.display,
-      fontSize: fontSize["3xl"],
+      fontSize: fontSize["2xl"],
       color: colors.text.primary,
       textAlign: "center",
     },
-    subtitle: {
+    headerSub: {
       fontFamily: fontFamily.mono,
-      fontSize: fontSize.md,
+      fontSize: 12,
       color: colors.text.secondary,
       textAlign: "center",
-      lineHeight: 24,
+      letterSpacing: 0.5,
+      lineHeight: 20,
     },
-    sectionTitle: {
+
+    // ── Labels ──
+    widgetLabel: {
       fontFamily: fontFamily.mono,
-      fontSize: fontSize.lg,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.primary,
+      fontSize: 9,
+      fontWeight: fontWeight.bold,
+      color: colors.text.disabled,
+      letterSpacing: 1.5,
+      marginBottom: spacing.sm,
     },
-    explanationText: {
-      fontFamily: fontFamily.mono,
-      fontSize: fontSize.sm,
-      color: colors.text.secondary,
-      lineHeight: 22,
-    },
+
+    // ── Text inputs ──
     textInput: {
-      backgroundColor: colors.bg.card,
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border.default,
-      padding: spacing.lg,
-      color: colors.text.primary,
       fontFamily: fontFamily.mono,
-      fontSize: fontSize.sm,
-      minHeight: 80,
+      fontSize: 13,
+      color: colors.text.primary,
+      borderWidth: 1,
+      borderColor: "rgba(255, 255, 255, 0.06)",
+      borderRadius: radius.lg,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
+      minHeight: 70,
     },
+
+    // ── Activity chips ──
     chipGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: spacing.sm,
     },
     chip: {
+      paddingVertical: 8,
       paddingHorizontal: spacing.lg,
-      paddingVertical: spacing._10,
       borderRadius: radius.full,
-      backgroundColor: colors.bg.card,
       borderWidth: 1,
-      borderColor: colors.border.default,
+      borderColor: "rgba(255, 255, 255, 0.08)",
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
     },
-    chipSelected: {
-      backgroundColor: colors.accent.muted,
-      borderColor: colors.accent.border,
+    chipActive: {
+      borderColor: "rgba(134, 239, 172, 0.4)",
+      backgroundColor: GREEN_MUTED,
     },
     chipText: {
       fontFamily: fontFamily.mono,
-      fontSize: fontSize.sm,
+      fontSize: 12,
       color: colors.text.secondary,
     },
-    chipTextSelected: {
-      color: colors.accent.primary,
+    chipTextActive: {
+      color: GREEN_ACCENT,
     },
+
+    // ── Pace cards ──
     paceContainer: {
-      gap: spacing.md,
+      gap: spacing.sm,
     },
     paceCard: {
-      backgroundColor: colors.bg.card,
-      borderRadius: radius["2xl"],
-      borderWidth: 1,
-      borderColor: colors.border.default,
-      padding: spacing.xl,
+      flexDirection: "row",
       alignItems: "center",
-      gap: spacing.xs,
+      gap: spacing.lg,
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.xl,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: "rgba(255, 255, 255, 0.06)",
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
     },
-    paceCardSelected: {
-      backgroundColor: colors.accent.muted,
-      borderColor: colors.accent.border,
+    paceCardActive: {
+      borderColor: "rgba(134, 239, 172, 0.4)",
+      backgroundColor: GREEN_MUTED,
     },
     paceEmoji: {
-      fontSize: fontSize["3xl"],
+      fontSize: 28,
+    },
+    paceTextWrap: {
+      flex: 1,
+      gap: 2,
     },
     paceLabel: {
       fontFamily: fontFamily.mono,
-      fontSize: fontSize.md,
+      fontSize: 14,
       fontWeight: fontWeight.semibold,
       color: colors.text.primary,
     },
-    paceLabelSelected: {
-      color: colors.accent.primary,
+    paceLabelActive: {
+      color: GREEN_ACCENT,
     },
     paceDesc: {
       fontFamily: fontFamily.mono,
-      fontSize: fontSize.xs,
+      fontSize: 11,
       color: colors.text.secondary,
     },
-    locationCard: {
+
+    // ── Location ──
+    locationRow: {
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.md,
-      backgroundColor: colors.bg.card,
-      borderRadius: radius["2xl"],
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.xl,
+      borderRadius: radius.lg,
       borderWidth: 1,
-      borderColor: colors.border.default,
-      padding: spacing.xl,
+      borderColor: "rgba(255, 255, 255, 0.06)",
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
     },
     locationIcon: {
-      fontSize: fontSize["2xl"],
+      fontSize: 22,
     },
     locationText: {
       fontFamily: fontFamily.mono,
-      fontSize: fontSize.md,
+      fontSize: 13,
       color: colors.text.primary,
     },
+
+    // ── Error ──
     errorContainer: {
       backgroundColor: colors.status.error.bg,
       borderRadius: radius.md,
@@ -554,24 +709,41 @@ const createStyles = (colors: Colors) =>
     },
     errorText: {
       color: colors.status.error.text,
-      fontSize: fontSize.sm,
+      fontSize: 12,
       fontFamily: fontFamily.mono,
     },
+
+    // ── Buttons ──
     primaryButton: {
+      backgroundColor: GREEN_MUTED,
       borderRadius: radius.md,
-      height: 55,
-      justifyContent: "center",
-      alignItems: "center",
-      backgroundColor: colors.accent.muted,
       borderWidth: 1,
-      borderColor: colors.accent.border,
+      borderColor: "rgba(134, 239, 172, 0.25)",
+      paddingVertical: spacing.md,
+      alignItems: "center",
     },
     primaryButtonText: {
-      color: colors.text.primary,
-      fontSize: fontSize.md,
-      fontWeight: fontWeight.semibold,
       fontFamily: fontFamily.mono,
-      letterSpacing: 0.5,
+      fontSize: 13,
+      color: GREEN_ACCENT,
+      fontWeight: fontWeight.bold,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+    finishButton: {
+      backgroundColor: GREEN_ACCENT,
+      borderRadius: radius.md,
+      paddingVertical: spacing.md,
+      width: "100%",
+      alignItems: "center",
+    },
+    finishButtonText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 13,
+      color: "#000000",
+      fontWeight: fontWeight.bold,
+      textTransform: "uppercase",
+      letterSpacing: 1,
     },
   });
 

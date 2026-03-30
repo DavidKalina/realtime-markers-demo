@@ -480,15 +480,17 @@ const createStyles = (colors: Colors) =>
     // Hero sections (above tabs)
     heroSection: {
       paddingHorizontal: spacing.lg,
-      marginBottom: spacing.lg,
+      marginBottom: spacing.md,
     },
-    // Tab bar (pill-shaped, matches CityDetailContent)
+    // Tab bar — glass pill
     tabBar: {
       flexDirection: "row",
       marginHorizontal: spacing.lg,
       marginBottom: spacing.md,
-      backgroundColor: colors.bg.card,
+      backgroundColor: "rgba(255, 255, 255, 0.04)",
       borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: "rgba(255, 255, 255, 0.06)",
       padding: 2,
     },
     tabButton: {
@@ -501,7 +503,7 @@ const createStyles = (colors: Colors) =>
       gap: 4,
     },
     tabButtonActive: {
-      backgroundColor: colors.bg.elevated,
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
     },
     tabText: {
       fontSize: fontSize.xs,
@@ -512,15 +514,20 @@ const createStyles = (colors: Colors) =>
     tabTextActive: {
       color: colors.text.primary,
     },
-    // Tab content sections
+    // Tab content sections — glass cards
     tabSection: {
-      paddingHorizontal: spacing.lg,
-      marginBottom: spacing["2xl"],
+      marginHorizontal: spacing.lg,
+      marginBottom: spacing.md,
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: "rgba(255, 255, 255, 0.05)",
+      padding: spacing.lg,
     },
     sectionLabel: {
-      fontSize: 11,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.label,
+      fontSize: 9,
+      fontWeight: fontWeight.bold,
+      color: colors.text.disabled,
       fontFamily: fontFamily.mono,
       letterSpacing: 1.5,
       marginBottom: spacing.md,
@@ -529,9 +536,9 @@ const createStyles = (colors: Colors) =>
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      paddingVertical: spacing.md,
+      paddingVertical: spacing.sm,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border.default,
+      borderBottomColor: "rgba(255, 255, 255, 0.05)",
     },
     inlineRowLabel: {
       fontSize: fontSize.sm,
@@ -552,9 +559,9 @@ const createStyles = (colors: Colors) =>
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      paddingVertical: spacing.md,
+      paddingVertical: spacing.sm,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border.default,
+      borderBottomColor: "rgba(255, 255, 255, 0.05)",
     },
     inlineActionLast: {
       borderBottomWidth: 0,
