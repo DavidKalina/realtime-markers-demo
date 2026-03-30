@@ -1,5 +1,6 @@
 import ItineraryTimeline from "@/components/Itinerary/ItineraryTimeline";
 import QuestCompass, { MiniCompassPreview } from "@/components/Itinerary/QuestCompass";
+import { CheckinCaptureModal } from "@/components/Itinerary/CheckinCaptureModal";
 
 import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
 import Screen from "@/components/Layout/Screen";
@@ -481,6 +482,15 @@ const ItineraryDetailScreen = () => {
 
   // Compass overlay
   const [showCompass, setShowCompass] = useState(false);
+
+  // Check-in capture modal
+  const [captureObjective, setCaptureObjective] = useState<{
+    id: string;
+    title: string;
+    emoji?: string;
+    suggestedActivities: string[];
+    journalPrompt?: string;
+  } | null>(null);
   const { userLocation, startLocationTracking, stopLocationTracking } = useUserLocation();
 
   // Start continuous location tracking while this sidequest is active
@@ -593,6 +603,20 @@ const ItineraryDetailScreen = () => {
             ? Haptics.NotificationFeedbackType.Success
             : Haptics.NotificationFeedbackType.Warning,
         );
+
+        // Open capture modal for proximity check-ins too
+        const objective = displaySidequest?.objectives?.find(
+          (o) => o.id === data.objectiveId,
+        );
+        if (objective) {
+          setCaptureObjective({
+            id: objective.id,
+            title: objective.title,
+            emoji: objective.emoji,
+            suggestedActivities: objective.suggestedActivities ?? [],
+            journalPrompt: objective.journalPrompt,
+          });
+        }
       }
     };
 
@@ -670,12 +694,26 @@ const ItineraryDetailScreen = () => {
         if (result.success && result.checkedInAt) {
           markCheckedIn(itemId, result.checkedInAt);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+          // Open capture modal if this is a prescribed quest with wellness fields
+          const objective = displaySidequest?.objectives?.find(
+            (o) => o.id === itemId,
+          );
+          if (objective) {
+            setCaptureObjective({
+              id: objective.id,
+              title: objective.title,
+              emoji: objective.emoji,
+              suggestedActivities: objective.suggestedActivities ?? [],
+              journalPrompt: objective.journalPrompt,
+            });
+          }
         }
       } catch (err) {
         console.error("[ItineraryDetail] Manual checkin failed:", err);
       }
     },
-    [id, markCheckedIn],
+    [id, markCheckedIn, displaySidequest],
   );
 
   const handleNavigate = useCallback(() => {
@@ -1031,6 +1069,44 @@ const ItineraryDetailScreen = () => {
           </Animated.View>
         )}
 
+        {/* DEV: Force capture modal */}
+        {__DEV__ && objectives.length > 0 && (
+          <Pressable
+            onPress={() => {
+              const obj = objectives[0];
+              setCaptureObjective({
+                id: obj.id,
+                title: obj.title,
+                emoji: obj.emoji,
+                suggestedActivities: obj.suggestedActivities ?? [],
+                journalPrompt: obj.journalPrompt,
+              });
+            }}
+            style={{
+              backgroundColor: "rgba(134, 239, 172, 0.1)",
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: "rgba(134, 239, 172, 0.25)",
+              padding: 10,
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <Text
+              style={{
+                color: "#86efac",
+                fontFamily: "SpaceMono",
+                fontSize: 11,
+                fontWeight: "700",
+                textTransform: "uppercase",
+                letterSpacing: 1.5,
+              }}
+            >
+              DEV: Test Check-in Capture
+            </Text>
+          </Pressable>
+        )}
+
         {/* ── Timeline (only when objectives are available) ── */}
         {objectives.length > 0 && (
           <ItineraryTimeline
@@ -1153,6 +1229,39 @@ const ItineraryDetailScreen = () => {
           accentColor={accentHex}
         />
       )}
+
+      {/* Check-in capture modal */}
+      <CheckinCaptureModal
+        visible={!!captureObjective}
+        objectiveId={captureObjective?.id ?? ""}
+        objectiveTitle={captureObjective?.title ?? ""}
+        objectiveEmoji={captureObjective?.emoji}
+        suggestedActivities={captureObjective?.suggestedActivities ?? []}
+        journalPrompt={captureObjective?.journalPrompt}
+        onDismiss={() => {
+          const capturedId = captureObjective?.id;
+          setCaptureObjective(null);
+          // Even on skip, navigate to deck if quest is complete
+          const remaining = objectives.filter(
+            (o) => !o.checkedInAt && o.id !== capturedId,
+          );
+          if (remaining.length === 0) {
+            setTimeout(() => router.push("/deck"), 300);
+          }
+        }}
+        onComplete={() => {
+          const capturedId = captureObjective?.id;
+          setCaptureObjective(null);
+          // Check if this was the last unchecked objective
+          const remaining = objectives.filter(
+            (o) => !o.checkedInAt && o.id !== capturedId,
+          );
+          if (remaining.length === 0) {
+            // Quest complete — go to deck to see/promote the card
+            setTimeout(() => router.push("/deck"), 300);
+          }
+        }}
+      />
 
       {/* Item detail modal */}
       <Modal

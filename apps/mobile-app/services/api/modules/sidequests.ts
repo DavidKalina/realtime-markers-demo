@@ -18,6 +18,12 @@ export interface ObjectiveResponse {
   entryLatitude?: number;
   entryLongitude?: number;
   entryPointName?: string;
+  suggestedActivities?: string[];
+  completedActivity?: string;
+  photoUrl?: string;
+  journalPrompt?: string;
+  journalEntry?: string;
+  difficulty?: number;
 }
 
 export interface SidequestResponse {
@@ -38,6 +44,9 @@ export interface SidequestResponse {
   rating?: number;
   ratingComment?: string;
   completedAt?: string;
+  rarity?: string;
+  prescribed?: boolean;
+  distanceFromHome?: number;
   promotedAt?: string;
   createdAt: string;
   isPublished?: boolean;
@@ -81,6 +90,21 @@ export interface CreateSidequestParams {
   city?: string;
   surpriseMe?: boolean;
   note?: string;
+}
+
+export interface ComfortZoneResponse {
+  homeLatitude: number | null;
+  homeLongitude: number | null;
+  comfortRadiusMiles: number;
+  pacePreference: string;
+  hasHomeAnchor: boolean;
+}
+
+export interface WorldSizeResponse {
+  areaSqMiles: number;
+  totalLocations: number;
+  furthestMiles: number;
+  uniqueCategories: number;
 }
 
 export class SidequestsModule extends BaseApiModule {
@@ -311,6 +335,85 @@ export class SidequestsModule extends BaseApiModule {
     );
     const json = await this.handleResponse<{ data: PopularStop[] }>(response);
     return json.data;
+  }
+
+  async prescribeQuest(params: {
+    latitude: number;
+    longitude: number;
+    timezone?: string;
+  }): Promise<{ jobId: string; streamUrl: string }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/prescribe`,
+      {
+        method: "POST",
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse<{ jobId: string; streamUrl: string }>(response);
+  }
+
+  async getComfortZone(): Promise<ComfortZoneResponse> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/comfort-zone`,
+    );
+    return this.handleResponse<ComfortZoneResponse>(response);
+  }
+
+  async getWorldSize(): Promise<WorldSizeResponse> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/world-size`,
+    );
+    return this.handleResponse<WorldSizeResponse>(response);
+  }
+
+  async setHomeAnchor(
+    latitude: number,
+    longitude: number,
+  ): Promise<ComfortZoneResponse> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/home-anchor`,
+      {
+        method: "POST",
+        body: JSON.stringify({ latitude, longitude }),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse<ComfortZoneResponse>(response);
+  }
+
+  async updateComfortProfile(params: {
+    pacePreference?: string;
+    comfortProfile?: { comfortZone: string; barriers: string; goals: string };
+  }): Promise<ComfortZoneResponse> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/comfort-profile`,
+      {
+        method: "PUT",
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse<ComfortZoneResponse>(response);
+  }
+
+  async updateObjectiveJournal(
+    objectiveId: string,
+    params: {
+      journalEntry?: string;
+      completedActivity?: string;
+      photoUrl?: string;
+    },
+  ): Promise<{ success: boolean }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/objectives/${objectiveId}/journal`,
+      {
+        method: "PUT",
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse<{ success: boolean }>(response);
   }
 }
 

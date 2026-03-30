@@ -416,6 +416,11 @@ export class AuthService {
         "totalXp",
         "currentTier",
         "onboardingProfile",
+        "comfortProfile",
+        "pacePreference",
+        "comfortRadiusMiles",
+        "homeLatitude",
+        "homeLongitude",
       ],
     });
 

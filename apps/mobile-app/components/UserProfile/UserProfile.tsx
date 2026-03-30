@@ -39,7 +39,8 @@ import Animated, {
 } from "react-native-reanimated";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
 import Screen from "../Layout/Screen";
-import QuestDialogBox from "../Quest/QuestDialogBox";
+import PrescribeQuestCard from "../Quest/PrescribeQuestCard";
+import { useUserLocation } from "@/contexts/LocationContext";
 import ActiveQuestBanner from "./ActiveQuestBanner";
 import ActivityHeatmap from "./ActivityHeatmap";
 import AdventureDnaChart from "./AdventureDnaChart";
@@ -100,6 +101,28 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { data: insights, refetch: refetchInsights } = useProfileInsights();
 
   const [deckStats, setDeckStats] = useState<DeckStatsResponse | null>(null);
+
+  // Home base
+  const { userLocation } = useUserLocation();
+  const [isUpdatingHome, setIsUpdatingHome] = useState(false);
+  const homeSet = user?.homeLatitude != null;
+
+  const handleUpdateHomeBase = useCallback(async () => {
+    if (!userLocation) return;
+    setIsUpdatingHome(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await apiClient.sidequests.setHomeAnchor(
+        userLocation[1],
+        userLocation[0],
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsUpdatingHome(false);
+    }
+  }, [userLocation]);
 
   const fetchDeckStats = useCallback(async () => {
     try {
@@ -260,6 +283,39 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         <AdventurePreferences />
       </View>
 
+      {/* Home Base */}
+      <View style={styles.tabSection}>
+        <Text style={styles.sectionLabel}>HOME BASE</Text>
+        <View style={styles.inlineRow}>
+          <Text style={styles.inlineRowLabel}>Status</Text>
+          <Text style={styles.inlineRowValue}>
+            {homeSet ? "\u{1F3E0} Set" : "\u26A0\uFE0F Not set"}
+          </Text>
+        </View>
+        {user?.comfortRadiusMiles && (
+          <View style={styles.inlineRow}>
+            <Text style={styles.inlineRowLabel}>Comfort radius</Text>
+            <Text style={styles.inlineRowValue}>
+              {Number(user.comfortRadiusMiles).toFixed(1)} mi
+            </Text>
+          </View>
+        )}
+        <Pressable
+          style={styles.inlineAction}
+          onPress={handleUpdateHomeBase}
+          disabled={!userLocation || isUpdatingHome}
+        >
+          <Text style={[styles.inlineRowLabel, { color: colors.accent.primary }]}>
+            {isUpdatingHome
+              ? "Updating..."
+              : homeSet
+                ? "Update to current location"
+                : "Set to current location"}
+          </Text>
+          <ChevronRight size={14} color={colors.accent.primary} />
+        </Pressable>
+      </View>
+
       {/* Actions */}
       <View style={styles.tabSection}>
         <Pressable
@@ -308,7 +364,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         showBackButton
         onBack={handleBack}
         noAnimation
-        bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} />}
+        bottomContent={<PrescribeQuestCard />}
       >
         <PullToActionScrollView
           onSearch={handleSearch}

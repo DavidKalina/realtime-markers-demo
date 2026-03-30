@@ -26,6 +26,10 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
   { name: "forgot-password" },
   { name: "reset-password" },
   { name: "index" },
+  {
+    name: "onboarding",
+    options: { animation: "fade_from_bottom", animationDuration: 300 },
+  },
   { name: "scan" },
   { name: "user" },
   {

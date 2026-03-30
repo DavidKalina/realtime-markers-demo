@@ -82,7 +82,7 @@ function AppProviders({ children }: AppProvidersProps) {
 const PUBLIC_SEGMENTS = ["login", "register", "forgot-password", "reset-password"];
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const segments = useSegments();
   const navigationState = useRootNavigationState();
 
@@ -92,13 +92,19 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
     const currentSegment = segments[0] ?? "";
     const isPublicRoute = PUBLIC_SEGMENTS.includes(currentSegment);
+    const isOnboarding = currentSegment === "onboarding";
+    const needsOnboarding = user && !user.comfortProfile;
 
-    if (!isAuthenticated && !isPublicRoute) {
+    if (!isAuthenticated && !isPublicRoute && !isOnboarding) {
       router.replace("/login");
     } else if (isAuthenticated && isPublicRoute) {
-      router.replace("/");
+      // Just logged in / registered — route to onboarding or home
+      router.replace(needsOnboarding ? "/onboarding" : "/");
+    } else if (isAuthenticated && needsOnboarding && !isOnboarding) {
+      // Authenticated but hasn't completed onboarding yet
+      router.replace("/onboarding");
     }
-  }, [isAuthenticated, isLoading, segments, navigationState?.key]);
+  }, [isAuthenticated, isLoading, segments, navigationState?.key, user]);
 
   // Hide splash screen once auth has resolved
   useEffect(() => {
