@@ -1892,15 +1892,30 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are clo
     const homeLat = Number(user.homeLatitude ?? input.latitude);
     const homeLng = Number(user.homeLongitude ?? input.longitude);
 
+    // Detect if user is away from home (e.g. at work)
+    const currentLat = input.latitude;
+    const currentLng = input.longitude;
+    const distFromHome = this.haversineDistanceMiles(
+      homeLat,
+      homeLng,
+      currentLat,
+      currentLng,
+    );
+    // If user is more than 2x their comfort radius from home, search near
+    // their current location instead — they're clearly somewhere else
+    const isAwayFromHome = distFromHome > radius * 2;
+    const searchLat = isAwayFromHome ? currentLat : homeLat;
+    const searchLng = isAwayFromHome ? currentLng : homeLng;
+
     // 2. Build behavioral context from history
     const historyContext = await this.buildPrescriptionContext(userId);
 
-    // 3. Reverse geocode for city
+    // 3. Reverse geocode for city (from search location, not necessarily home)
     let city = "Unknown";
     try {
       city = await this.geocodingService.reverseGeocodeCityState(
-        homeLat,
-        homeLng,
+        searchLat,
+        searchLng,
       );
     } catch {
       // Fall through with Unknown
@@ -1915,8 +1930,8 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are clo
       budgetMax: 0,
       activityTypes: user.onboardingProfile?.activities ?? [],
       prescribed: true,
-      entryLatitude: homeLat,
-      entryLongitude: homeLng,
+      entryLatitude: searchLat,
+      entryLongitude: searchLng,
     });
     await repo.save(sidequest);
 
@@ -1943,8 +1958,10 @@ YOUR APPROACH:
 - Keep it achievable. One stop. Low friction. The win is them going, not the venue being perfect.
 
 USER PROFILE:
-- Home: ${city} (${homeLat.toFixed(4)}, ${homeLng.toFixed(4)})
+- Home: (${homeLat.toFixed(4)}, ${homeLng.toFixed(4)})
+- Currently near: ${city} (${searchLat.toFixed(4)}, ${searchLng.toFixed(4)})${isAwayFromHome ? ` — ${distFromHome.toFixed(1)} miles from home` : ""}
 - Comfort radius: ${radius.toFixed(1)} miles
+${isAwayFromHome ? "- USER IS AWAY FROM HOME. Search near their CURRENT location, not their home. Keep it easy — they're already out of their usual zone." : ""}
 - Pace: ${pace === "gentle" ? "Gentle — ease them in, stay close, familiar categories" : pace === "push_me" ? "Push me — they want to be challenged, stretch further" : "Steady — balanced expansion, moderate stretches"}
 ${comfortProfile ? `- What keeps them from going out: "${comfortProfile.barriers}"` : ""}
 ${comfortProfile ? `- Their goals: "${comfortProfile.goals}"` : ""}
@@ -2263,7 +2280,7 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — focus on 24-hour sp
       };
 
       const initialMessage = `Prescribe a comfort-zone expansion quest for this user.
-Their home is in ${city}. Search within ~${radius.toFixed(0)} miles of their home location.
+${isAwayFromHome ? `They're currently in ${city}, about ${distFromHome.toFixed(1)} miles from home. Search near their CURRENT location.` : `Their home is in ${city}. Search within ~${radius.toFixed(0)} miles of their home location.`}
 ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingProfile.activities.join(", ")}` : "Surprise them with something approachable."}`;
 
       if (onProgress) {
