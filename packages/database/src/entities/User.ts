@@ -160,6 +160,13 @@ export class User {
     goals: string;
   };
 
+  @Column({ name: "behavioral_profile", type: "jsonb", nullable: true })
+  behavioralProfile?: {
+    summary: string;
+    generatedAt: string;
+    questCount: number;
+  };
+
   @Column({ name: "active_sidequest_id", type: "uuid", nullable: true })
   activeSidequestId?: string;
 

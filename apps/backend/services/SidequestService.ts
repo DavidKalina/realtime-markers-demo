@@ -793,6 +793,7 @@ class SidequestServiceImpl implements SidequestService {
     city: string,
     cityCenter?: { lat: number; lng: number },
     trails: Trail[] = [],
+    knownCityState?: string,
   ): Promise<{ item: LLMItem; geo: GeocodedData | null }[]> {
     const venueByName = new Map(
       verifiedVenues.map((v) => [v.name.toLowerCase(), v]),
@@ -821,7 +822,18 @@ class SidequestServiceImpl implements SidequestService {
 
           // Venue items: try fuzzy match against pre-fetched verified venues
           if (item.venueName) {
-            const matched = venueByName.get(item.venueName.toLowerCase());
+            const itemNameLower = item.venueName.toLowerCase().trim();
+            // Exact match first
+            let matched = venueByName.get(itemNameLower);
+            // Fuzzy: check if any pre-fetched venue name contains or is contained by the item name
+            if (!matched) {
+              for (const [venueName, venue] of venueByName) {
+                if (venueName.includes(itemNameLower) || itemNameLower.includes(venueName)) {
+                  matched = venue;
+                  break;
+                }
+              }
+            }
             if (matched) {
               const [lng, lat] = matched.coordinates;
               return {
@@ -851,6 +863,7 @@ class SidequestServiceImpl implements SidequestService {
               await this.geocodingService.searchPlaceForFrontend(
                 searchQuery,
                 cityCenter,
+                knownCityState,
               );
 
             if (placeResult.success && placeResult.place) {
@@ -1268,6 +1281,7 @@ class SidequestServiceImpl implements SidequestService {
         "comfortProfile",
         "onboardingProfile",
         "pacePreference",
+        "behavioralProfile",
       ],
     });
 
@@ -1292,7 +1306,10 @@ class SidequestServiceImpl implements SidequestService {
     const searchLng = isAwayFromHome ? currentLng : homeLng;
 
     // 2. Build behavioral context from history
-    const historyContext = await this.buildPrescriptionContext(userId);
+    const historyContext = await this.buildPrescriptionContext(
+      userId,
+      user.behavioralProfile ?? null,
+    );
 
     // 3. Reverse geocode for city (from search location, not necessarily home)
     let city = "Unknown";
@@ -1676,7 +1693,7 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
           instructions,
           tools,
           toolHandlers,
-          maxRounds: 12,
+          maxRounds: 8,
           temperature: 0.8,
           maxOutputTokens: 2500,
           caller: "prescribe_quest",
@@ -1698,6 +1715,7 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
         city,
         cityCenter,
         allTrails,
+        city,
       );
 
       // Compute distance from home for the primary objective
@@ -1787,35 +1805,55 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
 
   /**
    * Build context string for the prescription agent based on user's quest history.
+   * Uses cached behavioral profile when available, falls back to raw queries.
    */
-  private async buildPrescriptionContext(userId: string): Promise<string> {
-    // Recent completed quests (last 10)
+  private async buildPrescriptionContext(
+    userId: string,
+    behavioralProfile: { summary: string; generatedAt: string; questCount: number } | null,
+  ): Promise<string> {
+    // Always fetch last 3 quests for recency (avoids immediate repeats)
     const recentQuests: {
       title: string;
-      city: string;
       venue_category: string;
       distance_from_home: number;
-      completed_at: string;
     }[] = await this.dataSource.query(
       `
       SELECT
         s.title,
-        s.city,
         o.venue_category,
-        s.distance_from_home,
-        s.completed_at
+        s.distance_from_home
       FROM sidequests s
       LEFT JOIN objectives o ON o.sidequest_id = s.id
       WHERE s.user_id = $1
         AND s.completed_at IS NOT NULL
         AND s.deleted_at IS NULL
       ORDER BY s.completed_at DESC
-      LIMIT 10
+      LIMIT 3
       `,
       [userId],
     );
 
-    // Category breakdown
+    // If we have a cached behavioral profile, use it
+    if (behavioralProfile && behavioralProfile.questCount > 0) {
+      const recentList = recentQuests
+        .map(
+          (q) =>
+            `- "${q.title}" (${q.venue_category ?? "unknown"}, ${q.distance_from_home ? Number(q.distance_from_home).toFixed(1) + "mi" : "?mi"})`,
+        )
+        .join("\n");
+
+      return `BEHAVIORAL PROFILE (based on ${behavioralProfile.questCount} quests, updated ${behavioralProfile.generatedAt}):
+${behavioralProfile.summary}
+
+MOST RECENT QUESTS (avoid repeating these):
+${recentList || "(none)"}`;
+    }
+
+    // Fallback for new users or pre-migration users: raw query approach
+    if (recentQuests.length === 0) {
+      return "HISTORY: This is a new user — no completed quests yet. Start gentle and close to home.";
+    }
+
     const categories: { venue_category: string; count: number }[] =
       await this.dataSource.query(
         `
@@ -1830,10 +1868,6 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
       `,
         [userId],
       );
-
-    if (recentQuests.length === 0) {
-      return "HISTORY: This is a new user — no completed quests yet. Start gentle and close to home.";
-    }
 
     const recentList = recentQuests
       .map(

@@ -125,6 +125,7 @@ export class ServiceInitializer {
       dataSource: this.dataSource,
       pushService: pushNotificationService,
       redisService,
+      openAIService,
     });
 
     console.log("Services initialized successfully");

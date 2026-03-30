@@ -44,7 +44,6 @@ export interface VerifiedVenue {
   userRatingsTotal?: number;
   businessStatus?: string;
   priceLevel?: string;
-  openingHours?: string[];
   primaryType?: string;
 }
 
@@ -63,6 +62,7 @@ export interface GoogleGeocodingService extends ILocationResolutionService {
   searchPlaceForFrontend(
     query: string,
     userCoordinates?: { lat: number; lng: number },
+    knownCityState?: string,
   ): Promise<{
     success: boolean;
     error?: string;
@@ -158,6 +158,10 @@ export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
   private static readonly CACHE_PREFIX = "geocache:";
   private static readonly PLACES_CACHE_TTL_SECONDS = 172800; // 48 hours
   private static readonly PLACES_CACHE_PREFIX = "places-category:";
+  private static readonly REVERSE_GEOCODE_CACHE_TTL_SECONDS = 604800; // 7 days
+  private static readonly REVERSE_GEOCODE_CACHE_PREFIX = "reverse-geocode:";
+  private static readonly ENTRY_POINT_CACHE_TTL_SECONDS = 604800; // 7 days
+  private static readonly ENTRY_POINT_CACHE_PREFIX = "entry-point:";
   private placesInflight = new Map<string, Promise<VerifiedVenue[]>>();
   private openAIService: OpenAIService;
   private redisService: RedisService;
@@ -999,8 +1003,17 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
     lat: number,
     lng: number,
   ): Promise<string> {
+    // Round to ~1km precision so nearby coords share cache
+    const roundedLat = Math.round(lat * 100) / 100;
+    const roundedLng = Math.round(lng * 100) / 100;
+    const cacheKey = `${GoogleGeocodingServiceImpl.REVERSE_GEOCODE_CACHE_PREFIX}${roundedLat},${roundedLng}`;
+
     try {
-      console.warn("🌍 Reverse Geocoding for city/state:", { lat, lng });
+      const cached = await this.redisService.get<string>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
       const response = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.GOOGLE_GEOCODING_API_KEY}`,
       );
@@ -1046,7 +1059,11 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
         const cityState = normalizeCity(
           `${city.long_name}, ${state.short_name}`,
         );
-        console.warn("Found city/state:", cityState);
+        await this.redisService.set(
+          cacheKey,
+          cityState,
+          GoogleGeocodingServiceImpl.REVERSE_GEOCODE_CACHE_TTL_SECONDS,
+        );
         return cityState;
       } else {
         console.warn("Could not find both city and state:", {
@@ -1079,6 +1096,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
   public async searchPlaceForFrontend(
     query: string,
     userCoordinates?: { lat: number; lng: number },
+    knownCityState?: string,
   ): Promise<{
     success: boolean;
     error?: string;
@@ -1104,9 +1122,9 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
         };
       }
 
-      // Get user's city/state if coordinates are provided
-      let userCityState = "";
-      if (userCoordinates) {
+      // Use provided city/state or reverse geocode if needed
+      let userCityState = knownCityState || "";
+      if (!userCityState && userCoordinates) {
         userCityState = await this.reverseGeocodeCityState(
           userCoordinates.lat,
           userCoordinates.lng,
@@ -1240,7 +1258,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           "Content-Type": "application/json",
           "X-Goog-Api-Key": process.env.GOOGLE_GEOCODING_API_KEY || "",
           "X-Goog-FieldMask":
-            "places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.id,places.businessStatus,places.currentOpeningHours,places.priceLevel,places.primaryTypeDisplayName",
+            "places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.id,places.businessStatus,places.priceLevel,places.primaryTypeDisplayName",
         },
         body: JSON.stringify(requestBody),
       });
@@ -1268,10 +1286,6 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           continue;
         }
 
-        // Extract weekday opening hours text (e.g. "Monday: 9:00 AM – 5:00 PM")
-        const openingHours: string[] | undefined =
-          place.currentOpeningHours?.weekdayDescriptions ?? undefined;
-
         venues.push({
           name: place.displayName.text,
           address: place.formattedAddress,
@@ -1282,7 +1296,6 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           userRatingsTotal: place.userRatingCount,
           businessStatus: place.businessStatus,
           priceLevel: place.priceLevel ?? undefined,
-          openingHours,
           primaryType: place.primaryTypeDisplayName?.text ?? undefined,
         });
       }
@@ -1565,6 +1578,21 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
     name: string;
     placeId: string;
   } | null> {
+    // Round to ~100m precision for cache key
+    const roundedLat = Math.round(lat * 1000) / 1000;
+    const roundedLng = Math.round(lng * 1000) / 1000;
+    const cacheKey = `${GoogleGeocodingServiceImpl.ENTRY_POINT_CACHE_PREFIX}${venueCategory}:${roundedLat},${roundedLng}`;
+
+    const cached = await this.redisService.get<{
+      latitude: number;
+      longitude: number;
+      name: string;
+      placeId: string;
+    }>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     // Determine search terms based on venue category
     const searchTerms: string[] = [];
     switch (venueCategory) {
@@ -1637,15 +1665,18 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
         }
 
         if (bestPlace) {
-          console.log(
-            `[searchEntryPoint] Found entry point "${bestPlace.displayName.text}" for ${venueCategory} at [${lat}, ${lng}]`,
-          );
-          return {
+          const result = {
             latitude: bestPlace.location.latitude,
             longitude: bestPlace.location.longitude,
             name: bestPlace.displayName.text,
             placeId: bestPlace.id,
           };
+          await this.redisService.set(
+            cacheKey,
+            result,
+            GoogleGeocodingServiceImpl.ENTRY_POINT_CACHE_TTL_SECONDS,
+          );
+          return result;
         }
       } catch (error) {
         console.warn(
