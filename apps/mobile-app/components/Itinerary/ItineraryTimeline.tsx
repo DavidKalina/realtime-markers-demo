@@ -286,6 +286,27 @@ const TimelineStop = React.memo(
                 </Text>
               )}
 
+              {/* Suggested activities */}
+              {item.suggestedActivities &&
+                item.suggestedActivities.length > 0 && (
+                  <View style={styles.activitiesWrap}>
+                    <View style={styles.activitiesDivider} />
+                    {item.suggestedActivities.map((activity) => (
+                      <View key={activity} style={styles.activityRow}>
+                        <Text style={styles.activityDiamond}>
+                          {"\u25C7"}
+                        </Text>
+                        <Text
+                          style={styles.activityItem}
+                          numberOfLines={1}
+                        >
+                          {activity}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
               {isCheckedIn && (
                 <Text style={styles.checkedInTag}>{"\u2705"} Checked in</Text>
               )}
@@ -526,6 +547,33 @@ const createStyles = (colors: Colors, accentColor?: string) =>
       fontWeight: fontWeight.regular,
       color: colors.text.detail,
       lineHeight: 16,
+    },
+    activitiesWrap: {
+      marginTop: spacing.sm,
+      gap: spacing.xs,
+    },
+    activitiesDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border.default,
+      marginBottom: spacing.xs,
+    },
+    activityRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing._6,
+    },
+    activityDiamond: {
+      fontSize: 8,
+      color: colors.text.disabled,
+      lineHeight: 16,
+    },
+    activityItem: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      color: colors.text.secondary,
+      lineHeight: 16,
+      flex: 1,
     },
     checkedInTag: {
       fontSize: 10,

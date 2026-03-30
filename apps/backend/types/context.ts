@@ -11,6 +11,7 @@ import type { SidequestCheckinService } from "../services/SidequestCheckinServic
 import type { OverpassService } from "../services/shared/OverpassService";
 import type { EmbeddingServiceImpl } from "../services/shared/EmbeddingService";
 import type { DistrictService } from "../services/DistrictService";
+import type { ComfortZoneService } from "../services/ComfortZoneService";
 
 export interface AppVariables {
   storageService: StorageService;
@@ -26,6 +27,7 @@ export interface AppVariables {
 
   embeddingService: EmbeddingServiceImpl;
   districtService: DistrictService;
+  comfortZoneService: ComfortZoneService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

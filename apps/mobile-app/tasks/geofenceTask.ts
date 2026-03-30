@@ -36,6 +36,27 @@ TaskManager.defineTask(
       `[Geofence] Entered region ${region.identifier} (${region.latitude}, ${region.longitude})`,
     );
 
+    // Optimistically mark check-in in the store immediately
+    // so the UI updates without waiting for the server round-trip.
+    // region.identifier is the objective ID.
+    if (region.identifier) {
+      try {
+        const { useActiveItineraryStore } = await import(
+          "@/stores/useActiveItineraryStore"
+        );
+        const store = useActiveItineraryStore.getState();
+        if (store.itinerary) {
+          store.markCheckedIn(region.identifier, new Date().toISOString());
+          console.log(
+            `[Geofence] Optimistically checked in objective ${region.identifier}`,
+          );
+        }
+      } catch {
+        // Store import may fail in background — that's ok,
+        // push notification will handle it
+      }
+    }
+
     try {
       // Send the region center (objective location) as the user's position.
       // The user is within the geofence radius (75m) of this point, so the

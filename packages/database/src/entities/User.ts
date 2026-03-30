@@ -118,6 +118,48 @@ export class User {
     pace: string;
   };
 
+  @Column({
+    name: "home_latitude",
+    type: "numeric",
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
+  homeLatitude?: number;
+
+  @Column({
+    name: "home_longitude",
+    type: "numeric",
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
+  homeLongitude?: number;
+
+  @Column({
+    name: "comfort_radius_miles",
+    type: "numeric",
+    precision: 5,
+    scale: 1,
+    nullable: true,
+  })
+  comfortRadiusMiles?: number;
+
+  @Column({
+    name: "pace_preference",
+    type: "varchar",
+    length: 20,
+    nullable: true,
+  })
+  pacePreference?: string;
+
+  @Column({ name: "comfort_profile", type: "jsonb", nullable: true })
+  comfortProfile?: {
+    comfortZone: string;
+    barriers: string;
+    goals: string;
+  };
+
   @Column({ name: "active_sidequest_id", type: "uuid", nullable: true })
   activeSidequestId?: string;
 

@@ -20,6 +20,7 @@ import type { RedisService } from "./shared/RedisService";
 import type { AgentCandidate } from "./shared/JobPipeline";
 import { OpenAIResponsesAgent } from "./shared/OpenAIResponsesAgent";
 import type { AgentToolResult } from "./shared/OpenAIResponsesAgent";
+import type { ComfortZoneService } from "./ComfortZoneService";
 
 export type SidequestProgressCallback = (
   progress: number,
@@ -41,6 +42,12 @@ export interface CreateSidequestInput {
   note?: string;
 }
 
+export interface PrescribeQuestInput {
+  latitude: number;
+  longitude: number;
+  timezone?: string;
+}
+
 interface LLMItemRaw {
   t: string;
   d: string;
@@ -51,6 +58,9 @@ interface LLMItemRaw {
   eid: string | null;
   vc: string | null;
   hook: string | null;
+  sa: string[] | null;
+  jp: string | null;
+  df: number | null;
 }
 
 interface LLMResponseRaw {
@@ -69,6 +79,9 @@ interface LLMItem {
   eventId: string | null;
   venueCategory: string | null;
   hook: string | null;
+  suggestedActivities: string[] | null;
+  journalPrompt: string | null;
+  difficulty: number | null;
 }
 
 interface LLMResponse {
@@ -91,6 +104,9 @@ function expandLLMResponse(raw: LLMResponseRaw): LLMResponse {
       eventId: i.eid,
       venueCategory: i.vc,
       hook: i.hook,
+      suggestedActivities: i.sa ?? null,
+      journalPrompt: i.jp ?? null,
+      difficulty: i.df ?? null,
     })),
   };
 }
@@ -162,6 +178,11 @@ export interface SidequestService {
     query: string,
     limit?: number,
   ): Promise<Sidequest[]>;
+  prescribeQuest(
+    userId: string,
+    input: PrescribeQuestInput,
+    onProgress?: SidequestProgressCallback,
+  ): Promise<Sidequest>;
   browsePublished(options: BrowsePublishedOptions): Promise<BrowseSidequest[]>;
   listPublishedInternal(
     page: number,
@@ -244,6 +265,7 @@ interface SidequestServiceDeps {
   overpassService: OverpassService;
   embeddingService?: IEmbeddingService;
   redisService?: RedisService;
+  comfortZoneService?: ComfortZoneService;
 }
 
 class SidequestServiceImpl implements SidequestService {
@@ -253,6 +275,7 @@ class SidequestServiceImpl implements SidequestService {
   private overpassService: OverpassService;
   private embeddingService?: IEmbeddingService;
   private redisService?: RedisService;
+  private comfortZoneService?: ComfortZoneService;
   private agent: OpenAIResponsesAgent;
 
   constructor(deps: SidequestServiceDeps) {
@@ -262,6 +285,7 @@ class SidequestServiceImpl implements SidequestService {
     this.overpassService = deps.overpassService;
     this.embeddingService = deps.embeddingService;
     this.redisService = deps.redisService;
+    this.comfortZoneService = deps.comfortZoneService;
     this.agent = new OpenAIResponsesAgent(deps.openAIService);
   }
 
@@ -1822,6 +1846,618 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — most venues are clo
       ],
       recentCards,
     };
+  }
+  // ─── Prescribed Quest (Wellness Pivot) ───────────────────────────
+
+  async prescribeQuest(
+    userId: string,
+    input: PrescribeQuestInput,
+    onProgress?: SidequestProgressCallback,
+  ): Promise<Sidequest> {
+    if (!this.comfortZoneService) {
+      throw new Error("ComfortZoneService required for prescribeQuest");
+    }
+
+    const repo = this.dataSource.getRepository(Sidequest);
+    const objectiveRepo = this.dataSource.getRepository(Objective);
+
+    // 1. Get comfort zone + user profile
+    const zone = await this.comfortZoneService.getComfortZone(userId);
+    if (!zone.hasHomeAnchor) {
+      // Set home from current location on first prescription
+      await this.comfortZoneService.detectHomeAnchor(
+        userId,
+        input.latitude,
+        input.longitude,
+      );
+    }
+
+    // Recalculate radius based on history
+    const radius = await this.comfortZoneService.recalculateRadius(userId);
+
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { id: userId },
+      select: [
+        "id",
+        "homeLatitude",
+        "homeLongitude",
+        "comfortProfile",
+        "onboardingProfile",
+        "pacePreference",
+      ],
+    });
+
+    if (!user) throw new Error("User not found");
+
+    const homeLat = Number(user.homeLatitude ?? input.latitude);
+    const homeLng = Number(user.homeLongitude ?? input.longitude);
+
+    // 2. Build behavioral context from history
+    const historyContext = await this.buildPrescriptionContext(userId);
+
+    // 3. Reverse geocode for city
+    let city = "Unknown";
+    try {
+      city = await this.geocodingService.reverseGeocodeCityState(
+        homeLat,
+        homeLng,
+      );
+    } catch {
+      // Fall through with Unknown
+    }
+
+    // 4. Create the sidequest record
+    const sidequest = repo.create({
+      userId,
+      city: normalizeCity(city),
+      status: SidequestStatus.GENERATING,
+      radiusMiles: radius,
+      budgetMax: 0,
+      activityTypes: user.onboardingProfile?.activities ?? [],
+      prescribed: true,
+      entryLatitude: homeLat,
+      entryLongitude: homeLng,
+    });
+    await repo.save(sidequest);
+
+    try {
+      // 5. Generate via agent
+      const allVenues: VerifiedVenue[] = [];
+      const seenVenueIds = new Set<string>();
+      const allTrails: Trail[] = [];
+      const seenTrailIds = new Set<number>();
+
+      const now = new Date();
+      const hour = now.getHours();
+      const dayOfWeek = now.toLocaleDateString("en-US", { weekday: "long" });
+
+      const pace = user.pacePreference ?? "steady";
+      const comfortProfile = user.comfortProfile;
+
+      const instructions = `You are a Comfort Zone Expansion Coach. You prescribe ONE location-based quest designed to gently expand this user's real world.
+
+YOUR APPROACH:
+- This is exposure therapy wrapped in adventure. The goal is to get the user slightly outside their comfort zone — not overwhelm them.
+- Stretch on ONE dimension at a time: either further distance (familiar category) OR unfamiliar category (familiar distance). Never both.
+- The user's current comfort radius is ${radius.toFixed(1)} miles from home. Prescribe something at or slightly beyond the edge.
+- Keep it achievable. One stop. Low friction. The win is them going, not the venue being perfect.
+
+USER PROFILE:
+- Home: ${city} (${homeLat.toFixed(4)}, ${homeLng.toFixed(4)})
+- Comfort radius: ${radius.toFixed(1)} miles
+- Pace: ${pace === "gentle" ? "Gentle — ease them in, stay close, familiar categories" : pace === "push_me" ? "Push me — they want to be challenged, stretch further" : "Steady — balanced expansion, moderate stretches"}
+${comfortProfile ? `- What keeps them from going out: "${comfortProfile.barriers}"` : ""}
+${comfortProfile ? `- Their goals: "${comfortProfile.goals}"` : ""}
+${user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${user.onboardingProfile.activities.join(", ")}` : ""}
+
+${historyContext}
+
+TOOLS:
+- web_search: discover interesting spots
+- search_places: verify venues with Google Places (exact name, address, coordinates)
+- search_trails: find trails/paths from OpenStreetMap
+- submit_quest: finalize the quest (TERMINAL)
+
+CONSTRAINTS:
+- EXACTLY 1 stop. This is a single-destination quest.
+- Use EXACT venue names and addresses from search_places results.
+- For trails, use ONLY trails returned by search_trails.
+- Current time: ${hour}:00, ${dayOfWeek} — don't pick closed venues.
+- Title: 3-6 words, encouraging and warm (not clinical).
+- Summary: 1-2 sentences framing why this quest matters for their growth.
+- hook: why THIS spot expands their world (1 sentence).
+- sa (suggested activities): 3-4 things they could do at this spot. Each should start with an emoji. Keep it casual and short. Example: ["🚶 Walk the loop", "📖 Bring a book", "📸 Snap a photo", "☕ Grab a drink"]. Not assignments — just ideas.
+- jp (journal prompt): a reflective question for after the visit. Short, open-ended. Examples: "How did it feel being somewhere new?", "Would you come back?", "What surprised you?"
+- df (difficulty): 1-5 integer. 1 = very easy (familiar, close, low effort), 3 = moderate stretch, 5 = big push. Based on distance from home relative to their comfort radius, category familiarity, and social demands of the venue.
+${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — focus on 24-hour spots, scenic night walks/viewpoints, or a "plan for tomorrow morning" quest.` : ""}`;
+
+      type Tool = import("openai/resources/responses/responses").Tool;
+      const tools: Tool[] = [
+        {
+          type: "web_search",
+          user_location: {
+            type: "approximate",
+            city,
+            country: "US",
+          },
+          search_context_size: "medium",
+        },
+        {
+          type: "function",
+          name: "search_places",
+          description:
+            "Search Google Places for verified venues near a location. Returns name, address, coordinates, rating.",
+          parameters: {
+            type: "object" as const,
+            properties: {
+              query: {
+                type: "string",
+                description: "Search query (e.g. 'coffee shop', 'park', 'bookstore')",
+              },
+              near: {
+                type: "string",
+                description: "City/town to search near",
+              },
+            },
+            required: ["query", "near"],
+          },
+          strict: false,
+        },
+        {
+          type: "function",
+          name: "search_trails",
+          description:
+            "Search for trails/paths near coordinates. Returns name, surface type, length, lighting.",
+          parameters: {
+            type: "object" as const,
+            properties: {
+              type: {
+                type: "string",
+                enum: ["paved", "hiking"],
+                description: "Trail type",
+              },
+              lat: { type: "number", description: "Latitude" },
+              lng: { type: "number", description: "Longitude" },
+              radius_miles: {
+                type: "number",
+                description: "Search radius in miles (default 10)",
+              },
+            },
+            required: ["type", "lat", "lng"],
+          },
+          strict: false,
+        },
+        {
+          type: "function",
+          name: "submit_quest",
+          description: "Submit the final prescribed quest with exactly 1 stop.",
+          parameters: {
+            type: "object" as const,
+            properties: {
+              t: { type: "string", description: "Quest title (3-6 words)" },
+              s: {
+                type: "string",
+                description: "Quest summary (1-2 sentences, frame why this matters)",
+              },
+              items: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    t: { type: "string", description: "Stop title" },
+                    d: { type: "string", description: "Stop description" },
+                    e: { type: "string", description: "Emoji" },
+                    ec: {
+                      type: ["number", "null"],
+                      description: "Estimated cost",
+                    },
+                    vn: { type: "string", description: "Venue name (exact)" },
+                    va: { type: "string", description: "Venue address (exact)" },
+                    vc: {
+                      type: "string",
+                      description:
+                        "Category: cafe|trail|park|restaurant|bar|museum|gallery|market|venue|attraction|other",
+                    },
+                    hook: {
+                      type: "string",
+                      description: "Why this spot expands their world",
+                    },
+                    sa: {
+                      type: "array",
+                      items: { type: "string" },
+                      description:
+                        "3-4 activity ideas, each starting with an emoji (e.g. '🚶 Walk the loop')",
+                    },
+                    jp: {
+                      type: "string",
+                      description:
+                        "Journal prompt — reflective question for after the visit",
+                    },
+                    df: {
+                      type: "number",
+                      description:
+                        "Difficulty 1-5. 1=very easy, 3=moderate stretch, 5=big push",
+                    },
+                  },
+                  required: ["t", "d", "e", "ec", "vn", "va", "vc", "hook", "sa", "jp", "df"],
+                },
+                maxItems: 1,
+                minItems: 1,
+              },
+            },
+            required: ["t", "s", "items"],
+          },
+          strict: false,
+        },
+      ];
+
+      // Tool handlers (reuse same patterns as generateSingleOption)
+      const toolHandlers: Record<
+        string,
+        (args: Record<string, unknown>) => Promise<AgentToolResult>
+      > = {
+        search_places: async (args) => {
+          const query = args.query as string;
+          const near = args.near as string;
+          try {
+            const venues =
+              await this.geocodingService.searchPlacesByCategory(
+                query,
+                near,
+                undefined,
+                5,
+              );
+
+            for (const v of venues) {
+              if (!seenVenueIds.has(v.placeId)) {
+                seenVenueIds.add(v.placeId);
+                allVenues.push(v);
+              }
+            }
+
+            const resultText =
+              venues.length > 0
+                ? venues
+                    .map((v) => {
+                      const [lng, lat] = v.coordinates;
+                      return `- ${v.name} (${v.address}) [${lat.toFixed(4)},${lng.toFixed(4)}]${v.rating ? ` ★${v.rating}` : ""}`;
+                    })
+                    .join("\n")
+                : "No results found for this search.";
+
+            if (onProgress && venues.length > 0) {
+              await onProgress(
+                40,
+                `Found ${venues.length} spots for "${query}"`,
+                venues.map((v) => ({
+                  name: v.name,
+                  coordinates: v.coordinates,
+                  type: "venue" as const,
+                  rating: v.rating,
+                  query,
+                })),
+              );
+            }
+
+            return { output: resultText };
+          } catch (err) {
+            return {
+              output: `Search failed: ${err instanceof Error ? err.message : "unknown error"}`,
+            };
+          }
+        },
+
+        search_trails: async (args) => {
+          const trailType = (args.type as string) || "paved";
+          const searchLat = args.lat as number;
+          const searchLng = args.lng as number;
+          const searchRadiusMiles = (args.radius_miles as number) || 10;
+          const searchRadiusMeters = searchRadiusMiles * 1609.34;
+
+          try {
+            const foundTrails =
+              trailType === "hiking"
+                ? await this.overpassService.fetchHikingTrails(
+                    searchLat,
+                    searchLng,
+                    searchRadiusMeters,
+                    10,
+                  )
+                : await this.overpassService.fetchPavedTrails(
+                    searchLat,
+                    searchLng,
+                    searchRadiusMeters,
+                    10,
+                  );
+
+            for (const t of foundTrails) {
+              if (!seenTrailIds.has(t.id)) {
+                seenTrailIds.add(t.id);
+                allTrails.push(t);
+              }
+            }
+
+            const resultText =
+              foundTrails.length > 0
+                ? foundTrails
+                    .map((t) => {
+                      const [tLng, tLat] = t.center;
+                      const dist = this.haversineDistanceMiles(
+                        searchLat,
+                        searchLng,
+                        tLat,
+                        tLng,
+                      );
+                      return `- ${t.name} (${t.surface}, ${(t.lengthMeters / 1000).toFixed(1)}km${t.lit ? ", lit" : ""}) [${tLat.toFixed(4)},${tLng.toFixed(4)}] ~${dist.toFixed(1)}mi away`;
+                    })
+                    .join("\n")
+                : `No ${trailType} trails found in this area.`;
+
+            if (onProgress && foundTrails.length > 0) {
+              await onProgress(
+                40,
+                `Discovered ${foundTrails.length} ${trailType} trails nearby`,
+                foundTrails.map((t) => {
+                  const [tLng, tLat] = t.center;
+                  return {
+                    name: t.name,
+                    coordinates: t.center as [number, number],
+                    type: "trail" as const,
+                    distanceMiles: this.haversineDistanceMiles(
+                      searchLat,
+                      searchLng,
+                      tLat,
+                      tLng,
+                    ),
+                    query: `${trailType} trails`,
+                  };
+                }),
+              );
+            }
+
+            return { output: resultText };
+          } catch (err) {
+            return {
+              output: `Trail search failed: ${err instanceof Error ? err.message : "unknown error"}`,
+            };
+          }
+        },
+
+        submit_quest: async (args) => {
+          const questData = args as unknown as LLMResponseRaw;
+
+          // Enforce single stop
+          if (questData.items && questData.items.length > 1) {
+            questData.items = questData.items.slice(0, 1);
+          }
+
+          // Validate trail stops
+          const trailItems = (questData.items || []).filter(
+            (item) => item.vc === "trail",
+          );
+          for (const item of trailItems) {
+            const itemName = (item.vn || "").toLowerCase().trim();
+            const matched = allTrails.some((t) => {
+              const trailName = t.name.toLowerCase().trim();
+              return (
+                trailName === itemName ||
+                trailName.includes(itemName) ||
+                itemName.includes(trailName)
+              );
+            });
+
+            if (!matched && allTrails.length > 0) {
+              const availableTrails = allTrails
+                .slice(0, 5)
+                .map((t) => t.name)
+                .join(", ");
+              return {
+                output: "",
+                rejection: `REJECTED: Trail "${item.vn}" was not found in your search_trails results. Available trails: ${availableTrails}. Call submit_quest again with a trail from that list.`,
+              };
+            }
+          }
+
+          return { output: "Quest accepted", terminal: true };
+        },
+      };
+
+      const initialMessage = `Prescribe a comfort-zone expansion quest for this user.
+Their home is in ${city}. Search within ~${radius.toFixed(0)} miles of their home location.
+${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingProfile.activities.join(", ")}` : "Surprise them with something approachable."}`;
+
+      if (onProgress) {
+        await onProgress(10, "Analyzing your comfort zone...");
+      }
+
+      const agentResult = await this.agent.run<LLMResponseRaw>(
+        {
+          instructions,
+          tools,
+          toolHandlers,
+          maxRounds: 12,
+          temperature: 0.8,
+          maxOutputTokens: 2500,
+          caller: "prescribe_quest",
+        },
+        initialMessage,
+      );
+
+      if (onProgress) {
+        await onProgress(80, "Building your quest...");
+      }
+
+      const llmResult = expandLLMResponse(agentResult.result);
+
+      // Validate and enrich objectives
+      const cityCenter = { lat: homeLat, lng: homeLng };
+      const validatedItems = await this.validateAndEnrichObjectives(
+        llmResult.items,
+        allVenues,
+        city,
+        cityCenter,
+        allTrails,
+      );
+
+      // Compute distance from home for the primary objective
+      const primaryItem = validatedItems[0];
+      let distanceFromHome: number | undefined;
+      const objLat = primaryItem?.geo?.latitude;
+      const objLng = primaryItem?.geo?.longitude;
+      if (objLat != null && objLng != null) {
+        distanceFromHome = this.haversineDistanceMiles(
+          homeLat,
+          homeLng,
+          objLat,
+          objLng,
+        );
+      }
+
+      // Assign rarity
+      let rarity = "common";
+      if (
+        distanceFromHome != null &&
+        primaryItem?.item.venueCategory
+      ) {
+        rarity = await this.comfortZoneService!.assignRarity(
+          userId,
+          distanceFromHome,
+          primaryItem.item.venueCategory,
+        );
+      }
+
+      // Save objectives with new wellness fields
+      const objectives = validatedItems.map((vi, idx) =>
+        objectiveRepo.create({
+          sidequestId: sidequest.id,
+          sortOrder: idx,
+          title: vi.item.title,
+          description: vi.item.description,
+          emoji: vi.item.emoji,
+          estimatedCost: vi.item.estimatedCost ?? undefined,
+          venueName: vi.item.venueName ?? undefined,
+          venueAddress:
+            vi.geo?.canonicalAddress ?? vi.item.venueAddress ?? undefined,
+          venueCategory: vi.item.venueCategory ?? undefined,
+          hook: vi.item.hook ?? undefined,
+          latitude: vi.geo?.latitude ?? undefined,
+          longitude: vi.geo?.longitude ?? undefined,
+          suggestedActivities: vi.item.suggestedActivities ?? [],
+          journalPrompt: vi.item.journalPrompt ?? undefined,
+          difficulty: vi.item.difficulty ?? undefined,
+        }),
+      );
+      await objectiveRepo.save(objectives);
+
+      // Update sidequest with results
+      sidequest.title = llmResult.title;
+      sidequest.summary = llmResult.summary;
+      sidequest.status = SidequestStatus.READY;
+      sidequest.rarity = rarity;
+      sidequest.distanceFromHome = distanceFromHome;
+      await repo.save(sidequest);
+
+      // Generate enhancements async
+      this.generateEnhancements(sidequest.id, objectives).catch((err) => {
+        console.error(
+          `[SidequestService] Failed to generate enhancements for prescribed quest ${sidequest.id}:`,
+          err,
+        );
+      });
+
+      console.log(
+        `[SidequestService] Prescribed quest ${sidequest.id} for user ${userId}: "${llmResult.title}" (${rarity}, ${distanceFromHome?.toFixed(1) ?? "?"}mi from home)`,
+      );
+
+      // Reload with objectives
+      const loaded = await repo.findOne({
+        where: { id: sidequest.id },
+        relations: ["objectives"],
+        order: { objectives: { sortOrder: "ASC" } },
+      });
+      return loaded ?? sidequest;
+    } catch (error) {
+      console.error("[SidequestService] Prescription failed:", error);
+      sidequest.status = SidequestStatus.FAILED;
+      await repo.save(sidequest);
+      throw error;
+    }
+  }
+
+  /**
+   * Build context string for the prescription agent based on user's quest history.
+   */
+  private async buildPrescriptionContext(userId: string): Promise<string> {
+    // Recent completed quests (last 10)
+    const recentQuests: {
+      title: string;
+      city: string;
+      venue_category: string;
+      distance_from_home: number;
+      completed_at: string;
+    }[] = await this.dataSource.query(
+      `
+      SELECT
+        s.title,
+        s.city,
+        o.venue_category,
+        s.distance_from_home,
+        s.completed_at
+      FROM sidequests s
+      LEFT JOIN objectives o ON o.sidequest_id = s.id
+      WHERE s.user_id = $1
+        AND s.completed_at IS NOT NULL
+        AND s.deleted_at IS NULL
+      ORDER BY s.completed_at DESC
+      LIMIT 10
+      `,
+      [userId],
+    );
+
+    // Category breakdown
+    const categories: { venue_category: string; count: number }[] =
+      await this.dataSource.query(
+        `
+      SELECT o.venue_category, COUNT(*)::int as count
+      FROM objectives o
+      JOIN sidequests s ON s.id = o.sidequest_id
+      WHERE s.user_id = $1
+        AND o.checked_in_at IS NOT NULL
+        AND o.venue_category IS NOT NULL
+      GROUP BY o.venue_category
+      ORDER BY count DESC
+      `,
+        [userId],
+      );
+
+    if (recentQuests.length === 0) {
+      return "HISTORY: This is a new user — no completed quests yet. Start gentle and close to home.";
+    }
+
+    const recentList = recentQuests
+      .map(
+        (q) =>
+          `- "${q.title}" (${q.venue_category ?? "unknown"}, ${q.distance_from_home ? Number(q.distance_from_home).toFixed(1) + "mi" : "?mi"})`,
+      )
+      .join("\n");
+
+    const categoryList = categories
+      .map((c) => `${c.venue_category}: ${c.count}`)
+      .join(", ");
+
+    const mostVisitedCategory = categories[0]?.venue_category;
+    const leastVisitedHint =
+      categories.length > 2
+        ? `Consider suggesting something in a DIFFERENT category than "${mostVisitedCategory}" to broaden their horizons.`
+        : "";
+
+    return `HISTORY (last ${recentQuests.length} quests):
+${recentList}
+
+CATEGORY BREAKDOWN: ${categoryList || "none yet"}
+${leastVisitedHint}
+
+PRESCRIPTION STRATEGY: Look at their history and prescribe something that meaningfully expands — a new category, a further distance, or an area of town they haven't explored.`;
   }
 }
 

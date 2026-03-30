@@ -46,6 +46,11 @@ export type UserProfile = Pick<
   | "currentStreak"
   | "longestStreak"
   | "onboardingProfile"
+  | "comfortProfile"
+  | "pacePreference"
+  | "comfortRadiusMiles"
+  | "homeLatitude"
+  | "homeLongitude"
 >;
 
 // ============================================================================

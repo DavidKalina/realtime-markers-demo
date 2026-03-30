@@ -5,6 +5,7 @@ import {
 } from "../utils/handlerUtils";
 import type { SidequestService } from "../services/SidequestService";
 import type { SidequestCheckinService } from "../services/SidequestCheckinService";
+import type { ComfortZoneService } from "../services/ComfortZoneService";
 
 const MAX_SIDEQUESTS_PER_DAY = 20;
 
@@ -483,3 +484,166 @@ export const getDeckStatsHandler: Handler = withErrorHandling(async (c) => {
   const stats = await sidequestService.getDeckStats(user.id);
   return c.json(stats);
 });
+
+// ─── Wellness Pivot Handlers ───────────────────────────────────────
+
+const DAILY_PRESCRIBE_LIMIT = 3;
+
+export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const userId = user.id;
+
+  const body = await c.req.json<{
+    latitude: number;
+    longitude: number;
+    timezone?: string;
+  }>();
+
+  if (typeof body.latitude !== "number" || typeof body.longitude !== "number") {
+    return c.json({ error: "latitude and longitude are required" }, 400);
+  }
+
+  // Daily cooldown — count prescribed quests created today
+  const sidequestService = c.get("sidequestService") as SidequestService;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayCount = await sidequestService.countCreatedSince(userId, todayStart);
+  if (todayCount >= DAILY_PRESCRIBE_LIMIT) {
+    return c.json(
+      {
+        error: `You've reached your daily limit of ${DAILY_PRESCRIBE_LIMIT} quests. Come back tomorrow!`,
+        remaining: 0,
+      },
+      429,
+    );
+  }
+
+  // Enqueue prescription job
+  const jobQueue = c.get("jobQueue");
+  const jobId = await jobQueue.enqueue("prescribe_quest", {
+    userId,
+    creatorId: userId,
+    latitude: body.latitude,
+    longitude: body.longitude,
+    ...(body.timezone && { timezone: body.timezone }),
+  });
+
+  return c.json(
+    {
+      jobId,
+      streamUrl: `/api/jobs/${jobId}/stream`,
+      remaining: DAILY_PRESCRIBE_LIMIT - todayCount - 1,
+    },
+    202,
+  );
+});
+
+export const getComfortZoneHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
+  const zone = await comfortZoneService.getComfortZone(user.id);
+  return c.json(zone);
+});
+
+export const getWorldSizeHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
+  const worldSize = await comfortZoneService.getWorldSize(user.id);
+  return c.json(worldSize);
+});
+
+export const setHomeAnchorHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+
+  const body = await c.req.json<{ latitude: number; longitude: number }>();
+  if (typeof body.latitude !== "number" || typeof body.longitude !== "number") {
+    return c.json({ error: "latitude and longitude are required" }, 400);
+  }
+
+  const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
+  await comfortZoneService.detectHomeAnchor(user.id, body.latitude, body.longitude);
+
+  const zone = await comfortZoneService.getComfortZone(user.id);
+  return c.json(zone);
+});
+
+export const updateComfortProfileHandler: Handler = withErrorHandling(
+  async (c) => {
+    const user = requireAuth(c);
+
+    const body = await c.req.json<{
+      pacePreference?: string;
+      comfortProfile?: {
+        comfortZone: string;
+        barriers: string;
+        goals: string;
+      };
+    }>();
+
+    const validPaces = ["gentle", "steady", "push_me"];
+    if (body.pacePreference && !validPaces.includes(body.pacePreference)) {
+      return c.json(
+        { error: `pacePreference must be one of: ${validPaces.join(", ")}` },
+        400,
+      );
+    }
+
+    if (!body.pacePreference && !body.comfortProfile) {
+      return c.json({ error: "No fields to update" }, 400);
+    }
+
+    const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
+    await comfortZoneService.updateComfortProfile(user.id, {
+      pacePreference: body.pacePreference,
+      comfortProfile: body.comfortProfile,
+    });
+
+    const zone = await comfortZoneService.getComfortZone(user.id);
+    return c.json(zone);
+  },
+);
+
+export const objectiveJournalHandler: Handler = withErrorHandling(
+  async (c) => {
+    const user = requireAuth(c);
+
+    const objectiveId = c.req.param("objectiveId");
+    if (!objectiveId) {
+      return c.json({ error: "objectiveId is required" }, 400);
+    }
+
+    const body = await c.req.json<{
+      journalEntry?: string;
+      completedActivity?: string;
+      photoUrl?: string;
+    }>();
+
+    if (!body.journalEntry && !body.completedActivity && !body.photoUrl) {
+      return c.json({ error: "At least one field is required" }, 400);
+    }
+
+    if (body.journalEntry && body.journalEntry.length > 2000) {
+      return c.json({ error: "journalEntry must be 2000 characters or fewer" }, 400);
+    }
+    if (body.completedActivity && body.completedActivity.length > 200) {
+      return c.json({ error: "completedActivity must be 200 characters or fewer" }, 400);
+    }
+
+    const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
+    const updated = await comfortZoneService.updateObjectiveJournal(
+      user.id,
+      objectiveId,
+      {
+        journalEntry: body.journalEntry,
+        completedActivity: body.completedActivity,
+        photoUrl: body.photoUrl,
+      },
+    );
+
+    if (!updated) {
+      return c.json({ error: "Objective not found or not authorized" }, 404);
+    }
+
+    return c.json({ success: true });
+  },
+);

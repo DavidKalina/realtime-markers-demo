@@ -77,7 +77,12 @@ async function initializeWorker() {
     await import("./services/SidequestService");
   const { createOverpassService } =
     await import("./services/shared/OverpassService");
+  const { createComfortZoneService } =
+    await import("./services/ComfortZoneService");
   const overpassService = createOverpassService({ redisService });
+  const comfortZoneService = createComfortZoneService({
+    dataSource: AppDataSource,
+  });
   const sidequestService = createSidequestService({
     dataSource: AppDataSource,
     openAIService,
@@ -85,6 +90,7 @@ async function initializeWorker() {
     overpassService,
     embeddingService,
     redisService,
+    comfortZoneService,
   });
 
   jobHandlerRegistry = new JobHandlerRegistry(

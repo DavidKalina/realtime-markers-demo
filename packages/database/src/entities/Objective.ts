@@ -102,4 +102,32 @@ export class Objective {
 
   @Column({ type: "text", nullable: true })
   embedding?: string;
+
+  @Column({
+    name: "suggested_activities",
+    type: "text",
+    array: true,
+    default: "{}",
+  })
+  suggestedActivities!: string[];
+
+  @Column({
+    name: "completed_activity",
+    type: "varchar",
+    length: 200,
+    nullable: true,
+  })
+  completedActivity?: string;
+
+  @Column({ name: "photo_url", type: "varchar", length: 500, nullable: true })
+  photoUrl?: string;
+
+  @Column({ name: "journal_prompt", type: "varchar", length: 500, nullable: true })
+  journalPrompt?: string;
+
+  @Column({ name: "journal_entry", type: "text", nullable: true })
+  journalEntry?: string;
+
+  @Column({ type: "smallint", nullable: true })
+  difficulty?: number;
 }

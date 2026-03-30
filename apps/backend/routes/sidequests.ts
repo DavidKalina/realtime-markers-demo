@@ -20,6 +20,12 @@ import {
   getDeckStatsHandler,
   promoteSidequestHandler,
   searchSidequestsHandler,
+  prescribeQuestHandler,
+  getComfortZoneHandler,
+  getWorldSizeHandler,
+  setHomeAnchorHandler,
+  updateComfortProfileHandler,
+  objectiveJournalHandler,
 } from "../handlers/sidequestHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -55,11 +61,15 @@ sidequestRouter.get("/active", readRateLimit, getActiveSidequestHandler);
 sidequestRouter.get("/browse", readRateLimit, browseSidequestsHandler);
 sidequestRouter.get("/search", readRateLimit, searchSidequestsHandler);
 sidequestRouter.get("/deck-stats", readRateLimit, getDeckStatsHandler);
+sidequestRouter.get("/comfort-zone", readRateLimit, getComfortZoneHandler);
+sidequestRouter.get("/world-size", readRateLimit, getWorldSizeHandler);
 sidequestRouter.get("/:id", readRateLimit, getSidequestHandler);
 sidequestRouter.get("/:id/options", readRateLimit, getSidequestOptionsHandler);
 sidequestRouter.post("/", writeRateLimit, createSidequestHandler);
+sidequestRouter.post("/prescribe", writeRateLimit, prescribeQuestHandler);
 sidequestRouter.post("/batch-delete", writeRateLimit, batchDeleteSidequestHandler);
 sidequestRouter.post("/deactivate", writeRateLimit, deactivateSidequestHandler);
+sidequestRouter.post("/home-anchor", writeRateLimit, setHomeAnchorHandler);
 sidequestRouter.post("/:id/share", writeRateLimit, shareSidequestHandler);
 sidequestRouter.post("/:id/activate", writeRateLimit, activateSidequestHandler);
 sidequestRouter.post("/:id/rate", writeRateLimit, rateSidequestHandler);
@@ -69,6 +79,12 @@ sidequestRouter.post(
   "/:id/objectives/:objectiveId/checkin",
   writeRateLimit,
   checkinObjectiveHandler,
+);
+sidequestRouter.put("/comfort-profile", writeRateLimit, updateComfortProfileHandler);
+sidequestRouter.put(
+  "/objectives/:objectiveId/journal",
+  writeRateLimit,
+  objectiveJournalHandler,
 );
 sidequestRouter.delete("/:id", writeRateLimit, deleteSidequestHandler);
 

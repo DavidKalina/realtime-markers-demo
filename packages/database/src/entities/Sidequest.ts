@@ -134,6 +134,25 @@ export class Sidequest {
   categories!: string[];
 
   @Column({
+    type: "varchar",
+    length: 20,
+    nullable: true,
+  })
+  rarity?: string;
+
+  @Column({ type: "boolean", default: false })
+  prescribed!: boolean;
+
+  @Column({
+    name: "distance_from_home",
+    type: "numeric",
+    precision: 8,
+    scale: 2,
+    nullable: true,
+  })
+  distanceFromHome?: number;
+
+  @Column({
     name: "entry_latitude",
     type: "numeric",
     precision: 10,

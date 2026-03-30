@@ -18,6 +18,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import QuestCardDeck from "@/components/Itinerary/QuestCardDeck";
+import { CheckinCaptureModal } from "@/components/Itinerary/CheckinCaptureModal";
 import { apiClient } from "@/services/ApiClient";
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
 import { fontFamily, fontWeight, radius, spacing, useColors } from "@/theme";
@@ -168,12 +169,42 @@ const DeckScreen = () => {
 
   const activeCardRef = useRef(0);
 
-  useEffect(() => {
+  // Capture modal for filling in skipped check-in data
+  const [captureObjective, setCaptureObjective] = useState<{
+    id: string;
+    title: string;
+    emoji?: string;
+    suggestedActivities: string[];
+    journalPrompt?: string;
+  } | null>(null);
+
+  const fetchCards = useCallback(() => {
     apiClient.sidequests
       .listCompleted()
       .then(({ data }) => setCards(data))
       .catch(() => {})
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchCards();
+  }, [fetchCards]);
+
+  // Tap a card → open capture modal if any objective is missing journal/activity
+  const handleCardPress = useCallback((card: SidequestResponse) => {
+    const objective = (card.objectives ?? []).find(
+      (o) => o.checkedInAt && !o.journalEntry && !o.completedActivity,
+    );
+    if (objective) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setCaptureObjective({
+        id: objective.id,
+        title: objective.title,
+        emoji: objective.emoji,
+        suggestedActivities: objective.suggestedActivities ?? [],
+        journalPrompt: objective.journalPrompt,
+      });
+    }
   }, []);
 
   const handlePromote = useCallback(() => {
@@ -243,7 +274,12 @@ const DeckScreen = () => {
             No completed sidequests yet
           </Text>
         ) : (
-          <QuestCardDeck options={cards} mode="browse" hideHeader />
+          <QuestCardDeck
+            options={cards}
+            mode="browse"
+            hideHeader
+            onPress={handleCardPress}
+          />
         )}
       </View>
 
@@ -277,6 +313,20 @@ const DeckScreen = () => {
           </Text>
         </Pressable>
       ) : null}
+
+      <CheckinCaptureModal
+        visible={!!captureObjective}
+        objectiveId={captureObjective?.id ?? ""}
+        objectiveTitle={captureObjective?.title ?? ""}
+        objectiveEmoji={captureObjective?.emoji}
+        suggestedActivities={captureObjective?.suggestedActivities ?? []}
+        journalPrompt={captureObjective?.journalPrompt}
+        onDismiss={() => setCaptureObjective(null)}
+        onComplete={() => {
+          setCaptureObjective(null);
+          fetchCards(); // Refresh to reflect saved data
+        }}
+      />
 
       <PromotionOverlay
         card={promotingCard}

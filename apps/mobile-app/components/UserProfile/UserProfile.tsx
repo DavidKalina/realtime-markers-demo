@@ -39,7 +39,8 @@ import Animated, {
 } from "react-native-reanimated";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
 import Screen from "../Layout/Screen";
-import QuestDialogBox from "../Quest/QuestDialogBox";
+import PrescribeQuestCard from "../Quest/PrescribeQuestCard";
+import { useUserLocation } from "@/contexts/LocationContext";
 import ActiveQuestBanner from "./ActiveQuestBanner";
 import ActivityHeatmap from "./ActivityHeatmap";
 import AdventureDnaChart from "./AdventureDnaChart";
@@ -100,6 +101,28 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const { data: insights, refetch: refetchInsights } = useProfileInsights();
 
   const [deckStats, setDeckStats] = useState<DeckStatsResponse | null>(null);
+
+  // Home base
+  const { userLocation } = useUserLocation();
+  const [isUpdatingHome, setIsUpdatingHome] = useState(false);
+  const homeSet = user?.homeLatitude != null;
+
+  const handleUpdateHomeBase = useCallback(async () => {
+    if (!userLocation) return;
+    setIsUpdatingHome(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await apiClient.sidequests.setHomeAnchor(
+        userLocation[1],
+        userLocation[0],
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsUpdatingHome(false);
+    }
+  }, [userLocation]);
 
   const fetchDeckStats = useCallback(async () => {
     try {
@@ -260,6 +283,39 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         <AdventurePreferences />
       </View>
 
+      {/* Home Base */}
+      <View style={styles.tabSection}>
+        <Text style={styles.sectionLabel}>HOME BASE</Text>
+        <View style={styles.inlineRow}>
+          <Text style={styles.inlineRowLabel}>Status</Text>
+          <Text style={styles.inlineRowValue}>
+            {homeSet ? "\u{1F3E0} Set" : "\u26A0\uFE0F Not set"}
+          </Text>
+        </View>
+        {user?.comfortRadiusMiles && (
+          <View style={styles.inlineRow}>
+            <Text style={styles.inlineRowLabel}>Comfort radius</Text>
+            <Text style={styles.inlineRowValue}>
+              {Number(user.comfortRadiusMiles).toFixed(1)} mi
+            </Text>
+          </View>
+        )}
+        <Pressable
+          style={styles.inlineAction}
+          onPress={handleUpdateHomeBase}
+          disabled={!userLocation || isUpdatingHome}
+        >
+          <Text style={[styles.inlineRowLabel, { color: colors.accent.primary }]}>
+            {isUpdatingHome
+              ? "Updating..."
+              : homeSet
+                ? "Update to current location"
+                : "Set to current location"}
+          </Text>
+          <ChevronRight size={14} color={colors.accent.primary} />
+        </Pressable>
+      </View>
+
       {/* Actions */}
       <View style={styles.tabSection}>
         <Pressable
@@ -308,7 +364,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         showBackButton
         onBack={handleBack}
         noAnimation
-        bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} />}
+        bottomContent={<PrescribeQuestCard />}
       >
         <PullToActionScrollView
           onSearch={handleSearch}
@@ -424,15 +480,17 @@ const createStyles = (colors: Colors) =>
     // Hero sections (above tabs)
     heroSection: {
       paddingHorizontal: spacing.lg,
-      marginBottom: spacing.lg,
+      marginBottom: spacing.md,
     },
-    // Tab bar (pill-shaped, matches CityDetailContent)
+    // Tab bar — glass pill
     tabBar: {
       flexDirection: "row",
       marginHorizontal: spacing.lg,
       marginBottom: spacing.md,
-      backgroundColor: colors.bg.card,
+      backgroundColor: "rgba(255, 255, 255, 0.04)",
       borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: "rgba(255, 255, 255, 0.06)",
       padding: 2,
     },
     tabButton: {
@@ -445,7 +503,7 @@ const createStyles = (colors: Colors) =>
       gap: 4,
     },
     tabButtonActive: {
-      backgroundColor: colors.bg.elevated,
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
     },
     tabText: {
       fontSize: fontSize.xs,
@@ -456,15 +514,20 @@ const createStyles = (colors: Colors) =>
     tabTextActive: {
       color: colors.text.primary,
     },
-    // Tab content sections
+    // Tab content sections — glass cards
     tabSection: {
-      paddingHorizontal: spacing.lg,
-      marginBottom: spacing["2xl"],
+      marginHorizontal: spacing.lg,
+      marginBottom: spacing.md,
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: "rgba(255, 255, 255, 0.05)",
+      padding: spacing.lg,
     },
     sectionLabel: {
-      fontSize: 11,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.label,
+      fontSize: 9,
+      fontWeight: fontWeight.bold,
+      color: colors.text.disabled,
       fontFamily: fontFamily.mono,
       letterSpacing: 1.5,
       marginBottom: spacing.md,
@@ -473,9 +536,9 @@ const createStyles = (colors: Colors) =>
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      paddingVertical: spacing.md,
+      paddingVertical: spacing.sm,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border.default,
+      borderBottomColor: "rgba(255, 255, 255, 0.05)",
     },
     inlineRowLabel: {
       fontSize: fontSize.sm,
@@ -496,9 +559,9 @@ const createStyles = (colors: Colors) =>
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      paddingVertical: spacing.md,
+      paddingVertical: spacing.sm,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border.default,
+      borderBottomColor: "rgba(255, 255, 255, 0.05)",
     },
     inlineActionLast: {
       borderBottomWidth: 0,

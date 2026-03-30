@@ -28,7 +28,7 @@ import Animated, {
 } from "react-native-reanimated";
 import Screen from "@/components/Layout/Screen";
 import EmptyState from "@/components/Layout/EmptyState";
-import QuestDialogBox from "@/components/Quest/QuestDialogBox";
+import PrescribeQuestCard from "@/components/Quest/PrescribeQuestCard";
 import QuestCardDeck from "@/components/Itinerary/QuestCardDeck";
 import { apiClient } from "@/services/ApiClient";
 import type {
@@ -413,11 +413,14 @@ const ItinerariesListScreen = () => {
     );
   }, [fetchItineraries]);
 
-  // Show options overlay when QuestDialogBox reports a new quest
-  const handleQuestCreated = useCallback((parentId: string) => {
-    optionsParentId.current = parentId;
-    setShowOptions(true);
-  }, []);
+  // After a prescribed quest is accepted, refresh the deck and navigate to it
+  const handleQuestCreated = useCallback(
+    (questId: string) => {
+      fetchItineraries();
+      router.push(`/itineraries/${questId}`);
+    },
+    [fetchItineraries, router],
+  );
 
   // Resume pending generation after app restart — check AsyncStorage for a
   // parentId saved when generation was triggered. If found, re-open the
@@ -869,7 +872,7 @@ const ItinerariesListScreen = () => {
         showBackButton
         onBack={handleBack}
         noAnimation
-        bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} onQuestCreated={handleQuestCreated} />}
+        bottomContent={<PrescribeQuestCard onQuestAccepted={handleQuestCreated} />}
       >
         <EmptyState
           emoji={"\u{1F5FA}\u{FE0F}"}
@@ -906,7 +909,7 @@ const ItinerariesListScreen = () => {
       showBackButton
       onBack={handleBack}
       noAnimation
-      bottomContent={<QuestDialogBox style={{ marginBottom: 0 }} onQuestCreated={handleQuestCreated} />}
+      bottomContent={<PrescribeQuestCard onQuestAccepted={handleQuestCreated} />}
     >
       <View style={styles.headerRow}>
         <View style={styles.headerTitleRow}>

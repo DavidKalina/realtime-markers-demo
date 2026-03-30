@@ -28,6 +28,8 @@ import { createOverpassService } from "./shared/OverpassService";
 import type { OverpassService } from "./shared/OverpassService";
 import { createSidequestCheckinService } from "./SidequestCheckinService";
 import type { SidequestCheckinService } from "./SidequestCheckinService";
+import { createComfortZoneService } from "./ComfortZoneService";
+import type { ComfortZoneService } from "./ComfortZoneService";
 
 export interface ServiceContainer {
   storageService: StorageService;
@@ -41,6 +43,7 @@ export interface ServiceContainer {
   sidequestService: SidequestService;
   sidequestCheckinService: SidequestCheckinService;
   overpassService: OverpassService;
+  comfortZoneService: ComfortZoneService;
 }
 
 export class ServiceInitializer {
@@ -104,6 +107,10 @@ export class ServiceInitializer {
 
     const overpassService = createOverpassService({ redisService });
 
+    const comfortZoneService = createComfortZoneService({
+      dataSource: this.dataSource,
+    });
+
     const sidequestService = createSidequestService({
       dataSource: this.dataSource,
       openAIService,
@@ -111,6 +118,7 @@ export class ServiceInitializer {
       overpassService,
       embeddingService,
       redisService,
+      comfortZoneService,
     });
 
     const sidequestCheckinService = createSidequestCheckinService({
@@ -133,6 +141,7 @@ export class ServiceInitializer {
       sidequestService,
       sidequestCheckinService,
       overpassService,
+      comfortZoneService,
     };
   }
 
