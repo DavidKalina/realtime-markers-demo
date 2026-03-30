@@ -487,6 +487,8 @@ export const getDeckStatsHandler: Handler = withErrorHandling(async (c) => {
 
 // ─── Wellness Pivot Handlers ───────────────────────────────────────
 
+const DAILY_PRESCRIBE_LIMIT = 3;
+
 export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
   const userId = user.id;
@@ -499,6 +501,21 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
 
   if (typeof body.latitude !== "number" || typeof body.longitude !== "number") {
     return c.json({ error: "latitude and longitude are required" }, 400);
+  }
+
+  // Daily cooldown — count prescribed quests created today
+  const sidequestService = c.get("sidequestService") as SidequestService;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayCount = await sidequestService.countCreatedSince(userId, todayStart);
+  if (todayCount >= DAILY_PRESCRIBE_LIMIT) {
+    return c.json(
+      {
+        error: `You've reached your daily limit of ${DAILY_PRESCRIBE_LIMIT} quests. Come back tomorrow!`,
+        remaining: 0,
+      },
+      429,
+    );
   }
 
   // Enqueue prescription job
@@ -515,6 +532,7 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
     {
       jobId,
       streamUrl: `/api/jobs/${jobId}/stream`,
+      remaining: DAILY_PRESCRIBE_LIMIT - todayCount - 1,
     },
     202,
   );

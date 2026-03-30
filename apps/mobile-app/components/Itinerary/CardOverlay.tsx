@@ -27,6 +27,7 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
+  type SharedValue,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { Canvas, Fill, Shader, Skia } from "@shopify/react-native-skia";
@@ -137,8 +138,18 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
   ({ card, visible, onDismiss, onAccept, isAccepting }) => {
     const colors = useColors();
     const s = useMemo(() => createStyles(colors), [colors]);
-    const { tiltX, tiltY } = useGyroTilt(visible);
+    const gyro = useGyroTilt(visible);
     const [isFlipped, setIsFlipped] = useState(false);
+
+    // DEV: manual tilt controls for simulator
+    const [devTiltX, setDevTiltX] = useState(0);
+    const [devTiltY, setDevTiltY] = useState(0);
+    const [devPerspective, setDevPerspective] = useState(800);
+    const [devMultiplier, setDevMultiplier] = useState(0.6);
+
+    // In dev on simulator, override gyro with slider values
+    const tiltX = __DEV__ ? ({ value: devTiltX } as SharedValue<number>) : gyro.tiltX;
+    const tiltY = __DEV__ ? ({ value: devTiltY } as SharedValue<number>) : gyro.tiltY;
 
     const backdropOpacity = useSharedValue(0);
     const cardScale = useSharedValue(0.88);
@@ -190,10 +201,14 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
 
     const cardContainerStyle = useAnimatedStyle(() => ({
       opacity: cardOpacity.value,
+      transform: [{ scale: cardScale.value }],
+    }));
+
+    const tiltMultiplier = __DEV__ ? devMultiplier : 0.6;
+    const tiltStyle = useAnimatedStyle(() => ({
       transform: [
-        { scale: cardScale.value },
-        { translateX: tiltY.value * 0.5 },
-        { translateY: -tiltX.value * 0.5 },
+        { rotateX: `${-tiltX.value * tiltMultiplier}deg` },
+        { rotateY: `${tiltY.value * tiltMultiplier}deg` },
       ],
     }));
 
@@ -489,14 +504,16 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
             <X size={18} color={colors.text.secondary} />
           </Pressable>
 
-          {/* Flippable card */}
+          {/* Flippable card with 3D tilt */}
           <Animated.View style={[s.cardWrap, cardContainerStyle]}>
-            <View style={s.flipContainer}>
-              <Animated.View style={[s.face, frontFaceStyle]}>
-                {renderCardFace("front")}
-              </Animated.View>
-              <Animated.View style={[s.face, backFaceStyle]}>
-                {renderCardFace("back")}
+            <View style={[s.perspectiveWrap, __DEV__ && { transform: [{ perspective: devPerspective }] }]}>
+              <Animated.View style={[s.flipContainer, tiltStyle]}>
+                <Animated.View style={[s.face, frontFaceStyle]}>
+                  {renderCardFace("front")}
+                </Animated.View>
+                <Animated.View style={[s.face, backFaceStyle]}>
+                  {renderCardFace("back")}
+                </Animated.View>
               </Animated.View>
             </View>
           </Animated.View>
@@ -507,6 +524,33 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
               {isFlipped ? "TAP TO FLIP BACK" : "TAP CARD TO SEE ACTIVITIES"}
             </Text>
           </View>
+
+          {/* DEV: Tilt controls for simulator */}
+          {__DEV__ && (
+            <View style={s.devPanel}>
+              <Text style={s.devTitle}>TILT CONTROLS</Text>
+              {[
+                { label: "Tilt X", value: devTiltX, set: setDevTiltX, min: -15, max: 15, step: 1 },
+                { label: "Tilt Y", value: devTiltY, set: setDevTiltY, min: -15, max: 15, step: 1 },
+                { label: "Perspective", value: devPerspective, set: setDevPerspective, min: 200, max: 2000, step: 100 },
+                { label: "Multiplier", value: devMultiplier, set: setDevMultiplier, min: 0.1, max: 3.0, step: 0.1 },
+              ].map(({ label, value, set, min, max, step }) => (
+                <View key={label} style={s.devRow}>
+                  <Text style={s.devLabel}>{label}</Text>
+                  <Pressable style={s.devBtn} onPress={() => set(Math.max(min, Math.round((value - step) * 10) / 10))}>
+                    <Text style={s.devBtnText}>{"\u2212"}</Text>
+                  </Pressable>
+                  <Text style={s.devValue}>{typeof value === "number" && value % 1 !== 0 ? value.toFixed(1) : value}</Text>
+                  <Pressable style={s.devBtn} onPress={() => set(Math.min(max, Math.round((value + step) * 10) / 10))}>
+                    <Text style={s.devBtnText}>+</Text>
+                  </Pressable>
+                  <Pressable style={s.devResetBtn} onPress={() => set(label === "Perspective" ? 800 : label === "Multiplier" ? 0.6 : 0)}>
+                    <Text style={s.devBtnText}>R</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          )}
 
           {/* Accept buttons (prescribe mode) */}
           {onAccept && (
@@ -563,6 +607,11 @@ const createStyles = (colors: Colors) =>
       alignItems: "center",
       justifyContent: "center",
     },
+    perspectiveWrap: {
+      transform: [{ perspective: 800 }],
+      alignItems: "center",
+      justifyContent: "center",
+    },
     flipContainer: {
       width: OVERLAY_CARD_W,
       height: OVERLAY_CARD_H,
@@ -585,6 +634,67 @@ const createStyles = (colors: Colors) =>
       fontSize: 10,
       color: "rgba(255, 255, 255, 0.35)",
       letterSpacing: 1.5,
+    },
+
+    // DEV controls
+    devPanel: {
+      position: "absolute",
+      bottom: 10,
+      left: 10,
+      right: 10,
+      backgroundColor: "rgba(0, 0, 0, 0.85)",
+      borderRadius: 8,
+      padding: 8,
+      gap: 4,
+      zIndex: 20,
+    },
+    devTitle: {
+      fontFamily: fontFamily.mono,
+      fontSize: 8,
+      color: "rgba(134, 239, 172, 0.7)",
+      letterSpacing: 1.5,
+      textAlign: "center",
+      marginBottom: 2,
+    },
+    devRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    devLabel: {
+      fontFamily: fontFamily.mono,
+      fontSize: 9,
+      color: "rgba(255, 255, 255, 0.5)",
+      width: 70,
+    },
+    devBtn: {
+      width: 24,
+      height: 24,
+      borderRadius: 4,
+      backgroundColor: "rgba(255, 255, 255, 0.1)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    devResetBtn: {
+      width: 24,
+      height: 24,
+      borderRadius: 4,
+      backgroundColor: "rgba(134, 239, 172, 0.15)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    devBtnText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 12,
+      color: "rgba(255, 255, 255, 0.7)",
+      fontWeight: fontWeight.bold,
+    },
+    devValue: {
+      fontFamily: fontFamily.mono,
+      fontSize: 10,
+      color: "rgba(255, 255, 255, 0.8)",
+      width: 40,
+      textAlign: "center",
     },
 
     // Card shell

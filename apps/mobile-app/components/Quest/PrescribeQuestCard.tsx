@@ -44,6 +44,7 @@ function PrescribeQuestCard({ onQuestAccepted }: PrescribeQuestCardProps) {
   const [quest, setQuest] = useState<SidequestResponse | null>(null);
   const [trackedJobId, setTrackedJobId] = useState<string | null>(null);
   const [isAccepting, setIsAccepting] = useState(false);
+  const [cooldownMessage, setCooldownMessage] = useState<string | null>(null);
 
   // Button press scale
   const btnScale = useSharedValue(1);
@@ -114,9 +115,17 @@ function PrescribeQuestCard({ onQuestAccepted }: PrescribeQuestCardProps) {
       });
       setTrackedJobId(result.jobId);
       trackJob(result.jobId);
-    } catch {
+    } catch (err: unknown) {
       setPhase("idle");
       pulse.value = 1;
+      // Check for daily limit (429)
+      const msg =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "";
+      if (msg.includes("daily limit") || msg.includes("429")) {
+        setCooldownMessage(msg || "Daily limit reached. Come back tomorrow!");
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   }, [userLocation, trackJob, btnScale, pulse]);
@@ -146,7 +155,11 @@ function PrescribeQuestCard({ onQuestAccepted }: PrescribeQuestCardProps) {
   return (
     <>
       <Reanimated.View style={[s.bar, btnStyle]}>
-        {phase === "idle" && (
+        {phase === "idle" && cooldownMessage && (
+          <Text style={s.cooldownText}>{cooldownMessage}</Text>
+        )}
+
+        {phase === "idle" && !cooldownMessage && (
           <Pressable style={s.button} onPress={handlePress} disabled={!userLocation}>
             <Text style={s.buttonText}>Get Your Next Quest</Text>
           </Pressable>
@@ -216,6 +229,13 @@ const createStyles = (colors: Colors) =>
       fontSize: 12,
       color: colors.text.secondary,
       fontWeight: "600",
+    },
+    cooldownText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 11,
+      color: colors.text.secondary,
+      textAlign: "center",
+      paddingVertical: 2,
     },
   });
 
