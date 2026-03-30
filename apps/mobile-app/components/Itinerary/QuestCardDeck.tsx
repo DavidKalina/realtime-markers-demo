@@ -170,13 +170,14 @@ function hexToCardColors(hex: string): {
   };
 }
 
-/** Pick a color source from the sidequest's categories or activity types. */
+/** Pick a color source from the sidequest's categories, objectives, or activity types. */
 function getCardColorKey(option: SidequestResponse): string {
   return (
     option.categories?.[0] ??
+    option.objectives?.find((o) => o.venueCategory)?.venueCategory ??
     option.activityTypes?.[0] ??
-    option.tier ??
-    "QUICK"
+    option.rarity ??
+    "common"
   );
 }
 
@@ -189,11 +190,13 @@ const FOIL_INTENSITY: Record<string, number> = {
   legendary: 0.24,
 };
 
-// Tier-only fallback colors (green / amber / purple)
-const TIER_FALLBACK_COLORS: Record<string, string> = {
-  QUICK: "#86efac",
-  SWEET_SPOT: "#fbbf24",
-  BEST: "#a855f7",
+// Rarity fallback colors when no category is available
+const RARITY_FALLBACK_COLORS: Record<string, string> = {
+  common: "#94a3b8",
+  uncommon: "#4ade80",
+  rare: "#60a5fa",
+  epic: "#a855f7",
+  legendary: "#fbbf24",
 };
 
 interface QuestCardDeckProps {
@@ -456,11 +459,11 @@ const QuestCard: React.FC<{
     const s = useMemo(() => createCardStyles(colors), [colors]);
     if (!option) return null;
     const colorKey = getCardColorKey(option);
+    const rarityKey = (option.rarity ?? "common").toLowerCase();
     const cardHex =
       getCategoryColor(colorKey) ??
-      TIER_FALLBACK_COLORS[option.tier ?? "QUICK"] ??
-      TIER_FALLBACK_COLORS.QUICK;
-    const rarityKey = (option.rarity ?? "common").toLowerCase();
+      RARITY_FALLBACK_COLORS[rarityKey] ??
+      RARITY_FALLBACK_COLORS.common;
     const tierMeta = {
       label: RARITY_LABELS[rarityKey] ?? RARITY_LABELS.common,
       ...hexToCardColors(cardHex),
@@ -1371,10 +1374,7 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
                       style={[
                         s.tierLabelText,
                         {
-                          color: (
-                            RARITY_BADGE_STYLE[(option.rarity ?? "common").toLowerCase()] ??
-                            RARITY_BADGE_STYLE.common
-                          ).text,
+                          color: getCategoryColor(getCardColorKey(option)),
                         },
                       ]}
                     >
