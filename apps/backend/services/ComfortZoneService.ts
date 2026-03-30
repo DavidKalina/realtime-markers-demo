@@ -163,27 +163,27 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
     if (!user) return DEFAULT_COMFORT_RADIUS_MILES;
 
     // Count completed prescribed quests
-    const completedCount = await this.dataSource.getRepository(Sidequest).count({
-      where: {
-        userId,
-        prescribed: true,
-        completedAt: Not(IsNull()),
-      },
-    });
+    const completedCount = await this.dataSource
+      .getRepository(Sidequest)
+      .count({
+        where: {
+          userId,
+          prescribed: true,
+          completedAt: Not(IsNull()),
+        },
+      });
 
     const pace = PACE_MULTIPLIERS[user.pacePreference ?? "steady"] ?? 1.0;
     let radius =
-      DEFAULT_COMFORT_RADIUS_MILES + completedCount * BASE_EXPANSION_MILES * pace;
+      DEFAULT_COMFORT_RADIUS_MILES +
+      completedCount * BASE_EXPANSION_MILES * pace;
 
     // Contract if inactive (streak broken for 2+ weeks)
     if (user.lastStreakWeek) {
       const weeksSinceLast = this.weeksSince(user.lastStreakWeek);
       if (weeksSinceLast >= 2) {
         // Shrink toward default by 20% per missed week beyond 1, floor at default
-        const contractionFactor = Math.max(
-          0.3,
-          1 - 0.2 * (weeksSinceLast - 1),
-        );
+        const contractionFactor = Math.max(0.3, 1 - 0.2 * (weeksSinceLast - 1));
         radius = Math.max(
           DEFAULT_COMFORT_RADIUS_MILES,
           radius * contractionFactor,
@@ -354,12 +354,13 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
   ): Promise<void> {
     const fields: Record<string, unknown> = {};
     if (updates.pacePreference) fields.pacePreference = updates.pacePreference;
-    if (updates.comfortProfile) fields.comfortProfile = updates.comfortProfile;
+    if (updates.comfortProfile) {
+      Object.values(updates.comfortProfile).forEach((val) => val.trim());
+      fields.comfortProfile = updates.comfortProfile;
+    }
 
     if (Object.keys(fields).length > 0) {
-      await this.dataSource
-        .getRepository(User)
-        .update({ id: userId }, fields);
+      await this.dataSource.getRepository(User).update({ id: userId }, fields);
     }
   }
 
@@ -384,8 +385,10 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
     if (sidequest.userId !== userId) return false;
 
     const fields: Record<string, unknown> = {};
-    if (updates.journalEntry !== undefined) fields.journalEntry = updates.journalEntry;
-    if (updates.completedActivity !== undefined) fields.completedActivity = updates.completedActivity;
+    if (updates.journalEntry !== undefined)
+      fields.journalEntry = updates.journalEntry;
+    if (updates.completedActivity !== undefined)
+      fields.completedActivity = updates.completedActivity;
     if (updates.photoUrl !== undefined) fields.photoUrl = updates.photoUrl;
 
     if (Object.keys(fields).length > 0) {
