@@ -55,6 +55,7 @@ import type {
   SidequestResponse,
 } from "@/services/api/modules/sidequests";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
+import { useDeckBadgeStore } from "@/stores/useDeckBadgeStore";
 import {
   fontFamily,
   fontSize,
@@ -476,6 +477,7 @@ const ItineraryDetailScreen = () => {
   const activateItinerary = useActiveItineraryStore((s) => s.activate);
   const deactivateItinerary = useActiveItineraryStore((s) => s.deactivate);
   const markCheckedIn = useActiveItineraryStore((s) => s.markCheckedIn);
+  const markNewDeckCard = useDeckBadgeStore((s) => s.markNewCard);
   const isActivating = useActiveItineraryStore((s) => s.isLoading);
 
   const isThisActive = activeItinerary?.id === id;
@@ -600,6 +602,9 @@ const ItineraryDetailScreen = () => {
         // markCheckedIn is idempotent — safe to call even if
         // the geofence task already optimistically updated
         markCheckedIn(data.objectiveId, new Date().toISOString());
+        if (data.completed) {
+          markNewDeckCard();
+        }
         Haptics.notificationAsync(
           data.completed
             ? Haptics.NotificationFeedbackType.Success
@@ -1306,6 +1311,7 @@ const ItineraryDetailScreen = () => {
             (o) => !o.checkedInAt && o.id !== capturedId,
           );
           if (remaining.length === 0) {
+            markNewDeckCard();
             setTimeout(() => router.push("/deck"), 300);
           }
         }}
@@ -1318,6 +1324,7 @@ const ItineraryDetailScreen = () => {
           );
           if (remaining.length === 0) {
             // Quest complete — go to deck to see/promote the card
+            markNewDeckCard();
             setTimeout(() => router.push("/deck"), 300);
           }
         }}

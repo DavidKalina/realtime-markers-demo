@@ -360,9 +360,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     <>
       <Screen
         isScrollable={false}
-        bannerDescription="Your account and preferences"
-        showBackButton
-        onBack={handleBack}
+        showBackButton={false}
         noAnimation
         bottomContent={<PrescribeQuestCard />}
       >

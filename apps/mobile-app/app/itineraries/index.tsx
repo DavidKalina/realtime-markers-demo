@@ -65,7 +65,7 @@ const ItinerariesListScreen = () => {
     try {
       const result = await apiClient.sidequests.list(PAGE_SIZE, cursor);
       const filtered = (result.data ?? []).filter(
-        (it) => it.status !== "GENERATING",
+        (it) => it.status !== "GENERATING" && !it.completedAt,
       );
       const nextCursor = result.nextCursor ?? null;
       cursorRef.current = nextCursor;
@@ -237,19 +237,13 @@ const ItinerariesListScreen = () => {
     setMarkedIds(new Set());
   }, []);
 
-  const handleBack = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
-  }, [router]);
-
   // --- Render ---
 
   if (isLoading) {
     return (
       <Screen
         isScrollable={false}
-        showBackButton
-        onBack={handleBack}
+        showBackButton={false}
         noAnimation
       >
         <View style={styles.centered}>
@@ -263,8 +257,7 @@ const ItinerariesListScreen = () => {
     return (
       <Screen
         isScrollable={false}
-        showBackButton
-        onBack={handleBack}
+        showBackButton={false}
         noAnimation
         bottomContent={<PrescribeQuestCard onQuestAccepted={handleQuestCreated} />}
       >
@@ -281,8 +274,7 @@ const ItinerariesListScreen = () => {
   return (
     <Screen
       isScrollable={false}
-      showBackButton
-      onBack={handleBack}
+      showBackButton={false}
       noAnimation
       bottomContent={<PrescribeQuestCard onQuestAccepted={handleQuestCreated} />}
     >

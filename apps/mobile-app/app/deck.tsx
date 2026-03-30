@@ -269,11 +269,20 @@ const DeckScreen = () => {
         styles.container,
         {
           paddingTop: insets.top,
-          paddingBottom: insets.bottom,
           backgroundColor: colors.bg.primary,
         },
       ]}
     >
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <Text style={[styles.headerLabel, { color: colors.text.primary }]}>
+          YOUR DECK
+        </Text>
+        <Text style={[styles.headerHint, { color: colors.text.secondary }]}>
+          Swipe to browse · Tap to open
+        </Text>
+      </View>
+
       <View style={styles.deckArea}>
         {loading ? (
           <ActivityIndicator color={colors.text.secondary} />
@@ -292,34 +301,20 @@ const DeckScreen = () => {
       </View>
 
       {cards.length > 0 ? (
-        <Pressable
+        <View
           style={[
-            styles.promoteButton,
-            {
-              backgroundColor: canPromote
-                ? "rgba(168, 85, 247, 0.15)"
-                : "rgba(255, 255, 255, 0.04)",
-              borderColor: canPromote
-                ? "rgba(168, 85, 247, 0.4)"
-                : "rgba(255, 255, 255, 0.08)",
-            },
+            styles.promoteBar,
+            !canPromote && { opacity: 0.4 },
           ]}
-          onPress={handlePromote}
-          disabled={!canPromote}
         >
-          <Text
-            style={[
-              styles.promoteText,
-              {
-                color: canPromote
-                  ? "rgba(168, 85, 247, 0.95)"
-                  : "rgba(255, 255, 255, 0.2)",
-              },
-            ]}
+          <Pressable
+            style={styles.promoteButton}
+            onPress={handlePromote}
+            disabled={!canPromote}
           >
-            PROMOTE
-          </Text>
-        </Pressable>
+            <Text style={styles.promoteText}>Promote Card</Text>
+          </Pressable>
+        </View>
       ) : null}
 
       <CheckinCaptureModal
@@ -349,25 +344,46 @@ const DeckScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
+  },
+  headerRow: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    gap: spacing.xs,
+  },
+  headerLabel: {
+    fontSize: 12,
+    fontFamily: fontFamily.mono,
+    fontWeight: fontWeight.bold,
+    letterSpacing: 1.5,
+  },
+  headerHint: {
+    fontSize: 11,
+    fontFamily: fontFamily.mono,
   },
   deckArea: {
     flex: 1,
     justifyContent: "center",
   },
+  promoteBar: {
+    backgroundColor: "rgba(168, 85, 247, 0.08)",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderTopWidth: 1,
+    borderColor: "rgba(168, 85, 247, 0.2)",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
   promoteButton: {
-    alignSelf: "center",
-    paddingHorizontal: spacing.xl + spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    marginBottom: spacing.lg,
+    alignItems: "center",
+    paddingVertical: 2,
   },
   promoteText: {
-    fontSize: 11,
-    fontWeight: fontWeight.bold,
     fontFamily: fontFamily.mono,
-    letterSpacing: 2,
+    fontSize: 13,
+    color: "rgba(168, 85, 247, 0.95)",
+    fontWeight: fontWeight.bold,
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
   },
   emptyText: {
     textAlign: "center",
