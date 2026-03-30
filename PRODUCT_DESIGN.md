@@ -210,6 +210,47 @@ Voronoi tessellation of completed quest locations overlaid on a real map. Visual
 
 ---
 
+## Proximity Building (Post-MVP)
+
+### The Problem
+
+Expanding radius is only half of behavior change. The other half is **deepening roots** — becoming a regular somewhere. For someone trying to meet people, going to the same coffee shop 5 times is more valuable than going to 5 different coffee shops once. Familiarity breeds comfort, comfort breeds connection.
+
+### The Mechanic: "Go Again"
+
+After check-in, the capture modal offers: **"Would you like to come back here?"**
+
+- **Yes → Schedule Again**: The venue enters a "proximity building" loop. The app re-prescribes the same spot on a cadence (weekly? user-chosen?) instead of generating a new quest. Each return visit earns a **proximity card** — a different card type that tracks depth, not breadth.
+- **No / Skip**: Normal flow. Next prescription is somewhere new.
+- **Turn off anytime**: If they've built enough comfort at a spot, they can stop the loop and return to new prescriptions.
+
+### Proximity Cards vs Trophy Cards
+
+| | Trophy Card | Proximity Card |
+|---|---|---|
+| **Earned by** | First visit to a new place | Repeat visit to a building spot |
+| **Rarity** | Based on distance/category stretch | Based on visit count (3x = silver, 5x = gold, 10x = platinum) |
+| **What it measures** | World expansion (breadth) | Community building (depth) |
+| **Card art** | Venue photo + emoji | Same venue, but card evolves visually with each visit |
+| **Metric it feeds** | World Size (area) | "Roots" or "Home Turf" score |
+
+### Why This Matters
+
+- Someone with social anxiety doesn't need 50 new places. They need 3 places where the barista knows their name.
+- The app becomes a tool for both explorers ("show me somewhere new") and nesters ("help me become a regular").
+- The user's goal from onboarding ("meet people" vs "explore my city") determines the balance of new-place vs go-again prescriptions.
+- Going to the same spot isn't failure — it's a different kind of growth. The app should celebrate it, not penalize it.
+
+### Data Model Implications (future)
+
+- `Objective` or `Sidequest` gets a `proximityGroupId` linking repeat visits to the same venue
+- New metric: visits-per-venue count, "home turf" venues (3+ visits)
+- Agent context: "this user is building proximity at OWL Coffee (4 visits) — don't replace it unless they opt out"
+- Capture modal: add "Come back?" toggle after check-in
+- Push notifications: "It's been a week since OWL Coffee — time for another visit?"
+
+---
+
 ## Open Questions
 
 - **Quest cadence**: One per week? On-demand after completion? Drip-fed?
@@ -218,3 +259,4 @@ Voronoi tessellation of completed quest locations overlaid on a real map. Visual
 - **Monetization**: Freemium? Subscription? What's free vs paid?
 - **Onboarding depth**: How much do we ask upfront vs learn over time?
 - **Photo storage**: S3/DigitalOcean Spaces (already have infra) — but adds storage costs at scale
+- **Proximity vs Expansion balance**: How does the user's goal (from onboarding) weight new-place vs go-again? Is it automatic or user-controlled?
