@@ -222,7 +222,15 @@ const DeckScreen = () => {
 
   const handleMidpoint = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
-    // Upgrade tier in the overlay card AND the deck
+
+    // Hit the API (fire-and-forget — animation shouldn't wait)
+    if (promotingCard?.id) {
+      apiClient.sidequests.promote(promotingCard.id).catch((err) => {
+        console.error("[Deck] Promote API failed:", err);
+      });
+    }
+
+    // Optimistically upgrade tier in the overlay card AND the deck
     setCards((prev) =>
       prev.map((c) => {
         if (c.id !== promotingCard?.id) return c;
