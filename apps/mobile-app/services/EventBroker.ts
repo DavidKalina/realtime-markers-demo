@@ -70,12 +70,6 @@ export interface LevelUpdateEvent extends BaseEvent {
   data: { action?: string; title?: string; totalXp?: number; [key: string]: unknown };
 }
 
-export interface SidequestJobCompletedEvent extends BaseEvent {
-  jobId: string;
-  jobType: string;
-  itineraryId?: string;
-}
-
 // ── Event type constants ─────────────────────────────────────────────
 
 export const EventTypes = {
@@ -116,9 +110,6 @@ export const EventTypes = {
   // XP / Gamification
   XP_AWARDED: "xp:awarded" as EventType<XPAwardedEvent>,
   LEVEL_UPDATE: "xp:level_update" as EventType<LevelUpdateEvent>,
-
-  // Job lifecycle
-  SIDEQUEST_JOB_COMPLETED: "job:sidequest_completed" as EventType<SidequestJobCompletedEvent>,
 } as const;
 
 // ── EventBroker class ────────────────────────────────────────────────
