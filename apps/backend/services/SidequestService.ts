@@ -982,54 +982,57 @@ class SidequestServiceImpl implements SidequestService {
       }
     }
 
-    // 3. Generate category tags
-    try {
-      const stopsForCategories = sortedObjectives
-        .map(
-          (obj) =>
-            `${obj.title}${obj.venueCategory ? ` (${obj.venueCategory})` : ""}${obj.description ? ` — ${obj.description}` : ""}`,
-        )
-        .join("; ");
+    // 3. Generate category tags (skip if already populated inline)
+    if (!sidequest.categories || sidequest.categories.length === 0) {
+      try {
+        const stopsForCategories = sortedObjectives
+          .map(
+            (obj) =>
+              `${obj.title}${obj.venueCategory ? ` (${obj.venueCategory})` : ""}${obj.description ? ` — ${obj.description}` : ""}`,
+          )
+          .join("; ");
 
-      const completion = await this.openAIService.executeChatCompletion({
-        model: OpenAIModel.GPT54Nano,
-        messages: [
-          {
-            role: "system",
-            content:
-              'You generate category tags for sidequests. Return a JSON array of 3-5 lowercase single-word tags that describe the sidequest\'s themes. Examples: ["outdoor", "food", "culture", "nightlife", "art", "music", "nature", "fitness", "shopping", "history"]. Respond with ONLY the JSON array.',
-          },
-          {
-            role: "user",
-            content: `Title: ${sidequest.title || "Untitled"}\nSummary: ${sidequest.summary || "N/A"}\nStops: ${stopsForCategories}`,
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 100,
-        response_format: { type: "json_object" },
-      });
+        const completion = await this.openAIService.executeChatCompletion({
+          model: OpenAIModel.GPT54Nano,
+          messages: [
+            {
+              role: "system",
+              content:
+                'You generate category tags for sidequests. Return a JSON object with a "tags" key containing an array of 3-5 lowercase single-word tags that describe the sidequest\'s themes. Examples: {"tags": ["outdoor", "food", "culture", "nightlife", "art"]}. Respond with ONLY the JSON object.',
+            },
+            {
+              role: "user",
+              content: `Title: ${sidequest.title || "Untitled"}\nSummary: ${sidequest.summary || "N/A"}\nStops: ${stopsForCategories}`,
+            },
+          ],
+          temperature: 0.3,
+          max_tokens: 100,
+          response_format: { type: "json_object" },
+        });
 
-      const raw = completion.choices[0].message.content?.trim();
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            updates.categories = parsed
-              .filter((t: unknown) => typeof t === "string")
-              .slice(0, 5)
-              .map((t: string) => t.toLowerCase());
+        const raw = completion.choices[0].message.content?.trim();
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            const arr = Array.isArray(parsed) ? parsed : parsed.tags;
+            if (Array.isArray(arr)) {
+              updates.categories = arr
+                .filter((t: unknown) => typeof t === "string")
+                .slice(0, 5)
+                .map((t: string) => t.toLowerCase());
+            }
+          } catch {
+            console.warn(
+              `[SidequestService] Failed to parse category tags: ${raw}`,
+            );
           }
-        } catch {
-          console.warn(
-            `[SidequestService] Failed to parse category tags: ${raw}`,
-          );
         }
+      } catch (error) {
+        console.error(
+          `[SidequestService] Error generating categories for ${sidequestId}:`,
+          error,
+        );
       }
-    } catch (error) {
-      console.error(
-        `[SidequestService] Error generating categories for ${sidequestId}:`,
-        error,
-      );
     }
 
     // 4. Find entry points for trails, parks, and attractions
@@ -1774,9 +1777,56 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
       sidequest.status = SidequestStatus.READY;
       sidequest.rarity = rarity;
       sidequest.distanceFromHome = distanceFromHome;
+
+      // Generate category tags inline so the client always has them
+      try {
+        const stopsForCategories = objectives
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map(
+            (obj) =>
+              `${obj.title}${obj.venueCategory ? ` (${obj.venueCategory})` : ""}${obj.description ? ` — ${obj.description}` : ""}`,
+          )
+          .join("; ");
+
+        const catCompletion = await this.openAIService.executeChatCompletion({
+          model: OpenAIModel.GPT54Nano,
+          messages: [
+            {
+              role: "system",
+              content:
+                'You generate category tags for sidequests. Return a JSON object with a "tags" key containing an array of 3-5 lowercase single-word tags that describe the sidequest\'s themes. Examples: {"tags": ["outdoor", "food", "culture", "nightlife", "art"]}. Respond with ONLY the JSON object.',
+            },
+            {
+              role: "user",
+              content: `Title: ${sidequest.title || "Untitled"}\nSummary: ${sidequest.summary || "N/A"}\nStops: ${stopsForCategories}`,
+            },
+          ],
+          temperature: 0.3,
+          max_tokens: 100,
+          response_format: { type: "json_object" },
+        });
+
+        const raw = catCompletion.choices[0].message.content?.trim();
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const arr = Array.isArray(parsed) ? parsed : parsed.tags;
+          if (Array.isArray(arr)) {
+            sidequest.categories = arr
+              .filter((t: unknown) => typeof t === "string")
+              .slice(0, 5)
+              .map((t: string) => t.toLowerCase());
+          }
+        }
+      } catch (catErr) {
+        console.error(
+          `[SidequestService] Failed to generate categories inline for ${sidequest.id}:`,
+          catErr,
+        );
+      }
+
       await repo.save(sidequest);
 
-      // Generate enhancements async
+      // Generate remaining enhancements async (embedding, entry points)
       this.generateEnhancements(sidequest.id, objectives).catch((err) => {
         console.error(
           `[SidequestService] Failed to generate enhancements for prescribed quest ${sidequest.id}:`,
