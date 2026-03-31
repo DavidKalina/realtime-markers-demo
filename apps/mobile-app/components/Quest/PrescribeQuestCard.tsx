@@ -148,9 +148,15 @@ function PrescribeQuestCard({ onQuestAccepted }: PrescribeQuestCardProps) {
   }, [quest, onQuestAccepted]);
 
   const handleDismiss = useCallback(() => {
+    const dismissedId = quest?.id;
     setPhase("idle");
     setQuest(null);
-  }, []);
+    if (dismissedId) {
+      apiClient.sidequests.deleteById(dismissedId).catch((err) => {
+        console.error("[PrescribeQuestCard] Failed to delete dismissed quest:", err);
+      });
+    }
+  }, [quest?.id]);
 
   return (
     <>
