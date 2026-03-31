@@ -80,9 +80,9 @@ export function useGyroTilt(active: boolean): UseGyroTiltResult {
         );
       }
 
-      // expo-sensors 55+ returns rotation in degrees (not radians)
-      const absX = rotation.beta;
-      const absY = rotation.gamma;
+      // CoreMotion attitude (pitch/roll/yaw) comes through as radians
+      const absX = rotation.beta * (180 / Math.PI);
+      const absY = rotation.gamma * (180 / Math.PI);
 
       // Capture first reading as the zero-point
       if (baseX.current === null) {
