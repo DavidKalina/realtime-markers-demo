@@ -33,6 +33,7 @@ export interface ComfortZoneService {
     userId: string,
     distanceFromHome: number,
     venueCategory: string,
+    isInCoverageGap?: boolean,
   ): Promise<string>;
   updateComfortProfile(
     userId: string,
@@ -316,6 +317,7 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
     userId: string,
     distanceFromHome: number,
     venueCategory: string,
+    isInCoverageGap?: boolean,
   ): Promise<string> {
     const zone = await this.getComfortZone(userId);
     const radius = zone.comfortRadiusMiles;
@@ -337,12 +339,22 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
     const distanceRatio = distanceFromHome / Math.max(radius, 0.1);
 
     // Both dimensions stretched
-    if (distanceRatio > 1.5 && isNewCategory) return "legendary";
-    if (distanceRatio > 1.3 || (distanceRatio > 1.0 && isNewCategory))
-      return "epic";
-    if (distanceRatio > 1.0 || isNewCategory) return "rare";
-    if (distanceRatio > 0.7) return "uncommon";
-    return "common";
+    let rarity: string;
+    if (distanceRatio > 1.5 && isNewCategory) rarity = "legendary";
+    else if (distanceRatio > 1.3 || (distanceRatio > 1.0 && isNewCategory))
+      rarity = "epic";
+    else if (distanceRatio > 1.0 || isNewCategory) rarity = "rare";
+    else if (distanceRatio > 0.7) rarity = "uncommon";
+    else rarity = "common";
+
+    // Boost rarity by one tier if quest is in a coverage gap (unexplored direction)
+    if (isInCoverageGap) {
+      const tiers = ["common", "uncommon", "rare", "epic", "legendary"];
+      const idx = tiers.indexOf(rarity);
+      if (idx < tiers.length - 1) rarity = tiers[idx + 1];
+    }
+
+    return rarity;
   }
 
   async updateComfortProfile(

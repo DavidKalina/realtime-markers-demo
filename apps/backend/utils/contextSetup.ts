@@ -21,6 +21,7 @@ export function setupContext(
     c.set("sidequestCheckinService", services.sidequestCheckinService);
     c.set("overpassService", services.overpassService);
     c.set("comfortZoneService", services.comfortZoneService);
+    c.set("coverageService", services.coverageService);
 
     await next();
   });

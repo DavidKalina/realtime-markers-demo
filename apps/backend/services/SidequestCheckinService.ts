@@ -14,6 +14,7 @@ import type {
 import type { RedisService } from "./shared/RedisService";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
+import type { CoverageService } from "./CoverageService";
 const CHECKIN_RADIUS_METERS = 75;
 const COMPLETION_MILESTONES = [5, 10, 25, 50, 100];
 const THROTTLE_TTL = 60;
@@ -57,6 +58,7 @@ interface SidequestCheckinServiceDeps {
   pushService: PushNotificationService;
   redisService: RedisService;
   openAIService: OpenAIService;
+  coverageService?: CoverageService;
 }
 
 interface NearbyObjective {
@@ -88,11 +90,13 @@ class SidequestCheckinServiceImpl implements SidequestCheckinService {
   private pushService: PushNotificationService;
   private redisService: RedisService;
   private openAIService: OpenAIService;
+  private coverageService?: CoverageService;
   constructor(deps: SidequestCheckinServiceDeps) {
     this.dataSource = deps.dataSource;
     this.pushService = deps.pushService;
     this.redisService = deps.redisService;
     this.openAIService = deps.openAIService;
+    this.coverageService = deps.coverageService;
   }
 
   async checkAndNotify(
@@ -267,6 +271,28 @@ class SidequestCheckinServiceImpl implements SidequestCheckinService {
         checkedInAt: now,
       });
     await this.dataSource.getRepository(ObjectiveCheckin).save(checkinRecord);
+
+    // Update coverage cluster with objective's stable coordinates
+    if (this.coverageService) {
+      try {
+        const objective = await this.dataSource
+          .getRepository(Objective)
+          .findOne({
+            where: { id: objectiveId },
+            select: ["id", "latitude", "longitude", "venueCategory"],
+          });
+        if (objective?.latitude && objective?.longitude) {
+          await this.coverageService.upsertCluster(
+            userId,
+            Number(objective.latitude),
+            Number(objective.longitude),
+            objective.venueCategory ?? undefined,
+          );
+        }
+      } catch (err) {
+        console.error("[SidequestCheckin] Coverage cluster update failed:", err);
+      }
+    }
 
     const remaining = await this.dataSource.getRepository(Objective).count({
       where: { sidequestId, checkedInAt: IsNull() },

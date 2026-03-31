@@ -21,6 +21,7 @@ import type { AgentCandidate } from "./shared/JobPipeline";
 import { OpenAIResponsesAgent } from "./shared/OpenAIResponsesAgent";
 import type { AgentToolResult } from "./shared/OpenAIResponsesAgent";
 import type { ComfortZoneService } from "./ComfortZoneService";
+import type { CoverageService } from "./CoverageService";
 
 export type SidequestProgressCallback = (
   progress: number,
@@ -244,6 +245,7 @@ interface SidequestServiceDeps {
   embeddingService?: IEmbeddingService;
   redisService?: RedisService;
   comfortZoneService?: ComfortZoneService;
+  coverageService?: CoverageService;
 }
 
 class SidequestServiceImpl implements SidequestService {
@@ -254,6 +256,7 @@ class SidequestServiceImpl implements SidequestService {
   private embeddingService?: IEmbeddingService;
   private redisService?: RedisService;
   private comfortZoneService?: ComfortZoneService;
+  private coverageService?: CoverageService;
   private agent: OpenAIResponsesAgent;
 
   constructor(deps: SidequestServiceDeps) {
@@ -264,6 +267,7 @@ class SidequestServiceImpl implements SidequestService {
     this.embeddingService = deps.embeddingService;
     this.redisService = deps.redisService;
     this.comfortZoneService = deps.comfortZoneService;
+    this.coverageService = deps.coverageService;
     this.agent = new OpenAIResponsesAgent(deps.openAIService);
   }
 
@@ -1314,6 +1318,16 @@ class SidequestServiceImpl implements SidequestService {
       user.behavioralProfile ?? null,
     );
 
+    // 2b. Build coverage context (Voronoi directional gaps)
+    let coverageContext = "";
+    if (this.coverageService) {
+      try {
+        coverageContext = await this.coverageService.buildLLMCoverageContext(userId);
+      } catch (err) {
+        console.error("[prescribeQuest] Coverage context failed:", err);
+      }
+    }
+
     // 3. Reverse geocode for city (from search location, not necessarily home)
     let city = "Unknown";
     try {
@@ -1372,7 +1386,7 @@ ${comfortProfile ? `- Their goals: "${comfortProfile.goals}"` : ""}
 ${user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${user.onboardingProfile.activities.join(", ")}` : ""}
 
 ${historyContext}
-
+${coverageContext ? `\n${coverageContext}\n\nCOVERAGE STRATEGY:\n- If coverage shows directional gaps, PREFER prescribing in an unexplored direction over revisiting dense areas.\n- Visiting an under-explored zone is more valuable than re-visiting a saturated one.\n- Coverage gaps are as important as distance for meaningful expansion.\n` : ""}
 TOOLS:
 - web_search: discover interesting spots
 - search_places: verify venues with Google Places (exact name, address, coordinates)
@@ -1735,16 +1749,29 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
         );
       }
 
-      // Assign rarity
+      // Assign rarity (with coverage gap boost)
       let rarity = "common";
       if (
         distanceFromHome != null &&
         primaryItem?.item.venueCategory
       ) {
+        let inCoverageGap = false;
+        if (this.coverageService && objLat && objLng) {
+          try {
+            inCoverageGap = await this.coverageService.isInCoverageGap(
+              userId,
+              objLat,
+              objLng,
+            );
+          } catch {
+            // Non-critical, proceed without boost
+          }
+        }
         rarity = await this.comfortZoneService!.assignRarity(
           userId,
           distanceFromHome,
           primaryItem.item.venueCategory,
+          inCoverageGap,
         );
       }
 

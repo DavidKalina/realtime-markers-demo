@@ -3,6 +3,7 @@ import { updateLocationHandler } from "../handlers/userLocationHandler";
 import { getUserStats } from "../handlers/userStatsHandler";
 import { getProfileInsights } from "../handlers/profileInsightsHandler";
 import { submitOnboardingProfile } from "../handlers/onboardingProfileHandler";
+import { getCoverageHandler } from "../handlers/coverageHandler";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
@@ -29,6 +30,7 @@ usersRouter.post("/location", authMiddleware, updateLocationHandler);
 usersRouter.get("/me/stats", authMiddleware, getUserStats);
 
 usersRouter.get("/me/profile-insights", authMiddleware, getProfileInsights);
+usersRouter.get("/me/coverage", authMiddleware, getCoverageHandler);
 usersRouter.post(
   "/me/onboarding-profile",
   authMiddleware,

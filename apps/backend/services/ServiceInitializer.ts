@@ -30,6 +30,8 @@ import { createSidequestCheckinService } from "./SidequestCheckinService";
 import type { SidequestCheckinService } from "./SidequestCheckinService";
 import { createComfortZoneService } from "./ComfortZoneService";
 import type { ComfortZoneService } from "./ComfortZoneService";
+import { createCoverageService } from "./CoverageService";
+import type { CoverageService } from "./CoverageService";
 
 export interface ServiceContainer {
   storageService: StorageService;
@@ -44,6 +46,7 @@ export interface ServiceContainer {
   sidequestCheckinService: SidequestCheckinService;
   overpassService: OverpassService;
   comfortZoneService: ComfortZoneService;
+  coverageService: CoverageService;
 }
 
 export class ServiceInitializer {
@@ -111,6 +114,10 @@ export class ServiceInitializer {
       dataSource: this.dataSource,
     });
 
+    const coverageService = createCoverageService({
+      dataSource: this.dataSource,
+    });
+
     const sidequestService = createSidequestService({
       dataSource: this.dataSource,
       openAIService,
@@ -119,6 +126,7 @@ export class ServiceInitializer {
       embeddingService,
       redisService,
       comfortZoneService,
+      coverageService,
     });
 
     const sidequestCheckinService = createSidequestCheckinService({
@@ -126,6 +134,7 @@ export class ServiceInitializer {
       pushService: pushNotificationService,
       redisService,
       openAIService,
+      coverageService,
     });
 
     console.log("Services initialized successfully");
@@ -143,6 +152,7 @@ export class ServiceInitializer {
       sidequestCheckinService,
       overpassService,
       comfortZoneService,
+      coverageService,
     };
   }
 

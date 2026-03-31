@@ -13,6 +13,8 @@ import {
   UserBadge,
   District,
   DistrictSnapshot,
+  CoverageCluster,
+  CoverageSnapshot,
 } from "@realtime-markers/database";
 
 import { dirname, join } from "path";
@@ -34,6 +36,8 @@ const AppDataSource = new DataSource({
     UserBadge,
     District,
     DistrictSnapshot,
+    CoverageCluster,
+    CoverageSnapshot,
   ],
   migrations: [join(currentDir, "migrations", "*.ts")],
   migrationsTableName: "migrations",
