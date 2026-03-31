@@ -707,7 +707,7 @@ const QuestCard: React.FC<{
     const swipeUpGesture = useMemo(
       () =>
         Gesture.Fling()
-          .direction(Directions.UP)
+          .direction(Directions.UP | Directions.DOWN)
           .enabled(isBrowse && !!onToggleMarkForDelete)
           .onEnd(() => {
             scheduleOnRN(toggleMarkCb);

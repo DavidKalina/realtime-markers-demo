@@ -31,7 +31,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { Canvas, Fill, Shader, Skia } from "@shopify/react-native-skia";
-import { useGyroTilt } from "@/hooks/useGyroTilt";
+import { useGyroTilt, GyroTiltDebugPanel } from "@/hooks/useGyroTilt";
 import {
   getCategoryColor,
 } from "@/utils/categoryColors";
@@ -63,14 +63,25 @@ uniform float tiltY;
 half4 main(float2 xy) {
   vec2 uv = xy / resolution;
   float diag = uv.x + uv.y;
-  float center = 1.0 + tiltY * 0.06 + tiltX * 0.04;
-  float bandWidth = 0.25;
+
+  // Normalize tilt from ±18 deg to ±1 range
+  float normX = tiltX / 18.0;
+  float normY = tiltY / 18.0;
+
+  // Sheen band center sweeps across the full diagonal (0..2) with tilt
+  float center = 1.0 + normY * 0.8 + normX * 0.5;
+  float bandWidth = 0.28;
   float dist = abs(diag - center) / bandWidth;
   float band = exp(-dist * dist * 2.0);
-  float dist2 = abs(diag - center + 0.35) / (bandWidth * 1.4);
-  float band2 = exp(-dist2 * dist2 * 2.0) * 0.3;
-  float tiltMag = length(vec2(tiltX, tiltY));
-  float intensity = smoothstep(1.0, 8.0, tiltMag);
+
+  // Secondary softer band for depth
+  float dist2 = abs(diag - center + 0.4) / (bandWidth * 1.5);
+  float band2 = exp(-dist2 * dist2 * 2.0) * 0.25;
+
+  // Intensity ramps up with any tilt movement
+  float tiltMag = length(vec2(normX, normY));
+  float intensity = smoothstep(0.05, 0.5, tiltMag);
+
   float alpha = (band + band2) * intensity * 0.6;
   vec3 color = vec3(1.0, 1.0, 1.0);
   return half4(color * alpha, alpha);
@@ -127,7 +138,8 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
   ({ card, visible, onDismiss, onAccept, isAccepting }) => {
     const colors = useColors();
     const s = useMemo(() => createStyles(colors), [colors]);
-    const { tiltX, tiltY } = useGyroTilt(visible);
+    const { tiltX, tiltY, debugOverride, setDebugOverride } =
+      useGyroTilt(visible);
     const [isFlipped, setIsFlipped] = useState(false);
 
     const backdropOpacity = useSharedValue(0);
@@ -514,6 +526,15 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
                 <Text style={s.dismissText}>Not this one</Text>
               </Pressable>
             </View>
+          )}
+
+          {__DEV__ && (
+            <GyroTiltDebugPanel
+              tiltX={tiltX}
+              tiltY={tiltY}
+              debugOverride={debugOverride}
+              setDebugOverride={setDebugOverride}
+            />
           )}
         </View>
       </Modal>
