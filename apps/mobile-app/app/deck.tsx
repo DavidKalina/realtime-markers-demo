@@ -24,14 +24,6 @@ import type { SidequestResponse } from "@/services/api/modules/sidequests";
 import { fontFamily, fontWeight, radius, spacing, useColors } from "@/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const TIER_ORDER = ["QUICK", "SWEET_SPOT", "BEST"] as const;
-
-function getNextTier(current: string): string | null {
-  const idx = TIER_ORDER.indexOf(current as (typeof TIER_ORDER)[number]);
-  if (idx < 0 || idx >= TIER_ORDER.length - 1) return null;
-  return TIER_ORDER[idx + 1];
-}
-
 // --- Promotion Overlay ---
 
 const PromotionOverlay: React.FC<{
@@ -209,9 +201,7 @@ const DeckScreen = () => {
 
   const handlePromote = useCallback(() => {
     const card = cards[activeCardRef.current];
-    if (!card || overlayVisible) return;
-    const next = getNextTier(card.tier ?? "QUICK");
-    if (!next) {
+    if (!card || overlayVisible || card.promotedAt) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
@@ -230,25 +220,16 @@ const DeckScreen = () => {
       });
     }
 
-    // Optimistically upgrade tier in the overlay card AND the deck
+    // Optimistically mark as promoted (assigns holographic foil)
+    const now = new Date().toISOString();
     setCards((prev) =>
-      prev.map((c) => {
-        if (c.id !== promotingCard?.id) return c;
-        const next = getNextTier(c.tier ?? "QUICK");
-        const now = new Date().toISOString();
-        return next
-          ? { ...c, tier: next as SidequestResponse["tier"], promotedAt: now }
-          : c;
-      }),
+      prev.map((c) =>
+        c.id === promotingCard?.id ? { ...c, promotedAt: now } : c,
+      ),
     );
-    setPromotingCard((prev) => {
-      if (!prev) return prev;
-      const next = getNextTier(prev.tier ?? "QUICK");
-      const now = new Date().toISOString();
-      return next
-        ? { ...prev, tier: next as SidequestResponse["tier"], promotedAt: now }
-        : prev;
-    });
+    setPromotingCard((prev) =>
+      prev ? { ...prev, promotedAt: now } : prev,
+    );
   }, [promotingCard]);
 
   const handleComplete = useCallback(() => {
@@ -259,9 +240,7 @@ const DeckScreen = () => {
 
   const activeCard = cards[activeCardRef.current];
   const canPromote =
-    !overlayVisible &&
-    activeCard &&
-    getNextTier(activeCard.tier ?? "QUICK") !== null;
+    !overlayVisible && activeCard && !activeCard.promotedAt;
 
   return (
     <View

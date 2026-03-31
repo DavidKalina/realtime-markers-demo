@@ -81,18 +81,6 @@ const tiltSheenShader = Skia.RuntimeEffect.Make(TILT_SHEEN_SKSL)!;
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-const TIER_LABELS: Record<string, string> = {
-  QUICK: "QUICK & EASY",
-  SWEET_SPOT: "SWEET SPOT",
-  BEST: "BEST PACKAGE",
-};
-
-const TIER_FALLBACK_COLORS: Record<string, string> = {
-  QUICK: "#86efac",
-  SWEET_SPOT: "#fbbf24",
-  BEST: "#a855f7",
-};
-
 const RARITY_LABELS: Record<string, string> = {
   common: "COMMON",
   uncommon: "UNCOMMON",
@@ -115,9 +103,10 @@ function hexToCardColors(hex: string) {
 function getCardColorKey(option: SidequestResponse): string {
   return (
     option.categories?.[0] ??
+    option.objectives?.find((o) => o.venueCategory)?.venueCategory ??
     option.activityTypes?.[0] ??
-    option.tier ??
-    "QUICK"
+    option.rarity ??
+    "common"
   );
 }
 
@@ -233,15 +222,10 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
     if (!card) return null;
 
     const colorKey = getCardColorKey(card);
-    const cardHex =
-      getCategoryColor(colorKey) ??
-      TIER_FALLBACK_COLORS[card.tier ?? "QUICK"] ??
-      TIER_FALLBACK_COLORS.QUICK;
+    const cardHex = getCategoryColor(colorKey);
+    const rarityKey = (card.rarity ?? "common").toLowerCase();
     const tierMeta = {
-      label:
-        card.rarity
-          ? (RARITY_LABELS[card.rarity.toLowerCase()] ?? card.rarity.toUpperCase())
-          : (TIER_LABELS[card.tier ?? "QUICK"] ?? TIER_LABELS.QUICK),
+      label: RARITY_LABELS[rarityKey] ?? RARITY_LABELS.common,
       ...hexToCardColors(cardHex),
     };
     const objectives = (card.objectives ?? []).sort(

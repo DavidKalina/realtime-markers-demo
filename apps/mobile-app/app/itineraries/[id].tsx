@@ -459,7 +459,12 @@ function hexToRgb(hex: string): [number, number, number] {
 
 /** Get the accent hex for a sidequest based on its categories/activityTypes. */
 function getSidequestAccent(sq: SidequestResponse | null): string {
-  const key = sq?.categories?.[0] ?? sq?.activityTypes?.[0] ?? "other";
+  const key =
+    sq?.categories?.[0] ??
+    sq?.objectives?.find((o) => o.venueCategory)?.venueCategory ??
+    sq?.activityTypes?.[0] ??
+    sq?.rarity ??
+    "common";
   return getCategoryColor(key);
 }
 

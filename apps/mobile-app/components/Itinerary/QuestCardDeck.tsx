@@ -190,15 +190,6 @@ const FOIL_INTENSITY: Record<string, number> = {
   legendary: 0.24,
 };
 
-// Rarity fallback colors when no category is available
-const RARITY_FALLBACK_COLORS: Record<string, string> = {
-  common: "#94a3b8",
-  uncommon: "#4ade80",
-  rare: "#60a5fa",
-  epic: "#a855f7",
-  legendary: "#fbbf24",
-};
-
 interface QuestCardDeckProps {
   options: SidequestResponse[];
   /** "select" = generation picker (default), "browse" = existing quest deck */
@@ -460,10 +451,7 @@ const QuestCard: React.FC<{
     if (!option) return null;
     const colorKey = getCardColorKey(option);
     const rarityKey = (option.rarity ?? "common").toLowerCase();
-    const cardHex =
-      getCategoryColor(colorKey) ??
-      RARITY_FALLBACK_COLORS[rarityKey] ??
-      RARITY_FALLBACK_COLORS.common;
+    const cardHex = getCategoryColor(colorKey);
     const tierMeta = {
       label: RARITY_LABELS[rarityKey] ?? RARITY_LABELS.common,
       ...hexToCardColors(cardHex),
