@@ -296,10 +296,7 @@ const TimelineStop = React.memo(
                         <Text style={styles.activityDiamond}>
                           {"\u25C7"}
                         </Text>
-                        <Text
-                          style={styles.activityItem}
-                          numberOfLines={1}
-                        >
+                        <Text style={styles.activityItem}>
                           {activity}
                         </Text>
                       </View>
@@ -549,8 +546,8 @@ const createStyles = (colors: Colors, accentColor?: string) =>
       lineHeight: 16,
     },
     activitiesWrap: {
-      marginTop: spacing.sm,
-      gap: spacing.xs,
+      marginTop: spacing.md,
+      gap: spacing.sm,
     },
     activitiesDivider: {
       height: StyleSheet.hairlineWidth,
@@ -559,20 +556,20 @@ const createStyles = (colors: Colors, accentColor?: string) =>
     },
     activityRow: {
       flexDirection: "row",
-      alignItems: "center",
-      gap: spacing._6,
+      alignItems: "flex-start",
+      gap: spacing.sm,
     },
     activityDiamond: {
-      fontSize: 8,
+      fontSize: 14,
       color: colors.text.disabled,
-      lineHeight: 16,
+      lineHeight: 22,
     },
     activityItem: {
-      fontSize: 11,
+      fontSize: 15,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.regular,
       color: colors.text.secondary,
-      lineHeight: 16,
+      lineHeight: 22,
       flex: 1,
     },
     checkedInTag: {
