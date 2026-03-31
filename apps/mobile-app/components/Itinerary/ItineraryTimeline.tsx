@@ -238,9 +238,7 @@ const TimelineStop = React.memo(
                   <Text style={styles.dotEmoji}>{"\u2713"}</Text>
                 </Animated.View>
               ) : (
-                <Text style={styles.dotEmoji}>
-                  {item.emoji || "\u{1F4CD}"}
-                </Text>
+                <Text style={styles.dotEmoji}>{item.emoji || "\u{1F4CD}"}</Text>
               )}
             </Animated.View>
           </Pressable>
@@ -293,12 +291,8 @@ const TimelineStop = React.memo(
                     <View style={styles.activitiesDivider} />
                     {item.suggestedActivities.map((activity) => (
                       <View key={activity} style={styles.activityRow}>
-                        <Text style={styles.activityDiamond}>
-                          {"\u25C7"}
-                        </Text>
-                        <Text style={styles.activityItem}>
-                          {activity}
-                        </Text>
+                        <Text style={styles.activityDiamond}>{"\u25C7"}</Text>
+                        <Text style={styles.activityItem}>{activity}</Text>
                       </View>
                     ))}
                   </View>
@@ -326,7 +320,10 @@ export default function ItineraryTimeline({
   accentColor,
 }: ItineraryTimelineProps) {
   const colors = useColors();
-  const styles = useMemo(() => createStyles(colors, accentColor), [colors, accentColor]);
+  const styles = useMemo(
+    () => createStyles(colors, accentColor),
+    [colors, accentColor],
+  );
 
   const sorted = useMemo(
     () => [...items].sort((a, b) => a.sortOrder - b.sortOrder),
