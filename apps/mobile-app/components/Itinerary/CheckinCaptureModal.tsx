@@ -99,6 +99,7 @@ export function CheckinCaptureModal({
   const [selectedActivity, setSelectedActivity] = useState<string | null>(null);
   const [customActivity, setCustomActivity] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [socialContext, setSocialContext] = useState<string | null>(null);
   const [journalText, setJournalText] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -107,6 +108,7 @@ export function CheckinCaptureModal({
     setSelectedActivity(null);
     setCustomActivity("");
     setShowCustomInput(false);
+    setSocialContext(null);
     setJournalText("");
     setSaving(false);
     scrollY.value = 0;
@@ -161,6 +163,7 @@ export function CheckinCaptureModal({
         journalEntry: journal,
         completedActivity: activity,
         photoUrl: photoUri ?? undefined,
+        socialContext: socialContext ?? undefined,
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -171,7 +174,7 @@ export function CheckinCaptureModal({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setSaving(false);
     }
-  }, [objectiveId, selectedActivity, customActivity, journalText, photoUri, reset, onComplete]);
+  }, [objectiveId, selectedActivity, customActivity, journalText, photoUri, socialContext, reset, onComplete]);
 
   const handleSkip = useCallback(() => {
     reset();
@@ -297,8 +300,40 @@ export function CheckinCaptureModal({
               </ParallaxWidget>
             )}
 
+            {/* ── Social context ── */}
+            <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={350}>
+              <Text style={s.widgetLabel}>WHO WERE YOU WITH?</Text>
+              <View style={s.chipGrid}>
+                {([
+                  { key: "solo", label: "\uD83E\uDDD1 Solo" },
+                  { key: "with_someone", label: "\uD83D\uDC6B With someone" },
+                  { key: "met_someone_new", label: "\uD83D\uDC4B Met someone new" },
+                  { key: "group_activity", label: "\uD83D\uDC65 Group activity" },
+                ] as const).map(({ key, label }) => {
+                  const isActive = socialContext === key;
+                  return (
+                    <Pressable
+                      key={key}
+                      style={[s.chip, isActive && s.chipActive]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSocialContext(isActive ? null : key);
+                      }}
+                    >
+                      <Text
+                        style={[s.chipText, isActive && s.chipTextActive]}
+                        numberOfLines={1}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ParallaxWidget>
+
             {/* ── Journal ── */}
-            <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={400}>
+            <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={450}>
               <Text style={s.widgetLabel}>
                 {journalPrompt
                   ? `\u201C${journalPrompt}\u201D`
@@ -318,7 +353,7 @@ export function CheckinCaptureModal({
             </ParallaxWidget>
 
             {/* ── Actions ── */}
-            <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={500}>
+            <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={550}>
               <Pressable
                 style={[s.saveButton, saving && s.saveButtonDisabled]}
                 onPress={handleSave}

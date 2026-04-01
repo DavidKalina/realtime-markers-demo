@@ -128,6 +128,9 @@ export class Objective {
   @Column({ name: "journal_entry", type: "text", nullable: true })
   journalEntry?: string;
 
+  @Column({ name: "social_context", type: "varchar", length: 50, nullable: true })
+  socialContext?: string;
+
   @Column({ type: "smallint", nullable: true })
   difficulty?: number;
 }

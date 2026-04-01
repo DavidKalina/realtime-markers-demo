@@ -9,3 +9,6 @@ export * from "./UserBadge";
 
 export * from "./District";
 export * from "./DistrictSnapshot";
+
+export * from "./CoverageCluster";
+export * from "./CoverageSnapshot";

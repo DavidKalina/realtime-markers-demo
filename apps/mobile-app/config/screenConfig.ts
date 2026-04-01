@@ -64,6 +64,10 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
     name: "trail",
     options: { animation: "slide_from_right", animationDuration: 250 },
   },
+  {
+    name: "coverage",
+    options: { animation: "fade", animationDuration: 150 },
+  },
   { name: "+not-found" },
 ] as const;
 export const FONT_FAMILY_PATH = "../assets/fonts/SpaceMono-Regular.ttf";

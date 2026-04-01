@@ -12,7 +12,8 @@ const ENTITY_TO_TABLE_MAPPING: Record<string, string> = {
   Objective: "objectives",
   ObjectiveCheckin: "objective_checkins",
   UserBadge: "user_badges",
-
+  CoverageCluster: "coverage_clusters",
+  CoverageSnapshot: "coverage_snapshots",
   District: "districts",
   DistrictSnapshot: "district_snapshots",
 };

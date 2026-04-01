@@ -33,12 +33,13 @@ export interface ComfortZoneService {
     userId: string,
     distanceFromHome: number,
     venueCategory: string,
+    isInCoverageGap?: boolean,
   ): Promise<string>;
   updateComfortProfile(
     userId: string,
     updates: {
       pacePreference?: string;
-      comfortProfile?: { comfortZone: string; barriers: string; goals: string };
+      comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[] };
     },
   ): Promise<void>;
   updateObjectiveJournal(
@@ -48,6 +49,7 @@ export interface ComfortZoneService {
       journalEntry?: string;
       completedActivity?: string;
       photoUrl?: string;
+      socialContext?: string;
     },
   ): Promise<boolean>;
 }
@@ -316,6 +318,7 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
     userId: string,
     distanceFromHome: number,
     venueCategory: string,
+    isInCoverageGap?: boolean,
   ): Promise<string> {
     const zone = await this.getComfortZone(userId);
     const radius = zone.comfortRadiusMiles;
@@ -337,19 +340,29 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
     const distanceRatio = distanceFromHome / Math.max(radius, 0.1);
 
     // Both dimensions stretched
-    if (distanceRatio > 1.5 && isNewCategory) return "legendary";
-    if (distanceRatio > 1.3 || (distanceRatio > 1.0 && isNewCategory))
-      return "epic";
-    if (distanceRatio > 1.0 || isNewCategory) return "rare";
-    if (distanceRatio > 0.7) return "uncommon";
-    return "common";
+    let rarity: string;
+    if (distanceRatio > 1.5 && isNewCategory) rarity = "legendary";
+    else if (distanceRatio > 1.3 || (distanceRatio > 1.0 && isNewCategory))
+      rarity = "epic";
+    else if (distanceRatio > 1.0 || isNewCategory) rarity = "rare";
+    else if (distanceRatio > 0.7) rarity = "uncommon";
+    else rarity = "common";
+
+    // Boost rarity by one tier if quest is in a coverage gap (unexplored direction)
+    if (isInCoverageGap) {
+      const tiers = ["common", "uncommon", "rare", "epic", "legendary"];
+      const idx = tiers.indexOf(rarity);
+      if (idx < tiers.length - 1) rarity = tiers[idx + 1];
+    }
+
+    return rarity;
   }
 
   async updateComfortProfile(
     userId: string,
     updates: {
       pacePreference?: string;
-      comfortProfile?: { comfortZone: string; barriers: string; goals: string };
+      comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[] };
     },
   ): Promise<void> {
     const fields: Record<string, unknown> = {};
@@ -358,7 +371,7 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
       fields.comfortProfile = Object.fromEntries(
         Object.entries(updates.comfortProfile).map(([k, v]) => [
           k,
-          (v as string).trim()
+          typeof v === "string" ? v.trim() : v,
         ]),
       ) as typeof updates.comfortProfile;
     }
@@ -375,6 +388,7 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
       journalEntry?: string;
       completedActivity?: string;
       photoUrl?: string;
+      socialContext?: string;
     },
   ): Promise<boolean> {
     // Verify ownership via sidequest
@@ -394,6 +408,7 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
     if (updates.completedActivity !== undefined)
       fields.completedActivity = updates.completedActivity;
     if (updates.photoUrl !== undefined) fields.photoUrl = updates.photoUrl;
+    if (updates.socialContext !== undefined) fields.socialContext = updates.socialContext;
 
     if (Object.keys(fields).length > 0) {
       await this.dataSource
