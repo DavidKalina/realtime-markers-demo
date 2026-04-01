@@ -42,6 +42,15 @@ import Animated, {
 const GREEN_ACCENT = "#86efac";
 const GREEN_MUTED = "rgba(134, 239, 172, 0.12)";
 
+const GOAL_OPTIONS = [
+  { key: "explore", label: "🗺️ Explore my area" },
+  { key: "socialize", label: "👋 Meet people" },
+  { key: "routine", label: "🔁 Build a routine" },
+  { key: "fitness", label: "💪 Get active" },
+  { key: "new_skill", label: "🎯 Pick up a new skill" },
+  { key: "unwind", label: "🧘 Decompress" },
+];
+
 const ACTIVITY_OPTIONS = [
   "☕ Coffee", "🥾 Hiking", "🎨 Art", "📚 Reading",
   "🍽️ Food", "🎵 Music", "🏋️ Fitness", "🌳 Nature",
@@ -91,6 +100,7 @@ const OnboardingScreen: React.FC = () => {
   // Form state
   const [comfortZone, setComfortZone] = useState("");
   const [barriers, setBarriers] = useState("");
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [goals, setGoals] = useState("");
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
   const [pacePreference, setPacePreference] = useState("");
@@ -114,6 +124,15 @@ const OnboardingScreen: React.FC = () => {
     animateButton();
     Keyboard.dismiss();
     setStep((prev) => prev + 1);
+  };
+
+  const toggleGoal = (goal: string) => {
+    Haptics.selectionAsync();
+    setSelectedGoals((prev) =>
+      prev.includes(goal)
+        ? prev.filter((g) => g !== goal)
+        : [...prev, goal],
+    );
   };
 
   const toggleActivity = (activity: string) => {
@@ -140,7 +159,7 @@ const OnboardingScreen: React.FC = () => {
     try {
       await apiClient.sidequests.updateComfortProfile({
         pacePreference,
-        comfortProfile: { comfortZone, barriers, goals },
+        comfortProfile: { comfortZone, barriers, goals, goalTags: selectedGoals },
       });
 
       if (userLocation) {
@@ -176,6 +195,8 @@ const OnboardingScreen: React.FC = () => {
             setComfortZone={setComfortZone}
             barriers={barriers}
             setBarriers={setBarriers}
+            selectedGoals={selectedGoals}
+            toggleGoal={toggleGoal}
             goals={goals}
             setGoals={setGoals}
             onNext={handleNext}
@@ -290,11 +311,13 @@ const StepComfortZone: React.FC<
     setComfortZone: (v: string) => void;
     barriers: string;
     setBarriers: (v: string) => void;
+    selectedGoals: string[];
+    toggleGoal: (g: string) => void;
     goals: string;
     setGoals: (v: string) => void;
     onNext: () => void;
   }
-> = ({ s, colors, buttonStyle, comfortZone, setComfortZone, barriers, setBarriers, goals, setGoals, onNext }) => {
+> = ({ s, colors, buttonStyle, comfortZone, setComfortZone, barriers, setBarriers, selectedGoals, toggleGoal, goals, setGoals, onNext }) => {
   const scrollY = useSharedValue(0);
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -344,16 +367,30 @@ const StepComfortZone: React.FC<
         </ParallaxWidget>
 
         <ParallaxWidget scrollY={scrollY} index={2} enterDelay={300}>
-          <Text style={s.widgetLabel}>YOUR GOAL</Text>
+          <Text style={s.widgetLabel}>WHAT ARE YOU WORKING TOWARD?</Text>
+          <View style={s.chipGrid}>
+            {GOAL_OPTIONS.map(({ key, label }) => {
+              const isSelected = selectedGoals.includes(key);
+              return (
+                <Pressable
+                  key={key}
+                  onPress={() => toggleGoal(key)}
+                  style={[s.chip, isSelected && s.chipActive]}
+                >
+                  <Text style={[s.chipText, isSelected && s.chipTextActive]}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
           <TextInput
-            style={s.textInput}
-            placeholder={"e.g. Explore my city, find new hangouts\u2026"}
+            style={[s.textInput, { marginTop: spacing.md }]}
+            placeholder={"Anything else? (optional)"}
             placeholderTextColor={colors.text.disabled}
             value={goals}
             onChangeText={setGoals}
-            multiline
             maxLength={200}
-            textAlignVertical="top"
           />
         </ParallaxWidget>
 

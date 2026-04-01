@@ -447,6 +447,7 @@ export const updateComfortProfileHandler: Handler = withErrorHandling(
         comfortZone: string;
         barriers: string;
         goals: string;
+        goalTags?: string[];
       };
     }>();
 
@@ -486,9 +487,10 @@ export const objectiveJournalHandler: Handler = withErrorHandling(
       journalEntry?: string;
       completedActivity?: string;
       photoUrl?: string;
+      socialContext?: string;
     }>();
 
-    if (!body.journalEntry && !body.completedActivity && !body.photoUrl) {
+    if (!body.journalEntry && !body.completedActivity && !body.photoUrl && !body.socialContext) {
       return c.json({ error: "At least one field is required" }, 400);
     }
 
@@ -497,6 +499,10 @@ export const objectiveJournalHandler: Handler = withErrorHandling(
     }
     if (body.completedActivity && body.completedActivity.length > 200) {
       return c.json({ error: "completedActivity must be 200 characters or fewer" }, 400);
+    }
+    const validSocialContexts = ["solo", "with_someone", "met_someone_new", "group_activity"];
+    if (body.socialContext && !validSocialContexts.includes(body.socialContext)) {
+      return c.json({ error: `socialContext must be one of: ${validSocialContexts.join(", ")}` }, 400);
     }
 
     const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
@@ -507,6 +513,7 @@ export const objectiveJournalHandler: Handler = withErrorHandling(
         journalEntry: body.journalEntry,
         completedActivity: body.completedActivity,
         photoUrl: body.photoUrl,
+        socialContext: body.socialContext,
       },
     );
 

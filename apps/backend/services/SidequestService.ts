@@ -1316,6 +1316,7 @@ class SidequestServiceImpl implements SidequestService {
     const historyContext = await this.buildPrescriptionContext(
       userId,
       user.behavioralProfile ?? null,
+      user.comfortProfile?.goalTags ?? [],
     );
 
     // 2b. Build coverage context (Voronoi directional gaps + exploration profile)
@@ -1398,7 +1399,8 @@ USER PROFILE:
 ${isAwayFromHome ? "- USER IS AWAY FROM HOME. Search near their CURRENT location, not their home. Keep it easy — they're already out of their usual zone." : ""}
 - Pace: ${pace === "gentle" ? "Gentle — ease them in, stay close, familiar categories" : pace === "push_me" ? "Push me — they want to be challenged, stretch further" : "Steady — balanced expansion, moderate stretches"}
 ${comfortProfile ? `- What keeps them from going out: "${comfortProfile.barriers}"` : ""}
-${comfortProfile ? `- Their goals: "${comfortProfile.goals}"` : ""}
+${comfortProfile?.goalTags?.length ? `- Goals: ${comfortProfile.goalTags.join(", ")}` : ""}
+${comfortProfile?.goals ? `- Additional context: "${comfortProfile.goals}"` : ""}
 ${user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${user.onboardingProfile.activities.join(", ")}` : ""}
 
 ${historyContext}
@@ -1903,6 +1905,7 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
   private async buildPrescriptionContext(
     userId: string,
     behavioralProfile: { summary: string; generatedAt: string; questCount: number } | null,
+    goalTags: string[] = [],
   ): Promise<string> {
     // Always fetch last 3 quests for recency (avoids immediate repeats)
     const recentQuests: {
@@ -1939,7 +1942,9 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
 ${behavioralProfile.summary}
 
 MOST RECENT QUESTS (avoid repeating these):
-${recentList || "(none)"}`;
+${recentList || "(none)"}
+
+${await this.buildSocialContext(userId, goalTags)}`;
     }
 
     // Fallback for new users or pre-migration users: raw query approach
@@ -1985,7 +1990,63 @@ ${recentList}
 CATEGORY BREAKDOWN: ${categoryList || "none yet"}
 ${leastVisitedHint}
 
-PRESCRIPTION STRATEGY: Look at their history and prescribe something that meaningfully expands — a new category, a further distance, or an area of town they haven't explored.`;
+PRESCRIPTION STRATEGY: Look at their history and prescribe something that meaningfully expands — a new category, a further distance, or an area of town they haven't explored.
+
+${await this.buildSocialContext(userId, goalTags)}`;
+  }
+
+  private async buildSocialContext(userId: string, goalTags: string[] = []): Promise<string> {
+    const wantsSocial = goalTags.includes("socialize");
+    const wantsSkill = goalTags.includes("new_skill");
+    const wantsFitness = goalTags.includes("fitness");
+
+    const socialCounts: { social_context: string; count: number }[] =
+      await this.dataSource.query(
+        `
+        SELECT o.social_context, COUNT(*)::int as count
+        FROM objectives o
+        JOIN sidequests s ON s.id = o.sidequest_id
+        WHERE s.user_id = $1
+          AND o.checked_in_at IS NOT NULL
+          AND o.social_context IS NOT NULL
+        GROUP BY o.social_context
+        ORDER BY count DESC
+        `,
+        [userId],
+      );
+
+    // No social data yet — only give goal-based guidance
+    if (socialCounts.length === 0) {
+      if (!wantsSocial && !wantsSkill && !wantsFitness) return "";
+      const lines: string[] = [];
+      if (wantsSocial) lines.push("SOCIAL GOAL: This user wants to meet people. As they build consistency, start weaving in venues with natural social opportunities (busy cafes, farmer's markets, community events). Don't push group activities until they have a few completions under their belt.");
+      if (wantsSkill) lines.push("SKILL GOAL: This user wants to pick up a new skill. When they're ready, consider workshops, classes, or maker spaces — but start with low-commitment options (drop-in, free, no signup).");
+      if (wantsFitness) lines.push("FITNESS GOAL: This user wants to get active. Trails and parks are a natural start. As they build the habit, consider group fitness (run clubs, outdoor yoga, climbing gyms).");
+      return lines.join("\n");
+    }
+
+    const total = socialCounts.reduce((sum, c) => sum + c.count, 0);
+    const breakdown = socialCounts
+      .map((c) => `${c.social_context}: ${c.count}`)
+      .join(", ");
+
+    const soloCount = socialCounts.find((c) => c.social_context === "solo")?.count ?? 0;
+    const groupCount = socialCounts.find((c) => c.social_context === "group_activity")?.count ?? 0;
+    const metNewCount = socialCounts.find((c) => c.social_context === "met_someone_new")?.count ?? 0;
+    const withSomeoneCount = socialCounts.find((c) => c.social_context === "with_someone")?.count ?? 0;
+    const socialCount = groupCount + metNewCount + withSomeoneCount;
+
+    const lines: string[] = [`SOCIAL PATTERN (${total} check-ins with social data): ${breakdown}`];
+
+    if (total >= 3 && socialCount === 0 && wantsSocial) {
+      lines.push("This user wants to meet people but goes solo every time. Prescribe venues with natural social opportunities (busy cafes, farmer's markets, group fitness classes, community events). Don't force it — just create the conditions.");
+    } else if (total >= 5 && groupCount === 0 && soloCount > socialCount && (wantsSocial || wantsSkill || wantsFitness)) {
+      lines.push("This user mostly goes solo with occasional company. They haven't tried a group activity yet. If they seem ready (consistent habit, comfortable with the area), a low-pressure group option could be a meaningful stretch — a free outdoor yoga class, a run club, trivia night as a spectator.");
+    } else if (groupCount >= 2 || metNewCount >= 2) {
+      lines.push("This user is socially active — they've done group activities or met new people. They're comfortable in social settings. Consider prescribing experiences that deepen community connection: recurring events, classes, or spots where they'd become a regular.");
+    }
+
+    return lines.join("\n");
   }
 }
 

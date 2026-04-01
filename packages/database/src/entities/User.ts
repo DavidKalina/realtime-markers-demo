@@ -158,6 +158,7 @@ export class User {
     comfortZone: string;
     barriers: string;
     goals: string;
+    goalTags?: string[];
   };
 
   @Column({ name: "behavioral_profile", type: "jsonb", nullable: true })

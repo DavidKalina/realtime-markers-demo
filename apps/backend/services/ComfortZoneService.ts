@@ -39,7 +39,7 @@ export interface ComfortZoneService {
     userId: string,
     updates: {
       pacePreference?: string;
-      comfortProfile?: { comfortZone: string; barriers: string; goals: string };
+      comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[] };
     },
   ): Promise<void>;
   updateObjectiveJournal(
@@ -49,6 +49,7 @@ export interface ComfortZoneService {
       journalEntry?: string;
       completedActivity?: string;
       photoUrl?: string;
+      socialContext?: string;
     },
   ): Promise<boolean>;
 }
@@ -361,7 +362,7 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
     userId: string,
     updates: {
       pacePreference?: string;
-      comfortProfile?: { comfortZone: string; barriers: string; goals: string };
+      comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[] };
     },
   ): Promise<void> {
     const fields: Record<string, unknown> = {};
@@ -370,7 +371,7 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
       fields.comfortProfile = Object.fromEntries(
         Object.entries(updates.comfortProfile).map(([k, v]) => [
           k,
-          (v as string).trim()
+          typeof v === "string" ? v.trim() : v,
         ]),
       ) as typeof updates.comfortProfile;
     }
@@ -387,6 +388,7 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
       journalEntry?: string;
       completedActivity?: string;
       photoUrl?: string;
+      socialContext?: string;
     },
   ): Promise<boolean> {
     // Verify ownership via sidequest
@@ -406,6 +408,7 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
     if (updates.completedActivity !== undefined)
       fields.completedActivity = updates.completedActivity;
     if (updates.photoUrl !== undefined) fields.photoUrl = updates.photoUrl;
+    if (updates.socialContext !== undefined) fields.socialContext = updates.socialContext;
 
     if (Object.keys(fields).length > 0) {
       await this.dataSource

@@ -335,7 +335,7 @@ export class SidequestsModule extends BaseApiModule {
 
   async updateComfortProfile(params: {
     pacePreference?: string;
-    comfortProfile?: { comfortZone: string; barriers: string; goals: string };
+    comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[] };
   }): Promise<ComfortZoneResponse> {
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/comfort-profile`,
@@ -354,6 +354,7 @@ export class SidequestsModule extends BaseApiModule {
       journalEntry?: string;
       completedActivity?: string;
       photoUrl?: string;
+      socialContext?: string;
     },
   ): Promise<{ success: boolean }> {
     const response = await this.fetchWithAuth(
