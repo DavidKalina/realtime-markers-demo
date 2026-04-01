@@ -14,7 +14,7 @@ import {
 } from "@/theme";
 
 // Set Mapbox access token
-Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "");
+Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN ?? "");
 
 const SHADE_COLOR = "#86efac"; // accent.primary
 
