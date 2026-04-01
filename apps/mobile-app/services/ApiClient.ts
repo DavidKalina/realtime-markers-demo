@@ -6,6 +6,7 @@ import { PushNotificationsModule } from "./api/modules/pushNotifications";
 import { SidequestsModule } from "./api/modules/sidequests";
 import { DeckStatsModule } from "./api/modules/deckStats";
 import { ProfileInsightsModule } from "./api/modules/profileInsights";
+import { CoverageModule } from "./api/modules/coverage";
 
 // Re-export types and enums
 export * from "./api/base/types";
@@ -15,6 +16,7 @@ export * from "./api/modules/sidequests";
 
 export * from "./api/modules/deckStats";
 export * from "./api/modules/profileInsights";
+export * from "./api/modules/coverage";
 
 class ApiClient extends BaseApiClient {
   private static instance: ApiClient | null = null;
@@ -24,6 +26,7 @@ class ApiClient extends BaseApiClient {
 
   private _deckStats: DeckStatsModule | null = null;
   private _profileInsights: ProfileInsightsModule | null = null;
+  private _coverage: CoverageModule | null = null;
 
   private constructor(baseUrl: string) {
     super(baseUrl);
@@ -74,6 +77,13 @@ class ApiClient extends BaseApiClient {
       this._profileInsights = new ProfileInsightsModule(this);
     }
     return this._profileInsights;
+  }
+
+  public get coverage(): CoverageModule {
+    if (!this._coverage) {
+      this._coverage = new CoverageModule(this);
+    }
+    return this._coverage;
   }
 
   override setBaseUrl(baseUrl: string): void {

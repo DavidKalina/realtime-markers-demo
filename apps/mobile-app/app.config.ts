@@ -59,6 +59,12 @@ export default {
       favicon: "./assets/images/favicon.png",
     },
     plugins: [
+      [
+        "@rnmapbox/maps",
+        {
+          RNMapboxMapsDownloadToken: process.env.MAPBOX_DOWNLOAD_TOKEN,
+        },
+      ],
       "expo-asset",
       "expo-font",
       "expo-secure-store",

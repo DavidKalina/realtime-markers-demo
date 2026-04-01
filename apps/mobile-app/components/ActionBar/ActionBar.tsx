@@ -4,6 +4,7 @@ import {
   Layers,
   LucideIcon,
   LucideSword,
+  Map,
   User,
 } from "lucide-react-native";
 import React, { useCallback, useMemo } from "react";
@@ -33,7 +34,7 @@ const BUTTON_RELEASE_ANIMATION = {
 };
 
 // Define route type to match expo-router's expected types
-type AppRoute = "/itineraries" | "/user" | "/deck" | "/";
+type AppRoute = "/itineraries" | "/user" | "/deck" | "/coverage" | "/";
 
 interface TabConfig {
   key: string;
@@ -62,6 +63,12 @@ const TABS: TabConfig[] = [
     icon: LucideSword,
     route: "/itineraries",
   },
+  {
+    key: "coverage",
+    label: "Map",
+    icon: Map,
+    route: "/coverage",
+  },
 ];
 
 const HIDDEN_ROUTES = ["/register", "/login", "/onboarding"];
@@ -70,6 +77,7 @@ const HIDDEN_ROUTES = ["/register", "/login", "/onboarding"];
 const ROUTE_TO_TAB: Record<string, string> = {
   "/user": "user",
   "/deck": "deck",
+  "/coverage": "coverage",
 };
 
 // Map pathname to active tab key
@@ -77,6 +85,7 @@ const getActiveTabKey = (pathname: string): string | null => {
   if (pathname === "/" || pathname === "/user") return "user";
   if (pathname === "/deck") return "deck";
   if (pathname.startsWith("/itineraries")) return "itineraries";
+  if (pathname === "/coverage") return "coverage";
   return ROUTE_TO_TAB[pathname] ?? null;
 };
 

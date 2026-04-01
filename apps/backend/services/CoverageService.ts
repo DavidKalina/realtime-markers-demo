@@ -6,7 +6,7 @@ import {
 } from "@realtime-markers/database";
 
 const SHADE_DECAY_RATE = 0.5;
-const SNAPSHOT_TTL_MS = 60 * 60 * 1000; // 1 hour
+const SNAPSHOT_TTL_MS = 5 * 60 * 1000; // 5 minutes (was 1 hour)
 const MIN_CLUSTERS_FOR_VORONOI = 3;
 const GAP_THRESHOLD_DEG = 45; // Gaps wider than 45 degrees are significant
 const BUFFER_METERS = 500; // Padding around convex hull for Voronoi clipping
@@ -63,6 +63,18 @@ export interface DirectionalGap {
   gapWidthDeg: number;
 }
 
+export type ExplorationProfileLabel =
+  | "early_explorer"
+  | "depth_focused"
+  | "breadth_focused"
+  | "well_rounded";
+
+export interface ExplorationProfile {
+  label: ExplorationProfileLabel;
+  breadthScore: number; // 0-1
+  depthScore: number;   // 0-1
+}
+
 export interface CoverageSummary {
   clusters: Array<{
     latitude: number;
@@ -79,6 +91,8 @@ export interface CoverageSummary {
     clusterCount: number;
   };
   directionalGaps: DirectionalGap[];
+  cellsGeojson?: Record<string, unknown>;
+  canvasGeojson?: Record<string, unknown>;
   homeLatitude: number | null;
   homeLongitude: number | null;
 }
@@ -93,7 +107,7 @@ export interface CoverageService {
   getClusters(userId: string): Promise<CoverageCluster[]>;
   getCoverageSummary(userId: string): Promise<CoverageSummary>;
   recomputeSnapshot(userId: string): Promise<CoverageSnapshot>;
-  buildLLMCoverageContext(userId: string): Promise<string>;
+  buildLLMCoverageContext(userId: string): Promise<{ context: string; profile: ExplorationProfile }>;
   isInCoverageGap(
     userId: string,
     latitude: number,
@@ -219,6 +233,8 @@ class CoverageServiceImpl implements CoverageService {
           clusterCount: Number(existing.clusterCount),
         },
         directionalGaps: (existing.directionalGaps as DirectionalGap[]) ?? [],
+        cellsGeojson: existing.cellsGeojson ?? undefined,
+        canvasGeojson: existing.canvasGeojson ?? undefined,
         homeLatitude: user.homeLatitude,
         homeLongitude: user.homeLongitude,
       };
@@ -245,6 +261,8 @@ class CoverageServiceImpl implements CoverageService {
         clusterCount: Number(snapshot.clusterCount),
       },
       directionalGaps: (snapshot.directionalGaps as DirectionalGap[]) ?? [],
+      cellsGeojson: snapshot.cellsGeojson ?? undefined,
+      canvasGeojson: snapshot.canvasGeojson ?? undefined,
       homeLatitude: user.homeLatitude,
       homeLongitude: user.homeLongitude,
     };
@@ -348,72 +366,161 @@ class CoverageServiceImpl implements CoverageService {
     return await snapshotRepo.save(snapshot);
   }
 
-  async buildLLMCoverageContext(userId: string): Promise<string> {
+  async buildLLMCoverageContext(userId: string): Promise<{ context: string; profile: ExplorationProfile }> {
+    const defaultProfile: ExplorationProfile = { label: "early_explorer", breadthScore: 0, depthScore: 0 };
+
     const clusters = await this.getClusters(userId);
     if (clusters.length === 0) {
-      return "COVERAGE MAP: No exploration data yet. This is their first quest.";
+      return {
+        context: "COVERAGE MAP: No exploration data yet. This is their first quest.",
+        profile: defaultProfile,
+      };
     }
 
-    const user = await this.getHomeAnchor(userId);
     const summary = await this.getCoverageSummary(userId);
+    const profile = this.computeExplorationProfile(clusters, summary);
 
     const lines: string[] = [
-      `COVERAGE MAP (${summary.stats.clusterCount} explored zones):`,
+      `COVERAGE MAP (${summary.stats.clusterCount} explored zones, profile: ${profile.label}):`,
     ];
 
-    // Territory stats
+    // ── Breadth section ──
+    lines.push("");
+    lines.push("BREADTH (geographic spread):");
     if (summary.stats.territorySqMiles > 0) {
-      lines.push(
-        `- Territory: ${summary.stats.territorySqMiles.toFixed(1)} sq miles covered, ${(summary.stats.avgDensity * 100).toFixed(0)}% avg density`,
-      );
+      lines.push(`- ${summary.stats.clusterCount} zones across ${summary.stats.territorySqMiles.toFixed(1)} sq miles`);
+    } else {
+      lines.push(`- ${summary.stats.clusterCount} zones (too few for territory calculation)`);
     }
 
-    // Hotspots (top 5 most visited)
-    const hotspots = clusters
-      .slice(0, 5)
-      .filter((c) => Number(c.visitCount) > 1);
-    if (hotspots.length > 0) {
-      const hotspotList = hotspots
-        .map(
-          (c) =>
-            `${(c.venueCategories ?? []).join("/") || "misc"} area (${Number(c.visitCount)} visits, shade ${Number(c.shade).toFixed(2)})`,
-        )
-        .join(", ");
-      lines.push(`- Hotspots: ${hotspotList}`);
-    }
-
-    // Directional gaps
     if (summary.directionalGaps.length > 0) {
       const gapDescs = summary.directionalGaps
         .sort((a, b) => b.gapWidthDeg - a.gapWidthDeg)
         .slice(0, 3)
-        .map(
-          (g) =>
-            `${g.direction.toUpperCase()} (${g.gapWidthDeg.toFixed(0)}deg gap)`,
-        );
-      lines.push(`- Directional gaps: ${gapDescs.join(", ")}`);
-      lines.push(
-        `- Suggestion: The ${summary.directionalGaps[0].direction} direction is the least explored.`,
-      );
+        .map((g) => `${g.direction.toUpperCase()} (${g.gapWidthDeg.toFixed(0)}deg)`);
+      lines.push(`- Directional gaps from home: ${gapDescs.join(", ")}`);
     }
 
-    // Under-explored clusters (low shade, only 1 visit)
-    const underExplored = clusters.filter((c) => Number(c.visitCount) === 1);
-    if (underExplored.length > 0) {
-      lines.push(
-        `- ${underExplored.length} zone${underExplored.length > 1 ? "s" : ""} visited only once (light coverage)`,
-      );
+    const singleVisit = clusters.filter((c) => Number(c.visitCount) === 1);
+    if (singleVisit.length > 0) {
+      lines.push(`- ${singleVisit.length} zone${singleVisit.length > 1 ? "s" : ""} visited only once (unknown potential)`);
     }
 
-    // Fully saturated clusters
+    // ── Depth section ──
+    lines.push("");
+    lines.push("DEPTH (experiential intensity):");
+    lines.push(`- Average shade: ${(summary.stats.avgDensity * 100).toFixed(0)}%`);
+
+    // Unique categories across all clusters
+    const allCategories = new Set(clusters.flatMap((c) => c.venueCategories ?? []));
+    lines.push(`- ${allCategories.size} unique venue categories explored`);
+
+    // High-value clusters: multi-visit AND diverse categories (2+)
+    const highValue = clusters.filter(
+      (c) => Number(c.visitCount) >= 3 && (c.venueCategories ?? []).length >= 2,
+    );
+    if (highValue.length > 0) {
+      const hvDescs = highValue.slice(0, 3).map(
+        (c) =>
+          `${(c.venueCategories ?? []).join("/") } area (${Number(c.visitCount)} visits, ${(c.venueCategories ?? []).length} categories)`,
+      );
+      lines.push(`- High-value zones (user chose to return + diverse experiences): ${hvDescs.join("; ")}`);
+    }
+
     const saturated = clusters.filter((c) => Number(c.shade) > 0.9);
     if (saturated.length > 0) {
-      lines.push(
-        `- ${saturated.length} zone${saturated.length > 1 ? "s" : ""} fully explored (diminishing returns on revisits)`,
-      );
+      lines.push(`- ${saturated.length} zone${saturated.length > 1 ? "s" : ""} fully saturated (diminishing returns)`);
     }
 
-    return lines.join("\n");
+    // ── Dynamic strategy ──
+    lines.push("");
+    lines.push("STRATEGY:");
+    lines.push(this.buildStrategyText(profile, summary, highValue, clusters));
+
+    return { context: lines.join("\n"), profile };
+  }
+
+  private computeExplorationProfile(
+    clusters: CoverageCluster[],
+    summary: CoverageSummary,
+  ): ExplorationProfile {
+    const clusterCount = clusters.length;
+
+    // Breadth: normalized cluster count (0-1, saturates at 15) weighted by directional coverage
+    const clusterBreadth = Math.min(clusterCount / 15, 1);
+    const totalGapDeg = summary.directionalGaps.reduce((sum, g) => sum + g.gapWidthDeg, 0);
+    const directionalCoverage = Math.max(0, 1 - totalGapDeg / 360);
+    const breadthScore = clusterBreadth * 0.6 + directionalCoverage * 0.4;
+
+    // Depth: avg shade weighted by ratio of multi-visit clusters
+    const multiVisit = clusters.filter((c) => Number(c.visitCount) > 1).length;
+    const multiVisitRatio = clusterCount > 0 ? multiVisit / clusterCount : 0;
+    const depthScore = summary.stats.avgDensity * 0.6 + multiVisitRatio * 0.4;
+
+    let label: ExplorationProfileLabel;
+    if (breadthScore < 0.3 && depthScore < 0.3) label = "early_explorer";
+    else if (depthScore >= 0.4 && breadthScore < 0.3) label = "depth_focused";
+    else if (breadthScore >= 0.4 && depthScore < 0.3) label = "breadth_focused";
+    else label = "well_rounded";
+
+    return {
+      label,
+      breadthScore: Math.round(breadthScore * 100) / 100,
+      depthScore: Math.round(depthScore * 100) / 100,
+    };
+  }
+
+  private buildStrategyText(
+    profile: ExplorationProfile,
+    summary: CoverageSummary,
+    highValueClusters: CoverageCluster[],
+    allClusters: CoverageCluster[],
+  ): string {
+    const parts: string[] = [];
+
+    const widestGap = summary.directionalGaps[0];
+
+    switch (profile.label) {
+      case "early_explorer":
+        parts.push("This user is just starting out. Prescribe close and familiar to build the habit of going out.");
+        parts.push("Quick wins matter more than stretching right now.");
+        break;
+
+      case "depth_focused":
+        parts.push("This user keeps returning to the same spots. They need geographic variety, not more depth.");
+        parts.push("Nudge them toward an unexplored DIRECTION — even a familiar category in a new part of town counts as real growth.");
+        if (widestGap) {
+          parts.push(`The ${widestGap.direction} direction is wide open — try sending them that way.`);
+        }
+        break;
+
+      case "breadth_focused":
+        parts.push("This user explores widely but doesn't go deep. They spread thin.");
+        if (highValueClusters.length > 0) {
+          const hv = highValueClusters[0];
+          const cats = (hv.venueCategories ?? []).join(", ");
+          parts.push(`They've organically returned to a zone with ${cats} — this is worth deepening.`);
+          parts.push("Prescribe a NEW category or experience in that same neighborhood instead of pushing further out.");
+        } else {
+          parts.push("No high-value zones detected yet. Keep expanding — they haven't found their place.");
+        }
+        break;
+
+      case "well_rounded":
+        parts.push("This user has solid breadth and depth. They're ready for a real challenge.");
+        if (widestGap) {
+          parts.push(`Push into the ${widestGap.direction} gap, or try an unusual category they've never done.`);
+        }
+        parts.push("Distance is fine here, but only if the destination is genuinely novel — don't send them far for something they could do nearby.");
+        break;
+    }
+
+    // Universal: warn against the Pueblo trap
+    if (allClusters.length >= 5) {
+      parts.push("IMPORTANT: Distance is NOT progress. A new experience nearby beats a familiar one far away. Never prescribe further just because you can.");
+    }
+
+    return parts.join("\n");
   }
 
   async isInCoverageGap(

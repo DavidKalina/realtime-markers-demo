@@ -1318,11 +1318,14 @@ class SidequestServiceImpl implements SidequestService {
       user.behavioralProfile ?? null,
     );
 
-    // 2b. Build coverage context (Voronoi directional gaps)
+    // 2b. Build coverage context (Voronoi directional gaps + exploration profile)
     let coverageContext = "";
+    let explorationProfileLabel = "";
     if (this.coverageService) {
       try {
-        coverageContext = await this.coverageService.buildLLMCoverageContext(userId);
+        const coverage = await this.coverageService.buildLLMCoverageContext(userId);
+        coverageContext = coverage.context;
+        explorationProfileLabel = coverage.profile.label;
       } catch (err) {
         console.error("[prescribeQuest] Coverage context failed:", err);
       }
@@ -1367,13 +1370,26 @@ class SidequestServiceImpl implements SidequestService {
       const pace = user.pacePreference ?? "steady";
       const comfortProfile = user.comfortProfile;
 
+      const profileOneLiner: Record<string, string> = {
+        early_explorer: "New user. Stay close, stay gentle. Build the habit of going out.",
+        depth_focused: "Keeps returning to same spots. Nudge toward a new direction — even a familiar category in a new part of town counts.",
+        breadth_focused: "Explores widely but doesn't revisit. If a cluster has repeat visits and diverse categories, prescribe a new experience there.",
+        well_rounded: "Strong coverage. Challenge them — push further, try unusual categories, or explore the widest directional gap.",
+      };
+
       const instructions = `You are a Comfort Zone Expansion Coach. You prescribe ONE location-based quest designed to gently expand this user's real world.
 
 YOUR APPROACH:
 - This is exposure therapy wrapped in adventure. The goal is to get the user slightly outside their comfort zone — not overwhelm them.
 - Stretch on ONE dimension at a time: either further distance (familiar category) OR unfamiliar category (familiar distance). Never both.
-- The user's current comfort radius is ${radius.toFixed(1)} miles from home. Prescribe something at or slightly beyond the edge.
+- The user's current comfort radius is ${radius.toFixed(1)} miles from home. Use this as context, NOT as a target to push past.
 - Keep it achievable. One stop. Low friction. The win is them going, not the venue being perfect.
+
+EXPANSION PHILOSOPHY:
+- Breadth-first by default. Push into unexplored directions until the user finds an area worth investing in.
+- Only go deeper in an area if the user has ORGANICALLY revisited it (multiple visits, diverse categories). That's the signal they found "their place."
+- A comedy open mic across the street is more impactful than driving across the state for coffee. Distance is NOT progress — novelty is.
+- Never prescribe further just because you can. The goal is meaningful expansion, not mileage.${explorationProfileLabel ? `\n- Exploration profile: ${explorationProfileLabel} — ${profileOneLiner[explorationProfileLabel] ?? ""}` : ""}
 
 USER PROFILE:
 - Home: (${homeLat.toFixed(4)}, ${homeLng.toFixed(4)})
@@ -1386,7 +1402,7 @@ ${comfortProfile ? `- Their goals: "${comfortProfile.goals}"` : ""}
 ${user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${user.onboardingProfile.activities.join(", ")}` : ""}
 
 ${historyContext}
-${coverageContext ? `\n${coverageContext}\n\nCOVERAGE STRATEGY:\n- If coverage shows directional gaps, PREFER prescribing in an unexplored direction over revisiting dense areas.\n- Visiting an under-explored zone is more valuable than re-visiting a saturated one.\n- Coverage gaps are as important as distance for meaningful expansion.\n` : ""}
+${coverageContext ? `\n${coverageContext}\n` : ""}
 TOOLS:
 - web_search: discover interesting spots
 - search_places: verify venues with Google Places (exact name, address, coordinates)

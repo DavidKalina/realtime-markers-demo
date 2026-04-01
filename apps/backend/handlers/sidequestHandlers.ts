@@ -357,7 +357,7 @@ export const getDeckStatsHandler: Handler = withErrorHandling(async (c) => {
 
 // ─── Wellness Pivot Handlers ───────────────────────────────────────
 
-const DAILY_PRESCRIBE_LIMIT = 3;
+const DAILY_PRESCRIBE_LIMIT = 999; // TODO: restore to 3 after testing
 
 export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);

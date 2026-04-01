@@ -27,6 +27,7 @@
     "@react-navigation/bottom-tabs": "^7.15.9",
     "@react-navigation/native": "^7.2.2",
     "@realtime-markers/database": "workspace:*",
+    "@rnmapbox/maps": "^10.3.0",
     "@sentry/react-native": "^7.11.0",
     "@shopify/react-native-skia": "2.4.18",
     "d3-delaunay": "^6.0.4",
