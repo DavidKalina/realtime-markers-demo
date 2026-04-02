@@ -1185,6 +1185,7 @@ const ItineraryDetailScreen = () => {
             onCheckin={isThisActive ? handleManualCheckin : undefined}
             onItemPress={handleItemPress}
             accentColor={accentHex}
+            hideDescriptions={objectives.length === 1}
           />
         )}
 
@@ -1226,7 +1227,7 @@ const ItineraryDetailScreen = () => {
                 <Pressable
                   style={({ pressed }) => [
                     styles.navigateButton,
-                    styles.rowButton,
+                    { flex: 1 },
                     pressed && styles.navigateButtonPressed,
                   ]}
                   onPress={handleNavigate}
@@ -1235,21 +1236,8 @@ const ItineraryDetailScreen = () => {
                 </Pressable>
                 <Pressable
                   style={({ pressed }) => [
-                    styles.compassButton,
-                    styles.rowButton,
-                    pressed && styles.compassButtonPressed,
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    setShowCompass(true);
-                  }}
-                >
-                  <Text style={styles.compassButtonText}>Compass</Text>
-                </Pressable>
-                <Pressable
-                  style={({ pressed }) => [
                     styles.endButton,
-                    styles.rowButton,
+                    { flex: 1 },
                     pressed && styles.endButtonPressed,
                   ]}
                   onPress={handleDeactivate}
@@ -1523,11 +1511,11 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       paddingTop: spacing.xs,
     },
     heroTitle: {
-      fontSize: 22,
+      fontSize: 26,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
       color: colors.text.primary,
-      lineHeight: 28,
+      lineHeight: 32,
     },
     heroLabelRow: {
       flexDirection: "row",
@@ -1542,29 +1530,29 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       borderRadius: radius.full,
     },
     heroLabelText: {
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: fontWeight.bold,
       color: accentHex,
       fontFamily: fontFamily.mono,
       letterSpacing: 1.5,
     },
     heroDot: {
-      fontSize: 11,
+      fontSize: 13,
       color: colors.text.disabled,
       fontFamily: fontFamily.mono,
     },
     heroDate: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: fontWeight.semibold,
       color: colors.text.secondary,
       fontFamily: fontFamily.mono,
     },
     heroSummary: {
-      fontSize: 13,
+      fontSize: 15,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.regular,
       color: colors.text.secondary,
-      lineHeight: 20,
+      lineHeight: 23,
     },
 
     // ── Stat chips ──
@@ -1580,7 +1568,7 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       paddingVertical: 4,
     },
     statChipValue: {
-      fontSize: 11,
+      fontSize: 13,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
     },
@@ -1601,7 +1589,7 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       paddingVertical: 3,
     },
     vibeText: {
-      fontSize: 10,
+      fontSize: 12,
       fontWeight: fontWeight.semibold,
       fontFamily: fontFamily.mono,
       color: accentHex,
@@ -1638,14 +1626,14 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       alignItems: "center",
     },
     progressLabel: {
-      fontSize: 10,
+      fontSize: 12,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.semibold,
       color: colors.text.label,
       letterSpacing: 1,
     },
     progressCount: {
-      fontSize: 11,
+      fontSize: 13,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.bold,
       color: accentHex,

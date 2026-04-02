@@ -146,6 +146,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             totalXp={profileData?.totalXp ?? 0}
             currentStreak={profileData?.currentStreak ?? 0}
             longestStreak={profileData?.longestStreak ?? 0}
+            goalTags={profileData?.comfortProfile?.goalTags}
           />
         </Animated.View>
 

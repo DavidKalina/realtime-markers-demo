@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, fontWeight } from "@/theme";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { useDeckBadgeStore } from "@/stores/useDeckBadgeStore";
+import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { createStyles } from "./styles";
 
 // Pre-define animation configurations
@@ -150,6 +151,7 @@ export const ActionBar: React.FC = React.memo(() => {
   const { hasReady: hasItineraryReady, isGenerating: isItineraryGenerating, clearReady } = useJobProgressContext();
   const hasNewDeckCards = useDeckBadgeStore((s) => s.hasNewCards);
   const clearDeckBadge = useDeckBadgeStore((s) => s.clearBadge);
+  const hasActiveQuest = useActiveItineraryStore((s) => s.itinerary != null);
 
   const activeTab = useMemo(() => getActiveTabKey(pathname), [pathname]);
 
@@ -198,7 +200,7 @@ export const ActionBar: React.FC = React.memo(() => {
             disabled={false}
             showBadge={
               (tab.key === "itineraries" &&
-                (hasItineraryReady || isItineraryGenerating)) ||
+                (hasItineraryReady || isItineraryGenerating || hasActiveQuest)) ||
               (tab.key === "deck" && hasNewDeckCards)
             }
             onPress={() => handleTabPress(tab)}

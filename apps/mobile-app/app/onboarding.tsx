@@ -11,10 +11,15 @@ import {
   type Colors,
 } from "@/theme";
 import { apiClient } from "@/services/ApiClient";
+import type { SidequestResponse } from "@/services/api/modules/sidequests";
+import CardOverlay from "@/components/Itinerary/CardOverlay";
 import { useAuth } from "@/contexts/AuthContext";
+import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
+import { useDeckBadgeStore } from "@/stores/useDeckBadgeStore";
+import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -109,6 +114,14 @@ const OnboardingScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // First quest reveal
+  const [generatingQuest, setGeneratingQuest] = useState(false);
+  const [generatingLabel, setGeneratingLabel] = useState("Crafting your first quest...");
+  const [firstQuest, setFirstQuest] = useState<SidequestResponse | null>(null);
+  const [showReveal, setShowReveal] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const buttonScale = useSharedValue(1);
   const buttonStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
@@ -151,6 +164,62 @@ const OnboardingScreen: React.FC = () => {
     setPacePreference(pace);
   };
 
+  const pollForQuest = useCallback(async (jobId: string, token: string) => {
+    const baseUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+    const poll = async () => {
+      try {
+        const res = await fetch(`${baseUrl}/api/jobs/${jobId}/progress`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+
+        if (data.status === "completed") {
+          const sidequestId = data.result?.sidequestId ?? data.result?.itineraryId;
+          if (sidequestId) {
+            const quest = await apiClient.sidequests.getById(sidequestId);
+            if (quest) {
+              setFirstQuest(quest);
+              setGeneratingQuest(false);
+              setShowReveal(true);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              return;
+            }
+          }
+          // Fallback if no quest returned
+          router.replace("/");
+        } else if (data.status === "failed") {
+          console.error("[Onboarding] First quest generation failed");
+          router.replace("/");
+        } else {
+          if (data.progressStep) setGeneratingLabel(data.progressStep);
+          pollRef.current = setTimeout(poll, 2000);
+        }
+      } catch (err) {
+        console.error("[Onboarding] Poll error:", err);
+        router.replace("/");
+      }
+    };
+    poll();
+  }, [router]);
+
+  const handleAcceptQuest = useCallback(async () => {
+    if (!firstQuest) return;
+    setIsAccepting(true);
+    try {
+      await apiClient.sidequests.activate(firstQuest.id);
+      useActiveItineraryStore.getState().activate(firstQuest);
+      useDeckBadgeStore.getState().markNewDeckCard();
+    } catch (err) {
+      console.error("[Onboarding] Failed to activate quest:", err);
+    }
+    router.replace("/");
+  }, [firstQuest, router]);
+
+  const handleDismissQuest = useCallback(() => {
+    useDeckBadgeStore.getState().markNewDeckCard();
+    router.replace("/");
+  }, [router]);
+
   const handleFinish = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     animateButton();
@@ -169,7 +238,23 @@ const OnboardingScreen: React.FC = () => {
       }
 
       await refreshAuth();
-      router.replace("/");
+
+      // Prescribe first quest instead of navigating to empty home
+      setIsLoading(false);
+      setGeneratingQuest(true);
+      setGeneratingLabel("Crafting your first quest...");
+
+      const lat = userLocation ? userLocation[1] : 0;
+      const lng = userLocation ? userLocation[0] : 0;
+      const { jobId } = await apiClient.sidequests.prescribeQuest({
+        latitude: lat,
+        longitude: lng,
+        timezone: getUserTimezone(),
+      });
+
+      // Get a fresh token for polling
+      const token = await apiClient.getAccessToken();
+      pollForQuest(jobId, token ?? "");
     } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error("Onboarding error:", err);
@@ -179,6 +264,7 @@ const OnboardingScreen: React.FC = () => {
           : "Something went wrong. Please try again.",
       );
       setIsLoading(false);
+      setGeneratingQuest(false);
     }
   };
 
@@ -225,6 +311,8 @@ const OnboardingScreen: React.FC = () => {
             buttonStyle={buttonStyle}
             userLocation={userLocation}
             isLoading={isLoading}
+            generatingQuest={generatingQuest}
+            generatingLabel={generatingLabel}
             error={error}
             onFinish={handleFinish}
           />
@@ -262,6 +350,15 @@ const OnboardingScreen: React.FC = () => {
       >
         {renderStep()}
       </Animated.View>
+
+      {/* First quest reveal overlay */}
+      <CardOverlay
+        card={firstQuest}
+        visible={showReveal}
+        onDismiss={handleDismissQuest}
+        onAccept={handleAcceptQuest}
+        isAccepting={isAccepting}
+      />
     </View>
   );
 };
@@ -497,10 +594,12 @@ const StepHomeBase: React.FC<
   StepProps & {
     userLocation: [number, number] | null;
     isLoading: boolean;
+    generatingQuest: boolean;
+    generatingLabel: string;
     error: string | null;
     onFinish: () => void;
   }
-> = ({ s, colors, buttonStyle, userLocation, isLoading, error, onFinish }) => {
+> = ({ s, colors, buttonStyle, userLocation, isLoading, generatingQuest, generatingLabel, error, onFinish }) => {
   const scrollY = useSharedValue(0);
   return (
     <View style={s.stepContent}>
@@ -535,19 +634,26 @@ const StepHomeBase: React.FC<
 
       <View style={{ paddingHorizontal: 28, paddingBottom: 40 }}>
         <ParallaxWidget scrollY={scrollY} index={2} enterDelay={300}>
-          <Animated.View style={buttonStyle}>
-            <Pressable
-              onPress={onFinish}
-              disabled={isLoading}
-              style={s.finishButton}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#000000" />
-              ) : (
-                <Text style={s.finishButtonText}>Finish Setup</Text>
-              )}
-            </Pressable>
-          </Animated.View>
+          {generatingQuest ? (
+            <View style={s.generatingContainer}>
+              <ActivityIndicator size="small" color="#86efac" />
+              <Text style={s.generatingText}>{generatingLabel}</Text>
+            </View>
+          ) : (
+            <Animated.View style={buttonStyle}>
+              <Pressable
+                onPress={onFinish}
+                disabled={isLoading}
+                style={s.finishButton}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#000000" />
+                ) : (
+                  <Text style={s.finishButtonText}>Finish Setup</Text>
+                )}
+              </Pressable>
+            </Animated.View>
+          )}
         </ParallaxWidget>
       </View>
     </View>
@@ -783,6 +889,19 @@ const createStyles = (colors: Colors) =>
       fontWeight: fontWeight.bold,
       textTransform: "uppercase",
       letterSpacing: 1,
+    },
+    generatingContainer: {
+      alignItems: "center",
+      gap: spacing.md,
+      paddingVertical: spacing.lg,
+    },
+    generatingText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 12,
+      color: "#86efac",
+      fontWeight: fontWeight.semibold,
+      textAlign: "center",
+      letterSpacing: 0.5,
     },
   });
 

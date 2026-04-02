@@ -46,6 +46,7 @@ interface ItineraryTimelineProps {
   onItemPress?: (item: ObjectiveResponse) => void;
   scrollRef?: React.RefObject<ScrollView | null>;
   accentColor?: string;
+  hideDescriptions?: boolean;
 }
 
 // --- Animated cost counter ---
@@ -90,6 +91,7 @@ interface TimelineStopProps {
   isActive?: boolean;
   onCheckin?: (itemId: string) => void;
   onItemPress?: (item: ObjectiveResponse) => void;
+  hideDescription?: boolean;
 }
 
 const CONTENT_DURATION = 350;
@@ -108,6 +110,7 @@ const TimelineStop = React.memo(
     isActive,
     onCheckin,
     onItemPress,
+    hideDescription,
   }: TimelineStopProps) => {
     const colors = useColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -269,7 +272,7 @@ const TimelineStop = React.memo(
                 </View>
               </View>
 
-              {item.description && (
+              {item.description && !hideDescription && (
                 <Text style={styles.itemDesc} numberOfLines={2}>
                   {item.description}
                 </Text>
@@ -318,6 +321,7 @@ export default function ItineraryTimeline({
   onItemPress,
   scrollRef,
   accentColor,
+  hideDescriptions,
 }: ItineraryTimelineProps) {
   const colors = useColors();
   const styles = useMemo(
@@ -426,6 +430,7 @@ export default function ItineraryTimeline({
             isActive={isActive}
             onCheckin={onCheckin}
             onItemPress={onItemPress}
+            hideDescription={hideDescriptions}
           />
         </View>
       ))}

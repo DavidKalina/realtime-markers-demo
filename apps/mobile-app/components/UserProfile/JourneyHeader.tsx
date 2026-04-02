@@ -10,6 +10,15 @@ import {
   type Colors,
 } from "@/theme";
 
+const GOAL_LABELS: Record<string, string> = {
+  explore: "\uD83D\uDDFA\uFE0F Explore my area",
+  socialize: "\uD83D\uDC4B Meet people",
+  routine: "\uD83D\uDD01 Build a routine",
+  fitness: "\uD83D\uDCAA Get active",
+  new_skill: "\uD83C\uDFAF Pick up a new skill",
+  unwind: "\uD83E\uDDD8 Decompress",
+};
+
 interface JourneyHeaderProps {
   firstName: string;
   memberSince: string;
@@ -18,6 +27,7 @@ interface JourneyHeaderProps {
   totalXp: number;
   currentStreak: number;
   longestStreak: number;
+  goalTags?: string[];
 }
 
 export function JourneyHeader({
@@ -28,6 +38,7 @@ export function JourneyHeader({
   totalXp,
   currentStreak,
   longestStreak,
+  goalTags,
 }: JourneyHeaderProps) {
   const colors = useColors();
   const s = styles(colors);
@@ -79,6 +90,19 @@ export function JourneyHeader({
           </View>
         )}
       </View>
+
+      {/* Goals */}
+      {goalTags && goalTags.length > 0 && (
+        <View style={s.goalsRow}>
+          {goalTags.map((tag) => (
+            <View key={tag} style={s.goalChip}>
+              <Text style={s.goalText}>
+                {GOAL_LABELS[tag] ?? tag}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -146,5 +170,25 @@ const styles = (colors: Colors) =>
       fontSize: 10,
       fontWeight: fontWeight.bold,
       color: colors.text.secondary,
+    },
+    goalsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+      marginTop: spacing.sm,
+    },
+    goalChip: {
+      backgroundColor: "rgba(134, 239, 172, 0.08)",
+      borderWidth: 1,
+      borderColor: "rgba(134, 239, 172, 0.2)",
+      borderRadius: radius.full,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    goalText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 10,
+      fontWeight: fontWeight.semibold,
+      color: "#86efac",
     },
   });
