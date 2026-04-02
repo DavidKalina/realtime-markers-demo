@@ -35,7 +35,7 @@ sidequestRouter.use("*", ip());
 sidequestRouter.use("*", authMiddleware);
 
 const readRateLimit = rateLimit({
-  maxRequests: 240,
+  maxRequests: 9999,
   windowMs: 60 * 60 * 1000,
   keyGenerator: (c) => {
     const user = c.get("user");
@@ -44,7 +44,7 @@ const readRateLimit = rateLimit({
 });
 
 const writeRateLimit = rateLimit({
-  maxRequests: 40,
+  maxRequests: 9999,
   windowMs: 60 * 60 * 1000,
   keyGenerator: (c) => {
     const user = c.get("user");

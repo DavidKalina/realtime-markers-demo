@@ -12,3 +12,5 @@ export * from "./DistrictSnapshot";
 
 export * from "./CoverageCluster";
 export * from "./CoverageSnapshot";
+
+export * from "./Pathway";

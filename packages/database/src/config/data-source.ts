@@ -12,6 +12,7 @@ import {
   UserBadge,
   District,
   DistrictSnapshot,
+  Pathway,
 } from "../entities";
 
 // Create the DataSource instance
@@ -29,6 +30,7 @@ export const createDataSource = (databaseUrl: string): DataSource => {
       UserBadge,
       District,
       DistrictSnapshot,
+      Pathway,
     ],
     migrationsTableName: "migrations",
     migrationsRun: false, // Disable automatic migration running

@@ -32,6 +32,10 @@ import { createComfortZoneService } from "./ComfortZoneService";
 import type { ComfortZoneService } from "./ComfortZoneService";
 import { createCoverageService } from "./CoverageService";
 import type { CoverageService } from "./CoverageService";
+import { createResonanceService } from "./ResonanceService";
+import type { ResonanceService } from "./ResonanceService";
+import { createPathwayService } from "./PathwayService";
+import type { PathwayService } from "./PathwayService";
 
 export interface ServiceContainer {
   storageService: StorageService;
@@ -47,6 +51,8 @@ export interface ServiceContainer {
   overpassService: OverpassService;
   comfortZoneService: ComfortZoneService;
   coverageService: CoverageService;
+  resonanceService: ResonanceService;
+  pathwayService: PathwayService;
 }
 
 export class ServiceInitializer {
@@ -118,6 +124,14 @@ export class ServiceInitializer {
       dataSource: this.dataSource,
     });
 
+    const resonanceService = createResonanceService({
+      dataSource: this.dataSource,
+    });
+
+    const pathwayService = createPathwayService({
+      dataSource: this.dataSource,
+    });
+
     const sidequestService = createSidequestService({
       dataSource: this.dataSource,
       openAIService,
@@ -127,6 +141,8 @@ export class ServiceInitializer {
       redisService,
       comfortZoneService,
       coverageService,
+      resonanceService,
+      pathwayService,
     });
 
     const sidequestCheckinService = createSidequestCheckinService({
@@ -153,6 +169,8 @@ export class ServiceInitializer {
       overpassService,
       comfortZoneService,
       coverageService,
+      resonanceService,
+      pathwayService,
     };
   }
 

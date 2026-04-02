@@ -22,6 +22,8 @@ import { OpenAIResponsesAgent } from "./shared/OpenAIResponsesAgent";
 import type { AgentToolResult } from "./shared/OpenAIResponsesAgent";
 import type { ComfortZoneService } from "./ComfortZoneService";
 import type { CoverageService } from "./CoverageService";
+import type { ResonanceService } from "./ResonanceService";
+import type { PathwayService } from "./PathwayService";
 
 export type SidequestProgressCallback = (
   progress: number,
@@ -246,6 +248,8 @@ interface SidequestServiceDeps {
   redisService?: RedisService;
   comfortZoneService?: ComfortZoneService;
   coverageService?: CoverageService;
+  resonanceService?: ResonanceService;
+  pathwayService?: PathwayService;
 }
 
 class SidequestServiceImpl implements SidequestService {
@@ -257,6 +261,8 @@ class SidequestServiceImpl implements SidequestService {
   private redisService?: RedisService;
   private comfortZoneService?: ComfortZoneService;
   private coverageService?: CoverageService;
+  private resonanceService?: ResonanceService;
+  private pathwayService?: PathwayService;
   private agent: OpenAIResponsesAgent;
 
   constructor(deps: SidequestServiceDeps) {
@@ -268,6 +274,8 @@ class SidequestServiceImpl implements SidequestService {
     this.redisService = deps.redisService;
     this.comfortZoneService = deps.comfortZoneService;
     this.coverageService = deps.coverageService;
+    this.resonanceService = deps.resonanceService;
+    this.pathwayService = deps.pathwayService;
     this.agent = new OpenAIResponsesAgent(deps.openAIService);
   }
 
@@ -509,6 +517,13 @@ class SidequestServiceImpl implements SidequestService {
     if (!wasPublished) {
       this.publishChange(sidequest, "CREATE").catch((err) => {
         console.error("[SidequestService] Failed to publish change:", err);
+      });
+    }
+
+    // Compute resonance and detect/update pathways after rating
+    if (this.resonanceService && this.pathwayService) {
+      this.computeResonanceAndPathway(id, userId).catch((err) => {
+        console.error("[SidequestService] Resonance/pathway update failed:", err);
       });
     }
 
@@ -1332,6 +1347,17 @@ class SidequestServiceImpl implements SidequestService {
       }
     }
 
+    // 2c. Build phase context from pathways (BFS/DFS)
+    let phaseContext = "";
+    if (this.pathwayService) {
+      try {
+        const phase = await this.pathwayService.getUserPhaseContext(userId);
+        phaseContext = phase.recommendation;
+      } catch (err) {
+        console.error("[prescribeQuest] Phase context failed:", err);
+      }
+    }
+
     // 3. Reverse geocode for city (from search location, not necessarily home)
     let city = "Unknown";
     try {
@@ -1387,8 +1413,7 @@ YOUR APPROACH:
 - Keep it achievable. One stop. Low friction. The win is them going, not the venue being perfect.
 
 EXPANSION PHILOSOPHY:
-- Breadth-first by default. Push into unexplored directions until the user finds an area worth investing in.
-- Only go deeper in an area if the user has ORGANICALLY revisited it (multiple visits, diverse categories). That's the signal they found "their place."
+${phaseContext || "- Breadth-first by default. Push into unexplored directions until the user finds an area worth investing in.\n- Only go deeper in an area if the user has ORGANICALLY revisited it (multiple visits, diverse categories). That's the signal they found \"their place.\""}
 - A comedy open mic across the street is more impactful than driving across the state for coffee. Distance is NOT progress — novelty is.
 - Never prescribe further just because you can. The goal is meaningful expansion, not mileage.${explorationProfileLabel ? `\n- Exploration profile: ${explorationProfileLabel} — ${profileOneLiner[explorationProfileLabel] ?? ""}` : ""}
 
@@ -1929,29 +1954,7 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
       [userId],
     );
 
-    // If we have a cached behavioral profile, use it
-    if (behavioralProfile && behavioralProfile.questCount > 0) {
-      const recentList = recentQuests
-        .map(
-          (q) =>
-            `- "${q.title}" (${q.venue_category ?? "unknown"}, ${q.distance_from_home ? Number(q.distance_from_home).toFixed(1) + "mi" : "?mi"})`,
-        )
-        .join("\n");
-
-      return `BEHAVIORAL PROFILE (based on ${behavioralProfile.questCount} quests, updated ${behavioralProfile.generatedAt}):
-${behavioralProfile.summary}
-
-MOST RECENT QUESTS (avoid repeating these):
-${recentList || "(none)"}
-
-${await this.buildSocialContext(userId, goalTags)}`;
-    }
-
-    // Fallback for new users or pre-migration users: raw query approach
-    if (recentQuests.length === 0) {
-      return "HISTORY: This is a new user — no completed quests yet. Start gentle and close to home.";
-    }
-
+    // Always fetch category breakdown for diversity enforcement
     const categories: { venue_category: string; count: number }[] =
       await this.dataSource.query(
         `
@@ -1967,6 +1970,33 @@ ${await this.buildSocialContext(userId, goalTags)}`;
         [userId],
       );
 
+    const categoryDiversityBlock = this.buildCategoryDiversityBlock(categories);
+
+    // If we have a cached behavioral profile, use it
+    if (behavioralProfile && behavioralProfile.questCount > 0) {
+      const recentList = recentQuests
+        .map(
+          (q) =>
+            `- "${q.title}" (${q.venue_category ?? "unknown"}, ${q.distance_from_home ? Number(q.distance_from_home).toFixed(1) + "mi" : "?mi"})`,
+        )
+        .join("\n");
+
+      return `BEHAVIORAL PROFILE (based on ${behavioralProfile.questCount} quests, updated ${behavioralProfile.generatedAt}):
+${behavioralProfile.summary}
+
+MOST RECENT QUESTS (avoid repeating these):
+${recentList || "(none)"}
+
+${categoryDiversityBlock}
+
+${await this.buildSocialContext(userId, goalTags)}`;
+    }
+
+    // Fallback for new users or pre-migration users: raw query approach
+    if (recentQuests.length === 0) {
+      return "HISTORY: This is a new user — no completed quests yet. Start gentle and close to home.";
+    }
+
     const recentList = recentQuests
       .map(
         (q) =>
@@ -1974,21 +2004,10 @@ ${await this.buildSocialContext(userId, goalTags)}`;
       )
       .join("\n");
 
-    const categoryList = categories
-      .map((c) => `${c.venue_category}: ${c.count}`)
-      .join(", ");
-
-    const mostVisitedCategory = categories[0]?.venue_category;
-    const leastVisitedHint =
-      categories.length > 2
-        ? `Consider suggesting something in a DIFFERENT category than "${mostVisitedCategory}" to broaden their horizons.`
-        : "";
-
     return `HISTORY (last ${recentQuests.length} quests):
 ${recentList}
 
-CATEGORY BREAKDOWN: ${categoryList || "none yet"}
-${leastVisitedHint}
+${categoryDiversityBlock}
 
 PRESCRIPTION STRATEGY: Look at their history and prescribe something that meaningfully expands — a new category, a further distance, or an area of town they haven't explored.
 
@@ -2047,6 +2066,81 @@ ${await this.buildSocialContext(userId, goalTags)}`;
     }
 
     return lines.join("\n");
+  }
+
+  private buildCategoryDiversityBlock(
+    categories: { venue_category: string; count: number }[],
+  ): string {
+    if (categories.length === 0) return "";
+
+    const total = categories.reduce((sum, c) => sum + c.count, 0);
+    const categoryList = categories
+      .map((c) => `${c.venue_category}: ${c.count}`)
+      .join(", ");
+
+    const lines: string[] = [`CATEGORY BREAKDOWN (${total} completed): ${categoryList}`];
+
+    const top = categories[0];
+    const topPct = Math.round((top.count / total) * 100);
+
+    // Hard block if one category dominates — kicks in early
+    if (top.count >= 2 && topPct >= 40) {
+      lines.push(
+        `⚠️ CATEGORY OVERLOAD: "${top.venue_category}" accounts for ${topPct}% of all quests (${top.count}/${total}). ` +
+        `DO NOT prescribe "${top.venue_category}" this time. Choose a DIFFERENT category. ` +
+        `Search for: trail, park, museum, gallery, market, venue, fitness, restaurant, bar — anything they haven't tried or have tried less.`,
+      );
+    } else if (top.count >= 2 && topPct >= 30) {
+      lines.push(
+        `NOTE: "${top.venue_category}" is becoming dominant (${top.count}/${total}). Strongly prefer a different category this time.`,
+      );
+    }
+
+    // Suggest untried categories
+    const tried = new Set(categories.map((c) => c.venue_category));
+    const allCategories = ["cafe", "trail", "park", "restaurant", "bar", "museum", "gallery", "market", "venue", "attraction"];
+    const untried = allCategories.filter((c) => !tried.has(c));
+    if (untried.length > 0) {
+      lines.push(`UNTRIED CATEGORIES: ${untried.join(", ")} — prioritize exploring these.`);
+    }
+
+    return lines.join("\n");
+  }
+
+  private async computeResonanceAndPathway(
+    sidequestId: string,
+    userId: string,
+  ): Promise<void> {
+    if (!this.resonanceService || !this.pathwayService) return;
+
+    const resonance = await this.resonanceService.computeResonanceForSidequest(sidequestId);
+    if (!resonance) return;
+
+    // Get the sidequest's first objective for category + difficulty
+    const sidequest = await this.dataSource.getRepository(Sidequest).findOne({
+      where: { id: sidequestId },
+      relations: ["objectives"],
+    });
+    if (!sidequest) return;
+
+    const obj = sidequest.objectives?.[0];
+    const venueCategory = obj?.venueCategory ?? "other";
+    const difficulty = obj?.difficulty ?? 1;
+
+    const result = await this.pathwayService.detectOrCreatePathway(
+      userId,
+      sidequestId,
+      venueCategory,
+      difficulty,
+      resonance,
+    );
+
+    if (result) {
+      console.log(
+        `[SidequestService] Resonance ${resonance.score.toFixed(3)} for quest ${sidequestId}, ` +
+        `pathway "${result.pathway.themeLabel}" (${result.pathway.phase}, ${result.isNew ? "new" : "updated"})`,
+      );
+    }
   }
 }
 
