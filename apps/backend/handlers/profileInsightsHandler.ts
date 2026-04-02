@@ -51,6 +51,9 @@ interface ProfileInsightsResponse {
   intentionDna: IntentionCount[];
   // Streak calendar (weekly activity for last 16 weeks)
   streakCalendar: WeekActivity[];
+  // Social growth (social context distribution + ordered timeline)
+  socialGrowth: { context: string; count: number }[];
+  socialTimeline: string[];
   // Adventure footprint
   footprint: {
     totalDistanceMiles: number;
@@ -82,6 +85,8 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     cityRows,
     vibeDnaRows,
     intentionDnaRows,
+    socialGrowthRows,
+    socialTimelineRows,
   ] = await Promise.all([
     // 1. Activity heatmap — daily check-in counts for last 16 weeks
     AppDataSource.query(
@@ -208,6 +213,33 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
        LIMIT 8`,
       [user.id],
     ),
+
+    // 7a. Social growth — aggregated counts
+    AppDataSource.query(
+      `SELECT o.social_context AS context, COUNT(*)::int AS count
+       FROM objectives o
+       JOIN sidequests s ON s.id = o.sidequest_id
+       WHERE s.user_id = $1
+         AND s.completed_at IS NOT NULL
+         AND s.deleted_at IS NULL
+         AND o.social_context IS NOT NULL
+       GROUP BY o.social_context
+       ORDER BY count DESC`,
+      [user.id],
+    ),
+
+    // 7b. Social growth — ordered timeline (for river chart)
+    AppDataSource.query(
+      `SELECT o.social_context AS context
+       FROM objectives o
+       JOIN sidequests s ON s.id = o.sidequest_id
+       WHERE s.user_id = $1
+         AND s.completed_at IS NOT NULL
+         AND s.deleted_at IS NULL
+         AND o.social_context IS NOT NULL
+       ORDER BY s.completed_at ASC`,
+      [user.id],
+    ),
   ]);
 
   // Build venue DNA with percentages
@@ -275,6 +307,11 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     venueDna,
     vibeDna,
     intentionDna,
+    socialGrowth: (socialGrowthRows as { context: string; count: number }[]).map((r) => ({
+      context: r.context,
+      count: r.count,
+    })),
+    socialTimeline: (socialTimelineRows as { context: string }[]).map((r) => r.context),
     streakCalendar: streakRows.map((r: Record<string, unknown>) => ({
       weekStart:
         r.week_start instanceof Date

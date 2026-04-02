@@ -1,581 +1,218 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useProfileInsights } from "@/hooks/useProfileInsights";
-import useUserStats from "@/hooks/useUserStats";
+import { usePathways } from "@/hooks/usePathways";
 import { apiClient } from "@/services/ApiClient";
-import type { DeckStatsResponse } from "@/services/api/modules/deckStats";
+import type { CoverageSummaryResponse } from "@/services/api/modules/coverage";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import {
-  duration,
   fontFamily,
-  fontSize,
-  fontWeight,
-  radius,
   spacing,
   useColors,
   type Colors,
 } from "@/theme";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { ChevronRight } from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
-  useState
+  useState,
 } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
-  Text,
-  View
+  View,
 } from "react-native";
-import Animated, {
-  FadeIn,
-  FadeOut,
-  LinearTransition,
-} from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
 import Screen from "../Layout/Screen";
-import PrescribeQuestCard from "../Quest/PrescribeQuestCard";
 import { useUserLocation } from "@/contexts/LocationContext";
+
 import ActiveQuestBanner from "./ActiveQuestBanner";
-import ActivityHeatmap from "./ActivityHeatmap";
-import AdventureDnaChart from "./AdventureDnaChart";
-import AdventureFootprint from "./AdventureFootprint";
-import AdventurePreferences from "./AdventurePreferences";
-import DeckComposition from "./DeckComposition";
-import DeckHero from "./DeckHero";
-import DeleteAccountModalComponent from "./DeleteAccountModal";
-import RecentCompletions from "./RecentCompletions";
-import StreakCalendar from "./StreakCalendar";
-import UserStatsCard from "./UserStatsCard";
+import { JourneyHeader } from "./JourneyHeader";
+import { PathwayRadar } from "./PathwayRadar";
+import { SocialGrowth } from "./SocialGrowth";
 import VenueDnaChart from "./VenueDnaChart";
-
-/* ─── Types ─── */
-
-type ProfileTab = "adventures" | "insights" | "settings";
-
-const TABS: { key: ProfileTab; label: string }[] = [
-  { key: "adventures", label: "Adventures" },
-  { key: "insights", label: "Insights" },
-  { key: "settings", label: "Settings" },
-];
+import { CoverageWidget } from "./CoverageWidget";
+import { SettingsSection } from "./SettingsSection";
 
 interface UserProfileProps {
   onBack?: () => void;
 }
 
-
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const colors = useColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const s = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { user } = useAuth();
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<ProfileTab>("adventures");
+
   const {
     loading,
     profileData,
-    deleteError,
-    isDeleting,
-    showDeleteDialog,
-    password,
     refetch,
     handleBack,
     handleLogout,
     handleDeleteAccount,
-    handleCloseDeleteDialog,
-    setShowDeleteDialog,
-    setPassword,
   } = useProfile(onBack);
 
-  const {
-    stats,
-    isLoading: statsLoading,
-    refetch: refetchStats,
-  } = useUserStats();
-
   const { data: insights, refetch: refetchInsights } = useProfileInsights();
+  const { data: pathwayData, refetch: refetchPathways } = usePathways();
 
-  const [deckStats, setDeckStats] = useState<DeckStatsResponse | null>(null);
+  // Coverage data for world stats
+  const [coverage, setCoverage] = useState<CoverageSummaryResponse | null>(null);
+  const fetchCoverage = useCallback(async () => {
+    try {
+      const result = await apiClient.coverage.getSummary();
+      setCoverage(result);
+    } catch (err) {
+      console.error("[UserProfile] Failed to fetch coverage:", err);
+    }
+  }, []);
+  useEffect(() => { fetchCoverage(); }, [fetchCoverage]);
+
+  // World size
+  const [worldSize, setWorldSize] = useState<{ areaSqMiles: number; furthestMiles: number; uniqueCategories: number } | null>(null);
+  const fetchWorldSize = useCallback(async () => {
+    try {
+      const result = await apiClient.sidequests.getWorldSize();
+      setWorldSize(result);
+    } catch (err) {
+      console.error("[UserProfile] Failed to fetch world size:", err);
+    }
+  }, []);
+  useEffect(() => { fetchWorldSize(); }, [fetchWorldSize]);
 
   // Home base
   const { userLocation } = useUserLocation();
-  const [isUpdatingHome, setIsUpdatingHome] = useState(false);
   const homeSet = user?.homeLatitude != null;
 
   const handleUpdateHomeBase = useCallback(async () => {
     if (!userLocation) return;
-    setIsUpdatingHome(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      await apiClient.sidequests.setHomeAnchor(
-        userLocation[1],
-        userLocation[0],
-      );
+      await apiClient.sidequests.setHomeAnchor(userLocation[1], userLocation[0]);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setIsUpdatingHome(false);
     }
   }, [userLocation]);
 
-  const fetchDeckStats = useCallback(async () => {
-    try {
-      const stats = await apiClient.deckStats.getStats();
-      setDeckStats(stats);
-    } catch (err) {
-      console.error("[UserProfile] Failed to fetch deck stats:", err);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchDeckStats();
-  }, [fetchDeckStats]);
-
-  const completionsRefetchRef = useRef<(() => Promise<void>) | null>(null);
-
+  // Refresh
   const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await Promise.all([
-        refetch(),
-        refetchStats(),
-        refetchInsights(),
-        fetchDeckStats(),
-        useActiveItineraryStore.getState().refresh(),
-        completionsRefetchRef.current?.(),
-      ]);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [refetch, refetchStats, refetchInsights, fetchDeckStats]);
-
+    await Promise.all([
+      refetch(),
+      refetchInsights(),
+      refetchPathways(),
+      fetchCoverage(),
+      fetchWorldSize(),
+      useActiveItineraryStore.getState().refresh(),
+    ]);
+  }, [refetch, refetchInsights, refetchPathways, fetchCoverage, fetchWorldSize]);
 
   const handleSearch = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push("/search" as const);
   }, [router]);
 
-  const handleTabPress = useCallback((tab: ProfileTab) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActiveTab(tab);
-  }, []);
+  if (loading) {
+    return (
+      <Screen showBackButton onBack={handleBack}>
+        <View style={s.centered}>
+          <ActivityIndicator size="large" color={colors.text.primary} />
+        </View>
+      </Screen>
+    );
+  }
 
-  /* ─── Tab renderers ─── */
+  const memberSince = profileData?.createdAt
+    ? new Date(profileData.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+    : "";
 
-  const renderAdventuresTab = () => (
-    <>
-      {/* Deck Composition */}
-      <View style={styles.tabSection}>
-        <DeckComposition data={deckStats} />
-      </View>
-
-      {/* Recent Completions (rate unrated) */}
-      <View style={styles.tabSection}>
-        <RecentCompletions onRefetchRef={completionsRefetchRef} />
-      </View>
-    </>
-  );
-
-  const renderInsightsTab = () => (
-    <>
-      {/* Adventure Streak (visual calendar) */}
-      {(profileData?.currentStreak ||
-        profileData?.longestStreak ||
-        (insights?.streakCalendar && insights.streakCalendar.length > 0)) && (
-        <Animated.View
-          entering={FadeIn.duration(duration.normal)}
-          style={styles.tabSection}
-        >
-          <StreakCalendar
-            data={insights?.streakCalendar ?? []}
+  return (
+    <Screen isScrollable={false} showBackButton onBack={handleBack} noAnimation>
+      <PullToActionScrollView
+        onSearch={handleSearch}
+        onRefresh={handleRefresh}
+        contentContainerStyle={s.scrollContent}
+      >
+        {/* 1. Journey Header */}
+        <Animated.View entering={FadeInDown.delay(80).duration(400)}>
+          <JourneyHeader
+            firstName={profileData?.firstName ?? ""}
+            memberSince={memberSince}
+            worldSizeSqMi={worldSize?.areaSqMiles ?? coverage?.stats?.territorySqMiles ?? null}
+            comfortRadiusMiles={profileData?.comfortRadiusMiles ?? null}
+            totalXp={profileData?.totalXp ?? 0}
             currentStreak={profileData?.currentStreak ?? 0}
             longestStreak={profileData?.longestStreak ?? 0}
           />
         </Animated.View>
-      )}
 
-      {/* Activity Heatmap */}
-      <Animated.View
-        entering={FadeIn.duration(duration.normal).delay(80)}
-        style={styles.tabSection}
-      >
-        <ActivityHeatmap data={insights?.activityHeatmap ?? []} />
-      </Animated.View>
+        {/* 2. Active Quest Banner */}
+        <Animated.View entering={FadeInDown.delay(160).duration(400)}>
+          <ActiveQuestBanner />
+        </Animated.View>
 
-      {/* Venue DNA */}
-      <Animated.View
-        entering={FadeIn.duration(duration.normal).delay(160)}
-        style={styles.tabSection}
-      >
-        <VenueDnaChart data={insights?.venueDna ?? []} />
-      </Animated.View>
+        {/* 3. Pathways */}
+        <Animated.View entering={FadeInDown.delay(240).duration(400)}>
+          <PathwayRadar
+            pathways={pathwayData?.pathways ?? []}
+            globalPhase={pathwayData?.globalPhase ?? "bfs"}
+          />
+        </Animated.View>
 
-      {/* Adventure DNA (Vibes & Intentions) */}
-      <Animated.View
-        entering={FadeIn.duration(duration.normal).delay(200)}
-        style={styles.tabSection}
-      >
-        <AdventureDnaChart
-          vibes={insights?.vibeDna ?? []}
-          intentions={insights?.intentionDna ?? []}
-        />
-      </Animated.View>
-
-      {/* Adventure Footprint */}
-      <Animated.View
-        entering={FadeIn.duration(duration.normal).delay(240)}
-        style={styles.tabSection}
-      >
-        <AdventureFootprint
-          footprint={
-            insights?.footprint ?? {
-              totalDistanceMiles: 0,
-              totalCheckins: 0,
-              totalCompletedItineraries: 0,
-              totalUniqueVenues: 0,
-              totalStopsVisited: 0,
-              avgStopsPerItinerary: 0,
-              cities: [],
-            }
-          }
-        />
-      </Animated.View>
-      {/* Stats */}
-      <Animated.View
-        entering={FadeIn.duration(duration.normal).delay(320)}
-        style={styles.tabSection}
-      >
-        <UserStatsCard stats={stats} isLoading={statsLoading} />
-      </Animated.View>
-    </>
-  );
-
-  const renderSettingsTab = () => (
-    <>
-      {/* Account */}
-      <View style={styles.tabSection}>
-        <Text style={styles.sectionLabel}>ACCOUNT</Text>
-        <View style={styles.inlineRow}>
-          <Text style={styles.inlineRowLabel}>Email</Text>
-          <Text style={styles.inlineRowValue} numberOfLines={1}>
-            {user?.email}
-          </Text>
-        </View>
-        {profileData?.bio ? (
-          <View style={styles.inlineRow}>
-            <Text style={styles.inlineRowLabel}>Bio</Text>
-            <Text style={styles.inlineRowValue} numberOfLines={2}>
-              {profileData.bio}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      {/* Adventure Preferences */}
-      <View style={styles.tabSection}>
-        <Text style={styles.sectionLabel}>PREFERENCES</Text>
-        <AdventurePreferences />
-      </View>
-
-      {/* Home Base */}
-      <View style={styles.tabSection}>
-        <Text style={styles.sectionLabel}>HOME BASE</Text>
-        <View style={styles.inlineRow}>
-          <Text style={styles.inlineRowLabel}>Status</Text>
-          <Text style={styles.inlineRowValue}>
-            {homeSet ? "\u{1F3E0} Set" : "\u26A0\uFE0F Not set"}
-          </Text>
-        </View>
-        {user?.comfortRadiusMiles && (
-          <View style={styles.inlineRow}>
-            <Text style={styles.inlineRowLabel}>Comfort radius</Text>
-            <Text style={styles.inlineRowValue}>
-              {Number(user.comfortRadiusMiles).toFixed(1)} mi
-            </Text>
-          </View>
+        {/* 4. Social Growth */}
+        {insights?.socialGrowth && insights.socialGrowth.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(320).duration(400)}>
+            <SocialGrowth
+              data={insights.socialGrowth}
+              timeline={insights.socialTimeline}
+            />
+          </Animated.View>
         )}
-        <Pressable
-          style={styles.inlineAction}
-          onPress={handleUpdateHomeBase}
-          disabled={!userLocation || isUpdatingHome}
-        >
-          <Text style={[styles.inlineRowLabel, { color: colors.accent.primary }]}>
-            {isUpdatingHome
-              ? "Updating..."
-              : homeSet
-                ? "Update to current location"
-                : "Set to current location"}
-          </Text>
-          <ChevronRight size={14} color={colors.accent.primary} />
-        </Pressable>
-      </View>
 
-      {/* Actions */}
-      <View style={styles.tabSection}>
-        <Pressable
-          style={styles.inlineAction}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            handleLogout();
-          }}
-        >
-          <Text style={styles.signOutText}>Sign Out</Text>
-          <ChevronRight size={14} color={colors.text.secondary} />
-        </Pressable>
-        <Pressable
-          style={[
-            styles.inlineAction,
-            __DEV__ ? undefined : styles.inlineActionLast,
-          ]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setShowDeleteDialog(true);
-          }}
-        >
-          <Text style={styles.deleteText}>Delete Account</Text>
-          <ChevronRight size={14} color={colors.status.error.text} />
-        </Pressable>
-      </View>
-    </>
-  );
+        {/* 5. Venue DNA — only show if no pathways yet (radar replaces it) */}
+        {(!pathwayData?.pathways?.length) && insights?.venueDna && insights.venueDna.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+            <VenueDnaChart data={insights.venueDna} />
+          </Animated.View>
+        )}
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case "adventures":
-        return renderAdventuresTab();
-      case "insights":
-        return renderInsightsTab();
-      case "settings":
-        return renderSettingsTab();
-    }
-  };
+        {/* 6. Territory Map */}
+        <Animated.View entering={FadeInDown.delay(480).duration(400)}>
+          <CoverageWidget data={coverage} />
+        </Animated.View>
 
-  return (
-    <>
-      <Screen
-        isScrollable={false}
-        showBackButton={false}
-        noAnimation
-        bottomContent={<PrescribeQuestCard />}
-      >
-        <PullToActionScrollView
-          onSearch={handleSearch}
-          onRefresh={handleRefresh}
-          isRefreshing={isRefreshing}
-        >
-          {loading && (
-            <Animated.View
-              exiting={FadeOut.duration(duration.fast)}
-              style={styles.loadingContainer}
-            >
-              <ActivityIndicator size="large" color={colors.accent.primary} />
-              <Text style={styles.loadingText}>Loading profile...</Text>
-            </Animated.View>
-          )}
-
-          {!loading && (
-            <>
-              {/* Hero: Deck Summary */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal)}
-                style={styles.heroSection}
-              >
-                <DeckHero
-                  data={deckStats}
-                  totalXp={profileData?.totalXp || 0}
-                  currentStreak={profileData?.currentStreak || 0}
-                  longestStreak={profileData?.longestStreak || 0}
-                />
-              </Animated.View>
-
-              {/* Hero: Active Quest Banner */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(100)}
-                style={styles.heroSection}
-              >
-                <ActiveQuestBanner />
-              </Animated.View>
-
-              {/* Tab bar */}
-              <Animated.View
-                entering={FadeIn.duration(duration.normal).delay(160)}
-              >
-                <View style={styles.tabBar}>
-                  {TABS.map((tab) => {
-                    const isActive = activeTab === tab.key;
-                    return (
-                      <Pressable
-                        key={tab.key}
-                        style={[
-                          styles.tabButton,
-                          isActive && styles.tabButtonActive,
-                        ]}
-                        onPress={() => handleTabPress(tab.key)}
-                      >
-                        <Text
-                          style={[
-                            styles.tabText,
-                            isActive && styles.tabTextActive,
-                          ]}
-                        >
-                          {tab.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                {/* Tab content */}
-                <Animated.View
-                  key={activeTab}
-                  entering={FadeIn.duration(200)}
-                  exiting={FadeOut.duration(120)}
-                  layout={LinearTransition.duration(250)}
-                >
-                  {renderTabContent()}
-                </Animated.View>
-              </Animated.View>
-            </>
-          )}
-
-          <View style={{ height: 120 }} />
-        </PullToActionScrollView>
-      </Screen>
-
-      <DeleteAccountModalComponent
-        visible={showDeleteDialog}
-        password={password}
-        setPassword={setPassword}
-        deleteError={deleteError}
-        isDeleting={isDeleting}
-        onClose={handleCloseDeleteDialog}
-        onDelete={handleDeleteAccount}
-      />
-    </>
+        {/* 7. Settings */}
+        <Animated.View entering={FadeInDown.delay(560).duration(400)}>
+          <SettingsSection
+            email={profileData?.email ?? ""}
+            bio={profileData?.bio}
+            homeSet={homeSet}
+            comfortRadius={profileData?.comfortRadiusMiles ?? null}
+            onUpdateHome={handleUpdateHomeBase}
+            onLogout={handleLogout}
+            onDeleteAccount={handleDeleteAccount}
+          />
+        </Animated.View>
+      </PullToActionScrollView>
+    </Screen>
   );
 };
 
+export default UserProfile;
+
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
-    loadingContainer: {
+    centered: {
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
-      paddingVertical: spacing["2xl"],
     },
-    loadingText: {
-      marginTop: spacing.sm,
-      color: colors.text.secondary,
-      fontSize: fontSize.sm,
-      fontFamily: fontFamily.mono,
-    },
-    // Hero sections (above tabs)
-    heroSection: {
+    scrollContent: {
       paddingHorizontal: spacing.lg,
-      marginBottom: spacing.md,
-    },
-    // Tab bar — glass pill
-    tabBar: {
-      flexDirection: "row",
-      marginHorizontal: spacing.lg,
-      marginBottom: spacing.md,
-      backgroundColor: "rgba(255, 255, 255, 0.04)",
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.06)",
-      padding: 2,
-    },
-    tabButton: {
-      flex: 1,
-      flexDirection: "row",
-      paddingVertical: spacing.sm,
-      borderRadius: radius.lg - 2,
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 4,
-    },
-    tabButtonActive: {
-      backgroundColor: "rgba(255, 255, 255, 0.06)",
-    },
-    tabText: {
-      fontSize: fontSize.xs,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.secondary,
-    },
-    tabTextActive: {
-      color: colors.text.primary,
-    },
-    // Tab content sections — glass cards
-    tabSection: {
-      marginHorizontal: spacing.lg,
-      marginBottom: spacing.md,
-      backgroundColor: "rgba(255, 255, 255, 0.03)",
-      borderRadius: radius.xl,
-      borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.05)",
-      padding: spacing.lg,
-    },
-    sectionLabel: {
-      fontSize: 9,
-      fontWeight: fontWeight.bold,
-      color: colors.text.disabled,
-      fontFamily: fontFamily.mono,
-      letterSpacing: 1.5,
-      marginBottom: spacing.md,
-    },
-    inlineRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      paddingVertical: spacing.sm,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: "rgba(255, 255, 255, 0.05)",
-    },
-    inlineRowLabel: {
-      fontSize: fontSize.sm,
-      color: colors.text.secondary,
-      fontFamily: fontFamily.mono,
-      marginRight: spacing.lg,
-    },
-    inlineRowValue: {
-      flex: 1,
-      fontSize: fontSize.sm,
-      color: colors.text.primary,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.medium,
-      textAlign: "right",
-    },
-    // Inline actions
-    inlineAction: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      paddingVertical: spacing.sm,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: "rgba(255, 255, 255, 0.05)",
-    },
-    inlineActionLast: {
-      borderBottomWidth: 0,
-    },
-    signOutText: {
-      color: colors.text.primary,
-      fontSize: fontSize.sm,
-      fontWeight: fontWeight.medium,
-      fontFamily: fontFamily.mono,
-    },
-    deleteText: {
-      color: colors.status.error.text,
-      fontSize: fontSize.sm,
-      fontWeight: fontWeight.medium,
-      fontFamily: fontFamily.mono,
+      paddingBottom: spacing.xl * 3,
+      gap: spacing.xl * 2,
     },
   });
-
-export default UserProfile;

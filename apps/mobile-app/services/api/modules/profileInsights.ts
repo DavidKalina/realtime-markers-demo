@@ -36,11 +36,18 @@ export interface IntentionCount {
   pct: number;
 }
 
+export interface SocialGrowthEntry {
+  context: string;
+  count: number;
+}
+
 export interface ProfileInsightsResponse {
   activityHeatmap: ActivityDay[];
   venueDna: VenueCategory[];
   vibeDna: VibeCount[];
   intentionDna: IntentionCount[];
+  socialGrowth: SocialGrowthEntry[];
+  socialTimeline: string[];
   streakCalendar: WeekActivity[];
   footprint: {
     totalDistanceMiles: number;

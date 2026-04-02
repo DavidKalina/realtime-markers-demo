@@ -80,8 +80,10 @@ const ParallaxWidget: React.FC<{
     transform: [{ translateY: -scrollY.value * (1 - rate) }],
   }));
   return (
-    <Animated.View entering={FadeInDown.delay(enterDelay).duration(400)} style={style}>
-      {children}
+    <Animated.View entering={FadeInDown.delay(enterDelay).duration(400)}>
+      <Animated.View style={style}>
+        {children}
+      </Animated.View>
     </Animated.View>
   );
 };

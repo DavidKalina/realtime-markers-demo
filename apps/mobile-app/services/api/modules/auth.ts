@@ -1,7 +1,6 @@
 import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
 import { User, AuthTokens, LoginResponse } from "../base/types";
-import { apiClient } from "../../ApiClient";
 
 export class AuthModule extends BaseApiModule {
   constructor(client: BaseApiClient) {
@@ -325,6 +324,3 @@ export class AuthModule extends BaseApiModule {
   }
 }
 
-// Export as singleton using the main ApiClient instance
-export const authModule = new AuthModule(apiClient);
-export default authModule;

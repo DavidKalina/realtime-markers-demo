@@ -4,6 +4,7 @@ import { getUserStats } from "../handlers/userStatsHandler";
 import { getProfileInsights } from "../handlers/profileInsightsHandler";
 import { submitOnboardingProfile } from "../handlers/onboardingProfileHandler";
 import { getCoverageHandler } from "../handlers/coverageHandler";
+import { getPathways } from "../handlers/pathwayHandler";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";
@@ -31,6 +32,7 @@ usersRouter.get("/me/stats", authMiddleware, getUserStats);
 
 usersRouter.get("/me/profile-insights", authMiddleware, getProfileInsights);
 usersRouter.get("/me/coverage", authMiddleware, getCoverageHandler);
+usersRouter.get("/me/pathways", authMiddleware, getPathways);
 usersRouter.post(
   "/me/onboarding-profile",
   authMiddleware,

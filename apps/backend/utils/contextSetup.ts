@@ -22,6 +22,7 @@ export function setupContext(
     c.set("overpassService", services.overpassService);
     c.set("comfortZoneService", services.comfortZoneService);
     c.set("coverageService", services.coverageService);
+    c.set("pathwayService", services.pathwayService);
 
     await next();
   });

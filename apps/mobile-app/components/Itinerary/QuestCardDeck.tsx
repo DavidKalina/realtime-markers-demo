@@ -222,6 +222,8 @@ interface QuestCardDeckProps {
   onToggleMarkForDelete?: (option: SidequestResponse) => void;
   /** Batch-delete: IDs currently animating their discard */
   batchDiscardingIds?: Set<string> | null;
+  /** Called when the visible card changes (swipe snap) */
+  onActiveIndexChange?: (index: number) => void;
 }
 
 // --- Diagonal card sheen sweep (Skia shader) ---
@@ -718,6 +720,9 @@ const QuestCard: React.FC<{
     return (
       <Animated.View
         layout={LinearTransition.springify().damping(28).stiffness(180)}
+        style={{ width: CARD_WIDTH, height: CARD_HEIGHT, overflow: "visible" }}
+      >
+      <Animated.View
         style={[
           { width: CARD_WIDTH, height: CARD_HEIGHT, overflow: "visible" },
           animatedStyle,
@@ -975,6 +980,7 @@ const QuestCard: React.FC<{
           </Animated.View>
         </GestureDetector>
       </Animated.View>
+      </Animated.View>
     );
   },
 );
@@ -1163,6 +1169,7 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
   markedForDeleteIds,
   onToggleMarkForDelete,
   batchDiscardingIds,
+  onActiveIndexChange,
 }) => {
   const colors = useColors();
   const s = useMemo(() => createDeckStyles(colors), [colors]);
@@ -1242,6 +1249,11 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
     [isSelecting, onSelect],
   );
 
+  const notifyActiveIndex = useCallback(
+    (idx: number) => onActiveIndexChange?.(idx),
+    [onActiveIndexChange],
+  );
+
   const onSnapComplete = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     sheenTrigger.value = sheenTrigger.value + 1;
@@ -1280,6 +1292,10 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
 
       const changed = snapIdx !== activeIdx.value;
       activeIdx.value = snapIdx;
+
+      if (changed) {
+        scheduleOnRN(notifyActiveIndex, snapIdx);
+      }
 
       // Adaptive spring: harder swipes are faster but heavily damped (no bounce)
       const intensity = Math.min(absVel / 1500, 1); // 0..1

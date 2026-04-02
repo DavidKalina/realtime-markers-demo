@@ -6,8 +6,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { ChevronRight } from "lucide-react-native";
+import { ChevronRight, MapPin, Navigation } from "lucide-react-native";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
+import { getCategoryColor } from "@/utils/categoryColors";
 import {
   useColors,
   type Colors,
@@ -18,88 +19,97 @@ import {
   radius,
 } from "@/theme";
 
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}
+
 const ActiveQuestBanner: React.FC = () => {
   const colors = useColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const itinerary = useActiveItineraryStore((s) => s.itinerary);
 
-  if (!itinerary) {
-    return (
-      <Pressable
-        style={styles.ctaContainer}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push("/itineraries?expand=1" as const);
-        }}
-      >
-        <Text style={styles.ctaText}>Start a sidequest</Text>
-        <ChevronRight size={14} color={colors.text.secondary} />
-      </Pressable>
-    );
-  }
-
-  const items = itinerary.objectives || [];
+  const items = itinerary?.objectives || [];
   const checked = items.filter((i) => i.checkedInAt).length;
   const total = items.length;
   const allComplete = total > 0 && checked === total;
   const progress = total > 0 ? checked / total : 0;
 
-  // Find next unchecked stop
   const nextStop = items
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .find((i) => !i.checkedInAt);
 
+  const category = nextStop?.venueCategory ?? items[0]?.venueCategory ?? "other";
+  const accent = getCategoryColor(category);
+  const [ar, ag, ab] = useMemo(() => hexToRgb(accent), [accent]);
+
+  const s = useMemo(() => createStyles(colors, accent, ar, ag, ab), [colors, accent, ar, ag, ab]);
+
   const handlePress = () => {
+    if (!itinerary) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(`/itineraries/${itinerary.id}` as const);
   };
 
+  if (!itinerary) {
+    return null;
+  }
+
   return (
-    <Pressable style={styles.container} onPress={handlePress}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title} numberOfLines={1}>
+    <Pressable style={s.container} onPress={handlePress}>
+      {/* Accent stripe */}
+      <View style={s.accentStripe} />
+
+      <View style={s.content}>
+        {/* Header */}
+        <View style={s.headerRow}>
+          <View style={s.labelPill}>
+            <Text style={s.labelText}>ACTIVE QUEST</Text>
+          </View>
+          <Navigation size={14} color={accent} />
+        </View>
+
+        {/* Title */}
+        <Text style={s.title} numberOfLines={1}>
           {itinerary.title || "Active Adventure"}
         </Text>
-        <ChevronRight size={14} color={colors.text.secondary} />
-      </View>
 
-      {/* Progress bar */}
-      <View style={styles.progressTrack}>
-        <ProgressFill progress={progress} />
-      </View>
-
-      <View style={styles.progressLabel}>
-        <Text style={styles.progressText}>
-          {allComplete ? "Adventure complete!" : `${checked}/${total} stops`}
-        </Text>
-      </View>
-
-      {/* Next stop preview */}
-      {nextStop && !allComplete && (
-        <View style={styles.nextStopRow}>
-          <Text style={styles.nextStopEmoji}>
-            {nextStop.emoji || "\u{1F4CD}"}
-          </Text>
-          <View style={styles.nextStopInfo}>
-            <Text style={styles.nextStopName} numberOfLines={1}>
-              {nextStop.title}
-            </Text>
-            {nextStop.travelNote && (
-              <Text style={styles.nextStopTravel} numberOfLines={1}>
-                {nextStop.travelNote}
-              </Text>
-            )}
+        {/* Progress */}
+        <View style={s.progressRow}>
+          <View style={s.progressTrack}>
+            <ProgressFill progress={progress} accent={accent} />
           </View>
+          <Text style={s.progressText}>
+            {allComplete ? "Done!" : `${checked}/${total}`}
+          </Text>
         </View>
-      )}
+
+        {/* Next stop */}
+        {nextStop && !allComplete && (
+          <View style={s.nextRow}>
+            <Text style={s.nextEmoji}>{nextStop.emoji || "\uD83D\uDCCD"}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.nextName} numberOfLines={1}>
+                {nextStop.venueName || nextStop.title}
+              </Text>
+              {nextStop.venueCategory && (
+                <Text style={s.nextCategory}>{nextStop.venueCategory}</Text>
+              )}
+            </View>
+            <ChevronRight size={16} color={colors.text.secondary} />
+          </View>
+        )}
+      </View>
     </Pressable>
   );
 };
 
-const ProgressFill: React.FC<{ progress: number }> = ({ progress }) => {
-  const colors = useColors();
+const ProgressFill: React.FC<{ progress: number; accent: string }> = ({ progress, accent }) => {
   const animStyle = useAnimatedStyle(() => ({
     width: withTiming(`${Math.round(progress * 100)}%` as unknown as number, {
       duration: 600,
@@ -111,8 +121,8 @@ const ProgressFill: React.FC<{ progress: number }> = ({ progress }) => {
       style={[
         {
           height: "100%",
-          borderRadius: 3,
-          backgroundColor: colors.accent.primary,
+          borderRadius: 2,
+          backgroundColor: accent,
         },
         animStyle,
       ]}
@@ -120,79 +130,93 @@ const ProgressFill: React.FC<{ progress: number }> = ({ progress }) => {
   );
 };
 
-const createStyles = (colors: Colors) =>
+const createStyles = (
+  colors: Colors,
+  accent: string,
+  ar: number,
+  ag: number,
+  ab: number,
+) =>
   StyleSheet.create({
     container: {
-      backgroundColor: colors.bg.elevated,
       borderRadius: radius.lg,
-      padding: spacing.md,
+      overflow: "hidden",
       borderWidth: 1,
-      borderColor: colors.border.default,
-      gap: spacing.sm,
+      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.2)`,
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.04)`,
     },
-    ctaContainer: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      paddingVertical: spacing.md,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.border.default,
+    accentStripe: {
+      height: 3,
+      backgroundColor: accent,
     },
-    ctaText: {
-      fontSize: fontSize.sm,
-      color: colors.text.secondary,
-      fontFamily: fontFamily.mono,
+    content: {
+      padding: spacing.lg,
+      gap: spacing.md,
     },
     headerRow: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
     },
+    labelPill: {
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.12)`,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.full,
+    },
+    labelText: {
+      fontSize: 9,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: accent,
+      letterSpacing: 1.5,
+    },
     title: {
-      flex: 1,
-      fontSize: fontSize.sm,
+      fontSize: 16,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
       color: colors.text.primary,
-      marginRight: spacing.sm,
+      lineHeight: 22,
     },
-    progressTrack: {
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: colors.border.medium,
-      overflow: "hidden",
-    },
-    progressLabel: {
-      flexDirection: "row",
-      justifyContent: "flex-end",
-    },
-    progressText: {
-      fontSize: fontSize.xs,
-      fontFamily: fontFamily.mono,
-      color: colors.text.label,
-    },
-    nextStopRow: {
+    progressRow: {
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.sm,
-      paddingTop: spacing.xs,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border.default,
     },
-    nextStopEmoji: {
-      fontSize: 18,
-    },
-    nextStopInfo: {
+    progressTrack: {
       flex: 1,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.12)`,
+      overflow: "hidden",
     },
-    nextStopName: {
-      fontSize: fontSize.sm,
+    progressText: {
+      fontSize: 10,
+      fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.medium,
+      color: accent,
+      minWidth: 28,
+      textAlign: "right",
+    },
+    nextRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      paddingTop: spacing.sm,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: `rgba(${ar}, ${ag}, ${ab}, 0.12)`,
+    },
+    nextEmoji: {
+      fontSize: 22,
+    },
+    nextName: {
+      fontSize: 13,
+      fontWeight: fontWeight.semibold,
+      fontFamily: fontFamily.mono,
       color: colors.text.primary,
     },
-    nextStopTravel: {
-      fontSize: fontSize.xs,
+    nextCategory: {
+      fontSize: 10,
       fontFamily: fontFamily.mono,
       color: colors.text.secondary,
       marginTop: 1,

@@ -13,6 +13,7 @@ import type { EmbeddingServiceImpl } from "../services/shared/EmbeddingService";
 import type { DistrictService } from "../services/DistrictService";
 import type { ComfortZoneService } from "../services/ComfortZoneService";
 import type { CoverageService } from "../services/CoverageService";
+import type { PathwayService } from "../services/PathwayService";
 
 export interface AppVariables {
   storageService: StorageService;
@@ -30,6 +31,7 @@ export interface AppVariables {
   districtService: DistrictService;
   comfortZoneService: ComfortZoneService;
   coverageService: CoverageService;
+  pathwayService: PathwayService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

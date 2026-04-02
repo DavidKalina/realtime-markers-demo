@@ -107,8 +107,8 @@ const ForgotPasswordScreen: React.FC = () => {
           >
             <AppHeader />
 
+            <Animated.View entering={FadeInDown.duration(600).delay(300).springify()}>
             <Animated.View
-              entering={FadeInDown.duration(600).delay(300).springify()}
               layout={LinearTransition.springify()}
               style={styles.formContainer}
             >
@@ -176,6 +176,7 @@ const ForgotPasswordScreen: React.FC = () => {
                   </TouchableOpacity>
                 </View>
               </Animated.View>
+            </Animated.View>
             </Animated.View>
           </Animated.View>
         </ScrollView>

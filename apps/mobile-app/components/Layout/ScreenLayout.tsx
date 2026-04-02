@@ -1,11 +1,11 @@
 import React, { useMemo } from "react";
 import {
-  SafeAreaView,
   StyleSheet,
   StatusBar,
   View,
   ViewStyle,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useColors, useTheme, type Colors } from "@/theme";
 

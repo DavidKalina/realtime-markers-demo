@@ -258,7 +258,7 @@ const Screen = <T extends string>({
             style={
               footerButtons.length > 0
                 ? styles.bottomContentWrapper
-                : styles.fixedBottomContent
+                : [styles.fixedBottomContent, !noSafeArea && { bottom: -insets.bottom }]
             }
           >
             {bottomContent}

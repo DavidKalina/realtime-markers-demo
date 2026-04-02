@@ -9,7 +9,7 @@ import {
   type XPAwardedEvent,
   type LevelUpdateEvent,
 } from "../services/EventBroker";
-import { invalidateProfileCache } from "../hooks/useProfile";
+import { invalidateProfileCache } from "../hooks/profileCache";
 
 interface AuthContextType {
   user: User | null;

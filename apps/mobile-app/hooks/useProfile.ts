@@ -3,26 +3,14 @@ import { apiClient, User } from "@/services/ApiClient";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import {
+  CACHE_TTL,
+  type CacheEntry,
+  globalCache,
+  invalidateProfileCache,
+} from "./profileCache";
 
-// Cache TTL in milliseconds (5 minutes)
-const CACHE_TTL = 5 * 60 * 1000;
-
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-}
-
-interface Cache {
-  profile?: CacheEntry<User>;
-}
-
-// Global cache instance
-const globalCache: Cache = {};
-
-/** Invalidate the profile cache so the next render refetches from the server. */
-export function invalidateProfileCache(): void {
-  delete globalCache.profile;
-}
+export { invalidateProfileCache };
 
 // Request queue to prevent concurrent requests
 let requestQueue: Promise<void> = Promise.resolve();

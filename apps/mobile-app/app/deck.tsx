@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -160,7 +160,7 @@ const DeckScreen = () => {
     null,
   );
 
-  const activeCardRef = useRef(0);
+  const [activeCardIndex, setActiveCardIndex] = useState(0);
 
   // Memory modal for reviewing completed quests
   const [memoryCard, setMemoryCard] = useState<SidequestResponse | null>(null);
@@ -188,6 +188,10 @@ const DeckScreen = () => {
 
   // Tap a card → open memory modal, or capture modal if data is missing
   const handleCardPress = useCallback((card: SidequestResponse) => {
+    // Track which card is active for promote
+    const idx = cards.findIndex((c) => c.id === card.id);
+    if (idx >= 0) setActiveCardIndex(idx);
+
     // Check if any objective needs data capture
     const uncaptured = (card.objectives ?? []).find(
       (o) => o.checkedInAt && !o.journalEntry && !o.completedActivity,
@@ -207,10 +211,10 @@ const DeckScreen = () => {
     // Otherwise open the memory view
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setMemoryCard(card);
-  }, []);
+  }, [cards]);
 
   const handlePromote = useCallback(() => {
-    const card = cards[activeCardRef.current];
+    const card = cards[activeCardIndex];
     if (!card || overlayVisible || card.promotedAt) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
@@ -218,7 +222,7 @@ const DeckScreen = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setPromotingCard(card);
     setOverlayVisible(true);
-  }, [cards, overlayVisible]);
+  }, [cards, activeCardIndex, overlayVisible]);
 
   const handleMidpoint = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
@@ -248,7 +252,7 @@ const DeckScreen = () => {
     setPromotingCard(null);
   }, []);
 
-  const activeCard = cards[activeCardRef.current];
+  const activeCard = cards[activeCardIndex];
   const canPromote =
     !overlayVisible && activeCard && !activeCard.promotedAt;
 
@@ -285,6 +289,7 @@ const DeckScreen = () => {
             mode="browse"
             hideHeader
             onPress={handleCardPress}
+            onActiveIndexChange={setActiveCardIndex}
           />
         )}
       </View>

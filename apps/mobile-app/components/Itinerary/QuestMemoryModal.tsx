@@ -86,11 +86,10 @@ const ParallaxWidget: React.FC<{
   });
 
   return (
-    <Animated.View
-      entering={FadeInDown.delay(enterDelay).duration(400)}
-      style={parallaxStyle}
-    >
-      {children}
+    <Animated.View entering={FadeInDown.delay(enterDelay).duration(400)}>
+      <Animated.View style={parallaxStyle}>
+        {children}
+      </Animated.View>
     </Animated.View>
   );
 };

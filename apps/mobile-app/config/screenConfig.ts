@@ -30,28 +30,7 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
     name: "onboarding",
     options: { animation: "fade_from_bottom", animationDuration: 300 },
   },
-  { name: "scan" },
   { name: "user" },
-  {
-    name: "search/index",
-    options: { presentation: "modal" },
-  },
-{
-    name: "category/[id]",
-    options: { animation: "slide_from_right", animationDuration: 250 },
-  },
-  {
-    name: "details",
-    options: { animation: "slide_from_right", animationDuration: 250 },
-  },
-  {
-    name: "area-scan",
-    options: { animation: "fade_from_bottom", animationDuration: 250 },
-  },
-  {
-    name: "batch-upload",
-    options: { animation: "slide_from_right", animationDuration: 250 },
-  },
   {
     name: "itineraries/index",
     options: { animation: "fade", animationDuration: 150 },
@@ -59,14 +38,6 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
   {
     name: "itineraries/[id]",
     options: { animation: "slide_from_right", animationDuration: 250 },
-  },
-  {
-    name: "trail",
-    options: { animation: "slide_from_right", animationDuration: 250 },
-  },
-  {
-    name: "coverage",
-    options: { animation: "fade", animationDuration: 150 },
   },
   { name: "+not-found" },
 ] as const;
