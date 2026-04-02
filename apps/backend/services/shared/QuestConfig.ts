@@ -47,6 +47,7 @@ export interface ResonanceWeights {
 
 export interface ResonanceConfig {
   weights: ResonanceWeights;
+  goalWeights: Record<string, ResonanceWeights>;
   journalMaxChars: number;
   speedMaxHours: number;
   idealDifficultyByPace: Record<string, number>;
@@ -107,6 +108,32 @@ export const DEFAULT_QUEST_CONFIG: QuestConfig = {
       socialEscalation: 0.15,
       speedToCompletion: 0.15,
       difficultyAlignment: 0.10,
+    },
+    goalWeights: {
+      "Meet people": {
+        rating: 0.35, journalDepth: 0.20, socialEscalation: 0.30,
+        speedToCompletion: 0.05, difficultyAlignment: 0.10,
+      },
+      "Explore my area": {
+        rating: 0.35, journalDepth: 0.15, socialEscalation: 0.10,
+        speedToCompletion: 0.25, difficultyAlignment: 0.15,
+      },
+      "Get active": {
+        rating: 0.35, journalDepth: 0.15, socialEscalation: 0.15,
+        speedToCompletion: 0.20, difficultyAlignment: 0.15,
+      },
+      "Build a routine": {
+        rating: 0.35, journalDepth: 0.20, socialEscalation: 0.15,
+        speedToCompletion: 0.20, difficultyAlignment: 0.10,
+      },
+      "Pick up a new skill": {
+        rating: 0.35, journalDepth: 0.25, socialEscalation: 0.15,
+        speedToCompletion: 0.10, difficultyAlignment: 0.15,
+      },
+      "Decompress": {
+        rating: 0.35, journalDepth: 0.30, socialEscalation: 0.05,
+        speedToCompletion: 0.10, difficultyAlignment: 0.20,
+      },
     },
     journalMaxChars: 500,
     speedMaxHours: 168,

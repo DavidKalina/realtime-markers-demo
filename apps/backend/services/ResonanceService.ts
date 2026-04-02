@@ -33,6 +33,7 @@ export interface ResonanceInput {
   distanceFromHome: number | null;
   userPace: string;
   previousSocialContexts: string[];
+  goalTags?: string[];
 }
 
 export interface ResonanceComponents {
@@ -50,13 +51,44 @@ export interface ResonanceResult {
   venueCategory?: string | null;
 }
 
+// ── Weight blending ──────────────────────────────────────────
+
+function blendWeightsForGoals(
+  defaults: ResonanceWeights,
+  goalWeights: Record<string, ResonanceWeights>,
+  goalTags?: string[],
+): ResonanceWeights {
+  if (!goalTags || goalTags.length === 0) return defaults;
+
+  const matched = goalTags
+    .map((tag) => goalWeights[tag])
+    .filter(Boolean) as ResonanceWeights[];
+
+  if (matched.length === 0) return defaults;
+
+  // Average all matching goal weight profiles
+  const blended: ResonanceWeights = {
+    rating: matched.reduce((s, w) => s + w.rating, 0) / matched.length,
+    journalDepth: matched.reduce((s, w) => s + w.journalDepth, 0) / matched.length,
+    socialEscalation: matched.reduce((s, w) => s + w.socialEscalation, 0) / matched.length,
+    speedToCompletion: matched.reduce((s, w) => s + w.speedToCompletion, 0) / matched.length,
+    difficultyAlignment: matched.reduce((s, w) => s + w.difficultyAlignment, 0) / matched.length,
+  };
+
+  return blended;
+}
+
 // ── Pure computation (no DB, no side-effects) ────────────────
 
 export function computeResonance(
   input: ResonanceInput,
   config: QuestConfig = DEFAULT_QUEST_CONFIG,
 ): ResonanceResult {
-  const w = config.resonance.weights;
+  const w = blendWeightsForGoals(
+    config.resonance.weights,
+    config.resonance.goalWeights,
+    input.goalTags,
+  );
 
   const ratingSignal = computeRatingSignal(input.rating);
   const journalDepth = computeJournalDepth(input.journalEntry, config.resonance.journalMaxChars);
@@ -205,10 +237,11 @@ class ResonanceServiceImpl implements ResonanceService {
     if (!sidequest) return null;
 
     const user = await this.dataSource.query(
-      `SELECT pace_preference, id FROM users WHERE id = $1`,
+      `SELECT pace_preference, comfort_profile FROM users WHERE id = $1`,
       [sidequest.userId],
     );
     const pace = user[0]?.pace_preference ?? "steady";
+    const goalTags: string[] = user[0]?.comfort_profile?.goalTags ?? [];
 
     // Get previous social contexts for escalation detection
     const prevContexts = await this.getPreviousSocialContexts(sidequest.userId, sidequestId);
@@ -229,6 +262,7 @@ class ResonanceServiceImpl implements ResonanceService {
       distanceFromHome: sidequest.distanceFromHome != null ? Number(sidequest.distanceFromHome) : null,
       userPace: pace,
       previousSocialContexts: prevContexts,
+      goalTags,
     };
 
     const result = computeResonance(input, this.config);
@@ -245,10 +279,11 @@ class ResonanceServiceImpl implements ResonanceService {
     });
 
     const user = await this.dataSource.query(
-      `SELECT pace_preference FROM users WHERE id = $1`,
+      `SELECT pace_preference, comfort_profile FROM users WHERE id = $1`,
       [userId],
     );
     const pace = user[0]?.pace_preference ?? "steady";
+    const goalTags: string[] = user[0]?.comfort_profile?.goalTags ?? [];
 
     const results: ResonanceResult[] = [];
     const seenContexts: string[] = [];
@@ -270,6 +305,7 @@ class ResonanceServiceImpl implements ResonanceService {
         distanceFromHome: sq.distanceFromHome != null ? Number(sq.distanceFromHome) : null,
         userPace: pace,
         previousSocialContexts: [...seenContexts],
+        goalTags,
       };
 
       const result = computeResonance(input, this.config);

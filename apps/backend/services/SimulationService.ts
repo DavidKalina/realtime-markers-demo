@@ -217,6 +217,7 @@ class SimulationServiceImpl implements SimulationService {
         distanceFromHome,
         userPace: persona.pace,
         previousSocialContexts: [...previousSocialContexts],
+        goalTags: persona.goals,
       };
 
       const resonance = computeResonance(resonanceInput, config);
