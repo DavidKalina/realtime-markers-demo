@@ -19,6 +19,7 @@ import Animated, {
 import { scheduleOnRN } from "react-native-worklets";
 import QuestCardDeck from "@/components/Itinerary/QuestCardDeck";
 import { CheckinCaptureModal } from "@/components/Itinerary/CheckinCaptureModal";
+import { QuestMemoryModal } from "@/components/Itinerary/QuestMemoryModal";
 import { apiClient } from "@/services/ApiClient";
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
 import { fontFamily, fontWeight, radius, spacing, useColors } from "@/theme";
@@ -161,6 +162,9 @@ const DeckScreen = () => {
 
   const activeCardRef = useRef(0);
 
+  // Memory modal for reviewing completed quests
+  const [memoryCard, setMemoryCard] = useState<SidequestResponse | null>(null);
+
   // Capture modal for filling in skipped check-in data
   const [captureObjective, setCaptureObjective] = useState<{
     id: string;
@@ -182,21 +186,27 @@ const DeckScreen = () => {
     fetchCards();
   }, [fetchCards]);
 
-  // Tap a card → open capture modal if any objective is missing journal/activity
+  // Tap a card → open memory modal, or capture modal if data is missing
   const handleCardPress = useCallback((card: SidequestResponse) => {
-    const objective = (card.objectives ?? []).find(
+    // Check if any objective needs data capture
+    const uncaptured = (card.objectives ?? []).find(
       (o) => o.checkedInAt && !o.journalEntry && !o.completedActivity,
     );
-    if (objective) {
+    if (uncaptured) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCaptureObjective({
-        id: objective.id,
-        title: objective.title,
-        emoji: objective.emoji,
-        suggestedActivities: objective.suggestedActivities ?? [],
-        journalPrompt: objective.journalPrompt,
+        id: uncaptured.id,
+        title: uncaptured.title,
+        emoji: uncaptured.emoji,
+        suggestedActivities: uncaptured.suggestedActivities ?? [],
+        journalPrompt: uncaptured.journalPrompt,
       });
+      return;
     }
+
+    // Otherwise open the memory view
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setMemoryCard(card);
   }, []);
 
   const handlePromote = useCallback(() => {
@@ -308,6 +318,12 @@ const DeckScreen = () => {
           setCaptureObjective(null);
           fetchCards(); // Refresh to reflect saved data
         }}
+      />
+
+      <QuestMemoryModal
+        quest={memoryCard}
+        visible={!!memoryCard}
+        onDismiss={() => setMemoryCard(null)}
       />
 
       <PromotionOverlay

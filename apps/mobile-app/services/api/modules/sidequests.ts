@@ -24,6 +24,7 @@ export interface ObjectiveResponse {
   journalPrompt?: string;
   journalEntry?: string;
   difficulty?: number;
+  socialContext?: string;
 }
 
 export interface SidequestResponse {
