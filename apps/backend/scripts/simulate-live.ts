@@ -428,6 +428,9 @@ async function main() {
       distanceFromHome: quest.distanceFromHome ? Number(quest.distanceFromHome) : null,
       userPace: persona.pace,
       previousSocialContexts: [...previousSocialContexts],
+      reflectionDepth: null,
+      reflectionSentiment: null,
+      reflectionTags: null,
     };
     const resonance = computeResonance(resonanceInput, DEFAULT_QUEST_CONFIG);
 

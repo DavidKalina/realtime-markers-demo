@@ -61,15 +61,48 @@ const PERSONAS: Record<string, SimulationPersona> = {
     homeLatitude: 40.7128,
     homeLongitude: -74.006,
   },
+
+  "burned-out-ben": {
+    name: "Burned-Out Ben",
+    pace: "gentle",
+    goals: ["unwind", "routine"],
+    barriers: "Depression, exhaustion, everything feels like a chore, doesn't see the point",
+    categoryWeights: { cafe: 0.4, park: 0.25, restaurant: 0.15, trail: 0.1, bar: 0.1 },
+    ratingBias: 0.35,       // rates things low — nothing feels great
+    journalProbability: 0.6, // writes often but without much feeling
+    journalEmotionProbability: 0.2, // rarely writes emotionally
+    socialEscalationRate: 0.05,     // almost never escalates socially
+    difficultyTolerance: 1,         // very low tolerance — everything feels hard
+    completionSpeedHours: 120,      // takes forever to actually go
+    homeLatitude: 40.7128,
+    homeLongitude: -74.006,
+  },
+
+  "breakthrough-bria": {
+    name: "Breakthrough Bria",
+    pace: "steady",
+    goals: ["socialize", "new_skill", "explore"],
+    barriers: "Social anxiety but actively working on it, therapist recommended getting out more",
+    categoryWeights: { cafe: 0.2, museum: 0.2, market: 0.2, venue: 0.15, park: 0.15, bar: 0.1 },
+    ratingBias: 0.5,          // mixed ratings — some things land, some don't
+    journalProbability: 0.85, // journals almost everything — very reflective
+    journalEmotionProbability: 0.75, // high emotional processing
+    socialEscalationRate: 0.25,      // actively pushing social boundaries
+    difficultyTolerance: 2,          // low comfort but pushes anyway
+    completionSpeedHours: 24,        // goes fairly quickly once committed
+    homeLatitude: 40.7128,
+    homeLongitude: -74.006,
+  },
 };
 
 // ── CLI arg parsing ──────────────────────────────────────────
 
-function parseArgs(): { personaKey: string | null; questCount: number; seed: number; configOverrides: Partial<QuestConfig> } {
+function parseArgs(): { personaKey: string | null; questCount: number; seed: number; simulateReflection: boolean; configOverrides: Partial<QuestConfig> } {
   const args = process.argv.slice(2);
   let personaKey: string | null = null;
   let questCount = 20;
   let seed = 42;
+  let simulateReflection = false;
   const configOverrides: Partial<QuestConfig> = {};
 
   for (let i = 0; i < args.length; i++) {
@@ -111,6 +144,9 @@ function parseArgs(): { personaKey: string | null; questCount: number; seed: num
         };
         break;
       }
+      case "--simulate-reflection":
+        simulateReflection = true;
+        break;
       case "--help":
         console.log(`
 Sidequest Journey Simulator
@@ -122,6 +158,7 @@ Options:
                             Default: runs all personas
   --quests <n>              Number of quests to simulate (default: 20)
   --seed <n>                Random seed for reproducibility (default: 42)
+  --simulate-reflection     Simulate LLM reflection analysis (depth, sentiment, tags)
   --dfs-threshold <0-1>     Resonance threshold to trigger DFS (default: 0.7)
   --min-quests-dfs <n>      Min quests in category before DFS (default: 3)
   --pace-multiplier <pace> <n>  Override pace multiplier (e.g., --pace-multiplier gentle 0.3)
@@ -130,12 +167,12 @@ Options:
     }
   }
 
-  return { personaKey, questCount, seed, configOverrides };
+  return { personaKey, questCount, seed, simulateReflection, configOverrides };
 }
 
 // ── Output formatting ────────────────────────────────────────
 
-function printResult(result: SimulationResult): void {
+function printResult(result: SimulationResult, simulateReflection = false): void {
   const { persona, stats, phaseTransitions, pathways, quests } = result;
 
   console.log(`\n${"=".repeat(60)}`);
@@ -194,6 +231,7 @@ function printResult(result: SimulationResult): void {
   const avgComps = {
     rating: result.quests.reduce((s, q) => s + q.resonance.components.ratingSignal, 0) / result.quests.length,
     journal: result.quests.reduce((s, q) => s + q.resonance.components.journalDepth, 0) / result.quests.length,
+    sentiment: result.quests.reduce((s, q) => s + q.resonance.components.sentimentSignal, 0) / result.quests.length,
     social: result.quests.reduce((s, q) => s + q.resonance.components.socialEscalation, 0) / result.quests.length,
     speed: result.quests.reduce((s, q) => s + q.resonance.components.speedSignal, 0) / result.quests.length,
     difficulty: result.quests.reduce((s, q) => s + q.resonance.components.difficultyAlignment, 0) / result.quests.length,
@@ -201,6 +239,7 @@ function printResult(result: SimulationResult): void {
   console.log(`\n  Resonance Components (avg):`);
   console.log(`    Rating:     ${avgComps.rating.toFixed(3)}`);
   console.log(`    Journal:    ${avgComps.journal.toFixed(3)}`);
+  console.log(`    Sentiment:  ${avgComps.sentiment.toFixed(3)}${!simulateReflection ? " (neutral — no LLM in synthetic mode)" : ""}`);
   console.log(`    Social:     ${avgComps.social.toFixed(3)}`);
   console.log(`    Speed:      ${avgComps.speed.toFixed(3)}`);
   console.log(`    Difficulty:  ${avgComps.difficulty.toFixed(3)}`);
@@ -216,7 +255,7 @@ function printResult(result: SimulationResult): void {
 // ── Main ─────────────────────────────────────────────────────
 
 function main(): void {
-  const { personaKey, questCount, seed, configOverrides } = parseArgs();
+  const { personaKey, questCount, seed, simulateReflection, configOverrides } = parseArgs();
 
   const sim = createSimulationService();
   const personasToRun = personaKey
@@ -231,7 +270,7 @@ function main(): void {
 
   console.log(`\nSidequest Journey Simulator`);
   console.log(`Config overrides: ${Object.keys(configOverrides).length > 0 ? JSON.stringify(configOverrides, null, 2) : "none"}`);
-  console.log(`Quests per persona: ${questCount} | Seed: ${seed}`);
+  console.log(`Quests per persona: ${questCount} | Seed: ${seed}${simulateReflection ? " | Reflection: ON" : ""}`);
 
   for (const [, persona] of Object.entries(personasToRun)) {
     const result = sim.runSimulation({
@@ -239,8 +278,9 @@ function main(): void {
       persona,
       questCount,
       seed,
+      simulateReflection,
     });
-    printResult(result);
+    printResult(result, simulateReflection);
   }
 }
 

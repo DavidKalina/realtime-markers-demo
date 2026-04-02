@@ -1,5 +1,7 @@
 import { type DataSource, Not, IsNull } from "typeorm";
 import { User, Objective, Sidequest } from "@realtime-markers/database";
+import { type OpenAIService, OpenAIModel } from "./shared/OpenAIService";
+import { analyzeJournalReflection } from "./ResonanceService";
 
 const DEFAULT_COMFORT_RADIUS_MILES = 2.0;
 const MIN_RADIUS_MILES = 0.5;
@@ -71,13 +73,16 @@ export interface WorldSize {
 
 interface ComfortZoneServiceDeps {
   dataSource: DataSource;
+  openAIService?: OpenAIService;
 }
 
 class ComfortZoneServiceImpl implements ComfortZoneService {
   private dataSource: DataSource;
+  private openAIService?: OpenAIService;
 
   constructor(deps: ComfortZoneServiceDeps) {
     this.dataSource = deps.dataSource;
+    this.openAIService = deps.openAIService;
   }
 
   async detectHomeAnchor(
@@ -416,7 +421,30 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
         .update({ id: objectiveId }, fields);
     }
 
+    // Fire async LLM journal analysis (non-blocking)
+    const journalText = updates.journalEntry ?? objective.journalEntry;
+    if (journalText && this.openAIService) {
+      this.analyzeJournalAsync(objectiveId, journalText).catch((err) =>
+        console.error(`[ComfortZoneService] Journal analysis failed for ${objectiveId}:`, err),
+      );
+    }
+
     return true;
+  }
+
+  private async analyzeJournalAsync(objectiveId: string, journalEntry: string): Promise<void> {
+    if (!this.openAIService) return;
+
+    const analysis = await analyzeJournalReflection(this.openAIService, journalEntry);
+
+    await this.dataSource.getRepository(Objective).update(
+      { id: objectiveId },
+      {
+        reflectionDepth: analysis.depth,
+        reflectionSentiment: analysis.sentiment,
+        reflectionTags: analysis.tags,
+      },
+    );
   }
 
   private weeksSince(lastStreakWeek: string): number {

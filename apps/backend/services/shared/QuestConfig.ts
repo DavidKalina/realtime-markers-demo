@@ -40,6 +40,7 @@ export interface RarityConfig {
 export interface ResonanceWeights {
   rating: number;
   journalDepth: number;
+  sentiment: number;
   socialEscalation: number;
   speedToCompletion: number;
   difficultyAlignment: number;
@@ -103,37 +104,38 @@ export const DEFAULT_QUEST_CONFIG: QuestConfig = {
 
   resonance: {
     weights: {
-      rating: 0.35,
-      journalDepth: 0.25,
+      rating: 0.30,
+      journalDepth: 0.20,
+      sentiment: 0.15,
       socialEscalation: 0.15,
-      speedToCompletion: 0.15,
+      speedToCompletion: 0.10,
       difficultyAlignment: 0.10,
     },
     goalWeights: {
       // Keys match onboarding GOAL_OPTIONS keys stored in comfortProfile.goalTags
       socialize: {
-        rating: 0.35, journalDepth: 0.20, socialEscalation: 0.30,
-        speedToCompletion: 0.05, difficultyAlignment: 0.10,
+        rating: 0.30, journalDepth: 0.15, sentiment: 0.10,
+        socialEscalation: 0.30, speedToCompletion: 0.05, difficultyAlignment: 0.10,
       },
       explore: {
-        rating: 0.35, journalDepth: 0.15, socialEscalation: 0.10,
-        speedToCompletion: 0.25, difficultyAlignment: 0.15,
+        rating: 0.30, journalDepth: 0.10, sentiment: 0.15,
+        socialEscalation: 0.10, speedToCompletion: 0.20, difficultyAlignment: 0.15,
       },
       fitness: {
-        rating: 0.35, journalDepth: 0.15, socialEscalation: 0.15,
-        speedToCompletion: 0.20, difficultyAlignment: 0.15,
+        rating: 0.30, journalDepth: 0.10, sentiment: 0.15,
+        socialEscalation: 0.15, speedToCompletion: 0.15, difficultyAlignment: 0.15,
       },
       routine: {
-        rating: 0.35, journalDepth: 0.20, socialEscalation: 0.15,
-        speedToCompletion: 0.20, difficultyAlignment: 0.10,
+        rating: 0.30, journalDepth: 0.15, sentiment: 0.15,
+        socialEscalation: 0.15, speedToCompletion: 0.15, difficultyAlignment: 0.10,
       },
       new_skill: {
-        rating: 0.35, journalDepth: 0.25, socialEscalation: 0.15,
-        speedToCompletion: 0.10, difficultyAlignment: 0.15,
+        rating: 0.30, journalDepth: 0.20, sentiment: 0.15,
+        socialEscalation: 0.15, speedToCompletion: 0.05, difficultyAlignment: 0.15,
       },
       unwind: {
-        rating: 0.35, journalDepth: 0.30, socialEscalation: 0.05,
-        speedToCompletion: 0.10, difficultyAlignment: 0.20,
+        rating: 0.30, journalDepth: 0.25, sentiment: 0.20,
+        socialEscalation: 0.05, speedToCompletion: 0.05, difficultyAlignment: 0.15,
       },
     },
     journalMaxChars: 500,

@@ -85,6 +85,8 @@ export interface SimulationParams {
   persona: SimulationPersona;
   questCount: number;
   seed?: number;
+  /** Simulate LLM reflection analysis (depth, sentiment, tags) */
+  simulateReflection?: boolean;
 }
 
 // ── Seeded PRNG (mulberry32) ─────────────────────────────────
@@ -204,7 +206,13 @@ class SimulationServiceImpl implements SimulationService {
       const questCreatedAt = new Date(2025, 0, 1 + i * 3); // space quests 3 days apart
       const checkedInAt = new Date(questCreatedAt.getTime() + hoursToComplete * 3600 * 1000);
 
-      // 5. Compute resonance
+      // 5. Synthetic reflection analysis (if enabled)
+      const isDFS = existingPathway?.phase === "dfs";
+      const reflection = params.simulateReflection
+        ? generateReflection(journalEntry, rating, socialContext, difficulty, persona.difficultyTolerance, isDFS ?? false, rand)
+        : null;
+
+      // 6. Compute resonance
       const resonanceInput: ResonanceInput = {
         rating,
         journalEntry,
@@ -218,11 +226,14 @@ class SimulationServiceImpl implements SimulationService {
         userPace: persona.pace,
         previousSocialContexts: [...previousSocialContexts],
         goalTags: persona.goals,
+        reflectionDepth: reflection?.depth ?? null,
+        reflectionSentiment: reflection?.sentiment ?? null,
+        reflectionTags: reflection?.tags ?? null,
       };
 
       const resonance = computeResonance(resonanceInput, config);
 
-      // 6. Pathway detection
+      // 7. Pathway detection
       const sidequestId = `sim-${i}`;
       const pathwayResult = detectPathway(
         pathways,
@@ -252,7 +263,7 @@ class SimulationServiceImpl implements SimulationService {
         }
       }
 
-      // 7. Update state
+      // 8. Update state
       if (socialContext) {
         previousSocialContexts.push(socialContext);
         const idx = SOCIAL_LADDER.indexOf(socialContext);
@@ -363,6 +374,90 @@ function generateJournal(
     return EMOTION_JOURNALS[Math.floor(rand() * EMOTION_JOURNALS.length)];
   }
   return NEUTRAL_JOURNALS[Math.floor(rand() * NEUTRAL_JOURNALS.length)];
+}
+
+// ── Synthetic reflection analysis ────────────────────────────
+
+interface SyntheticReflection {
+  depth: number;
+  sentiment: number;
+  tags: string[];
+}
+
+const REFLECTION_TAGS = [
+  "growth_narrative",
+  "self_awareness",
+  "social_connection",
+  "discomfort_processed",
+  "surface_level",
+] as const;
+
+function generateReflection(
+  journal: string | null,
+  rating: number,
+  socialContext: string,
+  difficulty: number,
+  difficultyTolerance: number,
+  isDFS: boolean,
+  rand: () => number,
+): SyntheticReflection | null {
+  // No journal = no reflection analysis
+  if (!journal) return null;
+
+  const isEmotionalJournal = journal.length > 30; // emotion journals are longer
+
+  // Depth: emotional journals get higher depth, surface ones stay low
+  let depth: number;
+  if (isEmotionalJournal) {
+    depth = 0.5 + rand() * 0.45; // 0.5–0.95
+  } else {
+    depth = 0.05 + rand() * 0.25; // 0.05–0.30
+  }
+
+  // Sentiment: correlates with rating but adds noise
+  // High rating + DFS = likely positive (they're in their groove)
+  // Low rating + high difficulty = likely negative
+  const ratingNorm = (rating - 1) / 4; // 0–1
+  const difficultyStress = Math.max(0, (difficulty - difficultyTolerance) / 3);
+  let sentiment = (ratingNorm - 0.5) * 1.6 - difficultyStress * 0.4 + (rand() - 0.5) * 0.3;
+  if (isDFS) sentiment += 0.15; // DFS boost — they chose to be here
+  sentiment = Math.max(-1, Math.min(1, sentiment));
+
+  // Tags: derived from the combination of signals
+  const tags: string[] = [];
+
+  if (!isEmotionalJournal) {
+    tags.push("surface_level");
+    return { depth, sentiment, tags };
+  }
+
+  // Growth narrative: high depth + positive-ish sentiment + DFS or social escalation
+  if (depth >= 0.6 && sentiment > 0 && (isDFS || socialContext === "met_someone_new") && rand() < 0.5) {
+    tags.push("growth_narrative");
+  }
+
+  // Self-awareness: high depth, any sentiment
+  if (depth >= 0.55 && rand() < 0.4) {
+    tags.push("self_awareness");
+  }
+
+  // Social connection: social context beyond solo + emotional journal
+  if (socialContext !== "solo" && rand() < 0.45) {
+    tags.push("social_connection");
+  }
+
+  // Discomfort processed: difficulty exceeds tolerance but sentiment isn't tanked
+  // "I was nervous but I pushed through" — the golden signal
+  if (difficulty >= difficultyTolerance && sentiment > -0.3 && rand() < 0.35) {
+    tags.push("discomfort_processed");
+  }
+
+  // If nothing tagged and depth is moderate, might still be surface-level
+  if (tags.length === 0 && depth < 0.5) {
+    tags.push("surface_level");
+  }
+
+  return { depth, sentiment, tags };
 }
 
 function mergeConfig(base: QuestConfig, overrides?: Partial<QuestConfig>): QuestConfig {

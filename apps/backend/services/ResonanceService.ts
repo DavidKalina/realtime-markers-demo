@@ -5,6 +5,7 @@ import {
   type ResonanceWeights,
   DEFAULT_QUEST_CONFIG,
 } from "./shared/QuestConfig";
+import { type OpenAIService, OpenAIModel } from "./shared/OpenAIService";
 
 // ── Social escalation ladder (ordered) ───────────────────────
 const SOCIAL_LADDER = ["solo", "with_someone", "met_someone_new", "group_activity"] as const;
@@ -34,11 +35,16 @@ export interface ResonanceInput {
   userPace: string;
   previousSocialContexts: string[];
   goalTags?: string[];
+  // Precomputed LLM analysis (async, may be null if not yet analyzed)
+  reflectionDepth: number | null;
+  reflectionSentiment: number | null;
+  reflectionTags: string[] | null;
 }
 
 export interface ResonanceComponents {
   ratingSignal: number;
   journalDepth: number;
+  sentimentSignal: number;
   socialEscalation: number;
   speedSignal: number;
   difficultyAlignment: number;
@@ -49,6 +55,7 @@ export interface ResonanceResult {
   components: ResonanceComponents;
   objectiveId?: string;
   venueCategory?: string | null;
+  reflectionTags?: string[];
 }
 
 // ── Weight blending ──────────────────────────────────────────
@@ -70,6 +77,7 @@ function blendWeightsForGoals(
   const blended: ResonanceWeights = {
     rating: matched.reduce((s, w) => s + w.rating, 0) / matched.length,
     journalDepth: matched.reduce((s, w) => s + w.journalDepth, 0) / matched.length,
+    sentiment: matched.reduce((s, w) => s + w.sentiment, 0) / matched.length,
     socialEscalation: matched.reduce((s, w) => s + w.socialEscalation, 0) / matched.length,
     speedToCompletion: matched.reduce((s, w) => s + w.speedToCompletion, 0) / matched.length,
     difficultyAlignment: matched.reduce((s, w) => s + w.difficultyAlignment, 0) / matched.length,
@@ -91,7 +99,8 @@ export function computeResonance(
   );
 
   const ratingSignal = computeRatingSignal(input.rating);
-  const journalDepth = computeJournalDepth(input.journalEntry, config.resonance.journalMaxChars);
+  const journalDepth = computeJournalDepth(input.journalEntry, config.resonance.journalMaxChars, input.reflectionDepth);
+  const sentimentSignal = computeSentimentSignal(input.reflectionSentiment);
   const socialEscalation = computeSocialEscalation(input.socialContext, input.previousSocialContexts);
   const speedSignal = computeSpeedSignal(input.checkedInAt, input.questCreatedAt, config.resonance.speedMaxHours);
   const difficultyAlignment = computeDifficultyAlignment(input.difficulty, input.userPace, config.resonance.idealDifficultyByPace);
@@ -99,6 +108,7 @@ export function computeResonance(
   const components: ResonanceComponents = {
     ratingSignal,
     journalDepth,
+    sentimentSignal,
     socialEscalation,
     speedSignal,
     difficultyAlignment,
@@ -107,6 +117,7 @@ export function computeResonance(
   const score = clamp(
     ratingSignal * w.rating +
     journalDepth * w.journalDepth +
+    sentimentSignal * w.sentiment +
     socialEscalation * w.socialEscalation +
     speedSignal * w.speedToCompletion +
     difficultyAlignment * w.difficultyAlignment,
@@ -114,7 +125,12 @@ export function computeResonance(
     1,
   );
 
-  return { score, components, venueCategory: input.venueCategory };
+  return {
+    score,
+    components,
+    venueCategory: input.venueCategory,
+    reflectionTags: input.reflectionTags ?? undefined,
+  };
 }
 
 // ── Component functions ──────────────────────────────────────
@@ -124,9 +140,17 @@ function computeRatingSignal(rating: number | null): number {
   return (Math.min(rating, 5) - 1) / 4;
 }
 
-function computeJournalDepth(journal: string | null, maxChars: number): number {
+function computeJournalDepth(
+  journal: string | null,
+  maxChars: number,
+  llmReflectionDepth: number | null,
+): number {
   if (!journal || journal.trim().length === 0) return 0;
 
+  // Use LLM-derived depth when available
+  if (llmReflectionDepth != null) return clamp(llmReflectionDepth, 0, 1);
+
+  // Fallback: heuristic for when LLM analysis hasn't completed yet
   const text = journal.trim();
   let score = Math.min(1, text.length / maxChars);
 
@@ -141,6 +165,13 @@ function computeJournalDepth(journal: string | null, maxChars: number): number {
   }
 
   return clamp(score, 0, 1);
+}
+
+function computeSentimentSignal(llmSentiment: number | null): number {
+  // Sentiment is -1 (very negative) to +1 (very positive), stored as such.
+  // Map to 0–1 for resonance: -1 → 0, 0 → 0.5, +1 → 1
+  if (llmSentiment == null) return 0.5; // neutral when unknown
+  return clamp((llmSentiment + 1) / 2, 0, 1);
 }
 
 function computeSocialEscalation(
@@ -263,6 +294,9 @@ class ResonanceServiceImpl implements ResonanceService {
       userPace: pace,
       previousSocialContexts: prevContexts,
       goalTags,
+      reflectionDepth: obj.reflectionDepth ?? null,
+      reflectionSentiment: obj.reflectionSentiment ?? null,
+      reflectionTags: obj.reflectionTags ?? null,
     };
 
     const result = computeResonance(input, this.config);
@@ -306,6 +340,9 @@ class ResonanceServiceImpl implements ResonanceService {
         userPace: pace,
         previousSocialContexts: [...seenContexts],
         goalTags,
+        reflectionDepth: obj.reflectionDepth ?? null,
+        reflectionSentiment: obj.reflectionSentiment ?? null,
+        reflectionTags: obj.reflectionTags ?? null,
       };
 
       const result = computeResonance(input, this.config);
@@ -336,6 +373,71 @@ class ResonanceServiceImpl implements ResonanceService {
 
 // Need this import for the IsNull/Not usage in computeResonanceBatch
 import { Not, IsNull } from "typeorm";
+
+// ── Async LLM journal analysis ─────────────────────────────
+
+export interface JournalAnalysis {
+  depth: number;       // 0–1: how deeply reflective the entry is
+  sentiment: number;   // -1 to +1: negative to positive
+  tags: string[];      // qualitative labels (e.g. "growth_narrative", "self_awareness")
+}
+
+const JOURNAL_ANALYSIS_PROMPT = `You analyze journal entries from a wellness app where users reflect on real-world activities they completed (visiting places, trying new things, social interactions, etc).
+
+Evaluate the journal entry and return a JSON object with exactly these fields:
+
+- "depth" (number, 0 to 1): How deeply reflective is the entry?
+  0.0–0.2: Surface level ("I went there, it was fine")
+  0.3–0.5: Some personal detail or observation
+  0.6–0.8: Genuine reflection, self-awareness, or insight about themselves
+  0.9–1.0: Deep introspection, growth narrative, or meaningful realization
+
+- "sentiment" (number, -1 to 1): Overall emotional tone
+  -1.0: Very negative (distress, regret, fear)
+  -0.5: Somewhat negative (discomfort, disappointment)
+   0.0: Neutral or mixed
+   0.5: Somewhat positive (enjoyment, satisfaction)
+   1.0: Very positive (joy, gratitude, feeling alive)
+
+- "tags" (array of strings): Zero to three labels from this set:
+  "growth_narrative" — describes personal growth or overcoming a barrier
+  "self_awareness" — shows insight into own patterns, feelings, or behavior
+  "social_connection" — reflects meaningfully on interaction with others
+  "discomfort_processed" — acknowledges discomfort but processes it constructively
+  "surface_level" — minimal reflection, mostly factual
+
+Return ONLY the JSON object, no other text.`;
+
+export async function analyzeJournalReflection(
+  openAIService: OpenAIService,
+  journalEntry: string,
+): Promise<JournalAnalysis> {
+  const result = await openAIService.executeChatCompletion(
+    {
+      model: OpenAIModel.GPT54Nano,
+      messages: [
+        { role: "system", content: JOURNAL_ANALYSIS_PROMPT },
+        { role: "user", content: journalEntry },
+      ],
+      temperature: 0,
+      max_tokens: 150,
+      response_format: { type: "json_object" },
+    },
+    "journal_reflection_analysis",
+  );
+
+  const content = result.choices[0]?.message?.content;
+  if (!content) {
+    return { depth: 0.5, sentiment: 0, tags: [] };
+  }
+
+  const parsed = JSON.parse(content);
+  return {
+    depth: clamp(parsed.depth ?? 0.5, 0, 1),
+    sentiment: clamp(parsed.sentiment ?? 0, -1, 1),
+    tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+  };
+}
 
 export function createResonanceService(deps: ResonanceServiceDeps): ResonanceService {
   return new ResonanceServiceImpl(deps);

@@ -118,6 +118,7 @@ export class ServiceInitializer {
 
     const comfortZoneService = createComfortZoneService({
       dataSource: this.dataSource,
+      openAIService,
     });
 
     const coverageService = createCoverageService({

@@ -133,4 +133,13 @@ export class Objective {
 
   @Column({ type: "smallint", nullable: true })
   difficulty?: number;
+
+  @Column({ name: "reflection_depth", type: "real", nullable: true })
+  reflectionDepth?: number;
+
+  @Column({ name: "reflection_sentiment", type: "real", nullable: true })
+  reflectionSentiment?: number;
+
+  @Column({ name: "reflection_tags", type: "jsonb", nullable: true })
+  reflectionTags?: string[];
 }

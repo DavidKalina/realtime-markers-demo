@@ -61,7 +61,7 @@ export class Pathway {
   sidequestIds!: string[];
 
   @Column({ name: "resonance_scores", type: "jsonb", nullable: true })
-  resonanceScores?: { sidequestId: string; score: number }[];
+  resonanceScores?: { sidequestId: string; score: number; reflectionTags?: string[] }[];
 
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt!: Date;

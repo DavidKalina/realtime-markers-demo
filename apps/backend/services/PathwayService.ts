@@ -41,7 +41,7 @@ export interface PathwayState {
   difficultyTrend: number;
   phase: string;
   sidequestIds: string[];
-  resonanceScores: { sidequestId: string; score: number }[];
+  resonanceScores: { sidequestId: string; score: number; reflectionTags?: string[] }[];
 }
 
 export interface PhaseContext {
@@ -96,7 +96,7 @@ export function detectPathway(
       difficultyTrend: 0,
       phase: "bfs",
       sidequestIds: [sidequestId],
-      resonanceScores: [{ sidequestId, score: resonance.score }],
+      resonanceScores: [{ sidequestId, score: resonance.score, reflectionTags: resonance.reflectionTags }],
     };
     return { pathway: newPathway, phaseTransition: null, isNew: true };
   }
@@ -113,7 +113,7 @@ function updatePathwayState(
   config: PhaseDetectionConfig,
   existingDfsCount: number,
 ): PathwayDetectionResult {
-  const scores = [...(pathway.resonanceScores ?? []), { sidequestId, score: resonance.score }];
+  const scores = [...(pathway.resonanceScores ?? []), { sidequestId, score: resonance.score, reflectionTags: resonance.reflectionTags }];
   const questCount = pathway.questCount + 1;
   const avgResonance = scores.reduce((sum, s) => sum + s.score, 0) / scores.length;
   const prevDifficulty = pathway.currentDifficulty;
@@ -159,6 +159,77 @@ function updatePathwayState(
   return { pathway: updated, phaseTransition, isNew: false };
 }
 
+// ── Reflection tag analysis ─────────────────────────────────
+
+type ReflectionSignal = "thriving" | "growing_through_discomfort" | "stalling" | "struggling" | "neutral";
+
+function analyzePathwayReflection(pathway: PathwayState): ReflectionSignal {
+  const allTags = (pathway.resonanceScores ?? [])
+    .flatMap((s) => s.reflectionTags ?? []);
+
+  if (allTags.length === 0) return "neutral";
+
+  // Look at recent entries (last 3) for trend — don't let old data dominate
+  const recentTags = (pathway.resonanceScores ?? [])
+    .slice(-3)
+    .flatMap((s) => s.reflectionTags ?? []);
+
+  const recentScores = (pathway.resonanceScores ?? []).slice(-3);
+  const recentAvgScore = recentScores.length > 0
+    ? recentScores.reduce((s, r) => s + r.score, 0) / recentScores.length
+    : pathway.avgResonance;
+
+  const hasGrowth = recentTags.includes("growth_narrative");
+  const hasSelfAwareness = recentTags.includes("self_awareness");
+  const hasDiscomfortProcessed = recentTags.includes("discomfort_processed");
+  const hasSocialConnection = recentTags.includes("social_connection");
+  const surfaceCount = recentTags.filter((t) => t === "surface_level").length;
+
+  // User is processing discomfort constructively — this IS the growth edge
+  if (hasDiscomfortProcessed) return "growing_through_discomfort";
+
+  // Strong positive signals
+  if (hasGrowth || (hasSelfAwareness && recentAvgScore >= 0.5)) return "thriving";
+  if (hasSocialConnection && recentAvgScore >= 0.5) return "thriving";
+
+  // Low resonance + surface-level entries = not engaging
+  if (surfaceCount >= 2 && recentAvgScore < 0.4) return "stalling";
+
+  // Low resonance without any processing signals = struggling
+  if (recentAvgScore < 0.35 && !hasDiscomfortProcessed && !hasGrowth) return "struggling";
+
+  return "neutral";
+}
+
+function pathwayGuidance(p: PathwayState, signal: ReflectionSignal): string {
+  const trend = p.difficultyTrend > 0 ? "escalating" : p.difficultyTrend < 0 ? "easing" : "steady";
+  const base = `"${p.themeLabel}" (${p.questCount} quests, avg resonance ${p.avgResonance.toFixed(2)}, difficulty ${trend} at ${p.currentDifficulty})`;
+
+  switch (signal) {
+    case "thriving":
+      return `  - ${base}. User is thriving here — lean in. Escalate: busier venue, add a social element, push slightly further. This is working.`;
+
+    case "growing_through_discomfort":
+      return `  - ${base}. User is processing discomfort constructively — this is real growth. ` +
+        `Hold difficulty steady or nudge gently. Don't back off — they're building resilience. ` +
+        `But don't pile on either. Same category, slight variation.`;
+
+    case "stalling":
+      return `  - ${base}. User seems disengaged — surface-level reflections, low resonance. ` +
+        `Try a fresh angle within this category (different time of day, different neighborhood, add a social twist). ` +
+        `If this doesn't improve, this pathway may not be their thing.`;
+
+    case "struggling":
+      return `  - ${base}. Recent entries show low resonance without signs of productive discomfort. ` +
+        `Ease off — reduce difficulty, try a more approachable variant, or deprioritize this pathway. ` +
+        `The user shouldn't have to white-knuckle through something that isn't serving them.`;
+
+    case "neutral":
+    default:
+      return `  - ${base}. Prescribe the NEXT step in this thread — more social, busier, further in this category.`;
+  }
+}
+
 export function buildPhaseContext(pathways: PathwayState[]): PhaseContext {
   if (pathways.length === 0) {
     return {
@@ -181,20 +252,25 @@ export function buildPhaseContext(pathways: PathwayState[]): PhaseContext {
   if (dfsPathways.length > 0) {
     lines.push("ACTIVE PATHWAYS (DEEPEN these — the user resonates strongly here):");
     for (const p of dfsPathways) {
-      const trend = p.difficultyTrend > 0 ? "escalating" : p.difficultyTrend < 0 ? "easing" : "steady";
-      lines.push(
-        `  - "${p.themeLabel}" (${p.questCount} quests, avg resonance ${p.avgResonance.toFixed(2)}, difficulty ${trend} at ${p.currentDifficulty}). ` +
-        `Prescribe the NEXT step in this thread — more social, busier, further in this category. Don't switch categories for this pathway.`,
-      );
+      const signal = analyzePathwayReflection(p);
+      lines.push(pathwayGuidance(p, signal));
     }
   }
 
   if (bfsPathways.length > 0) {
     lines.push("EXPLORING (continue breadth-first for these — not enough signal yet):");
     for (const p of bfsPathways) {
-      lines.push(
-        `  - "${p.themeLabel}" (${p.questCount} quests, resonance ${p.avgResonance.toFixed(2)}) — keep probing, try variations.`,
-      );
+      const signal = analyzePathwayReflection(p);
+      if (signal === "struggling") {
+        lines.push(
+          `  - "${p.themeLabel}" (${p.questCount} quests, resonance ${p.avgResonance.toFixed(2)}) — ` +
+          `recent experiences aren't landing. Deprioritize this category and explore elsewhere.`,
+        );
+      } else {
+        lines.push(
+          `  - "${p.themeLabel}" (${p.questCount} quests, resonance ${p.avgResonance.toFixed(2)}) — keep probing, try variations.`,
+        );
+      }
     }
   }
 
