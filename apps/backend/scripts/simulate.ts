@@ -17,7 +17,7 @@ const PERSONAS: Record<string, SimulationPersona> = {
   "shy-sarah": {
     name: "Shy Sarah",
     pace: "gentle",
-    goals: ["Meet people", "Decompress"],
+    goals: ["socialize", "unwind"],
     barriers: "Social anxiety, gets overwhelmed in crowds, prefers quiet spaces",
     categoryWeights: { cafe: 0.35, park: 0.25, trail: 0.2, restaurant: 0.1, museum: 0.1 },
     ratingBias: 0.55,
@@ -33,7 +33,7 @@ const PERSONAS: Record<string, SimulationPersona> = {
   "adventurous-alex": {
     name: "Adventurous Alex",
     pace: "push_me",
-    goals: ["Get active", "Pick up a new skill", "Explore my area"],
+    goals: ["fitness", "new_skill", "explore"],
     barriers: "Boredom, needs novelty to stay motivated",
     categoryWeights: { trail: 0.25, venue: 0.2, bar: 0.15, museum: 0.15, cafe: 0.1, market: 0.1, gallery: 0.05 },
     ratingBias: 0.72,
@@ -49,7 +49,7 @@ const PERSONAS: Record<string, SimulationPersona> = {
   "routine-rick": {
     name: "Routine Rick",
     pace: "steady",
-    goals: ["Build a routine", "Get active", "Meet people"],
+    goals: ["routine", "fitness", "socialize"],
     barriers: "Creature of habit, hard to break patterns, winter makes it worse",
     categoryWeights: { cafe: 0.3, restaurant: 0.25, park: 0.2, trail: 0.15, bar: 0.1 },
     ratingBias: 0.6,

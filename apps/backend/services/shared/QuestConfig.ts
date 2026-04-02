@@ -110,27 +110,28 @@ export const DEFAULT_QUEST_CONFIG: QuestConfig = {
       difficultyAlignment: 0.10,
     },
     goalWeights: {
-      "Meet people": {
+      // Keys match onboarding GOAL_OPTIONS keys stored in comfortProfile.goalTags
+      socialize: {
         rating: 0.35, journalDepth: 0.20, socialEscalation: 0.30,
         speedToCompletion: 0.05, difficultyAlignment: 0.10,
       },
-      "Explore my area": {
+      explore: {
         rating: 0.35, journalDepth: 0.15, socialEscalation: 0.10,
         speedToCompletion: 0.25, difficultyAlignment: 0.15,
       },
-      "Get active": {
+      fitness: {
         rating: 0.35, journalDepth: 0.15, socialEscalation: 0.15,
         speedToCompletion: 0.20, difficultyAlignment: 0.15,
       },
-      "Build a routine": {
+      routine: {
         rating: 0.35, journalDepth: 0.20, socialEscalation: 0.15,
         speedToCompletion: 0.20, difficultyAlignment: 0.10,
       },
-      "Pick up a new skill": {
+      new_skill: {
         rating: 0.35, journalDepth: 0.25, socialEscalation: 0.15,
         speedToCompletion: 0.10, difficultyAlignment: 0.15,
       },
-      "Decompress": {
+      unwind: {
         rating: 0.35, journalDepth: 0.30, socialEscalation: 0.05,
         speedToCompletion: 0.10, difficultyAlignment: 0.20,
       },
