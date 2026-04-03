@@ -306,7 +306,7 @@ const DeckScreen = () => {
             onPress={handlePromote}
             disabled={!canPromote}
           >
-            <Text style={styles.promoteText}>Promote Card</Text>
+            <Text style={styles.promoteText}>Seal Memory</Text>
           </Pressable>
         </View>
       ) : null}

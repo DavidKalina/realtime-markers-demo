@@ -28,6 +28,42 @@ function themeLabel(category: string): string {
   return THEME_LABELS[category] ?? `${category.charAt(0).toUpperCase()}${category.slice(1)} Journey`;
 }
 
+function computeGrowthLabel(
+  categoryLabel: string,
+  resonanceScores: { sidequestId: string; score: number; reflectionTags?: string[] }[],
+): string {
+  if (resonanceScores.length < 3) return categoryLabel; // Not enough data yet
+
+  // Count meaningful reflection tags (exclude surface_level)
+  const tagCounts: Record<string, number> = {};
+  for (const s of resonanceScores) {
+    for (const tag of s.reflectionTags ?? []) {
+      if (tag !== "surface_level") {
+        tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
+      }
+    }
+  }
+
+  const total = resonanceScores.length;
+  const dominant = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0];
+
+  if (!dominant || dominant[1] < 2) return categoryLabel; // No clear pattern
+
+  const [tag, count] = dominant;
+  const ratio = count / total;
+
+  // Need at least 20% dominance of meaningful tags to override
+  if (ratio < 0.2) return categoryLabel;
+
+  switch (tag) {
+    case "social_connection": return "Social Confidence";
+    case "discomfort_processed": return "Comfort Expansion";
+    case "growth_narrative": return "Self-Discovery";
+    case "self_awareness": return "Inner Awareness";
+    default: return categoryLabel;
+  }
+}
+
 // ── Types ────────────────────────────────────────────────────
 
 export interface PathwayState {
@@ -142,8 +178,12 @@ function updatePathwayState(
     phase = "dfs";
   }
 
+  // Recompute growth label based on accumulated reflection data
+  const growthLabel = computeGrowthLabel(pathway.themeLabel, scores);
+
   const updated: PathwayState = {
     ...pathway,
+    themeLabel: growthLabel,
     venueCategories: categories,
     avgResonance,
     questCount,
@@ -388,6 +428,7 @@ class PathwayServiceImpl implements PathwayService {
       result.pathway.id = saved.id;
     } else {
       await repo.update(pw.id, {
+        themeLabel: pw.themeLabel,
         venueCategories: pw.venueCategories,
         avgResonance: pw.avgResonance,
         questCount: pw.questCount,

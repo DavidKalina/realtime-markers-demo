@@ -566,19 +566,32 @@ class SidequestServiceImpl implements SidequestService {
       throw new Error("Sidequest is already promoted");
     }
 
-    const tierOrder: SidequestTier[] = [
-      SidequestTier.QUICK,
-      SidequestTier.SWEET_SPOT,
-      SidequestTier.BEST,
-    ];
-    const currentIdx = tierOrder.indexOf(
-      sidequest.tier ?? SidequestTier.QUICK,
-    );
-    if (currentIdx >= tierOrder.length - 1) {
-      throw new Error("Sidequest is already at the highest tier");
+    // Compute growth-based rarity from resonance + reflection tags
+    if (this.comfortZoneService && this.resonanceService) {
+      const resonance = await this.resonanceService.computeResonanceForSidequest(id);
+      const obj = sidequest.objectives?.[0];
+      const reflectionTags: string[] = obj?.reflectionTags ?? [];
+
+      // Check if quest is in a coverage gap
+      let isInCoverageGap = false;
+      if (this.coverageService && obj?.latitude && obj?.longitude) {
+        try {
+          isInCoverageGap = await this.coverageService.isInCoverageGap(
+            userId,
+            Number(obj.latitude),
+            Number(obj.longitude),
+          );
+        } catch { /* ignore */ }
+      }
+
+      const growthRarity = this.comfortZoneService.computeGrowthRarity(
+        resonance?.score ?? 0,
+        reflectionTags,
+        isInCoverageGap,
+      );
+      sidequest.rarity = growthRarity;
     }
 
-    sidequest.tier = tierOrder[currentIdx + 1];
     sidequest.promotedAt = new Date();
     await repo.save(sidequest);
 
@@ -1509,6 +1522,7 @@ ${isAwayFromHome ? "- USER IS AWAY FROM HOME. Search near their CURRENT location
 ${comfortProfile ? `- What keeps them from going out: "${comfortProfile.barriers}"` : ""}
 ${comfortProfile?.goalTags?.length ? `- Goals: ${comfortProfile.goalTags.join(", ")}` : ""}
 ${comfortProfile?.goals ? `- Additional context: "${comfortProfile.goals}"` : ""}
+${comfortProfile?.northStar ? `- North star (what success means to them): "${comfortProfile.northStar}"` : ""}
 ${user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${user.onboardingProfile.activities.join(", ")}` : ""}
 
 ${historyContext}
@@ -1928,7 +1942,7 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
       sidequest.title = llmResult.title;
       sidequest.summary = llmResult.summary;
       sidequest.status = SidequestStatus.READY;
-      sidequest.rarity = rarity;
+      // Rarity stays null until "Seal Memory" (promote) — computed from resonance + reflection tags
       sidequest.distanceFromHome = distanceFromHome;
 
       // Generate category tags inline so the client always has them
@@ -2305,6 +2319,16 @@ ${await this.buildSocialContext(userId, goalTags)}`;
     // Current
     parts.push(`and most recently visited a ${m.latest_category ?? "venue"} in ${m.latest_city ?? "their area"}`);
 
+    // North star
+    const userRow = await this.dataSource.query(
+      `SELECT comfort_profile FROM users WHERE id = $1`,
+      [userId],
+    );
+    const northStar = userRow[0]?.comfort_profile?.northStar;
+    if (northStar) {
+      parts.push(`Their north star: "${northStar}"`);
+    }
+
     return parts.join(", ") + ". Frame this quest as the next chapter in their story.";
   }
 
@@ -2375,6 +2399,30 @@ ${await this.buildSocialContext(userId, goalTags)}`;
     userId: string,
   ): Promise<void> {
     if (!this.resonanceService || !this.pathwayService) return;
+
+    // Ensure reflection analysis is complete before computing resonance
+    // (the async journal analysis may not have finished yet)
+    const sq = await this.dataSource.getRepository(Sidequest).findOne({
+      where: { id: sidequestId },
+      relations: ["objectives"],
+    });
+    const firstObj = sq?.objectives?.[0];
+    if (firstObj?.journalEntry && !firstObj.reflectionTags && this.openAIService) {
+      try {
+        const { analyzeJournalReflection } = await import("./ResonanceService");
+        const analysis = await analyzeJournalReflection(this.openAIService, firstObj.journalEntry);
+        await this.dataSource.getRepository(Objective).update(
+          { id: firstObj.id },
+          {
+            reflectionDepth: analysis.depth,
+            reflectionSentiment: analysis.sentiment,
+            reflectionTags: analysis.tags,
+          },
+        );
+      } catch (err) {
+        console.error("[SidequestService] Sync reflection analysis failed:", err);
+      }
+    }
 
     const resonance = await this.resonanceService.computeResonanceForSidequest(sidequestId);
     if (!resonance) return;

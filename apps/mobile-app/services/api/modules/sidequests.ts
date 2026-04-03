@@ -25,6 +25,9 @@ export interface ObjectiveResponse {
   journalEntry?: string;
   difficulty?: number;
   socialContext?: string;
+  reflectionTags?: string[];
+  reflectionDepth?: number;
+  reflectionSentiment?: number;
 }
 
 export interface SidequestResponse {

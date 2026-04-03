@@ -3,6 +3,9 @@
     "version": ">= 5.9.1"
   },
   "build": {
+    "base": {
+      "pnpm": "10.13.1"
+    },
     "simulator": {
       "developmentClient": true,
       "distribution": "internal",

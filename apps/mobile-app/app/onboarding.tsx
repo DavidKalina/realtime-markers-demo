@@ -109,6 +109,7 @@ const OnboardingScreen: React.FC = () => {
   const [barriers, setBarriers] = useState("");
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [goals, setGoals] = useState("");
+  const [northStar, setNorthStar] = useState("");
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
   const [pacePreference, setPacePreference] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -230,7 +231,7 @@ const OnboardingScreen: React.FC = () => {
     try {
       await apiClient.sidequests.updateComfortProfile({
         pacePreference,
-        comfortProfile: { comfortZone, barriers, goals, goalTags: selectedGoals },
+        comfortProfile: { comfortZone, barriers, goals, goalTags: selectedGoals, northStar: northStar || undefined },
       });
 
       if (userLocation) {
@@ -287,6 +288,8 @@ const OnboardingScreen: React.FC = () => {
             toggleGoal={toggleGoal}
             goals={goals}
             setGoals={setGoals}
+            northStar={northStar}
+            setNorthStar={setNorthStar}
             onNext={handleNext}
           />
         );
@@ -414,9 +417,11 @@ const StepComfortZone: React.FC<
     toggleGoal: (g: string) => void;
     goals: string;
     setGoals: (v: string) => void;
+    northStar: string;
+    setNorthStar: (v: string) => void;
     onNext: () => void;
   }
-> = ({ s, colors, buttonStyle, comfortZone, setComfortZone, barriers, setBarriers, selectedGoals, toggleGoal, goals, setGoals, onNext }) => {
+> = ({ s, colors, buttonStyle, comfortZone, setComfortZone, barriers, setBarriers, selectedGoals, toggleGoal, goals, setGoals, northStar, setNorthStar, onNext }) => {
   const scrollY = useSharedValue(0);
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -494,6 +499,18 @@ const StepComfortZone: React.FC<
         </ParallaxWidget>
 
         <ParallaxWidget scrollY={scrollY} index={3} enterDelay={400}>
+          <Text style={s.widgetLabel}>IF THIS WORKED, WHAT WOULD THAT MEAN TO YOU?</Text>
+          <TextInput
+            style={s.textInput}
+            placeholder={"e.g. I'd finally feel like I belong somewhere\u2026"}
+            placeholderTextColor={colors.text.disabled}
+            value={northStar}
+            onChangeText={setNorthStar}
+            maxLength={200}
+          />
+        </ParallaxWidget>
+
+        <ParallaxWidget scrollY={scrollY} index={4} enterDelay={500}>
           <Animated.View style={buttonStyle}>
             <Pressable onPress={onNext} style={s.primaryButton}>
               <Text style={s.primaryButtonText}>Next</Text>

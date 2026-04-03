@@ -71,19 +71,19 @@ const BOB_DURATION = 2400;
 const ANIMATION_WINDOW = 1;
 
 const RARITY_LABELS: Record<string, string> = {
-  common: "COMMON",
-  uncommon: "UNCOMMON",
-  rare: "RARE",
-  epic: "EPIC",
-  legendary: "LEGENDARY",
+  common: "FIRST STEP",
+  uncommon: "OPENING UP",
+  rare: "BREAKTHROUGH",
+  epic: "DEEP GROWTH",
+  legendary: "TRANSFORMATION",
 };
 
 const RARITY_DESCRIPTIONS: Record<string, string> = {
-  common: "A familiar favorite",
-  uncommon: "Slightly off the beaten path",
-  rare: "Beyond your usual range",
-  epic: "Deep into new territory",
-  legendary: "A once-in-a-lifetime find",
+  common: "Every journey starts somewhere",
+  uncommon: "You're starting to stretch",
+  rare: "Something clicked here",
+  epic: "Real change happened",
+  legendary: "A moment you'll remember",
 };
 
 const TIER_LABEL_HEIGHT = 36;
@@ -785,9 +785,15 @@ const QuestCard: React.FC<{
             >
               {/* ═══ HEADER ═══ */}
               <View style={s.headerBand}>
-                <Text style={[s.headerTier, { color: tierMeta.text }]}>
-                  {"\u2605"} {tierMeta.label}
-                </Text>
+                {option.rarity ? (
+                  <Text style={[s.headerTier, { color: tierMeta.text }]}>
+                    {"\u2605"} {tierMeta.label}
+                  </Text>
+                ) : (
+                  <Text style={[s.headerTier, { color: "rgba(255,255,255,0.3)" }]}>
+                    {"\u2726"} UNSEALED
+                  </Text>
+                )}
                 <View style={{ flex: 1 }} />
                 {(() => {
                   const cats = (option.categories ?? []).slice(0, 2);

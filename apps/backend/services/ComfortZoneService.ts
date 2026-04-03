@@ -37,6 +37,11 @@ export interface ComfortZoneService {
     venueCategory: string,
     isInCoverageGap?: boolean,
   ): Promise<string>;
+  computeGrowthRarity(
+    resonanceScore: number,
+    reflectionTags: string[],
+    isInCoverageGap?: boolean,
+  ): string;
   updateComfortProfile(
     userId: string,
     updates: {
@@ -354,6 +359,41 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
     else rarity = "common";
 
     // Boost rarity by one tier if quest is in a coverage gap (unexplored direction)
+    if (isInCoverageGap) {
+      const tiers = ["common", "uncommon", "rare", "epic", "legendary"];
+      const idx = tiers.indexOf(rarity);
+      if (idx < tiers.length - 1) rarity = tiers[idx + 1];
+    }
+
+    return rarity;
+  }
+
+  computeGrowthRarity(
+    resonanceScore: number,
+    reflectionTags: string[],
+    isInCoverageGap = false,
+  ): string {
+    const hasGrowth = reflectionTags.includes("growth_narrative");
+    const hasDiscomfort = reflectionTags.includes("discomfort_processed");
+    const hasSelfAwareness = reflectionTags.includes("self_awareness");
+    const hasSocial = reflectionTags.includes("social_connection");
+    const isSurface = reflectionTags.length === 0 || (reflectionTags.length === 1 && reflectionTags[0] === "surface_level");
+    const hasAnyMeaningfulTag = hasGrowth || hasDiscomfort || hasSelfAwareness || hasSocial;
+
+    let rarity: string;
+    if (resonanceScore >= 0.7 && (hasGrowth || hasDiscomfort)) {
+      rarity = "legendary";
+    } else if (resonanceScore >= 0.6 && hasAnyMeaningfulTag) {
+      rarity = "epic";
+    } else if (resonanceScore >= 0.5 || (hasAnyMeaningfulTag && !isSurface)) {
+      rarity = "rare";
+    } else if (resonanceScore >= 0.4) {
+      rarity = "uncommon";
+    } else {
+      rarity = "common";
+    }
+
+    // Coverage gap boost still applies
     if (isInCoverageGap) {
       const tiers = ["common", "uncommon", "rare", "epic", "legendary"];
       const idx = tiers.indexOf(rarity);

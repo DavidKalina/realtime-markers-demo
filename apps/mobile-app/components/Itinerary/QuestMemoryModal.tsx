@@ -33,6 +33,24 @@ import {
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { useCallback } from "react";
 
+// ── Reflection insights ──────────────────────────────────────
+
+const REFLECTION_INSIGHTS: Record<string, { emoji: string; text: string }> = {
+  growth_narrative: { emoji: "\uD83C\uDF31", text: "You grew here." },
+  discomfort_processed: { emoji: "\uD83D\uDCAA", text: "You pushed through." },
+  self_awareness: { emoji: "\uD83D\uDCA1", text: "You noticed something about yourself." },
+  social_connection: { emoji: "\uD83E\uDD1D", text: "You connected with someone." },
+};
+
+function getReflectionInsight(tags?: string[]): { emoji: string; text: string } | null {
+  if (!tags || tags.length === 0) return null;
+  // Priority: growth > discomfort > self_awareness > social
+  for (const key of ["growth_narrative", "discomfort_processed", "self_awareness", "social_connection"]) {
+    if (tags.includes(key)) return REFLECTION_INSIGHTS[key];
+  }
+  return null;
+}
+
 // ── Social context display ───────────────────────────────────
 
 const SOCIAL_LABELS: Record<string, { emoji: string; label: string }> = {
@@ -199,6 +217,20 @@ export function QuestMemoryModal({
               <Text style={s.summary}>{quest.summary}</Text>
             </ParallaxWidget>
           )}
+
+          {/* ── Reflection insight ── */}
+          {(() => {
+            const insight = getReflectionInsight(obj.reflectionTags);
+            if (!insight) return null;
+            return (
+              <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={225}>
+                <View style={s.insightCard}>
+                  <Text style={s.insightEmoji}>{insight.emoji}</Text>
+                  <Text style={s.insightText}>{insight.text}</Text>
+                </View>
+              </ParallaxWidget>
+            );
+          })()}
 
           {/* ── Stat chips ── */}
           <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={250}>
@@ -406,6 +438,30 @@ const createStyles = (
       color: colors.text.secondary,
       lineHeight: 20,
       textAlign: "center",
+    },
+
+    // ── Reflection insight ──
+    insightCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.md,
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.08)`,
+      borderWidth: 1,
+      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.2)`,
+      borderRadius: radius.lg,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      alignSelf: "center",
+    },
+    insightEmoji: {
+      fontSize: 22,
+    },
+    insightText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 14,
+      fontWeight: fontWeight.bold,
+      color: accentHex,
+      fontStyle: "italic",
     },
 
     // ── Widget label (matches CheckinCaptureModal) ──
