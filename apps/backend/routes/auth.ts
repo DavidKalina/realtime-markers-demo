@@ -27,8 +27,6 @@ authRouter.use(
 authRouter.post("/register", handlers.registerHandler);
 authRouter.post("/login", handlers.loginHandler);
 authRouter.post("/refresh-token", handlers.refreshTokenHandler);
-authRouter.post("/oauth/google", handlers.googleOAuthHandler);
-authRouter.post("/oauth/facebook", handlers.facebookOAuthHandler);
 
 // Password reset (public, tighter rate limit)
 authRouter.post(

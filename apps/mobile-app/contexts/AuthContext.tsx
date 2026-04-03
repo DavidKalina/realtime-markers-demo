@@ -1,7 +1,6 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { apiClient, User } from "../services/ApiClient";
-import { oAuthService } from "../services/OAuthService";
 import { pushNotificationService } from "../services/PushNotificationService";
 import {
   eventBroker,
@@ -22,10 +21,6 @@ interface AuthContextType {
     firstName?: string,
     lastName?: string,
   ) => Promise<void>;
-  // OAuth methods
-  signInWithGoogle: () => Promise<void>;
-  signInWithFacebook: () => Promise<void>;
-  getAvailableOAuthProviders: () => Array<"google" | "facebook">;
   logout: () => Promise<void>;
   forceLogout: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
@@ -288,62 +283,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const signInWithGoogle = async () => {
-    setIsLoading(true);
-    try {
-      await oAuthService.signInWithGoogle();
-
-      // Get the user from the API client to ensure authentication state is properly set up
-      const user = apiClient.getCurrentUser();
-      if (!user) {
-        throw new Error("Failed to get user from API client after OAuth");
-      }
-
-      setUser(user);
-      setIsAuthenticated(true);
-
-      // Setup push notifications after successful OAuth login
-      await setupPushNotifications(user.id);
-    } catch (error) {
-      // Auth state will be cleared by ApiClient
-      setUser(null);
-      setIsAuthenticated(false);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const signInWithFacebook = async () => {
-    setIsLoading(true);
-    try {
-      await oAuthService.signInWithFacebook();
-
-      // Get the user from the API client to ensure authentication state is properly set up
-      const user = apiClient.getCurrentUser();
-      if (!user) {
-        throw new Error("Failed to get user from API client after OAuth");
-      }
-
-      setUser(user);
-      setIsAuthenticated(true);
-
-      // Setup push notifications after successful OAuth login
-      await setupPushNotifications(user.id);
-    } catch (error) {
-      // Auth state will be cleared by ApiClient
-      setUser(null);
-      setIsAuthenticated(false);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const getAvailableOAuthProviders = () => {
-    return oAuthService.getAvailableProviders();
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -357,9 +296,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         updateProfile,
         changePassword,
         refreshAuth,
-        signInWithGoogle,
-        signInWithFacebook,
-        getAvailableOAuthProviders,
       }}
     >
       {children}

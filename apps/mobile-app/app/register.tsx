@@ -131,10 +131,6 @@ const RegisterScreen: React.FC = () => {
     }, 150);
   };
 
-  const handleOAuthError = (oauthError: Error) => {
-    setError(oauthError.message);
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colors.bg.primary} />
