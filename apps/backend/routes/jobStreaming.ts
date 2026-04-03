@@ -3,37 +3,49 @@ import { streamSSE } from "hono/streaming";
 import { Redis } from "ioredis";
 import { EventEmitter } from "events";
 import type { AppContext } from "../types/context";
-import { createRedisService } from "../services/shared/RedisService";
 
 const router = new Hono<AppContext>();
 
-// Module-level shared subscriber (created once on first request)
-let sharedSubscriber: Redis | null = null;
-const jobEmitter = new EventEmitter();
-jobEmitter.setMaxListeners(200);
+class JobStreamManager {
+  private subscriber: Redis | null = null;
+  private emitter = new EventEmitter();
 
-function ensureSharedSubscriber() {
-  if (sharedSubscriber) return;
-  sharedSubscriber = new Redis({
-    host: process.env.REDIS_HOST || "localhost",
-    port: parseInt(process.env.REDIS_PORT || "6379"),
-    password: process.env.REDIS_PASSWORD || undefined,
-  });
+  constructor() {
+    this.emitter.setMaxListeners(200);
+  }
 
-  sharedSubscriber.psubscribe("job:*:updates");
-  sharedSubscriber.on("pmessage", (_pattern, channel, message) => {
-    // "job:{id}:updates" → extract id
-    const parts = channel.split(":");
-    if (parts.length >= 3) {
-      const jobId = parts[1];
-      jobEmitter.emit(jobId, message);
-    }
-  });
+  ensureSubscriber(): void {
+    if (this.subscriber) return;
+    this.subscriber = new Redis({
+      host: process.env.REDIS_HOST || "localhost",
+      port: parseInt(process.env.REDIS_PORT || "6379"),
+      password: process.env.REDIS_PASSWORD || undefined,
+    });
 
-  sharedSubscriber.on("error", (err) => {
-    console.error("[JobStreaming] Shared subscriber error:", err);
-  });
+    this.subscriber.psubscribe("job:*:updates");
+    this.subscriber.on("pmessage", (_pattern, channel, message) => {
+      const parts = channel.split(":");
+      if (parts.length >= 3) {
+        const jobId = parts[1];
+        this.emitter.emit(jobId, message);
+      }
+    });
+
+    this.subscriber.on("error", (err) => {
+      console.error("[JobStreaming] Shared subscriber error:", err);
+    });
+  }
+
+  onJobUpdate(jobId: string, listener: (message: string) => void): void {
+    this.emitter.on(jobId, listener);
+  }
+
+  offJobUpdate(jobId: string, listener: (message: string) => void): void {
+    this.emitter.off(jobId, listener);
+  }
 }
+
+const jobStreamManager = new JobStreamManager();
 
 // Job status streaming endpoint
 router.get("/:jobId/stream", async (c) => {
@@ -44,12 +56,10 @@ router.get("/:jobId/stream", async (c) => {
   // Handle authentication - support both Authorization header and token query param
   let token: string | undefined;
 
-  // Check Authorization header first
   const authHeader = c.req.header("Authorization");
   if (authHeader && authHeader.startsWith("Bearer ")) {
     token = authHeader.substring(7);
   } else {
-    // Check token query parameter
     token = c.req.query("token");
   }
 
@@ -57,7 +67,6 @@ router.get("/:jobId/stream", async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  // Validate token
   const authService = c.get("authService");
 
   let decoded: { id: string; email: string; role: string } | null;
@@ -76,13 +85,7 @@ router.get("/:jobId/stream", async (c) => {
     return c.json({ error: "Unauthorized" }, 401);
   }
 
-  // Create a temporary RedisService for reading initial state
-  const tempRedis = new Redis({
-    host: process.env.REDIS_HOST || "localhost",
-    port: parseInt(process.env.REDIS_PORT || "6379"),
-    password: process.env.REDIS_PASSWORD || undefined,
-  });
-  const redisService = createRedisService(tempRedis);
+  const redisService = c.get("redisService");
 
   return streamSSE(c, async (stream) => {
     try {
@@ -101,7 +104,6 @@ router.get("/:jobId/stream", async (c) => {
             data: JSON.stringify({ id: jobId, status: "unauthorized" }),
           });
           stream.close();
-          tempRedis.quit();
           return;
         }
 
@@ -111,7 +113,6 @@ router.get("/:jobId/stream", async (c) => {
         if (jobData.status === "completed" || jobData.status === "failed") {
           await stream.writeSSE({ event: "done", data: "" });
           stream.close();
-          tempRedis.quit();
           return;
         }
       } else {
@@ -119,15 +120,11 @@ router.get("/:jobId/stream", async (c) => {
           data: JSON.stringify({ id: jobId, status: "not_found" }),
         });
         stream.close();
-        tempRedis.quit();
         return;
       }
 
-      // Done reading initial state
-      tempRedis.quit();
-
       // Ensure shared subscriber is running
-      ensureSharedSubscriber();
+      jobStreamManager.ensureSubscriber();
 
       // Listen for updates via EventEmitter (no new Redis connection)
       const listener = async (message: string) => {
@@ -148,11 +145,11 @@ router.get("/:jobId/stream", async (c) => {
           await stream.writeSSE({ data: message });
         }
       };
-      jobEmitter.on(jobId, listener);
+      jobStreamManager.onJobUpdate(jobId, listener);
 
       // Cleanup on disconnect
       stream.onAbort(() => {
-        jobEmitter.off(jobId, listener);
+        jobStreamManager.offJobUpdate(jobId, listener);
       });
 
       // Heartbeat
@@ -175,7 +172,6 @@ router.get("/:jobId/stream", async (c) => {
       await stream.writeSSE({
         data: JSON.stringify({ error: "Stream error" }),
       });
-      tempRedis.quit();
       stream.close();
     }
   });

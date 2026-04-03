@@ -1,7 +1,6 @@
-import { Repository } from "typeorm";
+import { type DataSource, Repository } from "typeorm";
 import { User } from "@realtime-markers/database";
-import { pushNotificationService } from "./PushNotificationService";
-import AppDataSource from "../data-source";
+import type { PushNotificationService } from "./PushNotificationService";
 import type { JobData } from "./JobQueue";
 
 export interface JobCompletionResult {
@@ -31,11 +30,18 @@ export interface JobCompletionResult {
   [key: string]: unknown;
 }
 
+export interface JobNotificationServiceDeps {
+  dataSource: DataSource;
+  pushNotificationService: PushNotificationService;
+}
+
 export class JobNotificationService {
   private userRepository: Repository<User>;
+  private pushNotificationService: PushNotificationService;
 
-  constructor() {
-    this.userRepository = AppDataSource.getRepository(User);
+  constructor(deps: JobNotificationServiceDeps) {
+    this.userRepository = deps.dataSource.getRepository(User);
+    this.pushNotificationService = deps.pushNotificationService;
   }
 
   /**
@@ -68,7 +74,7 @@ export class JobNotificationService {
       const notification = this.createJobCompletionNotification(job, result);
 
       if (notification) {
-        const pushResult = await pushNotificationService.sendToUser(creatorId, {
+        const pushResult = await this.pushNotificationService.sendToUser(creatorId, {
           title: notification.title,
           body: notification.body,
           data: {
@@ -131,7 +137,7 @@ export class JobNotificationService {
       );
 
       if (notification) {
-        const pushResult = await pushNotificationService.sendToUser(creatorId, {
+        const pushResult = await this.pushNotificationService.sendToUser(creatorId, {
           title: notification.title,
           body: notification.body,
           data: {
@@ -246,5 +252,8 @@ export class JobNotificationService {
   }
 }
 
-// Export singleton instance
-export const jobNotificationService = new JobNotificationService();
+export function createJobNotificationService(
+  deps: JobNotificationServiceDeps,
+): JobNotificationService {
+  return new JobNotificationService(deps);
+}

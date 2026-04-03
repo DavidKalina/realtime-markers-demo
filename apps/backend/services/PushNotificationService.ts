@@ -1,8 +1,7 @@
 import { Expo } from "expo-server-sdk";
 import type { ExpoPushMessage } from "expo-server-sdk";
-import { Repository, In } from "typeorm";
+import { type DataSource, Repository, In } from "typeorm";
 import { UserPushToken, User } from "@realtime-markers/database";
-import AppDataSource from "../data-source";
 
 export interface PushNotificationPayload {
   title: string;
@@ -27,15 +26,19 @@ export interface DeviceInfo {
   [key: string]: unknown;
 }
 
+export interface PushNotificationServiceDeps {
+  dataSource: DataSource;
+}
+
 export class PushNotificationService {
   private expo: Expo;
   private userPushTokenRepository: Repository<UserPushToken>;
   private userRepository: Repository<User>;
 
-  constructor() {
+  constructor(deps: PushNotificationServiceDeps) {
     this.expo = new Expo();
-    this.userPushTokenRepository = AppDataSource.getRepository(UserPushToken);
-    this.userRepository = AppDataSource.getRepository(User);
+    this.userPushTokenRepository = deps.dataSource.getRepository(UserPushToken);
+    this.userRepository = deps.dataSource.getRepository(User);
   }
 
   /**
@@ -303,5 +306,8 @@ export class PushNotificationService {
   }
 }
 
-// Export singleton instance
-export const pushNotificationService = new PushNotificationService();
+export function createPushNotificationService(
+  deps: PushNotificationServiceDeps,
+): PushNotificationService {
+  return new PushNotificationService(deps);
+}

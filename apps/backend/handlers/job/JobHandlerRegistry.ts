@@ -2,7 +2,8 @@ import type { JobHandler, JobHandlerContext } from "./BaseJobHandler";
 import type { JobQueue } from "../../services/JobQueue";
 import type { RedisService } from "../../services/shared/RedisService";
 import { PrescribeQuestHandler } from "./PrescribeQuestHandler";
-import type { SidequestService } from "../../services/SidequestService";
+import type { SidequestPrescriptionService } from "../../services/SidequestPrescriptionService";
+import type { JobNotificationService } from "../../services/JobNotificationService";
 
 export class JobHandlerRegistry {
   private handlers: Map<string, JobHandler> = new Map();
@@ -10,14 +11,15 @@ export class JobHandlerRegistry {
   constructor(
     private readonly jobQueue: JobQueue,
     private readonly redisService: RedisService,
-    private readonly sidequestService: SidequestService | null = null,
+    private readonly sidequestPrescriptionService: SidequestPrescriptionService | null = null,
+    private readonly jobNotificationService: JobNotificationService | null = null,
   ) {
     this.registerHandlers();
   }
 
   private registerHandlers(): void {
-    if (this.sidequestService) {
-      this.registerHandler(new PrescribeQuestHandler(this.sidequestService));
+    if (this.sidequestPrescriptionService && this.jobNotificationService) {
+      this.registerHandler(new PrescribeQuestHandler(this.sidequestPrescriptionService, this.jobNotificationService));
     }
   }
 

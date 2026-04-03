@@ -87,7 +87,7 @@ adminRouter.get("/health", async (c) => {
 // User Management Endpoints
 adminRouter.get("/users", async (c) => {
   try {
-    const userService = new UserService();
+    const userService = new UserService({ dataSource: c.get("dataSource") });
     const { page, limit, search, role } = c.req.query();
 
     const params = {
@@ -113,7 +113,7 @@ adminRouter.get("/users", async (c) => {
 
 adminRouter.get("/users/stats", async (c) => {
   try {
-    const userService = new UserService();
+    const userService = new UserService({ dataSource: c.get("dataSource") });
     const stats = await userService.getUserStats();
     return c.json(stats);
   } catch (error) {
@@ -130,7 +130,7 @@ adminRouter.get("/users/stats", async (c) => {
 
 adminRouter.get("/users/admins", async (c) => {
   try {
-    const userService = new UserService();
+    const userService = new UserService({ dataSource: c.get("dataSource") });
     const adminUsers = await userService.getAdminUsers();
     return c.json(adminUsers);
   } catch (error) {
@@ -148,7 +148,7 @@ adminRouter.get("/users/admins", async (c) => {
 adminRouter.get("/users/:id", async (c) => {
   try {
     const userId = c.req.param("id");
-    const userService = new UserService();
+    const userService = new UserService({ dataSource: c.get("dataSource") });
 
     const user = await userService.getUserById(userId);
 
@@ -178,7 +178,7 @@ adminRouter.patch("/users/:id/role", async (c) => {
       return c.json({ error: "Invalid role" }, 400);
     }
 
-    const userService = new UserService();
+    const userService = new UserService({ dataSource: c.get("dataSource") });
     const updatedUser = await userService.updateUserRole({ userId, role });
 
     return c.json(updatedUser);
@@ -219,7 +219,7 @@ adminRouter.post("/users/admins", async (c) => {
       );
     }
 
-    const userService = new UserService(emailService);
+    const userService = new UserService({ dataSource: c.get("dataSource"), emailService });
     const newAdmin = await userService.createAdminUser(
       {
         email,
@@ -264,7 +264,7 @@ adminRouter.delete("/users/admins/:id", async (c) => {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
-    const userService = new UserService();
+    const userService = new UserService({ dataSource: c.get("dataSource") });
     await userService.deleteAdminUser(adminId, currentUser.id);
 
     return c.json({

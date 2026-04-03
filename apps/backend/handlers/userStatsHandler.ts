@@ -3,7 +3,6 @@ import {
   requireAuth,
   type Handler,
 } from "../utils/handlerUtils";
-import AppDataSource from "../data-source";
 
 interface CategoryBreakdown {
   name: string;
@@ -25,6 +24,7 @@ interface UserStatsResponse {
 
 export const getUserStats: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
+  const dataSource = c.get("dataSource");
   const redisService = c.get("redisService");
   const cacheKey = `user-stats:${user.id}`;
 
@@ -35,7 +35,7 @@ export const getUserStats: Handler = withErrorHandling(async (c) => {
 
   const [categoryRows, cityRows, rankRows] = await Promise.all([
     // Category breakdown from itinerary item venue categories
-    AppDataSource.query(
+    dataSource.query(
       `SELECT o.venue_category AS name, NULL AS icon, COUNT(*)::int AS count
        FROM objective_checkins oc
        JOIN objectives o ON o.id = oc.objective_id
@@ -46,7 +46,7 @@ export const getUserStats: Handler = withErrorHandling(async (c) => {
       [user.id],
     ),
     // City breakdown from completed itineraries
-    AppDataSource.query(
+    dataSource.query(
       `SELECT s.city, COUNT(*)::int AS count
        FROM sidequests s
        WHERE s.user_id = $1 AND s.city IS NOT NULL AND s.completed_at IS NOT NULL
@@ -55,7 +55,7 @@ export const getUserStats: Handler = withErrorHandling(async (c) => {
       [user.id],
     ),
     // Global rank by total XP
-    AppDataSource.query(
+    dataSource.query(
       `SELECT
          (SELECT COUNT(*)::int + 1 FROM users WHERE total_xp > (SELECT total_xp FROM users WHERE id = $1)) AS rank,
          (SELECT COUNT(*)::int FROM users) AS "totalUsers"`,

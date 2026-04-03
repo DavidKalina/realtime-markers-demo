@@ -3,7 +3,6 @@ import {
   requireAuth,
   type Handler,
 } from "../utils/handlerUtils";
-import AppDataSource from "../data-source";
 
 interface ActivityDay {
   date: string; // YYYY-MM-DD
@@ -68,6 +67,7 @@ interface ProfileInsightsResponse {
 
 export const getProfileInsights: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
+  const dataSource = c.get("dataSource");
   const redisService = c.get("redisService");
   const cacheKey = `profile-insights:${user.id}`;
 
@@ -89,7 +89,7 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     socialTimelineRows,
   ] = await Promise.all([
     // 1. Activity heatmap — daily check-in counts for last 16 weeks
-    AppDataSource.query(
+    dataSource.query(
       `SELECT DATE(checked_in_at) AS date, COUNT(*)::int AS count
        FROM objective_checkins
        WHERE user_id = $1
@@ -100,7 +100,7 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     ),
 
     // 2. Venue DNA — category breakdown from all check-ins
-    AppDataSource.query(
+    dataSource.query(
       `SELECT
          o.venue_category AS category,
          COUNT(*)::int AS count
@@ -115,7 +115,7 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     ),
 
     // 3. Streak calendar — weekly check-in counts for last 16 weeks
-    AppDataSource.query(
+    dataSource.query(
       `SELECT
          DATE_TRUNC('week', checked_in_at)::date AS week_start,
          COUNT(*)::int AS count
@@ -128,7 +128,7 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     ),
 
     // 4a. Total distance (meters) using PostGIS on sequential checked-in stops
-    AppDataSource.query(
+    dataSource.query(
       `SELECT COALESCE(SUM(distance_m), 0)::float AS total_meters FROM (
          SELECT
            ST_Distance(
@@ -151,7 +151,7 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     ),
 
     // 4b. Summary stats
-    AppDataSource.query(
+    dataSource.query(
       `SELECT
          COUNT(DISTINCT oc.id)::int AS total_checkins,
          COUNT(DISTINCT s.id)::int AS total_completed,
@@ -166,7 +166,7 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     ),
 
     // 4c. Per-city footprint
-    AppDataSource.query(
+    dataSource.query(
       `SELECT
          s.city,
          COUNT(DISTINCT s.id)::int AS completed_count,
@@ -184,7 +184,7 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     ),
 
     // 5. Vibe DNA — activity type breakdown from completed sidequests
-    AppDataSource.query(
+    dataSource.query(
       `SELECT vibe, COUNT(*)::int AS count
        FROM (
          SELECT UNNEST(activity_types) AS vibe
@@ -201,7 +201,7 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     ),
 
     // 6. Intention DNA — intention breakdown from completed sidequests
-    AppDataSource.query(
+    dataSource.query(
       `SELECT intention, COUNT(*)::int AS count
        FROM sidequests
        WHERE user_id = $1
@@ -215,7 +215,7 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     ),
 
     // 7a. Social growth — aggregated counts
-    AppDataSource.query(
+    dataSource.query(
       `SELECT o.social_context AS context, COUNT(*)::int AS count
        FROM objectives o
        JOIN sidequests s ON s.id = o.sidequest_id
@@ -229,7 +229,7 @@ export const getProfileInsights: Handler = withErrorHandling(async (c) => {
     ),
 
     // 7b. Social growth — ordered timeline (for river chart)
-    AppDataSource.query(
+    dataSource.query(
       `SELECT o.social_context AS context
        FROM objectives o
        JOIN sidequests s ON s.id = o.sidequest_id

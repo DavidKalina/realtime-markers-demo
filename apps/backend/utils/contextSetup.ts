@@ -10,6 +10,7 @@ export function setupContext(
   services: ServiceContainer,
 ): void {
   app.use("*", async (c, next) => {
+    c.set("dataSource", services.dataSource);
     c.set("jobQueue", services.jobQueue);
     c.set("redisClient", services.redisService.getClient());
     c.set("redisService", services.redisService);
@@ -18,11 +19,14 @@ export function setupContext(
     c.set("geocodingService", services.geocodingService);
     c.set("emailService", services.emailService);
     c.set("sidequestService", services.sidequestService);
+    c.set("sidequestPrescriptionService", services.sidequestPrescriptionService);
     c.set("sidequestCheckinService", services.sidequestCheckinService);
     c.set("overpassService", services.overpassService);
     c.set("comfortZoneService", services.comfortZoneService);
     c.set("coverageService", services.coverageService);
     c.set("pathwayService", services.pathwayService);
+    c.set("pushNotificationService", services.pushNotificationService);
+    c.set("jobNotificationService", services.jobNotificationService);
 
     await next();
   });

@@ -1,6 +1,5 @@
-import AppDataSource from "../data-source";
+import { type DataSource, Repository, MoreThanOrEqual } from "typeorm";
 import { User, UserRole } from "@realtime-markers/database";
-import { Repository, MoreThanOrEqual } from "typeorm";
 import type { EmailService } from "./shared/EmailService";
 import bcrypt from "bcryptjs";
 
@@ -24,13 +23,18 @@ export interface UpdateUserRoleParams {
   role: UserRole;
 }
 
+export interface UserServiceDeps {
+  dataSource: DataSource;
+  emailService?: EmailService;
+}
+
 export class UserService {
   private userRepository: Repository<User>;
   private emailService?: EmailService;
 
-  constructor(emailService?: EmailService) {
-    this.userRepository = AppDataSource.getRepository(User);
-    this.emailService = emailService;
+  constructor(deps: UserServiceDeps) {
+    this.userRepository = deps.dataSource.getRepository(User);
+    this.emailService = deps.emailService;
   }
 
   async getUsers(params: UserListParams = {}): Promise<UserListResponse> {

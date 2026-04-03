@@ -3,12 +3,12 @@ import {
   requireAuth,
   type Handler,
 } from "../utils/handlerUtils";
-import { pushNotificationService } from "../services/PushNotificationService";
 import type { DeviceInfo } from "../services/PushNotificationService";
 
 // Register a push token for the current user
 export const registerTokenHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
+  const pushNotificationService = c.get("pushNotificationService");
 
   const body = await c.req.json();
   const { token, deviceInfo } = body;
@@ -44,6 +44,7 @@ export const registerTokenHandler: Handler = withErrorHandling(async (c) => {
 // Unregister a push token for the current user
 export const unregisterTokenHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
+  const pushNotificationService = c.get("pushNotificationService");
 
   const body = await c.req.json();
   const { token } = body;
@@ -63,6 +64,7 @@ export const unregisterTokenHandler: Handler = withErrorHandling(async (c) => {
 // Get all tokens for the current user
 export const getUserTokensHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
+  const pushNotificationService = c.get("pushNotificationService");
 
   const tokens = await pushNotificationService.getUserTokens(user.id);
 

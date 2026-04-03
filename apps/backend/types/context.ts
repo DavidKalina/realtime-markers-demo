@@ -1,4 +1,5 @@
 // src/types/context.ts
+import type { DataSource } from "typeorm";
 import { JobQueue } from "../services/JobQueue";
 import Redis from "ioredis";
 import type { StorageService } from "../services/shared/StorageService";
@@ -7,14 +8,18 @@ import { AuthService } from "../services/AuthService";
 import type { GoogleGeocodingService } from "../services/shared/GoogleGeocodingService";
 import type { EmailService } from "../services/shared/EmailService";
 import type { SidequestService } from "../services/SidequestService";
+import type { SidequestPrescriptionService } from "../services/SidequestPrescriptionService";
 import type { SidequestCheckinService } from "../services/SidequestCheckinService";
 import type { OverpassService } from "../services/shared/OverpassService";
 import type { EmbeddingServiceImpl } from "../services/shared/EmbeddingService";
 import type { ComfortZoneService } from "../services/ComfortZoneService";
 import type { CoverageService } from "../services/CoverageService";
 import type { PathwayService } from "../services/PathwayService";
+import type { PushNotificationService } from "../services/PushNotificationService";
+import type { JobNotificationService } from "../services/JobNotificationService";
 
 export interface AppVariables {
+  dataSource: DataSource;
   storageService: StorageService;
   jobQueue: JobQueue;
   redisClient: Redis;
@@ -23,6 +28,7 @@ export interface AppVariables {
   geocodingService: GoogleGeocodingService;
   emailService: EmailService;
   sidequestService: SidequestService;
+  sidequestPrescriptionService: SidequestPrescriptionService;
   sidequestCheckinService: SidequestCheckinService;
   overpassService: OverpassService;
 
@@ -30,6 +36,8 @@ export interface AppVariables {
   comfortZoneService: ComfortZoneService;
   coverageService: CoverageService;
   pathwayService: PathwayService;
+  pushNotificationService: PushNotificationService;
+  jobNotificationService: JobNotificationService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

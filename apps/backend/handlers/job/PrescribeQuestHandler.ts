@@ -1,17 +1,21 @@
 import type { JobData } from "../../services/JobQueue";
 import type { JobHandlerContext } from "./BaseJobHandler";
 import { BaseJobHandler } from "./BaseJobHandler";
-import type { SidequestService, SidequestProgressCallback } from "../../services/SidequestService";
+import type { SidequestPrescriptionService } from "../../services/SidequestPrescriptionService";
+import type { SidequestProgressCallback } from "../../services/SidequestService";
 import {
   createJobTracker,
   PRESCRIBE_PIPELINE,
 } from "../../services/shared/JobPipeline";
-import { jobNotificationService } from "../../services/JobNotificationService";
+import type { JobNotificationService } from "../../services/JobNotificationService";
 
 export class PrescribeQuestHandler extends BaseJobHandler {
   readonly jobType = "prescribe_quest";
 
-  constructor(private readonly sidequestService: SidequestService) {
+  constructor(
+    private readonly sidequestPrescriptionService: SidequestPrescriptionService,
+    private readonly jobNotificationService: JobNotificationService,
+  ) {
     super();
   }
 
@@ -23,7 +27,7 @@ export class PrescribeQuestHandler extends BaseJobHandler {
     const tracker = createJobTracker(jobId, PRESCRIBE_PIPELINE, {
       jobQueue: context.jobQueue,
       redisService: context.redisService,
-      notificationService: jobNotificationService,
+      notificationService: this.jobNotificationService,
     });
 
     try {
@@ -40,7 +44,7 @@ export class PrescribeQuestHandler extends BaseJobHandler {
         await tracker.stepProgress(progress, label, undefined, candidates);
       };
 
-      const sidequest = await this.sidequestService.prescribeQuest(
+      const sidequest = await this.sidequestPrescriptionService.prescribeQuest(
         userId,
         { latitude, longitude, timezone },
         onProgress,

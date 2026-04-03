@@ -16,6 +16,7 @@ import { setupMiddlewares, setupErrorHandlers } from "./utils/middlewareSetup";
 import { setupRoutes } from "./utils/routeSetup";
 import { setupContext } from "./utils/contextSetup";
 import { ServiceInitializer } from "./services/ServiceInitializer";
+import { createNotificationSchedulerService } from "./services/NotificationSchedulerService";
 
 // Create the app with proper typing
 const app = new Hono<AppContext>();
@@ -98,7 +99,11 @@ async function initializeServices() {
   const services = await serviceInitializer.initialize();
 
   // Setup push notification schedules (streak-at-risk, weekly nudge)
-  serviceInitializer.setupNotificationSchedule();
+  const notificationScheduler = createNotificationSchedulerService({
+    dataSource,
+    pushNotificationService: services.pushNotificationService,
+  });
+  notificationScheduler.start();
 
   // Seed dev users on startup (idempotent — skips if they already exist)
   await seedUsers(dataSource).catch((err) =>

@@ -16,6 +16,8 @@ import { createConfigService } from "./services/shared/ConfigService";
 import { createEmbeddingService } from "./services/shared/EmbeddingService";
 import { createOpenAIService } from "./services/shared/OpenAIService";
 import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
+import { createPushNotificationService } from "./services/PushNotificationService";
+import { createJobNotificationService } from "./services/JobNotificationService";
 
 
 // Constants
@@ -72,9 +74,9 @@ async function initializeWorker() {
     redisService,
   );
 
-  // Initialize sidequest service
-  const { createSidequestService } =
-    await import("./services/SidequestService");
+  // Initialize sidequest prescription service
+  const { createSidequestPrescriptionService } =
+    await import("./services/SidequestPrescriptionService");
   const { createOverpassService } =
     await import("./services/shared/OverpassService");
   const { createComfortZoneService } =
@@ -99,7 +101,7 @@ async function initializeWorker() {
   const pathwayService = createPathwayService({
     dataSource: AppDataSource,
   });
-  const sidequestService = createSidequestService({
+  const sidequestPrescriptionService = createSidequestPrescriptionService({
     dataSource: AppDataSource,
     openAIService,
     geocodingService,
@@ -112,10 +114,20 @@ async function initializeWorker() {
     pathwayService,
   });
 
+  const pushNotificationService = createPushNotificationService({
+    dataSource: AppDataSource,
+  });
+
+  const jobNotificationService = createJobNotificationService({
+    dataSource: AppDataSource,
+    pushNotificationService,
+  });
+
   jobHandlerRegistry = new JobHandlerRegistry(
     jobQueue,
     redisService,
-    sidequestService,
+    sidequestPrescriptionService,
+    jobNotificationService,
   );
 
   console.log("Worker initialized successfully");

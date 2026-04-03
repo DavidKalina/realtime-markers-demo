@@ -2,7 +2,6 @@ import type { Context } from "hono";
 import type { AppContext } from "../types/context";
 import { withErrorHandling, requireAuth } from "../utils/handlerUtils";
 import { ValidationError } from "../utils/errors";
-import AppDataSource from "../data-source";
 import { User } from "@realtime-markers/database";
 
 const VALID_PACES = ["chill", "balanced", "send_it"];
@@ -62,7 +61,8 @@ export const submitOnboardingProfile = withErrorHandling(
     const embeddingSql = await embeddingService.getEmbeddingSql(embeddingText);
 
     // Save to user record
-    const userRepo = AppDataSource.getRepository(User);
+    const dataSource = c.get("dataSource");
+    const userRepo = dataSource.getRepository(User);
     await userRepo.update(user.id, {
       onboardingProfile: profile,
       preferenceEmbedding: embeddingSql,

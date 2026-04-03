@@ -7,8 +7,7 @@ export type RedisChannel =
   | "job_created"
   | "job_updates"
   | "level-update"
-  | `job:${string}:updates`
-  | "sidequest_changes";
+  | `job:${string}:updates`;
 
 // Define base interface for messages that require timestamps
 interface TimestampedMessage {
