@@ -10,8 +10,6 @@ import {
   Objective,
   ObjectiveCheckin,
   UserBadge,
-  District,
-  DistrictSnapshot,
   Pathway,
 } from "../entities";
 
@@ -28,8 +26,6 @@ export const createDataSource = (databaseUrl: string): DataSource => {
       Objective,
       ObjectiveCheckin,
       UserBadge,
-      District,
-      DistrictSnapshot,
       Pathway,
     ],
     migrationsTableName: "migrations",

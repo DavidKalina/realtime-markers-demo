@@ -10,7 +10,6 @@ import type { SidequestService } from "../services/SidequestService";
 import type { SidequestCheckinService } from "../services/SidequestCheckinService";
 import type { OverpassService } from "../services/shared/OverpassService";
 import type { EmbeddingServiceImpl } from "../services/shared/EmbeddingService";
-import type { DistrictService } from "../services/DistrictService";
 import type { ComfortZoneService } from "../services/ComfortZoneService";
 import type { CoverageService } from "../services/CoverageService";
 import type { PathwayService } from "../services/PathwayService";
@@ -28,7 +27,6 @@ export interface AppVariables {
   overpassService: OverpassService;
 
   embeddingService: EmbeddingServiceImpl;
-  districtService: DistrictService;
   comfortZoneService: ComfortZoneService;
   coverageService: CoverageService;
   pathwayService: PathwayService;

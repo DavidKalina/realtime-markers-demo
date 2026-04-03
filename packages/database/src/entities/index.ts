@@ -7,8 +7,6 @@ export * from "./Objective";
 export * from "./ObjectiveCheckin";
 export * from "./UserBadge";
 
-export * from "./District";
-export * from "./DistrictSnapshot";
 
 export * from "./CoverageCluster";
 export * from "./CoverageSnapshot";

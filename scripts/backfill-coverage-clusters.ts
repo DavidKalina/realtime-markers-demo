@@ -16,8 +16,6 @@ import {
   Objective,
   ObjectiveCheckin,
   UserBadge,
-  District,
-  DistrictSnapshot,
   CoverageCluster,
   CoverageSnapshot,
 } from "@realtime-markers/database";
@@ -40,8 +38,6 @@ async function main() {
       Objective,
       ObjectiveCheckin,
       UserBadge,
-      District,
-      DistrictSnapshot,
       CoverageCluster,
       CoverageSnapshot,
     ],
