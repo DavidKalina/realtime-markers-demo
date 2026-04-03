@@ -82,6 +82,22 @@ async function initializeWorker() {
   const overpassService = createOverpassService({ redisService });
   const comfortZoneService = createComfortZoneService({
     dataSource: AppDataSource,
+    openAIService,
+  });
+  const { createCoverageService } =
+    await import("./services/CoverageService");
+  const coverageService = createCoverageService({
+    dataSource: AppDataSource,
+  });
+  const { createResonanceService } =
+    await import("./services/ResonanceService");
+  const resonanceService = createResonanceService({
+    dataSource: AppDataSource,
+  });
+  const { createPathwayService } =
+    await import("./services/PathwayService");
+  const pathwayService = createPathwayService({
+    dataSource: AppDataSource,
   });
   const sidequestService = createSidequestService({
     dataSource: AppDataSource,
@@ -91,6 +107,9 @@ async function initializeWorker() {
     embeddingService,
     redisService,
     comfortZoneService,
+    coverageService,
+    resonanceService,
+    pathwayService,
   });
 
   jobHandlerRegistry = new JobHandlerRegistry(

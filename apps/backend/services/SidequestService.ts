@@ -1116,6 +1116,42 @@ class SidequestServiceImpl implements SidequestService {
     }
   }
 
+  private async countCompletedQuests(userId: string): Promise<number> {
+    const result = await this.dataSource.query(
+      `SELECT COUNT(*)::int as count FROM sidequests WHERE user_id = $1 AND completed_at IS NOT NULL AND deleted_at IS NULL`,
+      [userId],
+    );
+    return result[0]?.count ?? 0;
+  }
+
+  private projectPoint(
+    lat: number,
+    lng: number,
+    bearingDeg: number,
+    distanceMiles: number,
+  ): { lat: number; lng: number } {
+    const R = 3958.8; // Earth radius in miles
+    const d = distanceMiles / R;
+    const brng = (bearingDeg * Math.PI) / 180;
+    const lat1 = (lat * Math.PI) / 180;
+    const lng1 = (lng * Math.PI) / 180;
+
+    const lat2 = Math.asin(
+      Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng),
+    );
+    const lng2 =
+      lng1 +
+      Math.atan2(
+        Math.sin(brng) * Math.sin(d) * Math.cos(lat1),
+        Math.cos(d) - Math.sin(lat1) * Math.sin(lat2),
+      );
+
+    return {
+      lat: (lat2 * 180) / Math.PI,
+      lng: (lng2 * 180) / Math.PI,
+    };
+  }
+
   private haversineDistanceMiles(
     lat1: number,
     lon1: number,
@@ -1324,8 +1360,8 @@ class SidequestServiceImpl implements SidequestService {
     // If user is more than 2x their comfort radius from home, search near
     // their current location instead — they're clearly somewhere else
     const isAwayFromHome = distFromHome > radius * 2;
-    const searchLat = isAwayFromHome ? currentLat : homeLat;
-    const searchLng = isAwayFromHome ? currentLng : homeLng;
+    let searchLat = isAwayFromHome ? currentLat : homeLat;
+    let searchLng = isAwayFromHome ? currentLng : homeLng;
 
     // 2. Build behavioral context from history
     const historyContext = await this.buildPrescriptionContext(
@@ -1337,11 +1373,58 @@ class SidequestServiceImpl implements SidequestService {
     // 2b. Build coverage context (Voronoi directional gaps + exploration profile)
     let coverageContext = "";
     let explorationProfileLabel = "";
+    let expansionTarget = "";
     if (this.coverageService) {
       try {
         const coverage = await this.coverageService.buildLLMCoverageContext(userId);
         coverageContext = coverage.context;
         explorationProfileLabel = coverage.profile.label;
+
+        // If there's a significant directional gap AND the user has grown enough,
+        // compute a search target in that direction and shift the search location.
+        // Force a fresh snapshot to avoid stale cache from early quests.
+        const snapshot = await this.coverageService.recomputeSnapshot(userId);
+        const completedCount = await this.countCompletedQuests(userId);
+        const snapshotGaps = (snapshot.directionalGaps ?? []) as { direction: string; angleDeg: number; gapWidthDeg: number }[];
+        console.log(`[prescribeQuest] Expansion check: ${completedCount} quests, radius ${radius.toFixed(1)}mi, ${snapshotGaps.length} gaps, clusters ${snapshot.clusterCount}`);
+        if (snapshotGaps.length > 0) {
+          console.log(`[prescribeQuest] Gaps: ${snapshotGaps.map(g => `${g.direction}(${g.gapWidthDeg.toFixed(0)}deg)`).join(", ")}`);
+        }
+        if (snapshotGaps.length > 0 && completedCount >= 5 && radius >= 2.5) {
+          const biggestGap = [...snapshotGaps].sort((a, b) => b.gapWidthDeg - a.gapWidthDeg)[0];
+          if (biggestGap.gapWidthDeg >= 45) {
+            // Project a point at the edge of comfort radius in the gap direction
+            const targetDistMiles = Math.max(4, radius * 0.85);
+            const targetPoint = this.projectPoint(homeLat, homeLng, biggestGap.angleDeg, targetDistMiles);
+
+            // Shift search location to the projected point
+            searchLat = targetPoint.lat;
+            searchLng = targetPoint.lng;
+
+            // Re-geocode the new search location for the city name
+            try {
+              const targetCity = await this.geocodingService.reverseGeocodeCityState(
+                targetPoint.lat,
+                targetPoint.lng,
+              );
+              if (targetCity && targetCity !== "Unknown") {
+                city = targetCity;
+              }
+            } catch {
+              // Keep existing city name if geocode fails
+            }
+
+            console.log(
+              `[prescribeQuest] Expansion: shifting search ${targetDistMiles.toFixed(1)}mi ${biggestGap.direction} ` +
+              `to (${searchLat.toFixed(4)}, ${searchLng.toFixed(4)}) = "${city}" (gap ${biggestGap.gapWidthDeg.toFixed(0)}deg)`,
+            );
+
+            expansionTarget = `\nEXPANSION TARGET: The user has a ${biggestGap.gapWidthDeg.toFixed(0)}-degree unexplored gap to the ${biggestGap.direction.toUpperCase()}. ` +
+              `You are searching ${targetDistMiles.toFixed(1)} miles ${biggestGap.direction} of their home. ` +
+              `Search for venues near (${searchLat.toFixed(4)}, ${searchLng.toFixed(4)}) in or around "${city}". ` +
+              `Do NOT search in Frederick — explore this new area.`;
+          }
+        }
       } catch (err) {
         console.error("[prescribeQuest] Coverage context failed:", err);
       }
@@ -1358,7 +1441,7 @@ class SidequestServiceImpl implements SidequestService {
       }
     }
 
-    // 3. Reverse geocode for city (from search location, not necessarily home)
+    // 3. Reverse geocode for city (from search location, may be overridden by expansion target)
     let city = "Unknown";
     try {
       city = await this.geocodingService.reverseGeocodeCityState(
@@ -1429,7 +1512,7 @@ ${comfortProfile?.goals ? `- Additional context: "${comfortProfile.goals}"` : ""
 ${user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${user.onboardingProfile.activities.join(", ")}` : ""}
 
 ${historyContext}
-${coverageContext ? `\n${coverageContext}\n` : ""}
+${coverageContext ? `\n${coverageContext}\n` : ""}${expansionTarget ? `\n${expansionTarget}\n` : ""}
 TOOLS:
 - web_search: discover interesting spots
 - search_places: verify venues with Google Places (exact name, address, coordinates)
@@ -1972,6 +2055,46 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
 
     const categoryDiversityBlock = this.buildCategoryDiversityBlock(categories);
 
+    // Venue-level repeat intelligence
+    const venueRepeats: { venue_name: string; visit_count: number; avg_rating: number; venue_category: string }[] =
+      await this.dataSource.query(
+        `SELECT
+           o.venue_name,
+           COUNT(*)::int AS visit_count,
+           ROUND(AVG(s.rating)::numeric, 1)::float AS avg_rating,
+           o.venue_category
+         FROM objectives o
+         JOIN sidequests s ON s.id = o.sidequest_id
+         WHERE s.user_id = $1
+           AND s.completed_at IS NOT NULL
+           AND s.deleted_at IS NULL
+           AND o.venue_name IS NOT NULL
+         GROUP BY o.venue_name, o.venue_category
+         HAVING COUNT(*) >= 2
+         ORDER BY COUNT(*) DESC
+         LIMIT 10`,
+        [userId],
+      );
+    const venueBlock = this.buildVenueRepeatBlock(venueRepeats);
+
+    // City visit counts for diminishing returns
+    const cityVisits: { city: string; count: number }[] =
+      await this.dataSource.query(
+        `SELECT s.city, COUNT(*)::int as count
+         FROM sidequests s
+         WHERE s.user_id = $1
+           AND s.completed_at IS NOT NULL
+           AND s.deleted_at IS NULL
+           AND s.city IS NOT NULL
+         GROUP BY s.city
+         ORDER BY count DESC`,
+        [userId],
+      );
+    const cityBlock = this.buildCityDiminishingBlock(cityVisits);
+
+    // Quest arc narrative
+    const arcNarrative = await this.buildArcNarrative(userId);
+
     // If we have a cached behavioral profile, use it
     if (behavioralProfile && behavioralProfile.questCount > 0) {
       const recentList = recentQuests
@@ -1983,11 +2106,14 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
 
       return `BEHAVIORAL PROFILE (based on ${behavioralProfile.questCount} quests, updated ${behavioralProfile.generatedAt}):
 ${behavioralProfile.summary}
+${arcNarrative ? `\nJOURNEY ARC: ${arcNarrative}` : ""}
 
 MOST RECENT QUESTS (avoid repeating these):
 ${recentList || "(none)"}
 
 ${categoryDiversityBlock}
+${venueBlock}
+${cityBlock}
 
 ${await this.buildSocialContext(userId, goalTags)}`;
     }
@@ -2006,8 +2132,11 @@ ${await this.buildSocialContext(userId, goalTags)}`;
 
     return `HISTORY (last ${recentQuests.length} quests):
 ${recentList}
+${arcNarrative ? `\nJOURNEY ARC: ${arcNarrative}` : ""}
 
 ${categoryDiversityBlock}
+${venueBlock}
+${cityBlock}
 
 PRESCRIPTION STRATEGY: Look at their history and prescribe something that meaningfully expands — a new category, a further distance, or an area of town they haven't explored.
 
@@ -2105,6 +2234,140 @@ ${await this.buildSocialContext(userId, goalTags)}`;
     }
 
     return lines.join("\n");
+  }
+
+  private async buildArcNarrative(userId: string): Promise<string> {
+    // Get journey milestones
+    const milestones: {
+      total: number;
+      first_category: string | null;
+      first_city: string | null;
+      latest_category: string | null;
+      latest_city: string | null;
+      unique_cities: number;
+      unique_categories: number;
+      first_social: string | null;
+      latest_social: string | null;
+    }[] = await this.dataSource.query(
+      `WITH ordered AS (
+        SELECT
+          o.venue_category,
+          s.city,
+          o.social_context,
+          s.completed_at,
+          ROW_NUMBER() OVER (ORDER BY s.completed_at ASC) as rn_asc,
+          ROW_NUMBER() OVER (ORDER BY s.completed_at DESC) as rn_desc
+        FROM sidequests s
+        JOIN objectives o ON o.sidequest_id = s.id
+        WHERE s.user_id = $1 AND s.completed_at IS NOT NULL AND s.deleted_at IS NULL
+      )
+      SELECT
+        (SELECT COUNT(*) FROM ordered) as total,
+        (SELECT venue_category FROM ordered WHERE rn_asc = 1) as first_category,
+        (SELECT city FROM ordered WHERE rn_asc = 1) as first_city,
+        (SELECT venue_category FROM ordered WHERE rn_desc = 1) as latest_category,
+        (SELECT city FROM ordered WHERE rn_desc = 1) as latest_city,
+        (SELECT COUNT(DISTINCT city) FROM ordered) as unique_cities,
+        (SELECT COUNT(DISTINCT venue_category) FROM ordered WHERE venue_category IS NOT NULL) as unique_categories,
+        (SELECT social_context FROM ordered WHERE social_context IS NOT NULL ORDER BY rn_asc LIMIT 1) as first_social,
+        (SELECT social_context FROM ordered WHERE social_context IS NOT NULL ORDER BY rn_desc LIMIT 1) as latest_social`,
+      [userId],
+    );
+
+    const m = milestones[0];
+    if (!m || m.total < 3) return "";
+
+    const parts: string[] = [];
+
+    // Opening: where they started
+    parts.push(`This user started with ${m.first_category ?? "a"} quest in ${m.first_city ?? "their hometown"}`);
+
+    // Social arc
+    if (m.first_social && m.latest_social && m.first_social !== m.latest_social) {
+      const socialLabels: Record<string, string> = {
+        solo: "going solo",
+        with_someone: "bringing someone along",
+        met_someone_new: "meeting new people",
+        group_activity: "doing group activities",
+      };
+      parts.push(
+        `went from ${socialLabels[m.first_social] ?? m.first_social} to ${socialLabels[m.latest_social] ?? m.latest_social}`,
+      );
+    }
+
+    // Expansion
+    if (Number(m.unique_cities) > 1) {
+      parts.push(`has explored ${m.unique_cities} cities and ${m.unique_categories} categories`);
+    } else {
+      parts.push(`has tried ${m.unique_categories} different categories`);
+    }
+
+    // Current
+    parts.push(`and most recently visited a ${m.latest_category ?? "venue"} in ${m.latest_city ?? "their area"}`);
+
+    return parts.join(", ") + ". Frame this quest as the next chapter in their story.";
+  }
+
+  private buildCityDiminishingBlock(
+    cities: { city: string; count: number }[],
+  ): string {
+    if (cities.length === 0) return "";
+
+    const total = cities.reduce((sum, c) => sum + c.count, 0);
+    if (total < 5) return ""; // Too early to enforce
+
+    const lines: string[] = [];
+    const topCity = cities[0];
+    const topPct = Math.round((topCity.count / total) * 100);
+
+    const cityList = cities.map((c) => `${c.city}: ${c.count}`).join(", ");
+    lines.push(`CITY VISITS (${total} total): ${cityList}`);
+
+    if (topCity.count >= 5 && topPct >= 40) {
+      const underexplored = cities.filter((c) => c.count <= 2).map((c) => c.city);
+      lines.push(
+        `"${topCity.city}" has ${topPct}% of all quests (${topCity.count}/${total}). ` +
+        `Prioritize venues in other cities to spread exploration.` +
+        (underexplored.length > 0 ? ` Underexplored: ${underexplored.join(", ")}.` : ""),
+      );
+    }
+
+    return lines.join("\n");
+  }
+
+  private buildVenueRepeatBlock(
+    venues: { venue_name: string; visit_count: number; avg_rating: number; venue_category: string }[],
+  ): string {
+    if (venues.length === 0) return "";
+
+    const lines: string[] = ["VENUE REPEATS:"];
+
+    for (const v of venues) {
+      const isHighResonance = v.avg_rating >= 4;
+      const isLowResonance = v.avg_rating < 3;
+
+      if (v.visit_count >= 4 && isLowResonance) {
+        // Lazy repeat — block it
+        lines.push(
+          `⚠️ "${v.venue_name}" (${v.venue_category}) — ${v.visit_count} visits, avg rating ${v.avg_rating}. ` +
+          `This is a low-resonance repeat. DO NOT send them here again. Find a different ${v.venue_category} or a new category entirely.`,
+        );
+      } else if (v.visit_count >= 3 && !isHighResonance) {
+        // Mediocre repeat — discourage
+        lines.push(
+          `"${v.venue_name}" (${v.venue_category}) — ${v.visit_count} visits, avg rating ${v.avg_rating}. ` +
+          `Becoming repetitive without strong signal. Prefer a different venue this time.`,
+        );
+      } else if (v.visit_count >= 3 && isHighResonance) {
+        // Genuine anchor — allow but throttle
+        lines.push(
+          `"${v.venue_name}" (${v.venue_category}) — ${v.visit_count} visits, avg rating ${v.avg_rating}. ` +
+          `This is a high-value anchor for the user. They can return occasionally, but alternate with new venues to keep expanding.`,
+        );
+      }
+    }
+
+    return lines.length > 1 ? lines.join("\n") : "";
   }
 
   private async computeResonanceAndPathway(
