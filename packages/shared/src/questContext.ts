@@ -2,7 +2,7 @@ import type { Rarity } from "./rarity.js";
 
 // ── Quest roles within a weekly pack ────────────────────────
 
-export const QUEST_ROLES = ["deepen", "explore", "discover"] as const;
+export const QUEST_ROLES = ["deepen", "explore", "discover", "stretch"] as const;
 export type QuestRole = (typeof QUEST_ROLES)[number];
 
 // ── Pathway phases ──────────────────────────────────────────
@@ -16,6 +16,7 @@ export const QUEST_ROLE_LABELS: Record<QuestRole, string> = {
   deepen: "YOUR GROOVE",
   explore: "EXPLORING",
   discover: "FIRST LOOK",
+  stretch: "STRETCH GOAL",
 };
 
 export const RARITY_LABELS: Record<Rarity, string> = {

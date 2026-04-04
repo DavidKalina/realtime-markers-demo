@@ -1,6 +1,7 @@
 import ItineraryTimeline from "@/components/Itinerary/ItineraryTimeline";
 import QuestCompass, { MiniCompassPreview } from "@/components/Itinerary/QuestCompass";
 import { CheckinCaptureModal } from "@/components/Itinerary/CheckinCaptureModal";
+import PredictionCaptureModal from "@/components/Quest/PredictionCaptureModal";
 
 import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
 import Screen from "@/components/Layout/Screen";
@@ -63,6 +64,73 @@ type SidequestCheckinEvent = BaseEvent & {
   completed: boolean;
 };
 
+// ── Linkified text ─────────────────────────────────────────
+// Detects URLs and phone numbers in text and makes them tappable.
+
+const URL_REGEX = /https?:\/\/[^\s,)]+/g;
+const PHONE_REGEX = /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
+
+function LinkedText({ text, style }: { text: string; style: any }) {
+  const parts: { text: string; type: "text" | "url" | "phone" }[] = [];
+  let lastIndex = 0;
+
+  // Merge URL and phone matches, sorted by position
+  const matches: { index: number; length: number; value: string; type: "url" | "phone" }[] = [];
+  for (const m of text.matchAll(URL_REGEX)) {
+    matches.push({ index: m.index!, length: m[0].length, value: m[0], type: "url" });
+  }
+  for (const m of text.matchAll(PHONE_REGEX)) {
+    matches.push({ index: m.index!, length: m[0].length, value: m[0], type: "phone" });
+  }
+  matches.sort((a, b) => a.index - b.index);
+
+  for (const match of matches) {
+    if (match.index > lastIndex) {
+      parts.push({ text: text.slice(lastIndex, match.index), type: "text" });
+    }
+    parts.push({ text: match.value, type: match.type });
+    lastIndex = match.index + match.length;
+  }
+  if (lastIndex < text.length) {
+    parts.push({ text: text.slice(lastIndex), type: "text" });
+  }
+
+  if (matches.length === 0) {
+    return <Text style={style}>{text}</Text>;
+  }
+
+  return (
+    <Text style={style}>
+      {parts.map((part, i) => {
+        if (part.type === "url") {
+          return (
+            <Text
+              key={i}
+              style={{ color: "#86efac", textDecorationLine: "underline" }}
+              onPress={() => Linking.openURL(part.text)}
+            >
+              {part.text}
+            </Text>
+          );
+        }
+        if (part.type === "phone") {
+          const digits = part.text.replace(/\D/g, "");
+          return (
+            <Text
+              key={i}
+              style={{ color: "#86efac", textDecorationLine: "underline" }}
+              onPress={() => Linking.openURL(`tel:${digits}`)}
+            >
+              {part.text}
+            </Text>
+          );
+        }
+        return <Text key={i}>{part.text}</Text>;
+      })}
+    </Text>
+  );
+}
+
 /** Parse hex color to r,g,b tuple. */
 function hexToRgb(hex: string): [number, number, number] {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -113,6 +181,7 @@ const ItineraryDetailScreen = () => {
     suggestedActivities: string[];
     journalPrompt?: string;
   } | null>(null);
+  const [showPrediction, setShowPrediction] = useState(false);
   const { userLocation, startLocationTracking, stopLocationTracking } = useUserLocation();
 
   // Start continuous location tracking while this sidequest is active
@@ -221,9 +290,16 @@ const ItineraryDetailScreen = () => {
     ]);
   }, [id, router]);
 
-  const handleActivate = useCallback(async () => {
+  const handleActivate = useCallback(() => {
     if (!itinerary) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Show prediction modal before activating
+    setShowPrediction(true);
+  }, [itinerary]);
+
+  const handlePredictionComplete = useCallback(async () => {
+    setShowPrediction(false);
+    if (!itinerary) return;
     const success = await activateItinerary(itinerary);
     if (success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -452,9 +528,10 @@ const ItineraryDetailScreen = () => {
                 .duration(450)
                 .easing(Easing.out(Easing.cubic))}
             >
-              <Text style={styles.heroSummary}>
-                {(itinerary)?.summary}
-              </Text>
+              <LinkedText
+                text={(itinerary)?.summary}
+                style={styles.heroSummary}
+              />
             </Animated.View>
           )}
 
@@ -660,6 +737,16 @@ const ItineraryDetailScreen = () => {
         />
       )}
 
+      {/* Pre-quest prediction modal (expectancy capture) */}
+      <PredictionCaptureModal
+        visible={showPrediction}
+        objectiveId={objectives[0]?.id ?? ""}
+        objectiveTitle={displaySidequest?.title ?? objectives[0]?.title ?? ""}
+        objectiveEmoji={objectives[0]?.emoji}
+        onDismiss={() => setShowPrediction(false)}
+        onComplete={handlePredictionComplete}
+      />
+
       {/* Check-in capture modal */}
       <CheckinCaptureModal
         visible={!!captureObjective}
@@ -741,9 +828,10 @@ const ItineraryDetailScreen = () => {
 
                   {/* Description */}
                   {selectedItem.description && (
-                    <Text style={styles.itemDetailDesc}>
-                      {selectedItem.description}
-                    </Text>
+                    <LinkedText
+                      text={selectedItem.description}
+                      style={styles.itemDetailDesc}
+                    />
                   )}
 
                   {/* Hook (why this stop) */}
@@ -752,9 +840,10 @@ const ItineraryDetailScreen = () => {
                       <Text style={styles.itemDetailProTipLabel}>
                         WHY THIS STOP
                       </Text>
-                      <Text style={styles.itemDetailProTipText}>
-                        {selectedItem.hook}
-                      </Text>
+                      <LinkedText
+                        text={selectedItem.hook}
+                        style={styles.itemDetailProTipText}
+                      />
                     </View>
                   )}
 
@@ -768,9 +857,20 @@ const ItineraryDetailScreen = () => {
                         </Text>
                       )}
                       {selectedItem.venueAddress && (
-                        <Text style={styles.itemDetailSectionText}>
-                          {selectedItem.venueAddress}
-                        </Text>
+                        <Pressable onPress={() => {
+                          const query = encodeURIComponent(
+                            `${selectedItem.venueName ?? ""} ${selectedItem.venueAddress}`.trim(),
+                          );
+                          Linking.openURL(
+                            Platform.OS === "ios"
+                              ? `maps:?q=${query}`
+                              : `geo:0,0?q=${query}`,
+                          );
+                        }}>
+                          <Text style={[styles.itemDetailSectionText, { color: "#86efac", textDecorationLine: "underline" }]}>
+                            {selectedItem.venueAddress}
+                          </Text>
+                        </Pressable>
                       )}
                       {selectedItem.venueCategory && (
                         <Text style={styles.itemDetailMeta}>

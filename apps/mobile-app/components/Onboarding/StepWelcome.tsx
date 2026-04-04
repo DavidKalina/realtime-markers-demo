@@ -8,12 +8,12 @@ const GREEN = "#86efac";
 
 const LINES = [
   { text: "> initializing...", speed: 35, pause: 400 },
-  { text: "Your comfort zone has edges.", speed: 30, pause: 300 },
-  { text: "We help you find them —", speed: 30, pause: 200 },
-  { text: "then gently push past.", speed: 30, pause: 500 },
+  { text: "You have a goal.", speed: 30, pause: 300 },
+  { text: "We break it into real-world quests —", speed: 30, pause: 200 },
+  { text: "one step at a time.", speed: 30, pause: 500 },
   { text: "", speed: 0, pause: 300 },
-  { text: "Real places. Real growth.", speed: 25, pause: 200 },
-  { text: "One quest at a time.", speed: 25, pause: 0 },
+  { text: "Real places. Real progress.", speed: 25, pause: 200 },
+  { text: "Let's map your path.", speed: 25, pause: 0 },
 ];
 
 function useStreamedLines(lines: typeof LINES) {

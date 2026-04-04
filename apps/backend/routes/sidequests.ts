@@ -24,6 +24,8 @@ import {
   setHomeAnchorHandler,
   updateComfortProfileHandler,
   objectiveJournalHandler,
+  objectivePredictionHandler,
+  generateFearLadderHandler,
 } from "../handlers/sidequestHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -76,11 +78,17 @@ sidequestRouter.post(
   writeRateLimit,
   checkinObjectiveHandler,
 );
+sidequestRouter.post("/generate-fear-ladder", writeRateLimit, generateFearLadderHandler);
 sidequestRouter.put("/comfort-profile", writeRateLimit, updateComfortProfileHandler);
 sidequestRouter.put(
   "/objectives/:objectiveId/journal",
   writeRateLimit,
   objectiveJournalHandler,
+);
+sidequestRouter.put(
+  "/objectives/:objectiveId/prediction",
+  writeRateLimit,
+  objectivePredictionHandler,
 );
 sidequestRouter.delete("/:id", writeRateLimit, deleteSidequestHandler);
 

@@ -40,7 +40,7 @@ export interface SiblingContext {
   batchId: string;
   batchIndex: number;
   totalInBatch: number;
-  questRole: "deepen" | "explore" | "discover";
+  questRole: "deepen" | "explore" | "discover" | "stretch";
   targetPathway?: { id: string; theme: string; label: string; phase: string };
   previousSiblings: { title: string; venueCategory: string; venueName: string }[];
 }
@@ -65,6 +65,7 @@ interface LLMItemRaw {
   sa: string[] | null;
   jp: string | null;
   df: number | null;
+  act: string | null;
 }
 
 interface LLMResponseRaw {
@@ -86,6 +87,7 @@ interface LLMItem {
   suggestedActivities: string[] | null;
   journalPrompt: string | null;
   difficulty: number | null;
+  actionability: "actionable" | "suggestive" | "milestone" | null;
 }
 
 interface LLMResponse {
@@ -111,6 +113,7 @@ function expandLLMResponse(raw: LLMResponseRaw): LLMResponse {
       suggestedActivities: i.sa ?? null,
       journalPrompt: i.jp ?? null,
       difficulty: i.df ?? null,
+      actionability: (["actionable", "suggestive", "milestone"].includes(i.act ?? "") ? i.act : "suggestive") as LLMItem["actionability"],
     })),
   };
 }
@@ -153,6 +156,31 @@ interface SidequestPrescriptionServiceDeps {
   coverageService?: CoverageService;
   resonanceService?: ResonanceService;
   pathwayService?: PathwayService;
+}
+
+// ─── Fear Ladder Readiness ──────────────────────────────────────────
+
+interface FearLadderReadiness {
+  /** 0-3 phase index. Derived from demonstrated comfort, not quest count. */
+  phase: number;
+  /** Completed quest count (used as minimum floor only) */
+  completedQuests: number;
+  /** Average resonance across all completed quests */
+  avgResonance: number;
+  /** Average resonance over last 5 quests (recency signal) */
+  recentResonance: number;
+  /** Average rating (1-5) across all quests */
+  avgRating: number;
+  /** Whether user has shown growth signals in reflections */
+  hasGrowthSignals: boolean;
+  /** Number of quests with positive sentiment (> 0.2) */
+  positiveQuestCount: number;
+  /** Average difficulty of recent quests */
+  recentAvgDifficulty: number;
+  /** Whether user has a DFS pathway (found something they love) */
+  hasDfsPathway: boolean;
+  /** Human-readable reason for the phase */
+  phaseReason: string;
 }
 
 // ─── Implementation ─────────────────────────────────────────────────
@@ -223,6 +251,8 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         "onboardingProfile",
         "pacePreference",
         "behavioralProfile",
+        "fearLadder",
+        "expectancyCalibration",
       ],
     });
 
@@ -246,6 +276,14 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
     let searchLat = isAwayFromHome ? currentLat : homeLat;
     let searchLng = isAwayFromHome ? currentLng : homeLng;
 
+    // Reverse geocode for city name early — coverage expansion may override searchLat/searchLng and re-geocode
+    let city = "Unknown";
+    try {
+      city = await this.geocodingService.reverseGeocodeCityState(searchLat, searchLng);
+    } catch {
+      // Fall through with Unknown
+    }
+
     // 2. Build behavioral context from history
     const historyContext = await this.buildPrescriptionContext(
       userId,
@@ -253,7 +291,10 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
       user.comfortProfile?.goalTags ?? [],
     );
 
-    // 2b. Build coverage context (Voronoi directional gaps + exploration profile)
+    // 2b. Compute fear ladder readiness from actual user feedback
+    const fearLadderReadiness = await this.computeFearLadderReadiness(userId);
+
+    // 2c. Build coverage context (Voronoi directional gaps + exploration profile)
     let coverageContext = "";
     let explorationProfileLabel = "";
     let expansionTarget = "";
@@ -324,16 +365,8 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
       }
     }
 
-    // 3. Reverse geocode for city (from search location, may be overridden by expansion target)
-    let city = "Unknown";
-    try {
-      city = await this.geocodingService.reverseGeocodeCityState(
-        searchLat,
-        searchLng,
-      );
-    } catch {
-      // Fall through with Unknown
-    }
+    // 3. Re-geocode city if search location was shifted by expansion target
+    // (city was already set above; this catches the case where it wasn't overridden in the expansion block)
 
     // 4. Create the sidequest record
     const sidequest = repo.create({
@@ -382,16 +415,35 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         well_rounded: "Strong coverage. Challenge them — push further, try unusual categories, or explore the widest directional gap.",
       };
 
-      const instructions = `You are a Comfort Zone Expansion Coach. You prescribe ONE location-based quest designed to gently expand this user's real world.
+      const isStretch = siblingContext?.questRole === "stretch";
+
+      const instructions = `You are a Goal Achievement Guide. You prescribe ONE location-based quest designed to ${isStretch ? "ambitiously push" : "steadily advance"} this user toward their goal through real-world action.
 
 YOUR APPROACH:
-- This is exposure therapy wrapped in adventure. The goal is to get the user slightly outside their comfort zone — not overwhelm them.
-- Stretch on ONE dimension at a time: either further distance (familiar category) OR unfamiliar category (familiar distance). Never both.
-- The user's current comfort radius is ${radius.toFixed(1)} miles from home. Use this as context, NOT as a target to push past.
-- Keep it achievable. One stop. Low friction. The win is them going, not the venue being perfect.
-
+- Progress through action, not theory. The goal is to get the user ${isStretch ? "significantly outside" : "slightly outside"} their comfort zone — not ${isStretch ? "terrify them, but genuinely challenge them" : "overwhelm them"}.
+${isStretch
+  ? `- STRETCH GOAL: Push on MULTIPLE dimensions at once — further distance AND unfamiliar category AND/OR higher social challenge. This is the ambitious card.
+- Search at 1.5-2x the user's comfort radius (${(radius * 1.5).toFixed(1)}-${(radius * 2).toFixed(1)} miles). Go further than you normally would.
+- Pick a category or activity type the user hasn't tried yet. Combine novelty with distance.`
+  : `- Stretch on ONE dimension at a time: either further distance (familiar category) OR unfamiliar category (familiar distance). Never both.`}
+- The user's current comfort radius is ${radius.toFixed(1)} miles from home. Use this as context${isStretch ? " — then exceed it" : ", NOT as a target to push past"}.
+- Keep it achievable. One stop. ${isStretch ? "The win is them rising to the challenge." : "Low friction. The win is them going, not the venue being perfect."}
+${comfortProfile?.primaryGoal ? `
+SEARCH STRATEGY:
+- The user's goal is "${comfortProfile.primaryGoal}". Your searches should DIRECTLY advance this goal.
+- Search for venues, events, classes, groups, and resources specifically related to their goal.
+- Use web_search to find upcoming events, open registrations, meetup groups, and communities in "${city}".
+- Use search_places for physical venues where goal-related activity happens.
+- Only fall back to generic exploration (cafes, parks) as recovery/reflection stops between goal-focused quests — at most 1 in 3 quests should be generic.
+` : ""}
+${comfortProfile?.primaryGoal ? `ACTIONABILITY RULES:
+- This user has a specific goal. MOST quests should be "actionable" — search the web for real signup links, event schedules, class registrations, or step-by-step instructions and include them in the description and suggested activities.
+- "suggestive" is for recovery/exploration quests with no specific next step beyond showing up. Use sparingly.
+- "milestone" is for reflection checkpoints — use when prompted by the MILESTONE CHECK instruction in the history context.
+- For "actionable" quests: include specific URLs, phone numbers, event dates/times, or registration steps in the description field.
+` : ""}
 EXPANSION PHILOSOPHY:
-${phaseContext || "- Breadth-first by default. Push into unexplored directions until the user finds an area worth investing in.\n- Only go deeper in an area if the user has ORGANICALLY revisited it (multiple visits, diverse categories). That's the signal they found \"their place.\""}
+${phaseContext || `- Breadth-first by default. ${comfortProfile?.primaryGoal ? "Explore different facets of their goal — venues, communities, skills, and resources that advance it." : "Push into unexplored directions until the user finds an area worth investing in."}\n- Only go deeper in an area if the user has ORGANICALLY revisited it (multiple visits, diverse categories). That's the signal they found their thread.`}
 - A comedy open mic across the street is more impactful than driving across the state for coffee. Distance is NOT progress — novelty is.
 - Never prescribe further just because you can. The goal is meaningful expansion, not mileage.${explorationProfileLabel ? `\n- Exploration profile: ${explorationProfileLabel} — ${profileOneLiner[explorationProfileLabel] ?? ""}` : ""}
 ${siblingContext ? this.buildSiblingInstructions(siblingContext) : ""}
@@ -401,11 +453,14 @@ USER PROFILE:
 - Comfort radius: ${radius.toFixed(1)} miles
 ${isAwayFromHome ? "- USER IS AWAY FROM HOME. Search near their CURRENT location, not their home. Keep it easy — they're already out of their usual zone." : ""}
 - Pace: ${pace === "gentle" ? "Gentle — ease them in, stay close, familiar categories" : pace === "push_me" ? "Push me — they want to be challenged, stretch further" : "Steady — balanced expansion, moderate stretches"}
+${comfortProfile?.primaryGoal ? `- PRIMARY GOAL: "${comfortProfile.primaryGoal}" — every quest should advance this goal or build supporting skills/confidence` : ""}
 ${comfortProfile ? `- What keeps them from going out: "${comfortProfile.barriers}"` : ""}
 ${comfortProfile?.goalTags?.length ? `- Goals: ${comfortProfile.goalTags.join(", ")}` : ""}
 ${comfortProfile?.goals ? `- Additional context: "${comfortProfile.goals}"` : ""}
 ${comfortProfile?.northStar ? `- North star (what success means to them): "${comfortProfile.northStar}"` : ""}
 ${user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${user.onboardingProfile.activities.join(", ")}` : ""}
+${user.fearLadder ? this.buildFearLadderContext(user.fearLadder, fearLadderReadiness) : ""}
+${user.expectancyCalibration ? this.buildExpectancyContext(user.expectancyCalibration) : ""}
 ${comfortProfile?.goalTags?.includes("discover_hobby") ? `- HOBBY DISCOVERY MODE: This user wants to find a new hobby. Prioritize venues where they can TRY an activity hands-on (studios, classes, open sessions, meetups, workshops) — not just observe. Favor categories they haven't explored yet. If they listed activities they enjoy, use those as adjacent starting points (e.g. if they like hiking, try a climbing gym; if they like coffee, try a roasting workshop).` : ""}
 
 ${historyContext}
@@ -427,6 +482,8 @@ CONSTRAINTS:
 - sa (suggested activities): 3-4 things they could do at this spot. Each should start with an emoji. Keep it casual and short. Example: ["🚶 Walk the loop", "📖 Bring a book", "📸 Snap a photo", "☕ Grab a drink"]. Not assignments — just ideas.
 - jp (journal prompt): a reflective question for after the visit. Short, open-ended. Examples: "How did it feel being somewhere new?", "Would you come back?", "What surprised you?"
 - df (difficulty): 1-5 integer. 1 = very easy (familiar, close, low effort), 3 = moderate stretch, 5 = big push. Based on distance from home relative to their comfort radius, category familiarity, and social demands of the venue.
+- act (actionability): "actionable" if you can provide concrete next steps (signup links, phone numbers, event times, step-by-step instructions), "suggestive" for general exploration (go check this place out), "milestone" for reflection checkpoints.${comfortProfile?.primaryGoal ? " This user has a specific goal — prefer actionable." : ""}
+- df (difficulty): MUST be ${this.computeTargetDifficulty(pace, fearLadderReadiness, isStretch)}. Do NOT default to difficulty 1-2 unless the target explicitly says so.
 ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — focus on 24-hour spots, scenic night walks/viewpoints, or a "plan for tomorrow morning" quest.` : ""}`;
 
       type Tool = import("openai/resources/responses/responses").Tool;
@@ -503,7 +560,7 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — focus on 24-hour sp
                   type: "object",
                   properties: {
                     t: { type: "string", description: "Stop title" },
-                    d: { type: "string", description: "Stop description" },
+                    d: { type: "string", description: "Stop description. For actionable quests, include specific URLs, phone numbers, event dates/times, or registration steps." },
                     e: { type: "string", description: "Emoji" },
                     ec: {
                       type: ["number", "null"],
@@ -536,8 +593,14 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — focus on 24-hour sp
                       description:
                         "Difficulty 1-5. 1=very easy, 3=moderate stretch, 5=big push",
                     },
+                    act: {
+                      type: "string",
+                      enum: ["actionable", "suggestive", "milestone"],
+                      description:
+                        "actionable = concrete next steps with signup links/times/instructions, suggestive = go explore this place, milestone = reflection checkpoint on progress",
+                    },
                   },
-                  required: ["t", "d", "e", "ec", "vn", "va", "vc", "hook", "sa", "jp", "df"],
+                  required: ["t", "d", "e", "ec", "vn", "va", "vc", "hook", "sa", "jp", "df", "act"],
                 },
                 maxItems: 1,
                 minItems: 1,
@@ -817,6 +880,7 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
           suggestedActivities: vi.item.suggestedActivities ?? [],
           journalPrompt: vi.item.journalPrompt ?? undefined,
           difficulty: vi.item.difficulty ?? undefined,
+          actionability: vi.item.actionability ?? undefined,
         }),
       );
       await objectiveRepo.save(objectives);
@@ -1297,6 +1361,28 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
 
     const categoryDiversityBlock = this.buildCategoryDiversityBlock(categories);
 
+    // Pending/prescribed-but-not-completed venues — hard blocklist to prevent back-to-back repeats
+    const pendingVenues: { venue_name: string; venue_category: string }[] =
+      await this.dataSource.query(
+        `SELECT DISTINCT o.venue_name, o.venue_category
+         FROM sidequests s
+         JOIN objectives o ON o.sidequest_id = s.id
+         WHERE s.user_id = $1
+           AND s.deleted_at IS NULL
+           AND s.completed_at IS NULL
+           AND o.venue_name IS NOT NULL
+         ORDER BY o.venue_name
+         LIMIT 15`,
+        [userId],
+      );
+
+    // Count completed quests for milestone detection
+    const completedCountResult: { count: number }[] = await this.dataSource.query(
+      `SELECT COUNT(*)::int as count FROM sidequests WHERE user_id = $1 AND completed_at IS NOT NULL AND deleted_at IS NULL`,
+      [userId],
+    );
+    const completedQuestCount = completedCountResult[0]?.count ?? 0;
+
     // Venue-level repeat intelligence
     const venueRepeats: { venue_name: string; visit_count: number; avg_rating: number; venue_category: string }[] =
       await this.dataSource.query(
@@ -1337,6 +1423,18 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
     // Quest arc narrative
     const arcNarrative = await this.buildArcNarrative(userId);
 
+    // Pending venues blocklist
+    const pendingBlock = pendingVenues.length > 0
+      ? `\nDO NOT PRESCRIBE THESE VENUES (already in the user's queue — not yet visited):\n${pendingVenues.map((v) => `- "${v.venue_name}" (${v.venue_category})`).join("\n")}\n`
+      : "";
+
+    // Milestone injection
+    const milestoneQuests = [5, 10, 15, 20, 25, 30, 40, 50];
+    const isMilestone = milestoneQuests.includes(completedQuestCount);
+    const milestoneBlock = isMilestone
+      ? `\n🎯 MILESTONE CHECK: The user has completed ${completedQuestCount} quests. This quest SHOULD be a "milestone" — a reflection checkpoint. Pick a comfortable, familiar-category venue and frame the quest around reflecting on their journey so far. The journal prompt should ask them to look back on what's changed since they started. Set actionability to "milestone".\n`
+      : "";
+
     // If we have a cached behavioral profile, use it
     if (behavioralProfile && behavioralProfile.questCount > 0) {
       const recentList = recentQuests
@@ -1352,17 +1450,17 @@ ${arcNarrative ? `\nJOURNEY ARC: ${arcNarrative}` : ""}
 
 MOST RECENT QUESTS (avoid repeating these):
 ${recentList || "(none)"}
-
+${pendingBlock}
 ${categoryDiversityBlock}
 ${venueBlock}
 ${cityBlock}
-
+${milestoneBlock}
 ${await this.buildSocialContext(userId, goalTags)}`;
     }
 
     // Fallback for new users or pre-migration users: raw query approach
     if (recentQuests.length === 0) {
-      return "HISTORY: This is a new user — no completed quests yet. Start gentle and close to home.";
+      return `HISTORY: This is a new user — no completed quests yet. Start gentle and close to home.${pendingBlock}`;
     }
 
     const recentList = recentQuests
@@ -1375,11 +1473,11 @@ ${await this.buildSocialContext(userId, goalTags)}`;
     return `HISTORY (last ${recentQuests.length} quests):
 ${recentList}
 ${arcNarrative ? `\nJOURNEY ARC: ${arcNarrative}` : ""}
-
+${pendingBlock}
 ${categoryDiversityBlock}
 ${venueBlock}
 ${cityBlock}
-
+${milestoneBlock}
 PRESCRIPTION STRATEGY: Look at their history and prescribe something that meaningfully expands — a new category, a further distance, or an area of town they haven't explored.
 
 ${await this.buildSocialContext(userId, goalTags)}`;
@@ -1622,7 +1720,418 @@ ${await this.buildSocialContext(userId, goalTags)}`;
     return lines.length > 1 ? lines.join("\n") : "";
   }
 
-  // ─── Sibling Context for Weekly Packs ──────────────────────────
+  // ─── Fear Ladder Readiness (resonance-driven) ──────────────────
+
+  private async computeFearLadderReadiness(userId: string): Promise<FearLadderReadiness> {
+    // Single query: get completed quests with their objective data
+    const rows: {
+      rating: number | null;
+      difficulty: number | null;
+      reflection_sentiment: number | null;
+      reflection_tags: string[] | null;
+      completed_at: Date;
+    }[] = await this.dataSource.query(`
+      SELECT
+        s.rating,
+        o.difficulty,
+        o.reflection_sentiment,
+        o.reflection_tags,
+        s.completed_at
+      FROM sidequests s
+      JOIN objectives o ON o.sidequest_id = s.id AND o.sort_order = 0
+      WHERE s.user_id = $1
+        AND s.completed_at IS NOT NULL
+        AND s.deleted_at IS NULL
+      ORDER BY s.completed_at DESC
+    `, [userId]);
+
+    const completedQuests = rows.length;
+
+    if (completedQuests === 0) {
+      return {
+        phase: 0, completedQuests: 0, avgResonance: 0, recentResonance: 0,
+        avgRating: 0, hasGrowthSignals: false, positiveQuestCount: 0,
+        recentAvgDifficulty: 0, hasDfsPathway: false,
+        phaseReason: "No quests completed yet — starting gentle",
+      };
+    }
+
+    // Compute signals
+    const ratings = rows.filter(r => r.rating != null).map(r => r.rating!);
+    const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+
+    const difficulties = rows.filter(r => r.difficulty != null).map(r => r.difficulty!);
+    const recentDifficulties = difficulties.slice(0, 5);
+    const recentAvgDifficulty = recentDifficulties.length > 0
+      ? recentDifficulties.reduce((a, b) => a + b, 0) / recentDifficulties.length : 1;
+
+    const positiveQuestCount = rows.filter(r =>
+      r.reflection_sentiment != null && r.reflection_sentiment > 0.2
+    ).length;
+
+    const growthTags = new Set(["growth_narrative", "discomfort_processed", "social_connection", "self_awareness"]);
+    const hasGrowthSignals = rows.some(r =>
+      r.reflection_tags?.some(tag => growthTags.has(tag))
+    );
+
+    // Check for DFS pathways
+    const dfsCount: { count: number }[] = await this.dataSource.query(
+      `SELECT COUNT(*)::int as count FROM pathways WHERE user_id = $1 AND phase = 'dfs'`,
+      [userId],
+    );
+    const hasDfsPathway = (dfsCount[0]?.count ?? 0) > 0;
+
+    // Get resonance scores from pathways
+    const pathwayRows: { resonance_scores: { score: number }[] }[] = await this.dataSource.query(
+      `SELECT resonance_scores FROM pathways WHERE user_id = $1 AND resonance_scores IS NOT NULL`,
+      [userId],
+    );
+    const allResonanceScores = pathwayRows.flatMap(p => (p.resonance_scores ?? []).map(r => r.score));
+    const avgResonance = allResonanceScores.length > 0
+      ? allResonanceScores.reduce((a, b) => a + b, 0) / allResonanceScores.length : 0;
+    const recentScores = allResonanceScores.slice(0, 5);
+    const recentResonance = recentScores.length > 0
+      ? recentScores.reduce((a, b) => a + b, 0) / recentScores.length : 0;
+
+    // ── Phase determination (resonance-driven with persistence as a signal) ──
+    //
+    // Three paths to phase advancement — user can advance via ANY of these:
+    //   A) Strong feedback: high ratings + resonance (they love it)
+    //   B) Growth signals: reflection tags show self-awareness, growth narratives
+    //   C) Persistence: they keep showing up consistently, even at moderate ratings
+    //      Showing up 8+ times at 3 stars IS progress — they're building the habit.
+    //
+    // Phase 0 → 1: ≥3 quests AND (avg rating ≥ 3 OR avg resonance ≥ 0.4)
+    //              Signal: "they're going out and not hating it"
+    //
+    // Phase 1 → 2: ANY of:
+    //   - Growth signals in reflections (any quest)
+    //   - Avg rating ≥ 3.5 with ≥5 quests
+    //   - Persistence: ≥8 quests with avg rating ≥ 2.5 (kept showing up)
+    //   Signal: "they're either growing, thriving, or building the habit"
+    //
+    // Phase 2 → 3: ANY of:
+    //   - Has DFS pathway (found something they deeply resonate with)
+    //   - Recent resonance ≥ 0.55 AND avg rating ≥ 3.5
+    //   - Persistence: ≥15 quests with avg rating ≥ 3 (long-term commitment)
+    //   Signal: "they've earned the full menu"
+
+    let phase = 0;
+    let phaseReason = "Early days — building the habit of going out";
+
+    // Phase 0 → 1: low bar — they're going out and it's OK
+    if (completedQuests >= 3 && (avgRating >= 3 || avgResonance >= 0.4)) {
+      phase = 1;
+      phaseReason = `Going out and responding OK (${completedQuests} quests, avg rating ${avgRating.toFixed(1)}) — ready for gentle stretches`;
+    }
+
+    // Phase 1 → 2: growth OR persistence
+    if (phase >= 1) {
+      if (hasGrowthSignals) {
+        phase = 2;
+        phaseReason = `Showing growth signals in reflections — ready for real challenges`;
+      } else if (completedQuests >= 5 && avgRating >= 3.5) {
+        phase = 2;
+        phaseReason = `Consistently positive (avg rating ${avgRating.toFixed(1)} across ${completedQuests} quests) — opening up`;
+      } else if (completedQuests >= 8 && avgRating >= 2.5) {
+        phase = 2;
+        phaseReason = `Persistent — ${completedQuests} quests completed. Showing up consistently is growth. Time to stretch`;
+      }
+    }
+
+    // Phase 2 → 3: deep engagement OR long-term commitment
+    if (phase >= 2) {
+      if (hasDfsPathway) {
+        phase = 3;
+        phaseReason = "Found a deep passion pathway — fully open to growth";
+      } else if (recentResonance >= 0.55 && avgRating >= 3.5) {
+        phase = 3;
+        phaseReason = `Thriving (rating ${avgRating.toFixed(1)}, resonance ${recentResonance.toFixed(2)}) — no constraints needed`;
+      } else if (completedQuests >= 15 && avgRating >= 3) {
+        phase = 3;
+        phaseReason = `Long-term commitment — ${completedQuests} quests at avg ${avgRating.toFixed(1)} stars. They've earned the full menu`;
+      }
+    }
+
+    // Expectancy violation accelerator: if they consistently overestimate fear,
+    // they're more capable than the standard signals suggest — bump up a phase.
+    // Requires enough data (3+ violations) and strong overestimation (avg > 1.5).
+    const cal = await this.dataSource.getRepository(User).findOne({
+      where: { id: userId },
+      select: ["id", "expectancyCalibration"],
+    });
+    if (cal?.expectancyCalibration && cal.expectancyCalibration.totalViolations >= 3) {
+      const avgAnxDelta = cal.expectancyCalibration.avgAnxietyDelta;
+      if (avgAnxDelta > 1.5 && phase < 3) {
+        phase = Math.min(3, phase + 1);
+        phaseReason = `Strong fear overestimator (avg Δ${avgAnxDelta.toFixed(1)}) — their predictions consistently overshoot reality. Accelerating.`;
+      }
+    }
+
+    // Safety valve: if recent quests have LOW ratings, drop back a phase
+    // This prevents escalation when the user is struggling
+    const recentRatings = ratings.slice(0, 5);
+    const recentAvgRating = recentRatings.length > 0
+      ? recentRatings.reduce((a, b) => a + b, 0) / recentRatings.length : avgRating;
+    if (recentAvgRating < 2.5 && phase > 0) {
+      phase = Math.max(0, phase - 1);
+      phaseReason = `Recent quests aren't landing well (recent avg rating ${recentAvgRating.toFixed(1)}) — pulling back`;
+    }
+
+    return {
+      phase, completedQuests, avgResonance, recentResonance,
+      avgRating, hasGrowthSignals, positiveQuestCount,
+      recentAvgDifficulty, hasDfsPathway, phaseReason,
+    };
+  }
+
+  private buildFearLadderContext(fearLadder: {
+    overallScore: number;
+    dimensionScores: Record<string, number>;
+    responses: Record<string, number>;
+    scenarios?: { id: string; text: string; dimension: string }[];
+    dimensions?: string[];
+  }, readiness: FearLadderReadiness): string {
+    const { dimensionScores, responses } = fearLadder;
+    const { phase, completedQuests, phaseReason } = readiness;
+    const lines: string[] = [];
+
+    lines.push(`- FEAR LADDER ASSESSMENT (phase ${phase}/3): ${phaseReason}`);
+    lines.push(`- Progress: ${completedQuests} quests, avg resonance ${readiness.avgResonance.toFixed(2)}, avg rating ${readiness.avgRating.toFixed(1)}${readiness.hasGrowthSignals ? ", showing growth signals in reflections" : ""}`);
+
+    // If we have dynamic (LLM-generated) scenarios, use those for context
+    if (fearLadder.scenarios && fearLadder.scenarios.length > 0) {
+      return this.buildDynamicFearLadderContext(fearLadder as Required<Pick<typeof fearLadder, "scenarios">> & typeof fearLadder, readiness, lines);
+    }
+
+    // Legacy path: hardcoded scenario-specific guidance
+    const scenarioGuidance: Record<string, { hard: string; soft: string; open: string; safe: string }> = {
+      coffee_alone:     { hard: "even low-key solo venues feel hard — start with outdoor/walking quests instead", soft: "solo sit-down venues are a gentle stretch — try it if low-key", open: "solo venues should feel comfortable by now", safe: "coffee shops, cafes, and other solo-sit-down spots are great" },
+      eat_alone:        { hard: "DO NOT send them to eat at a restaurant alone", soft: "solo dining is a stretch — only if the venue is casual and low-pressure", open: "solo dining could be a good challenge now", safe: "solo dining is fine" },
+      park_alone:       { hard: "even solo outdoor spots feel intimidating", soft: "solo outdoor spots are a gentle stretch", open: "solo outdoor is comfortable", safe: "parks, trails, and solo outdoor walks are their comfort zone" },
+      talk_stranger:    { hard: "DO NOT require talking to strangers or staff beyond ordering. No \"ask someone about...\" or \"strike up a conversation\" activities", soft: "very light social interaction is OK (e.g. ordering, brief chat) — but don't make it the main challenge", open: "light social interactions are fair game now — the user is building confidence. A suggested activity like \"ask the barista about their favorite\" is fine", safe: "light social interaction is fine" },
+      fitness_class:    { hard: "DO NOT prescribe fitness classes, yoga studios, group exercise, or any class-format activity", soft: "group classes are still a big stretch — only consider very beginner-friendly, drop-in options", open: "fitness/yoga classes are now worth trying — the user has built enough confidence for structured group settings", safe: "group fitness classes are fine" },
+      group_event:      { hard: "DO NOT prescribe meetups, group events, workshops, or any activity where they'd join a group of strangers", soft: "small, casual group settings (e.g. a workshop with 5 people) are worth considering — but nothing large or formal", open: "group events and meetups are on the table — the user has enough experience to handle them", safe: "group events and meetups are fine" },
+      new_activity:     { hard: "stick to activities adjacent to what they already know — do NOT throw them into something completely unfamiliar", soft: "new activities are OK if they're adjacent to familiar ones — no total unknowns yet", open: "novel activities are welcome — the user is ready to explore", safe: "novel activities are welcome" },
+      new_neighborhood: { hard: "stay in or near familiar areas — unfamiliar neighborhoods add too much stress", soft: "new neighborhoods are OK if there's a familiar anchor (e.g. a coffee shop in a new area)", open: "exploring new neighborhoods should feel natural now", safe: "exploring new neighborhoods is fine" },
+      ask_rec:          { hard: "avoid activities that require asking strangers for help or recommendations", soft: "very light ask-for-help moments are OK — like asking a cashier, not a stranger on the street", open: "asking people for recs is a reasonable challenge now", safe: "asking people for recs is comfortable" },
+      live_show:        { hard: "DO NOT send them to concerts, shows, or performances alone — too exposed", soft: "small intimate performances could work — nothing large or high-energy", open: "live shows and performances solo are a solid growth challenge now", safe: "live shows and performances solo are fine" },
+    };
+
+    const constraints: string[] = [];
+    const safeBets: string[] = [];
+
+    for (const [scenarioId, guidance] of Object.entries(scenarioGuidance)) {
+      const rating = responses[scenarioId];
+      if (rating == null) continue;
+
+      if (rating >= 4) {
+        if (phase === 0) constraints.push(guidance.hard);
+        else if (phase === 1) constraints.push(guidance.soft);
+        else if (phase === 2) constraints.push(guidance.open);
+      } else if (rating === 3 && phase === 0) {
+        constraints.push(guidance.soft);
+      } else if (rating <= 2) {
+        safeBets.push(guidance.safe);
+      }
+    }
+
+    if (constraints.length > 0) {
+      const header = phase === 0
+        ? "HARD CONSTRAINTS (user rated these scenarios 4-5 out of 5 scary — respect these):"
+        : phase === 1
+        ? "SOFT CONSTRAINTS (user found these scary — they're responding well to quests but approach these with care):"
+        : "GROWTH OPPORTUNITIES (user originally found these scary — their feedback shows they may be ready):";
+      lines.push(`\n${header}`);
+      for (const c of constraints) {
+        lines.push(`  - ${c}`);
+      }
+    }
+
+    if (safeBets.length > 0) {
+      lines.push(`\nSAFE ZONES (user rated these 1-2 — reliable comfort options):`);
+      for (const safe of safeBets) {
+        lines.push(`  - ${safe}`);
+      }
+    }
+
+    // Dimension summary
+    const dimLabels: Record<string, string> = {
+      solo: "Being alone in public",
+      social: "Social interaction",
+      novelty: "Trying new things",
+      physical: "Physical/outdoor activities",
+      vulnerability: "Feeling exposed",
+    };
+
+    const dimSummary = Object.entries(dimensionScores)
+      .map(([dim, score]) => `${dimLabels[dim] ?? dim}: ${score <= 0.25 ? "comfortable" : score <= 0.5 ? "moderate" : score <= 0.75 ? "anxious" : "very anxious"}`)
+      .join(", ");
+    lines.push(`- Dimension summary: ${dimSummary}`);
+
+    return lines.join("\n");
+  }
+
+  /**
+   * Build fear ladder context from LLM-generated (dynamic) scenarios.
+   * Uses the scenario text and dimension to generate guidance based on rating + phase.
+   */
+  private buildDynamicFearLadderContext(fearLadder: {
+    overallScore: number;
+    dimensionScores: Record<string, number>;
+    responses: Record<string, number>;
+    scenarios: { id: string; text: string; dimension: string }[];
+    dimensions?: string[];
+  }, readiness: FearLadderReadiness, lines: string[]): string {
+    const { dimensionScores, responses, scenarios } = fearLadder;
+    const { phase } = readiness;
+
+    const highScary: string[] = [];
+    const moderateScary: string[] = [];
+    const comfortable: string[] = [];
+
+    for (const scenario of scenarios) {
+      const rating = responses[scenario.id];
+      if (rating == null) continue;
+
+      const label = `"${scenario.text}" (${scenario.dimension})`;
+
+      if (rating >= 4) {
+        if (phase === 0) {
+          highScary.push(`AVOID quests similar to ${label} — user rated this ${rating}/5 scary and is still early in their journey`);
+        } else if (phase === 1) {
+          highScary.push(`Approach with care: ${label} rated ${rating}/5 — user is progressing but this is still a big stretch`);
+        } else if (phase === 2) {
+          moderateScary.push(`Growth opportunity: ${label} was rated ${rating}/5 but user's feedback suggests they may be ready`);
+        }
+        // Phase 3: no constraint
+      } else if (rating === 3 && phase === 0) {
+        moderateScary.push(`Gentle stretch: ${label} rated ${rating}/5 — approach carefully at this stage`);
+      } else if (rating <= 2) {
+        comfortable.push(`${label} — user is comfortable with this type of challenge`);
+      }
+    }
+
+    if (highScary.length > 0) {
+      const header = phase === 0
+        ? "HARD CONSTRAINTS (user rated these scenarios highly scary — respect these):"
+        : phase === 1
+        ? "SOFT CONSTRAINTS (user found these scary — approaching with care):"
+        : "GROWTH OPPORTUNITIES (user may be ready for these):";
+      lines.push(`\n${header}`);
+      for (const c of highScary) lines.push(`  - ${c}`);
+    }
+
+    if (moderateScary.length > 0 && phase <= 1) {
+      lines.push(`\nMODERATE CHALLENGES:`);
+      for (const c of moderateScary) lines.push(`  - ${c}`);
+    }
+
+    if (comfortable.length > 0) {
+      lines.push(`\nSAFE ZONES (user rated these comfortable):`);
+      for (const c of comfortable) lines.push(`  - ${c}`);
+    }
+
+    // Dimension summary using dynamic dimension names
+    const dimSummary = Object.entries(dimensionScores)
+      .map(([dim, score]) => {
+        const label = dim.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        return `${label}: ${score <= 0.25 ? "comfortable" : score <= 0.5 ? "moderate" : score <= 0.75 ? "anxious" : "very anxious"}`;
+      })
+      .join(", ");
+    lines.push(`- Dimension summary: ${dimSummary}`);
+
+    return lines.join("\n");
+  }
+
+  /**
+   * Build LLM context from expectancy violation data.
+   * Tells the agent how miscalibrated the user's fear predictions are,
+   * so it can push harder when the user consistently overestimates threat.
+   */
+  private buildExpectancyContext(cal: NonNullable<import("@realtime-markers/database").User["expectancyCalibration"]>): string {
+    if (cal.totalViolations < 2) return ""; // Not enough data yet
+
+    const lines: string[] = [];
+    lines.push(`\nEXPECTANCY VIOLATION DATA (${cal.totalViolations} quests with predictions):`);
+
+    // Interpret the anxiety calibration
+    const avgAnx = cal.avgAnxietyDelta;
+    if (avgAnx > 1.5) {
+      lines.push(`- STRONG OVERESTIMATOR: On average, this user predicts anxiety ${avgAnx.toFixed(1)} points higher than reality. Their fear model is significantly miscalibrated — they're consistently more capable than they think. You can push harder than their fear ladder suggests.`);
+    } else if (avgAnx > 0.5) {
+      lines.push(`- MILD OVERESTIMATOR: This user tends to predict ${avgAnx.toFixed(1)} points more anxiety than they actually experience. They're generally pleasantly surprised by their quests — gentle escalation is working.`);
+    } else if (avgAnx < -0.5) {
+      lines.push(`- UNDERESTIMATOR: This user actually feels MORE anxious than predicted (${Math.abs(avgAnx).toFixed(1)} points). Quests are landing harder than expected — ease up or stay at current level.`);
+    } else {
+      lines.push(`- WELL CALIBRATED: Predictions roughly match reality (Δ${avgAnx.toFixed(1)}). Their self-awareness is good — trust their comfort level signals.`);
+    }
+
+    // Difficulty calibration
+    const avgDiff = cal.avgDifficultyDelta;
+    if (avgDiff > 1.0) {
+      lines.push(`- They also overestimate difficulty by ~${avgDiff.toFixed(1)} points — quests feel easier than expected. Consider bumping target difficulty.`);
+    } else if (avgDiff < -0.5) {
+      lines.push(`- They underestimate difficulty by ~${Math.abs(avgDiff).toFixed(1)} points — quests feel harder than expected. Keep difficulty conservative.`);
+    }
+
+    // Recent trend (are they getting better calibrated or worse?)
+    if (cal.recentViolations.length >= 3) {
+      const recent3 = cal.recentViolations.slice(0, 3);
+      const recentAvgAnx = recent3.reduce((sum, v) => sum + v.anxietyDelta, 0) / recent3.length;
+      if (Math.abs(recentAvgAnx - avgAnx) > 0.5) {
+        if (recentAvgAnx > avgAnx) {
+          lines.push(`- TREND: Recent quests show even larger overestimation — their confidence is growing faster than their predictions reflect.`);
+        } else {
+          lines.push(`- TREND: Recent quests show smaller overestimation — they're calibrating better. Their predictions are becoming more accurate.`);
+        }
+      }
+    }
+
+    return lines.join("\n");
+  }
+
+  /**
+   * Compute target difficulty from resonance feedback, not arbitrary quest counts.
+   * If recent quests at current difficulty had high resonance → bump up.
+   * If recent quests had low ratings/negative sentiment → hold or pull back.
+   */
+  private computeTargetDifficulty(pace: string, readiness: FearLadderReadiness, isStretch = false): string {
+    const baseDifficulty: Record<string, number> = { gentle: 1, steady: 2, push_me: 3 };
+    const base = baseDifficulty[pace] ?? 1.5;
+
+    // Resonance-driven escalation: each phase adds ~0.5-1.0 to difficulty
+    // Phase 0: base difficulty (gentle=1, steady=2, push_me=3)
+    // Phase 1: +0.5 (responding well)
+    // Phase 2: +1.0 (growing)
+    // Phase 3: +1.5-2.0 (thriving)
+    const phaseBoost = [0, 0.5, 1.0, 1.5][readiness.phase];
+
+    // Additional boost if recent resonance is high at current difficulty
+    const resonanceBoost = readiness.recentResonance >= 0.6 ? 0.5 : 0;
+
+    // Stretch quests push ~1.5 levels above normal target
+    const stretchBoost = isStretch ? 1.5 : 0;
+
+    const target = Math.min(5, base + phaseBoost + resonanceBoost + stretchBoost);
+    const rounded = Math.round(target * 2) / 2;
+
+    if (isStretch) {
+      return `~${rounded} (STRETCH GOAL — this is the ambitious card. Push beyond their current level)`;
+    }
+
+    const reason = readiness.phase === 0
+      ? "early phase — keep it approachable, easy wins build momentum"
+      : readiness.phase === 1
+      ? "building confidence — gentle stretches are landing well"
+      : readiness.phase === 2
+      ? "showing real growth — push toward meaningful challenges"
+      : "thriving — lean into growth edges";
+
+    return `~${rounded} (${reason})`;
+  }
+
+  // ─── Sibling Context for Weekly Packs ─────────────────────────��
 
   private buildSiblingInstructions(ctx: SiblingContext): string {
     const lines: string[] = [];
@@ -1638,6 +2147,17 @@ ${await this.buildSocialContext(userId, goalTags)}`;
       lines.push(
         `- ROLE: EXPLORE. This quest should push into NEW territory the user hasn't tried.`,
         `  Avoid categories already covered by active pathways. Prioritize novelty.`,
+      );
+    } else if (ctx.questRole === "stretch") {
+      lines.push(
+        `- ROLE: STRETCH GOAL. This quest is an optional accelerator — it should push BEYOND the user's current comfort zone.`,
+        `  This card exists so the user always has a way to leap ahead if they're feeling brave.`,
+        `  Push on MULTIPLE dimensions simultaneously: further distance AND unfamiliar category AND higher social/novelty challenge.`,
+        `  Target difficulty should be ~1.5 levels ABOVE what you'd normally prescribe for this user.`,
+        `  Search further out — aim for 1.5-2x the user's current comfort radius.`,
+        `  Pick venues or activities that would be a genuine stretch: a new neighborhood, a category they haven't tried, a social element they'd normally avoid.`,
+        `  The quest should feel ambitious but NOT impossible — exciting, not terrifying.`,
+        `  DO NOT soften this quest to match their current level. The other 2 cards in this batch already do that.`,
       );
     } else {
       lines.push(`- ROLE: DISCOVER. Explore freely — the user is just getting started.`);
@@ -1707,9 +2227,9 @@ ${await this.buildSocialContext(userId, goalTags)}`;
 
   private async determinePackSlots(
     userId: string,
-  ): Promise<{ role: "deepen" | "explore" | "discover"; targetPathway?: { id: string; theme: string; label: string; phase: string } }[]> {
+  ): Promise<{ role: "deepen" | "explore" | "discover" | "stretch"; targetPathway?: { id: string; theme: string; label: string; phase: string } }[]> {
     if (!this.pathwayService) {
-      return [{ role: "discover" }, { role: "discover" }];
+      return [{ role: "discover" }, { role: "discover" }, { role: "stretch" }];
     }
 
     let phaseContext: import("./PathwayService").PhaseContext;
@@ -1720,7 +2240,7 @@ ${await this.buildSocialContext(userId, goalTags)}`;
         this.pathwayService.getPathways(userId),
       ]);
     } catch {
-      return [{ role: "discover" }, { role: "discover" }];
+      return [{ role: "discover" }, { role: "discover" }, { role: "stretch" }];
     }
 
     const dfsPathways = pathways
@@ -1729,14 +2249,15 @@ ${await this.buildSocialContext(userId, goalTags)}`;
 
     const topDfs = dfsPathways[0];
 
+    // Always 3 slots: 2 at-level + 1 stretch goal
+    // The stretch card pushes beyond the user's current comfort zone,
+    // giving them a way to accelerate progress if they choose to.
     switch (phaseContext.globalPhase) {
       case "bfs":
-        // No DFS pathways yet — both explore
-        return [{ role: "explore" }, { role: "explore" }];
+        return [{ role: "explore" }, { role: "explore" }, { role: "stretch" }];
 
       case "mixed":
       case "dfs":
-        // 1 deepen (top DFS pathway) + 1 explore
         return [
           {
             role: "deepen",
@@ -1745,10 +2266,11 @@ ${await this.buildSocialContext(userId, goalTags)}`;
               : undefined,
           },
           { role: "explore" },
+          { role: "stretch" },
         ];
 
       default:
-        return [{ role: "discover" }, { role: "discover" }];
+        return [{ role: "discover" }, { role: "discover" }, { role: "stretch" }];
     }
   }
 }

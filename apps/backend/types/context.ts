@@ -17,6 +17,7 @@ import type { CoverageService } from "../services/CoverageService";
 import type { PathwayService } from "../services/PathwayService";
 import type { PushNotificationService } from "../services/PushNotificationService";
 import type { JobNotificationService } from "../services/JobNotificationService";
+import type { FearLadderGenerationService } from "../services/FearLadderGenerationService";
 
 export interface AppVariables {
   dataSource: DataSource;
@@ -38,6 +39,7 @@ export interface AppVariables {
   pathwayService: PathwayService;
   pushNotificationService: PushNotificationService;
   jobNotificationService: JobNotificationService;
+  fearLadderGenerationService: FearLadderGenerationService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

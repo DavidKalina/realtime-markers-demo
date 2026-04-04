@@ -41,6 +41,100 @@ export const PACE_OPTIONS = [
   { key: "push_me", emoji: "\uD83D\uDE80", label: "Push Me", desc: "Challenge me, stretch further" },
 ];
 
+// ── Fear ladder scenarios ──────────────────────────────────
+// Each scenario probes a specific comfort dimension.
+// Users rate 1 (not scary) to 5 (terrifying).
+
+export type FearDimension = "solo" | "social" | "novelty" | "physical" | "vulnerability";
+
+export interface FearLadderScenario {
+  id: string;
+  text: string;
+  dimension: FearDimension;
+}
+
+export const FEAR_LADDER_SCENARIOS: FearLadderScenario[] = [
+  { id: "coffee_alone",     text: "Sit alone at a coffee shop for 30 minutes",          dimension: "solo" },
+  { id: "talk_stranger",    text: "Strike up a conversation with a stranger",            dimension: "social" },
+  { id: "fitness_class",    text: "Go to a fitness class where you don't know anyone",   dimension: "social" },
+  { id: "new_neighborhood", text: "Explore a neighborhood you've never been to",         dimension: "novelty" },
+  { id: "eat_alone",        text: "Eat at a restaurant by yourself",                     dimension: "solo" },
+  { id: "group_event",      text: "Attend a meetup or group event solo",                 dimension: "vulnerability" },
+  { id: "new_activity",     text: "Try an activity you've never done before",            dimension: "novelty" },
+  { id: "ask_rec",          text: "Ask someone for a recommendation in person",          dimension: "social" },
+  { id: "park_alone",       text: "Walk around a park or trail by yourself",             dimension: "physical" },
+  { id: "live_show",        text: "Go to a live show or performance alone",              dimension: "vulnerability" },
+];
+
+export const FEAR_RATING_LABELS = ["Not scary", "A little", "Moderate", "Scary", "Terrifying"] as const;
+
+// ── Fear ladder scoring ────────────────────────────────────
+
+export interface FearLadderResult {
+  /** 0-1 normalized overall score. 0 = very comfortable, 1 = very anxious */
+  overallScore: number;
+  /** Per-dimension averages, normalized 0-1 */
+  dimensionScores: Record<string, number>;
+  /** Raw responses keyed by scenario id */
+  responses: Record<string, number>;
+  /** Auto-derived pace preference */
+  derivedPace: "gentle" | "steady" | "push_me";
+}
+
+/**
+ * Score a fear ladder — works with both hardcoded and LLM-generated scenarios.
+ * When dynamic scenarios/dimensions are provided, uses those instead of defaults.
+ */
+export function scoreFearLadder(
+  responses: Record<string, number>,
+  scenarios?: { id: string; text: string; dimension: string }[],
+  dimensions?: string[],
+): FearLadderResult {
+  const scenarioList = scenarios ?? FEAR_LADDER_SCENARIOS;
+  const dims = dimensions ?? (["solo", "social", "novelty", "physical", "vulnerability"] as string[]);
+
+  const answered = scenarioList.filter((s) => responses[s.id] != null);
+  if (answered.length === 0) {
+    const defaultScores: Record<string, number> = {};
+    for (const dim of dims) defaultScores[dim] = 0.5;
+    return {
+      overallScore: 0.5,
+      dimensionScores: defaultScores,
+      responses,
+      derivedPace: "steady",
+    };
+  }
+
+  // Per-dimension scores first (normalized 0-1)
+  const dimMean = (answered.reduce((acc, s) => acc + responses[s.id], 0) / answered.length - 1) / 4;
+  const dimensionScores: Record<string, number> = {};
+  for (const dim of dims) {
+    const dimScenarios = answered.filter((s) => s.dimension === dim);
+    if (dimScenarios.length === 0) {
+      dimensionScores[dim] = dimMean;
+    } else {
+      const dimSum = dimScenarios.reduce((acc, s) => acc + responses[s.id], 0);
+      dimensionScores[dim] = (dimSum / dimScenarios.length - 1) / 4;
+    }
+  }
+
+  // Overall score: blend mean (50%) with 75th percentile (50%).
+  // This prevents high-anxiety dimensions from being averaged away
+  // by low-anxiety ones.
+  const sorted = answered.map((s) => responses[s.id]).sort((a, b) => a - b);
+  const p75Index = Math.min(Math.ceil(sorted.length * 0.75) - 1, sorted.length - 1);
+  const p75 = (sorted[p75Index] - 1) / 4;
+  const overallScore = dimMean * 0.5 + p75 * 0.5;
+
+  // Derive pace from blended score
+  let derivedPace: "gentle" | "steady" | "push_me";
+  if (overallScore >= 0.6) derivedPace = "gentle";
+  else if (overallScore <= 0.3) derivedPace = "push_me";
+  else derivedPace = "steady";
+
+  return { overallScore, dimensionScores, responses, derivedPace };
+}
+
 // ── Derivation helpers ──────────────────────────────────────
 
 export function deriveComfortZone(barrierKeys: string[], goalKeys: string[]): string {

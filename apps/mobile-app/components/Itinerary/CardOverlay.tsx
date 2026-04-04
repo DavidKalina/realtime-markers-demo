@@ -459,41 +459,28 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
               <Text style={s.flavorAttrib}>{"\u2014"} After your visit</Text>
             </View>
           )}
-          {face === "back" && <View style={{ flex: 1 }} />}
 
-          {face === "front" ? (
-            <>
-              <View style={s.serialRow}>
-                <Text style={s.serialNumber}>
-                  SQ{"\u00B7"}{(card.id ?? "").slice(0, 8).toUpperCase()}
-                </Text>
-                <Text style={s.serialStat}>
-                  {"\u00B7"} {objectives.length} STOP{objectives.length !== 1 ? "S" : ""}
-                </Text>
-                <View style={{ flex: 1 }} />
-                <Text style={s.serialStat}>{card.city?.toUpperCase() ?? ""}</Text>
-              </View>
-            </>
-          ) : (
-            <>
-              {objective?.suggestedActivities && objective.suggestedActivities.length > 0 && (
-                <View style={s.backActivities}>
-                  <Text style={s.backActivitiesLabel}>THINGS TO TRY</Text>
-                  {objective.suggestedActivities.slice(0, 4).map((activity, i) => (
-                    <Text key={i} style={s.backActivityItem}>{activity}</Text>
-                  ))}
-                </View>
-              )}
-              <View style={{ flex: 1 }} />
-              <View style={s.serialRow}>
-                <Text style={s.serialNumber}>
-                  SQ{"\u00B7"}{(card.id ?? "").slice(0, 8).toUpperCase()}
-                </Text>
-                <View style={{ flex: 1 }} />
-                <Text style={s.serialStat}>{card.city?.toUpperCase() ?? ""}</Text>
-              </View>
-            </>
+          {face === "back" && objective?.hook && (
+            <View style={[s.flavorBlock, { borderColor: tierMeta.border }]}>
+              <Text style={s.flavorText}>{objective.hook}</Text>
+              <Text style={s.flavorAttrib}>{"\u2014"} Why this stop</Text>
+            </View>
           )}
+
+          {(face === "front" || face === "back") && <View style={{ flex: 1 }} />}
+
+          <View style={s.serialRow}>
+            <Text style={s.serialNumber}>
+              SQ{"\u00B7"}{(card.id ?? "").slice(0, 8).toUpperCase()}
+            </Text>
+            {face === "front" && (
+              <Text style={s.serialStat}>
+                {"\u00B7"} {objectives.length} STOP{objectives.length !== 1 ? "S" : ""}
+              </Text>
+            )}
+            <View style={{ flex: 1 }} />
+            <Text style={s.serialStat}>{card.city?.toUpperCase() ?? ""}</Text>
+          </View>
         </Pressable>
       </View>
     );

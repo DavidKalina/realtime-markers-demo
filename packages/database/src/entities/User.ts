@@ -159,6 +159,17 @@ export class User {
     barriers: string;
     goals: string;
     goalTags?: string[];
+    northStar?: string;
+    primaryGoal?: string;
+  };
+
+  @Column({ name: "fear_ladder", type: "jsonb", nullable: true })
+  fearLadder?: {
+    overallScore: number;
+    dimensionScores: Record<string, number>;
+    responses: Record<string, number>;
+    scenarios?: { id: string; text: string; dimension: string }[];
+    dimensions?: string[];
   };
 
   @Column({ name: "behavioral_profile", type: "jsonb", nullable: true })
@@ -205,4 +216,13 @@ export class User {
     select: false,
   })
   passwordResetExpiresAt?: Date;
+
+  @Column({ name: "expectancy_calibration", type: "jsonb", nullable: true })
+  expectancyCalibration?: {
+    totalViolations: number;
+    avgAnxietyDelta: number;
+    avgDifficultyDelta: number;
+    recentViolations: { anxietyDelta: number; difficultyDelta: number; at: string }[];
+    updatedAt: string;
+  };
 }

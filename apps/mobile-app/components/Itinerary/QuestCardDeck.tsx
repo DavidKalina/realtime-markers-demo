@@ -786,9 +786,11 @@ const QuestCard: React.FC<{
                 {option.questRole ? (
                   <Text style={[
                     s.headerTier,
-                    { color: option.pathwayPhase === "dfs" ? "#86efac" : "#93c5fd" },
+                    { color: option.questRole === "stretch" ? "#fbbf24" : option.pathwayPhase === "dfs" ? "#86efac" : "#93c5fd" },
                   ]}>
-                    {option.pathwayPhase === "dfs" && option.pathwayLabel
+                    {option.questRole === "stretch"
+                      ? `\u{1F525} ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? "STRETCH GOAL"}`
+                      : option.pathwayPhase === "dfs" && option.pathwayLabel
                       ? `${objectives[0]?.emoji ?? "\u{1F3AF}"} ${option.pathwayLabel} \u00B7 ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? option.questRole.toUpperCase()}`
                       : `\u{1F50D} ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? option.questRole.toUpperCase()}`}
                   </Text>

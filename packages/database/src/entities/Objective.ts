@@ -142,4 +142,18 @@ export class Objective {
 
   @Column({ name: "reflection_tags", type: "jsonb", nullable: true })
   reflectionTags?: string[];
+
+  @Column({ type: "varchar", length: 20, nullable: true })
+  actionability?: "actionable" | "suggestive" | "milestone";
+
+  // ── Pre-quest expectancy predictions (inhibitory learning) ──
+
+  @Column({ name: "predicted_anxiety", type: "smallint", nullable: true })
+  predictedAnxiety?: number;
+
+  @Column({ name: "predicted_difficulty", type: "smallint", nullable: true })
+  predictedDifficulty?: number;
+
+  @Column({ name: "predicted_outcome", type: "text", nullable: true })
+  predictedOutcome?: string;
 }

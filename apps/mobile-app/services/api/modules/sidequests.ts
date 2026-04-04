@@ -360,9 +360,27 @@ export class SidequestsModule extends BaseApiModule {
     return this.handleResponse<ComfortZoneResponse>(response);
   }
 
+  async generateFearLadder(params: {
+    primaryGoal: string;
+    goals: string[];
+    barriers: string[];
+    activities: string[];
+  }): Promise<{ scenarios: { id: string; text: string; dimension: string }[]; dimensions: string[] }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/generate-fear-ladder`,
+      {
+        method: "POST",
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse(response);
+  }
+
   async updateComfortProfile(params: {
     pacePreference?: string;
-    comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[] };
+    comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[]; northStar?: string; primaryGoal?: string };
+    fearLadder?: { overallScore: number; dimensionScores: Record<string, number>; responses: Record<string, number>; scenarios?: { id: string; text: string; dimension: string }[]; dimensions?: string[] };
   }): Promise<ComfortZoneResponse> {
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/comfort-profile`,
@@ -386,6 +404,25 @@ export class SidequestsModule extends BaseApiModule {
   ): Promise<{ success: boolean }> {
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/objectives/${objectiveId}/journal`,
+      {
+        method: "PUT",
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse<{ success: boolean }>(response);
+  }
+
+  async updateObjectivePrediction(
+    objectiveId: string,
+    params: {
+      predictedAnxiety?: number;
+      predictedDifficulty?: number;
+      predictedOutcome?: string;
+    },
+  ): Promise<{ success: boolean }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/objectives/${objectiveId}/prediction`,
       {
         method: "PUT",
         body: JSON.stringify(params),

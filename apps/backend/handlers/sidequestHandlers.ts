@@ -6,6 +6,7 @@ import {
 import type { SidequestService } from "../services/SidequestService";
 import type { SidequestCheckinService } from "../services/SidequestCheckinService";
 import type { ComfortZoneService } from "../services/ComfortZoneService";
+import type { FearLadderGenerationService } from "../services/FearLadderGenerationService";
 
 export const listSidequestsHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
@@ -480,6 +481,15 @@ export const updateComfortProfileHandler: Handler = withErrorHandling(
         barriers: string;
         goals: string;
         goalTags?: string[];
+        northStar?: string;
+        primaryGoal?: string;
+      };
+      fearLadder?: {
+        overallScore: number;
+        dimensionScores: Record<string, number>;
+        responses: Record<string, number>;
+        scenarios?: { id: string; text: string; dimension: string }[];
+        dimensions?: string[];
       };
     }>();
 
@@ -491,7 +501,7 @@ export const updateComfortProfileHandler: Handler = withErrorHandling(
       );
     }
 
-    if (!body.pacePreference && !body.comfortProfile) {
+    if (!body.pacePreference && !body.comfortProfile && !body.fearLadder) {
       return c.json({ error: "No fields to update" }, 400);
     }
 
@@ -499,10 +509,58 @@ export const updateComfortProfileHandler: Handler = withErrorHandling(
     await comfortZoneService.updateComfortProfile(user.id, {
       pacePreference: body.pacePreference,
       comfortProfile: body.comfortProfile,
+      fearLadder: body.fearLadder,
     });
 
     const zone = await comfortZoneService.getComfortZone(user.id);
     return c.json(zone);
+  },
+);
+
+export const objectivePredictionHandler: Handler = withErrorHandling(
+  async (c) => {
+    const user = requireAuth(c);
+    const objectiveId = c.req.param("objectiveId");
+    if (!objectiveId) {
+      return c.json({ error: "objectiveId is required" }, 400);
+    }
+
+    const body = await c.req.json<{
+      predictedAnxiety?: number;
+      predictedDifficulty?: number;
+      predictedOutcome?: string;
+    }>();
+
+    if (body.predictedAnxiety == null && body.predictedDifficulty == null && body.predictedOutcome == null) {
+      return c.json({ error: "At least one prediction field is required" }, 400);
+    }
+
+    if (body.predictedAnxiety != null && (body.predictedAnxiety < 1 || body.predictedAnxiety > 5 || !Number.isInteger(body.predictedAnxiety))) {
+      return c.json({ error: "predictedAnxiety must be an integer from 1 to 5" }, 400);
+    }
+    if (body.predictedDifficulty != null && (body.predictedDifficulty < 1 || body.predictedDifficulty > 5 || !Number.isInteger(body.predictedDifficulty))) {
+      return c.json({ error: "predictedDifficulty must be an integer from 1 to 5" }, 400);
+    }
+    if (body.predictedOutcome && body.predictedOutcome.length > 500) {
+      return c.json({ error: "predictedOutcome must be 500 characters or fewer" }, 400);
+    }
+
+    const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
+    const updated = await comfortZoneService.updateObjectivePrediction(
+      user.id,
+      objectiveId,
+      {
+        predictedAnxiety: body.predictedAnxiety,
+        predictedDifficulty: body.predictedDifficulty,
+        predictedOutcome: body.predictedOutcome,
+      },
+    );
+
+    if (!updated) {
+      return c.json({ error: "Objective not found or not authorized" }, 404);
+    }
+
+    return c.json({ success: true });
   },
 );
 
@@ -554,5 +612,36 @@ export const objectiveJournalHandler: Handler = withErrorHandling(
     }
 
     return c.json({ success: true });
+  },
+);
+
+export const generateFearLadderHandler: Handler = withErrorHandling(
+  async (c) => {
+    requireAuth(c);
+
+    const body = await c.req.json<{
+      primaryGoal: string;
+      goals: string[];
+      barriers: string[];
+      activities: string[];
+    }>();
+
+    if (!body.primaryGoal || typeof body.primaryGoal !== "string" || body.primaryGoal.trim().length === 0) {
+      return c.json({ error: "primaryGoal is required" }, 400);
+    }
+
+    if (body.primaryGoal.length > 500) {
+      return c.json({ error: "primaryGoal must be 500 characters or fewer" }, 400);
+    }
+
+    const fearLadderGenerationService = c.get("fearLadderGenerationService") as FearLadderGenerationService;
+    const result = await fearLadderGenerationService.generateFearLadder({
+      primaryGoal: body.primaryGoal.trim(),
+      goals: body.goals ?? [],
+      barriers: body.barriers ?? [],
+      activities: body.activities ?? [],
+    });
+
+    return c.json(result);
   },
 );

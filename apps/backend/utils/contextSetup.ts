@@ -27,6 +27,7 @@ export function setupContext(
     c.set("pathwayService", services.pathwayService);
     c.set("pushNotificationService", services.pushNotificationService);
     c.set("jobNotificationService", services.jobNotificationService);
+    c.set("fearLadderGenerationService", services.fearLadderGenerationService);
 
     await next();
   });
