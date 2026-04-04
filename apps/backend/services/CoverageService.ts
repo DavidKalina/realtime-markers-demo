@@ -4,6 +4,7 @@ import {
   CoverageSnapshot,
   User,
 } from "@realtime-markers/database";
+import { bearing as bearingFromTo } from "@realtime-markers/shared";
 
 const SHADE_DECAY_RATE = 0.5;
 const SNAPSHOT_TTL_MS = 5 * 60 * 1000; // 5 minutes (was 1 hour)
@@ -25,22 +26,6 @@ const COMPASS_DIRECTIONS: { label: string; angle: number }[] = [
 
 function computeShade(visitCount: number): number {
   return Math.round((1 - Math.exp(-SHADE_DECAY_RATE * visitCount)) * 1000) / 1000;
-}
-
-function bearingFromTo(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-): number {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const toDeg = (r: number) => (r * 180) / Math.PI;
-  const dLon = toRad(lon2 - lon1);
-  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
-  const x =
-    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
-  return ((toDeg(Math.atan2(y, x)) % 360) + 360) % 360;
 }
 
 function nearestCompassLabel(angleDeg: number): string {

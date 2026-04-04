@@ -15,17 +15,12 @@ import type { RedisService } from "./shared/RedisService";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
 import type { CoverageService } from "./CoverageService";
-import { CHECKIN_RADIUS_M as CHECKIN_RADIUS_METERS } from "@realtime-markers/shared";
-const COMPLETION_MILESTONES = [5, 10, 25, 50, 100];
+import {
+  CHECKIN_RADIUS_M as CHECKIN_RADIUS_METERS,
+  COMPLETION_MILESTONES,
+  STREAK_MILESTONES,
+} from "@realtime-markers/shared";
 const THROTTLE_TTL = 60;
-
-const STREAK_MILESTONES: Record<number, number> = {
-  3: 100,
-  7: 250,
-  12: 500,
-  26: 1000,
-  52: 2500,
-};
 
 function getISOWeekMonday(date: Date): string {
   const d = new Date(date);
@@ -341,7 +336,7 @@ class SidequestCheckinServiceImpl implements SidequestCheckinService {
     );
     const completedCount = Number(result[0]?.count ?? 0);
 
-    if (COMPLETION_MILESTONES.includes(completedCount)) {
+    if ((COMPLETION_MILESTONES as readonly number[]).includes(completedCount)) {
       try {
         await this.pushService.sendToUser(userId, {
           title: "Milestone reached!",

@@ -26,7 +26,12 @@ import Animated, {
 import Svg, { Polygon } from "react-native-svg";
 import { scheduleOnRN } from "react-native-worklets";
 
-import { CHECKIN_RADIUS_M, ALMOST_THERE_RADIUS_M } from "@realtime-markers/shared";
+import {
+  CHECKIN_RADIUS_M,
+  ALMOST_THERE_RADIUS_M,
+  haversineDistance,
+  bearing as calculateBearing,
+} from "@realtime-markers/shared";
 import { useCompassHeading } from "@/hooks/useCompassHeading";
 import type { ObjectiveResponse } from "@/services/api/modules/sidequests";
 import {
@@ -46,43 +51,6 @@ const RING_BORDER = 2;
 const NEEDLE_SIZE = 72;
 const DISMISS_THRESHOLD = 150;
 const DISMISS_VELOCITY = 500;
-
-/* ── Geo Math ───────────────────────────────────────────────── */
-
-function toRad(deg: number): number {
-  return (deg * Math.PI) / 180;
-}
-
-function calculateBearing(
-  fromLng: number,
-  fromLat: number,
-  toLng: number,
-  toLat: number,
-): number {
-  const dLng = toRad(toLng - fromLng);
-  const lat1 = toRad(fromLat);
-  const lat2 = toRad(toLat);
-  const y = Math.sin(dLng) * Math.cos(lat2);
-  const x =
-    Math.cos(lat1) * Math.sin(lat2) -
-    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
-  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-}
-
-function haversineDistance(
-  lng1: number,
-  lat1: number,
-  lng2: number,
-  lat2: number,
-): number {
-  const R = 6371000;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
 
 function formatDistance(meters: number): string {
   if (meters < 1000) return `${Math.round(meters)}m`;
@@ -199,10 +167,10 @@ const QuestCompass: React.FC<QuestCompassProps> = ({
 
     const [lng, lat] = userLocation;
     const bearing = calculateBearing(
-      lng,
       lat,
-      displayedObjective.longitude,
+      lng,
       displayedObjective.latitude,
+      displayedObjective.longitude,
     );
     bearingToObjective.value = withSpring(bearing, {
       damping: 20,
@@ -210,10 +178,10 @@ const QuestCompass: React.FC<QuestCompassProps> = ({
     });
 
     const dist = haversineDistance(
-      lng,
       lat,
-      displayedObjective.longitude,
+      lng,
       displayedObjective.latitude,
+      displayedObjective.longitude,
     );
     setDistanceM(dist);
   }, [userLocation, displayedObjective]);
@@ -555,7 +523,7 @@ export const MiniCompassPreview: React.FC<MiniCompassPreviewProps> = React.memo(
     useEffect(() => {
       if (!userLocation) return;
       const [lng, lat] = userLocation;
-      const b = calculateBearing(lng, lat, objectiveLng, objectiveLat);
+      const b = calculateBearing(lat, lng, objectiveLat, objectiveLng);
       bearingTo.value = withTiming(b, { duration: 300 });
     }, [userLocation, objectiveLat, objectiveLng]);
 

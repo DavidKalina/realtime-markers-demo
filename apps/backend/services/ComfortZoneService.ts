@@ -3,19 +3,16 @@ import { User, Objective, Sidequest } from "@realtime-markers/database";
 import { type OpenAIService, OpenAIModel } from "./shared/OpenAIService";
 import { analyzeJournalReflection } from "./ResonanceService";
 
-const DEFAULT_COMFORT_RADIUS_MILES = 2.0;
-const MIN_RADIUS_MILES = 0.5;
-const MAX_RADIUS_MILES = 100;
-
-// How much to expand per completed quest (before pace multiplier)
-const BASE_EXPANSION_MILES = 0.3;
-
-// Pace multipliers
-const PACE_MULTIPLIERS: Record<string, number> = {
-  gentle: 0.5,
-  steady: 1.0,
-  push_me: 1.8,
-};
+import {
+  DEFAULT_COMFORT_RADIUS_MILES,
+  MIN_RADIUS_MILES,
+  MAX_RADIUS_MILES,
+  BASE_EXPANSION_MILES,
+  PACE_MULTIPLIERS,
+  haversineDistance,
+  boostRarity,
+  type Rarity,
+} from "@realtime-markers/shared";
 
 export interface ComfortZoneService {
   detectHomeAnchor(
@@ -360,9 +357,7 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
 
     // Boost rarity by one tier if quest is in a coverage gap (unexplored direction)
     if (isInCoverageGap) {
-      const tiers = ["common", "uncommon", "rare", "epic", "legendary"];
-      const idx = tiers.indexOf(rarity);
-      if (idx < tiers.length - 1) rarity = tiers[idx + 1];
+      rarity = boostRarity(rarity as Rarity);
     }
 
     return rarity;
@@ -395,9 +390,7 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
 
     // Coverage gap boost still applies
     if (isInCoverageGap) {
-      const tiers = ["common", "uncommon", "rare", "epic", "legendary"];
-      const idx = tiers.indexOf(rarity);
-      if (idx < tiers.length - 1) rarity = tiers[idx + 1];
+      rarity = boostRarity(rarity as Rarity);
     }
 
     return rarity;
@@ -507,15 +500,7 @@ function haversineDistanceMiles(
   lat2: number,
   lon2: number,
 ): number {
-  const R = 3958.8;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return haversineDistance(lat1, lon1, lat2, lon2, "miles");
 }
 
 export function createComfortZoneService(
