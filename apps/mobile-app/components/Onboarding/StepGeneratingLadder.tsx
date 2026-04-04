@@ -1,19 +1,25 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { fontFamily, fontWeight, radius, spacing, useColors } from "@/theme";
 import { apiClient } from "@/services/ApiClient";
-import { NextButton } from "./shared";
+import { NextButton, GREEN_ACCENT } from "./shared";
 
-const GREEN = "#86efac";
-const BAR_W = 20;
-const CHAR_MS = 60;
+const BAR_W = 24;
+const CHAR_MS = 50;
 
 interface GeneratedScenario {
   id: string;
   text: string;
   dimension: string;
 }
+
+const PHASE_LABELS = [
+  "Analyzing goal structure",
+  "Mapping barrier patterns",
+  "Building scenario tree",
+  "Generating assessment",
+];
 
 export function StepGeneratingLadder({
   primaryGoal,
@@ -33,13 +39,22 @@ export function StepGeneratingLadder({
   const colors = useColors();
   const [error, setError] = useState<string | null>(null);
   const [barFill, setBarFill] = useState(0);
+  const [phaseIndex, setPhaseIndex] = useState(0);
   const calledRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Animate a progress bar while waiting
+  // Cycle through phases
+  useEffect(() => {
+    const phaseInterval = setInterval(() => {
+      setPhaseIndex((prev) => Math.min(prev + 1, PHASE_LABELS.length - 1));
+    }, 1800);
+    return () => clearInterval(phaseInterval);
+  }, []);
+
+  // Animate progress bar
   useEffect(() => {
     intervalRef.current = setInterval(() => {
-      setBarFill((prev) => Math.min(prev + 1, BAR_W - 2)); // Stop just before full
+      setBarFill((prev) => Math.min(prev + 1, BAR_W - 3));
     }, CHAR_MS);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -59,20 +74,20 @@ export function StepGeneratingLadder({
           activities,
         });
 
-        // Fill bar to 100% then advance
         setBarFill(BAR_W);
+        setPhaseIndex(PHASE_LABELS.length - 1);
         if (intervalRef.current) clearInterval(intervalRef.current);
 
         setTimeout(() => {
           onScenariosReady(result.scenarios, result.dimensions);
-        }, 400);
+        }, 500);
       } catch (err: unknown) {
         if (intervalRef.current) clearInterval(intervalRef.current);
         console.error("[StepGeneratingLadder] Error:", err);
         setError(
           typeof err === "object" && err !== null && "message" in err
             ? String((err as { message: string }).message)
-            : "Failed to generate your personalized assessment. Please try again.",
+            : "Failed to generate your assessment. Please try again.",
         );
       }
     })();
@@ -81,50 +96,97 @@ export function StepGeneratingLadder({
   const handleRetry = () => {
     setError(null);
     setBarFill(0);
+    setPhaseIndex(0);
     calledRef.current = false;
     intervalRef.current = setInterval(() => {
-      setBarFill((prev) => Math.min(prev + 1, BAR_W - 2));
+      setBarFill((prev) => Math.min(prev + 1, BAR_W - 3));
     }, CHAR_MS);
   };
 
   const bar = "\u2588".repeat(barFill) + "\u2591".repeat(BAR_W - barFill);
   const pct = Math.round((barFill / BAR_W) * 100);
+  const isDone = barFill >= BAR_W;
+
+  const [showCursor, setShowCursor] = useState(true);
+  useEffect(() => {
+    if (isDone) return;
+    const interval = setInterval(() => setShowCursor((v) => !v), 530);
+    return () => clearInterval(interval);
+  }, [isDone]);
 
   return (
     <View style={s.container}>
-      {onBack && (
+      {onBack && !isDone && (
         <Pressable onPress={onBack} style={s.backButton} hitSlop={12}>
-          <Text style={[s.backText, { color: colors.text.secondary }]}>{"\u2190"} Back</Text>
+          <Text style={[s.backText, { color: colors.text.secondary }]}>{"\u2190"} back</Text>
         </Pressable>
       )}
 
       <View style={s.content}>
-        <Animated.View entering={FadeIn.duration(400)} style={s.readoutBox}>
-          <View style={s.headerRow}>
-            <Text style={s.headerCursor}>{"\u2588"}</Text>
-            <Text style={s.headerText}>Personalizing your assessment...</Text>
+        {/* Title area */}
+        <Animated.View entering={FadeIn.duration(400)} style={s.titleWrap}>
+          <Text style={s.title}>Building your profile</Text>
+          <Text style={[s.subtitle, { color: colors.text.secondary }]}>
+            Generating personalized scenarios based on your inputs
+          </Text>
+        </Animated.View>
+
+        {/* Terminal block */}
+        <Animated.View entering={FadeIn.delay(200).duration(400)} style={s.terminalBlock}>
+          {/* Config echo */}
+          <View style={s.configSection}>
+            <View style={s.configRow}>
+              <Text style={s.configKey}>goal</Text>
+              <Text style={s.configVal} numberOfLines={1}>{primaryGoal}</Text>
+            </View>
+            <View style={s.configRow}>
+              <Text style={s.configKey}>barriers</Text>
+              <Text style={s.configVal}>{barriers.length} identified</Text>
+            </View>
           </View>
 
-          <View style={s.goalRow}>
-            <Text style={[s.goalLabel, { color: colors.text.secondary }]}>Goal:</Text>
-            <Text style={s.goalValue} numberOfLines={1}>{primaryGoal}</Text>
+          {/* Separator */}
+          <View style={s.separator} />
+
+          {/* Phase checklist */}
+          <View style={s.phaseSection}>
+            {PHASE_LABELS.map((label, i) => (
+              <Animated.View
+                key={label}
+                entering={FadeInDown.delay(300 + i * 120).duration(180).springify().damping(28).stiffness(400)}
+                style={s.phaseRow}
+              >
+                <Text style={[
+                  s.phaseIcon,
+                  (i < phaseIndex || isDone) && s.phaseDone,
+                  i === phaseIndex && !isDone && s.phaseActive,
+                ]}>
+                  {i < phaseIndex || isDone ? "\u2713" : i === phaseIndex ? "\u25B8" : "\u00B7"}
+                </Text>
+                <Text style={[
+                  s.phaseLabel,
+                  (i < phaseIndex || isDone) && s.phaseLabelDone,
+                  i === phaseIndex && !isDone && s.phaseLabelActive,
+                ]}>
+                  {label}
+                </Text>
+              </Animated.View>
+            ))}
           </View>
 
+          {/* Progress bar */}
           <View style={s.barRow}>
-            <Text style={s.barLabel}>Generating</Text>
-            <Text style={[s.bar, barFill >= BAR_W && s.barDone]}>{bar}</Text>
-            <Text style={[s.pct, barFill >= BAR_W && s.pctDone]}>{pct}%</Text>
+            <Text style={[s.barText, isDone && s.barDone]}>{bar}</Text>
+            <Text style={[s.pctText, isDone && s.pctDone]}>{pct}%</Text>
           </View>
         </Animated.View>
 
         {error && (
-          <Animated.View entering={FadeIn.duration(300)}>
+          <Animated.View entering={FadeIn.duration(300)} style={s.errorSection}>
             <View style={[s.errorBox, { borderColor: colors.status.error.border, backgroundColor: colors.status.error.bg }]}>
               <Text style={[s.errorText, { color: colors.status.error.text }]}>{error}</Text>
             </View>
-            <View style={s.retryWrap}>
-              <NextButton label="Retry" onPress={handleRetry} />
-            </View>
+            <NextButton label="Retry" onPress={handleRetry} />
           </Animated.View>
         )}
       </View>
@@ -138,7 +200,7 @@ const s = StyleSheet.create({
   },
   backButton: {
     position: "absolute",
-    top: 12,
+    top: 8,
     left: 20,
     zIndex: 10,
     paddingVertical: 8,
@@ -146,87 +208,126 @@ const s = StyleSheet.create({
   },
   backText: {
     fontFamily: fontFamily.mono,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: fontWeight.medium,
+    letterSpacing: 0.5,
   },
   content: {
     flex: 1,
-    justifyContent: "center",
     paddingHorizontal: 28,
+    paddingTop: 52,
     gap: spacing.xl,
   },
-  readoutBox: {
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: "rgba(134, 239, 172, 0.12)",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: 8,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  headerCursor: {
-    fontFamily: fontFamily.mono,
-    fontSize: 10,
-    color: GREEN,
-  },
-  headerText: {
-    fontFamily: fontFamily.mono,
-    fontSize: 11,
-    color: GREEN,
-    fontWeight: fontWeight.semibold,
-    letterSpacing: 0.3,
-  },
-  goalRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  titleWrap: {
     gap: spacing.sm,
   },
-  goalLabel: {
+  title: {
     fontFamily: fontFamily.mono,
-    fontSize: 11,
+    fontSize: 22,
+    color: GREEN_ACCENT,
+    fontWeight: fontWeight.bold,
+    letterSpacing: 0.3,
+    lineHeight: 30,
   },
-  goalValue: {
+  subtitle: {
     fontFamily: fontFamily.mono,
-    fontSize: 11,
-    color: GREEN,
+    fontSize: 12,
+    lineHeight: 18,
+    letterSpacing: 0.3,
+    opacity: 0.6,
+  },
+  terminalBlock: {
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(134, 239, 172, 0.15)",
+    padding: spacing.xl,
+    gap: 12,
+  },
+  configSection: {
+    gap: 8,
+  },
+  configRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  configKey: {
+    fontFamily: fontFamily.mono,
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.35)",
+    width: 56,
+  },
+  configVal: {
+    fontFamily: fontFamily.mono,
+    fontSize: 12,
+    color: "rgba(134, 239, 172, 0.7)",
     flex: 1,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+  },
+  phaseSection: {
+    gap: 10,
+  },
+  phaseRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  phaseIcon: {
+    fontFamily: fontFamily.mono,
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.15)",
+    width: 16,
+  },
+  phaseActive: {
+    color: GREEN_ACCENT,
+  },
+  phaseDone: {
+    color: "rgba(134, 239, 172, 0.5)",
+  },
+  phaseLabel: {
+    fontFamily: fontFamily.mono,
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.2)",
+    letterSpacing: 0.3,
+  },
+  phaseLabelActive: {
+    color: "rgba(255, 255, 255, 0.8)",
+  },
+  phaseLabelDone: {
+    color: "rgba(134, 239, 172, 0.45)",
   },
   barRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: 10,
+    marginTop: 4,
   },
-  barLabel: {
+  barText: {
     fontFamily: fontFamily.mono,
-    fontSize: 11,
-    color: "rgba(255, 255, 255, 0.5)",
-    width: 76,
-  },
-  bar: {
-    fontFamily: fontFamily.mono,
-    fontSize: 11,
+    fontSize: 12,
     letterSpacing: -1,
     flex: 1,
-    color: "rgba(255, 255, 255, 0.5)",
+    color: "rgba(255, 255, 255, 0.25)",
   },
   barDone: {
-    color: GREEN,
+    color: GREEN_ACCENT,
   },
-  pct: {
+  pctText: {
     fontFamily: fontFamily.mono,
-    fontSize: 10,
-    color: "rgba(255, 255, 255, 0.3)",
-    width: 32,
+    fontSize: 11,
+    color: "rgba(255, 255, 255, 0.2)",
+    width: 35,
     textAlign: "right",
   },
   pctDone: {
-    color: GREEN,
+    color: GREEN_ACCENT,
+  },
+  errorSection: {
+    gap: spacing.md,
   },
   errorBox: {
     borderRadius: radius.md,
@@ -236,8 +337,5 @@ const s = StyleSheet.create({
   errorText: {
     fontSize: 12,
     fontFamily: fontFamily.mono,
-  },
-  retryWrap: {
-    marginTop: spacing.md,
   },
 });

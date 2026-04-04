@@ -1,23 +1,20 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
-import { useTypewriter, NextButton } from "./shared";
-import { fontFamily, fontWeight, spacing, useColors, type Colors } from "@/theme";
-
-const GREEN = "#86efac";
+import Animated, { FadeInUp } from "react-native-reanimated";
+import { useTypewriter, NextButton, GREEN_ACCENT } from "./shared";
+import { fontFamily, fontWeight, useColors, type Colors } from "@/theme";
 
 const LINES = [
-  { text: "> initializing...", speed: 35, pause: 400 },
-  { text: "You have a goal.", speed: 30, pause: 300 },
-  { text: "We break it into real-world quests —", speed: 30, pause: 200 },
-  { text: "one step at a time.", speed: 30, pause: 500 },
-  { text: "", speed: 0, pause: 300 },
-  { text: "Real places. Real progress.", speed: 25, pause: 200 },
-  { text: "Let's map your path.", speed: 25, pause: 0 },
+  { text: "> initializing...", speed: 30, pause: 400 },
+  { text: "", speed: 0, pause: 200 },
+  { text: "You have a goal.", speed: 28, pause: 300 },
+  { text: "We\u2019ll turn it into real-world quests.", speed: 24, pause: 500 },
+  { text: "", speed: 0, pause: 200 },
+  { text: "Let\u2019s get started.", speed: 22, pause: 0 },
 ];
 
 function useStreamedLines(lines: typeof LINES) {
-  const [visibleLines, setVisibleLines] = useState<string[]>([]);
+  const [committed, setCommitted] = useState<string[]>([]);
   const [currentLine, setCurrentLine] = useState(0);
   const [done, setDone] = useState(false);
 
@@ -30,18 +27,20 @@ function useStreamedLines(lines: typeof LINES) {
 
   useEffect(() => {
     if (!currentText) return;
+
+    // Empty lines just pause then advance
     if (currentText.text === "") {
-      // Empty line — just pause then advance
       const timer = setTimeout(() => {
-        setVisibleLines((prev) => [...prev, ""]);
+        setCommitted((prev) => [...prev, ""]);
         setCurrentLine((i) => i + 1);
       }, currentText.pause);
       return () => clearTimeout(timer);
     }
+
+    // When typing finishes, wait the pause then commit and advance
     if (typed === currentText.text) {
-      // Line finished typing
       const timer = setTimeout(() => {
-        setVisibleLines((prev) => [...prev, currentText.text]);
+        setCommitted((prev) => [...prev, currentText.text]);
         if (currentLine < lines.length - 1) {
           setCurrentLine((i) => i + 1);
         } else {
@@ -52,51 +51,59 @@ function useStreamedLines(lines: typeof LINES) {
     }
   }, [typed, currentText, currentLine, lines.length]);
 
-  return { visibleLines, currentTyping: currentText?.text === "" ? null : typed, done };
+  // Build the full line list: committed lines + the line currently being typed.
+  // The current line only appears in `typed` (never duplicated) because it
+  // gets removed from typed once it moves into committed on the next render.
+  const allLines = [...committed];
+  const isTyping = currentText && currentText.text !== "" && !done;
+  if (isTyping) {
+    allLines.push(typed);
+  }
+
+  return { allLines, isTyping: isTyping && typed !== currentText?.text, done };
 }
 
 export function StepWelcome({ onNext }: { onNext: () => void }) {
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const { visibleLines, currentTyping, done } = useStreamedLines(LINES);
+  const { allLines, isTyping, done } = useStreamedLines(LINES);
 
   const [showCursor, setShowCursor] = useState(true);
   useEffect(() => {
-    const interval = setInterval(() => setShowCursor((v) => !v), 500);
+    if (done) return;
+    const interval = setInterval(() => setShowCursor((v) => !v), 530);
     return () => clearInterval(interval);
-  }, []);
+  }, [done]);
 
   return (
     <View style={s.container}>
-      <View style={s.center}>
+      <View style={s.top}>
         <View style={s.terminal}>
-          {visibleLines.map((line, i) => (
-            <Text
-              key={i}
-              style={[
-                i === 0 ? s.initLine : s.bodyLine,
-                line === "" && s.emptyLine,
-              ]}
-            >
-              {line}
-            </Text>
-          ))}
-          {currentTyping != null && (
-            <Text style={visibleLines.length === 0 ? s.initLine : s.bodyLine}>
-              {currentTyping}
-              {showCursor && <Text style={s.cursor}>{"\u2588"}</Text>}
-            </Text>
-          )}
+          {allLines.map((line, i) => {
+            const isLast = i === allLines.length - 1 && isTyping;
+            return (
+              <Text
+                key={i}
+                style={[
+                  line.startsWith(">") ? s.cmdLine : s.bodyLine,
+                  line === "" && s.emptyLine,
+                ]}
+              >
+                {line}
+                {isLast && showCursor && <Text style={s.cursor}>{"\u2588"}</Text>}
+              </Text>
+            );
+          })}
         </View>
       </View>
 
       <View style={s.bottom}>
         {done ? (
-          <Animated.View entering={FadeIn.duration(400)}>
-            <NextButton label="Begin" onPress={onNext} />
+          <Animated.View entering={FadeInUp.duration(300).springify().damping(28).stiffness(400)}>
+            <NextButton label="Begin" onPress={onNext} solid />
           </Animated.View>
         ) : (
-          <NextButton label="Begin" onPress={onNext} disabled />
+          <View style={s.placeholder} />
         )}
       </View>
     </View>
@@ -106,38 +113,44 @@ export function StepWelcome({ onNext }: { onNext: () => void }) {
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
     container: { flex: 1 },
-    center: {
+    top: {
       flex: 1,
-      justifyContent: "center",
-      paddingHorizontal: 28,
+      paddingHorizontal: 32,
+      paddingTop: 80,
     },
     terminal: {
-      gap: 6,
+      gap: 5,
     },
-    initLine: {
+    cmdLine: {
       fontFamily: fontFamily.mono,
-      fontSize: 16,
-      color: GREEN,
-      fontWeight: fontWeight.bold,
+      fontSize: 13,
+      color: GREEN_ACCENT,
+      fontWeight: fontWeight.semibold,
       letterSpacing: 0.5,
-      lineHeight: 24,
+      lineHeight: 22,
+      opacity: 0.6,
     },
     bodyLine: {
       fontFamily: fontFamily.mono,
-      fontSize: 15,
-      color: colors.text.secondary,
-      lineHeight: 24,
+      fontSize: 18,
+      color: colors.text.primary,
+      lineHeight: 28,
+      letterSpacing: 0.2,
     },
     emptyLine: {
-      height: 12,
+      height: 16,
     },
     cursor: {
-      fontSize: 14,
-      color: GREEN,
-      opacity: 0.6,
+      fontSize: 16,
+      color: GREEN_ACCENT,
+      opacity: 0.5,
     },
     bottom: {
       paddingHorizontal: 28,
-      paddingBottom: 40,
+      paddingBottom: 44,
+      minHeight: 80,
+    },
+    placeholder: {
+      height: 52,
     },
   });

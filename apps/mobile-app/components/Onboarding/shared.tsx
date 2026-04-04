@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import Animated, {
+  FadeIn,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
@@ -24,11 +25,13 @@ import {
   useColors,
 } from "@/theme";
 
-const GREEN_ACCENT = "#86efac";
-const GREEN_MUTED = "rgba(134, 239, 172, 0.12)";
+export const GREEN_ACCENT = "#86efac";
+export const GREEN_MUTED = "rgba(134, 239, 172, 0.12)";
+const GREEN_BORDER = "rgba(134, 239, 172, 0.4)";
+const GREEN_GLOW = "rgba(134, 239, 172, 0.06)";
 
 // Tight, snappy spring config
-const SPRING = { damping: 20, stiffness: 400 };
+const SPRING = { damping: 28, stiffness: 550 };
 
 // ── Typewriter hook ─────────────────────────────────────────
 
@@ -74,73 +77,99 @@ export const ParallaxWidget: React.FC<{
     transform: [{ translateY: -scrollY.value * (1 - rate) }],
   }));
   return (
-    <Animated.View entering={FadeInDown.delay(enterDelay).duration(400).springify().damping(20).stiffness(200)}>
+    <Animated.View entering={FadeInDown.delay(enterDelay).duration(300).springify().damping(28).stiffness(400)}>
       <Animated.View style={style}>{children}</Animated.View>
     </Animated.View>
   );
 };
 
-// ── Terminal progress bar (animated) ────────────────────────
+// ── Build progress (compact horizontal bar) ────────────────
 
-const BAR_CHARS = 12;
-const FILL_SPEED = 30; // ms per character
+export interface BuildLine {
+  label: string;
+  value?: string;
+}
 
-export function TerminalProgressBar({ current, total }: { current: number; total: number }) {
+const STEP_LABELS = [
+  "initializing",
+  "goal",
+  "barriers",
+  "generating",
+  "calibrating",
+  "north star",
+];
+
+export function BuildProgress({
+  step,
+  total,
+}: {
+  completedLines: BuildLine[];
+  step: number;
+  total: number;
+}) {
   const colors = useColors();
-  const targetFilled = Math.round((current / total) * BAR_CHARS);
-  const [filled, setFilled] = useState(0);
-  const prevRef = useRef(0);
 
-  useEffect(() => {
-    const prev = prevRef.current;
-    const target = targetFilled;
-    prevRef.current = target;
+  // Don't show on welcome step
+  if (step === 1) return null;
 
-    if (target === prev) return;
-
-    let count = prev;
-    const direction = target > prev ? 1 : -1;
-    const interval = setInterval(() => {
-      count += direction;
-      setFilled(count);
-      if (count === target) clearInterval(interval);
-    }, FILL_SPEED);
-
-    return () => clearInterval(interval);
-  }, [targetFilled]);
-
-  const bar = "\u2588".repeat(filled) + "\u2591".repeat(BAR_CHARS - filled);
+  const progress = (step - 1) / (total - 1); // 0 to 1
 
   return (
-    <View style={progressStyles.container}>
-      <Text style={[progressStyles.text, { color: GREEN_ACCENT }]}>
-        [{bar}]
-      </Text>
-      <Text style={[progressStyles.counter, { color: colors.text.secondary }]}>
-        {current}/{total}
-      </Text>
+    <View style={buildStyles.container}>
+      {/* Thin progress track */}
+      <View style={buildStyles.track}>
+        <View style={[buildStyles.fill, { width: `${progress * 100}%` as any }]} />
+      </View>
+      {/* Label row */}
+      <View style={buildStyles.labelRow}>
+        <Text style={buildStyles.stepLabel}>
+          {STEP_LABELS[step - 1]}
+        </Text>
+        <Text style={[buildStyles.counter, { color: colors.text.secondary }]}>
+          {step}/{total}
+        </Text>
+      </View>
     </View>
   );
 }
 
-const progressStyles = StyleSheet.create({
+const buildStyles = StyleSheet.create({
   container: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-    paddingTop: 60,
+    paddingTop: 58,
+    paddingHorizontal: 28,
+    paddingBottom: 8,
     zIndex: 10,
+    gap: 6,
   },
-  text: {
+  track: {
+    height: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 1,
+    overflow: "hidden",
+  },
+  fill: {
+    height: 2,
+    backgroundColor: GREEN_ACCENT,
+    borderRadius: 1,
+  },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  stepLabel: {
     fontFamily: fontFamily.mono,
-    fontSize: 12,
-    letterSpacing: -1,
+    fontSize: 10,
+    color: GREEN_ACCENT,
+    fontWeight: fontWeight.medium,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
   counter: {
     fontFamily: fontFamily.mono,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: fontWeight.medium,
+    opacity: 0.4,
   },
 });
 
@@ -167,7 +196,7 @@ export function StepLayout({
     <View style={layoutStyles.container}>
       {onBack && (
         <Pressable onPress={onBack} style={layoutStyles.backButton} hitSlop={12}>
-          <Text style={[layoutStyles.backText, { color: colors.text.secondary }]}>{"\u2190"} Back</Text>
+          <Text style={[layoutStyles.backText, { color: colors.text.secondary }]}>{"\u2190"} back</Text>
         </Pressable>
       )}
       <View style={layoutStyles.content}>
@@ -209,7 +238,7 @@ const layoutStyles = StyleSheet.create({
   },
   backButton: {
     position: "absolute",
-    top: 12,
+    top: 8,
     left: 20,
     zIndex: 10,
     paddingVertical: 8,
@@ -217,14 +246,15 @@ const layoutStyles = StyleSheet.create({
   },
   backText: {
     fontFamily: fontFamily.mono,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: fontWeight.medium,
+    letterSpacing: 0.5,
+    textTransform: "lowercase",
   },
   content: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
     paddingHorizontal: 28,
+    paddingTop: 52,
     gap: spacing["2xl"],
   },
   header: {
@@ -233,17 +263,17 @@ const layoutStyles = StyleSheet.create({
   },
   title: {
     fontFamily: fontFamily.mono,
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: fontWeight.bold,
-    letterSpacing: 0.5,
-    textAlign: "center",
+    letterSpacing: 0.3,
+    lineHeight: 32,
   },
   subtitle: {
     fontFamily: fontFamily.mono,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 18,
     letterSpacing: 0.3,
-    textAlign: "center",
+    opacity: 0.7,
   },
   bottom: {
     paddingHorizontal: 28,
@@ -302,17 +332,17 @@ const chipStyles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
     backgroundColor: "rgba(255, 255, 255, 0.03)",
   },
   rowActive: {
-    borderColor: "rgba(134, 239, 172, 0.35)",
-    backgroundColor: GREEN_MUTED,
+    borderColor: GREEN_BORDER,
+    backgroundColor: "rgba(134, 239, 172, 0.08)",
   },
   label: {
     fontFamily: fontFamily.mono,
     fontSize: 14,
-    color: "rgba(255, 255, 255, 0.6)",
+    color: "rgba(255, 255, 255, 0.55)",
     flex: 1,
   },
   labelActive: {
@@ -323,13 +353,13 @@ const chipStyles = StyleSheet.create({
     height: 20,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    borderColor: "rgba(255, 255, 255, 0.15)",
     alignItems: "center",
     justifyContent: "center",
   },
   checkActive: {
     borderColor: GREEN_ACCENT,
-    backgroundColor: "rgba(134, 239, 172, 0.2)",
+    backgroundColor: "rgba(134, 239, 172, 0.25)",
   },
   checkMark: {
     fontFamily: fontFamily.mono,
@@ -389,33 +419,33 @@ const buttonStyles = StyleSheet.create({
     backgroundColor: GREEN_MUTED,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "rgba(134, 239, 172, 0.25)",
-    paddingVertical: 14,
+    borderColor: "rgba(134, 239, 172, 0.3)",
+    paddingVertical: 16,
     alignItems: "center",
   },
   outlineText: {
     fontFamily: fontFamily.mono,
-    fontSize: 14,
+    fontSize: 13,
     color: GREEN_ACCENT,
     fontWeight: fontWeight.bold,
     textTransform: "uppercase",
-    letterSpacing: 1.5,
+    letterSpacing: 2,
   },
   solid: {
     backgroundColor: GREEN_ACCENT,
     borderRadius: radius.md,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: "center",
   },
   solidText: {
     fontFamily: fontFamily.mono,
-    fontSize: 14,
+    fontSize: 13,
     color: "#000000",
     fontWeight: fontWeight.bold,
     textTransform: "uppercase",
-    letterSpacing: 1.5,
+    letterSpacing: 2,
   },
   disabled: {
-    opacity: 0.35,
+    opacity: 0.3,
   },
 });

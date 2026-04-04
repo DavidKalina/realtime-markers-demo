@@ -12,9 +12,16 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated, {
+  FadeIn,
+  FadeInLeft,
+  FadeInRight,
+  FadeOut,
+  FadeOutLeft,
+  FadeOutRight,
+} from "react-native-reanimated";
 
-import { TerminalProgressBar } from "@/components/Onboarding/shared";
+import { BuildProgress, type BuildLine } from "@/components/Onboarding/shared";
 import {
   deriveBarriersText,
   scoreFearLadder,
@@ -36,6 +43,7 @@ const OnboardingScreen: React.FC = () => {
   const { refreshAuth } = useAuth();
 
   const [step, setStep] = useState(1);
+  const directionRef = useRef<"forward" | "back">("forward");
 
   // Form state
   const [primaryGoal, setPrimaryGoal] = useState("");
@@ -56,12 +64,28 @@ const OnboardingScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Build log lines ────────────────────────────────────────
+
+  const buildLines = useMemo<BuildLine[]>(() => {
+    const lines: BuildLine[] = [];
+    if (step > 1) lines.push({ label: "init", value: "ready" });
+    if (step > 2 && primaryGoal) lines.push({ label: "goal", value: `"${primaryGoal.slice(0, 28)}${primaryGoal.length > 28 ? "..." : ""}"` });
+    if (step > 3) lines.push({ label: "barriers", value: `${selectedBarriers.length} flagged` });
+    if (step > 4) lines.push({ label: "profile", value: "generated" });
+    if (step > 5) lines.push({ label: "calibration", value: `${Object.keys(fearLadderResponses).length} rated` });
+    return lines;
+  }, [step, primaryGoal, selectedBarriers.length, fearLadderResponses]);
+
+  // ── Navigation ─────────────────────────────────────────────
+
   const handleNext = useCallback(() => {
+    directionRef.current = "forward";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setStep((prev) => prev + 1);
   }, []);
 
   const handleBack = useCallback(() => {
+    directionRef.current = "back";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setStep((prev) => Math.max(1, prev - 1));
   }, []);
@@ -78,6 +102,7 @@ const OnboardingScreen: React.FC = () => {
   }, []);
 
   const handleScenariosReady = useCallback((scenarios: { id: string; text: string; dimension: string }[], dimensions: string[]) => {
+    directionRef.current = "forward";
     setGeneratedScenarios(scenarios);
     setGeneratedDimensions(dimensions);
     setFearLadderResponses({});
@@ -86,12 +111,14 @@ const OnboardingScreen: React.FC = () => {
 
   // Back from generating step — skip back to barriers (step 3)
   const handleBackFromGenerating = useCallback(() => {
+    directionRef.current = "back";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setStep(3);
   }, []);
 
   // Back from fear ladder — skip back to barriers (step 3), not the loading step
   const handleBackFromFearLadder = useCallback(() => {
+    directionRef.current = "back";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setStep(3);
   }, []);
@@ -219,6 +246,16 @@ const OnboardingScreen: React.FC = () => {
     }
   }, [primaryGoal, selectedBarriers, fearLadderResponses, generatedScenarios, generatedDimensions, northStar, userLocation, refreshAuth, pollForWeekPack]);
 
+  // ── Transitions ──────────────────────────────────────────
+
+  const entering = directionRef.current === "forward"
+    ? FadeInRight.duration(220).springify().damping(28).stiffness(450)
+    : FadeInLeft.duration(220).springify().damping(28).stiffness(450);
+
+  const exiting = directionRef.current === "forward"
+    ? FadeOutLeft.duration(180)
+    : FadeOutRight.duration(180);
+
   // ── Render ────────────────────────────────────────────────
 
   const renderStep = () => {
@@ -292,12 +329,16 @@ const OnboardingScreen: React.FC = () => {
         pointerEvents="none"
       />
 
-      <TerminalProgressBar current={step} total={TOTAL_STEPS} />
+      <BuildProgress
+        completedLines={buildLines}
+        step={step}
+        total={TOTAL_STEPS}
+      />
 
       <Animated.View
         key={step}
-        entering={FadeIn.duration(300)}
-        exiting={FadeOut.duration(150)}
+        entering={step === 1 ? FadeIn.duration(300) : entering}
+        exiting={exiting}
         style={s.stepWrapper}
       >
         {renderStep()}

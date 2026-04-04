@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { BARRIER_OPTIONS } from "./constants";
 import { StepLayout, OnboardingChip, NextButton } from "./shared";
 import { spacing } from "@/theme";
@@ -18,13 +18,18 @@ export function StepBarriers({
   return (
     <StepLayout
       title="What holds you back?"
-      subtitle="No judgment — helps us calibrate"
+      subtitle="Select all that apply \u2014 this calibrates your quest difficulty"
       onBack={onBack}
       bottomAction={
         <NextButton onPress={onNext} disabled={selected.length === 0} />
       }
     >
-      <View style={s.grid}>
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={s.grid}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
         {BARRIER_OPTIONS.map(({ key, label }) => (
           <OnboardingChip
             key={key}
@@ -33,14 +38,17 @@ export function StepBarriers({
             onPress={() => onToggle(key)}
           />
         ))}
-      </View>
+      </ScrollView>
     </StepLayout>
   );
 }
 
 const s = StyleSheet.create({
-  grid: {
-    gap: spacing.sm,
+  scroll: {
     alignSelf: "stretch",
+    maxHeight: 400,
+  },
+  grid: {
+    gap: spacing._10,
   },
 });

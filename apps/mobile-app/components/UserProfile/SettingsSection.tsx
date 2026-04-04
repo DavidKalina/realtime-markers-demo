@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { ChevronDown, ChevronUp, LogOut, MapPin } from "lucide-react-native";
+import { ChevronDown, ChevronUp, LogOut, MapPin, RotateCcw } from "lucide-react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { router } from "expo-router";
 import AdventurePreferences from "./AdventurePreferences";
 import DeleteAccountModal from "./DeleteAccountModal";
 import {
@@ -98,6 +99,20 @@ export function SettingsSection({
               </Text>
             </Pressable>
           </View>
+
+          {/* Dev tools */}
+          {__DEV__ && (
+            <View style={s.section}>
+              <Text style={s.label}>DEV TOOLS</Text>
+              <Pressable
+                style={s.actionButton}
+                onPress={() => router.push("/onboarding")}
+              >
+                <RotateCcw size={14} color={colors.text.secondary} />
+                <Text style={s.value}>Redo Onboarding</Text>
+              </Pressable>
+            </View>
+          )}
 
           {/* Actions */}
           <View style={[s.section, s.actionsSection]}>

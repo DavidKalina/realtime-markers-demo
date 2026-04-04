@@ -227,23 +227,34 @@ const DeckScreen = () => {
   const handleMidpoint = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
 
-    // Hit the API (fire-and-forget — animation shouldn't wait)
+    // Hit the API — use the response to update with server-assigned fields (rarity, etc.)
     if (promotingCard?.id) {
-      apiClient.sidequests.promote(promotingCard.id).catch((err) => {
-        console.error("[Deck] Promote API failed:", err);
-      });
-    }
+      const now = new Date().toISOString();
+      // Optimistically set promotedAt so the animation looks right immediately
+      setCards((prev) =>
+        prev.map((c) =>
+          c.id === promotingCard?.id ? { ...c, promotedAt: now } : c,
+        ),
+      );
+      setPromotingCard((prev) =>
+        prev ? { ...prev, promotedAt: now } : prev,
+      );
 
-    // Optimistically mark as promoted (assigns holographic foil)
-    const now = new Date().toISOString();
-    setCards((prev) =>
-      prev.map((c) =>
-        c.id === promotingCard?.id ? { ...c, promotedAt: now } : c,
-      ),
-    );
-    setPromotingCard((prev) =>
-      prev ? { ...prev, promotedAt: now } : prev,
-    );
+      apiClient.sidequests
+        .promote(promotingCard.id)
+        .then((promoted) => {
+          // Reconcile with full server response (includes rarity, etc.)
+          setCards((prev) =>
+            prev.map((c) => (c.id === promoted.id ? promoted : c)),
+          );
+          setPromotingCard((prev) =>
+            prev?.id === promoted.id ? promoted : prev,
+          );
+        })
+        .catch((err) => {
+          console.error("[Deck] Promote API failed:", err);
+        });
+    }
   }, [promotingCard]);
 
   const handleComplete = useCallback(() => {

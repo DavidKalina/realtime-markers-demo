@@ -13,7 +13,7 @@ import { fontFamily, fontWeight, radius, spacing, useColors } from "@/theme";
 
 const GREEN_ACCENT = "#86efac";
 const GREEN_MUTED = "rgba(134, 239, 172, 0.12)";
-const SPRING = { damping: 20, stiffness: 400 };
+const SPRING = { damping: 28, stiffness: 550 };
 
 function PaceCard({
   emoji,

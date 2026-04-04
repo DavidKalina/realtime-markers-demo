@@ -1,35 +1,35 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
-import { NextButton, useTypewriter } from "./shared";
+import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
+import { NextButton, useTypewriter, GREEN_ACCENT } from "./shared";
 import { fontFamily, fontWeight, radius, spacing, useColors, type Colors } from "@/theme";
-
-const GREEN = "#86efac";
 
 // ── Generating readout with animated ASCII bars ─────────────
 
 const BAR_W = 20;
 const CHAR_MS = 40;
 const READOUT_LINES = [
-  { label: "Profile", target: 1.0 },
-  { label: "Location", target: 1.0 },
-  { label: "Pathways", target: 0.0 },
-  { label: "Quest 1", target: 0.0 },
-  { label: "Quest 2", target: 0.0 },
+  { label: "Profile" },
+  { label: "Location" },
+  { label: "Pathways" },
+  { label: "Quest 1" },
+  { label: "Quest 2" },
 ];
 
 function GeneratingReadout({ label }: { label: string }) {
   const [lines, setLines] = useState<number[]>(() => READOUT_LINES.map(() => 0));
   const [activeRow, setActiveRow] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const phaseRef = useRef(0);
 
-  // Animate bars filling sequentially, looping through phases
+  const [showCursor, setShowCursor] = useState(true);
+  useEffect(() => {
+    const interval = setInterval(() => setShowCursor((v) => !v), 530);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     let row = 0;
     let fill = 0;
-
-    // Phase targets: first 2 fill to 100%, then quest bars pulse
     const targets = [BAR_W, BAR_W, BAR_W, BAR_W, BAR_W];
 
     intervalRef.current = setInterval(() => {
@@ -47,7 +47,6 @@ function GeneratingReadout({ label }: { label: string }) {
         row++;
         fill = 0;
         if (row >= READOUT_LINES.length) {
-          // All done, hold
           if (intervalRef.current) clearInterval(intervalRef.current);
         }
       }
@@ -58,7 +57,6 @@ function GeneratingReadout({ label }: { label: string }) {
     };
   }, []);
 
-  // Update targets based on label changes (quest progress)
   useEffect(() => {
     const lower = label.toLowerCase();
     if (lower.includes("quest 1") || lower.includes("comfort zone") || lower.includes("crafting quest 1")) {
@@ -75,9 +73,8 @@ function GeneratingReadout({ label }: { label: string }) {
   return (
     <Animated.View entering={FadeIn.duration(400)} style={readoutStyles.container}>
       <View style={readoutStyles.header}>
-        <Animated.Text style={[readoutStyles.headerCursor, cursorBlink()]}>
-          {"\u2588"}
-        </Animated.Text>
+        {showCursor && <Text style={readoutStyles.headerCursor}>{"\u2588"}</Text>}
+        {!showCursor && <Text style={readoutStyles.headerCursor}> </Text>}
         <Text style={readoutStyles.headerText}>{label}</Text>
       </View>
 
@@ -95,7 +92,7 @@ function GeneratingReadout({ label }: { label: string }) {
               isDone && readoutStyles.labelDone,
               isActive && readoutStyles.labelActive,
             ]}>
-              {line.label}
+              {isDone ? "\u2713" : isActive ? "\u25B8" : "\u00B7"} {line.label}
             </Text>
             <Text style={[
               readoutStyles.bar,
@@ -117,37 +114,26 @@ function GeneratingReadout({ label }: { label: string }) {
   );
 }
 
-function cursorBlink() {
-  // Simple opacity style — we'll handle the blink in the parent
-  return { opacity: 1 };
-}
-
 const readoutStyles = StyleSheet.create({
   container: {
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: "rgba(134, 239, 172, 0.12)",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: 5,
+    gap: 8,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
+    gap: spacing.sm,
+    marginBottom: 4,
   },
   headerCursor: {
     fontFamily: fontFamily.mono,
-    fontSize: 10,
-    color: GREEN,
+    fontSize: 11,
+    color: GREEN_ACCENT,
   },
   headerText: {
     fontFamily: fontFamily.mono,
-    fontSize: 11,
-    color: GREEN,
-    fontWeight: fontWeight.semibold,
+    fontSize: 13,
+    color: GREEN_ACCENT,
+    fontWeight: fontWeight.bold,
     letterSpacing: 0.3,
   },
   row: {
@@ -157,40 +143,42 @@ const readoutStyles = StyleSheet.create({
   },
   label: {
     fontFamily: fontFamily.mono,
-    fontSize: 11,
-    color: "rgba(255, 255, 255, 0.3)",
-    width: 66,
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.2)",
+    width: 80,
   },
   labelActive: {
     color: "rgba(255, 255, 255, 0.6)",
   },
   labelDone: {
-    color: GREEN,
+    color: "rgba(134, 239, 172, 0.5)",
   },
   bar: {
     fontFamily: fontFamily.mono,
     fontSize: 11,
     letterSpacing: -1,
     flex: 1,
-    color: "rgba(255, 255, 255, 0.15)",
+    color: "rgba(255, 255, 255, 0.12)",
   },
   barActive: {
-    color: "rgba(255, 255, 255, 0.5)",
+    color: "rgba(255, 255, 255, 0.4)",
   },
   barDone: {
-    color: GREEN,
+    color: GREEN_ACCENT,
   },
   pct: {
     fontFamily: fontFamily.mono,
     fontSize: 10,
-    color: "rgba(255, 255, 255, 0.3)",
+    color: "rgba(255, 255, 255, 0.2)",
     width: 32,
     textAlign: "right",
   },
   pctDone: {
-    color: GREEN,
+    color: GREEN_ACCENT,
   },
 });
+
+// ── Main step ─────────────────────────────────────────────
 
 export function StepNorthStar({
   northStar,
@@ -215,15 +203,13 @@ export function StepNorthStar({
 }) {
   const colors = useColors();
 
-  // Typewriter for the prompt
-  const prompt = useTypewriter("What does success look like?", 30, 200);
+  const prompt = useTypewriter("What does success look like?", 28, 150);
   const promptDone = prompt.length >= 28;
 
-  // Blinking cursor for typewriter
   const [showCursor, setShowCursor] = useState(true);
   useEffect(() => {
     if (promptDone) return;
-    const interval = setInterval(() => setShowCursor((v) => !v), 500);
+    const interval = setInterval(() => setShowCursor((v) => !v), 530);
     return () => clearInterval(interval);
   }, [promptDone]);
 
@@ -231,7 +217,7 @@ export function StepNorthStar({
     <View style={s.container}>
       {onBack && !generatingQuest && (
         <Pressable onPress={onBack} style={s.backButton} hitSlop={12}>
-          <Text style={[s.backText, { color: colors.text.secondary }]}>{"\u2190"} Back</Text>
+          <Text style={[s.backText, { color: colors.text.secondary }]}>{"\u2190"} back</Text>
         </Pressable>
       )}
 
@@ -243,21 +229,21 @@ export function StepNorthStar({
             {!promptDone && showCursor && <Text style={s.cursor}>{"\u2588"}</Text>}
           </Text>
           {promptDone && (
-            <Animated.View entering={FadeIn.delay(200).duration(400)}>
+            <Animated.View entering={FadeIn.delay(150).duration(350)}>
               <Text style={[s.promptSub, { color: colors.text.secondary }]}>
-                This is optional — but it helps us understand what matters to you
+                Optional {"\u2014"} but it helps us understand what matters to you
               </Text>
             </Animated.View>
           )}
         </View>
 
         {/* Text input */}
-        {promptDone && (
-          <Animated.View entering={FadeIn.delay(400).duration(400)}>
+        {promptDone && !generatingQuest && (
+          <Animated.View entering={FadeIn.delay(300).duration(400)} style={s.inputWrap}>
             <TextInput
               style={[s.input, { color: colors.text.primary }]}
               placeholder={"I'd finally feel like I belong somewhere..."}
-              placeholderTextColor={colors.text.disabled}
+              placeholderTextColor={"rgba(255, 255, 255, 0.2)"}
               value={northStar}
               onChangeText={setNorthStar}
               multiline
@@ -268,22 +254,22 @@ export function StepNorthStar({
           </Animated.View>
         )}
 
-        {/* Location + status OR generating readout */}
+        {/* Location status */}
         {promptDone && !generatingQuest && (
-          <Animated.View entering={FadeIn.delay(600).duration(400)} style={s.statusSection}>
-            <View style={s.statusRow}>
-              <Text style={s.statusDot}>{userLocation ? "\u25CF" : "\u25CB"}</Text>
-              <Text style={[s.statusText, { color: colors.text.secondary }]}>
-                {userLocation ? "Location acquired" : "Acquiring location..."}
-              </Text>
-            </View>
+          <Animated.View entering={FadeIn.delay(500).duration(400)} style={s.statusRow}>
+            <Text style={s.statusDot}>{userLocation ? "\u2713" : "\u25CB"}</Text>
+            <Text style={[s.statusText, { color: colors.text.secondary }]}>
+              {userLocation ? "Location acquired" : "Acquiring location..."}
+            </Text>
           </Animated.View>
         )}
 
+        {/* Generating readout */}
         {generatingQuest && (
           <GeneratingReadout label={generatingLabel} />
         )}
 
+        {/* Error */}
         {error && (
           <View style={[s.errorBox, { borderColor: colors.status.error.border, backgroundColor: colors.status.error.bg }]}>
             <Text style={[s.errorText, { color: colors.status.error.text }]}>{error}</Text>
@@ -291,11 +277,15 @@ export function StepNorthStar({
         )}
       </View>
 
-      {/* Bottom action */}
+      {/* Launch button */}
       <View style={s.bottom}>
         {!generatingQuest && promptDone && (
-          <Animated.View entering={FadeIn.delay(800).duration(400)}>
-            <NextButton label="Launch" onPress={onFinish} disabled={isLoading} solid />
+          <Animated.View entering={FadeInUp.delay(600).duration(250).springify().damping(28).stiffness(400)}>
+            {error ? (
+              <NextButton label="Retry" onPress={onFinish} disabled={isLoading} />
+            ) : (
+              <NextButton label="Launch" onPress={onFinish} disabled={isLoading} solid />
+            )}
           </Animated.View>
         )}
       </View>
@@ -309,7 +299,7 @@ const s = StyleSheet.create({
   },
   backButton: {
     position: "absolute",
-    top: 12,
+    top: 8,
     left: 20,
     zIndex: 10,
     paddingVertical: 8,
@@ -317,51 +307,52 @@ const s = StyleSheet.create({
   },
   backText: {
     fontFamily: fontFamily.mono,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: fontWeight.medium,
+    letterSpacing: 0.5,
   },
   content: {
     flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 28,
+    paddingHorizontal: 32,
+    paddingTop: 52,
     gap: spacing.xl,
   },
   promptWrap: {
-    gap: spacing.sm,
+    gap: spacing._10,
   },
   promptText: {
     fontFamily: fontFamily.mono,
-    fontSize: 20,
-    color: GREEN,
+    fontSize: 22,
+    color: GREEN_ACCENT,
     fontWeight: fontWeight.bold,
-    letterSpacing: 0.5,
-    lineHeight: 28,
+    letterSpacing: 0.3,
+    lineHeight: 30,
   },
   promptSub: {
     fontFamily: fontFamily.mono,
     fontSize: 12,
-    lineHeight: 18,
+    lineHeight: 19,
     letterSpacing: 0.3,
+    opacity: 0.6,
   },
   cursor: {
-    fontSize: 18,
-    color: GREEN,
-    opacity: 0.6,
+    fontSize: 20,
+    color: GREEN_ACCENT,
+    opacity: 0.5,
+  },
+  inputWrap: {
+    borderWidth: 1,
+    borderColor: "rgba(134, 239, 172, 0.2)",
+    borderRadius: radius.md,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
   },
   input: {
     fontFamily: fontFamily.mono,
     fontSize: 15,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: radius.md,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    minHeight: 120,
+    minHeight: 110,
     lineHeight: 24,
-  },
-  statusSection: {
-    gap: spacing.sm,
   },
   statusRow: {
     flexDirection: "row",
@@ -370,25 +361,15 @@ const s = StyleSheet.create({
   },
   statusDot: {
     fontFamily: fontFamily.mono,
-    fontSize: 8,
-    color: GREEN,
+    fontSize: 10,
+    color: GREEN_ACCENT,
+    opacity: 0.6,
   },
   statusText: {
     fontFamily: fontFamily.mono,
-    fontSize: 12,
+    fontSize: 11,
     letterSpacing: 0.3,
-  },
-  generatingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  generatingText: {
-    fontFamily: fontFamily.mono,
-    fontSize: 12,
-    color: GREEN,
-    fontWeight: fontWeight.semibold,
-    letterSpacing: 0.3,
+    opacity: 0.5,
   },
   errorBox: {
     borderRadius: radius.md,
@@ -401,7 +382,7 @@ const s = StyleSheet.create({
   },
   bottom: {
     paddingHorizontal: 28,
-    paddingBottom: 40,
+    paddingBottom: 44,
     minHeight: 80,
   },
 });

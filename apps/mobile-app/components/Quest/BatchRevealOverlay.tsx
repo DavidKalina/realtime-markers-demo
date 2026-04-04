@@ -24,14 +24,12 @@ function BatchRevealOverlay({
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [acceptedIds, setAcceptedIds] = useState<string[]>([]);
-  const [isAccepting, setIsAccepting] = useState(false);
 
   // Reset state when quests change
   React.useEffect(() => {
     if (quests.length > 0) {
       setCurrentIndex(0);
       setAcceptedIds([]);
-      setIsAccepting(false);
     }
   }, [quests]);
 
@@ -49,21 +47,13 @@ function BatchRevealOverlay({
     [isLast, onComplete],
   );
 
-  const handleAccept = useCallback(async () => {
+  const handleAccept = useCallback(() => {
     if (!currentQuest) return;
-    setIsAccepting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      await apiClient.sidequests.activate(currentQuest.id);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const newAccepted = [...acceptedIds, currentQuest.id];
-      setAcceptedIds(newAccepted);
-      advanceOrFinish(newAccepted);
-    } catch {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setIsAccepting(false);
-    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const newAccepted = [...acceptedIds, currentQuest.id];
+    setAcceptedIds(newAccepted);
+    advanceOrFinish(newAccepted);
   }, [currentQuest, acceptedIds, advanceOrFinish]);
 
   const handleDismiss = useCallback(() => {
@@ -91,7 +81,7 @@ function BatchRevealOverlay({
         visible={visible && currentQuest != null}
         onDismiss={handleDismiss}
         onAccept={handleAccept}
-        isAccepting={isAccepting}
+        isAccepting={false}
       />
     </>
   );
