@@ -50,6 +50,8 @@ TaskManager.defineTask(
           console.log(
             `[Geofence] Optimistically checked in objective ${region.identifier}`,
           );
+          // Confirm with server — rolls back on failure
+          store.confirmCheckin(region.identifier).catch(() => {});
         }
       } catch {
         // Store import may fail in background — that's ok,
@@ -59,7 +61,7 @@ TaskManager.defineTask(
 
     try {
       // Send the region center (objective location) as the user's position.
-      // The user is within the geofence radius (75m) of this point, so the
+      // The user is within the geofence radius (150m) of this point, so the
       // backend's PostGIS ST_DWithin check will succeed.
       await sendLocationToBackend(region.latitude, region.longitude);
     } catch (err) {

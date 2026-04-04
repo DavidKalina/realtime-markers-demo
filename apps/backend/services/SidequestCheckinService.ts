@@ -15,7 +15,7 @@ import type { RedisService } from "./shared/RedisService";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
 import type { CoverageService } from "./CoverageService";
-const CHECKIN_RADIUS_METERS = 75;
+import { CHECKIN_RADIUS_M as CHECKIN_RADIUS_METERS } from "@realtime-markers/shared";
 const COMPLETION_MILESTONES = [5, 10, 25, 50, 100];
 const THROTTLE_TTL = 60;
 

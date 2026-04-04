@@ -26,6 +26,7 @@ import Animated, {
 import Svg, { Polygon } from "react-native-svg";
 import { scheduleOnRN } from "react-native-worklets";
 
+import { CHECKIN_RADIUS_M, ALMOST_THERE_RADIUS_M } from "@realtime-markers/shared";
 import { useCompassHeading } from "@/hooks/useCompassHeading";
 import type { ObjectiveResponse } from "@/services/api/modules/sidequests";
 import {
@@ -43,8 +44,6 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const RING_SIZE = 280;
 const RING_BORDER = 2;
 const NEEDLE_SIZE = 72;
-const CHECKIN_RADIUS_M = 75;
-const ALMOST_THERE_RADIUS_M = 100;
 const DISMISS_THRESHOLD = 150;
 const DISMISS_VELOCITY = 500;
 

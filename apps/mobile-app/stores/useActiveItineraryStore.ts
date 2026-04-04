@@ -36,6 +36,8 @@ interface ActiveItineraryStore {
   completionData: CompletionData | null;
   /** Check-ins that happened while backgrounded, waiting to be animated */
   pendingCheckinReplays: CheckinReplay[];
+  /** Objective IDs that were optimistically checked in but not yet confirmed */
+  pendingConfirmations: Set<string>;
 
   /** Activate an itinerary for check-in tracking */
   activate: (itinerary: ItineraryResponse) => Promise<boolean>;
@@ -43,6 +45,8 @@ interface ActiveItineraryStore {
   deactivate: () => Promise<void>;
   /** Mark a specific item as checked in (from push notification or manual) */
   markCheckedIn: (itemId: string, checkedInAt: string) => void;
+  /** Confirm an optimistic check-in with the server; rolls back on failure */
+  confirmCheckin: (itemId: string) => Promise<boolean>;
   /** Dismiss the completion celebration */
   dismissCompletion: () => void;
   /** Refresh the active itinerary from server (detects missed check-ins) */
@@ -105,6 +109,7 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
     isLoading: false,
     completionData: null,
     pendingCheckinReplays: [],
+    pendingConfirmations: new Set(),
 
     activate: async (itinerary) => {
       set({ isLoading: true });
@@ -147,34 +152,81 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
     },
 
     markCheckedIn: (itemId, checkedInAt) => {
-      const { itinerary } = get();
+      const { itinerary, pendingConfirmations } = get();
       if (!itinerary) return;
 
       const updatedObjectives = itinerary.objectives.map((item) =>
         item.id === itemId ? { ...item, checkedInAt } : item,
       );
 
-      const allChecked = updatedObjectives.every((item) => item.checkedInAt);
       const updatedItinerary = { ...itinerary, objectives: updatedObjectives };
 
+      // Track this as pending server confirmation
+      const nextPending = new Set(pendingConfirmations);
+      nextPending.add(itemId);
+
       // Always update the itinerary first so the pin celebration animation plays
-      set({ itinerary: updatedItinerary });
+      set({ itinerary: updatedItinerary, pendingConfirmations: nextPending });
 
       // Update geofences: remove the checked-in objective's region
       updateGeofences(updatedObjectives).catch(() => {});
 
-      if (allChecked) {
-        // Delay clearing the itinerary so the last pin's check-in animation
-        // has time to play before waypoints unmount
-        setTimeout(() => {
+      // Don't trigger completion here — wait for confirmCheckin to verify
+      // server state before declaring the quest complete.
+    },
+
+    confirmCheckin: async (itemId) => {
+      const { itinerary, pendingConfirmations } = get();
+      if (!itinerary) return false;
+
+      try {
+        await apiClient.sidequests.checkin(itinerary.id, itemId);
+
+        // Confirmed — remove from pending set
+        const nextPending = new Set(pendingConfirmations);
+        nextPending.delete(itemId);
+        set({ pendingConfirmations: nextPending });
+
+        // Now check if all objectives are confirmed (none pending + all checked)
+        const { itinerary: current, pendingConfirmations: remaining } = get();
+        if (current) {
+          const allChecked = current.objectives.every((item) => item.checkedInAt);
+          if (allChecked && remaining.size === 0) {
+            const completedItinerary = current;
+            setTimeout(() => {
+              set({
+                completionData: {
+                  itinerary: completedItinerary,
+                  completedAt: new Date().toISOString(),
+                },
+                itinerary: null,
+              });
+            }, 2500);
+          }
+        }
+
+        return true;
+      } catch (err) {
+        console.error("[ActiveItinerary] Checkin confirmation failed, rolling back:", err);
+
+        // Roll back the optimistic update
+        const { itinerary: current } = get();
+        if (current) {
+          const rolledBackObjectives = current.objectives.map((item) =>
+            item.id === itemId ? { ...item, checkedInAt: undefined } : item,
+          );
+          const nextPending = new Set(get().pendingConfirmations);
+          nextPending.delete(itemId);
           set({
-            completionData: {
-              itinerary: updatedItinerary,
-              completedAt: new Date().toISOString(),
-            },
-            itinerary: null,
+            itinerary: { ...current, objectives: rolledBackObjectives },
+            pendingConfirmations: nextPending,
           });
-        }, 2500);
+
+          // Re-register geofences so this objective is monitored again
+          updateGeofences(rolledBackObjectives).catch(() => {});
+        }
+
+        return false;
       }
     },
 
@@ -244,6 +296,7 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
         isLoading: false,
         completionData: null,
         pendingCheckinReplays: [],
+        pendingConfirmations: new Set(),
       });
     },
   }),

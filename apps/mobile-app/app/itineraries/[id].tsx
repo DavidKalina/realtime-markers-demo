@@ -145,6 +145,7 @@ const ItineraryDetailScreen = () => {
   const activateItinerary = useActiveItineraryStore((s) => s.activate);
   const deactivateItinerary = useActiveItineraryStore((s) => s.deactivate);
   const markCheckedIn = useActiveItineraryStore((s) => s.markCheckedIn);
+  const confirmCheckin = useActiveItineraryStore((s) => s.confirmCheckin);
   const markNewDeckCard = useDeckBadgeStore((s) => s.markNewCard);
   const isActivating = useActiveItineraryStore((s) => s.isLoading);
 
@@ -320,16 +321,10 @@ const ItineraryDetailScreen = () => {
         });
       }
 
-      // Fire API call in background — no need to block UI
-      try {
-        await apiClient.sidequests.checkin(id, itemId);
-      } catch (err) {
-        console.error("[ItineraryDetail] Manual checkin failed:", err);
-        // TODO: could roll back markCheckedIn here, but for now
-        // the server will reconcile on next refresh
-      }
+      // Confirm with server — rolls back optimistic update on failure
+      confirmCheckin(itemId);
     },
-    [id, markCheckedIn, displaySidequest],
+    [id, markCheckedIn, confirmCheckin, displaySidequest],
   );
 
   const handleNavigate = useCallback(() => {

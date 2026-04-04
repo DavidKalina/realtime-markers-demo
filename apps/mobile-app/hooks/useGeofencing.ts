@@ -1,9 +1,8 @@
 import * as Location from "expo-location";
 
+import { CHECKIN_RADIUS_M } from "@realtime-markers/shared";
 import type { ObjectiveResponse } from "@/services/api/modules/sidequests";
 import { GEOFENCE_TASK } from "@/tasks/geofenceTask";
-
-const GEOFENCE_RADIUS_M = 75;
 
 /**
  * Build geofence regions from unchecked objectives that have coordinates.
@@ -18,7 +17,7 @@ function buildRegions(
       identifier: o.id,
       latitude: Number(o.entryLatitude ?? o.latitude),
       longitude: Number(o.entryLongitude ?? o.longitude),
-      radius: GEOFENCE_RADIUS_M,
+      radius: CHECKIN_RADIUS_M,
       notifyOnEnter: true,
       notifyOnExit: false,
     }));
