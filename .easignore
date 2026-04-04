@@ -1,0 +1,36 @@
+# Git
+.git
+
+# Dependencies (EAS runs install)
+node_modules
+
+# Backend (not needed for mobile build)
+apps/backend
+
+# Docker / infra
+docker-compose*.yml
+postgres.Dockerfile
+init-postgis.sql
+ngrok.yml
+
+# Docs
+*.md
+
+# IDE
+.vscode
+.idea
+
+# Turbo cache
+.turbo
+
+# Misc
+.DS_Store
+.env
+.env.*
+!.env.example
+coverage
+# dist in apps (not packages — shared needs its dist)
+apps/**/dist
+.next
+logs
+*.log
