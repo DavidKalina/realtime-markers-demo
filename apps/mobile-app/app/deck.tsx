@@ -268,7 +268,7 @@ const DeckScreen = () => {
     >
       {/* Header */}
       <View style={styles.headerRow}>
-        <Text style={[styles.headerLabel, { color: colors.text.primary }]}>
+        <Text style={[styles.headerLabel, { color: "#86efac" }]}>
           YOUR DECK
         </Text>
         <Text style={[styles.headerHint, { color: colors.text.secondary }]}>

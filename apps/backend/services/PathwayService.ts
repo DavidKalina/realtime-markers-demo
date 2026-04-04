@@ -89,6 +89,7 @@ export interface PhaseContext {
     avgResonance: number;
     questCount: number;
     currentDifficulty: number;
+    difficultyTrend: number;
   }[];
   recommendation: string;
 }
@@ -340,6 +341,7 @@ export function buildPhaseContext(pathways: PathwayState[]): PhaseContext {
       avgResonance: p.avgResonance,
       questCount: p.questCount,
       currentDifficulty: p.currentDifficulty,
+      difficultyTrend: p.difficultyTrend,
     })),
     recommendation: lines.join("\n"),
   };

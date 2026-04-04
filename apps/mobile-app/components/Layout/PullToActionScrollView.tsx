@@ -4,7 +4,6 @@ import Animated from "react-native-reanimated";
 import { usePullToAction } from "@/hooks/usePullToAction";
 
 interface PullToActionScrollViewProps {
-  onSearch: () => void;
   onRefresh: () => void | Promise<void>;
   isRefreshing?: boolean;
   children: React.ReactNode;
@@ -14,7 +13,6 @@ interface PullToActionScrollViewProps {
 }
 
 const PullToActionScrollView: React.FC<PullToActionScrollViewProps> = ({
-  onSearch,
   onRefresh,
   isRefreshing = false,
   children,
@@ -22,7 +20,6 @@ const PullToActionScrollView: React.FC<PullToActionScrollViewProps> = ({
   contentContainerStyle,
 }) => {
   const { pullIndicator, scrollProps } = usePullToAction({
-    onSearch,
     onRefresh,
     isRefreshing,
   });

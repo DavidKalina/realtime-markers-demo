@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { RefreshCw, SearchIcon } from "lucide-react-native";
+import { RefreshCw } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Animated, {
   Extrapolation,
@@ -25,17 +25,14 @@ import {
   type Colors,
 } from "@/theme";
 
-const SEARCH_THRESHOLD = 60;
 const REFRESH_THRESHOLD = 120;
 
 interface UsePullToActionOptions {
-  onSearch: () => void;
   onRefresh: () => void | Promise<void>;
   isRefreshing?: boolean;
 }
 
 export function usePullToAction({
-  onSearch,
   onRefresh,
   isRefreshing = false,
 }: UsePullToActionOptions) {
@@ -48,23 +45,6 @@ export function usePullToAction({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
     },
-  });
-
-  const searchIndicatorStyle = useAnimatedStyle(() => {
-    const pull = -scrollY.value;
-    return {
-      opacity: interpolate(
-        pull,
-        [
-          SEARCH_THRESHOLD * 0.5,
-          SEARCH_THRESHOLD,
-          REFRESH_THRESHOLD - 10,
-          REFRESH_THRESHOLD,
-        ],
-        [0, 1, 1, 0],
-        Extrapolation.CLAMP,
-      ),
-    };
   });
 
   const refreshIndicatorStyle = useAnimatedStyle(() => {
@@ -85,20 +65,14 @@ export function usePullToAction({
       if (offsetY <= -REFRESH_THRESHOLD) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         onRefresh();
-      } else if (offsetY <= -SEARCH_THRESHOLD) {
-        onSearch();
       }
     },
-    [onRefresh, onSearch],
+    [onRefresh],
   );
 
   const pullIndicator = (
     <>
       <View style={styles.pullArea}>
-        <Animated.View style={[styles.pullIconRow, searchIndicatorStyle]}>
-          <SearchIcon size={18} color={colors.text.secondary} />
-          <Text style={styles.pullSearchText}>Search</Text>
-        </Animated.View>
         <Animated.View style={[styles.pullIconRow, refreshIndicatorStyle]}>
           <RefreshCw size={18} color={colors.accent.primary} />
           <Text style={styles.pullRefreshText}>Refresh</Text>
@@ -137,12 +111,6 @@ const createStyles = (colors: Colors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.sm,
-    },
-    pullSearchText: {
-      fontSize: fontSize.sm,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.semibold,
-      color: colors.text.secondary,
     },
     pullRefreshText: {
       fontSize: fontSize.sm,

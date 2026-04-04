@@ -11,12 +11,10 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { Search, X } from "lucide-react-native";
 import Animated, {
   FadeInUp,
   FadeOutUp,
@@ -102,59 +100,6 @@ const ItinerariesListScreen = () => {
     [fetchItineraries, router],
   );
 
-  // --- Search state ---
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SidequestResponse[]>([]);
-  const [isSearchLoading, setIsSearchLoading] = useState(false);
-  const searchInputRef = useRef<TextInput>(null);
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleSearchOpen = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsSearching(true);
-    setSearchQuery("");
-    setSearchResults([]);
-    setTimeout(() => searchInputRef.current?.focus(), 100);
-  }, []);
-
-  const handleSearchClose = useCallback(() => {
-    setIsSearching(false);
-    setSearchQuery("");
-    setSearchResults([]);
-    setIsSearchLoading(false);
-    if (searchDebounceRef.current) {
-      clearTimeout(searchDebounceRef.current);
-      searchDebounceRef.current = null;
-    }
-  }, []);
-
-  const handleSearchQueryChange = useCallback((text: string) => {
-    setSearchQuery(text);
-    if (searchDebounceRef.current) {
-      clearTimeout(searchDebounceRef.current);
-    }
-    if (text.trim().length === 0) {
-      setSearchResults([]);
-      setIsSearchLoading(false);
-      return;
-    }
-    setIsSearchLoading(true);
-    searchDebounceRef.current = setTimeout(async () => {
-      try {
-        const result = await apiClient.sidequests.search(text.trim());
-        setSearchResults(result.data ?? []);
-      } catch (err) {
-        console.error("[Itineraries] Search failed:", err);
-      } finally {
-        setIsSearchLoading(false);
-      }
-    }, 400);
-  }, []);
-
-  const displayedCards = isSearching && searchQuery.trim().length > 0
-    ? searchResults
-    : itineraries;
   const totalCards = itineraries.length;
 
   const handlePress = useCallback(
@@ -284,65 +229,21 @@ const ItinerariesListScreen = () => {
       noAnimation
     >
       <View style={styles.headerRow}>
-        <View style={styles.headerTitleRow}>
-          <Text style={styles.headerLabel}>YOUR QUESTS</Text>
-          <Pressable onPress={isSearching ? handleSearchClose : handleSearchOpen} hitSlop={8}>
-            {isSearching ? (
-              <X size={16} color={colors.text.secondary} />
-            ) : (
-              <Search size={16} color={colors.text.secondary} />
-            )}
-          </Pressable>
-        </View>
-        {isSearching ? (
-          <Animated.View
-            entering={FadeInUp.duration(200)}
-            exiting={FadeOutUp.duration(150)}
-            style={styles.searchRow}
-          >
-            <TextInput
-              ref={searchInputRef}
-              value={searchQuery}
-              onChangeText={handleSearchQueryChange}
-              placeholder="Search your quests..."
-              placeholderTextColor={colors.text.secondary}
-              style={[
-                styles.searchInput,
-                {
-                  color: colors.text.primary,
-                  borderColor: colors.border.default,
-                },
-              ]}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-            />
-            {isSearchLoading && (
-              <ActivityIndicator
-                size="small"
-                color={colors.accent.primary}
-              />
-            )}
-          </Animated.View>
-        ) : (
-          <Text style={styles.headerHint}>
-            {markedIds.size > 0
-              ? `${markedIds.size} selected \u00B7 Swipe up to mark more`
-              : `Swipe to browse \u00B7 Tap to open \u00B7 Swipe up to mark`}
-          </Text>
-        )}
-        {isSearching && searchQuery.length > 0 && !isSearchLoading && searchResults.length === 0 && (
-          <Text style={styles.searchEmpty}>No results</Text>
-        )}
+        <Text style={styles.headerLabel}>YOUR QUESTS</Text>
+        <Text style={styles.headerHint}>
+          {markedIds.size > 0
+            ? `${markedIds.size} selected \u00B7 Swipe up to mark more`
+            : `Swipe to browse \u00B7 Tap to open \u00B7 Swipe up to mark`}
+        </Text>
       </View>
       <View style={styles.deckScreen}>
         <QuestCardDeck
-          options={displayedCards}
+          options={itineraries}
           mode="browse"
           hideHeader
           activeItineraryId={activeItineraryId}
           onPress={handlePress}
-          onDelete={isSearching ? undefined : handleDelete}
+          onDelete={handleDelete}
           discardingId={discardingId}
           onDiscardComplete={
             batchDiscardingIds
@@ -350,8 +251,7 @@ const ItinerariesListScreen = () => {
               : handleDiscardComplete
           }
           markedForDeleteIds={markedIds.size > 0 ? markedIds : null}
-          onToggleMarkForDelete={
-            isSearching ? undefined : handleToggleMarkForDelete
+          onToggleMarkForDelete={handleToggleMarkForDelete
           }
           batchDiscardingIds={batchDiscardingIds}
         />
@@ -405,16 +305,11 @@ const createScreenStyles = (colors: Colors) =>
       paddingHorizontal: spacing.lg,
       gap: spacing.xs,
     },
-    headerTitleRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
     headerLabel: {
       fontSize: 12,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.bold,
-      color: colors.text.primary,
+      color: "#86efac",
       letterSpacing: 1.5,
     },
     headerHint: {
@@ -427,26 +322,6 @@ const createScreenStyles = (colors: Colors) =>
       alignItems: "center",
       justifyContent: "flex-end",
       paddingBottom: spacing["2xl"],
-    },
-    searchRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.sm,
-    },
-    searchInput: {
-      flex: 1,
-      fontFamily: fontFamily.mono,
-      fontSize: fontSize.sm,
-      borderWidth: 1,
-      borderRadius: radius.md,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-    },
-    searchEmpty: {
-      fontFamily: fontFamily.mono,
-      fontSize: fontSize.xs,
-      color: colors.text.secondary,
-      marginTop: spacing.xs,
     },
     deleteBar: {
       position: "absolute" as const,

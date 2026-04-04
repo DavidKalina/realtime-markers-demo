@@ -133,6 +133,10 @@ export const DEFAULT_QUEST_CONFIG: QuestConfig = {
         rating: 0.30, journalDepth: 0.20, sentiment: 0.15,
         socialEscalation: 0.15, speedToCompletion: 0.05, difficultyAlignment: 0.15,
       },
+      discover_hobby: {
+        rating: 0.25, journalDepth: 0.25, sentiment: 0.20,
+        socialEscalation: 0.10, speedToCompletion: 0.05, difficultyAlignment: 0.15,
+      },
       unwind: {
         rating: 0.30, journalDepth: 0.25, sentiment: 0.20,
         socialEscalation: 0.05, speedToCompletion: 0.05, difficultyAlignment: 0.15,

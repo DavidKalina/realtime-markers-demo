@@ -3,6 +3,7 @@
 export const GOAL_OPTIONS = [
   { key: "explore", label: "\uD83D\uDDFA\uFE0F Explore my area" },
   { key: "socialize", label: "\uD83D\uDC4B Meet people" },
+  { key: "discover_hobby", label: "\u2728 Discover a new hobby" },
   { key: "routine", label: "\uD83D\uDD01 Build a routine" },
   { key: "fitness", label: "\uD83D\uDCAA Get active" },
   { key: "new_skill", label: "\uD83C\uDFAF Pick up a new skill" },
@@ -53,6 +54,7 @@ export function deriveComfortZone(barrierKeys: string[], goalKeys: string[]): st
   if (barrierKeys.includes("anxiety")) parts.push("can feel overwhelmed in new settings");
   if (goalKeys.includes("explore")) parts.push("wants to explore but needs a push");
   if (goalKeys.includes("socialize")) parts.push("interested in meeting new people");
+  if (goalKeys.includes("discover_hobby")) parts.push("wants to discover a new hobby or activity");
 
   return parts.join("; ");
 }

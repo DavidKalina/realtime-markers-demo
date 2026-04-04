@@ -406,6 +406,7 @@ ${comfortProfile?.goalTags?.length ? `- Goals: ${comfortProfile.goalTags.join(",
 ${comfortProfile?.goals ? `- Additional context: "${comfortProfile.goals}"` : ""}
 ${comfortProfile?.northStar ? `- North star (what success means to them): "${comfortProfile.northStar}"` : ""}
 ${user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${user.onboardingProfile.activities.join(", ")}` : ""}
+${comfortProfile?.goalTags?.includes("discover_hobby") ? `- HOBBY DISCOVERY MODE: This user wants to find a new hobby. Prioritize venues where they can TRY an activity hands-on (studios, classes, open sessions, meetups, workshops) — not just observe. Favor categories they haven't explored yet. If they listed activities they enjoy, use those as adjacent starting points (e.g. if they like hiking, try a climbing gym; if they like coffee, try a roasting workshop).` : ""}
 
 ${historyContext}
 ${coverageContext ? `\n${coverageContext}\n` : ""}${expansionTarget ? `\n${expansionTarget}\n` : ""}

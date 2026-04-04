@@ -8,6 +8,7 @@ export interface PathwayData {
   avgResonance: number;
   questCount: number;
   currentDifficulty: number;
+  difficultyTrend: number;
 }
 
 export interface PathwaysResponse {

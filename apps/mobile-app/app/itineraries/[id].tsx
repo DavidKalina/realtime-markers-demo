@@ -30,14 +30,7 @@ import Animated, {
   FadeIn,
   FadeInDown,
   FadeInRight,
-  useAnimatedReaction,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withSequence,
-  withTiming,
 } from "react-native-reanimated";
-import { scheduleOnRN } from "react-native-worklets";
 
 import { useUserLocation } from "@/contexts/LocationContext";
 import { apiClient } from "@/services/ApiClient";
@@ -63,54 +56,12 @@ import {
   type Colors,
 } from "@/theme";
 
-// --- Animated counter (reused for hero stats) ---
-
-const AnimatedNumber: React.FC<{
-  value: number;
-  prefix?: string;
-  suffix?: string;
-  delay?: number;
-  color: string;
-  style?: object;
-}> = ({ value, prefix = "", suffix = "", delay = 0, color, style }) => {
-  const animated = useSharedValue(0);
-  const [displayed, setDisplayed] = useState(0);
-
-  useEffect(() => {
-    animated.value = 0;
-    animated.value = withDelay(
-      delay,
-      withTiming(value, { duration: 900, easing: Easing.out(Easing.cubic) }),
-    );
-  }, [value, delay]);
-
-  useAnimatedReaction(
-    () => Math.round(animated.value),
-    (current) => {
-      scheduleOnRN(setDisplayed, current);
-    },
-  );
-
-  return (
-    <Text style={[{ color }, style]}>
-      {prefix}
-      {displayed}
-      {suffix}
-    </Text>
-  );
-};
-
-
 
 type SidequestCheckinEvent = BaseEvent & {
   sidequestId: string;
   objectiveId: string;
   completed: boolean;
 };
-
-// --- Hero stat pill ---
-
-const STAT_COLORS = ["#93c5fd", "#86efac", "#fcd34d", "#c4b5fd", "#f9a8d4"];
 
 /** Parse hex color to r,g,b tuple. */
 function hexToRgb(hex: string): [number, number, number] {
@@ -242,11 +193,6 @@ const ItineraryDetailScreen = () => {
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
-  }, [router]);
-
-  const handleSearch = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/search" as const);
   }, [router]);
 
   const handleRefresh = useCallback(async () => {
@@ -473,7 +419,6 @@ const ItineraryDetailScreen = () => {
   return (
     <Screen isScrollable={false} showBackButton onBack={handleBack} noAnimation>
       <PullToActionScrollView
-        onSearch={handleSearch}
         onRefresh={handleRefresh}
         contentContainerStyle={styles.scrollPadding}
       >
@@ -513,43 +458,45 @@ const ItineraryDetailScreen = () => {
             </Animated.View>
           )}
 
-          {/* Stat chips — compact horizontal row */}
+          {/* ── ASCII Stat Bars ── */}
           <Animated.View
             entering={FadeInDown.delay(300)
               .duration(450)
               .easing(Easing.out(Easing.cubic))}
-            style={styles.chipRow}
+            style={styles.statsBlock}
           >
-            <View
-              style={[
-                styles.statChip,
-                { borderColor: styles.vibePill.borderColor },
-              ]}
-            >
-              <AnimatedNumber
-                value={objectives.length}
-                suffix=" stops"
-                delay={400}
-                color={accentHex}
-                style={styles.statChipValue}
-              />
-            </View>
-            {totalCost > 0 && (
-              <View
-                style={[
-                  styles.statChip,
-                  { borderColor: styles.vibePill.borderColor },
-                ]}
-              >
-                <AnimatedNumber
-                  value={totalCost}
-                  prefix="~$"
-                  delay={500}
-                  color={accentHex}
-                  style={styles.statChipValue}
-                />
-              </View>
-            )}
+            {(() => {
+              const diff = Math.min(Number(objectives[0]?.difficulty ?? 1), 5);
+              const dist = itinerary.distanceFromHome != null ? Number(itinerary.distanceFromHome) : null;
+              const distNorm = dist != null ? Math.min(dist / 10, 1) : 0;
+              const costNorm = totalCost > 0 ? Math.min(totalCost / 50, 1) : 0;
+              const diffBar = "\u2588".repeat(diff * 4) + "\u2591".repeat(20 - diff * 4);
+              const distBar = "\u2588".repeat(Math.round(distNorm * 20)) + "\u2591".repeat(20 - Math.round(distNorm * 20));
+              const costBar = "\u2588".repeat(Math.round(costNorm * 20)) + "\u2591".repeat(20 - Math.round(costNorm * 20));
+              return (
+                <>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Difficulty</Text>
+                    <Text style={[styles.statBar, { color: accentHex }]}>{diffBar}</Text>
+                    <Text style={[styles.statValue, { color: accentHex }]}>{diff}/5</Text>
+                  </View>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Distance</Text>
+                    <Text style={[styles.statBar, { color: accentHex }]}>{distBar}</Text>
+                    <Text style={[styles.statValue, { color: accentHex }]}>
+                      {dist != null ? (dist < 0.1 ? "<0.1" : dist.toFixed(1)) : "?"} mi
+                    </Text>
+                  </View>
+                  <View style={styles.statRow}>
+                    <Text style={styles.statLabel}>Cost</Text>
+                    <Text style={[styles.statBar, { color: accentHex }]}>{costBar}</Text>
+                    <Text style={[styles.statValue, { color: accentHex }]}>
+                      {totalCost > 0 ? `$${totalCost}` : "FREE"}
+                    </Text>
+                  </View>
+                </>
+              );
+            })()}
           </Animated.View>
 
           {/* Vibe tags */}
@@ -897,7 +844,7 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       gap: 2,
     },
     heroLabelPill: {
-      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.1)`,
+      backgroundColor: "rgba(134, 239, 172, 0.1)",
       paddingHorizontal: 8,
       paddingVertical: 2,
       borderRadius: radius.full,
@@ -905,7 +852,7 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
     heroLabelText: {
       fontSize: 10,
       fontWeight: fontWeight.bold,
-      color: accentHex,
+      color: "#86efac",
       fontFamily: fontFamily.mono,
       letterSpacing: 1.5,
     },
@@ -928,22 +875,34 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       lineHeight: 23,
     },
 
-    // ── Stat chips ──
-    chipRow: {
+    // ── Stat bars ──
+    statsBlock: {
+      gap: 6,
+    },
+    statRow: {
       flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
+      alignItems: "center",
+      gap: spacing.sm,
     },
-    statChip: {
-      borderWidth: 1,
-      borderRadius: radius.full,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-    },
-    statChipValue: {
-      fontSize: 13,
-      fontWeight: fontWeight.bold,
+    statLabel: {
+      fontSize: 12,
       fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      color: colors.text.secondary,
+      width: 76,
+    },
+    statBar: {
+      fontSize: 14,
+      fontFamily: fontFamily.mono,
+      letterSpacing: -0.5,
+      flex: 1,
+    },
+    statValue: {
+      fontSize: 12,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      width: 50,
+      textAlign: "right",
     },
 
     // ── Vibe tags ──
@@ -990,7 +949,7 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       fontSize: 10,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.semibold,
-      color: colors.text.label,
+      color: "#86efac",
       letterSpacing: 1,
     },
     progressLabelRow: {
@@ -1002,7 +961,7 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       fontSize: 12,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.semibold,
-      color: colors.text.label,
+      color: "#86efac",
       letterSpacing: 1,
     },
     progressCount: {
