@@ -16,21 +16,17 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
 import { TerminalProgressBar } from "@/components/Onboarding/shared";
 import {
-  deriveComfortZone,
   deriveBarriersText,
-  deriveGoalsText,
   scoreFearLadder,
 } from "@/components/Onboarding/constants";
 import { StepWelcome } from "@/components/Onboarding/StepWelcome";
 import { StepPrimaryGoal } from "@/components/Onboarding/StepPrimaryGoal";
-import { StepGoals } from "@/components/Onboarding/StepGoals";
 import { StepBarriers } from "@/components/Onboarding/StepBarriers";
-import { StepActivities } from "@/components/Onboarding/StepActivities";
 import { StepGeneratingLadder } from "@/components/Onboarding/StepGeneratingLadder";
 import { StepFearLadder } from "@/components/Onboarding/StepFearLadder";
 import { StepNorthStar } from "@/components/Onboarding/StepNorthStar";
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 6;
 
 const OnboardingScreen: React.FC = () => {
   const colors = useColors();
@@ -43,9 +39,7 @@ const OnboardingScreen: React.FC = () => {
 
   // Form state
   const [primaryGoal, setPrimaryGoal] = useState("");
-  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [selectedBarriers, setSelectedBarriers] = useState<string[]>([]);
-  const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
   const [fearLadderResponses, setFearLadderResponses] = useState<Record<string, number>>({});
   const [northStar, setNorthStar] = useState("");
 
@@ -86,23 +80,20 @@ const OnboardingScreen: React.FC = () => {
   const handleScenariosReady = useCallback((scenarios: { id: string; text: string; dimension: string }[], dimensions: string[]) => {
     setGeneratedScenarios(scenarios);
     setGeneratedDimensions(dimensions);
-    // Clear any previous responses since scenarios changed
     setFearLadderResponses({});
     setStep((prev) => prev + 1);
   }, []);
 
-  // Handle back from generating step — skip back to activities (step 5)
+  // Back from generating step — skip back to barriers (step 3)
   const handleBackFromGenerating = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(5);
+    setStep(3);
   }, []);
 
-  // Handle back from fear ladder — skip back to activities (step 5), not the loading step
+  // Back from fear ladder — skip back to barriers (step 3), not the loading step
   const handleBackFromFearLadder = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // If we already have generated scenarios cached, go back to activities
-    // The generating step will re-trigger on next forward navigation
-    setStep(5);
+    setStep(3);
   }, []);
 
   // ── Poll for week pack ────────────────────────────────────
@@ -169,9 +160,7 @@ const OnboardingScreen: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const comfortZone = deriveComfortZone(selectedBarriers, selectedGoals);
       const barriers = deriveBarriersText(selectedBarriers);
-      const goals = deriveGoalsText(selectedGoals);
       const fearLadder = scoreFearLadder(
         fearLadderResponses,
         generatedScenarios ?? undefined,
@@ -181,10 +170,10 @@ const OnboardingScreen: React.FC = () => {
       await apiClient.sidequests.updateComfortProfile({
         pacePreference: fearLadder.derivedPace,
         comfortProfile: {
-          comfortZone,
+          comfortZone: barriers || "Getting started",
           barriers,
-          goals,
-          goalTags: selectedGoals,
+          goals: primaryGoal,
+          goalTags: selectedBarriers,
           northStar: northStar || undefined,
           primaryGoal: primaryGoal || undefined,
         },
@@ -228,7 +217,7 @@ const OnboardingScreen: React.FC = () => {
       setIsLoading(false);
       setGeneratingQuest(false);
     }
-  }, [primaryGoal, selectedGoals, selectedBarriers, selectedActivities, fearLadderResponses, generatedScenarios, generatedDimensions, northStar, userLocation, refreshAuth, pollForWeekPack]);
+  }, [primaryGoal, selectedBarriers, fearLadderResponses, generatedScenarios, generatedDimensions, northStar, userLocation, refreshAuth, pollForWeekPack]);
 
   // ── Render ────────────────────────────────────────────────
 
@@ -247,15 +236,6 @@ const OnboardingScreen: React.FC = () => {
         );
       case 3:
         return (
-          <StepGoals
-            selected={selectedGoals}
-            onToggle={(k) => toggle(selectedGoals, setSelectedGoals, k)}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        );
-      case 4:
-        return (
           <StepBarriers
             selected={selectedBarriers}
             onToggle={(k) => toggle(selectedBarriers, setSelectedBarriers, k)}
@@ -263,27 +243,18 @@ const OnboardingScreen: React.FC = () => {
             onBack={handleBack}
           />
         );
-      case 5:
-        return (
-          <StepActivities
-            selected={selectedActivities}
-            onToggle={(a) => toggle(selectedActivities, setSelectedActivities, a)}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        );
-      case 6:
+      case 4:
         return (
           <StepGeneratingLadder
             primaryGoal={primaryGoal}
-            goals={selectedGoals}
+            goals={[]}
             barriers={selectedBarriers}
-            activities={selectedActivities}
+            activities={[]}
             onScenariosReady={handleScenariosReady}
             onBack={handleBackFromGenerating}
           />
         );
-      case 7:
+      case 5:
         return (
           <StepFearLadder
             scenarios={generatedScenarios ?? undefined}
@@ -293,7 +264,7 @@ const OnboardingScreen: React.FC = () => {
             onBack={handleBackFromFearLadder}
           />
         );
-      case 8:
+      case 6:
         return (
           <StepNorthStar
             northStar={northStar}
