@@ -18,15 +18,18 @@ RUN apt-get update && apt-get install -y \
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/backend/package.json ./apps/backend/
 COPY packages/database/package.json ./packages/database/
+COPY packages/shared/package.json ./packages/shared/
 
 # Copy source code
 COPY apps/backend ./apps/backend
 COPY packages/database ./packages/database
+COPY packages/shared ./packages/shared
 
 # Install dependencies using pnpm for workspace support
 RUN pnpm install --frozen-lockfile || pnpm install
 
-# Build the database package
+# Build shared packages
+RUN cd packages/shared && pnpm run build
 RUN cd packages/database && pnpm run build
 
 # Verify that key dependencies are installed
