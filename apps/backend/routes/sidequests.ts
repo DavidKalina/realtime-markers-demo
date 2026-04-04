@@ -18,6 +18,7 @@ import {
   promoteSidequestHandler,
   searchSidequestsHandler,
   prescribeQuestHandler,
+  prescribeWeekPackHandler,
   getComfortZoneHandler,
   getWorldSizeHandler,
   setHomeAnchorHandler,
@@ -62,6 +63,7 @@ sidequestRouter.get("/comfort-zone", readRateLimit, getComfortZoneHandler);
 sidequestRouter.get("/world-size", readRateLimit, getWorldSizeHandler);
 sidequestRouter.get("/:id", readRateLimit, getSidequestHandler);
 sidequestRouter.post("/prescribe", writeRateLimit, prescribeQuestHandler);
+sidequestRouter.post("/prescribe-pack", writeRateLimit, prescribeWeekPackHandler);
 sidequestRouter.post("/batch-delete", writeRateLimit, batchDeleteSidequestHandler);
 sidequestRouter.post("/deactivate", writeRateLimit, deactivateSidequestHandler);
 sidequestRouter.post("/home-anchor", writeRateLimit, setHomeAnchorHandler);

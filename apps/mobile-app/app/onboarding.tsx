@@ -12,7 +12,7 @@ import {
 } from "@/theme";
 import { apiClient } from "@/services/ApiClient";
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
-import CardOverlay from "@/components/Itinerary/CardOverlay";
+import BatchRevealOverlay from "@/components/Quest/BatchRevealOverlay";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { useDeckBadgeStore } from "@/stores/useDeckBadgeStore";
@@ -117,10 +117,9 @@ const OnboardingScreen: React.FC = () => {
 
   // First quest reveal
   const [generatingQuest, setGeneratingQuest] = useState(false);
-  const [generatingLabel, setGeneratingLabel] = useState("Crafting your first quest...");
-  const [firstQuest, setFirstQuest] = useState<SidequestResponse | null>(null);
+  const [generatingLabel, setGeneratingLabel] = useState("Crafting your first quests...");
+  const [revealQuests, setRevealQuests] = useState<SidequestResponse[]>([]);
   const [showReveal, setShowReveal] = useState(false);
-  const [isAccepting, setIsAccepting] = useState(false);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const buttonScale = useSharedValue(1);
@@ -165,7 +164,7 @@ const OnboardingScreen: React.FC = () => {
     setPacePreference(pace);
   };
 
-  const pollForQuest = useCallback(async (jobId: string, token: string) => {
+  const pollForWeekPack = useCallback(async (jobId: string, token: string) => {
     const baseUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
     const poll = async () => {
       try {
@@ -175,21 +174,23 @@ const OnboardingScreen: React.FC = () => {
         const data = await res.json();
 
         if (data.status === "completed") {
-          const sidequestId = data.result?.sidequestId ?? data.result?.itineraryId;
-          if (sidequestId) {
-            const quest = await apiClient.sidequests.getById(sidequestId);
-            if (quest) {
-              setFirstQuest(quest);
+          const sidequestIds: string[] = data.result?.sidequestIds ?? [];
+          if (sidequestIds.length > 0) {
+            const quests = await Promise.all(
+              sidequestIds.map((id: string) => apiClient.sidequests.getById(id)),
+            );
+            const validQuests = quests.filter(Boolean) as SidequestResponse[];
+            if (validQuests.length > 0) {
+              setRevealQuests(validQuests);
               setGeneratingQuest(false);
               setShowReveal(true);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               return;
             }
           }
-          // Fallback if no quest returned
           router.replace("/");
         } else if (data.status === "failed") {
-          console.error("[Onboarding] First quest generation failed");
+          console.error("[Onboarding] Week pack generation failed");
           router.replace("/");
         } else {
           if (data.progressStep) setGeneratingLabel(data.progressStep);
@@ -203,23 +204,20 @@ const OnboardingScreen: React.FC = () => {
     poll();
   }, [router]);
 
-  const handleAcceptQuest = useCallback(async () => {
-    if (!firstQuest) return;
-    setIsAccepting(true);
-    try {
-      await apiClient.sidequests.activate(firstQuest.id);
-      useActiveItineraryStore.getState().activate(firstQuest);
-      useDeckBadgeStore.getState().markNewDeckCard();
-    } catch (err) {
-      console.error("[Onboarding] Failed to activate quest:", err);
-    }
-    router.replace("/");
-  }, [firstQuest, router]);
-
-  const handleDismissQuest = useCallback(() => {
-    useDeckBadgeStore.getState().markNewDeckCard();
-    router.replace("/");
-  }, [router]);
+  const handleBatchRevealComplete = useCallback(
+    (acceptedIds: string[]) => {
+      useDeckBadgeStore.getState().markNewCard();
+      // Activate the first accepted quest
+      if (acceptedIds.length > 0) {
+        const accepted = revealQuests.find((q) => q.id === acceptedIds[0]);
+        if (accepted) {
+          useActiveItineraryStore.getState().activate(accepted);
+        }
+      }
+      router.replace("/");
+    },
+    [revealQuests, router],
+  );
 
   const handleFinish = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -240,14 +238,14 @@ const OnboardingScreen: React.FC = () => {
 
       await refreshAuth();
 
-      // Prescribe first quest instead of navigating to empty home
+      // Prescribe first week pack instead of navigating to empty home
       setIsLoading(false);
       setGeneratingQuest(true);
-      setGeneratingLabel("Crafting your first quest...");
+      setGeneratingLabel("Crafting your first quests...");
 
       const lat = userLocation ? userLocation[1] : 0;
       const lng = userLocation ? userLocation[0] : 0;
-      const { jobId } = await apiClient.sidequests.prescribeQuest({
+      const { jobId } = await apiClient.sidequests.prescribeWeekPack({
         latitude: lat,
         longitude: lng,
         timezone: getUserTimezone(),
@@ -255,7 +253,7 @@ const OnboardingScreen: React.FC = () => {
 
       // Get a fresh token for polling
       const token = await apiClient.getAccessToken();
-      pollForQuest(jobId, token ?? "");
+      pollForWeekPack(jobId, token ?? "");
     } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error("Onboarding error:", err);
@@ -354,13 +352,11 @@ const OnboardingScreen: React.FC = () => {
         {renderStep()}
       </Animated.View>
 
-      {/* First quest reveal overlay */}
-      <CardOverlay
-        card={firstQuest}
+      {/* Week pack reveal overlay */}
+      <BatchRevealOverlay
         visible={showReveal}
-        onDismiss={handleDismissQuest}
-        onAccept={handleAcceptQuest}
-        isAccepting={isAccepting}
+        quests={revealQuests}
+        onComplete={handleBatchRevealComplete}
       />
     </View>
   );

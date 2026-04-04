@@ -60,7 +60,7 @@ import {
 } from "@/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CARD_WIDTH = SCREEN_WIDTH * 0.78;
+const CARD_WIDTH = SCREEN_WIDTH * 0.88;
 const CARD_HEIGHT = CARD_WIDTH * 1.4; // ~5:7 trading card ratio
 const CARD_GAP = 12;
 const SNAP_WIDTH = CARD_WIDTH + CARD_GAP; // distance between card centers
@@ -70,13 +70,11 @@ const BOB_DURATION = 2400;
 /** Only cards within ±ANIMATION_WINDOW of the active card run heavy effects. */
 const ANIMATION_WINDOW = 1;
 
-const RARITY_LABELS: Record<string, string> = {
-  common: "FIRST STEP",
-  uncommon: "OPENING UP",
-  rare: "BREAKTHROUGH",
-  epic: "DEEP GROWTH",
-  legendary: "TRANSFORMATION",
-};
+import {
+  RARITY_LABELS,
+  QUEST_ROLE_LABELS,
+  type Rarity,
+} from "@realtime-markers/shared";
 
 const RARITY_DESCRIPTIONS: Record<string, string> = {
   common: "Every journey starts somewhere",
@@ -455,7 +453,7 @@ const QuestCard: React.FC<{
     const rarityKey = (option.rarity ?? "common").toLowerCase();
     const cardHex = getCategoryColor(colorKey);
     const tierMeta = {
-      label: RARITY_LABELS[rarityKey] ?? RARITY_LABELS.common,
+      label: RARITY_LABELS[rarityKey as Rarity] ?? RARITY_LABELS.common,
       ...hexToCardColors(cardHex),
     };
     const isBrowse = mode === "browse";
@@ -785,7 +783,16 @@ const QuestCard: React.FC<{
             >
               {/* ═══ HEADER ═══ */}
               <View style={s.headerBand}>
-                {option.rarity ? (
+                {option.questRole ? (
+                  <Text style={[
+                    s.headerTier,
+                    { color: option.pathwayPhase === "dfs" ? "#86efac" : "#93c5fd" },
+                  ]}>
+                    {option.pathwayPhase === "dfs" && option.pathwayLabel
+                      ? `${objectives[0]?.emoji ?? "\u{1F3AF}"} ${option.pathwayLabel} \u00B7 ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? option.questRole.toUpperCase()}`
+                      : `\u{1F50D} ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? option.questRole.toUpperCase()}`}
+                  </Text>
+                ) : option.rarity ? (
                   <Text style={[s.headerTier, { color: tierMeta.text }]}>
                     {"\u2605"} {tierMeta.label}
                   </Text>
@@ -821,14 +828,7 @@ const QuestCard: React.FC<{
                 <Text style={s.title} numberOfLines={2}>
                   {option.title ?? "Sidequest"}
                 </Text>
-                {option.summary && (
-                  <Text style={s.subtitle} numberOfLines={1}>
-                    {option.summary
-                      .toUpperCase()
-                      .split(/[.,:!]/, 1)[0]
-                      .slice(0, 28)}
-                  </Text>
-                )}
+                {/* subtitle removed — flavor text shows summary below */}
               </Animated.View>
 
               {/* ═══ GENERATING SKELETON ═══ */}
@@ -881,16 +881,11 @@ const QuestCard: React.FC<{
                           </Text>
                         </View>
                         <View style={s.stopText}>
-                          <Text style={s.stopName}>
+                          <Text style={s.stopName} numberOfLines={1}>
                             {(obj.venueName || obj.title || "Stop")
                               .split("|")[0]
                               .trim()}
                           </Text>
-                          {obj.hook && (
-                            <Text style={s.stopHook} numberOfLines={1}>
-                              {obj.hook}
-                            </Text>
-                          )}
                         </View>
                       </View>
                     ),
@@ -903,10 +898,46 @@ const QuestCard: React.FC<{
                 </Animated.View>
               )}
 
-              {/* ═══ FLAVOR TEXT — shown when there's room ═══ */}
-              {isReady && option.summary && objectives.length <= 3 && (
+              {/* ═══ QUEST STATS ═══ */}
+              {isReady && (() => {
+                const diff = Math.min(Number(objectives[0]?.difficulty ?? 1), 5);
+                const dist = option.distanceFromHome != null ? Number(option.distanceFromHome) : null;
+                // Normalize distance to 0-1 (cap at 10mi)
+                const distNorm = dist != null ? Math.min(dist / 10, 1) : 0;
+                // Normalize cost to 0-1 (cap at $50)
+                const costNorm = totalCost > 0 ? Math.min(totalCost / 50, 1) : 0;
+                const diffBar = "\u2588".repeat(diff * 4) + "\u2591".repeat(20 - diff * 4);
+                const distBar = "\u2588".repeat(Math.round(distNorm * 20)) + "\u2591".repeat(20 - Math.round(distNorm * 20));
+                const costBar = "\u2588".repeat(Math.round(costNorm * 20)) + "\u2591".repeat(20 - Math.round(costNorm * 20));
+                return (
+                  <View style={s.statsBlock}>
+                    <View style={s.statRow}>
+                      <Text style={s.statLabel}>Difficulty</Text>
+                      <Text style={[s.statBar, { color: tierMeta.text }]}>{diffBar}</Text>
+                      <Text style={[s.statValue, { color: tierMeta.text }]}>{diff}/5</Text>
+                    </View>
+                    <View style={s.statRow}>
+                      <Text style={s.statLabel}>Distance</Text>
+                      <Text style={[s.statBar, { color: tierMeta.text }]}>{distBar}</Text>
+                      <Text style={[s.statValue, { color: tierMeta.text }]}>
+                        {dist != null ? (dist < 0.1 ? "<0.1" : dist.toFixed(1)) : "?"} mi
+                      </Text>
+                    </View>
+                    <View style={s.statRow}>
+                      <Text style={s.statLabel}>Cost</Text>
+                      <Text style={[s.statBar, { color: tierMeta.text }]}>{costBar}</Text>
+                      <Text style={[s.statValue, { color: tierMeta.text }]}>
+                        {totalCost > 0 ? `$${totalCost}` : "FREE"}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })()}
+
+              {/* ═══ FLAVOR TEXT ═══ */}
+              {isReady && option.summary && objectives.length <= 3 ? (
                 <Animated.View
-                  style={[s.flavorBlock, { borderColor: tierMeta.border }]}
+                  style={[s.flavorBlock, { borderColor: tierMeta.border, flex: 1 }]}
                 >
                   <Text style={s.flavorText}>
                     {"\u201C"}
@@ -914,23 +945,9 @@ const QuestCard: React.FC<{
                   </Text>
                   <Text style={s.flavorAttrib}>{"\u2014"} Quest lore</Text>
                 </Animated.View>
+              ) : (
+                <View style={{ flex: 1 }} />
               )}
-
-              <View style={{ flex: 1 }} />
-
-              {/* ═══ TAG CHIPS ═══ */}
-              <View style={s.tagRow}>
-                {cardTags.map((tag) => (
-                  <View
-                    key={tag}
-                    style={[s.tagChip, { borderColor: tierMeta.border }]}
-                  >
-                    <Text style={[s.tagText, { color: tierMeta.text }]}>
-                      {tag}
-                    </Text>
-                  </View>
-                ))}
-              </View>
 
               {/* ═══ SERIAL FOOTER ═══ */}
               <View style={s.serialRow}>
@@ -939,8 +956,7 @@ const QuestCard: React.FC<{
                   {(option.id ?? "").slice(0, 8).toUpperCase()}
                 </Text>
                 <Text style={s.serialStat}>
-                  {"\u00B7"} {stopCount} STOPS
-                  {totalCost > 0 ? ` \u00B7 $${totalCost}` : ""}
+                  {"\u00B7"} {stopCount} STOP{stopCount !== 1 ? "S" : ""}
                 </Text>
                 <View style={{ flex: 1 }} />
                 <Text style={s.serialStat}>
@@ -1388,7 +1404,7 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
                         },
                       ]}
                     >
-                      {RARITY_LABELS[(option.rarity ?? "common").toLowerCase()] ?? RARITY_LABELS.common}
+                      {RARITY_LABELS[(option.rarity ?? "common").toLowerCase() as Rarity] ?? RARITY_LABELS.common}
                     </Text>
                     <Text style={s.tierDescText}>
                       {RARITY_DESCRIPTIONS[(option.rarity ?? "common").toLowerCase()] ??
@@ -1576,13 +1592,13 @@ const createCardStyles = (colors: Colors) =>
       paddingVertical: spacing.xs,
     },
     headerTier: {
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
       letterSpacing: 1,
     },
     headerCats: {
-      fontSize: 8,
+      fontSize: 9,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.semibold,
       color: colors.text.secondary,
@@ -1622,18 +1638,18 @@ const createCardStyles = (colors: Colors) =>
     // ── Title plate ──
     titlePlate: {
       paddingHorizontal: spacing.md,
-      paddingTop: spacing.sm,
-      paddingBottom: spacing.xs,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.sm,
     },
     title: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
       color: colors.text.primary,
-      lineHeight: 21,
+      lineHeight: 24,
     },
     subtitle: {
-      fontSize: 8,
+      fontSize: 9,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.semibold,
       color: colors.text.disabled,
@@ -1671,7 +1687,8 @@ const createCardStyles = (colors: Colors) =>
     // ── Stops ──
     stopsSection: {
       paddingHorizontal: spacing.md,
-      gap: spacing.xs,
+      paddingTop: spacing.xs,
+      gap: spacing.sm,
     },
     stopRow: {
       flexDirection: "row",
@@ -1694,8 +1711,13 @@ const createCardStyles = (colors: Colors) =>
       paddingTop: 2,
       gap: 1,
     },
+    stopHook: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      color: colors.text.disabled,
+    },
     stopName: {
-      fontSize: 12,
+      fontSize: 13,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
       color: colors.text.primary,
@@ -1743,25 +1765,56 @@ const createCardStyles = (colors: Colors) =>
     // ── Flavor text quote ──
     flavorBlock: {
       marginHorizontal: spacing.md,
-      marginTop: spacing.sm,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs + 2,
+      marginTop: spacing.lg,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
       borderRadius: radius.sm - 3,
       borderWidth: 1,
       backgroundColor: "rgba(255, 255, 255, 0.03)",
     },
     flavorText: {
-      fontSize: 10,
+      fontSize: 14,
       fontFamily: fontFamily.mono,
       color: colors.text.secondary,
       fontStyle: "italic",
-      lineHeight: 15,
+      lineHeight: 22,
     },
     flavorAttrib: {
-      fontSize: 7,
+      fontSize: 10,
       fontFamily: fontFamily.mono,
       color: colors.text.disabled,
-      marginTop: 2,
+      marginTop: 6,
+    },
+    // ── Quest stats ──
+    statsBlock: {
+      marginHorizontal: spacing.sm,
+      marginTop: spacing.lg,
+      gap: spacing.sm,
+    },
+    statRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+    },
+    statLabel: {
+      fontSize: 12,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      color: colors.text.secondary,
+      width: 76,
+    },
+    statBar: {
+      fontSize: 14,
+      fontFamily: fontFamily.mono,
+      letterSpacing: -0.5,
+      flex: 1,
+    },
+    statValue: {
+      fontSize: 12,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      width: 50,
+      textAlign: "right",
     },
     tagRow: {
       flexDirection: "row",
@@ -1777,7 +1830,7 @@ const createCardStyles = (colors: Colors) =>
       borderWidth: 1,
     },
     tagText: {
-      fontSize: 7,
+      fontSize: 9,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
       letterSpacing: 0.8,
@@ -1794,7 +1847,7 @@ const createCardStyles = (colors: Colors) =>
       borderTopColor: colors.border.default,
     },
     serialNumber: {
-      fontSize: 7,
+      fontSize: 8,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.bold,
       color: colors.text.disabled,
@@ -1802,7 +1855,7 @@ const createCardStyles = (colors: Colors) =>
       opacity: 0.5,
     },
     serialStat: {
-      fontSize: 7,
+      fontSize: 8,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.bold,
       color: colors.text.secondary,

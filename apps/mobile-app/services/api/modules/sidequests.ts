@@ -53,6 +53,13 @@ export interface SidequestResponse {
   distanceFromHome?: number;
   promotedAt?: string;
   createdAt: string;
+  // Batch + pathway context
+  batchId?: string;
+  batchIndex?: number;
+  pathwayTheme?: string;
+  pathwayLabel?: string;
+  pathwayPhase?: string;
+  questRole?: string;
   isPublished?: boolean;
   timesAdopted?: number;
 }
@@ -299,6 +306,22 @@ export class SidequestsModule extends BaseApiModule {
   }): Promise<{ jobId: string; streamUrl: string }> {
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/prescribe`,
+      {
+        method: "POST",
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse<{ jobId: string; streamUrl: string }>(response);
+  }
+
+  async prescribeWeekPack(params: {
+    latitude: number;
+    longitude: number;
+    timezone?: string;
+  }): Promise<{ jobId: string; streamUrl: string }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/prescribe-pack`,
       {
         method: "POST",
         body: JSON.stringify(params),

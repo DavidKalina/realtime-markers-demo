@@ -30,12 +30,46 @@ import Screen from "../Layout/Screen";
 import { useUserLocation } from "@/contexts/LocationContext";
 
 import ActiveQuestBanner from "./ActiveQuestBanner";
-import { JourneyHeader } from "./JourneyHeader";
-import { PathwayRadar } from "./PathwayRadar";
-import { SocialGrowth } from "./SocialGrowth";
-import VenueDnaChart from "./VenueDnaChart";
+// Old profile components (kept for reference)
+// import { JourneyHeader } from "./JourneyHeader";
+// import { PathwayRadar } from "./PathwayRadar";
+// import { SocialGrowth } from "./SocialGrowth";
+// import VenueDnaChart from "./VenueDnaChart";
 import { CoverageWidget } from "./CoverageWidget";
 import { SettingsSection } from "./SettingsSection";
+
+// New HUD components
+import PhaseHeader from "./PhaseHeader";
+import PathwayList from "./PathwayList";
+import ResonanceBreakdown from "./ResonanceBreakdown";
+import SocialLadder from "./SocialLadder";
+import ComfortExpansion from "./ComfortExpansion";
+
+// ── Mock data for visual design iteration ────────────────────
+const MOCK_PATHWAYS = [
+  { theme: "cafe", themeLabel: "Coffee Culture", phase: "dfs" as const, avgResonance: 0.78, questCount: 7, currentDifficulty: 3, difficultyTrend: 0.2 },
+  { theme: "museum", themeLabel: "Culture & History", phase: "bfs" as const, avgResonance: 0.42, questCount: 2, currentDifficulty: 2, difficultyTrend: 0 },
+  { theme: "trail", themeLabel: "Trail Explorer", phase: "bfs" as const, avgResonance: 0.31, questCount: 1, currentDifficulty: 1, difficultyTrend: -0.1 },
+];
+
+const MOCK_RESONANCE = {
+  score: 0.72,
+  components: {
+    ratingSignal: 0.80,
+    journalDepth: 0.62,
+    sentimentSignal: 0.65,
+    socialEscalation: 0.40,
+    speedSignal: 1.00,
+    difficultyAlignment: 0.70,
+  },
+};
+
+const MOCK_SOCIAL = [
+  { context: "solo", count: 5 },
+  { context: "with_someone", count: 3 },
+  { context: "met_someone_new", count: 1 },
+  { context: "group_activity", count: 0 },
+];
 
 interface UserProfileProps {
   onBack?: () => void;
@@ -136,17 +170,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         onRefresh={handleRefresh}
         contentContainerStyle={s.scrollContent}
       >
-        {/* 1. Journey Header */}
+        {/* 1. Phase Header */}
         <Animated.View entering={FadeInDown.delay(80).duration(400)}>
-          <JourneyHeader
-            firstName={profileData?.firstName ?? ""}
-            memberSince={memberSince}
-            worldSizeSqMi={worldSize?.areaSqMiles ?? coverage?.stats?.territorySqMiles ?? null}
-            comfortRadiusMiles={profileData?.comfortRadiusMiles ?? null}
-            totalXp={profileData?.totalXp ?? 0}
-            currentStreak={profileData?.currentStreak ?? 0}
-            longestStreak={profileData?.longestStreak ?? 0}
-            goalTags={profileData?.comfortProfile?.goalTags}
+          <PhaseHeader
+            globalPhase="mixed"
+            dfsCount={1}
+            totalPathways={3}
+            questCount={10}
+            currentStreak={profileData?.currentStreak ?? 3}
+            totalXp={profileData?.totalXp ?? 1200}
           />
         </Animated.View>
 
@@ -155,38 +187,38 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           <ActiveQuestBanner />
         </Animated.View>
 
-        {/* 3. Pathways */}
+        {/* 3. Pathway List */}
         <Animated.View entering={FadeInDown.delay(240).duration(400)}>
-          <PathwayRadar
-            pathways={pathwayData?.pathways ?? []}
-            globalPhase={pathwayData?.globalPhase ?? "bfs"}
+          <PathwayList pathways={MOCK_PATHWAYS} />
+        </Animated.View>
+
+        {/* 4. Resonance Breakdown */}
+        <Animated.View entering={FadeInDown.delay(320).duration(400)}>
+          <ResonanceBreakdown
+            components={MOCK_RESONANCE.components}
+            score={MOCK_RESONANCE.score}
           />
         </Animated.View>
 
-        {/* 4. Social Growth */}
-        {insights?.socialGrowth && insights.socialGrowth.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(320).duration(400)}>
-            <SocialGrowth
-              data={insights.socialGrowth}
-              timeline={insights.socialTimeline}
-            />
-          </Animated.View>
-        )}
+        {/* 5. Social Ladder */}
+        <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+          <SocialLadder data={MOCK_SOCIAL} />
+        </Animated.View>
 
-        {/* 5. Venue DNA — only show if no pathways yet (radar replaces it) */}
-        {(!pathwayData?.pathways?.length) && insights?.venueDna && insights.venueDna.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(400).duration(400)}>
-            <VenueDnaChart data={insights.venueDna} />
-          </Animated.View>
-        )}
-
-        {/* 6. Territory Map */}
+        {/* 6. Comfort Expansion */}
         <Animated.View entering={FadeInDown.delay(480).duration(400)}>
+          <ComfortExpansion
+            currentRadiusMiles={profileData?.comfortRadiusMiles ?? 2.3}
+          />
+        </Animated.View>
+
+        {/* 7. Territory Map */}
+        <Animated.View entering={FadeInDown.delay(560).duration(400)}>
           <CoverageWidget data={coverage} />
         </Animated.View>
 
-        {/* 7. Settings */}
-        <Animated.View entering={FadeInDown.delay(560).duration(400)}>
+        {/* 8. Settings */}
+        <Animated.View entering={FadeInDown.delay(640).duration(400)}>
           <SettingsSection
             email={profileData?.email ?? ""}
             bio={profileData?.bio}
@@ -214,6 +246,6 @@ const createStyles = (colors: Colors) =>
     scrollContent: {
       paddingHorizontal: spacing.lg,
       paddingBottom: spacing.xl * 3,
-      gap: spacing.xl * 2,
+      gap: spacing.xl,
     },
   });

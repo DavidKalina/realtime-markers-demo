@@ -36,6 +36,20 @@ export interface PrescribeQuestInput {
   timezone?: string;
 }
 
+export interface SiblingContext {
+  batchId: string;
+  batchIndex: number;
+  totalInBatch: number;
+  questRole: "deepen" | "explore" | "discover";
+  targetPathway?: { id: string; theme: string; label: string; phase: string };
+  previousSiblings: { title: string; venueCategory: string; venueName: string }[];
+}
+
+export interface WeekPackResult {
+  batchId: string;
+  quests: Sidequest[];
+}
+
 // ─── LLM Types (only used by prescription) ──────────────────────────
 
 interface LLMItemRaw {
@@ -116,7 +130,14 @@ export interface SidequestPrescriptionService {
     userId: string,
     input: PrescribeQuestInput,
     onProgress?: SidequestProgressCallback,
+    siblingContext?: SiblingContext,
   ): Promise<Sidequest>;
+
+  prescribeWeekPack(
+    userId: string,
+    input: PrescribeQuestInput,
+    onProgress?: SidequestProgressCallback,
+  ): Promise<WeekPackResult>;
 }
 
 // ─── Dependencies ───────────────────────────────────────────────────
@@ -169,6 +190,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
     userId: string,
     input: PrescribeQuestInput,
     onProgress?: SidequestProgressCallback,
+    siblingContext?: SiblingContext,
   ): Promise<Sidequest> {
     if (!this.comfortZoneService) {
       throw new Error("ComfortZoneService required for prescribeQuest");
@@ -324,6 +346,18 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
       prescribed: true,
       entryLatitude: searchLat,
       entryLongitude: searchLng,
+      // Batch + pathway context (set when part of a weekly pack)
+      ...(siblingContext && {
+        batchId: siblingContext.batchId,
+        batchIndex: siblingContext.batchIndex,
+        questRole: siblingContext.questRole,
+        ...(siblingContext.targetPathway && {
+          pathwayId: siblingContext.targetPathway.id,
+          pathwayTheme: siblingContext.targetPathway.theme,
+          pathwayLabel: siblingContext.targetPathway.label,
+          pathwayPhase: siblingContext.targetPathway.phase,
+        }),
+      }),
     });
     await repo.save(sidequest);
 
@@ -360,7 +394,7 @@ EXPANSION PHILOSOPHY:
 ${phaseContext || "- Breadth-first by default. Push into unexplored directions until the user finds an area worth investing in.\n- Only go deeper in an area if the user has ORGANICALLY revisited it (multiple visits, diverse categories). That's the signal they found \"their place.\""}
 - A comedy open mic across the street is more impactful than driving across the state for coffee. Distance is NOT progress — novelty is.
 - Never prescribe further just because you can. The goal is meaningful expansion, not mileage.${explorationProfileLabel ? `\n- Exploration profile: ${explorationProfileLabel} — ${profileOneLiner[explorationProfileLabel] ?? ""}` : ""}
-
+${siblingContext ? this.buildSiblingInstructions(siblingContext) : ""}
 USER PROFILE:
 - Home: (${homeLat.toFixed(4)}, ${homeLng.toFixed(4)})
 - Currently near: ${city} (${searchLat.toFixed(4)}, ${searchLng.toFixed(4)})${isAwayFromHome ? ` — ${distFromHome.toFixed(1)} miles from home` : ""}
@@ -1587,6 +1621,135 @@ ${await this.buildSocialContext(userId, goalTags)}`;
     return lines.length > 1 ? lines.join("\n") : "";
   }
 
+  // ─── Sibling Context for Weekly Packs ──────────────────────────
+
+  private buildSiblingInstructions(ctx: SiblingContext): string {
+    const lines: string[] = [];
+
+    lines.push(`\nWEEKLY PACK CONTEXT (quest ${ctx.batchIndex + 1} of ${ctx.totalInBatch}):`);
+
+    if (ctx.questRole === "deepen" && ctx.targetPathway) {
+      lines.push(
+        `- ROLE: DEEPEN. This quest should deepen the user's "${ctx.targetPathway.label}" pathway.`,
+        `  Pick a venue in the "${ctx.targetPathway.theme}" category. Escalate slightly — busier time, social element, or a new angle within this category.`,
+      );
+    } else if (ctx.questRole === "explore") {
+      lines.push(
+        `- ROLE: EXPLORE. This quest should push into NEW territory the user hasn't tried.`,
+        `  Avoid categories already covered by active pathways. Prioritize novelty.`,
+      );
+    } else {
+      lines.push(`- ROLE: DISCOVER. Explore freely — the user is just getting started.`);
+    }
+
+    if (ctx.previousSiblings.length > 0) {
+      lines.push(`- Already prescribed in this batch (DO NOT duplicate venues or categories):`);
+      for (const s of ctx.previousSiblings) {
+        lines.push(`  • "${s.title}" at ${s.venueName} (${s.venueCategory})`);
+      }
+    }
+
+    return lines.join("\n");
+  }
+
+  // ─── Weekly Pack Orchestrator ──────────────────────────────────
+
+  async prescribeWeekPack(
+    userId: string,
+    input: PrescribeQuestInput,
+    onProgress?: SidequestProgressCallback,
+  ): Promise<WeekPackResult> {
+    const batchId = crypto.randomUUID();
+    const quests: Sidequest[] = [];
+
+    // Determine pack composition from pathway phase context
+    const slots = await this.determinePackSlots(userId);
+
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i];
+
+      if (onProgress) {
+        await onProgress(
+          Math.round((i / slots.length) * 80),
+          `Crafting quest ${i + 1} of ${slots.length}...`,
+        );
+      }
+
+      const siblingContext: SiblingContext = {
+        batchId,
+        batchIndex: i,
+        totalInBatch: slots.length,
+        questRole: slot.role,
+        targetPathway: slot.targetPathway,
+        previousSiblings: quests.map((q) => ({
+          title: q.title ?? "Untitled",
+          venueCategory: q.objectives?.[0]?.venueCategory ?? "other",
+          venueName: q.objectives?.[0]?.venueName ?? "Unknown",
+        })),
+      };
+
+      const quest = await this.prescribeQuest(userId, input, undefined, siblingContext);
+      quests.push(quest);
+    }
+
+    if (onProgress) {
+      await onProgress(100, "Your quests are ready!");
+    }
+
+    console.log(
+      `[SidequestPrescription] Prescribed week pack ${batchId} for user ${userId}: ` +
+      `${quests.length} quests [${slots.map((s) => s.role).join(", ")}]`,
+    );
+
+    return { batchId, quests };
+  }
+
+  private async determinePackSlots(
+    userId: string,
+  ): Promise<{ role: "deepen" | "explore" | "discover"; targetPathway?: { id: string; theme: string; label: string; phase: string } }[]> {
+    if (!this.pathwayService) {
+      return [{ role: "discover" }, { role: "discover" }];
+    }
+
+    let phaseContext: import("./PathwayService").PhaseContext;
+    let pathways: import("@realtime-markers/database").Pathway[];
+    try {
+      [phaseContext, pathways] = await Promise.all([
+        this.pathwayService.getUserPhaseContext(userId),
+        this.pathwayService.getPathways(userId),
+      ]);
+    } catch {
+      return [{ role: "discover" }, { role: "discover" }];
+    }
+
+    const dfsPathways = pathways
+      .filter((p) => p.phase === "dfs")
+      .sort((a, b) => Number(b.avgResonance) - Number(a.avgResonance));
+
+    const topDfs = dfsPathways[0];
+
+    switch (phaseContext.globalPhase) {
+      case "bfs":
+        // No DFS pathways yet — both explore
+        return [{ role: "explore" }, { role: "explore" }];
+
+      case "mixed":
+      case "dfs":
+        // 1 deepen (top DFS pathway) + 1 explore
+        return [
+          {
+            role: "deepen",
+            targetPathway: topDfs
+              ? { id: topDfs.id, theme: topDfs.theme, label: topDfs.themeLabel ?? topDfs.theme, phase: topDfs.phase }
+              : undefined,
+          },
+          { role: "explore" },
+        ];
+
+      default:
+        return [{ role: "discover" }, { role: "discover" }];
+    }
+  }
 }
 
 // ─── Factory ────────────────────────────────────────────────────────

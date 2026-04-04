@@ -143,6 +143,30 @@ export class Sidequest {
   @Column({ type: "boolean", default: false })
   prescribed!: boolean;
 
+  // ── Batch grouping ──────────────────────────────────────────
+  @Index()
+  @Column({ name: "batch_id", type: "uuid", nullable: true })
+  batchId?: string;
+
+  @Column({ name: "batch_index", type: "smallint", nullable: true })
+  batchIndex?: number;
+
+  // ── Pathway context (denormalized at prescription time) ─────
+  @Column({ name: "pathway_id", type: "uuid", nullable: true })
+  pathwayId?: string;
+
+  @Column({ name: "pathway_theme", type: "varchar", length: 100, nullable: true })
+  pathwayTheme?: string;
+
+  @Column({ name: "pathway_label", type: "varchar", length: 200, nullable: true })
+  pathwayLabel?: string;
+
+  @Column({ name: "pathway_phase", type: "varchar", length: 10, nullable: true })
+  pathwayPhase?: string;
+
+  @Column({ name: "quest_role", type: "varchar", length: 20, nullable: true })
+  questRole?: string;
+
   @Column({
     name: "distance_from_home",
     type: "numeric",

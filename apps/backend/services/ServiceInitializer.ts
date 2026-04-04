@@ -181,6 +181,7 @@ export class ServiceInitializer {
       redisService,
       openAIService,
       coverageService,
+      jobQueue,
     });
 
     console.log("Services initialized successfully");

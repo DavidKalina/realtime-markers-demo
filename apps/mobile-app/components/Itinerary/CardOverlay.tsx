@@ -3,7 +3,7 @@
  *
  * Used by:
  *  - QuestCardDeck (long-press inspect)
- *  - PrescribeQuestCard (quest preview with accept/dismiss)
+ *  - BatchRevealOverlay (week pack quest reveal with accept/dismiss)
  */
 
 import { BlurView } from "expo-blur";
@@ -35,6 +35,7 @@ import { useGyroTilt, GyroTiltDebugPanel } from "@/hooks/useGyroTilt";
 import {
   getCategoryColor,
 } from "@/utils/categoryColors";
+import { QUEST_ROLE_LABELS } from "@realtime-markers/shared";
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
 import {
   fontFamily,
@@ -288,9 +289,20 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
           <View style={s.headerBand}>
             {face === "front" ? (
               <>
-                <Text style={[s.headerTier, { color: tierMeta.text }]}>
-                  {"\u2605"} {tierMeta.label}
-                </Text>
+                {card.questRole ? (
+                  <Text style={[
+                    s.headerTier,
+                    { color: card.pathwayPhase === "dfs" ? "#86efac" : "#93c5fd" },
+                  ]}>
+                    {card.pathwayPhase === "dfs" && card.pathwayLabel
+                      ? `${objective?.emoji ?? "\u{1F3AF}"} ${card.pathwayLabel} \u00B7 ${QUEST_ROLE_LABELS[card.questRole as keyof typeof QUEST_ROLE_LABELS] ?? card.questRole.toUpperCase()}`
+                      : `\u{1F50D} ${QUEST_ROLE_LABELS[card.questRole as keyof typeof QUEST_ROLE_LABELS] ?? card.questRole.toUpperCase()}`}
+                  </Text>
+                ) : (
+                  <Text style={[s.headerTier, { color: tierMeta.text }]}>
+                    {"\u2605"} {tierMeta.label}
+                  </Text>
+                )}
                 <View style={{ flex: 1 }} />
                 {(() => {
                   const cats = (card.categories ?? []).slice(0, 2);
@@ -410,6 +422,16 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
                 {"\u201C"}{objective.journalPrompt}{"\u201D"}
               </Text>
               <Text style={s.flavorAttrib}>{"\u2014"} After your visit</Text>
+            </View>
+          )}
+
+          {/* SUGGESTED ACTIVITIES (front face only) */}
+          {face === "front" && objective?.suggestedActivities && objective.suggestedActivities.length > 0 && (
+            <View style={s.activitiesBlock}>
+              <Text style={s.activitiesLabel}>THINGS TO TRY</Text>
+              {objective.suggestedActivities.slice(0, 4).map((activity, i) => (
+                <Text key={i} style={s.activityItem}>{activity}</Text>
+              ))}
             </View>
           )}
 
@@ -736,6 +758,24 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       color: colors.text.disabled,
       marginTop: 2,
+    },
+    activitiesBlock: {
+      paddingHorizontal: spacing.sm,
+      marginTop: spacing.sm,
+    },
+    activitiesLabel: {
+      fontSize: 7,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      color: colors.text.disabled,
+      letterSpacing: 1.2,
+      marginBottom: 4,
+    },
+    activityItem: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      lineHeight: 16,
     },
     tagRow: {
       flexDirection: "row",

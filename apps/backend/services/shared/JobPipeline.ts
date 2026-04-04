@@ -8,7 +8,8 @@ export type JobType =
   | "process_flyer"
   | "cleanup_outdated_events"
   | "import_external_events"
-  | "prescribe_quest";
+  | "prescribe_quest"
+  | "prescribe_week_pack";
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
 export interface PipelineStep<TStepId extends string> {
@@ -124,6 +125,17 @@ export const PRESCRIBE_PIPELINE = definePipeline<PrescribeStepId>(
   [
     { id: "generate", label: "Analyzing your comfort zone", weight: 5 },
     { id: "save", label: "Preparing your quest", weight: 1 },
+  ],
+);
+
+export type WeekPackStepId = "generate_1" | "generate_2" | "save";
+
+export const WEEK_PACK_PIPELINE = definePipeline<WeekPackStepId>(
+  "prescribe_week_pack",
+  [
+    { id: "generate_1", label: "Crafting quest 1 of 2", weight: 5 },
+    { id: "generate_2", label: "Crafting quest 2 of 2", weight: 5 },
+    { id: "save", label: "Preparing your quests", weight: 1 },
   ],
 );
 

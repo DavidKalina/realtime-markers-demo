@@ -1,5 +1,5 @@
-import React from "react";
-import { StyleSheet, type ViewStyle } from "react-native";
+import React, { useCallback } from "react";
+import { StyleSheet, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
 import Animated from "react-native-reanimated";
 import { usePullToAction } from "@/hooks/usePullToAction";
 
@@ -10,6 +10,7 @@ interface PullToActionScrollViewProps {
   children: React.ReactNode;
   showsVerticalScrollIndicator?: boolean;
   contentContainerStyle?: ViewStyle;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }
 
 const PullToActionScrollView: React.FC<PullToActionScrollViewProps> = ({

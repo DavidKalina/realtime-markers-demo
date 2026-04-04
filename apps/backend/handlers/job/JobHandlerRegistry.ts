@@ -2,6 +2,7 @@ import type { JobHandler, JobHandlerContext } from "./BaseJobHandler";
 import type { JobQueue } from "../../services/JobQueue";
 import type { RedisService } from "../../services/shared/RedisService";
 import { PrescribeQuestHandler } from "./PrescribeQuestHandler";
+import { PrescribeWeekPackHandler } from "./PrescribeWeekPackHandler";
 import type { SidequestPrescriptionService } from "../../services/SidequestPrescriptionService";
 import type { JobNotificationService } from "../../services/JobNotificationService";
 
@@ -20,6 +21,7 @@ export class JobHandlerRegistry {
   private registerHandlers(): void {
     if (this.sidequestPrescriptionService && this.jobNotificationService) {
       this.registerHandler(new PrescribeQuestHandler(this.sidequestPrescriptionService, this.jobNotificationService));
+      this.registerHandler(new PrescribeWeekPackHandler(this.sidequestPrescriptionService, this.jobNotificationService));
     }
   }
 

@@ -23,8 +23,8 @@ import Animated, {
 } from "react-native-reanimated";
 import Screen from "@/components/Layout/Screen";
 import EmptyState from "@/components/Layout/EmptyState";
-import PrescribeQuestCard from "@/components/Quest/PrescribeQuestCard";
 import QuestCardDeck from "@/components/Itinerary/QuestCardDeck";
+import BatchRevealOverlay from "@/components/Quest/BatchRevealOverlay";
 import { apiClient } from "@/services/ApiClient";
 import type {
   ItineraryResponse,
@@ -87,11 +87,17 @@ const ItinerariesListScreen = () => {
     fetchItineraries();
   }, [fetchItineraries]);
 
-  // After a prescribed quest is accepted, refresh the deck and navigate to it
-  const handleQuestCreated = useCallback(
-    (questId: string) => {
+  // Batch reveal state — shown when auto-prescribed quests arrive
+  const [revealQuests, setRevealQuests] = useState<SidequestResponse[]>([]);
+
+  const handleBatchRevealComplete = useCallback(
+    (acceptedIds: string[]) => {
+      setRevealQuests([]);
       fetchItineraries();
-      router.push(`/itineraries/${questId}`);
+      // Navigate to the first accepted quest
+      if (acceptedIds.length > 0) {
+        router.push(`/itineraries/${acceptedIds[0]}`);
+      }
     },
     [fetchItineraries, router],
   );
@@ -259,12 +265,11 @@ const ItinerariesListScreen = () => {
         isScrollable={false}
         showBackButton={false}
         noAnimation
-        bottomContent={<PrescribeQuestCard onQuestAccepted={handleQuestCreated} />}
       >
         <EmptyState
           emoji={"\u{1F5FA}\u{FE0F}"}
           title="No quests yet"
-          subtitle="Create your first sidequest below"
+          subtitle="Your next quests are on the way"
           style={{ justifyContent: "flex-start", paddingTop: spacing["3xl"] }}
         />
       </Screen>
@@ -272,11 +277,11 @@ const ItinerariesListScreen = () => {
   }
 
   return (
+    <>
     <Screen
       isScrollable={false}
       showBackButton={false}
       noAnimation
-      bottomContent={<PrescribeQuestCard onQuestAccepted={handleQuestCreated} />}
     >
       <View style={styles.headerRow}>
         <View style={styles.headerTitleRow}>
@@ -374,6 +379,14 @@ const ItinerariesListScreen = () => {
       )}
 
     </Screen>
+
+    <BatchRevealOverlay
+      visible={revealQuests.length > 0}
+      quests={revealQuests}
+      onComplete={handleBatchRevealComplete}
+    />
+
+    </>
   );
 };
 
@@ -412,7 +425,8 @@ const createScreenStyles = (colors: Colors) =>
     deckScreen: {
       flex: 1,
       alignItems: "center",
-      justifyContent: "center",
+      justifyContent: "flex-end",
+      paddingBottom: spacing["2xl"],
     },
     searchRow: {
       flexDirection: "row",

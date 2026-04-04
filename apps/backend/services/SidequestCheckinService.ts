@@ -15,6 +15,7 @@ import type { RedisService } from "./shared/RedisService";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
 import type { CoverageService } from "./CoverageService";
+import type { JobQueue } from "./JobQueue";
 import {
   CHECKIN_RADIUS_M as CHECKIN_RADIUS_METERS,
   COMPLETION_MILESTONES,
@@ -54,6 +55,7 @@ interface SidequestCheckinServiceDeps {
   redisService: RedisService;
   openAIService: OpenAIService;
   coverageService?: CoverageService;
+  jobQueue?: JobQueue;
 }
 
 interface NearbyObjective {
@@ -86,12 +88,14 @@ class SidequestCheckinServiceImpl implements SidequestCheckinService {
   private redisService: RedisService;
   private openAIService: OpenAIService;
   private coverageService?: CoverageService;
+  private jobQueue?: JobQueue;
   constructor(deps: SidequestCheckinServiceDeps) {
     this.dataSource = deps.dataSource;
     this.pushService = deps.pushService;
     this.redisService = deps.redisService;
     this.openAIService = deps.openAIService;
     this.coverageService = deps.coverageService;
+    this.jobQueue = deps.jobQueue;
   }
 
   async checkAndNotify(
@@ -327,6 +331,68 @@ class SidequestCheckinServiceImpl implements SidequestCheckinService {
     this.generateBehavioralProfile(userId).catch((err) => {
       console.error("[SidequestCheckin] Behavioral profile generation failed:", err);
     });
+
+    this.checkAndAutoPrescribe(userId).catch((err) => {
+      console.error("[SidequestCheckin] Auto-prescribe check failed:", err);
+    });
+  }
+
+  private async checkAndAutoPrescribe(userId: string): Promise<void> {
+    if (!this.jobQueue) return;
+
+    const client = this.redisService.getClient();
+    const lockKey = `auto-prescribe:${userId}`;
+
+    // Prevent duplicate triggers with a 5-minute lock
+    const acquired = await client.set(lockKey, "1", "EX", 300, "NX");
+    if (!acquired) return;
+
+    try {
+      // Check if user has any remaining READY, non-completed quests
+      const remaining = await this.dataSource.getRepository(Sidequest).count({
+        where: {
+          userId,
+          status: SidequestStatus.READY,
+          completedAt: IsNull(),
+        },
+      });
+
+      if (remaining > 0) return;
+
+      // No quests left — fetch user's home location and prescribe next batch
+      const user = await this.dataSource.getRepository(User).findOne({
+        where: { id: userId },
+        select: ["id", "homeLatitude", "homeLongitude"],
+      });
+
+      if (!user?.homeLatitude || !user?.homeLongitude) return;
+
+      const jobId = await this.jobQueue.enqueue("prescribe_week_pack", {
+        userId,
+        creatorId: userId,
+        latitude: Number(user.homeLatitude),
+        longitude: Number(user.homeLongitude),
+      });
+
+      console.log(
+        `[SidequestCheckin] Auto-prescribed week pack for user ${userId}, jobId=${jobId}`,
+      );
+
+      // Notify user that new quests are being crafted
+      await this.pushService.sendToUser(userId, {
+        title: "New quests incoming!",
+        body: "Your next adventures are being crafted...",
+        sound: "default",
+        data: {
+          type: "week_pack_generating",
+          jobId,
+        },
+      });
+    } catch (err) {
+      // Release lock on failure so it can be retried
+      await client.del(lockKey);
+      throw err;
+    }
   }
 
   private async checkCompletionMilestone(userId: string): Promise<void> {

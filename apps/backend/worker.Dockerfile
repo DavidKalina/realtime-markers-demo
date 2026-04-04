@@ -21,6 +21,7 @@ COPY packages/database/package.json ./packages/database/
 # Copy source code
 COPY apps/backend ./apps/backend
 COPY packages/database ./packages/database
+COPY packages/shared ./packages/shared
 
 # Install dependencies using pnpm for workspace support
 RUN pnpm install --frozen-lockfile || pnpm install
