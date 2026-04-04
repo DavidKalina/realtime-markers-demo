@@ -379,12 +379,9 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
                       <Text style={s.stopEmoji}>{obj.emoji ?? "\u{1F4CD}"}</Text>
                     </View>
                     <View style={s.stopText}>
-                      <Text style={s.stopName}>
+                      <Text style={s.stopName} numberOfLines={1}>
                         {(obj.venueName || obj.title || "Stop").split("|")[0].trim()}
                       </Text>
-                      {obj.hook && (
-                        <Text style={s.stopHook} numberOfLines={1}>{obj.hook}</Text>
-                      )}
                     </View>
                   </View>
                 ))
@@ -407,15 +404,53 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
             )}
           </View>
 
+          {/* QUEST STATS (front) */}
+          {face === "front" && (() => {
+            const diff = Math.min(Number(objective?.difficulty ?? 1), 5);
+            const dist = card.distanceFromHome != null ? Number(card.distanceFromHome) : null;
+            const distNorm = dist != null ? Math.min(dist / 10, 1) : 0;
+            const costNorm = totalCost > 0 ? Math.min(totalCost / 50, 1) : 0;
+            const diffBar = "\u2588".repeat(diff * 4) + "\u2591".repeat(20 - diff * 4);
+            const distBar = "\u2588".repeat(Math.round(distNorm * 20)) + "\u2591".repeat(20 - Math.round(distNorm * 20));
+            const costBar = "\u2588".repeat(Math.round(costNorm * 20)) + "\u2591".repeat(20 - Math.round(costNorm * 20));
+            return (
+              <View style={s.statsBlock}>
+                <View style={s.statRow}>
+                  <Text style={s.statLabel}>Difficulty</Text>
+                  <Text style={[s.statBar, { color: tierMeta.text }]}>{diffBar}</Text>
+                  <Text style={[s.statValue, { color: tierMeta.text }]}>{diff}/5</Text>
+                </View>
+                <View style={s.statRow}>
+                  <Text style={s.statLabel}>Distance</Text>
+                  <Text style={[s.statBar, { color: tierMeta.text }]}>{distBar}</Text>
+                  <Text style={[s.statValue, { color: tierMeta.text }]}>
+                    {dist != null ? (dist < 0.1 ? "<0.1" : dist.toFixed(1)) : "?"} mi
+                  </Text>
+                </View>
+                <View style={s.statRow}>
+                  <Text style={s.statLabel}>Cost</Text>
+                  <Text style={[s.statBar, { color: tierMeta.text }]}>{costBar}</Text>
+                  <Text style={[s.statValue, { color: tierMeta.text }]}>
+                    {totalCost > 0 ? `$${totalCost}` : "FREE"}
+                  </Text>
+                </View>
+              </View>
+            );
+          })()}
+
           {/* FLAVOR TEXT */}
-          {face === "front" && card.summary && objectives.length <= 3 && (
-            <View style={[s.flavorBlock, { borderColor: tierMeta.border }]}>
+          {face === "front" && card.summary && objectives.length <= 3 ? (
+            <View style={[s.flavorBlock, { borderColor: tierMeta.border, flex: 1 }]}>
               <Text style={s.flavorText}>
                 {"\u201C"}{card.summary.split(/[.!]/)[0].trim()}.{"\u201D"}
               </Text>
               <Text style={s.flavorAttrib}>{"\u2014"} Quest lore</Text>
             </View>
-          )}
+          ) : face === "front" ? (
+            <View style={{ flex: 1 }} />
+          ) : null}
+
+          {/* BACK FACE CONTENT */}
           {face === "back" && objective?.journalPrompt && (
             <View style={[s.flavorBlock, { borderColor: tierMeta.border }]}>
               <Text style={s.flavorText}>
@@ -424,64 +459,40 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
               <Text style={s.flavorAttrib}>{"\u2014"} After your visit</Text>
             </View>
           )}
-
-          {/* SUGGESTED ACTIVITIES (front face only) */}
-          {face === "front" && objective?.suggestedActivities && objective.suggestedActivities.length > 0 && (
-            <View style={s.activitiesBlock}>
-              <Text style={s.activitiesLabel}>THINGS TO TRY</Text>
-              {objective.suggestedActivities.slice(0, 4).map((activity, i) => (
-                <Text key={i} style={s.activityItem}>{activity}</Text>
-              ))}
-            </View>
-          )}
-
-          <View style={{ flex: 1 }} />
+          {face === "back" && <View style={{ flex: 1 }} />}
 
           {face === "front" ? (
             <>
-              <View style={s.tagRow}>
-                {cardTags.slice(0, 3).map((tag) => (
-                  <View key={tag} style={[s.tagChip, { borderColor: tierMeta.border }]}>
-                    <Text style={[s.tagText, { color: tierMeta.text }]}>{tag}</Text>
-                  </View>
-                ))}
-              </View>
               <View style={s.serialRow}>
                 <Text style={s.serialNumber}>
                   SQ{"\u00B7"}{(card.id ?? "").slice(0, 8).toUpperCase()}
                 </Text>
                 <Text style={s.serialStat}>
                   {"\u00B7"} {objectives.length} STOP{objectives.length !== 1 ? "S" : ""}
-                  {totalCost > 0 ? ` \u00B7 $${totalCost}` : ""}
                 </Text>
                 <View style={{ flex: 1 }} />
                 <Text style={s.serialStat}>{card.city?.toUpperCase() ?? ""}</Text>
               </View>
             </>
           ) : (
-            <View style={s.statsBlock}>
-              <View style={[s.statCell, { borderColor: tierMeta.border }]}>
-                <Text style={s.statLabel}>DIFFICULTY</Text>
-                <Text style={[s.statValue, { color: tierMeta.text }]}>
-                  {(() => {
-                    const d = Number(objective?.difficulty ?? 1);
-                    const dots = ["", "\u2022", "\u2022\u2022", "\u2022\u2022\u2022", "\u2022\u2022\u2022\u2022", "\u2022\u2022\u2022\u2022\u2022"];
-                    return dots[Math.min(d, 5)] || "\u2022";
-                  })()}
+            <>
+              {objective?.suggestedActivities && objective.suggestedActivities.length > 0 && (
+                <View style={s.backActivities}>
+                  <Text style={s.backActivitiesLabel}>THINGS TO TRY</Text>
+                  {objective.suggestedActivities.slice(0, 4).map((activity, i) => (
+                    <Text key={i} style={s.backActivityItem}>{activity}</Text>
+                  ))}
+                </View>
+              )}
+              <View style={{ flex: 1 }} />
+              <View style={s.serialRow}>
+                <Text style={s.serialNumber}>
+                  SQ{"\u00B7"}{(card.id ?? "").slice(0, 8).toUpperCase()}
                 </Text>
+                <View style={{ flex: 1 }} />
+                <Text style={s.serialStat}>{card.city?.toUpperCase() ?? ""}</Text>
               </View>
-              <View style={[s.statCell, { borderColor: tierMeta.border }]}>
-                <Text style={s.statLabel}>DISTANCE</Text>
-                <Text style={s.statValue}>
-                  {distanceMi != null ? (distanceMi < 0.1 ? "<0.1" : distanceMi.toFixed(1)) : "?"}
-                </Text>
-                <Text style={s.statLabel}>MI</Text>
-              </View>
-              <View style={[s.statCell, { borderColor: tierMeta.border }]}>
-                <Text style={s.statLabel}>COST</Text>
-                <Text style={s.statValue}>{totalCost > 0 ? `$${totalCost}` : "FREE"}</Text>
-              </View>
-            </View>
+            </>
           )}
         </Pressable>
       </View>
@@ -759,42 +770,36 @@ const createStyles = (colors: Colors) =>
       color: colors.text.disabled,
       marginTop: 2,
     },
-    activitiesBlock: {
-      paddingHorizontal: spacing.sm,
-      marginTop: spacing.sm,
+    // ── Quest stats (row bars) ──
+    statsBlock: {
+      marginHorizontal: spacing.sm,
+      marginTop: spacing.lg,
+      gap: spacing.sm,
     },
-    activitiesLabel: {
-      fontSize: 7,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.bold,
-      color: colors.text.disabled,
-      letterSpacing: 1.2,
-      marginBottom: 4,
-    },
-    activityItem: {
-      fontSize: 10,
-      fontFamily: fontFamily.mono,
-      color: colors.text.secondary,
-      lineHeight: 16,
-    },
-    tagRow: {
+    statRow: {
       flexDirection: "row",
-      flexWrap: "wrap",
-      gap: spacing.xs,
-      paddingHorizontal: spacing.sm,
-      marginTop: spacing.xs,
+      alignItems: "center",
+      gap: spacing.sm,
     },
-    tagChip: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 2,
-      borderRadius: radius.sm - 3,
-      borderWidth: 1,
-    },
-    tagText: {
-      fontSize: 7,
-      fontWeight: fontWeight.bold,
+    statLabel: {
+      fontSize: 12,
       fontFamily: fontFamily.mono,
-      letterSpacing: 0.8,
+      fontWeight: fontWeight.medium,
+      color: colors.text.secondary,
+      width: 76,
+    },
+    statBar: {
+      fontSize: 14,
+      fontFamily: fontFamily.mono,
+      letterSpacing: -0.5,
+      flex: 1,
+    },
+    statValue: {
+      fontSize: 12,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+      width: 50,
+      textAlign: "right",
     },
     serialRow: {
       flexDirection: "row",
@@ -821,32 +826,25 @@ const createStyles = (colors: Colors) =>
       color: colors.text.secondary,
       letterSpacing: 1.2,
     },
-    statsBlock: {
-      flexDirection: "row",
-      marginHorizontal: spacing.sm,
-      marginTop: spacing.xs,
-      gap: spacing.xs,
+    // ── Back face activities ──
+    backActivities: {
+      paddingHorizontal: spacing.sm,
+      marginTop: spacing.md,
+      gap: 2,
     },
-    statCell: {
-      flex: 1,
-      alignItems: "center",
-      paddingVertical: spacing.xs,
-      borderRadius: radius.sm - 3,
-      borderWidth: 1,
-      gap: 1,
-    },
-    statLabel: {
-      fontSize: 7,
-      fontWeight: fontWeight.bold,
+    backActivitiesLabel: {
+      fontSize: 9,
       fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
       color: colors.text.disabled,
-      letterSpacing: 0.8,
+      letterSpacing: 1.2,
+      marginBottom: spacing.xs,
     },
-    statValue: {
-      fontSize: 13,
-      fontWeight: fontWeight.bold,
+    backActivityItem: {
+      fontSize: 12,
       fontFamily: fontFamily.mono,
-      color: colors.text.primary,
+      color: colors.text.secondary,
+      lineHeight: 20,
     },
 
     // Accept area (prescribe mode)
