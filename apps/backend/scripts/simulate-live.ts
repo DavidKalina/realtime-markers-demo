@@ -262,6 +262,7 @@ function parseArgs() {
   let dryRun = false;
   let skipProfile = false;
   let skipFearLadder = false;
+  let model = "";
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -274,6 +275,7 @@ function parseArgs() {
       case "--dry-run": dryRun = true; break;
       case "--skip-profile": skipProfile = true; break;
       case "--skip-fear-ladder": skipFearLadder = true; break;
+      case "--model": model = args[++i]; break;
       case "--help":
         console.log(`
 Live Sidequest Simulator — Real LLM prescriptions via backend API
@@ -290,6 +292,7 @@ Options:
   --dry-run              Set up user profile but don't prescribe quests
   --skip-profile         Use existing user profile instead of applying persona
   --skip-fear-ladder     Skip fear ladder generation (use existing or none)
+  --model <model>        Override prescription model (e.g. gpt-5.4-nano, gpt-5.4-mini, gpt-5.4)
 
 Examples:
   npx tsx apps/backend/scripts/simulate-live.ts --goal "become a stand-up comedian" --quests 10
@@ -302,7 +305,7 @@ Estimated cost: ~$0.02-0.05 per quest (GPT-5.4-nano + Google Places)
     }
   }
 
-  return { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder };
+  return { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model };
 }
 
 /**
@@ -626,7 +629,7 @@ function scoreFearLadder(
 // ── Main ─────────────────────────────────────────────────────
 
 async function main() {
-  const { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder } = parseArgs();
+  const { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model: simModel } = parseArgs();
 
   let persona: LivePersona | undefined;
 
@@ -652,6 +655,7 @@ async function main() {
   console.log(`  Goal:     ${skipProfile ? "(existing)" : persona!.primaryGoal}`);
   console.log(`  User:     ${email}`);
   console.log(`  Quests:   ${questCount}`);
+  console.log(`  Model:    ${simModel || "(default)"}`);
   console.log(`  Est cost: $${(questCount * 0.035).toFixed(2)}`);
   console.log();
 
@@ -820,6 +824,7 @@ async function main() {
     const prescribeRes = await api("POST", "/api/sidequests/prescribe", token, {
       latitude: simLat,
       longitude: simLng,
+      ...(simModel && { model: simModel }),
     });
 
     if (prescribeRes.status !== 202) {

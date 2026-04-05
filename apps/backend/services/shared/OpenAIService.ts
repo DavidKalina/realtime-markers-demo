@@ -18,6 +18,7 @@ export enum OpenAIModel {
   GPT5 = "gpt-5",
   GPT51 = "gpt-5.1",
   GPT52 = "gpt-5.2",
+  GPT54 = "gpt-5.4",
   GPT54Mini = "gpt-5.4-mini",
   GPT54Nano = "gpt-5.4-nano",
   TextEmbedding3Small = "text-embedding-3-small",
@@ -36,6 +37,7 @@ const MODEL_RATE_LIMITS: Record<OpenAIModel, RateLimitConfig> = {
   [OpenAIModel.GPT5]: { tokensPerMinute: 5000, requestsPerMinute: 300 },
   [OpenAIModel.GPT51]: { tokensPerMinute: 5000, requestsPerMinute: 300 },
   [OpenAIModel.GPT52]: { tokensPerMinute: 5000, requestsPerMinute: 300 },
+  [OpenAIModel.GPT54]: { tokensPerMinute: 5000, requestsPerMinute: 300 },
   [OpenAIModel.GPT54Mini]: { tokensPerMinute: 10000, requestsPerMinute: 600 },
   [OpenAIModel.GPT54Nano]: { tokensPerMinute: 15000, requestsPerMinute: 1000 },
   [OpenAIModel.TextEmbedding3Small]: {

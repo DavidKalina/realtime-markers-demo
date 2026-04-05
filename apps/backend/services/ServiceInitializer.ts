@@ -167,6 +167,8 @@ export class ServiceInitializer {
       coverageService,
       resonanceService,
       pathwayService,
+      prescriptionModel: process.env.PRESCRIPTION_MODEL || undefined,
+      promptVersion: process.env.PRESCRIPTION_PROMPT_VERSION || undefined,
     });
 
     const pushNotificationService = createPushNotificationService({
