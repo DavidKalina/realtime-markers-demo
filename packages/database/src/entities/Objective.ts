@@ -112,9 +112,17 @@ export class Objective {
   suggestedActivities!: string[];
 
   @Column({
+    name: "action_items",
+    type: "text",
+    array: true,
+    default: "{}",
+  })
+  actionItems!: string[];
+
+  @Column({
     name: "completed_activity",
     type: "varchar",
-    length: 200,
+    length: 2000,
     nullable: true,
   })
   completedActivity?: string;

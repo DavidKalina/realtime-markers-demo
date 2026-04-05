@@ -8,6 +8,7 @@ import { DeckStatsModule } from "./api/modules/deckStats";
 import { ProfileInsightsModule } from "./api/modules/profileInsights";
 import { CoverageModule } from "./api/modules/coverage";
 import { PathwaysModule } from "./api/modules/pathways";
+import { GrowthDashboardModule } from "./api/modules/growthDashboard";
 
 // Re-export types and enums
 export * from "./api/base/types";
@@ -19,6 +20,20 @@ export * from "./api/modules/deckStats";
 export * from "./api/modules/profileInsights";
 export * from "./api/modules/coverage";
 export * from "./api/modules/pathways";
+export {
+  GrowthDashboardModule,
+  type GrowthDashboardResponse,
+  type GrowthScoreData,
+  type GrowthArcData,
+  type SelfInsightData,
+  type PathwayMomentumData,
+  type BlindSpotData,
+  type ExplorationCompassData,
+  type CalibrationType,
+  type ExplorationProfile,
+  type GrowthHistoryPoint,
+  type PathwayTrendPoint,
+} from "./api/modules/growthDashboard";
 
 class ApiClient extends BaseApiClient {
   private static instance: ApiClient | null = null;
@@ -30,6 +45,7 @@ class ApiClient extends BaseApiClient {
   private _profileInsights: ProfileInsightsModule | null = null;
   private _coverage: CoverageModule | null = null;
   private _pathways: PathwaysModule | null = null;
+  private _growthDashboard: GrowthDashboardModule | null = null;
 
   private constructor(baseUrl: string) {
     super(baseUrl);
@@ -94,6 +110,13 @@ class ApiClient extends BaseApiClient {
       this._pathways = new PathwaysModule(this);
     }
     return this._pathways;
+  }
+
+  public get growthDashboard(): GrowthDashboardModule {
+    if (!this._growthDashboard) {
+      this._growthDashboard = new GrowthDashboardModule(this);
+    }
+    return this._growthDashboard;
   }
 
   override setBaseUrl(baseUrl: string): void {

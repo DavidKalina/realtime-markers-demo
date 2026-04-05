@@ -19,6 +19,7 @@ export interface ObjectiveResponse {
   entryLongitude?: number;
   entryPointName?: string;
   suggestedActivities?: string[];
+  actionItems?: string[];
   completedActivity?: string;
   photoUrl?: string;
   journalPrompt?: string;

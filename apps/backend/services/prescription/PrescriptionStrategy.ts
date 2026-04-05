@@ -22,6 +22,7 @@ export interface LLMItemRaw {
   vc: string;   // venue category
   hook: string;
   sa: string[] | null; // suggested activities
+  ai: string[] | null; // action items
   jp: string | null;   // journal prompt
   df: number;   // difficulty
   act: string;  // actionability

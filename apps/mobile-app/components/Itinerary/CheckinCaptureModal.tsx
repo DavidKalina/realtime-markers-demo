@@ -47,6 +47,7 @@ interface CheckinCaptureModalProps {
   objectiveTitle: string;
   objectiveEmoji?: string;
   suggestedActivities: string[];
+  actionItems?: string[];
   journalPrompt?: string;
   onDismiss: () => void;
   onComplete: () => void;
@@ -86,6 +87,7 @@ export function CheckinCaptureModal({
   objectiveTitle,
   objectiveEmoji,
   suggestedActivities,
+  actionItems,
   journalPrompt,
   onDismiss,
   onComplete,
@@ -95,7 +97,7 @@ export function CheckinCaptureModal({
   const scrollY = useSharedValue(0);
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [selectedActivity, setSelectedActivity] = useState<string | null>(null);
+  const [selectedActivities, setSelectedActivities] = useState<Set<string>>(new Set());
   const [customActivity, setCustomActivity] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [socialContext, setSocialContext] = useState<string | null>(null);
@@ -104,7 +106,7 @@ export function CheckinCaptureModal({
 
   const reset = useCallback(() => {
     setPhotoUri(null);
-    setSelectedActivity(null);
+    setSelectedActivities(new Set());
     setCustomActivity("");
     setShowCustomInput(false);
     setSocialContext(null);
@@ -138,24 +140,31 @@ export function CheckinCaptureModal({
     }
   }, []);
 
-  const handleSelectActivity = useCallback((activity: string) => {
+  const handleToggleActivity = useCallback((activity: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedActivity(activity);
-    setShowCustomInput(false);
-    setCustomActivity("");
+    setSelectedActivities((prev) => {
+      const next = new Set(prev);
+      if (next.has(activity)) {
+        next.delete(activity);
+      } else {
+        next.add(activity);
+      }
+      return next;
+    });
   }, []);
 
   const handleOther = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedActivity(null);
-    setShowCustomInput(true);
+    setShowCustomInput((prev) => !prev);
   }, []);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      const activity = selectedActivity ?? (customActivity.trim() || undefined);
+      const parts = [...selectedActivities];
+      if (customActivity.trim()) parts.push(customActivity.trim());
+      const activity = parts.length > 0 ? parts.join(" · ") : undefined;
       const journal = journalText.trim() || undefined;
 
       await apiClient.sidequests.updateObjectiveJournal(objectiveId, {
@@ -173,7 +182,7 @@ export function CheckinCaptureModal({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setSaving(false);
     }
-  }, [objectiveId, selectedActivity, customActivity, journalText, photoUri, socialContext, reset, onComplete]);
+  }, [objectiveId, selectedActivities, customActivity, journalText, photoUri, socialContext, reset, onComplete]);
 
   const handleSkip = useCallback(() => {
     reset();
@@ -258,16 +267,15 @@ export function CheckinCaptureModal({
                 <Text style={s.widgetLabel}>WHAT DID YOU DO?</Text>
                 <View style={s.chipGrid}>
                   {suggestedActivities.map((activity) => {
-                    const isActive = selectedActivity === activity;
+                    const isActive = selectedActivities.has(activity);
                     return (
                       <Pressable
                         key={activity}
                         style={[s.chip, isActive && s.chipActive]}
-                        onPress={() => handleSelectActivity(activity)}
+                        onPress={() => handleToggleActivity(activity)}
                       >
                         <Text
                           style={[s.chipText, isActive && s.chipTextActive]}
-                          numberOfLines={1}
                         >
                           {activity}
                         </Text>
@@ -275,7 +283,7 @@ export function CheckinCaptureModal({
                     );
                   })}
                   <Pressable
-                    style={[s.chip, showCustomInput && s.chipActive]}
+                    style={[s.chip, { borderRadius: radius.full, alignSelf: "flex-start" }, showCustomInput && s.chipActive]}
                     onPress={handleOther}
                   >
                     <Text
@@ -302,7 +310,7 @@ export function CheckinCaptureModal({
             {/* ── Social context ── */}
             <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={350}>
               <Text style={s.widgetLabel}>WHO WERE YOU WITH?</Text>
-              <View style={s.chipGrid}>
+              <View style={s.socialGrid}>
                 {([
                   { key: "solo", label: "\uD83E\uDDD1 Solo" },
                   { key: "with_someone", label: "\uD83D\uDC6B With someone" },
@@ -313,7 +321,7 @@ export function CheckinCaptureModal({
                   return (
                     <Pressable
                       key={key}
-                      style={[s.chip, isActive && s.chipActive]}
+                      style={[s.chip, { borderRadius: radius.full }, isActive && s.chipActive]}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         setSocialContext(isActive ? null : key);
@@ -476,14 +484,17 @@ const createStyles = (colors: Colors) =>
 
     // ── Activity chips ──
     chipGrid: {
+      gap: spacing.sm,
+    },
+    socialGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: spacing.sm,
     },
     chip: {
-      paddingVertical: 8,
+      paddingVertical: 10,
       paddingHorizontal: spacing.lg,
-      borderRadius: radius.full,
+      borderRadius: radius.lg,
       borderWidth: 1,
       borderColor: "rgba(255, 255, 255, 0.08)",
       backgroundColor: "rgba(255, 255, 255, 0.03)",

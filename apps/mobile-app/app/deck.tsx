@@ -171,6 +171,7 @@ const DeckScreen = () => {
     title: string;
     emoji?: string;
     suggestedActivities: string[];
+    actionItems: string[];
     journalPrompt?: string;
   } | null>(null);
 
@@ -203,6 +204,7 @@ const DeckScreen = () => {
         title: uncaptured.title,
         emoji: uncaptured.emoji,
         suggestedActivities: uncaptured.suggestedActivities ?? [],
+        actionItems: uncaptured.actionItems ?? [],
         journalPrompt: uncaptured.journalPrompt,
       });
       return;
@@ -328,6 +330,7 @@ const DeckScreen = () => {
         objectiveTitle={captureObjective?.title ?? ""}
         objectiveEmoji={captureObjective?.emoji}
         suggestedActivities={captureObjective?.suggestedActivities ?? []}
+        actionItems={captureObjective?.actionItems ?? []}
         journalPrompt={captureObjective?.journalPrompt}
         onDismiss={() => setCaptureObjective(null)}
         onComplete={() => {

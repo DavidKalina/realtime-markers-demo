@@ -74,6 +74,7 @@ interface LLMItemRaw {
   vc: string | null;
   hook: string | null;
   sa: string[] | null;
+  ai: string[] | null;
   jp: string | null;
   df: number | null;
   act: string | null;
@@ -96,6 +97,7 @@ interface LLMItem {
   venueCategory: string | null;
   hook: string | null;
   suggestedActivities: string[] | null;
+  actionItems: string[] | null;
   journalPrompt: string | null;
   difficulty: number | null;
   actionability: "actionable" | "suggestive" | "milestone" | null;
@@ -122,6 +124,7 @@ function expandLLMResponse(raw: LLMResponseRaw): LLMResponse {
       venueCategory: i.vc,
       hook: i.hook,
       suggestedActivities: i.sa ?? null,
+      actionItems: i.ai ?? null,
       journalPrompt: i.jp ?? null,
       difficulty: i.df ?? null,
       actionability: (["actionable", "suggestive", "milestone"].includes(i.act ?? "") ? i.act : "suggestive") as LLMItem["actionability"],
@@ -331,6 +334,9 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
     // 2b. Compute fear ladder readiness from actual user feedback
     const fearLadderReadiness = await this.computeFearLadderReadiness(userId);
 
+    // 2b2. Detect recurring blockers from quest history
+    const blockerContext = await this.buildBlockerContext(userId);
+
     // 2c. Build coverage context (Voronoi directional gaps + exploration profile)
     let coverageContext = "";
     let explorationProfileLabel = "";
@@ -466,6 +472,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         difficultyGuidance: this.buildDifficultyGuidance(pace, fearLadderReadiness, isStretch),
         siblingInstructions: siblingContext
           ? this.buildSiblingInstructions(siblingContext) : "",
+        blockerContext,
         isStretch,
         siblingContext: siblingContext ?? null,
       };
@@ -576,7 +583,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
                   type: "object",
                   properties: {
                     t: { type: "string", description: "Stop title" },
-                    d: { type: "string", description: "2-3 sentences max. What to do at this stop — concrete and direct. Do NOT embed URLs or phone numbers here — those go in 'sa' items instead." },
+                    d: { type: "string", description: "2-3 sentences max. What to do at this stop — concrete and direct. Do NOT embed URLs or phone numbers here — those go in 'ai' (action items)." },
                     e: { type: "string", description: "Emoji" },
                     ec: {
                       type: ["number", "null"],
@@ -597,7 +604,13 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
                       type: "array",
                       items: { type: "string" },
                       description:
-                        "3-4 items, each starting with an emoji. Mix activity ideas (e.g. '🚶 Walk the loop') with actionable links (e.g. '🔗 longmontcolorado.gov/rec-services', '📞 (303) 774-4800 — ask about beginner classes'). URLs and phone numbers go HERE, not in the description.",
+                        "2-3 emoji-prefixed activity ideas — what people typically do here. General suggestions, NO URLs or phone numbers. Examples: '🚶 Walk the loop', '📸 Snap a photo of the view'.",
+                    },
+                    ai: {
+                      type: "array",
+                      items: { type: "string" },
+                      description:
+                        "1-3 concrete next steps with links, phone numbers, or specific instructions. Examples: '🔗 longmontcolorado.gov/rec-services — sign up', '📞 (303) 774-4800 — ask about beginner classes'. Empty array if no actionable info exists.",
                     },
                     jp: {
                       type: "string",
@@ -616,7 +629,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
                         "actionable = concrete next steps with signup links/times/instructions, suggestive = go explore this place, milestone = reflection checkpoint on progress",
                     },
                   },
-                  required: ["t", "d", "e", "ec", "vn", "va", "vc", "hook", "sa", "jp", "df", "act"],
+                  required: ["t", "d", "e", "ec", "vn", "va", "vc", "hook", "sa", "ai", "jp", "df", "act"],
                 },
                 maxItems: 1,
                 minItems: 1,
@@ -896,6 +909,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
           latitude: vi.geo?.latitude ?? undefined,
           longitude: vi.geo?.longitude ?? undefined,
           suggestedActivities: vi.item.suggestedActivities ?? [],
+          actionItems: vi.item.actionItems ?? [],
           journalPrompt: vi.item.journalPrompt ?? undefined,
           difficulty: vi.item.difficulty ?? undefined,
           actionability: vi.item.actionability ?? undefined,
@@ -1553,6 +1567,170 @@ ${await this.buildSocialContext(userId, goalTags)}`;
     }
 
     return lines.join("\n");
+  }
+
+  /**
+   * Detect recurring blockers by analyzing recent quest history.
+   * Looks at action items vs completed activity + journal entries
+   * to find patterns where the user consistently avoids or struggles
+   * with a specific type of action.
+   */
+  private async buildBlockerContext(userId: string): Promise<string> {
+    const completedCount = await this.countCompletedQuests(userId);
+    if (completedCount < 5) return "";
+
+    // Fetch recent completed quests with objective details
+    const recentObjectives: {
+      quest_title: string;
+      action_items: string[];
+      suggested_activities: string[];
+      completed_activity: string | null;
+      journal_entry: string | null;
+      rating: number | null;
+      rating_comment: string | null;
+      difficulty: number | null;
+      venue_category: string | null;
+    }[] = await this.dataSource.query(
+      `SELECT
+         s.title AS quest_title,
+         o.action_items,
+         o.suggested_activities,
+         o.completed_activity,
+         o.journal_entry,
+         s.rating,
+         s.rating_comment,
+         o.difficulty,
+         o.venue_category
+       FROM objectives o
+       JOIN sidequests s ON s.id = o.sidequest_id
+       WHERE s.user_id = $1
+         AND s.completed_at IS NOT NULL
+         AND s.deleted_at IS NULL
+       ORDER BY s.completed_at DESC
+       LIMIT 15`,
+      [userId],
+    );
+
+    // Need at least a few quests with journal or activity data to analyze
+    const withSignal = recentObjectives.filter(
+      (o) => o.journal_entry || o.completed_activity || o.rating_comment,
+    );
+    if (withSignal.length < 3) return "";
+
+    // Build compact summaries for LLM analysis
+    const questSummaries = recentObjectives
+      .map((obj, i) => {
+        const parts: string[] = [`Quest ${i + 1}: "${obj.quest_title}" (${obj.venue_category ?? "unknown"})`];
+        if (obj.action_items?.length)
+          parts.push(`  Prescribed actions: ${obj.action_items.join("; ")}`);
+        if (obj.suggested_activities?.length)
+          parts.push(`  Suggested activities: ${obj.suggested_activities.join("; ")}`);
+        parts.push(`  What they did: ${obj.completed_activity ? `"${obj.completed_activity}"` : "(nothing reported)"}`);
+        if (obj.journal_entry)
+          parts.push(`  Journal: "${obj.journal_entry}"`);
+        if (obj.rating_comment)
+          parts.push(`  Rating comment: "${obj.rating_comment}"`);
+        if (obj.rating != null)
+          parts.push(`  Rating: ${obj.rating}/5`);
+        return parts.join("\n");
+      })
+      .join("\n\n");
+
+    try {
+      const response = await this.openAIService.executeChatCompletion(
+        {
+          model: OpenAIModel.GPT54Mini,
+          messages: [
+            {
+              role: "system",
+              content: `You analyze a user's quest history to detect recurring blockers and assess their current recovery phase.
+
+STEP 1 — DETECT BLOCKER:
+Look for a specific action the user consistently avoids, fails at, or expresses anxiety about across 2-3+ quests. Look at:
+- Actions prescribed but not completed
+- Journal entries mentioning the same fear/avoidance repeatedly
+- Low ratings on quests requiring a specific action type
+A single bad experience is NOT a blocker — the pattern must repeat.
+
+STEP 2 — ASSESS PHASE (if blocker detected):
+Look at the MOST RECENT 3-4 quests (listed first) and determine the user's current state:
+- "avoid": The last 2-3 quests still show blocker failures (low ratings, avoidance journals). The user needs a full break from the blocked action.
+- "building": The last 2-3 quests show improvement — better ratings, positive journals, successful completions on NON-blocker quests. The user is rebuilding confidence but isn't ready for the blocked action yet.
+- "reintroduce": The user has had 3+ recent successful quests with good ratings (3+). They're showing confidence and readiness. It's time to GENTLY reintroduce the blocked action as OPTIONAL, not required.
+
+Respond with JSON:
+If blocker found: {"detected":true,"blockerType":"<short label>","evidence":"<2-3 sentences>","severity":"mild|moderate|strong","phase":"avoid|building|reintroduce","phaseReason":"<1 sentence explaining why this phase>","suggestedProgression":"<3-4 step micro-progression>"}
+If no blocker: {"detected":false}`,
+            },
+            {
+              role: "user",
+              content: `Here are this user's recent completed quests (most recent first). Is there a recurring blocker, and if so, what phase are they in?\n\n${questSummaries}`,
+            },
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.3,
+          max_completion_tokens: 500,
+        },
+        "blocker_detection",
+      );
+
+      const text = response.choices[0]?.message?.content?.trim() ?? "{}";
+      const result = JSON.parse(text);
+      if (!result.detected) return "";
+
+      const phase: string = result.phase ?? "avoid";
+
+      console.log(
+        `[prescribeQuest] Blocker detected: "${result.blockerType}" (${result.severity}, phase=${phase}) — ${result.evidence}`,
+      );
+
+      if (phase === "reintroduce") {
+        return `\nRECURRING BLOCKER — READY TO REINTRODUCE: ${result.blockerType.toUpperCase()}
+${result.evidence}
+Phase: REINTRODUCE — ${result.phaseReason ?? "User has shown consistent recent improvement."}
+
+The user previously struggled with "${result.blockerType}" but has been building confidence through recent successes. They're ready for a gentle reintroduction.
+
+REINTRODUCTION RULES:
+- Prescribe a quest where "${result.blockerType}" is OPTIONAL and NATURAL, not the primary objective.
+- Frame the quest around an enjoyable activity. The blocked action should be a "nice to have" bonus, not the goal.
+- Use soft language: "if it feels right", "you might", "no pressure to" — NOT "introduce yourself" or "talk to someone."
+- Difficulty should stay moderate (3-5). Don't spike it.
+- If the user succeeds, great. If not, it's still a good quest without the blocked action.\n`;
+      }
+
+      if (phase === "building") {
+        return `\nRECURRING BLOCKER — BUILDING CONFIDENCE: ${result.blockerType.toUpperCase()}
+${result.evidence}
+Phase: BUILDING — ${result.phaseReason ?? "User is showing improvement on recent quests."}
+
+The user has a blocker around "${result.blockerType}" but is showing recent progress. Keep prescribing experiences where they can succeed WITHOUT the blocked action. Don't reintroduce it yet — let the momentum build for 1-2 more quests.
+
+PRESCRIPTION RULES:
+- Focus on activities where the user can participate fully without "${result.blockerType}".
+- Solo activities, structured classes, hands-on workshops, and observation-based quests are ideal.
+- Social interaction may happen naturally — that's fine — but it must NOT be prescribed as an objective.
+- Keep difficulty low-moderate (2-4). The goal is continued easy wins.\n`;
+      }
+
+      // Default: "avoid" phase
+      return `\nRECURRING BLOCKER — ACTIVE AVOIDANCE: ${result.blockerType.toUpperCase()}
+${result.evidence}
+Phase: AVOID — ${result.phaseReason ?? "User is still in active failure mode."}
+
+THIS USER KEEPS FAILING AT "${result.blockerType}". Prescribing it again will produce another 1-star failure.
+
+PRESCRIPTION RULES:
+1. DO NOT make "${result.blockerType}" a quest objective, action item, or suggested activity.
+2. Prescribe experiences where the user can succeed WITHOUT the blocked action — solo activities, observation, skill-building, or structured environments.
+3. Keep difficulty low (1-3). The goal is EASY WINS to rebuild confidence.
+
+MICRO-PROGRESSION (follow this arc over the next several quests):
+${result.suggestedProgression}\n`;
+    } catch (err) {
+      console.error("[prescribeQuest] Blocker detection failed:", err);
+      return "";
+    }
   }
 
   private async buildArcNarrative(userId: string): Promise<string> {

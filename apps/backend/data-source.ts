@@ -16,11 +16,6 @@ import {
   Pathway,
 } from "@realtime-markers/database";
 
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
-
-const currentDir = dirname(fileURLToPath(import.meta.url));
-
 // Create the DataSource instance
 const AppDataSource = new DataSource({
   type: "postgres",
@@ -37,10 +32,8 @@ const AppDataSource = new DataSource({
     CoverageSnapshot,
     Pathway,
   ],
-  migrations: [join(currentDir, "migrations", "*.ts")],
-  migrationsTableName: "migrations",
-  synchronize: false,
-  migrationsRun: true,
+  synchronize: true,
+  migrationsRun: false,
   logging: ["error"],
   ssl: false,
   poolSize: 50,
@@ -52,27 +45,6 @@ const AppDataSource = new DataSource({
     connectionTimeoutMillis: 5000, // Longer timeout for connection
   },
 });
-
-// Function to run migrations manually
-const runMigrations = async (): Promise<void> => {
-  if (!AppDataSource.isInitialized) {
-    throw new Error("Database must be initialized before running migrations");
-  }
-
-  try {
-    console.log("Running database migrations...");
-
-    // Check if there are pending migrations
-    const hasPendingMigrations = await AppDataSource.showMigrations();
-    console.log(`Has pending migrations: ${hasPendingMigrations}`);
-
-    await AppDataSource.runMigrations();
-    console.log("Database migrations completed successfully");
-  } catch (error) {
-    console.error("Failed to run migrations:", error);
-    throw error;
-  }
-};
 
 // Function to ensure database is fully ready
 const ensureDatabaseReady = async (): Promise<void> => {
@@ -137,9 +109,6 @@ const initializeDatabase = async (
       await AppDataSource.initialize();
       console.log("Database connection established successfully");
 
-      // Run migrations after successful connection
-      await runMigrations();
-
       // Ensure database is fully ready
       await ensureDatabaseReady();
 
@@ -173,5 +142,5 @@ const initializeDatabase = async (
   throw new Error("Failed to initialize database after all retries");
 };
 
-export { initializeDatabase, runMigrations, ensureDatabaseReady };
+export { initializeDatabase, ensureDatabaseReady };
 export default AppDataSource;

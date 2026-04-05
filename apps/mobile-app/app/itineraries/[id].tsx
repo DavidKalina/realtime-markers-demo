@@ -188,6 +188,7 @@ const ItineraryDetailScreen = () => {
     title: string;
     emoji?: string;
     suggestedActivities: string[];
+    actionItems: string[];
     journalPrompt?: string;
   } | null>(null);
   const [showPrediction, setShowPrediction] = useState(false);
@@ -254,6 +255,7 @@ const ItineraryDetailScreen = () => {
               title: objective.title,
               emoji: objective.emoji,
               suggestedActivities: objective.suggestedActivities ?? [],
+              actionItems: objective.actionItems ?? [],
               journalPrompt: objective.journalPrompt,
             });
           }
@@ -328,6 +330,32 @@ const ItineraryDetailScreen = () => {
     ]);
   }, [deactivateItinerary]);
 
+  // ── DEV: force check-in all objectives ──
+  const handleDevCheckinAll = useCallback(async () => {
+    if (!__DEV__ || !id || !displaySidequest) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const now = new Date().toISOString();
+    const unchecked = (displaySidequest.objectives ?? []).filter(
+      (o) => !o.checkedInAt,
+    );
+    for (const obj of unchecked) {
+      markCheckedIn(obj.id, now);
+      confirmCheckin(obj.id);
+    }
+    // Open capture modal for the first unchecked objective
+    const first = unchecked[0];
+    if (first) {
+      setCaptureObjective({
+        id: first.id,
+        title: first.title,
+        emoji: first.emoji,
+        suggestedActivities: first.suggestedActivities ?? [],
+        actionItems: first.actionItems ?? [],
+        journalPrompt: first.journalPrompt,
+      });
+    }
+  }, [id, displaySidequest, markCheckedIn, confirmCheckin]);
+
   const handleManualCheckin = useCallback(
     async (itemId: string) => {
       if (!id) return;
@@ -348,6 +376,7 @@ const ItineraryDetailScreen = () => {
           title: objective.title,
           emoji: objective.emoji,
           suggestedActivities: objective.suggestedActivities ?? [],
+          actionItems: objective.actionItems ?? [],
           journalPrompt: objective.journalPrompt,
         });
       }
@@ -769,6 +798,21 @@ const ItineraryDetailScreen = () => {
             .easing(Easing.out(Easing.cubic))}
           style={styles.actions}
         >
+          {/* DEV: force check-in all objectives */}
+          {__DEV__ && isThisActive && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.devButton,
+                pressed && { opacity: 0.6 },
+              ]}
+              onPress={handleDevCheckinAll}
+            >
+              <Text style={styles.devButtonText}>
+                DEV: Check in all + capture
+              </Text>
+            </Pressable>
+          )}
+
           {isThisActive ? (
             <>
               <View style={styles.buttonRow}>
@@ -853,6 +897,7 @@ const ItineraryDetailScreen = () => {
         objectiveTitle={captureObjective?.title ?? ""}
         objectiveEmoji={captureObjective?.emoji}
         suggestedActivities={captureObjective?.suggestedActivities ?? []}
+        actionItems={captureObjective?.actionItems ?? []}
         journalPrompt={captureObjective?.journalPrompt}
         onDismiss={() => {
           const capturedId = captureObjective?.id;
@@ -1269,6 +1314,24 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       fontWeight: fontWeight.bold,
       textTransform: "uppercase",
       letterSpacing: 1.5,
+    },
+
+    // ── Dev ──
+    devButton: {
+      borderWidth: 1,
+      borderColor: "rgba(251, 191, 36, 0.3)",
+      backgroundColor: "rgba(251, 191, 36, 0.08)",
+      borderRadius: radius.md,
+      paddingVertical: spacing.sm,
+      alignItems: "center" as const,
+      marginBottom: spacing.sm,
+    },
+    devButtonText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 11,
+      color: "#fbbf24",
+      fontWeight: fontWeight.bold,
+      letterSpacing: 1,
     },
 
     // ── Quick Links ──

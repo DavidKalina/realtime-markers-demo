@@ -287,15 +287,37 @@ const TimelineStop = React.memo(
                 </Text>
               )}
 
-              {/* Suggested activities */}
+              {/* Suggested activities — general ideas */}
               {item.suggestedActivities &&
                 item.suggestedActivities.length > 0 && (
                   <View style={styles.activitiesWrap}>
                     <View style={styles.activitiesDivider} />
-                    {item.suggestedActivities.map((activity) => (
+                    <Text style={styles.sectionLabel}>IDEAS</Text>
+                    {item.suggestedActivities.map((activity, i) => (
                       <View key={activity} style={styles.activityRow}>
-                        <Text style={styles.activityDiamond}>{"\u25C7"}</Text>
+                        <Text style={styles.activityNumberText}>
+                          {i + 1}.
+                        </Text>
                         <Text style={styles.activityItem}>{activity}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+              {/* Action items — concrete next steps */}
+              {item.actionItems &&
+                item.actionItems.length > 0 && (
+                  <View style={styles.activitiesWrap}>
+                    {!(item.suggestedActivities && item.suggestedActivities.length > 0) && (
+                      <View style={styles.activitiesDivider} />
+                    )}
+                    <Text style={styles.actionLabel}>NEXT STEPS</Text>
+                    {item.actionItems.map((action, i) => (
+                      <View key={action} style={styles.activityRow}>
+                        <Text style={styles.actionNumberText}>
+                          {i + 1}.
+                        </Text>
+                        <Text style={styles.actionItem}>{action}</Text>
                       </View>
                     ))}
                   </View>
@@ -549,28 +571,64 @@ const createStyles = (colors: Colors, accentColor?: string) =>
     },
     activitiesWrap: {
       marginTop: spacing.md,
-      gap: spacing.sm,
+      gap: 0,
     },
     activitiesDivider: {
       height: StyleSheet.hairlineWidth,
       backgroundColor: colors.border.default,
+      marginBottom: spacing.sm,
+    },
+    sectionLabel: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.detail,
+      letterSpacing: 1,
       marginBottom: spacing.xs,
     },
     activityRow: {
       flexDirection: "row",
       alignItems: "flex-start",
       gap: spacing.sm,
+      paddingBottom: spacing.sm,
     },
-    activityDiamond: {
-      fontSize: 14,
-      color: colors.text.disabled,
+    activityNumberText: {
+      fontSize: 13,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: accentColor ?? "#22c55e",
       lineHeight: 22,
+      minWidth: 18,
     },
     activityItem: {
       fontSize: 15,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.regular,
       color: colors.text.secondary,
+      lineHeight: 22,
+      flex: 1,
+    },
+    actionLabel: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: accentColor ?? "#3b82f6",
+      letterSpacing: 1,
+      marginBottom: spacing.xs,
+    },
+    actionNumberText: {
+      fontSize: 13,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: accentColor ?? "#3b82f6",
+      lineHeight: 22,
+      minWidth: 18,
+    },
+    actionItem: {
+      fontSize: 15,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      color: colors.text.primary,
       lineHeight: 22,
       flex: 1,
     },

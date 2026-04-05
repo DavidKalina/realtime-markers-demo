@@ -1,9 +1,8 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useProfileInsights } from "@/hooks/useProfileInsights";
-import { usePathways } from "@/hooks/usePathways";
+import { useGrowthDashboard } from "@/hooks/useGrowthDashboard";
 import { apiClient } from "@/services/ApiClient";
-import type { CoverageSummaryResponse } from "@/services/api/modules/coverage";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import {
   spacing,
@@ -14,7 +13,6 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import React, {
   useCallback,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -29,18 +27,15 @@ import Screen from "../Layout/Screen";
 import { useUserLocation } from "@/contexts/LocationContext";
 
 import ActiveQuestBanner from "./ActiveQuestBanner";
-// Old profile components (kept for reference)
-// import { JourneyHeader } from "./JourneyHeader";
-// import { PathwayRadar } from "./PathwayRadar";
-// import { SocialGrowth } from "./SocialGrowth";
-// import VenueDnaChart from "./VenueDnaChart";
-import { CoverageWidget } from "./CoverageWidget";
 import { SettingsSection } from "./SettingsSection";
 
-// New HUD components
-import PhaseHeader from "./PhaseHeader";
-import PathwayList from "./PathwayList";
-// import ResonanceBreakdown from "./ResonanceBreakdown"; // TODO: wire up once last-resonance API exists
+// Growth dashboard components
+import GrowthScoreHero from "./GrowthScoreHero";
+import GrowthArc from "./GrowthArc";
+import SelfInsight from "./SelfInsight";
+import PathwayMomentum from "./PathwayMomentum";
+import BlindSpotCard from "./BlindSpotCard";
+import ExplorationCompass from "./ExplorationCompass";
 import SocialLadder from "./SocialLadder";
 import ComfortExpansion from "./ComfortExpansion";
 
@@ -72,7 +67,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   } = useProfile(onBack);
 
   const { data: insights, refetch: refetchInsights } = useProfileInsights();
-  const { data: pathwayData, refetch: refetchPathways } = usePathways();
+  const { data: dashboard, refetch: refetchDashboard } = useGrowthDashboard();
 
   // Merge API social growth data with default rungs so all 4 always show
   const socialData = useMemo(() => {
@@ -80,30 +75,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     const map = new Map(insights.socialGrowth.map((s) => [s.context, s.count]));
     return EMPTY_SOCIAL.map((d) => ({ context: d.context, count: map.get(d.context) ?? 0 }));
   }, [insights?.socialGrowth]);
-
-  // Coverage data for world stats
-  const [coverage, setCoverage] = useState<CoverageSummaryResponse | null>(null);
-  const fetchCoverage = useCallback(async () => {
-    try {
-      const result = await apiClient.coverage.getSummary();
-      setCoverage(result);
-    } catch (err) {
-      console.error("[UserProfile] Failed to fetch coverage:", err);
-    }
-  }, []);
-  useEffect(() => { fetchCoverage(); }, [fetchCoverage]);
-
-  // World size
-  const [worldSize, setWorldSize] = useState<{ areaSqMiles: number; furthestMiles: number; uniqueCategories: number } | null>(null);
-  const fetchWorldSize = useCallback(async () => {
-    try {
-      const result = await apiClient.sidequests.getWorldSize();
-      setWorldSize(result);
-    } catch (err) {
-      console.error("[UserProfile] Failed to fetch world size:", err);
-    }
-  }, []);
-  useEffect(() => { fetchWorldSize(); }, [fetchWorldSize]);
 
   // Home base
   const { userLocation } = useUserLocation();
@@ -125,12 +96,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     await Promise.all([
       refetch(),
       refetchInsights(),
-      refetchPathways(),
-      fetchCoverage(),
-      fetchWorldSize(),
+      refetchDashboard(),
       useActiveItineraryStore.getState().refresh(),
     ]);
-  }, [refetch, refetchInsights, refetchPathways, fetchCoverage, fetchWorldSize]);
+  }, [refetch, refetchInsights, refetchDashboard]);
 
   if (loading) {
     return (
@@ -142,9 +111,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     );
   }
 
-  const memberSince = profileData?.createdAt
-    ? new Date(profileData.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })
-    : "";
+  const gs = dashboard?.growthScore;
+  const ga = dashboard?.growthArc;
+  const si = dashboard?.selfInsight;
+  const ec = dashboard?.explorationCompass;
 
   return (
     <Screen isScrollable={false} showBackButton onBack={handleBack} noAnimation>
@@ -152,13 +122,15 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         onRefresh={handleRefresh}
         contentContainerStyle={s.scrollContent}
       >
-        {/* 1. Phase Header */}
+        {/* 1. Growth Score Hero */}
         <Animated.View entering={FadeInDown.delay(80).duration(400)}>
-          <PhaseHeader
-            globalPhase={pathwayData?.globalPhase ?? "bfs"}
-            dfsCount={pathwayData?.pathways.filter((p) => p.phase === "dfs").length ?? 0}
-            totalPathways={pathwayData?.pathways.length ?? 0}
-            questCount={insights?.footprint.totalCompletedItineraries ?? 0}
+          <GrowthScoreHero
+            score={gs?.score ?? 0}
+            momentum={gs?.momentum ?? "steady"}
+            delta7d={gs?.delta7d ?? 0}
+            history={gs?.history ?? []}
+            subScores={gs?.subScores ?? { resonance: 0, consistency: 0, expansion: 0, depth: 0 }}
+            questCount={ga?.completedQuests ?? 0}
             currentStreak={profileData?.currentStreak ?? 0}
             totalXp={profileData?.totalXp ?? 0}
           />
@@ -169,32 +141,75 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           <ActiveQuestBanner />
         </Animated.View>
 
-        {/* 3. Pathway List */}
-        <Animated.View entering={FadeInDown.delay(240).duration(400)}>
-          <PathwayList pathways={pathwayData?.pathways ?? []} />
-        </Animated.View>
+        {/* 3. Growth Arc */}
+        {ga && (
+          <Animated.View entering={FadeInDown.delay(240).duration(400)}>
+            <GrowthArc
+              phase={ga.phase}
+              phaseReason={ga.phaseReason}
+              completedQuests={ga.completedQuests}
+              avgRating={ga.avgRating}
+              avgResonance={ga.avgResonance}
+              recentResonance={ga.recentResonance}
+              hasGrowthSignals={ga.hasGrowthSignals}
+            />
+          </Animated.View>
+        )}
 
-        {/* 4. Resonance Breakdown — hidden until we have a last-resonance API */}
+        {/* 4. Self-Awareness */}
+        {si && (
+          <Animated.View entering={FadeInDown.delay(320).duration(400)}>
+            <SelfInsight
+              avgAnxietyDelta={si.avgAnxietyDelta}
+              avgDifficultyDelta={si.avgDifficultyDelta}
+              totalViolations={si.totalViolations}
+              calibrationType={si.calibrationType}
+              questsWithPredictions={si.questsWithPredictions}
+            />
+          </Animated.View>
+        )}
 
-        {/* 5. Social Ladder */}
-        <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+        {/* 5. Pathway Momentum */}
+        {dashboard && dashboard.pathwayMomentum.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+            <PathwayMomentum pathways={dashboard.pathwayMomentum} />
+          </Animated.View>
+        )}
+
+        {/* 6. Blind Spots */}
+        {dashboard && dashboard.blindSpots.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(480).duration(400)}>
+            <BlindSpotCard blindSpots={dashboard.blindSpots} />
+          </Animated.View>
+        )}
+
+        {/* 7. Social Ladder */}
+        <Animated.View entering={FadeInDown.delay(560).duration(400)}>
           <SocialLadder data={socialData} />
         </Animated.View>
 
-        {/* 6. Comfort Expansion */}
-        <Animated.View entering={FadeInDown.delay(480).duration(400)}>
+        {/* 8. Exploration Compass */}
+        {ec && (
+          <Animated.View entering={FadeInDown.delay(640).duration(400)}>
+            <ExplorationCompass
+              gaps={ec.gaps}
+              explorationProfile={ec.explorationProfile}
+              coveragePct={ec.coveragePct}
+              territorySqMiles={ec.territorySqMiles}
+              clusterCount={ec.clusterCount}
+            />
+          </Animated.View>
+        )}
+
+        {/* 9. Comfort Expansion */}
+        <Animated.View entering={FadeInDown.delay(720).duration(400)}>
           <ComfortExpansion
             currentRadiusMiles={profileData?.comfortRadiusMiles ?? 2.3}
           />
         </Animated.View>
 
-        {/* 7. Territory Map */}
-        <Animated.View entering={FadeInDown.delay(560).duration(400)}>
-          <CoverageWidget data={coverage} />
-        </Animated.View>
-
-        {/* 8. Settings */}
-        <Animated.View entering={FadeInDown.delay(640).duration(400)}>
+        {/* 10. Settings */}
+        <Animated.View entering={FadeInDown.delay(800).duration(400)}>
           <SettingsSection
             email={profileData?.email ?? ""}
             bio={profileData?.bio}

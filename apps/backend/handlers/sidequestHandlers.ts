@@ -591,8 +591,8 @@ export const objectiveJournalHandler: Handler = withErrorHandling(
     if (body.journalEntry && body.journalEntry.length > 2000) {
       return c.json({ error: "journalEntry must be 2000 characters or fewer" }, 400);
     }
-    if (body.completedActivity && body.completedActivity.length > 200) {
-      return c.json({ error: "completedActivity must be 200 characters or fewer" }, 400);
+    if (body.completedActivity && body.completedActivity.length > 2000) {
+      return c.json({ error: "completedActivity must be 2000 characters or fewer" }, 400);
     }
     const validSocialContexts = ["solo", "with_someone", "met_someone_new", "group_activity"];
     if (body.socialContext && !validSocialContexts.includes(body.socialContext)) {

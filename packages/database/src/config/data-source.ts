@@ -28,8 +28,8 @@ export const createDataSource = (databaseUrl: string): DataSource => {
       UserBadge,
       Pathway,
     ],
-    migrationsTableName: "migrations",
-    migrationsRun: false, // Disable automatic migration running
+    synchronize: true,
+    migrationsRun: false,
     logging: ["error"],
     ssl: false,
     poolSize: 50,
@@ -41,27 +41,6 @@ export const createDataSource = (databaseUrl: string): DataSource => {
       connectionTimeoutMillis: 5000, // Longer timeout for connection
     },
   });
-};
-
-// Function to run migrations manually
-export const runMigrations = async (dataSource: DataSource): Promise<void> => {
-  if (!dataSource.isInitialized) {
-    throw new Error("Database must be initialized before running migrations");
-  }
-
-  try {
-    console.log("Running database migrations...");
-
-    // Check if there are pending migrations
-    const hasPendingMigrations = await dataSource.showMigrations();
-    console.log(`Has pending migrations: ${hasPendingMigrations}`);
-
-    await dataSource.runMigrations();
-    console.log("Database migrations completed successfully");
-  } catch (error) {
-    console.error("Failed to run migrations:", error);
-    throw error;
-  }
 };
 
 // Function to ensure database is fully ready
@@ -117,9 +96,6 @@ export const initializeDatabase = async (
       console.log(`Database initialization attempt ${attempt}/${retries}`);
       await dataSource.initialize();
       console.log("Database connection established successfully");
-
-      // Run migrations after successful connection
-      await runMigrations(dataSource);
 
       // Ensure database is fully ready
       await ensureDatabaseReady(dataSource);

@@ -385,7 +385,7 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
                     </View>
                   </View>
                 ))
-              : (objective?.suggestedActivities ?? []).map((activity) => {
+              : [...(objective?.suggestedActivities ?? []), ...(objective?.actionItems ?? [])].map((activity) => {
                   const emoji = activity.match(/^\p{Emoji_Presentation}/u)?.[0];
                   const label = emoji ? activity.slice(emoji.length).trim() : activity;
                   return (
@@ -440,12 +440,11 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
           })()}
 
           {/* FLAVOR TEXT */}
-          {face === "front" && card.summary && objectives.length <= 3 ? (
-            <View style={[s.flavorBlock, { borderColor: tierMeta.border, flex: 1 }]}>
-              <Text style={s.flavorText}>
-                {"\u201C"}{card.summary.split(/[.!]/)[0].trim()}.{"\u201D"}
+          {face === "front" && (objective?.hook || card.summary) && objectives.length <= 3 ? (
+            <View style={[s.flavorBlock, { borderColor: tierMeta.border, flex: 1, overflow: "hidden" }]}>
+              <Text style={s.flavorText} numberOfLines={5}>
+                {"\u201C"}{(objective?.hook ?? card.summary ?? "").split(/[.!]/)[0].trim()}.{"\u201D"}
               </Text>
-              <Text style={s.flavorAttrib}>{"\u2014"} Quest lore</Text>
             </View>
           ) : face === "front" ? (
             <View style={{ flex: 1 }} />
@@ -650,7 +649,7 @@ const createStyles = (colors: Colors) =>
       alignItems: "center",
       justifyContent: "center",
       marginHorizontal: spacing.sm,
-      height: 110,
+      height: 90,
       borderRadius: radius.sm - 3,
       borderWidth: 1,
       backgroundColor: "rgba(0, 0, 0, 0.3)",

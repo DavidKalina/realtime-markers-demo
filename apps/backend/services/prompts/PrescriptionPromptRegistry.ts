@@ -59,6 +59,7 @@ export interface PrescriptionPromptContext {
   expectancyContext: string;
   difficultyGuidance: string;
   siblingInstructions: string;
+  blockerContext: string;
 
   // Quest role
   isStretch: boolean;
@@ -133,7 +134,7 @@ export const defaultPrompt: PrescriptionPromptBuilder = (ctx) => {
     isAwayFromHome, distFromHome, radius, pace, hour, dayOfWeek,
     historyContext, coverageContext, explorationProfileLabel,
     expansionTarget, phaseContext, fearLadderContext, expectancyContext,
-    difficultyGuidance, siblingInstructions, isStretch,
+    difficultyGuidance, siblingInstructions, blockerContext, isStretch,
   } = ctx;
 
   const comfortProfile = user.comfortProfile;
@@ -158,10 +159,10 @@ SEARCH STRATEGY:
 - Only fall back to generic exploration (cafes, parks) as recovery/reflection stops between goal-focused quests — at most 1 in 3 quests should be generic.
 ` : ""}
 ${comfortProfile?.primaryGoal ? `ACTIONABILITY RULES:
-- This user has a specific goal. MOST quests should be "actionable" — search the web for real signup links, event schedules, class registrations, or step-by-step instructions and include them in 'sa' items.
+- This user has a specific goal. MOST quests should be "actionable" — search the web for real signup links, event schedules, class registrations, or step-by-step instructions and include them in 'ai' (action items).
 - "suggestive" is for recovery/exploration quests with no specific next step beyond showing up. Use sparingly.
 - "milestone" is for reflection checkpoints — use when prompted by the MILESTONE CHECK instruction in the history context.
-- For "actionable" quests: include specific URLs, phone numbers, event dates/times in 'sa' items — NOT in the description. Keep the description short (2-3 sentences, what to do).
+- For "actionable" quests: include specific URLs, phone numbers, event dates/times in 'ai' items — NOT in 'sa' or the description. 'sa' is for general activity ideas. Keep the description short (2-3 sentences, what to do).
 ` : ""}
 EXPANSION PHILOSOPHY:
 ${phaseContext || `- Breadth-first by default. ${comfortProfile?.primaryGoal ? "Explore different facets of their goal — venues, communities, skills, and resources that advance it." : "Push into unexplored directions until the user finds an area worth investing in."}\n- Only go deeper in an area if the user has ORGANICALLY revisited it (multiple visits, diverse categories). That's the signal they found their thread.`}
@@ -182,6 +183,11 @@ ${comfortProfile?.northStar ? `- North star (what success means to them): "${com
 ${user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${user.onboardingProfile.activities.join(", ")}` : ""}
 ${fearLadderContext}
 ${expectancyContext}
+${blockerContext ? `
+CRITICAL — RECURRING BLOCKER OVERRIDE:
+${blockerContext}
+The blocker context above TAKES PRIORITY over normal goal progression. DO NOT prescribe the blocked action as an objective, action item, or suggested activity. Frame the quest around the venue experience itself. The user needs easy wins to rebuild confidence.
+` : ""}
 ${comfortProfile?.goalTags?.includes("discover_hobby") ? `- HOBBY DISCOVERY MODE: This user wants to find a new hobby. Prioritize venues where they can TRY an activity hands-on (studios, classes, open sessions, meetups, workshops) — not just observe. Favor categories they haven't explored yet. If they listed activities they enjoy, use those as adjacent starting points (e.g. if they like hiking, try a climbing gym; if they like coffee, try a roasting workshop).` : ""}
 
 ${historyContext}
@@ -200,7 +206,8 @@ CONSTRAINTS:
 - Title: 3-6 words, encouraging and warm (not clinical).
 - Summary: 1-2 sentences framing why this quest matters for their growth.
 - hook: why THIS spot expands their world (1 sentence).
-- sa (suggested activities): 3-4 items, each starting with an emoji. Mix activity ideas and actionable links. Examples: ["🚶 Walk the loop", "📸 Snap a photo", "🔗 longmontcolorado.gov/rec-services", "📞 (303) 774-4800 — ask about beginner classes"]. Put URLs and phone numbers HERE, not in the description.
+- sa (suggested activities): 2-3 items, each starting with an emoji. General ideas for what people typically do here — things to try, ways to enjoy the space. Examples: ["🚶 Walk the loop trail", "📸 Snap a photo of the view", "☕ Grab a drink and people-watch"]. NO URLs or phone numbers here — those go in "ai".
+- ai (action items): 1-3 concrete next steps with links, phone numbers, or specific instructions. Only include if actionable info exists. Examples: ["🔗 longmontcolorado.gov/rec-services — sign up for beginner classes", "📞 (303) 774-4800 — ask about open gym hours", "📝 Register at meetup.com/boulder-hiking before Saturday"]. URLs and phone numbers go HERE, not in sa or description.
 - jp (journal prompt): a reflective question for after the visit. Short, open-ended. Examples: "How did it feel being somewhere new?", "Would you come back?", "What surprised you?"
 - df (difficulty): 1-10 integer. Judge this based on how challenging THIS specific quest would be for THIS specific user given their profile, fears, history, and current growth phase. Consider distance from home, category familiarity, social demands of the venue, and how far outside their comfort zone this pushes them. 1 = trivially easy, 3 = comfortable, 5 = moderate stretch, 7 = significant challenge, 10 = maximum push.
 - act (actionability): "actionable" if you can provide concrete next steps (signup links, phone numbers, event times, step-by-step instructions), "suggestive" for general exploration (go check this place out), "milestone" for reflection checkpoints.${comfortProfile?.primaryGoal ? " This user has a specific goal — prefer actionable." : ""}

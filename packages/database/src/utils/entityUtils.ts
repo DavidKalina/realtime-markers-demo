@@ -84,10 +84,8 @@ export function getTableNamesFromDataSource(dataSource: any): string[] {
 export function getAllRequiredTableNames(dataSource: any): string[] {
   const entityTableNames = getTableNamesFromDataSource(dataSource);
 
-  // Add system tables that are always required
-  const systemTables = ["migrations"];
-
-  const allTables = [...entityTableNames, ...systemTables];
+  // No system tables required — synchronize: true handles schema
+  const allTables = [...entityTableNames];
 
   // Remove duplicates
   const uniqueTables = [...new Set(allTables)];

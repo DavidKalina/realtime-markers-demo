@@ -147,7 +147,11 @@ ${ctx.expectancyContext}
 ${ctx.difficultyGuidance}
 
 ${ctx.historyContext}
-
+${ctx.blockerContext ? `
+CRITICAL — RECURRING BLOCKER OVERRIDE:
+${ctx.blockerContext}
+The blocker context above TAKES PRIORITY over normal progression. Do NOT prescribe experiences that require the blocked action as a primary objective. Instead, prescribe experiences that build toward it indirectly — the user needs wins, not more failures. Set socialChallengeLevel to "none" or "low" and focus on activities where the blocked action might happen naturally but is NOT required.
+` : ""}
 GEOGRAPHIC INTELLIGENCE:
 You must think about WHERE this person should go, not just WHAT they should do. Consider:
 - Their home town's population, demographics, and what's realistically available there.
@@ -160,7 +164,7 @@ You must think about WHERE this person should go, not just WHAT they should do. 
 Think holistically about this person:
 - What would a thoughtful friend who knows the whole Front Range suggest?
 - Is their current town limiting their progress? Be honest about this.
-- What specific type of social challenge would grow them right now?
+${ctx.blockerContext ? `- They have a RECURRING BLOCKER. Do NOT push the blocked action directly. What experience would build confidence AROUND the blocker without requiring them to do the thing they keep failing at?` : `- What specific type of social challenge would grow them right now?`}
 - Are they stuck in a geographic or activity pattern that needs breaking?
 
 Respond with JSON:
@@ -494,6 +498,11 @@ STRATEGY CONTEXT:
 - Experience type: ${brief.experienceType}
 - Social challenge: ${brief.socialChallengeLevel}
 - Rationale: ${brief.rationale}
+${ctx.blockerContext ? `
+BLOCKER CONTEXT — READ THIS CAREFULLY:
+This user has a recurring blocker. They keep failing at a specific action and it's destroying their confidence.
+${ctx.blockerContext}
+DO NOT include the blocked action as an objective, action item, or suggested activity. Instead, frame the quest around the VENUE EXPERIENCE ITSELF — enjoying the space, building comfort, noticing details. If social interaction might happen naturally, that's fine, but it must NOT be a prescribed step. The user needs to rebuild confidence through easy wins, not face another failure.` : ""}
 
 ${ctx.difficultyGuidance}
 
@@ -517,7 +526,8 @@ Respond with JSON. The "items" array must contain EXACTLY 1 stop — no more:
     "eid": null,
     "vc": "${venue.venueCategory}",
     "hook": "<why THIS spot expands their world — 1 sentence, make it feel personal>",
-    "sa": ["<3-4 emoji-prefixed items — mix activity ideas with actionable links like '🔗 example.com/signup' or '📞 (555) 123-4567 — ask about classes'. URLs and phones go HERE>"],
+    "sa": ["<2-3 emoji-prefixed activity ideas — what people typically do here. Examples: '🚶 Walk the loop', '📸 Snap a photo'. NO URLs or phones here>"],
+    "ai": ["<1-3 concrete next steps with links/phones/instructions. Examples: '🔗 example.com/signup — register for class', '📞 (555) 123-4567 — ask about open hours'. Only include if actionable info exists, otherwise empty array>"],
     "jp": "<reflective journal prompt — short, open-ended, personal>",
     "df": <difficulty 1-10, judge based on THIS venue for THIS person>,
     "act": "<actionable|suggestive|milestone>"
@@ -553,6 +563,7 @@ Respond with JSON. The "items" array must contain EXACTLY 1 stop — no more:
           vc: venue.venueCategory,
           hook: brief.rationale,
           sa: ["🚶 Just show up and look around", "📸 Take a photo", "💬 Say hi to someone"],
+          ai: [],
           jp: "How did it feel to go somewhere new?",
           df: brief.difficultyRange[0],
           act: "suggestive",

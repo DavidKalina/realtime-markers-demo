@@ -45,10 +45,7 @@ import HolographicFoil, {
   hashString,
 } from "@/components/effects/HolographicFoil";
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
-import {
-  getCategoryColor,
-  getFoilVariant,
-} from "@/utils/categoryColors";
+import { getCategoryColor, getFoilVariant } from "@/utils/categoryColors";
 import {
   fontFamily,
   fontSize,
@@ -720,291 +717,344 @@ const QuestCard: React.FC<{
         layout={LinearTransition.springify().damping(28).stiffness(180)}
         style={{ width: CARD_WIDTH, height: CARD_HEIGHT, overflow: "visible" }}
       >
-      <Animated.View
-        style={[
-          { width: CARD_WIDTH, height: CARD_HEIGHT, overflow: "visible" },
-          animatedStyle,
-        ]}
-      >
-        {/* Promotion light rays — rendered behind the card */}
-        {promotionProgress && <PromotionRays progress={promotionProgress} />}
+        <Animated.View
+          style={[
+            { width: CARD_WIDTH, height: CARD_HEIGHT, overflow: "visible" },
+            animatedStyle,
+          ]}
+        >
+          {/* Promotion light rays — rendered behind the card */}
+          {promotionProgress && <PromotionRays progress={promotionProgress} />}
 
-        <GestureDetector gesture={swipeUpGesture}>
-          <Animated.View
-            style={[
-              s.card,
-              { borderColor: tierMeta.text },
-              isReady ? undefined : s.cardGenerating,
-              promotionProgress ? promotionBorderStyle : undefined,
-            ]}
-          >
-            {/* Holographic foil overlay — only on promoted cards, nearby */}
-            {isReady && isNearby && isPromoted && (
-              <HolographicFoil
-                width={CARD_WIDTH}
-                height={CARD_HEIGHT}
-                variant={getFoilVariant(option.rarity, colorKey, option.distanceFromHome)}
-                seed={hashString(option.id)}
-                intensity={
-                  FOIL_INTENSITY[rarityKey] ?? FOIL_INTENSITY.common
-                }
-              />
-            )}
-
-            {/* Sheen sweep — only rendered for nearby cards */}
-            {isNearby && (
-              <CardSheen
-                sheenTrigger={isReady ? sheenTrigger : revealSheen}
-                index={index}
-              />
-            )}
-
-            <Pressable
-              style={s.cardInner}
-              onPress={
-                isBrowse
-                  ? onPress
-                    ? () => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        onPress(option);
-                      }
-                    : undefined
-                  : isReady
-                    ? () => onSelect?.(option)
-                    : undefined
-              }
-              onLongPress={
-                isBrowse
-                  ? () => {
-                      onInspect?.(option);
-                    }
-                  : undefined
-              }
+          <GestureDetector gesture={swipeUpGesture}>
+            <Animated.View
+              style={[
+                s.card,
+                { borderColor: tierMeta.text },
+                isReady ? undefined : s.cardGenerating,
+                promotionProgress ? promotionBorderStyle : undefined,
+              ]}
             >
-              {/* ═══ HEADER ═══ */}
-              <View style={s.headerBand}>
-                {option.questRole ? (
-                  <Text style={[
-                    s.headerTier,
-                    { color: option.questRole === "stretch" ? "#fbbf24" : option.pathwayPhase === "dfs" ? "#86efac" : "#93c5fd" },
-                  ]}>
-                    {option.questRole === "stretch"
-                      ? `\u{1F525} ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? "STRETCH GOAL"}`
-                      : option.pathwayPhase === "dfs" && option.pathwayLabel
-                      ? `${objectives[0]?.emoji ?? "\u{1F3AF}"} ${option.pathwayLabel} \u00B7 ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? option.questRole.toUpperCase()}`
-                      : `\u{1F50D} ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? option.questRole.toUpperCase()}`}
-                  </Text>
-                ) : option.rarity ? (
-                  <Text style={[s.headerTier, { color: tierMeta.text }]}>
-                    {"\u2605"} {tierMeta.label}
-                  </Text>
-                ) : (
-                  <Text style={[s.headerTier, { color: "rgba(255,255,255,0.3)" }]}>
-                    {"\u2726"} UNSEALED
-                  </Text>
-                )}
-                <View style={{ flex: 1 }} />
-                {(() => {
-                  const cats = (option.categories ?? []).slice(0, 2);
-                  if (cats.length === 0) return null;
-                  return (
-                    <Text style={s.headerCats}>
-                      {cats.map((c) => c.toUpperCase()).join(" \u00B7 ")}
-                    </Text>
-                  );
-                })()}
-              </View>
-
-              {/* ═══ ART ZONE — top ~35% ═══ */}
-              <Animated.View
-                style={[s.artZone, { borderColor: tierMeta.border }]}
-              >
-                <View style={s.artOverlay} />
-                <Text style={s.artEmoji}>
-                  {objectives[0]?.emoji ?? "\u{1F3AF}"}
-                </Text>
-              </Animated.View>
-
-              {/* ═══ TITLE PLATE ═══ */}
-              <Animated.View style={[s.titlePlate, heroAnimStyle]}>
-                <Text style={s.title} numberOfLines={2}>
-                  {option.title ?? "Sidequest"}
-                </Text>
-                {/* subtitle removed — flavor text shows summary below */}
-              </Animated.View>
-
-              {/* ═══ GENERATING SKELETON ═══ */}
-              {!isReady && (
-                <Animated.View style={[s.skeletonBody, skeletonAnimStyle]}>
-                  <View style={s.forgingRow}>
-                    <Animated.Text
-                      style={[s.forgingLabel, { color: tierMeta.text }]}
-                    >
-                      FORGING{"\u2026"}
-                    </Animated.Text>
-                  </View>
-                  <View
-                    style={[
-                      s.skeletonBar,
-                      s.skeletonBarWide,
-                      { backgroundColor: tierMeta.border },
-                    ]}
-                  />
-                  <View
-                    style={[
-                      s.skeletonBar,
-                      s.skeletonBarMedium,
-                      { backgroundColor: tierMeta.border },
-                    ]}
-                  />
-                </Animated.View>
+              {/* Holographic foil overlay — only on promoted cards, nearby */}
+              {isReady && isNearby && isPromoted && (
+                <HolographicFoil
+                  width={CARD_WIDTH}
+                  height={CARD_HEIGHT}
+                  variant={getFoilVariant(
+                    option.rarity,
+                    colorKey,
+                    option.distanceFromHome,
+                  )}
+                  seed={hashString(option.id)}
+                  intensity={FOIL_INTENSITY[rarityKey] ?? FOIL_INTENSITY.common}
+                />
               )}
 
-              {/* ═══ STOPS ═══ */}
-              {isReady && (
-                <Animated.View style={[s.stopsSection, stopsAnimStyle]}>
-                  {(isBrowse ? objectives.slice(0, 3) : objectives).map(
-                    (obj, i, arr) => (
-                      <View key={obj.id ?? i} style={s.stopRow}>
-                        <View
-                          style={[
-                            s.stopCircle,
-                            {
-                              borderColor: tierMeta.border,
-                              backgroundColor:
-                                isBrowse && obj.checkedInAt
-                                  ? tierMeta.bg
-                                  : "transparent",
-                            },
-                          ]}
-                        >
-                          <Text style={s.stopEmoji}>
-                            {obj.emoji ?? "\u{1F4CD}"}
+              {/* Sheen sweep — only rendered for nearby cards */}
+              {isNearby && (
+                <CardSheen
+                  sheenTrigger={isReady ? sheenTrigger : revealSheen}
+                  index={index}
+                />
+              )}
+
+              <Pressable
+                style={s.cardInner}
+                onPress={
+                  isBrowse
+                    ? onPress
+                      ? () => {
+                          Haptics.impactAsync(
+                            Haptics.ImpactFeedbackStyle.Light,
+                          );
+                          onPress(option);
+                        }
+                      : undefined
+                    : isReady
+                      ? () => onSelect?.(option)
+                      : undefined
+                }
+                onLongPress={
+                  isBrowse
+                    ? () => {
+                        onInspect?.(option);
+                      }
+                    : undefined
+                }
+              >
+                {/* ═══ HEADER ═══ */}
+                <View style={s.headerBand}>
+                  {option.questRole ? (
+                    <Text
+                      style={[
+                        s.headerTier,
+                        {
+                          color:
+                            option.questRole === "stretch"
+                              ? "#fbbf24"
+                              : option.pathwayPhase === "dfs"
+                                ? "#86efac"
+                                : "#93c5fd",
+                        },
+                      ]}
+                    >
+                      {option.questRole === "stretch"
+                        ? `\u{1F525} ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? "STRETCH GOAL"}`
+                        : option.pathwayPhase === "dfs" && option.pathwayLabel
+                          ? `${objectives[0]?.emoji ?? "\u{1F3AF}"} ${option.pathwayLabel} \u00B7 ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? option.questRole.toUpperCase()}`
+                          : `\u{1F50D} ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? option.questRole.toUpperCase()}`}
+                    </Text>
+                  ) : option.rarity ? (
+                    <Text style={[s.headerTier, { color: tierMeta.text }]}>
+                      {"\u2605"} {tierMeta.label}
+                    </Text>
+                  ) : (
+                    <Text
+                      style={[s.headerTier, { color: "rgba(255,255,255,0.3)" }]}
+                    >
+                      {"\u2726"} UNSEALED
+                    </Text>
+                  )}
+                  <View style={{ flex: 1 }} />
+                  {(() => {
+                    const cats = (option.categories ?? []).slice(0, 2);
+                    if (cats.length === 0) return null;
+                    return (
+                      <Text style={s.headerCats}>
+                        {cats.map((c) => c.toUpperCase()).join(" \u00B7 ")}
+                      </Text>
+                    );
+                  })()}
+                </View>
+
+                {/* ═══ ART ZONE — top ~35% ═══ */}
+                <Animated.View
+                  style={[s.artZone, { borderColor: tierMeta.border }]}
+                >
+                  <View style={s.artOverlay} />
+                  <Text style={s.artEmoji}>
+                    {objectives[0]?.emoji ?? "\u{1F3AF}"}
+                  </Text>
+                </Animated.View>
+
+                {/* ═══ TITLE PLATE ═══ */}
+                <Animated.View style={[s.titlePlate, heroAnimStyle]}>
+                  <Text style={s.title} numberOfLines={2}>
+                    {option.title ?? "Sidequest"}
+                  </Text>
+                  {/* subtitle removed — flavor text shows summary below */}
+                </Animated.View>
+
+                {/* ═══ GENERATING SKELETON ═══ */}
+                {!isReady && (
+                  <Animated.View style={[s.skeletonBody, skeletonAnimStyle]}>
+                    <View style={s.forgingRow}>
+                      <Animated.Text
+                        style={[s.forgingLabel, { color: tierMeta.text }]}
+                      >
+                        FORGING{"\u2026"}
+                      </Animated.Text>
+                    </View>
+                    <View
+                      style={[
+                        s.skeletonBar,
+                        s.skeletonBarWide,
+                        { backgroundColor: tierMeta.border },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        s.skeletonBar,
+                        s.skeletonBarMedium,
+                        { backgroundColor: tierMeta.border },
+                      ]}
+                    />
+                  </Animated.View>
+                )}
+
+                {/* ═══ STOPS ═══ */}
+                {isReady && (
+                  <Animated.View style={[s.stopsSection, stopsAnimStyle]}>
+                    {(isBrowse ? objectives.slice(0, 3) : objectives).map(
+                      (obj, i, arr) => (
+                        <View key={obj.id ?? i} style={s.stopRow}>
+                          <View
+                            style={[
+                              s.stopCircle,
+                              {
+                                borderColor: tierMeta.border,
+                                backgroundColor:
+                                  isBrowse && obj.checkedInAt
+                                    ? tierMeta.bg
+                                    : "transparent",
+                              },
+                            ]}
+                          >
+                            <Text style={s.stopEmoji}>
+                              {obj.emoji ?? "\u{1F4CD}"}
+                            </Text>
+                          </View>
+                          <View style={s.stopText}>
+                            <Text style={s.stopName} numberOfLines={1}>
+                              {(obj.venueName || obj.title || "Stop")
+                                .split("|")[0]
+                                .trim()}
+                            </Text>
+                          </View>
+                        </View>
+                      ),
+                    )}
+                    {isBrowse && objectives.length > 3 && (
+                      <Text style={s.moreStops}>
+                        +{objectives.length - 3} more
+                      </Text>
+                    )}
+                  </Animated.View>
+                )}
+
+                {/* ═══ QUEST STATS ═══ */}
+                {isReady &&
+                  (() => {
+                    const diff = Math.min(
+                      Number(objectives[0]?.difficulty ?? 1),
+                      10,
+                    );
+                    const dist =
+                      option.distanceFromHome != null
+                        ? Number(option.distanceFromHome)
+                        : null;
+                    // Normalize distance to 0-1 (cap at 10mi)
+                    const distNorm = dist != null ? Math.min(dist / 10, 1) : 0;
+                    // Normalize cost to 0-1 (cap at $50)
+                    const costNorm =
+                      totalCost > 0 ? Math.min(totalCost / 50, 1) : 0;
+                    const diffFill = Math.round((diff / 10) * 20);
+                    const diffBar =
+                      "\u2588".repeat(diffFill) +
+                      "\u2591".repeat(20 - diffFill);
+                    const distBar =
+                      "\u2588".repeat(Math.round(distNorm * 20)) +
+                      "\u2591".repeat(20 - Math.round(distNorm * 20));
+                    const costBar =
+                      "\u2588".repeat(Math.round(costNorm * 20)) +
+                      "\u2591".repeat(20 - Math.round(costNorm * 20));
+                    return (
+                      <View style={s.statsBlock}>
+                        <View style={s.statRow}>
+                          <Text style={s.statLabel}>Difficulty</Text>
+                          <Text style={[s.statBar, { color: tierMeta.text }]}>
+                            {diffBar}
+                          </Text>
+                          <Text style={[s.statValue, { color: tierMeta.text }]}>
+                            {diff}/10
                           </Text>
                         </View>
-                        <View style={s.stopText}>
-                          <Text style={s.stopName} numberOfLines={1}>
-                            {(obj.venueName || obj.title || "Stop")
-                              .split("|")[0]
-                              .trim()}
+                        <View style={s.statRow}>
+                          <Text style={s.statLabel}>Distance</Text>
+                          <Text style={[s.statBar, { color: tierMeta.text }]}>
+                            {distBar}
+                          </Text>
+                          <Text style={[s.statValue, { color: tierMeta.text }]}>
+                            {dist != null
+                              ? dist < 0.1
+                                ? "<0.1"
+                                : dist.toFixed(1)
+                              : "?"}{" "}
+                            mi
+                          </Text>
+                        </View>
+                        <View style={s.statRow}>
+                          <Text style={s.statLabel}>Cost</Text>
+                          <Text style={[s.statBar, { color: tierMeta.text }]}>
+                            {costBar}
+                          </Text>
+                          <Text style={[s.statValue, { color: tierMeta.text }]}>
+                            {totalCost > 0 ? `$${totalCost}` : "FREE"}
                           </Text>
                         </View>
                       </View>
-                    ),
-                  )}
-                  {isBrowse && objectives.length > 3 && (
-                    <Text style={s.moreStops}>
-                      +{objectives.length - 3} more
+                    );
+                  })()}
+
+                {/* ═══ FLAVOR TEXT ═══ */}
+                {isReady &&
+                (objectives[0]?.hook || option.summary) &&
+                objectives.length <= 3 ? (
+                  <Animated.View
+                    style={[
+                      s.flavorBlock,
+                      {
+                        borderColor: tierMeta.border,
+                        flex: 1,
+                        overflow: "hidden",
+                      },
+                    ]}
+                  >
+                    <Text style={s.flavorText} numberOfLines={5}>
+                      {"\u201C"}
+                      {(objectives[0]?.hook ?? option.summary ?? "")
+                        .split(/[.!]/)[0]
+                        .trim()}
+                      .{"\u201D"}
                     </Text>
-                  )}
-                </Animated.View>
-              )}
+                  </Animated.View>
+                ) : (
+                  <View style={{ flex: 1 }} />
+                )}
 
-              {/* ═══ QUEST STATS ═══ */}
-              {isReady && (() => {
-                const diff = Math.min(Number(objectives[0]?.difficulty ?? 1), 10);
-                const dist = option.distanceFromHome != null ? Number(option.distanceFromHome) : null;
-                // Normalize distance to 0-1 (cap at 10mi)
-                const distNorm = dist != null ? Math.min(dist / 10, 1) : 0;
-                // Normalize cost to 0-1 (cap at $50)
-                const costNorm = totalCost > 0 ? Math.min(totalCost / 50, 1) : 0;
-                const diffFill = Math.round((diff / 10) * 20);
-                const diffBar = "\u2588".repeat(diffFill) + "\u2591".repeat(20 - diffFill);
-                const distBar = "\u2588".repeat(Math.round(distNorm * 20)) + "\u2591".repeat(20 - Math.round(distNorm * 20));
-                const costBar = "\u2588".repeat(Math.round(costNorm * 20)) + "\u2591".repeat(20 - Math.round(costNorm * 20));
-                return (
-                  <View style={s.statsBlock}>
-                    <View style={s.statRow}>
-                      <Text style={s.statLabel}>Difficulty</Text>
-                      <Text style={[s.statBar, { color: tierMeta.text }]}>{diffBar}</Text>
-                      <Text style={[s.statValue, { color: tierMeta.text }]}>{diff}/10</Text>
-                    </View>
-                    <View style={s.statRow}>
-                      <Text style={s.statLabel}>Distance</Text>
-                      <Text style={[s.statBar, { color: tierMeta.text }]}>{distBar}</Text>
-                      <Text style={[s.statValue, { color: tierMeta.text }]}>
-                        {dist != null ? (dist < 0.1 ? "<0.1" : dist.toFixed(1)) : "?"} mi
-                      </Text>
-                    </View>
-                    <View style={s.statRow}>
-                      <Text style={s.statLabel}>Cost</Text>
-                      <Text style={[s.statBar, { color: tierMeta.text }]}>{costBar}</Text>
-                      <Text style={[s.statValue, { color: tierMeta.text }]}>
-                        {totalCost > 0 ? `$${totalCost}` : "FREE"}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })()}
-
-              {/* ═══ FLAVOR TEXT ═══ */}
-              {isReady && option.summary && objectives.length <= 3 ? (
-                <Animated.View
-                  style={[s.flavorBlock, { borderColor: tierMeta.border, flex: 1 }]}
-                >
-                  <Text style={s.flavorText}>
-                    {"\u201C"}
-                    {option.summary.split(/[.!]/)[0].trim()}.{"\u201D"}
+                {/* ═══ SERIAL FOOTER ═══ */}
+                <View style={s.serialRow}>
+                  <Text style={s.serialNumber}>
+                    SQ{"\u00B7"}
+                    {(option.id ?? "").slice(0, 8).toUpperCase()}
                   </Text>
-                  <Text style={s.flavorAttrib}>{"\u2014"} Quest lore</Text>
-                </Animated.View>
-              ) : (
-                <View style={{ flex: 1 }} />
+                  <Text style={s.serialStat}>
+                    {"\u00B7"} {stopCount} STOP{stopCount !== 1 ? "S" : ""}
+                  </Text>
+                  <View style={{ flex: 1 }} />
+                  <Text style={s.serialStat}>
+                    {option.city?.toUpperCase() ?? ""}
+                  </Text>
+                </View>
+              </Pressable>
+
+              {/* Batch-delete mark overlay */}
+              {onToggleMarkForDelete && (
+                <Animated.View
+                  style={[
+                    StyleSheet.absoluteFill,
+                    {
+                      backgroundColor: "rgba(239, 68, 68, 0.6)",
+                      borderRadius: radius.xl,
+                      zIndex: 6,
+                    },
+                    markOverlayStyle,
+                  ]}
+                  pointerEvents="none"
+                />
               )}
 
-              {/* ═══ SERIAL FOOTER ═══ */}
-              <View style={s.serialRow}>
-                <Text style={s.serialNumber}>
-                  SQ{"\u00B7"}
-                  {(option.id ?? "").slice(0, 8).toUpperCase()}
-                </Text>
-                <Text style={s.serialStat}>
-                  {"\u00B7"} {stopCount} STOP{stopCount !== 1 ? "S" : ""}
-                </Text>
-                <View style={{ flex: 1 }} />
-                <Text style={s.serialStat}>
-                  {option.city?.toUpperCase() ?? ""}
-                </Text>
-              </View>
-            </Pressable>
+              {/* Promotion white-out overlay */}
+              {promotionProgress && (
+                <Animated.View
+                  style={[
+                    StyleSheet.absoluteFill,
+                    {
+                      backgroundColor: "#fff",
+                      borderRadius: radius.xl,
+                      zIndex: 10,
+                    },
+                    promotionOverlayStyle,
+                  ]}
+                  pointerEvents="none"
+                />
+              )}
 
-            {/* Batch-delete mark overlay */}
-            {onToggleMarkForDelete && (
-              <Animated.View
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    backgroundColor: "rgba(239, 68, 68, 0.6)",
-                    borderRadius: radius.xl,
-                    zIndex: 6,
-                  },
-                  markOverlayStyle,
-                ]}
-                pointerEvents="none"
-              />
-            )}
-
-            {/* Promotion white-out overlay */}
-            {promotionProgress && (
-              <Animated.View
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    backgroundColor: "#fff",
-                    borderRadius: radius.xl,
-                    zIndex: 10,
-                  },
-                  promotionOverlayStyle,
-                ]}
-                pointerEvents="none"
-              />
-            )}
-
-            {/* Blur overlay for off-center cards — only rendered for nearby cards */}
-            {isNearby && <BlurOverlay scrollX={scrollX} index={index} />}
-          </Animated.View>
-        </GestureDetector>
-      </Animated.View>
+              {/* Blur overlay for off-center cards — only rendered for nearby cards */}
+              {isNearby && <BlurOverlay scrollX={scrollX} index={index} />}
+            </Animated.View>
+          </GestureDetector>
+        </Animated.View>
       </Animated.View>
     );
   },
@@ -1407,11 +1457,14 @@ const QuestCardDeck: React.FC<QuestCardDeckProps> = ({
                         },
                       ]}
                     >
-                      {RARITY_LABELS[(option.rarity ?? "common").toLowerCase() as Rarity] ?? RARITY_LABELS.common}
+                      {RARITY_LABELS[
+                        (option.rarity ?? "common").toLowerCase() as Rarity
+                      ] ?? RARITY_LABELS.common}
                     </Text>
                     <Text style={s.tierDescText}>
-                      {RARITY_DESCRIPTIONS[(option.rarity ?? "common").toLowerCase()] ??
-                        RARITY_DESCRIPTIONS.common}
+                      {RARITY_DESCRIPTIONS[
+                        (option.rarity ?? "common").toLowerCase()
+                      ] ?? RARITY_DESCRIPTIONS.common}
                     </Text>
                   </View>
                 )}
@@ -1612,7 +1665,7 @@ const createCardStyles = (colors: Colors) =>
       alignItems: "center",
       justifyContent: "center",
       marginHorizontal: spacing.sm,
-      height: 110,
+      height: 90,
       borderRadius: radius.sm - 3,
       borderWidth: 1,
       backgroundColor: "rgba(0, 0, 0, 0.3)",
@@ -1715,20 +1768,15 @@ const createCardStyles = (colors: Colors) =>
       gap: 1,
     },
     stopHook: {
-      fontSize: 10,
+      fontSize: 9,
       fontFamily: fontFamily.mono,
-      color: colors.text.disabled,
+      color: colors.text.secondary,
     },
     stopName: {
       fontSize: 13,
       fontWeight: fontWeight.bold,
       fontFamily: fontFamily.mono,
       color: colors.text.primary,
-    },
-    stopHook: {
-      fontSize: 9,
-      fontFamily: fontFamily.mono,
-      color: colors.text.secondary,
     },
     moreStops: {
       fontSize: 9,

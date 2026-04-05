@@ -188,14 +188,6 @@ export async function ensureDatabaseReadyForServices(
     throw new Error("Database is not initialized");
   }
 
-  // Check migration status
-  const migrationStatus = await validateMigrations(dataSource);
-  if (!migrationStatus.migrationsRun) {
-    throw new Error(
-      `Database migrations have not been run. Pending migrations: ${migrationStatus.pendingMigrations.join(", ")}`,
-    );
-  }
-
   // Check table status
   const tableStatus = await validateTables(dataSource);
   if (!tableStatus.tablesReady) {

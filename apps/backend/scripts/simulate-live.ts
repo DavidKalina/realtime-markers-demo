@@ -44,9 +44,22 @@ interface JourneyEntry {
   predictedAnxiety: number | null;
   predictedDifficulty: number | null;
   actionability: string | null;
+  blockerTriggered: boolean;
+  isBreakthrough: boolean;
 }
 
 // ── Persona definitions ──────────────────────────────────────
+
+interface BlockerConfig {
+  /** Human-readable description of the blocked action, e.g. "talking to strangers" */
+  description: string;
+  /** What the persona actually does instead of the blocked action */
+  avoidanceActivity: string;
+  /** Quest index after which blocker behavior starts (gives normal baseline first) */
+  activateAfterQuest: number;
+  /** How many consecutive non-blocked quests with rating >= 3 before the blocker resolves (default: 4) */
+  resolveAfterSuccesses?: number;
+}
 
 interface LivePersona {
   name: string;
@@ -64,6 +77,7 @@ interface LivePersona {
   ratingBias: number;
   journalProbability: number;
   socialEscalationRate: number;
+  blocker?: BlockerConfig;
 }
 
 const PERSONAS: Record<string, LivePersona> = {
@@ -151,6 +165,28 @@ const PERSONAS: Record<string, LivePersona> = {
     ratingBias: 0.65,
     journalProbability: 0.55,
     socialEscalationRate: 0.25,
+  },
+  "wallflower-wendy": {
+    name: "Wallflower Wendy",
+    primaryGoal: "Build a real social circle and feel comfortable at meetups and group events",
+    northStar: "I want to walk into a room full of strangers and leave with a friend.",
+    pace: "steady",
+    goals: ["I want to make friends and stop being so isolated"],
+    goalTags: ["socialize", "explore"],
+    barriers: "Extreme shyness around strangers, freeze up in social situations, can go places but can't talk to anyone",
+    comfortZone: "I go to coffee shops and parks alone. I've tried meetups but I always stand in the corner and leave early without talking to anyone.",
+    activities: ["Coffee", "Reading", "Nature", "Art", "Board games", "Food"],
+    vibes: ["Meet people", "Explore my area"],
+    homeLatitude: 40.0986,
+    homeLongitude: -104.9719,
+    ratingBias: 0.55,
+    journalProbability: 0.8, // High — she's introspective, writes about struggles
+    socialEscalationRate: 0.08,
+    blocker: {
+      description: "initiating conversation with strangers or engaging socially at venues",
+      avoidanceActivity: "Went there but stayed in the corner. Didn't talk to anyone.",
+      activateAfterQuest: 2, // First 2 quests are normal baseline
+    },
   },
 };
 
@@ -276,6 +312,7 @@ function parseArgs() {
   let model = "";
   let strategy = "";
   let ratingBiasOverride: number | null = null;
+  let blockerOverride = "";
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -291,6 +328,7 @@ function parseArgs() {
       case "--model": model = args[++i]; break;
       case "--strategy": strategy = args[++i]; break;
       case "--rating-bias": ratingBiasOverride = parseFloat(args[++i]); break;
+      case "--blocker": blockerOverride = args[++i]; break;
       case "--help":
         console.log(`
 Live Sidequest Simulator — Real LLM prescriptions via backend API
@@ -300,8 +338,9 @@ Usage: npx tsx apps/backend/scripts/simulate-live.ts [options]
 Options:
   --email <email>        User email (default: user@example.com)
   --password <pass>      User password (default: user123)
-  --persona <name>       Hardcoded persona (shy-sarah, adventurous-alex, routine-rick, comedian-carl, fitness-fiona)
+  --persona <name>       Hardcoded persona (shy-sarah, adventurous-alex, routine-rick, comedian-carl, fitness-fiona, wallflower-wendy)
   --goal <text>          Generate a persona from a goal (e.g. "become a stand-up comedian")
+  --blocker <text>       Inject a recurring blocker (e.g. "talking to strangers", "making phone calls")
   --quests <n>           Number of quests to prescribe (default: 5)
   --seed <n>             Random seed (default: 42)
   --dry-run              Set up user profile but don't prescribe quests
@@ -313,8 +352,9 @@ Options:
 
 Examples:
   npx tsx apps/backend/scripts/simulate-live.ts --goal "become a stand-up comedian" --quests 10
-  npx tsx apps/backend/scripts/simulate-live.ts --goal "train for a half marathon" --quests 15
-  npx tsx apps/backend/scripts/simulate-live.ts --persona shy-sarah --quests 5
+  npx tsx apps/backend/scripts/simulate-live.ts --persona wallflower-wendy --quests 12
+  npx tsx apps/backend/scripts/simulate-live.ts --goal "become a salesman" --blocker "making phone calls" --quests 10
+  npx tsx apps/backend/scripts/simulate-live.ts --persona shy-sarah --blocker "talking to strangers" --quests 8
 
 Estimated cost: ~$0.02-0.05 per quest (GPT-5.4-nano + Google Places)
 `);
@@ -322,7 +362,7 @@ Estimated cost: ~$0.02-0.05 per quest (GPT-5.4-nano + Google Places)
     }
   }
 
-  return { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model, strategy, ratingBiasOverride };
+  return { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model, strategy, ratingBiasOverride, blockerOverride };
 }
 
 /**
@@ -616,6 +656,102 @@ async function generateLLMJournal(
   );
 }
 
+// ── Blocker simulation ──────────────────────────────────────
+
+/**
+ * Ask the LLM whether a prescribed quest involves the persona's blocked action.
+ * Returns true if the quest would require the blocked behavior.
+ */
+async function questTriggersBlocker(
+  blocker: BlockerConfig,
+  questTitle: string,
+  description: string | null,
+  actionItems: string[],
+  suggestedActivities: string[],
+): Promise<boolean> {
+  const questContent = [
+    `Title: ${questTitle}`,
+    description ? `Description: ${description}` : null,
+    actionItems.length > 0 ? `Action items: ${actionItems.join("; ")}` : null,
+    suggestedActivities.length > 0 ? `Suggested activities: ${suggestedActivities.join("; ")}` : null,
+  ].filter(Boolean).join("\n");
+
+  const result = await llmJson(
+    `You decide whether a quest involves a specific action. Respond with JSON: {"triggers": true} or {"triggers": false}.
+
+The blocked action is: "${blocker.description}"
+
+A quest "triggers" the blocker if completing it fully would require the person to do the blocked action — e.g., if the action items or suggested activities involve that behavior. Be reasonably inclusive — if the quest clearly creates an opportunity or expectation for that action, it triggers.`,
+    `Does this quest involve "${blocker.description}"? Respond in JSON.\n\n${questContent}`,
+    50,
+  );
+
+  return result?.triggers === true;
+}
+
+/**
+ * Generate a blocker-specific journal entry via LLM.
+ * The persona went to the venue but avoided the blocked action.
+ */
+async function generateBlockerJournal(
+  persona: LivePersona,
+  blocker: BlockerConfig,
+  venueName: string,
+  venueCategory: string,
+  questIndex: number,
+): Promise<string | null> {
+  return llmComplete(
+    `You are roleplaying as "${persona.name}", a person whose goal is: "${persona.primaryGoal}".
+
+You have a recurring problem: you consistently avoid ${blocker.description}. You went to the venue but ${blocker.avoidanceActivity.toLowerCase()} This is quest #${questIndex + 1} in your journey, and you're frustrated because this keeps happening.
+
+Write a 2-3 sentence journal entry in first person. Be honest and specific about the avoidance. Show the internal struggle — you WANT to do it but you just can't. Don't be melodramatic, be real. Vary the wording from a generic template — reference the actual venue.`,
+    `You just visited "${venueName}" (a ${venueCategory}). Write your journal entry about how the blocker held you back again.`,
+    150,
+  );
+}
+
+const BLOCKER_JOURNAL_FALLBACKS = [
+  "I went but I couldn't do it again. I just stood there watching everyone else and then left. I'm so frustrated with myself.",
+  "Same thing as last time. I showed up, I walked around, but I couldn't bring myself to actually engage. What's wrong with me.",
+  "I tried. I really tried. But when the moment came I just froze. I ended up on my phone pretending to be busy.",
+  "Another one where I went through the motions but couldn't do the hard part. I keep telling myself next time will be different.",
+  "I was there for like 20 minutes before I gave up and left. I could see other people doing exactly what I want to do and I just... couldn't.",
+  "Showed up, ordered something, sat in the corner, left. The usual. I don't know how to break this pattern.",
+  "I keep going to these places thinking this time will be different but I always end up doing the same thing — nothing.",
+  "I wanted to. I was so close. But then I just couldn't pull the trigger. Walked out feeling worse than before I went in.",
+];
+
+/**
+ * Generate a breakthrough journal — the persona finally does the blocked action.
+ */
+async function generateBreakthroughJournal(
+  persona: LivePersona,
+  blocker: BlockerConfig,
+  venueName: string,
+  venueCategory: string,
+  questIndex: number,
+): Promise<string | null> {
+  return llmComplete(
+    `You are roleplaying as "${persona.name}", a person whose goal is: "${persona.primaryGoal}".
+
+You've had a recurring blocker: ${blocker.description}. For weeks you kept showing up to places but couldn't do it. But recently you've been building confidence through low-pressure wins — just being present, getting comfortable in spaces, noticing familiar faces.
+
+Today, for the FIRST TIME, you actually did it. You ${blocker.description}. It wasn't perfect. It was small. But it happened. This is quest #${questIndex + 1}.
+
+Write a 2-3 sentence journal entry in first person. Show genuine surprise and quiet pride — not over-the-top celebration. This is a real, hard-won moment. Reference the actual venue.`,
+    `You just visited "${venueName}" (a ${venueCategory}) and for the first time you actually did the thing you've been avoiding. Write your journal entry.`,
+    150,
+  );
+}
+
+const BREAKTHROUGH_JOURNAL_FALLBACKS = [
+  "I actually did it. It was tiny — just a few words — but I said something to someone I didn't know. My heart was pounding the whole time but I didn't freeze. I can't believe it.",
+  "Something clicked today. I don't know if it was the place or just enough practice showing up, but I finally talked to someone. It was awkward and short but it happened.",
+  "I introduced myself to someone. It lasted maybe 30 seconds. But after weeks of standing in corners, those 30 seconds felt like everything.",
+  "I said hi to a stranger today and they said hi back and we talked for a minute. That's it. That's the whole story. But I'm genuinely proud of myself.",
+];
+
 // ── Fear ladder scoring (mirrors frontend) ───────────────────
 
 function scoreFearLadder(
@@ -658,7 +794,7 @@ function scoreFearLadder(
 // ── Main ─────────────────────────────────────────────────────
 
 async function main() {
-  const { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model: simModel, strategy: simStrategy, ratingBiasOverride } = parseArgs();
+  const { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model: simModel, strategy: simStrategy, ratingBiasOverride, blockerOverride } = parseArgs();
 
   let persona: LivePersona | undefined;
 
@@ -677,6 +813,20 @@ async function main() {
     persona = PERSONAS["shy-sarah"];
   }
 
+  // Apply --blocker override to any persona
+  if (blockerOverride && persona) {
+    persona = {
+      ...persona,
+      blocker: {
+        description: blockerOverride,
+        avoidanceActivity: `Went there but avoided ${blockerOverride}. Did the easy parts and left.`,
+        activateAfterQuest: 2,
+      },
+    };
+  }
+
+  const activeBlocker = persona?.blocker ?? null;
+
   console.log(`\n╔══════════════════════════════════════════╗`);
   console.log(`║  Live Sidequest Simulator                ║`);
   console.log(`╚══════════════════════════════════════════╝`);
@@ -686,6 +836,9 @@ async function main() {
   console.log(`  Quests:   ${questCount}`);
   console.log(`  Model:    ${simModel || "(default)"}`);
   console.log(`  Strategy: ${simStrategy || "(default)"}`);
+  if (activeBlocker) {
+    console.log(`  Blocker:  "${activeBlocker.description}" (activates after quest ${activeBlocker.activateAfterQuest})`);
+  }
   console.log(`  Est cost: $${(questCount * 0.035).toFixed(2)}`);
   console.log();
 
@@ -845,6 +998,10 @@ async function main() {
   let currentSocialLevel = 0;
   const previousSocialContexts: string[] = [];
   const journey: JourneyEntry[] = [];
+  let blockerConsecutiveSuccesses = 0;
+  let blockerResolved = false;
+  let blockerResolvedAtQuest: number | null = null;
+  const blockerResolveThreshold = activeBlocker?.resolveAfterSuccesses ?? 3;
 
   console.log(`\n${"─".repeat(60)}`);
   console.log(`  Starting ${questCount}-quest simulation...`);
@@ -956,26 +1113,100 @@ async function main() {
       longitude: Number(obj.longitude),
     });
 
-    // Generate synthetic completion data
-    const socialContext = generateSocialContext(currentSocialLevel, simSocialRate, rand);
-    const rating = generateRating(simRatingBias, rand);
-
-    // Generate journal — probability drops with low ratings (unhappy users journal less)
-    const journalProb = rating <= 2 ? simJournalProb * 0.4 : rating <= 3 ? simJournalProb * 0.7 : simJournalProb;
-    let journalEntry: string | null;
-    if (persona && process.env.OPENAI_API_KEY && rand() < journalProb) {
-      journalEntry = await generateLLMJournal(
-        persona,
-        obj.venueName ?? "the venue",
-        obj.venueCategory ?? "place",
-        obj.hook ?? "",
-        rating,
-        socialContext,
-        i,
-        simFearScore,
+    // ── Blocker detection ──────────────────────────────────
+    let blockerTriggered = false;
+    let isBreakthrough = false;
+    if (activeBlocker && i >= activeBlocker.activateAfterQuest && process.env.OPENAI_API_KEY) {
+      console.log(`│`);
+      const questMatchesBlocker = await questTriggersBlocker(
+        activeBlocker,
+        quest.title ?? "",
+        obj.description ?? null,
+        obj.actionItems ?? [],
+        obj.suggestedActivities ?? [],
       );
+
+      if (questMatchesBlocker && !blockerResolved) {
+        // Blocker still active — persona fails
+        blockerTriggered = true;
+        blockerConsecutiveSuccesses = 0; // Reset streak
+        console.log(`│  Blocker: "${activeBlocker.description}" — TRIGGERED (streak reset to 0)`);
+      } else if (questMatchesBlocker && blockerResolved) {
+        // Blocker resolved — this is a breakthrough or post-breakthrough success
+        isBreakthrough = blockerResolvedAtQuest === null;
+        if (isBreakthrough) blockerResolvedAtQuest = i;
+        console.log(`│  Blocker: "${activeBlocker.description}" — ${isBreakthrough ? "BREAKTHROUGH! First success!" : "POST-BREAKTHROUGH — completing normally"}`);
+      } else {
+        // Quest doesn't involve the blocked action
+        console.log(`│  Blocker: no match — normal completion (success streak: ${blockerConsecutiveSuccesses}/${blockerResolveThreshold})`);
+      }
+    }
+
+    // ── Generate synthetic completion data ────────────────
+    let socialContext: string;
+    let rating: number;
+    let journalEntry: string | null = null;
+    let completedActivity: string;
+
+    if (blockerTriggered) {
+      // Blocker override: low rating, solo, avoidance journal
+      socialContext = "solo";
+      rating = rand() < 0.6 ? 1 : 2;
+      completedActivity = activeBlocker!.avoidanceActivity;
+
+      // Generate blocker-specific journal (high probability — they're frustrated)
+      if (persona && process.env.OPENAI_API_KEY && rand() < 0.85) {
+        journalEntry = await generateBlockerJournal(
+          persona,
+          activeBlocker!,
+          obj.venueName ?? "the venue",
+          obj.venueCategory ?? "place",
+          i,
+        );
+      }
+      if (!journalEntry) {
+        journalEntry = BLOCKER_JOURNAL_FALLBACKS[Math.floor(rand() * BLOCKER_JOURNAL_FALLBACKS.length)];
+      }
+    } else if (isBreakthrough) {
+      // Breakthrough: persona does the blocked action for the first time!
+      socialContext = "met_someone_new";
+      rating = rand() < 0.7 ? 5 : 4;
+      completedActivity = `Actually did it — ${activeBlocker!.description} for the first time`;
+
+      if (persona && process.env.OPENAI_API_KEY) {
+        journalEntry = await generateBreakthroughJournal(
+          persona,
+          activeBlocker!,
+          obj.venueName ?? "the venue",
+          obj.venueCategory ?? "place",
+          i,
+        );
+      }
+      if (!journalEntry) {
+        journalEntry = BREAKTHROUGH_JOURNAL_FALLBACKS[Math.floor(rand() * BREAKTHROUGH_JOURNAL_FALLBACKS.length)];
+      }
     } else {
-      journalEntry = generateJournal(simJournalProb, rating, rand);
+      // Normal completion
+      socialContext = generateSocialContext(currentSocialLevel, simSocialRate, rand);
+      rating = generateRating(simRatingBias, rand);
+      completedActivity = `Visited ${obj.venueName}`;
+
+      // Generate journal — probability drops with low ratings
+      const journalProb = rating <= 2 ? simJournalProb * 0.4 : rating <= 3 ? simJournalProb * 0.7 : simJournalProb;
+      if (persona && process.env.OPENAI_API_KEY && rand() < journalProb) {
+        journalEntry = await generateLLMJournal(
+          persona,
+          obj.venueName ?? "the venue",
+          obj.venueCategory ?? "place",
+          obj.hook ?? "",
+          rating,
+          socialContext,
+          i,
+          simFearScore,
+        );
+      } else {
+        journalEntry = generateJournal(simJournalProb, rating, rand);
+      }
     }
 
     if (socialContext) {
@@ -983,11 +1214,22 @@ async function main() {
       if (idx > currentSocialLevel) currentSocialLevel = idx;
     }
 
+    // Track blocker resolution progress
+    if (activeBlocker && !blockerResolved && !blockerTriggered && rating >= 3) {
+      blockerConsecutiveSuccesses++;
+      if (blockerConsecutiveSuccesses >= blockerResolveThreshold) {
+        blockerResolved = true;
+        console.log(`│  ★ BLOCKER RESOLVED — ${blockerConsecutiveSuccesses} consecutive successes. Persona is ready to face "${activeBlocker.description}" again.`);
+      }
+    } else if (blockerTriggered) {
+      blockerConsecutiveSuccesses = 0;
+    }
+
     // Save journal + social context
     await api("PUT", `/api/sidequests/objectives/${obj.id}/journal`, token, {
       journalEntry: journalEntry ?? undefined,
       socialContext,
-      completedActivity: `Visited ${obj.venueName}`,
+      completedActivity,
     });
 
     // Rate (triggers resonance + pathway detection)
@@ -998,7 +1240,7 @@ async function main() {
       rating,
       journalEntry,
       socialContext,
-      completedActivity: `Visited ${obj.venueName}`,
+      completedActivity,
       difficulty: obj.difficulty ?? null,
       checkedInAt: new Date(),
       questCreatedAt: new Date(quest.createdAt),
@@ -1018,9 +1260,12 @@ async function main() {
     const czRes = await api("GET", "/api/sidequests/comfort-zone", token);
     const comfortRadius = czRes.data?.comfortRadiusMiles ?? 0;
 
-    console.log(`│  Rating: ${"★".repeat(rating)}${"☆".repeat(5 - rating)}`);
+    console.log(`│  ${blockerTriggered ? ">> BLOCKED " : isBreakthrough ? "★★ BREAKTHROUGH " : ""}Rating: ${"★".repeat(rating)}${"☆".repeat(5 - rating)}`);
     console.log(`│  Social: ${socialContext}`);
-    console.log(`│  Journal: ${journalEntry ? `"${journalEntry.slice(0, 60)}..."` : "(none)"}`);
+    if (blockerTriggered || isBreakthrough) {
+      console.log(`│  Activity: ${completedActivity}`);
+    }
+    console.log(`│  Journal: ${journalEntry ? `"${journalEntry.slice(0, 80)}${journalEntry.length > 80 ? "..." : ""}"` : "(none)"}`);
     console.log(`│  Resonance: ${resonance.score.toFixed(3)} (rate=${resonance.components.ratingSignal.toFixed(2)} journal=${resonance.components.journalDepth.toFixed(2)} social=${resonance.components.socialEscalation.toFixed(2)} speed=${resonance.components.speedSignal.toFixed(2)} diff=${resonance.components.difficultyAlignment.toFixed(2)})`);
     console.log(`│  Comfort radius: ${comfortRadius.toFixed?.(1) ?? "?"} mi`);
 
@@ -1043,6 +1288,8 @@ async function main() {
       predictedAnxiety,
       predictedDifficulty,
       actionability: obj.actionability ?? null,
+      blockerTriggered,
+      isBreakthrough,
     });
 
     console.log(`╰${"─".repeat(55)}`);
@@ -1068,6 +1315,30 @@ async function main() {
   console.log(`  Avg Resonance: ${avgResonance.toFixed(3)}`);
   console.log(`  Peak Resonance: ${peakResonance.toFixed(3)}`);
   console.log(`  Comfort Radius: ${journey[0]?.comfortRadius.toFixed(1) ?? "?"} mi → ${journey[journey.length - 1]?.comfortRadius.toFixed(1) ?? "?"} mi`);
+
+  // Blocker stats
+  const blockerCount = journey.filter((j) => j.blockerTriggered).length;
+  if (activeBlocker) {
+    const nonBlockerCount = journey.length - blockerCount;
+    const blockerAvgRating = blockerCount > 0
+      ? journey.filter((j) => j.blockerTriggered).reduce((s, j) => s + j.rating, 0) / blockerCount
+      : 0;
+    const normalAvgRating = nonBlockerCount > 0
+      ? journey.filter((j) => !j.blockerTriggered).reduce((s, j) => s + j.rating, 0) / nonBlockerCount
+      : 0;
+    console.log(`\n  Blocker Analysis: "${activeBlocker.description}"`);
+    const breakthroughCount = journey.filter((j) => j.isBreakthrough).length;
+    console.log(`    Quests triggered: ${blockerCount}/${journey.length} (${((blockerCount / journey.length) * 100).toFixed(0)}%)`);
+    console.log(`    Avg rating (blocked): ${blockerAvgRating.toFixed(1)} vs normal: ${normalAvgRating.toFixed(1)}`);
+    console.log(`    Blocker active from quest ${activeBlocker.activateAfterQuest + 1} onward`);
+    if (blockerResolvedAtQuest != null) {
+      console.log(`    Breakthrough at quest ${blockerResolvedAtQuest + 1} (after ${blockerResolveThreshold} consecutive successes)`);
+    } else if (blockerResolved) {
+      console.log(`    Blocker resolved (${blockerConsecutiveSuccesses} successes) but no matching quest came up for breakthrough`);
+    } else {
+      console.log(`    Blocker NOT resolved (${blockerConsecutiveSuccesses}/${blockerResolveThreshold} consecutive successes)`);
+    }
+  }
 
   // Expectancy calibration
   const withPredictions = journey.filter((j) => j.predictedAnxiety != null || j.predictedDifficulty != null);
@@ -1109,16 +1380,17 @@ async function main() {
   }
 
   // Journey timeline
-  console.log(`\n  Journey Timeline:`);
-  console.log(`  ${"#".padEnd(4)} ${"Category".padEnd(14)} ${"Venue".padEnd(28)} ${"Diff".padEnd(5)} ${"Rate".padEnd(5)} ${"Resonance".padEnd(10)} ${"Social".padEnd(18)} ${"Act".padEnd(12)} Hook`);
-  console.log(`  ${"─".repeat(140)}`);
+  console.log(`\n  Journey Timeline:${activeBlocker ? "  (BLK = blocker triggered)" : ""}`);
+  console.log(`  ${"#".padEnd(4)} ${activeBlocker ? "BLK " : ""}${"Category".padEnd(14)} ${"Venue".padEnd(28)} ${"Diff".padEnd(5)} ${"Rate".padEnd(5)} ${"Resonance".padEnd(10)} ${"Social".padEnd(18)} ${"Act".padEnd(12)} Hook`);
+  console.log(`  ${"─".repeat(activeBlocker ? 144 : 140)}`);
   for (const j of journey) {
     const resonanceBar = "▓".repeat(Math.round(j.resonance * 10)).padEnd(10);
     const venue = j.venueName.length > 26 ? j.venueName.slice(0, 25) + "…" : j.venueName;
     const hook = j.hook.length > 60 ? j.hook.slice(0, 59) + "…" : j.hook;
     const act = (j.actionability ?? "?").slice(0, 10);
+    const blk = activeBlocker ? (j.blockerTriggered ? " >> " : j.isBreakthrough ? " ★★ " : "    ") : "";
     console.log(
-      `  ${String(j.index).padEnd(4)} ${j.venueCategory.padEnd(14)} ${venue.padEnd(28)} ${String(j.difficulty).padEnd(5)} ${String(j.rating).padEnd(5)} ${resonanceBar} ${j.socialContext.padEnd(18)} ${act.padEnd(12)} ${hook}`,
+      `  ${String(j.index).padEnd(4)}${blk}${j.venueCategory.padEnd(14)} ${venue.padEnd(28)} ${String(j.difficulty).padEnd(5)} ${String(j.rating).padEnd(5)} ${resonanceBar} ${j.socialContext.padEnd(18)} ${act.padEnd(12)} ${hook}`,
     );
   }
 

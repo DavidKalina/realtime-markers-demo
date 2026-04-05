@@ -17,10 +17,7 @@ import Animated, {
   useSharedValue,
   type SharedValue,
 } from "react-native-reanimated";
-import type {
-  ObjectiveResponse,
-  SidequestResponse,
-} from "@/services/api/modules/sidequests";
+import type { SidequestResponse } from "@/services/api/modules/sidequests";
 import { getCategoryColor } from "@/utils/categoryColors";
 import {
   fontFamily,
@@ -147,9 +144,6 @@ export function QuestMemoryModal({
 
   if (!visible || !quest || !obj) return null;
 
-  const social = obj.socialContext
-    ? SOCIAL_LABELS[obj.socialContext]
-    : null;
   const rarityKey = (quest.rarity ?? "common").toLowerCase();
   const rarityStyle = RARITY_COLORS[rarityKey] ?? RARITY_COLORS.common;
 
@@ -264,84 +258,86 @@ export function QuestMemoryModal({
             </View>
           </ParallaxWidget>
 
-          {/* ── Venue ── */}
-          <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={350}>
-            <Text style={s.widgetLabel}>VENUE</Text>
-            <View style={s.venueCard}>
-              <View style={s.venueHeader}>
-                <View style={s.emojiCircle}>
-                  <Text style={s.emojiText}>{obj.emoji || "\uD83D\uDCCD"}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.venueName}>{obj.venueName ?? obj.title}</Text>
-                  {obj.venueCategory && (
-                    <Text style={s.venueCategory}>{obj.venueCategory}</Text>
+          {/* ── Stops ── */}
+          {quest.objectives.filter((o) => o.checkedInAt).map((stop, i) => {
+            const stopSocial = stop.socialContext
+              ? SOCIAL_LABELS[stop.socialContext]
+              : null;
+            return (
+              <ParallaxWidget
+                key={stop.id}
+                scrollY={scrollY}
+                index={widgetIdx++}
+                enterDelay={350 + i * 80}
+              >
+                <View style={s.stopCard}>
+                  {/* Stop header */}
+                  <View style={s.venueHeader}>
+                    <View style={s.emojiCircle}>
+                      <Text style={s.emojiText}>{stop.emoji || "\uD83D\uDCCD"}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.venueName}>{stop.venueName ?? stop.title}</Text>
+                      {stop.venueCategory && (
+                        <Text style={s.venueCategory}>{stop.venueCategory}</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  {stop.venueAddress && (
+                    <Text style={s.address}>{stop.venueAddress}</Text>
+                  )}
+
+                  {/* What they did */}
+                  {stop.completedActivity && (
+                    <View style={s.stopSection}>
+                      <Text style={s.stopSectionLabel}>WHAT YOU DID</Text>
+                      <Text style={s.bodyText}>{stop.completedActivity}</Text>
+                    </View>
+                  )}
+
+                  {/* Social context */}
+                  {stopSocial && (
+                    <View style={s.stopSection}>
+                      <Text style={s.stopSectionLabel}>WHO YOU WERE WITH</Text>
+                      <View style={s.socialChip}>
+                        <Text style={s.socialText}>
+                          {stopSocial.emoji} {stopSocial.label}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Photo */}
+                  {stop.photoUrl && (
+                    <View style={s.stopSection}>
+                      <View style={s.photoContainer}>
+                        <Image
+                          source={{ uri: stop.photoUrl }}
+                          style={s.photo}
+                          resizeMode="cover"
+                        />
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Journal */}
+                  {stop.journalEntry && (
+                    <View style={s.stopSection}>
+                      <Text style={s.stopSectionLabel}>
+                        {stop.journalPrompt
+                          ? `\u201C${stop.journalPrompt}\u201D`
+                          : "JOURNAL"}
+                      </Text>
+                      <View style={s.journalCard}>
+                        <Text style={s.journalText}>{stop.journalEntry}</Text>
+                      </View>
+                    </View>
                   )}
                 </View>
-              </View>
-              {obj.venueAddress && (
-                <Text style={s.address}>{obj.venueAddress}</Text>
-              )}
-            </View>
-          </ParallaxWidget>
-
-          {/* ── Hook ── */}
-          {obj.hook && (
-            <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={400}>
-              <Text style={s.widgetLabel}>WHY THIS STOP</Text>
-              <View style={s.hookCard}>
-                <Text style={s.hookText}>{obj.hook}</Text>
-              </View>
-            </ParallaxWidget>
-          )}
-
-          {/* ── What you did ── */}
-          {obj.completedActivity && (
-            <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={450}>
-              <Text style={s.widgetLabel}>WHAT YOU DID</Text>
-              <Text style={s.bodyText}>{obj.completedActivity}</Text>
-            </ParallaxWidget>
-          )}
-
-          {/* ── Social context ── */}
-          {social && (
-            <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={500}>
-              <Text style={s.widgetLabel}>WHO YOU WERE WITH</Text>
-              <View style={s.socialChip}>
-                <Text style={s.socialText}>
-                  {social.emoji} {social.label}
-                </Text>
-              </View>
-            </ParallaxWidget>
-          )}
-
-          {/* ── Photo ── */}
-          {obj.photoUrl && (
-            <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={550}>
-              <Text style={s.widgetLabel}>PHOTO</Text>
-              <View style={s.photoContainer}>
-                <Image
-                  source={{ uri: obj.photoUrl }}
-                  style={s.photo}
-                  resizeMode="cover"
-                />
-              </View>
-            </ParallaxWidget>
-          )}
-
-          {/* ── Journal ── */}
-          {obj.journalEntry && (
-            <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={600}>
-              <Text style={s.widgetLabel}>
-                {obj.journalPrompt
-                  ? `\u201C${obj.journalPrompt}\u201D`
-                  : "JOURNAL"}
-              </Text>
-              <View style={s.journalCard}>
-                <Text style={s.journalText}>{obj.journalEntry}</Text>
-              </View>
-            </ParallaxWidget>
-          )}
+              </ParallaxWidget>
+            );
+          })}
         </Animated.ScrollView>
       </Animated.View>
     </Modal>
@@ -496,14 +492,24 @@ const createStyles = (
       color: accentHex,
     },
 
-    // ── Venue ──
-    venueCard: {
+    // ── Stop card ──
+    stopCard: {
       backgroundColor: "rgba(255, 255, 255, 0.03)",
       borderWidth: 1,
       borderColor: "rgba(255, 255, 255, 0.06)",
       borderRadius: radius.lg,
       padding: spacing.lg,
-      gap: spacing.sm,
+      gap: spacing.md,
+    },
+    stopSection: {
+      gap: spacing.xs,
+    },
+    stopSectionLabel: {
+      fontFamily: fontFamily.mono,
+      fontSize: 9,
+      fontWeight: fontWeight.bold,
+      color: colors.text.disabled,
+      letterSpacing: 1.5,
     },
     venueHeader: {
       flexDirection: "row",
@@ -541,23 +547,6 @@ const createStyles = (
       fontFamily: fontFamily.mono,
       color: colors.text.secondary,
       lineHeight: 18,
-    },
-
-    // ── Hook ──
-    hookCard: {
-      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.06)`,
-      borderWidth: 1,
-      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.15)`,
-      borderRadius: radius.lg,
-      padding: spacing.lg,
-    },
-    hookText: {
-      fontSize: 13,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.regular,
-      color: colors.text.primary,
-      lineHeight: 20,
-      fontStyle: "italic",
     },
 
     // ── Body text ──
