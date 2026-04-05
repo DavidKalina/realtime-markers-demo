@@ -1,5 +1,6 @@
 import AppHeader from "@/components/AnimationHeader";
 import Input from "@/components/Input/Input";
+import MiniDeck from "@/components/Login/MiniDeck";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useColors,
@@ -11,6 +12,7 @@ import {
   spring,
   type Colors,
 } from "@/theme";
+import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
@@ -37,6 +39,22 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
+
+const GradientOverlay: React.FC = React.memo(() => (
+  <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <Svg width="100%" height="100%" preserveAspectRatio="none">
+      <Defs>
+        <LinearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="black" stopOpacity="0.3" />
+          <Stop offset="0.5" stopColor="black" stopOpacity="0.5" />
+          <Stop offset="1" stopColor="black" stopOpacity="0.9" />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill="url(#grad)" />
+    </Svg>
+  </View>
+));
 
 const RegisterScreen: React.FC = () => {
   const colors = useColors();
@@ -132,151 +150,161 @@ const RegisterScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.bg.primary} />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.fixed.black} />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardAvoidingView}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
+      <GradientOverlay />
+
+      <SafeAreaView style={styles.foreground}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardAvoidingView}
         >
-          <Animated.View
-            entering={FadeInDown.duration(600).delay(100).springify()}
-            style={styles.contentContainer}
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
           >
-            <AppHeader />
+            {/* Header row — title + mini deck */}
+            <View style={styles.headerRow}>
+              <AppHeader />
+              <MiniDeck />
+            </View>
 
-            <Animated.View entering={FadeInDown.duration(600).delay(300).springify()}>
+            {/* Spacer to push form down */}
+            <View style={{ flex: 1 }} />
+
+            {/* Form card */}
             <Animated.View
-              layout={LinearTransition.springify()}
-              style={styles.formContainer}
+              entering={FadeInDown.duration(600).delay(300).springify()}
+              style={styles.formWrapper}
             >
-              <Animated.View
-                layout={LinearTransition.springify()}
-                style={styles.formCard}
-              >
-                {error && (
-                  <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{error}</Text>
-                  </View>
+              <BlurView intensity={40} tint="dark" style={styles.formCard}>
+                {Platform.OS === "android" && (
+                  <View style={styles.androidBlurFallback} />
                 )}
 
-                <View style={{ gap: spacing.lg }}>
-                  <Input
-                    ref={firstNameRef}
-                    icon={User}
-                    placeholder="First Name"
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    autoCapitalize="words"
-                    autoComplete="given-name"
-                    returnKeyType="next"
-                    onSubmitEditing={() => lastNameRef.current?.focus()}
-                    delay={200}
-                  />
+                <Animated.View layout={LinearTransition.springify()}>
+                  {error && (
+                    <View style={styles.errorContainer}>
+                      <Text style={styles.errorText}>{error}</Text>
+                    </View>
+                  )}
 
-                  <Input
-                    ref={lastNameRef}
-                    icon={User}
-                    placeholder="Last Name"
-                    value={lastName}
-                    onChangeText={setLastName}
-                    autoCapitalize="words"
-                    autoComplete="family-name"
-                    returnKeyType="next"
-                    onSubmitEditing={() => emailRef.current?.focus()}
-                    delay={250}
-                  />
+                  <View style={{ gap: spacing.lg }}>
+                    <Input
+                      ref={firstNameRef}
+                      icon={User}
+                      placeholder="First Name"
+                      value={firstName}
+                      onChangeText={setFirstName}
+                      autoCapitalize="words"
+                      autoComplete="given-name"
+                      returnKeyType="next"
+                      onSubmitEditing={() => lastNameRef.current?.focus()}
+                      delay={200}
+                    />
 
-                  <Input
-                    ref={emailRef}
-                    icon={Mail}
-                    placeholder="Email address"
-                    value={email}
-                    onChangeText={setEmail}
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    autoCorrect={false}
-                    keyboardType="email-address"
-                    returnKeyType="next"
-                    onSubmitEditing={() => passwordRef.current?.focus()}
-                    delay={300}
-                  />
+                    <Input
+                      ref={lastNameRef}
+                      icon={User}
+                      placeholder="Last Name"
+                      value={lastName}
+                      onChangeText={setLastName}
+                      autoCapitalize="words"
+                      autoComplete="family-name"
+                      returnKeyType="next"
+                      onSubmitEditing={() => emailRef.current?.focus()}
+                      delay={250}
+                    />
 
-                  <Input
-                    ref={passwordRef}
-                    icon={Lock}
-                    rightIcon={showPassword ? EyeOff : Eye}
-                    onRightIconPress={togglePasswordVisibility}
-                    placeholder="Password"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    returnKeyType="next"
-                    onSubmitEditing={() => confirmPasswordRef.current?.focus()}
-                    delay={350}
-                  />
+                    <Input
+                      ref={emailRef}
+                      icon={Mail}
+                      placeholder="Email address"
+                      value={email}
+                      onChangeText={setEmail}
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      autoCorrect={false}
+                      keyboardType="email-address"
+                      returnKeyType="next"
+                      onSubmitEditing={() => passwordRef.current?.focus()}
+                      delay={300}
+                    />
 
-                  <Input
-                    ref={confirmPasswordRef}
-                    icon={Lock}
-                    rightIcon={showConfirmPassword ? EyeOff : Eye}
-                    onRightIconPress={toggleConfirmPasswordVisibility}
-                    placeholder="Confirm Password"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showConfirmPassword}
-                    returnKeyType="done"
-                    onSubmitEditing={handleRegister}
-                    delay={400}
-                  />
-                </View>
+                    <Input
+                      ref={passwordRef}
+                      icon={Lock}
+                      rightIcon={showPassword ? EyeOff : Eye}
+                      onRightIconPress={togglePasswordVisibility}
+                      placeholder="Password"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                      returnKeyType="next"
+                      onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                      delay={350}
+                    />
 
-                <View style={styles.buttonContainer}>
-                  <Animated.View style={buttonAnimatedStyle}>
+                    <Input
+                      ref={confirmPasswordRef}
+                      icon={Lock}
+                      rightIcon={showConfirmPassword ? EyeOff : Eye}
+                      onRightIconPress={toggleConfirmPasswordVisibility}
+                      placeholder="Confirm Password"
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry={!showConfirmPassword}
+                      returnKeyType="done"
+                      onSubmitEditing={handleRegister}
+                      delay={400}
+                    />
+                  </View>
+
+                  <View style={styles.buttonContainer}>
+                    <Animated.View style={buttonAnimatedStyle}>
+                      <TouchableOpacity
+                        onPress={handleRegisterPress}
+                        disabled={isLoading}
+                        activeOpacity={0.7}
+                        style={styles.registerButton}
+                      >
+                        {isLoading ? (
+                          <ActivityIndicator
+                            size="small"
+                            color={colors.text.primary}
+                          />
+                        ) : (
+                          <Text style={styles.registerButtonText}>
+                            Create Account
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </Animated.View>
+                  </View>
+
+                  <View style={styles.loginLinkContainer}>
+                    <Text style={styles.loginLinkText}>
+                      Already have an account?{" "}
+                    </Text>
                     <TouchableOpacity
-                      onPress={handleRegisterPress}
-                      disabled={isLoading}
-                      activeOpacity={0.7}
-                      style={styles.registerButton}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        router.push("/login");
+                      }}
                     >
-                      {isLoading ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={colors.text.primary}
-                        />
-                      ) : (
-                        <Text style={styles.registerButtonText}>
-                          Create Account
-                        </Text>
-                      )}
+                      <Text style={styles.loginLink}>Login</Text>
                     </TouchableOpacity>
-                  </Animated.View>
-                </View>
+                  </View>
+                </Animated.View>
+              </BlurView>
+            </Animated.View>
 
-                <View style={styles.loginLinkContainer}>
-                  <Text style={styles.loginLinkText}>
-                    Already have an account?{" "}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      router.push("/login");
-                    }}
-                  >
-                    <Text style={styles.loginLink}>Login</Text>
-                  </TouchableOpacity>
-                </View>
-              </Animated.View>
-            </Animated.View>
-            </Animated.View>
-          </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            <View style={styles.bottomSpacer} />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 };
 
@@ -284,43 +312,40 @@ const createStyles = (colors: Colors) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.bg.primary,
+      backgroundColor: colors.fixed.black,
+    },
+    foreground: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 2,
     },
     keyboardAvoidingView: {
       flex: 1,
-      zIndex: 2,
     },
     scrollContent: {
       flexGrow: 1,
-      justifyContent: "center",
-      paddingHorizontal: spacing.xl,
-      paddingVertical: spacing._10,
+      paddingHorizontal: spacing.md,
     },
-    contentContainer: {
+    headerRow: {
+      flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: spacing.xl,
+      gap: spacing.md,
+      overflow: "visible",
+      paddingTop: spacing["2xl"],
     },
-    formContainer: {
+    formWrapper: {
       width: "100%",
-      maxWidth: 400,
-      alignSelf: "center",
-      zIndex: 2,
     },
     formCard: {
-      width: "100%",
       borderRadius: radius["2xl"],
       padding: spacing.xl,
-      backgroundColor: colors.bg.card,
       borderWidth: 1,
-      borderColor: colors.border.default,
-      shadowColor: "rgba(0, 0, 0, 0.1)",
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.2,
-      shadowRadius: radius.md,
-      elevation: 8,
-      position: "relative",
+      borderColor: "rgba(255, 255, 255, 0.12)",
       overflow: "hidden",
+    },
+    androidBlurFallback: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(42, 42, 42, 0.85)",
     },
     errorContainer: {
       backgroundColor: colors.status.error.bg,
@@ -360,7 +385,7 @@ const createStyles = (colors: Colors) =>
       marginTop: spacing.lg,
     },
     loginLinkText: {
-      color: colors.text.secondary,
+      color: "rgba(134, 239, 172, 0.6)",
       fontSize: fontSize.sm,
       fontFamily: fontFamily.mono,
     },
@@ -369,6 +394,9 @@ const createStyles = (colors: Colors) =>
       fontSize: fontSize.sm,
       fontWeight: fontWeight.semibold,
       fontFamily: fontFamily.mono,
+    },
+    bottomSpacer: {
+      height: spacing.lg,
     },
   });
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, TouchableWithoutFeedback, View } from "react-native";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { NextButton, useTypewriter, GREEN_ACCENT } from "./shared";
 import { fontFamily, fontWeight, radius, spacing, useColors, type Colors } from "@/theme";
@@ -214,82 +214,91 @@ export function StepNorthStar({
   }, [promptDone]);
 
   return (
-    <View style={s.container}>
-      {onBack && !generatingQuest && (
-        <Pressable onPress={onBack} style={s.backButton} hitSlop={12}>
-          <Text style={[s.backText, { color: colors.text.secondary }]}>{"\u2190"} back</Text>
-        </Pressable>
-      )}
-
-      <View style={s.content}>
-        {/* Typewriter prompt */}
-        <View style={s.promptWrap}>
-          <Text style={s.promptText}>
-            {prompt}
-            {!promptDone && showCursor && <Text style={s.cursor}>{"\u2588"}</Text>}
-          </Text>
-          {promptDone && (
-            <Animated.View entering={FadeIn.delay(150).duration(350)}>
-              <Text style={[s.promptSub, { color: colors.text.secondary }]}>
-                Optional {"\u2014"} but it helps us understand what matters to you
-              </Text>
-            </Animated.View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={s.container}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={s.container}>
+          {onBack && !generatingQuest && (
+            <Pressable onPress={onBack} style={s.backButton} hitSlop={12}>
+              <Text style={[s.backText, { color: colors.text.secondary }]}>{"\u2190"} back</Text>
+            </Pressable>
           )}
-        </View>
 
-        {/* Text input */}
-        {promptDone && !generatingQuest && (
-          <Animated.View entering={FadeIn.delay(300).duration(400)} style={s.inputWrap}>
-            <TextInput
-              style={[s.input, { color: colors.text.primary }]}
-              placeholder={"I'd finally feel like I belong somewhere..."}
-              placeholderTextColor={"rgba(255, 255, 255, 0.2)"}
-              value={northStar}
-              onChangeText={setNorthStar}
-              multiline
-              maxLength={200}
-              textAlignVertical="top"
-              editable={!generatingQuest && !isLoading}
-            />
-          </Animated.View>
-        )}
+          <View style={s.content}>
+            {/* Typewriter prompt */}
+            <View style={s.promptWrap}>
+              <Text style={s.promptText}>
+                {prompt}
+                {!promptDone && showCursor && <Text style={s.cursor}>{"\u2588"}</Text>}
+              </Text>
+              {promptDone && (
+                <Animated.View entering={FadeIn.delay(150).duration(350)}>
+                  <Text style={[s.promptSub, { color: colors.text.secondary }]}>
+                    Optional {"\u2014"} but it helps us understand what matters to you
+                  </Text>
+                </Animated.View>
+              )}
+            </View>
 
-        {/* Location status */}
-        {promptDone && !generatingQuest && (
-          <Animated.View entering={FadeIn.delay(500).duration(400)} style={s.statusRow}>
-            <Text style={s.statusDot}>{userLocation ? "\u2713" : "\u25CB"}</Text>
-            <Text style={[s.statusText, { color: colors.text.secondary }]}>
-              {userLocation ? "Location acquired" : "Acquiring location..."}
-            </Text>
-          </Animated.View>
-        )}
-
-        {/* Generating readout */}
-        {generatingQuest && (
-          <GeneratingReadout label={generatingLabel} />
-        )}
-
-        {/* Error */}
-        {error && (
-          <View style={[s.errorBox, { borderColor: colors.status.error.border, backgroundColor: colors.status.error.bg }]}>
-            <Text style={[s.errorText, { color: colors.status.error.text }]}>{error}</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Launch button */}
-      <View style={s.bottom}>
-        {!generatingQuest && promptDone && (
-          <Animated.View entering={FadeInUp.delay(600).duration(250).springify().damping(28).stiffness(400)}>
-            {error ? (
-              <NextButton label="Retry" onPress={onFinish} disabled={isLoading} />
-            ) : (
-              <NextButton label="Launch" onPress={onFinish} disabled={isLoading} solid />
+            {/* Text input */}
+            {promptDone && !generatingQuest && (
+              <Animated.View entering={FadeIn.delay(300).duration(400)} style={s.inputWrap}>
+                <TextInput
+                  style={[s.input, { color: colors.text.primary }]}
+                  placeholder={"I'd finally feel like I belong somewhere..."}
+                  placeholderTextColor={"rgba(255, 255, 255, 0.2)"}
+                  value={northStar}
+                  onChangeText={setNorthStar}
+                  multiline
+                  maxLength={200}
+                  textAlignVertical="top"
+                  editable={!generatingQuest && !isLoading}
+                  blurOnSubmit
+                  returnKeyType="done"
+                />
+              </Animated.View>
             )}
-          </Animated.View>
-        )}
-      </View>
-    </View>
+
+            {/* Location status */}
+            {promptDone && !generatingQuest && (
+              <Animated.View entering={FadeIn.delay(500).duration(400)} style={s.statusRow}>
+                <Text style={s.statusDot}>{userLocation ? "\u2713" : "\u25CB"}</Text>
+                <Text style={[s.statusText, { color: colors.text.secondary }]}>
+                  {userLocation ? "Location acquired" : "Acquiring location..."}
+                </Text>
+              </Animated.View>
+            )}
+
+            {/* Generating readout */}
+            {generatingQuest && (
+              <GeneratingReadout label={generatingLabel} />
+            )}
+
+            {/* Error */}
+            {error && (
+              <View style={[s.errorBox, { borderColor: colors.status.error.border, backgroundColor: colors.status.error.bg }]}>
+                <Text style={[s.errorText, { color: colors.status.error.text }]}>{error}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Launch button */}
+          <View style={s.bottom}>
+            {!generatingQuest && promptDone && (
+              <Animated.View entering={FadeInUp.delay(600).duration(250).springify().damping(28).stiffness(400)}>
+                {error ? (
+                  <NextButton label="Retry" onPress={onFinish} disabled={isLoading} />
+                ) : (
+                  <NextButton label="Launch" onPress={onFinish} disabled={isLoading} solid />
+                )}
+              </Animated.View>
+            )}
+          </View>
+        </View>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
 

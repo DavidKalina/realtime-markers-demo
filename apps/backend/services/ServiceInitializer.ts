@@ -117,7 +117,6 @@ export class ServiceInitializer {
     const authService = createAuthService({
       userRepository: repositories.userRepository,
       dataSource: this.dataSource,
-      openAIService,
       emailService,
     });
 

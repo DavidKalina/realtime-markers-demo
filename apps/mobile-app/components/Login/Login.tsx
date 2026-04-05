@@ -170,16 +170,13 @@ const Login: React.FC = () => {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingView}
         >
-          {/* Top spacer */}
-          <View style={{ flex: 1 }} />
-
-          {/* Header row — title + mini deck, centered */}
+          {/* Header row — title + mini deck, at top */}
           <View style={styles.headerRow}>
             <AppHeader />
             <MiniDeck />
           </View>
 
-          {/* Bottom spacer */}
+          {/* Spacer to push form down */}
           <View style={{ flex: 1 }} />
 
           {/* Form card — anchored at bottom */}
@@ -303,6 +300,7 @@ const createStyles = (colors: Colors) =>
       justifyContent: "center",
       gap: spacing.md,
       overflow: "visible",
+      paddingTop: spacing["2xl"],
     },
 
     formWrapper: {

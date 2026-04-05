@@ -10,8 +10,6 @@ import type {
   UserProfile,
 } from "@realtime-markers/database";
 import { addDays, format } from "date-fns";
-import type { OpenAIService } from "./shared/OpenAIService";
-import { OpenAIModel } from "./shared/OpenAIService";
 import type { EmailService } from "./shared/EmailService";
 
 // Tier definitions (previously in GamificationService)
@@ -51,7 +49,6 @@ export interface AuthTokens {
 export interface AuthServiceDependencies {
   userRepository: Repository<User>;
   dataSource: DataSource;
-  openAIService: OpenAIService;
   emailService: EmailService;
 }
 
@@ -62,13 +59,11 @@ export class AuthService {
   private accessTokenExpiry: SignOptions["expiresIn"];
   private refreshTokenExpiry: SignOptions["expiresIn"];
   private dataSource: DataSource;
-  private openAIService: OpenAIService;
   private emailService: EmailService;
 
   constructor(private dependencies: AuthServiceDependencies) {
     this.userRepository = dependencies.userRepository;
     this.dataSource = dependencies.dataSource;
-    this.openAIService = dependencies.openAIService;
     this.emailService = dependencies.emailService;
     if (!process.env.JWT_SECRET || !process.env.REFRESH_SECRET) {
       throw new Error(
@@ -79,73 +74,6 @@ export class AuthService {
     this.refreshSecret = process.env.REFRESH_SECRET;
     this.accessTokenExpiry = "1h";
     this.refreshTokenExpiry = "7d";
-  }
-
-  /**
-   * Check if content is appropriate using OpenAI
-   */
-  private async isContentAppropriate(content: string): Promise<boolean> {
-    try {
-      const response = await this.openAIService.executeChatCompletion({
-        model: OpenAIModel.GPT4OMini,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a content moderator. Determine if the given content is appropriate for a family-friendly event discovery app. Consider:\n" +
-              "1. No profanity or offensive language\n" +
-              "2. No hate speech or discriminatory content\n" +
-              "3. No inappropriate sexual content\n" +
-              "4. No violent or threatening content\n" +
-              "5. No spam or misleading content\n\n" +
-              "Respond with only 'APPROPRIATE' or 'INAPPROPRIATE'.",
-          },
-          {
-            role: "user",
-            content: `Evaluate this content: "${content}"`,
-          },
-        ],
-        max_tokens: 10,
-        temperature: 0,
-      });
-
-      const result = response.choices[0]?.message?.content?.trim();
-      return result === "APPROPRIATE";
-    } catch (error) {
-      console.error("Error checking content appropriateness:", error);
-      // Default to allowing content if moderation fails
-      return true;
-    }
-  }
-
-  /**
-   * Validate names for appropriateness
-   */
-  private async validateNames(
-    firstName?: string,
-    lastName?: string,
-  ): Promise<void> {
-    const namesToValidate: string[] = [];
-
-    if (firstName?.trim()) {
-      namesToValidate.push(firstName.trim());
-    }
-
-    if (lastName?.trim()) {
-      namesToValidate.push(lastName.trim());
-    }
-
-    if (namesToValidate.length === 0) {
-      return; // No names to validate
-    }
-
-    // Check each name individually
-    for (const name of namesToValidate) {
-      const isAppropriate = await this.isContentAppropriate(name);
-      if (!isAppropriate) {
-        throw new Error(`Name "${name}" contains inappropriate content`);
-      }
-    }
   }
 
   /**
@@ -160,9 +88,6 @@ export class AuthService {
     if (existingUser) {
       throw new Error("User with this email already exists");
     }
-
-    // Validate names for appropriateness
-    await this.validateNames(userData.firstName, userData.lastName);
 
     // Hash password
     const saltRounds = 10;
@@ -446,11 +371,8 @@ export class AuthService {
     // Note: userData.id is already excluded by UserUpdate type
     delete userData.email; // Email changes should have their own flow with verification
 
-    // Validate names for appropriateness if they're being updated
+    // Trim names if they're being updated
     if (userData.firstName !== undefined || userData.lastName !== undefined) {
-      await this.validateNames(userData.firstName, userData.lastName);
-
-      // Trim names if they're being updated
       if (userData.firstName !== undefined) {
         userData.firstName = userData.firstName?.trim();
       }

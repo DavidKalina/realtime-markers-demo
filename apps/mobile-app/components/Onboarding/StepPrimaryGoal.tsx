@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, TouchableWithoutFeedback, View } from "react-native";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { NextButton, useTypewriter, GREEN_ACCENT } from "./shared";
 import { fontFamily, fontWeight, radius, spacing, useColors, type Colors } from "@/theme";
@@ -30,53 +30,62 @@ export function StepPrimaryGoal({
   const canProceed = primaryGoal.trim().length > 0;
 
   return (
-    <View style={s.container}>
-      {onBack && (
-        <Pressable onPress={onBack} style={s.backButton} hitSlop={12}>
-          <Text style={[s.backText, { color: colors.text.secondary }]}>{"\u2190"} back</Text>
-        </Pressable>
-      )}
-
-      <View style={s.content}>
-        <View style={s.promptWrap}>
-          <Text style={s.promptText}>
-            {prompt}
-            {!promptDone && showCursor && <Text style={s.cursor}>{"\u2588"}</Text>}
-          </Text>
-          {promptDone && (
-            <Animated.View entering={FadeIn.delay(150).duration(350)}>
-              <Text style={[s.promptSub, { color: colors.text.secondary }]}>
-                This can be anything {"\u2014"} become a comedian, overcome social anxiety, learn to cook, run a marathon...
-              </Text>
-            </Animated.View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={s.container}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={s.container}>
+          {onBack && (
+            <Pressable onPress={onBack} style={s.backButton} hitSlop={12}>
+              <Text style={[s.backText, { color: colors.text.secondary }]}>{"\u2190"} back</Text>
+            </Pressable>
           )}
+
+          <View style={s.content}>
+            <View style={s.promptWrap}>
+              <Text style={s.promptText}>
+                {prompt}
+                {!promptDone && showCursor && <Text style={s.cursor}>{"\u2588"}</Text>}
+              </Text>
+              {promptDone && (
+                <Animated.View entering={FadeIn.delay(150).duration(350)}>
+                  <Text style={[s.promptSub, { color: colors.text.secondary }]}>
+                    This can be anything {"\u2014"} become a comedian, overcome social anxiety, learn to cook, run a marathon...
+                  </Text>
+                </Animated.View>
+              )}
+            </View>
+
+            {promptDone && (
+              <Animated.View entering={FadeIn.delay(300).duration(400)} style={s.inputWrap}>
+                <Text style={s.inputPrompt}>{"\u276F"}</Text>
+                <TextInput
+                  style={[s.input, { color: colors.text.primary }]}
+                  placeholder={"type your goal..."}
+                  placeholderTextColor={"rgba(255, 255, 255, 0.2)"}
+                  value={primaryGoal}
+                  onChangeText={setPrimaryGoal}
+                  maxLength={500}
+                  multiline
+                  autoFocus
+                  blurOnSubmit
+                  returnKeyType="done"
+                />
+              </Animated.View>
+            )}
+          </View>
+
+          <View style={s.bottom}>
+            {promptDone && (
+              <Animated.View entering={FadeInUp.delay(400).duration(250).springify().damping(28).stiffness(400)}>
+                <NextButton onPress={onNext} disabled={!canProceed} />
+              </Animated.View>
+            )}
+          </View>
         </View>
-
-        {promptDone && (
-          <Animated.View entering={FadeIn.delay(300).duration(400)} style={s.inputWrap}>
-            <Text style={s.inputPrompt}>{"\u276F"}</Text>
-            <TextInput
-              style={[s.input, { color: colors.text.primary }]}
-              placeholder={"type your goal..."}
-              placeholderTextColor={"rgba(255, 255, 255, 0.2)"}
-              value={primaryGoal}
-              onChangeText={setPrimaryGoal}
-              maxLength={500}
-              multiline
-              autoFocus
-            />
-          </Animated.View>
-        )}
-      </View>
-
-      <View style={s.bottom}>
-        {promptDone && (
-          <Animated.View entering={FadeInUp.delay(400).duration(250).springify().damping(28).stiffness(400)}>
-            <NextButton onPress={onNext} disabled={!canProceed} />
-          </Animated.View>
-        )}
-      </View>
-    </View>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
 
