@@ -263,6 +263,7 @@ function parseArgs() {
   let skipProfile = false;
   let skipFearLadder = false;
   let model = "";
+  let strategy = "";
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -276,6 +277,7 @@ function parseArgs() {
       case "--skip-profile": skipProfile = true; break;
       case "--skip-fear-ladder": skipFearLadder = true; break;
       case "--model": model = args[++i]; break;
+      case "--strategy": strategy = args[++i]; break;
       case "--help":
         console.log(`
 Live Sidequest Simulator — Real LLM prescriptions via backend API
@@ -293,6 +295,7 @@ Options:
   --skip-profile         Use existing user profile instead of applying persona
   --skip-fear-ladder     Skip fear ladder generation (use existing or none)
   --model <model>        Override prescription model (e.g. gpt-5.4-nano, gpt-5.4-mini, gpt-5.4)
+  --strategy <name>      Prescription strategy: "monolithic" or "multi-agent"
 
 Examples:
   npx tsx apps/backend/scripts/simulate-live.ts --goal "become a stand-up comedian" --quests 10
@@ -305,7 +308,7 @@ Estimated cost: ~$0.02-0.05 per quest (GPT-5.4-nano + Google Places)
     }
   }
 
-  return { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model };
+  return { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model, strategy };
 }
 
 /**
@@ -629,7 +632,7 @@ function scoreFearLadder(
 // ── Main ─────────────────────────────────────────────────────
 
 async function main() {
-  const { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model: simModel } = parseArgs();
+  const { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model: simModel, strategy: simStrategy } = parseArgs();
 
   let persona: LivePersona | undefined;
 
@@ -656,6 +659,7 @@ async function main() {
   console.log(`  User:     ${email}`);
   console.log(`  Quests:   ${questCount}`);
   console.log(`  Model:    ${simModel || "(default)"}`);
+  console.log(`  Strategy: ${simStrategy || "(default)"}`);
   console.log(`  Est cost: $${(questCount * 0.035).toFixed(2)}`);
   console.log();
 
@@ -825,6 +829,7 @@ async function main() {
       latitude: simLat,
       longitude: simLng,
       ...(simModel && { model: simModel }),
+      ...(simStrategy && { strategy: simStrategy }),
     });
 
     if (prescribeRes.status !== 202) {

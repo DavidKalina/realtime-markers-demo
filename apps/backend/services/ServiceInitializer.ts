@@ -169,6 +169,7 @@ export class ServiceInitializer {
       pathwayService,
       prescriptionModel: process.env.PRESCRIPTION_MODEL || undefined,
       promptVersion: process.env.PRESCRIPTION_PROMPT_VERSION || undefined,
+      prescriptionStrategy: (process.env.PRESCRIPTION_STRATEGY as "monolithic" | "multi-agent") || undefined,
     });
 
     const pushNotificationService = createPushNotificationService({

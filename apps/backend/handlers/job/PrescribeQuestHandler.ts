@@ -31,12 +31,13 @@ export class PrescribeQuestHandler extends BaseJobHandler {
     });
 
     try {
-      const { userId, latitude, longitude, timezone, model } = job.data as {
+      const { userId, latitude, longitude, timezone, model, strategy } = job.data as {
         userId: string;
         latitude: number;
         longitude: number;
         timezone?: string;
         model?: string;
+        strategy?: "monolithic" | "multi-agent";
       };
 
       await tracker.step("generate");
@@ -47,7 +48,7 @@ export class PrescribeQuestHandler extends BaseJobHandler {
 
       const sidequest = await this.sidequestPrescriptionService.prescribeQuest(
         userId,
-        { latitude, longitude, timezone, model },
+        { latitude, longitude, timezone, model, strategy },
         onProgress,
       );
 

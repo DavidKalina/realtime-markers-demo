@@ -28,6 +28,8 @@ import {
   type PrescriptionPromptRegistry,
   type PrescriptionPromptContext,
 } from "./prompts/PrescriptionPromptRegistry";
+import { MultiAgentStrategy } from "./prescription/MultiAgentStrategy";
+import type { PrescriptionStrategyInput } from "./prescription/PrescriptionStrategy";
 
 export type SidequestProgressCallback = (
   progress: number,
@@ -41,6 +43,8 @@ export interface PrescribeQuestInput {
   timezone?: string;
   /** Override the model for this specific prescription (e.g. "gpt-5.4", "gpt-5.4-mini") */
   model?: string;
+  /** Override the strategy for this specific prescription */
+  strategy?: "monolithic" | "multi-agent";
 }
 
 export interface SiblingContext {
@@ -167,6 +171,8 @@ interface SidequestPrescriptionServiceDeps {
   promptVersion?: string;
   /** Model to use for quest prescription. Defaults to GPT54Mini. */
   prescriptionModel?: string;
+  /** Strategy: "monolithic" (single agent) or "multi-agent" (4-agent pipeline) */
+  prescriptionStrategy?: "monolithic" | "multi-agent";
 }
 
 // ─── Fear Ladder Readiness ──────────────────────────────────────────
@@ -211,6 +217,8 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
   private promptRegistry: PrescriptionPromptRegistry;
   private promptVersion: string;
   private prescriptionModel?: string;
+  private multiAgentStrategy?: MultiAgentStrategy;
+  private defaultStrategy: "monolithic" | "multi-agent";
 
   constructor(deps: SidequestPrescriptionServiceDeps) {
     this.dataSource = deps.dataSource;
@@ -227,6 +235,18 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
     this.promptRegistry = deps.promptRegistry ?? createPrescriptionPromptRegistry();
     this.promptVersion = deps.promptVersion ?? "v1-default";
     this.prescriptionModel = deps.prescriptionModel;
+    this.defaultStrategy = deps.prescriptionStrategy ?? "monolithic";
+
+    if (this.defaultStrategy === "multi-agent" || true) {
+      // Always instantiate so per-request switching works
+      this.multiAgentStrategy = new MultiAgentStrategy({
+        openAIService: deps.openAIService,
+        agent: this.agent,
+        geocodingService: deps.geocodingService,
+        overpassService: deps.overpassService,
+        promptRegistry: this.promptRegistry,
+      });
+    }
   }
 
   // ─── Public Method ──────────────────────────────────────────────
@@ -413,9 +433,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
 
     try {
       // 5. Generate via agent
-      const allVenues: VerifiedVenue[] = [];
       const seenVenueIds = new Set<string>();
-      const allTrails: Trail[] = [];
       const seenTrailIds = new Set<number>();
 
       const now = new Date();
@@ -452,6 +470,35 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         siblingContext: siblingContext ?? null,
       };
 
+      // ── Strategy selection ──────────────────────────────────
+      const useStrategy = input.strategy ?? this.defaultStrategy;
+
+      let agentRaw: LLMResponseRaw;
+      let allVenues: VerifiedVenue[];
+      let allTrails: Trail[];
+
+      if (useStrategy === "multi-agent" && this.multiAgentStrategy) {
+        // Multi-agent pipeline
+        const strategyInput: PrescriptionStrategyInput = {
+          promptContext: promptCtx,
+          promptVersion: this.promptVersion,
+          city,
+          searchLat,
+          searchLng,
+          radius,
+          prescriptionModel: this.prescriptionModel,
+          inputModelOverride: input.model,
+          onProgress,
+        };
+
+        const strategyResult = await this.multiAgentStrategy.execute(strategyInput);
+        agentRaw = strategyResult.raw as unknown as LLMResponseRaw;
+        allVenues = strategyResult.allVenues;
+        allTrails = strategyResult.allTrails;
+      } else {
+      // ── Monolithic strategy (existing single-agent flow) ──
+      allVenues = [];
+      allTrails = [];
       const promptOutput = this.promptRegistry.build(this.promptVersion, promptCtx);
       const instructions = promptOutput.instructions;
 
@@ -776,7 +823,10 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         await onProgress(80, "Building your quest...");
       }
 
-      const llmResult = expandLLMResponse(agentResult.result);
+      agentRaw = agentResult.result;
+      } // end monolithic else
+
+      const llmResult = expandLLMResponse(agentRaw);
 
       // Validate and enrich objectives
       const cityCenter = { lat: homeLat, lng: homeLng };
