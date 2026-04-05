@@ -481,9 +481,9 @@ CONSTRAINTS:
 - hook: why THIS spot expands their world (1 sentence).
 - sa (suggested activities): 3-4 things they could do at this spot. Each should start with an emoji. Keep it casual and short. Example: ["🚶 Walk the loop", "📖 Bring a book", "📸 Snap a photo", "☕ Grab a drink"]. Not assignments — just ideas.
 - jp (journal prompt): a reflective question for after the visit. Short, open-ended. Examples: "How did it feel being somewhere new?", "Would you come back?", "What surprised you?"
-- df (difficulty): 1-5 integer. 1 = very easy (familiar, close, low effort), 3 = moderate stretch, 5 = big push. Based on distance from home relative to their comfort radius, category familiarity, and social demands of the venue.
+- df (difficulty): 1-10 integer. Judge this based on how challenging THIS specific quest would be for THIS specific user given their profile, fears, history, and current growth phase. Consider distance from home, category familiarity, social demands of the venue, and how far outside their comfort zone this pushes them. 1 = trivially easy, 3 = comfortable, 5 = moderate stretch, 7 = significant challenge, 10 = maximum push.
 - act (actionability): "actionable" if you can provide concrete next steps (signup links, phone numbers, event times, step-by-step instructions), "suggestive" for general exploration (go check this place out), "milestone" for reflection checkpoints.${comfortProfile?.primaryGoal ? " This user has a specific goal — prefer actionable." : ""}
-- df (difficulty): MUST be ${this.computeTargetDifficulty(pace, fearLadderReadiness, isStretch)}. Do NOT default to difficulty 1-2 unless the target explicitly says so.
+${this.buildDifficultyGuidance(pace, fearLadderReadiness, isStretch)}
 ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — focus on 24-hour spots, scenic night walks/viewpoints, or a "plan for tomorrow morning" quest.` : ""}`;
 
       type Tool = import("openai/resources/responses/responses").Tool;
@@ -571,7 +571,7 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — focus on 24-hour sp
                     vc: {
                       type: "string",
                       description:
-                        "Category: cafe|trail|park|restaurant|bar|museum|gallery|market|venue|attraction|other",
+                        "Venue category — use a specific, descriptive label (e.g. coffee_shop, hiking_trail, brewery, dance_studio, game_cafe, makerspace, climbing_gym, cooking_class, book_club, open_mic, farmers_market, coworking_space, dog_park, pottery_studio, etc). Be specific — 'dance_studio' not 'venue', 'game_cafe' not 'other'.",
                     },
                     hook: {
                       type: "string",
@@ -591,7 +591,7 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — focus on 24-hour sp
                     df: {
                       type: "number",
                       description:
-                        "Difficulty 1-5. 1=very easy, 3=moderate stretch, 5=big push",
+                        "Difficulty 1-10. 1=trivially easy, 3=comfortable, 5=moderate stretch, 7=significant challenge, 10=maximum push",
                     },
                     act: {
                       type: "string",
@@ -754,7 +754,7 @@ ${hour >= 22 || hour < 6 ? `\nLATE-NIGHT MODE: It's late — focus on 24-hour sp
 
           // Validate trail stops
           const trailItems = (questData.items || []).filter(
-            (item) => item.vc === "trail",
+            (item) => item.vc && /trail|hike|hiking/i.test(item.vc),
           );
           for (const item of trailItems) {
             const itemName = (item.vn || "").toLowerCase().trim();
@@ -986,7 +986,7 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
       await Promise.all(
         items.map(async (item) => {
           // Trail items: match against OSM trail data
-          if (item.venueCategory === "trail" && item.venueName) {
+          if (item.venueCategory && /trail|hike|hiking/i.test(item.venueCategory) && item.venueName) {
             const matchedTrail = trailByName.get(item.venueName.toLowerCase());
             if (matchedTrail) {
               return {
@@ -1218,13 +1218,13 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
     }
 
     // 4. Find entry points for trails, parks, and attractions
-    const entryPointCategories = ["trail", "park", "attraction"];
+    const entryPointPattern = /trail|park|hike|hiking|nature|scenic|outdoor|attraction/i;
     const objectivesNeedingEntryPoints = sortedObjectives.filter(
       (obj) =>
         obj.latitude != null &&
         obj.longitude != null &&
         obj.venueCategory &&
-        entryPointCategories.includes(obj.venueCategory),
+        entryPointPattern.test(obj.venueCategory),
     );
 
     if (objectivesNeedingEntryPoints.length > 0) {
@@ -1649,10 +1649,8 @@ ${await this.buildSocialContext(userId, goalTags)}`;
 
     // Suggest untried categories
     const tried = new Set(categories.map((c) => c.venue_category));
-    const allCategories = ["cafe", "trail", "park", "restaurant", "bar", "museum", "gallery", "market", "venue", "attraction"];
-    const untried = allCategories.filter((c) => !tried.has(c));
-    if (untried.length > 0) {
-      lines.push(`UNTRIED CATEGORIES: ${untried.join(", ")} — prioritize exploring these.`);
+    if (tried.size < 6) {
+      lines.push(`Only ${tried.size} category types explored so far. Prioritize trying a completely new type of venue or activity they haven't done before.`);
     }
 
     return lines.join("\n");
@@ -1696,23 +1694,29 @@ ${await this.buildSocialContext(userId, goalTags)}`;
       const isHighResonance = v.avg_rating >= 4;
       const isLowResonance = v.avg_rating < 3;
 
-      if (v.visit_count >= 4 && isLowResonance) {
-        // Lazy repeat — block it
+      if (v.visit_count >= 3 && isLowResonance) {
+        // Lazy repeat — hard block
         lines.push(
           `⚠️ "${v.venue_name}" (${v.venue_category}) — ${v.visit_count} visits, avg rating ${v.avg_rating}. ` +
-          `This is a low-resonance repeat. DO NOT send them here again. Find a different ${v.venue_category} or a new category entirely.`,
+          `DO NOT send them here again. Find somewhere new.`,
         );
-      } else if (v.visit_count >= 3 && !isHighResonance) {
+      } else if (v.visit_count >= 4) {
+        // Too many visits regardless of rating — hard block to force exploration
+        lines.push(
+          `⚠️ "${v.venue_name}" (${v.venue_category}) — ${v.visit_count} visits. ` +
+          `DO NOT prescribe this venue — they need to explore new places, not revisit the same ones. Find a different venue.`,
+        );
+      } else if (v.visit_count >= 2 && !isHighResonance) {
         // Mediocre repeat — discourage
         lines.push(
           `"${v.venue_name}" (${v.venue_category}) — ${v.visit_count} visits, avg rating ${v.avg_rating}. ` +
-          `Becoming repetitive without strong signal. Prefer a different venue this time.`,
+          `Becoming repetitive. Prefer a different venue this time.`,
         );
       } else if (v.visit_count >= 3 && isHighResonance) {
         // Genuine anchor — allow but throttle
         lines.push(
           `"${v.venue_name}" (${v.venue_category}) — ${v.visit_count} visits, avg rating ${v.avg_rating}. ` +
-          `This is a high-value anchor for the user. They can return occasionally, but alternate with new venues to keep expanding.`,
+          `This is a valued spot, but alternate with new venues to keep expanding.`,
         );
       }
     }
@@ -2092,43 +2096,33 @@ ${await this.buildSocialContext(userId, goalTags)}`;
   }
 
   /**
-   * Compute target difficulty from resonance feedback, not arbitrary quest counts.
-   * If recent quests at current difficulty had high resonance → bump up.
-   * If recent quests had low ratings/negative sentiment → hold or pull back.
+   * Build difficulty guidance for the LLM instead of dictating a specific number.
+   * The LLM should judge difficulty based on the actual quest relative to the user's profile.
    */
-  private computeTargetDifficulty(pace: string, readiness: FearLadderReadiness, isStretch = false): string {
-    const baseDifficulty: Record<string, number> = { gentle: 1, steady: 2, push_me: 3 };
-    const base = baseDifficulty[pace] ?? 1.5;
-
-    // Resonance-driven escalation: each phase adds ~0.5-1.0 to difficulty
-    // Phase 0: base difficulty (gentle=1, steady=2, push_me=3)
-    // Phase 1: +0.5 (responding well)
-    // Phase 2: +1.0 (growing)
-    // Phase 3: +1.5-2.0 (thriving)
-    const phaseBoost = [0, 0.5, 1.0, 1.5][readiness.phase];
-
-    // Additional boost if recent resonance is high at current difficulty
-    const resonanceBoost = readiness.recentResonance >= 0.6 ? 0.5 : 0;
-
-    // Stretch quests push ~1.5 levels above normal target
-    const stretchBoost = isStretch ? 1.5 : 0;
-
-    const target = Math.min(5, base + phaseBoost + resonanceBoost + stretchBoost);
-    const rounded = Math.round(target * 2) / 2;
-
+  private buildDifficultyGuidance(pace: string, readiness: FearLadderReadiness, isStretch = false): string {
     if (isStretch) {
-      return `~${rounded} (STRETCH GOAL — this is the ambitious card. Push beyond their current level)`;
+      return `- DIFFICULTY GUIDANCE: This is a STRETCH quest. Pick something that genuinely pushes them — aim for difficulty 6-9. They've earned this challenge.`;
     }
 
-    const reason = readiness.phase === 0
-      ? "early phase — keep it approachable, easy wins build momentum"
-      : readiness.phase === 1
-      ? "building confidence — gentle stretches are landing well"
-      : readiness.phase === 2
-      ? "showing real growth — push toward meaningful challenges"
-      : "thriving — lean into growth edges";
+    if (readiness.phase === 0) {
+      return `- DIFFICULTY GUIDANCE: They're just starting out. Keep it easy and approachable — aim for difficulty 1-3. Easy wins build momentum.`;
+    }
 
-    return `~${rounded} (${reason})`;
+    if (readiness.phase === 1) {
+      return `- DIFFICULTY GUIDANCE: They're building confidence. Gentle stretches are landing well — aim for difficulty 2-4. Nudge them, don't push.`;
+    }
+
+    if (readiness.phase === 2) {
+      return `- DIFFICULTY GUIDANCE: They're showing real growth. Push toward meaningful challenges — aim for difficulty 3-6. They can handle more than they think.`;
+    }
+
+    // Phase 3 — thriving
+    const questCount = readiness.completedQuests;
+    if (questCount >= 40) {
+      return `- DIFFICULTY GUIDANCE: Veteran explorer — ${questCount} quests completed, thriving. The full 1-10 range is open. Match difficulty to the actual challenge of the quest for THIS person. Don't hold back if the quest warrants it.`;
+    }
+
+    return `- DIFFICULTY GUIDANCE: They're thriving. Lean into growth edges — aim for difficulty 4-8. Use your judgment based on the specific venue and activity.`;
   }
 
   // ─── Sibling Context for Weekly Packs ─────────────────────────��
@@ -2153,7 +2147,7 @@ ${await this.buildSocialContext(userId, goalTags)}`;
         `- ROLE: STRETCH GOAL. This quest is an optional accelerator — it should push BEYOND the user's current comfort zone.`,
         `  This card exists so the user always has a way to leap ahead if they're feeling brave.`,
         `  Push on MULTIPLE dimensions simultaneously: further distance AND unfamiliar category AND higher social/novelty challenge.`,
-        `  Target difficulty should be ~1.5 levels ABOVE what you'd normally prescribe for this user.`,
+        `  Target difficulty should be significantly above their usual range — this is the card that pushes boundaries.`,
         `  Search further out — aim for 1.5-2x the user's current comfort radius.`,
         `  Pick venues or activities that would be a genuine stretch: a new neighborhood, a category they haven't tried, a social element they'd normally avoid.`,
         `  The quest should feel ambitious but NOT impossible — exciting, not terrifying.`,

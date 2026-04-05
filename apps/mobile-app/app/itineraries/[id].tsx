@@ -543,11 +543,12 @@ const ItineraryDetailScreen = () => {
             style={styles.statsBlock}
           >
             {(() => {
-              const diff = Math.min(Number(objectives[0]?.difficulty ?? 1), 5);
+              const diff = Math.min(Number(objectives[0]?.difficulty ?? 1), 10);
               const dist = itinerary.distanceFromHome != null ? Number(itinerary.distanceFromHome) : null;
               const distNorm = dist != null ? Math.min(dist / 10, 1) : 0;
               const costNorm = totalCost > 0 ? Math.min(totalCost / 50, 1) : 0;
-              const diffBar = "\u2588".repeat(diff * 4) + "\u2591".repeat(20 - diff * 4);
+              const diffFill = Math.round((diff / 10) * 20);
+              const diffBar = "\u2588".repeat(diffFill) + "\u2591".repeat(20 - diffFill);
               const distBar = "\u2588".repeat(Math.round(distNorm * 20)) + "\u2591".repeat(20 - Math.round(distNorm * 20));
               const costBar = "\u2588".repeat(Math.round(costNorm * 20)) + "\u2591".repeat(20 - Math.round(costNorm * 20));
               return (
@@ -555,7 +556,7 @@ const ItineraryDetailScreen = () => {
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>Difficulty</Text>
                     <Text style={[styles.statBar, { color: accentHex }]}>{diffBar}</Text>
-                    <Text style={[styles.statValue, { color: accentHex }]}>{diff}/5</Text>
+                    <Text style={[styles.statValue, { color: accentHex }]}>{diff}/10</Text>
                   </View>
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>Distance</Text>

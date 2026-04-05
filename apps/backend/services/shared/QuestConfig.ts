@@ -144,7 +144,7 @@ export const DEFAULT_QUEST_CONFIG: QuestConfig = {
     },
     journalMaxChars: 500,
     speedMaxHours: 168,
-    idealDifficultyByPace: { gentle: 1.5, steady: 2.5, push_me: 4.0 },
+    idealDifficultyByPace: { gentle: 3, steady: 5, push_me: 7 },
   },
 
   phaseDetection: {

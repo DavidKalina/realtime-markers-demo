@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ChevronDown, ChevronUp, LogOut, MapPin, RotateCcw } from "lucide-react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { router } from "expo-router";
-import AdventurePreferences from "./AdventurePreferences";
 import DeleteAccountModal from "./DeleteAccountModal";
 import {
   fontFamily,
@@ -79,12 +78,6 @@ export function SettingsSection({
             <Text style={s.label}>ACCOUNT</Text>
             <Text style={s.value}>{email}</Text>
             {bio && <Text style={s.bio}>{bio}</Text>}
-          </View>
-
-          {/* Preferences */}
-          <View style={s.section}>
-            <Text style={s.label}>PREFERENCES</Text>
-            <AdventurePreferences />
           </View>
 
           {/* Home base */}

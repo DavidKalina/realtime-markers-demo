@@ -460,14 +460,14 @@ async function rateFearLadderAsPersona(
 - Current comfort zone: ${persona.comfortZone}
 - Pace preference: ${persona.pace}
 
-Rate each scenario on how scary/challenging it would be for this person on a scale of 1-5:
-1 = Not scary at all
-2 = A little scary
-3 = Moderate
-4 = Scary
-5 = Terrifying
+Rate each scenario on how scary/challenging it would be for this person on a scale of 1-10:
+1-2 = Not scary at all
+3-4 = A little scary
+5-6 = Moderate
+7-8 = Scary
+9-10 = Terrifying
 
-Respond with a JSON object where keys are scenario IDs and values are integer ratings 1-5.
+Respond with a JSON object where keys are scenario IDs and values are integer ratings 1-10.
 Be consistent with the persona — a gentle/anxious person should rate things higher, a push_me/adventurous person should rate things lower.`,
     `Rate these fear ladder scenarios:\n\n${scenarioList}\n\nRespond with JSON: { "scenario_id": rating, ... }`,
     400,
@@ -476,9 +476,9 @@ Be consistent with the persona — a gentle/anxious person should rate things hi
   if (!result || typeof result !== "object") {
     // Fallback: generate ratings based on persona pace
     const fallback: Record<string, number> = {};
-    const baseRating = persona.pace === "gentle" ? 3.5 : persona.pace === "push_me" ? 2.0 : 2.8;
+    const baseRating = persona.pace === "gentle" ? 7 : persona.pace === "push_me" ? 3 : 5;
     for (const s of scenarios) {
-      fallback[s.id] = Math.max(1, Math.min(5, Math.round(baseRating + (Math.random() - 0.5) * 2)));
+      fallback[s.id] = Math.max(1, Math.min(10, Math.round(baseRating + (Math.random() - 0.5) * 4)));
     }
     return fallback;
   }
@@ -487,7 +487,7 @@ Be consistent with the persona — a gentle/anxious person should rate things hi
   const ratings: Record<string, number> = {};
   for (const s of scenarios) {
     const raw = result[s.id];
-    ratings[s.id] = typeof raw === "number" ? Math.max(1, Math.min(5, Math.round(raw))) : 3;
+    ratings[s.id] = typeof raw === "number" ? Math.max(1, Math.min(10, Math.round(raw))) : 5;
   }
   return ratings;
 }
@@ -518,12 +518,12 @@ Before going on a quest, predict how you think it will go. Be honest and in-char
 - Title: "${questTitle}"
 - Venue: ${venueName} (${venueCategory})
 - Hook: ${hook}
-- Assigned difficulty: ${difficulty}/5
+- Assigned difficulty: ${difficulty}/10
 
 Respond with JSON:
 {
-  "anxiety": <1-5 integer, how anxious you feel about this>,
-  "difficulty": <1-5 integer, how hard you think it will be>,
+  "anxiety": <1-10 integer, how anxious you feel about this>,
+  "difficulty": <1-10 integer, how hard you think it will be>,
   "outcome": "<1-2 sentences predicting what will happen>"
 }`,
     200,
@@ -532,8 +532,8 @@ Respond with JSON:
   if (!result) return null;
 
   return {
-    anxiety: typeof result.anxiety === "number" ? Math.max(1, Math.min(5, Math.round(result.anxiety))) : 3,
-    difficulty: typeof result.difficulty === "number" ? Math.max(1, Math.min(5, Math.round(result.difficulty))) : 3,
+    anxiety: typeof result.anxiety === "number" ? Math.max(1, Math.min(10, Math.round(result.anxiety))) : 5,
+    difficulty: typeof result.difficulty === "number" ? Math.max(1, Math.min(10, Math.round(result.difficulty))) : 5,
     outcome: typeof result.outcome === "string" ? result.outcome.slice(0, 500) : "Not sure what to expect.",
   };
 }
@@ -598,7 +598,7 @@ function scoreFearLadder(
     return { overallScore: 0.5, dimensionScores: defaultScores, derivedPace: "steady" };
   }
 
-  const dimMean = (answered.reduce((acc, s) => acc + responses[s.id], 0) / answered.length - 1) / 4;
+  const dimMean = (answered.reduce((acc, s) => acc + responses[s.id], 0) / answered.length - 1) / 9;
   const dimensionScores: Record<string, number> = {};
   for (const dim of dimensions) {
     const dimScenarios = answered.filter((s) => s.dimension === dim);
@@ -606,13 +606,13 @@ function scoreFearLadder(
       dimensionScores[dim] = dimMean;
     } else {
       const dimSum = dimScenarios.reduce((acc, s) => acc + responses[s.id], 0);
-      dimensionScores[dim] = (dimSum / dimScenarios.length - 1) / 4;
+      dimensionScores[dim] = (dimSum / dimScenarios.length - 1) / 9;
     }
   }
 
   const sorted = answered.map((s) => responses[s.id]).sort((a, b) => a - b);
   const p75Index = Math.min(Math.ceil(sorted.length * 0.75) - 1, sorted.length - 1);
-  const p75 = (sorted[p75Index] - 1) / 4;
+  const p75 = (sorted[p75Index] - 1) / 9;
   const overallScore = dimMean * 0.5 + p75 * 0.5;
 
   let derivedPace: string;
@@ -699,7 +699,7 @@ async function main() {
         console.log("  Ratings:");
         for (const s of generatedScenarios!) {
           const r = ratings[s.id] ?? 3;
-          const label = ["", "Not scary", "A little", "Moderate", "Scary", "Terrifying"][r];
+          const label = r <= 2 ? "Not scary" : r <= 4 ? "A little" : r <= 6 ? "Moderate" : r <= 8 ? "Scary" : "Terrifying";
           console.log(`    ${s.text.padEnd(55)} ${r}/5 (${label})`);
         }
 
@@ -883,8 +883,8 @@ async function main() {
       if (prediction) {
         predictedAnxiety = prediction.anxiety;
         predictedDifficulty = prediction.difficulty;
-        console.log(`│  Predicted anxiety: ${prediction.anxiety}/5`);
-        console.log(`│  Predicted difficulty: ${prediction.difficulty}/5`);
+        console.log(`│  Predicted anxiety: ${prediction.anxiety}/10`);
+        console.log(`│  Predicted difficulty: ${prediction.difficulty}/10`);
         console.log(`│  Expected outcome: "${prediction.outcome.slice(0, 70)}${prediction.outcome.length > 70 ? "..." : ""}"`);
 
         await api("PUT", `/api/sidequests/objectives/${obj.id}/prediction`, token, {

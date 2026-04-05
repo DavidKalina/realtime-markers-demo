@@ -565,7 +565,7 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
       // Positive = they thought it'd be scarier than it was
     }
 
-    // Difficulty delta: predicted difficulty vs assigned difficulty (both 1-5)
+    // Difficulty delta: predicted difficulty vs assigned difficulty (both 1-10)
     // If they predicted 4 and actual was 2, delta = +2 (overestimated)
     let difficultyDelta = 0;
     if (objective.predictedDifficulty != null && objective.difficulty != null) {

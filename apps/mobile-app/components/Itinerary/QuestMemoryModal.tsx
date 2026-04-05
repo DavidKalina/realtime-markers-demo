@@ -250,7 +250,7 @@ export function QuestMemoryModal({
               {obj.difficulty != null && (
                 <View style={s.chip}>
                   <Text style={s.chipText}>
-                    Difficulty {obj.difficulty}/5
+                    Difficulty {obj.difficulty}/10
                   </Text>
                 </View>
               )}

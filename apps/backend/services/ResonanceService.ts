@@ -231,8 +231,8 @@ function computeDifficultyAlignment(
 ): number {
   if (difficulty == null) return 0.5; // neutral if unknown
 
-  const ideal = idealByPace[pace] ?? 2.5;
-  return clamp(1 - Math.abs(difficulty - ideal) / 4, 0, 1);
+  const ideal = idealByPace[pace] ?? 5;
+  return clamp(1 - Math.abs(difficulty - ideal) / 9, 0, 1);
 }
 
 function clamp(v: number, min: number, max: number): number {
