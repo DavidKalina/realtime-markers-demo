@@ -235,7 +235,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
     this.promptRegistry = deps.promptRegistry ?? createPrescriptionPromptRegistry();
     this.promptVersion = deps.promptVersion ?? "v1-default";
     this.prescriptionModel = deps.prescriptionModel;
-    this.defaultStrategy = deps.prescriptionStrategy ?? "monolithic";
+    this.defaultStrategy = deps.prescriptionStrategy ?? "multi-agent";
 
     if (this.defaultStrategy === "multi-agent" || true) {
       // Always instantiate so per-request switching works

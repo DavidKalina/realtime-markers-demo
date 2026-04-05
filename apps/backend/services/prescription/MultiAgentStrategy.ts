@@ -147,8 +147,6 @@ ${ctx.expectancyContext}
 ${ctx.difficultyGuidance}
 
 ${ctx.historyContext}
-${ctx.coverageContext}
-${ctx.expansionTarget}
 
 GEOGRAPHIC INTELLIGENCE:
 You must think about WHERE this person should go, not just WHAT they should do. Consider:

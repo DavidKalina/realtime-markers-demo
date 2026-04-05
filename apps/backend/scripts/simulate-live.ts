@@ -158,7 +158,7 @@ const PERSONAS: Record<string, LivePersona> = {
 
 const SOCIAL_LADDER = ["solo", "with_someone", "met_someone_new", "group_activity"];
 
-const EMOTION_JOURNALS = [
+const POSITIVE_JOURNALS = [
   "I felt really comfortable here. The vibe was exactly what I needed today. I noticed I wasn't anxious at all.",
   "I was nervous at first but I ended up having a great time. I talked to someone at the counter and they were really friendly.",
   "I loved this place. I realized I've been avoiding spots like this for no good reason. I felt alive.",
@@ -173,6 +173,17 @@ const NEUTRAL_JOURNALS = [
   "Nice spot. Pretty chill.",
   "It was fine, nothing special but I'm glad I went.",
   "Decent experience. Might come back.",
+];
+
+const NEGATIVE_JOURNALS = [
+  "I don't know. It just felt pointless. I went, I sat there, I left.",
+  "This wasn't for me. I felt out of place the entire time.",
+  "I forced myself to go but I wanted to leave the whole time. I don't think this is helping.",
+  "Nobody talked to me. I just stood there feeling invisible. What's the point.",
+  "I felt more lonely there than I do at home. At least at home I'm comfortable.",
+  "Honestly I'm starting to wonder if this whole thing is a waste of time.",
+  "I went but I didn't feel anything. Just going through the motions.",
+  "The anxiety was bad today. I almost turned around in the parking lot.",
 ];
 
 // ── Seeded PRNG ──────────────────────────────────────────────
@@ -264,6 +275,7 @@ function parseArgs() {
   let skipFearLadder = false;
   let model = "";
   let strategy = "";
+  let ratingBiasOverride: number | null = null;
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -278,6 +290,7 @@ function parseArgs() {
       case "--skip-fear-ladder": skipFearLadder = true; break;
       case "--model": model = args[++i]; break;
       case "--strategy": strategy = args[++i]; break;
+      case "--rating-bias": ratingBiasOverride = parseFloat(args[++i]); break;
       case "--help":
         console.log(`
 Live Sidequest Simulator — Real LLM prescriptions via backend API
@@ -296,6 +309,7 @@ Options:
   --skip-fear-ladder     Skip fear ladder generation (use existing or none)
   --model <model>        Override prescription model (e.g. gpt-5.4-nano, gpt-5.4-mini, gpt-5.4)
   --strategy <name>      Prescription strategy: "monolithic" or "multi-agent"
+  --rating-bias <0-1>    Override rating bias (0.2 = mostly 1-2 stars, 0.5 = mixed, 0.8 = mostly 4-5)
 
 Examples:
   npx tsx apps/backend/scripts/simulate-live.ts --goal "become a stand-up comedian" --quests 10
@@ -308,7 +322,7 @@ Estimated cost: ~$0.02-0.05 per quest (GPT-5.4-nano + Google Places)
     }
   }
 
-  return { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model, strategy };
+  return { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model, strategy, ratingBiasOverride };
 }
 
 /**
@@ -562,10 +576,16 @@ function generateSocialContext(currentLevel: number, escalationRate: number, ran
   return SOCIAL_LADDER[currentLevel];
 }
 
-function generateJournal(probability: number, rand: () => number): string | null {
-  if (rand() > probability) return null;
-  if (rand() < 0.6) {
-    return EMOTION_JOURNALS[Math.floor(rand() * EMOTION_JOURNALS.length)];
+function generateJournal(probability: number, rating: number, rand: () => number): string | null {
+  // Low ratings → less likely to journal at all
+  const adjustedProb = rating <= 2 ? probability * 0.4 : rating <= 3 ? probability * 0.7 : probability;
+  if (rand() > adjustedProb) return null;
+
+  if (rating <= 2) {
+    return NEGATIVE_JOURNALS[Math.floor(rand() * NEGATIVE_JOURNALS.length)];
+  }
+  if (rating >= 4) {
+    return POSITIVE_JOURNALS[Math.floor(rand() * POSITIVE_JOURNALS.length)];
   }
   return NEUTRAL_JOURNALS[Math.floor(rand() * NEUTRAL_JOURNALS.length)];
 }
@@ -580,12 +600,18 @@ async function generateLLMJournal(
   questIndex: number,
   overallScore: number,
 ): Promise<string | null> {
-  const sentiment = rating >= 4 ? "positive and a bit surprised" : rating >= 3 ? "neutral, reflective" : "mixed, a bit uncomfortable";
+  const sentiment = rating >= 4
+    ? "positive and a bit surprised — this actually felt good"
+    : rating >= 3
+    ? "neutral, meh — it was fine but nothing special"
+    : rating === 2
+    ? "disappointed — it didn't click, felt out of place or bored"
+    : "bad — anxious, lonely, or frustrated. Questioning whether this is worth it";
   const socialDesc = socialContext === "solo" ? "went alone" : socialContext === "with_someone" ? "went with someone" : socialContext === "met_someone_new" ? "met someone new there" : "was in a group setting";
 
   return llmComplete(
-    `You are a person pursuing this goal: "${persona.primaryGoal}". Your fear/anxiety score is ${overallScore.toFixed(2)}/1.0. You're writing a short journal entry after completing quest #${questIndex + 1}.`,
-    `You visited "${venueName}" (a ${venueCategory}). The hook was: "${hook}". You ${socialDesc}. Your mood is ${sentiment}. Write 2-3 sentences in first person, casually. Be honest about how you felt — include any nervousness, growth, or surprise. Don't be overly positive or performative.`,
+    `You are a person pursuing this goal: "${persona.primaryGoal}". Your fear/anxiety score is ${overallScore.toFixed(2)}/1.0. You're writing a short journal entry after quest #${questIndex + 1}. You rated it ${rating}/5 stars.`,
+    `You visited "${venueName}" (a ${venueCategory}). The hook was: "${hook}". You ${socialDesc}. Your mood is ${sentiment}. Write 2-3 sentences in first person, casually. Be HONEST — if it sucked, say so. If you felt lonely or like it was pointless, say that. Don't sugarcoat. Match the ${rating}-star rating.`,
     150,
   );
 }
@@ -632,7 +658,7 @@ function scoreFearLadder(
 // ── Main ─────────────────────────────────────────────────────
 
 async function main() {
-  const { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model: simModel, strategy: simStrategy } = parseArgs();
+  const { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model: simModel, strategy: simStrategy, ratingBiasOverride } = parseArgs();
 
   let persona: LivePersona | undefined;
 
@@ -793,7 +819,7 @@ async function main() {
   // Resolve simulation parameters
   let simLat = persona?.homeLatitude ?? 0;
   let simLng = persona?.homeLongitude ?? 0;
-  let simRatingBias = persona?.ratingBias ?? 0.6;
+  let simRatingBias = ratingBiasOverride ?? persona?.ratingBias ?? 0.6;
   let simJournalProb = persona?.journalProbability ?? 0.5;
   let simSocialRate = persona?.socialEscalationRate ?? 0.2;
 
@@ -804,10 +830,14 @@ async function main() {
       simLng = profileRes.data.homeLongitude ?? simLng;
     }
     // Scale biases based on fear ladder
-    simRatingBias = 0.45 + (1 - simFearScore) * 0.3;
+    simRatingBias = ratingBiasOverride ?? 0.45 + (1 - simFearScore) * 0.3;
     simJournalProb = 0.4 + simFearScore * 0.4;
     simSocialRate = 0.05 + (1 - simFearScore) * 0.3;
     console.log(`  Fear score: ${simFearScore.toFixed(3)} → rating bias ${simRatingBias.toFixed(2)}, journal prob ${simJournalProb.toFixed(2)}, social rate ${simSocialRate.toFixed(2)}`);
+  }
+
+  if (ratingBiasOverride != null) {
+    console.log(`  ⚠️  Rating bias overridden to ${simRatingBias.toFixed(2)} (${simRatingBias <= 0.25 ? "mostly 1-2 stars" : simRatingBias <= 0.4 ? "mostly 2-3 stars" : "mixed"})`);
   }
 
   // Run simulation loop
@@ -920,9 +950,10 @@ async function main() {
     const socialContext = generateSocialContext(currentSocialLevel, simSocialRate, rand);
     const rating = generateRating(simRatingBias, rand);
 
-    // Generate journal
+    // Generate journal — probability drops with low ratings (unhappy users journal less)
+    const journalProb = rating <= 2 ? simJournalProb * 0.4 : rating <= 3 ? simJournalProb * 0.7 : simJournalProb;
     let journalEntry: string | null;
-    if (persona && process.env.OPENAI_API_KEY && rand() < simJournalProb) {
+    if (persona && process.env.OPENAI_API_KEY && rand() < journalProb) {
       journalEntry = await generateLLMJournal(
         persona,
         obj.venueName ?? "the venue",
@@ -934,7 +965,7 @@ async function main() {
         simFearScore,
       );
     } else {
-      journalEntry = generateJournal(simJournalProb, rand);
+      journalEntry = generateJournal(simJournalProb, rating, rand);
     }
 
     if (socialContext) {
