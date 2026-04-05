@@ -503,13 +503,13 @@ VENUE:
 - Category: ${venue.venueCategory}
 ${venue.notes ? `- Why chosen: ${venue.notes}` : ""}
 
-Respond with JSON:
+Respond with JSON. The "items" array must contain EXACTLY 1 stop — no more:
 {
   "t": "<title, 3-6 words, warm and encouraging>",
   "s": "<summary, 1-2 sentences framing why this quest matters for their growth>",
   "items": [{
     "t": "<stop title>",
-    "d": "<description — for actionable quests include URLs, phone numbers, event times>",
+    "d": "<2-3 sentences max. What to do — concrete and direct. No URLs or phone numbers here>",
     "e": "<emoji>",
     "ec": <estimated cost or null>,
     "vn": "${venue.venueName}",
@@ -517,7 +517,7 @@ Respond with JSON:
     "eid": null,
     "vc": "${venue.venueCategory}",
     "hook": "<why THIS spot expands their world — 1 sentence, make it feel personal>",
-    "sa": ["<3-4 emoji-prefixed activity ideas, casual and short>"],
+    "sa": ["<3-4 emoji-prefixed items — mix activity ideas with actionable links like '🔗 example.com/signup' or '📞 (555) 123-4567 — ask about classes'. URLs and phones go HERE>"],
     "jp": "<reflective journal prompt — short, open-ended, personal>",
     "df": <difficulty 1-10, judge based on THIS venue for THIS person>,
     "act": "<actionable|suggestive|milestone>"
@@ -544,7 +544,7 @@ Respond with JSON:
         s: brief.rationale,
         items: [{
           t: venue.venueName,
-          d: `Check out ${venue.venueName} at ${venue.venueAddress}`,
+          d: `Head to ${venue.venueName} and explore what catches your eye.`,
           e: "📍",
           ec: null,
           vn: venue.venueName,
@@ -579,6 +579,11 @@ Respond with JSON:
       } catch {
         throw new Error(`Writer produced unparseable JSON: ${text.slice(0, 200)}...`);
       }
+    }
+
+    // Enforce single stop (Writer LLM may return extras despite prompt constraint)
+    if ((parsed as any).items?.length > 1) {
+      (parsed as any).items = (parsed as any).items.slice(0, 1);
     }
 
     // Ensure the venue details are correct (Writer might drift)

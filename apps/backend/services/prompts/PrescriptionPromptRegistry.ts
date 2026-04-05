@@ -158,10 +158,10 @@ SEARCH STRATEGY:
 - Only fall back to generic exploration (cafes, parks) as recovery/reflection stops between goal-focused quests — at most 1 in 3 quests should be generic.
 ` : ""}
 ${comfortProfile?.primaryGoal ? `ACTIONABILITY RULES:
-- This user has a specific goal. MOST quests should be "actionable" — search the web for real signup links, event schedules, class registrations, or step-by-step instructions and include them in the description and suggested activities.
+- This user has a specific goal. MOST quests should be "actionable" — search the web for real signup links, event schedules, class registrations, or step-by-step instructions and include them in 'sa' items.
 - "suggestive" is for recovery/exploration quests with no specific next step beyond showing up. Use sparingly.
 - "milestone" is for reflection checkpoints — use when prompted by the MILESTONE CHECK instruction in the history context.
-- For "actionable" quests: include specific URLs, phone numbers, event dates/times, or registration steps in the description field.
+- For "actionable" quests: include specific URLs, phone numbers, event dates/times in 'sa' items — NOT in the description. Keep the description short (2-3 sentences, what to do).
 ` : ""}
 EXPANSION PHILOSOPHY:
 ${phaseContext || `- Breadth-first by default. ${comfortProfile?.primaryGoal ? "Explore different facets of their goal — venues, communities, skills, and resources that advance it." : "Push into unexplored directions until the user finds an area worth investing in."}\n- Only go deeper in an area if the user has ORGANICALLY revisited it (multiple visits, diverse categories). That's the signal they found their thread.`}
@@ -200,7 +200,7 @@ CONSTRAINTS:
 - Title: 3-6 words, encouraging and warm (not clinical).
 - Summary: 1-2 sentences framing why this quest matters for their growth.
 - hook: why THIS spot expands their world (1 sentence).
-- sa (suggested activities): 3-4 things they could do at this spot. Each should start with an emoji. Keep it casual and short. Example: ["🚶 Walk the loop", "📖 Bring a book", "📸 Snap a photo", "☕ Grab a drink"]. Not assignments — just ideas.
+- sa (suggested activities): 3-4 items, each starting with an emoji. Mix activity ideas and actionable links. Examples: ["🚶 Walk the loop", "📸 Snap a photo", "🔗 longmontcolorado.gov/rec-services", "📞 (303) 774-4800 — ask about beginner classes"]. Put URLs and phone numbers HERE, not in the description.
 - jp (journal prompt): a reflective question for after the visit. Short, open-ended. Examples: "How did it feel being somewhere new?", "Would you come back?", "What surprised you?"
 - df (difficulty): 1-10 integer. Judge this based on how challenging THIS specific quest would be for THIS specific user given their profile, fears, history, and current growth phase. Consider distance from home, category familiarity, social demands of the venue, and how far outside their comfort zone this pushes them. 1 = trivially easy, 3 = comfortable, 5 = moderate stretch, 7 = significant challenge, 10 = maximum push.
 - act (actionability): "actionable" if you can provide concrete next steps (signup links, phone numbers, event times, step-by-step instructions), "suggestive" for general exploration (go check this place out), "milestone" for reflection checkpoints.${comfortProfile?.primaryGoal ? " This user has a specific goal — prefer actionable." : ""}

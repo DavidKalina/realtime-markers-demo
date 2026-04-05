@@ -68,16 +68,24 @@ type SidequestCheckinEvent = BaseEvent & {
 // Detects URLs and phone numbers in text and makes them tappable.
 
 const URL_REGEX = /https?:\/\/[^\s,)]+/g;
+const BARE_URL_REGEX = /(?<![/@\w])(?:[a-z0-9-]+\.)+(?:com|org|net|gov|edu|io|co|app|dev|us|info)(?:\/[^\s,)]*)?/gi;
 const PHONE_REGEX = /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
 
 function LinkedText({ text, style }: { text: string; style: any }) {
   const parts: { text: string; type: "text" | "url" | "phone" }[] = [];
   let lastIndex = 0;
 
-  // Merge URL and phone matches, sorted by position
+  // Merge URL, bare URL, and phone matches, sorted by position
   const matches: { index: number; length: number; value: string; type: "url" | "phone" }[] = [];
+  const covered = new Set<number>();
   for (const m of text.matchAll(URL_REGEX)) {
     matches.push({ index: m.index!, length: m[0].length, value: m[0], type: "url" });
+    for (let j = m.index!; j < m.index! + m[0].length; j++) covered.add(j);
+  }
+  for (const m of text.matchAll(BARE_URL_REGEX)) {
+    if (!covered.has(m.index!)) {
+      matches.push({ index: m.index!, length: m[0].length, value: m[0], type: "url" });
+    }
   }
   for (const m of text.matchAll(PHONE_REGEX)) {
     matches.push({ index: m.index!, length: m[0].length, value: m[0], type: "phone" });
@@ -103,11 +111,12 @@ function LinkedText({ text, style }: { text: string; style: any }) {
     <Text style={style}>
       {parts.map((part, i) => {
         if (part.type === "url") {
+          const href = part.text.startsWith("http") ? part.text : `https://${part.text}`;
           return (
             <Text
               key={i}
               style={{ color: "#86efac", textDecorationLine: "underline" }}
-              onPress={() => Linking.openURL(part.text)}
+              onPress={() => Linking.openURL(href)}
             >
               {part.text}
             </Text>
@@ -639,6 +648,95 @@ const ItineraryDetailScreen = () => {
           />
         )}
 
+        {/* ── Quick Links (URLs & phones from description + suggestedActivities) ── */}
+        {(() => {
+          const sources = [
+            objectives[0]?.description ?? "",
+            ...(objectives[0]?.suggestedActivities ?? []),
+          ].join("\n");
+          const links: { value: string; type: "url" | "phone" }[] = [];
+          const seen = new Set<string>();
+          for (const m of sources.matchAll(URL_REGEX)) {
+            seen.add(m[0].replace(/^https?:\/\//, "").replace(/\/$/, "").toLowerCase());
+            links.push({ value: m[0], type: "url" });
+          }
+          for (const m of sources.matchAll(BARE_URL_REGEX)) {
+            const key = m[0].replace(/\/$/, "").toLowerCase();
+            if (!seen.has(key)) {
+              seen.add(key);
+              links.push({ value: `https://${m[0]}`, type: "url" });
+            }
+          }
+          for (const m of sources.matchAll(PHONE_REGEX)) {
+            links.push({ value: m[0], type: "phone" });
+          }
+          const obj = objectives[0];
+          const hasVenue = !!(obj?.venueName || obj?.venueAddress);
+          if (links.length === 0 && !hasVenue) return null;
+          return (
+            <Animated.View
+              entering={FadeInDown.delay(650).duration(400).easing(Easing.out(Easing.cubic))}
+              style={styles.quickLinksSection}
+            >
+              <Text style={styles.quickLinksLabel}>QUICK LINKS</Text>
+              {hasVenue && (
+                <Pressable
+                  onPress={() => {
+                    const query = encodeURIComponent(
+                      `${obj.venueName ?? ""} ${obj.venueAddress ?? ""}`.trim(),
+                    );
+                    Linking.openURL(
+                      Platform.OS === "ios"
+                        ? `maps:?q=${query}`
+                        : `geo:0,0?q=${query}`,
+                    );
+                  }}
+                  style={({ pressed }) => [
+                    styles.quickLinkRow,
+                    pressed && { opacity: 0.6 },
+                  ]}
+                >
+                  <Text style={styles.quickLinkIcon}>{"\u{1F4CD}"}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.quickLinkText} numberOfLines={1}>
+                      {obj.venueName ?? obj.venueAddress}
+                    </Text>
+                    {obj.venueAddress && obj.venueName && (
+                      <Text style={styles.quickLinkSubtext} numberOfLines={1}>
+                        {obj.venueAddress}
+                      </Text>
+                    )}
+                  </View>
+                </Pressable>
+              )}
+              {links.map((link, i) => (
+                <Pressable
+                  key={i}
+                  onPress={() => {
+                    const url = link.type === "phone"
+                      ? `tel:${link.value.replace(/[^\d+]/g, "")}`
+                      : link.value;
+                    Linking.openURL(url);
+                  }}
+                  style={({ pressed }) => [
+                    styles.quickLinkRow,
+                    pressed && { opacity: 0.6 },
+                  ]}
+                >
+                  <Text style={styles.quickLinkIcon}>
+                    {link.type === "phone" ? "\u{1F4DE}" : "\u{1F517}"}
+                  </Text>
+                  <Text style={styles.quickLinkText} numberOfLines={1}>
+                    {link.type === "url"
+                      ? link.value.replace(/^https?:\/\//, "").replace(/\/$/, "")
+                      : link.value}
+                  </Text>
+                </Pressable>
+              ))}
+            </Animated.View>
+          );
+        })()}
+
         {/* ── Mini Compass Preview ── */}
         {isThisActive && displayedNextObjective && userLocation && (
           <Animated.View
@@ -809,89 +907,70 @@ const ItineraryDetailScreen = () => {
                 {/* Accent bar */}
                 <View style={styles.itemDetailAccent} />
 
-                <ScrollView
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ paddingBottom: spacing.lg }}
-                >
-                  {/* Header */}
-                  <View style={styles.itemDetailHeader}>
-                    <View style={styles.itemDetailEmojiCircle}>
-                      <Text style={styles.itemDetailEmoji}>
-                        {selectedItem.emoji || "\u{1F4CD}"}
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.itemDetailTitle}>
-                        {selectedItem.title}
-                      </Text>
-                    </View>
+                {/* Header + cost */}
+                <View style={styles.itemDetailHeader}>
+                  <View style={styles.itemDetailEmojiCircle}>
+                    <Text style={styles.itemDetailEmoji}>
+                      {selectedItem.emoji || "\u{1F4CD}"}
+                    </Text>
                   </View>
-
-                  {/* Description */}
-                  {selectedItem.description && (
-                    <LinkedText
-                      text={selectedItem.description}
-                      style={styles.itemDetailDesc}
-                    />
-                  )}
-
-                  {/* Hook (why this stop) */}
-                  {selectedItem.hook && (
-                    <View style={styles.itemDetailProTip}>
-                      <Text style={styles.itemDetailProTipLabel}>
-                        WHY THIS STOP
-                      </Text>
-                      <LinkedText
-                        text={selectedItem.hook}
-                        style={styles.itemDetailProTipText}
-                      />
-                    </View>
-                  )}
-
-                  {/* Venue info */}
-                  {(selectedItem.venueName || selectedItem.venueAddress) && (
-                    <View style={styles.itemDetailSection}>
-                      <Text style={styles.itemDetailSectionLabel}>VENUE</Text>
-                      {selectedItem.venueName && (
-                        <Text style={styles.itemDetailVenueName}>
-                          {selectedItem.venueName}
-                        </Text>
-                      )}
-                      {selectedItem.venueAddress && (
-                        <Pressable onPress={() => {
-                          const query = encodeURIComponent(
-                            `${selectedItem.venueName ?? ""} ${selectedItem.venueAddress}`.trim(),
-                          );
-                          Linking.openURL(
-                            Platform.OS === "ios"
-                              ? `maps:?q=${query}`
-                              : `geo:0,0?q=${query}`,
-                          );
-                        }}>
-                          <Text style={[styles.itemDetailSectionText, { color: "#86efac", textDecorationLine: "underline" }]}>
-                            {selectedItem.venueAddress}
-                          </Text>
-                        </Pressable>
-                      )}
-                      {selectedItem.venueCategory && (
-                        <Text style={styles.itemDetailMeta}>
-                          {selectedItem.venueCategory}
-                        </Text>
-                      )}
-                    </View>
-                  )}
-
-                  {/* Cost chip */}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.itemDetailTitle}>
+                      {selectedItem.title}
+                    </Text>
+                  </View>
                   {Number(selectedItem.estimatedCost) > 0 && (
-                    <View style={styles.itemDetailChipRow}>
-                      <View style={styles.itemDetailChipGreen}>
-                        <Text style={styles.itemDetailChipGreenText}>
-                          ~${Number(selectedItem.estimatedCost)}
-                        </Text>
-                      </View>
+                    <View style={styles.itemDetailChipGreen}>
+                      <Text style={styles.itemDetailChipGreenText}>
+                        ~${Number(selectedItem.estimatedCost)}
+                      </Text>
                     </View>
                   )}
-                </ScrollView>
+                </View>
+
+                {/* Description (now short — 2-3 sentences) */}
+                {selectedItem.description && (
+                  <Text style={styles.itemDetailDesc}>
+                    {selectedItem.description}
+                  </Text>
+                )}
+
+                {/* Hook */}
+                {selectedItem.hook && (
+                  <View style={styles.itemDetailProTip}>
+                    <LinkedText
+                      text={selectedItem.hook}
+                      style={styles.itemDetailProTipText}
+                    />
+                  </View>
+                )}
+
+                {/* Venue — compact */}
+                {selectedItem.venueName && (
+                  <Pressable
+                    onPress={() => {
+                      const query = encodeURIComponent(
+                        `${selectedItem.venueName ?? ""} ${selectedItem.venueAddress ?? ""}`.trim(),
+                      );
+                      Linking.openURL(
+                        Platform.OS === "ios"
+                          ? `maps:?q=${query}`
+                          : `geo:0,0?q=${query}`,
+                      );
+                    }}
+                    style={({ pressed }) => pressed && { opacity: 0.6 }}
+                  >
+                    <Text style={styles.itemDetailVenueCompact}>
+                      {"\u{1F4CD}"} {selectedItem.venueName}
+                      {selectedItem.venueCategory ? ` · ${selectedItem.venueCategory}` : ""}
+                    </Text>
+                    {selectedItem.venueAddress && (
+                      <Text style={styles.itemDetailAddressCompact}>
+                        {selectedItem.venueAddress}
+                      </Text>
+                    )}
+                  </Pressable>
+                )}
               </Pressable>
             </Animated.View>
           )}
@@ -1192,6 +1271,47 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       letterSpacing: 1.5,
     },
 
+    // ── Quick Links ──
+    quickLinksSection: {
+      marginTop: spacing.sm,
+      gap: spacing.xs,
+    },
+    quickLinksLabel: {
+      fontSize: 10,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: accentHex,
+      letterSpacing: 1,
+      marginBottom: 2,
+    },
+    quickLinkRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.06)`,
+      borderRadius: radius.sm,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+    },
+    quickLinkIcon: {
+      fontSize: 14,
+    },
+    quickLinkText: {
+      flex: 1,
+      fontSize: 13,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      color: "#86efac",
+      textDecorationLine: "underline" as const,
+    },
+    quickLinkSubtext: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      color: colors.text.detail,
+      marginTop: 1,
+    },
+
     // ── Modal shared styles ──
     modalBackdrop: {
       flex: 1,
@@ -1287,20 +1407,12 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       lineHeight: 20,
     },
     itemDetailProTip: {
-      marginBottom: spacing.md,
-      gap: 4,
+      marginBottom: spacing.sm,
       backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.06)`,
       borderWidth: 1,
       borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.15)`,
       borderRadius: radius.md,
-      padding: spacing.md,
-    },
-    itemDetailProTipLabel: {
-      fontSize: 9,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      color: accentHex,
-      letterSpacing: 1.5,
+      padding: spacing.sm,
     },
     itemDetailProTipText: {
       fontSize: fontSize.sm,
@@ -1308,6 +1420,22 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       fontWeight: fontWeight.regular,
       color: colors.text.primary,
       lineHeight: 20,
+    },
+    itemDetailVenueCompact: {
+      fontSize: 13,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
+      lineHeight: 18,
+    },
+    itemDetailAddressCompact: {
+      fontSize: 12,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      color: "#86efac",
+      textDecorationLine: "underline" as const,
+      lineHeight: 18,
+      marginTop: 2,
     },
     itemDetailVenueName: {
       fontSize: fontSize.sm,

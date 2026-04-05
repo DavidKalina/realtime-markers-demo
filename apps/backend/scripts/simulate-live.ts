@@ -902,6 +902,16 @@ async function main() {
     console.log(`│     Hook: ${obj.hook ?? "none"}`);
     console.log(`│     Difficulty: ${obj.difficulty ?? "?"} | Rarity: ${quest.rarity ?? "?"} | Actionability: ${obj.actionability ?? "?"}`);
     console.log(`│     Distance: ${quest.distanceFromHome ? Number(quest.distanceFromHome).toFixed(2) + " mi" : "?"}`);
+    if (obj.description) {
+      console.log(`│     Description: ${obj.description}`);
+    }
+    if (obj.suggestedActivities?.length) {
+      console.log(`│     Checklist:`);
+      for (const sa of obj.suggestedActivities) {
+        console.log(`│       ◇ ${sa}`);
+      }
+    }
+    console.log(`│     Objectives in quest: ${quest.objectives.length}`);
 
     // Pre-quest predictions
     let predictedAnxiety: number | null = null;

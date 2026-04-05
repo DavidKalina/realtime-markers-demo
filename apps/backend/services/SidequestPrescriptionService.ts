@@ -576,7 +576,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
                   type: "object",
                   properties: {
                     t: { type: "string", description: "Stop title" },
-                    d: { type: "string", description: "Stop description. For actionable quests, include specific URLs, phone numbers, event dates/times, or registration steps." },
+                    d: { type: "string", description: "2-3 sentences max. What to do at this stop — concrete and direct. Do NOT embed URLs or phone numbers here — those go in 'sa' items instead." },
                     e: { type: "string", description: "Emoji" },
                     ec: {
                       type: ["number", "null"],
@@ -597,7 +597,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
                       type: "array",
                       items: { type: "string" },
                       description:
-                        "3-4 activity ideas, each starting with an emoji (e.g. '🚶 Walk the loop')",
+                        "3-4 items, each starting with an emoji. Mix activity ideas (e.g. '🚶 Walk the loop') with actionable links (e.g. '🔗 longmontcolorado.gov/rec-services', '📞 (303) 774-4800 — ask about beginner classes'). URLs and phone numbers go HERE, not in the description.",
                     },
                     jp: {
                       type: "string",
