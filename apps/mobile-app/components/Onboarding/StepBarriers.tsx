@@ -23,6 +23,7 @@ export function StepBarriers({
       title="What holds you back?"
       subtitle="Select all that apply \u2014 this calibrates your quest difficulty"
       onBack={onBack}
+      heroStep={5}
       bottomAction={
         <NextButton onPress={onNext} disabled={selected.length === 0} />
       }
@@ -49,9 +50,10 @@ export function StepBarriers({
 const s = StyleSheet.create({
   scroll: {
     alignSelf: "stretch",
-    maxHeight: 400,
+    flex: 1,
   },
   grid: {
     gap: spacing._10,
+    paddingBottom: spacing.md,
   },
 });

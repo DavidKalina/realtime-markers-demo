@@ -74,7 +74,7 @@ const styles = (colors: Colors) =>
       fontSize: 11,
       fontWeight: fontWeight.bold,
       color: colors.text.secondary,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
     },
     grid: {
       flexDirection: "row",

@@ -1,4 +1,3 @@
-import { BlurView } from "expo-blur";
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useColors } from "@/theme";
 import { apiClient } from "@/services/ApiClient";
@@ -10,18 +9,30 @@ import { useDeckBadgeStore } from "@/stores/useDeckBadgeStore";
 import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import React, { useCallback, useMemo, useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
 import Animated, {
+  Easing,
   FadeIn,
   FadeInLeft,
   FadeInRight,
-  FadeOut,
   FadeOutLeft,
   FadeOutRight,
+  useDerivedValue,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
 
-import { BuildProgress, type BuildLine } from "@/components/Onboarding/shared";
+import { StepProgress } from "@/components/Onboarding/shared";
 import {
   deriveBarriersText,
   scoreFearLadder,
@@ -36,11 +47,90 @@ import { StepNorthStar } from "@/components/Onboarding/StepNorthStar";
 import { StepGoalRefinement } from "@/components/Onboarding/StepGoalRefinement";
 import type { GoalRefinementState } from "@/services/api/modules/sidequests";
 
+// ── Skia glow background ────────────────────────────────
+
+const GLOW_SKSL = Skia.RuntimeEffect.Make(`
+uniform float2 resolution;
+uniform float time;
+uniform float reveal;
+
+half4 main(float2 xy) {
+  vec2 uv = xy / resolution;
+
+  float cx = 0.5 + sin(time * 6.2832) * 0.02;
+  float cy = 0.38;
+
+  float dx = uv.x - cx;
+  float dy = (uv.y - cy) * (resolution.y / resolution.x);
+  float dist = sqrt(dx * dx + dy * dy);
+
+  float glow1 = exp(-dist * dist * 4.0);
+  float glow2 = exp(-dist * dist * 12.0);
+  float glow3 = exp(-dist * dist * 2.0) * 0.25;
+
+  float pulse = 0.85 + 0.15 * sin(time * 6.2832);
+
+  vec3 blue = vec3(0.3, 0.67, 0.97);
+  vec3 cyan = vec3(0.4, 0.9, 0.85);
+  vec3 warm = vec3(0.52, 0.38, 0.85);
+
+  vec3 col = blue * glow1 + cyan * glow2 * 0.5 + warm * glow3;
+  col *= pulse;
+
+  float alpha = (glow1 * 0.25 + glow2 * 0.15 + glow3 * 0.08) * pulse * reveal;
+
+  return half4(col * alpha, alpha);
+}
+`);
+
+const SkiaGlow: React.FC = React.memo(() => {
+  const { width, height } = useWindowDimensions();
+  const time = useSharedValue(0);
+  const reveal = useSharedValue(0);
+
+  useEffect(() => {
+    reveal.value = withDelay(
+      300,
+      withTiming(1, { duration: 1000, easing: Easing.out(Easing.cubic) }),
+    );
+    time.value = withDelay(
+      300,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        true,
+      ),
+    );
+  }, []);
+
+  const uniforms = useDerivedValue(() => ({
+    resolution: vec(width, height),
+    time: time.value,
+    reveal: reveal.value,
+  }));
+
+  if (!GLOW_SKSL) return null;
+
+  return (
+    <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Fill>
+        <Shader source={GLOW_SKSL} uniforms={uniforms} />
+      </Fill>
+    </Canvas>
+  );
+});
+
+SkiaGlow.displayName = "SkiaGlow";
+
+// ── Main screen ─────────────────────────────────────────
+
 const TOTAL_STEPS = 8;
 
 const OnboardingScreen: React.FC = () => {
   const colors = useColors();
-  const s = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { userLocation } = useUserLocation();
   const { refreshAuth } = useAuth();
@@ -57,10 +147,8 @@ const OnboardingScreen: React.FC = () => {
   const [fearLadderResponses, setFearLadderResponses] = useState<Record<string, number>>({});
   const [northStar, setNorthStar] = useState("");
 
-  // LLM-generated barriers
+  // LLM-generated data
   const [generatedBarriers, setGeneratedBarriers] = useState<{ key: string; label: string; text: string }[] | null>(null);
-
-  // LLM-generated fear ladder
   const [generatedScenarios, setGeneratedScenarios] = useState<{ id: string; text: string; dimension: string }[] | null>(null);
   const [generatedDimensions, setGeneratedDimensions] = useState<string[] | null>(null);
 
@@ -79,20 +167,7 @@ const OnboardingScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Build log lines ────────────────────────────────────────
-
-  const buildLines = useMemo<BuildLine[]>(() => {
-    const displayGoal = refinedGoal ?? primaryGoal;
-    const lines: BuildLine[] = [];
-    if (step > 1) lines.push({ label: "init", value: "ready" });
-    if (step > 3 && displayGoal) lines.push({ label: "goal", value: `"${displayGoal.slice(0, 28)}${displayGoal.length > 28 ? "..." : ""}"` });
-    if (step > 5) lines.push({ label: "barriers", value: `${selectedBarriers.length} flagged` });
-    if (step > 6) lines.push({ label: "profile", value: "generated" });
-    if (step > 7) lines.push({ label: "calibration", value: `${Object.keys(fearLadderResponses).length} rated` });
-    return lines;
-  }, [step, primaryGoal, refinedGoal, selectedBarriers.length, fearLadderResponses]);
-
-  // ── Navigation ─────────────────────────────────────────────
+  // ── Navigation ─────────────────────────────────────────
 
   const handleNext = useCallback(() => {
     directionRef.current = "forward";
@@ -117,7 +192,6 @@ const OnboardingScreen: React.FC = () => {
     setFearLadderResponses((prev) => ({ ...prev, [scenarioId]: value }));
   }, []);
 
-  // Goal refinement handlers
   const handleGoalRefined = useCallback((goal: string, signals: GoalRefinementState["extractedSignals"]) => {
     directionRef.current = "forward";
     setRefinedGoal(goal);
@@ -148,7 +222,6 @@ const OnboardingScreen: React.FC = () => {
     setStep((prev) => prev + 1);
   }, []);
 
-  // Back from generating barriers — skip back to primary goal (step 2)
   const handleBackFromGeneratingBarriers = useCallback(() => {
     directionRef.current = "back";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -163,21 +236,19 @@ const OnboardingScreen: React.FC = () => {
     setStep((prev) => prev + 1);
   }, []);
 
-  // Back from generating ladder — skip back to barriers (step 5)
   const handleBackFromGenerating = useCallback(() => {
     directionRef.current = "back";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setStep(5);
   }, []);
 
-  // Back from fear ladder — skip back to barriers (step 5), not the loading step
   const handleBackFromFearLadder = useCallback(() => {
     directionRef.current = "back";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setStep(5);
   }, []);
 
-  // ── Poll for week pack ────────────────────────────────────
+  // ── Poll for week pack ────────────────────────────────
 
   const pollForWeekPack = useCallback(async (jobId: string, token: string) => {
     const baseUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
@@ -209,7 +280,6 @@ const OnboardingScreen: React.FC = () => {
           router.replace("/");
         } else {
           if (data.progressStep) setGeneratingLabel(data.progressStep);
-          // Parse "Crafting quest X of Y..." from progressStep
           const match = data.progressStep?.match(/quest\s+(\d+)\s+of\s+(\d+)/i);
           const currentQuest = match ? parseInt(match[1], 10) : 1;
           const totalQuests = match ? parseInt(match[2], 10) : 3;
@@ -243,7 +313,7 @@ const OnboardingScreen: React.FC = () => {
     [revealQuests, router],
   );
 
-  // ── Finish ────────────────────────────────────────────────
+  // ── Finish ────────────────────────────────────────────
 
   const handleFinish = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -312,7 +382,7 @@ const OnboardingScreen: React.FC = () => {
     }
   }, [primaryGoal, selectedBarriers, fearLadderResponses, generatedBarriers, generatedScenarios, generatedDimensions, northStar, goalSignals, userLocation, refreshAuth, pollForWeekPack]);
 
-  // ── Transitions ──────────────────────────────────────────
+  // ── Transitions ──────────────────────────────────────
 
   const entering = directionRef.current === "forward"
     ? FadeInRight.duration(220).springify().damping(28).stiffness(450)
@@ -322,7 +392,7 @@ const OnboardingScreen: React.FC = () => {
     ? FadeOutLeft.duration(180)
     : FadeOutRight.duration(180);
 
-  // ── Render ────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────
 
   const renderStep = () => {
     switch (step) {
@@ -408,28 +478,21 @@ const OnboardingScreen: React.FC = () => {
   };
 
   return (
-    <View style={s.container}>
-      <BlurView
-        tint="dark"
-        intensity={60}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
+    <View style={[s.container, { backgroundColor: colors.fixed.black }]}>
+      <SkiaGlow />
 
-      <BuildProgress
-        completedLines={buildLines}
-        step={step}
-        total={TOTAL_STEPS}
-      />
+      <SafeAreaView style={s.safeArea}>
+        <StepProgress step={step} total={TOTAL_STEPS} />
 
-      <Animated.View
-        key={step}
-        entering={step === 1 ? FadeIn.duration(300) : entering}
-        exiting={exiting}
-        style={s.stepWrapper}
-      >
-        {renderStep()}
-      </Animated.View>
+        <Animated.View
+          key={step}
+          entering={step === 1 ? FadeIn.duration(300) : entering}
+          exiting={exiting}
+          style={s.stepWrapper}
+        >
+          {renderStep()}
+        </Animated.View>
+      </SafeAreaView>
 
       <BatchRevealOverlay
         visible={showReveal}
@@ -440,15 +503,16 @@ const OnboardingScreen: React.FC = () => {
   );
 };
 
-const createStyles = (colors: { bg: { primary: string } }) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.bg.primary,
-    },
-    stepWrapper: {
-      flex: 1,
-    },
-  });
+const s = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  stepWrapper: {
+    flex: 1,
+  },
+});
 
 export default OnboardingScreen;

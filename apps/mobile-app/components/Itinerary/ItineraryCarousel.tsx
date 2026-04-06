@@ -31,7 +31,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import ItineraryTimeline from "./ItineraryTimeline";
-import ExpandableCard, { GREEN_ACCENT, STOP_COLORS } from "./ExpandableCard";
+import ExpandableCard, { STOP_COLORS } from "./ExpandableCard";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SWIPE_THRESHOLD = 50;
@@ -403,13 +403,13 @@ const createStyles = (colors: Colors) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 4,
-      backgroundColor: GREEN_ACCENT,
+      backgroundColor: colors.accent.primary,
       borderRadius: radius.md,
       paddingVertical: 6,
       paddingHorizontal: 12,
     },
     activateButtonPressed: {
-      backgroundColor: "#6ee7a0",
+      backgroundColor: colors.accent.dark,
     },
     activateButtonDisabled: {
       opacity: 0.6,
@@ -435,7 +435,7 @@ const createStyles = (colors: Colors) =>
       backgroundColor: colors.border.medium,
     },
     dotActive: {
-      backgroundColor: GREEN_ACCENT,
+      backgroundColor: colors.accent.primary,
       width: 14,
       borderRadius: 3,
     },
@@ -474,10 +474,10 @@ const createStyles = (colors: Colors) =>
       gap: 4,
       paddingVertical: 8,
       borderRadius: 10,
-      backgroundColor: GREEN_ACCENT,
+      backgroundColor: colors.accent.primary,
     },
     goButtonPressed: {
-      backgroundColor: "#6ee7a0",
+      backgroundColor: colors.accent.dark,
     },
     goButtonDisabled: {
       opacity: 0.6,

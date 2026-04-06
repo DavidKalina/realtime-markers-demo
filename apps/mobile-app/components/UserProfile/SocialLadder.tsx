@@ -8,8 +8,6 @@ import {
   type Colors,
 } from "@/theme";
 
-const GREEN = "#86efac";
-
 const RUNGS = [
   { key: "solo", label: "Solo", emoji: "\uD83E\uDDD1" },
   { key: "with_someone", label: "With someone", emoji: "\uD83D\uDC6B" },
@@ -49,7 +47,7 @@ function SocialLadder({ data }: SocialLadderProps) {
 
   return (
     <View style={s.container}>
-      <Text style={s.sectionLabel}>SOCIAL LADDER</Text>
+      <Text style={s.sectionLabel}>Social Ladder</Text>
       <View style={s.card}>
         {/* Labels */}
         <View style={s.labelsRow}>
@@ -63,7 +61,7 @@ function SocialLadder({ data }: SocialLadderProps) {
                   style={[
                     s.rungLabel,
                     reached && { color: colors.text.secondary },
-                    isPeak && { color: GREEN },
+                    isPeak && { color: colors.accent.primary },
                   ]}
                   numberOfLines={1}
                 >
@@ -79,21 +77,19 @@ function SocialLadder({ data }: SocialLadderProps) {
           {RUNGS.map((rung, i) => {
             const reached = (countMap[rung.key] ?? 0) > 0;
             const isPeak = i === peakIndex;
-            const dotColor = isPeak ? GREEN : reached ? colors.text.secondary : "rgba(255, 255, 255, 0.15)";
+            const dotColor = isPeak ? colors.accent.primary : reached ? colors.text.secondary : "rgba(255, 255, 255, 0.25)";
             const isLast = i === RUNGS.length - 1;
 
             return (
               <React.Fragment key={rung.key}>
-                <Text style={[s.dot, { color: dotColor }]}>
-                  {reached ? "\u25CF" : "\u25CB"}
-                </Text>
+                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: dotColor }} />
                 {!isLast && (
                   <View
                     style={[
                       s.line,
                       { backgroundColor: reached && (countMap[RUNGS[i + 1].key] ?? 0) > 0
-                        ? "rgba(255, 255, 255, 0.2)"
-                        : "rgba(255, 255, 255, 0.06)"
+                        ? "rgba(255, 255, 255, 0.3)"
+                        : "rgba(255, 255, 255, 0.08)"
                       },
                     ]}
                   />
@@ -131,14 +127,14 @@ const createStyles = (colors: Colors) =>
       fontSize: 9,
       fontWeight: fontWeight.bold,
       color: colors.text.disabled,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
       marginBottom: spacing.xs,
     },
     card: {
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.04)",
+      borderColor: "rgba(255, 255, 255, 0.08)",
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.md,
       gap: spacing.sm,
@@ -157,7 +153,7 @@ const createStyles = (colors: Colors) =>
     rungLabel: {
       fontFamily: fontFamily.mono,
       fontSize: 8,
-      color: "rgba(255, 255, 255, 0.2)",
+      color: "rgba(255, 255, 255, 0.3)",
       fontWeight: fontWeight.medium,
       letterSpacing: 0.3,
       textAlign: "center",
@@ -166,10 +162,6 @@ const createStyles = (colors: Colors) =>
       flexDirection: "row",
       alignItems: "center",
       paddingHorizontal: spacing.lg,
-    },
-    dot: {
-      fontFamily: fontFamily.mono,
-      fontSize: 14,
     },
     line: {
       flex: 1,

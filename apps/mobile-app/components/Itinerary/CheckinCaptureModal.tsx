@@ -35,8 +35,6 @@ import {
   type Colors,
 } from "@/theme";
 
-const GREEN_ACCENT = "#86efac";
-const GREEN_MUTED = "rgba(134, 239, 172, 0.12)";
 
 // Each widget gets a parallax multiplier — lower = moves slower = feels further back
 const PARALLAX = [1.0, 0.92, 0.84, 0.78, 0.72];
@@ -255,7 +253,7 @@ export function CheckinCaptureModal({
                 </View>
               ) : (
                 <Pressable style={s.photoButton} onPress={handleTakePhoto}>
-                  <Camera size={18} color={GREEN_ACCENT} />
+                  <Camera size={18} color={colors.accent.primary} />
                   <Text style={s.photoButtonText}>Take a photo</Text>
                 </Pressable>
               )}
@@ -457,15 +455,15 @@ const createStyles = (colors: Colors) =>
       gap: spacing.sm,
       paddingVertical: spacing.lg,
       borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.2)",
+      borderColor: `rgba(${colors.accent.rgb}, 0.2)`,
       borderStyle: "dashed",
       borderRadius: radius.lg,
-      backgroundColor: "rgba(134, 239, 172, 0.04)",
+      backgroundColor: `rgba(${colors.accent.rgb}, 0.04)`,
     },
     photoButtonText: {
       fontFamily: fontFamily.mono,
       fontSize: 13,
-      color: GREEN_ACCENT,
+      color: colors.accent.primary,
       fontWeight: fontWeight.semibold,
     },
     photoPreview: {
@@ -500,8 +498,8 @@ const createStyles = (colors: Colors) =>
       backgroundColor: "rgba(255, 255, 255, 0.03)",
     },
     chipActive: {
-      borderColor: "rgba(134, 239, 172, 0.4)",
-      backgroundColor: GREEN_MUTED,
+      borderColor: `rgba(${colors.accent.rgb}, 0.4)`,
+      backgroundColor: colors.accent.muted,
     },
     chipText: {
       fontFamily: fontFamily.mono,
@@ -509,7 +507,7 @@ const createStyles = (colors: Colors) =>
       color: colors.text.secondary,
     },
     chipTextActive: {
-      color: GREEN_ACCENT,
+      color: colors.accent.primary,
     },
 
     // ── Text inputs ──
@@ -532,7 +530,7 @@ const createStyles = (colors: Colors) =>
 
     // ── Actions ──
     saveButton: {
-      backgroundColor: GREEN_ACCENT,
+      backgroundColor: colors.accent.primary,
       borderRadius: radius.md,
       paddingVertical: spacing.md,
       width: "100%",

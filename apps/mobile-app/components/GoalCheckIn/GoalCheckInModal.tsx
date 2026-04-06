@@ -32,8 +32,6 @@ import {
   type Colors,
 } from "@/theme";
 
-const GREEN_ACCENT = "#86efac";
-
 const PARALLAX = [1.0, 0.92, 0.84, 0.78];
 
 type Milestone = "early_momentum" | "midpoint" | "approaching" | "final_stretch" | "target_reached";
@@ -357,16 +355,16 @@ const createStyles = (colors: Colors) =>
     // ── Goal box ──
     goalBox: {
       borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.15)",
+      borderColor: colors.accent.muted,
       borderRadius: radius.lg,
-      backgroundColor: "rgba(134, 239, 172, 0.04)",
+      backgroundColor: `rgba(${colors.accent.rgb}, 0.04)`,
       padding: spacing.lg,
       gap: spacing.md,
     },
     goalText: {
       fontFamily: fontFamily.mono,
       fontSize: 14,
-      color: "rgba(134, 239, 172, 0.8)",
+      color: `rgba(${colors.accent.rgb}, 0.8)`,
       lineHeight: 22,
       fontStyle: "italic",
     },
@@ -382,7 +380,7 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontSize: 18,
       fontWeight: fontWeight.bold,
-      color: GREEN_ACCENT,
+      color: colors.accent.primary,
     },
     statLabel: {
       fontFamily: fontFamily.mono,
@@ -400,7 +398,7 @@ const createStyles = (colors: Colors) =>
     progressFill: {
       height: "100%",
       borderRadius: 1.5,
-      backgroundColor: GREEN_ACCENT,
+      backgroundColor: colors.accent.primary,
       opacity: 0.6,
     },
 
@@ -423,7 +421,7 @@ const createStyles = (colors: Colors) =>
 
     // ── Actions ──
     saveButton: {
-      backgroundColor: GREEN_ACCENT,
+      backgroundColor: colors.accent.primary,
       borderRadius: radius.md,
       paddingVertical: spacing.md,
       width: "100%",

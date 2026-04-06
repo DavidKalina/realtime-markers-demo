@@ -15,6 +15,7 @@ import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
+  type SharedValue,
 } from "react-native-reanimated";
 import {
   useColors,
@@ -30,11 +31,13 @@ const REFRESH_THRESHOLD = 120;
 interface UsePullToActionOptions {
   onRefresh: () => void | Promise<void>;
   isRefreshing?: boolean;
+  externalScrollY?: SharedValue<number>;
 }
 
 export function usePullToAction({
   onRefresh,
   isRefreshing = false,
+  externalScrollY,
 }: UsePullToActionOptions) {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -44,6 +47,9 @@ export function usePullToAction({
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
+      if (externalScrollY) {
+        externalScrollY.value = event.contentOffset.y;
+      }
     },
   });
 
@@ -88,6 +94,7 @@ export function usePullToAction({
 
   return {
     pullIndicator,
+    scrollY,
     scrollProps: {
       onScroll: scrollHandler,
       scrollEventThrottle: 16 as const,

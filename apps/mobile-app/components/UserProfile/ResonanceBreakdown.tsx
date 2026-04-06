@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from "react-native-reanimated";
 import {
   fontFamily,
   fontWeight,
@@ -8,11 +9,7 @@ import {
   type Colors,
 } from "@/theme";
 
-const GREEN = "#86efac";
-const BAR_WIDTH = 20;
-const CHAR_INTERVAL = 25;   // ms per character fill
-const ROW_DELAY = 120;      // ms pause between rows
-const SCORE_DELAY = 300;    // ms pause before score row
+const ROW_STAGGER = 150;    // ms between rows
 
 interface ResonanceComponents {
   ratingSignal: number;
@@ -37,79 +34,51 @@ const LABELS: { key: keyof ResonanceComponents; label: string }[] = [
   { key: "difficultyAlignment", label: "Alignment" },
 ];
 
-function buildBar(filledCount: number, total: number, isScore = false): string {
-  const filled = Math.min(filledCount, total);
-  const empty = total - filled;
-  const fillChar = isScore ? "\u2593" : "\u2588";
-  return fillChar.repeat(filled) + "\u2591".repeat(empty);
+function valueColor(value: number, accent: string): string {
+  if (value >= 0.7) return accent;
+  if (value <= 0.3) return "rgba(255, 255, 255, 0.7)";
+  return "rgba(255, 255, 255, 0.8)";
 }
 
-function valueColor(value: number): string {
-  if (value >= 0.7) return GREEN;
-  if (value <= 0.3) return "rgba(255, 255, 255, 0.3)";
-  return "rgba(255, 255, 255, 0.55)";
-}
-
-// Each row animates its bar filling character by character
+// Each row animates its bar width using reanimated
 function AnimatedRow({
   label,
   targetValue,
   startDelay,
   isScore,
-  labelStyle,
-  barStyle,
-  valueStyle,
-  rowStyle,
+  accentColor,
+  colors,
+  s,
 }: {
   label: string;
   targetValue: number;
   startDelay: number;
   isScore?: boolean;
-  labelStyle: any;
-  barStyle: any;
-  valueStyle: any;
-  rowStyle: any;
+  accentColor: string;
+  colors: Colors;
+  s: ReturnType<typeof createStyles>;
 }) {
-  const targetFilled = Math.round(targetValue * BAR_WIDTH);
-  const [currentFilled, setCurrentFilled] = useState(0);
-  const [visible, setVisible] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const widthProgress = useSharedValue(0);
 
   useEffect(() => {
-    const showTimer = setTimeout(() => {
-      setVisible(true);
-      let count = 0;
-      intervalRef.current = setInterval(() => {
-        count++;
-        if (count >= targetFilled) {
-          setCurrentFilled(targetFilled);
-          if (intervalRef.current) clearInterval(intervalRef.current);
-        } else {
-          setCurrentFilled(count);
-        }
-      }, CHAR_INTERVAL);
-    }, startDelay);
+    widthProgress.value = withDelay(startDelay, withTiming(targetValue, { duration: 600 }));
+  }, [startDelay, targetValue, widthProgress]);
 
-    return () => {
-      clearTimeout(showTimer);
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [startDelay, targetFilled]);
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${widthProgress.value * 100}%`,
+    backgroundColor: isScore ? accentColor : valueColor(targetValue, accentColor),
+  }));
 
-  const color = valueColor(targetValue);
-  const displayValue = currentFilled >= targetFilled
-    ? targetValue.toFixed(2)
-    : (currentFilled / BAR_WIDTH).toFixed(2);
+  const color = isScore ? accentColor : valueColor(targetValue, accentColor);
 
-  // Always render full structure to reserve space — control visibility via opacity
   return (
-    <View style={rowStyle}>
-      <Text style={labelStyle}>{label}</Text>
-      <Text style={[barStyle, { color: isScore ? GREEN : color, opacity: visible ? 1 : 0 }]}>
-        {visible ? buildBar(currentFilled, BAR_WIDTH, isScore) : buildBar(0, BAR_WIDTH, isScore)}
-      </Text>
-      <Text style={[valueStyle, { color: isScore ? GREEN : color, opacity: visible ? 1 : 0 }]}>
-        {visible ? displayValue : "0.00"}
+    <View style={s.row}>
+      <Text style={[s.rowLabel, isScore && s.scoreLabel]}>{label}</Text>
+      <View style={s.rowTrack}>
+        <Animated.View style={[s.rowFill, fillStyle]} />
+      </View>
+      <Text style={[s.rowValue, { color }, isScore && s.scoreValue]}>
+        {targetValue.toFixed(2)}
       </Text>
     </View>
   );
@@ -119,60 +88,32 @@ function ResonanceBreakdown({ components, score }: ResonanceBreakdownProps) {
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  // Compute staggered start delays
-  const rowDelays = useMemo(() => {
-    const delays: number[] = [];
-    let time = 200; // initial delay
-    for (let i = 0; i < LABELS.length; i++) {
-      delays.push(time);
-      const targetFilled = Math.round(components[LABELS[i].key] * BAR_WIDTH);
-      time += targetFilled * CHAR_INTERVAL + ROW_DELAY;
-    }
-    return delays;
-  }, [components]);
-
-  const scoreDelay = useMemo(() => {
-    const lastRow = LABELS.length - 1;
-    const lastFilled = Math.round(components[LABELS[lastRow].key] * BAR_WIDTH);
-    return rowDelays[lastRow] + lastFilled * CHAR_INTERVAL + SCORE_DELAY;
-  }, [rowDelays, components]);
-
-  const [showSeparator, setShowSeparator] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => setShowSeparator(true), scoreDelay - 100);
-    return () => clearTimeout(timer);
-  }, [scoreDelay]);
-
   return (
     <View style={s.container}>
-      <Text style={s.sectionLabel}>LAST QUEST RESONANCE</Text>
+      <Text style={s.sectionLabel}>Last Quest Resonance</Text>
       <View style={s.card}>
         {LABELS.map(({ key, label }, i) => (
           <AnimatedRow
             key={key}
             label={label}
             targetValue={components[key]}
-            startDelay={rowDelays[i]}
-            labelStyle={s.rowLabel}
-            barStyle={s.rowBar}
-            valueStyle={s.rowValue}
-            rowStyle={s.row}
+            startDelay={200 + i * ROW_STAGGER}
+            accentColor={colors.accent.primary}
+            colors={colors}
+            s={s}
           />
         ))}
 
-        <Text style={[s.separator, { opacity: showSeparator ? 1 : 0 }]}>
-          {"          "}{"\u2500".repeat(BAR_WIDTH)}
-        </Text>
+        <View style={s.separator} />
 
         <AnimatedRow
-          label="SCORE"
+          label="Score"
           targetValue={score}
-          startDelay={scoreDelay}
+          startDelay={200 + LABELS.length * ROW_STAGGER + 200}
           isScore
-          labelStyle={[s.rowLabel, s.scoreLabel]}
-          barStyle={[s.rowBar, s.scoreBar]}
-          valueStyle={[s.rowValue, s.scoreValue]}
-          rowStyle={s.row}
+          accentColor={colors.accent.primary}
+          colors={colors}
+          s={s}
         />
       </View>
     </View>
@@ -189,17 +130,17 @@ const createStyles = (colors: Colors) =>
       fontSize: 9,
       fontWeight: fontWeight.bold,
       color: colors.text.disabled,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
       marginBottom: spacing.xs,
     },
     card: {
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.04)",
+      borderColor: "rgba(255, 255, 255, 0.08)",
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.md,
-      gap: 4,
+      gap: 6,
     },
     row: {
       flexDirection: "row",
@@ -212,11 +153,16 @@ const createStyles = (colors: Colors) =>
       color: colors.text.secondary,
       width: 80,
     },
-    rowBar: {
-      fontFamily: fontFamily.mono,
-      fontSize: 11,
-      letterSpacing: -1,
+    rowTrack: {
       flex: 1,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: "rgba(255,255,255,0.12)",
+      overflow: "hidden",
+    },
+    rowFill: {
+      height: 4,
+      borderRadius: 2,
     },
     rowValue: {
       fontFamily: fontFamily.mono,
@@ -226,22 +172,17 @@ const createStyles = (colors: Colors) =>
       fontWeight: fontWeight.medium,
     },
     separator: {
-      fontFamily: fontFamily.mono,
-      fontSize: 11,
-      color: "rgba(255, 255, 255, 0.1)",
-      letterSpacing: -1,
+      height: 1,
+      backgroundColor: "rgba(255, 255, 255, 0.15)",
       marginVertical: 2,
     },
     scoreLabel: {
       fontWeight: fontWeight.bold,
-      color: GREEN,
-    },
-    scoreBar: {
-      color: GREEN,
+      color: colors.accent.primary,
     },
     scoreValue: {
       fontWeight: fontWeight.bold,
-      color: GREEN,
+      color: colors.accent.primary,
     },
   });
 

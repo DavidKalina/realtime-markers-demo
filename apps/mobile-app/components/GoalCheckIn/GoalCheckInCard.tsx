@@ -11,8 +11,6 @@ import {
   type Colors,
 } from "@/theme";
 
-const GREEN_ACCENT = "#86efac";
-
 type Milestone = "early_momentum" | "midpoint" | "approaching" | "final_stretch" | "target_reached";
 
 interface GoalCheckInCardProps {
@@ -27,7 +25,7 @@ const MILESTONE_CONFIG: Record<Milestone, { emoji: string; label: string; accent
   early_momentum: {
     emoji: "\uD83C\uDF31",
     label: "Early check-in",
-    accent: "rgba(134, 239, 172, 0.15)",
+    accent: "rgba(125, 211, 252, 0.15)",
   },
   midpoint: {
     emoji: "\uD83C\uDFAF",
@@ -47,7 +45,7 @@ const MILESTONE_CONFIG: Record<Milestone, { emoji: string; label: string; accent
   target_reached: {
     emoji: "\u2B50",
     label: "Target reached",
-    accent: "rgba(134, 239, 172, 0.18)",
+    accent: "rgba(125, 211, 252, 0.18)",
   },
 };
 
@@ -106,7 +104,7 @@ const createStyles = (colors: Colors) =>
   StyleSheet.create({
     card: {
       borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.2)",
+      borderColor: `rgba(${colors.accent.rgb}, 0.2)`,
       borderRadius: radius.lg,
       padding: spacing.lg,
       gap: spacing.md,
@@ -129,7 +127,7 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontSize: 13,
       fontWeight: fontWeight.bold,
-      color: GREEN_ACCENT,
+      color: colors.accent.primary,
       letterSpacing: 0.3,
     },
     sublabel: {
@@ -162,13 +160,13 @@ const createStyles = (colors: Colors) =>
     progressFill: {
       height: "100%",
       borderRadius: 1.5,
-      backgroundColor: GREEN_ACCENT,
+      backgroundColor: colors.accent.primary,
       opacity: 0.6,
     },
     progressText: {
       fontFamily: fontFamily.mono,
       fontSize: 10,
-      color: GREEN_ACCENT,
+      color: colors.accent.primary,
       fontWeight: fontWeight.bold,
       opacity: 0.7,
       minWidth: 28,

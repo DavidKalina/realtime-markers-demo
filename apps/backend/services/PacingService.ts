@@ -204,6 +204,30 @@ function buildCheckInPrompt(milestone: TimelineMilestone): string | null {
   }
 }
 
+// ── TODO ─────────────────────────────────────────────────────
+//
+// TODO: Feed goal reflection journal entries back into the strategist context.
+// Right now GoalReflection records are stored (goal_reflections table) but never
+// read back into the prescription flow. The strategist would benefit from seeing
+// what the user wrote at their last check-in — e.g. "I found an apartment listing
+// but I'm scared to call the landlord" tells the strategist to prescribe a quest
+// that builds phone-call confidence, not another apartment-hunting quest.
+//
+// Implementation sketch:
+//   1. Add a method like getReflectionContext(userId) that queries the most recent
+//      1-2 goal_reflections and formats them as a context string.
+//   2. Inject it into PrescriptionPromptContext alongside timelineContext.
+//   3. The strategist prompt should treat it as "what the user said at their last
+//      check-in" — high-signal, recent, in their own words.
+//
+// TODO: Schedule goal check-in push notifications via the PushNotificationService.
+// Currently the check-in is only surfaced when the user opens the app and the
+// bell icon lights up. Ideally, at each milestone the backend would send a push
+// notification (type: "goal_checkin") so the user gets prompted even if they
+// haven't opened the app in a while. This requires a background job or cron
+// that evaluates milestone state periodically.
+//
+
 // ── Implementation ───────────────────────────────────────────
 
 interface PacingServiceDeps {

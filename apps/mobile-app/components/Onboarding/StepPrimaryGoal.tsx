@@ -1,8 +1,24 @@
-import React, { useEffect, useState } from "react";
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, TouchableWithoutFeedback, View } from "react-native";
+import React from "react";
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
+} from "react-native";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
-import { NextButton, useTypewriter, GREEN_ACCENT } from "./shared";
-import { fontFamily, fontWeight, radius, spacing, useColors, type Colors } from "@/theme";
+import { BackButton, NextButton, StepCard, HeroCard } from "./shared";
+import {
+  fontFamily,
+  fontWeight,
+  radius,
+  spacing,
+  useColors,
+} from "@/theme";
 
 export function StepPrimaryGoal({
   primaryGoal,
@@ -20,48 +36,32 @@ export function StepPrimaryGoal({
   onClearRedirect?: () => void;
 }) {
   const colors = useColors();
-
-  const prompt = useTypewriter("What's your main goal?", 28, 150);
-  const promptDone = prompt.length >= 22;
-
-  const [showCursor, setShowCursor] = useState(true);
-  useEffect(() => {
-    if (promptDone) return;
-    const interval = setInterval(() => setShowCursor((v) => !v), 530);
-    return () => clearInterval(interval);
-  }, [promptDone]);
-
   const canProceed = primaryGoal.trim().length > 0;
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={s.container}
+      style={s.flex}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={s.container}>
-          {onBack && (
-            <Pressable onPress={onBack} style={s.backButton} hitSlop={12}>
-              <Text style={[s.backText, { color: colors.text.secondary }]}>{"\u2190"} back</Text>
-            </Pressable>
-          )}
+        <View style={s.outer}>
+          <StepCard style={s.card}>
+            {onBack && <BackButton onPress={onBack} />}
 
-          <View style={s.content}>
-            <View style={s.promptWrap}>
-              <Text style={s.promptText}>
-                {prompt}
-                {!promptDone && showCursor && <Text style={s.cursor}>{"\u2588"}</Text>}
-              </Text>
-              {promptDone && (
-                <Animated.View entering={FadeIn.delay(150).duration(350)}>
-                  <Text style={[s.promptSub, { color: colors.text.secondary }]}>
-                    This can be anything {"\u2014"} become a comedian, overcome social anxiety, learn to cook, run a marathon...
-                  </Text>
-                </Animated.View>
-              )}
+            <View style={s.topRow}>
+              <View style={s.headerText}>
+                <Text style={[s.title, { color: colors.text.primary }]}>
+                  What's your main goal?
+                </Text>
+                <Text style={[s.subtitle, { color: colors.text.secondary }]}>
+                  This can be anything {"\u2014"} become a comedian, overcome
+                  social anxiety, learn to cook, run a marathon...
+                </Text>
+              </View>
+              <HeroCard step={2} rotation={3} />
             </View>
 
-            {redirectMessage && promptDone && (
+            {redirectMessage && (
               <Animated.View entering={FadeIn.duration(300)}>
                 <View style={s.redirectBox}>
                   <Text style={s.redirectText}>{redirectMessage}</Text>
@@ -72,41 +72,50 @@ export function StepPrimaryGoal({
                     }}
                     hitSlop={8}
                   >
-                    <Text style={s.redirectDismiss}>try again</Text>
+                    <Text
+                      style={[
+                        s.redirectDismiss,
+                        { color: colors.accent.primary },
+                      ]}
+                    >
+                      try again
+                    </Text>
                   </Pressable>
                 </View>
               </Animated.View>
             )}
 
-            {promptDone && (
-              <Animated.View entering={FadeIn.delay(300).duration(400)} style={s.inputWrap}>
-                <Text style={s.inputPrompt}>{"\u276F"}</Text>
-                <TextInput
-                  style={[s.input, { color: colors.text.primary }]}
-                  placeholder={"type your goal..."}
-                  placeholderTextColor={"rgba(255, 255, 255, 0.2)"}
-                  value={primaryGoal}
-                  onChangeText={(v) => {
-                    setPrimaryGoal(v);
-                    if (redirectMessage) onClearRedirect?.();
-                  }}
-                  maxLength={500}
-                  multiline
-                  autoFocus
-                  blurOnSubmit
-                  returnKeyType="done"
-                />
-              </Animated.View>
-            )}
-          </View>
+            <View
+              style={[
+                s.inputWrap,
+                { borderColor: `rgba(${colors.accent.rgb}, 0.2)` },
+              ]}
+            >
+              <TextInput
+                style={[s.input, { color: colors.text.primary }]}
+                placeholder="Type your goal..."
+                placeholderTextColor="rgba(255, 255, 255, 0.35)"
+                value={primaryGoal}
+                onChangeText={(v) => {
+                  setPrimaryGoal(v);
+                  if (redirectMessage) onClearRedirect?.();
+                }}
+                maxLength={500}
+                multiline
+                autoFocus
+                blurOnSubmit
+                returnKeyType="done"
+              />
+            </View>
 
-          <View style={s.bottom}>
-            {promptDone && (
-              <Animated.View entering={FadeInUp.delay(400).duration(250).springify().damping(28).stiffness(400)}>
-                <NextButton onPress={onNext} disabled={!canProceed} />
-              </Animated.View>
-            )}
-          </View>
+            <View style={s.spacer} />
+
+            <Animated.View
+              entering={FadeInUp.delay(200).duration(250).springify()}
+            >
+              <NextButton onPress={onNext} disabled={!canProceed} />
+            </Animated.View>
+          </StepCard>
         </View>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
@@ -114,77 +123,53 @@ export function StepPrimaryGoal({
 }
 
 const s = StyleSheet.create({
-  container: {
+  flex: {
     flex: 1,
   },
-  backButton: {
-    position: "absolute",
-    top: 8,
-    left: 20,
-    zIndex: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  backText: {
-    fontFamily: fontFamily.mono,
-    fontSize: 12,
-    fontWeight: fontWeight.medium,
-    letterSpacing: 0.5,
-  },
-  content: {
+  outer: {
     flex: 1,
-    paddingHorizontal: 32,
-    paddingTop: 52,
-    gap: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
   },
-  promptWrap: {
-    gap: spacing._10,
+  card: {
+    flex: 1,
   },
-  promptText: {
+  topRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.lg,
+  },
+  headerText: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  title: {
     fontFamily: fontFamily.mono,
     fontSize: 22,
-    color: GREEN_ACCENT,
     fontWeight: fontWeight.bold,
-    letterSpacing: 0.3,
     lineHeight: 30,
   },
-  promptSub: {
+  subtitle: {
     fontFamily: fontFamily.mono,
-    fontSize: 12,
-    lineHeight: 19,
-    letterSpacing: 0.3,
-    opacity: 0.6,
-  },
-  cursor: {
-    fontSize: 20,
-    color: GREEN_ACCENT,
-    opacity: 0.5,
+    fontSize: 14,
+    lineHeight: 20,
   },
   inputWrap: {
     borderWidth: 1,
-    borderColor: "rgba(134, 239, 172, 0.2)",
     borderRadius: radius.md,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-  },
-  inputPrompt: {
-    fontFamily: fontFamily.mono,
-    fontSize: 14,
-    color: GREEN_ACCENT,
-    opacity: 0.4,
-    position: "absolute",
-    top: spacing.lg,
-    left: spacing.lg,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   input: {
     fontFamily: fontFamily.mono,
     fontSize: 15,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
-    paddingLeft: 36,
-    paddingRight: spacing.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
     minHeight: 120,
     lineHeight: 24,
     textAlignVertical: "top",
+  },
+  spacer: {
+    flex: 1,
   },
   redirectBox: {
     backgroundColor: "rgba(250, 204, 21, 0.08)",
@@ -203,14 +188,6 @@ const s = StyleSheet.create({
   redirectDismiss: {
     fontFamily: fontFamily.mono,
     fontSize: 12,
-    color: GREEN_ACCENT,
     fontWeight: fontWeight.medium,
-    letterSpacing: 0.3,
-    opacity: 0.7,
-  },
-  bottom: {
-    paddingHorizontal: 28,
-    paddingBottom: 44,
-    minHeight: 80,
   },
 });

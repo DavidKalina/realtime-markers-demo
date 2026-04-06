@@ -52,7 +52,6 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const OVERLAY_CARD_W = SCREEN_WIDTH * 0.85;
 const OVERLAY_CARD_H = OVERLAY_CARD_W * 1.4;
 const FRAME_INSET = 5;
-const GREEN_ACCENT = "#86efac";
 
 // ── Tilt sheen shader ──────────────────────────────────────────────────
 
@@ -292,7 +291,7 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
                 {card.questRole ? (
                   <Text style={[
                     s.headerTier,
-                    { color: card.pathwayPhase === "dfs" ? "#86efac" : "#93c5fd" },
+                    { color: card.pathwayPhase === "dfs" ? colors.accent.primary : "#93c5fd" },
                   ]}>
                     {card.pathwayPhase === "dfs" && card.pathwayLabel
                       ? `${objective?.emoji ?? "\u{1F3AF}"} ${card.pathwayLabel} \u00B7 ${QUEST_ROLE_LABELS[card.questRole as keyof typeof QUEST_ROLE_LABELS] ?? card.questRole.toUpperCase()}`
@@ -843,7 +842,7 @@ const createStyles = (colors: Colors) =>
       gap: spacing.sm,
     },
     acceptButton: {
-      backgroundColor: GREEN_ACCENT,
+      backgroundColor: colors.accent.primary,
       borderRadius: radius.md,
       paddingVertical: spacing.md,
       width: "100%",

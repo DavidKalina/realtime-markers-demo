@@ -20,7 +20,7 @@ const CATEGORY_COLOR_MAP: Record<string, string> = {
   hiking: "#4ade80", // green (alias)
   park: "#34d399", // emerald
   outdoors: "#34d399", // emerald (alias)
-  walking: "#86efac", // mint
+  walking: "#7dd3fc", // sky accent
   museum: "#c084fc", // violet
   culture: "#c084fc", // violet (alias)
   gallery: "#a78bfa", // purple
@@ -42,7 +42,7 @@ const CATEGORY_COLOR_MAP: Record<string, string> = {
  */
 export const CATEGORY_PALETTE = [
   "#93c5fd",
-  "#86efac",
+  "#7dd3fc",
   "#fcd34d",
   "#c4b5fd",
   "#fda4af",

@@ -29,15 +29,13 @@ import type { ObjectiveResponse } from "@/services/api/modules/sidequests";
 // Rotating accent colors for each stop
 const STOP_COLORS = [
   "#93c5fd", // blue
-  "#86efac", // green
+  "#7dd3fc", // sky (accent)
   "#fcd34d", // yellow
   "#c4b5fd", // purple
   "#f9a8d4", // pink
   "#fdba74", // orange
   "#67e8f9", // cyan
 ];
-
-const CHECKIN_GREEN = "#22c55e";
 
 interface ItineraryTimelineProps {
   items: ObjectiveResponse[];
@@ -232,7 +230,7 @@ const TimelineStop = React.memo(
             <Animated.View
               style={[
                 styles.dot,
-                { backgroundColor: isCheckedIn ? CHECKIN_GREEN : stopColor },
+                { backgroundColor: isCheckedIn ? colors.accent.dark : stopColor },
                 dotAnimStyle,
               ]}
             >
@@ -596,7 +594,7 @@ const createStyles = (colors: Colors, accentColor?: string) =>
       fontSize: 13,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.semibold,
-      color: accentColor ?? "#22c55e",
+      color: accentColor ?? colors.accent.dark,
       lineHeight: 22,
       minWidth: 18,
     },
@@ -636,7 +634,7 @@ const createStyles = (colors: Colors, accentColor?: string) =>
       fontSize: 10,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.semibold,
-      color: CHECKIN_GREEN,
+      color: colors.accent.dark,
       letterSpacing: 0.5,
       marginTop: 2,
     },

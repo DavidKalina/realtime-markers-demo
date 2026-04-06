@@ -14,7 +14,6 @@ import {
   type Colors,
 } from "@/theme";
 
-const GREEN = "#86efac";
 const BLUE = "#93c5fd";
 const AMBER = "#fbbf24";
 
@@ -107,7 +106,7 @@ function PathwayMomentum({ pathways }: PathwayMomentumProps) {
   if (sorted.length === 0) {
     return (
       <View style={s.container}>
-        <Text style={s.sectionLabel}>PATHWAY MOMENTUM</Text>
+        <Text style={s.sectionLabel}>Pathway Momentum</Text>
         <View style={s.emptyCard}>
           <Text style={s.emptyText}>Complete quests to reveal your pathways</Text>
         </View>
@@ -117,11 +116,11 @@ function PathwayMomentum({ pathways }: PathwayMomentumProps) {
 
   return (
     <View style={s.container}>
-      <Text style={s.sectionLabel}>PATHWAY MOMENTUM</Text>
+      <Text style={s.sectionLabel}>Pathway Momentum</Text>
 
       {sorted.map((p) => {
         const isDfs = p.phase === "dfs";
-        const accent = isDfs ? GREEN : BLUE;
+        const accent = isDfs ? colors.accent.primary : BLUE;
         const emoji = CATEGORY_EMOJI[p.theme] ?? CATEGORY_EMOJI.other;
         const resonancePoints = p.trendHistory.map((t) => t.resonance);
         const diffPoints = p.trendHistory.map((t) => t.difficulty);
@@ -138,7 +137,7 @@ function PathwayMomentum({ pathways }: PathwayMomentumProps) {
               </Text>
               <View style={[s.badge, { borderColor: `${accent}44` }]}>
                 <Text style={[s.badgeText, { color: accent }]}>
-                  {isDfs ? "GROOVE" : "EXPLORING"}
+                  {isDfs ? "Groove" : "Exploring"}
                 </Text>
               </View>
             </View>
@@ -192,7 +191,7 @@ function PathwayMomentum({ pathways }: PathwayMomentumProps) {
               {/* Quest count */}
               <View style={s.countBlock}>
                 <Text style={s.countValue}>{p.questCount}</Text>
-                <Text style={s.countLabel}>QUESTS</Text>
+                <Text style={s.countLabel}>Quests</Text>
               </View>
             </View>
           </View>
@@ -214,14 +213,14 @@ const createStyles = (colors: Colors) =>
       fontSize: 9,
       fontWeight: fontWeight.bold,
       color: colors.text.disabled,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
       marginBottom: spacing.xs,
     },
     pathwayCard: {
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.04)",
+      borderColor: "rgba(255, 255, 255, 0.08)",
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
       gap: spacing.sm,
@@ -290,13 +289,13 @@ const createStyles = (colors: Colors) =>
       fontSize: 7,
       fontWeight: fontWeight.bold,
       color: colors.text.disabled,
-      letterSpacing: 1,
+      letterSpacing: 0.5,
     },
     emptyCard: {
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.04)",
+      borderColor: "rgba(255, 255, 255, 0.08)",
       padding: spacing.lg,
       alignItems: "center",
     },

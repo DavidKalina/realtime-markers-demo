@@ -1,14 +1,18 @@
 /**
- * GrowthScoreHero — terminal-aesthetic growth score with unicode block
- * characters arranged in a circular ring, typewriter animations,
+ * GrowthScoreHero — growth score with clean arc ring,
  * sparkline trend, and momentum indicator.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import Svg, { Text as SvgText, Polyline } from "react-native-svg";
+import Svg, {
+  Circle,
+  Text as SvgText,
+  Polyline,
+} from "react-native-svg";
 import Animated, {
   Easing,
+  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -26,16 +30,16 @@ import InfoModal from "@/components/InfoModal";
 
 // ── Constants ──────────────────────────────────────────────────
 
-const GREEN = "#86efac";
 const BLUE = "#93c5fd";
 const AMBER = "#fbbf24";
 
-const RING_SIZE = 130;
+const RING_SIZE = 120;
 const CENTER = RING_SIZE / 2;
-const RING_RADIUS = 48;
-const SEGMENT_COUNT = 36;
-const TYPE_SPEED = 35;
-const BAR_WIDTH = 12;
+const RING_RADIUS = 46;
+const STROKE_WIDTH = 6;
+const CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -47,85 +51,61 @@ export interface GrowthHistoryPoint {
 export type Momentum = "rising" | "steady" | "cooling";
 
 export interface GrowthScoreHeroProps {
-  /** Composite score 0-100 */
   score: number;
   momentum: Momentum;
-  /** +/- delta over last 7 days */
   delta7d: number;
-  /** Score history for sparkline */
   history: GrowthHistoryPoint[];
-  /** Sub-score breakdown */
   subScores: {
     resonance: number;
     consistency: number;
     expansion: number;
     depth: number;
   };
-  /** Summary stats */
   questCount: number;
   currentStreak: number;
   totalXp: number;
-  /** Show calibrating state instead of zeros */
   calibrating?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────────────
 
 const MOMENTUM_CONFIG = {
-  rising: { arrow: "\u2191", color: GREEN, label: "RISING" },
-  steady: { arrow: "\u2192", color: "#a3a3a3", label: "STEADY" },
-  cooling: { arrow: "\u2193", color: BLUE, label: "COOLING" },
-} as const;
+  rising: { arrow: "\u2191", label: "Rising" },
+  steady: { arrow: "\u2192", label: "Steady" },
+  cooling: { arrow: "\u2193", label: "Cooling" },
+};
 
 const SUB_SCORES = [
   {
     key: "resonance" as const,
-    label: "RES",
-    fullLabel: "Resonance",
-    color: GREEN,
+    label: "Resonance",
+    color: null as string | null,
     info: "How emotionally aligned your quests feel. High resonance means the algorithm is finding experiences that genuinely click with you.",
   },
   {
     key: "consistency" as const,
-    label: "CON",
-    fullLabel: "Consistency",
-    color: BLUE,
+    label: "Consistency",
+    color: BLUE as string | null,
     info: "How regularly you complete quests. Streaks, weekly activity, and follow-through all contribute. Consistency compounds growth.",
   },
   {
     key: "expansion" as const,
-    label: "EXP",
-    fullLabel: "Expansion",
-    color: AMBER,
-    info: "How much you're pushing beyond your comfort zone — new areas, new venue types, further from home. Measures geographic and experiential breadth.",
+    label: "Expansion",
+    color: AMBER as string | null,
+    info: "How much you're pushing beyond your comfort zone — new areas, new venue types, further from home.",
   },
   {
     key: "depth" as const,
-    label: "DPT",
-    fullLabel: "Depth",
-    color: "#c4b5fd",
+    label: "Depth",
+    color: "#c4b5fd" as string | null,
     info: "How deeply you're engaging with your pathways. Returning to what resonates, increasing difficulty, and reflecting meaningfully all build depth.",
   },
 ];
 
 const OVERALL_SCORE_INFO = {
   title: "Growth Score",
-  body: "A composite of your Resonance, Consistency, Expansion, and Depth scores. It reflects how actively and meaningfully you're growing through quests — not just how many you complete, but how well they're working for you.",
+  body: "A composite of your Resonance, Consistency, Expansion, and Depth scores. It reflects how actively and meaningfully you're growing through quests.",
 };
-
-function scoreColor(score: number): string {
-  const t = Math.min(Math.max(score / 100, 0), 1);
-  const r = Math.round(180 - t * 140);
-  const g = Math.round(230 - t * 60);
-  const b = Math.round(180 - t * 120);
-  return `rgb(${r}, ${g}, ${b})`;
-}
-
-function buildBar(value: number, width = BAR_WIDTH): string {
-  const pct = value / 100;
-  const filled = Math.round(pct * width);
-  return "\u2588".repeat(filled) + "\u2591".repeat(width - filled);
-}
 
 function buildSparkline(history: GrowthHistoryPoint[]): string | null {
   if (history.length < 2) return null;
@@ -146,41 +126,6 @@ function buildSparkline(history: GrowthHistoryPoint[]): string | null {
     .join(" ");
 }
 
-// Polar coordinate helper
-function polarXY(angleDeg: number, r: number): [number, number] {
-  const rad = ((angleDeg - 90) * Math.PI) / 180; // start from top
-  return [CENTER + r * Math.cos(rad), CENTER + r * Math.sin(rad)];
-}
-
-// ── Typewriter hook (matches PhaseHeader) ──────────────────────
-
-function useTypewriter(text: string, speed: number, delay = 0): string {
-  const [displayed, setDisplayed] = useState("");
-  const indexRef = useRef(0);
-
-  useEffect(() => {
-    setDisplayed("");
-    indexRef.current = 0;
-
-    const startTimer = setTimeout(() => {
-      const interval = setInterval(() => {
-        indexRef.current++;
-        if (indexRef.current >= text.length) {
-          setDisplayed(text);
-          clearInterval(interval);
-        } else {
-          setDisplayed(text.slice(0, indexRef.current));
-        }
-      }, speed);
-      return () => clearInterval(interval);
-    }, delay);
-
-    return () => clearTimeout(startTimer);
-  }, [text, speed, delay]);
-
-  return displayed;
-}
-
 // ── Component ──────────────────────────────────────────────────
 
 function GrowthScoreHero({
@@ -197,64 +142,53 @@ function GrowthScoreHero({
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
   const mc = MOMENTUM_CONFIG[momentum];
-  const sc = scoreColor(score);
-
-  // ── Typewriter label ─────────────────────────────
-  const fullLabel = calibrating ? "GROWTH: ---" : `GROWTH: ${score}`;
-  const typedLabel = useTypewriter(fullLabel, TYPE_SPEED, 200);
-  const showCursor = typedLabel.length < fullLabel.length;
+  const accentColor = colors.accent.primary;
 
   // ── Animated ring fill ───────────────────────────
-  const filledTarget = calibrating ? 0 : Math.round((score / 100) * SEGMENT_COUNT);
-  const [filledCount, setFilledCount] = useState(0);
+  const ringProgress = useSharedValue(0);
 
   useEffect(() => {
-    setFilledCount(0);
-    const labelDone = fullLabel.length * TYPE_SPEED + 300;
-    const timer = setTimeout(() => {
-      let count = 0;
-      const interval = setInterval(() => {
-        count++;
-        if (count >= filledTarget) {
-          setFilledCount(filledTarget);
-          clearInterval(interval);
-        } else {
-          setFilledCount(count);
-        }
-      }, 30);
-      return () => clearInterval(interval);
-    }, labelDone);
-    return () => clearTimeout(timer);
-  }, [filledTarget, fullLabel.length]);
+    ringProgress.value = 0;
+    ringProgress.value = withDelay(
+      300,
+      withTiming(calibrating ? 0 : score / 100, {
+        duration: 1000,
+        easing: Easing.out(Easing.cubic),
+      }),
+    );
+  }, [score, calibrating]);
+
+  const animatedCircleProps = useAnimatedProps(() => ({
+    strokeDashoffset: CIRCUMFERENCE * (1 - ringProgress.value),
+  }));
 
   // ── Momentum badge fade ──────────────────────────
   const mProg = useSharedValue(0);
   useEffect(() => {
     mProg.value = 0;
     mProg.value = withDelay(
-      fullLabel.length * TYPE_SPEED + 400,
+      500,
       withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }),
     );
-  }, [momentum, mProg, fullLabel.length]);
+  }, [momentum, mProg]);
   const mStyle = useAnimatedStyle(() => ({
     opacity: mProg.value,
     transform: [{ translateY: (1 - mProg.value) * -6 }],
   }));
 
   // ── Sub-score bars appear after ring ─────────────
-  const subsDelay = fullLabel.length * TYPE_SPEED + SEGMENT_COUNT * 30 + 200;
   const [showSubs, setShowSubs] = useState(false);
   useEffect(() => {
-    const timer = setTimeout(() => setShowSubs(true), subsDelay);
+    const timer = setTimeout(() => setShowSubs(true), 1200);
     return () => clearTimeout(timer);
-  }, [subsDelay]);
+  }, []);
 
   // ── Stats row appears last ───────────────────────
   const [showStats, setShowStats] = useState(false);
   useEffect(() => {
-    const timer = setTimeout(() => setShowStats(true), subsDelay + 400);
+    const timer = setTimeout(() => setShowStats(true), 1600);
     return () => clearTimeout(timer);
-  }, [subsDelay]);
+  }, []);
 
   // ── Info modal state ──────────────────────────────
   const [activeInfo, setActiveInfo] = useState<{
@@ -266,122 +200,165 @@ function GrowthScoreHero({
 
   const handleRingPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActiveInfo({ title: OVERALL_SCORE_INFO.title, body: OVERALL_SCORE_INFO.body, color: sc });
-  }, [sc]);
+    setActiveInfo({
+      title: OVERALL_SCORE_INFO.title,
+      body: OVERALL_SCORE_INFO.body,
+      color: accentColor,
+    });
+  }, [accentColor]);
 
-  const handleSubPress = useCallback((sub: typeof SUB_SCORES[number]) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setActiveInfo({ title: sub.fullLabel, body: sub.info, color: sub.color });
-  }, []);
+  const handleSubPress = useCallback(
+    (sub: (typeof SUB_SCORES)[number]) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setActiveInfo({
+        title: sub.label,
+        body: sub.info,
+        color: sub.color ?? undefined,
+      });
+    },
+    [],
+  );
 
   const deltaText =
     delta7d > 0 ? `+${delta7d}` : delta7d < 0 ? `${delta7d}` : "";
   const sparkline = buildSparkline(history);
 
-  // Build ring segments
-  const segments = useMemo(() => {
-    const segs: { x: number; y: number; angle: number }[] = [];
-    for (let i = 0; i < SEGMENT_COUNT; i++) {
-      const angleDeg = (i / SEGMENT_COUNT) * 360;
-      const [x, y] = polarXY(angleDeg, RING_RADIUS);
-      segs.push({ x, y, angle: angleDeg });
-    }
-    return segs;
-  }, []);
-
   return (
     <View style={s.container}>
-      {/* Header: Typewriter label + momentum */}
+      {/* Header: label + momentum */}
       <View style={s.headerRow}>
-        <Text style={[s.typeLabel, { color: sc }]}>
-          {typedLabel}
-          {showCursor && <Text style={s.cursor}>{"\u2588"}</Text>}
+        <Text style={[s.headerLabel, { color: colors.text.primary }]}>
+          {calibrating ? "Growth" : `Growth: ${score}`}
         </Text>
-        <Animated.Text style={[s.momentumBadge, { color: calibrating ? "rgba(255, 255, 255, 0.2)" : mc.color }, mStyle]}>
-          {calibrating ? "CALIBRATING" : `${mc.arrow} ${mc.label}${deltaText ? ` ${deltaText}` : ""}`}
+        <Animated.Text
+          style={[
+            s.momentumBadge,
+            {
+              color: calibrating
+                ? colors.text.secondary
+                : accentColor,
+            },
+            mStyle,
+          ]}
+        >
+          {calibrating
+            ? "Calibrating"
+            : `${mc.arrow} ${mc.label}${deltaText ? ` ${deltaText}` : ""}`}
         </Animated.Text>
       </View>
 
       {/* Ring + sub-scores side by side */}
       <View style={s.topRow}>
-        {/* Unicode block ring (tappable for overall score info) */}
+        {/* Clean arc ring */}
         <Pressable style={s.ringWrapper} onPress={handleRingPress}>
           <Svg width={RING_SIZE} height={RING_SIZE}>
-            {segments.map((seg, i) => {
-              const isFilled = i < filledCount;
-              const char = isFilled ? "\u2588" : "\u2591";
-              const fillColor = isFilled ? sc : "rgba(255, 255, 255, 0.08)";
-
-              return (
-                <SvgText
-                  key={i}
-                  x={seg.x}
-                  y={seg.y}
-                  fill={fillColor}
-                  fontSize={11}
-                  fontFamily="SpaceMono"
-                  textAnchor="middle"
-                  alignmentBaseline="central"
-                  rotation={seg.angle}
-                  origin={`${seg.x}, ${seg.y}`}
-                >
-                  {char}
-                </SvgText>
-              );
-            })}
+            {/* Background track */}
+            <Circle
+              cx={CENTER}
+              cy={CENTER}
+              r={RING_RADIUS}
+              stroke="rgba(255, 255, 255, 0.1)"
+              strokeWidth={STROKE_WIDTH}
+              fill="none"
+            />
+            {/* Filled arc */}
+            <AnimatedCircle
+              cx={CENTER}
+              cy={CENTER}
+              r={RING_RADIUS}
+              stroke={accentColor}
+              strokeWidth={STROKE_WIDTH}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={CIRCUMFERENCE}
+              animatedProps={animatedCircleProps}
+              rotation={-90}
+              origin={`${CENTER}, ${CENTER}`}
+            />
             {/* Center score */}
             <SvgText
               x={CENTER}
-              y={calibrating ? CENTER : CENTER - 4}
-              fill={calibrating ? "rgba(255, 255, 255, 0.2)" : sc}
-              fontSize={calibrating ? 9 : 24}
+              y={calibrating ? CENTER : CENTER - 2}
+              fill={calibrating ? colors.text.secondary : colors.text.primary}
+              fontSize={calibrating ? 12 : 28}
               fontFamily="SpaceMono"
               fontWeight="700"
               textAnchor="middle"
               alignmentBaseline="central"
             >
-              {calibrating ? "..." : filledCount > 0 ? Math.round((filledCount / SEGMENT_COUNT) * 100) : ""}
+              {calibrating ? "..." : score}
             </SvgText>
             {!calibrating && (
               <SvgText
                 x={CENTER}
-                y={CENTER + 14}
-                fill="rgba(255, 255, 255, 0.25)"
-                fontSize={7}
+                y={CENTER + 16}
+                fill={colors.text.secondary}
+                fontSize={10}
                 fontFamily="SpaceMono"
                 textAnchor="middle"
                 alignmentBaseline="central"
               >
-                /100
+                / 100
               </SvgText>
             )}
           </Svg>
         </Pressable>
 
-        {/* Sub-score bars (each tappable for info) */}
+        {/* Sub-score bars */}
         <View style={[s.subsColumn, { opacity: showSubs ? 1 : 0 }]}>
-          {SUB_SCORES.map((sub) => (
-            <Pressable key={sub.key} style={s.subRow} onPress={calibrating ? undefined : () => handleSubPress(sub)}>
-              <Text style={s.subLabel}>{sub.label}</Text>
-              <Text style={[s.subBar, { color: calibrating ? "rgba(255, 255, 255, 0.08)" : sub.color }]}>
-                {calibrating ? "\u2591".repeat(BAR_WIDTH) : buildBar(subScores[sub.key])}
-              </Text>
-              <Text style={[s.subValue, { color: calibrating ? "rgba(255, 255, 255, 0.15)" : sub.color }]}>
-                {calibrating ? "--" : subScores[sub.key]}
-              </Text>
-            </Pressable>
-          ))}
+          {SUB_SCORES.map((sub) => {
+            const subColor = sub.color ?? accentColor;
+            const subPct = subScores[sub.key];
+            return (
+              <Pressable
+                key={sub.key}
+                style={s.subRow}
+                onPress={
+                  calibrating ? undefined : () => handleSubPress(sub)
+                }
+              >
+                <Text style={[s.subLabel, { color: colors.text.secondary }]}>
+                  {sub.label}
+                </Text>
+                <View style={s.subBarTrack}>
+                  <View
+                    style={[
+                      s.subBarFill,
+                      {
+                        width: calibrating ? "0%" : `${subPct}%`,
+                        backgroundColor: calibrating
+                          ? "rgba(255, 255, 255, 0.12)"
+                          : subColor,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text
+                  style={[
+                    s.subValue,
+                    {
+                      color: calibrating
+                        ? colors.text.secondary
+                        : subColor,
+                    },
+                  ]}
+                >
+                  {calibrating ? "--" : subPct}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
-      {/* Sparkline (subtle, below ring) */}
+      {/* Sparkline */}
       {sparkline && (
         <View style={[s.sparkContainer, { opacity: showSubs ? 1 : 0 }]}>
           <Svg width="100%" height={22} viewBox="0 0 200 28">
             <Polyline
               points={sparkline}
               fill="none"
-              stroke={sc}
+              stroke={accentColor}
               strokeWidth={1.5}
               strokeLinejoin="round"
               strokeLinecap="round"
@@ -391,10 +368,12 @@ function GrowthScoreHero({
         </View>
       )}
 
-      {/* Stats row (fades in last) */}
+      {/* Stats row */}
       <View style={[s.statsRow, { opacity: showStats ? 1 : 0 }]}>
         {calibrating ? (
-          <Text style={s.calibratingHint}>Complete your first quest to start tracking</Text>
+          <Text style={s.calibratingHint}>
+            Complete your first quest to start tracking
+          </Text>
         ) : (
           <>
             <Text style={s.stat}>{questCount} quests</Text>
@@ -422,33 +401,27 @@ function GrowthScoreHero({
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
     container: {
-      gap: spacing.md,
+      gap: spacing.lg,
     },
     headerRow: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
     },
-    typeLabel: {
+    headerLabel: {
       fontFamily: fontFamily.mono,
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: fontWeight.bold,
-      letterSpacing: 1.5,
-    },
-    cursor: {
-      fontSize: 14,
-      opacity: 0.6,
     },
     momentumBadge: {
       fontFamily: fontFamily.mono,
-      fontSize: 10,
-      fontWeight: fontWeight.bold,
-      letterSpacing: 0.8,
+      fontSize: 12,
+      fontWeight: fontWeight.semibold,
     },
     topRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: spacing.sm,
+      gap: spacing.lg,
     },
     ringWrapper: {
       width: RING_SIZE,
@@ -456,32 +429,35 @@ const createStyles = (colors: Colors) =>
     },
     subsColumn: {
       flex: 1,
-      gap: spacing._6,
+      gap: spacing.sm,
     },
     subRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: spacing._6,
+      gap: spacing.sm,
     },
     subLabel: {
       fontFamily: fontFamily.mono,
-      fontSize: 8,
-      fontWeight: fontWeight.bold,
-      color: colors.text.disabled,
-      letterSpacing: 0.8,
-      width: 24,
+      fontSize: 11,
+      fontWeight: fontWeight.medium,
+      width: 80,
     },
-    subBar: {
-      fontFamily: fontFamily.mono,
-      fontSize: 9,
-      letterSpacing: -0.5,
+    subBarTrack: {
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: "rgba(255, 255, 255, 0.1)",
+      overflow: "hidden",
       flex: 1,
+    },
+    subBarFill: {
+      height: 4,
+      borderRadius: 2,
     },
     subValue: {
       fontFamily: fontFamily.mono,
-      fontSize: 10,
+      fontSize: 12,
       fontWeight: fontWeight.bold,
-      width: 22,
+      width: 24,
       textAlign: "right",
     },
     sparkContainer: {
@@ -495,19 +471,19 @@ const createStyles = (colors: Colors) =>
     },
     stat: {
       fontFamily: fontFamily.mono,
-      fontSize: 11,
+      fontSize: 12,
       color: colors.text.secondary,
       fontWeight: fontWeight.medium,
     },
     statDot: {
       fontFamily: fontFamily.mono,
-      fontSize: 11,
-      color: "rgba(255, 255, 255, 0.2)",
+      fontSize: 12,
+      color: colors.text.secondary,
     },
     calibratingHint: {
       fontFamily: fontFamily.mono,
-      fontSize: 10,
-      color: colors.text.disabled,
+      fontSize: 12,
+      color: colors.text.secondary,
       fontStyle: "italic",
     },
   });

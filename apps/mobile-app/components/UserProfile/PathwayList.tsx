@@ -8,7 +8,6 @@ import {
   type Colors,
 } from "@/theme";
 
-const GREEN = "#86efac";
 const BLUE = "#93c5fd";
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -45,14 +44,23 @@ interface PathwayListProps {
   pathways: PathwayItem[];
 }
 
-function buildBar(value: number, width = 10): string {
-  const filled = Math.round(value * width);
-  return "\u2593".repeat(filled) + "\u2591".repeat(width - filled);
-}
-
-function buildDifficultyDots(d: number): string {
+function DifficultyDots({ d, accent }: { d: number; accent: string }) {
   const clamped = Math.min(Math.max(Math.round(d), 0), 5);
-  return "\u25CF".repeat(clamped) + "\u25CB".repeat(5 - clamped);
+  return (
+    <View style={{ flexDirection: "row", gap: 3, alignItems: "center" }}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <View
+          key={i}
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: 3,
+            backgroundColor: i < clamped ? accent : "rgba(255,255,255,0.15)",
+          }}
+        />
+      ))}
+    </View>
+  );
 }
 
 function trendArrow(trend: number): string {
@@ -80,7 +88,7 @@ function PathwayList({ pathways }: PathwayListProps) {
   if (sorted.length === 0) {
     return (
       <View style={s.container}>
-        <Text style={s.sectionLabel}>PATHWAYS</Text>
+        <Text style={s.sectionLabel}>Pathways</Text>
         <View style={s.emptyCard}>
           <Text style={s.emptyText}>Complete quests to reveal your pathways</Text>
           <Text style={s.emptySubtext}>The algorithm learns what resonates with you</Text>
@@ -91,10 +99,10 @@ function PathwayList({ pathways }: PathwayListProps) {
 
   return (
     <View style={s.container}>
-      <Text style={s.sectionLabel}>ACTIVE PATHWAYS</Text>
+      <Text style={s.sectionLabel}>Active Pathways</Text>
       {sorted.map((p) => {
         const isDfs = p.phase === "dfs";
-        const accent = isDfs ? GREEN : BLUE;
+        const accent = isDfs ? colors.accent.primary : BLUE;
         const emoji = CATEGORY_EMOJI[p.theme] ?? CATEGORY_EMOJI.other;
 
         return (
@@ -104,17 +112,22 @@ function PathwayList({ pathways }: PathwayListProps) {
               <Text style={[s.label, { color: accent }]} numberOfLines={1}>
                 {p.themeLabel}
               </Text>
-              <Text style={[s.bar, { color: accent }]}>{buildBar(p.avgResonance)}</Text>
+              <View style={s.barTrack}>
+                <View style={[s.barFill, { width: `${Math.round(p.avgResonance * 100)}%`, backgroundColor: accent }]} />
+              </View>
               <View style={[s.badge, { borderColor: `${accent}44` }]}>
                 <Text style={[s.badgeText, { color: accent }]}>
-                  {isDfs ? "YOUR GROOVE" : "EXPLORING"}
+                  {isDfs ? "Your Groove" : "Exploring"}
                 </Text>
               </View>
             </View>
             <View style={s.subRow}>
-              <Text style={s.subText}>
-                Quest {p.questCount} {"\u00B7"} {buildDifficultyDots(p.currentDifficulty)} {"\u00B7"} {trendArrow(p.difficultyTrend)} {trendLabel(p.difficultyTrend)}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={s.subText}>Quest {p.questCount}</Text>
+                <Text style={s.subText}>{"\u00B7"}</Text>
+                <DifficultyDots d={p.currentDifficulty} accent={accent} />
+                <Text style={s.subText}>{"\u00B7"} {trendArrow(p.difficultyTrend)} {trendLabel(p.difficultyTrend)}</Text>
+              </View>
             </View>
           </View>
         );
@@ -133,14 +146,14 @@ const createStyles = (colors: Colors) =>
       fontSize: 9,
       fontWeight: fontWeight.bold,
       color: colors.text.disabled,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
       marginBottom: spacing.xs,
     },
     pathwayRow: {
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.04)",
+      borderColor: "rgba(255, 255, 255, 0.08)",
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
       gap: 4,
@@ -160,10 +173,16 @@ const createStyles = (colors: Colors) =>
       letterSpacing: 0.5,
       flex: 1,
     },
-    bar: {
-      fontFamily: fontFamily.mono,
-      fontSize: 10,
-      letterSpacing: -0.5,
+    barTrack: {
+      flex: 1,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: "rgba(255, 255, 255, 0.12)",
+      overflow: "hidden",
+    },
+    barFill: {
+      height: 4,
+      borderRadius: 2,
     },
     badge: {
       borderWidth: 1,
@@ -187,10 +206,10 @@ const createStyles = (colors: Colors) =>
       letterSpacing: 0.3,
     },
     emptyCard: {
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.04)",
+      borderColor: "rgba(255, 255, 255, 0.08)",
       padding: spacing.lg,
       alignItems: "center",
       gap: spacing.xs,

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -15,10 +15,7 @@ import {
   type Colors,
 } from "@/theme";
 
-const GREEN = "#86efac";
 const BLUE = "#93c5fd";
-const BAR_WIDTH = 24;
-const TYPE_SPEED = 40; // ms per character
 
 interface PhaseHeaderProps {
   globalPhase: "bfs" | "mixed" | "dfs";
@@ -29,39 +26,11 @@ interface PhaseHeaderProps {
   totalXp: number;
 }
 
-const PHASE_CONFIG = {
-  bfs: { label: "EXPLORING", color: BLUE, description: "Casting a wide net across new territory" },
-  mixed: { label: "ADAPTIVE", color: GREEN, description: "Deepening grooves while still exploring" },
-  dfs: { label: "DEEPENING", color: GREEN, description: "Focused on what resonates most" },
-} as const;
-
-// Typewriter hook
-function useTypewriter(text: string, speed: number, delay = 0): string {
-  const [displayed, setDisplayed] = useState("");
-  const indexRef = useRef(0);
-
-  useEffect(() => {
-    setDisplayed("");
-    indexRef.current = 0;
-
-    const startTimer = setTimeout(() => {
-      const interval = setInterval(() => {
-        indexRef.current++;
-        if (indexRef.current >= text.length) {
-          setDisplayed(text);
-          clearInterval(interval);
-        } else {
-          setDisplayed(text.slice(0, indexRef.current));
-        }
-      }, speed);
-      return () => clearInterval(interval);
-    }, delay);
-
-    return () => clearTimeout(startTimer);
-  }, [text, speed, delay]);
-
-  return displayed;
-}
+const PHASE_CONFIG: Record<string, { label: string; accentKey: "accent" | "blue"; description: string }> = {
+  bfs: { label: "EXPLORING", accentKey: "blue", description: "Casting a wide net across new territory" },
+  mixed: { label: "ADAPTIVE", accentKey: "accent", description: "Deepening grooves while still exploring" },
+  dfs: { label: "DEEPENING", accentKey: "accent", description: "Focused on what resonates most" },
+};
 
 function PhaseHeader({
   globalPhase,
@@ -73,114 +42,70 @@ function PhaseHeader({
 }: PhaseHeaderProps) {
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const config = PHASE_CONFIG[globalPhase];
+  const rawConfig = PHASE_CONFIG[globalPhase];
+  const configColor = rawConfig.accentKey === "accent" ? colors.accent.primary : BLUE;
 
   const deepenPct = totalPathways > 0 ? Math.round((dfsCount / totalPathways) * 100) : 0;
   const explorePct = 100 - deepenPct;
 
-  // Typewriter for phase label
-  const fullLabel = `PHASE: ${config.label}`;
-  const typedLabel = useTypewriter(fullLabel, TYPE_SPEED, 200);
-  const showCursor = typedLabel.length < fullLabel.length;
+  const fullLabel = `Phase: ${rawConfig.label}`;
 
-  // Animate border lines drawing in
-  const borderWidth = useSharedValue(0);
+  // Animate bar fill
+  const barProgress = useSharedValue(0);
   useEffect(() => {
-    borderWidth.value = withDelay(
-      100,
-      withTiming(1, { duration: 600, easing: Easing.out(Easing.ease) }),
+    barProgress.value = 0;
+    barProgress.value = withDelay(
+      300,
+      withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) }),
     );
-  }, [borderWidth]);
+  }, [barProgress, deepenPct]);
 
-  const topBorderStyle = useAnimatedStyle(() => ({
-    flex: borderWidth.value,
+  const deepenBarStyle = useAnimatedStyle(() => ({
+    width: `${deepenPct * barProgress.value}%`,
   }));
-  const bottomBorderStyle = useAnimatedStyle(() => ({
-    flex: borderWidth.value,
+  const exploreBarStyle = useAnimatedStyle(() => ({
+    width: `${explorePct * barProgress.value}%`,
   }));
-
-  // Build ratio bar
-  const phaseBarDelay = fullLabel.length * TYPE_SPEED + 300;
-  const [barFilled, setBarFilled] = useState(0);
-  const targetDeepen = Math.round((deepenPct / 100) * BAR_WIDTH);
-  const targetExplore = BAR_WIDTH - targetDeepen;
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      let count = 0;
-      const interval = setInterval(() => {
-        count++;
-        if (count >= BAR_WIDTH) {
-          setBarFilled(BAR_WIDTH);
-          clearInterval(interval);
-        } else {
-          setBarFilled(count);
-        }
-      }, 20);
-      return () => clearInterval(interval);
-    }, phaseBarDelay);
-    return () => clearTimeout(timer);
-  }, [phaseBarDelay]);
-
-  // Build the ratio bar string
-  const deepenFilled = Math.min(barFilled, targetDeepen);
-  const exploreFilled = Math.max(0, barFilled - targetDeepen);
-  const remaining = BAR_WIDTH - barFilled;
 
   // Show stats after bar completes
   const [showStats, setShowStats] = useState(false);
   useEffect(() => {
-    const timer = setTimeout(() => setShowStats(true), phaseBarDelay + BAR_WIDTH * 20 + 200);
+    const timer = setTimeout(() => setShowStats(true), 1000);
     return () => clearTimeout(timer);
-  }, [phaseBarDelay]);
+  }, []);
+
+  // Show ratio labels after bar
+  const [showLabels, setShowLabels] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShowLabels(true), 900);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <View style={s.container}>
-      <View style={[s.box, { borderColor: `${config.color}22` }]}>
-        {/* Top border */}
-        <View style={s.borderRow}>
-          <Text style={[s.cornerChar, { color: `${config.color}30` }]}>{"\u2554"}</Text>
-          <Animated.View style={[s.borderLine, { backgroundColor: `${config.color}18` }, topBorderStyle]} />
-          <Text style={[s.cornerChar, { color: `${config.color}30` }]}>{"\u2557"}</Text>
-        </View>
-
+      <View style={[s.box, { borderColor: `${configColor}40` }]}>
         <View style={s.boxContent}>
-          {/* Typewriter label */}
-          <Text style={[s.phaseLabel, { color: config.color }]}>
-            {typedLabel}
-            {showCursor && <Text style={s.cursor}>{"\u2588"}</Text>}
+          {/* Phase label */}
+          <Text style={[s.phaseLabel, { color: configColor }]}>
+            {fullLabel}
           </Text>
 
-          {/* Ratio bar — space always reserved */}
-          <View style={s.ratioRow}>
-            <Text style={[s.ratioBar, { color: GREEN }]}>
-              {"\u2588".repeat(deepenFilled)}
-            </Text>
-            <Text style={[s.ratioBar, { color: BLUE }]}>
-              {"\u2588".repeat(exploreFilled)}
-            </Text>
-            <Text style={[s.ratioBar, { color: "rgba(255,255,255,0.08)" }]}>
-              {"\u2591".repeat(Math.max(0, remaining))}
-            </Text>
+          {/* Ratio bar — View-based */}
+          <View style={s.ratioBarTrack}>
+            <Animated.View style={[s.ratioBarFill, { backgroundColor: colors.accent.primary }, deepenBarStyle]} />
+            <Animated.View style={[s.ratioBarFill, { backgroundColor: BLUE }, exploreBarStyle]} />
           </View>
 
-          {/* Ratio labels — space always reserved */}
-          <View style={s.ratioLabels}>
-            <Text style={[s.ratioText, { color: GREEN, opacity: barFilled >= BAR_WIDTH ? 1 : 0 }]}>
-              {deepenPct}% DEEPEN
+          {/* Ratio labels */}
+          <View style={[s.ratioLabels, { opacity: showLabels ? 1 : 0 }]}>
+            <Text style={[s.ratioText, { color: colors.accent.primary }]}>
+              {deepenPct}% Deepen
             </Text>
-            <Text style={[s.ratioDot, { opacity: barFilled >= BAR_WIDTH ? 1 : 0 }]}>{"\u00B7"}</Text>
-            <Text style={[s.ratioText, { color: BLUE, opacity: barFilled >= BAR_WIDTH ? 1 : 0 }]}>
-              {explorePct}% EXPLORE
+            <Text style={s.ratioDot}>{"\u00B7"}</Text>
+            <Text style={[s.ratioText, { color: BLUE }]}>
+              {explorePct}% Explore
             </Text>
           </View>
-        </View>
-
-        {/* Bottom border */}
-        <View style={s.borderRow}>
-          <Text style={[s.cornerChar, { color: `${config.color}30` }]}>{"\u255A"}</Text>
-          <Animated.View style={[s.borderLine, { backgroundColor: `${config.color}18` }, bottomBorderStyle]} />
-          <Text style={[s.cornerChar, { color: `${config.color}30` }]}>{"\u255D"}</Text>
         </View>
       </View>
 
@@ -204,21 +129,8 @@ const createStyles = (colors: Colors) =>
     box: {
       borderWidth: 1,
       borderRadius: 4,
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       overflow: "hidden",
-    },
-    borderRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: spacing.xs,
-    },
-    cornerChar: {
-      fontFamily: fontFamily.mono,
-      fontSize: 12,
-      lineHeight: 14,
-    },
-    borderLine: {
-      height: 1,
     },
     boxContent: {
       paddingHorizontal: spacing.lg,
@@ -229,19 +141,17 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontSize: 20,
       fontWeight: fontWeight.bold,
-      letterSpacing: 2,
+      letterSpacing: 0.5,
     },
-    cursor: {
-      fontSize: 18,
-      opacity: 0.6,
-    },
-    ratioRow: {
+    ratioBarTrack: {
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: "rgba(255,255,255,0.12)",
+      overflow: "hidden",
       flexDirection: "row",
     },
-    ratioBar: {
-      fontFamily: fontFamily.mono,
-      fontSize: 12,
-      letterSpacing: -1,
+    ratioBarFill: {
+      height: 4,
     },
     ratioLabels: {
       flexDirection: "row",
@@ -252,12 +162,12 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontSize: 10,
       fontWeight: fontWeight.bold,
-      letterSpacing: 1,
+      letterSpacing: 0.5,
     },
     ratioDot: {
       fontFamily: fontFamily.mono,
       fontSize: 10,
-      color: "rgba(255, 255, 255, 0.2)",
+      color: "rgba(255, 255, 255, 0.3)",
     },
     statsRow: {
       flexDirection: "row",
@@ -274,7 +184,7 @@ const createStyles = (colors: Colors) =>
     statDot: {
       fontFamily: fontFamily.mono,
       fontSize: 11,
-      color: "rgba(255, 255, 255, 0.2)",
+      color: "rgba(255, 255, 255, 0.3)",
     },
   });
 

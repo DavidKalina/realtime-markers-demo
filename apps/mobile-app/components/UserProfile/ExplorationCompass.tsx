@@ -15,7 +15,6 @@ import {
   type Colors,
 } from "@/theme";
 
-const GREEN = "#86efac";
 const AMBER = "#fbbf24";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -44,7 +43,7 @@ export interface ExplorationCompassProps {
 
 const PROFILE_CONFIG: Record<
   ExplorationProfile,
-  { label: string; description: string; color: string }
+  { label: string; description: string; color: string | null }
 > = {
   early_explorer: {
     label: "EARLY EXPLORER",
@@ -64,7 +63,7 @@ const PROFILE_CONFIG: Record<
   well_rounded: {
     label: "WELL ROUNDED",
     description: "Balanced exploration across your territory",
-    color: GREEN,
+    color: null as string | null, // accent
   },
 };
 
@@ -105,7 +104,8 @@ function ExplorationCompass({
 }: ExplorationCompassProps) {
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const profile = PROFILE_CONFIG[explorationProfile];
+  const rawProfile = PROFILE_CONFIG[explorationProfile];
+  const profile = { ...rawProfile, color: rawProfile.color ?? colors.accent.primary };
 
   return (
     <View style={s.container}>
@@ -116,9 +116,9 @@ function ExplorationCompass({
           {/* SVG Compass */}
           <Svg width={COMPASS_SIZE} height={COMPASS_SIZE}>
             {/* Concentric rings */}
-            <Circle cx={CENTER} cy={CENTER} r={OUTER_R} stroke="rgba(255, 255, 255, 0.06)" strokeWidth={1} fill="none" />
-            <Circle cx={CENTER} cy={CENTER} r={OUTER_R * 0.66} stroke="rgba(255, 255, 255, 0.04)" strokeWidth={0.5} fill="none" />
-            <Circle cx={CENTER} cy={CENTER} r={OUTER_R * 0.33} stroke="rgba(255, 255, 255, 0.03)" strokeWidth={0.5} fill="none" />
+            <Circle cx={CENTER} cy={CENTER} r={OUTER_R} stroke="rgba(255, 255, 255, 0.15)" strokeWidth={1} fill="none" />
+            <Circle cx={CENTER} cy={CENTER} r={OUTER_R * 0.66} stroke="rgba(255, 255, 255, 0.12)" strokeWidth={0.5} fill="none" />
+            <Circle cx={CENTER} cy={CENTER} r={OUTER_R * 0.33} stroke="rgba(255, 255, 255, 0.08)" strokeWidth={0.5} fill="none" />
 
             {/* Cardinal tick marks */}
             {CARDINALS.map((c) => {
@@ -127,11 +127,11 @@ function ExplorationCompass({
               const [tx, ty] = polarToXY(c.angle, OUTER_R + 12);
               return (
                 <React.Fragment key={c.label}>
-                  <Line x1={ix} y1={iy} x2={ox} y2={oy} stroke="rgba(255, 255, 255, 0.15)" strokeWidth={1} />
+                  <Line x1={ix} y1={iy} x2={ox} y2={oy} stroke="rgba(255, 255, 255, 0.25)" strokeWidth={1} />
                   <SvgText
                     x={tx}
                     y={ty}
-                    fill="rgba(255, 255, 255, 0.25)"
+                    fill="rgba(255, 255, 255, 0.4)"
                     fontSize={8}
                     fontFamily="SpaceMono"
                     textAnchor="middle"
@@ -144,7 +144,7 @@ function ExplorationCompass({
             })}
 
             {/* Coverage arcs (filled = explored) — draw as full circle, then overlay gaps */}
-            <Circle cx={CENTER} cy={CENTER} r={OUTER_R - 8} stroke={`${GREEN}30`} strokeWidth={10} fill="none" />
+            <Circle cx={CENTER} cy={CENTER} r={OUTER_R - 8} stroke={`rgba(${colors.accent.rgb}, 0.3)`} strokeWidth={10} fill="none" />
 
             {/* Gap arcs */}
             {gaps.map((gap, i) => (
@@ -159,7 +159,7 @@ function ExplorationCompass({
             ))}
 
             {/* Center dot */}
-            <Circle cx={CENTER} cy={CENTER} r={3} fill={GREEN} opacity={0.6} />
+            <Circle cx={CENTER} cy={CENTER} r={3} fill={colors.accent.primary} opacity={0.85} />
           </Svg>
 
           {/* Profile info */}
@@ -211,14 +211,14 @@ const createStyles = (colors: Colors) =>
       fontSize: 9,
       fontWeight: fontWeight.bold,
       color: colors.text.disabled,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
       marginBottom: spacing.xs,
     },
     card: {
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.04)",
+      borderColor: "rgba(255, 255, 255, 0.12)",
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.md,
     },

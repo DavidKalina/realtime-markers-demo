@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Line, Rect } from "react-native-svg";
 import Animated, {
@@ -22,9 +22,9 @@ import {
 // ── Social ladder ────────────────────────────────────────────
 
 const SOCIAL_RUNGS = [
-  { key: "solo", emoji: "\uD83E\uDDD1", label: "Solo", color: "rgba(255,255,255,0.25)" },
+  { key: "solo", emoji: "\uD83E\uDDD1", label: "Solo", color: "rgba(255,255,255,0.4)" },
   { key: "with_someone", emoji: "\uD83D\uDC6B", label: "With someone", color: "#93c5fd" },
-  { key: "met_someone_new", emoji: "\uD83D\uDC4B", label: "Met someone new", color: "#86efac" },
+  { key: "met_someone_new", emoji: "\uD83D\uDC4B", label: "Met someone new", color: "" },
   { key: "group_activity", emoji: "\uD83D\uDC65", label: "Group", color: "#c4b5fd" },
 ] as const;
 
@@ -71,6 +71,12 @@ export function SocialGrowth({ data, timeline: timelineProp }: SocialGrowthProps
   const colors = useColors();
   const s = styles(colors);
 
+  // Resolve rung colors, replacing the accent placeholder with theme token
+  const rungColors = useMemo(() =>
+    SOCIAL_RUNGS.map((r) => r.color || colors.accent.primary),
+    [colors],
+  );
+
   // Build timeline from aggregate data if not provided
   // This is a rough approximation — ideally pass the real quest-by-quest timeline
   const timeline: number[] = React.useMemo(() => {
@@ -108,8 +114,8 @@ export function SocialGrowth({ data, timeline: timelineProp }: SocialGrowthProps
       <View style={s.chartContainer}>
         {/* Lane labels */}
         <View style={s.laneLabels}>
-          {[...SOCIAL_RUNGS].reverse().map((rung) => (
-            <Text key={rung.key} style={[s.laneLabel, { color: rung.color }]}>
+          {[...SOCIAL_RUNGS].reverse().map((rung, ri) => (
+            <Text key={rung.key} style={[s.laneLabel, { color: rungColors[SOCIAL_RUNGS.length - 1 - ri] }]}>
               {rung.emoji}
             </Text>
           ))}
@@ -133,7 +139,7 @@ export function SocialGrowth({ data, timeline: timelineProp }: SocialGrowthProps
                   y1={y}
                   x2={chartWidth}
                   y2={y}
-                  stroke="rgba(255, 255, 255, 0.04)"
+                  stroke="rgba(255, 255, 255, 0.12)"
                   strokeWidth={1}
                 />
               );
@@ -148,7 +154,7 @@ export function SocialGrowth({ data, timeline: timelineProp }: SocialGrowthProps
               const y1 = laneY(prevRung);
               const x2 = i * step;
               const y2 = laneY(rung);
-              const color = SOCIAL_RUNGS[rung]?.color ?? "rgba(255,255,255,0.2)";
+              const color = rungColors[rung] ?? "rgba(255,255,255,0.3)";
               return (
                 <Line
                   key={`line-${i}`}
@@ -158,7 +164,7 @@ export function SocialGrowth({ data, timeline: timelineProp }: SocialGrowthProps
                   y2={y2}
                   stroke={color}
                   strokeWidth={1.5}
-                  strokeOpacity={0.4}
+                  strokeOpacity={0.6}
                 />
               );
             })}
@@ -168,7 +174,7 @@ export function SocialGrowth({ data, timeline: timelineProp }: SocialGrowthProps
               const step = chartWidth / Math.max(timeline.length - 1, 1);
               const x = i * step;
               const y = laneY(rung);
-              const color = SOCIAL_RUNGS[rung]?.color ?? "rgba(255,255,255,0.2)";
+              const color = rungColors[rung] ?? "rgba(255,255,255,0.3)";
               return (
                 <Circle
                   key={`dot-${i}`}
@@ -193,7 +199,7 @@ export function SocialGrowth({ data, timeline: timelineProp }: SocialGrowthProps
           if (count === 0) return null;
           return (
             <View key={rung.key} style={s.countChip}>
-              <View style={[s.countDot, { backgroundColor: rung.color }]} />
+              <View style={[s.countDot, { backgroundColor: rungColors[SOCIAL_RUNGS.indexOf(rung)] }]} />
               <Text style={s.countText}>{count}</Text>
             </View>
           );
@@ -215,7 +221,7 @@ const styles = (colors: Colors) =>
       fontSize: 11,
       fontWeight: fontWeight.bold,
       color: colors.text.secondary,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
     },
     emptyText: {
       fontFamily: fontFamily.mono,

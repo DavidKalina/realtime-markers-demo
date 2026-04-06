@@ -58,7 +58,7 @@ export function PathwayCards({ pathways, globalPhase }: PathwayCardsProps) {
   if (pathways.length === 0) {
     return (
       <View style={s.container}>
-        <Text style={s.sectionLabel}>YOUR PATHWAYS</Text>
+        <Text style={s.sectionLabel}>Your Pathways</Text>
         <View style={s.emptyCard}>
           <Text style={s.emptyText}>
             Your pathways form as you complete quests. Each category you explore
@@ -71,7 +71,7 @@ export function PathwayCards({ pathways, globalPhase }: PathwayCardsProps) {
 
   return (
     <View style={s.container}>
-      <Text style={s.sectionLabel}>YOUR PATHWAYS</Text>
+      <Text style={s.sectionLabel}>Your Pathways</Text>
       {pathways.map((p, i) => (
         <Animated.View
           key={p.theme}
@@ -120,7 +120,7 @@ function PathwayCard({ pathway, colors }: { pathway: PathwayData; colors: Colors
               isDFS && cardStyles(colors, accent, ar, ag, ab).badgeTextDFS,
             ]}
           >
-            {isDFS ? "YOUR GROOVE" : "EXPLORING"}
+            {isDFS ? "Your Groove" : "Exploring"}
           </Text>
         </View>
       </View>
@@ -156,7 +156,7 @@ const baseStyles = (colors: Colors) =>
       fontSize: 9,
       fontWeight: fontWeight.bold,
       color: colors.text.disabled,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
     },
     emptyCard: {
       backgroundColor: colors.bg.card,
@@ -213,9 +213,9 @@ const cardStyles = (colors: Colors, accent: string, ar: number, ag: number, ab: 
       marginTop: 2,
     },
     badge: {
-      backgroundColor: "rgba(255, 255, 255, 0.06)",
+      backgroundColor: "rgba(255, 255, 255, 0.08)",
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.12)",
+      borderColor: "rgba(255, 255, 255, 0.15)",
       borderRadius: radius.full,
       paddingHorizontal: 8,
       paddingVertical: 3,
@@ -228,15 +228,15 @@ const cardStyles = (colors: Colors, accent: string, ar: number, ag: number, ab: 
       fontFamily: fontFamily.mono,
       fontSize: 8,
       fontWeight: fontWeight.bold,
-      color: "rgba(255, 255, 255, 0.5)",
-      letterSpacing: 1,
+      color: "rgba(255, 255, 255, 0.8)",
+      letterSpacing: 0.5,
     },
     badgeTextDFS: {
       color: accent,
     },
     barTrack: {
       height: 4,
-      backgroundColor: "rgba(255, 255, 255, 0.06)",
+      backgroundColor: "rgba(255, 255, 255, 0.12)",
       borderRadius: 2,
       overflow: "hidden",
     },

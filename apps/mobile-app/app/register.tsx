@@ -367,7 +367,7 @@ const createStyles = (colors: Colors) =>
       marginTop: spacing.lg,
     },
     loginLinkText: {
-      color: "rgba(134, 239, 172, 0.6)",
+      color: `rgba(${colors.accent.rgb}, 0.6)`,
       fontSize: fontSize.sm,
       fontFamily: fontFamily.mono,
     },

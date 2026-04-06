@@ -16,11 +16,9 @@ import { useColors, type Colors, spacing } from "@/theme";
 
 export const COLLAPSED_HEIGHT = 70;
 export const EXPANDED_HEIGHT = 420;
-export const GREEN_ACCENT = "#86efac";
-
 export const STOP_COLORS = [
   "#93c5fd",
-  "#86efac",
+  "#7dd3fc",
   "#fcd34d",
   "#c4b5fd",
   "#f9a8d4",

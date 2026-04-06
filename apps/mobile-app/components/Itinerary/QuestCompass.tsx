@@ -129,10 +129,11 @@ const QuestCompass: React.FC<QuestCompassProps> = ({
   onDismiss,
   objectives,
   userLocation,
-  accentColor = "#86efac",
+  accentColor,
 }) => {
   const colors = useColors();
-  const s = useMemo(() => createStyles(colors, accentColor), [colors, accentColor]);
+  const resolvedAccent = accentColor ?? colors.accent.primary;
+  const s = useMemo(() => createStyles(colors, resolvedAccent), [colors, resolvedAccent]);
 
   /* ── Current objective (first unchecked with coords) ────── */
 
@@ -427,8 +428,8 @@ const QuestCompass: React.FC<QuestCompassProps> = ({
                     style={[
                       s.ring,
                       isNearby && {
-                        borderColor: accentColor,
-                        shadowColor: accentColor,
+                        borderColor: resolvedAccent,
+                        shadowColor: resolvedAccent,
                         shadowOpacity: 0.4,
                         shadowRadius: 16,
                       },
@@ -446,7 +447,7 @@ const QuestCompass: React.FC<QuestCompassProps> = ({
                     {/* Needle (always points at objective) */}
                     <Animated.View style={[s.needleContainer, needleStyle]}>
                       <NeedleArrow
-                        color={accentColor}
+                        color={resolvedAccent}
                       />
                     </Animated.View>
 
@@ -514,9 +515,10 @@ interface MiniCompassPreviewProps {
 }
 
 export const MiniCompassPreview: React.FC<MiniCompassPreviewProps> = React.memo(
-  ({ userLocation, objectiveLat, objectiveLng, distanceLabel, venueName, emoji, onPress, accentColor = "#86efac" }) => {
+  ({ userLocation, objectiveLat, objectiveLng, distanceLabel, venueName, emoji, onPress, accentColor }) => {
     const colors = useColors();
-    const ms = useMemo(() => createMiniStyles(colors, accentColor), [colors, accentColor]);
+    const resolvedAccent = accentColor ?? colors.accent.primary;
+    const ms = useMemo(() => createMiniStyles(colors, resolvedAccent), [colors, resolvedAccent]);
     const { heading } = useCompassHeading(true);
     const bearingTo = useSharedValue(0);
 
@@ -574,7 +576,7 @@ export const MiniCompassPreview: React.FC<MiniCompassPreviewProps> = React.memo(
 
             {/* Needle */}
             <Animated.View style={[ms.needleWrap, needleRotation]}>
-              <MiniNeedle color={accentColor} />
+              <MiniNeedle color={resolvedAccent} />
             </Animated.View>
           </View>
         </View>
@@ -595,7 +597,7 @@ export const MiniCompassPreview: React.FC<MiniCompassPreviewProps> = React.memo(
 
 MiniCompassPreview.displayName = "MiniCompassPreview";
 
-const createMiniStyles = (colors: Colors, accentHex = "#86efac") => {
+const createMiniStyles = (colors: Colors, accentHex: string) => {
   const r = parseInt(accentHex.slice(1, 3), 16);
   const g = parseInt(accentHex.slice(3, 5), 16);
   const b = parseInt(accentHex.slice(5, 7), 16);
@@ -679,7 +681,7 @@ const createMiniStyles = (colors: Colors, accentHex = "#86efac") => {
 
 /* ── Styles ─────────────────────────────────────────────────── */
 
-const createStyles = (colors: Colors, accentHex = "#86efac") =>
+const createStyles = (colors: Colors, accentHex: string) =>
   StyleSheet.create({
     root: {
       flex: 1,

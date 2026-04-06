@@ -6,8 +6,6 @@ import { apiClient } from "@/services/ApiClient";
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
 import { fontFamily, spacing, useColors, type Colors } from "@/theme";
 
-const GREEN_ACCENT = "#86efac";
-
 interface BatchRevealOverlayProps {
   visible: boolean;
   quests: SidequestResponse[];
@@ -100,7 +98,7 @@ const createStyles = (colors: Colors) =>
     counterText: {
       fontFamily: fontFamily.mono,
       fontSize: 11,
-      color: GREEN_ACCENT,
+      color: colors.accent.primary,
       fontWeight: "700",
       textTransform: "uppercase",
       letterSpacing: 1.5,

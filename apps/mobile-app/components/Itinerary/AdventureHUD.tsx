@@ -25,7 +25,6 @@ import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import ItineraryTimeline from "./ItineraryTimeline";
 import ExpandableCard, {
   COLLAPSED_HEIGHT,
-  GREEN_ACCENT,
   STOP_COLORS,
 } from "./ExpandableCard";
 import {
@@ -242,7 +241,7 @@ const AdventureHUD: React.FC<AdventureHUDProps> = ({ style }) => {
                       >
                         <Stop
                           offset="0"
-                          stopColor={GREEN_ACCENT}
+                          stopColor={colors.accent.primary}
                           stopOpacity="0"
                         />
                         <Stop
@@ -262,7 +261,7 @@ const AdventureHUD: React.FC<AdventureHUDProps> = ({ style }) => {
                         />
                         <Stop
                           offset="1"
-                          stopColor={GREEN_ACCENT}
+                          stopColor={colors.accent.primary}
                           stopOpacity="0"
                         />
                       </LinearGradient>
@@ -291,6 +290,7 @@ const AdventureHUD: React.FC<AdventureHUDProps> = ({ style }) => {
 };
 
 const ProgressFill: React.FC<{ progress: number }> = ({ progress }) => {
+  const colors = useColors();
   const animStyle = useAnimatedStyle(() => ({
     width: withTiming(`${Math.round(progress * 100)}%` as unknown as number, {
       duration: 600,
@@ -302,7 +302,7 @@ const ProgressFill: React.FC<{ progress: number }> = ({ progress }) => {
       style={[
         {
           height: "100%",
-          backgroundColor: GREEN_ACCENT,
+          backgroundColor: colors.accent.primary,
         },
         animStyle,
       ]}
@@ -384,7 +384,7 @@ const createStyles = (colors: Colors) =>
       justifyContent: "center",
       paddingVertical: 8,
       borderRadius: 10,
-      backgroundColor: GREEN_ACCENT,
+      backgroundColor: colors.accent.primary,
     },
     viewButtonText: {
       fontSize: 12,

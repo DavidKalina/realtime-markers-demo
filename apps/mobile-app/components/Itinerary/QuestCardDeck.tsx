@@ -793,7 +793,7 @@ const QuestCard: React.FC<{
                             option.questRole === "stretch"
                               ? "#fbbf24"
                               : option.pathwayPhase === "dfs"
-                                ? "#86efac"
+                                ? colors.accent.primary
                                 : "#93c5fd",
                         },
                       ]}
@@ -1528,7 +1528,7 @@ const DotIndicator: React.FC<{
     const isActive = dist < 0.5;
     return {
       width: withSpring(isActive ? 16 : 6, { damping: 15, stiffness: 200 }),
-      backgroundColor: isActive ? "#86efac" : colors.border.default,
+      backgroundColor: isActive ? colors.accent.primary : colors.border.default,
       opacity: interpolate(dist, [0, 1], [1, 0.5], "clamp"),
     };
   });

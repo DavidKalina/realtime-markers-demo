@@ -72,6 +72,7 @@ const BARE_URL_REGEX = /(?<![/@\w])(?:[a-z0-9-]+\.)+(?:com|org|net|gov|edu|io|co
 const PHONE_REGEX = /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
 
 function LinkedText({ text, style }: { text: string; style: any }) {
+  const colors = useColors();
   const parts: { text: string; type: "text" | "url" | "phone" }[] = [];
   let lastIndex = 0;
 
@@ -115,7 +116,7 @@ function LinkedText({ text, style }: { text: string; style: any }) {
           return (
             <Text
               key={i}
-              style={{ color: "#86efac", textDecorationLine: "underline" }}
+              style={{ color: colors.accent.primary, textDecorationLine: "underline" }}
               onPress={() => Linking.openURL(href)}
             >
               {part.text}
@@ -127,7 +128,7 @@ function LinkedText({ text, style }: { text: string; style: any }) {
           return (
             <Text
               key={i}
-              style={{ color: "#86efac", textDecorationLine: "underline" }}
+              style={{ color: colors.accent.primary, textDecorationLine: "underline" }}
               onPress={() => Linking.openURL(`tel:${digits}`)}
             >
               {part.text}
@@ -1027,7 +1028,7 @@ const ItineraryDetailScreen = () => {
 
 export default ItineraryDetailScreen;
 
-const createStyles = (colors: Colors, accentHex = "#86efac") => {
+const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
   const [ar, ag, ab] = hexToRgb(accentHex);
   return StyleSheet.create({
     scrollPadding: {
@@ -1069,7 +1070,7 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       gap: 2,
     },
     heroLabelPill: {
-      backgroundColor: "rgba(134, 239, 172, 0.1)",
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.1)`,
       paddingHorizontal: 8,
       paddingVertical: 2,
       borderRadius: radius.full,
@@ -1077,7 +1078,7 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
     heroLabelText: {
       fontSize: 10,
       fontWeight: fontWeight.bold,
-      color: "#86efac",
+      color: accentHex,
       fontFamily: fontFamily.mono,
       letterSpacing: 1.5,
     },
@@ -1174,7 +1175,7 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       fontSize: 10,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.semibold,
-      color: "#86efac",
+      color: accentHex,
       letterSpacing: 1,
     },
     progressLabelRow: {
@@ -1186,7 +1187,7 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       fontSize: 12,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.semibold,
-      color: "#86efac",
+      color: accentHex,
       letterSpacing: 1,
     },
     progressCount: {
@@ -1364,7 +1365,7 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       fontSize: 13,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.medium,
-      color: "#86efac",
+      color: accentHex,
       textDecorationLine: "underline" as const,
     },
     quickLinkSubtext: {
@@ -1495,7 +1496,7 @@ const createStyles = (colors: Colors, accentHex = "#86efac") => {
       fontSize: 12,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.regular,
-      color: "#86efac",
+      color: accentHex,
       textDecorationLine: "underline" as const,
       lineHeight: 18,
       marginTop: 2,

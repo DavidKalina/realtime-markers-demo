@@ -338,7 +338,7 @@ const createStyles = (colors: Colors) =>
     },
 
     createAccountText: {
-      color: "rgba(134, 239, 172, 0.6)",
+      color: `rgba(${colors.accent.rgb}, 0.6)`,
       fontSize: fontSize.sm,
       fontFamily: fontFamily.mono,
     },
@@ -356,7 +356,7 @@ const createStyles = (colors: Colors) =>
     },
 
     forgotPasswordText: {
-      color: "rgba(134, 239, 172, 0.6)",
+      color: `rgba(${colors.accent.rgb}, 0.6)`,
       fontSize: fontSize.xs,
       fontFamily: fontFamily.mono,
     },

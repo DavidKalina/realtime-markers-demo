@@ -109,7 +109,7 @@ const createStyles = (colors: Colors) =>
       fontWeight: fontWeight.semibold,
       color: colors.text.label,
       fontFamily: fontFamily.mono,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
       marginBottom: spacing.md,
     },
     container: {

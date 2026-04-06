@@ -1,11 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { fontFamily, fontWeight, radius, spacing, useColors } from "@/theme";
 import { apiClient } from "@/services/ApiClient";
-import { NextButton, GREEN_ACCENT } from "./shared";
-
-const BAR_W = 24;
+import { BackButton, NextButton, StepCard, HeroCard } from "./shared";
 
 interface GeneratedScenario {
   id: string;
@@ -43,7 +41,6 @@ export function StepGeneratingLadder({
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startRef = useRef(Date.now());
 
-  // Cycle through phases
   useEffect(() => {
     const phaseInterval = setInterval(() => {
       setPhaseIndex((prev) => Math.min(prev + 1, PHASE_LABELS.length - 1));
@@ -51,7 +48,6 @@ export function StepGeneratingLadder({
     return () => clearInterval(phaseInterval);
   }, []);
 
-  // Asymptotic progress — always moving, never stops
   useEffect(() => {
     startRef.current = Date.now();
     intervalRef.current = setInterval(() => {
@@ -109,65 +105,57 @@ export function StepGeneratingLadder({
     }, 80);
   };
 
-  const barFill = Math.round(progress * BAR_W);
-  const bar = "\u2588".repeat(barFill) + "\u2591".repeat(BAR_W - barFill);
-  const pct = Math.round(progress * 100);
   const isDone = progress >= 1;
+  const pct = Math.round(progress * 100);
 
   return (
-    <View style={s.container}>
-      {onBack && !isDone && (
-        <Pressable onPress={onBack} style={s.backButton} hitSlop={12}>
-          <Text style={[s.backText, { color: colors.text.secondary }]}>{"\u2190"} back</Text>
-        </Pressable>
-      )}
+    <View style={s.outer}>
+      <View style={s.centered}>
+        <StepCard>
+          {onBack && !isDone && <BackButton onPress={onBack} />}
 
-      <View style={s.content}>
-        {/* Title area */}
-        <Animated.View entering={FadeIn.duration(400)} style={s.titleWrap}>
-          <Text style={s.title}>Building your profile</Text>
-          <Text style={[s.subtitle, { color: colors.text.secondary }]}>
-            Generating personalized scenarios based on your inputs
-          </Text>
-        </Animated.View>
-
-        {/* Terminal block */}
-        <Animated.View entering={FadeIn.delay(200).duration(400)} style={s.terminalBlock}>
-          {/* Config echo */}
-          <View style={s.configSection}>
-            <View style={s.configRow}>
-              <Text style={s.configKey}>goal</Text>
-              <Text style={s.configVal} numberOfLines={1}>{primaryGoal}</Text>
+          <View style={s.topRow}>
+            <View style={s.headerText}>
+              <Text style={[s.title, { color: colors.text.primary }]}>
+                Building your profile
+              </Text>
+              <Text style={[s.subtitle, { color: colors.text.secondary }]}>
+                Generating personalized scenarios based on your inputs
+              </Text>
             </View>
-            <View style={s.configRow}>
-              <Text style={s.configKey}>barriers</Text>
-              <Text style={s.configVal}>{barriers.length} identified</Text>
-            </View>
+            <HeroCard step={6} rotation={-3} />
           </View>
 
-          {/* Separator */}
-          <View style={s.separator} />
-
-          {/* Phase checklist */}
-          <View style={s.phaseSection}>
+          <View style={s.phases}>
             {PHASE_LABELS.map((label, i) => (
               <Animated.View
                 key={label}
-                entering={FadeInDown.delay(300 + i * 120).duration(180).springify().damping(28).stiffness(400)}
+                entering={FadeInDown.delay(200 + i * 100).duration(200).springify()}
                 style={s.phaseRow}
               >
-                <Text style={[
-                  s.phaseIcon,
-                  (i < phaseIndex || isDone) && s.phaseDone,
-                  i === phaseIndex && !isDone && s.phaseActive,
-                ]}>
-                  {i < phaseIndex || isDone ? "\u2713" : i === phaseIndex ? "\u25B8" : "\u00B7"}
-                </Text>
-                <Text style={[
-                  s.phaseLabel,
-                  (i < phaseIndex || isDone) && s.phaseLabelDone,
-                  i === phaseIndex && !isDone && s.phaseLabelActive,
-                ]}>
+                {i === phaseIndex && !isDone ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.accent.primary}
+                    style={s.phaseIndicator}
+                  />
+                ) : (
+                  <Text
+                    style={[
+                      s.phaseCheck,
+                      (i < phaseIndex || isDone) && { color: colors.accent.primary },
+                    ]}
+                  >
+                    {i < phaseIndex || isDone ? "\u2713" : "\u2022"}
+                  </Text>
+                )}
+                <Text
+                  style={[
+                    s.phaseLabel,
+                    (i < phaseIndex || isDone) && { color: colors.text.primary, opacity: 0.7 },
+                    i === phaseIndex && !isDone && { color: colors.text.primary },
+                  ]}
+                >
                   {label}
                 </Text>
               </Animated.View>
@@ -175,151 +163,126 @@ export function StepGeneratingLadder({
           </View>
 
           {/* Progress bar */}
-          <View style={s.barRow}>
-            <Text style={[s.barText, isDone && s.barDone]}>{bar}</Text>
-            <Text style={[s.pctText, isDone && s.pctDone]}>{pct}%</Text>
-          </View>
-        </Animated.View>
-
-        {error && (
-          <Animated.View entering={FadeIn.duration(300)} style={s.errorSection}>
-            <View style={[s.errorBox, { borderColor: colors.status.error.border, backgroundColor: colors.status.error.bg }]}>
-              <Text style={[s.errorText, { color: colors.status.error.text }]}>{error}</Text>
+          <View style={s.progressWrap}>
+            <View style={s.progressTrack}>
+              <View
+                style={[
+                  s.progressFill,
+                  {
+                    width: `${pct}%` as any,
+                    backgroundColor: colors.accent.primary,
+                  },
+                ]}
+              />
             </View>
-            <NextButton label="Retry" onPress={handleRetry} />
-          </Animated.View>
-        )}
+            <Text style={[s.progressPct, { color: colors.text.secondary }]}>
+              {pct}%
+            </Text>
+          </View>
+
+          {error && (
+            <Animated.View entering={FadeIn.duration(300)} style={s.errorSection}>
+              <View
+                style={[
+                  s.errorBox,
+                  {
+                    borderColor: colors.status.error.border,
+                    backgroundColor: colors.status.error.bg,
+                  },
+                ]}
+              >
+                <Text style={[s.errorText, { color: colors.status.error.text }]}>
+                  {error}
+                </Text>
+              </View>
+              <NextButton label="Retry" onPress={handleRetry} />
+            </Animated.View>
+          )}
+        </StepCard>
       </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  container: {
+  outer: {
     flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing["4xl"],
   },
-  backButton: {
-    position: "absolute",
-    top: 8,
-    left: 20,
-    zIndex: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+  centered: {
+    maxWidth: 440,
+    alignSelf: "center",
+    width: "100%",
   },
-  backText: {
-    fontFamily: fontFamily.mono,
-    fontSize: 12,
-    fontWeight: fontWeight.medium,
-    letterSpacing: 0.5,
+  topRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.lg,
   },
-  content: {
+  headerText: {
     flex: 1,
-    paddingHorizontal: 28,
-    paddingTop: 52,
-    gap: spacing.xl,
-  },
-  titleWrap: {
     gap: spacing.sm,
   },
   title: {
     fontFamily: fontFamily.mono,
     fontSize: 22,
-    color: GREEN_ACCENT,
     fontWeight: fontWeight.bold,
-    letterSpacing: 0.3,
     lineHeight: 30,
   },
   subtitle: {
     fontFamily: fontFamily.mono,
-    fontSize: 12,
-    lineHeight: 18,
-    letterSpacing: 0.3,
-    opacity: 0.6,
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.85,
   },
-  terminalBlock: {
-    gap: 12,
-  },
-  configSection: {
-    gap: 8,
-  },
-  configRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  configKey: {
-    fontFamily: fontFamily.mono,
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.35)",
-    width: 56,
-  },
-  configVal: {
-    fontFamily: fontFamily.mono,
-    fontSize: 12,
-    color: "rgba(134, 239, 172, 0.7)",
-    flex: 1,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-  },
-  phaseSection: {
-    gap: 10,
+  phases: {
+    gap: spacing.md,
   },
   phaseRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: spacing.md,
   },
-  phaseIcon: {
+  phaseIndicator: {
+    width: 18,
+    height: 18,
+  },
+  phaseCheck: {
     fontFamily: fontFamily.mono,
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.15)",
-    width: 16,
-  },
-  phaseActive: {
-    color: GREEN_ACCENT,
-  },
-  phaseDone: {
-    color: "rgba(134, 239, 172, 0.5)",
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.4)",
+    width: 18,
+    textAlign: "center",
   },
   phaseLabel: {
     fontFamily: fontFamily.mono,
-    fontSize: 13,
-    color: "rgba(255, 255, 255, 0.2)",
-    letterSpacing: 0.3,
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.5)",
   },
-  phaseLabelActive: {
-    color: "rgba(255, 255, 255, 0.8)",
-  },
-  phaseLabelDone: {
-    color: "rgba(134, 239, 172, 0.45)",
-  },
-  barRow: {
+  progressWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginTop: 4,
+    gap: spacing.md,
   },
-  barText: {
+  progressTrack: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: 4,
+    borderRadius: 2,
+  },
+  progressPct: {
     fontFamily: fontFamily.mono,
     fontSize: 12,
-    letterSpacing: -1,
-    flex: 1,
-    color: "rgba(255, 255, 255, 0.25)",
-  },
-  barDone: {
-    color: GREEN_ACCENT,
-  },
-  pctText: {
-    fontFamily: fontFamily.mono,
-    fontSize: 11,
-    color: "rgba(255, 255, 255, 0.2)",
     width: 35,
     textAlign: "right",
-  },
-  pctDone: {
-    color: GREEN_ACCENT,
+    opacity: 0.7,
   },
   errorSection: {
     gap: spacing.md,
@@ -330,7 +293,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
   },
   errorText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: fontFamily.mono,
   },
 });

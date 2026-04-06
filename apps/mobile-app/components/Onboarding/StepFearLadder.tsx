@@ -12,13 +12,13 @@ import {
   FEAR_LADDER_SCENARIOS,
   FEAR_RATING_LABELS,
 } from "./constants";
-import { NextButton, GREEN_ACCENT, GREEN_MUTED } from "./shared";
+import { BackButton, NextButton, StepCard, HeroCard } from "./shared";
 import { fontFamily, fontWeight, radius, spacing, useColors } from "@/theme";
 
 const SPRING = { damping: 28, stiffness: 550 };
 const PER_PAGE = 3;
 
-// ── Rating button ─────────────────────────────────────────
+// ── Rating button ────────────────────────────────────────
 
 function RatingButton({
   value,
@@ -31,6 +31,7 @@ function RatingButton({
   active: boolean;
   onPress: () => void;
 }) {
+  const colors = useColors();
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -49,12 +50,26 @@ function RatingButton({
     <Animated.View style={[animStyle, { flex: 1 }]}>
       <Pressable
         onPress={handlePress}
-        style={[s.ratingBtn, active && s.ratingBtnActive]}
+        style={[
+          s.ratingBtn,
+          active && {
+            borderColor: `rgba(${colors.accent.rgb}, 0.5)`,
+            backgroundColor: `rgba(${colors.accent.rgb}, 0.12)`,
+          },
+        ]}
       >
-        <Text style={[s.ratingNum, active && s.ratingNumActive]}>
+        <Text
+          style={[s.ratingNum, active && { color: colors.accent.primary }]}
+        >
           {value}
         </Text>
-        <Text style={[s.ratingLabel, active && s.ratingLabelActive]} numberOfLines={1}>
+        <Text
+          style={[
+            s.ratingLabel,
+            active && { color: `rgba(${colors.accent.rgb}, 0.7)` },
+          ]}
+          numberOfLines={1}
+        >
           {label}
         </Text>
       </Pressable>
@@ -62,7 +77,7 @@ function RatingButton({
   );
 }
 
-// ── Scenario card ─────────────────────────────────────────
+// ── Scenario card ────────────────────────────────────────
 
 function ScenarioCard({
   scenario,
@@ -80,7 +95,13 @@ function ScenarioCard({
   return (
     <Animated.View
       entering={FadeIn.delay(index * 80).duration(250)}
-      style={[s.scenarioCard, rating != null && s.scenarioCardAnswered]}
+      style={[
+        s.scenarioCard,
+        rating != null && {
+          borderColor: `rgba(${colors.accent.rgb}, 0.15)`,
+          backgroundColor: `rgba(${colors.accent.rgb}, 0.03)`,
+        },
+      ]}
     >
       <Text style={[s.scenarioText, { color: colors.text.primary }]}>
         {scenario.text}
@@ -100,7 +121,7 @@ function ScenarioCard({
   );
 }
 
-// ── Main step ─────────────────────────────────────────────
+// ── Main step ────────────────────────────────────────────
 
 export function StepFearLadder({
   scenarios,
@@ -150,23 +171,23 @@ export function StepFearLadder({
   }, [page, onBack]);
 
   return (
-    <View style={s.container}>
-      {/* Header */}
-      <View style={s.headerWrap}>
-        <Pressable onPress={handlePageBack} style={s.backButton} hitSlop={12}>
-          <Text style={[s.backText, { color: colors.text.secondary }]}>
-            {"\u2190"} back
-          </Text>
-        </Pressable>
+    <View style={s.outer}>
+      <StepCard style={s.card}>
+        <BackButton onPress={handlePageBack} />
 
-        <Text style={[s.title, { color: colors.text.primary }]}>
-          How scary would it be to...
-        </Text>
-        <Text style={[s.subtitle, { color: colors.text.secondary }]}>
-          Rate honestly {"\u2014"} this calibrates your quests
-        </Text>
+        <View style={s.topRow}>
+          <View style={s.headerText}>
+            <Text style={[s.title, { color: colors.text.primary }]}>
+              How scary would it be to...
+            </Text>
+            <Text style={[s.subtitle, { color: colors.text.secondary }]}>
+              Rate honestly {"\u2014"} this calibrates your quests
+            </Text>
+          </View>
+          <HeroCard step={7} rotation={5} />
+        </View>
 
-        {/* Horizontal page dots + counter */}
+        {/* Page dots + counter */}
         <View style={s.progressRow}>
           <View style={s.dotsRow}>
             {Array.from({ length: totalPages }, (_, i) => (
@@ -174,8 +195,14 @@ export function StepFearLadder({
                 key={i}
                 style={[
                   s.dot,
-                  i === page && s.dotCurrent,
-                  i < page && s.dotDone,
+                  i === page && {
+                    width: 18,
+                    borderRadius: 4,
+                    backgroundColor: colors.accent.primary,
+                  },
+                  i < page && {
+                    backgroundColor: `rgba(${colors.accent.rgb}, 0.4)`,
+                  },
                 ]}
               />
             ))}
@@ -184,79 +211,71 @@ export function StepFearLadder({
             {answeredCount}/{totalCount}
           </Text>
         </View>
-      </View>
 
-      {/* Cards */}
-      <ScrollView
-        key={page}
-        style={s.scroll}
-        contentContainerStyle={s.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {pageScenarios.map((scenario, i) => (
-          <ScenarioCard
-            key={scenario.id}
-            scenario={scenario}
-            rating={responses[scenario.id]}
-            onRate={onRate}
-            index={i}
-          />
-        ))}
-      </ScrollView>
+        {/* Cards */}
+        <ScrollView
+          key={page}
+          style={s.scroll}
+          contentContainerStyle={s.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {pageScenarios.map((scenario, i) => (
+            <ScenarioCard
+              key={scenario.id}
+              scenario={scenario}
+              rating={responses[scenario.id]}
+              onRate={onRate}
+              index={i}
+            />
+          ))}
+        </ScrollView>
 
-      {/* Bottom */}
-      <View style={s.bottom}>
         <NextButton
           label={isLastPage ? "Next" : "Continue"}
           onPress={handlePageNext}
           disabled={isLastPage ? !allAnswered : !pageAllAnswered}
         />
-      </View>
+      </StepCard>
     </View>
   );
 }
 
-// ── Styles ────────────────────────────────────────────────
+// ── Styles ───────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  container: {
+  outer: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
+  },
+  card: {
     flex: 1,
   },
-  headerWrap: {
-    paddingTop: 8,
-    paddingHorizontal: 28,
-    gap: 6,
+  topRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.lg,
   },
-  backButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-    marginBottom: 8,
-  },
-  backText: {
-    fontFamily: fontFamily.mono,
-    fontSize: 12,
-    fontWeight: fontWeight.medium,
-    letterSpacing: 0.5,
+  headerText: {
+    flex: 1,
+    gap: spacing.sm,
   },
   title: {
     fontFamily: fontFamily.mono,
     fontSize: 22,
     fontWeight: fontWeight.bold,
-    letterSpacing: 0.3,
     lineHeight: 30,
   },
   subtitle: {
     fontFamily: fontFamily.mono,
-    fontSize: 12,
-    lineHeight: 18,
-    letterSpacing: 0.3,
-    opacity: 0.5,
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.7,
   },
   progressRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 4,
   },
   dotsRow: {
     flexDirection: "row",
@@ -267,48 +286,33 @@ const s = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
-  },
-  dotCurrent: {
-    width: 18,
-    borderRadius: 3,
-    backgroundColor: GREEN_ACCENT,
-  },
-  dotDone: {
-    backgroundColor: "rgba(134, 239, 172, 0.4)",
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
   },
   progressCount: {
     fontFamily: fontFamily.mono,
-    fontSize: 10,
-    opacity: 0.4,
+    fontSize: 12,
+    opacity: 0.7,
   },
   scroll: {
     flex: 1,
-    marginTop: spacing.lg,
   },
   scrollContent: {
-    paddingHorizontal: 28,
-    paddingBottom: 12,
     gap: spacing.md,
+    paddingBottom: spacing.sm,
   },
   scenarioCard: {
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     gap: spacing.md,
-  },
-  scenarioCardAnswered: {
-    borderColor: "rgba(134, 239, 172, 0.15)",
-    backgroundColor: "rgba(134, 239, 172, 0.03)",
   },
   scenarioText: {
     fontFamily: fontFamily.mono,
     fontSize: 14,
     lineHeight: 21,
-    letterSpacing: 0.2,
   },
   ratingRow: {
     flexDirection: "row",
@@ -318,37 +322,23 @@ const s = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
     justifyContent: "center",
     gap: 2,
-  },
-  ratingBtnActive: {
-    borderColor: "rgba(134, 239, 172, 0.5)",
-    backgroundColor: "rgba(134, 239, 172, 0.12)",
   },
   ratingNum: {
     fontFamily: fontFamily.mono,
     fontSize: 14,
     fontWeight: fontWeight.bold,
-    color: "rgba(255, 255, 255, 0.35)",
-  },
-  ratingNumActive: {
-    color: GREEN_ACCENT,
+    color: "rgba(255, 255, 255, 0.5)",
   },
   ratingLabel: {
     fontFamily: fontFamily.mono,
     fontSize: 7,
-    color: "rgba(255, 255, 255, 0.2)",
+    color: "rgba(255, 255, 255, 0.4)",
     textTransform: "uppercase",
     letterSpacing: 0.3,
-  },
-  ratingLabelActive: {
-    color: "rgba(134, 239, 172, 0.7)",
-  },
-  bottom: {
-    paddingHorizontal: 28,
-    paddingBottom: 44,
   },
 });

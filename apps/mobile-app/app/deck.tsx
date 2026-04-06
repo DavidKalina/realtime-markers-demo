@@ -5,14 +5,20 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { BlurView } from "expo-blur";
+import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
 import * as Haptics from "expo-haptics";
 import Animated, {
   Easing,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
@@ -24,6 +30,74 @@ import { apiClient } from "@/services/ApiClient";
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
 import { fontFamily, fontWeight, radius, spacing, useColors } from "@/theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+// --- Ambient Glow ---
+
+const GLOW_SKSL = Skia.RuntimeEffect.Make(`
+uniform float2 resolution;
+uniform float time;
+uniform float reveal;
+
+half4 main(float2 xy) {
+  vec2 uv = xy / resolution;
+  float cx = 0.5 + sin(time * 6.2832) * 0.01;
+  float cy = 0.32;
+  float dx = uv.x - cx;
+  float dy = (uv.y - cy) * (resolution.y / resolution.x);
+  float dist = sqrt(dx * dx + dy * dy);
+  float glow1 = exp(-dist * dist * 1.8);
+  float glow2 = exp(-dist * dist * 6.0);
+  float pulse = 0.92 + 0.08 * sin(time * 6.2832);
+  vec3 blue = vec3(0.3, 0.67, 0.97);
+  vec3 cyan = vec3(0.4, 0.9, 0.85);
+  vec3 col = blue * glow1 + cyan * glow2 * 0.3;
+  col *= pulse;
+  float alpha = (glow1 * 0.1 + glow2 * 0.06) * pulse * reveal;
+  return half4(col * alpha, alpha);
+}
+`);
+
+const AmbientGlow: React.FC = React.memo(() => {
+  const { width, height } = useWindowDimensions();
+  const time = useSharedValue(0);
+  const reveal = useSharedValue(0);
+
+  useEffect(() => {
+    reveal.value = withDelay(
+      200,
+      withTiming(1, { duration: 1200, easing: Easing.out(Easing.cubic) }),
+    );
+    time.value = withDelay(
+      200,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 6000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        true,
+      ),
+    );
+  }, []);
+
+  const uniforms = useDerivedValue(() => ({
+    resolution: vec(width, height),
+    time: time.value,
+    reveal: reveal.value,
+  }));
+
+  if (!GLOW_SKSL) return null;
+
+  return (
+    <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Fill>
+        <Shader source={GLOW_SKSL} uniforms={uniforms} />
+      </Fill>
+    </Canvas>
+  );
+});
+
+AmbientGlow.displayName = "AmbientGlow";
 
 // --- Promotion Overlay ---
 
@@ -279,10 +353,12 @@ const DeckScreen = () => {
         },
       ]}
     >
+      <AmbientGlow />
+
       {/* Header */}
       <View style={styles.headerRow}>
-        <Text style={[styles.headerLabel, { color: "#86efac" }]}>
-          YOUR DECK
+        <Text style={[styles.headerLabel, { color: colors.accent.primary }]}>
+          Your Deck
         </Text>
         <Text style={[styles.headerHint, { color: colors.text.secondary }]}>
           Swipe to browse · Tap to open
@@ -368,7 +444,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fontFamily.mono,
     fontWeight: fontWeight.bold,
-    letterSpacing: 1.5,
+    letterSpacing: 0.5,
   },
   headerHint: {
     fontSize: 11,
@@ -396,8 +472,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "rgba(168, 85, 247, 0.95)",
     fontWeight: fontWeight.bold,
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
+    textTransform: undefined,
+    letterSpacing: 0.5,
   },
   emptyText: {
     textAlign: "center",

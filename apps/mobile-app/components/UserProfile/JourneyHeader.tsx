@@ -132,14 +132,14 @@ const styles = (colors: Colors) =>
     worldNumber: {
       fontFamily: fontFamily.display,
       fontSize: 48,
-      color: "#86efac",
+      color: colors.accent.primary,
       lineHeight: 52,
     },
     worldLabel: {
       fontFamily: fontFamily.mono,
       fontSize: 14,
       fontWeight: fontWeight.bold,
-      color: "#86efac",
+      color: colors.accent.primary,
     },
     worldSub: {
       fontFamily: fontFamily.mono,
@@ -154,7 +154,7 @@ const styles = (colors: Colors) =>
     },
     pill: {
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.1)",
+      borderColor: "rgba(255, 255, 255, 0.15)",
       borderRadius: radius.full,
       paddingHorizontal: 10,
       paddingVertical: 4,
@@ -178,9 +178,9 @@ const styles = (colors: Colors) =>
       marginTop: spacing.sm,
     },
     goalChip: {
-      backgroundColor: "rgba(134, 239, 172, 0.08)",
+      backgroundColor: `rgba(${colors.accent.rgb}, 0.12)`,
       borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.2)",
+      borderColor: `rgba(${colors.accent.rgb}, 0.3)`,
       borderRadius: radius.full,
       paddingHorizontal: 10,
       paddingVertical: 4,
@@ -189,6 +189,6 @@ const styles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontSize: 10,
       fontWeight: fontWeight.semibold,
-      color: "#86efac",
+      color: colors.accent.primary,
     },
   });

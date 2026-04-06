@@ -1,33 +1,41 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, TouchableWithoutFeedback, View } from "react-native";
+import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
+} from "react-native";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
-import { NextButton, useTypewriter, GREEN_ACCENT } from "./shared";
-import { fontFamily, fontWeight, radius, spacing, useColors, type Colors } from "@/theme";
+import { BackButton, NextButton, StepCard, HeroCard } from "./shared";
+import { fontFamily, fontWeight, radius, spacing, useColors } from "@/theme";
 
-// ── Per-quest progress bars ─────────────────────────────
+// ── Per-quest progress ──────────────────────────────────
 
 export interface QuestGenProgress {
-  progress: number;       // 0-100 overall
-  currentQuest: number;   // 1-based
+  progress: number;
+  currentQuest: number;
   totalQuests: number;
-  stepProgress: number;   // 0-100 within current quest
+  stepProgress: number;
 }
 
-const BAR_W = 24;
-
-function QuestBar({
+function QuestProgressBar({
   index,
   currentQuest,
   stepProgress,
 }: {
-  index: number; // 1-based
+  index: number;
   currentQuest: number;
   stepProgress: number;
 }) {
+  const colors = useColors();
   const isDone = index < currentQuest;
   const isActive = index === currentQuest;
 
-  // Smooth between poll updates with asymptotic fill
   const [displayProgress, setDisplayProgress] = useState(0);
   const targetRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -44,18 +52,15 @@ function QuestBar({
       if (intervalRef.current) clearInterval(intervalRef.current);
       return;
     }
-    // Active quest: smoothly approach stepProgress, never hang
     targetRef.current = stepProgress;
     if (!intervalRef.current) {
       startRef.current = Date.now();
       intervalRef.current = setInterval(() => {
         const elapsed = Date.now() - startRef.current;
-        // Asymptotic approach to target, but always creep forward
         const base = 1 - Math.exp(-elapsed / 5000);
-        const floor = base * 95; // always-moving floor
+        const floor = base * 95;
         setDisplayProgress((prev) => {
           const target = Math.max(targetRef.current, floor);
-          // Ease toward target
           return prev + (target - prev) * 0.08;
         });
       }, 60);
@@ -68,37 +73,40 @@ function QuestBar({
     };
   }, [isDone, isActive, stepProgress]);
 
-  const fill = Math.round((displayProgress / 100) * BAR_W);
-  const bar = "\u2588".repeat(fill) + "\u2591".repeat(BAR_W - fill);
   const pct = Math.round(displayProgress);
 
   return (
     <View style={readoutStyles.row}>
-      <Text style={[
-        readoutStyles.icon,
-        isDone && readoutStyles.iconDone,
-        isActive && readoutStyles.iconActive,
-      ]}>
-        {isDone ? "\u2713" : isActive ? "\u25B8" : "\u00B7"}
-      </Text>
-      <Text style={[
-        readoutStyles.label,
-        isDone && readoutStyles.labelDone,
-        isActive && readoutStyles.labelActive,
-      ]}>
+      <Text
+        style={[
+          readoutStyles.label,
+          isDone && { color: `rgba(${colors.accent.rgb}, 0.6)` },
+          isActive && { color: colors.text.primary },
+        ]}
+      >
         Quest {index}
       </Text>
-      <Text style={[
-        readoutStyles.bar,
-        isDone && readoutStyles.barDone,
-        isActive && readoutStyles.barActive,
-      ]}>
-        {bar}
-      </Text>
-      <Text style={[
-        readoutStyles.pct,
-        isDone && readoutStyles.pctDone,
-      ]}>
+      <View style={readoutStyles.trackWrap}>
+        <View style={readoutStyles.track}>
+          <View
+            style={[
+              readoutStyles.fill,
+              {
+                width: `${pct}%` as any,
+                backgroundColor: isDone
+                  ? `rgba(${colors.accent.rgb}, 0.5)`
+                  : colors.accent.primary,
+              },
+            ]}
+          />
+        </View>
+      </View>
+      <Text
+        style={[
+          readoutStyles.pct,
+          isDone && { color: `rgba(${colors.accent.rgb}, 0.6)` },
+        ]}
+      >
         {isDone ? "\u2713" : isActive ? `${pct}%` : "\u2014"}
       </Text>
     </View>
@@ -112,23 +120,21 @@ function GeneratingReadout({
   label: string;
   progress: QuestGenProgress;
 }) {
-  const [showCursor, setShowCursor] = useState(true);
-  useEffect(() => {
-    const interval = setInterval(() => setShowCursor((v) => !v), 530);
-    return () => clearInterval(interval);
-  }, []);
-
+  const colors = useColors();
   const quests = Array.from({ length: progress.totalQuests }, (_, i) => i + 1);
 
   return (
     <Animated.View entering={FadeIn.duration(400)} style={readoutStyles.container}>
-      <Text style={readoutStyles.header}>
-        {showCursor ? "\u2588" : " "}{" "}{label}
-      </Text>
+      <View style={readoutStyles.headerRow}>
+        <ActivityIndicator size="small" color={colors.accent.primary} />
+        <Text style={[readoutStyles.header, { color: colors.text.primary }]}>
+          {label}
+        </Text>
+      </View>
 
       <View style={readoutStyles.questList}>
         {quests.map((i) => (
-          <QuestBar
+          <QuestProgressBar
             key={i}
             index={i}
             currentQuest={progress.currentQuest}
@@ -142,73 +148,55 @@ function GeneratingReadout({
 
 const readoutStyles = StyleSheet.create({
   container: {
-    gap: 16,
+    gap: spacing.lg,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
   },
   header: {
     fontFamily: fontFamily.mono,
-    fontSize: 13,
-    color: GREEN_ACCENT,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 0.3,
+    fontSize: 15,
+    fontWeight: fontWeight.semibold,
   },
   questList: {
-    gap: 10,
+    gap: spacing.md,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-  },
-  icon: {
-    fontFamily: fontFamily.mono,
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.15)",
-    width: 14,
-  },
-  iconActive: {
-    color: GREEN_ACCENT,
-  },
-  iconDone: {
-    color: "rgba(134, 239, 172, 0.5)",
+    gap: spacing.md,
   },
   label: {
     fontFamily: fontFamily.mono,
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.2)",
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.5)",
     width: 64,
   },
-  labelActive: {
-    color: "rgba(255, 255, 255, 0.7)",
-  },
-  labelDone: {
-    color: "rgba(134, 239, 172, 0.45)",
-  },
-  bar: {
-    fontFamily: fontFamily.mono,
-    fontSize: 11,
-    letterSpacing: -1,
+  trackWrap: {
     flex: 1,
-    color: "rgba(255, 255, 255, 0.1)",
   },
-  barActive: {
-    color: "rgba(255, 255, 255, 0.35)",
+  track: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    overflow: "hidden",
   },
-  barDone: {
-    color: GREEN_ACCENT,
+  fill: {
+    height: 4,
+    borderRadius: 2,
   },
   pct: {
     fontFamily: fontFamily.mono,
-    fontSize: 11,
-    color: "rgba(255, 255, 255, 0.2)",
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.5)",
     width: 32,
     textAlign: "right",
   },
-  pctDone: {
-    color: "rgba(134, 239, 172, 0.5)",
-  },
 });
 
-// ── Main step ─────────────────────────────────────────────
+// ── Main step ────────────────────────────────────────────
 
 export function StepNorthStar({
   northStar,
@@ -235,52 +223,40 @@ export function StepNorthStar({
 }) {
   const colors = useColors();
 
-  const prompt = useTypewriter("What does success look like?", 28, 150);
-  const promptDone = prompt.length >= 28;
-
-  const [showCursor, setShowCursor] = useState(true);
-  useEffect(() => {
-    if (promptDone) return;
-    const interval = setInterval(() => setShowCursor((v) => !v), 530);
-    return () => clearInterval(interval);
-  }, [promptDone]);
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={s.container}
+      style={s.flex}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={s.container}>
-          {onBack && !generatingQuest && (
-            <Pressable onPress={onBack} style={s.backButton} hitSlop={12}>
-              <Text style={[s.backText, { color: colors.text.secondary }]}>{"\u2190"} back</Text>
-            </Pressable>
-          )}
+        <View style={s.outer}>
+          <StepCard style={s.card}>
+            {onBack && !generatingQuest && <BackButton onPress={onBack} />}
 
-          <View style={s.content}>
-            {/* Typewriter prompt */}
-            <View style={s.promptWrap}>
-              <Text style={s.promptText}>
-                {prompt}
-                {!promptDone && showCursor && <Text style={s.cursor}>{"\u2588"}</Text>}
-              </Text>
-              {promptDone && (
-                <Animated.View entering={FadeIn.delay(150).duration(350)}>
-                  <Text style={[s.promptSub, { color: colors.text.secondary }]}>
-                    Optional {"\u2014"} but it helps us understand what matters to you
-                  </Text>
-                </Animated.View>
-              )}
+            <View style={s.topRow}>
+              <View style={s.headerText}>
+                <Text style={[s.title, { color: colors.text.primary }]}>
+                  What does success look like?
+                </Text>
+                <Text style={[s.subtitle, { color: colors.text.secondary }]}>
+                  Optional {"\u2014"} but it helps us understand what matters to you
+                </Text>
+              </View>
+              <HeroCard step={8} rotation={-4} />
             </View>
 
             {/* Text input */}
-            {promptDone && !generatingQuest && (
-              <Animated.View entering={FadeIn.delay(300).duration(400)} style={s.inputWrap}>
+            {!generatingQuest && (
+              <View
+                style={[
+                  s.inputWrap,
+                  { borderColor: `rgba(${colors.accent.rgb}, 0.2)` },
+                ]}
+              >
                 <TextInput
                   style={[s.input, { color: colors.text.primary }]}
-                  placeholder={"I'd finally feel like I belong somewhere..."}
-                  placeholderTextColor={"rgba(255, 255, 255, 0.2)"}
+                  placeholder="I'd finally feel like I belong somewhere..."
+                  placeholderTextColor="rgba(255, 255, 255, 0.35)"
                   value={northStar}
                   onChangeText={setNorthStar}
                   multiline
@@ -290,44 +266,66 @@ export function StepNorthStar({
                   blurOnSubmit
                   returnKeyType="done"
                 />
-              </Animated.View>
+              </View>
             )}
 
             {/* Location status */}
-            {promptDone && !generatingQuest && (
-              <Animated.View entering={FadeIn.delay(500).duration(400)} style={s.statusRow}>
-                <Text style={s.statusDot}>{userLocation ? "\u2713" : "\u25CB"}</Text>
+            {!generatingQuest && (
+              <View style={s.statusRow}>
+                <Text style={[s.statusIcon, { color: colors.accent.primary }]}>
+                  {userLocation ? "\u2713" : "\u25CB"}
+                </Text>
                 <Text style={[s.statusText, { color: colors.text.secondary }]}>
                   {userLocation ? "Location acquired" : "Acquiring location..."}
                 </Text>
-              </Animated.View>
+              </View>
             )}
 
             {/* Generating readout */}
             {generatingQuest && (
-              <GeneratingReadout label={generatingLabel} progress={generatingProgress} />
+              <GeneratingReadout
+                label={generatingLabel}
+                progress={generatingProgress}
+              />
             )}
 
             {/* Error */}
             {error && (
-              <View style={[s.errorBox, { borderColor: colors.status.error.border, backgroundColor: colors.status.error.bg }]}>
-                <Text style={[s.errorText, { color: colors.status.error.text }]}>{error}</Text>
+              <View
+                style={[
+                  s.errorBox,
+                  {
+                    borderColor: colors.status.error.border,
+                    backgroundColor: colors.status.error.bg,
+                  },
+                ]}
+              >
+                <Text style={[s.errorText, { color: colors.status.error.text }]}>
+                  {error}
+                </Text>
               </View>
             )}
-          </View>
 
-          {/* Launch button */}
-          <View style={s.bottom}>
-            {!generatingQuest && promptDone && (
-              <Animated.View entering={FadeInUp.delay(600).duration(250).springify().damping(28).stiffness(400)}>
+            <View style={s.spacer} />
+
+            {/* Launch button */}
+            {!generatingQuest && (
+              <Animated.View
+                entering={FadeInUp.delay(200).duration(250).springify()}
+              >
                 {error ? (
                   <NextButton label="Retry" onPress={onFinish} disabled={isLoading} />
                 ) : (
-                  <NextButton label="Launch" onPress={onFinish} disabled={isLoading} solid />
+                  <NextButton
+                    label="Launch"
+                    onPress={onFinish}
+                    disabled={isLoading}
+                    solid
+                  />
                 )}
               </Animated.View>
             )}
-          </View>
+          </StepCard>
         </View>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
@@ -335,57 +333,42 @@ export function StepNorthStar({
 }
 
 const s = StyleSheet.create({
-  container: {
+  flex: {
     flex: 1,
   },
-  backButton: {
-    position: "absolute",
-    top: 8,
-    left: 20,
-    zIndex: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  backText: {
-    fontFamily: fontFamily.mono,
-    fontSize: 12,
-    fontWeight: fontWeight.medium,
-    letterSpacing: 0.5,
-  },
-  content: {
+  outer: {
     flex: 1,
-    paddingHorizontal: 32,
-    paddingTop: 52,
-    gap: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xl,
   },
-  promptWrap: {
-    gap: spacing._10,
+  card: {
+    flex: 1,
   },
-  promptText: {
+  topRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.lg,
+  },
+  headerText: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  title: {
     fontFamily: fontFamily.mono,
     fontSize: 22,
-    color: GREEN_ACCENT,
     fontWeight: fontWeight.bold,
-    letterSpacing: 0.3,
     lineHeight: 30,
   },
-  promptSub: {
+  subtitle: {
     fontFamily: fontFamily.mono,
-    fontSize: 12,
-    lineHeight: 19,
-    letterSpacing: 0.3,
-    opacity: 0.6,
-  },
-  cursor: {
-    fontSize: 20,
-    color: GREEN_ACCENT,
-    opacity: 0.5,
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.85,
   },
   inputWrap: {
     borderWidth: 1,
-    borderColor: "rgba(134, 239, 172, 0.2)",
     borderRadius: radius.md,
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   input: {
     fontFamily: fontFamily.mono,
@@ -400,17 +383,17 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
   },
-  statusDot: {
+  statusIcon: {
     fontFamily: fontFamily.mono,
-    fontSize: 10,
-    color: GREEN_ACCENT,
-    opacity: 0.6,
+    fontSize: 12,
   },
   statusText: {
     fontFamily: fontFamily.mono,
-    fontSize: 11,
-    letterSpacing: 0.3,
-    opacity: 0.5,
+    fontSize: 13,
+    opacity: 0.7,
+  },
+  spacer: {
+    flex: 1,
   },
   errorBox: {
     borderRadius: radius.md,
@@ -418,12 +401,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
   },
   errorText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: fontFamily.mono,
-  },
-  bottom: {
-    paddingHorizontal: 28,
-    paddingBottom: 44,
-    minHeight: 80,
   },
 });

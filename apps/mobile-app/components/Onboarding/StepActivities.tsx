@@ -11,11 +11,10 @@ import { ACTIVITY_OPTIONS } from "./constants";
 import { NextButton } from "./shared";
 import { fontFamily, fontWeight, radius, spacing, useColors } from "@/theme";
 
-const GREEN_ACCENT = "#86efac";
-const GREEN_MUTED = "rgba(134, 239, 172, 0.12)";
 const SPRING = { damping: 28, stiffness: 550 };
 
 function ActivityPill({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  const colors = useColors();
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
@@ -27,8 +26,8 @@ function ActivityPill({ label, selected, onPress }: { label: string; selected: b
 
   return (
     <Animated.View style={animStyle}>
-      <Pressable onPress={handlePress} style={[s.pill, selected && s.pillActive]}>
-        <Text style={[s.pillText, selected && s.pillTextActive]}>{label}</Text>
+      <Pressable onPress={handlePress} style={[s.pill, selected && { borderColor: `rgba(${colors.accent.rgb}, 0.4)`, backgroundColor: colors.accent.muted }]}>
+        <Text style={[s.pillText, selected && { color: colors.accent.primary }]}>{label}</Text>
       </Pressable>
     </Animated.View>
   );
@@ -144,17 +143,10 @@ const s = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.08)",
     backgroundColor: "rgba(255, 255, 255, 0.03)",
   },
-  pillActive: {
-    borderColor: "rgba(134, 239, 172, 0.4)",
-    backgroundColor: GREEN_MUTED,
-  },
   pillText: {
     fontFamily: fontFamily.mono,
     fontSize: 13,
     color: "rgba(255, 255, 255, 0.55)",
-  },
-  pillTextActive: {
-    color: GREEN_ACCENT,
   },
   bottom: {
     paddingHorizontal: 28,

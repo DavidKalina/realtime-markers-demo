@@ -8,24 +8,10 @@ import {
   type Colors,
 } from "@/theme";
 
-const GREEN = "#86efac";
 const INITIAL_RADIUS = 0.5; // DEFAULT_COMFORT_RADIUS_MILES
-const BAR_WIDTH = 30;
 
 interface ComfortExpansionProps {
   currentRadiusMiles: number | null;
-}
-
-function buildExpansionBar(initial: number, current: number): string {
-  if (current <= initial) return "\u2588".repeat(BAR_WIDTH);
-  // Scale: initial maps to ~20% of bar, current fills proportionally
-  const ratio = Math.min(current / initial, 10); // cap at 10x
-  const filledChars = Math.round(Math.min(ratio / 10, 1) * BAR_WIDTH);
-  const midChars = Math.round(filledChars * 0.6);
-  const highChars = filledChars - midChars;
-  const emptyChars = BAR_WIDTH - filledChars;
-
-  return "\u2591".repeat(3) + "\u2593".repeat(midChars) + "\u2588".repeat(highChars) + "\u2591".repeat(Math.max(0, emptyChars - 3));
 }
 
 function ComfortExpansion({ currentRadiusMiles }: ComfortExpansionProps) {
@@ -36,14 +22,18 @@ function ComfortExpansion({ currentRadiusMiles }: ComfortExpansionProps) {
   if (!radius || radius <= 0 || isNaN(radius)) return null;
 
   const pct = Math.round(((radius - INITIAL_RADIUS) / INITIAL_RADIUS) * 100);
+  const ratio = Math.min(radius / INITIAL_RADIUS, 10); // cap at 10x
+  const fillPercent = Math.min(ratio / 10, 1) * 100;
 
   return (
     <View style={s.container}>
-      <Text style={s.sectionLabel}>COMFORT ZONE</Text>
+      <Text style={s.sectionLabel}>Comfort Zone</Text>
       <View style={s.card}>
         <View style={s.barRow}>
           <Text style={s.edgeLabel}>{INITIAL_RADIUS} mi</Text>
-          <Text style={s.bar}>{buildExpansionBar(INITIAL_RADIUS, radius)}</Text>
+          <View style={s.barTrack}>
+            <View style={[s.barFill, { width: `${fillPercent}%`, backgroundColor: colors.accent.primary }]} />
+          </View>
           <Text style={[s.edgeLabel, s.currentLabel]}>{radius.toFixed(1)} mi</Text>
         </View>
         <Text style={s.expansion}>
@@ -64,14 +54,14 @@ const createStyles = (colors: Colors) =>
       fontSize: 9,
       fontWeight: fontWeight.bold,
       color: colors.text.disabled,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
       marginBottom: spacing.xs,
     },
     card: {
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.04)",
+      borderColor: "rgba(255, 255, 255, 0.08)",
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
       gap: spacing.xs,
@@ -87,15 +77,19 @@ const createStyles = (colors: Colors) =>
       color: colors.text.disabled,
     },
     currentLabel: {
-      color: GREEN,
+      color: colors.accent.primary,
       fontWeight: fontWeight.bold,
     },
-    bar: {
-      fontFamily: fontFamily.mono,
-      fontSize: 10,
-      color: GREEN,
-      letterSpacing: -0.5,
+    barTrack: {
       flex: 1,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: "rgba(255,255,255,0.12)",
+      overflow: "hidden",
+    },
+    barFill: {
+      height: 4,
+      borderRadius: 2,
     },
     expansion: {
       fontFamily: fontFamily.mono,

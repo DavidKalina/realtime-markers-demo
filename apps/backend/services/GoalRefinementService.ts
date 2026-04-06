@@ -224,14 +224,21 @@ class GoalRefinementServiceImpl implements GoalRefinementService {
 
     const needsRefinement = specificity < SPECIFICITY_THRESHOLD;
 
+    const initialSignals: ExtractedSignals = {
+      domain: parsed.domain ?? undefined,
+      targetDate: parsed.targetDate ?? undefined,
+      goalLocation: parsed.goalLocation ?? undefined,
+    };
+
+    // Infer targetDate from the goal text if LLM didn't return one
+    if (!initialSignals.targetDate) {
+      initialSignals.targetDate = inferTargetDate(initialSignals, parsed.refinedGoal ?? rawGoal);
+    }
+
     const state: RefinementState = {
       rawGoal,
       turns: [],
-      extractedSignals: {
-        domain: parsed.domain ?? undefined,
-        targetDate: parsed.targetDate ?? undefined,
-        goalLocation: parsed.goalLocation ?? undefined,
-      },
+      extractedSignals: initialSignals,
     };
 
     return {
@@ -304,6 +311,11 @@ ${forceDone ? "You MUST finalize the refined goal now — this is the last turn.
       ...(parsed.extractedSignals ?? {}),
     };
 
+    // Infer targetDate from conversation if LLM didn't return an explicit one
+    if (!extractedSignals.targetDate) {
+      extractedSignals.targetDate = inferTargetDate(extractedSignals, parsed.refinedGoal ?? null);
+    }
+
     const updatedState: RefinementState = {
       ...state,
       turns: updatedTurns,
@@ -330,6 +342,51 @@ ${forceDone ? "You MUST finalize the refined goal now — this is the last turn.
 
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
+}
+
+/**
+ * Infer a targetDate from timeHorizon or the refined goal text when the LLM
+ * doesn't return an explicit ISO date. E.g. "within the next 12 months" or
+ * "within 6 months" → compute an approximate target date from now.
+ */
+function inferTargetDate(signals: ExtractedSignals, refinedGoal: string | null): string | undefined {
+  if (signals.targetDate) return signals.targetDate;
+
+  // Try to extract months from timeHorizon or goal text
+  const sources = [signals.timeHorizon, refinedGoal].filter(Boolean).join(" ");
+  const monthMatch = sources.match(/(\d+)\s*months?/i);
+  const yearMatch = sources.match(/(\d+)\s*years?/i);
+  const weekMatch = sources.match(/(\d+)\s*weeks?/i);
+
+  let daysFromNow: number | null = null;
+  if (monthMatch) {
+    daysFromNow = parseInt(monthMatch[1], 10) * 30;
+  } else if (yearMatch) {
+    daysFromNow = parseInt(yearMatch[1], 10) * 365;
+  } else if (weekMatch) {
+    daysFromNow = parseInt(weekMatch[1], 10) * 7;
+  } else if (sources.match(/by\s+(next\s+)?(spring|summer|fall|autumn|winter)/i)) {
+    // Rough season mapping
+    const now = new Date();
+    const month = now.getMonth();
+    const seasonMonths: Record<string, number> = { spring: 3, summer: 6, fall: 9, autumn: 9, winter: 12 };
+    const match = sources.match(/by\s+(?:next\s+)?(spring|summer|fall|autumn|winter)/i);
+    if (match) {
+      let targetMonth = seasonMonths[match[1].toLowerCase()] ?? 6;
+      let targetYear = now.getFullYear();
+      if (targetMonth <= month) targetYear++;
+      if (sources.includes("next")) targetYear = Math.max(targetYear, now.getFullYear() + 1);
+      const target = new Date(targetYear, targetMonth, 1);
+      daysFromNow = Math.round((target.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+    }
+  }
+
+  if (daysFromNow && daysFromNow > 0) {
+    const target = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000);
+    return target.toISOString().split("T")[0];
+  }
+
+  return undefined;
 }
 
 export function createGoalRefinementService(

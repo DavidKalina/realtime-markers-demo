@@ -11,8 +11,6 @@ import { PACE_OPTIONS } from "./constants";
 import { NextButton } from "./shared";
 import { fontFamily, fontWeight, radius, spacing, useColors } from "@/theme";
 
-const GREEN_ACCENT = "#86efac";
-const GREEN_MUTED = "rgba(134, 239, 172, 0.12)";
 const SPRING = { damping: 28, stiffness: 550 };
 
 function PaceCard({
@@ -47,11 +45,11 @@ function PaceCard({
     <Animated.View style={animStyle}>
       <Pressable
         onPress={handlePress}
-        style={[s.card, active && s.cardActive]}
+        style={[s.card, active && { borderColor: `rgba(${colors.accent.rgb}, 0.4)`, backgroundColor: colors.accent.muted }]}
       >
         <Text style={s.emoji}>{emoji}</Text>
         <View style={s.textWrap}>
-          <Text style={[s.label, { color: active ? GREEN_ACCENT : colors.text.primary }]}>
+          <Text style={[s.label, { color: active ? colors.accent.primary : colors.text.primary }]}>
             {label}
           </Text>
           <Text style={[s.desc, { color: colors.text.secondary }]}>
@@ -167,10 +165,6 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
     backgroundColor: "rgba(255, 255, 255, 0.03)",
-  },
-  cardActive: {
-    borderColor: "rgba(134, 239, 172, 0.4)",
-    backgroundColor: GREEN_MUTED,
   },
   emoji: {
     fontSize: 36,

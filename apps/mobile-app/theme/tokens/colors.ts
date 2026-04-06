@@ -21,10 +21,11 @@ export const colors = {
 
   // Accent colors
   accent: {
-    primary: "#86efac",
-    dark: "#22c55e",
-    muted: "rgba(134, 239, 172, 0.15)",
-    border: "rgba(134, 239, 172, 0.3)",
+    primary: "#7dd3fc",
+    dark: "#0ea5e9",
+    rgb: "125, 211, 252",
+    muted: "rgba(125, 211, 252, 0.15)",
+    border: "rgba(125, 211, 252, 0.3)",
   },
 
   // Border / divider colors
@@ -53,9 +54,9 @@ export const colors = {
       border: "#059669",
     },
     info: {
-      text: "#86efac",
-      bg: "rgba(134, 239, 172, 0.15)",
-      border: "rgba(134, 239, 172, 0.3)",
+      text: "#7dd3fc",
+      bg: "rgba(125, 211, 252, 0.15)",
+      border: "rgba(125, 211, 252, 0.3)",
     },
   },
 

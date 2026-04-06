@@ -8,25 +8,50 @@ import {
   type Colors,
 } from "@/theme";
 
-const GREEN = "#86efac";
-
 interface NorthStarCardProps {
   northStar?: string;
   primaryGoal?: string;
+  targetDate?: string;
+  goalLocation?: string;
 }
 
-function NorthStarCard({ northStar, primaryGoal }: NorthStarCardProps) {
+function formatTargetDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  } catch {
+    return iso;
+  }
+}
+
+function NorthStarCard({ northStar, primaryGoal, targetDate, goalLocation }: NorthStarCardProps) {
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={s.container}>
-      <Text style={s.sectionLabel}>NORTH STAR</Text>
+      <Text style={s.sectionLabel}>North Star</Text>
       <View style={s.card}>
         {primaryGoal && (
-          <View style={s.goalRow}>
-            <Text style={s.goalKey}>goal</Text>
+          <View style={s.goalBlock}>
+            <Text style={s.goalLabel}>Goal</Text>
             <Text style={s.goalVal} numberOfLines={2}>{primaryGoal}</Text>
+          </View>
+        )}
+        {(targetDate || goalLocation) && (
+          <View style={s.metaRow}>
+            {targetDate && (
+              <View style={s.goalBlock}>
+                <Text style={s.goalLabel}>Target</Text>
+                <Text style={s.metaVal}>{formatTargetDate(targetDate)}</Text>
+              </View>
+            )}
+            {goalLocation && (
+              <View style={s.goalBlock}>
+                <Text style={s.goalLabel}>Where</Text>
+                <Text style={s.metaVal}>{goalLocation}</Text>
+              </View>
+            )}
           </View>
         )}
         {northStar ? (
@@ -48,33 +73,41 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontSize: 9,
       fontWeight: fontWeight.bold,
-      color: colors.text.disabled,
-      letterSpacing: 1.5,
+      color: colors.text.secondary,
+      letterSpacing: 0.5,
       marginBottom: spacing.xs,
     },
     card: {
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.04)",
+      borderColor: `rgba(${colors.accent.rgb}, 0.15)`,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
       gap: spacing.sm,
     },
-    goalRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
+    goalBlock: {
+      gap: 2,
     },
-    goalKey: {
+    goalLabel: {
       fontFamily: fontFamily.mono,
-      fontSize: 10,
-      color: "rgba(255, 255, 255, 0.35)",
+      fontSize: 9,
+      color: "rgba(255, 255, 255, 0.7)",
     },
     goalVal: {
       fontFamily: fontFamily.mono,
       fontSize: 10,
-      color: GREEN,
+      color: colors.accent.primary,
+      flex: 1,
+    },
+    metaRow: {
+      flexDirection: "row",
+      gap: spacing.lg,
+    },
+    metaVal: {
+      fontFamily: fontFamily.mono,
+      fontSize: 10,
+      color: "rgba(255, 255, 255, 0.7)",
       flex: 1,
     },
     northStarText: {

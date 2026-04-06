@@ -8,10 +8,8 @@ import {
   type Colors,
 } from "@/theme";
 
-const GREEN = "#86efac";
 const AMBER = "#fbbf24";
 const RED = "#f87171";
-const BAR_WIDTH = 24;
 
 interface PerceivedFearMeterProps {
   overallScore: number; // 0-1, where 0 = comfortable, 1 = very anxious
@@ -26,15 +24,10 @@ function scoreToLabel(score: number): string {
   return "Significant fear";
 }
 
-function scoreToColor(score: number): string {
-  if (score <= 0.4) return GREEN;
+function scoreToColor(score: number, accent: string): string {
+  if (score <= 0.4) return accent;
   if (score <= 0.7) return AMBER;
   return RED;
-}
-
-function buildMeterBar(score: number): string {
-  const filled = Math.round(score * BAR_WIDTH);
-  return "\u2588".repeat(filled) + "\u2591".repeat(BAR_WIDTH - filled);
 }
 
 function formatDimension(key: string): string {
@@ -45,8 +38,7 @@ function PerceivedFearMeter({ overallScore, dimensionScores }: PerceivedFearMete
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  const meterColor = scoreToColor(overallScore);
-  const bar = buildMeterBar(overallScore);
+  const meterColor = scoreToColor(overallScore, colors.accent.primary);
   const label = scoreToLabel(overallScore);
   const pct = Math.round(overallScore * 100);
 
@@ -58,7 +50,7 @@ function PerceivedFearMeter({ overallScore, dimensionScores }: PerceivedFearMete
 
   return (
     <View style={s.container}>
-      <Text style={s.sectionLabel}>PERCEIVED FEAR</Text>
+      <Text style={s.sectionLabel}>Perceived Fear</Text>
       <View style={s.card}>
         {/* Overall meter */}
         <View style={s.meterSection}>
@@ -66,20 +58,22 @@ function PerceivedFearMeter({ overallScore, dimensionScores }: PerceivedFearMete
             <Text style={[s.meterLabel, { color: meterColor }]}>{label}</Text>
             <Text style={[s.meterPct, { color: meterColor }]}>{pct}%</Text>
           </View>
-          <Text style={[s.meterBar, { color: meterColor }]}>{bar}</Text>
+          <View style={s.meterTrack}>
+            <View style={[s.meterFill, { width: `${overallScore * 100}%`, backgroundColor: meterColor }]} />
+          </View>
         </View>
 
         {/* Dimension breakdown */}
         {sortedDimensions.length > 0 && (
           <View style={s.dimensions}>
             {sortedDimensions.map(([dim, score]) => {
-              const dimColor = scoreToColor(score);
-              const dimFilled = Math.round(score * 12);
-              const dimBar = "\u2588".repeat(dimFilled) + "\u2591".repeat(12 - dimFilled);
+              const dimColor = scoreToColor(score, colors.accent.primary);
               return (
                 <View key={dim} style={s.dimRow}>
                   <Text style={s.dimName} numberOfLines={1}>{formatDimension(dim)}</Text>
-                  <Text style={[s.dimBar, { color: dimColor }]}>{dimBar}</Text>
+                  <View style={s.dimTrack}>
+                    <View style={[s.dimFill, { width: `${score * 100}%`, backgroundColor: dimColor }]} />
+                  </View>
                   <Text style={[s.dimScore, { color: dimColor }]}>{Math.round(score * 100)}</Text>
                 </View>
               );
@@ -101,14 +95,14 @@ const createStyles = (colors: Colors) =>
       fontSize: 9,
       fontWeight: fontWeight.bold,
       color: colors.text.disabled,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
       marginBottom: spacing.xs,
     },
     card: {
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.04)",
+      borderColor: "rgba(255, 255, 255, 0.08)",
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
       gap: spacing.md,
@@ -131,10 +125,15 @@ const createStyles = (colors: Colors) =>
       fontSize: 11,
       fontWeight: fontWeight.bold,
     },
-    meterBar: {
-      fontFamily: fontFamily.mono,
-      fontSize: 12,
-      letterSpacing: -0.5,
+    meterTrack: {
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: "rgba(255,255,255,0.12)",
+      overflow: "hidden",
+    },
+    meterFill: {
+      height: 6,
+      borderRadius: 3,
     },
     dimensions: {
       gap: 6,
@@ -151,11 +150,16 @@ const createStyles = (colors: Colors) =>
       width: 80,
       textTransform: "capitalize",
     },
-    dimBar: {
-      fontFamily: fontFamily.mono,
-      fontSize: 9,
-      letterSpacing: -0.5,
+    dimTrack: {
       flex: 1,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: "rgba(255,255,255,0.12)",
+      overflow: "hidden",
+    },
+    dimFill: {
+      height: 4,
+      borderRadius: 2,
     },
     dimScore: {
       fontFamily: fontFamily.mono,

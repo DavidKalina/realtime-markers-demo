@@ -122,7 +122,7 @@ export function PathwayRadar({ pathways, globalPhase }: PathwayRadarProps) {
                   cy={CENTER}
                   r={r}
                   fill="none"
-                  stroke="rgba(255, 255, 255, 0.06)"
+                  stroke="rgba(255, 255, 255, 0.12)"
                   strokeWidth={1}
                 />
               );
@@ -139,7 +139,7 @@ export function PathwayRadar({ pathways, globalPhase }: PathwayRadarProps) {
                   y1={CENTER}
                   x2={x}
                   y2={y}
-                  stroke="rgba(255, 255, 255, 0.08)"
+                  stroke="rgba(255, 255, 255, 0.12)"
                   strokeWidth={1}
                 />
               );
@@ -270,7 +270,7 @@ function RadarFill({
         <Polygon
           points={outlinePts}
           fill="none"
-          stroke="rgba(255, 255, 255, 0.4)"
+          stroke="rgba(255, 255, 255, 0.5)"
           strokeWidth={1.5}
           strokeLinejoin="round"
         />
@@ -322,7 +322,7 @@ const baseStyles = (colors: Colors) =>
       fontSize: 11,
       fontWeight: fontWeight.bold,
       color: colors.text.secondary,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
     },
     emptyCard: {
       backgroundColor: colors.bg.card,

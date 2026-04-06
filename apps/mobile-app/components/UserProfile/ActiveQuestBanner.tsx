@@ -1,12 +1,5 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { ChevronRight } from "lucide-react-native";
@@ -18,9 +11,6 @@ import {
   fontFamily,
   spacing,
 } from "@/theme";
-
-const GREEN = "#86efac";
-const PROGRESS_WIDTH = 20;
 
 const ActiveQuestBanner: React.FC = () => {
   const colors = useColors();
@@ -40,24 +30,6 @@ const ActiveQuestBanner: React.FC = () => {
 
   const s = useMemo(() => createStyles(colors), [colors]);
 
-  // Blinking cursor — use very short timing to simulate step
-  const cursorOpacity = useSharedValue(1);
-  useEffect(() => {
-    cursorOpacity.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 500 }),
-        withTiming(0, { duration: 1 }),
-        withTiming(0, { duration: 500 }),
-        withTiming(1, { duration: 1 }),
-      ),
-      -1,
-    );
-  }, [cursorOpacity]);
-
-  const cursorStyle = useAnimatedStyle(() => ({
-    opacity: cursorOpacity.value,
-  }));
-
   const handlePress = () => {
     if (!itinerary) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -66,17 +38,13 @@ const ActiveQuestBanner: React.FC = () => {
 
   if (!itinerary) return null;
 
-  // Build ASCII progress bar
-  const filled = Math.round(progress * PROGRESS_WIDTH);
-  const progressBar = "\u2588".repeat(filled) + "\u2591".repeat(PROGRESS_WIDTH - filled);
-
   return (
     <Pressable style={s.container} onPress={handlePress}>
       <View style={s.headerRow}>
         <View style={s.statusRow}>
-          <Animated.Text style={[s.cursor, cursorStyle]}>{"\u2588"}</Animated.Text>
+          <View style={[s.statusDot, { backgroundColor: colors.accent.primary }]} />
           <Text style={s.statusLabel}>
-            {allComplete ? "QUEST COMPLETE" : "IN PROGRESS"}
+            {allComplete ? "Quest Complete" : "In Progress"}
           </Text>
         </View>
         <ChevronRight size={14} color={colors.text.disabled} />
@@ -86,11 +54,11 @@ const ActiveQuestBanner: React.FC = () => {
         {itinerary.title || "Active Adventure"}
       </Text>
 
-      {/* ASCII progress */}
+      {/* View-based progress bar */}
       <View style={s.progressRow}>
-        <Text style={s.progressBar}>
-          [{progressBar}]
-        </Text>
+        <View style={s.progressTrack}>
+          <View style={[s.progressFill, { width: `${progress * 100}%`, backgroundColor: colors.accent.primary }]} />
+        </View>
         <Text style={s.progressPct}>
           {allComplete ? "DONE" : `${checked}/${total}`}
         </Text>
@@ -111,8 +79,8 @@ const createStyles = (colors: Colors) =>
     container: {
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: `rgba(134, 239, 172, 0.15)`,
-      backgroundColor: "rgba(134, 239, 172, 0.03)",
+      borderColor: `rgba(${colors.accent.rgb}, 0.25)`,
+      backgroundColor: `rgba(${colors.accent.rgb}, 0.06)`,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.md,
       gap: spacing.sm,
@@ -127,17 +95,17 @@ const createStyles = (colors: Colors) =>
       alignItems: "center",
       gap: spacing.xs,
     },
-    cursor: {
-      fontFamily: fontFamily.mono,
-      fontSize: 10,
-      color: GREEN,
+    statusDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
     },
     statusLabel: {
       fontFamily: fontFamily.mono,
       fontSize: 9,
       fontWeight: fontWeight.bold,
-      color: GREEN,
-      letterSpacing: 1.5,
+      color: colors.accent.primary,
+      letterSpacing: 0.5,
     },
     title: {
       fontFamily: fontFamily.mono,
@@ -150,18 +118,22 @@ const createStyles = (colors: Colors) =>
       alignItems: "center",
       gap: spacing.sm,
     },
-    progressBar: {
-      fontFamily: fontFamily.mono,
-      fontSize: 10,
-      color: GREEN,
-      letterSpacing: -1,
+    progressTrack: {
       flex: 1,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: "rgba(255,255,255,0.12)",
+      overflow: "hidden",
+    },
+    progressFill: {
+      height: 4,
+      borderRadius: 2,
     },
     progressPct: {
       fontFamily: fontFamily.mono,
       fontSize: 10,
       fontWeight: fontWeight.bold,
-      color: GREEN,
+      color: colors.accent.primary,
     },
     nextStop: {
       fontFamily: fontFamily.mono,

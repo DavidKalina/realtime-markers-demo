@@ -14,7 +14,6 @@ import {
   type Colors,
 } from "@/theme";
 
-const GREEN = "#86efac";
 const BLUE = "#93c5fd";
 const AMBER = "#fbbf24";
 
@@ -43,19 +42,19 @@ export interface SelfInsightProps {
 
 const CALIBRATION_CONFIG: Record<
   CalibrationType,
-  { emoji: string; headline: string; body: string; color: string }
+  { emoji: string; headline: string; body: string; color: string | null }
 > = {
   strong_overestimator: {
     emoji: "\uD83D\uDCA1",
     headline: "You're braver than you think",
     body: "You consistently overestimate how anxious you'll feel. Quests tend to go much better than you expect — lean into that.",
-    color: GREEN,
+    color: null, // accent
   },
   mild_overestimator: {
     emoji: "\uD83C\uDF31",
     headline: "Growing confidence",
     body: "You tend to expect slightly more anxiety than you actually feel. Your comfort zone is expanding faster than your expectations.",
-    color: GREEN,
+    color: null, // accent
   },
   well_calibrated: {
     emoji: "\uD83C\uDFAF",
@@ -73,25 +72,10 @@ const CALIBRATION_CONFIG: Record<
 
 // ── Gauge helpers ──────────────────────────────────────────────
 
-const GAUGE_WIDTH = 30; // unicode chars
-
-function buildGauge(delta: number): { bar: string; markerPos: number } {
+function computeGaugePercent(delta: number): number {
   // delta range: roughly -3 to +3, center at 0
   const normalized = Math.max(-3, Math.min(3, delta));
-  const pct = (normalized + 3) / 6; // 0..1
-  const markerPos = Math.round(pct * (GAUGE_WIDTH - 1));
-
-  const chars: string[] = [];
-  for (let i = 0; i < GAUGE_WIDTH; i++) {
-    if (i === markerPos) {
-      chars.push("\u2588");
-    } else if (i === Math.round(GAUGE_WIDTH / 2)) {
-      chars.push("\u2502");
-    } else {
-      chars.push("\u2591");
-    }
-  }
-  return { bar: chars.join(""), markerPos };
+  return ((normalized + 3) / 6) * 100; // 0..100
 }
 
 // ── Component ──────────────────────────────────────────────────
@@ -105,15 +89,16 @@ function SelfInsight({
 }: SelfInsightProps) {
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const config = CALIBRATION_CONFIG[calibrationType];
-  const anxietyGauge = buildGauge(avgAnxietyDelta);
-  const difficultyGauge = buildGauge(avgDifficultyDelta);
+  const rawConfig = CALIBRATION_CONFIG[calibrationType];
+  const config = { ...rawConfig, color: rawConfig.color ?? colors.accent.primary };
+  const anxietyPct = computeGaugePercent(avgAnxietyDelta);
+  const difficultyPct = computeGaugePercent(avgDifficultyDelta);
 
   if (questsWithPredictions < 3) return null;
 
   return (
     <View style={s.container}>
-      <Text style={s.sectionLabel}>SELF-AWARENESS</Text>
+      <Text style={s.sectionLabel}>Self-Awareness</Text>
 
       <View style={s.card}>
         {/* Headline */}
@@ -131,9 +116,10 @@ function SelfInsight({
         <View style={s.gaugesBlock}>
           <View style={s.gaugeRow}>
             <Text style={s.gaugeLabel}>Anxiety</Text>
-            <Text style={[s.gaugeBar, { color: config.color }]}>
-              {anxietyGauge.bar}
-            </Text>
+            <View style={s.gaugeTrack}>
+              <View style={s.gaugeCenterLine} />
+              <View style={[s.gaugeMarker, { left: `${anxietyPct}%`, backgroundColor: config.color }]} />
+            </View>
           </View>
           <View style={s.gaugeScale}>
             <Text style={s.scaleLabel}>overestimates</Text>
@@ -143,9 +129,10 @@ function SelfInsight({
 
           <View style={[s.gaugeRow, { marginTop: spacing.sm }]}>
             <Text style={s.gaugeLabel}>Difficulty</Text>
-            <Text style={[s.gaugeBar, { color: config.color }]}>
-              {difficultyGauge.bar}
-            </Text>
+            <View style={s.gaugeTrack}>
+              <View style={s.gaugeCenterLine} />
+              <View style={[s.gaugeMarker, { left: `${difficultyPct}%`, backgroundColor: config.color }]} />
+            </View>
           </View>
           <View style={s.gaugeScale}>
             <Text style={s.scaleLabel}>overestimates</Text>
@@ -181,14 +168,14 @@ const createStyles = (colors: Colors) =>
       fontSize: 9,
       fontWeight: fontWeight.bold,
       color: colors.text.disabled,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
       marginBottom: spacing.xs,
     },
     card: {
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.04)",
+      borderColor: "rgba(255, 255, 255, 0.08)",
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.md,
       gap: spacing.md,
@@ -233,11 +220,28 @@ const createStyles = (colors: Colors) =>
       letterSpacing: 0.5,
       width: 50,
     },
-    gaugeBar: {
-      fontFamily: fontFamily.mono,
-      fontSize: 10,
-      letterSpacing: -0.5,
+    gaugeTrack: {
       flex: 1,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: "rgba(255,255,255,0.12)",
+      position: "relative",
+      justifyContent: "center",
+    },
+    gaugeCenterLine: {
+      position: "absolute",
+      left: "50%",
+      width: 1,
+      height: 10,
+      backgroundColor: "rgba(255,255,255,0.3)",
+      marginLeft: -0.5,
+    },
+    gaugeMarker: {
+      position: "absolute",
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      marginLeft: -4,
     },
     gaugeScale: {
       flexDirection: "row",
@@ -247,7 +251,7 @@ const createStyles = (colors: Colors) =>
     scaleLabel: {
       fontFamily: fontFamily.mono,
       fontSize: 7,
-      color: "rgba(255, 255, 255, 0.15)",
+      color: "rgba(255, 255, 255, 0.25)",
       letterSpacing: 0.3,
     },
     footerRow: {
@@ -256,7 +260,7 @@ const createStyles = (colors: Colors) =>
       justifyContent: "center",
       gap: spacing.sm,
       borderTopWidth: 1,
-      borderTopColor: "rgba(255, 255, 255, 0.04)",
+      borderTopColor: "rgba(255, 255, 255, 0.08)",
       paddingTop: spacing.sm,
     },
     footerStat: {
@@ -267,7 +271,7 @@ const createStyles = (colors: Colors) =>
     footerDot: {
       fontFamily: fontFamily.mono,
       fontSize: 9,
-      color: "rgba(255, 255, 255, 0.15)",
+      color: "rgba(255, 255, 255, 0.25)",
     },
   });
 

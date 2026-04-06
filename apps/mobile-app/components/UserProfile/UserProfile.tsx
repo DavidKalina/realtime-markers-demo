@@ -12,14 +12,28 @@ import {
 import * as Haptics from "expo-haptics";
 import React, {
   useCallback,
+  useEffect,
   useMemo,
 } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  FadeInDown,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+  type SharedValue,
+} from "react-native-reanimated";
+import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
 import Screen from "../Layout/Screen";
 import { useUserLocation } from "@/contexts/LocationContext";
@@ -39,6 +53,106 @@ import SocialLadder from "./SocialLadder";
 import ComfortExpansion from "./ComfortExpansion";
 import PerceivedFearMeter from "./PerceivedFearMeter";
 import NorthStarCard from "./NorthStarCard";
+
+// ── Ambient glow background ──────────────────────────────
+
+const GLOW_SKSL = Skia.RuntimeEffect.Make(`
+uniform float2 resolution;
+uniform float time;
+uniform float reveal;
+
+half4 main(float2 xy) {
+  vec2 uv = xy / resolution;
+
+  float cx = 0.5 + sin(time * 6.2832) * 0.01;
+  float cy = 0.32;
+
+  float dx = uv.x - cx;
+  float dy = (uv.y - cy) * (resolution.y / resolution.x);
+  float dist = sqrt(dx * dx + dy * dy);
+
+  // Very wide, very soft spread
+  float glow1 = exp(-dist * dist * 1.8);
+  float glow2 = exp(-dist * dist * 6.0);
+
+  float pulse = 0.92 + 0.08 * sin(time * 6.2832);
+
+  vec3 blue = vec3(0.3, 0.67, 0.97);
+  vec3 cyan = vec3(0.4, 0.9, 0.85);
+
+  vec3 col = blue * glow1 + cyan * glow2 * 0.3;
+  col *= pulse;
+
+  // Much subtler alpha than onboarding
+  float alpha = (glow1 * 0.1 + glow2 * 0.06) * pulse * reveal;
+
+  return half4(col * alpha, alpha);
+}
+`);
+
+const AmbientGlow: React.FC = React.memo(() => {
+  const { width, height } = useWindowDimensions();
+  const time = useSharedValue(0);
+  const reveal = useSharedValue(0);
+
+  useEffect(() => {
+    reveal.value = withDelay(
+      200,
+      withTiming(1, { duration: 1200, easing: Easing.out(Easing.cubic) }),
+    );
+    time.value = withDelay(
+      200,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 6000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        true,
+      ),
+    );
+  }, []);
+
+  const uniforms = useDerivedValue(() => ({
+    resolution: vec(width, height),
+    time: time.value,
+    reveal: reveal.value,
+  }));
+
+  if (!GLOW_SKSL) return null;
+
+  return (
+    <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Fill>
+        <Shader source={GLOW_SKSL} uniforms={uniforms} />
+      </Fill>
+    </Canvas>
+  );
+});
+
+AmbientGlow.displayName = "AmbientGlow";
+
+// ── Parallax widget ─────────────────────────────────────────
+
+const PARALLAX_RATES = [1.0, 0.95, 0.9, 0.86, 0.82, 0.78, 0.75, 0.72, 0.7, 0.68, 0.66, 0.64];
+
+const ParallaxWidget: React.FC<{
+  scrollY: SharedValue<number>;
+  index: number;
+  delay: number;
+  children: React.ReactNode;
+}> = ({ scrollY, index, delay, children }) => {
+  const rate = PARALLAX_RATES[index] ?? 0.64;
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: -scrollY.value * (1 - rate) }],
+  }));
+
+  return (
+    <Animated.View entering={FadeInDown.delay(delay).duration(400)}>
+      <Animated.View style={style}>{children}</Animated.View>
+    </Animated.View>
+  );
+};
 
 // ── Progressive reveal thresholds ──────────────────────────
 const TIER_1_QUESTS = 1; // Unlock: Growth Score with real data
@@ -61,6 +175,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
   const { user } = useAuth();
+  const scrollY = useSharedValue(0);
 
   const {
     loading,
@@ -129,27 +244,19 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
   return (
     <Screen isScrollable={false} showBackButton onBack={handleBack} noAnimation>
+      <AmbientGlow />
       <PullToActionScrollView
         onRefresh={handleRefresh}
         contentContainerStyle={s.scrollContent}
+        scrollY={scrollY}
       >
-        {/* 1. Active Quest Banner — always first (the thing to do NOW) */}
-        <Animated.View entering={FadeInDown.delay(80).duration(400)}>
+        {/* 1. Active Quest Banner */}
+        <ParallaxWidget scrollY={scrollY} index={0} delay={80}>
           <ActiveQuestBanner />
-        </Animated.View>
+        </ParallaxWidget>
 
-        {/* 2. North Star — always visible (remind them why) */}
-        {(profileData?.comfortProfile?.northStar || profileData?.comfortProfile?.primaryGoal) && (
-          <Animated.View entering={FadeInDown.delay(160).duration(400)}>
-            <NorthStarCard
-              northStar={profileData.comfortProfile.northStar}
-              primaryGoal={profileData.comfortProfile.primaryGoal}
-            />
-          </Animated.View>
-        )}
-
-        {/* 3. Growth Score Hero — show calibrating state until tier 1 */}
-        <Animated.View entering={FadeInDown.delay(240).duration(400)}>
+        {/* 2. Growth Score Hero */}
+        <ParallaxWidget scrollY={scrollY} index={1} delay={160}>
           <GrowthScoreHero
             score={gs?.score ?? 0}
             momentum={gs?.momentum ?? "steady"}
@@ -161,23 +268,33 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             totalXp={profileData?.totalXp ?? 0}
             calibrating={!hasTier1}
           />
-        </Animated.View>
+        </ParallaxWidget>
 
-        {/* ── TIER 2: Unlocked at 3 quests ───────────────── */}
+        {/* 3. North Star */}
+        {(profileData?.comfortProfile?.northStar || profileData?.comfortProfile?.primaryGoal) && (
+          <ParallaxWidget scrollY={scrollY} index={2} delay={240}>
+            <NorthStarCard
+              northStar={profileData.comfortProfile.northStar}
+              primaryGoal={profileData.comfortProfile.primaryGoal}
+              targetDate={profileData.comfortProfile.targetDate}
+              goalLocation={profileData.comfortProfile.goalLocation}
+            />
+          </ParallaxWidget>
+        )}
 
-        {/* 4. Perceived Fear — only show as improvement delta, not raw score */}
+        {/* 4. Perceived Fear */}
         {hasTier2 && profileData?.fearLadder && (
-          <Animated.View entering={FadeInDown.delay(320).duration(400)}>
+          <ParallaxWidget scrollY={scrollY} index={3} delay={320}>
             <PerceivedFearMeter
               overallScore={profileData.fearLadder.overallScore}
               dimensionScores={profileData.fearLadder.dimensionScores}
             />
-          </Animated.View>
+          </ParallaxWidget>
         )}
 
         {/* 5. Growth Arc */}
         {hasTier2 && ga && (
-          <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+          <ParallaxWidget scrollY={scrollY} index={4} delay={400}>
             <GrowthArc
               phase={ga.phase}
               phaseReason={ga.phaseReason}
@@ -187,12 +304,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               recentResonance={ga.recentResonance}
               hasGrowthSignals={ga.hasGrowthSignals}
             />
-          </Animated.View>
+          </ParallaxWidget>
         )}
 
         {/* 6. Self-Awareness */}
         {hasTier2 && si && (
-          <Animated.View entering={FadeInDown.delay(480).duration(400)}>
+          <ParallaxWidget scrollY={scrollY} index={5} delay={480}>
             <SelfInsight
               avgAnxietyDelta={si.avgAnxietyDelta}
               avgDifficultyDelta={si.avgDifficultyDelta}
@@ -200,46 +317,44 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               calibrationType={si.calibrationType}
               questsWithPredictions={si.questsWithPredictions}
             />
-          </Animated.View>
+          </ParallaxWidget>
         )}
 
-        {/* Calibrating card for tier 2 unlock */}
+        {/* Calibrating card for tier 2 */}
         {!hasTier2 && (
-          <Animated.View entering={FadeInDown.delay(320).duration(400)}>
+          <ParallaxWidget scrollY={scrollY} index={3} delay={320}>
             <CalibratingCard
               questsCompleted={completedQuests}
               questsNeeded={TIER_2_QUESTS}
-              label="GROWTH INSIGHTS"
+              label="Growth Insights"
             />
-          </Animated.View>
+          </ParallaxWidget>
         )}
-
-        {/* ── TIER 3: Unlocked at 5 quests ───────────────── */}
 
         {/* 7. Pathway Momentum */}
         {hasTier3 && dashboard && dashboard.pathwayMomentum.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(560).duration(400)}>
+          <ParallaxWidget scrollY={scrollY} index={6} delay={560}>
             <PathwayMomentum pathways={dashboard.pathwayMomentum} />
-          </Animated.View>
+          </ParallaxWidget>
         )}
 
         {/* 8. Blind Spots */}
         {hasTier3 && dashboard && dashboard.blindSpots.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(640).duration(400)}>
+          <ParallaxWidget scrollY={scrollY} index={7} delay={640}>
             <BlindSpotCard blindSpots={dashboard.blindSpots} />
-          </Animated.View>
+          </ParallaxWidget>
         )}
 
         {/* 9. Social Ladder */}
         {hasTier3 && (
-          <Animated.View entering={FadeInDown.delay(720).duration(400)}>
+          <ParallaxWidget scrollY={scrollY} index={8} delay={720}>
             <SocialLadder data={socialData} />
-          </Animated.View>
+          </ParallaxWidget>
         )}
 
         {/* 10. Exploration Compass */}
         {hasTier3 && ec && (
-          <Animated.View entering={FadeInDown.delay(800).duration(400)}>
+          <ParallaxWidget scrollY={scrollY} index={9} delay={800}>
             <ExplorationCompass
               gaps={ec.gaps}
               explorationProfile={ec.explorationProfile}
@@ -247,31 +362,31 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
               territorySqMiles={ec.territorySqMiles}
               clusterCount={ec.clusterCount}
             />
-          </Animated.View>
+          </ParallaxWidget>
         )}
 
         {/* 11. Comfort Expansion */}
         {hasTier3 && (
-          <Animated.View entering={FadeInDown.delay(880).duration(400)}>
+          <ParallaxWidget scrollY={scrollY} index={10} delay={880}>
             <ComfortExpansion
               currentRadiusMiles={profileData?.comfortRadiusMiles ?? 2.3}
             />
-          </Animated.View>
+          </ParallaxWidget>
         )}
 
-        {/* Calibrating card for tier 3 unlock */}
+        {/* Calibrating card for tier 3 */}
         {!hasTier3 && hasTier1 && (
-          <Animated.View entering={FadeInDown.delay(560).duration(400)}>
+          <ParallaxWidget scrollY={scrollY} index={6} delay={560}>
             <CalibratingCard
               questsCompleted={completedQuests}
               questsNeeded={TIER_3_QUESTS}
-              label="EXPLORATION & PATHWAYS"
+              label="Exploration & Pathways"
             />
-          </Animated.View>
+          </ParallaxWidget>
         )}
 
-        {/* 12. Settings — always visible */}
-        <Animated.View entering={FadeInDown.delay(hasTier3 ? 960 : hasTier2 ? 560 : 400).duration(400)}>
+        {/* 12. Settings */}
+        <ParallaxWidget scrollY={scrollY} index={11} delay={hasTier3 ? 960 : hasTier2 ? 560 : 400}>
           <SettingsSection
             email={profileData?.email ?? ""}
             bio={profileData?.bio}
@@ -281,7 +396,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             onLogout={handleLogout}
             onDeleteAccount={handleDeleteAccount}
           />
-        </Animated.View>
+        </ParallaxWidget>
       </PullToActionScrollView>
     </Screen>
   );
@@ -298,7 +413,8 @@ const createStyles = (colors: Colors) =>
     },
     scrollContent: {
       paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
       paddingBottom: spacing.xl * 3,
-      gap: spacing.xl,
+      gap: spacing["3xl"],
     },
   });

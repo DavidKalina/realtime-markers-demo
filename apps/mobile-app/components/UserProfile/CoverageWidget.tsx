@@ -15,7 +15,7 @@ import {
 
 Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN ?? "");
 
-const SHADE_COLOR = "#86efac";
+// colors.accent.primary removed — use colors.accent.primary via theme
 const WIDGET_HEIGHT = 220;
 
 // ── GeoJSON builders (shared with CoverageMap) ───────────────
@@ -163,7 +163,7 @@ export function CoverageWidget({ data: dataProp }: CoverageWidgetProps) {
     return (
       <View style={s.container}>
         <View style={s.loadingBox}>
-          <ActivityIndicator size="small" color={SHADE_COLOR} />
+          <ActivityIndicator size="small" color={colors.accent.primary} />
         </View>
       </View>
     );
@@ -218,9 +218,9 @@ export function CoverageWidget({ data: dataProp }: CoverageWidgetProps) {
               <Mapbox.LineLayer
                 id="cw-canvas-outline"
                 style={{
-                  lineColor: SHADE_COLOR,
+                  lineColor: colors.accent.primary,
                   lineWidth: 1,
-                  lineOpacity: 0.2,
+                  lineOpacity: 0.3,
                   lineDasharray: [4, 4],
                 }}
               />
@@ -233,16 +233,16 @@ export function CoverageWidget({ data: dataProp }: CoverageWidgetProps) {
               <Mapbox.FillLayer
                 id="cw-voronoi-fill"
                 style={{
-                  fillColor: SHADE_COLOR,
-                  fillOpacity: 0.12,
+                  fillColor: colors.accent.primary,
+                  fillOpacity: 0.18,
                 }}
               />
               <Mapbox.LineLayer
                 id="cw-voronoi-borders"
                 style={{
-                  lineColor: SHADE_COLOR,
+                  lineColor: colors.accent.primary,
                   lineWidth: 0.8,
-                  lineOpacity: 0.25,
+                  lineOpacity: 0.35,
                 }}
               />
             </Mapbox.ShapeSource>
@@ -263,19 +263,19 @@ export function CoverageWidget({ data: dataProp }: CoverageWidgetProps) {
                     5, 14,
                     10, 20,
                   ],
-                  circleColor: SHADE_COLOR,
+                  circleColor: colors.accent.primary,
                   circleOpacity: [
                     "interpolate",
                     ["linear"],
                     ["get", "shade"],
-                    0, 0.15,
-                    0.3, 0.3,
-                    0.6, 0.5,
-                    0.9, 0.8,
+                    0, 0.25,
+                    0.3, 0.4,
+                    0.6, 0.6,
+                    0.9, 0.85,
                   ],
                   circleStrokeWidth: 1,
-                  circleStrokeColor: SHADE_COLOR,
-                  circleStrokeOpacity: 0.3,
+                  circleStrokeColor: colors.accent.primary,
+                  circleStrokeOpacity: 0.5,
                   circleBlur: 0.3,
                 }}
               />
@@ -291,7 +291,7 @@ export function CoverageWidget({ data: dataProp }: CoverageWidgetProps) {
                   circleRadius: 5,
                   circleColor: "#ffffff",
                   circleStrokeWidth: 2,
-                  circleStrokeColor: SHADE_COLOR,
+                  circleStrokeColor: colors.accent.primary,
                 }}
               />
             </Mapbox.ShapeSource>
@@ -333,14 +333,14 @@ const createStyles = (colors: Colors) =>
       fontSize: 11,
       fontWeight: fontWeight.bold,
       color: colors.text.secondary,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
     },
     mapWrapper: {
       height: WIDGET_HEIGHT,
       borderRadius: radius.lg,
       overflow: "hidden",
       borderWidth: 1,
-      borderColor: "rgba(134, 239, 172, 0.15)",
+      borderColor: `rgba(${colors.accent.rgb}, 0.25)`,
     },
     map: {
       flex: 1,
@@ -363,7 +363,7 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontSize: 10,
       fontWeight: fontWeight.bold,
-      color: SHADE_COLOR,
+      color: colors.accent.primary,
     },
     statDivider: {
       fontFamily: fontFamily.mono,

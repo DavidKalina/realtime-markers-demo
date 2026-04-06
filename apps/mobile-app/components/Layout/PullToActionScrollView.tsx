@@ -1,6 +1,6 @@
-import React, { useCallback } from "react";
+import React from "react";
 import { StyleSheet, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
-import Animated from "react-native-reanimated";
+import Animated, { type SharedValue } from "react-native-reanimated";
 import { usePullToAction } from "@/hooks/usePullToAction";
 
 interface PullToActionScrollViewProps {
@@ -10,6 +10,8 @@ interface PullToActionScrollViewProps {
   showsVerticalScrollIndicator?: boolean;
   contentContainerStyle?: ViewStyle;
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  /** Optional shared value to receive scroll offset for parallax effects */
+  scrollY?: SharedValue<number>;
 }
 
 const PullToActionScrollView: React.FC<PullToActionScrollViewProps> = ({
@@ -18,10 +20,12 @@ const PullToActionScrollView: React.FC<PullToActionScrollViewProps> = ({
   children,
   showsVerticalScrollIndicator = false,
   contentContainerStyle,
+  scrollY: externalScrollY,
 }) => {
   const { pullIndicator, scrollProps } = usePullToAction({
     onRefresh,
     isRefreshing,
+    externalScrollY,
   });
 
   return (

@@ -59,7 +59,7 @@ export function SettingsSection({
         style={s.header}
         onPress={() => setExpanded(!expanded)}
       >
-        <Text style={s.sectionLabel}>SETTINGS</Text>
+        <Text style={s.sectionLabel}>Settings</Text>
         {expanded ? (
           <ChevronUp size={16} color={colors.text.secondary} />
         ) : (
@@ -84,7 +84,7 @@ export function SettingsSection({
           <View style={s.section}>
             <Text style={s.label}>HOME BASE</Text>
             <Pressable style={s.homeRow} onPress={onUpdateHome}>
-              <MapPin size={14} color={homeSet ? "#86efac" : colors.text.secondary} />
+              <MapPin size={14} color={homeSet ? colors.accent.primary : colors.text.secondary} />
               <Text style={[s.homeText, homeSet && s.homeTextSet]}>
                 {homeSet
                   ? `Set (${comfortRadius != null ? Number(comfortRadius).toFixed(1) : "?"} mi radius)`
@@ -158,7 +158,7 @@ const styles = (colors: Colors) =>
       fontSize: 11,
       fontWeight: fontWeight.bold,
       color: colors.text.secondary,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
     },
     content: {
       gap: spacing["2xl"],
@@ -172,7 +172,7 @@ const styles = (colors: Colors) =>
       fontSize: 11,
       fontWeight: fontWeight.bold,
       color: colors.text.secondary,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
     },
     value: {
       fontFamily: fontFamily.mono,
@@ -197,7 +197,7 @@ const styles = (colors: Colors) =>
       color: colors.text.secondary,
     },
     homeTextSet: {
-      color: "#86efac",
+      color: colors.accent.primary,
     },
     actionsSection: {
       borderTopWidth: 1,

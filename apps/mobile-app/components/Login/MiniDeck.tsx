@@ -39,7 +39,7 @@ const STAGGER_MS = 120;
 const INITIAL_DELAY = 600;
 
 const CARD_TINTS = [
-  "rgba(134, 239, 172, 0.5)", // green
+  "rgba(125, 211, 252, 0.5)", // sky accent
   "rgba(251, 191, 36, 0.5)", // amber
   "rgba(168, 85, 247, 0.5)", // purple
   "rgba(56, 189, 248, 0.5)", // sky blue

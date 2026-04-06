@@ -26,11 +26,11 @@ function getWeekMonday(date: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function getWeekColor(count: number): string {
+function getWeekColor(count: number, accentPrimary: string, accentDark: string, accentRgb: string): string {
   if (count === 0) return "transparent";
-  if (count >= 5) return "#4ade80";
-  if (count >= 3) return "#86efac";
-  if (count >= 1) return "rgba(134, 239, 172, 0.4)";
+  if (count >= 5) return accentDark;
+  if (count >= 3) return accentPrimary;
+  if (count >= 1) return `rgba(${accentRgb}, 0.5)`;
   return "transparent";
 }
 
@@ -127,11 +127,11 @@ const StreakCalendar: React.FC<StreakCalendarProps> = ({
                   {
                     backgroundColor:
                       week.count > 0
-                        ? getWeekColor(week.count)
+                        ? getWeekColor(week.count, colors.accent.primary, colors.accent.dark, colors.accent.rgb)
                         : colors.bg.cardAlt,
                     borderColor:
                       week.count > 0
-                        ? getWeekColor(week.count)
+                        ? getWeekColor(week.count, colors.accent.primary, colors.accent.dark, colors.accent.rgb)
                         : colors.border.default,
                   },
                 ]}
@@ -167,7 +167,7 @@ const createStyles = (colors: Colors) =>
       fontWeight: fontWeight.semibold,
       color: colors.text.label,
       fontFamily: fontFamily.mono,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
       marginBottom: spacing.md,
     },
     container: {

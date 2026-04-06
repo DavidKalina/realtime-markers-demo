@@ -15,7 +15,6 @@ import {
 } from "@/theme";
 
 const AMBER = "#fbbf24";
-const GREEN = "#86efac";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -44,7 +43,7 @@ function BlindSpotCard({ blindSpots }: BlindSpotCardProps) {
 
   return (
     <View style={s.container}>
-      <Text style={s.sectionLabel}>BUILDING TOWARD</Text>
+      <Text style={s.sectionLabel}>Building Toward</Text>
 
       <View style={s.card}>
         <Text style={s.intro}>
@@ -58,7 +57,7 @@ function BlindSpotCard({ blindSpots }: BlindSpotCardProps) {
                 {spot.activelyManaged ? "\uD83D\uDEE1\uFE0F" : "\uD83C\uDF31"}
               </Text>
               <View style={s.spotInfo}>
-                <Text style={[s.spotPattern, { color: spot.activelyManaged ? AMBER : GREEN }]}>
+                <Text style={[s.spotPattern, { color: spot.activelyManaged ? AMBER : colors.accent.primary }]}>
                   {spot.pattern}
                 </Text>
                 <Text style={s.spotReframe}>{spot.reframe}</Text>
@@ -90,14 +89,14 @@ const createStyles = (colors: Colors) =>
       fontSize: 9,
       fontWeight: fontWeight.bold,
       color: colors.text.disabled,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
       marginBottom: spacing.xs,
     },
     card: {
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.04)",
+      borderColor: "rgba(255, 255, 255, 0.08)",
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.md,
       gap: spacing.md,

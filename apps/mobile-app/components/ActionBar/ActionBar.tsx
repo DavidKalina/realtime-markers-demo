@@ -65,7 +65,7 @@ const TABS: TabConfig[] = [
   },
 ];
 
-const HIDDEN_ROUTES = ["/register", "/login", "/onboarding"];
+const HIDDEN_ROUTES = ["/register", "/login", "/onboarding", "/welcome"];
 
 // Static route → tab key mapping (no dependency on colors)
 const ROUTE_TO_TAB: Record<string, string> = {

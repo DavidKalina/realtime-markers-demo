@@ -11,13 +11,22 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
 import Animated, {
+  Easing,
   FadeInUp,
   FadeOutUp,
+  useDerivedValue,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
 import { Bell } from "lucide-react-native";
 import Screen from "@/components/Layout/Screen";
@@ -40,6 +49,74 @@ import {
   type Colors,
 } from "@/theme";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
+
+// --- Ambient Glow ---
+
+const GLOW_SKSL = Skia.RuntimeEffect.Make(`
+uniform float2 resolution;
+uniform float time;
+uniform float reveal;
+
+half4 main(float2 xy) {
+  vec2 uv = xy / resolution;
+  float cx = 0.5 + sin(time * 6.2832) * 0.01;
+  float cy = 0.32;
+  float dx = uv.x - cx;
+  float dy = (uv.y - cy) * (resolution.y / resolution.x);
+  float dist = sqrt(dx * dx + dy * dy);
+  float glow1 = exp(-dist * dist * 1.8);
+  float glow2 = exp(-dist * dist * 6.0);
+  float pulse = 0.92 + 0.08 * sin(time * 6.2832);
+  vec3 blue = vec3(0.3, 0.67, 0.97);
+  vec3 cyan = vec3(0.4, 0.9, 0.85);
+  vec3 col = blue * glow1 + cyan * glow2 * 0.3;
+  col *= pulse;
+  float alpha = (glow1 * 0.1 + glow2 * 0.06) * pulse * reveal;
+  return half4(col * alpha, alpha);
+}
+`);
+
+const AmbientGlow: React.FC = React.memo(() => {
+  const { width, height } = useWindowDimensions();
+  const time = useSharedValue(0);
+  const reveal = useSharedValue(0);
+
+  useEffect(() => {
+    reveal.value = withDelay(
+      200,
+      withTiming(1, { duration: 1200, easing: Easing.out(Easing.cubic) }),
+    );
+    time.value = withDelay(
+      200,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 6000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        true,
+      ),
+    );
+  }, []);
+
+  const uniforms = useDerivedValue(() => ({
+    resolution: vec(width, height),
+    time: time.value,
+    reveal: reveal.value,
+  }));
+
+  if (!GLOW_SKSL) return null;
+
+  return (
+    <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Fill>
+        <Shader source={GLOW_SKSL} uniforms={uniforms} />
+      </Fill>
+    </Canvas>
+  );
+});
+
+AmbientGlow.displayName = "AmbientGlow";
 
 // --- Screen ---
 
@@ -289,10 +366,11 @@ const ItinerariesListScreen = () => {
       showBackButton={false}
       noAnimation
     >
+      <AmbientGlow />
       <View style={styles.headerRow}>
         <View style={styles.headerTop}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerLabel}>YOUR QUESTS</Text>
+            <Text style={styles.headerLabel}>Your Quests</Text>
             <Text style={styles.headerHint}>
               {markedIds.size > 0
                 ? `${markedIds.size} selected \u00B7 Swipe up to mark more`
@@ -309,7 +387,7 @@ const ItinerariesListScreen = () => {
               }
             }}
           >
-            <Bell size={18} color={goalCheckIn ? "#86efac" : colors.text.disabled} />
+            <Bell size={18} color={goalCheckIn ? colors.accent.primary : colors.text.disabled} />
             {goalCheckIn && <View style={styles.bellDot} />}
           </Pressable>
         </View>
@@ -444,7 +522,7 @@ const createScreenStyles = (colors: Colors) =>
       width: 8,
       height: 8,
       borderRadius: 4,
-      backgroundColor: "#86efac",
+      backgroundColor: colors.accent.primary,
       borderWidth: 1.5,
       borderColor: colors.bg.primary,
     },
@@ -452,8 +530,8 @@ const createScreenStyles = (colors: Colors) =>
       fontSize: 12,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.bold,
-      color: "#86efac",
-      letterSpacing: 1.5,
+      color: colors.accent.primary,
+      letterSpacing: 0.5,
     },
     headerHint: {
       fontSize: 11,

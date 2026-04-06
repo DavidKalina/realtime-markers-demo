@@ -13,7 +13,6 @@ import {
   type Colors,
 } from "@/theme";
 
-const GREEN = "#86efac";
 const BLUE = "#93c5fd";
 const AMBER = "#fbbf24";
 
@@ -45,10 +44,10 @@ const PHASES = [
   { label: "Mastery", description: "Thriving in challenging situations" },
 ] as const;
 
-function phaseColor(index: number, current: number): string {
-  if (index < current) return GREEN;
+function phaseColor(index: number, current: number, accent: string): string {
+  if (index < current) return accent;
   if (index === current) return AMBER;
-  return "rgba(255, 255, 255, 0.15)";
+  return "rgba(255, 255, 255, 0.25)";
 }
 
 // ── Component ──────────────────────────────────────────────────
@@ -71,13 +70,13 @@ function GrowthArc({
 
   return (
     <View style={s.container}>
-      <Text style={s.sectionLabel}>GROWTH ARC</Text>
+      <Text style={s.sectionLabel}>Growth Arc</Text>
 
       <View style={s.card}>
         {/* Phase node chain */}
         <View style={s.chainRow}>
           {PHASES.map((p, i) => {
-            const color = phaseColor(i, phase);
+            const color = phaseColor(i, phase, colors.accent.primary);
             const isCurrent = i === phase;
             const isCompleted = i < phase;
             const isLast = i === PHASES.length - 1;
@@ -85,12 +84,10 @@ function GrowthArc({
             return (
               <React.Fragment key={p.label}>
                 <View style={s.nodeColumn}>
-                  <Text style={[s.nodeLabel, isCurrent && { color: AMBER }, isCompleted && { color: GREEN }]}>
+                  <Text style={[s.nodeLabel, isCurrent && { color: AMBER }, isCompleted && { color: colors.accent.primary }]}>
                     {p.label}
                   </Text>
-                  <Text style={[s.dot, { color }]}>
-                    {isCompleted ? "\u25C9" : isCurrent ? "\u25C9" : "\u25CB"}
-                  </Text>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: (isCompleted || isCurrent) ? color : "rgba(255,255,255,0.15)" }} />
                 </View>
                 {!isLast && (
                   <View
@@ -99,7 +96,7 @@ function GrowthArc({
                       {
                         backgroundColor:
                           i < phase
-                            ? `${GREEN}44`
+                            ? `rgba(${colors.accent.rgb}, 0.27)`
                             : "rgba(255, 255, 255, 0.06)",
                       },
                     ]}
@@ -123,23 +120,23 @@ function GrowthArc({
         <View style={s.metricsRow}>
           <View style={s.metric}>
             <Text style={s.metricValue}>{completedQuests}</Text>
-            <Text style={s.metricLabel}>QUESTS</Text>
+            <Text style={s.metricLabel}>Quests</Text>
           </View>
           <View style={s.metric}>
             <Text style={s.metricValue}>{avgRating.toFixed(1)}</Text>
-            <Text style={s.metricLabel}>AVG RATING</Text>
+            <Text style={s.metricLabel}>Avg Rating</Text>
           </View>
           <View style={s.metric}>
-            <Text style={[s.metricValue, { color: trending === "up" ? GREEN : trending === "down" ? BLUE : colors.text.primary }]}>
+            <Text style={[s.metricValue, { color: trending === "up" ? colors.accent.primary : trending === "down" ? BLUE : colors.text.primary }]}>
               {trending === "up" ? "\u2191" : trending === "down" ? "\u2193" : "\u2192"}{" "}
               {Math.round(recentResonance * 100)}%
             </Text>
-            <Text style={s.metricLabel}>RESONANCE</Text>
+            <Text style={s.metricLabel}>Resonance</Text>
           </View>
           {hasGrowthSignals && (
             <View style={s.metric}>
-              <Text style={[s.metricValue, { color: GREEN }]}>{"\u2713"}</Text>
-              <Text style={s.metricLabel}>GROWING</Text>
+              <Text style={[s.metricValue, { color: colors.accent.primary }]}>{"\u2713"}</Text>
+              <Text style={s.metricLabel}>Growing</Text>
             </View>
           )}
         </View>
@@ -160,14 +157,14 @@ const createStyles = (colors: Colors) =>
       fontSize: 9,
       fontWeight: fontWeight.bold,
       color: colors.text.disabled,
-      letterSpacing: 1.5,
+      letterSpacing: 0.5,
       marginBottom: spacing.xs,
     },
     card: {
-      backgroundColor: "rgba(255, 255, 255, 0.02)",
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: "rgba(255, 255, 255, 0.04)",
+      borderColor: "rgba(255, 255, 255, 0.08)",
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.md,
       gap: spacing.md,
@@ -184,12 +181,8 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontSize: 8,
       fontWeight: fontWeight.medium,
-      color: "rgba(255, 255, 255, 0.2)",
+      color: "rgba(255, 255, 255, 0.3)",
       letterSpacing: 0.3,
-    },
-    dot: {
-      fontFamily: fontFamily.mono,
-      fontSize: 16,
     },
     line: {
       flex: 1,
@@ -221,7 +214,7 @@ const createStyles = (colors: Colors) =>
       flexDirection: "row",
       justifyContent: "space-between",
       borderTopWidth: 1,
-      borderTopColor: "rgba(255, 255, 255, 0.04)",
+      borderTopColor: "rgba(255, 255, 255, 0.08)",
       paddingTop: spacing.sm,
     },
     metric: {
@@ -239,7 +232,7 @@ const createStyles = (colors: Colors) =>
       fontSize: 7,
       fontWeight: fontWeight.bold,
       color: colors.text.disabled,
-      letterSpacing: 1,
+      letterSpacing: 0.5,
     },
   });
 
