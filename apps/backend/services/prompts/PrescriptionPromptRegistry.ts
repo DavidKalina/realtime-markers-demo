@@ -62,8 +62,12 @@ export interface PrescriptionPromptContext {
   siblingInstructions: string;
   blockerContext: string;
 
+  // Challenge quests
+  challengeCategory?: string;
+
   // Quest role
   isStretch: boolean;
+  isEnjoy: boolean;
   siblingContext: {
     questRole: string;
     batchId: string;
@@ -135,22 +139,28 @@ export const defaultPrompt: PrescriptionPromptBuilder = (ctx) => {
     isAwayFromHome, distFromHome, radius, pace, hour, dayOfWeek,
     historyContext, coverageContext, explorationProfileLabel,
     expansionTarget, phaseContext, timelineContext, fearLadderContext, expectancyContext,
-    difficultyGuidance, siblingInstructions, blockerContext, isStretch,
+    difficultyGuidance, siblingInstructions, blockerContext, isStretch, isEnjoy,
   } = ctx;
 
   const comfortProfile = user.comfortProfile;
 
-  const instructions = `You are a Goal Achievement Guide. You prescribe ONE location-based quest designed to ${isStretch ? "ambitiously push" : "steadily advance"} this user toward their goal through real-world action.
+  const instructions = `You are a Goal Achievement Guide. You prescribe ONE location-based quest designed to ${isEnjoy ? "reward and recharge" : isStretch ? "ambitiously push" : "steadily advance"} this user toward their goal through real-world action.
 
 YOUR APPROACH:
-- Progress through action, not theory. The goal is to get the user ${isStretch ? "significantly outside" : "slightly outside"} their comfort zone — not ${isStretch ? "terrify them, but genuinely challenge them" : "overwhelm them"}.
+${isEnjoy
+    ? `- ENJOY QUEST: This is a reward, not a challenge. Prescribe something the user will genuinely look forward to.
+- Pick a venue in a category they already love — lean into their onboarding activities and high-resonance pathways.
+- Stay within their comfort radius. No stretch, no escalation, no social pressure unless they'd enjoy it.
+- This is a recovery day between harder quests. The win is them having a great time and feeling good about their progress.
+- Difficulty 1-3. Think "treat yourself" not "challenge yourself."`
+    : `- Progress through action, not theory. The goal is to get the user ${isStretch ? "significantly outside" : "slightly outside"} their comfort zone — not ${isStretch ? "terrify them, but genuinely challenge them" : "overwhelm them"}.
 ${isStretch
     ? `- STRETCH GOAL: Push on MULTIPLE dimensions at once — further distance AND unfamiliar category AND/OR higher social challenge. This is the ambitious card.
 - Search at 1.5-2x the user's comfort radius (${(radius * 1.5).toFixed(1)}-${(radius * 2).toFixed(1)} miles). Go further than you normally would.
 - Pick a category or activity type the user hasn't tried yet. Combine novelty with distance.`
-    : `- Stretch on ONE dimension at a time: either further distance (familiar category) OR unfamiliar category (familiar distance). Never both.`}
+    : `- Stretch on ONE dimension at a time: either further distance (familiar category) OR unfamiliar category (familiar distance). Never both.`}`}
 - The user's current comfort radius is ${radius.toFixed(1)} miles from home. Use this as context${isStretch ? " — then exceed it" : ", NOT as a target to push past"}.
-- Keep it achievable. One stop. ${isStretch ? "The win is them rising to the challenge." : "Low friction. The win is them going, not the venue being perfect."}
+- Keep it achievable. One stop. ${isEnjoy ? "The win is enjoyment." : isStretch ? "The win is them rising to the challenge." : "Low friction. The win is them going, not the venue being perfect."}
 ${comfortProfile?.primaryGoal ? `
 SEARCH STRATEGY:
 - The user's goal is "${comfortProfile.primaryGoal}". Your searches should DIRECTLY advance this goal.
@@ -224,10 +234,123 @@ ${user.onboardingProfile?.activities?.length ? `They enjoy: ${user.onboardingPro
   return { instructions, initialMessage };
 };
 
+// ── Challenge prompt (v1) ──────────────────────────────────
+
+const CHALLENGE_LADDERS: Record<string, { label: string; rungs: string[] }> = {
+  social_reach: {
+    label: "Social Reach",
+    rungs: [
+      "Text or message someone you've been meaning to reach out to",
+      "Call someone (voice, not text) you haven't spoken to recently",
+      "Make concrete plans with someone — a specific day, time, and place",
+      "Invite someone to do something YOU chose — you're the initiator",
+    ],
+  },
+  vulnerability: {
+    label: "Vulnerability",
+    rungs: [
+      "Share something honest about your life on social media or in a group chat",
+      "Tell a friend something real about how you're doing — not the polished version",
+      "Ask someone for help with something you'd normally handle alone",
+      "Admit to someone that you're struggling with something — no spin, no jokes",
+    ],
+  },
+  hosting: {
+    label: "Hosting",
+    rungs: [
+      "Invite one person to your place — coffee, a movie, a walk nearby",
+      "Host a small hangout (2-4 people) — you plan it, you set the vibe",
+      "Organize a group activity (5+ people) — game night, dinner party, watch party",
+    ],
+  },
+  reconnection: {
+    label: "Reconnection",
+    rungs: [
+      "Reach out to someone you've lost touch with — no agenda, just say hi",
+      "Follow up on a loose plan you've been putting off — make it real",
+      "Rebuild a lapsed friendship — acknowledge the gap and bridge it",
+    ],
+  },
+};
+
+export { CHALLENGE_LADDERS };
+
+export const challengePrompt: PrescriptionPromptBuilder = (ctx) => {
+  const {
+    user, pace, historyContext, phaseContext, timelineContext,
+    fearLadderContext, expectancyContext, difficultyGuidance,
+    blockerContext, challengeCategory,
+  } = ctx;
+
+  const comfortProfile = user.comfortProfile;
+  const category = challengeCategory ?? "social_reach";
+  const ladder = CHALLENGE_LADDERS[category] ?? CHALLENGE_LADDERS.social_reach;
+
+  const ladderContext = ladder.rungs
+    .map((rung, i) => `  ${i + 1}. ${rung}`)
+    .join("\n");
+
+  const allLaddersContext = Object.entries(CHALLENGE_LADDERS)
+    .map(([key, l]) => `${l.label} (${key}):\n${l.rungs.map((r, i) => `  ${i + 1}. ${r}`).join("\n")}`)
+    .join("\n\n");
+
+  const instructions = `You are a Goal Achievement Guide. You prescribe ONE social or vulnerability challenge — something brave the user does with or toward another person. No venues, no locations — just human connection.
+
+YOUR APPROACH:
+- Progress through courage, not mileage. The goal is to get the user to do something interpersonally uncomfortable in a healthy, growth-oriented way.
+- These challenges train the same muscle as location-based quests (doing something that scares you) but on the relational axis.
+- Calibrate to the user. Someone who's never texted an old friend shouldn't be asked to host a dinner party. Someone who hosts regularly should be pushed toward deeper vulnerability.
+
+CHALLENGE CATEGORY: ${ladder.label}
+The user is working on "${ladder.label}" challenges. Here's the difficulty ladder for this category:
+${ladderContext}
+
+Prescribe a challenge at the right rung for this user based on their history and comfort level. You can adapt and personalize — the rungs are guidelines, not scripts.
+
+ALL CHALLENGE LADDERS (for context on the full system):
+${allLaddersContext}
+
+USER PROFILE:
+- Pace: ${pace === "gentle" ? "Gentle — ease them in, low-pressure challenges" : pace === "push_me" ? "Push me — they want to be challenged, go higher on the ladder" : "Steady — balanced, moderate stretch"}
+${comfortProfile?.primaryGoal ? `- PRIMARY GOAL: "${comfortProfile.primaryGoal}"` : ""}
+${comfortProfile?.barriers ? `- What holds them back: "${comfortProfile.barriers}"` : ""}
+${comfortProfile?.northStar ? `- North star: "${comfortProfile.northStar}"` : ""}
+${fearLadderContext ? `\n${fearLadderContext}` : ""}
+${expectancyContext ? `\n${expectancyContext}` : ""}
+${blockerContext ? `\nCRITICAL — RECURRING BLOCKER:\n${blockerContext}\nDo NOT prescribe the blocked action. Work around it.\n` : ""}
+${timelineContext ? `\n${timelineContext}` : ""}
+${phaseContext ? `\nPHASE CONTEXT:\n${phaseContext}` : ""}
+
+${historyContext}
+
+TOOLS:
+- web_search: look up ideas, events, or resources if helpful (optional)
+- submit_challenge: finalize the challenge (TERMINAL)
+
+CONSTRAINTS:
+- EXACTLY 1 challenge. Keep it simple and specific.
+- Title: 3-6 words, warm and encouraging.
+- Summary: 1-2 sentences framing why this challenge matters for their growth.
+- Description: What to do — concrete and specific. Not "reach out to someone" but "Text [a specific type of person] and [specific action]." Leave room for them to fill in who, but be specific about the what.
+- hook: Why this challenge matters for their growth trajectory (1 sentence).
+- sa (suggested approaches): 2-3 emoji-prefixed tips for how to approach this. Not what to say verbatim, but mindset and strategy. Examples: ["💬 Keep it simple — you don't need a reason to reach out", "🧘 If you feel the urge to bail, sit with it for 60 seconds first", "📱 Voice is scarier than text — that's exactly why it matters"]
+- jp (journal prompt): A reflective question for AFTER they complete the challenge. This is crucial — completion is gated on writing a reflection. Make it a question that invites genuine introspection, not just "how did it go?" Examples: "What surprised you about how they responded?", "What were you afraid would happen, and what actually happened?", "Did this change how you see this relationship?"
+- vc (challenge category): "${category}"
+- df (difficulty): 1-10 based on social/emotional difficulty for THIS user. 1=trivially easy (texting a close friend), 3=mild discomfort (calling someone), 5=real vulnerability (sharing something honest), 7=significant courage (admitting struggle), 10=maximum social exposure (hosting a large group event).
+${difficultyGuidance}`;
+
+  const initialMessage = `Prescribe a ${ladder.label.toLowerCase()} challenge for this user.
+${comfortProfile?.primaryGoal ? `Their goal: "${comfortProfile.primaryGoal}"` : "Help them build social courage and connection."}
+Pick the right rung on the ladder based on their history and comfort level.`;
+
+  return { instructions, initialMessage };
+};
+
 // ── Factory ─────────────────────────────────────────────────
 
 export function createPrescriptionPromptRegistry(): PrescriptionPromptRegistry {
   const registry = new PrescriptionPromptRegistryImpl();
   registry.register("v1-default", defaultPrompt);
+  registry.register("v1-challenge", challengePrompt);
   return registry;
 }

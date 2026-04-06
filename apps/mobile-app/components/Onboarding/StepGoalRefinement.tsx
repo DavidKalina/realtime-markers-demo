@@ -19,7 +19,7 @@ import { BackButton, NextButton, StepCard, HeroCard } from "./shared";
 interface Props {
   primaryGoal: string;
   onRefined: (refinedGoal: string, signals: GoalRefinementState["extractedSignals"]) => void;
-  onRedirect: (message: string) => void;
+  onRedirect: (message: string, suggestedGoal?: string) => void;
   onBack?: () => void;
 }
 
@@ -44,6 +44,14 @@ export function StepGoalRefinement({ primaryGoal, onRefined, onRedirect, onBack 
 
         if (result.feasibility === "unfeasible" || result.feasibility === "concerning") {
           onRedirect(result.redirectMessage ?? "Let's try a different goal.");
+          return;
+        }
+
+        if (result.feasibility === "out_of_scope") {
+          onRedirect(
+            result.reframeSuggestion ?? "This app is best at helping you get out into the world and try new things. Can you reframe your goal around that?",
+            result.reframedGoal ?? undefined,
+          );
           return;
         }
 

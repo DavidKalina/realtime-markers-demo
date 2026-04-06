@@ -42,11 +42,14 @@ const PARALLAX = [1.0, 0.92, 0.84, 0.78, 0.72];
 interface CheckinCaptureModalProps {
   visible: boolean;
   objectiveId: string;
+  sidequestId?: string;
   objectiveTitle: string;
   objectiveEmoji?: string;
   suggestedActivities: string[];
   actionItems?: string[];
   journalPrompt?: string;
+  /** "venue" (default) shows full capture UI; "challenge" hides photo, requires journal, uses completeChallenge API */
+  mode?: "venue" | "challenge";
   onDismiss: () => void;
   onComplete: () => void;
 }
@@ -82,14 +85,17 @@ const ParallaxWidget: React.FC<{
 export function CheckinCaptureModal({
   visible,
   objectiveId,
+  sidequestId,
   objectiveTitle,
   objectiveEmoji,
   suggestedActivities,
   actionItems,
   journalPrompt,
+  mode = "venue",
   onDismiss,
   onComplete,
 }: CheckinCaptureModalProps) {
+  const isChallenge = mode === "challenge";
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
   const scrollY = useSharedValue(0);
@@ -156,7 +162,11 @@ export function CheckinCaptureModal({
     setShowCustomInput((prev) => !prev);
   }, []);
 
+  const journalMeetsMinimum = journalText.trim().length >= 20;
+
   const handleSave = useCallback(async () => {
+    if (isChallenge && !journalMeetsMinimum) return;
+
     setSaving(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
@@ -165,12 +175,22 @@ export function CheckinCaptureModal({
       const activity = parts.length > 0 ? parts.join(" · ") : undefined;
       const journal = journalText.trim() || undefined;
 
-      await apiClient.sidequests.updateObjectiveJournal(objectiveId, {
-        journalEntry: journal,
-        completedActivity: activity,
-        photoUrl: photoUri ?? undefined,
-        socialContext: socialContext ?? undefined,
-      });
+      if (isChallenge && sidequestId) {
+        // Challenge: atomic journal + check-in via completeChallenge
+        await apiClient.sidequests.completeChallenge(sidequestId, objectiveId, {
+          journalEntry: journal!,
+          completedActivity: activity,
+          socialContext: socialContext ?? undefined,
+        });
+      } else {
+        // Venue: save journal separately (check-in already happened via proximity)
+        await apiClient.sidequests.updateObjectiveJournal(objectiveId, {
+          journalEntry: journal,
+          completedActivity: activity,
+          photoUrl: photoUri ?? undefined,
+          socialContext: socialContext ?? undefined,
+        });
+      }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       reset();
@@ -180,7 +200,7 @@ export function CheckinCaptureModal({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setSaving(false);
     }
-  }, [objectiveId, selectedActivities, customActivity, journalText, photoUri, socialContext, reset, onComplete]);
+  }, [isChallenge, sidequestId, objectiveId, selectedActivities, customActivity, journalText, photoUri, socialContext, journalMeetsMinimum, reset, onComplete]);
 
   const handleSkip = useCallback(() => {
     reset();
@@ -234,30 +254,34 @@ export function CheckinCaptureModal({
                   {objectiveEmoji ?? "\u2728"}
                 </Text>
                 <Text style={s.headerTitle}>{objectiveTitle}</Text>
-                <Text style={s.headerSub}>Nice! Capture this moment.</Text>
+                <Text style={s.headerSub}>
+                  {isChallenge ? "How did it go?" : "Nice! Capture this moment."}
+                </Text>
               </View>
             </ParallaxWidget>
 
-            {/* ── Photo ── */}
-            <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={200}>
-              <Text style={s.widgetLabel}>PHOTO</Text>
-              {photoUri ? (
-                <View style={s.photoPreview}>
-                  <Image source={{ uri: photoUri }} style={s.photoImage} />
-                  <Pressable
-                    style={s.photoRemove}
-                    onPress={() => setPhotoUri(null)}
-                  >
-                    <XCircle size={20} color={colors.text.secondary} />
+            {/* ── Photo (venue only) ── */}
+            {!isChallenge && (
+              <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={200}>
+                <Text style={s.widgetLabel}>PHOTO</Text>
+                {photoUri ? (
+                  <View style={s.photoPreview}>
+                    <Image source={{ uri: photoUri }} style={s.photoImage} />
+                    <Pressable
+                      style={s.photoRemove}
+                      onPress={() => setPhotoUri(null)}
+                    >
+                      <XCircle size={20} color={colors.text.secondary} />
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable style={s.photoButton} onPress={handleTakePhoto}>
+                    <Camera size={18} color={colors.accent.primary} />
+                    <Text style={s.photoButtonText}>Take a photo</Text>
                   </Pressable>
-                </View>
-              ) : (
-                <Pressable style={s.photoButton} onPress={handleTakePhoto}>
-                  <Camera size={18} color={colors.accent.primary} />
-                  <Text style={s.photoButtonText}>Take a photo</Text>
-                </Pressable>
-              )}
-            </ParallaxWidget>
+                )}
+              </ParallaxWidget>
+            )}
 
             {/* ── Activity ── */}
             {suggestedActivities.length > 0 && (
@@ -342,37 +366,51 @@ export function CheckinCaptureModal({
               <Text style={s.widgetLabel}>
                 {journalPrompt
                   ? `\u201C${journalPrompt}\u201D`
-                  : "ANY THOUGHTS?"}
+                  : isChallenge ? "REFLECT ON THIS" : "ANY THOUGHTS?"}
               </Text>
               <TextInput
                 style={[s.textInput, s.journalInput]}
-                placeholder={"Optional \u2014 even one word counts"}
+                placeholder={isChallenge
+                  ? "Write a short reflection to complete this challenge..."
+                  : "Optional \u2014 even one word counts"}
                 placeholderTextColor={colors.text.disabled}
                 value={journalText}
                 onChangeText={setJournalText}
                 multiline
-                numberOfLines={3}
-                maxLength={500}
+                numberOfLines={isChallenge ? 5 : 3}
+                maxLength={2000}
                 textAlignVertical="top"
               />
+              {isChallenge && journalText.trim().length > 0 && !journalMeetsMinimum && (
+                <Text style={s.journalHint}>
+                  Keep going — {20 - journalText.trim().length} more characters
+                </Text>
+              )}
             </ParallaxWidget>
 
             {/* ── Actions ── */}
             <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={550}>
               <Pressable
-                style={[s.saveButton, saving && s.saveButtonDisabled]}
+                style={[
+                  s.saveButton,
+                  (saving || (isChallenge && !journalMeetsMinimum)) && s.saveButtonDisabled,
+                ]}
                 onPress={handleSave}
-                disabled={saving}
+                disabled={saving || (isChallenge && !journalMeetsMinimum)}
               >
                 {saving ? (
                   <ActivityIndicator size="small" color="#000000" />
                 ) : (
-                  <Text style={s.saveButtonText}>Save</Text>
+                  <Text style={s.saveButtonText}>
+                    {isChallenge ? "Complete Challenge" : "Save"}
+                  </Text>
                 )}
               </Pressable>
-              <Pressable style={s.skipButton} onPress={handleSkip} disabled={saving}>
-                <Text style={s.skipButtonText}>Skip for now</Text>
-              </Pressable>
+              {!isChallenge && (
+                <Pressable style={s.skipButton} onPress={handleSkip} disabled={saving}>
+                  <Text style={s.skipButtonText}>Skip for now</Text>
+                </Pressable>
+              )}
             </ParallaxWidget>
           </Animated.ScrollView>
         </KeyboardAvoidingView>
@@ -526,6 +564,12 @@ const createStyles = (colors: Colors) =>
     journalInput: {
       height: 90,
       textAlignVertical: "top",
+    },
+    journalHint: {
+      fontFamily: fontFamily.mono,
+      fontSize: 11,
+      color: colors.text.disabled,
+      marginTop: spacing.xs,
     },
 
     // ── Actions ──

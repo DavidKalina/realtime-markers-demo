@@ -25,12 +25,18 @@ export const BARRIER_OPTIONS = [
 // ── Activity options ────────────────────────────────────────
 
 export const ACTIVITY_OPTIONS = [
-  "\u2615 Coffee", "\uD83E\uDD7E Hiking", "\uD83C\uDFA8 Art", "\uD83D\uDCDA Reading",
-  "\uD83C\uDF7D\uFE0F Food", "\uD83C\uDFB5 Music", "\uD83C\uDFCB\uFE0F Fitness", "\uD83C\uDF33 Nature",
-  "\uD83D\uDEF9 Skating", "\uD83D\uDCF8 Photography", "\uD83E\uDDD8 Wellness", "\uD83C\uDF7A Drinks",
-  "\uD83C\uDFAD Theatre", "\uD83C\uDFCA Swimming", "\uD83D\uDC15 Dog walks", "\uD83C\uDFAE Gaming",
-  "\uD83C\uDFD5\uFE0F Camping", "\uD83D\uDEB4 Cycling", "\uD83C\uDFA4 Karaoke", "\uD83E\uDDD7 Climbing",
-  "\uD83C\uDFBF Skiing", "\uD83D\uDC86 Spa", "\uD83C\uDF7C Brunch", "\uD83C\uDFB2 Board games",
+  // Going out
+  "\u2615 Coffee", "\uD83C\uDF7D\uFE0F Food", "\uD83C\uDF7A Drinks", "\uD83E\uDD5E Brunch",
+  // Active / outdoors
+  "\uD83E\uDD7E Hiking", "\uD83C\uDFC3 Running", "\uD83D\uDEB4 Cycling", "\uD83C\uDFCA Swimming",
+  "\uD83D\uDEF9 Skating", "\uD83C\uDFC2 Longboarding", "\uD83E\uDDD7 Climbing", "\uD83C\uDFCB\uFE0F Gym",
+  "\uD83E\uDD4F Disc golf", "\uD83C\uDFD5\uFE0F Camping", "\uD83C\uDFBF Skiing", "\uD83E\uDDD8 Yoga",
+  // Creative / cultural
+  "\uD83C\uDFA8 Art", "\uD83C\uDFB5 Music", "\uD83D\uDCF8 Photography", "\uD83C\uDFAD Theatre",
+  "\uD83C\uDFA4 Karaoke", "\u270D\uFE0F Writing", "\uD83C\uDFB8 Playing music",
+  // Social / chill
+  "\uD83C\uDFAE Gaming", "\uD83C\uDFB2 Board games", "\uD83D\uDCDA Reading", "\uD83C\uDF73 Cooking",
+  "\uD83C\uDF31 Gardening", "\uD83D\uDC15 Dog walks", "\uD83C\uDF33 Nature", "\uD83D\uDC86 Spa",
 ];
 
 // ── Pace options ────────────────────────────────────────────

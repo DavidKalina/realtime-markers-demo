@@ -74,6 +74,8 @@ export interface SidequestResponse {
   pathwayLabel?: string;
   pathwayPhase?: string;
   questRole?: string;
+  questType?: string;
+  challengeCategory?: string;
   isPublished?: boolean;
   timesAdopted?: number;
 }
@@ -224,6 +226,28 @@ export class SidequestsModule extends BaseApiModule {
     );
   }
 
+  async completeChallenge(
+    sidequestId: string,
+    objectiveId: string,
+    params: {
+      journalEntry: string;
+      completedActivity?: string;
+      socialContext?: string;
+    },
+  ): Promise<{ success: boolean; checkedInAt?: string }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/${sidequestId}/objectives/${objectiveId}/complete-challenge`,
+      {
+        method: "POST",
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse<{ success: boolean; checkedInAt?: string }>(
+      response,
+    );
+  }
+
   async rate(
     id: string,
     rating: number,
@@ -317,6 +341,8 @@ export class SidequestsModule extends BaseApiModule {
     latitude: number;
     longitude: number;
     timezone?: string;
+    questType?: "venue" | "challenge";
+    challengeCategory?: string;
   }): Promise<{ jobId: string; streamUrl: string }> {
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/prescribe`,
@@ -378,11 +404,13 @@ export class SidequestsModule extends BaseApiModule {
     goal: string;
   }): Promise<{
     specificity: number;
-    feasibility: "actionable" | "ambitious" | "unfeasible" | "concerning";
+    feasibility: "actionable" | "ambitious" | "out_of_scope" | "unfeasible" | "concerning";
     needsRefinement: boolean;
     refinedGoal: string | null;
     firstQuestion: string | null;
     redirectMessage: string | null;
+    reframeSuggestion: string | null;
+    reframedGoal: string | null;
     state: GoalRefinementState;
   }> {
     const response = await this.fetchWithAuth(
@@ -451,6 +479,7 @@ export class SidequestsModule extends BaseApiModule {
     pacePreference?: string;
     comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[]; northStar?: string; primaryGoal?: string; targetDate?: string; goalLocation?: string };
     fearLadder?: { overallScore: number; dimensionScores: Record<string, number>; responses: Record<string, number>; scenarios?: { id: string; text: string; dimension: string }[]; dimensions?: string[] };
+    onboardingProfile?: { activities: string[] };
   }): Promise<ComfortZoneResponse> {
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/comfort-profile`,

@@ -46,13 +46,17 @@ export interface PrescribeQuestInput {
   model?: string;
   /** Override the strategy for this specific prescription */
   strategy?: "monolithic" | "multi-agent";
+  /** Quest type: "venue" (default, location-based) or "challenge" (social/vulnerability) */
+  questType?: "venue" | "challenge";
+  /** Challenge category — required when questType is "challenge" */
+  challengeCategory?: string;
 }
 
 export interface SiblingContext {
   batchId: string;
   batchIndex: number;
   totalInBatch: number;
-  questRole: "deepen" | "explore" | "discover" | "stretch";
+  questRole: "deepen" | "explore" | "discover" | "stretch" | "enjoy";
   targetPathway?: { id: string; theme: string; label: string; phase: string };
   previousSiblings: { title: string; venueCategory: string; venueName: string }[];
 }
@@ -264,6 +268,11 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
     onProgress?: SidequestProgressCallback,
     siblingContext?: SiblingContext,
   ): Promise<Sidequest> {
+    // Branch for challenge quests (non-venue, social/vulnerability)
+    if (input.questType === "challenge") {
+      return this.prescribeChallengeQuest(userId, input, onProgress);
+    }
+
     if (!this.comfortZoneService) {
       throw new Error("ComfortZoneService required for prescribeQuest");
     }
@@ -462,6 +471,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
 
       const pace = user.pacePreference ?? "steady";
       const isStretch = siblingContext?.questRole === "stretch";
+      const isEnjoy = siblingContext?.questRole === "enjoy";
 
       // Build prompt via registry
       const promptCtx: PrescriptionPromptContext = {
@@ -484,11 +494,12 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
           ? this.buildFearLadderContext(user.fearLadder, fearLadderReadiness) : "",
         expectancyContext: user.expectancyCalibration
           ? this.buildExpectancyContext(user.expectancyCalibration) : "",
-        difficultyGuidance: this.buildDifficultyGuidance(pace, fearLadderReadiness, isStretch),
+        difficultyGuidance: this.buildDifficultyGuidance(pace, fearLadderReadiness, isStretch, isEnjoy),
         siblingInstructions: siblingContext
           ? this.buildSiblingInstructions(siblingContext) : "",
         blockerContext,
         isStretch,
+        isEnjoy,
         siblingContext: siblingContext ?? null,
       };
 
@@ -1008,6 +1019,303 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
       return loaded ?? sidequest;
     } catch (error) {
       console.error("[SidequestPrescriptionService] Prescription failed:", error);
+      sidequest.status = SidequestStatus.FAILED;
+      await repo.save(sidequest);
+      throw error;
+    }
+  }
+
+  // ─── Challenge Quest Prescription ──────────────────────────────
+
+  private async prescribeChallengeQuest(
+    userId: string,
+    input: PrescribeQuestInput,
+    onProgress?: SidequestProgressCallback,
+  ): Promise<Sidequest> {
+    const repo = this.dataSource.getRepository(Sidequest);
+    const objectiveRepo = this.dataSource.getRepository(Objective);
+
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { id: userId },
+      select: [
+        "id",
+        "homeLatitude",
+        "homeLongitude",
+        "comfortProfile",
+        "onboardingProfile",
+        "pacePreference",
+        "behavioralProfile",
+        "fearLadder",
+        "expectancyCalibration",
+      ],
+    });
+
+    if (!user) throw new Error("User not found");
+
+    const homeLat = Number(user.homeLatitude ?? input.latitude);
+    const homeLng = Number(user.homeLongitude ?? input.longitude);
+
+    // Reverse geocode for city (used in context, not for venue search)
+    let city = "Unknown";
+    try {
+      city = await this.geocodingService.reverseGeocodeCityState(homeLat, homeLng);
+    } catch {
+      // Fall through
+    }
+
+    // Build context — reuse existing helpers but skip coverage/expansion
+    const historyContext = await this.buildPrescriptionContext(
+      userId,
+      user.behavioralProfile ?? null,
+      user.comfortProfile?.goalTags ?? [],
+    );
+
+    const fearLadderReadiness = await this.computeFearLadderReadiness(userId);
+    const blockerContext = await this.buildBlockerContext(userId);
+
+    let phaseContext = "";
+    if (this.pathwayService) {
+      try {
+        const phase = await this.pathwayService.getUserPhaseContext(userId);
+        phaseContext = phase.recommendation;
+      } catch (err) {
+        console.error("[prescribeChallengeQuest] Phase context failed:", err);
+      }
+    }
+
+    let timelineContext = "";
+    if (this.pacingService) {
+      try {
+        timelineContext = await this.pacingService.getTimelineContext(userId) ?? "";
+      } catch (err) {
+        console.error("[prescribeChallengeQuest] Timeline context failed:", err);
+      }
+    }
+
+    const pace = user.pacePreference ?? "steady";
+    const radius = this.comfortZoneService
+      ? await this.comfortZoneService.recalculateRadius(userId)
+      : 3;
+
+    // Create sidequest record
+    const sidequest = repo.create({
+      userId,
+      city: normalizeCity(city),
+      status: SidequestStatus.GENERATING,
+      radiusMiles: radius,
+      budgetMax: 0,
+      activityTypes: [],
+      prescribed: true,
+      questType: "challenge",
+      challengeCategory: input.challengeCategory ?? "social_reach",
+    });
+    await repo.save(sidequest);
+
+    try {
+      const now = new Date();
+      const hour = now.getHours();
+      const dayOfWeek = now.toLocaleDateString("en-US", { weekday: "long" });
+
+      // Build prompt via registry (challenge version)
+      const promptCtx: PrescriptionPromptContext = {
+        user: {
+          comfortProfile: user.comfortProfile ?? null,
+          onboardingProfile: user.onboardingProfile ?? null,
+          pacePreference: user.pacePreference ?? null,
+          fearLadder: user.fearLadder ?? null,
+          expectancyCalibration: user.expectancyCalibration ?? null,
+        },
+        homeLat, homeLng,
+        searchLat: homeLat, searchLng: homeLng,
+        city,
+        isAwayFromHome: false,
+        distFromHome: 0,
+        radius, pace, hour, dayOfWeek,
+        historyContext,
+        coverageContext: "",
+        explorationProfileLabel: "",
+        expansionTarget: "",
+        phaseContext,
+        timelineContext,
+        fearLadderContext: user.fearLadder
+          ? this.buildFearLadderContext(user.fearLadder, fearLadderReadiness) : "",
+        expectancyContext: user.expectancyCalibration
+          ? this.buildExpectancyContext(user.expectancyCalibration) : "",
+        difficultyGuidance: this.buildDifficultyGuidance(pace, fearLadderReadiness, false, false),
+        siblingInstructions: "",
+        blockerContext,
+        isStretch: false,
+        isEnjoy: false,
+        siblingContext: null,
+        challengeCategory: input.challengeCategory ?? "social_reach",
+      };
+
+      const promptOutput = this.promptRegistry.build("v1-challenge", promptCtx);
+      const instructions = promptOutput.instructions;
+
+      // Tools: web_search (optional) + submit_challenge (terminal)
+      type Tool = import("openai/resources/responses/responses").Tool;
+      const tools: Tool[] = [
+        {
+          type: "web_search",
+          user_location: { type: "approximate", city, country: "US" },
+          search_context_size: "medium",
+        },
+        {
+          type: "function",
+          name: "submit_challenge",
+          description: "Submit the prescribed social/vulnerability challenge.",
+          parameters: {
+            type: "object" as const,
+            properties: {
+              t: { type: "string", description: "Challenge title (3-6 words)" },
+              s: { type: "string", description: "Summary (1-2 sentences, why this matters)" },
+              items: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    t: { type: "string", description: "Challenge title" },
+                    d: { type: "string", description: "What to do — concrete and specific" },
+                    e: { type: "string", description: "Emoji" },
+                    vc: { type: "string", description: "Challenge category (social_reach, vulnerability, hosting, reconnection)" },
+                    hook: { type: "string", description: "Why this challenge matters for their growth" },
+                    sa: {
+                      type: "array",
+                      items: { type: "string" },
+                      description: "2-3 emoji-prefixed tips for how to approach this",
+                    },
+                    jp: { type: "string", description: "Journal prompt — reflective question for after completing the challenge" },
+                    df: { type: "number", description: "Difficulty 1-10 (social/emotional difficulty)" },
+                  },
+                  required: ["t", "d", "e", "vc", "hook", "sa", "jp", "df"],
+                },
+                maxItems: 1,
+                minItems: 1,
+              },
+            },
+            required: ["t", "s", "items"],
+          },
+          strict: false,
+        },
+      ];
+
+      const toolHandlers: Record<string, (args: Record<string, unknown>) => Promise<{ output: string; terminal?: boolean; rejection?: string }>> = {
+        submit_challenge: async (args) => {
+          const data = args as unknown as LLMResponseRaw;
+          if (data.items && data.items.length > 1) {
+            data.items = data.items.slice(0, 1);
+          }
+          return { output: "Challenge accepted", terminal: true };
+        },
+      };
+
+      if (onProgress) {
+        await onProgress(10, "Designing your challenge...");
+      }
+
+      const agentResult = await this.agent.run<LLMResponseRaw>(
+        {
+          instructions,
+          tools,
+          toolHandlers,
+          maxRounds: 4,
+          temperature: 0.8,
+          maxOutputTokens: 1500,
+          caller: "prescribe_challenge",
+          ...((input.model || this.prescriptionModel) && {
+            model: (input.model || this.prescriptionModel) as OpenAIModel,
+          }),
+        },
+        promptOutput.initialMessage,
+      );
+
+      if (onProgress) {
+        await onProgress(80, "Finalizing your challenge...");
+      }
+
+      const llmResult = expandLLMResponse(agentResult.result);
+
+      // Save objectives (no venue validation needed)
+      const objectives = llmResult.items.map((item, idx) =>
+        objectiveRepo.create({
+          sidequestId: sidequest.id,
+          sortOrder: idx,
+          title: item.title,
+          description: item.description,
+          emoji: item.emoji,
+          venueCategory: item.venueCategory ?? undefined,
+          hook: item.hook ?? undefined,
+          suggestedActivities: item.suggestedActivities ?? [],
+          actionItems: [],
+          journalPrompt: item.journalPrompt ?? undefined,
+          difficulty: item.difficulty ?? undefined,
+          actionability: "suggestive",
+        }),
+      );
+      await objectiveRepo.save(objectives);
+
+      // Update sidequest
+      sidequest.title = llmResult.title;
+      sidequest.summary = llmResult.summary;
+      sidequest.status = SidequestStatus.READY;
+
+      // Generate category tags
+      try {
+        const stopsForCategories = objectives
+          .map((obj) => `${obj.title}${obj.venueCategory ? ` (${obj.venueCategory})` : ""}${obj.description ? ` — ${obj.description}` : ""}`)
+          .join("; ");
+
+        const catCompletion = await this.openAIService.executeChatCompletion({
+          model: OpenAIModel.GPT54Nano,
+          messages: [
+            {
+              role: "system",
+              content:
+                'You generate category tags for social challenges. Return a JSON object with a "tags" key containing an array of 3-5 lowercase single-word tags that describe the challenge\'s themes. Examples: {"tags": ["social", "vulnerability", "courage", "connection", "growth"]}. Respond with ONLY the JSON object.',
+            },
+            {
+              role: "user",
+              content: `Title: ${sidequest.title || "Untitled"}\nSummary: ${sidequest.summary || "N/A"}\nChallenge: ${stopsForCategories}`,
+            },
+          ],
+          temperature: 0.3,
+          max_tokens: 100,
+          response_format: { type: "json_object" },
+        });
+
+        const raw = catCompletion.choices[0].message.content?.trim();
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const arr = Array.isArray(parsed) ? parsed : parsed.tags;
+          if (Array.isArray(arr)) {
+            sidequest.categories = arr
+              .filter((t: unknown) => typeof t === "string")
+              .slice(0, 5)
+              .map((t: string) => t.toLowerCase());
+          }
+        }
+      } catch (catErr) {
+        console.error(
+          `[prescribeChallengeQuest] Failed to generate categories for ${sidequest.id}:`,
+          catErr,
+        );
+      }
+
+      await repo.save(sidequest);
+
+      console.log(
+        `[SidequestPrescriptionService] Prescribed challenge ${sidequest.id} for user ${userId}: "${llmResult.title}" (${input.challengeCategory})`,
+      );
+
+      const loaded = await repo.findOne({
+        where: { id: sidequest.id },
+        relations: ["objectives"],
+        order: { objectives: { sortOrder: "ASC" } },
+      });
+      return loaded ?? sidequest;
+    } catch (error) {
+      console.error("[SidequestPrescriptionService] Challenge prescription failed:", error);
       sidequest.status = SidequestStatus.FAILED;
       await repo.save(sidequest);
       throw error;
@@ -2310,7 +2618,11 @@ ${result.suggestedProgression}\n`;
    * Build difficulty guidance for the LLM instead of dictating a specific number.
    * The LLM should judge difficulty based on the actual quest relative to the user's profile.
    */
-  private buildDifficultyGuidance(pace: string, readiness: FearLadderReadiness, isStretch = false): string {
+  private buildDifficultyGuidance(pace: string, readiness: FearLadderReadiness, isStretch = false, isEnjoy = false): string {
+    if (isEnjoy) {
+      return `- DIFFICULTY GUIDANCE: This is an ENJOY quest. Keep it easy and rewarding — aim for difficulty 1-3. This isn't about growth, it's about doing something they genuinely love. No stretch needed.`;
+    }
+
     if (isStretch) {
       return `- DIFFICULTY GUIDANCE: This is a STRETCH quest. Pick something that genuinely pushes them — aim for difficulty 6-9. They've earned this challenge.`;
     }
@@ -2352,6 +2664,14 @@ ${result.suggestedProgression}\n`;
       lines.push(
         `- ROLE: EXPLORE. This quest should push into NEW territory the user hasn't tried.`,
         `  Avoid categories already covered by active pathways. Prioritize novelty.`,
+      );
+    } else if (ctx.questRole === "enjoy" && ctx.targetPathway) {
+      lines.push(
+        `- ROLE: ENJOY. This quest is a reward — something fun in a category they already love.`,
+        `  Pick a venue in the "${ctx.targetPathway.theme}" category that they'd genuinely look forward to.`,
+        `  No escalation, no stretch, no social pressure. Just a great experience doing something they enjoy.`,
+        `  Stay within their comfort radius. If they have onboarding activities listed, lean into those.`,
+        `  Difficulty 1-3. The win is enjoyment, not growth. Think of this as a recovery day between harder quests.`,
       );
     } else if (ctx.questRole === "stretch") {
       lines.push(
@@ -2432,7 +2752,7 @@ ${result.suggestedProgression}\n`;
 
   private async determinePackSlots(
     userId: string,
-  ): Promise<{ role: "deepen" | "explore" | "discover" | "stretch"; targetPathway?: { id: string; theme: string; label: string; phase: string } }[]> {
+  ): Promise<{ role: "deepen" | "explore" | "discover" | "stretch" | "enjoy"; targetPathway?: { id: string; theme: string; label: string; phase: string } }[]> {
     if (!this.pathwayService) {
       return [{ role: "discover" }, { role: "discover" }, { role: "stretch" }];
     }
@@ -2454,25 +2774,45 @@ ${result.suggestedProgression}\n`;
 
     const topDfs = dfsPathways[0];
 
-    // Always 3 slots: 2 at-level + 1 stretch goal
-    // The stretch card pushes beyond the user's current comfort zone,
-    // giving them a way to accelerate progress if they choose to.
+    // Pick an enjoy target: a high-resonance DFS pathway the user clearly loves.
+    // Use the second-highest DFS pathway if available (so deepen and enjoy don't
+    // target the same one), otherwise fall back to the top one.
+    const enjoyTarget = dfsPathways.length > 1 ? dfsPathways[1] : topDfs;
+
+    // Slot an enjoy quest when the user has enough history and at least one
+    // thriving pathway. This replaces one explore slot — the pack becomes
+    // [deepen, enjoy, stretch] instead of [deepen, explore, stretch].
+    // Only activate after 8+ completed quests so early exploration isn't cut short.
+    const completedCount = await this.countCompletedQuests(userId);
+    const shouldIncludeEnjoy = dfsPathways.length > 0 && completedCount >= 8;
+
     switch (phaseContext.globalPhase) {
       case "bfs":
         return [{ role: "explore" }, { role: "explore" }, { role: "stretch" }];
 
       case "mixed":
-      case "dfs":
+      case "dfs": {
+        const topDfsInfo = topDfs
+          ? { id: topDfs.id, theme: topDfs.theme, label: topDfs.themeLabel ?? topDfs.theme, phase: topDfs.phase }
+          : undefined;
+        const enjoyInfo = enjoyTarget
+          ? { id: enjoyTarget.id, theme: enjoyTarget.theme, label: enjoyTarget.themeLabel ?? enjoyTarget.theme, phase: enjoyTarget.phase }
+          : undefined;
+
+        if (shouldIncludeEnjoy) {
+          return [
+            { role: "deepen", targetPathway: topDfsInfo },
+            { role: "enjoy", targetPathway: enjoyInfo },
+            { role: "stretch" },
+          ];
+        }
+
         return [
-          {
-            role: "deepen",
-            targetPathway: topDfs
-              ? { id: topDfs.id, theme: topDfs.theme, label: topDfs.themeLabel ?? topDfs.theme, phase: topDfs.phase }
-              : undefined,
-          },
+          { role: "deepen", targetPathway: topDfsInfo },
           { role: "explore" },
           { role: "stretch" },
         ];
+      }
 
       default:
         return [{ role: "discover" }, { role: "discover" }, { role: "stretch" }];

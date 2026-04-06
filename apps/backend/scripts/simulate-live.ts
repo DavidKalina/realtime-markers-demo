@@ -891,8 +891,8 @@ async function main() {
     if (assessRes.status === 200 && assessRes.data) {
       const { specificity, feasibility, needsRefinement, refinedGoal } = assessRes.data;
       console.log(`  Specificity: ${specificity.toFixed(2)}, Feasibility: ${feasibility}`);
-      if (feasibility === "unfeasible" || feasibility === "concerning") {
-        console.log(`  ⚠ Goal rejected: ${assessRes.data.redirectMessage}`);
+      if (feasibility === "unfeasible" || feasibility === "concerning" || feasibility === "out_of_scope") {
+        console.log(`  ⚠ Goal rejected (${feasibility}): ${assessRes.data.redirectMessage ?? assessRes.data.reframeSuggestion}`);
         console.log("  Proceeding with raw goal anyway (simulation).");
       } else if (needsRefinement) {
         console.log(`  Goal needs refinement. First question: "${assessRes.data.firstQuestion}"`);

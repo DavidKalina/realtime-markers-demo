@@ -224,6 +224,68 @@ export const checkinObjectiveHandler: Handler = withErrorHandling(
   },
 );
 
+export const completeChallengeHandler: Handler = withErrorHandling(
+  async (c) => {
+    const user = requireAuth(c);
+    const userId = user.id;
+
+    const id = c.req.param("id");
+    const objectiveId = c.req.param("objectiveId");
+    if (!id || !objectiveId) {
+      return c.json({ error: "id and objectiveId are required" }, 400);
+    }
+
+    const body = await c.req.json<{
+      journalEntry: string;
+      completedActivity?: string;
+      socialContext?: string;
+    }>();
+
+    // Reflection gate: require a meaningful journal entry
+    if (!body.journalEntry?.trim() || body.journalEntry.trim().length < 20) {
+      return c.json(
+        { error: "A meaningful reflection is required to complete a challenge (at least 20 characters)" },
+        400,
+      );
+    }
+
+    if (body.journalEntry.length > 2000) {
+      return c.json({ error: "journalEntry must be 2000 characters or fewer" }, 400);
+    }
+
+    const validSocialContexts = ["solo", "with_someone", "met_someone_new", "group_activity"];
+    if (body.socialContext && !validSocialContexts.includes(body.socialContext)) {
+      return c.json({ error: `socialContext must be one of: ${validSocialContexts.join(", ")}` }, 400);
+    }
+
+    // 1. Save journal entry (triggers async LLM reflection analysis)
+    const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
+    const updated = await comfortZoneService.updateObjectiveJournal(
+      userId,
+      objectiveId,
+      {
+        journalEntry: body.journalEntry,
+        completedActivity: body.completedActivity,
+        socialContext: body.socialContext,
+      },
+    );
+
+    if (!updated) {
+      return c.json({ error: "Objective not found or not authorized" }, 404);
+    }
+
+    // 2. Mark checked in (triggers sidequest completion if last objective)
+    const sidequestCheckinService = c.get("sidequestCheckinService") as SidequestCheckinService;
+    const result = await sidequestCheckinService.manualCheckin(userId, id, objectiveId);
+
+    if (!result.success) {
+      return c.json({ error: "Failed to complete challenge" }, 500);
+    }
+
+    return c.json({ success: true, checkedInAt: result.checkedInAt });
+  },
+);
+
 export const rateSidequestHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
   const userId = user.id;
@@ -375,10 +437,17 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
     timezone?: string;
     model?: string;
     strategy?: "monolithic" | "multi-agent";
+    questType?: "venue" | "challenge";
+    challengeCategory?: string;
   }>();
 
   if (typeof body.latitude !== "number" || typeof body.longitude !== "number") {
     return c.json({ error: "latitude and longitude are required" }, 400);
+  }
+
+  const validChallengeCategories = ["social_reach", "vulnerability", "hosting", "reconnection"];
+  if (body.questType === "challenge" && body.challengeCategory && !validChallengeCategories.includes(body.challengeCategory)) {
+    return c.json({ error: `challengeCategory must be one of: ${validChallengeCategories.join(", ")}` }, 400);
   }
 
   // Daily cooldown — count prescribed quests created today
@@ -406,6 +475,8 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
     ...(body.timezone && { timezone: body.timezone }),
     ...(body.model && { model: body.model }),
     ...(body.strategy && { strategy: body.strategy }),
+    ...(body.questType && { questType: body.questType }),
+    ...(body.challengeCategory && { challengeCategory: body.challengeCategory }),
   });
 
   return c.json(
@@ -495,6 +566,9 @@ export const updateComfortProfileHandler: Handler = withErrorHandling(
         targetDate?: string;
         goalLocation?: string;
       };
+      onboardingProfile?: {
+        activities: string[];
+      };
       fearLadder?: {
         overallScore: number;
         dimensionScores: Record<string, number>;
@@ -512,7 +586,7 @@ export const updateComfortProfileHandler: Handler = withErrorHandling(
       );
     }
 
-    if (!body.pacePreference && !body.comfortProfile && !body.fearLadder) {
+    if (!body.pacePreference && !body.comfortProfile && !body.fearLadder && !body.onboardingProfile) {
       return c.json({ error: "No fields to update" }, 400);
     }
 
@@ -521,6 +595,7 @@ export const updateComfortProfileHandler: Handler = withErrorHandling(
       pacePreference: body.pacePreference,
       comfortProfile: body.comfortProfile,
       fearLadder: body.fearLadder,
+      onboardingProfile: body.onboardingProfile,
     });
 
     const zone = await comfortZoneService.getComfortZone(user.id);

@@ -11,6 +11,7 @@ import {
   getActiveSidequestHandler,
   checkinObjectiveHandler,
   getPopularStopsHandler,
+  completeChallengeHandler,
   rateSidequestHandler,
   listCompletedHandler,
   browseSidequestsHandler,
@@ -83,6 +84,11 @@ sidequestRouter.post(
   "/:id/objectives/:objectiveId/checkin",
   writeRateLimit,
   checkinObjectiveHandler,
+);
+sidequestRouter.post(
+  "/:id/objectives/:objectiveId/complete-challenge",
+  writeRateLimit,
+  completeChallengeHandler,
 );
 sidequestRouter.post("/generate-fear-ladder", writeRateLimit, generateFearLadderHandler);
 sidequestRouter.post("/generate-barriers", writeRateLimit, generateBarriersHandler);

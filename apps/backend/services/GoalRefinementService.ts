@@ -2,7 +2,7 @@ import { type OpenAIService, OpenAIModel } from "./shared/OpenAIService";
 
 // ── Types ────────────────────────────────────────────────────
 
-export type GoalFeasibility = "actionable" | "ambitious" | "unfeasible" | "concerning";
+export type GoalFeasibility = "actionable" | "ambitious" | "out_of_scope" | "unfeasible" | "concerning";
 
 export interface GoalAssessment {
   specificity: number;
@@ -11,6 +11,8 @@ export interface GoalAssessment {
   refinedGoal: string | null;
   firstQuestion: string | null;
   redirectMessage: string | null;
+  reframeSuggestion: string | null;
+  reframedGoal: string | null;
   state: RefinementState;
 }
 
@@ -45,17 +47,37 @@ export interface GoalRefinementService {
 
 // ── Prompts ──────────────────────────────────────────────────
 
-const ASSESS_SYSTEM_PROMPT = `You evaluate how specific and actionable a user's stated goal is for a personal growth app. The app prescribes real-world experiences (visiting places, trying activities, social challenges) to help users achieve their goals.
+const ASSESS_SYSTEM_PROMPT = `You evaluate how specific and actionable a user's stated goal is for a personal growth app.
+
+WHAT THIS APP DOES:
+This app prescribes real-world, location-based experiences — visiting places, trying activities, social challenges, exploring your city. It tracks comfort zone expansion through where you go, what you do, and how you reflect on it. It has a social escalation ladder (solo → with someone → meeting strangers → group activities) and measures growth through journal reflection depth and venue exploration patterns.
+
+THE APP IS BEST FOR goals involving:
+- Social confidence: overcoming social anxiety, approach anxiety, making friends, dating readiness
+- Getting out of the house: breaking homebody patterns, exploring your city, building a routine of going places
+- Trying new things: discovering hobbies hands-on, attending classes/events, creative pursuits you show up to
+- Community building: finding your people, joining groups, becoming a regular somewhere
+- Comfort zone expansion: doing things that scare you (in a healthy way), building courage through action
+- Life transitions with a "getting out there" component: new city, post-breakup rebuilding, post-college social life
+
+THE APP IS NOT THE RIGHT TOOL FOR goals that primarily need:
+- Financial planning, budgeting, or money management
+- Physical fitness tracking (reps, sets, calories, body composition)
+- Academic study or test preparation
+- Career advancement, job searching, or professional networking (unless the core issue is social confidence)
+- Medical or clinical mental health treatment
+- Technical skill acquisition (coding, languages via textbook study, etc.)
 
 STEP 1 — FEASIBILITY CHECK:
 Before anything else, assess whether this is a goal the app can meaningfully help with.
 
-- "actionable": A real, achievable goal that real-world experiences can support. Most goals fall here.
-- "ambitious": A big goal but grounded in reality — becoming a musician, starting a business, running a marathon. The app can help build toward it. Proceed normally.
-- "unfeasible": Not something real-world experiences can help with. Fantasy, delusion, or impossibility. Examples: "become king of the earth", "gain superpowers", "buy the moon", "become immortal". Do NOT earnestly help with these.
-- "concerning": Contains hints of harmful intent, self-harm, harming others, or serious mental health crisis. Examples: "make everyone pay", "prove I'm superior to everyone", "I don't want to exist anymore". Do NOT proceed with these.
+- "actionable": A goal where going places, doing things, and reflecting is the core path forward. Most in-scope goals fall here.
+- "ambitious": A big in-scope goal but grounded in reality — performing at open mics, building a whole social circle from scratch, becoming a regular at 10 different spots. The app can help build toward it.
+- "out_of_scope": A legitimate goal, but one where this app's core mechanic (go to a place, do a thing, reflect) isn't the right primary tool. The goal might have a slice the app CAN help with — if so, offer to reframe toward that slice. Examples: "build a great physique" (fitness tracker territory, but the app could help with gym anxiety or trying new physical activities), "save enough to move out" (financial planning, but the app could help with exploring neighborhoods and building independence skills), "get straight A's" (study tools, but the app could help with finding study spots or study groups).
+- "unfeasible": Fantasy, delusion, or impossibility. Examples: "become king of the earth", "gain superpowers". Do NOT earnestly help with these.
+- "concerning": Contains hints of harmful intent, self-harm, harming others, or serious mental health crisis. Do NOT proceed with these.
 
-IMPORTANT: Be generous with ambition. "Become a famous actor" is ambitious, not unfeasible. "Start a successful company" is ambitious. "Win an Olympic medal" is ambitious. Only flag as unfeasible when the goal is genuinely impossible or detached from reality. The bar for unfeasible should be high — err toward ambitious.
+IMPORTANT: Be generous with scope. If a goal has a meaningful "getting out into the world" component, it's in scope. "Start a business" is out_of_scope (needs business tools), but "overcome my fear of networking events" is actionable. "Learn guitar" is out_of_scope (needs practice tools), but "find a music community and start jamming with people" is actionable. Always look for the in-scope slice before marking out_of_scope.
 
 STEP 2 — SPECIFICITY (only if feasibility is "actionable" or "ambitious"):
 
@@ -96,11 +118,13 @@ Also extract any signals you can detect — domain, time references, location re
 Respond with JSON:
 {
   "specificity": <0-1>,
-  "feasibility": "actionable" | "ambitious" | "unfeasible" | "concerning",
+  "feasibility": "actionable" | "ambitious" | "out_of_scope" | "unfeasible" | "concerning",
   "needsRefinement": <boolean — true if specificity < 0.6>,
   "refinedGoal": "<cleaned-up goal if specific enough, otherwise null>",
   "firstQuestion": "<clarifying question if needs refinement, otherwise null>",
   "redirectMessage": "<warm, non-judgmental message if unfeasible or concerning, otherwise null>",
+  "reframeSuggestion": "<if out_of_scope: a warm message acknowledging their goal, explaining what the app does well, and suggesting an in-scope reframe. Otherwise null>",
+  "reframedGoal": "<if out_of_scope AND there's a natural in-scope slice: a reframed version of their goal that fits the app. Otherwise null>",
   "domain": "<detected domain: social, career, fitness, creative, health, independence, relocation, financial, etc.>",
   "targetDate": "<ISO date string if a specific date or month is mentioned, e.g. '2026-10-01', otherwise null>",
   "goalLocation": "<city or place if mentioned, otherwise null>"
@@ -108,7 +132,12 @@ Respond with JSON:
 
 For redirectMessage examples:
 - unfeasible: "That's a fun one! But this app works best with goals you can make real progress on through everyday experiences. What's something you'd genuinely like to work toward?"
-- concerning: "It sounds like you might be going through a tough time. This app isn't equipped to help with that, but talking to someone who can would be a great first step. Please reach out to a trusted person or the 988 Suicide & Crisis Lifeline (call or text 988)."`;
+- concerning: "It sounds like you might be going through a tough time. This app isn't equipped to help with that, but talking to someone who can would be a great first step. Please reach out to a trusted person or the 988 Suicide & Crisis Lifeline (call or text 988)."
+
+For reframeSuggestion examples:
+- "build a great physique": "Getting fit is awesome! This app isn't a fitness tracker — but it IS great at helping you discover new physical activities, overcome gym anxiety, and find workout communities. Want to focus on something like 'get comfortable going to the gym and trying new classes'?"
+- "save money to move out": "That's a solid goal. The financial side is outside what this app does, but we're great at helping you explore neighborhoods, build independence skills, and get comfortable being out on your own. Want to focus on something like 'explore where I want to live and build confidence being independent'?"
+- "learn to play guitar": "Love that! This app can't teach you chords, but it CAN help you find jam sessions, open mics, music shops, and communities of musicians. Want to reframe toward 'find a music community and get comfortable playing with others'?"`;
 
 const REFINE_SYSTEM_PROMPT = `You are helping a user clarify their goal for a personal growth app. You're in a short conversation (max 3 questions total) to turn a vague goal into something specific and actionable.
 
@@ -199,6 +228,8 @@ class GoalRefinementServiceImpl implements GoalRefinementService {
         refinedGoal: null,
         firstQuestion: "Can you tell me a bit more about what that looks like for you? What would be different in your life if you achieved this?",
         redirectMessage: null,
+        reframeSuggestion: null,
+        reframedGoal: null,
         state: { rawGoal, turns: [], extractedSignals: {} },
       };
     }
@@ -218,6 +249,23 @@ class GoalRefinementServiceImpl implements GoalRefinementService {
         redirectMessage: parsed.redirectMessage ?? (feasibility === "concerning"
           ? "It sounds like you might be going through a tough time. Please reach out to someone who can help — the 988 Suicide & Crisis Lifeline is available 24/7 (call or text 988)."
           : "This app works best with goals you can make real progress on through everyday experiences. What's something you'd genuinely like to work toward?"),
+        reframeSuggestion: null,
+        reframedGoal: null,
+        state: { rawGoal, turns: [], extractedSignals: {} },
+      };
+    }
+
+    // Out of scope — offer a reframe toward what the app CAN help with
+    if (feasibility === "out_of_scope") {
+      return {
+        specificity,
+        feasibility,
+        needsRefinement: false,
+        refinedGoal: null,
+        firstQuestion: null,
+        redirectMessage: null,
+        reframeSuggestion: parsed.reframeSuggestion ?? "This app is best at helping you get out into the world — exploring places, building social confidence, and trying new things. Is there a piece of your goal that involves getting out there?",
+        reframedGoal: parsed.reframedGoal ?? null,
         state: { rawGoal, turns: [], extractedSignals: {} },
       };
     }
@@ -248,6 +296,8 @@ class GoalRefinementServiceImpl implements GoalRefinementService {
       refinedGoal: needsRefinement ? null : (parsed.refinedGoal ?? rawGoal),
       firstQuestion: needsRefinement ? (parsed.firstQuestion ?? null) : null,
       redirectMessage: null,
+      reframeSuggestion: null,
+      reframedGoal: null,
       state,
     };
   }

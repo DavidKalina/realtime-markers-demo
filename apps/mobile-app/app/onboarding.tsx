@@ -45,6 +45,7 @@ import { StepGeneratingLadder } from "@/components/Onboarding/StepGeneratingLadd
 import { StepFearLadder } from "@/components/Onboarding/StepFearLadder";
 import { StepNorthStar } from "@/components/Onboarding/StepNorthStar";
 import { StepGoalRefinement } from "@/components/Onboarding/StepGoalRefinement";
+import { StepActivities } from "@/components/Onboarding/StepActivities";
 import type { GoalRefinementState } from "@/services/api/modules/sidequests";
 
 // ── Skia glow background ────────────────────────────────
@@ -127,7 +128,7 @@ SkiaGlow.displayName = "SkiaGlow";
 
 // ── Main screen ─────────────────────────────────────────
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 9;
 
 const OnboardingScreen: React.FC = () => {
   const colors = useColors();
@@ -139,6 +140,7 @@ const OnboardingScreen: React.FC = () => {
   const directionRef = useRef<"forward" | "back">("forward");
 
   // Form state
+  const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
   const [primaryGoal, setPrimaryGoal] = useState("");
   const [refinedGoal, setRefinedGoal] = useState<string | null>(null);
   const [goalSignals, setGoalSignals] = useState<GoalRefinementState["extractedSignals"]>({});
@@ -200,8 +202,9 @@ const OnboardingScreen: React.FC = () => {
     setStep((prev) => prev + 1);
   }, []);
 
-  const handleGoalRedirect = useCallback((message: string) => {
+  const handleGoalRedirect = useCallback((message: string, suggestedGoal?: string) => {
     setGoalRedirectMessage(message);
+    if (suggestedGoal) setPrimaryGoal(suggestedGoal);
     directionRef.current = "back";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setStep(2);
@@ -212,7 +215,7 @@ const OnboardingScreen: React.FC = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRefinedGoal(null);
     setGoalSignals({});
-    setStep(2);
+    setStep(3);
   }, []);
 
   const handleBarriersReady = useCallback((barriers: { key: string; label: string; text: string }[]) => {
@@ -225,7 +228,7 @@ const OnboardingScreen: React.FC = () => {
   const handleBackFromGeneratingBarriers = useCallback(() => {
     directionRef.current = "back";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(2);
+    setStep(3);
   }, []);
 
   const handleScenariosReady = useCallback((scenarios: { id: string; text: string; dimension: string }[], dimensions: string[]) => {
@@ -239,13 +242,13 @@ const OnboardingScreen: React.FC = () => {
   const handleBackFromGenerating = useCallback(() => {
     directionRef.current = "back";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(5);
+    setStep(6);
   }, []);
 
   const handleBackFromFearLadder = useCallback(() => {
     directionRef.current = "back";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(5);
+    setStep(6);
   }, []);
 
   // ── Poll for week pack ────────────────────────────────
@@ -347,6 +350,9 @@ const OnboardingScreen: React.FC = () => {
           scenarios: generatedScenarios ?? undefined,
           dimensions: generatedDimensions ?? undefined,
         },
+        onboardingProfile: selectedActivities.length > 0
+          ? { activities: selectedActivities }
+          : undefined,
       });
 
       if (userLocation) {
@@ -380,7 +386,7 @@ const OnboardingScreen: React.FC = () => {
       setIsLoading(false);
       setGeneratingQuest(false);
     }
-  }, [primaryGoal, selectedBarriers, fearLadderResponses, generatedBarriers, generatedScenarios, generatedDimensions, northStar, goalSignals, userLocation, refreshAuth, pollForWeekPack]);
+  }, [primaryGoal, selectedActivities, selectedBarriers, fearLadderResponses, generatedBarriers, generatedScenarios, generatedDimensions, northStar, goalSignals, userLocation, refreshAuth, pollForWeekPack]);
 
   // ── Transitions ──────────────────────────────────────
 
@@ -411,6 +417,15 @@ const OnboardingScreen: React.FC = () => {
         );
       case 3:
         return (
+          <StepActivities
+            selected={selectedActivities}
+            onToggle={(a) => toggle(selectedActivities, setSelectedActivities, a)}
+            onNext={handleNext}
+            onBack={handleBack}
+          />
+        );
+      case 4:
+        return (
           <StepGoalRefinement
             primaryGoal={primaryGoal}
             onRefined={handleGoalRefined}
@@ -418,7 +433,7 @@ const OnboardingScreen: React.FC = () => {
             onBack={handleBackFromRefinement}
           />
         );
-      case 4:
+      case 5:
         return (
           <StepGeneratingBarriers
             primaryGoal={primaryGoal}
@@ -426,7 +441,7 @@ const OnboardingScreen: React.FC = () => {
             onBack={handleBackFromGeneratingBarriers}
           />
         );
-      case 5:
+      case 6:
         return (
           <StepBarriers
             selected={selectedBarriers}
@@ -436,18 +451,18 @@ const OnboardingScreen: React.FC = () => {
             options={generatedBarriers ?? undefined}
           />
         );
-      case 6:
+      case 7:
         return (
           <StepGeneratingLadder
             primaryGoal={primaryGoal}
             goals={[]}
             barriers={selectedBarriers}
-            activities={[]}
+            activities={selectedActivities}
             onScenariosReady={handleScenariosReady}
             onBack={handleBackFromGenerating}
           />
         );
-      case 7:
+      case 8:
         return (
           <StepFearLadder
             scenarios={generatedScenarios ?? undefined}
@@ -457,7 +472,7 @@ const OnboardingScreen: React.FC = () => {
             onBack={handleBackFromFearLadder}
           />
         );
-      case 8:
+      case 9:
         return (
           <StepNorthStar
             northStar={northStar}

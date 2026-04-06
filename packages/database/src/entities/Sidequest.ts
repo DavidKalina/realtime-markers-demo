@@ -164,6 +164,12 @@ export class Sidequest {
   @Column({ name: "pathway_phase", type: "varchar", length: 10, nullable: true })
   pathwayPhase?: string;
 
+  @Column({ name: "quest_type", type: "varchar", length: 20, default: "venue" })
+  questType!: string;
+
+  @Column({ name: "challenge_category", type: "varchar", length: 50, nullable: true })
+  challengeCategory?: string;
+
   @Column({ name: "quest_role", type: "varchar", length: 20, nullable: true })
   questRole?: string;
 
