@@ -294,6 +294,20 @@ export class PushNotificationService {
         source: "PushNotification",
         path: "/user",
       });
+    } else if (data?.type === "goal_checkin") {
+      // Goal timeline check-in — navigate to itineraries (card will show)
+      eventBroker.emit(EventTypes.NOTIFICATION, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        title: (data.title as string) ?? "Time to reflect",
+        message: (data.message as string) ?? "How's your goal coming along?",
+        notificationType: "success" as const,
+      });
+      eventBroker.emit(EventTypes.NAVIGATE_TO_SCREEN, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        path: "/itineraries",
+      });
     } else if (data?.type === "weekly_nudge") {
       // Weekly nudge — navigate to itinerary builder
       eventBroker.emit(EventTypes.NAVIGATE_TO_SCREEN, {

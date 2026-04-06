@@ -1,6 +1,19 @@
 import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
 
+export interface GoalRefinementState {
+  rawGoal: string;
+  turns: { question: string; answer: string }[];
+  extractedSignals: {
+    domain?: string;
+    timeHorizon?: string;
+    targetDate?: string;
+    goalLocation?: string;
+    currentBaseline?: string;
+    successLooksLike?: string;
+  };
+}
+
 export interface ObjectiveResponse {
   id: string;
   sortOrder: number;
@@ -361,6 +374,48 @@ export class SidequestsModule extends BaseApiModule {
     return this.handleResponse<ComfortZoneResponse>(response);
   }
 
+  async assessGoal(params: {
+    goal: string;
+  }): Promise<{
+    specificity: number;
+    feasibility: "actionable" | "ambitious" | "unfeasible" | "concerning";
+    needsRefinement: boolean;
+    refinedGoal: string | null;
+    firstQuestion: string | null;
+    redirectMessage: string | null;
+    state: GoalRefinementState;
+  }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/assess-goal`,
+      {
+        method: "POST",
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse(response);
+  }
+
+  async refineGoal(params: {
+    state: GoalRefinementState;
+    response: string;
+  }): Promise<{
+    done: boolean;
+    question: string | null;
+    refinedGoal: string | null;
+    state: GoalRefinementState;
+  }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/refine-goal`,
+      {
+        method: "POST",
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse(response);
+  }
+
   async generateBarriers(params: {
     primaryGoal: string;
   }): Promise<{ barriers: { key: string; label: string; text: string }[] }> {
@@ -394,7 +449,7 @@ export class SidequestsModule extends BaseApiModule {
 
   async updateComfortProfile(params: {
     pacePreference?: string;
-    comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[]; northStar?: string; primaryGoal?: string };
+    comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[]; northStar?: string; primaryGoal?: string; targetDate?: string; goalLocation?: string };
     fearLadder?: { overallScore: number; dimensionScores: Record<string, number>; responses: Record<string, number>; scenarios?: { id: string; text: string; dimension: string }[]; dimensions?: string[] };
   }): Promise<ComfortZoneResponse> {
     const response = await this.fetchWithAuth(
@@ -445,6 +500,53 @@ export class SidequestsModule extends BaseApiModule {
       },
     );
     return this.handleResponse<{ success: boolean }>(response);
+  }
+
+  async getGoalCheckIn(): Promise<{
+    isDue: boolean;
+    milestone: "early_momentum" | "midpoint" | "approaching" | "final_stretch" | "target_reached" | null;
+    journalPrompt: string | null;
+  }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/goal-check-in`,
+      { method: "GET" },
+    );
+    return this.handleResponse(response);
+  }
+
+  async saveGoalReflection(params: {
+    milestone: string;
+    journalEntry: string;
+    journalPrompt?: string;
+    percentElapsed?: number;
+    remainingDays?: number;
+    completedQuestCount?: number;
+  }): Promise<{ id: string }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/goal-reflection`,
+      {
+        method: "POST",
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse(response);
+  }
+
+  async getGoalPacing(): Promise<{
+    hasTimeline: boolean;
+    percentElapsed?: number;
+    remainingDays?: number;
+    totalDays?: number;
+    milestone?: string | null;
+    completedQuestCount?: number;
+    isPast?: boolean;
+  }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/goal-pacing`,
+      { method: "GET" },
+    );
+    return this.handleResponse(response);
   }
 }
 

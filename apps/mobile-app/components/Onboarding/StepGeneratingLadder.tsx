@@ -6,7 +6,6 @@ import { apiClient } from "@/services/ApiClient";
 import { NextButton, GREEN_ACCENT } from "./shared";
 
 const BAR_W = 24;
-const CHAR_MS = 50;
 
 interface GeneratedScenario {
   id: string;
@@ -38,10 +37,11 @@ export function StepGeneratingLadder({
 }) {
   const colors = useColors();
   const [error, setError] = useState<string | null>(null);
-  const [barFill, setBarFill] = useState(0);
+  const [progress, setProgress] = useState(0);
   const [phaseIndex, setPhaseIndex] = useState(0);
   const calledRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startRef = useRef(Date.now());
 
   // Cycle through phases
   useEffect(() => {
@@ -51,11 +51,14 @@ export function StepGeneratingLadder({
     return () => clearInterval(phaseInterval);
   }, []);
 
-  // Animate progress bar
+  // Asymptotic progress — always moving, never stops
   useEffect(() => {
+    startRef.current = Date.now();
     intervalRef.current = setInterval(() => {
-      setBarFill((prev) => Math.min(prev + 1, BAR_W - 3));
-    }, CHAR_MS);
+      const elapsed = Date.now() - startRef.current;
+      const p = 1 - Math.exp(-elapsed / 4000);
+      setProgress(p * 0.95);
+    }, 80);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
@@ -74,7 +77,7 @@ export function StepGeneratingLadder({
           activities,
         });
 
-        setBarFill(BAR_W);
+        setProgress(1);
         setPhaseIndex(PHASE_LABELS.length - 1);
         if (intervalRef.current) clearInterval(intervalRef.current);
 
@@ -95,24 +98,21 @@ export function StepGeneratingLadder({
 
   const handleRetry = () => {
     setError(null);
-    setBarFill(0);
+    setProgress(0);
     setPhaseIndex(0);
     calledRef.current = false;
+    startRef.current = Date.now();
     intervalRef.current = setInterval(() => {
-      setBarFill((prev) => Math.min(prev + 1, BAR_W - 3));
-    }, CHAR_MS);
+      const elapsed = Date.now() - startRef.current;
+      const p = 1 - Math.exp(-elapsed / 4000);
+      setProgress(p * 0.95);
+    }, 80);
   };
 
+  const barFill = Math.round(progress * BAR_W);
   const bar = "\u2588".repeat(barFill) + "\u2591".repeat(BAR_W - barFill);
-  const pct = Math.round((barFill / BAR_W) * 100);
-  const isDone = barFill >= BAR_W;
-
-  const [showCursor, setShowCursor] = useState(true);
-  useEffect(() => {
-    if (isDone) return;
-    const interval = setInterval(() => setShowCursor((v) => !v), 530);
-    return () => clearInterval(interval);
-  }, [isDone]);
+  const pct = Math.round(progress * 100);
+  const isDone = progress >= 1;
 
   return (
     <View style={s.container}>
@@ -237,11 +237,6 @@ const s = StyleSheet.create({
     opacity: 0.6,
   },
   terminalBlock: {
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(134, 239, 172, 0.15)",
-    padding: spacing.xl,
     gap: 12,
   },
   configSection: {

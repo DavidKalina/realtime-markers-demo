@@ -4,177 +4,207 @@ import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { NextButton, useTypewriter, GREEN_ACCENT } from "./shared";
 import { fontFamily, fontWeight, radius, spacing, useColors, type Colors } from "@/theme";
 
-// ── Generating readout with animated ASCII bars ─────────────
+// ── Per-quest progress bars ─────────────────────────────
 
-const BAR_W = 20;
-const CHAR_MS = 40;
-const READOUT_LINES = [
-  { label: "Profile" },
-  { label: "Location" },
-  { label: "Pathways" },
-  { label: "Quest 1" },
-  { label: "Quest 2" },
-];
+export interface QuestGenProgress {
+  progress: number;       // 0-100 overall
+  currentQuest: number;   // 1-based
+  totalQuests: number;
+  stepProgress: number;   // 0-100 within current quest
+}
 
-function GeneratingReadout({ label }: { label: string }) {
-  const [lines, setLines] = useState<number[]>(() => READOUT_LINES.map(() => 0));
-  const [activeRow, setActiveRow] = useState(0);
+const BAR_W = 24;
+
+function QuestBar({
+  index,
+  currentQuest,
+  stepProgress,
+}: {
+  index: number; // 1-based
+  currentQuest: number;
+  stepProgress: number;
+}) {
+  const isDone = index < currentQuest;
+  const isActive = index === currentQuest;
+
+  // Smooth between poll updates with asymptotic fill
+  const [displayProgress, setDisplayProgress] = useState(0);
+  const targetRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startRef = useRef(Date.now());
 
+  useEffect(() => {
+    if (isDone) {
+      setDisplayProgress(100);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      return;
+    }
+    if (!isActive) {
+      setDisplayProgress(0);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      return;
+    }
+    // Active quest: smoothly approach stepProgress, never hang
+    targetRef.current = stepProgress;
+    if (!intervalRef.current) {
+      startRef.current = Date.now();
+      intervalRef.current = setInterval(() => {
+        const elapsed = Date.now() - startRef.current;
+        // Asymptotic approach to target, but always creep forward
+        const base = 1 - Math.exp(-elapsed / 5000);
+        const floor = base * 95; // always-moving floor
+        setDisplayProgress((prev) => {
+          const target = Math.max(targetRef.current, floor);
+          // Ease toward target
+          return prev + (target - prev) * 0.08;
+        });
+      }, 60);
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [isDone, isActive, stepProgress]);
+
+  const fill = Math.round((displayProgress / 100) * BAR_W);
+  const bar = "\u2588".repeat(fill) + "\u2591".repeat(BAR_W - fill);
+  const pct = Math.round(displayProgress);
+
+  return (
+    <View style={readoutStyles.row}>
+      <Text style={[
+        readoutStyles.icon,
+        isDone && readoutStyles.iconDone,
+        isActive && readoutStyles.iconActive,
+      ]}>
+        {isDone ? "\u2713" : isActive ? "\u25B8" : "\u00B7"}
+      </Text>
+      <Text style={[
+        readoutStyles.label,
+        isDone && readoutStyles.labelDone,
+        isActive && readoutStyles.labelActive,
+      ]}>
+        Quest {index}
+      </Text>
+      <Text style={[
+        readoutStyles.bar,
+        isDone && readoutStyles.barDone,
+        isActive && readoutStyles.barActive,
+      ]}>
+        {bar}
+      </Text>
+      <Text style={[
+        readoutStyles.pct,
+        isDone && readoutStyles.pctDone,
+      ]}>
+        {isDone ? "\u2713" : isActive ? `${pct}%` : "\u2014"}
+      </Text>
+    </View>
+  );
+}
+
+function GeneratingReadout({
+  label,
+  progress,
+}: {
+  label: string;
+  progress: QuestGenProgress;
+}) {
   const [showCursor, setShowCursor] = useState(true);
   useEffect(() => {
     const interval = setInterval(() => setShowCursor((v) => !v), 530);
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    let row = 0;
-    let fill = 0;
-    const targets = [BAR_W, BAR_W, BAR_W, BAR_W, BAR_W];
-
-    intervalRef.current = setInterval(() => {
-      fill++;
-      const target = targets[row];
-
-      setLines((prev) => {
-        const next = [...prev];
-        next[row] = Math.min(fill, target);
-        return next;
-      });
-      setActiveRow(row);
-
-      if (fill >= target) {
-        row++;
-        fill = 0;
-        if (row >= READOUT_LINES.length) {
-          if (intervalRef.current) clearInterval(intervalRef.current);
-        }
-      }
-    }, CHAR_MS);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    const lower = label.toLowerCase();
-    if (lower.includes("quest 1") || lower.includes("comfort zone") || lower.includes("crafting quest 1")) {
-      setLines((prev) => {
-        const next = [...prev];
-        next[0] = BAR_W;
-        next[1] = BAR_W;
-        next[2] = BAR_W;
-        return next;
-      });
-    }
-  }, [label]);
+  const quests = Array.from({ length: progress.totalQuests }, (_, i) => i + 1);
 
   return (
     <Animated.View entering={FadeIn.duration(400)} style={readoutStyles.container}>
-      <View style={readoutStyles.header}>
-        {showCursor && <Text style={readoutStyles.headerCursor}>{"\u2588"}</Text>}
-        {!showCursor && <Text style={readoutStyles.headerCursor}> </Text>}
-        <Text style={readoutStyles.headerText}>{label}</Text>
+      <Text style={readoutStyles.header}>
+        {showCursor ? "\u2588" : " "}{" "}{label}
+      </Text>
+
+      <View style={readoutStyles.questList}>
+        {quests.map((i) => (
+          <QuestBar
+            key={i}
+            index={i}
+            currentQuest={progress.currentQuest}
+            stepProgress={progress.stepProgress}
+          />
+        ))}
       </View>
-
-      {READOUT_LINES.map((line, i) => {
-        const filled = lines[i] ?? 0;
-        const bar = "\u2588".repeat(filled) + "\u2591".repeat(BAR_W - filled);
-        const pct = Math.round((filled / BAR_W) * 100);
-        const isActive = i === activeRow && filled < BAR_W;
-        const isDone = filled >= BAR_W;
-
-        return (
-          <View key={line.label} style={readoutStyles.row}>
-            <Text style={[
-              readoutStyles.label,
-              isDone && readoutStyles.labelDone,
-              isActive && readoutStyles.labelActive,
-            ]}>
-              {isDone ? "\u2713" : isActive ? "\u25B8" : "\u00B7"} {line.label}
-            </Text>
-            <Text style={[
-              readoutStyles.bar,
-              isDone && readoutStyles.barDone,
-              isActive && readoutStyles.barActive,
-            ]}>
-              {bar}
-            </Text>
-            <Text style={[
-              readoutStyles.pct,
-              isDone && readoutStyles.pctDone,
-            ]}>
-              {pct}%
-            </Text>
-          </View>
-        );
-      })}
     </Animated.View>
   );
 }
 
 const readoutStyles = StyleSheet.create({
   container: {
-    gap: 8,
+    gap: 16,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginBottom: 4,
-  },
-  headerCursor: {
-    fontFamily: fontFamily.mono,
-    fontSize: 11,
-    color: GREEN_ACCENT,
-  },
-  headerText: {
     fontFamily: fontFamily.mono,
     fontSize: 13,
     color: GREEN_ACCENT,
     fontWeight: fontWeight.bold,
     letterSpacing: 0.3,
   },
+  questList: {
+    gap: 10,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: 8,
+  },
+  icon: {
+    fontFamily: fontFamily.mono,
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.15)",
+    width: 14,
+  },
+  iconActive: {
+    color: GREEN_ACCENT,
+  },
+  iconDone: {
+    color: "rgba(134, 239, 172, 0.5)",
   },
   label: {
     fontFamily: fontFamily.mono,
     fontSize: 12,
     color: "rgba(255, 255, 255, 0.2)",
-    width: 80,
+    width: 64,
   },
   labelActive: {
-    color: "rgba(255, 255, 255, 0.6)",
+    color: "rgba(255, 255, 255, 0.7)",
   },
   labelDone: {
-    color: "rgba(134, 239, 172, 0.5)",
+    color: "rgba(134, 239, 172, 0.45)",
   },
   bar: {
     fontFamily: fontFamily.mono,
     fontSize: 11,
     letterSpacing: -1,
     flex: 1,
-    color: "rgba(255, 255, 255, 0.12)",
+    color: "rgba(255, 255, 255, 0.1)",
   },
   barActive: {
-    color: "rgba(255, 255, 255, 0.4)",
+    color: "rgba(255, 255, 255, 0.35)",
   },
   barDone: {
     color: GREEN_ACCENT,
   },
   pct: {
     fontFamily: fontFamily.mono,
-    fontSize: 10,
+    fontSize: 11,
     color: "rgba(255, 255, 255, 0.2)",
     width: 32,
     textAlign: "right",
   },
   pctDone: {
-    color: GREEN_ACCENT,
+    color: "rgba(134, 239, 172, 0.5)",
   },
 });
 
@@ -187,6 +217,7 @@ export function StepNorthStar({
   isLoading,
   generatingQuest,
   generatingLabel,
+  generatingProgress,
   error,
   onFinish,
   onBack,
@@ -197,6 +228,7 @@ export function StepNorthStar({
   isLoading: boolean;
   generatingQuest: boolean;
   generatingLabel: string;
+  generatingProgress: QuestGenProgress;
   error: string | null;
   onFinish: () => void;
   onBack?: () => void;
@@ -273,7 +305,7 @@ export function StepNorthStar({
 
             {/* Generating readout */}
             {generatingQuest && (
-              <GeneratingReadout label={generatingLabel} />
+              <GeneratingReadout label={generatingLabel} progress={generatingProgress} />
             )}
 
             {/* Error */}

@@ -147,7 +147,9 @@ ${ctx.expectancyContext}
 ${ctx.difficultyGuidance}
 
 ${ctx.historyContext}
-${ctx.blockerContext ? `
+${ctx.timelineContext ? `
+${ctx.timelineContext}
+` : ""}${ctx.blockerContext ? `
 CRITICAL — RECURRING BLOCKER OVERRIDE:
 ${ctx.blockerContext}
 The blocker context above TAKES PRIORITY over normal progression. Do NOT prescribe experiences that require the blocked action as a primary objective. Instead, prescribe experiences that build toward it indirectly — the user needs wins, not more failures. Set socialChallengeLevel to "none" or "low" and focus on activities where the blocked action might happen naturally but is NOT required.

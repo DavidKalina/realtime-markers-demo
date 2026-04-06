@@ -45,6 +45,10 @@ import { createFearLadderGenerationService } from "./FearLadderGenerationService
 import type { FearLadderGenerationService } from "./FearLadderGenerationService";
 import { createBarrierGenerationService } from "./BarrierGenerationService";
 import type { BarrierGenerationService } from "./BarrierGenerationService";
+import { createGoalRefinementService } from "./GoalRefinementService";
+import type { GoalRefinementService } from "./GoalRefinementService";
+import { createPacingService } from "./PacingService";
+import type { PacingService } from "./PacingService";
 
 export interface ServiceContainer {
   dataSource: DataSource;
@@ -68,6 +72,8 @@ export interface ServiceContainer {
   jobNotificationService: JobNotificationService;
   fearLadderGenerationService: FearLadderGenerationService;
   barrierGenerationService: BarrierGenerationService;
+  goalRefinementService: GoalRefinementService;
+  pacingService: PacingService;
 }
 
 export class ServiceInitializer {
@@ -158,6 +164,10 @@ export class ServiceInitializer {
       pathwayService,
     });
 
+    const pacingService = createPacingService({
+      dataSource: this.dataSource,
+    });
+
     const sidequestPrescriptionService = createSidequestPrescriptionService({
       dataSource: this.dataSource,
       openAIService,
@@ -169,6 +179,7 @@ export class ServiceInitializer {
       coverageService,
       resonanceService,
       pathwayService,
+      pacingService,
       prescriptionModel: process.env.PRESCRIPTION_MODEL || undefined,
       promptVersion: process.env.PRESCRIPTION_PROMPT_VERSION || undefined,
       prescriptionStrategy: (process.env.PRESCRIPTION_STRATEGY as "monolithic" | "multi-agent") || undefined,
@@ -188,6 +199,10 @@ export class ServiceInitializer {
     });
 
     const barrierGenerationService = createBarrierGenerationService({
+      openAIService,
+    });
+
+    const goalRefinementService = createGoalRefinementService({
       openAIService,
     });
 
@@ -224,6 +239,8 @@ export class ServiceInitializer {
       jobNotificationService,
       fearLadderGenerationService,
       barrierGenerationService,
+      goalRefinementService,
+      pacingService,
     };
   }
 }

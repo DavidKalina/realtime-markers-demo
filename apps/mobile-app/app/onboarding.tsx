@@ -33,8 +33,10 @@ import { StepGeneratingBarriers } from "@/components/Onboarding/StepGeneratingBa
 import { StepGeneratingLadder } from "@/components/Onboarding/StepGeneratingLadder";
 import { StepFearLadder } from "@/components/Onboarding/StepFearLadder";
 import { StepNorthStar } from "@/components/Onboarding/StepNorthStar";
+import { StepGoalRefinement } from "@/components/Onboarding/StepGoalRefinement";
+import type { GoalRefinementState } from "@/services/api/modules/sidequests";
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 8;
 
 const OnboardingScreen: React.FC = () => {
   const colors = useColors();
@@ -48,6 +50,9 @@ const OnboardingScreen: React.FC = () => {
 
   // Form state
   const [primaryGoal, setPrimaryGoal] = useState("");
+  const [refinedGoal, setRefinedGoal] = useState<string | null>(null);
+  const [goalSignals, setGoalSignals] = useState<GoalRefinementState["extractedSignals"]>({});
+  const [goalRedirectMessage, setGoalRedirectMessage] = useState<string | null>(null);
   const [selectedBarriers, setSelectedBarriers] = useState<string[]>([]);
   const [fearLadderResponses, setFearLadderResponses] = useState<Record<string, number>>({});
   const [northStar, setNorthStar] = useState("");
@@ -63,6 +68,12 @@ const OnboardingScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [generatingQuest, setGeneratingQuest] = useState(false);
   const [generatingLabel, setGeneratingLabel] = useState("Crafting your first quests...");
+  const [generatingProgress, setGeneratingProgress] = useState<{
+    progress: number;
+    currentQuest: number;
+    totalQuests: number;
+    stepProgress: number;
+  }>({ progress: 0, currentQuest: 0, totalQuests: 3, stepProgress: 0 });
   const [revealQuests, setRevealQuests] = useState<SidequestResponse[]>([]);
   const [showReveal, setShowReveal] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,14 +82,15 @@ const OnboardingScreen: React.FC = () => {
   // ── Build log lines ────────────────────────────────────────
 
   const buildLines = useMemo<BuildLine[]>(() => {
+    const displayGoal = refinedGoal ?? primaryGoal;
     const lines: BuildLine[] = [];
     if (step > 1) lines.push({ label: "init", value: "ready" });
-    if (step > 2 && primaryGoal) lines.push({ label: "goal", value: `"${primaryGoal.slice(0, 28)}${primaryGoal.length > 28 ? "..." : ""}"` });
-    if (step > 4) lines.push({ label: "barriers", value: `${selectedBarriers.length} flagged` });
-    if (step > 5) lines.push({ label: "profile", value: "generated" });
-    if (step > 6) lines.push({ label: "calibration", value: `${Object.keys(fearLadderResponses).length} rated` });
+    if (step > 3 && displayGoal) lines.push({ label: "goal", value: `"${displayGoal.slice(0, 28)}${displayGoal.length > 28 ? "..." : ""}"` });
+    if (step > 5) lines.push({ label: "barriers", value: `${selectedBarriers.length} flagged` });
+    if (step > 6) lines.push({ label: "profile", value: "generated" });
+    if (step > 7) lines.push({ label: "calibration", value: `${Object.keys(fearLadderResponses).length} rated` });
     return lines;
-  }, [step, primaryGoal, selectedBarriers.length, fearLadderResponses]);
+  }, [step, primaryGoal, refinedGoal, selectedBarriers.length, fearLadderResponses]);
 
   // ── Navigation ─────────────────────────────────────────────
 
@@ -105,6 +117,30 @@ const OnboardingScreen: React.FC = () => {
     setFearLadderResponses((prev) => ({ ...prev, [scenarioId]: value }));
   }, []);
 
+  // Goal refinement handlers
+  const handleGoalRefined = useCallback((goal: string, signals: GoalRefinementState["extractedSignals"]) => {
+    directionRef.current = "forward";
+    setRefinedGoal(goal);
+    setGoalSignals(signals);
+    setPrimaryGoal(goal);
+    setStep((prev) => prev + 1);
+  }, []);
+
+  const handleGoalRedirect = useCallback((message: string) => {
+    setGoalRedirectMessage(message);
+    directionRef.current = "back";
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setStep(2);
+  }, []);
+
+  const handleBackFromRefinement = useCallback(() => {
+    directionRef.current = "back";
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setRefinedGoal(null);
+    setGoalSignals({});
+    setStep(2);
+  }, []);
+
   const handleBarriersReady = useCallback((barriers: { key: string; label: string; text: string }[]) => {
     directionRef.current = "forward";
     setGeneratedBarriers(barriers);
@@ -127,18 +163,18 @@ const OnboardingScreen: React.FC = () => {
     setStep((prev) => prev + 1);
   }, []);
 
-  // Back from generating ladder — skip back to barriers (step 4)
+  // Back from generating ladder — skip back to barriers (step 5)
   const handleBackFromGenerating = useCallback(() => {
     directionRef.current = "back";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(4);
+    setStep(5);
   }, []);
 
-  // Back from fear ladder — skip back to barriers (step 4), not the loading step
+  // Back from fear ladder — skip back to barriers (step 5), not the loading step
   const handleBackFromFearLadder = useCallback(() => {
     directionRef.current = "back";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(4);
+    setStep(5);
   }, []);
 
   // ── Poll for week pack ────────────────────────────────────
@@ -173,6 +209,16 @@ const OnboardingScreen: React.FC = () => {
           router.replace("/");
         } else {
           if (data.progressStep) setGeneratingLabel(data.progressStep);
+          // Parse "Crafting quest X of Y..." from progressStep
+          const match = data.progressStep?.match(/quest\s+(\d+)\s+of\s+(\d+)/i);
+          const currentQuest = match ? parseInt(match[1], 10) : 1;
+          const totalQuests = match ? parseInt(match[2], 10) : 3;
+          setGeneratingProgress({
+            progress: data.progress ?? 0,
+            currentQuest,
+            totalQuests,
+            stepProgress: data.progressDetails?.stepProgress ?? 0,
+          });
           pollRef.current = setTimeout(poll, 2000);
         }
       } catch (err) {
@@ -221,6 +267,8 @@ const OnboardingScreen: React.FC = () => {
           goalTags: selectedBarriers,
           northStar: northStar || undefined,
           primaryGoal: primaryGoal || undefined,
+          targetDate: goalSignals.targetDate || undefined,
+          goalLocation: goalSignals.goalLocation || undefined,
         },
         fearLadder: {
           overallScore: fearLadder.overallScore,
@@ -262,7 +310,7 @@ const OnboardingScreen: React.FC = () => {
       setIsLoading(false);
       setGeneratingQuest(false);
     }
-  }, [primaryGoal, selectedBarriers, fearLadderResponses, generatedBarriers, generatedScenarios, generatedDimensions, northStar, userLocation, refreshAuth, pollForWeekPack]);
+  }, [primaryGoal, selectedBarriers, fearLadderResponses, generatedBarriers, generatedScenarios, generatedDimensions, northStar, goalSignals, userLocation, refreshAuth, pollForWeekPack]);
 
   // ── Transitions ──────────────────────────────────────────
 
@@ -287,9 +335,20 @@ const OnboardingScreen: React.FC = () => {
             setPrimaryGoal={setPrimaryGoal}
             onNext={handleNext}
             onBack={handleBack}
+            redirectMessage={goalRedirectMessage}
+            onClearRedirect={() => setGoalRedirectMessage(null)}
           />
         );
       case 3:
+        return (
+          <StepGoalRefinement
+            primaryGoal={primaryGoal}
+            onRefined={handleGoalRefined}
+            onRedirect={handleGoalRedirect}
+            onBack={handleBackFromRefinement}
+          />
+        );
+      case 4:
         return (
           <StepGeneratingBarriers
             primaryGoal={primaryGoal}
@@ -297,7 +356,7 @@ const OnboardingScreen: React.FC = () => {
             onBack={handleBackFromGeneratingBarriers}
           />
         );
-      case 4:
+      case 5:
         return (
           <StepBarriers
             selected={selectedBarriers}
@@ -307,7 +366,7 @@ const OnboardingScreen: React.FC = () => {
             options={generatedBarriers ?? undefined}
           />
         );
-      case 5:
+      case 6:
         return (
           <StepGeneratingLadder
             primaryGoal={primaryGoal}
@@ -318,7 +377,7 @@ const OnboardingScreen: React.FC = () => {
             onBack={handleBackFromGenerating}
           />
         );
-      case 6:
+      case 7:
         return (
           <StepFearLadder
             scenarios={generatedScenarios ?? undefined}
@@ -328,7 +387,7 @@ const OnboardingScreen: React.FC = () => {
             onBack={handleBackFromFearLadder}
           />
         );
-      case 7:
+      case 8:
         return (
           <StepNorthStar
             northStar={northStar}
@@ -337,6 +396,7 @@ const OnboardingScreen: React.FC = () => {
             isLoading={isLoading}
             generatingQuest={generatingQuest}
             generatingLabel={generatingLabel}
+            generatingProgress={generatingProgress}
             error={error}
             onFinish={handleFinish}
             onBack={handleBack}

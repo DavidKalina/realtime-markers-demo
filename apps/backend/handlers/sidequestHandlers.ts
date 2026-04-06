@@ -8,6 +8,10 @@ import type { SidequestCheckinService } from "../services/SidequestCheckinServic
 import type { ComfortZoneService } from "../services/ComfortZoneService";
 import type { FearLadderGenerationService } from "../services/FearLadderGenerationService";
 import type { BarrierGenerationService } from "../services/BarrierGenerationService";
+import type { GoalRefinementService } from "../services/GoalRefinementService";
+import type { RefinementState } from "../services/GoalRefinementService";
+import type { PacingService } from "../services/PacingService";
+import { GoalReflection } from "@realtime-markers/database";
 
 export const listSidequestsHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
@@ -488,6 +492,8 @@ export const updateComfortProfileHandler: Handler = withErrorHandling(
         goalTags?: string[];
         northStar?: string;
         primaryGoal?: string;
+        targetDate?: string;
+        goalLocation?: string;
       };
       fearLadder?: {
         overallScore: number;
@@ -671,5 +677,128 @@ export const generateBarriersHandler: Handler = withErrorHandling(
     });
 
     return c.json(result);
+  },
+);
+
+export const assessGoalHandler: Handler = withErrorHandling(
+  async (c) => {
+    requireAuth(c);
+
+    const body = await c.req.json<{ goal: string }>();
+
+    if (!body.goal || typeof body.goal !== "string" || body.goal.trim().length === 0) {
+      return c.json({ error: "goal is required" }, 400);
+    }
+
+    if (body.goal.length > 500) {
+      return c.json({ error: "goal must be 500 characters or fewer" }, 400);
+    }
+
+    const goalRefinementService = c.get("goalRefinementService") as GoalRefinementService;
+    const result = await goalRefinementService.assessGoal(body.goal.trim());
+
+    return c.json(result);
+  },
+);
+
+export const refineGoalHandler: Handler = withErrorHandling(
+  async (c) => {
+    requireAuth(c);
+
+    const body = await c.req.json<{
+      state: RefinementState;
+      response: string;
+    }>();
+
+    if (!body.state || !body.state.rawGoal) {
+      return c.json({ error: "state with rawGoal is required" }, 400);
+    }
+
+    if (!body.response || typeof body.response !== "string" || body.response.trim().length === 0) {
+      return c.json({ error: "response is required" }, 400);
+    }
+
+    if (body.response.length > 1000) {
+      return c.json({ error: "response must be 1000 characters or fewer" }, 400);
+    }
+
+    const goalRefinementService = c.get("goalRefinementService") as GoalRefinementService;
+    const result = await goalRefinementService.refineNext(body.state, body.response.trim());
+
+    return c.json(result);
+  },
+);
+
+export const goalCheckInHandler: Handler = withErrorHandling(
+  async (c) => {
+    const user = requireAuth(c);
+
+    const pacingService = c.get("pacingService") as PacingService;
+    const result = await pacingService.getCheckInDue(user.id);
+
+    return c.json(result);
+  },
+);
+
+export const goalPacingHandler: Handler = withErrorHandling(
+  async (c) => {
+    const user = requireAuth(c);
+
+    const pacingService = c.get("pacingService") as PacingService;
+    const result = await pacingService.getPacingState(user.id);
+
+    if (!result) {
+      return c.json({ hasTimeline: false });
+    }
+
+    return c.json({
+      hasTimeline: true,
+      percentElapsed: Math.round(result.timeline.percentElapsed * 100),
+      remainingDays: result.timeline.remainingDays,
+      totalDays: result.timeline.totalDays,
+      milestone: result.milestone,
+      completedQuestCount: result.completedQuestCount,
+      isPast: result.timeline.isPast,
+    });
+  },
+);
+
+export const saveGoalReflectionHandler: Handler = withErrorHandling(
+  async (c) => {
+    const user = requireAuth(c);
+
+    const body = await c.req.json<{
+      milestone: string;
+      journalEntry: string;
+      journalPrompt?: string;
+      percentElapsed?: number;
+      remainingDays?: number;
+      completedQuestCount?: number;
+    }>();
+
+    if (!body.milestone || !body.journalEntry?.trim()) {
+      return c.json({ error: "milestone and journalEntry are required" }, 400);
+    }
+
+    if (body.journalEntry.length > 2000) {
+      return c.json({ error: "journalEntry must be 2000 characters or fewer" }, 400);
+    }
+
+    const dataSource = c.get("dataSource");
+    const repo = dataSource.getRepository(GoalReflection);
+
+    const reflection = repo.create({
+      userId: user.id,
+      milestone: body.milestone,
+      journalEntry: body.journalEntry.trim(),
+      journalPrompt: body.journalPrompt,
+      percentElapsed: body.percentElapsed,
+      remainingDays: body.remainingDays,
+      completedQuestCount: body.completedQuestCount,
+    });
+
+    await repo.save(reflection);
+
+    return c.json({ id: reflection.id });
   },
 );

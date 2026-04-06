@@ -23,6 +23,7 @@ import type { ComfortZoneService } from "./ComfortZoneService";
 import type { CoverageService } from "./CoverageService";
 import type { ResonanceService } from "./ResonanceService";
 import type { PathwayService } from "./PathwayService";
+import type { PacingService } from "./PacingService";
 import {
   createPrescriptionPromptRegistry,
   type PrescriptionPromptRegistry,
@@ -170,6 +171,7 @@ interface SidequestPrescriptionServiceDeps {
   coverageService?: CoverageService;
   resonanceService?: ResonanceService;
   pathwayService?: PathwayService;
+  pacingService?: PacingService;
   promptRegistry?: PrescriptionPromptRegistry;
   promptVersion?: string;
   /** Model to use for quest prescription. Defaults to GPT54Mini. */
@@ -216,6 +218,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
   private coverageService?: CoverageService;
   private resonanceService?: ResonanceService;
   private pathwayService?: PathwayService;
+  private pacingService?: PacingService;
   private agent: OpenAIResponsesAgent;
   private promptRegistry: PrescriptionPromptRegistry;
   private promptVersion: string;
@@ -234,6 +237,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
     this.coverageService = deps.coverageService;
     this.resonanceService = deps.resonanceService;
     this.pathwayService = deps.pathwayService;
+    this.pacingService = deps.pacingService;
     this.agent = new OpenAIResponsesAgent(deps.openAIService);
     this.promptRegistry = deps.promptRegistry ?? createPrescriptionPromptRegistry();
     this.promptVersion = deps.promptVersion ?? "v1-default";
@@ -408,6 +412,16 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
       }
     }
 
+    // 2d. Build timeline context (progressive — only injected at milestones)
+    let timelineContext = "";
+    if (this.pacingService) {
+      try {
+        timelineContext = await this.pacingService.getTimelineContext(userId) ?? "";
+      } catch (err) {
+        console.error("[prescribeQuest] Timeline context failed:", err);
+      }
+    }
+
     // 3. Re-geocode city if search location was shifted by expansion target
     // (city was already set above; this catches the case where it wasn't overridden in the expansion block)
 
@@ -465,6 +479,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         explorationProfileLabel,
         expansionTarget,
         phaseContext,
+        timelineContext,
         fearLadderContext: user.fearLadder
           ? this.buildFearLadderContext(user.fearLadder, fearLadderReadiness) : "",
         expectancyContext: user.expectancyCalibration

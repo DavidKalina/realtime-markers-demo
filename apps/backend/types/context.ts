@@ -19,6 +19,8 @@ import type { PushNotificationService } from "../services/PushNotificationServic
 import type { JobNotificationService } from "../services/JobNotificationService";
 import type { FearLadderGenerationService } from "../services/FearLadderGenerationService";
 import type { BarrierGenerationService } from "../services/BarrierGenerationService";
+import type { GoalRefinementService } from "../services/GoalRefinementService";
+import type { PacingService } from "../services/PacingService";
 
 export interface AppVariables {
   dataSource: DataSource;
@@ -42,6 +44,8 @@ export interface AppVariables {
   jobNotificationService: JobNotificationService;
   fearLadderGenerationService: FearLadderGenerationService;
   barrierGenerationService: BarrierGenerationService;
+  goalRefinementService: GoalRefinementService;
+  pacingService: PacingService;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }

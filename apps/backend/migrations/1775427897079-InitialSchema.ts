@@ -92,6 +92,12 @@ export class InitialSchema1775427897079 implements MigrationInterface {
       `CREATE UNIQUE INDEX "IDX_00b3e02a384367a2ffd869df9e" ON "coverage_snapshots" ("user_id") `,
     );
     await queryRunner.query(
+      `CREATE TABLE "goal_reflections" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "user_id" uuid NOT NULL, "milestone" character varying(50) NOT NULL, "journal_entry" text NOT NULL, "journal_prompt" text, "percent_elapsed" smallint, "remaining_days" smallint, "completed_quest_count" smallint, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_goal_reflections" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_goal_reflections_user_id" ON "goal_reflections" ("user_id")`,
+    );
+    await queryRunner.query(
       `CREATE TABLE "pathways" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "user_id" uuid NOT NULL, "theme" character varying(200) NOT NULL, "theme_label" character varying(200), "venue_categories" text array NOT NULL DEFAULT '{}', "avg_resonance" numeric(4,3) NOT NULL DEFAULT '0', "quest_count" integer NOT NULL DEFAULT '0', "current_difficulty" smallint NOT NULL DEFAULT '1', "difficulty_trend" numeric(4,3) NOT NULL DEFAULT '0', "phase" character varying(10) NOT NULL DEFAULT 'bfs', "sidequest_ids" uuid array NOT NULL DEFAULT '{}', "resonance_scores" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_bfba58a2ba7d08c64412da85630" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(

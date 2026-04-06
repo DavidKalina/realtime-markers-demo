@@ -11,6 +11,7 @@ import {
   ObjectiveCheckin,
   UserBadge,
   Pathway,
+  GoalReflection,
 } from "../entities";
 
 // Create the DataSource instance
@@ -27,6 +28,7 @@ export const createDataSource = (databaseUrl: string): DataSource => {
       ObjectiveCheckin,
       UserBadge,
       Pathway,
+      GoalReflection,
     ],
     synchronize: true,
     migrationsRun: false,

@@ -27,6 +27,11 @@ import {
   objectivePredictionHandler,
   generateFearLadderHandler,
   generateBarriersHandler,
+  assessGoalHandler,
+  refineGoalHandler,
+  goalCheckInHandler,
+  goalPacingHandler,
+  saveGoalReflectionHandler,
 } from "../handlers/sidequestHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -81,6 +86,11 @@ sidequestRouter.post(
 );
 sidequestRouter.post("/generate-fear-ladder", writeRateLimit, generateFearLadderHandler);
 sidequestRouter.post("/generate-barriers", writeRateLimit, generateBarriersHandler);
+sidequestRouter.post("/assess-goal", writeRateLimit, assessGoalHandler);
+sidequestRouter.post("/refine-goal", writeRateLimit, refineGoalHandler);
+sidequestRouter.get("/goal-check-in", readRateLimit, goalCheckInHandler);
+sidequestRouter.get("/goal-pacing", readRateLimit, goalPacingHandler);
+sidequestRouter.post("/goal-reflection", writeRateLimit, saveGoalReflectionHandler);
 sidequestRouter.put("/comfort-profile", writeRateLimit, updateComfortProfileHandler);
 sidequestRouter.put(
   "/objectives/:objectiveId/journal",

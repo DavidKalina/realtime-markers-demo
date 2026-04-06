@@ -78,6 +78,10 @@ interface LivePersona {
   journalProbability: number;
   socialEscalationRate: number;
   blocker?: BlockerConfig;
+  /** ISO date string — if set, the simulation will test the timeline/pacing flow */
+  targetDate?: string;
+  /** City/location for the goal — used with targetDate for relocation goals */
+  goalLocation?: string;
 }
 
 const PERSONAS: Record<string, LivePersona> = {
@@ -165,6 +169,26 @@ const PERSONAS: Record<string, LivePersona> = {
     ratingBias: 0.65,
     journalProbability: 0.55,
     socialEscalationRate: 0.25,
+    targetDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+  },
+  "mover-mike": {
+    name: "Mover Mike",
+    primaryGoal: "Move out of my parents' house and into my own place in Denver",
+    northStar: "I want to sign a lease on my own apartment and feel ready to live independently.",
+    pace: "steady",
+    goals: ["I want to become financially and socially ready to live on my own"],
+    goalTags: ["independence", "socialize", "routine"],
+    barriers: "Never lived alone, don't know how to budget, nervous about being isolated in a new city",
+    comfortZone: "I live with my parents in the suburbs. I drive to work and come home. I go out with high school friends on weekends sometimes.",
+    activities: ["Coffee", "Food", "Nature", "Fitness", "Board games"],
+    vibes: ["Meet people", "Build a routine", "Explore my area"],
+    homeLatitude: 40.0986,
+    homeLongitude: -104.9719,
+    ratingBias: 0.6,
+    journalProbability: 0.6,
+    socialEscalationRate: 0.18,
+    targetDate: new Date(Date.now() + 270 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    goalLocation: "Denver, CO",
   },
   "wallflower-wendy": {
     name: "Wallflower Wendy",
@@ -338,7 +362,7 @@ Usage: npx tsx apps/backend/scripts/simulate-live.ts [options]
 Options:
   --email <email>        User email (default: user@example.com)
   --password <pass>      User password (default: user123)
-  --persona <name>       Hardcoded persona (shy-sarah, adventurous-alex, routine-rick, comedian-carl, fitness-fiona, wallflower-wendy)
+  --persona <name>       Hardcoded persona (shy-sarah, adventurous-alex, routine-rick, comedian-carl, fitness-fiona, mover-mike, wallflower-wendy)
   --goal <text>          Generate a persona from a goal (e.g. "become a stand-up comedian")
   --blocker <text>       Inject a recurring blocker (e.g. "talking to strangers", "making phone calls")
   --quests <n>           Number of quests to prescribe (default: 5)
@@ -859,6 +883,56 @@ async function main() {
       longitude: persona.homeLongitude,
     });
 
+    // 2b. Goal refinement
+    console.log("Assessing goal specificity...");
+    const assessRes = await api("POST", "/api/sidequests/assess-goal", token, {
+      goal: persona.primaryGoal,
+    });
+    if (assessRes.status === 200 && assessRes.data) {
+      const { specificity, feasibility, needsRefinement, refinedGoal } = assessRes.data;
+      console.log(`  Specificity: ${specificity.toFixed(2)}, Feasibility: ${feasibility}`);
+      if (feasibility === "unfeasible" || feasibility === "concerning") {
+        console.log(`  ⚠ Goal rejected: ${assessRes.data.redirectMessage}`);
+        console.log("  Proceeding with raw goal anyway (simulation).");
+      } else if (needsRefinement) {
+        console.log(`  Goal needs refinement. First question: "${assessRes.data.firstQuestion}"`);
+        // Simulate answering the refinement question
+        let state = assessRes.data.state;
+        const answers = [
+          `I want to ${persona.primaryGoal.toLowerCase()} within the next ${persona.targetDate ? "few months" : "year or so"}.${persona.goalLocation ? ` I'm thinking about ${persona.goalLocation}.` : ""}`,
+          "I just want to feel ready and confident about it. Like I've actually built the skills I need.",
+        ];
+        for (let i = 0; i < Math.min(answers.length, 3); i++) {
+          const refineRes = await api("POST", "/api/sidequests/refine-goal", token, {
+            state,
+            response: answers[i] ?? "I'm not sure, whatever feels right.",
+          });
+          if (refineRes.status === 200 && refineRes.data) {
+            if (refineRes.data.done && refineRes.data.refinedGoal) {
+              persona.primaryGoal = refineRes.data.refinedGoal;
+              console.log(`  ✓ Refined goal: "${persona.primaryGoal}"`);
+              if (refineRes.data.state?.extractedSignals?.targetDate) {
+                persona.targetDate = refineRes.data.state.extractedSignals.targetDate;
+                console.log(`  ✓ Extracted target date: ${persona.targetDate}`);
+              }
+              if (refineRes.data.state?.extractedSignals?.goalLocation) {
+                persona.goalLocation = refineRes.data.state.extractedSignals.goalLocation;
+                console.log(`  ✓ Extracted goal location: ${persona.goalLocation}`);
+              }
+              break;
+            }
+            state = refineRes.data.state;
+            if (refineRes.data.question) {
+              console.log(`  Q: "${refineRes.data.question}"`);
+            }
+          }
+        }
+      } else if (refinedGoal) {
+        persona.primaryGoal = refinedGoal;
+        console.log(`  ✓ Goal already specific: "${persona.primaryGoal}"`);
+      }
+    }
+
     // 3. Generate fear ladder (unless skipped)
     if (!skipFearLadder) {
       console.log("Generating personalized fear ladder...");
@@ -908,6 +982,8 @@ async function main() {
             goalTags: persona.goalTags,
             northStar: persona.northStar,
             primaryGoal: persona.primaryGoal,
+            targetDate: persona.targetDate || undefined,
+            goalLocation: persona.goalLocation || undefined,
           },
           fearLadder: {
             overallScore: scored.overallScore,
@@ -929,6 +1005,8 @@ async function main() {
             goalTags: persona.goalTags,
             northStar: persona.northStar,
             primaryGoal: persona.primaryGoal,
+            targetDate: persona.targetDate || undefined,
+            goalLocation: persona.goalLocation || undefined,
           },
         });
       }
@@ -944,6 +1022,8 @@ async function main() {
           goalTags: persona.goalTags,
           northStar: persona.northStar,
           primaryGoal: persona.primaryGoal,
+          targetDate: persona.targetDate || undefined,
+          goalLocation: persona.goalLocation || undefined,
         },
       });
     }

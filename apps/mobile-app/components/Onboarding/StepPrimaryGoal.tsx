@@ -9,11 +9,15 @@ export function StepPrimaryGoal({
   setPrimaryGoal,
   onNext,
   onBack,
+  redirectMessage,
+  onClearRedirect,
 }: {
   primaryGoal: string;
   setPrimaryGoal: (v: string) => void;
   onNext: () => void;
   onBack?: () => void;
+  redirectMessage?: string | null;
+  onClearRedirect?: () => void;
 }) {
   const colors = useColors();
 
@@ -57,6 +61,23 @@ export function StepPrimaryGoal({
               )}
             </View>
 
+            {redirectMessage && promptDone && (
+              <Animated.View entering={FadeIn.duration(300)}>
+                <View style={s.redirectBox}>
+                  <Text style={s.redirectText}>{redirectMessage}</Text>
+                  <Pressable
+                    onPress={() => {
+                      setPrimaryGoal("");
+                      onClearRedirect?.();
+                    }}
+                    hitSlop={8}
+                  >
+                    <Text style={s.redirectDismiss}>try again</Text>
+                  </Pressable>
+                </View>
+              </Animated.View>
+            )}
+
             {promptDone && (
               <Animated.View entering={FadeIn.delay(300).duration(400)} style={s.inputWrap}>
                 <Text style={s.inputPrompt}>{"\u276F"}</Text>
@@ -65,7 +86,10 @@ export function StepPrimaryGoal({
                   placeholder={"type your goal..."}
                   placeholderTextColor={"rgba(255, 255, 255, 0.2)"}
                   value={primaryGoal}
-                  onChangeText={setPrimaryGoal}
+                  onChangeText={(v) => {
+                    setPrimaryGoal(v);
+                    if (redirectMessage) onClearRedirect?.();
+                  }}
                   maxLength={500}
                   multiline
                   autoFocus
@@ -161,6 +185,28 @@ const s = StyleSheet.create({
     minHeight: 120,
     lineHeight: 24,
     textAlignVertical: "top",
+  },
+  redirectBox: {
+    backgroundColor: "rgba(250, 204, 21, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(250, 204, 21, 0.25)",
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  redirectText: {
+    fontFamily: fontFamily.mono,
+    fontSize: 13,
+    color: "rgba(250, 204, 21, 0.9)",
+    lineHeight: 20,
+  },
+  redirectDismiss: {
+    fontFamily: fontFamily.mono,
+    fontSize: 12,
+    color: GREEN_ACCENT,
+    fontWeight: fontWeight.medium,
+    letterSpacing: 0.3,
+    opacity: 0.7,
   },
   bottom: {
     paddingHorizontal: 28,

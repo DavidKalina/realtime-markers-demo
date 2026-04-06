@@ -19,10 +19,12 @@ import Animated, {
   FadeInUp,
   FadeOutUp,
 } from "react-native-reanimated";
+import { Bell } from "lucide-react-native";
 import Screen from "@/components/Layout/Screen";
 import EmptyState from "@/components/Layout/EmptyState";
 import QuestCardDeck from "@/components/Itinerary/QuestCardDeck";
 import BatchRevealOverlay from "@/components/Quest/BatchRevealOverlay";
+import { GoalCheckInModal } from "@/components/GoalCheckIn/GoalCheckInModal";
 import { apiClient } from "@/services/ApiClient";
 import type {
   ItineraryResponse,
@@ -58,6 +60,65 @@ const ItinerariesListScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const cursorRef = useRef<string | null>(null);
   const hasMoreRef = useRef(true);
+
+  // ── Goal check-in state ──
+  const [goalCheckIn, setGoalCheckIn] = useState<{
+    milestone: "early_momentum" | "midpoint" | "approaching" | "final_stretch" | "target_reached";
+    journalPrompt: string;
+  } | null>(null);
+  const [goalPacing, setGoalPacing] = useState<{
+    percentElapsed?: number;
+    remainingDays?: number;
+    completedQuestCount?: number;
+    goalTitle?: string;
+  } | null>(null);
+  const [showGoalCheckIn, setShowGoalCheckIn] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [checkIn, pacing] = await Promise.all([
+          apiClient.sidequests.getGoalCheckIn(),
+          apiClient.sidequests.getGoalPacing(),
+        ]);
+        if (checkIn.isDue && checkIn.milestone && checkIn.journalPrompt) {
+          setGoalCheckIn({
+            milestone: checkIn.milestone,
+            journalPrompt: checkIn.journalPrompt,
+          });
+          if (pacing.hasTimeline) {
+            setGoalPacing({
+              percentElapsed: pacing.percentElapsed,
+              remainingDays: pacing.remainingDays,
+              completedQuestCount: pacing.completedQuestCount,
+            });
+          }
+        }
+      } catch {
+        // Non-critical — silently fail
+      }
+    })();
+  }, []);
+
+  const handleGoalCheckInComplete = useCallback(async (journalEntry: string) => {
+    setShowGoalCheckIn(false);
+    const checkIn = goalCheckIn;
+    const pacing = goalPacing;
+    setGoalCheckIn(null);
+
+    try {
+      await apiClient.sidequests.saveGoalReflection({
+        milestone: checkIn?.milestone ?? "unknown",
+        journalEntry,
+        journalPrompt: checkIn?.journalPrompt,
+        percentElapsed: pacing?.percentElapsed,
+        remainingDays: pacing?.remainingDays,
+        completedQuestCount: pacing?.completedQuestCount,
+      });
+    } catch (err) {
+      console.error("[GoalCheckIn] Failed to save reflection:", err);
+    }
+  }, [goalCheckIn, goalPacing]);
 
   const fetchItineraries = useCallback(async (cursor?: string) => {
     try {
@@ -229,12 +290,55 @@ const ItinerariesListScreen = () => {
       noAnimation
     >
       <View style={styles.headerRow}>
-        <Text style={styles.headerLabel}>YOUR QUESTS</Text>
-        <Text style={styles.headerHint}>
-          {markedIds.size > 0
-            ? `${markedIds.size} selected \u00B7 Swipe up to mark more`
-            : `Swipe to browse \u00B7 Tap to open \u00B7 Swipe up to mark`}
-        </Text>
+        <View style={styles.headerTop}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerLabel}>YOUR QUESTS</Text>
+            <Text style={styles.headerHint}>
+              {markedIds.size > 0
+                ? `${markedIds.size} selected \u00B7 Swipe up to mark more`
+                : `Swipe to browse \u00B7 Tap to open \u00B7 Swipe up to mark`}
+            </Text>
+          </View>
+          <Pressable
+            style={styles.bellButton}
+            hitSlop={12}
+            onPress={() => {
+              if (goalCheckIn) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowGoalCheckIn(true);
+              }
+            }}
+          >
+            <Bell size={18} color={goalCheckIn ? "#86efac" : colors.text.disabled} />
+            {goalCheckIn && <View style={styles.bellDot} />}
+          </Pressable>
+        </View>
+        {__DEV__ && !goalCheckIn && (
+          <View style={{ flexDirection: "row", gap: 6, marginTop: 4 }}>
+            {(["early_momentum", "midpoint", "approaching", "final_stretch", "target_reached"] as const).map((m) => (
+              <Pressable
+                key={m}
+                onPress={() => {
+                  setGoalCheckIn({
+                    milestone: m,
+                    journalPrompt: `[DEV] How are you feeling about your goal? (${m})`,
+                  });
+                  setGoalPacing({
+                    percentElapsed: m === "early_momentum" ? 15 : m === "midpoint" ? 50 : m === "approaching" ? 80 : m === "final_stretch" ? 95 : 100,
+                    remainingDays: m === "early_momentum" ? 150 : m === "midpoint" ? 90 : m === "approaching" ? 35 : m === "final_stretch" ? 7 : 0,
+                    completedQuestCount: 12,
+                    goalTitle: "Move to Denver and feel ready to live independently",
+                  });
+                }}
+                style={{ backgroundColor: "rgba(59, 130, 246, 0.15)", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}
+              >
+                <Text style={{ fontFamily: fontFamily.mono, fontSize: 8, color: "rgba(59, 130, 246, 0.8)" }}>
+                  {m.split("_")[0]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </View>
       <View style={styles.deckScreen}>
         <QuestCardDeck
@@ -286,6 +390,20 @@ const ItinerariesListScreen = () => {
       onComplete={handleBatchRevealComplete}
     />
 
+    {goalCheckIn && (
+      <GoalCheckInModal
+        visible={showGoalCheckIn}
+        milestone={goalCheckIn.milestone}
+        journalPrompt={goalCheckIn.journalPrompt}
+        goalTitle={goalPacing?.goalTitle}
+        percentElapsed={goalPacing?.percentElapsed}
+        remainingDays={goalPacing?.remainingDays}
+        completedQuestCount={goalPacing?.completedQuestCount}
+        onDismiss={() => setShowGoalCheckIn(false)}
+        onComplete={handleGoalCheckInComplete}
+      />
+    )}
+
     </>
   );
 };
@@ -304,6 +422,31 @@ const createScreenStyles = (colors: Colors) =>
     headerRow: {
       paddingHorizontal: spacing.lg,
       gap: spacing.xs,
+    },
+    headerTop: {
+      flexDirection: "row" as const,
+      alignItems: "flex-start" as const,
+      gap: spacing.md,
+    },
+    bellButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: "rgba(255, 255, 255, 0.05)",
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      marginTop: -2,
+    },
+    bellDot: {
+      position: "absolute" as const,
+      top: 6,
+      right: 7,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: "#86efac",
+      borderWidth: 1.5,
+      borderColor: colors.bg.primary,
     },
     headerLabel: {
       fontSize: 12,
