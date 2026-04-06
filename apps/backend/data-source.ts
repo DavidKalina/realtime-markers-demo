@@ -2,6 +2,9 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Import all entities from the shared package
 import {
