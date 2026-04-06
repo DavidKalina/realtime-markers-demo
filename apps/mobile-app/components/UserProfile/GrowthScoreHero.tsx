@@ -65,6 +65,8 @@ export interface GrowthScoreHeroProps {
   questCount: number;
   currentStreak: number;
   totalXp: number;
+  /** Show calibrating state instead of zeros */
+  calibrating?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -190,6 +192,7 @@ function GrowthScoreHero({
   questCount,
   currentStreak,
   totalXp,
+  calibrating = false,
 }: GrowthScoreHeroProps) {
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
@@ -197,12 +200,12 @@ function GrowthScoreHero({
   const sc = scoreColor(score);
 
   // ── Typewriter label ─────────────────────────────
-  const fullLabel = `GROWTH: ${score}`;
+  const fullLabel = calibrating ? "GROWTH: ---" : `GROWTH: ${score}`;
   const typedLabel = useTypewriter(fullLabel, TYPE_SPEED, 200);
   const showCursor = typedLabel.length < fullLabel.length;
 
   // ── Animated ring fill ───────────────────────────
-  const filledTarget = Math.round((score / 100) * SEGMENT_COUNT);
+  const filledTarget = calibrating ? 0 : Math.round((score / 100) * SEGMENT_COUNT);
   const [filledCount, setFilledCount] = useState(0);
 
   useEffect(() => {
@@ -294,8 +297,8 @@ function GrowthScoreHero({
           {typedLabel}
           {showCursor && <Text style={s.cursor}>{"\u2588"}</Text>}
         </Text>
-        <Animated.Text style={[s.momentumBadge, { color: mc.color }, mStyle]}>
-          {mc.arrow} {mc.label}{deltaText ? ` ${deltaText}` : ""}
+        <Animated.Text style={[s.momentumBadge, { color: calibrating ? "rgba(255, 255, 255, 0.2)" : mc.color }, mStyle]}>
+          {calibrating ? "CALIBRATING" : `${mc.arrow} ${mc.label}${deltaText ? ` ${deltaText}` : ""}`}
         </Animated.Text>
       </View>
 
@@ -329,40 +332,42 @@ function GrowthScoreHero({
             {/* Center score */}
             <SvgText
               x={CENTER}
-              y={CENTER - 4}
-              fill={sc}
-              fontSize={24}
+              y={calibrating ? CENTER : CENTER - 4}
+              fill={calibrating ? "rgba(255, 255, 255, 0.2)" : sc}
+              fontSize={calibrating ? 9 : 24}
               fontFamily="SpaceMono"
               fontWeight="700"
               textAnchor="middle"
               alignmentBaseline="central"
             >
-              {filledCount > 0 ? Math.round((filledCount / SEGMENT_COUNT) * 100) : ""}
+              {calibrating ? "..." : filledCount > 0 ? Math.round((filledCount / SEGMENT_COUNT) * 100) : ""}
             </SvgText>
-            <SvgText
-              x={CENTER}
-              y={CENTER + 14}
-              fill="rgba(255, 255, 255, 0.25)"
-              fontSize={7}
-              fontFamily="SpaceMono"
-              textAnchor="middle"
-              alignmentBaseline="central"
-            >
-              /100
-            </SvgText>
+            {!calibrating && (
+              <SvgText
+                x={CENTER}
+                y={CENTER + 14}
+                fill="rgba(255, 255, 255, 0.25)"
+                fontSize={7}
+                fontFamily="SpaceMono"
+                textAnchor="middle"
+                alignmentBaseline="central"
+              >
+                /100
+              </SvgText>
+            )}
           </Svg>
         </Pressable>
 
         {/* Sub-score bars (each tappable for info) */}
         <View style={[s.subsColumn, { opacity: showSubs ? 1 : 0 }]}>
           {SUB_SCORES.map((sub) => (
-            <Pressable key={sub.key} style={s.subRow} onPress={() => handleSubPress(sub)}>
+            <Pressable key={sub.key} style={s.subRow} onPress={calibrating ? undefined : () => handleSubPress(sub)}>
               <Text style={s.subLabel}>{sub.label}</Text>
-              <Text style={[s.subBar, { color: sub.color }]}>
-                {buildBar(subScores[sub.key])}
+              <Text style={[s.subBar, { color: calibrating ? "rgba(255, 255, 255, 0.08)" : sub.color }]}>
+                {calibrating ? "\u2591".repeat(BAR_WIDTH) : buildBar(subScores[sub.key])}
               </Text>
-              <Text style={[s.subValue, { color: sub.color }]}>
-                {subScores[sub.key]}
+              <Text style={[s.subValue, { color: calibrating ? "rgba(255, 255, 255, 0.15)" : sub.color }]}>
+                {calibrating ? "--" : subScores[sub.key]}
               </Text>
             </Pressable>
           ))}
@@ -388,11 +393,17 @@ function GrowthScoreHero({
 
       {/* Stats row (fades in last) */}
       <View style={[s.statsRow, { opacity: showStats ? 1 : 0 }]}>
-        <Text style={s.stat}>{questCount} quests</Text>
-        <Text style={s.statDot}>{"\u00B7"}</Text>
-        <Text style={s.stat}>{currentStreak}w streak</Text>
-        <Text style={s.statDot}>{"\u00B7"}</Text>
-        <Text style={s.stat}>{totalXp.toLocaleString()} XP</Text>
+        {calibrating ? (
+          <Text style={s.calibratingHint}>Complete your first quest to start tracking</Text>
+        ) : (
+          <>
+            <Text style={s.stat}>{questCount} quests</Text>
+            <Text style={s.statDot}>{"\u00B7"}</Text>
+            <Text style={s.stat}>{currentStreak}w streak</Text>
+            <Text style={s.statDot}>{"\u00B7"}</Text>
+            <Text style={s.stat}>{totalXp.toLocaleString()} XP</Text>
+          </>
+        )}
       </View>
 
       <InfoModal
@@ -492,6 +503,12 @@ const createStyles = (colors: Colors) =>
       fontFamily: fontFamily.mono,
       fontSize: 11,
       color: "rgba(255, 255, 255, 0.2)",
+    },
+    calibratingHint: {
+      fontFamily: fontFamily.mono,
+      fontSize: 10,
+      color: colors.text.disabled,
+      fontStyle: "italic",
     },
   });
 

@@ -6,7 +6,7 @@ allowed-tools: [Bash, Read, Grep]
 
 # Fresh Simulation (Full Reset)
 
-Tears down the entire environment, starts it via `pnpm dev:local:no-ngrok`, wipes the database, seeds users, runs a live simulation, and provides a summary.
+Tears down the entire environment, starts it via `pnpm dev:local:no-ngrok`, wipes the database, runs a live simulation, and provides a summary.
 
 ## Arguments
 
@@ -64,67 +64,11 @@ Use a 180-second timeout. If this fails, show `docker compose logs backend --tai
 
 Report: "Backend is healthy."
 
-### Step 4: Seed users
+### Step 4: Run simulation via /simulate
 
-The dev script may have already seeded, but run it to be sure:
+Once the backend is healthy, delegate to the `/simulate` skill with the user's original arguments. Default to `--quests 8` and `--rating-bias 0.7` unless the user specifies otherwise. For blocker testing, suggest `--quests 12`.
 
-```bash
-docker exec realtime-markers-demo-backend-1 sh -c "cd /app/apps/backend && bun run scripts/seed.ts" 2>&1
-```
-
-Use a 30-second timeout. If the container name doesn't match, find it:
-
-```bash
-docker ps --format '{{.Names}}' | grep backend
-```
-
-Report: "Users seeded."
-
-### Step 5: Run the simulation
-
-Parse the user's `$ARGUMENTS` to build the simulate command:
-
-| Rule                | Description                                                                                                        |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Goal-like phrase    | Use `--goal "<text>"`                                                                                              |
-| Preset persona name | Use `--persona <name>` (shy-sarah, adventurous-alex, routine-rick, comedian-carl, fitness-fiona, wallflower-wendy) |
-| Blocker mention     | Use `--blocker "<text>"`                                                                                           |
-| Quest count         | Use `--quests <n>`, default 8                                                                                      |
-| Email specified     | Use `--email <email>` and look up password from seeded accounts                                                    |
-| Rating bias         | Use `--rating-bias <0-1>`, default 0.7 for positive-leaning sims                                                   |
-
-**Seeded accounts:**
-
-| Email                   | Password       |
-| ----------------------- | -------------- |
-| `user@example.com`      | `user123`      |
-| `moderator@example.com` | `moderator123` |
-| `admin@example.com`     | `admin123`     |
-| `scout@example.com`     | `scout123`     |
-| `curator@example.com`   | `curator123`   |
-
-Default to `--quests 8` and `--rating-bias 0.7` unless the user specifies otherwise. For blocker testing, suggest `--quests 12`.
-
-Run the simulation:
-
-```bash
-pnpm tsx apps/backend/scripts/simulate-live.ts [flags]
-```
-
-Use a **10-minute timeout** (600000ms). Run this in the **foreground** so the user sees progress.
-
-### Step 6: Summarize results
-
-After the simulation completes, read the output and provide a summary including:
-
-1. **Persona**: Name, goal, barriers, pace
-2. **Quest journey**: Brief table or list of each quest (title, venue, category, rating, social context)
-3. **Pathway formation**: Which pathways formed (BFS vs DFS), themes
-4. **Growth signals**: Phase progression, resonance trends, any blockers detected
-5. **Final stats**: Total quests, avg rating, comfort radius, XP
-6. **Cost**: Total estimated API cost from the output
-
-If the simulation failed partway through, report how far it got and what the error was. Check `docker compose logs backend --tail 50` for backend errors if needed.
+The `/simulate` skill handles argument parsing, running the script, and summarizing results.
 
 ## Rules
 

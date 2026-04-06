@@ -19,7 +19,6 @@ import {
   Mail,
 } from "lucide-react-native";
 import React, {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -45,26 +44,7 @@ import Animated, {
   withSequence,
   withSpring,
 } from "react-native-reanimated";
-import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
-import AppHeader from "../AnimationHeader";
 import Input from "../Input/Input";
-import MiniDeck from "./MiniDeck";
-
-// Gradient overlay component
-const GradientOverlay: React.FC = React.memo(() => (
-  <View style={StyleSheet.absoluteFill} pointerEvents="none">
-    <Svg width="100%" height="100%" preserveAspectRatio="none">
-      <Defs>
-        <LinearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="black" stopOpacity="0.3" />
-          <Stop offset="0.5" stopColor="black" stopOpacity="0.5" />
-          <Stop offset="1" stopColor="black" stopOpacity="0.9" />
-        </LinearGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill="url(#grad)" />
-    </Svg>
-  </View>
-));
 
 const Login: React.FC = () => {
   const colors = useColors();
@@ -89,7 +69,12 @@ const Login: React.FC = () => {
   });
 
   useEffect(() => {
+    // Autofocus email field after mount animation
+    const timer = setTimeout(() => {
+      emailInputRef.current?.focus();
+    }, 600);
     return () => {
+      clearTimeout(timer);
       isMounted.current = false;
     };
   }, []);
@@ -161,34 +146,22 @@ const Login: React.FC = () => {
         backgroundColor={colors.fixed.black}
       />
 
-      {/* Layer 3: Gradient overlay */}
-      <GradientOverlay />
-
-      {/* Layer 4: Foreground content */}
       <SafeAreaView style={styles.foreground}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingView}
         >
-          {/* Header row — title + mini deck, at top */}
-          <View style={styles.headerRow}>
-            <AppHeader />
-            <MiniDeck />
-          </View>
-
-          {/* Spacer to push form down */}
-          <View style={{ flex: 1 }} />
-
-          {/* Form card — anchored at bottom */}
+          {/* Form card — at the top */}
           <Animated.View
-            entering={FadeInDown.duration(600).delay(300).springify()}
+            entering={FadeInDown.duration(600).delay(100).springify()}
             style={styles.formWrapper}
           >
             <BlurView intensity={40} tint="dark" style={styles.formCard}>
-              {/* Android fallback: semi-transparent background */}
               {Platform.OS === "android" && (
                 <View style={styles.androidBlurFallback} />
               )}
+
+              <Text style={styles.formTitle}>Welcome back</Text>
 
               {error && (
                 <View style={styles.errorContainer}>
@@ -209,7 +182,7 @@ const Login: React.FC = () => {
                   keyboardType="email-address"
                   returnKeyType="next"
                   onSubmitEditing={() => passwordInputRef.current?.focus()}
-                  delay={300}
+                  delay={100}
                 />
 
                 <Input
@@ -223,7 +196,7 @@ const Login: React.FC = () => {
                   secureTextEntry={!showPassword}
                   returnKeyType="done"
                   onSubmitEditing={handleLogin}
-                  delay={400}
+                  delay={200}
                 />
 
                 <TouchableOpacity
@@ -269,9 +242,6 @@ const Login: React.FC = () => {
               </View>
             </BlurView>
           </Animated.View>
-
-          {/* Bottom spacer */}
-          <View style={styles.bottomSpacer} />
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -286,25 +256,16 @@ const createStyles = (colors: Colors) =>
     },
 
     foreground: {
-      ...StyleSheet.absoluteFillObject,
-      zIndex: 2,
+      flex: 1,
     },
 
     keyboardAvoidingView: {
       flex: 1,
     },
 
-    headerRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: spacing.md,
-      overflow: "visible",
-      paddingTop: spacing["2xl"],
-    },
-
     formWrapper: {
-      paddingHorizontal: spacing.xl,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
       width: "100%",
       maxWidth: 440,
       alignSelf: "center",
@@ -316,6 +277,16 @@ const createStyles = (colors: Colors) =>
       borderWidth: 1,
       borderColor: "rgba(255, 255, 255, 0.12)",
       overflow: "hidden",
+    },
+
+    formTitle: {
+      fontSize: fontSize.xl,
+      fontFamily: fontFamily.display,
+      color: colors.fixed.white,
+      marginBottom: spacing.xl,
+      textShadowColor: "rgba(77, 171, 247, 0.4)",
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 8,
     },
 
     androidBlurFallback: {
@@ -388,10 +359,6 @@ const createStyles = (colors: Colors) =>
       color: "rgba(134, 239, 172, 0.6)",
       fontSize: fontSize.xs,
       fontFamily: fontFamily.mono,
-    },
-
-    bottomSpacer: {
-      height: spacing.lg,
     },
   });
 

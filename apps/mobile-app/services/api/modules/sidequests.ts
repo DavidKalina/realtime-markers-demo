@@ -361,6 +361,20 @@ export class SidequestsModule extends BaseApiModule {
     return this.handleResponse<ComfortZoneResponse>(response);
   }
 
+  async generateBarriers(params: {
+    primaryGoal: string;
+  }): Promise<{ barriers: { key: string; label: string; text: string }[] }> {
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/generate-barriers`,
+      {
+        method: "POST",
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.handleResponse(response);
+  }
+
   async generateFearLadder(params: {
     primaryGoal: string;
     goals: string[];

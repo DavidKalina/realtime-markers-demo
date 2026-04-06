@@ -29,11 +29,12 @@ import {
 import { StepWelcome } from "@/components/Onboarding/StepWelcome";
 import { StepPrimaryGoal } from "@/components/Onboarding/StepPrimaryGoal";
 import { StepBarriers } from "@/components/Onboarding/StepBarriers";
+import { StepGeneratingBarriers } from "@/components/Onboarding/StepGeneratingBarriers";
 import { StepGeneratingLadder } from "@/components/Onboarding/StepGeneratingLadder";
 import { StepFearLadder } from "@/components/Onboarding/StepFearLadder";
 import { StepNorthStar } from "@/components/Onboarding/StepNorthStar";
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 const OnboardingScreen: React.FC = () => {
   const colors = useColors();
@@ -50,6 +51,9 @@ const OnboardingScreen: React.FC = () => {
   const [selectedBarriers, setSelectedBarriers] = useState<string[]>([]);
   const [fearLadderResponses, setFearLadderResponses] = useState<Record<string, number>>({});
   const [northStar, setNorthStar] = useState("");
+
+  // LLM-generated barriers
+  const [generatedBarriers, setGeneratedBarriers] = useState<{ key: string; label: string; text: string }[] | null>(null);
 
   // LLM-generated fear ladder
   const [generatedScenarios, setGeneratedScenarios] = useState<{ id: string; text: string; dimension: string }[] | null>(null);
@@ -70,9 +74,9 @@ const OnboardingScreen: React.FC = () => {
     const lines: BuildLine[] = [];
     if (step > 1) lines.push({ label: "init", value: "ready" });
     if (step > 2 && primaryGoal) lines.push({ label: "goal", value: `"${primaryGoal.slice(0, 28)}${primaryGoal.length > 28 ? "..." : ""}"` });
-    if (step > 3) lines.push({ label: "barriers", value: `${selectedBarriers.length} flagged` });
-    if (step > 4) lines.push({ label: "profile", value: "generated" });
-    if (step > 5) lines.push({ label: "calibration", value: `${Object.keys(fearLadderResponses).length} rated` });
+    if (step > 4) lines.push({ label: "barriers", value: `${selectedBarriers.length} flagged` });
+    if (step > 5) lines.push({ label: "profile", value: "generated" });
+    if (step > 6) lines.push({ label: "calibration", value: `${Object.keys(fearLadderResponses).length} rated` });
     return lines;
   }, [step, primaryGoal, selectedBarriers.length, fearLadderResponses]);
 
@@ -101,6 +105,20 @@ const OnboardingScreen: React.FC = () => {
     setFearLadderResponses((prev) => ({ ...prev, [scenarioId]: value }));
   }, []);
 
+  const handleBarriersReady = useCallback((barriers: { key: string; label: string; text: string }[]) => {
+    directionRef.current = "forward";
+    setGeneratedBarriers(barriers);
+    setSelectedBarriers([]);
+    setStep((prev) => prev + 1);
+  }, []);
+
+  // Back from generating barriers — skip back to primary goal (step 2)
+  const handleBackFromGeneratingBarriers = useCallback(() => {
+    directionRef.current = "back";
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setStep(2);
+  }, []);
+
   const handleScenariosReady = useCallback((scenarios: { id: string; text: string; dimension: string }[], dimensions: string[]) => {
     directionRef.current = "forward";
     setGeneratedScenarios(scenarios);
@@ -109,18 +127,18 @@ const OnboardingScreen: React.FC = () => {
     setStep((prev) => prev + 1);
   }, []);
 
-  // Back from generating step — skip back to barriers (step 3)
+  // Back from generating ladder — skip back to barriers (step 4)
   const handleBackFromGenerating = useCallback(() => {
     directionRef.current = "back";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(3);
+    setStep(4);
   }, []);
 
-  // Back from fear ladder — skip back to barriers (step 3), not the loading step
+  // Back from fear ladder — skip back to barriers (step 4), not the loading step
   const handleBackFromFearLadder = useCallback(() => {
     directionRef.current = "back";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(3);
+    setStep(4);
   }, []);
 
   // ── Poll for week pack ────────────────────────────────────
@@ -187,7 +205,7 @@ const OnboardingScreen: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const barriers = deriveBarriersText(selectedBarriers);
+      const barriers = deriveBarriersText(selectedBarriers, generatedBarriers ?? undefined);
       const fearLadder = scoreFearLadder(
         fearLadderResponses,
         generatedScenarios ?? undefined,
@@ -244,7 +262,7 @@ const OnboardingScreen: React.FC = () => {
       setIsLoading(false);
       setGeneratingQuest(false);
     }
-  }, [primaryGoal, selectedBarriers, fearLadderResponses, generatedScenarios, generatedDimensions, northStar, userLocation, refreshAuth, pollForWeekPack]);
+  }, [primaryGoal, selectedBarriers, fearLadderResponses, generatedBarriers, generatedScenarios, generatedDimensions, northStar, userLocation, refreshAuth, pollForWeekPack]);
 
   // ── Transitions ──────────────────────────────────────────
 
@@ -273,14 +291,23 @@ const OnboardingScreen: React.FC = () => {
         );
       case 3:
         return (
+          <StepGeneratingBarriers
+            primaryGoal={primaryGoal}
+            onBarriersReady={handleBarriersReady}
+            onBack={handleBackFromGeneratingBarriers}
+          />
+        );
+      case 4:
+        return (
           <StepBarriers
             selected={selectedBarriers}
             onToggle={(k) => toggle(selectedBarriers, setSelectedBarriers, k)}
             onNext={handleNext}
             onBack={handleBack}
+            options={generatedBarriers ?? undefined}
           />
         );
-      case 4:
+      case 5:
         return (
           <StepGeneratingLadder
             primaryGoal={primaryGoal}
@@ -291,7 +318,7 @@ const OnboardingScreen: React.FC = () => {
             onBack={handleBackFromGenerating}
           />
         );
-      case 5:
+      case 6:
         return (
           <StepFearLadder
             scenarios={generatedScenarios ?? undefined}
@@ -301,7 +328,7 @@ const OnboardingScreen: React.FC = () => {
             onBack={handleBackFromFearLadder}
           />
         );
-      case 6:
+      case 7:
         return (
           <StepNorthStar
             northStar={northStar}

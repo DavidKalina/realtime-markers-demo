@@ -153,9 +153,13 @@ export function deriveComfortZone(barrierKeys: string[], goalKeys: string[]): st
   return parts.join("; ");
 }
 
-export function deriveBarriersText(barrierKeys: string[]): string {
+export function deriveBarriersText(
+  barrierKeys: string[],
+  dynamicBarriers?: { key: string; label: string; text: string }[],
+): string {
+  const options = dynamicBarriers ?? BARRIER_OPTIONS;
   return barrierKeys
-    .map((key) => BARRIER_OPTIONS.find((b) => b.key === key)?.text)
+    .map((key) => options.find((b) => b.key === key)?.text)
     .filter(Boolean)
     .join("; ");
 }

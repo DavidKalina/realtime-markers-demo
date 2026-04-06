@@ -7,6 +7,7 @@ import type { SidequestService } from "../services/SidequestService";
 import type { SidequestCheckinService } from "../services/SidequestCheckinService";
 import type { ComfortZoneService } from "../services/ComfortZoneService";
 import type { FearLadderGenerationService } from "../services/FearLadderGenerationService";
+import type { BarrierGenerationService } from "../services/BarrierGenerationService";
 
 export const listSidequestsHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
@@ -644,6 +645,29 @@ export const generateFearLadderHandler: Handler = withErrorHandling(
       goals: body.goals ?? [],
       barriers: body.barriers ?? [],
       activities: body.activities ?? [],
+    });
+
+    return c.json(result);
+  },
+);
+
+export const generateBarriersHandler: Handler = withErrorHandling(
+  async (c) => {
+    requireAuth(c);
+
+    const body = await c.req.json<{ primaryGoal: string }>();
+
+    if (!body.primaryGoal || typeof body.primaryGoal !== "string" || body.primaryGoal.trim().length === 0) {
+      return c.json({ error: "primaryGoal is required" }, 400);
+    }
+
+    if (body.primaryGoal.length > 500) {
+      return c.json({ error: "primaryGoal must be 500 characters or fewer" }, 400);
+    }
+
+    const barrierGenerationService = c.get("barrierGenerationService") as BarrierGenerationService;
+    const result = await barrierGenerationService.generateBarriers({
+      primaryGoal: body.primaryGoal.trim(),
     });
 
     return c.json(result);

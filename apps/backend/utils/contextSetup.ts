@@ -28,6 +28,7 @@ export function setupContext(
     c.set("pushNotificationService", services.pushNotificationService);
     c.set("jobNotificationService", services.jobNotificationService);
     c.set("fearLadderGenerationService", services.fearLadderGenerationService);
+    c.set("barrierGenerationService", services.barrierGenerationService);
 
     await next();
   });

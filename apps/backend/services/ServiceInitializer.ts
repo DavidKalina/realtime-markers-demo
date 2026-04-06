@@ -43,6 +43,8 @@ import { createPathwayService } from "./PathwayService";
 import type { PathwayService } from "./PathwayService";
 import { createFearLadderGenerationService } from "./FearLadderGenerationService";
 import type { FearLadderGenerationService } from "./FearLadderGenerationService";
+import { createBarrierGenerationService } from "./BarrierGenerationService";
+import type { BarrierGenerationService } from "./BarrierGenerationService";
 
 export interface ServiceContainer {
   dataSource: DataSource;
@@ -65,6 +67,7 @@ export interface ServiceContainer {
   pushNotificationService: PushNotificationService;
   jobNotificationService: JobNotificationService;
   fearLadderGenerationService: FearLadderGenerationService;
+  barrierGenerationService: BarrierGenerationService;
 }
 
 export class ServiceInitializer {
@@ -184,6 +187,10 @@ export class ServiceInitializer {
       openAIService,
     });
 
+    const barrierGenerationService = createBarrierGenerationService({
+      openAIService,
+    });
+
     const sidequestCheckinService = createSidequestCheckinService({
       dataSource: this.dataSource,
       pushService: pushNotificationService,
@@ -216,6 +223,7 @@ export class ServiceInitializer {
       pushNotificationService,
       jobNotificationService,
       fearLadderGenerationService,
+      barrierGenerationService,
     };
   }
 }

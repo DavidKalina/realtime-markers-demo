@@ -47,6 +47,7 @@ export type UserProfile = Pick<
   | "longestStreak"
   | "onboardingProfile"
   | "comfortProfile"
+  | "fearLadder"
   | "pacePreference"
   | "comfortRadiusMiles"
   | "homeLatitude"

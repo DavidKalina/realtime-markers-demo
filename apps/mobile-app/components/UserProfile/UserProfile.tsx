@@ -10,11 +10,9 @@ import {
   type Colors,
 } from "@/theme";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
 import React, {
   useCallback,
   useMemo,
-  useState,
 } from "react";
 import {
   ActivityIndicator,
@@ -28,6 +26,7 @@ import { useUserLocation } from "@/contexts/LocationContext";
 
 import ActiveQuestBanner from "./ActiveQuestBanner";
 import { SettingsSection } from "./SettingsSection";
+import CalibratingCard from "./CalibratingCard";
 
 // Growth dashboard components
 import GrowthScoreHero from "./GrowthScoreHero";
@@ -38,6 +37,13 @@ import BlindSpotCard from "./BlindSpotCard";
 import ExplorationCompass from "./ExplorationCompass";
 import SocialLadder from "./SocialLadder";
 import ComfortExpansion from "./ComfortExpansion";
+import PerceivedFearMeter from "./PerceivedFearMeter";
+import NorthStarCard from "./NorthStarCard";
+
+// ── Progressive reveal thresholds ──────────────────────────
+const TIER_1_QUESTS = 1; // Unlock: Growth Score with real data
+const TIER_2_QUESTS = 3; // Unlock: Growth Arc, Self Insight, Fear delta
+const TIER_3_QUESTS = 5; // Unlock: Pathways, Blind Spots, Social, Exploration, Comfort
 
 // Default empty social data (used when insights haven't loaded yet)
 const EMPTY_SOCIAL = [
@@ -54,7 +60,6 @@ interface UserProfileProps {
 const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const colors = useColors();
   const s = useMemo(() => createStyles(colors), [colors]);
-  const router = useRouter();
   const { user } = useAuth();
 
   const {
@@ -116,34 +121,63 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const si = dashboard?.selfInsight;
   const ec = dashboard?.explorationCompass;
 
+  // ── Progressive reveal tiers ──────────────────────────
+  const completedQuests = ga?.completedQuests ?? 0;
+  const hasTier1 = completedQuests >= TIER_1_QUESTS;
+  const hasTier2 = completedQuests >= TIER_2_QUESTS;
+  const hasTier3 = completedQuests >= TIER_3_QUESTS;
+
   return (
     <Screen isScrollable={false} showBackButton onBack={handleBack} noAnimation>
       <PullToActionScrollView
         onRefresh={handleRefresh}
         contentContainerStyle={s.scrollContent}
       >
-        {/* 1. Growth Score Hero */}
+        {/* 1. Active Quest Banner — always first (the thing to do NOW) */}
         <Animated.View entering={FadeInDown.delay(80).duration(400)}>
+          <ActiveQuestBanner />
+        </Animated.View>
+
+        {/* 2. North Star — always visible (remind them why) */}
+        {(profileData?.comfortProfile?.northStar || profileData?.comfortProfile?.primaryGoal) && (
+          <Animated.View entering={FadeInDown.delay(160).duration(400)}>
+            <NorthStarCard
+              northStar={profileData.comfortProfile.northStar}
+              primaryGoal={profileData.comfortProfile.primaryGoal}
+            />
+          </Animated.View>
+        )}
+
+        {/* 3. Growth Score Hero — show calibrating state until tier 1 */}
+        <Animated.View entering={FadeInDown.delay(240).duration(400)}>
           <GrowthScoreHero
             score={gs?.score ?? 0}
             momentum={gs?.momentum ?? "steady"}
             delta7d={gs?.delta7d ?? 0}
             history={gs?.history ?? []}
             subScores={gs?.subScores ?? { resonance: 0, consistency: 0, expansion: 0, depth: 0 }}
-            questCount={ga?.completedQuests ?? 0}
+            questCount={completedQuests}
             currentStreak={profileData?.currentStreak ?? 0}
             totalXp={profileData?.totalXp ?? 0}
+            calibrating={!hasTier1}
           />
         </Animated.View>
 
-        {/* 2. Active Quest Banner */}
-        <Animated.View entering={FadeInDown.delay(160).duration(400)}>
-          <ActiveQuestBanner />
-        </Animated.View>
+        {/* ── TIER 2: Unlocked at 3 quests ───────────────── */}
 
-        {/* 3. Growth Arc */}
-        {ga && (
-          <Animated.View entering={FadeInDown.delay(240).duration(400)}>
+        {/* 4. Perceived Fear — only show as improvement delta, not raw score */}
+        {hasTier2 && profileData?.fearLadder && (
+          <Animated.View entering={FadeInDown.delay(320).duration(400)}>
+            <PerceivedFearMeter
+              overallScore={profileData.fearLadder.overallScore}
+              dimensionScores={profileData.fearLadder.dimensionScores}
+            />
+          </Animated.View>
+        )}
+
+        {/* 5. Growth Arc */}
+        {hasTier2 && ga && (
+          <Animated.View entering={FadeInDown.delay(400).duration(400)}>
             <GrowthArc
               phase={ga.phase}
               phaseReason={ga.phaseReason}
@@ -156,9 +190,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           </Animated.View>
         )}
 
-        {/* 4. Self-Awareness */}
-        {si && (
-          <Animated.View entering={FadeInDown.delay(320).duration(400)}>
+        {/* 6. Self-Awareness */}
+        {hasTier2 && si && (
+          <Animated.View entering={FadeInDown.delay(480).duration(400)}>
             <SelfInsight
               avgAnxietyDelta={si.avgAnxietyDelta}
               avgDifficultyDelta={si.avgDifficultyDelta}
@@ -169,28 +203,43 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           </Animated.View>
         )}
 
-        {/* 5. Pathway Momentum */}
-        {dashboard && dashboard.pathwayMomentum.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+        {/* Calibrating card for tier 2 unlock */}
+        {!hasTier2 && (
+          <Animated.View entering={FadeInDown.delay(320).duration(400)}>
+            <CalibratingCard
+              questsCompleted={completedQuests}
+              questsNeeded={TIER_2_QUESTS}
+              label="GROWTH INSIGHTS"
+            />
+          </Animated.View>
+        )}
+
+        {/* ── TIER 3: Unlocked at 5 quests ───────────────── */}
+
+        {/* 7. Pathway Momentum */}
+        {hasTier3 && dashboard && dashboard.pathwayMomentum.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(560).duration(400)}>
             <PathwayMomentum pathways={dashboard.pathwayMomentum} />
           </Animated.View>
         )}
 
-        {/* 6. Blind Spots */}
-        {dashboard && dashboard.blindSpots.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(480).duration(400)}>
+        {/* 8. Blind Spots */}
+        {hasTier3 && dashboard && dashboard.blindSpots.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(640).duration(400)}>
             <BlindSpotCard blindSpots={dashboard.blindSpots} />
           </Animated.View>
         )}
 
-        {/* 7. Social Ladder */}
-        <Animated.View entering={FadeInDown.delay(560).duration(400)}>
-          <SocialLadder data={socialData} />
-        </Animated.View>
+        {/* 9. Social Ladder */}
+        {hasTier3 && (
+          <Animated.View entering={FadeInDown.delay(720).duration(400)}>
+            <SocialLadder data={socialData} />
+          </Animated.View>
+        )}
 
-        {/* 8. Exploration Compass */}
-        {ec && (
-          <Animated.View entering={FadeInDown.delay(640).duration(400)}>
+        {/* 10. Exploration Compass */}
+        {hasTier3 && ec && (
+          <Animated.View entering={FadeInDown.delay(800).duration(400)}>
             <ExplorationCompass
               gaps={ec.gaps}
               explorationProfile={ec.explorationProfile}
@@ -201,15 +250,28 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           </Animated.View>
         )}
 
-        {/* 9. Comfort Expansion */}
-        <Animated.View entering={FadeInDown.delay(720).duration(400)}>
-          <ComfortExpansion
-            currentRadiusMiles={profileData?.comfortRadiusMiles ?? 2.3}
-          />
-        </Animated.View>
+        {/* 11. Comfort Expansion */}
+        {hasTier3 && (
+          <Animated.View entering={FadeInDown.delay(880).duration(400)}>
+            <ComfortExpansion
+              currentRadiusMiles={profileData?.comfortRadiusMiles ?? 2.3}
+            />
+          </Animated.View>
+        )}
 
-        {/* 10. Settings */}
-        <Animated.View entering={FadeInDown.delay(800).duration(400)}>
+        {/* Calibrating card for tier 3 unlock */}
+        {!hasTier3 && hasTier1 && (
+          <Animated.View entering={FadeInDown.delay(560).duration(400)}>
+            <CalibratingCard
+              questsCompleted={completedQuests}
+              questsNeeded={TIER_3_QUESTS}
+              label="EXPLORATION & PATHWAYS"
+            />
+          </Animated.View>
+        )}
+
+        {/* 12. Settings — always visible */}
+        <Animated.View entering={FadeInDown.delay(hasTier3 ? 960 : hasTier2 ? 560 : 400).duration(400)}>
           <SettingsSection
             email={profileData?.email ?? ""}
             bio={profileData?.bio}

@@ -79,7 +79,7 @@ function AppProviders({ children }: AppProvidersProps) {
   );
 }
 
-const PUBLIC_SEGMENTS = ["login", "register", "forgot-password", "reset-password"];
+const PUBLIC_SEGMENTS = ["welcome", "login", "register", "forgot-password", "reset-password"];
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -96,7 +96,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     const needsOnboarding = user && !user.comfortProfile;
 
     if (!isAuthenticated && !isPublicRoute && !isOnboarding) {
-      router.replace("/login");
+      router.replace("/welcome");
     } else if (isAuthenticated && isPublicRoute) {
       // Just logged in / registered — route to onboarding or home
       router.replace(needsOnboarding ? "/onboarding" : "/");

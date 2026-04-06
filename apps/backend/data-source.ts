@@ -1,6 +1,7 @@
 // data-source.ts
 import "reflect-metadata";
 import { DataSource } from "typeorm";
+import path from "path";
 
 // Import all entities from the shared package
 import {
@@ -34,7 +35,7 @@ const AppDataSource = new DataSource({
   ],
   synchronize: false,
   migrationsRun: true,
-  migrations: ["migrations/*.ts"],
+  migrations: [path.join(__dirname, "migrations", "*.ts")],
   logging: ["error"],
   ssl: false,
   poolSize: 50,

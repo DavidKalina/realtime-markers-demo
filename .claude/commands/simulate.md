@@ -61,7 +61,7 @@ Build and run the command:
 pnpm tsx apps/backend/scripts/simulate-live.ts [flags]
 ```
 
-Use a 10-minute timeout since simulations can take a while. Report the final summary to the user when complete.
+Use a **10-minute timeout** (600000ms). Run in the **foreground** so the user sees progress.
 
 ### Blocker simulation output
 
@@ -75,3 +75,16 @@ The backend's `buildBlockerContext` runs after 5+ completed quests and feeds det
 ### Cost note
 
 Each quest costs ~$0.02-0.05 (LLM + Google Places). Mention the estimated cost from the script output.
+
+## Summarize results
+
+After the simulation completes, read the output and provide a summary including:
+
+1. **Persona**: Name, goal, barriers, pace
+2. **Quest journey**: Brief table or list of each quest (title, venue, category, rating, social context)
+3. **Pathway formation**: Which pathways formed (BFS vs DFS), themes
+4. **Growth signals**: Phase progression, resonance trends, any blockers detected
+5. **Final stats**: Total quests, avg rating, comfort radius, XP
+6. **Cost**: Total estimated API cost from the output
+
+If the simulation failed partway through, report how far it got and what the error was. Check `docker compose logs backend --tail 50` for backend errors if needed.

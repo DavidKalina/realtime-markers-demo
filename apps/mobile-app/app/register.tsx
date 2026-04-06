@@ -1,6 +1,4 @@
-import AppHeader from "@/components/AnimationHeader";
 import Input from "@/components/Input/Input";
-import MiniDeck from "@/components/Login/MiniDeck";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   useColors,
@@ -16,7 +14,7 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Eye, EyeOff, Lock, Mail, User } from "lucide-react-native";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -39,22 +37,6 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
-
-const GradientOverlay: React.FC = React.memo(() => (
-  <View style={StyleSheet.absoluteFill} pointerEvents="none">
-    <Svg width="100%" height="100%" preserveAspectRatio="none">
-      <Defs>
-        <LinearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="black" stopOpacity="0.3" />
-          <Stop offset="0.5" stopColor="black" stopOpacity="0.5" />
-          <Stop offset="1" stopColor="black" stopOpacity="0.9" />
-        </LinearGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill="url(#grad)" />
-    </Svg>
-  </View>
-));
 
 const RegisterScreen: React.FC = () => {
   const colors = useColors();
@@ -82,6 +64,14 @@ const RegisterScreen: React.FC = () => {
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
   }));
+
+  useEffect(() => {
+    // Autofocus first name field after mount animation
+    const timer = setTimeout(() => {
+      firstNameRef.current?.focus();
+    }, 600);
+    return () => clearTimeout(timer);
+  }, []);
 
   const togglePasswordVisibility = () => {
     Haptics.selectionAsync();
@@ -153,8 +143,6 @@ const RegisterScreen: React.FC = () => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colors.fixed.black} />
 
-      <GradientOverlay />
-
       <SafeAreaView style={styles.foreground}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -164,24 +152,17 @@ const RegisterScreen: React.FC = () => {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Header row — title + mini deck */}
-            <View style={styles.headerRow}>
-              <AppHeader />
-              <MiniDeck />
-            </View>
-
-            {/* Spacer to push form down */}
-            <View style={{ flex: 1 }} />
-
-            {/* Form card */}
+            {/* Form card — at the top */}
             <Animated.View
-              entering={FadeInDown.duration(600).delay(300).springify()}
+              entering={FadeInDown.duration(600).delay(100).springify()}
               style={styles.formWrapper}
             >
               <BlurView intensity={40} tint="dark" style={styles.formCard}>
                 {Platform.OS === "android" && (
                   <View style={styles.androidBlurFallback} />
                 )}
+
+                <Text style={styles.formTitle}>Create account</Text>
 
                 <Animated.View layout={LinearTransition.springify()}>
                   {error && (
@@ -201,7 +182,7 @@ const RegisterScreen: React.FC = () => {
                       autoComplete="given-name"
                       returnKeyType="next"
                       onSubmitEditing={() => lastNameRef.current?.focus()}
-                      delay={200}
+                      delay={100}
                     />
 
                     <Input
@@ -214,7 +195,7 @@ const RegisterScreen: React.FC = () => {
                       autoComplete="family-name"
                       returnKeyType="next"
                       onSubmitEditing={() => emailRef.current?.focus()}
-                      delay={250}
+                      delay={150}
                     />
 
                     <Input
@@ -229,7 +210,7 @@ const RegisterScreen: React.FC = () => {
                       keyboardType="email-address"
                       returnKeyType="next"
                       onSubmitEditing={() => passwordRef.current?.focus()}
-                      delay={300}
+                      delay={200}
                     />
 
                     <Input
@@ -243,7 +224,7 @@ const RegisterScreen: React.FC = () => {
                       secureTextEntry={!showPassword}
                       returnKeyType="next"
                       onSubmitEditing={() => confirmPasswordRef.current?.focus()}
-                      delay={350}
+                      delay={250}
                     />
 
                     <Input
@@ -257,7 +238,7 @@ const RegisterScreen: React.FC = () => {
                       secureTextEntry={!showConfirmPassword}
                       returnKeyType="done"
                       onSubmitEditing={handleRegister}
-                      delay={400}
+                      delay={300}
                     />
                   </View>
 
@@ -299,8 +280,6 @@ const RegisterScreen: React.FC = () => {
                 </Animated.View>
               </BlurView>
             </Animated.View>
-
-            <View style={styles.bottomSpacer} />
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -315,26 +294,20 @@ const createStyles = (colors: Colors) =>
       backgroundColor: colors.fixed.black,
     },
     foreground: {
-      ...StyleSheet.absoluteFillObject,
-      zIndex: 2,
+      flex: 1,
     },
     keyboardAvoidingView: {
       flex: 1,
     },
     scrollContent: {
       flexGrow: 1,
-      paddingHorizontal: spacing.md,
-    },
-    headerRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: spacing.md,
-      overflow: "visible",
-      paddingTop: spacing["2xl"],
     },
     formWrapper: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
       width: "100%",
+      maxWidth: 440,
+      alignSelf: "center",
     },
     formCard: {
       borderRadius: radius["2xl"],
@@ -342,6 +315,15 @@ const createStyles = (colors: Colors) =>
       borderWidth: 1,
       borderColor: "rgba(255, 255, 255, 0.12)",
       overflow: "hidden",
+    },
+    formTitle: {
+      fontSize: fontSize.xl,
+      fontFamily: fontFamily.display,
+      color: colors.fixed.white,
+      marginBottom: spacing.xl,
+      textShadowColor: "rgba(77, 171, 247, 0.4)",
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 8,
     },
     androidBlurFallback: {
       ...StyleSheet.absoluteFillObject,

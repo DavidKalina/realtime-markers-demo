@@ -9,12 +9,15 @@ export function StepBarriers({
   onToggle,
   onNext,
   onBack,
+  options,
 }: {
   selected: string[];
   onToggle: (key: string) => void;
   onNext: () => void;
   onBack?: () => void;
+  options?: { key: string; label: string; text: string }[];
 }) {
+  const barrierOptions = options ?? BARRIER_OPTIONS;
   return (
     <StepLayout
       title="What holds you back?"
@@ -30,7 +33,7 @@ export function StepBarriers({
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        {BARRIER_OPTIONS.map(({ key, label }) => (
+        {barrierOptions.map(({ key, label }) => (
           <OnboardingChip
             key={key}
             label={label}

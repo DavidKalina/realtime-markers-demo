@@ -15,7 +15,10 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 const CARD_WIDTH = 40;
 const CARD_HEIGHT = 56; // ~5:7 ratio
+const CARD_WIDTH_LG = 52;
+const CARD_HEIGHT_LG = 72;
 const CARD_COUNT = 5;
+const CARD_COUNT_CHAIN = 7;
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -24,12 +27,16 @@ const FAN_ANGLES = [-18, -9, 0, 9, 18];
 // Vertical offsets to create a slight arc
 const FAN_Y = [4, 1, 0, 1, 4];
 
+// Chain layout: slight alternating rotations and vertical offsets
+const CHAIN_ANGLES = [-6, 4, -3, 5, -4, 3, -5];
+const CHAIN_Y = [2, -2, 1, -1, 2, -2, 1];
+const CHAIN_OVERLAP = 16; // px overlap between cards
+
 // All cards fly in from stage right
 const ENTRY_FROM_X = SCREEN_WIDTH;
 
 const STAGGER_MS = 120;
 const INITIAL_DELAY = 600;
-const FAN_DELAY = INITIAL_DELAY + CARD_COUNT * STAGGER_MS + 300;
 
 const CARD_TINTS = [
   "rgba(134, 239, 172, 0.5)", // green
@@ -37,16 +44,21 @@ const CARD_TINTS = [
   "rgba(168, 85, 247, 0.5)", // purple
   "rgba(56, 189, 248, 0.5)", // sky blue
   "rgba(52, 211, 153, 0.5)", // teal
+  "rgba(244, 114, 182, 0.5)", // pink
+  "rgba(251, 146, 60, 0.5)", // orange
 ];
 
-const CARD_ICONS = ["🎸", "🥾", "🎨", "🍳", "🏄"];
+const CARD_ICONS = ["🎸", "🥾", "🎨", "🍳", "🏄", "🎤", "🧗"];
+
+type MiniDeckVariant = "fan" | "chain";
 
 interface MiniCardProps {
   index: number;
   fanProgress: Animated.SharedValue<number>;
+  variant: MiniDeckVariant;
 }
 
-const MiniCard: React.FC<MiniCardProps> = React.memo(({ index, fanProgress }) => {
+const MiniCard: React.FC<MiniCardProps> = React.memo(({ index, fanProgress, variant }) => {
   const colors = useColors();
   const tint = CARD_TINTS[index];
 
@@ -78,7 +90,32 @@ const MiniCard: React.FC<MiniCardProps> = React.memo(({ index, fanProgress }) =>
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => {
-    // Phase 2: fan out from pile
+    if (variant === "chain") {
+      const chainAngle = interpolate(
+        fanProgress.value,
+        [0, 1],
+        [0, CHAIN_ANGLES[index]],
+        Extrapolation.CLAMP,
+      );
+      const chainY = interpolate(
+        fanProgress.value,
+        [0, 1],
+        [0, CHAIN_Y[index]],
+        Extrapolation.CLAMP,
+      );
+
+      return {
+        opacity: visible.value,
+        transform: [
+          { translateX: translateX.value },
+          { translateY: chainY },
+          { rotate: `${chainAngle}deg` },
+          { scale: landed.value },
+        ],
+      };
+    }
+
+    // Default fan variant
     const fanAngle = interpolate(
       fanProgress.value,
       [0, 1],
@@ -106,11 +143,12 @@ const MiniCard: React.FC<MiniCardProps> = React.memo(({ index, fanProgress }) =>
   return (
     <Animated.View
       style={[
-        styles.card,
+        variant === "chain" ? styles.cardChain : styles.card,
+        variant === "chain" && { marginLeft: index === 0 ? 0 : -CHAIN_OVERLAP },
         {
           backgroundColor: colors.bg.card,
           borderColor: tint,
-          zIndex: index, // last card lands on top, then fan reorders visually
+          zIndex: index,
         },
         animatedStyle,
       ]}
@@ -137,7 +175,7 @@ const MiniCard: React.FC<MiniCardProps> = React.memo(({ index, fanProgress }) =>
 
       {/* Card content */}
       <View style={styles.cardInner}>
-        <Text style={styles.cardIcon}>{CARD_ICONS[index]}</Text>
+        <Text style={variant === "chain" ? styles.cardIconLg : styles.cardIcon}>{CARD_ICONS[index]}</Text>
         <View style={[styles.cardLine, { backgroundColor: tint }]} />
         <View style={[styles.cardLineSm, { backgroundColor: tint }]} />
       </View>
@@ -145,22 +183,37 @@ const MiniCard: React.FC<MiniCardProps> = React.memo(({ index, fanProgress }) =>
   );
 });
 
-const MiniDeck: React.FC = () => {
+interface MiniDeckProps {
+  variant?: MiniDeckVariant;
+}
+
+const MiniDeck: React.FC<MiniDeckProps> = ({ variant = "fan" }) => {
   const fanProgress = useSharedValue(0);
+  const count = variant === "chain" ? CARD_COUNT_CHAIN : CARD_COUNT;
 
   useEffect(() => {
-    // After all cards have landed, fan them out
+    const fanDelay = INITIAL_DELAY + count * STAGGER_MS + 300;
     fanProgress.value = withDelay(
-      FAN_DELAY,
+      fanDelay,
       withSpring(1, { damping: 20, stiffness: 180, mass: 0.8 }),
     );
   }, []);
+
+  if (variant === "chain") {
+    return (
+      <View style={styles.chainContainer}>
+        {Array.from({ length: CARD_COUNT_CHAIN }).map((_, i) => (
+          <MiniCard key={i} index={i} fanProgress={fanProgress} variant="chain" />
+        ))}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <View style={styles.deckContainer}>
         {Array.from({ length: CARD_COUNT }).map((_, i) => (
-          <MiniCard key={i} index={i} fanProgress={fanProgress} />
+          <MiniCard key={i} index={i} fanProgress={fanProgress} variant="fan" />
         ))}
       </View>
     </View>
@@ -181,6 +234,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "visible",
   },
+  chainContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: CARD_HEIGHT_LG + 20,
+    overflow: "visible",
+  },
   card: {
     position: "absolute",
     width: CARD_WIDTH,
@@ -188,6 +248,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     overflow: "hidden",
+  },
+  cardChain: {
+    position: "relative",
+    width: CARD_WIDTH_LG,
+    height: CARD_HEIGHT_LG,
+    borderRadius: 10,
+    borderWidth: 1,
   },
   cardInner: {
     flex: 1,
@@ -199,6 +266,10 @@ const styles = StyleSheet.create({
   cardIcon: {
     fontSize: 14,
     marginBottom: 2,
+  },
+  cardIconLg: {
+    fontSize: 20,
+    marginBottom: 3,
   },
   cardLine: {
     width: "60%",

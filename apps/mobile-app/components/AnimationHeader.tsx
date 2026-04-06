@@ -45,15 +45,20 @@ const AnimatedChar: React.FC<{
   );
 });
 
-const AppHeader = () => {
+interface AppHeaderProps {
+  size?: "default" | "large";
+}
+
+const AppHeader: React.FC<AppHeaderProps> = ({ size = "default" }) => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const textStyle = size === "large" ? [styles.text, styles.textLarge] : styles.text;
 
   return (
     <View style={styles.container}>
       <View style={styles.titleRow}>
         {TITLE.split("").map((char, i) => (
-          <AnimatedChar key={i} char={char} index={i} style={styles.text} />
+          <AnimatedChar key={i} char={char} index={i} style={textStyle} />
         ))}
       </View>
     </View>
@@ -82,6 +87,11 @@ const createStyles = (colors: Colors) =>
       textShadowColor: "rgba(77, 171, 247, 0.6)",
       textShadowOffset: { width: 0, height: 0 },
       textShadowRadius: 12,
+    },
+    textLarge: {
+      fontSize: 48,
+      letterSpacing: 2,
+      textShadowRadius: 18,
     },
     subtext: {
       fontSize: fontSize.md,
