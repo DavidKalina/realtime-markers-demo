@@ -311,13 +311,24 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
           />
         )}
         {!card.promotedAt && card.questRole && (
-          <HolographicFoil
-            width={OVERLAY_CARD_W}
-            height={OVERLAY_CARD_H}
-            variant={`role_${card.questRole}` as FoilVariant}
-            seed={hashString(card.id)}
-            intensity={0.1}
-          />
+          <>
+            {/* Category foil — subtle base layer for variety */}
+            <HolographicFoil
+              width={OVERLAY_CARD_W}
+              height={OVERLAY_CARD_H}
+              variant={getFoilVariant(undefined, colorKey, card.distanceFromHome)}
+              seed={hashString(card.id)}
+              intensity={0.05}
+            />
+            {/* Role foil — primary pattern */}
+            <HolographicFoil
+              width={OVERLAY_CARD_W}
+              height={OVERLAY_CARD_H}
+              variant={`role_${card.questRole}` as FoilVariant}
+              seed={hashString(card.id)}
+              intensity={0.1}
+            />
+          </>
         )}
 
         <Pressable style={s.cardInner} onPress={handleFlip}>

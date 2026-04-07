@@ -690,8 +690,27 @@ half4 main(float2 xy) {
   vec3 orange = vec3(1.0, 0.5, 0.1);
   vec3 color = mix(amber, orange, heat * 0.6 + pulse * 0.4);
 
-  float glow = warp * 0.5 + heat * 0.3 + pulse * 0.2;
-  float alpha = intensity * glow * 0.8;
+  // Sparkle scatter — two layers for density
+  float sparkle = 0.0;
+  for (int layer = 0; layer < 2; layer++) {
+    float sparkScale = 22.0 + float(layer) * 12.0;
+    vec2 lOff = offset + vec2(float(layer) * 71.3, float(layer) * 43.9);
+    vec2 sparkCell = floor(uv * sparkScale);
+    vec2 sparkLocal = fract(uv * sparkScale);
+    float sr = hash(sparkCell + lOff);
+    float sr2 = hash(sparkCell + lOff + vec2(53.1, 17.9));
+    float sparkActive = step(0.62, sr);
+    vec2 sparkCenter = vec2(sr, sr2) * 0.5 + 0.25;
+    float sparkDist = length(sparkLocal - sparkCenter);
+    float s = smoothstep(0.12, 0.01, sparkDist) * sparkActive;
+    float twinkle = sin(time * (1.5 + sr * 4.0) + sr2 * 6.283) * 0.5 + 0.5;
+    s *= 0.3 + twinkle * 0.7;
+    sparkle = max(sparkle, s);
+  }
+  color += sparkle * vec3(1.0, 0.95, 0.75) * 0.7;
+
+  float glow = warp * 0.5 + heat * 0.3 + pulse * 0.2 + sparkle * 0.4;
+  float alpha = intensity * glow * 0.9;
   return half4(color * alpha, alpha);
 }
 `;

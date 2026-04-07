@@ -769,13 +769,24 @@ const QuestCard: React.FC<{
                 />
               )}
               {isReady && isNearby && !isPromoted && option.questRole && (
-                <HolographicFoil
-                  width={CARD_WIDTH}
-                  height={CARD_HEIGHT}
-                  variant={`role_${option.questRole}` as import("@/components/effects/HolographicFoil").FoilVariant}
-                  seed={hashString(option.id)}
-                  intensity={0.08}
-                />
+                <>
+                  {/* Category foil — subtle base layer for variety */}
+                  <HolographicFoil
+                    width={CARD_WIDTH}
+                    height={CARD_HEIGHT}
+                    variant={getFoilVariant(undefined, colorKey, option.distanceFromHome)}
+                    seed={hashString(option.id)}
+                    intensity={0.04}
+                  />
+                  {/* Role foil — primary pattern */}
+                  <HolographicFoil
+                    width={CARD_WIDTH}
+                    height={CARD_HEIGHT}
+                    variant={`role_${option.questRole}` as import("@/components/effects/HolographicFoil").FoilVariant}
+                    seed={hashString(option.id)}
+                    intensity={0.08}
+                  />
+                </>
               )}
 
               {/* Sheen sweep — only rendered for nearby cards */}
