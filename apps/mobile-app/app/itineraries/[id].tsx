@@ -1060,23 +1060,6 @@ const ItineraryDetailScreen = () => {
                   )}
                 </View>
 
-                {/* Description (now short — 2-3 sentences) */}
-                {selectedItem.description && (
-                  <Text style={styles.itemDetailDesc}>
-                    {selectedItem.description}
-                  </Text>
-                )}
-
-                {/* Hook */}
-                {selectedItem.hook && (
-                  <View style={styles.itemDetailProTip}>
-                    <LinkedText
-                      text={selectedItem.hook}
-                      style={styles.itemDetailProTipText}
-                    />
-                  </View>
-                )}
-
                 {/* Venue — compact */}
                 {selectedItem.venueName && (
                   <Pressable
@@ -1524,14 +1507,6 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       color: accentHex,
       marginTop: 2,
     },
-    itemDetailDesc: {
-      fontSize: fontSize.sm,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.regular,
-      color: colors.text.secondary,
-      lineHeight: 20,
-      marginBottom: spacing.md,
-    },
     itemDetailSection: {
       marginBottom: spacing.md,
       gap: 4,
@@ -1545,21 +1520,6 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       marginBottom: 2,
     },
     itemDetailSectionText: {
-      fontSize: fontSize.sm,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.regular,
-      color: colors.text.primary,
-      lineHeight: 20,
-    },
-    itemDetailProTip: {
-      marginBottom: spacing.sm,
-      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.06)`,
-      borderWidth: 1,
-      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.15)`,
-      borderRadius: radius.md,
-      padding: spacing.sm,
-    },
-    itemDetailProTipText: {
       fontSize: fontSize.sm,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.regular,
