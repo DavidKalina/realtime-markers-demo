@@ -21,7 +21,7 @@ export default {
     },
     ios: {
       // Icon Composer .icon directory for glass effect (SDK 54+)
-      icon: "./assets/app-icon-deck.png",
+      icon: "./assets/sidequests.icon",
       infoPlist: {
         CFBundleDisplayName: "Sidequests",
         ITSAppUsesNonExemptEncryption: false,
