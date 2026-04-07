@@ -10,6 +10,7 @@ import {
   fontWeight,
   fontFamily,
   spacing,
+  radius,
 } from "@/theme";
 
 const ActiveQuestBanner: React.FC = () => {
@@ -40,34 +41,35 @@ const ActiveQuestBanner: React.FC = () => {
 
   return (
     <Pressable style={s.container} onPress={handlePress}>
-      <View style={s.headerRow}>
-        <View style={s.statusRow}>
-          <View style={[s.statusDot, { backgroundColor: colors.accent.primary }]} />
-          <Text style={s.statusLabel}>
-            {allComplete ? "Quest Complete" : "In Progress"}
+      <View style={s.topRow}>
+        <View style={s.left}>
+          <View style={s.statusRow}>
+            <View style={[s.statusDot, { backgroundColor: allComplete ? colors.accent.primary : "#86efac" }]} />
+            <Text style={[s.statusLabel, { color: allComplete ? colors.accent.primary : "#86efac" }]}>
+              {allComplete ? "Quest Complete" : "Active Quest"}
+            </Text>
+          </View>
+          <Text style={s.title} numberOfLines={2}>
+            {itinerary.title || "Your Next Adventure"}
           </Text>
         </View>
-        <ChevronRight size={14} color={colors.text.disabled} />
+        <View style={s.chevronWrap}>
+          <ChevronRight size={18} color={colors.accent.primary} />
+        </View>
       </View>
 
-      <Text style={s.title} numberOfLines={1}>
-        {itinerary.title || "Active Adventure"}
-      </Text>
-
-      {/* View-based progress bar */}
       <View style={s.progressRow}>
         <View style={s.progressTrack}>
           <View style={[s.progressFill, { width: `${progress * 100}%`, backgroundColor: colors.accent.primary }]} />
         </View>
         <Text style={s.progressPct}>
-          {allComplete ? "DONE" : `${checked}/${total}`}
+          {allComplete ? "\u2713" : `${checked}/${total}`}
         </Text>
       </View>
 
-      {/* Next stop */}
       {nextStop && !allComplete && (
         <Text style={s.nextStop} numberOfLines={1}>
-          {"\u25B8"} {nextStop.emoji || "\uD83D\uDCCD"} {nextStop.venueName || nextStop.title}
+          Next up: {nextStop.emoji || ""} {nextStop.venueName || nextStop.title}
         </Text>
       )}
     </Pressable>
@@ -77,23 +79,34 @@ const ActiveQuestBanner: React.FC = () => {
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
     container: {
-      borderRadius: 6,
-      borderWidth: 1,
-      borderColor: `rgba(${colors.accent.rgb}, 0.25)`,
-      backgroundColor: `rgba(${colors.accent.rgb}, 0.06)`,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.md,
-      gap: spacing.sm,
+      borderRadius: radius.md,
+      backgroundColor: `rgba(${colors.accent.rgb}, 0.08)`,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg,
+      gap: spacing.md,
     },
-    headerRow: {
+    topRow: {
       flexDirection: "row",
+      alignItems: "flex-start",
       justifyContent: "space-between",
+    },
+    left: {
+      flex: 1,
+      gap: spacing.xs,
+    },
+    chevronWrap: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: `rgba(${colors.accent.rgb}, 0.12)`,
       alignItems: "center",
+      justifyContent: "center",
+      marginLeft: spacing.md,
     },
     statusRow: {
       flexDirection: "row",
       alignItems: "center",
-      gap: spacing.xs,
+      gap: spacing.sm,
     },
     statusDot: {
       width: 6,
@@ -102,16 +115,16 @@ const createStyles = (colors: Colors) =>
     },
     statusLabel: {
       fontFamily: fontFamily.mono,
-      fontSize: 9,
-      fontWeight: fontWeight.bold,
-      color: colors.accent.primary,
+      fontSize: 11,
+      fontWeight: fontWeight.semibold,
       letterSpacing: 0.5,
     },
     title: {
       fontFamily: fontFamily.mono,
-      fontSize: 14,
+      fontSize: 17,
       fontWeight: fontWeight.bold,
       color: colors.text.primary,
+      lineHeight: 24,
     },
     progressRow: {
       flexDirection: "row",
@@ -120,25 +133,26 @@ const createStyles = (colors: Colors) =>
     },
     progressTrack: {
       flex: 1,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: "rgba(255,255,255,0.12)",
+      height: 3,
+      borderRadius: 1.5,
+      backgroundColor: "rgba(255,255,255,0.1)",
       overflow: "hidden",
     },
     progressFill: {
-      height: 4,
-      borderRadius: 2,
+      height: 3,
+      borderRadius: 1.5,
     },
     progressPct: {
       fontFamily: fontFamily.mono,
-      fontSize: 10,
-      fontWeight: fontWeight.bold,
-      color: colors.accent.primary,
+      fontSize: 11,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
     },
     nextStop: {
       fontFamily: fontFamily.mono,
-      fontSize: 11,
+      fontSize: 13,
       color: colors.text.secondary,
+      opacity: 0.9,
     },
   });
 

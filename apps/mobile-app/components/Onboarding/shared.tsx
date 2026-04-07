@@ -168,7 +168,10 @@ export function StepProgress({
   total: number;
 }) {
   const colors = useColors();
-  if (step === 1) return null;
+
+  if (step === 1) {
+    return <View style={progressStyles.placeholder} />;
+  }
 
   return (
     <View style={progressStyles.container}>
@@ -219,6 +222,9 @@ const progressStyles = StyleSheet.create({
   counter: {
     fontFamily: fontFamily.mono,
     fontSize: 12,
+  },
+  placeholder: {
+    height: 6 + spacing.md * 2,
   },
 });
 
@@ -271,7 +277,7 @@ export function StepLayout({
   const content = (
     <View style={layoutStyles.outer}>
       <StepCard style={layoutStyles.card}>
-        {onBack && <BackButton onPress={onBack} />}
+        {onBack ? <BackButton onPress={onBack} /> : <View style={layoutStyles.backPlaceholder} />}
         <View style={layoutStyles.topRow}>
           <View style={layoutStyles.headerText}>
             <Text style={[layoutStyles.title, { color: colors.text.primary }]}>
@@ -324,6 +330,9 @@ const layoutStyles = StyleSheet.create({
   headerText: {
     flex: 1,
     gap: spacing.sm,
+  },
+  backPlaceholder: {
+    height: 28,
   },
   content: {
     flex: 1,

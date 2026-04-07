@@ -453,6 +453,17 @@ const QuestCard: React.FC<{
       label: RARITY_LABELS[rarityKey as Rarity] ?? RARITY_LABELS.common,
       ...hexToCardColors(cardHex),
     };
+    // Role-specific accent color — matches the foil variant
+    const ROLE_COLORS: Record<string, string> = {
+      stretch: "#fbbf24",
+      enjoy: "#fcd34d",
+      deepen: "#c084fc",
+      explore: "#7dd3fc",
+      discover: "#86efac",
+    };
+    const cardAccent = (!option.promotedAt && option.questRole)
+      ? ROLE_COLORS[option.questRole] ?? tierMeta.text
+      : tierMeta.text;
     const isBrowse = mode === "browse";
     const isReady = isBrowse || option.status === "READY";
 
@@ -730,12 +741,20 @@ const QuestCard: React.FC<{
             <Animated.View
               style={[
                 s.card,
-                { borderColor: tierMeta.text },
+                {
+                  borderColor: !isPromoted && option.questRole
+                    ? option.questRole === "stretch" ? "rgba(251, 191, 36, 0.4)"
+                    : option.questRole === "enjoy" ? "rgba(252, 211, 77, 0.4)"
+                    : option.questRole === "deepen" ? "rgba(192, 132, 252, 0.4)"
+                    : option.questRole === "explore" ? "rgba(125, 211, 252, 0.4)"
+                    : "rgba(134, 239, 172, 0.4)"
+                    : tierMeta.text,
+                },
                 isReady ? undefined : s.cardGenerating,
                 promotionProgress ? promotionBorderStyle : undefined,
               ]}
             >
-              {/* Holographic foil overlay — only on promoted cards, nearby */}
+              {/* Holographic foil overlay — promoted cards get rarity foil, unpromoted get role foil */}
               {isReady && isNearby && isPromoted && (
                 <HolographicFoil
                   width={CARD_WIDTH}
@@ -747,6 +766,15 @@ const QuestCard: React.FC<{
                   )}
                   seed={hashString(option.id)}
                   intensity={FOIL_INTENSITY[rarityKey] ?? FOIL_INTENSITY.common}
+                />
+              )}
+              {isReady && isNearby && !isPromoted && option.questRole && (
+                <HolographicFoil
+                  width={CARD_WIDTH}
+                  height={CARD_HEIGHT}
+                  variant={`role_${option.questRole}` as import("@/components/effects/HolographicFoil").FoilVariant}
+                  seed={hashString(option.id)}
+                  intensity={0.08}
                 />
               )}
 
@@ -792,17 +820,19 @@ const QuestCard: React.FC<{
                           color:
                             option.questRole === "stretch"
                               ? "#fbbf24"
-                              : option.pathwayPhase === "dfs"
-                                ? colors.accent.primary
-                                : "#93c5fd",
+                              : option.questRole === "enjoy"
+                                ? "#fcd34d"
+                                : option.questRole === "deepen"
+                                  ? "#c084fc"
+                                  : option.questRole === "explore"
+                                    ? "#7dd3fc"
+                                    : "#86efac",
                         },
                       ]}
                     >
-                      {option.questRole === "stretch"
-                        ? `\u{1F525} ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? "STRETCH GOAL"}`
-                        : option.pathwayPhase === "dfs" && option.pathwayLabel
-                          ? `${objectives[0]?.emoji ?? "\u{1F3AF}"} ${option.pathwayLabel} \u00B7 ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? option.questRole.toUpperCase()}`
-                          : `\u{1F50D} ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? option.questRole.toUpperCase()}`}
+                      {option.pathwayPhase === "dfs" && option.pathwayLabel
+                        ? `${option.pathwayLabel} \u00B7 ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? option.questRole.toUpperCase()}`
+                        : QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? option.questRole.toUpperCase()}
                     </Text>
                   ) : option.rarity ? (
                     <Text style={[s.headerTier, { color: tierMeta.text }]}>
@@ -882,10 +912,10 @@ const QuestCard: React.FC<{
                             style={[
                               s.stopCircle,
                               {
-                                borderColor: tierMeta.border,
+                                borderColor: `${cardAccent}44`,
                                 backgroundColor:
                                   isBrowse && obj.checkedInAt
-                                    ? tierMeta.bg
+                                    ? `${cardAccent}18`
                                     : "transparent",
                               },
                             ]}
@@ -923,38 +953,26 @@ const QuestCard: React.FC<{
                       option.distanceFromHome != null
                         ? Number(option.distanceFromHome)
                         : null;
-                    // Normalize distance to 0-1 (cap at 10mi)
-                    const distNorm = dist != null ? Math.min(dist / 10, 1) : 0;
-                    // Normalize cost to 0-1 (cap at $50)
-                    const costNorm =
-                      totalCost > 0 ? Math.min(totalCost / 50, 1) : 0;
-                    const diffFill = Math.round((diff / 10) * 20);
-                    const diffBar =
-                      "\u2588".repeat(diffFill) +
-                      "\u2591".repeat(20 - diffFill);
-                    const distBar =
-                      "\u2588".repeat(Math.round(distNorm * 20)) +
-                      "\u2591".repeat(20 - Math.round(distNorm * 20));
-                    const costBar =
-                      "\u2588".repeat(Math.round(costNorm * 20)) +
-                      "\u2591".repeat(20 - Math.round(costNorm * 20));
+                    const diffPct = (diff / 10) * 100;
+                    const distPct = dist != null ? Math.min(dist / 10, 1) * 100 : 0;
+                    const costPct = totalCost > 0 ? Math.min(totalCost / 50, 1) * 100 : 0;
                     return (
                       <View style={s.statsBlock}>
                         <View style={s.statRow}>
                           <Text style={s.statLabel}>Difficulty</Text>
-                          <Text style={[s.statBar, { color: tierMeta.text }]}>
-                            {diffBar}
-                          </Text>
-                          <Text style={[s.statValue, { color: tierMeta.text }]}>
+                          <View style={s.statBarTrack}>
+                            <View style={[s.statBarFill, { width: `${diffPct}%`, backgroundColor: cardAccent }]} />
+                          </View>
+                          <Text style={[s.statValue, { color: cardAccent }]}>
                             {diff}/10
                           </Text>
                         </View>
                         <View style={s.statRow}>
                           <Text style={s.statLabel}>Distance</Text>
-                          <Text style={[s.statBar, { color: tierMeta.text }]}>
-                            {distBar}
-                          </Text>
-                          <Text style={[s.statValue, { color: tierMeta.text }]}>
+                          <View style={s.statBarTrack}>
+                            <View style={[s.statBarFill, { width: `${distPct}%`, backgroundColor: cardAccent }]} />
+                          </View>
+                          <Text style={[s.statValue, { color: cardAccent }]}>
                             {dist != null
                               ? dist < 0.1
                                 ? "<0.1"
@@ -965,10 +983,10 @@ const QuestCard: React.FC<{
                         </View>
                         <View style={s.statRow}>
                           <Text style={s.statLabel}>Cost</Text>
-                          <Text style={[s.statBar, { color: tierMeta.text }]}>
-                            {costBar}
-                          </Text>
-                          <Text style={[s.statValue, { color: tierMeta.text }]}>
+                          <View style={s.statBarTrack}>
+                            <View style={[s.statBarFill, { width: `${costPct}%`, backgroundColor: cardAccent }]} />
+                          </View>
+                          <Text style={[s.statValue, { color: cardAccent }]}>
                             {totalCost > 0 ? `$${totalCost}` : "FREE"}
                           </Text>
                         </View>
@@ -984,7 +1002,6 @@ const QuestCard: React.FC<{
                     style={[
                       s.flavorBlock,
                       {
-                        borderColor: tierMeta.border,
                         flex: 1,
                         overflow: "hidden",
                       },
@@ -1621,13 +1638,13 @@ const createCardStyles = (colors: Colors) =>
       height: CARD_HEIGHT,
       backgroundColor: colors.bg.elevated,
       borderRadius: radius.xl,
-      borderWidth: 2.5,
+      borderWidth: 1.5,
       overflow: "hidden",
       shadowColor: colors.fixed.black,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.5,
-      shadowRadius: 24,
-      elevation: 14,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.35,
+      shadowRadius: 16,
+      elevation: 10,
     },
     cardGenerating: {
       borderStyle: "dashed",
@@ -1636,8 +1653,6 @@ const createCardStyles = (colors: Colors) =>
       flex: 1,
       margin: FRAME_INSET,
       borderRadius: radius.sm - 3,
-      borderWidth: 1,
-      borderColor: colors.border.default,
       overflow: "hidden",
     },
     // ── Header band ──
@@ -1667,12 +1682,11 @@ const createCardStyles = (colors: Colors) =>
       marginHorizontal: spacing.sm,
       height: 90,
       borderRadius: radius.sm - 3,
-      borderWidth: 1,
-      backgroundColor: "rgba(0, 0, 0, 0.3)",
+      backgroundColor: "rgba(0, 0, 0, 0.15)",
     },
     artOverlay: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: "rgba(0, 0, 0, 0.15)",
+      backgroundColor: "rgba(0, 0, 0, 0.06)",
       borderRadius: radius.sm - 3,
     },
     artEmoji: {
@@ -1755,7 +1769,7 @@ const createCardStyles = (colors: Colors) =>
       width: 30,
       height: 30,
       borderRadius: 15,
-      borderWidth: 1.5,
+      borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -1784,34 +1798,6 @@ const createCardStyles = (colors: Colors) =>
       color: colors.text.disabled,
       paddingLeft: 42,
     },
-    // ── Stats block — 3 bordered cells ──
-    statsBlock: {
-      flexDirection: "row",
-      marginHorizontal: spacing.sm,
-      marginTop: spacing.xs,
-      gap: spacing.xs,
-    },
-    statCell: {
-      flex: 1,
-      alignItems: "center",
-      paddingVertical: spacing.xs,
-      borderRadius: radius.sm - 3,
-      borderWidth: 1,
-      gap: 1,
-    },
-    statLabel: {
-      fontSize: 7,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      color: colors.text.disabled,
-      letterSpacing: 0.8,
-    },
-    statValue: {
-      fontSize: 13,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      color: colors.text.primary,
-    },
     // ── Tag chips ──
     // ── Flavor text quote ──
     flavorBlock: {
@@ -1820,8 +1806,7 @@ const createCardStyles = (colors: Colors) =>
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.md,
       borderRadius: radius.sm - 3,
-      borderWidth: 1,
-      backgroundColor: "rgba(255, 255, 255, 0.03)",
+      backgroundColor: "rgba(255, 255, 255, 0.04)",
     },
     flavorText: {
       fontSize: 14,
@@ -1840,7 +1825,7 @@ const createCardStyles = (colors: Colors) =>
     statsBlock: {
       marginHorizontal: spacing.sm,
       marginTop: spacing.lg,
-      gap: spacing.sm,
+      gap: spacing._10,
     },
     statRow: {
       flexDirection: "row",
@@ -1848,23 +1833,28 @@ const createCardStyles = (colors: Colors) =>
       gap: spacing.sm,
     },
     statLabel: {
-      fontSize: 12,
+      fontSize: 11,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.medium,
       color: colors.text.secondary,
-      width: 76,
+      width: 68,
     },
-    statBar: {
-      fontSize: 14,
-      fontFamily: fontFamily.mono,
-      letterSpacing: -0.5,
+    statBarTrack: {
       flex: 1,
+      height: 3,
+      borderRadius: 1.5,
+      backgroundColor: "rgba(255, 255, 255, 0.08)",
+      overflow: "hidden",
+    },
+    statBarFill: {
+      height: 3,
+      borderRadius: 1.5,
     },
     statValue: {
-      fontSize: 12,
+      fontSize: 11,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.bold,
-      width: 50,
+      width: 44,
       textAlign: "right",
     },
     tagRow: {
@@ -1891,11 +1881,9 @@ const createCardStyles = (colors: Colors) =>
       flexDirection: "row",
       alignItems: "center",
       paddingHorizontal: spacing.sm,
-      paddingTop: 3,
-      paddingBottom: 3,
-      marginTop: spacing.xs,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border.default,
+      paddingTop: spacing.xs,
+      paddingBottom: spacing.xs,
+      marginTop: spacing.sm,
     },
     serialNumber: {
       fontSize: 8,

@@ -30,13 +30,10 @@ import InfoModal from "@/components/InfoModal";
 
 // ── Constants ──────────────────────────────────────────────────
 
-const BLUE = "#93c5fd";
-const AMBER = "#fbbf24";
-
 const RING_SIZE = 120;
 const CENTER = RING_SIZE / 2;
 const RING_RADIUS = 46;
-const STROKE_WIDTH = 6;
+const STROKE_WIDTH = 5;
 const CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -79,25 +76,21 @@ const SUB_SCORES = [
   {
     key: "resonance" as const,
     label: "Resonance",
-    color: null as string | null,
     info: "How emotionally aligned your quests feel. High resonance means the algorithm is finding experiences that genuinely click with you.",
   },
   {
     key: "consistency" as const,
     label: "Consistency",
-    color: BLUE as string | null,
     info: "How regularly you complete quests. Streaks, weekly activity, and follow-through all contribute. Consistency compounds growth.",
   },
   {
     key: "expansion" as const,
     label: "Expansion",
-    color: AMBER as string | null,
     info: "How much you're pushing beyond your comfort zone — new areas, new venue types, further from home.",
   },
   {
     key: "depth" as const,
     label: "Depth",
-    color: "#c4b5fd" as string | null,
     info: "How deeply you're engaging with your pathways. Returning to what resonates, increasing difficulty, and reflecting meaningfully all build depth.",
   },
 ];
@@ -213,10 +206,10 @@ function GrowthScoreHero({
       setActiveInfo({
         title: sub.label,
         body: sub.info,
-        color: sub.color ?? undefined,
+        color: accentColor,
       });
     },
-    [],
+    [accentColor],
   );
 
   const deltaText =
@@ -225,43 +218,25 @@ function GrowthScoreHero({
 
   return (
     <View style={s.container}>
-      {/* Header: label + momentum */}
-      <View style={s.headerRow}>
-        <Text style={[s.headerLabel, { color: colors.text.primary }]}>
-          {calibrating ? "Growth" : `Growth: ${score}`}
-        </Text>
-        <Animated.Text
-          style={[
-            s.momentumBadge,
-            {
-              color: calibrating
-                ? colors.text.secondary
-                : accentColor,
-            },
-            mStyle,
-          ]}
-        >
-          {calibrating
-            ? "Calibrating"
-            : `${mc.arrow} ${mc.label}${deltaText ? ` ${deltaText}` : ""}`}
+      {/* Momentum badge */}
+      {!calibrating && (
+        <Animated.Text style={[s.momentumBadge, { color: accentColor }, mStyle]}>
+          {mc.arrow} {mc.label}{deltaText ? ` ${deltaText}` : ""}
         </Animated.Text>
-      </View>
+      )}
 
       {/* Ring + sub-scores side by side */}
       <View style={s.topRow}>
-        {/* Clean arc ring */}
         <Pressable style={s.ringWrapper} onPress={handleRingPress}>
           <Svg width={RING_SIZE} height={RING_SIZE}>
-            {/* Background track */}
             <Circle
               cx={CENTER}
               cy={CENTER}
               r={RING_RADIUS}
-              stroke="rgba(255, 255, 255, 0.1)"
+              stroke="rgba(255, 255, 255, 0.06)"
               strokeWidth={STROKE_WIDTH}
               fill="none"
             />
-            {/* Filled arc */}
             <AnimatedCircle
               cx={CENTER}
               cy={CENTER}
@@ -275,18 +250,17 @@ function GrowthScoreHero({
               rotation={-90}
               origin={`${CENTER}, ${CENTER}`}
             />
-            {/* Center score */}
             <SvgText
               x={CENTER}
               y={calibrating ? CENTER : CENTER - 2}
               fill={calibrating ? colors.text.secondary : colors.text.primary}
-              fontSize={calibrating ? 12 : 28}
+              fontSize={calibrating ? 14 : 28}
               fontFamily="SpaceMono"
               fontWeight="700"
               textAnchor="middle"
               alignmentBaseline="central"
             >
-              {calibrating ? "..." : score}
+              {calibrating ? "\u2022\u2022\u2022" : score}
             </SvgText>
             {!calibrating && (
               <SvgText
@@ -297,6 +271,7 @@ function GrowthScoreHero({
                 fontFamily="SpaceMono"
                 textAnchor="middle"
                 alignmentBaseline="central"
+                opacity={0.6}
               >
                 / 100
               </SvgText>
@@ -307,7 +282,6 @@ function GrowthScoreHero({
         {/* Sub-score bars */}
         <View style={[s.subsColumn, { opacity: showSubs ? 1 : 0 }]}>
           {SUB_SCORES.map((sub) => {
-            const subColor = sub.color ?? accentColor;
             const subPct = subScores[sub.key];
             return (
               <Pressable
@@ -317,7 +291,7 @@ function GrowthScoreHero({
                   calibrating ? undefined : () => handleSubPress(sub)
                 }
               >
-                <Text style={[s.subLabel, { color: colors.text.secondary }]}>
+                <Text style={s.subLabel}>
                   {sub.label}
                 </Text>
                 <View style={s.subBarTrack}>
@@ -327,22 +301,14 @@ function GrowthScoreHero({
                       {
                         width: calibrating ? "0%" : `${subPct}%`,
                         backgroundColor: calibrating
-                          ? "rgba(255, 255, 255, 0.12)"
-                          : subColor,
+                          ? "rgba(255, 255, 255, 0.06)"
+                          : accentColor,
+                        opacity: calibrating ? 1 : 0.7,
                       },
                     ]}
                   />
                 </View>
-                <Text
-                  style={[
-                    s.subValue,
-                    {
-                      color: calibrating
-                        ? colors.text.secondary
-                        : subColor,
-                    },
-                  ]}
-                >
+                <Text style={s.subValue}>
                   {calibrating ? "--" : subPct}
                 </Text>
               </Pressable>
@@ -362,7 +328,7 @@ function GrowthScoreHero({
               strokeWidth={1.5}
               strokeLinejoin="round"
               strokeLinecap="round"
-              opacity={0.6}
+              opacity={0.5}
             />
           </Svg>
         </View>
@@ -403,16 +369,6 @@ const createStyles = (colors: Colors) =>
     container: {
       gap: spacing.lg,
     },
-    headerRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-    },
-    headerLabel: {
-      fontFamily: fontFamily.mono,
-      fontSize: 18,
-      fontWeight: fontWeight.bold,
-    },
     momentumBadge: {
       fontFamily: fontFamily.mono,
       fontSize: 12,
@@ -429,7 +385,7 @@ const createStyles = (colors: Colors) =>
     },
     subsColumn: {
       flex: 1,
-      gap: spacing.sm,
+      gap: spacing._10,
     },
     subRow: {
       flexDirection: "row",
@@ -438,25 +394,27 @@ const createStyles = (colors: Colors) =>
     },
     subLabel: {
       fontFamily: fontFamily.mono,
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: fontWeight.medium,
-      width: 80,
+      color: colors.text.secondary,
+      width: 84,
     },
     subBarTrack: {
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: "rgba(255, 255, 255, 0.1)",
+      height: 3,
+      borderRadius: 1.5,
+      backgroundColor: "rgba(255, 255, 255, 0.06)",
       overflow: "hidden",
       flex: 1,
     },
     subBarFill: {
-      height: 4,
-      borderRadius: 2,
+      height: 3,
+      borderRadius: 1.5,
     },
     subValue: {
       fontFamily: fontFamily.mono,
       fontSize: 12,
-      fontWeight: fontWeight.bold,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.secondary,
       width: 24,
       textAlign: "right",
     },
@@ -474,17 +432,20 @@ const createStyles = (colors: Colors) =>
       fontSize: 12,
       color: colors.text.secondary,
       fontWeight: fontWeight.medium,
+      opacity: 0.7,
     },
     statDot: {
       fontFamily: fontFamily.mono,
       fontSize: 12,
       color: colors.text.secondary,
+      opacity: 0.4,
     },
     calibratingHint: {
       fontFamily: fontFamily.mono,
       fontSize: 12,
       color: colors.text.secondary,
       fontStyle: "italic",
+      opacity: 0.6,
     },
   });
 

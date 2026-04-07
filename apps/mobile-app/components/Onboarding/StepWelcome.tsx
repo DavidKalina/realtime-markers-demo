@@ -10,32 +10,34 @@ export function StepWelcome({ onNext }: { onNext: () => void }) {
 
   return (
     <View style={s.outer}>
-      <View style={s.centered}>
-        <StepCard>
-          <View style={s.topRow}>
-            <Animated.View
-              entering={FadeInUp.delay(200).duration(500).springify()}
-              style={s.headerText}
-            >
-              <Text style={s.title}>You have a goal.</Text>
-              <Text style={s.body}>
-                We'll turn it into real-world quests tailored to your comfort
-                zone.
-              </Text>
-              <Text style={s.hint}>
-                It only takes a few minutes to get started.
-              </Text>
-            </Animated.View>
-            <HeroCard step={1} rotation={-4} />
-          </View>
-
+      <StepCard style={s.card}>
+        {/* Placeholder matching BackButton height for vertical alignment with other steps */}
+        <View style={s.backPlaceholder} />
+        <View style={s.topRow}>
           <Animated.View
-            entering={FadeInDown.delay(500).duration(400).springify()}
+            entering={FadeInUp.delay(200).duration(500).springify()}
+            style={s.headerText}
           >
-            <NextButton label="Begin" onPress={onNext} solid />
+            <Text style={s.title}>You have a goal.</Text>
+            <Text style={s.body}>
+              We'll turn it into real-world quests tailored to your comfort
+              zone.
+            </Text>
+            <Text style={s.hint}>
+              It only takes a few minutes to get started.
+            </Text>
           </Animated.View>
-        </StepCard>
-      </View>
+          <HeroCard step={1} rotation={-4} />
+        </View>
+
+        <View style={s.spacer} />
+
+        <Animated.View
+          entering={FadeInDown.delay(500).duration(400).springify()}
+        >
+          <NextButton label="Begin" onPress={onNext} solid />
+        </Animated.View>
+      </StepCard>
     </View>
   );
 }
@@ -44,14 +46,11 @@ const createStyles = (colors: Colors) =>
   StyleSheet.create({
     outer: {
       flex: 1,
-      justifyContent: "center",
       paddingHorizontal: spacing.xl,
-      paddingBottom: spacing["4xl"],
+      paddingBottom: spacing.xl,
     },
-    centered: {
-      maxWidth: 440,
-      alignSelf: "center",
-      width: "100%",
+    card: {
+      flex: 1,
     },
     topRow: {
       flexDirection: "row",
@@ -64,10 +63,10 @@ const createStyles = (colors: Colors) =>
     },
     title: {
       fontFamily: fontFamily.mono,
-      fontSize: 24,
+      fontSize: 22,
       fontWeight: fontWeight.bold,
       color: colors.text.primary,
-      lineHeight: 32,
+      lineHeight: 30,
     },
     body: {
       fontFamily: fontFamily.mono,
@@ -82,5 +81,11 @@ const createStyles = (colors: Colors) =>
       color: colors.text.secondary,
       lineHeight: 20,
       opacity: 0.7,
+    },
+    backPlaceholder: {
+      height: 28,
+    },
+    spacer: {
+      flex: 1,
     },
   });

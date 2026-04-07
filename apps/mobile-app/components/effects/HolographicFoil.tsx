@@ -668,6 +668,156 @@ half4 main(float2 xy) {
 }
 `;
 
+// --- 13. ROLE_STRETCH: hot amber pulsing glow — pushing limits ---
+const ROLE_STRETCH_SKSL = `
+${UNIFORM_HEADER}
+${GLSL_HELPERS}
+
+half4 main(float2 xy) {
+  vec2 uv = xy / resolution;
+  vec2 offset = vec2(seed * 113.7, seed * 271.3);
+
+  float n1 = noise(uv * 4.0 + offset + time * 0.3);
+  float n2 = noise(uv * 8.0 + offset * 1.5 - time * 0.2);
+  float warp = n1 * 0.6 + n2 * 0.4;
+
+  // Rising heat distortion
+  float heat = noise(vec2(uv.x * 3.0, uv.y * 2.0 - time * 0.4) + offset);
+  float pulse = sin(time * 0.8 + warp * 6.0 + seed * 5.0) * 0.5 + 0.5;
+
+  // Amber to orange gradient
+  vec3 amber = vec3(1.0, 0.75, 0.2);
+  vec3 orange = vec3(1.0, 0.5, 0.1);
+  vec3 color = mix(amber, orange, heat * 0.6 + pulse * 0.4);
+
+  float glow = warp * 0.5 + heat * 0.3 + pulse * 0.2;
+  float alpha = intensity * glow * 0.8;
+  return half4(color * alpha, alpha);
+}
+`;
+
+// --- 14. ROLE_EXPLORE: cool blue sweeping bands — new territory ---
+const ROLE_EXPLORE_SKSL = `
+${UNIFORM_HEADER}
+${GLSL_HELPERS}
+
+half4 main(float2 xy) {
+  vec2 uv = xy / resolution;
+  vec2 offset = vec2(seed * 197.1, seed * 89.3);
+
+  // Sweeping diagonal bands
+  float angle = uv.x * 2.0 + uv.y * 3.0 + time * 0.12 + seed * 7.0;
+  float band = sin(angle * 6.283) * 0.5 + 0.5;
+  band = smoothstep(0.3, 0.7, band);
+
+  float shimmer = noise(uv * 12.0 + offset + time * 0.4);
+
+  // Cool blue to cyan
+  vec3 blue = vec3(0.3, 0.6, 1.0);
+  vec3 cyan = vec3(0.2, 0.85, 0.9);
+  vec3 color = mix(blue, cyan, band * 0.6 + shimmer * 0.4);
+
+  float alpha = intensity * (band * 0.5 + shimmer * 0.25) * 0.7;
+  return half4(color * alpha, alpha);
+}
+`;
+
+// --- 15. ROLE_DISCOVER: soft green shimmer — first contact ---
+const ROLE_DISCOVER_SKSL = `
+${UNIFORM_HEADER}
+${GLSL_HELPERS}
+
+half4 main(float2 xy) {
+  vec2 uv = xy / resolution;
+  vec2 offset = vec2(seed * 67.3, seed * 193.7);
+
+  float n = noise(uv * 6.0 + offset + time * 0.25);
+  float sparkle = noise(uv * 30.0 + offset * 2.0 + time * 0.8);
+  sparkle = smoothstep(0.65, 0.85, sparkle);
+
+  // Soft pulse
+  float pulse = sin(time * 0.6 + n * 4.0 + seed * 3.0) * 0.5 + 0.5;
+
+  // Green to emerald
+  vec3 green = vec3(0.2, 0.85, 0.5);
+  vec3 emerald = vec3(0.1, 0.7, 0.6);
+  vec3 color = mix(emerald, green, n * 0.5 + pulse * 0.5);
+  color += sparkle * vec3(0.8, 1.0, 0.9) * 0.3;
+
+  float alpha = intensity * (n * 0.4 + sparkle * 0.4 + pulse * 0.15) * 0.75;
+  return half4(color * alpha, alpha);
+}
+`;
+
+// --- 16. ROLE_DEEPEN: warm purple/violet depth waves ---
+const ROLE_DEEPEN_SKSL = `
+${UNIFORM_HEADER}
+${GLSL_HELPERS}
+
+half4 main(float2 xy) {
+  vec2 uv = xy / resolution;
+  vec2 offset = vec2(seed * 157.3, seed * 223.1);
+
+  // Concentric ripples from center
+  float cx = 0.5 + sin(time * 0.3 + seed * 5.0) * 0.05;
+  float cy = 0.5 + cos(time * 0.25 + seed * 3.0) * 0.05;
+  float dist = length(uv - vec2(cx, cy));
+  float ripple = sin(dist * 20.0 - time * 0.8 + seed * 9.0) * 0.5 + 0.5;
+
+  float n = noise(uv * 5.0 + offset + time * 0.15);
+
+  // Purple to violet
+  vec3 purple = vec3(0.6, 0.3, 0.9);
+  vec3 violet = vec3(0.8, 0.4, 1.0);
+  vec3 color = mix(purple, violet, ripple * 0.5 + n * 0.5);
+
+  float glow = ripple * 0.4 + n * 0.3;
+  float fade = 1.0 - smoothstep(0.0, 0.6, dist);
+  float alpha = intensity * glow * fade * 0.85;
+  return half4(color * alpha, alpha);
+}
+`;
+
+// --- 17. ROLE_ENJOY: golden warm sparkle — pure fun ---
+const ROLE_ENJOY_SKSL = `
+${UNIFORM_HEADER}
+${GLSL_HELPERS}
+
+half4 main(float2 xy) {
+  vec2 uv = xy / resolution;
+  vec2 offset = vec2(seed * 143.7, seed * 97.1);
+
+  // Scattered golden sparkles
+  float scale = 35.0;
+  vec2 cell = floor(uv * scale);
+  vec2 local = fract(uv * scale);
+
+  float rnd = hash(cell + offset);
+  float rnd2 = hash(cell + vec2(17.3, 53.7) + offset);
+  float rnd3 = hash(cell + vec2(41.1, 89.3) + offset);
+
+  float active = step(0.65, rnd);
+  vec2 center = vec2(rnd2, rnd3) * 0.6 + 0.2;
+  float d = length(local - center);
+  float sparkle = smoothstep(0.14, 0.02, d) * active;
+
+  // Twinkle
+  float twinkle = sin(time * (1.5 + rnd * 2.5) + rnd2 * 6.283 + seed * 11.0) * 0.5 + 0.5;
+  sparkle *= 0.5 + twinkle * 0.5;
+
+  // Soft background warmth
+  float warmth = noise(uv * 4.0 + offset + time * 0.15) * 0.3;
+
+  // Gold to warm yellow
+  vec3 gold = vec3(1.0, 0.85, 0.3);
+  vec3 warm = vec3(1.0, 0.7, 0.2);
+  vec3 color = mix(warm, gold, sparkle * 0.6 + warmth);
+
+  float alpha = intensity * (sparkle * 0.7 + warmth * 0.3) * 0.8;
+  return half4(color * alpha, alpha);
+}
+`;
+
 // --- Compile all shaders ---
 const SHADERS = {
   holographic: Skia.RuntimeEffect.Make(HOLOGRAPHIC_SKSL),
@@ -682,6 +832,11 @@ const SHADERS = {
   grainy_sahara: Skia.RuntimeEffect.Make(GRAINY_SAHARA_SKSL),
   ember_forest: Skia.RuntimeEffect.Make(EMBER_FOREST_SKSL),
   noisy_cavern: Skia.RuntimeEffect.Make(NOISY_CAVERN_SKSL),
+  role_stretch: Skia.RuntimeEffect.Make(ROLE_STRETCH_SKSL),
+  role_explore: Skia.RuntimeEffect.Make(ROLE_EXPLORE_SKSL),
+  role_discover: Skia.RuntimeEffect.Make(ROLE_DISCOVER_SKSL),
+  role_deepen: Skia.RuntimeEffect.Make(ROLE_DEEPEN_SKSL),
+  role_enjoy: Skia.RuntimeEffect.Make(ROLE_ENJOY_SKSL),
 };
 
 export type FoilVariant = keyof typeof SHADERS;

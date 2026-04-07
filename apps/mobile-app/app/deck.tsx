@@ -26,6 +26,7 @@ import { scheduleOnRN } from "react-native-worklets";
 import QuestCardDeck from "@/components/Itinerary/QuestCardDeck";
 import { CheckinCaptureModal } from "@/components/Itinerary/CheckinCaptureModal";
 import { QuestMemoryModal } from "@/components/Itinerary/QuestMemoryModal";
+import MiniDeck from "@/components/Login/MiniDeck";
 import { apiClient } from "@/services/ApiClient";
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
 import { fontFamily, fontWeight, radius, spacing, useColors } from "@/theme";
@@ -369,9 +370,18 @@ const DeckScreen = () => {
         {loading ? (
           <ActivityIndicator color={colors.text.secondary} />
         ) : cards.length === 0 ? (
-          <Text style={[styles.emptyText, { color: colors.text.secondary }]}>
-            No completed sidequests yet
-          </Text>
+          <View style={styles.emptyState}>
+            <MiniDeck variant="fan" />
+            <View style={styles.emptyContent}>
+              <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
+                Your deck is empty
+              </Text>
+              <Text style={[styles.emptyBody, { color: colors.text.secondary }]}>
+                Complete quests to collect cards.{"\n"}
+                Each one becomes a memory you can revisit.
+              </Text>
+            </View>
+          </View>
         ) : (
           <QuestCardDeck
             options={cards}
@@ -475,10 +485,29 @@ const styles = StyleSheet.create({
     textTransform: undefined,
     letterSpacing: 0.5,
   },
-  emptyText: {
-    textAlign: "center",
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing["2xl"],
+    paddingHorizontal: spacing["2xl"],
+  },
+  emptyContent: {
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  emptyTitle: {
     fontFamily: fontFamily.mono,
-    fontSize: 13,
+    fontSize: 18,
+    fontWeight: fontWeight.bold,
+    textAlign: "center",
+  },
+  emptyBody: {
+    fontFamily: fontFamily.mono,
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 22,
+    opacity: 0.7,
   },
 });
 

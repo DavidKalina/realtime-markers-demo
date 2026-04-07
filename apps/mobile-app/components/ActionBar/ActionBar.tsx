@@ -1,9 +1,9 @@
 import * as Haptics from "expo-haptics";
 import { usePathname, useRouter } from "expo-router";
 import {
-  Layers,
   LucideIcon,
   LucideSword,
+  Spade,
   User,
 } from "lucide-react-native";
 import React, { useCallback, useMemo } from "react";
@@ -54,7 +54,7 @@ const TABS: TabConfig[] = [
   {
     key: "deck",
     label: "Your Deck",
-    icon: Layers,
+    icon: Spade,
     route: "/deck",
   },
   {

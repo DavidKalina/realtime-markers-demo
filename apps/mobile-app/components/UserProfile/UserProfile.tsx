@@ -5,6 +5,8 @@ import { useGrowthDashboard } from "@/hooks/useGrowthDashboard";
 import { apiClient } from "@/services/ApiClient";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import {
+  fontFamily,
+  fontWeight,
   spacing,
   useColors,
   type Colors,
@@ -18,20 +20,19 @@ import React, {
 import {
   ActivityIndicator,
   StyleSheet,
+  Text,
   useWindowDimensions,
   View,
 } from "react-native";
 import Animated, {
   Easing,
   FadeInDown,
-  useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
   withDelay,
   withRepeat,
   withSequence,
   withTiming,
-  type SharedValue,
 } from "react-native-reanimated";
 import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
@@ -41,6 +42,7 @@ import { useUserLocation } from "@/contexts/LocationContext";
 import ActiveQuestBanner from "./ActiveQuestBanner";
 import { SettingsSection } from "./SettingsSection";
 import CalibratingCard from "./CalibratingCard";
+import SectionMark from "./SectionMark";
 
 // Growth dashboard components
 import GrowthScoreHero from "./GrowthScoreHero";
@@ -83,8 +85,7 @@ half4 main(float2 xy) {
   vec3 col = blue * glow1 + cyan * glow2 * 0.3;
   col *= pulse;
 
-  // Much subtler alpha than onboarding
-  float alpha = (glow1 * 0.1 + glow2 * 0.06) * pulse * reveal;
+  float alpha = (glow1 * 0.18 + glow2 * 0.1) * pulse * reveal;
 
   return half4(col * alpha, alpha);
 }
@@ -132,27 +133,29 @@ const AmbientGlow: React.FC = React.memo(() => {
 
 AmbientGlow.displayName = "AmbientGlow";
 
-// ── Parallax widget ─────────────────────────────────────────
-
-const PARALLAX_RATES = [1.0, 0.95, 0.9, 0.86, 0.82, 0.78, 0.75, 0.72, 0.7, 0.68, 0.66, 0.64];
+// ── Staggered entrance widget ────────────────────────────────
 
 const ParallaxWidget: React.FC<{
-  scrollY: SharedValue<number>;
-  index: number;
+  scrollY?: unknown;
+  index?: number;
   delay: number;
   children: React.ReactNode;
-}> = ({ scrollY, index, delay, children }) => {
-  const rate = PARALLAX_RATES[index] ?? 0.64;
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateY: -scrollY.value * (1 - rate) }],
-  }));
-
+}> = ({ delay, children }) => {
   return (
     <Animated.View entering={FadeInDown.delay(delay).duration(400)}>
-      <Animated.View style={style}>{children}</Animated.View>
+      {children}
     </Animated.View>
   );
 };
+
+// ── Greeting ─────────────────────────────────────────────────
+
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
 
 // ── Progressive reveal thresholds ──────────────────────────
 const TIER_1_QUESTS = 1; // Unlock: Growth Score with real data
@@ -242,6 +245,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const hasTier2 = completedQuests >= TIER_2_QUESTS;
   const hasTier3 = completedQuests >= TIER_3_QUESTS;
 
+  const firstName = profileData?.firstName;
+  const greeting = getGreeting();
+
   return (
     <Screen isScrollable={false} showBackButton onBack={handleBack} noAnimation>
       <AmbientGlow />
@@ -250,13 +256,40 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         contentContainerStyle={s.scrollContent}
         scrollY={scrollY}
       >
+        {/* 0. Greeting */}
+        <ParallaxWidget scrollY={scrollY} index={0} delay={0}>
+          <View style={s.greetingSection}>
+            <Text style={s.greetingText}>
+              {greeting}{firstName ? `, ${firstName}` : ""}
+            </Text>
+            {completedQuests === 0 && (
+              <Text style={s.greetingSubtitle}>
+                Your first quest is waiting for you
+              </Text>
+            )}
+            {completedQuests > 0 && completedQuests < 3 && (
+              <Text style={s.greetingSubtitle}>
+                You're just getting started
+              </Text>
+            )}
+          </View>
+        </ParallaxWidget>
+
         {/* 1. Active Quest Banner */}
-        <ParallaxWidget scrollY={scrollY} index={0} delay={80}>
+        <ParallaxWidget scrollY={scrollY} index={1} delay={80}>
           <ActiveQuestBanner />
         </ParallaxWidget>
 
         {/* 2. Growth Score Hero */}
-        <ParallaxWidget scrollY={scrollY} index={1} delay={160}>
+        <ParallaxWidget scrollY={scrollY} index={2} delay={160}>
+          <SectionMark
+            icon={"\uD83D\uDCCA"}
+            tint="rgba(125, 211, 252, 0.5)"
+            label="Growth"
+            side="left"
+            trailing={!hasTier1 ? "Calibrating" : undefined}
+            trailingColor={colors.text.secondary}
+          />
           <GrowthScoreHero
             score={gs?.score ?? 0}
             momentum={gs?.momentum ?? "steady"}
@@ -272,7 +305,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
         {/* 3. North Star */}
         {(profileData?.comfortProfile?.northStar || profileData?.comfortProfile?.primaryGoal) && (
-          <ParallaxWidget scrollY={scrollY} index={2} delay={240}>
+          <ParallaxWidget scrollY={scrollY} index={3} delay={240}>
+            <SectionMark
+              icon={"\u2B50"}
+              tint="rgba(251, 191, 36, 0.5)"
+              label="Your North Star"
+              side="right"
+            />
             <NorthStarCard
               northStar={profileData.comfortProfile.northStar}
               primaryGoal={profileData.comfortProfile.primaryGoal}
@@ -284,7 +323,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
         {/* 4. Perceived Fear */}
         {hasTier2 && profileData?.fearLadder && (
-          <ParallaxWidget scrollY={scrollY} index={3} delay={320}>
+          <ParallaxWidget scrollY={scrollY} index={4} delay={320}>
+            <SectionMark icon={"\uD83C\uDFA2"} tint="rgba(251, 146, 60, 0.5)" label="Perceived Fear" side="left" />
             <PerceivedFearMeter
               overallScore={profileData.fearLadder.overallScore}
               dimensionScores={profileData.fearLadder.dimensionScores}
@@ -294,7 +334,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
         {/* 5. Growth Arc */}
         {hasTier2 && ga && (
-          <ParallaxWidget scrollY={scrollY} index={4} delay={400}>
+          <ParallaxWidget scrollY={scrollY} index={5} delay={400}>
+            <SectionMark icon={"\uD83D\uDCC8"} tint="rgba(52, 211, 153, 0.5)" label="Growth Arc" side="right" />
             <GrowthArc
               phase={ga.phase}
               phaseReason={ga.phaseReason}
@@ -309,7 +350,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
         {/* 6. Self-Awareness */}
         {hasTier2 && si && (
-          <ParallaxWidget scrollY={scrollY} index={5} delay={480}>
+          <ParallaxWidget scrollY={scrollY} index={6} delay={480}>
+            <SectionMark icon={"\uD83E\uDE9E"} tint="rgba(168, 85, 247, 0.5)" label="Self-Awareness" side="left" />
             <SelfInsight
               avgAnxietyDelta={si.avgAnxietyDelta}
               avgDifficultyDelta={si.avgDifficultyDelta}
@@ -322,7 +364,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
         {/* Calibrating card for tier 2 */}
         {!hasTier2 && (
-          <ParallaxWidget scrollY={scrollY} index={3} delay={320}>
+          <ParallaxWidget scrollY={scrollY} index={4} delay={320}>
+            <SectionMark icon={"\uD83D\uDD2E"} tint="rgba(168, 85, 247, 0.5)" label="Growth Insights" side="right" />
             <CalibratingCard
               questsCompleted={completedQuests}
               questsNeeded={TIER_2_QUESTS}
@@ -333,28 +376,32 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
         {/* 7. Pathway Momentum */}
         {hasTier3 && dashboard && dashboard.pathwayMomentum.length > 0 && (
-          <ParallaxWidget scrollY={scrollY} index={6} delay={560}>
+          <ParallaxWidget scrollY={scrollY} index={7} delay={560}>
+            <SectionMark icon={"\uD83D\uDEE4\uFE0F"} tint="rgba(56, 189, 248, 0.5)" label="Pathways" side="left" />
             <PathwayMomentum pathways={dashboard.pathwayMomentum} />
           </ParallaxWidget>
         )}
 
         {/* 8. Blind Spots */}
         {hasTier3 && dashboard && dashboard.blindSpots.length > 0 && (
-          <ParallaxWidget scrollY={scrollY} index={7} delay={640}>
+          <ParallaxWidget scrollY={scrollY} index={8} delay={640}>
+            <SectionMark icon={"\uD83D\uDD0D"} tint="rgba(244, 114, 182, 0.5)" label="Blind Spots" side="right" />
             <BlindSpotCard blindSpots={dashboard.blindSpots} />
           </ParallaxWidget>
         )}
 
         {/* 9. Social Ladder */}
         {hasTier3 && (
-          <ParallaxWidget scrollY={scrollY} index={8} delay={720}>
+          <ParallaxWidget scrollY={scrollY} index={9} delay={720}>
+            <SectionMark icon={"\uD83D\uDC65"} tint="rgba(52, 211, 153, 0.5)" label="Social Growth" side="left" />
             <SocialLadder data={socialData} />
           </ParallaxWidget>
         )}
 
         {/* 10. Exploration Compass */}
         {hasTier3 && ec && (
-          <ParallaxWidget scrollY={scrollY} index={9} delay={800}>
+          <ParallaxWidget scrollY={scrollY} index={10} delay={800}>
+            <SectionMark icon={"\uD83E\uDDED"} tint="rgba(125, 211, 252, 0.5)" label="Exploration" side="right" />
             <ExplorationCompass
               gaps={ec.gaps}
               explorationProfile={ec.explorationProfile}
@@ -367,7 +414,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
         {/* 11. Comfort Expansion */}
         {hasTier3 && (
-          <ParallaxWidget scrollY={scrollY} index={10} delay={880}>
+          <ParallaxWidget scrollY={scrollY} index={11} delay={880}>
+            <SectionMark icon={"\uD83C\uDF0A"} tint="rgba(56, 189, 248, 0.5)" label="Comfort Zone" side="left" />
             <ComfortExpansion
               currentRadiusMiles={profileData?.comfortRadiusMiles ?? 2.3}
             />
@@ -376,7 +424,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
         {/* Calibrating card for tier 3 */}
         {!hasTier3 && hasTier1 && (
-          <ParallaxWidget scrollY={scrollY} index={6} delay={560}>
+          <ParallaxWidget scrollY={scrollY} index={7} delay={560}>
+            <SectionMark icon={"\uD83E\uDDED"} tint="rgba(125, 211, 252, 0.5)" label="Exploration & Pathways" side="right" />
             <CalibratingCard
               questsCompleted={completedQuests}
               questsNeeded={TIER_3_QUESTS}
@@ -386,7 +435,8 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         )}
 
         {/* 12. Settings */}
-        <ParallaxWidget scrollY={scrollY} index={11} delay={hasTier3 ? 960 : hasTier2 ? 560 : 400}>
+        <ParallaxWidget scrollY={scrollY} index={12} delay={hasTier3 ? 960 : hasTier2 ? 560 : 400}>
+          <SectionMark icon={"\u2699\uFE0F"} tint="rgba(255, 255, 255, 0.3)" label="Settings" side="left" />
           <SettingsSection
             email={profileData?.email ?? ""}
             bio={profileData?.bio}
@@ -412,9 +462,25 @@ const createStyles = (colors: Colors) =>
       justifyContent: "center",
     },
     scrollContent: {
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.md,
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.lg,
       paddingBottom: spacing.xl * 3,
       gap: spacing["3xl"],
+    },
+    greetingSection: {
+      gap: spacing.xs,
+    },
+    greetingText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 22,
+      fontWeight: fontWeight.bold,
+      color: colors.text.primary,
+      lineHeight: 30,
+    },
+    greetingSubtitle: {
+      fontFamily: fontFamily.mono,
+      fontSize: 14,
+      color: colors.text.secondary,
+      opacity: 0.7,
     },
   });

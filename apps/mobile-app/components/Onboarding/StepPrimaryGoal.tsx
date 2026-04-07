@@ -54,8 +54,9 @@ export function StepPrimaryGoal({
                   What's your main goal?
                 </Text>
                 <Text style={[s.subtitle, { color: colors.text.secondary }]}>
-                  This can be anything {"\u2014"} become a comedian, overcome
-                  social anxiety, learn to cook, run a marathon...
+                  Something that gets you out into the world {"\u2014"} building
+                  confidence, exploring your city, meeting people, trying new
+                  things...
                 </Text>
               </View>
               <HeroCard step={2} rotation={3} />

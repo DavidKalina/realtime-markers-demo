@@ -34,7 +34,10 @@ import { Canvas, Fill, Shader, Skia } from "@shopify/react-native-skia";
 import { useGyroTilt, GyroTiltDebugPanel } from "@/hooks/useGyroTilt";
 import {
   getCategoryColor,
+  getFoilVariant,
 } from "@/utils/categoryColors";
+import HolographicFoil, { hashString } from "@/components/effects/HolographicFoil";
+import type { FoilVariant } from "@/components/effects/HolographicFoil";
 import { QUEST_ROLE_LABELS } from "@realtime-markers/shared";
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
 import {
@@ -240,6 +243,16 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
       label: RARITY_LABELS[rarityKey] ?? RARITY_LABELS.common,
       ...hexToCardColors(cardHex),
     };
+    const ROLE_COLORS: Record<string, string> = {
+      stretch: "#fbbf24",
+      enjoy: "#fcd34d",
+      deepen: "#c084fc",
+      explore: "#7dd3fc",
+      discover: "#86efac",
+    };
+    const cardAccent = (!card.promotedAt && card.questRole)
+      ? ROLE_COLORS[card.questRole] ?? tierMeta.text
+      : tierMeta.text;
     const objectives = (card.objectives ?? []).sort(
       (a, b) => a.sortOrder - b.sortOrder,
     );
@@ -262,7 +275,7 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
       <View
         style={[
           s.card,
-          { borderColor: tierMeta.text },
+          { borderColor: `${cardAccent}66` },
         ]}
       >
         {face === "front" && tiltSheenShader && (
@@ -283,6 +296,30 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
           </Canvas>
         )}
 
+        {/* Foil overlay — promoted cards get rarity foil, unpromoted get role foil */}
+        {card.promotedAt && (
+          <HolographicFoil
+            width={OVERLAY_CARD_W}
+            height={OVERLAY_CARD_H}
+            variant={getFoilVariant(
+              card.rarity,
+              colorKey,
+              card.distanceFromHome,
+            )}
+            seed={hashString(card.id)}
+            intensity={0.12}
+          />
+        )}
+        {!card.promotedAt && card.questRole && (
+          <HolographicFoil
+            width={OVERLAY_CARD_W}
+            height={OVERLAY_CARD_H}
+            variant={`role_${card.questRole}` as FoilVariant}
+            seed={hashString(card.id)}
+            intensity={0.1}
+          />
+        )}
+
         <Pressable style={s.cardInner} onPress={handleFlip}>
           {/* HEADER */}
           <View style={s.headerBand}>
@@ -291,11 +328,11 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
                 {card.questRole ? (
                   <Text style={[
                     s.headerTier,
-                    { color: card.pathwayPhase === "dfs" ? colors.accent.primary : "#93c5fd" },
+                    { color: cardAccent },
                   ]}>
                     {card.pathwayPhase === "dfs" && card.pathwayLabel
-                      ? `${objective?.emoji ?? "\u{1F3AF}"} ${card.pathwayLabel} \u00B7 ${QUEST_ROLE_LABELS[card.questRole as keyof typeof QUEST_ROLE_LABELS] ?? card.questRole.toUpperCase()}`
-                      : `\u{1F50D} ${QUEST_ROLE_LABELS[card.questRole as keyof typeof QUEST_ROLE_LABELS] ?? card.questRole.toUpperCase()}`}
+                      ? `${card.pathwayLabel} \u00B7 ${QUEST_ROLE_LABELS[card.questRole as keyof typeof QUEST_ROLE_LABELS] ?? card.questRole.toUpperCase()}`
+                      : QUEST_ROLE_LABELS[card.questRole as keyof typeof QUEST_ROLE_LABELS] ?? card.questRole.toUpperCase()}
                   </Text>
                 ) : (
                   <Text style={[s.headerTier, { color: tierMeta.text }]}>
@@ -370,8 +407,8 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
                       style={[
                         s.stopCircle,
                         {
-                          borderColor: tierMeta.border,
-                          backgroundColor: obj.checkedInAt ? tierMeta.bg : "transparent",
+                          borderColor: `${cardAccent}44`,
+                          backgroundColor: obj.checkedInAt ? `${cardAccent}18` : "transparent",
                         },
                       ]}
                     >
@@ -389,7 +426,7 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
                   const label = emoji ? activity.slice(emoji.length).trim() : activity;
                   return (
                     <View key={activity} style={s.stopRow}>
-                      <View style={[s.stopCircle, { borderColor: tierMeta.border }]}>
+                      <View style={[s.stopCircle, { borderColor: `${cardAccent}44` }]}>
                         <Text style={s.stopEmoji}>{emoji ?? "\u2728"}</Text>
                       </View>
                       <View style={s.stopText}>
@@ -407,30 +444,33 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
           {face === "front" && (() => {
             const diff = Math.min(Number(objective?.difficulty ?? 1), 10);
             const dist = card.distanceFromHome != null ? Number(card.distanceFromHome) : null;
-            const distNorm = dist != null ? Math.min(dist / 10, 1) : 0;
-            const costNorm = totalCost > 0 ? Math.min(totalCost / 50, 1) : 0;
-            const diffFill = Math.round((diff / 10) * 20);
-            const diffBar = "\u2588".repeat(diffFill) + "\u2591".repeat(20 - diffFill);
-            const distBar = "\u2588".repeat(Math.round(distNorm * 20)) + "\u2591".repeat(20 - Math.round(distNorm * 20));
-            const costBar = "\u2588".repeat(Math.round(costNorm * 20)) + "\u2591".repeat(20 - Math.round(costNorm * 20));
+            const diffPct = (diff / 10) * 100;
+            const distPct = dist != null ? Math.min(dist / 10, 1) * 100 : 0;
+            const costPct = totalCost > 0 ? Math.min(totalCost / 50, 1) * 100 : 0;
             return (
               <View style={s.statsBlock}>
                 <View style={s.statRow}>
                   <Text style={s.statLabel}>Difficulty</Text>
-                  <Text style={[s.statBar, { color: tierMeta.text }]}>{diffBar}</Text>
-                  <Text style={[s.statValue, { color: tierMeta.text }]}>{diff}/10</Text>
+                  <View style={s.statBarTrack}>
+                    <View style={[s.statBarFill, { width: `${diffPct}%`, backgroundColor: cardAccent }]} />
+                  </View>
+                  <Text style={[s.statValue, { color: cardAccent }]}>{diff}/10</Text>
                 </View>
                 <View style={s.statRow}>
                   <Text style={s.statLabel}>Distance</Text>
-                  <Text style={[s.statBar, { color: tierMeta.text }]}>{distBar}</Text>
-                  <Text style={[s.statValue, { color: tierMeta.text }]}>
+                  <View style={s.statBarTrack}>
+                    <View style={[s.statBarFill, { width: `${distPct}%`, backgroundColor: cardAccent }]} />
+                  </View>
+                  <Text style={[s.statValue, { color: cardAccent }]}>
                     {dist != null ? (dist < 0.1 ? "<0.1" : dist.toFixed(1)) : "?"} mi
                   </Text>
                 </View>
                 <View style={s.statRow}>
                   <Text style={s.statLabel}>Cost</Text>
-                  <Text style={[s.statBar, { color: tierMeta.text }]}>{costBar}</Text>
-                  <Text style={[s.statValue, { color: tierMeta.text }]}>
+                  <View style={s.statBarTrack}>
+                    <View style={[s.statBarFill, { width: `${costPct}%`, backgroundColor: cardAccent }]} />
+                  </View>
+                  <Text style={[s.statValue, { color: cardAccent }]}>
                     {totalCost > 0 ? `$${totalCost}` : "FREE"}
                   </Text>
                 </View>
@@ -440,7 +480,7 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
 
           {/* FLAVOR TEXT */}
           {face === "front" && (objective?.hook || card.summary) && objectives.length <= 3 ? (
-            <View style={[s.flavorBlock, { borderColor: tierMeta.border, flex: 1, overflow: "hidden" }]}>
+            <View style={[s.flavorBlock, { flex: 1, overflow: "hidden" }]}>
               <Text style={s.flavorText} numberOfLines={5}>
                 {"\u201C"}{(objective?.hook ?? card.summary ?? "").split(/[.!]/)[0].trim()}.{"\u201D"}
               </Text>
@@ -451,7 +491,7 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
 
           {/* BACK FACE CONTENT */}
           {face === "back" && objective?.journalPrompt && (
-            <View style={[s.flavorBlock, { borderColor: tierMeta.border }]}>
+            <View style={s.flavorBlock}>
               <Text style={s.flavorText}>
                 {"\u201C"}{objective.journalPrompt}{"\u201D"}
               </Text>
@@ -460,7 +500,7 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
           )}
 
           {face === "back" && objective?.hook && (
-            <View style={[s.flavorBlock, { borderColor: tierMeta.border }]}>
+            <View style={s.flavorBlock}>
               <Text style={s.flavorText}>{objective.hook}</Text>
               <Text style={s.flavorAttrib}>{"\u2014"} Why this stop</Text>
             </View>
@@ -609,20 +649,18 @@ const createStyles = (colors: Colors) =>
       height: OVERLAY_CARD_H,
       backgroundColor: colors.bg.elevated,
       borderRadius: radius.xl,
-      borderWidth: 2.5,
+      borderWidth: 1.5,
       overflow: "hidden",
       shadowColor: colors.fixed?.black ?? "#000",
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.5,
-      shadowRadius: 24,
-      elevation: 14,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.35,
+      shadowRadius: 16,
+      elevation: 10,
     },
     cardInner: {
       flex: 1,
       margin: FRAME_INSET,
       borderRadius: radius.sm - 3,
-      borderWidth: 1,
-      borderColor: colors.border.default,
       overflow: "hidden",
     },
     headerBand: {
@@ -650,12 +688,11 @@ const createStyles = (colors: Colors) =>
       marginHorizontal: spacing.sm,
       height: 90,
       borderRadius: radius.sm - 3,
-      borderWidth: 1,
-      backgroundColor: "rgba(0, 0, 0, 0.3)",
+      backgroundColor: "rgba(0, 0, 0, 0.15)",
     },
     artOverlay: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: "rgba(0, 0, 0, 0.15)",
+      backgroundColor: "rgba(0, 0, 0, 0.06)",
       borderRadius: radius.sm - 3,
     },
     artEmoji: {
@@ -707,7 +744,7 @@ const createStyles = (colors: Colors) =>
       width: 30,
       height: 30,
       borderRadius: 15,
-      borderWidth: 1.5,
+      borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -740,8 +777,7 @@ const createStyles = (colors: Colors) =>
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.xs + 2,
       borderRadius: radius.sm - 3,
-      borderWidth: 1,
-      backgroundColor: "rgba(255, 255, 255, 0.03)",
+      backgroundColor: "rgba(255, 255, 255, 0.04)",
     },
     flavorText: {
       fontSize: 10,
@@ -760,7 +796,7 @@ const createStyles = (colors: Colors) =>
     statsBlock: {
       marginHorizontal: spacing.sm,
       marginTop: spacing.lg,
-      gap: spacing.sm,
+      gap: spacing._10,
     },
     statRow: {
       flexDirection: "row",
@@ -768,34 +804,37 @@ const createStyles = (colors: Colors) =>
       gap: spacing.sm,
     },
     statLabel: {
-      fontSize: 12,
+      fontSize: 11,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.medium,
       color: colors.text.secondary,
-      width: 76,
+      width: 68,
     },
-    statBar: {
-      fontSize: 14,
-      fontFamily: fontFamily.mono,
-      letterSpacing: -0.5,
+    statBarTrack: {
       flex: 1,
+      height: 3,
+      borderRadius: 1.5,
+      backgroundColor: "rgba(255, 255, 255, 0.08)",
+      overflow: "hidden",
+    },
+    statBarFill: {
+      height: 3,
+      borderRadius: 1.5,
     },
     statValue: {
-      fontSize: 12,
+      fontSize: 11,
       fontFamily: fontFamily.mono,
       fontWeight: fontWeight.bold,
-      width: 50,
+      width: 44,
       textAlign: "right",
     },
     serialRow: {
       flexDirection: "row",
       alignItems: "center",
       paddingHorizontal: spacing.sm,
-      paddingTop: 3,
-      paddingBottom: 3,
-      marginTop: spacing.xs,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.border.default,
+      paddingTop: spacing.xs,
+      paddingBottom: spacing.xs,
+      marginTop: spacing.sm,
     },
     serialNumber: {
       fontSize: 7,

@@ -104,21 +104,19 @@ export function StepGoalRefinement({ primaryGoal, onRefined, onRedirect, onBack 
   // ── Assessing state ───────────────────────────────────
   if (phase === "assessing") {
     return (
-      <View style={s.outer}>
-        <View style={s.centered}>
-          <StepCard>
-            {onBack && <BackButton onPress={onBack} />}
-            <View style={s.topRow}>
-              <Animated.View entering={FadeIn.duration(400)} style={s.loadingContent}>
-                <ActivityIndicator color={colors.accent.primary} />
-                <Text style={[s.loadingText, { color: colors.text.secondary }]}>
-                  Understanding your goal...
-                </Text>
-              </Animated.View>
-              <HeroCard step={3} rotation={-2} />
-            </View>
-          </StepCard>
-        </View>
+      <View style={s.outerFull}>
+        <StepCard style={s.card}>
+          {onBack ? <BackButton onPress={onBack} /> : <View style={s.backPlaceholder} />}
+          <View style={s.topRow}>
+            <Animated.View entering={FadeIn.duration(400)} style={s.loadingContent}>
+              <ActivityIndicator color={colors.accent.primary} />
+              <Text style={[s.loadingText, { color: colors.text.secondary }]}>
+                Understanding your goal...
+              </Text>
+            </Animated.View>
+            <HeroCard step={3} rotation={-2} />
+          </View>
+        </StepCard>
       </View>
     );
   }
@@ -203,17 +201,6 @@ const s = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  outer: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing["4xl"],
-  },
-  centered: {
-    maxWidth: 440,
-    alignSelf: "center",
-    width: "100%",
-  },
   outerFull: {
     flex: 1,
     paddingHorizontal: spacing.xl,
@@ -221,6 +208,9 @@ const s = StyleSheet.create({
   },
   card: {
     flex: 1,
+  },
+  backPlaceholder: {
+    height: 28,
   },
   topRow: {
     flexDirection: "row",

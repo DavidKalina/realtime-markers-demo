@@ -143,9 +143,7 @@ export function SettingsSection({
 const styles = (colors: Colors) =>
   StyleSheet.create({
     container: {
-      borderTopWidth: 1,
-      borderTopColor: colors.border.default,
-      paddingTop: spacing.lg,
+      paddingTop: spacing.md,
     },
     header: {
       flexDirection: "row",

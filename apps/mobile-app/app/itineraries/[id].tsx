@@ -24,6 +24,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import Animated, {
@@ -31,7 +32,14 @@ import Animated, {
   FadeIn,
   FadeInDown,
   FadeInRight,
+  useDerivedValue,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
+import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
 
 import { useUserLocation } from "@/contexts/LocationContext";
 import { apiClient } from "@/services/ApiClient";
@@ -159,6 +167,74 @@ function getSidequestAccent(sq: SidequestResponse | null): string {
     "common";
   return getCategoryColor(key);
 }
+
+// ── Ambient glow background ──────────────────────────────
+
+const GLOW_SKSL = Skia.RuntimeEffect.Make(`
+uniform float2 resolution;
+uniform float time;
+uniform float reveal;
+
+half4 main(float2 xy) {
+  vec2 uv = xy / resolution;
+  float cx = 0.5 + sin(time * 6.2832) * 0.01;
+  float cy = 0.25;
+  float dx = uv.x - cx;
+  float dy = (uv.y - cy) * (resolution.y / resolution.x);
+  float dist = sqrt(dx * dx + dy * dy);
+  float glow1 = exp(-dist * dist * 1.8);
+  float glow2 = exp(-dist * dist * 6.0);
+  float pulse = 0.92 + 0.08 * sin(time * 6.2832);
+  vec3 blue = vec3(0.3, 0.67, 0.97);
+  vec3 cyan = vec3(0.4, 0.9, 0.85);
+  vec3 col = blue * glow1 + cyan * glow2 * 0.3;
+  col *= pulse;
+  float alpha = (glow1 * 0.15 + glow2 * 0.08) * pulse * reveal;
+  return half4(col * alpha, alpha);
+}
+`);
+
+const AmbientGlow: React.FC = React.memo(() => {
+  const { width, height } = useWindowDimensions();
+  const time = useSharedValue(0);
+  const reveal = useSharedValue(0);
+
+  useEffect(() => {
+    reveal.value = withDelay(
+      200,
+      withTiming(1, { duration: 1200, easing: Easing.out(Easing.cubic) }),
+    );
+    time.value = withDelay(
+      200,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 6000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        true,
+      ),
+    );
+  }, []);
+
+  const uniforms = useDerivedValue(() => ({
+    resolution: vec(width, height),
+    time: time.value,
+    reveal: reveal.value,
+  }));
+
+  if (!GLOW_SKSL) return null;
+
+  return (
+    <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Fill>
+        <Shader source={GLOW_SKSL} uniforms={uniforms} />
+      </Fill>
+    </Canvas>
+  );
+});
+
+AmbientGlow.displayName = "AmbientGlow";
 
 const ItineraryDetailScreen = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -533,6 +609,7 @@ const ItineraryDetailScreen = () => {
 
   return (
     <Screen isScrollable={false} showBackButton onBack={handleBack} noAnimation>
+      <AmbientGlow />
       <PullToActionScrollView
         onRefresh={handleRefresh}
         contentContainerStyle={styles.scrollPadding}
@@ -560,6 +637,30 @@ const ItineraryDetailScreen = () => {
             </View>
           </Animated.View>
 
+          {/* Vibe tags */}
+          {(itinerary.activityTypes ?? []).length > 0 && (
+            <Animated.View
+              entering={FadeInDown.delay(150)
+                .duration(400)
+                .easing(Easing.out(Easing.cubic))}
+              style={styles.vibeRow}
+            >
+              {(itinerary.activityTypes ?? []).map((vibe, i) => {
+                const vibeColor = getCategoryColor(vibe);
+                const [vr, vg, vb] = hexToRgb(vibeColor);
+                return (
+                  <Animated.View
+                    key={vibe}
+                    entering={FadeInRight.delay(200 + i * 60).duration(350)}
+                    style={[styles.vibePill, { backgroundColor: `rgba(${vr}, ${vg}, ${vb}, 0.12)` }]}
+                  >
+                    <Text style={[styles.vibeText, { color: vibeColor }]}>{vibe}</Text>
+                  </Animated.View>
+                );
+              })}
+            </Animated.View>
+          )}
+
           {/* Summary */}
           {(itinerary)?.summary && (
             <Animated.View
@@ -574,7 +675,7 @@ const ItineraryDetailScreen = () => {
             </Animated.View>
           )}
 
-          {/* ── ASCII Stat Bars ── */}
+          {/* ── Stat Bars ── */}
           <Animated.View
             entering={FadeInDown.delay(300)
               .duration(450)
@@ -584,29 +685,32 @@ const ItineraryDetailScreen = () => {
             {(() => {
               const diff = Math.min(Number(objectives[0]?.difficulty ?? 1), 10);
               const dist = itinerary.distanceFromHome != null ? Number(itinerary.distanceFromHome) : null;
-              const distNorm = dist != null ? Math.min(dist / 10, 1) : 0;
-              const costNorm = totalCost > 0 ? Math.min(totalCost / 50, 1) : 0;
-              const diffFill = Math.round((diff / 10) * 20);
-              const diffBar = "\u2588".repeat(diffFill) + "\u2591".repeat(20 - diffFill);
-              const distBar = "\u2588".repeat(Math.round(distNorm * 20)) + "\u2591".repeat(20 - Math.round(distNorm * 20));
-              const costBar = "\u2588".repeat(Math.round(costNorm * 20)) + "\u2591".repeat(20 - Math.round(costNorm * 20));
+              const diffPct = (diff / 10) * 100;
+              const distPct = dist != null ? Math.min(dist / 10, 1) * 100 : 0;
+              const costPct = totalCost > 0 ? Math.min(totalCost / 50, 1) * 100 : 0;
               return (
                 <>
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>Difficulty</Text>
-                    <Text style={[styles.statBar, { color: accentHex }]}>{diffBar}</Text>
+                    <View style={styles.statBarTrack}>
+                      <View style={[styles.statBarFill, { width: `${diffPct}%`, backgroundColor: accentHex }]} />
+                    </View>
                     <Text style={[styles.statValue, { color: accentHex }]}>{diff}/10</Text>
                   </View>
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>Distance</Text>
-                    <Text style={[styles.statBar, { color: accentHex }]}>{distBar}</Text>
+                    <View style={styles.statBarTrack}>
+                      <View style={[styles.statBarFill, { width: `${distPct}%`, backgroundColor: accentHex }]} />
+                    </View>
                     <Text style={[styles.statValue, { color: accentHex }]}>
                       {dist != null ? (dist < 0.1 ? "<0.1" : dist.toFixed(1)) : "?"} mi
                     </Text>
                   </View>
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>Cost</Text>
-                    <Text style={[styles.statBar, { color: accentHex }]}>{costBar}</Text>
+                    <View style={styles.statBarTrack}>
+                      <View style={[styles.statBarFill, { width: `${costPct}%`, backgroundColor: accentHex }]} />
+                    </View>
                     <Text style={[styles.statValue, { color: accentHex }]}>
                       {totalCost > 0 ? `$${totalCost}` : "FREE"}
                     </Text>
@@ -614,24 +718,6 @@ const ItineraryDetailScreen = () => {
                 </>
               );
             })()}
-          </Animated.View>
-
-          {/* Vibe tags */}
-          <Animated.View
-            entering={FadeInDown.delay(400)
-              .duration(400)
-              .easing(Easing.out(Easing.cubic))}
-            style={styles.vibeRow}
-          >
-            {(itinerary.activityTypes ?? []).map((vibe, i) => (
-              <Animated.View
-                key={vibe}
-                entering={FadeInRight.delay(450 + i * 60).duration(350)}
-                style={styles.vibePill}
-              >
-                <Text style={styles.vibeText}>{vibe}</Text>
-              </Animated.View>
-            ))}
           </Animated.View>
         </Animated.View>
 
@@ -1032,7 +1118,7 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
   const [ar, ag, ab] = hexToRgb(accentHex);
   return StyleSheet.create({
     scrollPadding: {
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: spacing.xl,
       paddingBottom: spacing.xl * 3,
     },
     content: {
@@ -1053,8 +1139,8 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
 
     // ── Hero ──
     hero: {
-      gap: spacing.md,
-      paddingTop: spacing.xs,
+      gap: spacing.lg,
+      paddingTop: spacing.sm,
     },
     heroTitle: {
       fontSize: 26,
@@ -1103,7 +1189,7 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
 
     // ── Stat bars ──
     statsBlock: {
-      gap: 6,
+      gap: spacing._10,
     },
     statRow: {
       flexDirection: "row",
@@ -1117,11 +1203,16 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       color: colors.text.secondary,
       width: 76,
     },
-    statBar: {
-      fontSize: 14,
-      fontFamily: fontFamily.mono,
-      letterSpacing: -0.5,
+    statBarTrack: {
       flex: 1,
+      height: 3,
+      borderRadius: 1.5,
+      backgroundColor: "rgba(255, 255, 255, 0.08)",
+      overflow: "hidden",
+    },
+    statBarFill: {
+      height: 3,
+      borderRadius: 1.5,
     },
     statValue: {
       fontSize: 12,
@@ -1139,20 +1230,16 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       flex: 1,
     },
     vibePill: {
-      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.08)`,
-      borderWidth: 1,
-      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.2)`,
       borderRadius: radius.full,
-      paddingHorizontal: 10,
-      paddingVertical: 3,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
     },
     vibeText: {
-      fontSize: 12,
+      fontSize: 10,
       fontWeight: fontWeight.semibold,
       fontFamily: fontFamily.mono,
-      color: accentHex,
       textTransform: "lowercase",
-      letterSpacing: 0.5,
+      letterSpacing: 0.3,
     },
 
     // ── Divider ──
@@ -1197,15 +1284,15 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       color: accentHex,
     },
     progressBarBg: {
-      height: 4,
-      backgroundColor: colors.bg.elevated,
-      borderRadius: 2,
+      height: 3,
+      backgroundColor: "rgba(255, 255, 255, 0.08)",
+      borderRadius: 1.5,
       overflow: "hidden",
     },
     progressBarFill: {
-      height: 4,
+      height: 3,
       backgroundColor: accentHex,
-      borderRadius: 2,
+      borderRadius: 1.5,
     },
 
     // ── Actions ──
@@ -1221,15 +1308,13 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       flex: 1,
     },
     startButton: {
-      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.12)`,
-      borderWidth: 1,
-      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.3)`,
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.15)`,
       paddingVertical: 14,
       alignItems: "center",
       borderRadius: radius.md,
     },
     startButtonPressed: {
-      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.2)`,
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.25)`,
     },
     startButtonDisabled: {
       opacity: 0.5,
@@ -1243,15 +1328,13 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       letterSpacing: 1.5,
     },
     navigateButton: {
-      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.12)`,
-      borderWidth: 1,
-      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.3)`,
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.15)`,
       paddingVertical: 14,
       alignItems: "center",
       borderRadius: radius.md,
     },
     navigateButtonPressed: {
-      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.2)`,
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.25)`,
     },
     navigateButtonText: {
       fontFamily: fontFamily.mono,
@@ -1281,14 +1364,13 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       letterSpacing: 1.5,
     },
     endButton: {
-      borderWidth: 1,
-      borderColor: "rgba(252, 165, 165, 0.3)",
+      backgroundColor: "rgba(252, 165, 165, 0.1)",
       paddingVertical: 14,
       alignItems: "center",
       borderRadius: radius.md,
     },
     endButtonPressed: {
-      backgroundColor: "rgba(252, 165, 165, 0.08)",
+      backgroundColor: "rgba(252, 165, 165, 0.18)",
     },
     endButtonText: {
       fontFamily: fontFamily.mono,
@@ -1299,14 +1381,13 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       letterSpacing: 1.5,
     },
     deleteButton: {
-      borderWidth: 1,
-      borderColor: "rgba(252, 165, 165, 0.3)",
+      backgroundColor: "rgba(252, 165, 165, 0.1)",
       paddingVertical: 14,
       alignItems: "center",
       borderRadius: radius.md,
     },
     deleteButtonPressed: {
-      backgroundColor: "rgba(252, 165, 165, 0.08)",
+      backgroundColor: "rgba(252, 165, 165, 0.18)",
     },
     deleteButtonText: {
       fontFamily: fontFamily.mono,

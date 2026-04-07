@@ -110,9 +110,8 @@ export function StepGeneratingLadder({
 
   return (
     <View style={s.outer}>
-      <View style={s.centered}>
-        <StepCard>
-          {onBack && !isDone && <BackButton onPress={onBack} />}
+      <StepCard style={s.card}>
+        {onBack && !isDone ? <BackButton onPress={onBack} /> : <View style={s.backPlaceholder} />}
 
           <View style={s.topRow}>
             <View style={s.headerText}>
@@ -198,8 +197,7 @@ export function StepGeneratingLadder({
               <NextButton label="Retry" onPress={handleRetry} />
             </Animated.View>
           )}
-        </StepCard>
-      </View>
+      </StepCard>
     </View>
   );
 }
@@ -207,14 +205,14 @@ export function StepGeneratingLadder({
 const s = StyleSheet.create({
   outer: {
     flex: 1,
-    justifyContent: "center",
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing["4xl"],
+    paddingBottom: spacing.xl,
   },
-  centered: {
-    maxWidth: 440,
-    alignSelf: "center",
-    width: "100%",
+  card: {
+    flex: 1,
+  },
+  backPlaceholder: {
+    height: 28,
   },
   topRow: {
     flexDirection: "row",
