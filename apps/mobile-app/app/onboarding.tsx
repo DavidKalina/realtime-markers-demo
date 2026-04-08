@@ -46,6 +46,7 @@ import { StepFearLadder } from "@/components/Onboarding/StepFearLadder";
 import { StepNorthStar } from "@/components/Onboarding/StepNorthStar";
 import { StepGoalRefinement } from "@/components/Onboarding/StepGoalRefinement";
 import { StepActivities } from "@/components/Onboarding/StepActivities";
+import { StepComfortZone } from "@/components/Onboarding/StepComfortZone";
 import type { GoalRefinementState } from "@/services/api/modules/sidequests";
 
 // ── Skia glow background ────────────────────────────────
@@ -128,7 +129,7 @@ SkiaGlow.displayName = "SkiaGlow";
 
 // ── Main screen ─────────────────────────────────────────
 
-const TOTAL_STEPS = 9;
+const TOTAL_STEPS = 10;
 
 const OnboardingScreen: React.FC = () => {
   const colors = useColors();
@@ -148,6 +149,7 @@ const OnboardingScreen: React.FC = () => {
   const [selectedBarriers, setSelectedBarriers] = useState<string[]>([]);
   const [fearLadderResponses, setFearLadderResponses] = useState<Record<string, number>>({});
   const [northStar, setNorthStar] = useState("");
+  const [comfortZone, setComfortZone] = useState("");
 
   // LLM-generated data
   const [generatedBarriers, setGeneratedBarriers] = useState<{ key: string; label: string; text: string }[] | null>(null);
@@ -334,7 +336,7 @@ const OnboardingScreen: React.FC = () => {
       await apiClient.sidequests.updateComfortProfile({
         pacePreference: fearLadder.derivedPace,
         comfortProfile: {
-          comfortZone: barriers || "Getting started",
+          comfortZone: comfortZone || barriers || "Getting started",
           barriers,
           goals: primaryGoal,
           goalTags: selectedBarriers,
@@ -386,7 +388,7 @@ const OnboardingScreen: React.FC = () => {
       setIsLoading(false);
       setGeneratingQuest(false);
     }
-  }, [primaryGoal, selectedActivities, selectedBarriers, fearLadderResponses, generatedBarriers, generatedScenarios, generatedDimensions, northStar, goalSignals, userLocation, refreshAuth, pollForWeekPack]);
+  }, [primaryGoal, selectedActivities, selectedBarriers, fearLadderResponses, generatedBarriers, generatedScenarios, generatedDimensions, comfortZone, northStar, goalSignals, userLocation, refreshAuth, pollForWeekPack]);
 
   // ── Transitions ──────────────────────────────────────
 
@@ -473,6 +475,15 @@ const OnboardingScreen: React.FC = () => {
           />
         );
       case 9:
+        return (
+          <StepComfortZone
+            comfortZone={comfortZone}
+            setComfortZone={setComfortZone}
+            onNext={handleNext}
+            onBack={handleBack}
+          />
+        );
+      case 10:
         return (
           <StepNorthStar
             northStar={northStar}

@@ -3082,21 +3082,21 @@ ${result.suggestedProgression}\n` };
     }
 
     if (readiness.phase === 0) {
-      return `- DIFFICULTY GUIDANCE: They're just starting out. Keep it easy and approachable — aim for difficulty 1-3. Easy wins build momentum.`;
+      return `- DIFFICULTY GUIDANCE: They're just starting out. Difficulty MUST be 1-3. Do NOT exceed 3. This is a hard constraint — easy wins build momentum and trust. Anything above 3 will overwhelm a new user.`;
     }
 
     if (readiness.phase === 1) {
       const hint = readiness.recentAvgDifficulty <= 3
         ? ` Their recent quests averaged difficulty ${readiness.recentAvgDifficulty.toFixed(1)} — if they're rating 3+ stars, it's time to nudge upward.`
         : "";
-      return `- DIFFICULTY GUIDANCE: They're building confidence. Gentle stretches are landing well — aim for difficulty 2-5. Don't default to the low end of this range; if their recent ratings are 3+ stars, lean toward 4-5.${hint}`;
+      return `- DIFFICULTY GUIDANCE: They're building confidence. Difficulty MUST be 2-5. Do NOT exceed 5. Gentle stretches are landing well. Don't default to the low end; if their recent ratings are 3+ stars, lean toward 4-5.${hint}`;
     }
 
     if (readiness.phase === 2) {
       const hint = readiness.recentAvgDifficulty <= 4
         ? ` Their recent quests averaged difficulty ${readiness.recentAvgDifficulty.toFixed(1)} — they've been coasting. Push into 5-6 territory.`
         : "";
-      return `- DIFFICULTY GUIDANCE: They're showing real growth. Push toward meaningful challenges — aim for difficulty 4-7. Do NOT default to the bottom of this range. They can handle more than they think.${hint}`;
+      return `- DIFFICULTY GUIDANCE: They're showing real growth. Difficulty MUST be 4-7. Do NOT go below 4 or above 7. Push toward meaningful challenges — do NOT default to the bottom of this range. They can handle more than they think.${hint}`;
     }
 
     // Phase 3 — thriving
