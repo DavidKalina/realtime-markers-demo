@@ -148,9 +148,9 @@ export const DEFAULT_QUEST_CONFIG: QuestConfig = {
   },
 
   phaseDetection: {
-    resonanceThresholdForDFS: 0.55,
+    resonanceThresholdForDFS: 0.45,
     minQuestsInCategoryForDFS: 3,
     bfsResonanceCeiling: 0.35,
-    newPathwayMinResonance: 0.5,
+    newPathwayMinResonance: 0.4,
   },
 };

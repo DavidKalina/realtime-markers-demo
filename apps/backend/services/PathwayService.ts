@@ -28,6 +28,13 @@ function themeLabel(category: string): string {
   return THEME_LABELS[category] ?? `${category.charAt(0).toUpperCase()}${category.slice(1)} Journey`;
 }
 
+const GROWTH_TAG_LABELS: Record<string, string> = {
+  social_connection: "Social Confidence",
+  discomfort_processed: "Comfort Expansion",
+  growth_narrative: "Self-Discovery",
+  self_awareness: "Inner Awareness",
+};
+
 function computeGrowthLabel(
   categoryLabel: string,
   resonanceScores: { sidequestId: string; score: number; reflectionTags?: string[] }[],
@@ -55,13 +62,12 @@ function computeGrowthLabel(
   // Need at least 20% dominance of meaningful tags to override
   if (ratio < 0.2) return categoryLabel;
 
-  switch (tag) {
-    case "social_connection": return "Social Confidence";
-    case "discomfort_processed": return "Comfort Expansion";
-    case "growth_narrative": return "Self-Discovery";
-    case "self_awareness": return "Inner Awareness";
-    default: return categoryLabel;
-  }
+  const growthLabel = GROWTH_TAG_LABELS[tag];
+  if (!growthLabel) return categoryLabel;
+
+  // Combine growth theme with category so labels stay unique across pathways
+  // e.g., "Inner Awareness via Coffee Shop" instead of just "Inner Awareness"
+  return `${growthLabel} via ${categoryLabel}`;
 }
 
 // ── Types ────────────────────────────────────────────────────
@@ -77,7 +83,7 @@ export interface PathwayState {
   difficultyTrend: number;
   phase: string;
   sidequestIds: string[];
-  resonanceScores: { sidequestId: string; score: number; reflectionTags?: string[] }[];
+  resonanceScores: { sidequestId: string; score: number; reflectionTags?: string[]; wouldReturn?: boolean }[];
 }
 
 export interface PhaseContext {
@@ -109,6 +115,7 @@ export function detectPathway(
   difficulty: number,
   resonance: ResonanceResult,
   config: PhaseDetectionConfig,
+  wouldReturn?: boolean,
 ): PathwayDetectionResult | null {
   // Try to match an existing pathway
   const matched = existingPathways.find(
@@ -117,23 +124,24 @@ export function detectPathway(
 
   if (matched) {
     const existingDfsCount = existingPathways.filter((p) => p.phase === "dfs").length;
-    return updatePathwayState(matched, sidequestId, venueCategory, difficulty, resonance, config, existingDfsCount);
+    return updatePathwayState(matched, sidequestId, venueCategory, difficulty, resonance, config, existingDfsCount, wouldReturn);
   }
 
   // Create new pathway only if resonance is high enough
-  if (resonance.score >= config.newPathwayMinResonance) {
+  const effectiveScore = wouldReturn ? Math.min(resonance.score * 1.25, 1.0) : resonance.score;
+  if (effectiveScore >= config.newPathwayMinResonance) {
     const newPathway: PathwayState = {
       id: crypto.randomUUID(),
       theme: venueCategory,
       themeLabel: themeLabel(venueCategory),
       venueCategories: [venueCategory],
-      avgResonance: resonance.score,
+      avgResonance: effectiveScore,
       questCount: 1,
       currentDifficulty: difficulty,
       difficultyTrend: 0,
       phase: "bfs",
       sidequestIds: [sidequestId],
-      resonanceScores: [{ sidequestId, score: resonance.score, reflectionTags: resonance.reflectionTags }],
+      resonanceScores: [{ sidequestId, score: effectiveScore, reflectionTags: resonance.reflectionTags, wouldReturn }],
     };
     return { pathway: newPathway, phaseTransition: null, isNew: true };
   }
@@ -149,8 +157,11 @@ function updatePathwayState(
   resonance: ResonanceResult,
   config: PhaseDetectionConfig,
   existingDfsCount: number,
+  wouldReturn?: boolean,
 ): PathwayDetectionResult {
-  const scores = [...(pathway.resonanceScores ?? []), { sidequestId, score: resonance.score, reflectionTags: resonance.reflectionTags }];
+  // Boost resonance for quests where user said they'd return — strongest behavioral signal
+  const effectiveScore = wouldReturn ? Math.min(resonance.score * 1.25, 1.0) : resonance.score;
+  const scores = [...(pathway.resonanceScores ?? []), { sidequestId, score: effectiveScore, reflectionTags: resonance.reflectionTags, wouldReturn }];
   const questCount = pathway.questCount + 1;
   const avgResonance = scores.reduce((sum, s) => sum + s.score, 0) / scores.length;
   const prevDifficulty = pathway.currentDifficulty;
@@ -166,15 +177,27 @@ function updatePathwayState(
   let phase = prevPhase;
 
   // Phase transition check — rising threshold for additional DFS pathways.
-  // 1st DFS pathway needs base threshold (0.55). Each additional one needs +0.05 more
-  // and +1 more quest in category. This prevents everything from going DFS at once.
-  const adjustedThreshold = config.resonanceThresholdForDFS + existingDfsCount * 0.05;
-  const adjustedMinQuests = config.minQuestsInCategoryForDFS + existingDfsCount;
+  // 1st DFS pathway needs base threshold. Each additional one needs +0.03 more.
+  const adjustedThreshold = config.resonanceThresholdForDFS + existingDfsCount * 0.03;
+  const adjustedMinQuests = config.minQuestsInCategoryForDFS;
 
   if (
     prevPhase === "bfs" &&
     avgResonance >= adjustedThreshold &&
     questCount >= adjustedMinQuests
+  ) {
+    phase = "dfs";
+  }
+
+  // Fast-track: if user said "would return" on 2+ quests in this pathway,
+  // lower the threshold — that's a strong behavioral signal of depth potential
+  const wouldReturnCount = scores.filter((s) => s.wouldReturn).length;
+  if (
+    prevPhase === "bfs" &&
+    phase === "bfs" &&
+    wouldReturnCount >= 2 &&
+    questCount >= 2 &&
+    avgResonance >= adjustedThreshold * 0.8
   ) {
     phase = "dfs";
   }
@@ -356,6 +379,7 @@ export interface PathwayService {
     venueCategory: string,
     difficulty: number,
     resonance: ResonanceResult,
+    wouldReturn?: boolean,
   ): Promise<PathwayDetectionResult | null>;
   getPathways(userId: string): Promise<Pathway[]>;
   getUserPhaseContext(userId: string): Promise<PhaseContext>;
@@ -381,6 +405,7 @@ class PathwayServiceImpl implements PathwayService {
     venueCategory: string,
     difficulty: number,
     resonance: ResonanceResult,
+    wouldReturn?: boolean,
   ): Promise<PathwayDetectionResult | null> {
     const repo = this.dataSource.getRepository(Pathway);
     const existing = await repo.find({ where: { userId } });
@@ -406,6 +431,7 @@ class PathwayServiceImpl implements PathwayService {
       difficulty,
       resonance,
       this.config.phaseDetection,
+      wouldReturn,
     );
 
     if (!result) return null;

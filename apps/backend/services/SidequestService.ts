@@ -811,6 +811,7 @@ class SidequestServiceImpl implements SidequestService {
       venueCategory,
       difficulty,
       resonance,
+      obj?.wouldReturn ?? undefined,
     );
 
     if (result) {
