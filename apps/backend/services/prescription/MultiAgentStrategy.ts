@@ -8,6 +8,9 @@
  *   4. Writer (5.4 full) — crafts the quest content
  */
 
+import {
+  VENUE_CATEGORIES,
+} from "./PrescriptionStrategy";
 import type {
   PrescriptionStrategy,
   PrescriptionStrategyInput,
@@ -23,6 +26,54 @@ import { OpenAIModel } from "../shared/OpenAIService";
 import type { GoogleGeocodingService, VerifiedVenue } from "../shared/GoogleGeocodingService";
 import type { OverpassService, Trail } from "../shared/OverpassService";
 import type { PrescriptionPromptRegistry } from "../prompts/PrescriptionPromptRegistry";
+
+// ── Category normalization ──────────────────────────────────
+
+/** Keyword-first, token-overlap fallback for when the Scout returns a non-canonical category string. */
+function normalizeVenueCategory(raw: string): string {
+  const lower = raw.toLowerCase();
+
+  // Fast-path keyword matches for common patterns (order matters — first match wins)
+  const keywordMap: [string[], string][] = [
+    [["board game", "game cafe", "game store", "game venue", "tabletop", "game night", "game meetup", "social club"], "Board Game Venue"],
+    [["coffee"], "Coffee Shop"],
+    [["brunch"], "Brunch Spot"],
+    [["theatre", "theater", "performing arts", "comedy", "improv", "stand-up", "standup", "matinee"], "Theatre / Performing Arts"],
+    [["library"], "Library"],
+    [["brewery", "taproom"], "Brewery / Taproom"],
+    [["bookstore", "book shop"], "Bookstore"],
+    [["art gallery", "gallery"], "Art Gallery"],
+    [["art studio", "art class", "arts workshop", "ceramics", "pottery", "craft"], "Art Studio / Workshop"],
+    [["music venue", "concert", "live music"], "Music Venue / Concert Hall"],
+    [["museum"], "Museum"],
+    [["yoga", "pilates"], "Yoga / Pilates Studio"],
+    [["gym", "fitness studio", "crossfit"], "Gym / Fitness Studio"],
+    [["climbing"], "Climbing Gym"],
+    [["trail", "park", "greenway", "trailhead", "nature area"], "Trail / Park"],
+    [["recreation center", "rec center", "recreation department"], "Recreation Center"],
+    [["community center", "community arts", "community event"], "Community Center"],
+    [["maker space", "makerspace", "tinkermill"], "Maker Space"],
+    [["coworking", "co-working"], "Coworking Space"],
+    [["college", "adult education", "continuing education", "community college"], "College / Adult Education"],
+    [["workshop", "class venue"], "Workshop / Class Venue"],
+    [["restaurant", "dining", "eatery"], "Restaurant"],
+    [["bar", "pub", "lounge"], "Bar"],
+    [["farmers market", "market"], "Food Market / Farmers Market"],
+    [["arcade", "entertainment", "go-kart", "bowling", "mini golf"], "Arcade / Entertainment"],
+    [["karaoke"], "Karaoke Venue"],
+    [["surf", "skate"], "Surf / Skate Shop"],
+    [["disc golf", "frisbee"], "Disc Golf / Outdoor Activity"],
+    [["sports club", "paddle", "run club", "running"], "Sports Club"],
+    [["bakery", "dessert", "pastry"], "Bakery / Dessert Shop"],
+    [["yarn", "fiber", "knitting", "specialty shop"], "Specialty Shop"],
+  ];
+
+  for (const [keywords, canonical] of keywordMap) {
+    if (keywords.some(k => lower.includes(k))) return canonical;
+  }
+
+  return "Other";
+}
 
 // ── Dependencies ────────────────────────────────────────────
 
@@ -168,6 +219,7 @@ Think holistically about this person:
 - Is their current town limiting their progress? Be honest about this.
 ${ctx.blockerContext ? `- They have a RECURRING BLOCKER. Do NOT push the blocked action directly. What experience would build confidence AROUND the blocker without requiring them to do the thing they keep failing at?` : `- What specific type of social challenge would grow them right now?`}
 - Are they stuck in a geographic or activity pattern that needs breaking?
+- POTENTIAL REGULARS: If the history shows anchor venues (marked with ★), they're places the user enjoyed. You MAY suggest a return visit — but frame it as an invitation, not a pattern. The user hasn't said they want to be a regular anywhere yet. Use anchor venues when the strategy genuinely calls for deepening or when a return visit with a new angle (different time, social challenge, event) would be more valuable than a novel venue. Don't force it — mix return visits with exploration naturally.
 
 Respond with JSON:
 {
@@ -178,6 +230,7 @@ Respond with JSON:
   "difficultyRange": [<min>, <max>],
   "socialChallengeLevel": "none" | "low" | "medium" | "high",
   "searchQueries": ["<2-3 specific search queries for finding venues — include the target city name>"],
+  "preferredVenue": "<OPTIONAL — if returning to an anchor venue, put its exact name here so the Scout can verify it. Otherwise null>",
   "avoidVenues": ["<venue names to avoid from history>"],
   "avoidCategories": ["<categories that are overrepresented>"],
   "rationale": "<1-2 sentences explaining WHY this is the right next step, including why this location>"
@@ -207,6 +260,7 @@ Respond with JSON:
       difficultyRange: parsed.difficultyRange ?? [2, 5],
       socialChallengeLevel: parsed.socialChallengeLevel ?? "low",
       searchQueries: parsed.searchQueries ?? [],
+      preferredVenue: parsed.preferredVenue ?? undefined,
       avoidVenues: parsed.avoidVenues ?? [],
       avoidCategories: parsed.avoidCategories ?? [],
       rationale: parsed.rationale ?? "",
@@ -240,6 +294,7 @@ TARGET SEARCH AREA: ${brief.targetCity} — search in this city/area specificall
 
 SEARCH QUERIES TO TRY: ${brief.searchQueries.join(", ")}
 
+${brief.preferredVenue ? `SUGGESTED RETURN VENUE: "${brief.preferredVenue}" — The Strategist thinks this could be a good return visit. Use search_places to verify it exists and get its exact address. Include it as a candidate alongside new options.` : ""}
 ${brief.avoidVenues.length > 0 ? `AVOID THESE VENUES: ${brief.avoidVenues.join(", ")}` : ""}
 ${brief.avoidCategories.length > 0 ? `AVOID THESE CATEGORIES (overrepresented): ${brief.avoidCategories.join(", ")}` : ""}
 ${extraConstraints ? `\nADDITIONAL CONSTRAINTS (from previous failed attempt):\n${extraConstraints}` : ""}
@@ -310,7 +365,7 @@ Find REAL venues with verified addresses. Use search_places to confirm. Submit 3
                 properties: {
                   venueName: { type: "string" },
                   venueAddress: { type: "string" },
-                  venueCategory: { type: "string" },
+                  venueCategory: { type: "string", enum: VENUE_CATEGORIES as unknown as string[], description: "Pick the closest match from this list" },
                   latitude: { type: "number" },
                   longitude: { type: "number" },
                   notes: { type: "string", description: "Why this venue fits the strategy" },
@@ -451,10 +506,32 @@ Find REAL venues with verified addresses. Use search_places to confirm. Submit 3
         continue;
       }
 
-      // Check if venue appears too many times in history
+      // Hard-block venues the user said "would not return" to
+      // These appear in the history context as "DO NOT PRESCRIBE THESE VENUES"
+      if (historyLower.includes(`- "${nameLower}"`) && historyLower.includes("would not return")) {
+        const inBlocklist = historyLower.includes(`- "${nameLower}" (`) &&
+          historyLower.indexOf(`- "${nameLower}" (`) > historyLower.indexOf("would not return");
+        if (inBlocklist) {
+          rejectionReasons.push(`"${c.venueName}" — user said they would NOT return`);
+          continue;
+        }
+      }
+
+      // Normalize venue category to canonical taxonomy.
+      // The Scout should return a canonical category, but LLMs don't always obey enums.
+      // Fall back to best-match via token overlap.
+      if (c.venueCategory && !VENUE_CATEGORIES.includes(c.venueCategory as any)) {
+        c.venueCategory = normalizeVenueCategory(c.venueCategory);
+      }
+
+      // Check if venue appears too many times in history.
+      // DFS anchor venues (marked with ✅ in the venue repeat block) get a much higher cap —
+      // returning to a place where the user is making real progress is intentional, not lazy.
       const venueCount = (historyLower.match(new RegExp(nameLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length;
-      if (venueCount >= 3) {
-        rejectionReasons.push(`"${c.venueName}" appears ${venueCount} times in history — too many repeats`);
+      const isDfsAnchor = historyLower.includes(`✅ "${nameLower}"`);
+      const repeatCap = isDfsAnchor ? 8 : 5;
+      if (venueCount >= repeatCap) {
+        rejectionReasons.push(`"${c.venueName}" appears ${venueCount} times in history — too many repeats${isDfsAnchor ? " (even for a DFS anchor)" : ""}`);
         continue;
       }
 
@@ -531,7 +608,7 @@ Respond with JSON. The "items" array must contain EXACTLY 1 stop — no more:
     "sa": ["<2-3 emoji-prefixed activity ideas — what people typically do here. Examples: '🚶 Walk the loop', '📸 Snap a photo'. NO URLs or phones here>"],
     "ai": ["<1-3 concrete next steps with links/phones/instructions. Examples: '🔗 example.com/signup — register for class', '📞 (555) 123-4567 — ask about open hours'. Only include if actionable info exists, otherwise empty array>"],
     "jp": "<reflective journal prompt — short, open-ended, personal>",
-    "df": <difficulty 1-10, judge based on THIS venue for THIS person>,
+    "df": <difficulty 1-10 — judge based on THIS venue for THIS person. Use the FULL range from the difficulty guidance, not just the bottom. If guidance says 4-7, don't default to 4>,
     "act": "<actionable|suggestive|milestone>"
   }]
 }`;

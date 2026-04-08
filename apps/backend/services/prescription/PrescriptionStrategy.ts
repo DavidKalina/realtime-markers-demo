@@ -68,10 +68,69 @@ export interface StrategyBrief {
   difficultyRange: [number, number];
   socialChallengeLevel: "none" | "low" | "medium" | "high";
   searchQueries: string[];
+  /** When the Strategist recommends returning to a known anchor venue, its name goes here. */
+  preferredVenue?: string;
   avoidVenues: string[];
   avoidCategories: string[];
   rationale: string;
 }
+
+/**
+ * Canonical venue categories. The Scout must pick from this list.
+ * Pathway detection, diversity enforcement, and venue repeat logic all
+ * depend on consistent category strings — free-text categories fragment
+ * pathways and prevent "becoming a regular" from being detected.
+ */
+export const VENUE_CATEGORIES = [
+  // Food & Drink
+  "Coffee Shop",
+  "Restaurant",
+  "Brunch Spot",
+  "Brewery / Taproom",
+  "Bar",
+  "Bakery / Dessert Shop",
+  "Food Market / Farmers Market",
+
+  // Social & Games
+  "Board Game Venue",
+  "Arcade / Entertainment",
+  "Bowling Alley",
+  "Karaoke Venue",
+
+  // Arts & Culture
+  "Art Gallery",
+  "Art Studio / Workshop",
+  "Theatre / Performing Arts",
+  "Music Venue / Concert Hall",
+  "Museum",
+  "Bookstore",
+  "Library",
+
+  // Fitness & Outdoors
+  "Gym / Fitness Studio",
+  "Yoga / Pilates Studio",
+  "Climbing Gym",
+  "Trail / Park",
+  "Recreation Center",
+  "Sports Club",
+  "Disc Golf / Outdoor Activity",
+
+  // Learning & Community
+  "Maker Space",
+  "Community Center",
+  "Coworking Space",
+  "College / Adult Education",
+  "Workshop / Class Venue",
+
+  // Retail & Specialty
+  "Specialty Shop",
+  "Surf / Skate Shop",
+
+  // Other
+  "Other",
+] as const;
+
+export type VenueCategory = typeof VENUE_CATEGORIES[number];
 
 export interface ScoutCandidate {
   venueName: string;

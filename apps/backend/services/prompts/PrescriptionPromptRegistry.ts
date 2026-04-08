@@ -61,6 +61,7 @@ export interface PrescriptionPromptContext {
   difficultyGuidance: string;
   siblingInstructions: string;
   blockerContext: string;
+  socialMicroRepContext: string;
 
   // Challenge quests
   challengeCategory?: string;
@@ -139,7 +140,7 @@ export const defaultPrompt: PrescriptionPromptBuilder = (ctx) => {
     isAwayFromHome, distFromHome, radius, pace, hour, dayOfWeek,
     historyContext, coverageContext, explorationProfileLabel,
     expansionTarget, phaseContext, timelineContext, fearLadderContext, expectancyContext,
-    difficultyGuidance, siblingInstructions, blockerContext, isStretch, isEnjoy,
+    difficultyGuidance, siblingInstructions, blockerContext, socialMicroRepContext, isStretch, isEnjoy,
   } = ctx;
 
   const comfortProfile = user.comfortProfile;
@@ -200,6 +201,8 @@ ${blockerContext}
 The blocker context above TAKES PRIORITY over normal goal progression. DO NOT prescribe the blocked action as an objective, action item, or suggested activity. Frame the quest around the venue experience itself. The user needs easy wins to rebuild confidence.
 ` : ""}${timelineContext ? `
 ${timelineContext}
+` : ""}${socialMicroRepContext ? `
+${socialMicroRepContext}
 ` : ""}
 ${comfortProfile?.goalTags?.includes("discover_hobby") ? `- HOBBY DISCOVERY MODE: This user wants to find a new hobby. Prioritize venues where they can TRY an activity hands-on (studios, classes, open sessions, meetups, workshops) — not just observe. Favor categories they haven't explored yet. If they listed activities they enjoy, use those as adjacent starting points (e.g. if they like hiking, try a climbing gym; if they like coffee, try a roasting workshop).` : ""}
 

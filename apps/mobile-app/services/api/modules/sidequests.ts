@@ -499,6 +499,7 @@ export class SidequestsModule extends BaseApiModule {
       completedActivity?: string;
       photoUrl?: string;
       socialContext?: string;
+      wouldReturn?: boolean;
     },
   ): Promise<{ success: boolean }> {
     const response = await this.fetchWithAuth(

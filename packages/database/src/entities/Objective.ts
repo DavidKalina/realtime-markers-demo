@@ -164,4 +164,9 @@ export class Objective {
 
   @Column({ name: "predicted_outcome", type: "text", nullable: true })
   predictedOutcome?: string;
+
+  // ── "Would you come back?" — user opt-in signal for anchor venues ──
+
+  @Column({ name: "would_return", type: "boolean", nullable: true })
+  wouldReturn?: boolean;
 }

@@ -56,6 +56,7 @@ export interface ComfortZoneService {
       completedActivity?: string;
       photoUrl?: string;
       socialContext?: string;
+      wouldReturn?: boolean;
     },
   ): Promise<boolean>;
   updateObjectivePrediction(
@@ -446,6 +447,7 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
       completedActivity?: string;
       photoUrl?: string;
       socialContext?: string;
+      wouldReturn?: boolean;
     },
   ): Promise<boolean> {
     // Verify ownership via sidequest
@@ -466,6 +468,7 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
       fields.completedActivity = updates.completedActivity;
     if (updates.photoUrl !== undefined) fields.photoUrl = updates.photoUrl;
     if (updates.socialContext !== undefined) fields.socialContext = updates.socialContext;
+    if (updates.wouldReturn !== undefined) fields.wouldReturn = updates.wouldReturn;
 
     if (Object.keys(fields).length > 0) {
       await this.dataSource

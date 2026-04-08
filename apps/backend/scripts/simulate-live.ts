@@ -633,7 +633,29 @@ async function generatePredictions(
   difficulty: number,
   questIndex: number,
   fearScore: number,
+  pastPredictions?: { predicted: number; actual: number; title: string }[],
 ): Promise<{ anxiety: number; difficulty: number; outcome: string } | null> {
+  // Build calibration feedback from past predictions
+  let calibrationBlock = "";
+  if (pastPredictions && pastPredictions.length >= 2) {
+    const avgDelta = pastPredictions.reduce((sum, p) => sum + (p.predicted - p.actual), 0) / pastPredictions.length;
+    const recent3 = pastPredictions.slice(-3);
+    const examples = recent3.map(p =>
+      `  - "${p.title}": predicted ${p.predicted}/10 anxiety, actual difficulty was ${p.actual}/10 (off by ${p.predicted - p.actual > 0 ? "+" : ""}${p.predicted - p.actual})`
+    ).join("\n");
+
+    if (avgDelta > 1.0) {
+      calibrationBlock = `\nIMPORTANT — Your past predictions have been TOO HIGH:
+${examples}
+  On average, you overestimate anxiety by ${avgDelta.toFixed(1)} points. Things have consistently gone BETTER than you expected.
+  Factor this into your prediction — your gut says higher, but your track record says lower. Try to be more realistic this time.\n`;
+    } else if (avgDelta < -0.5) {
+      calibrationBlock = `\nNote — Your past predictions have been slightly low:
+${examples}
+  Things have been a bit harder than expected. Factor this in.\n`;
+    }
+  }
+
   const result = await llmJson(
     `You are roleplaying as a person with this profile:
 - Goal: ${persona.primaryGoal}
@@ -641,7 +663,7 @@ async function generatePredictions(
 - Fear score: ${fearScore.toFixed(2)}/1.0 (higher = more anxious)
 - Pace: ${persona.pace}
 - This is quest #${questIndex + 1} in their journey.
-
+${calibrationBlock}
 Before going on a quest, predict how you think it will go. Be honest and in-character.`,
     `You're about to go on this quest:
 - Title: "${questTitle}"
@@ -1158,6 +1180,8 @@ async function main() {
 
   // ── Week-pack state ──────────────────────────────────────
   let packQueuedIds: string[] = [];
+  let challengeCount = 0;
+  const predictionHistory: { predicted: number; actual: number; title: string }[] = [];
 
   for (let i = 0; i < questCount; i++) {
     console.log(`\n╭─ Quest ${i + 1}/${questCount} ${"─".repeat(40)}`);
@@ -1165,7 +1189,8 @@ async function main() {
     // Determine quest type for this iteration
     const isChallenge = challengeMix > 0 && ((i + 1) % challengeMix === 0);
     const challengeCategories = ["social_reach", "vulnerability", "hosting", "reconnection"] as const;
-    const challengeCategory = isChallenge ? challengeCategories[i % challengeCategories.length] : undefined;
+    const challengeCategory = isChallenge ? challengeCategories[challengeCount % challengeCategories.length] : undefined;
+    if (isChallenge) challengeCount++;
 
     let sidequestId: string | undefined;
 
@@ -1280,6 +1305,7 @@ async function main() {
         obj.difficulty ?? 3,
         i,
         simFearScore,
+        predictionHistory,
       );
 
       if (prediction) {
@@ -1437,11 +1463,22 @@ async function main() {
       blockerConsecutiveSuccesses = 0;
     }
 
-    // Save journal + social context
+    // Decide "would return" based on rating (only for venue quests, not blocked)
+    // 4-5 stars: very likely yes, 3 stars: coin flip, 1-2 stars: no
+    const isVenueQuest = (quest.questType ?? "venue") === "venue";
+    let wouldReturn: boolean | undefined;
+    if (isVenueQuest && !blockerTriggered) {
+      if (rating >= 4) wouldReturn = rand() < 0.85;
+      else if (rating === 3) wouldReturn = rand() < 0.4;
+      else wouldReturn = false;
+    }
+
+    // Save journal + social context + would-return
     await api("PUT", `/api/sidequests/objectives/${obj.id}/journal`, token, {
       journalEntry: journalEntry ?? undefined,
       socialContext,
       completedActivity,
+      ...(wouldReturn !== undefined && { wouldReturn }),
     });
 
     // Rate (triggers resonance + pathway detection)
@@ -1478,6 +1515,9 @@ async function main() {
       console.log(`│  Activity: ${completedActivity}`);
     }
     console.log(`│  Journal: ${journalEntry ? `"${journalEntry.slice(0, 80)}${journalEntry.length > 80 ? "..." : ""}"` : "(none)"}`);
+    if (wouldReturn !== undefined) {
+      console.log(`│  Would return: ${wouldReturn ? "✅ yes" : "❌ no"}`);
+    }
     console.log(`│  Resonance: ${resonance.score.toFixed(3)} (rate=${resonance.components.ratingSignal.toFixed(2)} journal=${resonance.components.journalDepth.toFixed(2)} social=${resonance.components.socialEscalation.toFixed(2)} speed=${resonance.components.speedSignal.toFixed(2)} diff=${resonance.components.difficultyAlignment.toFixed(2)})`);
     console.log(`│  Comfort radius: ${comfortRadius.toFixed?.(1) ?? "?"} mi`);
 
@@ -1581,6 +1621,15 @@ async function main() {
       questType: quest.questType ?? "venue",
       questRole: quest.questRole ?? null,
     });
+
+    // Track prediction accuracy for calibration feedback
+    if (predictedAnxiety != null) {
+      predictionHistory.push({
+        predicted: predictedAnxiety,
+        actual: obj.difficulty ?? 3,
+        title: quest.title ?? "",
+      });
+    }
 
     console.log(`╰${"─".repeat(55)}`);
 

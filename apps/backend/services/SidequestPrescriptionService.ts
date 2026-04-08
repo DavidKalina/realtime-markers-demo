@@ -145,6 +145,95 @@ interface GeocodedData {
   canonicalAddress: string | null;
 }
 
+// ─── Social Micro-Rep Ladder ────────────────────────────────────────
+
+const SOCIAL_MICRO_REP_TIERS = [
+  {
+    tier: 0,
+    label: "Ghost (just exist in the space)",
+    reps: [
+      "Sit in a public space for 15+ minutes without retreating",
+      "Stay at the counter or bar instead of hiding in a corner",
+      "Put your phone away for 5 minutes and just observe the room",
+    ],
+  },
+  {
+    tier: 1,
+    label: "Acknowledge (be seen)",
+    reps: [
+      "Make eye contact with one person and nod",
+      "Say \"thanks\" to the barista or server with a genuine smile",
+      "Hold the door for someone on your way in or out",
+    ],
+  },
+  {
+    tier: 2,
+    label: "Micro-interact (tiny exchanges)",
+    reps: [
+      "Compliment someone's shirt, book, or dog",
+      "Ask a staff member for a recommendation",
+      "Say \"have a good one\" to someone on your way out",
+    ],
+  },
+  {
+    tier: 3,
+    label: "Brief conversation (2-3 exchanges)",
+    reps: [
+      "Ask someone what they're reading, playing, or working on",
+      "Comment on something shared — the music, the weather, the event",
+      "Ask a neighbor at the bar or counter \"been here before?\"",
+    ],
+  },
+  {
+    tier: 4,
+    label: "Extended engagement (stay in it)",
+    reps: [
+      "Join a table or group activity and participate for the full round",
+      "Ask someone about themselves and follow up on their answer",
+      "Share something about yourself when someone asks",
+    ],
+  },
+  {
+    tier: 5,
+    label: "Bridge-building (create future connection)",
+    reps: [
+      "Learn one person's name before you leave",
+      "Ask \"do you come here often? What nights are best?\"",
+      "Say \"this was fun — I'll probably come back next week\"",
+    ],
+  },
+  {
+    tier: 6,
+    label: "Initiate (take the lead)",
+    reps: [
+      "Suggest a specific plan: \"want to grab coffee sometime?\"",
+      "Exchange contact info with someone you enjoyed talking to",
+      "Invite someone to join you at another event",
+    ],
+  },
+];
+
+function findSocialDimensionScore(fearLadder: { dimensionScores: Record<string, number> } | null): number | null {
+  if (!fearLadder?.dimensionScores) return null;
+  for (const [key, score] of Object.entries(fearLadder.dimensionScores)) {
+    if (key === "social" || key.includes("social")) return score;
+  }
+  return null;
+}
+
+function findVulnerabilityDimensionScore(fearLadder: { dimensionScores: Record<string, number> } | null): number | null {
+  if (!fearLadder?.dimensionScores) return null;
+  for (const [key, score] of Object.entries(fearLadder.dimensionScores)) {
+    if (key === "vulnerability" || key.includes("vulnerab")) return score;
+  }
+  return null;
+}
+
+function isSocialBlocker(blockerType: string): boolean {
+  const lower = blockerType.toLowerCase();
+  return ["social", "stranger", "conversation", "talking", "people", "interact"].some(k => lower.includes(k));
+}
+
 // ─── Interface ──────────────────────────────────────────────────────
 
 export interface SidequestPrescriptionService {
@@ -207,6 +296,13 @@ interface FearLadderReadiness {
   hasDfsPathway: boolean;
   /** Human-readable reason for the phase */
   phaseReason: string;
+}
+
+interface BlockerDetectionResult {
+  /** The prompt context string injected into the LLM prompt */
+  promptText: string;
+  /** Structured blocker metadata, null if no blocker detected */
+  blocker: { type: string; severity: string; phase: string } | null;
 }
 
 // ─── Implementation ─────────────────────────────────────────────────
@@ -348,7 +444,16 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
     const fearLadderReadiness = await this.computeFearLadderReadiness(userId);
 
     // 2b2. Detect recurring blockers from quest history
-    const blockerContext = await this.buildBlockerContext(userId);
+    const { promptText: blockerContext, blocker: blockerMeta } = await this.buildBlockerContext(userId);
+
+    // 2b3. Build social micro-rep context (contextual social scaffolding)
+    const socialMicroRepContext = await this.buildSocialMicroRepContext(
+      userId,
+      user.fearLadder ?? null,
+      fearLadderReadiness,
+      user.comfortProfile?.goalTags ?? [],
+      blockerMeta,
+    );
 
     // 2c. Build coverage context (Voronoi directional gaps + exploration profile)
     let coverageContext = "";
@@ -431,8 +536,19 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
       }
     }
 
-    // 3. Re-geocode city if search location was shifted by expansion target
-    // (city was already set above; this catches the case where it wasn't overridden in the expansion block)
+    // 3. Determine quest role — from sibling context (pack) or auto-detected (individual)
+    let questRole: string | undefined;
+    let roleTargetPathway: { id: string; theme: string; label: string; phase: string } | undefined;
+
+    if (siblingContext) {
+      questRole = siblingContext.questRole;
+      roleTargetPathway = siblingContext.targetPathway;
+    } else {
+      // Auto-detect role for individual venue prescriptions
+      const autoRole = await this.determineIndividualQuestRole(userId, fearLadderReadiness);
+      questRole = autoRole.role;
+      roleTargetPathway = autoRole.targetPathway;
+    }
 
     // 4. Create the sidequest record
     const sidequest = repo.create({
@@ -449,13 +565,14 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
       ...(siblingContext && {
         batchId: siblingContext.batchId,
         batchIndex: siblingContext.batchIndex,
-        questRole: siblingContext.questRole,
-        ...(siblingContext.targetPathway && {
-          pathwayId: siblingContext.targetPathway.id,
-          pathwayTheme: siblingContext.targetPathway.theme,
-          pathwayLabel: siblingContext.targetPathway.label,
-          pathwayPhase: siblingContext.targetPathway.phase,
-        }),
+      }),
+      // Quest role — from pack context OR auto-detected for individual quests
+      ...(questRole && { questRole }),
+      ...(roleTargetPathway && {
+        pathwayId: roleTargetPathway.id,
+        pathwayTheme: roleTargetPathway.theme,
+        pathwayLabel: roleTargetPathway.label,
+        pathwayPhase: roleTargetPathway.phase,
       }),
     });
     await repo.save(sidequest);
@@ -470,8 +587,17 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
       const dayOfWeek = now.toLocaleDateString("en-US", { weekday: "long" });
 
       const pace = user.pacePreference ?? "steady";
-      const isStretch = siblingContext?.questRole === "stretch";
-      const isEnjoy = siblingContext?.questRole === "enjoy";
+
+      // Build role instructions from the role determined in step 3
+      let roleInstructions = "";
+      if (siblingContext) {
+        roleInstructions = this.buildSiblingInstructions(siblingContext);
+      } else if (questRole && questRole !== "explore") {
+        roleInstructions = this.buildIndividualRoleInstructions(questRole, roleTargetPathway, user.onboardingProfile?.activities);
+      }
+
+      const isStretch = questRole === "stretch";
+      const isEnjoy = questRole === "enjoy";
 
       // Build prompt via registry
       const promptCtx: PrescriptionPromptContext = {
@@ -495,9 +621,9 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         expectancyContext: user.expectancyCalibration
           ? this.buildExpectancyContext(user.expectancyCalibration) : "",
         difficultyGuidance: this.buildDifficultyGuidance(pace, fearLadderReadiness, isStretch, isEnjoy),
-        siblingInstructions: siblingContext
-          ? this.buildSiblingInstructions(siblingContext) : "",
+        siblingInstructions: roleInstructions,
         blockerContext,
+        socialMicroRepContext,
         isStretch,
         isEnjoy,
         siblingContext: siblingContext ?? null,
@@ -1071,7 +1197,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
     );
 
     const fearLadderReadiness = await this.computeFearLadderReadiness(userId);
-    const blockerContext = await this.buildBlockerContext(userId);
+    const { promptText: blockerContext } = await this.buildBlockerContext(userId);
 
     let phaseContext = "";
     if (this.pathwayService) {
@@ -1144,6 +1270,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         difficultyGuidance: this.buildDifficultyGuidance(pace, fearLadderReadiness, false, false),
         siblingInstructions: "",
         blockerContext,
+        socialMicroRepContext: "",
         isStretch: false,
         isEnjoy: false,
         siblingContext: null,
@@ -1738,14 +1865,24 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
     );
     const completedQuestCount = completedCountResult[0]?.count ?? 0;
 
-    // Venue-level repeat intelligence
-    const venueRepeats: { venue_name: string; visit_count: number; avg_rating: number; venue_category: string }[] =
+    // Venue-level repeat intelligence — includes whether the venue is on a DFS pathway
+    const venueRepeats: { venue_name: string; visit_count: number; avg_rating: number; venue_category: string; on_dfs_pathway: boolean }[] =
       await this.dataSource.query(
         `SELECT
            o.venue_name,
            COUNT(*)::int AS visit_count,
            ROUND(AVG(s.rating)::numeric, 1)::float AS avg_rating,
-           o.venue_category
+           o.venue_category,
+           EXISTS(
+             SELECT 1 FROM pathways p
+             WHERE p.user_id = $1
+               AND p.phase = 'dfs'
+               AND p.sidequest_ids && ARRAY(
+                 SELECT s2.id FROM sidequests s2
+                 JOIN objectives o2 ON o2.sidequest_id = s2.id
+                 WHERE o2.venue_name = o.venue_name AND s2.user_id = $1
+               )
+           ) AS on_dfs_pathway
          FROM objectives o
          JOIN sidequests s ON s.id = o.sidequest_id
          WHERE s.user_id = $1
@@ -1759,6 +1896,109 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         [userId],
       );
     const venueBlock = this.buildVenueRepeatBlock(venueRepeats);
+
+    // Anchor venue candidates — venues the user wants to return to or has rated highly
+    // wouldReturn = true is the strongest signal (explicit user opt-in)
+    // Fallback: avg rating >= 3.5 (implicit signal)
+    const anchorCandidates: { venue_name: string; venue_address: string; venue_category: string; visit_count: number; avg_rating: number; last_rating: number; user_opted_in: boolean }[] =
+      await this.dataSource.query(
+        `SELECT
+           o.venue_name,
+           o.venue_address,
+           o.venue_category,
+           COUNT(*)::int AS visit_count,
+           ROUND(AVG(s.rating)::numeric, 1)::float AS avg_rating,
+           (SELECT s2.rating FROM sidequests s2
+            JOIN objectives o2 ON o2.sidequest_id = s2.id
+            WHERE o2.venue_name = o.venue_name AND s2.user_id = $1
+              AND s2.completed_at IS NOT NULL AND s2.deleted_at IS NULL
+            ORDER BY s2.completed_at DESC LIMIT 1
+           )::int AS last_rating,
+           (SELECT o3.would_return FROM objectives o3
+            JOIN sidequests s3 ON s3.id = o3.sidequest_id
+            WHERE o3.venue_name = o.venue_name AND s3.user_id = $1
+              AND o3.would_return IS NOT NULL
+              AND s3.completed_at IS NOT NULL AND s3.deleted_at IS NULL
+            ORDER BY s3.completed_at DESC LIMIT 1
+           ) AS user_opted_in
+         FROM objectives o
+         JOIN sidequests s ON s.id = o.sidequest_id
+         WHERE s.user_id = $1
+           AND s.completed_at IS NOT NULL
+           AND s.deleted_at IS NULL
+           AND o.venue_name IS NOT NULL
+         GROUP BY o.venue_name, o.venue_address, o.venue_category
+         HAVING AVG(s.rating) >= 3.5 OR (
+           SELECT o3.would_return FROM objectives o3
+           JOIN sidequests s3 ON s3.id = o3.sidequest_id
+           WHERE o3.venue_name = o.venue_name AND s3.user_id = $1
+             AND o3.would_return IS NOT NULL
+             AND s3.completed_at IS NOT NULL AND s3.deleted_at IS NULL
+           ORDER BY s3.completed_at DESC LIMIT 1
+         ) = true
+         ORDER BY user_opted_in DESC NULLS LAST, AVG(s.rating) DESC, COUNT(*) DESC
+         LIMIT 5`,
+        [userId],
+      );
+    const anchorBlock = this.buildAnchorVenueBlock(anchorCandidates, completedQuestCount);
+
+    // "Would NOT return" blocklist — venues the user explicitly rejected
+    const rejectedVenues: { venue_name: string; venue_category: string }[] =
+      await this.dataSource.query(
+        `SELECT DISTINCT o.venue_name, o.venue_category
+         FROM objectives o
+         JOIN sidequests s ON s.id = o.sidequest_id
+         WHERE s.user_id = $1
+           AND s.completed_at IS NOT NULL
+           AND s.deleted_at IS NULL
+           AND o.venue_name IS NOT NULL
+           AND o.would_return = false
+           AND NOT EXISTS (
+             -- Only block if the MOST RECENT signal for this venue is still "no"
+             SELECT 1 FROM objectives o2
+             JOIN sidequests s2 ON s2.id = o2.sidequest_id
+             WHERE o2.venue_name = o.venue_name AND s2.user_id = $1
+               AND o2.would_return = true
+               AND s2.completed_at > s.completed_at
+           )
+         ORDER BY o.venue_name`,
+        [userId],
+      );
+    const rejectedBlock = rejectedVenues.length > 0
+      ? `\nDO NOT PRESCRIBE THESE VENUES — user said they would NOT return:\n${rejectedVenues.map(v => `- "${v.venue_name}" (${v.venue_category})`).join("\n")}\nThis is a HARD constraint. Do NOT send them back to these specific venues under any circumstances.\n`
+      : "";
+
+    // Category dampening — if user rejected 2+ venues in the same category, deprioritize it
+    const rejectedCategoryCounts = new Map<string, number>();
+    for (const v of rejectedVenues) {
+      if (v.venue_category) {
+        rejectedCategoryCounts.set(v.venue_category, (rejectedCategoryCounts.get(v.venue_category) ?? 0) + 1);
+      }
+    }
+    const dampenedCategories = [...rejectedCategoryCounts.entries()].filter(([, count]) => count >= 2);
+    const categoryDampeningBlock = dampenedCategories.length > 0
+      ? `\n⚠️ CATEGORY DAMPENING: The user has rejected multiple venues in these categories: ${dampenedCategories.map(([cat, n]) => `"${cat}" (${n} rejected)`).join(", ")}. Strongly deprioritize these categories — the user is signaling they don't enjoy this type of experience.\n`
+      : "";
+
+    // Distress detection — check if the most recent journal entry was very negative
+    const recentDistress: { journal_entry: string; reflection_sentiment: number; venue_name: string; venue_category: string }[] =
+      await this.dataSource.query(
+        `SELECT o.journal_entry, o.reflection_sentiment, o.venue_name, o.venue_category
+         FROM objectives o
+         JOIN sidequests s ON s.id = o.sidequest_id
+         WHERE s.user_id = $1
+           AND s.completed_at IS NOT NULL
+           AND s.deleted_at IS NULL
+           AND o.journal_entry IS NOT NULL
+           AND o.reflection_sentiment IS NOT NULL
+           AND o.reflection_sentiment < -0.3
+         ORDER BY s.completed_at DESC
+         LIMIT 1`,
+        [userId],
+      );
+    const distressBlock = recentDistress.length > 0 && recentDistress[0].reflection_sentiment < -0.3
+      ? `\n🚨 RECENT DISTRESS SIGNAL: The user's most recent journal entry was notably negative (sentiment: ${recentDistress[0].reflection_sentiment.toFixed(2)}). They wrote: "${recentDistress[0].journal_entry.slice(0, 120)}..."\nThis is a moment to CHANGE PACE. Consider:\n- An enjoy quest (something purely fun, no growth pressure)\n- A different category entirely (break the pattern)\n- A gentler difficulty level\n- Avoid "${recentDistress[0].venue_name}" and similar venues for now\nDo NOT prescribe more of the same. The user needs to feel like the app heard them.\n`
+      : "";
 
     // City visit counts for diminishing returns
     const cityVisits: { city: string; count: number }[] =
@@ -1806,8 +2046,12 @@ ${arcNarrative ? `\nJOURNEY ARC: ${arcNarrative}` : ""}
 MOST RECENT QUESTS (avoid repeating these):
 ${recentList || "(none)"}
 ${pendingBlock}
+${rejectedBlock}
+${distressBlock}
 ${categoryDiversityBlock}
+${categoryDampeningBlock}
 ${venueBlock}
+${anchorBlock}
 ${cityBlock}
 ${milestoneBlock}
 ${await this.buildSocialContext(userId, goalTags)}`;
@@ -1829,11 +2073,15 @@ ${await this.buildSocialContext(userId, goalTags)}`;
 ${recentList}
 ${arcNarrative ? `\nJOURNEY ARC: ${arcNarrative}` : ""}
 ${pendingBlock}
+${rejectedBlock}
+${distressBlock}
 ${categoryDiversityBlock}
+${categoryDampeningBlock}
 ${venueBlock}
+${anchorBlock}
 ${cityBlock}
 ${milestoneBlock}
-PRESCRIPTION STRATEGY: Look at their history and prescribe something that meaningfully expands — a new category, a further distance, or an area of town they haven't explored.
+PRESCRIPTION STRATEGY: Look at their history and prescribe something that meaningfully expands — a new category, a further distance, or an area of town they haven't explored. If anchor venues exist, a return visit with a new angle is an option but not the default.
 
 ${await this.buildSocialContext(userId, goalTags)}`;
   }
@@ -1893,14 +2141,137 @@ ${await this.buildSocialContext(userId, goalTags)}`;
   }
 
   /**
+   * Build social micro-rep context for the LLM prompt.
+   * Determines the user's current social comfort tier (0-6) and provides
+   * specific micro-actions for the LLM to weave into suggested activities.
+   * Only activates for users where social growth is relevant.
+   */
+  private async buildSocialMicroRepContext(
+    userId: string,
+    fearLadder: { dimensionScores: Record<string, number> } | null,
+    readiness: FearLadderReadiness,
+    goalTags: string[],
+    blockerMeta: { type: string; severity: string; phase: string } | null,
+  ): Promise<string> {
+    // Gate: only inject for users where social growth is relevant
+    const wantsSocial = goalTags.includes("socialize");
+    const socialDimScore = findSocialDimensionScore(fearLadder);
+    const hasSocialAnxiety = socialDimScore !== null && socialDimScore > 0.4;
+    const hasSocialBlocker = blockerMeta !== null && isSocialBlocker(blockerMeta.type);
+
+    if (!wantsSocial && !hasSocialAnxiety && !hasSocialBlocker) return "";
+
+    // Query social context history
+    const socialCounts: { social_context: string; count: number }[] =
+      await this.dataSource.query(
+        `SELECT o.social_context, COUNT(*)::int as count
+         FROM objectives o
+         JOIN sidequests s ON s.id = o.sidequest_id
+         WHERE s.user_id = $1
+           AND o.checked_in_at IS NOT NULL
+           AND o.social_context IS NOT NULL
+         GROUP BY o.social_context`,
+        [userId],
+      );
+
+    const soloCount = socialCounts.find((c) => c.social_context === "solo")?.count ?? 0;
+    const metNewCount = socialCounts.find((c) => c.social_context === "met_someone_new")?.count ?? 0;
+    const groupCount = socialCounts.find((c) => c.social_context === "group_activity")?.count ?? 0;
+    const withSomeoneCount = socialCounts.find((c) => c.social_context === "with_someone")?.count ?? 0;
+    const totalSocial = metNewCount + groupCount + withSomeoneCount;
+    const totalCheckins = soloCount + totalSocial;
+
+    // Compute tier (0-6)
+    const { phase } = readiness;
+
+    // Base tier from phase (floor)
+    let tier = 0;
+    if (phase >= 1) tier = 1;
+    if (phase >= 2) tier = 2;
+    if (phase >= 3) tier = 4;
+
+    // Social history boosts (data-driven)
+    if (totalCheckins >= 3 && totalSocial === 0) {
+      // Goes out but always solo — keep low
+      tier = Math.min(tier, 1);
+    }
+    if (metNewCount >= 1) {
+      tier = Math.max(tier, 2);
+    }
+    if (metNewCount >= 3 || groupCount >= 2) {
+      tier = Math.max(tier, 3);
+    }
+    if (metNewCount >= 5 && groupCount >= 3) {
+      tier = Math.max(tier, 4);
+    }
+    if (groupCount >= 5 && metNewCount >= 5) {
+      tier = Math.max(tier, 5);
+    }
+
+    // Fear ladder social dimension cap
+    if (socialDimScore !== null) {
+      if (socialDimScore >= 0.75) {
+        tier = Math.min(tier, 2);
+      } else if (socialDimScore >= 0.5) {
+        tier = Math.min(tier, 3);
+      }
+    }
+
+    // Vulnerability dimension cap — higher tiers require self-disclosure
+    const vulnDimScore = findVulnerabilityDimensionScore(fearLadder);
+    if (vulnDimScore !== null && vulnDimScore >= 0.75 && tier > 3) {
+      tier = Math.min(tier, 3);
+    }
+
+    // Blocker hard cap (highest priority)
+    if (hasSocialBlocker && blockerMeta) {
+      if (blockerMeta.phase === "avoid") {
+        tier = Math.min(tier, 0);
+      } else if (blockerMeta.phase === "building") {
+        tier = Math.min(tier, 1);
+      } else if (blockerMeta.phase === "reintroduce") {
+        tier = Math.min(tier, 2);
+      }
+    }
+
+    // Final clamp
+    tier = Math.max(0, Math.min(6, tier));
+
+    // Build prompt text
+    const currentTier = SOCIAL_MICRO_REP_TIERS[tier];
+    const stretchTier = tier < 6 ? SOCIAL_MICRO_REP_TIERS[tier + 1] : null;
+
+    const lines: string[] = [];
+    lines.push(`\nSOCIAL MICRO-REP (Tier ${tier}/6 — ${currentTier.label}):`);
+    lines.push(`This user's social comfort level is at Tier ${tier}. When crafting suggested activities (sa), weave ONE of these social micro-reps into the venue experience:`);
+
+    for (const rep of currentTier.reps) {
+      lines.push(`  - ${rep}`);
+    }
+
+    if (stretchTier) {
+      lines.push(`Optional stretch (Tier ${tier + 1}): "${stretchTier.reps[0]}" — only if the venue naturally supports it. Use soft language ("if it feels right", "you could try").`);
+    }
+
+    lines.push(`IMPORTANT: The micro-rep should be ONE of the 2-3 suggested activities (sa), not all of them. The other activities should be about the venue experience itself. Do NOT make the social micro-rep the quest's primary objective or title. It's a small nudge woven into a larger experience.`);
+
+    if (hasSocialBlocker) {
+      lines.push(`NOTE: This user has an active social blocker (${blockerMeta!.phase} phase). Keep the micro-rep especially gentle. Frame it as entirely optional.`);
+    }
+
+    return lines.join("\n");
+  }
+
+  /**
    * Detect recurring blockers by analyzing recent quest history.
    * Looks at action items vs completed activity + journal entries
    * to find patterns where the user consistently avoids or struggles
    * with a specific type of action.
    */
-  private async buildBlockerContext(userId: string): Promise<string> {
+  private async buildBlockerContext(userId: string): Promise<BlockerDetectionResult> {
+    const noBlocker: BlockerDetectionResult = { promptText: "", blocker: null };
     const completedCount = await this.countCompletedQuests(userId);
-    if (completedCount < 5) return "";
+    if (completedCount < 5) return noBlocker;
 
     // Fetch recent completed quests with objective details
     const recentObjectives: {
@@ -1938,7 +2309,7 @@ ${await this.buildSocialContext(userId, goalTags)}`;
     const withSignal = recentObjectives.filter(
       (o) => o.journal_entry || o.completed_activity || o.rating_comment,
     );
-    if (withSignal.length < 3) return "";
+    if (withSignal.length < 3) return noBlocker;
 
     // Build compact summaries for LLM analysis
     const questSummaries = recentObjectives
@@ -1999,16 +2370,17 @@ If no blocker: {"detected":false}`,
 
       const text = response.choices[0]?.message?.content?.trim() ?? "{}";
       const result = JSON.parse(text);
-      if (!result.detected) return "";
+      if (!result.detected) return noBlocker;
 
       const phase: string = result.phase ?? "avoid";
+      const blockerMeta = { type: result.blockerType as string, severity: result.severity as string, phase };
 
       console.log(
         `[prescribeQuest] Blocker detected: "${result.blockerType}" (${result.severity}, phase=${phase}) — ${result.evidence}`,
       );
 
       if (phase === "reintroduce") {
-        return `\nRECURRING BLOCKER — READY TO REINTRODUCE: ${result.blockerType.toUpperCase()}
+        return { blocker: blockerMeta, promptText: `\nRECURRING BLOCKER — READY TO REINTRODUCE: ${result.blockerType.toUpperCase()}
 ${result.evidence}
 Phase: REINTRODUCE — ${result.phaseReason ?? "User has shown consistent recent improvement."}
 
@@ -2019,11 +2391,11 @@ REINTRODUCTION RULES:
 - Frame the quest around an enjoyable activity. The blocked action should be a "nice to have" bonus, not the goal.
 - Use soft language: "if it feels right", "you might", "no pressure to" — NOT "introduce yourself" or "talk to someone."
 - Difficulty should stay moderate (3-5). Don't spike it.
-- If the user succeeds, great. If not, it's still a good quest without the blocked action.\n`;
+- If the user succeeds, great. If not, it's still a good quest without the blocked action.\n` };
       }
 
       if (phase === "building") {
-        return `\nRECURRING BLOCKER — BUILDING CONFIDENCE: ${result.blockerType.toUpperCase()}
+        return { blocker: blockerMeta, promptText: `\nRECURRING BLOCKER — BUILDING CONFIDENCE: ${result.blockerType.toUpperCase()}
 ${result.evidence}
 Phase: BUILDING — ${result.phaseReason ?? "User is showing improvement on recent quests."}
 
@@ -2033,11 +2405,11 @@ PRESCRIPTION RULES:
 - Focus on activities where the user can participate fully without "${result.blockerType}".
 - Solo activities, structured classes, hands-on workshops, and observation-based quests are ideal.
 - Social interaction may happen naturally — that's fine — but it must NOT be prescribed as an objective.
-- Keep difficulty low-moderate (2-4). The goal is continued easy wins.\n`;
+- Keep difficulty low-moderate (2-4). The goal is continued easy wins.\n` };
       }
 
       // Default: "avoid" phase
-      return `\nRECURRING BLOCKER — ACTIVE AVOIDANCE: ${result.blockerType.toUpperCase()}
+      return { blocker: blockerMeta, promptText: `\nRECURRING BLOCKER — ACTIVE AVOIDANCE: ${result.blockerType.toUpperCase()}
 ${result.evidence}
 Phase: AVOID — ${result.phaseReason ?? "User is still in active failure mode."}
 
@@ -2049,10 +2421,10 @@ PRESCRIPTION RULES:
 3. Keep difficulty low (1-3). The goal is EASY WINS to rebuild confidence.
 
 MICRO-PROGRESSION (follow this arc over the next several quests):
-${result.suggestedProgression}\n`;
+${result.suggestedProgression}\n` };
     } catch (err) {
       console.error("[prescribeQuest] Blocker detection failed:", err);
-      return "";
+      return noBlocker;
     }
   }
 
@@ -2153,23 +2525,41 @@ ${result.suggestedProgression}\n`;
     const top = categories[0];
     const topPct = Math.round((top.count / total) * 100);
 
-    // Hard block if one category dominates — kicks in early
-    if (top.count >= 2 && topPct >= 40) {
+    // Thresholds tighten as quest count grows — early journeys need concentration,
+    // but by quest 20+ one category shouldn't dominate
+    const hardBlockPct = total >= 20 ? 25 : 40;
+    const warnPct = total >= 20 ? 20 : 30;
+
+    // Hard block if one category dominates
+    if (top.count >= 2 && topPct >= hardBlockPct) {
       lines.push(
         `⚠️ CATEGORY OVERLOAD: "${top.venue_category}" accounts for ${topPct}% of all quests (${top.count}/${total}). ` +
         `DO NOT prescribe "${top.venue_category}" this time. Choose a DIFFERENT category. ` +
-        `Search for: trail, park, museum, gallery, market, venue, fitness, restaurant, bar — anything they haven't tried or have tried less.`,
+        `Consider: restaurant, trail, music venue, volunteer, class, market, gallery — especially categories from the user's stated interests they haven't explored yet.`,
       );
-    } else if (top.count >= 2 && topPct >= 30) {
+    } else if (top.count >= 2 && topPct >= warnPct) {
       lines.push(
         `NOTE: "${top.venue_category}" is becoming dominant (${top.count}/${total}). Strongly prefer a different category this time.`,
       );
+    }
+
+    // Check for second-dominant category too (prevents two categories hogging everything)
+    if (categories.length >= 2) {
+      const second = categories[1];
+      const secondPct = Math.round((second.count / total) * 100);
+      if (top.count + second.count >= total * 0.5 && total >= 10) {
+        lines.push(
+          `"${top.venue_category}" + "${second.venue_category}" together account for ${topPct + secondPct}% of all quests. The journey is narrowing — actively explore OTHER categories.`,
+        );
+      }
     }
 
     // Suggest untried categories
     const tried = new Set(categories.map((c) => c.venue_category));
     if (tried.size < 6) {
       lines.push(`Only ${tried.size} category types explored so far. Prioritize trying a completely new type of venue or activity they haven't done before.`);
+    } else if (total >= 20 && tried.size < 10) {
+      lines.push(`${tried.size} categories explored across ${total} quests. The user's interests include activities not yet explored — look for restaurants, music venues, trails, volunteer spots, or classes.`);
     }
 
     return lines.join("\n");
@@ -2203,7 +2593,7 @@ ${result.suggestedProgression}\n`;
   }
 
   private buildVenueRepeatBlock(
-    venues: { venue_name: string; visit_count: number; avg_rating: number; venue_category: string }[],
+    venues: { venue_name: string; visit_count: number; avg_rating: number; venue_category: string; on_dfs_pathway: boolean }[],
   ): string {
     if (venues.length === 0) return "";
 
@@ -2214,16 +2604,35 @@ ${result.suggestedProgression}\n`;
       const isLowResonance = v.avg_rating < 3;
 
       if (v.visit_count >= 3 && isLowResonance) {
-        // Lazy repeat — hard block
+        // Lazy repeat — hard block regardless of pathway
         lines.push(
           `⚠️ "${v.venue_name}" (${v.venue_category}) — ${v.visit_count} visits, avg rating ${v.avg_rating}. ` +
           `DO NOT send them here again. Find somewhere new.`,
         );
-      } else if (v.visit_count >= 4) {
-        // Too many visits regardless of rating — hard block to force exploration
+      } else if (v.on_dfs_pathway && isHighResonance) {
+        // DFS anchor venue — this is where real growth is happening. Allow generous returns.
+        if (v.visit_count >= 8) {
+          lines.push(
+            `"${v.venue_name}" (${v.venue_category}) — ${v.visit_count} visits, avg rating ${v.avg_rating}. ` +
+            `Core anchor on a deep pathway. Still valuable, but mix in other venues on this pathway to avoid staleness.`,
+          );
+        } else {
+          lines.push(
+            `✅ "${v.venue_name}" (${v.venue_category}) — ${v.visit_count} visits, avg rating ${v.avg_rating}. ` +
+            `This is an anchor venue on a deep pathway — returning here builds real progress. Returning is encouraged, especially with escalating difficulty or new social challenges each time.`,
+          );
+        }
+      } else if (v.visit_count >= 6 && isHighResonance) {
+        // High-rated but not on DFS — they love it but need to explore too
         lines.push(
-          `⚠️ "${v.venue_name}" (${v.venue_category}) — ${v.visit_count} visits. ` +
-          `DO NOT prescribe this venue — they need to explore new places, not revisit the same ones. Find a different venue.`,
+          `"${v.venue_name}" (${v.venue_category}) — ${v.visit_count} visits, avg rating ${v.avg_rating}. ` +
+          `They clearly love this spot. Alternate with new venues — every other quest here is fine, but don't let it crowd out exploration.`,
+        );
+      } else if (v.visit_count >= 6) {
+        // Too many visits with mediocre rating — hard block
+        lines.push(
+          `⚠️ "${v.venue_name}" (${v.venue_category}) — ${v.visit_count} visits, avg rating ${v.avg_rating}. ` +
+          `DO NOT prescribe this venue — they need to explore new places. Find a different venue.`,
         );
       } else if (v.visit_count >= 2 && !isHighResonance) {
         // Mediocre repeat — discourage
@@ -2232,15 +2641,52 @@ ${result.suggestedProgression}\n`;
           `Becoming repetitive. Prefer a different venue this time.`,
         );
       } else if (v.visit_count >= 3 && isHighResonance) {
-        // Genuine anchor — allow but throttle
+        // Genuine anchor — allow with encouragement
         lines.push(
           `"${v.venue_name}" (${v.venue_category}) — ${v.visit_count} visits, avg rating ${v.avg_rating}. ` +
-          `This is a valued spot, but alternate with new venues to keep expanding.`,
+          `This is a valued spot. Returning is OK if the quest escalates — new challenge, new social angle, or deeper engagement each time.`,
         );
       }
     }
 
     return lines.length > 1 ? lines.join("\n") : "";
+  }
+
+  /**
+   * Build anchor venue recommendations — high-rated venues the user should return to.
+   * This is the "become a regular" signal. Framed as a positive recommendation, not a constraint.
+   */
+  private buildAnchorVenueBlock(
+    anchors: { venue_name: string; venue_address: string; venue_category: string; visit_count: number; avg_rating: number; last_rating: number; user_opted_in: boolean }[],
+    completedQuestCount: number,
+  ): string {
+    // Only activate after enough quests to have meaningful signal
+    if (anchors.length === 0 || completedQuestCount < 5) return "";
+
+    const optedIn = anchors.filter(a => a.user_opted_in);
+    const suggested = anchors.filter(a => !a.user_opted_in);
+
+    const lines: string[] = [];
+
+    if (optedIn.length > 0) {
+      lines.push(`\nANCHOR VENUES — USER WANTS TO RETURN:`);
+      lines.push(`The user explicitly said they'd come back to these spots. Prioritize return visits here with escalating challenges.`);
+      for (const a of optedIn) {
+        const visits = a.visit_count === 1 ? "1 visit" : `${a.visit_count} visits`;
+        lines.push(`  ★★ "${a.venue_name}" (${a.venue_category}) — ${visits}, avg rating ${a.avg_rating} — USER OPTED IN`);
+      }
+    }
+
+    if (suggested.length > 0) {
+      lines.push(`\nPOTENTIAL ANCHOR VENUES:`);
+      lines.push(`These are places the user rated well but hasn't said they'd return to. Use as soft suggestions, not mandates.`);
+      for (const a of suggested) {
+        const visits = a.visit_count === 1 ? "1 visit" : `${a.visit_count} visits`;
+        lines.push(`  ★ "${a.venue_name}" (${a.venue_category}) — ${visits}, avg rating ${a.avg_rating}`);
+      }
+    }
+
+    return lines.join("\n");
   }
 
   // ─── Fear Ladder Readiness (resonance-driven) ──────────────────
@@ -2391,12 +2837,20 @@ ${result.suggestedProgression}\n`;
       }
     }
 
-    // Safety valve: if recent quests have LOW ratings, drop back a phase
-    // This prevents escalation when the user is struggling
+    // Safety valve: if recent quests have LOW ratings, drop back a phase.
+    // This prevents escalation when the user is genuinely struggling.
+    // Exclude 1-star ratings — these are often blocker-triggered avoidance
+    // and should not penalise the user's phase progression.
     const recentRatings = ratings.slice(0, 5);
-    const recentAvgRating = recentRatings.length > 0
-      ? recentRatings.reduce((a, b) => a + b, 0) / recentRatings.length : avgRating;
-    if (recentAvgRating < 2.5 && phase > 0) {
+    const recentNonBlockerRatings = recentRatings.filter(r => r > 1);
+    const recentAvgRating = recentNonBlockerRatings.length > 0
+      ? recentNonBlockerRatings.reduce((a, b) => a + b, 0) / recentNonBlockerRatings.length : avgRating;
+    // Only drop phase if we have enough non-blocker data AND it's still low,
+    // and never undo an expectancy-accelerated phase bump in the same pass.
+    const wasAccelerated = cal?.expectancyCalibration
+      && cal.expectancyCalibration.totalViolations >= 3
+      && cal.expectancyCalibration.avgAnxietyDelta > 1.5;
+    if (recentAvgRating < 2.5 && phase > 0 && recentNonBlockerRatings.length >= 3 && !wasAccelerated) {
       phase = Math.max(0, phase - 1);
       phaseReason = `Recent quests aren't landing well (recent avg rating ${recentAvgRating.toFixed(1)}) — pulling back`;
     }
@@ -2620,7 +3074,7 @@ ${result.suggestedProgression}\n`;
    */
   private buildDifficultyGuidance(pace: string, readiness: FearLadderReadiness, isStretch = false, isEnjoy = false): string {
     if (isEnjoy) {
-      return `- DIFFICULTY GUIDANCE: This is an ENJOY quest. Keep it easy and rewarding — aim for difficulty 1-3. This isn't about growth, it's about doing something they genuinely love. No stretch needed.`;
+      return `- DIFFICULTY GUIDANCE: This is an ENJOY quest — a cheat meal. Difficulty 1-3 ONLY. This is NOT about growth, NOT about their goal. Pick something purely fun based on their interests. Think: great food, games, scenic spots, live music, adventure activities. The only thing that matters is they'd smile doing it.`;
     }
 
     if (isStretch) {
@@ -2632,11 +3086,17 @@ ${result.suggestedProgression}\n`;
     }
 
     if (readiness.phase === 1) {
-      return `- DIFFICULTY GUIDANCE: They're building confidence. Gentle stretches are landing well — aim for difficulty 2-4. Nudge them, don't push.`;
+      const hint = readiness.recentAvgDifficulty <= 3
+        ? ` Their recent quests averaged difficulty ${readiness.recentAvgDifficulty.toFixed(1)} — if they're rating 3+ stars, it's time to nudge upward.`
+        : "";
+      return `- DIFFICULTY GUIDANCE: They're building confidence. Gentle stretches are landing well — aim for difficulty 2-5. Don't default to the low end of this range; if their recent ratings are 3+ stars, lean toward 4-5.${hint}`;
     }
 
     if (readiness.phase === 2) {
-      return `- DIFFICULTY GUIDANCE: They're showing real growth. Push toward meaningful challenges — aim for difficulty 3-6. They can handle more than they think.`;
+      const hint = readiness.recentAvgDifficulty <= 4
+        ? ` Their recent quests averaged difficulty ${readiness.recentAvgDifficulty.toFixed(1)} — they've been coasting. Push into 5-6 territory.`
+        : "";
+      return `- DIFFICULTY GUIDANCE: They're showing real growth. Push toward meaningful challenges — aim for difficulty 4-7. Do NOT default to the bottom of this range. They can handle more than they think.${hint}`;
     }
 
     // Phase 3 — thriving
@@ -2645,7 +3105,7 @@ ${result.suggestedProgression}\n`;
       return `- DIFFICULTY GUIDANCE: Veteran explorer — ${questCount} quests completed, thriving. The full 1-10 range is open. Match difficulty to the actual challenge of the quest for THIS person. Don't hold back if the quest warrants it.`;
     }
 
-    return `- DIFFICULTY GUIDANCE: They're thriving. Lean into growth edges — aim for difficulty 4-8. Use your judgment based on the specific venue and activity.`;
+    return `- DIFFICULTY GUIDANCE: They're thriving. Lean into growth edges — aim for difficulty 5-8. Recent avg difficulty was ${readiness.recentAvgDifficulty.toFixed(1)} — push meaningfully above that. Use your judgment based on the specific venue and activity.`;
   }
 
   // ─── Sibling Context for Weekly Packs ─────────────────────────��
@@ -2665,13 +3125,14 @@ ${result.suggestedProgression}\n`;
         `- ROLE: EXPLORE. This quest should push into NEW territory the user hasn't tried.`,
         `  Avoid categories already covered by active pathways. Prioritize novelty.`,
       );
-    } else if (ctx.questRole === "enjoy" && ctx.targetPathway) {
+    } else if (ctx.questRole === "enjoy") {
+      const activities = ctx.previousSiblings.length > 0 ? "" : ""; // activities come from the prompt context user profile
       lines.push(
-        `- ROLE: ENJOY. This quest is a reward — something fun in a category they already love.`,
-        `  Pick a venue in the "${ctx.targetPathway.theme}" category that they'd genuinely look forward to.`,
-        `  No escalation, no stretch, no social pressure. Just a great experience doing something they enjoy.`,
-        `  Stay within their comfort radius. If they have onboarding activities listed, lean into those.`,
-        `  Difficulty 1-3. The win is enjoyment, not growth. Think of this as a recovery day between harder quests.`,
+        `- ROLE: ENJOY — THIS IS A CHEAT MEAL. This quest is a pure reward. NOT about their goal, NOT about growth.`,
+        `  Think: a great restaurant, a disc golf course, an arcade, a scenic trail, a fun brewery, a concert — whatever this person would genuinely have FUN doing.`,
+        `  Pick something based on their stated interests/activities, not their pathways. Ignore their goal and barriers for this quest.`,
+        `  No social pressure. No journaling expectation. No growth framing. Just fun.`,
+        `  Stay within their comfort radius. Difficulty 1-3. The only metric: would they smile doing this?`,
       );
     } else if (ctx.questRole === "stretch") {
       lines.push(
@@ -2696,6 +3157,45 @@ ${result.suggestedProgression}\n`;
     }
 
     return lines.join("\n");
+  }
+
+  /**
+   * Build role instructions for individual (non-pack) prescriptions.
+   * Lighter than buildSiblingInstructions — no batch context, just the role guidance.
+   */
+  private buildIndividualRoleInstructions(
+    role: string,
+    targetPathway?: { id: string; theme: string; label: string; phase: string },
+    activities?: string[],
+  ): string {
+    if (role === "enjoy") {
+      const activityHint = activities?.length
+        ? `Their stated interests: ${activities.join(", ")}.`
+        : "Pick something universally fun — good food, games, nature, music.";
+      return [
+        `\nQUEST ROLE: ENJOY — THIS IS A CHEAT MEAL`,
+        `This quest is a pure reward. It is NOT about their goal, NOT about growth, NOT about pathways.`,
+        `Think: a great restaurant, a disc golf course, an arcade, a scenic trail, a fun brewery, a concert, a go-kart track, a farmers market — whatever this person would genuinely have FUN doing.`,
+        `${activityHint}`,
+        `Pick something based on what they'd choose on a perfect free afternoon. Ignore their goal, their barriers, their pathways — this quest exists to make them glad they opened the app.`,
+        `No social pressure. No journaling expectation. No "notice how this connects to your goal." Just fun.`,
+        `Stay within or near their comfort radius. Difficulty 1-3. The only metric that matters is: would they smile doing this?`,
+      ].join("\n");
+    }
+
+    if (role === "stretch") {
+      return [
+        `\nQUEST ROLE: STRETCH`,
+        `This quest should push BEYOND their current comfort zone.`,
+        `Push on MULTIPLE dimensions: further distance AND unfamiliar category AND higher social challenge.`,
+        `Target difficulty should be significantly above their usual range.`,
+        `Search further out — aim for 1.5-2x their comfort radius.`,
+        `The quest should feel ambitious but NOT impossible — exciting, not terrifying.`,
+      ].join("\n");
+    }
+
+    // "explore" — no special instructions needed, default behavior is exploration
+    return "";
   }
 
   // ─── Weekly Pack Orchestrator ──────────────────────────────────
@@ -2750,6 +3250,38 @@ ${result.suggestedProgression}\n`;
     return { batchId, quests };
   }
 
+  /**
+   * Determine a quest role for individual (non-pack) prescriptions.
+   *
+   * Role distribution (deterministic cycle after enough data):
+   *   - <5 quests: always "explore" (still onboarding)
+   *   - 5+ quests: rotating pattern — explore, explore, enjoy, explore, stretch
+   *   - Enjoy quests are "cheat meals" — pure fun based on interests, decoupled from pathways
+   *   - Stretch quests push beyond comfort zone on multiple dimensions
+   */
+  private async determineIndividualQuestRole(
+    _userId: string,
+    readiness: FearLadderReadiness,
+  ): Promise<{ role: "explore" | "enjoy" | "stretch"; targetPathway?: { id: string; theme: string; label: string; phase: string } }> {
+    // Early phase — always explore
+    if (readiness.completedQuests < 5) {
+      return { role: "explore" };
+    }
+
+    // Deterministic role rotation based on completed quest count.
+    // Pattern: explore, explore, enjoy, explore, stretch (repeats)
+    const cycle = readiness.completedQuests % 5;
+    if (cycle === 2 && readiness.completedQuests >= 8) {
+      // Every 5th quest (offset 2) is enjoy — a cheat meal, no pathway target needed
+      return { role: "enjoy" };
+    } else if (cycle === 4) {
+      // Every 5th quest (offset 4) is stretch — push them
+      return { role: "stretch" };
+    }
+
+    return { role: "explore" };
+  }
+
   private async determinePackSlots(
     userId: string,
   ): Promise<{ role: "deepen" | "explore" | "discover" | "stretch" | "enjoy"; targetPathway?: { id: string; theme: string; label: string; phase: string } }[]> {
@@ -2774,20 +3306,18 @@ ${result.suggestedProgression}\n`;
 
     const topDfs = dfsPathways[0];
 
-    // Pick an enjoy target: a high-resonance DFS pathway the user clearly loves.
-    // Use the second-highest DFS pathway if available (so deepen and enjoy don't
-    // target the same one), otherwise fall back to the top one.
-    const enjoyTarget = dfsPathways.length > 1 ? dfsPathways[1] : topDfs;
-
-    // Slot an enjoy quest when the user has enough history and at least one
-    // thriving pathway. This replaces one explore slot — the pack becomes
-    // [deepen, enjoy, stretch] instead of [deepen, explore, stretch].
-    // Only activate after 8+ completed quests so early exploration isn't cut short.
+    // Enjoy quests are "cheat meals" — decoupled from pathways entirely.
+    // They use the user's onboarding interests, not DFS pathway categories.
+    // Include one after 8+ quests so they've earned the reward.
     const completedCount = await this.countCompletedQuests(userId);
-    const shouldIncludeEnjoy = dfsPathways.length > 0 && completedCount >= 8;
+    const shouldIncludeEnjoy = completedCount >= 8;
 
     switch (phaseContext.globalPhase) {
       case "bfs":
+        // During BFS, include an enjoy quest if they've earned it
+        if (shouldIncludeEnjoy) {
+          return [{ role: "explore" }, { role: "enjoy" }, { role: "stretch" }];
+        }
         return [{ role: "explore" }, { role: "explore" }, { role: "stretch" }];
 
       case "mixed":
@@ -2795,14 +3325,11 @@ ${result.suggestedProgression}\n`;
         const topDfsInfo = topDfs
           ? { id: topDfs.id, theme: topDfs.theme, label: topDfs.themeLabel ?? topDfs.theme, phase: topDfs.phase }
           : undefined;
-        const enjoyInfo = enjoyTarget
-          ? { id: enjoyTarget.id, theme: enjoyTarget.theme, label: enjoyTarget.themeLabel ?? enjoyTarget.theme, phase: enjoyTarget.phase }
-          : undefined;
 
         if (shouldIncludeEnjoy) {
           return [
             { role: "deepen", targetPathway: topDfsInfo },
-            { role: "enjoy", targetPathway: enjoyInfo },
+            { role: "enjoy" },
             { role: "stretch" },
           ];
         }

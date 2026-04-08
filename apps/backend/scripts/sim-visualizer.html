@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulation Visualizer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --card-border: #2a2d3a;
+    --text: #e4e4e7;
+    --text-dim: #8b8d97;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --green: #22c55e;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --gold: #fbbf24;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+    --cyan: #06b6d4;
+    --pink: #ec4899;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  .input-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+    gap: 1.5rem;
+  }
+
+  .input-screen h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .input-screen p {
+    color: var(--text-dim);
+    max-width: 480px;
+    text-align: center;
+  }
+
+  .drop-zone {
+    width: 100%;
+    max-width: 800px;
+    min-height: 300px;
+    border: 2px dashed var(--card-border);
+    border-radius: 12px;
+    background: var(--card);
+    position: relative;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(99, 102, 241, 0.05);
+  }
+
+  .drop-zone textarea {
+    width: 100%;
+    height: 300px;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 0.8rem;
+    padding: 1.5rem;
+    resize: vertical;
+    outline: none;
+  }
+
+  .drop-zone textarea::placeholder {
+    color: var(--text-dim);
+  }
+
+  .btn {
+    padding: 0.75rem 2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.2s;
+  }
+
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    color: white;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+  }
+
+  .btn-secondary {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--card-border);
+    font-size: 0.85rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  /* Dashboard */
+  .dashboard {
+    display: none;
+    padding: 1.5rem;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  .dashboard.visible {
+    display: block;
+  }
+
+  .dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .persona-card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    flex: 1;
+    min-width: 300px;
+  }
+
+  .persona-card h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+    background: linear-gradient(135deg, var(--accent), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .persona-card .goal {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  .persona-card .meta {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  .persona-card .meta span {
+    color: var(--text);
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+
+  .stat-card .label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin-bottom: 0.25rem;
+  }
+
+  .stat-card .value {
+    font-size: 1.75rem;
+    font-weight: 700;
+  }
+
+  .stat-card .sub {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-top: 0.15rem;
+  }
+
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .chart-grid .full-width {
+    grid-column: 1 / -1;
+  }
+
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+
+  .chart-card h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .chart-card canvas {
+    max-height: 320px;
+  }
+
+  .chart-card.tall canvas {
+    max-height: 420px;
+  }
+
+  /* Blocker card */
+  .blocker-card {
+    background: linear-gradient(135deg, rgba(239,68,68,0.08), rgba(251,191,36,0.06));
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+
+  .blocker-card h3 {
+    color: var(--red);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.75rem;
+  }
+
+  .blocker-card .blocker-desc {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+  }
+
+  .blocker-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.85rem;
+  }
+
+  .blocker-stat:last-child { border-bottom: none; }
+
+  .blocker-stat .k { color: var(--text-dim); }
+  .blocker-stat .v { font-weight: 600; }
+
+  /* Pathway list */
+  .pathway-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .pathway-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: rgba(255,255,255,0.02);
+    border-radius: 8px;
+    font-size: 0.85rem;
+  }
+
+  .pathway-item .pw-label {
+    width: 140px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pathway-item .pw-phase {
+    width: 80px;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .pw-phase.exploring { background: rgba(59,130,246,0.2); color: var(--blue); }
+  .pw-phase.building { background: rgba(245,158,11,0.2); color: var(--orange); }
+  .pw-phase.thriving { background: rgba(34,197,94,0.2); color: var(--green); }
+  .pw-phase.mixed { background: rgba(168,85,247,0.2); color: var(--purple); }
+  .pw-phase.dfs { background: rgba(239,68,68,0.2); color: var(--red); }
+
+  .pathway-item .pw-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .pathway-item .pw-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--cyan));
+  }
+
+  .pathway-item .pw-meta {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  /* Sample data notice */
+  .sample-notice {
+    text-align: center;
+    padding: 0.5rem;
+    background: rgba(99,102,241,0.1);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: var(--accent2);
+    margin-bottom: 1rem;
+    display: none;
+  }
+
+  @media (max-width: 900px) {
+    .chart-grid { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 600px) {
+    .stats-row { grid-template-columns: 1fr; }
+    .dashboard { padding: 0.75rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="input-screen" id="inputScreen">
+  <h1>Simulation Visualizer</h1>
+  <p>Paste the output from <code>simulate-live.ts</code> below, or drag and drop a log file.</p>
+  <div class="drop-zone" id="dropZone">
+    <textarea id="logInput" placeholder="Paste simulation log here..."></textarea>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="parseAndRender()">Visualize</button>
+    <button class="btn btn-secondary" onclick="loadSample()">Load Sample</button>
+  </div>
+</div>
+
+<div class="dashboard" id="dashboard">
+  <div class="dash-header">
+    <div class="persona-card" id="personaCard"></div>
+    <button class="btn btn-secondary" onclick="resetView()">New Log</button>
+  </div>
+
+  <div class="sample-notice" id="sampleNotice">Showing sample data for demonstration purposes</div>
+
+  <div class="stats-row" id="statsRow"></div>
+
+  <div class="chart-grid">
+    <div class="chart-card full-width tall">
+      <h3>Quest Journey Timeline</h3>
+      <canvas id="timelineChart"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <h3>Social Escalation</h3>
+      <canvas id="socialChart"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <h3>Comfort Radius Growth</h3>
+      <canvas id="comfortChart"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <h3>Anxiety Calibration</h3>
+      <canvas id="calibrationChart"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <h3>Category Distribution</h3>
+      <canvas id="categoryChart"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <h3>Role Distribution</h3>
+      <canvas id="roleChart"></canvas>
+    </div>
+
+    <div class="chart-card" id="blockerSection" style="display:none;">
+      <div class="blocker-card" id="blockerCard"></div>
+    </div>
+
+    <div class="chart-card full-width" id="pathwaySection" style="display:none;">
+      <h3>Pathway Formation</h3>
+      <div class="pathway-list" id="pathwayList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Globals ──────────────────────────────────────────────
+let charts = [];
+
+function destroyCharts() {
+  charts.forEach(c => c.destroy());
+  charts = [];
+}
+
+// ── Parsing ──────────────────────────────────────────────
+
+function parseLog(raw) {
+  const data = {
+    persona: '', goal: '', email: '', questCount: 0, cost: '',
+    blocker: null, quests: [], summary: {}, pathways: [],
+    categories: {}, roles: {}, blockerAnalysis: null,
+    calibration: null, pathwayProgression: null,
+  };
+
+  const lines = raw.split('\n');
+
+  // Header
+  for (const l of lines) {
+    let m;
+    if ((m = l.match(/Persona:\s+(.+)/))) data.persona = m[1].trim();
+    if ((m = l.match(/Goal:\s+(.+)/))) data.goal = m[1].trim();
+    if ((m = l.match(/User:\s+(.+)/))) data.email = m[1].trim();
+    if ((m = l.match(/Quests:\s+(\d+)/)) && !data.questCount) data.questCount = +m[1];
+    if ((m = l.match(/Est cost:\s+(.+)/))) data.cost = m[1].trim();
+    if ((m = l.match(/Blocker:\s+"([^"]+)"/)) && !data.blocker) data.blocker = m[1];
+  }
+
+  // Parse quest blocks between box chars
+  const questBlocks = [];
+  let inBlock = false, currentBlock = [];
+  for (const l of lines) {
+    if (l.match(/╭─ Quest \d+/)) {
+      inBlock = true;
+      currentBlock = [l];
+    } else if (inBlock && l.match(/╰─/)) {
+      currentBlock.push(l);
+      questBlocks.push(currentBlock.join('\n'));
+      inBlock = false;
+      currentBlock = [];
+    } else if (inBlock) {
+      currentBlock.push(l);
+    }
+  }
+
+  for (let bi = 0; bi < questBlocks.length; bi++) {
+    const block = questBlocks[bi];
+    const q = {
+      index: bi, title: '', venue: '', category: '', address: '',
+      hook: '', difficulty: 0, rarity: '?', actionability: '',
+      questType: 'venue', questRole: null, distance: 0,
+      predictedAnxiety: null, predictedDifficulty: null,
+      rating: 0, socialContext: 'solo', journal: null,
+      resonance: 0, resonanceComponents: {},
+      comfortRadius: 0, blockerTriggered: false, isBreakthrough: false,
+      pathways: [], globalPhase: '',
+    };
+
+    let m;
+    if ((m = block.match(/╭─ Quest (\d+)/))) q.index = +m[1] - 1;
+    if ((m = block.match(/│\s+"([^"]+)"\s*$/m))) q.title = m[1];
+    // Venue line: "│     VenueName — Category"
+    if ((m = block.match(/│\s{4,}([^—\n]+?)\s*—\s*(.+)$/m))) {
+      q.venue = m[1].trim();
+      q.category = m[2].trim();
+    }
+    if ((m = block.match(/│\s+(?:\d+[^,]*,\s+\w+\s+\d+,\s+\w+|[\d\w\s]+(?:St|Ave|Blvd|Dr|Rd|Ln|Way|Ct|Pl)\b[^│]*)/m))) {
+      q.address = m[0].replace(/^│\s+/, '').trim();
+    }
+    if ((m = block.match(/Hook:\s+(.+)/))) q.hook = m[1].trim();
+    if ((m = block.match(/Difficulty:\s+(\d+)/))) q.difficulty = +m[1];
+    if ((m = block.match(/Rarity:\s+(\S+)/))) q.rarity = m[1];
+    if ((m = block.match(/Actionability:\s+(\S+)/))) q.actionability = m[1];
+    if ((m = block.match(/Type:\s+(\S+)/))) q.questType = m[1];
+    if ((m = block.match(/Role:\s+(\S+)/))) q.questRole = m[1] === 'none' ? null : m[1];
+    if ((m = block.match(/Distance:\s+([\d.]+)\s*mi/))) q.distance = +m[1];
+    if ((m = block.match(/Predicted anxiety:\s+(\d+)/))) q.predictedAnxiety = +m[1];
+    if ((m = block.match(/Predicted difficulty:\s+(\d+)/))) q.predictedDifficulty = +m[1];
+
+    // Rating: count stars
+    const ratingLine = block.match(/(?:BLOCKED\s+)?Rating:\s+([★☆]+)/);
+    if (ratingLine) {
+      q.rating = (ratingLine[1].match(/★/g) || []).length;
+    }
+
+    if (block.match(/>> BLOCKED/)) q.blockerTriggered = true;
+    if (block.match(/★★ BREAKTHROUGH/)) q.isBreakthrough = true;
+
+    if ((m = block.match(/Social:\s+(\S+)/))) q.socialContext = m[1];
+    if ((m = block.match(/Journal:\s+"([^"]+)/))) q.journal = m[1];
+
+    // Resonance
+    if ((m = block.match(/Resonance:\s+([\d.]+)\s+\(rate=([\d.]+)\s+journal=([\d.]+)\s+social=([\d.]+)\s+speed=([\d.]+)\s+diff=([\d.]+)\)/))) {
+      q.resonance = +m[1];
+      q.resonanceComponents = {
+        rating: +m[2], journal: +m[3], social: +m[4], speed: +m[5], difficulty: +m[6]
+      };
+    }
+
+    if ((m = block.match(/Comfort radius:\s+([\d.]+)/))) q.comfortRadius = +m[1];
+
+    // Pathways in block
+    const pwMatches = [...block.matchAll(/│\s{4}(.+?)\s{2,}(\S+)\s+res=([▓░ ]+)\s+quests=(\d+)/g)];
+    for (const pw of pwMatches) {
+      q.pathways.push({
+        label: pw[1].trim(),
+        phase: pw[2].trim(),
+        resonance: (pw[3].match(/▓/g) || []).length / 10,
+        quests: +pw[4],
+      });
+    }
+    const phaseMatch = block.match(/Pathways \(phase:\s+(\w+)\)/);
+    if (phaseMatch) q.globalPhase = phaseMatch[1];
+
+    data.quests.push(q);
+  }
+
+  // Summary section
+  const summaryStart = raw.indexOf('SIMULATION COMPLETE');
+  if (summaryStart !== -1) {
+    const sumText = raw.slice(summaryStart);
+    let m;
+    if ((m = sumText.match(/Avg Resonance:\s+([\d.]+)/))) data.summary.avgResonance = +m[1];
+    if ((m = sumText.match(/Peak Resonance:\s+([\d.]+)/))) data.summary.peakResonance = +m[1];
+    if ((m = sumText.match(/Comfort Radius:\s+([\d.]+)\s*mi\s*→\s*([\d.]+)\s*mi/))) {
+      data.summary.comfortStart = +m[1];
+      data.summary.comfortEnd = +m[2];
+    }
+
+    // Blocker analysis
+    if ((m = sumText.match(/Blocker Analysis:\s+"([^"]+)"/))) {
+      data.blockerAnalysis = { description: m[1] };
+      if ((m = sumText.match(/Quests triggered:\s+(\d+)\/(\d+)\s+\((\d+)%\)/)))
+        Object.assign(data.blockerAnalysis, { triggered: +m[1], total: +m[2], pct: +m[3] });
+      if ((m = sumText.match(/Avg rating \(blocked\):\s+([\d.]+)\s+vs normal:\s+([\d.]+)/)))
+        Object.assign(data.blockerAnalysis, { blockedRating: +m[1], normalRating: +m[2] });
+      if ((m = sumText.match(/Breakthrough at quest (\d+)/)))
+        data.blockerAnalysis.breakthrough = +m[1];
+      if (sumText.match(/Blocker NOT resolved/))
+        data.blockerAnalysis.resolved = false;
+      else if (data.blockerAnalysis.breakthrough)
+        data.blockerAnalysis.resolved = true;
+    }
+
+    // Calibration
+    if ((m = sumText.match(/Avg anxiety delta:\s+([+\-\d.]+)/)))
+      data.calibration = data.calibration || {}, data.calibration.anxietyDelta = +m[1];
+    if ((m = sumText.match(/Avg difficulty delta:\s+([+\-\d.]+)/)))
+      data.calibration = data.calibration || {}, data.calibration.difficultyDelta = +m[1];
+
+    // Category distribution from summary
+    const catSection = sumText.match(/Category Distribution:\n([\s\S]*?)(?:\n\n|\n\s+\n|\n\s+\w)/);
+    if (catSection) {
+      const catLines = catSection[1].match(/^\s+(\S.*?)\s+[█▓░]+\s+(\d+)/gm);
+      if (catLines) {
+        for (const cl of catLines) {
+          const cm = cl.match(/^\s+(.+?)\s{2,}[█▓░]+\s+(\d+)/);
+          if (cm) data.categories[cm[1].trim()] = +cm[2];
+        }
+      }
+    }
+
+    // Role distribution from summary
+    const roleSection = sumText.match(/Quest Role Distribution:\n([\s\S]*?)(?:\n\n|\n\s+→|\n\s+\n)/);
+    if (roleSection) {
+      const roleLines = roleSection[1].match(/^\s+(\S.*?)\s+[█▓░]+\s+(\d+)/gm);
+      if (roleLines) {
+        for (const rl of roleLines) {
+          const rm = rl.match(/^\s+(.+?)\s{2,}[█▓░]+\s+(\d+)/);
+          if (rm) data.roles[rm[1].trim().replace(/\s*★$/, '')] = +rm[2];
+        }
+      }
+    }
+
+    // Pathway progression
+    const pwSection = sumText.match(/Pathway Progression:\n([\s\S]*?)(?:\n\n|\n\s+\n)/);
+    if (pwSection) {
+      if ((m = pwSection[1].match(/Global phase:\s+(\w+)\s*→\s*(\w+)/)))
+        data.pathwayProgression = { startPhase: m[1], endPhase: m[2], pathways: [] };
+      const pwLines = [...pwSection[1].matchAll(/(\S.+?)\s{2,}(\S+)\s+res=([\d.]+)(?:\s*\([^)]*\))?\s+quests=(\d+)/g)];
+      if (data.pathwayProgression) {
+        for (const pw of pwLines) {
+          data.pathwayProgression.pathways.push({
+            label: pw[1].trim(), phase: pw[2].trim(), resonance: +pw[3], quests: +pw[4]
+          });
+        }
+      }
+    }
+  }
+
+  // Journey timeline table (bottom of log) — use as fallback / enrichment
+  const timelineStart = raw.indexOf('Journey Timeline:');
+  if (timelineStart !== -1) {
+    const timelineText = raw.slice(timelineStart);
+    const tLines = timelineText.split('\n');
+    // skip header lines
+    let started = false;
+    for (const tl of tLines) {
+      if (tl.match(/^  ─+/)) { started = true; continue; }
+      if (!started) continue;
+      if (tl.trim() === '' || tl.match(/Resonance Components/)) break;
+      // Parse: index [BLK] role category venue diff rate resonance social hook
+      const tm = tl.match(/^\s+(\d+)\s+(>> |★★ )?\s*(\S+)\s+(\S.*?)\s{2,}(\S.*?)\s{2,}(\d+)\s+(\d+)\s+(▓*)\s*\s+(\S+)\s+(.*)/);
+      if (tm) {
+        const idx = +tm[1];
+        const quest = data.quests[idx];
+        if (quest) {
+          // Enrich from timeline if quest block didn't parse well
+          if (!quest.questRole && tm[3] !== '—') quest.questRole = tm[3];
+          if (!quest.category) quest.category = tm[4].trim();
+          if (!quest.venue) quest.venue = tm[5].trim();
+          if (!quest.difficulty) quest.difficulty = +tm[6];
+          if (!quest.rating) quest.rating = +tm[7];
+          if (!quest.resonance) quest.resonance = (tm[8].match(/▓/g) || []).length / 10;
+          if (quest.socialContext === 'solo' && tm[9]) quest.socialContext = tm[9];
+          if (tm[2] && tm[2].includes('>>')) quest.blockerTriggered = true;
+          if (tm[2] && tm[2].includes('★★')) quest.isBreakthrough = true;
+        }
+      }
+    }
+  }
+
+  // Build categories/roles from quests if summary didn't parse them
+  if (Object.keys(data.categories).length === 0) {
+    for (const q of data.quests) {
+      const cat = q.category || 'unknown';
+      data.categories[cat] = (data.categories[cat] || 0) + 1;
+    }
+  }
+  if (Object.keys(data.roles).length === 0) {
+    for (const q of data.quests) {
+      const role = q.questRole || 'unassigned';
+      data.roles[role] = (data.roles[role] || 0) + 1;
+    }
+  }
+
+  if (!data.questCount) data.questCount = data.quests.length;
+
+  // Compute summary from quests if missing
+  if (!data.summary.avgResonance && data.quests.length > 0) {
+    const scores = data.quests.map(q => q.resonance).filter(Boolean);
+    data.summary.avgResonance = scores.reduce((a, b) => a + b, 0) / (scores.length || 1);
+    data.summary.peakResonance = Math.max(...scores, 0);
+  }
+  if (!data.summary.comfortStart && data.quests.length > 0) {
+    const radii = data.quests.map(q => q.comfortRadius).filter(Boolean);
+    if (radii.length) {
+      data.summary.comfortStart = radii[0];
+      data.summary.comfortEnd = radii[radii.length - 1];
+    }
+  }
+
+  return data;
+}
+
+
+// ── Rendering ────────────────────────────────────────────
+
+const ROLE_COLORS = {
+  explore: '#3b82f6',
+  enjoy: '#22c55e',
+  stretch: '#f59e0b',
+  challenge: '#a855f7',
+  unassigned: '#6b7280',
+};
+
+const SOCIAL_ORDER = ['solo', 'with_someone', 'met_someone_new', 'group_activity'];
+const SOCIAL_LABELS = { solo: 'Solo', with_someone: 'With Someone', met_someone_new: 'Met Someone New', group_activity: 'Group Activity' };
+const SOCIAL_COLORS = { solo: '#6b7280', with_someone: '#3b82f6', met_someone_new: '#22c55e', group_activity: '#a855f7' };
+
+function render(data) {
+  destroyCharts();
+  document.getElementById('inputScreen').style.display = 'none';
+  document.getElementById('dashboard').classList.add('visible');
+
+  renderPersonaCard(data);
+  renderStats(data);
+  renderTimeline(data);
+  renderSocialChart(data);
+  renderComfortChart(data);
+  renderCalibrationChart(data);
+  renderCategoryChart(data);
+  renderRoleChart(data);
+  renderBlocker(data);
+  renderPathways(data);
+}
+
+function renderPersonaCard(data) {
+  const card = document.getElementById('personaCard');
+  card.innerHTML = `
+    <h2>${escHtml(data.persona || 'Unknown Persona')}</h2>
+    <div class="goal">${escHtml(data.goal || 'No goal specified')}</div>
+    <div class="meta">
+      ${data.email ? `<span>${escHtml(data.email)}</span> &middot; ` : ''}
+      <span>${data.questCount} quests</span>
+      ${data.cost ? ` &middot; <span>${escHtml(data.cost)}</span>` : ''}
+      ${data.blocker ? ` &middot; Blocker: <span style="color:var(--red)">"${escHtml(data.blocker)}"</span>` : ''}
+    </div>
+  `;
+}
+
+function renderStats(data) {
+  const s = data.summary;
+  const cards = [
+    { label: 'Quests', value: data.quests.length, color: 'var(--accent)' },
+    { label: 'Avg Resonance', value: (s.avgResonance || 0).toFixed(3), color: 'var(--cyan)' },
+    { label: 'Peak Resonance', value: (s.peakResonance || 0).toFixed(3), color: 'var(--green)' },
+    { label: 'Comfort Radius', value: `${(s.comfortStart || 0).toFixed(1)} → ${(s.comfortEnd || 0).toFixed(1)} mi`,
+      sub: s.comfortEnd > s.comfortStart ? `+${(s.comfortEnd - s.comfortStart).toFixed(1)} mi growth` : '', color: 'var(--orange)' },
+    { label: 'Avg Rating', value: data.quests.length ? (data.quests.reduce((a, q) => a + q.rating, 0) / data.quests.length).toFixed(1) : '0', sub: 'out of 5', color: 'var(--gold)' },
+    { label: 'Est Cost', value: data.cost || `$${(data.quests.length * 0.035).toFixed(2)}`, color: 'var(--text-dim)' },
+  ];
+
+  document.getElementById('statsRow').innerHTML = cards.map(c => `
+    <div class="stat-card">
+      <div class="label">${c.label}</div>
+      <div class="value" style="color:${c.color}">${c.value}</div>
+      ${c.sub ? `<div class="sub">${c.sub}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function renderTimeline(data) {
+  const ctx = document.getElementById('timelineChart').getContext('2d');
+  const labels = data.quests.map(q => `Q${q.index + 1}`);
+
+  // Background colors for blocked/breakthrough
+  const bgColors = data.quests.map(q => {
+    if (q.isBreakthrough) return 'rgba(251,191,36,0.12)';
+    if (q.blockerTriggered) return 'rgba(239,68,68,0.12)';
+    return 'transparent';
+  });
+
+  // Role-colored dots for difficulty
+  const rolePointColors = data.quests.map(q => ROLE_COLORS[q.questRole] || ROLE_COLORS.unassigned);
+
+  const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Resonance',
+          data: data.quests.map(q => q.resonance),
+          borderColor: 'rgba(6,182,212,0.8)',
+          backgroundColor: 'rgba(6,182,212,0.1)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 4,
+          pointBackgroundColor: data.quests.map(q => {
+            if (q.isBreakthrough) return '#fbbf24';
+            if (q.blockerTriggered) return '#ef4444';
+            return 'rgba(6,182,212,0.8)';
+          }),
+          pointBorderColor: data.quests.map(q => {
+            if (q.isBreakthrough) return '#fbbf24';
+            if (q.blockerTriggered) return '#ef4444';
+            return 'rgba(6,182,212,0.8)';
+          }),
+          pointRadius: data.quests.map(q => (q.isBreakthrough || q.blockerTriggered) ? 7 : 4),
+          pointStyle: data.quests.map(q => q.isBreakthrough ? 'star' : q.blockerTriggered ? 'triangle' : 'circle'),
+          yAxisID: 'y',
+          order: 2,
+        },
+        {
+          label: 'Difficulty',
+          data: data.quests.map(q => q.difficulty),
+          borderColor: 'rgba(168,85,247,0.7)',
+          backgroundColor: 'transparent',
+          borderDash: [4, 4],
+          tension: 0.3,
+          pointRadius: 5,
+          pointBackgroundColor: rolePointColors,
+          pointBorderColor: rolePointColors,
+          yAxisID: 'y1',
+          order: 1,
+        },
+        {
+          label: 'Rating',
+          data: data.quests.map(q => q.rating),
+          borderColor: 'rgba(251,191,36,0.8)',
+          backgroundColor: 'transparent',
+          tension: 0.3,
+          pointRadius: 5,
+          pointBackgroundColor: data.quests.map(q => {
+            if (q.blockerTriggered) return '#ef4444';
+            if (q.isBreakthrough) return '#fbbf24';
+            return 'rgba(251,191,36,0.8)';
+          }),
+          yAxisID: 'y2',
+          order: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#8b8d97', usePointStyle: true, padding: 16 } },
+        tooltip: {
+          backgroundColor: '#1a1d27',
+          titleColor: '#e4e4e7',
+          bodyColor: '#e4e4e7',
+          borderColor: '#2a2d3a',
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            afterBody: function(items) {
+              const idx = items[0].dataIndex;
+              const q = data.quests[idx];
+              const parts = [];
+              parts.push(`Title: ${q.title}`);
+              parts.push(`Venue: ${q.venue}`);
+              parts.push(`Role: ${q.questRole || 'unassigned'}`);
+              parts.push(`Social: ${q.socialContext}`);
+              if (q.blockerTriggered) parts.push('BLOCKER TRIGGERED');
+              if (q.isBreakthrough) parts.push('BREAKTHROUGH');
+              return parts;
+            }
+          }
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: '#8b8d97' },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        },
+        y: {
+          type: 'linear',
+          position: 'left',
+          min: 0, max: 1,
+          title: { display: true, text: 'Resonance', color: 'rgba(6,182,212,0.8)' },
+          ticks: { color: '#8b8d97' },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        },
+        y1: {
+          type: 'linear',
+          position: 'right',
+          min: 0, max: 10,
+          title: { display: true, text: 'Difficulty (1-10)', color: 'rgba(168,85,247,0.7)' },
+          ticks: { color: '#8b8d97' },
+          grid: { display: false },
+        },
+        y2: {
+          type: 'linear',
+          position: 'right',
+          min: 0, max: 5,
+          title: { display: true, text: 'Rating (1-5)', color: 'rgba(251,191,36,0.8)' },
+          ticks: { color: '#8b8d97' },
+          grid: { display: false },
+        },
+      },
+    },
+  });
+  charts.push(chart);
+}
+
+function renderSocialChart(data) {
+  const ctx = document.getElementById('socialChart').getContext('2d');
+  const labels = data.quests.map(q => `Q${q.index + 1}`);
+
+  // Encode social as numeric: solo=0, with=1, met=2, group=3
+  const socialNumeric = data.quests.map(q => {
+    const idx = SOCIAL_ORDER.indexOf(q.socialContext);
+    return idx >= 0 ? idx : 0;
+  });
+
+  const chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Social Level',
+        data: socialNumeric,
+        backgroundColor: data.quests.map(q => SOCIAL_COLORS[q.socialContext] || SOCIAL_COLORS.solo),
+        borderRadius: 4,
+        barPercentage: 0.7,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(item) {
+              const q = data.quests[item.dataIndex];
+              return SOCIAL_LABELS[q.socialContext] || q.socialContext;
+            }
+          }
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: '#8b8d97' },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        },
+        y: {
+          min: 0, max: 3,
+          ticks: {
+            color: '#8b8d97',
+            stepSize: 1,
+            callback: (v) => ['Solo', 'With Someone', 'Met New', 'Group'][v] || '',
+          },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        },
+      },
+    },
+  });
+  charts.push(chart);
+}
+
+function renderComfortChart(data) {
+  const ctx = document.getElementById('comfortChart').getContext('2d');
+  const labels = data.quests.map(q => `Q${q.index + 1}`);
+  const radii = data.quests.map(q => q.comfortRadius);
+
+  const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Comfort Radius (mi)',
+        data: radii,
+        borderColor: '#22c55e',
+        backgroundColor: 'rgba(34,197,94,0.1)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: '#22c55e',
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#8b8d97' } },
+      },
+      scales: {
+        x: {
+          ticks: { color: '#8b8d97' },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        },
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Miles', color: '#8b8d97' },
+          ticks: { color: '#8b8d97' },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        },
+      },
+    },
+  });
+  charts.push(chart);
+}
+
+function renderCalibrationChart(data) {
+  const ctx = document.getElementById('calibrationChart').getContext('2d');
+  const withPredictions = data.quests.filter(q => q.predictedAnxiety != null);
+
+  const scatterData = withPredictions.map(q => ({
+    x: q.difficulty,
+    y: q.predictedAnxiety,
+    label: q.title,
+  }));
+
+  const maxVal = 10;
+
+  const chart = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [
+        {
+          label: 'Predicted vs Actual',
+          data: scatterData,
+          backgroundColor: withPredictions.map(q =>
+            q.blockerTriggered ? 'rgba(239,68,68,0.7)' :
+            q.isBreakthrough ? 'rgba(251,191,36,0.7)' :
+            'rgba(99,102,241,0.7)'
+          ),
+          pointRadius: 7,
+          pointHoverRadius: 9,
+        },
+        {
+          label: 'Perfect Calibration',
+          data: [{ x: 0, y: 0 }, { x: maxVal, y: maxVal }],
+          type: 'line',
+          borderColor: 'rgba(255,255,255,0.15)',
+          borderDash: [6, 4],
+          pointRadius: 0,
+          fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#8b8d97', usePointStyle: true } },
+        tooltip: {
+          callbacks: {
+            label: (item) => {
+              if (item.datasetIndex === 1) return '';
+              const d = item.raw;
+              return `${d.label || ''}: predicted=${d.y}, actual=${d.x}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          min: 0, max: maxVal,
+          title: { display: true, text: 'Actual Difficulty', color: '#8b8d97' },
+          ticks: { color: '#8b8d97' },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        },
+        y: {
+          min: 0, max: maxVal,
+          title: { display: true, text: 'Predicted Anxiety', color: '#8b8d97' },
+          ticks: { color: '#8b8d97' },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        },
+      },
+    },
+  });
+  charts.push(chart);
+}
+
+function renderCategoryChart(data) {
+  const ctx = document.getElementById('categoryChart').getContext('2d');
+  const sorted = Object.entries(data.categories).sort((a, b) => b[1] - a[1]);
+  const palette = ['#6366f1', '#3b82f6', '#06b6d4', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#ec4899', '#8b5cf6', '#14b8a6'];
+
+  const chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(e => e[0]),
+      datasets: [{
+        data: sorted.map(e => e[1]),
+        backgroundColor: sorted.map((_, i) => palette[i % palette.length] + 'cc'),
+        borderRadius: 6,
+        barPercentage: 0.65,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          beginAtZero: true,
+          ticks: { color: '#8b8d97', stepSize: 1 },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+        },
+        y: {
+          ticks: { color: '#e4e4e7', font: { size: 11 } },
+          grid: { display: false },
+        },
+      },
+    },
+  });
+  charts.push(chart);
+}
+
+function renderRoleChart(data) {
+  const ctx = document.getElementById('roleChart').getContext('2d');
+  const entries = Object.entries(data.roles);
+  const colors = entries.map(e => ROLE_COLORS[e[0]] || '#6b7280');
+
+  const chart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: entries.map(e => e[0]),
+      datasets: [{
+        data: entries.map(e => e[1]),
+        backgroundColor: colors.map(c => c + 'cc'),
+        borderColor: colors,
+        borderWidth: 2,
+        hoverOffset: 8,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '55%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#8b8d97', padding: 12, usePointStyle: true },
+        },
+      },
+    },
+  });
+  charts.push(chart);
+}
+
+function renderBlocker(data) {
+  const section = document.getElementById('blockerSection');
+  if (!data.blockerAnalysis) { section.style.display = 'none'; return; }
+  section.style.display = '';
+
+  const ba = data.blockerAnalysis;
+  document.getElementById('blockerCard').innerHTML = `
+    <h3>Blocker Analysis</h3>
+    <div class="blocker-desc">"${escHtml(ba.description)}"</div>
+    <div class="blocker-stat"><span class="k">Quests Triggered</span><span class="v">${ba.triggered || '?'}/${ba.total || '?'} (${ba.pct || '?'}%)</span></div>
+    <div class="blocker-stat"><span class="k">Avg Rating (Blocked)</span><span class="v" style="color:var(--red)">${ba.blockedRating?.toFixed(1) || '?'}</span></div>
+    <div class="blocker-stat"><span class="k">Avg Rating (Normal)</span><span class="v" style="color:var(--green)">${ba.normalRating?.toFixed(1) || '?'}</span></div>
+    <div class="blocker-stat"><span class="k">Breakthrough</span><span class="v" style="color:${ba.resolved ? 'var(--gold)' : 'var(--red)'}">${ba.breakthrough ? `Quest ${ba.breakthrough}` : ba.resolved === false ? 'Not resolved' : 'Unknown'}</span></div>
+  `;
+}
+
+function renderPathways(data) {
+  const section = document.getElementById('pathwaySection');
+  const list = document.getElementById('pathwayList');
+
+  // Use end-of-sim pathways or last quest's pathways
+  let pathways = [];
+  if (data.pathwayProgression?.pathways?.length) {
+    pathways = data.pathwayProgression.pathways;
+  } else {
+    // Find last quest with pathways
+    for (let i = data.quests.length - 1; i >= 0; i--) {
+      if (data.quests[i].pathways.length) {
+        pathways = data.quests[i].pathways;
+        break;
+      }
+    }
+  }
+
+  if (!pathways.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+
+  const phaseInfo = data.pathwayProgression
+    ? `<div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.75rem;">Global phase: <strong style="color:var(--text)">${data.pathwayProgression.startPhase}</strong> → <strong style="color:var(--text)">${data.pathwayProgression.endPhase}</strong></div>`
+    : '';
+
+  list.innerHTML = phaseInfo + pathways.map(p => {
+    const pct = Math.min(p.resonance * 100, 100);
+    const phaseClass = p.phase.toLowerCase().replace(/[^a-z]/g, '');
+    return `
+      <div class="pathway-item">
+        <div class="pw-label" title="${escHtml(p.label)}">${escHtml(p.label)}</div>
+        <div class="pw-phase ${phaseClass}">${p.phase}</div>
+        <div class="pw-bar"><div class="pw-bar-fill" style="width:${pct}%"></div></div>
+        <div class="pw-meta">res=${typeof p.resonance === 'number' ? p.resonance.toFixed(3) : p.resonance} &middot; ${p.quests}q</div>
+      </div>
+    `;
+  }).join('');
+}
+
+
+// ── Actions ──────────────────────────────────────────────
+
+function parseAndRender() {
+  const raw = document.getElementById('logInput').value.trim();
+  if (!raw) return;
+  const data = parseLog(raw);
+  if (data.quests.length === 0) {
+    alert('No quest blocks found. Make sure you pasted a full simulation log.');
+    return;
+  }
+  render(data);
+}
+
+function resetView() {
+  destroyCharts();
+  document.getElementById('dashboard').classList.remove('visible');
+  document.getElementById('inputScreen').style.display = 'flex';
+  document.getElementById('sampleNotice').style.display = 'none';
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ── Drag and drop ────────────────────────────────────────
+
+const dropZone = document.getElementById('dropZone');
+
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('dragover');
+});
+
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer?.files?.[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      document.getElementById('logInput').value = reader.result;
+      parseAndRender();
+    };
+    reader.readAsText(file);
+  }
+});
+
+
+// ── Sample data ──────────────────────────────────────────
+
+function loadSample() {
+  const sample = generateSampleLog();
+  document.getElementById('logInput').value = sample;
+  document.getElementById('sampleNotice').style.display = '';
+  parseAndRender();
+}
+
+function generateSampleLog() {
+  const socialLevels = ['solo', 'solo', 'with_someone', 'solo', 'met_someone_new', 'solo', 'with_someone', 'group_activity', 'solo', 'met_someone_new',
+                        'with_someone', 'solo', 'group_activity', 'met_someone_new', 'solo', 'with_someone', 'group_activity', 'met_someone_new', 'group_activity', 'group_activity'];
+  const categories = ['Coffee shop', 'Bookstore', 'Park', 'Brewery', 'Library', 'Yoga studio', 'Farmers market', 'Art gallery', 'Music venue', 'Restaurant',
+                      'Hiking trail', 'Coffee shop', 'Museum', 'Community center', 'Bakery', 'Bookstore', 'Bar', 'Cooking class', 'Pottery studio', 'Dance class'];
+  const venues = ['Ziggi\'s Coffee', 'Barbed Wire Books', 'Roosevelt Park', 'Left Hand Brewing', 'Longmont Library', 'Yoga Pod', 'Boulder County Farmers Market',
+                  'Firehouse Art Center', 'Dickens Opera House', 'Lucile\'s Creole Cafe', 'Hall Ranch Trail', 'Ozo Coffee', 'Longmont Museum',
+                  'Longmont Rec Center', 'Babettes Artisan Bakery', 'Second Star Books', 'Pumphouse Brewery', 'The Seasoned Chef', 'Longmont Pottery', 'Dance Express'];
+  const roles = ['explore', 'explore', 'explore', 'explore', 'explore', 'stretch', 'explore', 'explore', 'explore', 'enjoy',
+                 'explore', 'explore', 'stretch', 'explore', 'explore', 'explore', 'explore', 'explore', 'enjoy', 'explore'];
+  const titles = ['A Quiet Coffee Start', 'Browse Indie Books', 'Afternoon Park Walk', 'Taste Local Brews', 'Library Discovery', 'Morning Yoga Flow',
+                  'Fresh Market Finds', 'Gallery Night Out', 'Live Music Evening', 'A Cozy Longmont Brunch', 'Nature Trail Adventure', 'New Coffee Spot',
+                  'Museum Afternoon', 'Community Drop-In', 'Artisan Bakery Visit', 'Bookstore Browse II', 'Pub Night', 'Cook Something New',
+                  'Hands in Clay', 'Dance Night'];
+
+  let log = '';
+  log += '  Persona:  Maya Chen\n';
+  log += '  Goal:     Build a social life in Longmont starting from scratch\n';
+  log += '  User:     maya@example.com\n';
+  log += '  Quests:   20\n';
+  log += '  Blocker:  "talking to strangers" (activates after quest 2)\n';
+  log += '  Est cost: $0.70\n\n';
+
+  const quests = [];
+  let comfortRadius = 2.0;
+  for (let i = 0; i < 20; i++) {
+    const diff = Math.min(10, Math.max(1, Math.round(2 + i * 0.35 + (Math.random() - 0.5) * 2)));
+    const blockerTriggered = (i >= 2 && i < 14 && [3, 5, 8, 11].includes(i));
+    const isBreakthrough = (i === 14);
+    let rating;
+    if (blockerTriggered) rating = Math.random() < 0.6 ? 1 : 2;
+    else if (isBreakthrough) rating = 5;
+    else rating = Math.min(5, Math.max(1, Math.round(3.2 + (Math.random() - 0.3) * 1.5)));
+
+    const resonance = Math.min(0.95, Math.max(0.15, 0.4 + i * 0.02 + (rating - 3) * 0.1 + (Math.random() - 0.5) * 0.15));
+    const rateComp = Math.min(1, Math.max(0, rating / 5 + (Math.random() - 0.5) * 0.1));
+    const journComp = Math.min(1, Math.max(0, 0.5 + Math.random() * 0.4));
+    const socComp = Math.min(1, Math.max(0, 0.3 + SOCIAL_ORDER.indexOf(socialLevels[i]) * 0.2));
+    const speedComp = Math.min(1, Math.max(0, 0.8 + (Math.random() - 0.5) * 0.3));
+    const diffComp = Math.min(1, Math.max(0, 0.7 + (Math.random() - 0.5) * 0.3));
+
+    comfortRadius = Math.min(8, comfortRadius + Math.random() * 0.3);
+    const distance = (1 + Math.random() * comfortRadius).toFixed(2);
+    const predAnx = Math.min(10, Math.max(1, diff + Math.round((Math.random() - 0.3) * 3)));
+    const predDiff = Math.min(10, Math.max(1, diff + Math.round((Math.random() - 0.5) * 2)));
+
+    const ratingStars = '\u2605'.repeat(rating) + '\u2606'.repeat(5 - rating);
+    const blockerTag = blockerTriggered ? '>> BLOCKED ' : isBreakthrough ? '\u2605\u2605 BREAKTHROUGH ' : '';
+
+    log += `\n\u256D\u2500 Quest ${i + 1}/20 ${'─'.repeat(40)}\n`;
+    log += `\u2502\n`;
+    log += `\u2502  "${titles[i]}"\n`;
+    log += `\u2502     ${venues[i]} \u2014 ${categories[i]}\n`;
+    log += `\u2502     123 Main St, Longmont, CO 80501, USA\n`;
+    log += `\u2502     Hook: This is a great spot for someone looking to ${i < 5 ? 'ease into things' : 'push their boundaries'}.\n`;
+    log += `\u2502     Difficulty: ${diff} | Rarity: ${['common','uncommon','rare'][i%3]} | Actionability: ${['suggestive','prescriptive','suggestive'][i%3]}\n`;
+    log += `\u2502     Type: venue | Role: ${roles[i]}${roles[i] === 'enjoy' ? ' \u2605 ENJOY QUEST' : ''}\n`;
+    log += `\u2502     Distance: ${distance} mi\n`;
+    log += `\u2502  Predicted anxiety: ${predAnx}/10\n`;
+    log += `\u2502  Predicted difficulty: ${predDiff}/10\n`;
+    log += `\u2502  ${blockerTag}Rating: ${ratingStars}\n`;
+    log += `\u2502  Social: ${socialLevels[i]}\n`;
+    log += `\u2502  Journal: "I visited ${venues[i]} and it was ${rating >= 4 ? 'wonderful' : rating >= 3 ? 'okay' : 'hard'}."\n`;
+    log += `\u2502  Resonance: ${resonance.toFixed(3)} (rate=${rateComp.toFixed(2)} journal=${journComp.toFixed(2)} social=${socComp.toFixed(2)} speed=${speedComp.toFixed(2)} diff=${diffComp.toFixed(2)})\n`;
+    log += `\u2502  Comfort radius: ${comfortRadius.toFixed(1)} mi\n`;
+    if (i >= 3 && i % 3 === 0) {
+      log += `\u2502\n`;
+      log += `\u2502  Pathways (phase: ${i < 10 ? 'exploring' : i < 16 ? 'building' : 'mixed'}):\n`;
+      log += `\u2502    Coffee culture  exploring   res=${'▓'.repeat(Math.round(resonance * 10)).padEnd(10)} quests=${Math.ceil(i/3)}\n`;
+      log += `\u2502    Local arts      ${i < 12 ? 'exploring' : 'building'}   res=${'▓'.repeat(Math.round((resonance - 0.05) * 10)).padEnd(10)} quests=${Math.ceil(i/4)}\n`;
+    }
+    log += `\u2570${'─'.repeat(55)}\n`;
+
+    quests.push({ diff, rating, resonance, blockerTriggered, isBreakthrough, comfortRadius, predAnx, predDiff });
+  }
+
+  // Summary
+  const avgRes = quests.reduce((a, q) => a + q.resonance, 0) / quests.length;
+  const peakRes = Math.max(...quests.map(q => q.resonance));
+  log += `\n${'═'.repeat(80)}\n`;
+  log += `  SIMULATION COMPLETE \u2014 Maya Chen\n`;
+  log += `  Goal: Build a social life in Longmont starting from scratch\n`;
+  log += `${'═'.repeat(80)}\n\n`;
+  log += `  Quests: 20\n`;
+  log += `  Avg Resonance: ${avgRes.toFixed(3)}\n`;
+  log += `  Peak Resonance: ${peakRes.toFixed(3)}\n`;
+  log += `  Comfort Radius: 2.0 mi \u2192 ${comfortRadius.toFixed(1)} mi\n`;
+  log += `\n  Blocker Analysis: "talking to strangers"\n`;
+  log += `    Quests triggered: 4/20 (20%)\n`;
+  const blockedRating = quests.filter(q => q.blockerTriggered).reduce((a, q) => a + q.rating, 0) / 4;
+  const normalRating = quests.filter(q => !q.blockerTriggered && !q.isBreakthrough).reduce((a, q) => a + q.rating, 0) / quests.filter(q => !q.blockerTriggered && !q.isBreakthrough).length;
+  log += `    Avg rating (blocked): ${blockedRating.toFixed(1)} vs normal: ${normalRating.toFixed(1)}\n`;
+  log += `    Breakthrough at quest 15\n`;
+  log += `\n  Expectancy Calibration (20 quests with predictions):\n`;
+  const anxDeltas = quests.map(q => q.predAnx - q.diff);
+  const avgAnxDelta = anxDeltas.reduce((a, b) => a + b, 0) / anxDeltas.length;
+  log += `    Avg anxiety delta: ${avgAnxDelta > 0 ? '+' : ''}${avgAnxDelta.toFixed(2)} (${avgAnxDelta > 0.5 ? 'overestimates' : 'well-calibrated'})\n`;
+  const diffDeltas = quests.map(q => q.predDiff - q.diff);
+  const avgDiffDelta = diffDeltas.reduce((a, b) => a + b, 0) / diffDeltas.length;
+  log += `    Avg difficulty delta: ${avgDiffDelta > 0 ? '+' : ''}${avgDiffDelta.toFixed(2)} (${Math.abs(avgDiffDelta) > 0.5 ? 'overestimates' : 'well-calibrated'})\n`;
+
+  log += `\n  Category Distribution:\n`;
+  const catCount = {};
+  categories.forEach(c => catCount[c] = (catCount[c] || 0) + 1);
+  Object.entries(catCount).sort((a, b) => b[1] - a[1]).forEach(([c, n]) => {
+    log += `    ${c.padEnd(14)} ${'█'.repeat(n)} ${n}\n`;
+  });
+
+  log += `\n  Quest Role Distribution:\n`;
+  const roleCount = {};
+  roles.forEach(r => roleCount[r] = (roleCount[r] || 0) + 1);
+  Object.entries(roleCount).sort((a, b) => b[1] - a[1]).forEach(([r, n]) => {
+    log += `    ${r.padEnd(14)} ${'█'.repeat(n)} ${n}${r === 'enjoy' ? ' ★' : ''}\n`;
+  });
+
+  log += `\n  Pathway Progression:\n`;
+  log += `    Global phase: exploring \u2192 building\n`;
+  log += `      Coffee culture  building   res=${avgRes.toFixed(3)}  quests=7\n`;
+  log += `      Local arts      exploring  res=${(avgRes - 0.05).toFixed(3)}  quests=5\n`;
+  log += `      Outdoor active  exploring  res=${(avgRes - 0.1).toFixed(3)}  quests=3\n`;
+
+  // Journey timeline table
+  log += `\n  Journey Timeline:  (BLK = blocker triggered)\n`;
+  log += `  ${'#'.padEnd(4)} BLK ${'Role'.padEnd(10)} ${'Category'.padEnd(14)} ${'Venue'.padEnd(28)} ${'Diff'.padEnd(5)} ${'Rate'.padEnd(5)} ${'Resonance'.padEnd(10)} ${'Social'.padEnd(18)} Hook\n`;
+  log += `  ${'─'.repeat(144)}\n`;
+  for (let i = 0; i < 20; i++) {
+    const q = quests[i];
+    const blk = q.blockerTriggered ? ' >> ' : q.isBreakthrough ? ' ★★ ' : '    ';
+    const resBar = '▓'.repeat(Math.round(q.resonance * 10)).padEnd(10);
+    const venue = venues[i].length > 26 ? venues[i].slice(0, 25) + '…' : venues[i];
+    log += `  ${String(i).padEnd(4)}${blk}${roles[i].padEnd(10)} ${categories[i].padEnd(14)} ${venue.padEnd(28)} ${String(q.diff).padEnd(5)} ${String(q.rating).padEnd(5)} ${resBar} ${socialLevels[i].padEnd(18)} This is a great spot...\n`;
+  }
+
+  log += `\n  Done.\n`;
+  return log;
+}
+</script>
+</body>
+</html>

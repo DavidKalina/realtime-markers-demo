@@ -31,6 +31,8 @@ Parse the user's arguments to build the command. The script supports these flags
 | `--model <model>` | | Override LLM model |
 | `--strategy <name>` | | "monolithic" or "multi-agent" |
 | `--rating-bias <0-1>` | | Override rating bias |
+| `--challenge-mix <n>` | | Every Nth quest is a challenge quest (e.g. 3 = every 3rd) |
+| `--week-packs` | | Use week-pack prescription (3 quests per pack) instead of individual |
 
 ### Seeded accounts and passwords
 

@@ -55,18 +55,29 @@ export const submitOnboardingProfile = withErrorHandling(
       pace,
     };
 
-    // Build natural-language text and generate embedding
+    // Build natural-language text and generate embedding (optional — may not be available in all environments)
     const embeddingText = buildEmbeddingText(profile);
-    const embeddingService = c.get("embeddingService");
-    const embeddingSql = await embeddingService.getEmbeddingSql(embeddingText);
+    let embeddingSql: string | undefined;
+    try {
+      const embeddingService = c.get("embeddingService");
+      embeddingSql = await embeddingService.getEmbeddingSql(embeddingText);
+    } catch {
+      // Embedding service not available — save profile without embedding
+    }
 
     // Save to user record
     const dataSource = c.get("dataSource");
     const userRepo = dataSource.getRepository(User);
-    await userRepo.update(user.id, {
-      onboardingProfile: profile,
-      preferenceEmbedding: embeddingSql,
-    });
+    if (embeddingSql) {
+      await userRepo.update(user.id, {
+        onboardingProfile: profile,
+        preferenceEmbedding: embeddingSql,
+      });
+    } else {
+      await userRepo.update(user.id, {
+        onboardingProfile: profile,
+      });
+    }
 
     return c.json({ success: true });
   },

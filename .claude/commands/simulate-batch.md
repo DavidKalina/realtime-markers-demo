@@ -38,9 +38,9 @@ If the user is vague, design a diverse set that covers different flags:
 
 ### 2. Assign unique seeds and emails
 
-Each concurrent simulation **must** use a different `--seed` and `--email` to avoid collisions.
+Each concurrent simulation **must** use a different `--seed` and a different `--email`. The script overwrites the user's profile on start, so two sims sharing an email will corrupt each other's data.
 
-Seeded accounts:
+There are exactly **5 seeded accounts** in the database. This is a hard cap on concurrency — **never run more than 5 simulations at once**.
 
 | Email | Password |
 |-------|----------|
@@ -50,7 +50,7 @@ Seeded accounts:
 | `moderator@example.com` | `moderator123` |
 | `admin@example.com` | `admin123` |
 
-If running more than 5 simulations, reuse emails sequentially (the script wipes and re-profiles each run).
+If the user asks for more than 5 simulations, run them in **waves** of up to 5 — wait for the first wave to finish, then reuse the emails for the next wave. The profile gets overwritten each run so this is safe sequentially.
 
 ### 3. Show the plan
 
@@ -109,8 +109,9 @@ After extracting individual results, provide a **cross-simulation comparison**:
 
 1. Always use `pnpm tsx` (not npx).
 2. Each sim MUST have a unique seed (use 1, 2, 3, ...).
-3. Each sim MUST have a unique email to avoid DB conflicts.
+3. Each sim MUST use a different seeded email+password. **Max 5 concurrent sims** (only 5 seeded accounts exist). The script overwrites the user profile on start, so sharing emails between concurrent runs will corrupt data.
 4. Launch all sims in a SINGLE message with parallel Bash calls.
-5. If a simulation fails, still analyze the ones that succeeded and note the failure.
-6. Report estimated cost per simulation and total.
-7. Keep the final analysis focused and actionable — highlight what's interesting, not just raw data.
+5. If the user requests >5 sims, run in waves of up to 5. Wait for each wave to complete before starting the next.
+6. If a simulation fails, still analyze the ones that succeeded and note the failure.
+7. Report estimated cost per simulation and total.
+8. Keep the final analysis focused and actionable — highlight what's interesting, not just raw data.

@@ -11,7 +11,7 @@ import type { BarrierGenerationService } from "../services/BarrierGenerationServ
 import type { GoalRefinementService } from "../services/GoalRefinementService";
 import type { RefinementState } from "../services/GoalRefinementService";
 import type { PacingService } from "../services/PacingService";
-import { GoalReflection } from "@realtime-markers/database";
+import { GoalReflection, User } from "@realtime-markers/database";
 
 export const listSidequestsHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
@@ -646,7 +646,24 @@ export const objectivePredictionHandler: Handler = withErrorHandling(
       return c.json({ error: "Objective not found or not authorized" }, 404);
     }
 
-    return c.json({ success: true });
+    // Return calibration feedback so the mobile app can nudge the user
+    const userRecord = await c.get("dataSource").getRepository(User).findOne({
+      where: { id: user.id },
+      select: ["id", "expectancyCalibration"],
+    });
+    const cal = userRecord?.expectancyCalibration;
+    let calibrationHint: string | null = null;
+    if (cal && cal.totalViolations >= 3) {
+      if (cal.avgAnxietyDelta > 1.5) {
+        calibrationHint = `You've overestimated your anxiety by an average of ${cal.avgAnxietyDelta.toFixed(1)} points across ${cal.totalViolations} quests. Things usually go better than you expect!`;
+      } else if (cal.avgAnxietyDelta > 0.5) {
+        calibrationHint = `Your anxiety predictions have been a bit high — on average ${cal.avgAnxietyDelta.toFixed(1)} points above reality. You're doing better than you think.`;
+      } else if (cal.avgAnxietyDelta < -0.5) {
+        calibrationHint = `Quests have been a bit tougher than expected lately. It's okay to go easier on yourself.`;
+      }
+    }
+
+    return c.json({ success: true, calibrationHint });
   },
 );
 
@@ -664,9 +681,10 @@ export const objectiveJournalHandler: Handler = withErrorHandling(
       completedActivity?: string;
       photoUrl?: string;
       socialContext?: string;
+      wouldReturn?: boolean;
     }>();
 
-    if (!body.journalEntry && !body.completedActivity && !body.photoUrl && !body.socialContext) {
+    if (!body.journalEntry && !body.completedActivity && !body.photoUrl && !body.socialContext && body.wouldReturn == null) {
       return c.json({ error: "At least one field is required" }, 400);
     }
 
@@ -690,6 +708,7 @@ export const objectiveJournalHandler: Handler = withErrorHandling(
         completedActivity: body.completedActivity,
         photoUrl: body.photoUrl,
         socialContext: body.socialContext,
+        wouldReturn: body.wouldReturn,
       },
     );
 

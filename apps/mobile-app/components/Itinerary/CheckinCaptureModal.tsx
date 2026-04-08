@@ -106,6 +106,7 @@ export function CheckinCaptureModal({
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [socialContext, setSocialContext] = useState<string | null>(null);
   const [journalText, setJournalText] = useState("");
+  const [wouldReturn, setWouldReturn] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
 
   const reset = useCallback(() => {
@@ -114,6 +115,7 @@ export function CheckinCaptureModal({
     setCustomActivity("");
     setShowCustomInput(false);
     setSocialContext(null);
+    setWouldReturn(null);
     setJournalText("");
     setSaving(false);
     scrollY.value = 0;
@@ -189,6 +191,7 @@ export function CheckinCaptureModal({
           completedActivity: activity,
           photoUrl: photoUri ?? undefined,
           socialContext: socialContext ?? undefined,
+          wouldReturn: wouldReturn ?? undefined,
         });
       }
 
@@ -360,6 +363,38 @@ export function CheckinCaptureModal({
                 })}
               </View>
             </ParallaxWidget>
+
+            {/* ── Would return ── */}
+            {!isChallenge && (
+              <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={400}>
+                <Text style={s.widgetLabel}>WOULD YOU COME BACK?</Text>
+                <View style={s.socialGrid}>
+                  {([
+                    { key: true, label: "\uD83D\uDD01 Yeah, I\u2019d come back" },
+                    { key: false, label: "\uD83D\uDC4B Nah, one and done" },
+                  ] as const).map(({ key, label }) => {
+                    const isActive = wouldReturn === key;
+                    return (
+                      <Pressable
+                        key={String(key)}
+                        style={[s.chip, { borderRadius: radius.full }, isActive && s.chipActive]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setWouldReturn(isActive ? null : key);
+                        }}
+                      >
+                        <Text
+                          style={[s.chipText, isActive && s.chipTextActive]}
+                          numberOfLines={1}
+                        >
+                          {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </ParallaxWidget>
+            )}
 
             {/* ── Journal ── */}
             <ParallaxWidget scrollY={scrollY} index={widgetIdx++} enterDelay={450}>
