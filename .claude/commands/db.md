@@ -60,10 +60,11 @@ UPDATE users SET
   expectancy_calibration = NULL;
 ```
 
-Also flush Redis:
+Also flush non-cache Redis keys (preserve geocoding/places/weather caches to avoid unnecessary Google API charges):
 
 ```bash
-docker exec realtime-markers-demo-redis-1 redis-cli -a devredispassword FLUSHALL
+# Delete app-state keys (jobs, user stats, etc.) but preserve expensive API caches
+docker exec realtime-markers-demo-redis-1 redis-cli -a devredispassword --no-auth-warning KEYS '*' | grep -v -E '^(geocache:|places-category:|reverse-geocode:|entry-point:|weather:)' | xargs -r docker exec -i realtime-markers-demo-redis-1 redis-cli -a devredispassword --no-auth-warning DEL
 ```
 
 ### Wipe all (nuclear reset)

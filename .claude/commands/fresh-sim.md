@@ -1,5 +1,5 @@
 ---
-description: Full reset + simulation — tears down Docker, rebuilds via dev:local:no-ngrok, wipes DB, seeds users, runs a simulation, and summarizes results
+description: Reset + simulation — restarts Docker (preserving caches), wipes user data, runs a simulation, and summarizes results
 argument-hint: <goal or persona> [--blocker <text>] [--quests <n>] [--email <email>]
 allowed-tools: [Bash, Read, Grep]
 ---
@@ -16,17 +16,19 @@ The user invoked this with: $ARGUMENTS
 
 Follow these steps **exactly and sequentially**. Do NOT skip steps. Report progress to the user at each stage.
 
-### Step 1: Kill any existing dev environment
+### Step 1: Kill any existing dev environment and wipe user data
 
-Kill any running dev-local.sh process and tear down containers:
+Kill any running dev-local.sh process, restart containers (preserving volumes so caches survive), and wipe user data:
 
 ```bash
 pkill -f "dev-local.sh" 2>/dev/null || true
 pkill -f "expo start" 2>/dev/null || true
-docker compose down -v
+docker compose down
 ```
 
-Report: "Environment torn down."
+Then wipe user data using the `/db wipe users` skill. This clears user-generated data from Postgres and flushes non-cache Redis keys while preserving geocoding/places/weather caches.
+
+Report: "Environment torn down, user data wiped."
 
 ### Step 2: Start the dev environment
 
