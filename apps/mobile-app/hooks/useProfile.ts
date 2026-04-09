@@ -131,7 +131,8 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
   // Memoize formatted date
   const memberSince = useMemo(() => {
     // createdAt may come from API response but isn't in the UserProfile type
-    const createdAt = (profileData as Record<string, unknown> | null)?.createdAt;
+    const createdAt = (profileData as Record<string, unknown> | null)
+      ?.createdAt;
     return typeof createdAt === "string"
       ? new Date(createdAt).toLocaleDateString("en-US", {
           month: "long",
@@ -154,7 +155,7 @@ export const useProfile = (onBack?: () => void): UseProfileReturn => {
   const handleLogout = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     logout();
-    router.replace("/login");
+    router.replace("/welcome");
   }, [logout, router]);
 
   // Handle delete account

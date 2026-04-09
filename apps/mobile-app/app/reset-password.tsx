@@ -110,7 +110,7 @@ const ResetPasswordScreen: React.FC = () => {
       Alert.alert(
         "Password Reset",
         "Your password has been reset successfully. Please log in with your new password.",
-        [{ text: "OK", onPress: () => router.replace("/login") }],
+        [{ text: "OK", onPress: () => router.replace("/welcome") }],
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
@@ -155,104 +155,109 @@ const ResetPasswordScreen: React.FC = () => {
           >
             <AppHeader />
 
-            <Animated.View entering={FadeInDown.duration(600).delay(300).springify()}>
             <Animated.View
-              layout={LinearTransition.springify()}
-              style={styles.formContainer}
+              entering={FadeInDown.duration(600).delay(300).springify()}
             >
               <Animated.View
                 layout={LinearTransition.springify()}
-                style={styles.formCard}
+                style={styles.formContainer}
               >
-                <Text style={styles.title}>Reset Password</Text>
-                <Text style={styles.subtitle}>
-                  Enter the 6-digit code sent to {email} and your new password.
-                </Text>
+                <Animated.View
+                  layout={LinearTransition.springify()}
+                  style={styles.formCard}
+                >
+                  <Text style={styles.title}>Reset Password</Text>
+                  <Text style={styles.subtitle}>
+                    Enter the 6-digit code sent to {email} and your new
+                    password.
+                  </Text>
 
-                {error && (
-                  <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{error}</Text>
+                  {error && (
+                    <View style={styles.errorContainer}>
+                      <Text style={styles.errorText}>{error}</Text>
+                    </View>
+                  )}
+
+                  <View style={{ gap: spacing.lg }}>
+                    <Input
+                      ref={codeRef}
+                      icon={Hash}
+                      placeholder="6-digit code"
+                      value={code}
+                      onChangeText={(text) =>
+                        setCode(text.replace(/[^0-9]/g, "").slice(0, 6))
+                      }
+                      keyboardType="number-pad"
+                      returnKeyType="next"
+                      onSubmitEditing={() => passwordRef.current?.focus()}
+                      delay={200}
+                    />
+
+                    <Input
+                      ref={passwordRef}
+                      icon={Lock}
+                      rightIcon={showPassword ? EyeOff : Eye}
+                      onRightIconPress={togglePasswordVisibility}
+                      placeholder="New password"
+                      value={newPassword}
+                      onChangeText={setNewPassword}
+                      secureTextEntry={!showPassword}
+                      returnKeyType="next"
+                      onSubmitEditing={() =>
+                        confirmPasswordRef.current?.focus()
+                      }
+                      delay={300}
+                    />
+
+                    <Input
+                      ref={confirmPasswordRef}
+                      icon={Lock}
+                      rightIcon={showConfirmPassword ? EyeOff : Eye}
+                      onRightIconPress={toggleConfirmPasswordVisibility}
+                      placeholder="Confirm new password"
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry={!showConfirmPassword}
+                      returnKeyType="done"
+                      onSubmitEditing={handleResetPassword}
+                      delay={400}
+                    />
                   </View>
-                )}
 
-                <View style={{ gap: spacing.lg }}>
-                  <Input
-                    ref={codeRef}
-                    icon={Hash}
-                    placeholder="6-digit code"
-                    value={code}
-                    onChangeText={(text) =>
-                      setCode(text.replace(/[^0-9]/g, "").slice(0, 6))
-                    }
-                    keyboardType="number-pad"
-                    returnKeyType="next"
-                    onSubmitEditing={() => passwordRef.current?.focus()}
-                    delay={200}
-                  />
+                  <View style={styles.buttonContainer}>
+                    <Animated.View style={buttonAnimatedStyle}>
+                      <TouchableOpacity
+                        onPress={handleResetPress}
+                        disabled={isLoading}
+                        activeOpacity={0.7}
+                        style={styles.resetButton}
+                      >
+                        {isLoading ? (
+                          <ActivityIndicator
+                            size="small"
+                            color={colors.text.primary}
+                          />
+                        ) : (
+                          <Text style={styles.resetButtonText}>
+                            Reset Password
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    </Animated.View>
+                  </View>
 
-                  <Input
-                    ref={passwordRef}
-                    icon={Lock}
-                    rightIcon={showPassword ? EyeOff : Eye}
-                    onRightIconPress={togglePasswordVisibility}
-                    placeholder="New password"
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    secureTextEntry={!showPassword}
-                    returnKeyType="next"
-                    onSubmitEditing={() => confirmPasswordRef.current?.focus()}
-                    delay={300}
-                  />
-
-                  <Input
-                    ref={confirmPasswordRef}
-                    icon={Lock}
-                    rightIcon={showConfirmPassword ? EyeOff : Eye}
-                    onRightIconPress={toggleConfirmPasswordVisibility}
-                    placeholder="Confirm new password"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showConfirmPassword}
-                    returnKeyType="done"
-                    onSubmitEditing={handleResetPassword}
-                    delay={400}
-                  />
-                </View>
-
-                <View style={styles.buttonContainer}>
-                  <Animated.View style={buttonAnimatedStyle}>
+                  <View style={styles.backLinkContainer}>
                     <TouchableOpacity
-                      onPress={handleResetPress}
-                      disabled={isLoading}
-                      activeOpacity={0.7}
-                      style={styles.resetButton}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        router.back();
+                      }}
                     >
-                      {isLoading ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={colors.text.primary}
-                        />
-                      ) : (
-                        <Text style={styles.resetButtonText}>
-                          Reset Password
-                        </Text>
-                      )}
+                      <Text style={styles.backLink}>Back</Text>
                     </TouchableOpacity>
-                  </Animated.View>
-                </View>
-
-                <View style={styles.backLinkContainer}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      router.back();
-                    }}
-                  >
-                    <Text style={styles.backLink}>Back</Text>
-                  </TouchableOpacity>
-                </View>
+                  </View>
+                </Animated.View>
               </Animated.View>
-            </Animated.View>
             </Animated.View>
           </Animated.View>
         </ScrollView>
