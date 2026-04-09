@@ -11,6 +11,7 @@ import type { BarrierGenerationService } from "../services/BarrierGenerationServ
 import type { GoalRefinementService } from "../services/GoalRefinementService";
 import type { RefinementState } from "../services/GoalRefinementService";
 import type { PacingService } from "../services/PacingService";
+import type { StorageService } from "../services/shared/StorageService";
 import { GoalReflection, User } from "@realtime-markers/database";
 
 export const listSidequestsHandler: Handler = withErrorHandling(async (c) => {
@@ -679,12 +680,12 @@ export const objectiveJournalHandler: Handler = withErrorHandling(
     const body = await c.req.json<{
       journalEntry?: string;
       completedActivity?: string;
-      photoUrl?: string;
+      photoBase64?: string;
       socialContext?: string;
       wouldReturn?: boolean;
     }>();
 
-    if (!body.journalEntry && !body.completedActivity && !body.photoUrl && !body.socialContext && body.wouldReturn == null) {
+    if (!body.journalEntry && !body.completedActivity && !body.photoBase64 && !body.socialContext && body.wouldReturn == null) {
       return c.json({ error: "At least one field is required" }, 400);
     }
 
@@ -694,9 +695,29 @@ export const objectiveJournalHandler: Handler = withErrorHandling(
     if (body.completedActivity && body.completedActivity.length > 2000) {
       return c.json({ error: "completedActivity must be 2000 characters or fewer" }, 400);
     }
+    if (body.photoBase64 && body.photoBase64.length > 4 * 1024 * 1024) {
+      return c.json({ error: "Photo is too large (max ~3MB)" }, 400);
+    }
     const validSocialContexts = ["solo", "with_someone", "met_someone_new", "group_activity"];
     if (body.socialContext && !validSocialContexts.includes(body.socialContext)) {
       return c.json({ error: `socialContext must be one of: ${validSocialContexts.join(", ")}` }, 400);
+    }
+
+    // Upload photo to S3 if provided
+    let photoUrl: string | undefined;
+    if (body.photoBase64) {
+      const imageBuffer = Buffer.from(body.photoBase64, "base64");
+      const storageService = c.get("storageService") as StorageService;
+      const uploadedUrl = await storageService.uploadImage(
+        imageBuffer,
+        "journal-photos",
+        { objectiveId, userId: user.id },
+      );
+      if (uploadedUrl) {
+        photoUrl = uploadedUrl;
+      } else {
+        console.warn(`[objectiveJournalHandler] Photo upload failed for objective ${objectiveId}`);
+      }
     }
 
     const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
@@ -706,7 +727,7 @@ export const objectiveJournalHandler: Handler = withErrorHandling(
       {
         journalEntry: body.journalEntry,
         completedActivity: body.completedActivity,
-        photoUrl: body.photoUrl,
+        photoUrl,
         socialContext: body.socialContext,
         wouldReturn: body.wouldReturn,
       },

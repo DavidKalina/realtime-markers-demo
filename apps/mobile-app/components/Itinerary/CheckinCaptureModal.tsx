@@ -1,5 +1,6 @@
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
+import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { Camera, X, XCircle } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
@@ -177,6 +178,18 @@ export function CheckinCaptureModal({
       const activity = parts.length > 0 ? parts.join(" · ") : undefined;
       const journal = journalText.trim() || undefined;
 
+      // Convert local photo to base64 for upload
+      let photoBase64: string | undefined;
+      if (photoUri) {
+        try {
+          photoBase64 = await FileSystem.readAsStringAsync(photoUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+        } catch (err) {
+          console.warn("[CheckinCapture] Failed to read photo as base64:", err);
+        }
+      }
+
       if (isChallenge && sidequestId) {
         // Challenge: atomic journal + check-in via completeChallenge
         await apiClient.sidequests.completeChallenge(sidequestId, objectiveId, {
@@ -189,7 +202,7 @@ export function CheckinCaptureModal({
         await apiClient.sidequests.updateObjectiveJournal(objectiveId, {
           journalEntry: journal,
           completedActivity: activity,
-          photoUrl: photoUri ?? undefined,
+          photoBase64,
           socialContext: socialContext ?? undefined,
           wouldReturn: wouldReturn ?? undefined,
         });

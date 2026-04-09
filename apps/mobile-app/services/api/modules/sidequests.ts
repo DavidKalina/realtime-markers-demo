@@ -497,7 +497,7 @@ export class SidequestsModule extends BaseApiModule {
     params: {
       journalEntry?: string;
       completedActivity?: string;
-      photoUrl?: string;
+      photoBase64?: string;
       socialContext?: string;
       wouldReturn?: boolean;
     },
