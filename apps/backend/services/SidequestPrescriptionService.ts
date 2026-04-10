@@ -57,6 +57,7 @@ export interface SiblingContext {
   batchIndex: number;
   totalInBatch: number;
   questRole: "deepen" | "explore" | "discover" | "stretch" | "enjoy";
+  difficultyTier?: "easy" | "medium" | "stretch";
   targetPathway?: { id: string; theme: string; label: string; phase: string };
   previousSiblings: { title: string; venueCategory: string; venueName: string }[];
 }
@@ -598,6 +599,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
 
       const isStretch = questRole === "stretch";
       const isEnjoy = questRole === "enjoy";
+      const difficultyTier = siblingContext?.difficultyTier;
 
       // Build prompt via registry
       const promptCtx: PrescriptionPromptContext = {
@@ -620,7 +622,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
           ? this.buildFearLadderContext(user.fearLadder, fearLadderReadiness) : "",
         expectancyContext: user.expectancyCalibration
           ? this.buildExpectancyContext(user.expectancyCalibration) : "",
-        difficultyGuidance: this.buildDifficultyGuidance(pace, fearLadderReadiness, isStretch, isEnjoy),
+        difficultyGuidance: this.buildDifficultyGuidance(pace, fearLadderReadiness, isStretch, isEnjoy, difficultyTier),
         siblingInstructions: roleInstructions,
         blockerContext,
         socialMicroRepContext,
@@ -3072,7 +3074,18 @@ ${result.suggestedProgression}\n` };
    * Build difficulty guidance for the LLM instead of dictating a specific number.
    * The LLM should judge difficulty based on the actual quest relative to the user's profile.
    */
-  private buildDifficultyGuidance(pace: string, readiness: FearLadderReadiness, isStretch = false, isEnjoy = false): string {
+  private buildDifficultyGuidance(pace: string, readiness: FearLadderReadiness, isStretch = false, isEnjoy = false, difficultyTier?: "easy" | "medium" | "stretch"): string {
+    // Onboarding tier overrides — each quest in the first pack gets a distinct difficulty band
+    if (difficultyTier === "easy") {
+      return `- DIFFICULTY GUIDANCE: This is the EASY tier — their first quest should be a quick win. Difficulty MUST be 1-2. Pick something approachable, close to home, low commitment. The goal is to show them what a quest feels like with zero intimidation.`;
+    }
+    if (difficultyTier === "medium") {
+      return `- DIFFICULTY GUIDANCE: This is the MEDIUM tier — a step up from the easy quest. Difficulty MUST be 3-4. Pick something that requires a bit more effort or novelty — a new neighborhood, a slightly unfamiliar activity, a longer outing. It should feel doable but not trivial.`;
+    }
+    if (difficultyTier === "stretch") {
+      return `- DIFFICULTY GUIDANCE: This is the STRETCH tier — an ambitious option for when they're feeling brave. Difficulty MUST be 5-7. Push on novelty and distance — a category they haven't tried, further from home. It should feel exciting, not terrifying. This exists so they always have a way to leap ahead.`;
+    }
+
     if (isEnjoy) {
       return `- DIFFICULTY GUIDANCE: This is an ENJOY quest — a cheat meal. Difficulty 1-3 ONLY. This is NOT about growth, NOT about their goal. Pick something purely fun based on their interests. Think: great food, games, scenic spots, live music, adventure activities. The only thing that matters is they'd smile doing it.`;
     }
@@ -3144,6 +3157,19 @@ ${result.suggestedProgression}\n` };
         `  Pick venues or activities that would be a genuine stretch: a new neighborhood, a category they haven't tried, a social element they'd normally avoid.`,
         `  The quest should feel ambitious but NOT impossible — exciting, not terrifying.`,
         `  DO NOT soften this quest to match their current level. The other 2 cards in this batch already do that.`,
+      );
+    } else if (ctx.difficultyTier === "easy") {
+      lines.push(
+        `- ROLE: EASY START. This is their very first quest — make it a quick, approachable win.`,
+        `  Search within 3-5 miles of the user's location. Pick somewhere close, familiar-feeling, low time commitment.`,
+        `  Think: a cozy cafe, a nearby park, a casual spot they could walk or make a short drive to.`,
+        `  The goal is to build trust in the system. They should finish this and think "that was easy, what's next?"`,
+      );
+    } else if (ctx.difficultyTier === "medium") {
+      lines.push(
+        `- ROLE: MEDIUM CHALLENGE. This quest should feel like a meaningful step up from the easy one.`,
+        `  A bit more novelty — a neighborhood they don't frequent, an activity with a slightly higher bar.`,
+        `  Still very doable, but it should feel like they accomplished something.`,
       );
     } else {
       lines.push(`- ROLE: DISCOVER. Explore freely — the user is just getting started.`);
@@ -3226,6 +3252,7 @@ ${result.suggestedProgression}\n` };
         batchIndex: i,
         totalInBatch: slots.length,
         questRole: slot.role,
+        difficultyTier: slot.difficultyTier,
         targetPathway: slot.targetPathway,
         previousSiblings: quests.map((q) => ({
           title: q.title ?? "Untitled",
@@ -3284,7 +3311,18 @@ ${result.suggestedProgression}\n` };
 
   private async determinePackSlots(
     userId: string,
-  ): Promise<{ role: "deepen" | "explore" | "discover" | "stretch" | "enjoy"; targetPathway?: { id: string; theme: string; label: string; phase: string } }[]> {
+  ): Promise<{ role: "deepen" | "explore" | "discover" | "stretch" | "enjoy"; difficultyTier?: "easy" | "medium" | "stretch"; targetPathway?: { id: string; theme: string; label: string; phase: string } }[]> {
+    const completedCount = await this.countCompletedQuests(userId);
+
+    // Onboarding: 3 distinct difficulty tiers so the user can start easy
+    if (completedCount === 0) {
+      return [
+        { role: "discover", difficultyTier: "easy" },
+        { role: "discover", difficultyTier: "medium" },
+        { role: "stretch", difficultyTier: "stretch" },
+      ];
+    }
+
     if (!this.pathwayService) {
       return [{ role: "discover" }, { role: "discover" }, { role: "stretch" }];
     }
@@ -3309,7 +3347,6 @@ ${result.suggestedProgression}\n` };
     // Enjoy quests are "cheat meals" — decoupled from pathways entirely.
     // They use the user's onboarding interests, not DFS pathway categories.
     // Include one after 8+ quests so they've earned the reward.
-    const completedCount = await this.countCompletedQuests(userId);
     const shouldIncludeEnjoy = completedCount >= 8;
 
     switch (phaseContext.globalPhase) {
