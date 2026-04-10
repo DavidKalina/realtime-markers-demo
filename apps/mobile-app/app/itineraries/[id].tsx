@@ -1,5 +1,7 @@
 import ItineraryTimeline from "@/components/Itinerary/ItineraryTimeline";
-import QuestCompass, { MiniCompassPreview } from "@/components/Itinerary/QuestCompass";
+import QuestCompass, {
+  MiniCompassPreview,
+} from "@/components/Itinerary/QuestCompass";
 import { CheckinCaptureModal } from "@/components/Itinerary/CheckinCaptureModal";
 import PredictionCaptureModal from "@/components/Quest/PredictionCaptureModal";
 
@@ -7,12 +9,7 @@ import PullToActionScrollView from "@/components/Layout/PullToActionScrollView";
 import Screen from "@/components/Layout/Screen";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -65,7 +62,6 @@ import {
   type Colors,
 } from "@/theme";
 
-
 type SidequestCheckinEvent = BaseEvent & {
   sidequestId: string;
   objectiveId: string;
@@ -76,7 +72,8 @@ type SidequestCheckinEvent = BaseEvent & {
 // Detects URLs and phone numbers in text and makes them tappable.
 
 const URL_REGEX = /https?:\/\/[^\s,)]+/g;
-const BARE_URL_REGEX = /(?<![/@\w])(?:[a-z0-9-]+\.)+(?:com|org|net|gov|edu|io|co|app|dev|us|info)(?:\/[^\s,)]*)?/gi;
+const BARE_URL_REGEX =
+  /(?<![/@\w])(?:[a-z0-9-]+\.)+(?:com|org|net|gov|edu|io|co|app|dev|us|info)(?:\/[^\s,)]*)?/gi;
 const PHONE_REGEX = /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
 
 function LinkedText({ text, style }: { text: string; style: any }) {
@@ -85,19 +82,39 @@ function LinkedText({ text, style }: { text: string; style: any }) {
   let lastIndex = 0;
 
   // Merge URL, bare URL, and phone matches, sorted by position
-  const matches: { index: number; length: number; value: string; type: "url" | "phone" }[] = [];
+  const matches: {
+    index: number;
+    length: number;
+    value: string;
+    type: "url" | "phone";
+  }[] = [];
   const covered = new Set<number>();
   for (const m of text.matchAll(URL_REGEX)) {
-    matches.push({ index: m.index!, length: m[0].length, value: m[0], type: "url" });
+    matches.push({
+      index: m.index!,
+      length: m[0].length,
+      value: m[0],
+      type: "url",
+    });
     for (let j = m.index!; j < m.index! + m[0].length; j++) covered.add(j);
   }
   for (const m of text.matchAll(BARE_URL_REGEX)) {
     if (!covered.has(m.index!)) {
-      matches.push({ index: m.index!, length: m[0].length, value: m[0], type: "url" });
+      matches.push({
+        index: m.index!,
+        length: m[0].length,
+        value: m[0],
+        type: "url",
+      });
     }
   }
   for (const m of text.matchAll(PHONE_REGEX)) {
-    matches.push({ index: m.index!, length: m[0].length, value: m[0], type: "phone" });
+    matches.push({
+      index: m.index!,
+      length: m[0].length,
+      value: m[0],
+      type: "phone",
+    });
   }
   matches.sort((a, b) => a.index - b.index);
 
@@ -120,11 +137,16 @@ function LinkedText({ text, style }: { text: string; style: any }) {
     <Text style={style}>
       {parts.map((part, i) => {
         if (part.type === "url") {
-          const href = part.text.startsWith("http") ? part.text : `https://${part.text}`;
+          const href = part.text.startsWith("http")
+            ? part.text
+            : `https://${part.text}`;
           return (
             <Text
               key={i}
-              style={{ color: colors.accent.primary, textDecorationLine: "underline" }}
+              style={{
+                color: colors.accent.primary,
+                textDecorationLine: "underline",
+              }}
               onPress={() => Linking.openURL(href)}
             >
               {part.text}
@@ -136,7 +158,10 @@ function LinkedText({ text, style }: { text: string; style: any }) {
           return (
             <Text
               key={i}
-              style={{ color: colors.accent.primary, textDecorationLine: "underline" }}
+              style={{
+                color: colors.accent.primary,
+                textDecorationLine: "underline",
+              }}
               onPress={() => Linking.openURL(`tel:${digits}`)}
             >
               {part.text}
@@ -269,7 +294,8 @@ const ItineraryDetailScreen = () => {
     journalPrompt?: string;
   } | null>(null);
   const [showPrediction, setShowPrediction] = useState(false);
-  const { userLocation, startLocationTracking, stopLocationTracking } = useUserLocation();
+  const { userLocation, startLocationTracking, stopLocationTracking } =
+    useUserLocation();
 
   // Start continuous location tracking while this sidequest is active
   useEffect(() => {
@@ -283,13 +309,14 @@ const ItineraryDetailScreen = () => {
 
   // Use active store's data if this sidequest is active (has live checkin data)
   const displaySidequest =
-    isThisActive && activeItinerary
-      ? activeItinerary
-      : itinerary;
+    isThisActive && activeItinerary ? activeItinerary : itinerary;
 
   // Derive accent color from sidequest category to match card colors
   const accentHex = useMemo(() => getSidequestAccent(itinerary), [itinerary]);
-  const styles = useMemo(() => createStyles(colors, accentHex), [colors, accentHex]);
+  const styles = useMemo(
+    () => createStyles(colors, accentHex),
+    [colors, accentHex],
+  );
 
   useEffect(() => {
     if (!id || id === "undefined") return;
@@ -528,8 +555,9 @@ const ItineraryDetailScreen = () => {
   }, [itinerary]);
 
   // Objective detail modal
-  const [selectedItem, setSelectedItem] =
-    useState<ObjectiveResponse | null>(null);
+  const [selectedItem, setSelectedItem] = useState<ObjectiveResponse | null>(
+    null,
+  );
 
   const handleItemPress = useCallback((item: ObjectiveResponse) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -540,13 +568,19 @@ const ItineraryDetailScreen = () => {
   const displayedNextObjective = useMemo(
     () =>
       [...(displaySidequest?.objectives ?? [])]
-        .filter((o) => !o.checkedInAt && o.latitude != null && o.longitude != null)
+        .filter(
+          (o) => !o.checkedInAt && o.latitude != null && o.longitude != null,
+        )
         .sort((a, b) => a.sortOrder - b.sortOrder)[0] ?? null,
     [displaySidequest?.objectives],
   );
 
   const miniDistance = useMemo(() => {
-    if (!userLocation || !displayedNextObjective?.latitude || !displayedNextObjective?.longitude)
+    if (
+      !userLocation ||
+      !displayedNextObjective?.latitude ||
+      !displayedNextObjective?.longitude
+    )
       return "";
     const [lng, lat] = userLocation;
     const R = 6371000;
@@ -577,7 +611,6 @@ const ItineraryDetailScreen = () => {
       </Screen>
     );
   }
-
 
   if (error || !itinerary) {
     return (
@@ -626,7 +659,7 @@ const ItineraryDetailScreen = () => {
               .easing(Easing.out(Easing.cubic))}
           >
             <Text style={styles.heroTitle}>
-              {(itinerary)?.title ?? "Sidequest"}
+              {itinerary?.title ?? "Sidequest"}
             </Text>
             <View style={styles.heroLabelRow}>
               <View style={styles.heroLabelPill}>
@@ -652,9 +685,14 @@ const ItineraryDetailScreen = () => {
                   <Animated.View
                     key={vibe}
                     entering={FadeInRight.delay(200 + i * 60).duration(350)}
-                    style={[styles.vibePill, { backgroundColor: `rgba(${vr}, ${vg}, ${vb}, 0.12)` }]}
+                    style={[
+                      styles.vibePill,
+                      { backgroundColor: `rgba(${vr}, ${vg}, ${vb}, 0.12)` },
+                    ]}
                   >
-                    <Text style={[styles.vibeText, { color: vibeColor }]}>{vibe}</Text>
+                    <Text style={[styles.vibeText, { color: vibeColor }]}>
+                      {vibe}
+                    </Text>
                   </Animated.View>
                 );
               })}
@@ -662,16 +700,32 @@ const ItineraryDetailScreen = () => {
           )}
 
           {/* Summary */}
-          {(itinerary)?.summary && (
+          {itinerary?.summary && (
             <Animated.View
               entering={FadeInDown.delay(200)
                 .duration(450)
                 .easing(Easing.out(Easing.cubic))}
             >
               <LinkedText
-                text={(itinerary)?.summary}
+                text={itinerary?.summary}
                 style={styles.heroSummary}
               />
+            </Animated.View>
+          )}
+
+          {/* Mission briefing */}
+          {itinerary?.intention && (
+            <Animated.View
+              entering={FadeInDown.delay(250)
+                .duration(450)
+                .easing(Easing.out(Easing.cubic))}
+              style={styles.missionCard}
+            >
+              <View style={styles.missionHeader}>
+                <View style={styles.missionAccent} />
+                <Text style={styles.missionLabel}>YOUR MISSION</Text>
+              </View>
+              <Text style={styles.missionText}>{itinerary.intention}</Text>
             </Animated.View>
           )}
 
@@ -684,32 +738,58 @@ const ItineraryDetailScreen = () => {
           >
             {(() => {
               const diff = Math.min(Number(objectives[0]?.difficulty ?? 1), 10);
-              const dist = itinerary.distanceFromHome != null ? Number(itinerary.distanceFromHome) : null;
+              const dist =
+                itinerary.distanceFromHome != null
+                  ? Number(itinerary.distanceFromHome)
+                  : null;
               const diffPct = (diff / 10) * 100;
               const distPct = dist != null ? Math.min(dist / 10, 1) * 100 : 0;
-              const costPct = totalCost > 0 ? Math.min(totalCost / 50, 1) * 100 : 0;
+              const costPct =
+                totalCost > 0 ? Math.min(totalCost / 50, 1) * 100 : 0;
               return (
                 <>
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>Difficulty</Text>
                     <View style={styles.statBarTrack}>
-                      <View style={[styles.statBarFill, { width: `${diffPct}%`, backgroundColor: accentHex }]} />
+                      <View
+                        style={[
+                          styles.statBarFill,
+                          { width: `${diffPct}%`, backgroundColor: accentHex },
+                        ]}
+                      />
                     </View>
-                    <Text style={[styles.statValue, { color: accentHex }]}>{diff}/10</Text>
+                    <Text style={[styles.statValue, { color: accentHex }]}>
+                      {diff}/10
+                    </Text>
                   </View>
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>Distance</Text>
                     <View style={styles.statBarTrack}>
-                      <View style={[styles.statBarFill, { width: `${distPct}%`, backgroundColor: accentHex }]} />
+                      <View
+                        style={[
+                          styles.statBarFill,
+                          { width: `${distPct}%`, backgroundColor: accentHex },
+                        ]}
+                      />
                     </View>
                     <Text style={[styles.statValue, { color: accentHex }]}>
-                      {dist != null ? (dist < 0.1 ? "<0.1" : dist.toFixed(1)) : "?"} mi
+                      {dist != null
+                        ? dist < 0.1
+                          ? "<0.1"
+                          : dist.toFixed(1)
+                        : "?"}{" "}
+                      mi
                     </Text>
                   </View>
                   <View style={styles.statRow}>
                     <Text style={styles.statLabel}>Cost</Text>
                     <View style={styles.statBarTrack}>
-                      <View style={[styles.statBarFill, { width: `${costPct}%`, backgroundColor: accentHex }]} />
+                      <View
+                        style={[
+                          styles.statBarFill,
+                          { width: `${costPct}%`, backgroundColor: accentHex },
+                        ]}
+                      />
                     </View>
                     <Text style={[styles.statValue, { color: accentHex }]}>
                       {totalCost > 0 ? `$${totalCost}` : "FREE"}
@@ -773,7 +853,12 @@ const ItineraryDetailScreen = () => {
           const links: { value: string; type: "url" | "phone" }[] = [];
           const seen = new Set<string>();
           for (const m of sources.matchAll(URL_REGEX)) {
-            seen.add(m[0].replace(/^https?:\/\//, "").replace(/\/$/, "").toLowerCase());
+            seen.add(
+              m[0]
+                .replace(/^https?:\/\//, "")
+                .replace(/\/$/, "")
+                .toLowerCase(),
+            );
             links.push({ value: m[0], type: "url" });
           }
           for (const m of sources.matchAll(BARE_URL_REGEX)) {
@@ -791,7 +876,9 @@ const ItineraryDetailScreen = () => {
           if (links.length === 0 && !hasVenue) return null;
           return (
             <Animated.View
-              entering={FadeInDown.delay(650).duration(400).easing(Easing.out(Easing.cubic))}
+              entering={FadeInDown.delay(650)
+                .duration(400)
+                .easing(Easing.out(Easing.cubic))}
               style={styles.quickLinksSection}
             >
               <Text style={styles.quickLinksLabel}>QUICK LINKS</Text>
@@ -829,9 +916,10 @@ const ItineraryDetailScreen = () => {
                 <Pressable
                   key={i}
                   onPress={() => {
-                    const url = link.type === "phone"
-                      ? `tel:${link.value.replace(/[^\d+]/g, "")}`
-                      : link.value;
+                    const url =
+                      link.type === "phone"
+                        ? `tel:${link.value.replace(/[^\d+]/g, "")}`
+                        : link.value;
                     Linking.openURL(url);
                   }}
                   style={({ pressed }) => [
@@ -844,7 +932,9 @@ const ItineraryDetailScreen = () => {
                   </Text>
                   <Text style={styles.quickLinkText} numberOfLines={1}>
                     {link.type === "url"
-                      ? link.value.replace(/^https?:\/\//, "").replace(/\/$/, "")
+                      ? link.value
+                          .replace(/^https?:\/\//, "")
+                          .replace(/\/$/, "")
                       : link.value}
                   </Text>
                 </Pressable>
@@ -867,7 +957,9 @@ const ItineraryDetailScreen = () => {
               objectiveLat={displayedNextObjective.latitude!}
               objectiveLng={displayedNextObjective.longitude!}
               distanceLabel={miniDistance}
-              venueName={displayedNextObjective.venueName ?? displayedNextObjective.title}
+              venueName={
+                displayedNextObjective.venueName ?? displayedNextObjective.title
+              }
               emoji={displayedNextObjective.emoji ?? "\u{1F4CD}"}
               accentColor={accentHex}
               onPress={() => {
@@ -1077,7 +1169,9 @@ const ItineraryDetailScreen = () => {
                   >
                     <Text style={styles.itemDetailVenueCompact}>
                       {"\u{1F4CD}"} {selectedItem.venueName}
-                      {selectedItem.venueCategory ? ` · ${selectedItem.venueCategory}` : ""}
+                      {selectedItem.venueCategory
+                        ? ` · ${selectedItem.venueCategory}`
+                        : ""}
                     </Text>
                     {selectedItem.venueAddress && (
                       <Text style={styles.itemDetailAddressCompact}>
@@ -1168,6 +1262,41 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       fontWeight: fontWeight.regular,
       color: colors.text.secondary,
       lineHeight: 23,
+    },
+
+    // ── Mission briefing ──
+    missionCard: {
+      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.06)`,
+      borderWidth: 1,
+      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.15)`,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      gap: spacing.sm,
+    },
+    missionHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+    },
+    missionAccent: {
+      width: 3,
+      height: 14,
+      borderRadius: 1.5,
+      backgroundColor: accentHex,
+    },
+    missionLabel: {
+      fontSize: 10,
+      fontWeight: fontWeight.bold,
+      fontFamily: fontFamily.mono,
+      color: accentHex,
+      letterSpacing: 1.5,
+    },
+    missionText: {
+      fontSize: 14,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      color: colors.text.primary,
+      lineHeight: 22,
     },
 
     // ── Stat bars ──
