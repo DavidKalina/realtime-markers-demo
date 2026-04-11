@@ -14,6 +14,7 @@ import {
   ActionSheetIOS,
   ActivityIndicator,
   Alert,
+  AppState,
   Linking,
   Modal,
   Platform,
@@ -306,6 +307,18 @@ const ItineraryDetailScreen = () => {
       stopLocationTracking();
     };
   }, [isThisActive, startLocationTracking, stopLocationTracking]);
+
+  // Refresh active itinerary when app returns to foreground to detect missed check-ins
+  const refreshItinerary = useActiveItineraryStore((s) => s.refresh);
+  useEffect(() => {
+    if (!isThisActive) return;
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        refreshItinerary();
+      }
+    });
+    return () => subscription.remove();
+  }, [isThisActive, refreshItinerary]);
 
   // Use active store's data if this sidequest is active (has live checkin data)
   const displaySidequest =
@@ -710,22 +723,6 @@ const ItineraryDetailScreen = () => {
                 text={itinerary?.summary}
                 style={styles.heroSummary}
               />
-            </Animated.View>
-          )}
-
-          {/* Mission briefing */}
-          {itinerary?.intention && (
-            <Animated.View
-              entering={FadeInDown.delay(250)
-                .duration(450)
-                .easing(Easing.out(Easing.cubic))}
-              style={styles.missionCard}
-            >
-              <View style={styles.missionHeader}>
-                <View style={styles.missionAccent} />
-                <Text style={styles.missionLabel}>YOUR MISSION</Text>
-              </View>
-              <Text style={styles.missionText}>{itinerary.intention}</Text>
             </Animated.View>
           )}
 
@@ -1262,41 +1259,6 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       fontWeight: fontWeight.regular,
       color: colors.text.secondary,
       lineHeight: 23,
-    },
-
-    // ── Mission briefing ──
-    missionCard: {
-      backgroundColor: `rgba(${ar}, ${ag}, ${ab}, 0.06)`,
-      borderWidth: 1,
-      borderColor: `rgba(${ar}, ${ag}, ${ab}, 0.15)`,
-      borderRadius: radius.md,
-      padding: spacing.md,
-      gap: spacing.sm,
-    },
-    missionHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: spacing.sm,
-    },
-    missionAccent: {
-      width: 3,
-      height: 14,
-      borderRadius: 1.5,
-      backgroundColor: accentHex,
-    },
-    missionLabel: {
-      fontSize: 10,
-      fontWeight: fontWeight.bold,
-      fontFamily: fontFamily.mono,
-      color: accentHex,
-      letterSpacing: 1.5,
-    },
-    missionText: {
-      fontSize: 14,
-      fontFamily: fontFamily.mono,
-      fontWeight: fontWeight.medium,
-      color: colors.text.primary,
-      lineHeight: 22,
     },
 
     // ── Stat bars ──

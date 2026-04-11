@@ -200,12 +200,12 @@ export class PushNotificationService {
 
         // Process itinerary check-ins immediately so the UI updates
         // without waiting for the user to tap the notification banner
-        if (data?.type === "itinerary_checkin" && data.itineraryId) {
+        if (data?.type === "objective_checkin" && data.sidequestId) {
           eventBroker.emit(EventTypes.ITINERARY_CHECKIN, {
             timestamp: Date.now(),
             source: "PushNotification",
-            itineraryId: data.itineraryId as string,
-            itemId: data.itemId as string,
+            sidequestId: data.sidequestId as string,
+            objectiveId: data.objectiveId as string,
             completed: data.completed as boolean,
           });
         }
@@ -246,13 +246,13 @@ export class PushNotificationService {
         coordinates,
         zoomLevel: 15,
       });
-    } else if (data?.type === "itinerary_checkin" && data.itineraryId) {
+    } else if (data?.type === "objective_checkin" && data.sidequestId) {
       // User auto-checked in at an itinerary stop
       eventBroker.emit(EventTypes.ITINERARY_CHECKIN, {
         timestamp: Date.now(),
         source: "PushNotification",
-        itineraryId: data.itineraryId as string,
-        itemId: data.itemId as string,
+        sidequestId: data.sidequestId as string,
+        objectiveId: data.objectiveId as string,
         completed: data.completed as boolean,
       });
     } else if (data?.type === "badge_unlocked") {
