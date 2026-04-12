@@ -3274,21 +3274,19 @@ ${result.suggestedProgression}\n` };
     onProgress?: SidequestProgressCallback,
   ): Promise<WeekPackResult> {
     const batchId = crypto.randomUUID();
-    const quests: Sidequest[] = [];
 
     // Determine pack composition from pathway phase context
     const slots = await this.determinePackSlots(userId);
 
-    for (let i = 0; i < slots.length; i++) {
-      const slot = slots[i];
+    if (onProgress) {
+      await onProgress(5, `Crafting ${slots.length} quests in parallel...`);
+    }
 
-      if (onProgress) {
-        await onProgress(
-          Math.round((i / slots.length) * 80),
-          `Crafting quest ${i + 1} of ${slots.length}...`,
-        );
-      }
-
+    // Generate all quests in parallel — each gets its role but no
+    // previousSiblings since they run concurrently. The distinct roles
+    // (discover/explore/stretch/deepen/enjoy) naturally differentiate
+    // venue selection and the validator catches history-based repeats.
+    const questPromises = slots.map((slot, i) => {
       const siblingContext: SiblingContext = {
         batchId,
         batchIndex: i,
@@ -3296,15 +3294,33 @@ ${result.suggestedProgression}\n` };
         questRole: slot.role,
         difficultyTier: slot.difficultyTier,
         targetPathway: slot.targetPathway,
-        previousSiblings: quests.map((q) => ({
-          title: q.title ?? "Untitled",
-          venueCategory: q.objectives?.[0]?.venueCategory ?? "other",
-          venueName: q.objectives?.[0]?.venueName ?? "Unknown",
-        })),
+        previousSiblings: [],
       };
 
-      const quest = await this.prescribeQuest(userId, input, undefined, siblingContext);
-      quests.push(quest);
+      const questInput = slot.questType
+        ? { ...input, questType: slot.questType, challengeCategory: slot.challengeCategory }
+        : input;
+
+      return this.prescribeQuest(userId, questInput, undefined, siblingContext);
+    });
+
+    const results = await Promise.allSettled(questPromises);
+
+    const quests: Sidequest[] = [];
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (result.status === "fulfilled") {
+        quests.push(result.value);
+      } else {
+        console.error(
+          `[SidequestPrescription] Quest ${i + 1} (${slots[i].role}) failed:`,
+          result.reason,
+        );
+      }
+    }
+
+    if (quests.length === 0) {
+      throw new Error("All quests in week pack failed to generate");
     }
 
     if (onProgress) {
@@ -3313,7 +3329,7 @@ ${result.suggestedProgression}\n` };
 
     console.log(
       `[SidequestPrescription] Prescribed week pack ${batchId} for user ${userId}: ` +
-      `${quests.length} quests [${slots.map((s) => s.role).join(", ")}]`,
+      `${quests.length}/${slots.length} quests [${slots.map((s) => s.role).join(", ")}]`,
     );
 
     return { batchId, quests };
@@ -3353,14 +3369,16 @@ ${result.suggestedProgression}\n` };
 
   private async determinePackSlots(
     userId: string,
-  ): Promise<{ role: "deepen" | "explore" | "discover" | "stretch" | "enjoy"; difficultyTier?: "easy" | "medium" | "stretch"; targetPathway?: { id: string; theme: string; label: string; phase: string } }[]> {
+  ): Promise<{ role: "deepen" | "explore" | "discover" | "stretch" | "enjoy"; difficultyTier?: "easy" | "medium" | "stretch"; targetPathway?: { id: string; theme: string; label: string; phase: string }; questType?: "venue" | "challenge"; challengeCategory?: string }[]> {
     const completedCount = await this.countCompletedQuests(userId);
 
-    // Onboarding: 3 distinct difficulty tiers so the user can start easy
+    // Onboarding: 5 quests spanning different dimensions so something clicks
     if (completedCount === 0) {
       return [
         { role: "discover", difficultyTier: "easy" },
         { role: "discover", difficultyTier: "medium" },
+        { role: "enjoy" },
+        { role: "discover", questType: "challenge", challengeCategory: "social_reach" },
         { role: "stretch", difficultyTier: "stretch" },
       ];
     }

@@ -128,13 +128,12 @@ export const PRESCRIBE_PIPELINE = definePipeline<PrescribeStepId>(
   ],
 );
 
-export type WeekPackStepId = "generate_1" | "generate_2" | "save";
+export type WeekPackStepId = "generate" | "save";
 
 export const WEEK_PACK_PIPELINE = definePipeline<WeekPackStepId>(
   "prescribe_week_pack",
   [
-    { id: "generate_1", label: "Crafting quest 1 of 2", weight: 5 },
-    { id: "generate_2", label: "Crafting quest 2 of 2", weight: 5 },
+    { id: "generate", label: "Crafting your quests", weight: 10 },
     { id: "save", label: "Preparing your quests", weight: 1 },
   ],
 );

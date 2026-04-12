@@ -38,17 +38,10 @@ export class PrescribeWeekPackHandler extends BaseJobHandler {
         timezone?: string;
       };
 
-      await tracker.step("generate_1");
+      await tracker.step("generate");
 
       const onProgress: SidequestProgressCallback = async (progress, label) => {
-        // Map batch-level progress to the appropriate pipeline step
-        if (progress < 50) {
-          await tracker.stepProgress(progress * 2, label);
-        } else {
-          // Switch to generate_2 step once past 50%
-          await tracker.step("generate_2");
-          await tracker.stepProgress((progress - 50) * 2, label);
-        }
+        await tracker.stepProgress(progress, label);
       };
 
       const result = await this.sidequestPrescriptionService.prescribeWeekPack(

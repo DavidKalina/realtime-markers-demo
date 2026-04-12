@@ -210,6 +210,17 @@ export class PushNotificationService {
           });
         }
 
+        // Show in-app notification when quests finish generating
+        if (data?.type === "quests_ready") {
+          eventBroker.emit(EventTypes.NOTIFICATION, {
+            timestamp: Date.now(),
+            source: "PushNotification",
+            title: "Your quests are ready!",
+            message: "Tap to check them out.",
+            notificationType: "success" as const,
+          });
+        }
+
       },
     );
 
@@ -310,6 +321,20 @@ export class PushNotificationService {
       });
     } else if (data?.type === "weekly_nudge") {
       // Weekly nudge — navigate to itinerary builder
+      eventBroker.emit(EventTypes.NAVIGATE_TO_SCREEN, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        path: "/itineraries",
+      });
+    } else if (data?.type === "quests_ready") {
+      // Week pack generation completed — navigate to itineraries
+      eventBroker.emit(EventTypes.NOTIFICATION, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        title: "Your quests are ready!",
+        message: "Tap to check them out.",
+        notificationType: "success" as const,
+      });
       eventBroker.emit(EventTypes.NAVIGATE_TO_SCREEN, {
         timestamp: Date.now(),
         source: "PushNotification",

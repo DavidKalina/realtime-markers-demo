@@ -1,15 +1,12 @@
 import { useUserLocation } from "@/contexts/LocationContext";
 import { useColors } from "@/theme";
 import { apiClient } from "@/services/ApiClient";
-import type { SidequestResponse } from "@/services/api/modules/sidequests";
-import BatchRevealOverlay from "@/components/Quest/BatchRevealOverlay";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
-import { useDeckBadgeStore } from "@/stores/useDeckBadgeStore";
+import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   StyleSheet,
   View,
@@ -134,6 +131,7 @@ const OnboardingScreen: React.FC = () => {
   const router = useRouter();
   const { userLocation } = useUserLocation();
   const { refreshAuth } = useAuth();
+  const { trackJob } = useJobProgressContext();
 
   const [step, setStep] = useState(1);
   const directionRef = useRef<"forward" | "back">("forward");
@@ -160,18 +158,7 @@ const OnboardingScreen: React.FC = () => {
 
   // Generation state
   const [isLoading, setIsLoading] = useState(false);
-  const [generatingQuest, setGeneratingQuest] = useState(false);
-  const [generatingLabel, setGeneratingLabel] = useState("Building your first outings...");
-  const [generatingProgress, setGeneratingProgress] = useState<{
-    progress: number;
-    currentQuest: number;
-    totalQuests: number;
-    stepProgress: number;
-  }>({ progress: 0, currentQuest: 0, totalQuests: 3, stepProgress: 0 });
-  const [revealQuests, setRevealQuests] = useState<SidequestResponse[]>([]);
-  const [showReveal, setShowReveal] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Navigation ─────────────────────────────────────────
 
@@ -227,71 +214,6 @@ const OnboardingScreen: React.FC = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setStep(5);
   }, []);
-
-  // ── Poll for week pack ────────────────────────────────
-
-  const pollForWeekPack = useCallback(async (jobId: string, token: string) => {
-    const baseUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
-    const poll = async () => {
-      try {
-        const res = await fetch(`${baseUrl}/api/jobs/${jobId}/progress`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-
-        if (data.status === "completed") {
-          const sidequestIds: string[] = data.result?.sidequestIds ?? [];
-          if (sidequestIds.length > 0) {
-            const quests = await Promise.all(
-              sidequestIds.map((id: string) => apiClient.sidequests.getById(id)),
-            );
-            const validQuests = quests.filter(Boolean) as SidequestResponse[];
-            if (validQuests.length > 0) {
-              setRevealQuests(validQuests);
-              setGeneratingQuest(false);
-              setShowReveal(true);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              return;
-            }
-          }
-          router.replace("/");
-        } else if (data.status === "failed") {
-          console.error("[Onboarding] Week pack generation failed");
-          router.replace("/");
-        } else {
-          if (data.progressStep) setGeneratingLabel(data.progressStep);
-          const match = data.progressStep?.match(/quest\s+(\d+)\s+of\s+(\d+)/i);
-          const currentQuest = match ? parseInt(match[1], 10) : 1;
-          const totalQuests = match ? parseInt(match[2], 10) : 3;
-          setGeneratingProgress({
-            progress: data.progress ?? 0,
-            currentQuest,
-            totalQuests,
-            stepProgress: data.progressDetails?.stepProgress ?? 0,
-          });
-          pollRef.current = setTimeout(poll, 2000);
-        }
-      } catch (err) {
-        console.error("[Onboarding] Poll error:", err);
-        router.replace("/");
-      }
-    };
-    poll();
-  }, [router]);
-
-  const handleBatchRevealComplete = useCallback(
-    (acceptedIds: string[]) => {
-      useDeckBadgeStore.getState().markNewCard();
-      if (acceptedIds.length > 0) {
-        const accepted = revealQuests.find((q) => q.id === acceptedIds[0]);
-        if (accepted) {
-          useActiveItineraryStore.getState().activate(accepted);
-        }
-      }
-      router.replace("/");
-    },
-    [revealQuests, router],
-  );
 
   // ── Finish ────────────────────────────────────────────
 
@@ -349,10 +271,9 @@ const OnboardingScreen: React.FC = () => {
 
       await refreshAuth();
 
-      setIsLoading(false);
-      setGeneratingQuest(true);
-      setGeneratingLabel("Building your first outings...");
-
+      // Kick off quest generation in the background — the job
+      // progress indicator on the dashboard tracks it, and a push
+      // notification fires when quests are ready.
       const lat = userLocation ? userLocation[1] : 0;
       const lng = userLocation ? userLocation[0] : 0;
       const { jobId } = await apiClient.sidequests.prescribeWeekPack({
@@ -361,8 +282,10 @@ const OnboardingScreen: React.FC = () => {
         timezone: getUserTimezone(),
       });
 
-      const token = await apiClient.getAccessToken();
-      pollForWeekPack(jobId, token ?? "");
+      trackJob(jobId);
+
+      // Navigate to dashboard immediately — don't wait for generation
+      router.replace("/");
     } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error("Onboarding error:", err);
@@ -372,9 +295,8 @@ const OnboardingScreen: React.FC = () => {
           : "Something went wrong. Please try again.",
       );
       setIsLoading(false);
-      setGeneratingQuest(false);
     }
-  }, [selectedGoalKey, lookingFor, selectedActivities, selectedBarriers, fearLadderResponses, generatedScenarios, generatedDimensions, northStar, socialSituation, currentSocialLevel, userLocation, refreshAuth, pollForWeekPack]);
+  }, [selectedGoalKey, lookingFor, selectedActivities, selectedBarriers, fearLadderResponses, generatedScenarios, generatedDimensions, northStar, socialSituation, currentSocialLevel, userLocation, refreshAuth, trackJob, router]);
 
   // ── Transitions ──────────────────────────────────────
 
@@ -468,9 +390,6 @@ const OnboardingScreen: React.FC = () => {
             setNorthStar={setNorthStar}
             userLocation={userLocation}
             isLoading={isLoading}
-            generatingQuest={generatingQuest}
-            generatingLabel={generatingLabel}
-            generatingProgress={generatingProgress}
             error={error}
             onFinish={handleFinish}
             onBack={handleBack}
@@ -497,12 +416,6 @@ const OnboardingScreen: React.FC = () => {
           {renderStep()}
         </Animated.View>
       </SafeAreaView>
-
-      <BatchRevealOverlay
-        visible={showReveal}
-        quests={revealQuests}
-        onComplete={handleBatchRevealComplete}
-      />
     </View>
   );
 };

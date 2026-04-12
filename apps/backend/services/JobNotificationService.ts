@@ -74,11 +74,17 @@ export class JobNotificationService {
       const notification = this.createJobCompletionNotification(job, result);
 
       if (notification) {
+        // Use a specific notification type for week pack completions
+        // so the mobile app can route directly to itineraries
+        const notificationType = job.type === "prescribe_week_pack"
+          ? "quests_ready"
+          : "job_completion";
+
         const pushResult = await this.pushNotificationService.sendToUser(creatorId, {
           title: notification.title,
           body: notification.body,
           data: {
-            type: "job_completion",
+            type: notificationType,
             jobId: job.id,
             jobType: job.type,
             result: result,
@@ -175,6 +181,9 @@ export class JobNotificationService {
       case "process_flyer":
         return this.createFlyerCompletionNotification(result);
 
+      case "prescribe_week_pack":
+        return this.createWeekPackCompletionNotification(result);
+
       default:
         // Don't send notifications for other job types
         return null;
@@ -229,6 +238,26 @@ export class JobNotificationService {
   }
 
   /**
+   * Create notification content for week pack completion
+   */
+  private createWeekPackCompletionNotification(result: JobCompletionResult): {
+    title: string;
+    body: string;
+  } {
+    const questCount = (result.questCount as number) ?? 0;
+    if (questCount > 0) {
+      return {
+        title: "Your quests are ready!",
+        body: `${questCount} new quest${questCount === 1 ? "" : "s"} just landed in your deck. Tap to check them out.`,
+      };
+    }
+    return {
+      title: "Quests ready",
+      body: "Your new quests are waiting for you.",
+    };
+  }
+
+  /**
    * Create notification content for job failure
    */
   private createJobFailureNotification(
@@ -243,6 +272,12 @@ export class JobNotificationService {
           body:
             message ||
             "There was an error processing your flyer. Please try again with a different image.",
+        };
+
+      case "prescribe_week_pack":
+        return {
+          title: "Quest generation hit a snag",
+          body: "We couldn't generate your quests this time. Try again from the app.",
         };
 
       default:
