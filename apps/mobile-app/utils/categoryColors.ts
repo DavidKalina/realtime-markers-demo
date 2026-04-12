@@ -244,6 +244,50 @@ export function getCategoryColorScheme(
   };
 }
 
+// ── Purpose-based card system ─────────────────────────────
+
+export const PURPOSE_LABELS: Record<string, string> = {
+  "get-out": "JUST SHOW UP",
+  "explore": "NEW TERRITORY",
+  "return": "BECOMING A REGULAR",
+  "social-stretch": "SOCIAL STRETCH",
+  "challenge": "CHALLENGE",
+  "enjoy": "TREAT YOURSELF",
+};
+
+export const PURPOSE_COLORS: Record<string, string> = {
+  "get-out": "#4ade80",
+  "explore": "#7dd3fc",
+  "return": "#c084fc",
+  "social-stretch": "#fbbf24",
+  "challenge": "#f97316",
+  "enjoy": "#fcd34d",
+};
+
+export const PURPOSE_FOILS: Record<string, string> = {
+  "get-out": "role_discover",
+  "explore": "role_explore",
+  "return": "role_deepen",
+  "social-stretch": "role_stretch",
+  "challenge": "ember",
+  "enjoy": "role_enjoy",
+};
+
+/** Derive the social purpose of a quest from its existing fields. */
+export function getQuestPurpose(quest: {
+  questType?: string;
+  questRole?: string;
+  objectives?: { difficulty?: number }[];
+}): string {
+  if (quest.questType === "challenge") return "challenge";
+  if (quest.questRole === "enjoy") return "enjoy";
+  if (quest.questRole === "stretch") return "social-stretch";
+  if (quest.questRole === "deepen") return "return";
+  const diff = quest.objectives?.[0]?.difficulty ?? 5;
+  if (diff <= 3) return "get-out";
+  return "explore";
+}
+
 /**
  * Given an array of child marker IDs and a lookup map (markerId → primary category),
  * return the most common category among the children, or null if none have categories.

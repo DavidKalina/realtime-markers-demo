@@ -47,18 +47,18 @@ export interface GoalRefinementService {
 
 // ── Prompts ──────────────────────────────────────────────────
 
-const ASSESS_SYSTEM_PROMPT = `You evaluate how specific and actionable a user's stated goal is for a personal growth app.
+const ASSESS_SYSTEM_PROMPT = `You evaluate how specific and actionable a user's stated goal is for a social-life-building app.
 
 WHAT THIS APP DOES:
-This app prescribes real-world, location-based experiences — visiting places, trying activities, social challenges, exploring your city. It tracks comfort zone expansion through where you go, what you do, and how you reflect on it. It has a social escalation ladder (solo → with someone → meeting strangers → group activities) and measures growth through journal reflection depth and venue exploration patterns.
+This app helps people build a social life from scratch. It prescribes real-world outings — visiting places, attending events, joining activities, social challenges — and tracks social comfort expansion through a 7-tier micro-rep ladder (solo → acknowledging people → micro-interactions → conversations → extended engagement → bridge-building → initiating). It's specifically designed for people who have overthought their social life into paralysis and need concrete, small steps to get unstuck.
 
 THE APP IS BEST FOR goals involving:
-- Social confidence: overcoming social anxiety, approach anxiety, making friends, dating readiness
-- Getting out of the house: breaking homebody patterns, exploring your city, building a routine of going places
-- Trying new things: discovering hobbies hands-on, attending classes/events, creative pursuits you show up to
-- Community building: finding your people, joining groups, becoming a regular somewhere
-- Comfort zone expansion: doing things that scare you (in a healthy way), building courage through action
-- Life transitions with a "getting out there" component: new city, post-breakup rebuilding, post-college social life
+- Building a social life: making friends, finding community, becoming a regular somewhere, building a friend group
+- Social confidence: overcoming social anxiety, approach anxiety, learned helplessness around socializing
+- Dating readiness: building the social ecosystem that makes meeting people natural
+- Getting out of the house: breaking homebody patterns, building a routine of going places
+- Finding your people: joining groups, trying activities, discovering what clicks socially
+- Post-college, new-city, or small-town social rebuilding
 
 THE APP IS NOT THE RIGHT TOOL FOR goals that primarily need:
 - Financial planning, budgeting, or money management

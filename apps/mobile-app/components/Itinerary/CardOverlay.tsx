@@ -35,6 +35,10 @@ import { useGyroTilt, GyroTiltDebugPanel } from "@/hooks/useGyroTilt";
 import {
   getCategoryColor,
   getFoilVariant,
+  getQuestPurpose,
+  PURPOSE_COLORS,
+  PURPOSE_FOILS,
+  PURPOSE_LABELS,
 } from "@/utils/categoryColors";
 import HolographicFoil, { hashString } from "@/components/effects/HolographicFoil";
 import type { FoilVariant } from "@/components/effects/HolographicFoil";
@@ -243,16 +247,9 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
       label: RARITY_LABELS[rarityKey] ?? RARITY_LABELS.common,
       ...hexToCardColors(cardHex),
     };
-    const ROLE_COLORS: Record<string, string> = {
-      stretch: "#fbbf24",
-      enjoy: "#fcd34d",
-      deepen: "#c084fc",
-      explore: "#7dd3fc",
-      discover: "#86efac",
-    };
-    const cardAccent = (!card.promotedAt && card.questRole)
-      ? ROLE_COLORS[card.questRole] ?? tierMeta.text
-      : tierMeta.text;
+    const purpose = getQuestPurpose(card);
+    const purposeColor = PURPOSE_COLORS[purpose] ?? "#7dd3fc";
+    const cardAccent = !card.promotedAt ? purposeColor : tierMeta.text;
     const objectives = (card.objectives ?? []).sort(
       (a, b) => a.sortOrder - b.sortOrder,
     );
@@ -310,25 +307,19 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
             intensity={0.12}
           />
         )}
-        {!card.promotedAt && card.questRole && (
-          <>
-            {/* Category foil — subtle base layer for variety */}
-            <HolographicFoil
-              width={OVERLAY_CARD_W}
-              height={OVERLAY_CARD_H}
-              variant={getFoilVariant(undefined, colorKey, card.distanceFromHome)}
-              seed={hashString(card.id)}
-              intensity={0.05}
-            />
-            {/* Role foil — primary pattern */}
-            <HolographicFoil
-              width={OVERLAY_CARD_W}
-              height={OVERLAY_CARD_H}
-              variant={`role_${card.questRole}` as FoilVariant}
-              seed={hashString(card.id)}
-              intensity={0.1}
-            />
-          </>
+        {!card.promotedAt && (
+          <HolographicFoil
+            width={OVERLAY_CARD_W}
+            height={OVERLAY_CARD_H}
+            variant={(PURPOSE_FOILS[purpose] ?? "role_explore") as FoilVariant}
+            seed={hashString(card.id)}
+            intensity={(() => {
+              const diff = card.objectives?.[0]?.difficulty ?? 5;
+              if (diff <= 3) return 0.05;
+              if (diff <= 6) return 0.1;
+              return 0.14;
+            })()}
+          />
         )}
 
         <Pressable style={s.cardInner} onPress={handleFlip}>
@@ -336,18 +327,13 @@ const CardOverlay: React.FC<CardOverlayProps> = React.memo(
           <View style={s.headerBand}>
             {face === "front" ? (
               <>
-                {card.questRole ? (
-                  <Text style={[
-                    s.headerTier,
-                    { color: cardAccent },
-                  ]}>
-                    {card.pathwayPhase === "dfs" && card.pathwayLabel
-                      ? `${card.pathwayLabel} \u00B7 ${QUEST_ROLE_LABELS[card.questRole as keyof typeof QUEST_ROLE_LABELS] ?? card.questRole.toUpperCase()}`
-                      : QUEST_ROLE_LABELS[card.questRole as keyof typeof QUEST_ROLE_LABELS] ?? card.questRole.toUpperCase()}
-                  </Text>
-                ) : (
+                {card.promotedAt && card.rarity ? (
                   <Text style={[s.headerTier, { color: tierMeta.text }]}>
                     {"\u2605"} {tierMeta.label}
+                  </Text>
+                ) : (
+                  <Text style={[s.headerTier, { color: purposeColor }]}>
+                    {PURPOSE_LABELS[purpose] ?? purpose.toUpperCase()}
                   </Text>
                 )}
                 <View style={{ flex: 1 }} />

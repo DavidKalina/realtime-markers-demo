@@ -352,7 +352,7 @@ const ItinerariesListScreen = () => {
         <EmptyState
           emoji={"\u{1F5FA}\u{FE0F}"}
           title="No quests yet"
-          subtitle="Your next quests are on the way"
+          subtitle="Your social life starts here"
           style={{ justifyContent: "flex-start", paddingTop: spacing["3xl"] }}
         />
       </Screen>

@@ -41,7 +41,7 @@ import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
 
 import { useUserLocation } from "@/contexts/LocationContext";
 import { apiClient } from "@/services/ApiClient";
-import { getCategoryColor } from "@/utils/categoryColors";
+import { getCategoryColor, getQuestPurpose, PURPOSE_COLORS, PURPOSE_LABELS } from "@/utils/categoryColors";
 import {
   type BaseEvent,
   eventBroker,
@@ -285,6 +285,10 @@ const ItineraryDetailScreen = () => {
   // Compass overlay
   const [showCompass, setShowCompass] = useState(false);
 
+  // Quest reflection overlay — shown after final check-in
+  const [showReflection, setShowReflection] = useState(false);
+  const [reflectionText, setReflectionText] = useState<string | null>(null);
+
   // Check-in capture modal
   const [captureObjective, setCaptureObjective] = useState<{
     id: string;
@@ -319,6 +323,31 @@ const ItineraryDetailScreen = () => {
     });
     return () => subscription.remove();
   }, [isThisActive, refreshItinerary]);
+
+  // Handle quest completion — show reflection overlay, poll for AI reflection, then navigate
+  const handleQuestComplete = useCallback(async () => {
+    markNewDeckCard();
+    setShowReflection(true);
+
+    // Poll for AI reflection (generated server-side on completion)
+    if (id) {
+      let attempts = 0;
+      const poll = async () => {
+        while (attempts < 8) {
+          attempts++;
+          await new Promise((r) => setTimeout(r, 1500));
+          try {
+            const fresh = await apiClient.sidequests.getById(id);
+            if (fresh.aiReflection) {
+              setReflectionText(fresh.aiReflection);
+              return;
+            }
+          } catch { /* ignore */ }
+        }
+      };
+      poll();
+    }
+  }, [id, markNewDeckCard]);
 
   // Use active store's data if this sidequest is active (has live checkin data)
   const displaySidequest =
@@ -683,20 +712,43 @@ const ItineraryDetailScreen = () => {
             </View>
           </Animated.View>
 
-          {/* Vibe tags */}
-          {(itinerary.activityTypes ?? []).length > 0 && (
+          {/* Purpose badge */}
+          {displaySidequest && !displaySidequest.promotedAt && (() => {
+            const purpose = getQuestPurpose(displaySidequest);
+            const pColor = PURPOSE_COLORS[purpose] ?? "#7dd3fc";
+            const pLabel = PURPOSE_LABELS[purpose] ?? "";
+            return pLabel ? (
+              <Animated.View
+                entering={FadeInDown.delay(130)
+                  .duration(400)
+                  .easing(Easing.out(Easing.cubic))}
+              >
+                <View style={[styles.purposeBadge, { borderColor: `${pColor}44`, backgroundColor: `${pColor}18` }]}>
+                  <Text style={[styles.purposeBadgeText, { color: pColor }]}>{pLabel}</Text>
+                </View>
+              </Animated.View>
+            ) : null;
+          })()}
+
+          {/* Quest categories */}
+          {(() => {
+            const questCats = (itinerary.categories ?? []).length > 0
+              ? itinerary.categories!
+              : objectives.filter(o => o.venueCategory).map(o => o.venueCategory!);
+            if (questCats.length === 0) return null;
+            return (
             <Animated.View
               entering={FadeInDown.delay(150)
                 .duration(400)
                 .easing(Easing.out(Easing.cubic))}
               style={styles.vibeRow}
             >
-              {(itinerary.activityTypes ?? []).map((vibe, i) => {
-                const vibeColor = getCategoryColor(vibe);
+              {questCats.slice(0, 4).map((cat, i) => {
+                const vibeColor = getCategoryColor(cat);
                 const [vr, vg, vb] = hexToRgb(vibeColor);
                 return (
                   <Animated.View
-                    key={vibe}
+                    key={cat}
                     entering={FadeInRight.delay(200 + i * 60).duration(350)}
                     style={[
                       styles.vibePill,
@@ -704,13 +756,14 @@ const ItineraryDetailScreen = () => {
                     ]}
                   >
                     <Text style={[styles.vibeText, { color: vibeColor }]}>
-                      {vibe}
+                      {cat}
                     </Text>
                   </Animated.View>
                 );
               })}
             </Animated.View>
-          )}
+            );
+          })()}
 
           {/* Summary */}
           {itinerary?.summary && (
@@ -723,6 +776,21 @@ const ItineraryDetailScreen = () => {
                 text={itinerary?.summary}
                 style={styles.heroSummary}
               />
+            </Animated.View>
+          )}
+
+          {/* Strategy Note — why the AI chose this quest */}
+          {itinerary?.strategyNote && (
+            <Animated.View
+              entering={FadeInDown.delay(280)
+                .duration(450)
+                .easing(Easing.out(Easing.cubic))}
+              style={styles.strategyNoteContainer}
+            >
+              <Text style={styles.strategyNoteLabel}>Why this quest</Text>
+              <Text style={styles.strategyNoteText}>
+                {itinerary.strategyNote}
+              </Text>
             </Animated.View>
           )}
 
@@ -1078,13 +1146,12 @@ const ItineraryDetailScreen = () => {
         onDismiss={() => {
           const capturedId = captureObjective?.id;
           setCaptureObjective(null);
-          // Even on skip, navigate to deck if quest is complete
+          // Even on skip, show reflection if quest is complete
           const remaining = objectives.filter(
             (o) => !o.checkedInAt && o.id !== capturedId,
           );
           if (remaining.length === 0) {
-            markNewDeckCard();
-            setTimeout(() => router.push("/deck"), 300);
+            handleQuestComplete();
           }
         }}
         onComplete={() => {
@@ -1095,12 +1162,53 @@ const ItineraryDetailScreen = () => {
             (o) => !o.checkedInAt && o.id !== capturedId,
           );
           if (remaining.length === 0) {
-            // Quest complete — go to deck to see/promote the card
-            markNewDeckCard();
-            setTimeout(() => router.push("/deck"), 300);
+            handleQuestComplete();
           }
         }}
       />
+
+      {/* Quest Reflection Overlay — what the AI learned */}
+      <Modal
+        visible={showReflection}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowReflection(false);
+          router.push("/deck");
+        }}
+      >
+        <View style={styles.reflectionOverlay}>
+          <Animated.View
+            entering={FadeInDown.delay(200).duration(500).easing(Easing.out(Easing.cubic))}
+            style={styles.reflectionCard}
+          >
+            <Text style={styles.reflectionLabel}>What I learned</Text>
+            {reflectionText ? (
+              <Text style={styles.reflectionText}>{reflectionText}</Text>
+            ) : (
+              <View style={styles.reflectionShimmer}>
+                <ActivityIndicator
+                  size="small"
+                  color={colors.text.secondary}
+                />
+                <Text style={styles.reflectionLoadingText}>
+                  Reflecting on your experience...
+                </Text>
+              </View>
+            )}
+            <Pressable
+              style={styles.reflectionButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowReflection(false);
+                router.push("/deck");
+              }}
+            >
+              <Text style={styles.reflectionButtonText}>Continue</Text>
+            </Pressable>
+          </Animated.View>
+        </View>
+      </Modal>
 
       {/* Item detail modal */}
       <Modal
@@ -1259,6 +1367,45 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       fontWeight: fontWeight.regular,
       color: colors.text.secondary,
       lineHeight: 23,
+    },
+
+    purposeBadge: {
+      alignSelf: "flex-start" as const,
+      paddingVertical: 4,
+      paddingHorizontal: 10,
+      borderRadius: 6,
+      borderWidth: 1,
+      marginTop: 4,
+    },
+    purposeBadgeText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 11,
+      fontWeight: fontWeight.semibold,
+      letterSpacing: 1,
+    },
+
+    strategyNoteContainer: {
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border.subtle,
+    },
+    strategyNoteLabel: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      color: colors.text.disabled,
+      letterSpacing: 1,
+      textTransform: "uppercase" as const,
+      marginBottom: 4,
+    },
+    strategyNoteText: {
+      fontSize: 14,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      fontStyle: "italic" as const,
+      color: colors.text.secondary,
+      lineHeight: 21,
     },
 
     // ── Stat bars ──
@@ -1532,6 +1679,61 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
     },
 
     // ── Modal shared styles ──
+    // ── Reflection overlay ──
+    reflectionOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0, 0, 0, 0.85)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 32,
+    },
+    reflectionCard: {
+      maxWidth: 360,
+      width: "100%" as const,
+      gap: 16,
+    },
+    reflectionLabel: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      color: colors.text.disabled,
+      letterSpacing: 1,
+      textTransform: "uppercase" as const,
+    },
+    reflectionText: {
+      fontSize: 16,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      fontStyle: "italic" as const,
+      color: colors.text.primary,
+      lineHeight: 26,
+    },
+    reflectionShimmer: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 12,
+      paddingVertical: 8,
+    },
+    reflectionLoadingText: {
+      fontSize: 14,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    reflectionButton: {
+      marginTop: 8,
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+      borderRadius: 8,
+      backgroundColor: "rgba(255, 255, 255, 0.1)",
+      alignSelf: "flex-start" as const,
+    },
+    reflectionButtonText: {
+      fontSize: 14,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      color: colors.text.primary,
+    },
+
     modalBackdrop: {
       flex: 1,
       justifyContent: "center",

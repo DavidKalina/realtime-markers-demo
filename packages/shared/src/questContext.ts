@@ -27,3 +27,26 @@ export const RARITY_LABELS: Record<Rarity, string> = {
   epic: "DEEP GROWTH",
   legendary: "TRANSFORMATION",
 };
+
+// ── Quest purposes (social life builder) ──────────────────
+
+export const QUEST_PURPOSES = ["get-out", "explore", "return", "social-stretch", "challenge", "enjoy"] as const;
+export type QuestPurpose = (typeof QUEST_PURPOSES)[number];
+
+export const PURPOSE_LABELS: Record<QuestPurpose, string> = {
+  "get-out": "JUST SHOW UP",
+  "explore": "NEW TERRITORY",
+  "return": "BECOMING A REGULAR",
+  "social-stretch": "SOCIAL STRETCH",
+  "challenge": "CHALLENGE",
+  "enjoy": "TREAT YOURSELF",
+};
+
+export const PURPOSE_DESCRIPTIONS: Record<QuestPurpose, string> = {
+  "get-out": "The win is leaving the house",
+  "explore": "Somewhere you haven't been",
+  "return": "Building familiarity here",
+  "social-stretch": "This one asks something of you",
+  "challenge": "No venue — just courage",
+  "enjoy": "You earned this one",
+};

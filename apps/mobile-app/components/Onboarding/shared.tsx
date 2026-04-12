@@ -33,14 +33,14 @@ const HERO_W = 80;
 const HERO_H = 112;
 
 export const STEP_CARDS: { icon: string; tint: string }[] = [
-  { icon: "🚀", tint: "rgba(125, 211, 252, 0.5)" },  // welcome - sky
-  { icon: "🎯", tint: "rgba(251, 191, 36, 0.5)" },   // goal - amber
-  { icon: "🔍", tint: "rgba(168, 85, 247, 0.5)" },   // refinement - purple
-  { icon: "🛡️", tint: "rgba(56, 189, 248, 0.5)" },   // gen barriers - sky blue
-  { icon: "🧱", tint: "rgba(52, 211, 153, 0.5)" },   // barriers - teal
-  { icon: "🪜", tint: "rgba(244, 114, 182, 0.5)" },   // gen ladder - pink
-  { icon: "🎢", tint: "rgba(251, 146, 60, 0.5)" },   // fear ladder - orange
-  { icon: "⭐", tint: "rgba(125, 211, 252, 0.5)" },   // north star - sky
+  { icon: "\uD83D\uDE80", tint: "rgba(125, 211, 252, 0.5)" },  // 1. welcome - sky
+  { icon: "\uD83D\uDC64", tint: "rgba(251, 191, 36, 0.5)" },   // 2. about you - amber
+  { icon: "\uD83D\uDC4B", tint: "rgba(168, 85, 247, 0.5)" },   // 3. social life - purple
+  { icon: "\uD83E\uDDE0", tint: "rgba(52, 211, 153, 0.5)" },   // 4. barriers - teal
+  { icon: "\u2728", tint: "rgba(56, 189, 248, 0.5)" },          // 5. activities - sky blue
+  { icon: "\uD83E\uDEDC", tint: "rgba(244, 114, 182, 0.5)" },  // 6. gen ladder - pink
+  { icon: "\uD83C\uDFA2", tint: "rgba(251, 146, 60, 0.5)" },   // 7. fear ladder - orange
+  { icon: "\u2B50", tint: "rgba(125, 211, 252, 0.5)" },         // 8. north star - sky
 ];
 
 export function HeroCard({

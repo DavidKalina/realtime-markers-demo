@@ -38,10 +38,10 @@ export interface GrowthArcProps {
 // ── Phase config ───────────────────────────────────────────────
 
 const PHASES = [
-  { label: "Foundation", description: "Building comfort with new experiences" },
-  { label: "Confidence", description: "Starting to push boundaries" },
-  { label: "Growth", description: "Consistent expansion of comfort zone" },
-  { label: "Mastery", description: "Thriving in challenging situations" },
+  { label: "Show Up", description: "Building the habit of getting out" },
+  { label: "Become a Regular", description: "Finding your spots and your rhythm" },
+  { label: "Make Connections", description: "Turning strangers into acquaintances" },
+  { label: "Build Your Circle", description: "Deepening connections into real friendships" },
 ] as const;
 
 function phaseColor(index: number, current: number, accent: string): string {

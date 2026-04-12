@@ -26,22 +26,27 @@ interface FearLadderGenerationServiceDeps {
   openAIService: OpenAIService;
 }
 
-const SYSTEM_PROMPT = `You are designing a personalized fear ladder for a goal-achievement app. The user has a specific goal they want to achieve, and you need to create 10 scenarios that represent steps of increasing challenge toward that goal.
+const SYSTEM_PROMPT = `You are designing a personalized fear ladder for a social-life-building app. The user is trying to build a social life from scratch, and you need to create 10 scenarios that represent steps of increasing social challenge.
 
-Each scenario should be a concrete, real-world action the user could take — something specific and observable, not vague or abstract.
+Each scenario should be a concrete, real-world social action — something specific and observable, not vague or abstract.
 
-You must create exactly 5 dimensions that are relevant to the user's goal. Each dimension represents a different type of challenge they'll face. Assign exactly 2 scenarios to each dimension.
+You must create exactly 5 dimensions that are relevant to the user's social goals. Each dimension represents a different type of social challenge they'll face. Assign exactly 2 scenarios to each dimension.
 
-For example, if someone wants to "become a stand-up comedian":
-- Dimensions might be: performance, social_networking, creative_practice, vulnerability, consistency
-- Scenarios might range from "Watch a live comedy show in the audience" to "Perform a 5-minute set at an open mic night"
+For example, if someone wants to "build a friend group":
+- Dimensions might be: solo_comfort, casual_interaction, group_settings, vulnerability, initiative
+- Scenarios might range from "Sit at the bar instead of a table" to "Invite someone you met to hang out again"
 
-If someone wants to "overcome social anxiety":
-- Dimensions might be: solo_outings, social_interaction, novelty, physical_activity, vulnerability
-- Scenarios might range from "Sit alone at a coffee shop for 30 minutes" to "Attend a meetup or group event solo"
+If someone wants to "start dating":
+- Dimensions might be: solo_outings, conversation_skills, group_social, self_disclosure, romantic_initiative
+- Scenarios might range from "Go to a coffee shop and stay for 30 minutes" to "Ask someone for their number after a good conversation"
+
+If someone wants to "stop being a homebody":
+- Dimensions might be: leaving_house, public_spaces, social_proximity, brief_interaction, sustained_engagement
+- Scenarios might range from "Walk to a nearby park and sit for 20 minutes" to "Attend a group class and introduce yourself to the person next to you"
 
 Guidelines:
-- Scenarios should span a range from mildly challenging to quite challenging for someone pursuing this goal
+- Focus on social scenarios — being around people, interacting, opening up, initiating
+- Scenarios should span from mildly uncomfortable to genuinely scary for someone who's socially stuck
 - Keep scenario text concise (under 60 characters ideally, max 80)
 - Dimension names should be lowercase_snake_case
 - Scenario IDs should be lowercase_snake_case, descriptive, and unique

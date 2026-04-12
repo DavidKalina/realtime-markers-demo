@@ -6,8 +6,12 @@ export {
   PATHWAY_PHASES,
   QUEST_ROLE_LABELS,
   RARITY_LABELS,
+  QUEST_PURPOSES,
+  PURPOSE_LABELS,
+  PURPOSE_DESCRIPTIONS,
   type QuestRole,
   type PathwayPhase,
+  type QuestPurpose,
 } from "./questContext.js";
 export {
   COMPLETION_MILESTONES,

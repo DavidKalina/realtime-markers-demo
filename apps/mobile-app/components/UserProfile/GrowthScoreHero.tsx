@@ -76,28 +76,28 @@ const SUB_SCORES = [
   {
     key: "resonance" as const,
     label: "Resonance",
-    info: "How emotionally aligned your quests feel. High resonance means the algorithm is finding experiences that genuinely click with you.",
+    info: "How well your outings match what actually energizes you. High resonance means we're finding the right places and activities for you.",
   },
   {
     key: "consistency" as const,
     label: "Consistency",
-    info: "How regularly you complete quests. Streaks, weekly activity, and follow-through all contribute. Consistency compounds growth.",
+    info: "How regularly you're getting out. Consistency is how strangers become regulars become friends.",
   },
   {
     key: "expansion" as const,
     label: "Expansion",
-    info: "How much you're pushing beyond your comfort zone — new areas, new venue types, further from home.",
+    info: "How much you're stretching — new places, new types of activities, further from home. Expanding your world expands your options.",
   },
   {
     key: "depth" as const,
     label: "Depth",
-    info: "How deeply you're engaging with your pathways. Returning to what resonates, increasing difficulty, and reflecting meaningfully all build depth.",
+    info: "How deeply you're engaging — returning to what resonates, increasing social challenge, and reflecting meaningfully.",
   },
 ];
 
 const OVERALL_SCORE_INFO = {
-  title: "Growth Score",
-  body: "A composite of your Resonance, Consistency, Expansion, and Depth scores. It reflects how actively and meaningfully you're growing through quests.",
+  title: "Social Growth Score",
+  body: "A composite of how consistently you're getting out, how well the outings match you, how much you're expanding your world, and how deeply you're engaging socially.",
 };
 
 function buildSparkline(history: GrowthHistoryPoint[]): string | null {
@@ -338,7 +338,7 @@ function GrowthScoreHero({
       <View style={[s.statsRow, { opacity: showStats ? 1 : 0 }]}>
         {calibrating ? (
           <Text style={s.calibratingHint}>
-            Complete your first quest to start tracking
+            Complete your first outing to start tracking
           </Text>
         ) : (
           <>

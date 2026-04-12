@@ -112,6 +112,7 @@ interface LLMItem {
 interface LLMResponse {
   title: string;
   summary: string;
+  strategyNote?: string;
   items: LLMItem[];
 }
 
@@ -119,6 +120,7 @@ function expandLLMResponse(raw: LLMResponseRaw): LLMResponse {
   return {
     title: raw.t,
     summary: raw.s,
+    strategyNote: raw.sn ?? undefined,
     items: raw.items.map((i) => ({
       title: i.t,
       description: i.d,
@@ -403,6 +405,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         "behavioralProfile",
         "fearLadder",
         "expectancyCalibration",
+        "socialSituation",
       ],
     });
 
@@ -609,6 +612,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
           pacePreference: user.pacePreference ?? null,
           fearLadder: user.fearLadder ?? null,
           expectancyCalibration: user.expectancyCalibration ?? null,
+          socialSituation: user.socialSituation ?? null,
         },
         homeLat, homeLng, searchLat, searchLng, city,
         isAwayFromHome, distFromHome, radius, pace, hour, dayOfWeek,
@@ -626,6 +630,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         siblingInstructions: roleInstructions,
         blockerContext,
         socialMicroRepContext,
+        socialSituationContext: this.buildSocialSituationContext(user.socialSituation, city),
         isStretch,
         isEnjoy,
         siblingContext: siblingContext ?? null,
@@ -1074,6 +1079,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
       // Update sidequest with results
       sidequest.title = llmResult.title;
       sidequest.summary = llmResult.summary;
+      sidequest.strategyNote = llmResult.strategyNote ?? undefined;
       sidequest.status = SidequestStatus.READY;
       // Rarity stays null until "Seal Memory" (promote) — computed from resonance + reflection tags
       sidequest.distanceFromHome = distanceFromHome;
@@ -1175,6 +1181,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         "behavioralProfile",
         "fearLadder",
         "expectancyCalibration",
+        "socialSituation",
       ],
     });
 
@@ -1252,6 +1259,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
           pacePreference: user.pacePreference ?? null,
           fearLadder: user.fearLadder ?? null,
           expectancyCalibration: user.expectancyCalibration ?? null,
+          socialSituation: user.socialSituation ?? null,
         },
         homeLat, homeLng,
         searchLat: homeLat, searchLng: homeLng,
@@ -1273,6 +1281,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         siblingInstructions: "",
         blockerContext,
         socialMicroRepContext: "",
+        socialSituationContext: this.buildSocialSituationContext(user.socialSituation, city),
         isStretch: false,
         isEnjoy: false,
         siblingContext: null,
@@ -1387,6 +1396,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
       // Update sidequest
       sidequest.title = llmResult.title;
       sidequest.summary = llmResult.summary;
+      sidequest.strategyNote = llmResult.strategyNote ?? undefined;
       sidequest.status = SidequestStatus.READY;
 
       // Generate category tags
@@ -2862,6 +2872,38 @@ ${result.suggestedProgression}\n` };
       avgRating, hasGrowthSignals, positiveQuestCount,
       recentAvgDifficulty, hasDfsPathway, phaseReason,
     };
+  }
+
+  private buildSocialSituationContext(socialSituation: {
+    ageRange: string;
+    gender: string;
+    timeInArea: string;
+    currentSocialLife: string;
+    lookingFor: string[];
+    workSituation: string;
+    livingSituation: string;
+  } | null | undefined, city: string): string {
+    if (!socialSituation) return "";
+    const genderLabel = socialSituation.gender === "prefer_not_to_say" ? "" : `, ${socialSituation.gender}`;
+    const timeLabels: Record<string, string> = {
+      just_moved: "just moved here",
+      under_1yr: "less than a year",
+      "1_3yr": "1-3 years",
+      "3plus_yr": "3+ years",
+    };
+    const socialLabels: Record<string, string> = {
+      isolated: "pretty isolated",
+      few_acquaintances: "a few acquaintances but no real friends",
+      casual_friends: "some casual friends",
+      solid_group: "a solid friend group",
+    };
+    return `SOCIAL SITUATION:
+- ${socialSituation.ageRange}${genderLabel}, living in ${city}
+- In area: ${timeLabels[socialSituation.timeInArea] ?? socialSituation.timeInArea}
+- Current social life: ${socialLabels[socialSituation.currentSocialLife] ?? socialSituation.currentSocialLife}
+- Looking for: ${socialSituation.lookingFor.join(", ")}
+- Work: ${socialSituation.workSituation}
+- Living: ${socialSituation.livingSituation}`;
   }
 
   private buildFearLadderContext(fearLadder: {

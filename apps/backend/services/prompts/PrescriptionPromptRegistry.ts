@@ -30,6 +30,15 @@ export interface PrescriptionPromptContext {
     pacePreference: string | null;
     fearLadder: Record<string, any> | null;
     expectancyCalibration: Record<string, any> | null;
+    socialSituation: {
+      ageRange: string;
+      gender: string;
+      timeInArea: string;
+      currentSocialLife: string;
+      lookingFor: string[];
+      workSituation: string;
+      livingSituation: string;
+    } | null;
   };
 
   // Location
@@ -62,6 +71,7 @@ export interface PrescriptionPromptContext {
   siblingInstructions: string;
   blockerContext: string;
   socialMicroRepContext: string;
+  socialSituationContext: string;
 
   // Challenge quests
   challengeCategory?: string;
@@ -145,7 +155,7 @@ export const defaultPrompt: PrescriptionPromptBuilder = (ctx) => {
 
   const comfortProfile = user.comfortProfile;
 
-  const instructions = `You are a Goal Achievement Guide. You prescribe ONE location-based quest designed to ${isEnjoy ? "reward and recharge" : isStretch ? "ambitiously push" : "steadily advance"} this user toward their goal through real-world action.
+  const instructions = `You are a Social Life Architect. You prescribe ONE location-based quest designed to ${isEnjoy ? "reward and recharge" : isStretch ? "ambitiously push" : "steadily advance"} this user toward building a real social life through real-world action.
 
 YOUR APPROACH:
 ${isEnjoy
@@ -203,6 +213,8 @@ The blocker context above TAKES PRIORITY over normal goal progression. DO NOT pr
 ${timelineContext}
 ` : ""}${socialMicroRepContext ? `
 ${socialMicroRepContext}
+` : ""}${ctx.socialSituationContext ? `
+${ctx.socialSituationContext}
 ` : ""}
 ${comfortProfile?.goalTags?.includes("discover_hobby") ? `- HOBBY DISCOVERY MODE: This user wants to find a new hobby. Prioritize venues where they can TRY an activity hands-on (studios, classes, open sessions, meetups, workshops) — not just observe. Favor categories they haven't explored yet. If they listed activities they enjoy, use those as adjacent starting points (e.g. if they like hiking, try a climbing gym; if they like coffee, try a roasting workshop).` : ""}
 
@@ -221,6 +233,7 @@ CONSTRAINTS:
 - Current time: ${hour}:00, ${dayOfWeek} — don't pick closed venues.
 - Title: 3-6 words, encouraging and warm (not clinical).
 - Summary: 1-2 sentences framing why this quest matters for their growth.
+- sn (strategy note): 1-2 sentences explaining WHY you chose this quest for this user right now. Write like a thoughtful friend explaining their reasoning. Reference specific things — their visit count, comfort progression, social tier, or growth phase. Examples: "You've been here twice — a third visit is when staff start recognizing you.", "This is a group class because you've proven you can go places solo. Time to be around people."
 - hook: why THIS spot expands their world (1 sentence).
 - sa (suggested activities): 2-3 items, each starting with an emoji. General ideas for what people typically do here — things to try, ways to enjoy the space. Examples: ["🚶 Walk the loop trail", "📸 Snap a photo of the view", "☕ Grab a drink and people-watch"]. NO URLs or phone numbers here — those go in "ai".
 - ai (action items): 1-3 concrete next steps with links, phone numbers, or specific instructions. Only include if actionable info exists. Examples: ["🔗 longmontcolorado.gov/rec-services — sign up for beginner classes", "📞 (303) 774-4800 — ask about open gym hours", "📝 Register at meetup.com/boulder-hiking before Saturday"]. URLs and phone numbers go HERE, not in sa or description.
@@ -297,7 +310,7 @@ export const challengePrompt: PrescriptionPromptBuilder = (ctx) => {
     .map(([key, l]) => `${l.label} (${key}):\n${l.rungs.map((r, i) => `  ${i + 1}. ${r}`).join("\n")}`)
     .join("\n\n");
 
-  const instructions = `You are a Goal Achievement Guide. You prescribe ONE social or vulnerability challenge — something brave the user does with or toward another person. No venues, no locations — just human connection.
+  const instructions = `You are a Social Life Architect. You prescribe ONE social or vulnerability challenge — something brave the user does with or toward another person. No venues, no locations — just human connection.
 
 YOUR APPROACH:
 - Progress through courage, not mileage. The goal is to get the user to do something interpersonally uncomfortable in a healthy, growth-oriented way.
@@ -323,6 +336,7 @@ ${expectancyContext ? `\n${expectancyContext}` : ""}
 ${blockerContext ? `\nCRITICAL — RECURRING BLOCKER:\n${blockerContext}\nDo NOT prescribe the blocked action. Work around it.\n` : ""}
 ${timelineContext ? `\n${timelineContext}` : ""}
 ${phaseContext ? `\nPHASE CONTEXT:\n${phaseContext}` : ""}
+${ctx.socialSituationContext ? `\n${ctx.socialSituationContext}` : ""}
 
 ${historyContext}
 
@@ -334,6 +348,7 @@ CONSTRAINTS:
 - EXACTLY 1 challenge. Keep it simple and specific.
 - Title: 3-6 words, warm and encouraging.
 - Summary: 1-2 sentences framing why this challenge matters for their growth.
+- sn (strategy note): 1-2 sentences explaining WHY you chose this challenge for this user right now. Write like a thoughtful friend explaining their reasoning. Reference their social tier, comfort progression, or specific patterns. Examples: "You've been going out solo confidently — now it's time to practice the relational side.", "Your journal entries mention wanting connection but not initiating. This is a small first step."
 - Description: What to do — concrete and specific. Not "reach out to someone" but "Text [a specific type of person] and [specific action]." Leave room for them to fill in who, but be specific about the what.
 - hook: Why this challenge matters for their growth trajectory (1 sentence).
 - sa (suggested approaches): 2-3 emoji-prefixed tips for how to approach this. Not what to say verbatim, but mindset and strategy. Examples: ["💬 Keep it simple — you don't need a reason to reach out", "🧘 If you feel the urge to bail, sit with it for 60 seconds first", "📱 Voice is scarier than text — that's exactly why it matters"]

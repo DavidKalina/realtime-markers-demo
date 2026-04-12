@@ -236,10 +236,10 @@ export function StepNorthStar({
             <View style={s.topRow}>
               <View style={s.headerText}>
                 <Text style={[s.title, { color: colors.text.primary }]}>
-                  What does success look like?
+                  What would your life look like if this worked?
                 </Text>
                 <Text style={[s.subtitle, { color: colors.text.secondary }]}>
-                  Optional {"\u2014"} but it helps us understand what matters to you
+                  Paint the picture.
                 </Text>
               </View>
               <HeroCard step={8} rotation={-4} />
@@ -255,7 +255,7 @@ export function StepNorthStar({
               >
                 <TextInput
                   style={[s.input, { color: colors.text.primary }]}
-                  placeholder="I'd finally feel like I belong somewhere..."
+                  placeholder="Friday night plans I look forward to. A group chat that's active. People who know my name."
                   placeholderTextColor="rgba(255, 255, 255, 0.35)"
                   value={northStar}
                   onChangeText={setNorthStar}

@@ -1,25 +1,75 @@
 // ── Goal options ────────────────────────────────────────────
 
 export const GOAL_OPTIONS = [
-  { key: "explore", label: "\uD83D\uDDFA\uFE0F Explore my area" },
-  { key: "socialize", label: "\uD83D\uDC4B Meet people" },
-  { key: "discover_hobby", label: "\u2728 Discover a new hobby" },
-  { key: "routine", label: "\uD83D\uDD01 Build a routine" },
-  { key: "fitness", label: "\uD83D\uDCAA Get active" },
-  { key: "new_skill", label: "\uD83C\uDFAF Pick up a new skill" },
-  { key: "unwind", label: "\uD83E\uDDD8 Decompress" },
+  { key: "build_friends", label: "\uD83D\uDC4B Build a friend group" },
+  { key: "start_dating", label: "\u2764\uFE0F Start dating" },
+  { key: "stop_homebody", label: "\uD83C\uDFE0 Stop being a homebody" },
+  { key: "find_people", label: "\u2728 Find my people" },
+  { key: "from_scratch", label: "\uD83D\uDD04 Build a social life from scratch" },
 ];
 
 // ── Barrier options ─────────────────────────────────────────
 
 export const BARRIER_OPTIONS = [
-  { key: "anxiety", label: "\uD83D\uDE30 Anxiety / overwhelm", text: "Feels anxious or overwhelmed going out" },
-  { key: "unknown", label: "\uD83E\uDD37 Not knowing where to go", text: "Doesn't know where to go or what to do" },
-  { key: "time", label: "\u23F0 Hard to find time", text: "Struggles to find free time" },
-  { key: "budget", label: "\uD83D\uDCB0 Budget concerns", text: "Worried about costs" },
-  { key: "homebody", label: "\uD83C\uDFE0 Prefer staying home", text: "Prefers staying home over going out" },
-  { key: "solo", label: "\uD83D\uDC64 Don't want to go alone", text: "Uncomfortable doing things alone" },
-  { key: "stuck", label: "\uD83D\uDD04 Stuck in routines", text: "Stuck in the same routines" },
+  { key: "overthink", label: "\uD83E\uDDE0 I overthink every decision", text: "Overthinks social decisions into paralysis" },
+  { key: "no_feedback", label: "\uD83E\uDD37 I can't tell if it's working", text: "Can't tell if social efforts are paying off" },
+  { key: "feel_behind", label: "\uD83D\uDE14 I feel behind everyone else", text: "Feels behind peers socially" },
+  { key: "small_town", label: "\uD83C\uDFD8\uFE0F My town feels too small", text: "Limited social options in their area" },
+  { key: "conversations", label: "\uD83D\uDCAC I don't know what to say", text: "Struggles to initiate social interaction" },
+  { key: "tried_failed", label: "\uD83D\uDE45 I've tried and nothing worked", text: "Previous attempts at socializing felt futile" },
+  { key: "no_energy", label: "\uD83D\uDD0B I don't have the energy", text: "Social effort feels exhausting" },
+  { key: "alone_awkward", label: "\uD83D\uDC64 Going alone feels weird", text: "Uncomfortable doing things alone" },
+];
+
+// ── Social situation options ────────────────────────────────
+
+export const AGE_RANGE_OPTIONS = [
+  { key: "18-24", label: "18\u201324" },
+  { key: "25-30", label: "25\u201330" },
+  { key: "31-40", label: "31\u201340" },
+  { key: "41+", label: "41+" },
+];
+
+export const GENDER_OPTIONS = [
+  { key: "male", label: "Male" },
+  { key: "female", label: "Female" },
+  { key: "nonbinary", label: "Nonbinary" },
+  { key: "prefer_not_to_say", label: "Prefer not to say" },
+];
+
+export const TIME_IN_AREA_OPTIONS = [
+  { key: "just_moved", label: "Just moved here" },
+  { key: "under_1yr", label: "Less than a year" },
+  { key: "1_3yr", label: "1\u20133 years" },
+  { key: "3plus_yr", label: "3+ years" },
+];
+
+export const CURRENT_SOCIAL_OPTIONS = [
+  { key: "isolated", label: "Pretty isolated" },
+  { key: "few_acquaintances", label: "A few acquaintances" },
+  { key: "casual_friends", label: "Some casual friends" },
+  { key: "solid_group", label: "Solid friend group" },
+];
+
+export const LOOKING_FOR_OPTIONS = [
+  { key: "friends", label: "Friends" },
+  { key: "dating", label: "Dating" },
+  { key: "community", label: "Community" },
+];
+
+export const WORK_OPTIONS = [
+  { key: "remote", label: "Remote" },
+  { key: "office", label: "Office" },
+  { key: "hybrid", label: "Hybrid" },
+  { key: "student", label: "Student" },
+  { key: "other", label: "Other" },
+];
+
+export const LIVING_OPTIONS = [
+  { key: "alone", label: "Alone" },
+  { key: "roommates", label: "Roommates" },
+  { key: "family", label: "Family" },
+  { key: "partner", label: "Partner" },
 ];
 
 // ── Activity options ────────────────────────────────────────

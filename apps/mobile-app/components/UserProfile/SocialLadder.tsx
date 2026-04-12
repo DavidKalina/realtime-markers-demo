@@ -9,10 +9,10 @@ import {
 } from "@/theme";
 
 const RUNGS = [
-  { key: "solo", label: "Solo", emoji: "\uD83E\uDDD1" },
+  { key: "solo", label: "Showed up", emoji: "\uD83E\uDDD1" },
   { key: "with_someone", label: "With someone", emoji: "\uD83D\uDC6B" },
-  { key: "met_someone_new", label: "Met someone", emoji: "\uD83D\uDC4B" },
-  { key: "group_activity", label: "Group", emoji: "\uD83D\uDC65" },
+  { key: "met_someone_new", label: "New face", emoji: "\uD83D\uDC4B" },
+  { key: "group_activity", label: "In a group", emoji: "\uD83D\uDC65" },
 ] as const;
 
 interface SocialEntry {

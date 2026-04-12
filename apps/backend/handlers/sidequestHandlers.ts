@@ -577,6 +577,15 @@ export const updateComfortProfileHandler: Handler = withErrorHandling(
         scenarios?: { id: string; text: string; dimension: string }[];
         dimensions?: string[];
       };
+      socialSituation?: {
+        ageRange: string;
+        gender: string;
+        timeInArea: string;
+        currentSocialLife: string;
+        lookingFor: string[];
+        workSituation: string;
+        livingSituation: string;
+      };
     }>();
 
     const validPaces = ["gentle", "steady", "push_me"];
@@ -587,7 +596,7 @@ export const updateComfortProfileHandler: Handler = withErrorHandling(
       );
     }
 
-    if (!body.pacePreference && !body.comfortProfile && !body.fearLadder && !body.onboardingProfile) {
+    if (!body.pacePreference && !body.comfortProfile && !body.fearLadder && !body.onboardingProfile && !body.socialSituation) {
       return c.json({ error: "No fields to update" }, 400);
     }
 
@@ -597,6 +606,7 @@ export const updateComfortProfileHandler: Handler = withErrorHandling(
       comfortProfile: body.comfortProfile,
       fearLadder: body.fearLadder,
       onboardingProfile: body.onboardingProfile,
+      socialSituation: body.socialSituation,
     });
 
     const zone = await comfortZoneService.getComfortZone(user.id);

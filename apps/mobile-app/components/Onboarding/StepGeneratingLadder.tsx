@@ -12,10 +12,10 @@ interface GeneratedScenario {
 }
 
 const PHASE_LABELS = [
-  "Analyzing goal structure",
-  "Mapping barrier patterns",
-  "Building scenario tree",
-  "Generating assessment",
+  "Understanding your situation",
+  "Mapping your comfort zones",
+  "Building social scenarios",
+  "Generating your assessment",
 ];
 
 export function StepGeneratingLadder({
@@ -119,7 +119,7 @@ export function StepGeneratingLadder({
                 Building your profile
               </Text>
               <Text style={[s.subtitle, { color: colors.text.secondary }]}>
-                Generating personalized scenarios based on your inputs
+                Generating social scenarios based on your situation
               </Text>
             </View>
             <HeroCard step={6} rotation={-3} />

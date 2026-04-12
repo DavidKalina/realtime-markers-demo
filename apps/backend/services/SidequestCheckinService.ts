@@ -324,11 +324,19 @@ class SidequestCheckinServiceImpl implements SidequestCheckinService {
       `[SidequestCheckin] User ${userId} completed sidequest ${sidequestId}`,
     );
 
+    this.generateQuestReflection(sidequestId, userId).catch((err) => {
+      console.error("[SidequestCheckin] Quest reflection generation failed:", err);
+    });
+
     this.checkCompletionMilestone(userId).catch((err) => {
       console.error("[SidequestCheckin] Milestone check failed:", err);
     });
 
-    this.generateBehavioralProfile(userId).catch((err) => {
+    this.generateBehavioralProfile(userId).then(() => {
+      this.generateAIFocus(userId).catch((err) => {
+        console.error("[SidequestCheckin] AI focus generation failed:", err);
+      });
+    }).catch((err) => {
       console.error("[SidequestCheckin] Behavioral profile generation failed:", err);
     });
 
@@ -613,6 +621,195 @@ Be direct and specific. No filler. Write as notes for another AI, not for the us
 
     console.log(
       `[SidequestCheckin] Behavioral profile generated for user ${userId} (${quests.length} quests)`,
+    );
+  }
+
+  private async generateQuestReflection(
+    sidequestId: string,
+    userId: string,
+  ): Promise<void> {
+    const sidequest = await this.dataSource.getRepository(Sidequest).findOne({
+      where: { id: sidequestId },
+      relations: ["objectives"],
+    });
+
+    if (!sidequest) return;
+
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { id: userId },
+      select: ["id", "comfortProfile", "fearLadder", "pacePreference"],
+    });
+
+    // Gather journal entries and social contexts from objectives
+    const journalEntries = sidequest.objectives
+      .filter((o: any) => o.journalEntry)
+      .map((o: any) => o.journalEntry)
+      .join("; ");
+
+    const socialContexts = sidequest.objectives
+      .filter((o: any) => o.socialContext)
+      .map((o: any) => o.socialContext);
+
+    const venueCategories = sidequest.objectives
+      .filter((o: any) => o.venueCategory)
+      .map((o: any) => o.venueCategory);
+
+    // Count how many times user has visited this venue category
+    const categoryVisitCount: { count: number }[] = venueCategories.length > 0
+      ? await this.dataSource.query(
+          `SELECT COUNT(DISTINCT s.id)::int AS count
+           FROM sidequests s
+           JOIN objectives o ON o.sidequest_id = s.id
+           WHERE s.user_id = $1
+             AND s.completed_at IS NOT NULL
+             AND s.deleted_at IS NULL
+             AND o.venue_category = $2`,
+          [userId, venueCategories[0]],
+        )
+      : [{ count: 0 }];
+
+    const journalSection = journalEntries
+      ? `USER JOURNAL: ${journalEntries}`
+      : "";
+
+    const prompt = `The user just completed a quest. In 1-2 sentences, celebrate what they did and tell them how it shapes what comes next. Write as "I" (the AI). Be warm and encouraging — like a friend who's genuinely proud of them.
+
+QUEST:
+- Title: "${sidequest.title}"
+- Category: ${venueCategories.join(", ") || "unknown"}
+- Difficulty: ${sidequest.objectives[0]?.difficulty ?? "unknown"}
+- Rating: ${sidequest.rating ?? "not yet rated"}
+- Times user has done this category: ${categoryVisitCount[0]?.count ?? 1}
+${journalSection}
+SOCIAL CONTEXT: ${socialContexts.join(", ") || "solo"}
+USER GOAL: "${user?.comfortProfile?.primaryGoal ?? "unknown"}"
+
+GUIDELINES:
+- Focus on what they DID, not what they didn't do. Never mention missing data, empty journals, or things they skipped.
+- If they went solo, celebrate the courage of going alone — that IS the win
+- If they met someone new or went with someone, highlight that social progress
+- If this is a repeat category, note the familiarity they're building
+- Reference the specific venue or activity, not abstract concepts
+- Sound like a proud friend, not a therapist analyzing data
+- 1-2 sentences max. Keep it light and forward-looking.
+- Examples:
+  "You showed up at Juniper Goods and stayed for the full session — that takes real guts. I'm sending you back next week so you can start becoming a regular."
+  "A yoga class with strangers! That's a big step from solo bookstore visits. I'll keep finding group activities at this pace."
+  "Third time at a coffee shop and you met someone new. The regularity is paying off — I'll keep building on this."`;
+
+    const completion = await this.openAIService.executeChatCompletion(
+      {
+        model: OpenAIModel.GPT54Nano,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 150,
+        temperature: 0.7,
+      },
+      "quest-reflection-generator",
+    );
+
+    const reflection = completion.choices[0]?.message?.content?.trim();
+    if (!reflection) return;
+
+    await this.dataSource.getRepository(Sidequest).update(
+      { id: sidequestId },
+      { aiReflection: reflection },
+    );
+
+    console.log(
+      `[SidequestCheckin] Quest reflection generated for sidequest ${sidequestId}`,
+    );
+  }
+
+  private async generateAIFocus(userId: string): Promise<void> {
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { id: userId },
+      select: [
+        "id",
+        "behavioralProfile",
+        "comfortProfile",
+        "pacePreference",
+        "comfortRadiusMiles",
+        "fearLadder",
+      ],
+    });
+
+    if (!user?.behavioralProfile?.summary) return;
+
+    // Get social context counts
+    const socialCounts: { context: string; count: number }[] =
+      await this.dataSource.query(
+        `SELECT o.social_context AS context, COUNT(*)::int AS count
+         FROM objectives o
+         JOIN sidequests s ON s.id = o.sidequest_id
+         WHERE s.user_id = $1
+           AND s.completed_at IS NOT NULL
+           AND s.deleted_at IS NULL
+           AND o.social_context IS NOT NULL
+         GROUP BY o.social_context`,
+        [userId],
+      );
+
+    const completedCount: { count: number }[] = await this.dataSource.query(
+      `SELECT COUNT(*)::int AS count FROM sidequests
+       WHERE user_id = $1 AND completed_at IS NOT NULL AND deleted_at IS NULL`,
+      [userId],
+    );
+
+    const socialSummary = socialCounts
+      .map((s) => `${s.context}: ${s.count}`)
+      .join(", ");
+
+    const prompt = `You are the AI behind a quest app that helps people build their social life and expand their comfort zone. The user can see this message — write directly to them as "I".
+
+In 1-2 sentences, explain what you're currently focused on for their growth. Be specific — reference their actual patterns, not generic encouragement.
+
+USER CONTEXT:
+- Goal: "${user.comfortProfile?.primaryGoal ?? "unknown"}"
+- Barriers: "${user.comfortProfile?.barriers ?? "unknown"}"
+- Pace: ${user.pacePreference ?? "steady"}
+- Comfort radius: ${user.comfortRadiusMiles ?? "unknown"} miles
+- Quests completed: ${completedCount[0]?.count ?? 0}
+- Social contexts: ${socialSummary || "none yet"}
+- Fear ladder social score: ${user.fearLadder?.dimensionScores?.social ?? "unknown"}
+
+BEHAVIORAL PROFILE (internal notes):
+${user.behavioralProfile.summary}
+
+GUIDELINES:
+- Write as "I" — "Right now I'm focused on..."
+- Be specific: reference their patterns, venues, or social progression
+- Don't be clinical or therapist-like — sound like a thoughtful friend
+- 1-2 sentences max
+- Examples:
+  "Right now I'm building your habit of going out regularly. Once that feels natural, I'll start introducing social situations."
+  "You've been going out consistently — I'm starting to suggest places where you'll see the same people repeatedly."
+  "I noticed you light up at creative activities. I'm leaning into that while keeping social elements gentle."`;
+
+    const completion = await this.openAIService.executeChatCompletion(
+      {
+        model: OpenAIModel.GPT54Nano,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 150,
+        temperature: 0.7,
+      },
+      "ai-focus-generator",
+    );
+
+    const summary = completion.choices[0]?.message?.content?.trim();
+    if (!summary) return;
+
+    await this.dataSource.getRepository(User).update(
+      { id: userId },
+      {
+        aiFocus: {
+          summary,
+          generatedAt: new Date().toISOString(),
+        },
+      },
+    );
+
+    console.log(
+      `[SidequestCheckin] AI focus generated for user ${userId}`,
     );
   }
 

@@ -353,6 +353,8 @@ export class AuthService {
         "comfortRadiusMiles",
         "homeLatitude",
         "homeLongitude",
+        "aiFocus",
+        "socialSituation",
       ],
     });
 

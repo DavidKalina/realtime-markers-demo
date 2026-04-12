@@ -173,6 +173,12 @@ export class Sidequest {
   @Column({ name: "quest_role", type: "varchar", length: 20, nullable: true })
   questRole?: string;
 
+  @Column({ name: "strategy_note", type: "text", nullable: true })
+  strategyNote?: string;
+
+  @Column({ name: "ai_reflection", type: "text", nullable: true })
+  aiReflection?: string;
+
   @Column({
     name: "distance_from_home",
     type: "numeric",

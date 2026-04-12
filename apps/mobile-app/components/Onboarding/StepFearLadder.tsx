@@ -181,7 +181,7 @@ export function StepFearLadder({
               How scary would it be to...
             </Text>
             <Text style={[s.subtitle, { color: colors.text.secondary }]}>
-              Rate honestly {"\u2014"} this calibrates your quests
+              Rate honestly {"\u2014"} this sets your starting point
             </Text>
           </View>
           <HeroCard step={7} rotation={5} />

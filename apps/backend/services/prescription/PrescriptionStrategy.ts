@@ -31,6 +31,7 @@ export interface LLMItemRaw {
 export interface LLMResponseRaw {
   t: string;       // title
   s: string;       // summary
+  sn?: string;     // strategy note — why this quest was chosen for this user
   items: LLMItemRaw[];
 }
 

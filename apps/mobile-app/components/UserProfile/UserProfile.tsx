@@ -41,6 +41,7 @@ import { useUserLocation } from "@/contexts/LocationContext";
 
 import ActiveQuestBanner from "./ActiveQuestBanner";
 import { SettingsSection } from "./SettingsSection";
+import AIFocusCard from "./AIFocusCard";
 import CalibratingCard from "./CalibratingCard";
 import SectionMark from "./SectionMark";
 
@@ -264,7 +265,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             </Text>
             {completedQuests === 0 && (
               <Text style={s.greetingSubtitle}>
-                Your first quest is waiting for you
+                Your first step is waiting
               </Text>
             )}
             {completedQuests > 0 && completedQuests < 3 && (
@@ -278,6 +279,20 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         {/* 1. Active Quest Banner */}
         <ParallaxWidget scrollY={scrollY} index={1} delay={80}>
           <ActiveQuestBanner />
+        </ParallaxWidget>
+
+        {/* 1.5 AI Focus — what the AI is working on */}
+        <ParallaxWidget scrollY={scrollY} index={2} delay={120}>
+          <SectionMark
+            icon={"\u2728"}
+            tint="rgba(168, 85, 247, 0.5)"
+            label="AI Focus"
+            side="right"
+          />
+          <AIFocusCard
+            summary={profileData?.aiFocus?.summary}
+            completedQuests={completedQuests}
+          />
         </ParallaxWidget>
 
         {/* 2. Growth Score Hero */}

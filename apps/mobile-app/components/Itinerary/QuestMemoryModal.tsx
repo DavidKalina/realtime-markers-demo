@@ -33,7 +33,7 @@ import { useCallback } from "react";
 // ── Reflection insights ──────────────────────────────────────
 
 const REFLECTION_INSIGHTS: Record<string, { emoji: string; text: string }> = {
-  growth_narrative: { emoji: "\uD83C\uDF31", text: "You grew here." },
+  growth_narrative: { emoji: "\uD83C\uDF31", text: "You showed up." },
   discomfort_processed: { emoji: "\uD83D\uDCAA", text: "You pushed through." },
   self_awareness: { emoji: "\uD83D\uDCA1", text: "You noticed something about yourself." },
   social_connection: { emoji: "\uD83E\uDD1D", text: "You connected with someone." },
@@ -81,6 +81,14 @@ function hexToRgb(hex: string): [number, number, number] {
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** Rewrite a DO Spaces URL to use the CDN edge endpoint. */
+function toCdnUrl(url: string): string {
+  return url.replace(
+    /\.sfo3\.digitaloceanspaces\.com/,
+    ".sfo3.cdn.digitaloceanspaces.com",
+  );
 }
 
 // ── Parallax widget (same pattern as CheckinCaptureModal) ────
@@ -313,7 +321,7 @@ export function QuestMemoryModal({
                     <View style={s.stopSection}>
                       <View style={s.photoContainer}>
                         <Image
-                          source={{ uri: stop.photoUrl }}
+                          source={{ uri: toCdnUrl(stop.photoUrl) }}
                           style={s.photo}
                           resizeMode="cover"
                         />

@@ -182,7 +182,7 @@ export class MultiAgentStrategy implements PrescriptionStrategy {
   private async runStrategist(input: PrescriptionStrategyInput): Promise<StrategyBrief> {
     const ctx = input.promptContext;
 
-    const systemPrompt = `You are a Quest Strategist. Based on a user's profile, history, and growth phase, decide what TYPE of experience they need next AND where they should go to find it. You do NOT pick a specific venue — you create a strategy brief that a separate agent will use to search.
+    const systemPrompt = `You are a Social Life Strategist. Based on a user's profile, social situation, history, and growth phase, decide what TYPE of experience they need next AND where they should go to find it. You do NOT pick a specific venue — you create a strategy brief that a separate agent will use to search. Your job is to help someone build a real social life from scratch.
 
 USER PROFILE:
 - Home: ${ctx.city} (${ctx.homeLat.toFixed(4)}, ${ctx.homeLng.toFixed(4)})
@@ -192,7 +192,18 @@ ${ctx.user.comfortProfile?.primaryGoal ? `- Goal: "${ctx.user.comfortProfile.pri
 ${ctx.user.comfortProfile?.barriers ? `- Barriers: "${ctx.user.comfortProfile.barriers}"` : ""}
 ${ctx.user.comfortProfile?.northStar ? `- North star: "${ctx.user.comfortProfile.northStar}"` : ""}
 ${ctx.user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${ctx.user.onboardingProfile.activities.join(", ")}` : ""}
+${ctx.socialSituationContext ? `
+${ctx.socialSituationContext}
 
+SOCIAL STRATEGY PRINCIPLES:
+- Regularity beats novelty. Becoming a regular somewhere creates more connection than visiting 10 new places once.
+- Co-ed group activities (classes, rec leagues, meetups) are the highest-leverage move for someone starting from zero — both for friends and dating.
+- Venue timing matters: suggest evenings and weekends for social density, weekday mornings for low-pressure solo practice.
+- Dating is a byproduct of having a social life, not a standalone goal. Build the social ecosystem first.
+- Remote workers are starved for third places — coworking spaces, cafes with laptop culture, classes provide structure and faces.
+- If they live alone, they need reasons to leave the house. Structure removes decision fatigue.
+- Small towns require expanding the search radius. Push to nearby cities with more social infrastructure when the goal demands it.
+` : ""}
 ${ctx.fearLadderContext}
 ${ctx.expectancyContext}
 ${ctx.difficultyGuidance}
@@ -562,9 +573,9 @@ Find REAL venues with verified addresses. Use search_places to confirm. Submit 3
   ): Promise<LLMResponseRaw> {
     const ctx = input.promptContext;
 
-    const systemPrompt = `You are a Quest Writer. You craft compelling, warm, encouraging quests that help people grow. You receive a venue and a user profile — your job is to make this quest feel personal and exciting, not clinical.
+    const systemPrompt = `You are a Quest Writer for someone building a social life. You craft warm, encouraging quests that make showing up feel achievable — not clinical, not cringe. You receive a venue and a user profile — your job is to make this quest feel like something a thoughtful friend would suggest.
 
-Write like a thoughtful friend, not a therapist or a GPS app.
+Write like that friend, not a therapist or a GPS app.
 
 USER:
 ${ctx.user.comfortProfile?.primaryGoal ? `- Goal: "${ctx.user.comfortProfile.primaryGoal}"` : ""}
@@ -595,6 +606,7 @@ Respond with JSON. The "items" array must contain EXACTLY 1 stop — no more:
 {
   "t": "<title, 3-6 words, warm and encouraging>",
   "s": "<summary, 1-2 sentences framing why this quest matters for their growth>",
+  "sn": "<strategy note: 1-2 sentences explaining WHY you chose this quest for this user right now. Write like a thoughtful friend explaining their reasoning. Reference specific things — their visit count, comfort progression, social tier, or growth phase. Examples: 'You've been here twice — a third visit is when staff start recognizing you.', 'This is a group class because you've proven you can go places solo. Time to be around people.'>",
   "items": [{
     "t": "<stop title>",
     "d": "<2-3 sentences max. What to do — concrete and direct. No URLs or phone numbers here>",
@@ -631,6 +643,7 @@ Respond with JSON. The "items" array must contain EXACTLY 1 stop — no more:
       return {
         t: `Visit ${venue.venueName}`,
         s: brief.rationale,
+        sn: brief.rationale,
         items: [{
           t: venue.venueName,
           d: `Head to ${venue.venueName} and explore what catches your eye.`,

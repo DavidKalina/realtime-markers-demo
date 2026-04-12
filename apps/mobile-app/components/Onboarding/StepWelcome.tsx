@@ -18,13 +18,13 @@ export function StepWelcome({ onNext }: { onNext: () => void }) {
             entering={FadeInUp.delay(200).duration(500).springify()}
             style={s.headerText}
           >
-            <Text style={s.title}>You have a goal.</Text>
+            <Text style={s.title}>Building a social life is hard.</Text>
             <Text style={s.body}>
-              We'll turn it into real-world quests tailored to your comfort
-              zone.
+              We'll give you a plan {"\u2014"} so you can stop overthinking and
+              start showing up.
             </Text>
             <Text style={s.hint}>
-              It only takes a few minutes to get started.
+              A few questions so we know where you're starting from.
             </Text>
           </Animated.View>
           <HeroCard step={1} rotation={-4} />

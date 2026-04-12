@@ -16,10 +16,10 @@ interface CalibratingCardProps {
 }
 
 const ENCOURAGEMENTS = [
-  "Every quest teaches us something new about you",
-  "We're learning what makes you tick",
-  "Building your personalized growth map",
-  "Your journey is just beginning",
+  "Every outing teaches me how to help you better",
+  "Learning your comfort patterns",
+  "Building your personalized social map",
+  "Your social life starts with showing up",
 ];
 
 function CalibratingCard({ questsCompleted, questsNeeded, label }: CalibratingCardProps) {

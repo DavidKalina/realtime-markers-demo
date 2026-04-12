@@ -271,7 +271,7 @@ export function CheckinCaptureModal({
                 </Text>
                 <Text style={s.headerTitle}>{objectiveTitle}</Text>
                 <Text style={s.headerSub}>
-                  {isChallenge ? "How did it go?" : "Nice! Capture this moment."}
+                  {isChallenge ? "How did it go?" : "You showed up. That\u2019s the win."}
                 </Text>
               </View>
             </ParallaxWidget>
@@ -414,7 +414,7 @@ export function CheckinCaptureModal({
               <Text style={s.widgetLabel}>
                 {journalPrompt
                   ? `\u201C${journalPrompt}\u201D`
-                  : isChallenge ? "REFLECT ON THIS" : "ANY THOUGHTS?"}
+                  : isChallenge ? "REFLECT ON THIS" : "HOW DID IT FEEL BEING OUT?"}
               </Text>
               <TextInput
                 style={[s.textInput, s.journalInput]}

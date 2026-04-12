@@ -46,6 +46,7 @@ export interface ComfortZoneService {
       comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[]; northStar?: string; primaryGoal?: string; targetDate?: string; goalLocation?: string };
       fearLadder?: { overallScore: number; dimensionScores: Record<string, number>; responses: Record<string, number>; scenarios?: { id: string; text: string; dimension: string }[]; dimensions?: string[] };
       onboardingProfile?: { activities: string[] };
+      socialSituation?: { ageRange: string; gender: string; timeInArea: string; currentSocialLife: string; lookingFor: string[]; workSituation: string; livingSituation: string };
     },
   ): Promise<void>;
   updateObjectiveJournal(
@@ -432,6 +433,9 @@ class ComfortZoneServiceImpl implements ComfortZoneService {
     }
     if (updates.onboardingProfile) {
       fields.onboardingProfile = updates.onboardingProfile;
+    }
+    if (updates.socialSituation) {
+      fields.socialSituation = updates.socialSituation;
     }
 
     if (Object.keys(fields).length > 0) {

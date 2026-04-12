@@ -20,10 +20,10 @@ export function StepBarriers({
   const barrierOptions = options ?? BARRIER_OPTIONS;
   return (
     <StepLayout
-      title="What holds you back?"
-      subtitle="Select all that apply \u2014 this calibrates your quest difficulty"
+      title="What's kept you stuck?"
+      subtitle="Select all that apply \u2014 no judgment, just calibration"
       onBack={onBack}
-      heroStep={5}
+      heroStep={4}
       bottomAction={
         <NextButton onPress={onNext} disabled={selected.length === 0} />
       }

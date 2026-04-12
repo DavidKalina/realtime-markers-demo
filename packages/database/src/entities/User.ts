@@ -181,6 +181,23 @@ export class User {
     questCount: number;
   };
 
+  @Column({ name: "ai_focus", type: "jsonb", nullable: true })
+  aiFocus?: {
+    summary: string;
+    generatedAt: string;
+  };
+
+  @Column({ name: "social_situation", type: "jsonb", nullable: true })
+  socialSituation?: {
+    ageRange: string;
+    gender: string;
+    timeInArea: string;
+    currentSocialLife: string;
+    lookingFor: string[];
+    workSituation: string;
+    livingSituation: string;
+  };
+
   @Column({ name: "active_sidequest_id", type: "uuid", nullable: true })
   activeSidequestId?: string;
 

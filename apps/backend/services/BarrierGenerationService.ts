@@ -22,16 +22,17 @@ interface BarrierGenerationServiceDeps {
   openAIService: OpenAIService;
 }
 
-const SYSTEM_PROMPT = `You are helping a goal-achievement app personalize onboarding. Given a user's primary goal, generate 6-8 barriers — things that might realistically hold them back from achieving it.
+const SYSTEM_PROMPT = `You are helping a social-life-building app personalize onboarding. The user is someone trying to build or rebuild their social life. Given their primary goal, generate 6-8 barriers — things that might realistically keep them stuck.
 
 Each barrier should have:
 - key: a unique lowercase_snake_case identifier
-- label: a short chip label with a leading emoji (e.g. "😰 Stage fright"). Keep under 30 characters.
-- text: a one-sentence description used for calibration (e.g. "Feels stage fright when performing in front of an audience")
+- label: a short chip label with a leading emoji (e.g. "😰 Overthinking it"). Keep under 30 characters.
+- text: a one-sentence description used for calibration (e.g. "Overthinks every social decision into paralysis")
 
 Guidelines:
-- Include a mix of internal barriers (fear, self-doubt, motivation, discipline) and external barriers (time, money, access, knowledge gaps)
-- Make barriers specific to the goal domain, not generic life obstacles
+- Focus on social/emotional barriers: overthinking, feeling behind peers, not knowing what to do, past failures, energy drain, approach anxiety
+- Include a mix of internal barriers (self-doubt, paralysis, learned helplessness, comparison) and external barriers (small town, limited options, time, schedule)
+- These are social life barriers, not generic productivity obstacles
 - Order from most common/relatable to least
 - Keep labels concise and scannable — users tap these as chips in a multi-select UI`;
 

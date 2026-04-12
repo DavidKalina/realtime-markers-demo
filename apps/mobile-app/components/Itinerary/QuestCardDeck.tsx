@@ -1,4 +1,3 @@
-import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { Check, X } from "lucide-react-native";
 import React, {
@@ -25,7 +24,6 @@ import Animated, {
   Easing,
   FadeInDown,
   interpolate,
-  LinearTransition,
   useAnimatedReaction,
   useAnimatedStyle,
   useDerivedValue,
@@ -45,7 +43,7 @@ import HolographicFoil, {
   hashString,
 } from "@/components/effects/HolographicFoil";
 import type { SidequestResponse } from "@/services/api/modules/sidequests";
-import { getCategoryColor, getFoilVariant } from "@/utils/categoryColors";
+import { getCategoryColor, getFoilVariant, getQuestPurpose, PURPOSE_COLORS, PURPOSE_FOILS, PURPOSE_LABELS } from "@/utils/categoryColors";
 import {
   fontFamily,
   fontSize,
@@ -453,17 +451,10 @@ const QuestCard: React.FC<{
       label: RARITY_LABELS[rarityKey as Rarity] ?? RARITY_LABELS.common,
       ...hexToCardColors(cardHex),
     };
-    // Role-specific accent color — matches the foil variant
-    const ROLE_COLORS: Record<string, string> = {
-      stretch: "#fbbf24",
-      enjoy: "#fcd34d",
-      deepen: "#c084fc",
-      explore: "#7dd3fc",
-      discover: "#86efac",
-    };
-    const cardAccent = (!option.promotedAt && option.questRole)
-      ? ROLE_COLORS[option.questRole] ?? tierMeta.text
-      : tierMeta.text;
+    // Purpose-based accent color
+    const purpose = getQuestPurpose(option);
+    const purposeColor = PURPOSE_COLORS[purpose] ?? "#7dd3fc";
+    const cardAccent = !option.promotedAt ? purposeColor : tierMeta.text;
     const isBrowse = mode === "browse";
     const isReady = isBrowse || option.status === "READY";
 
@@ -559,17 +550,26 @@ const QuestCard: React.FC<{
       }
     }, [isReady]);
 
-    const makeRevealStyle = (sv: typeof heroReveal) =>
-      useAnimatedStyle(() => ({
-        opacity: sv.value,
-        transform: [{ translateY: interpolate(sv.value, [0, 1], [12, 0]) }],
-      }));
-
-    const heroAnimStyle = makeRevealStyle(heroReveal);
-    const dividerAnimStyle = makeRevealStyle(dividerReveal);
-    const stopsAnimStyle = makeRevealStyle(stopsReveal);
-    const tagsAnimStyle = makeRevealStyle(tagsReveal);
-    const statsAnimStyle = makeRevealStyle(statsReveal);
+    const heroAnimStyle = useAnimatedStyle(() => ({
+      opacity: heroReveal.value,
+      transform: [{ translateY: interpolate(heroReveal.value, [0, 1], [12, 0]) }],
+    }));
+    const dividerAnimStyle = useAnimatedStyle(() => ({
+      opacity: dividerReveal.value,
+      transform: [{ translateY: interpolate(dividerReveal.value, [0, 1], [12, 0]) }],
+    }));
+    const stopsAnimStyle = useAnimatedStyle(() => ({
+      opacity: stopsReveal.value,
+      transform: [{ translateY: interpolate(stopsReveal.value, [0, 1], [12, 0]) }],
+    }));
+    const tagsAnimStyle = useAnimatedStyle(() => ({
+      opacity: tagsReveal.value,
+      transform: [{ translateY: interpolate(tagsReveal.value, [0, 1], [12, 0]) }],
+    }));
+    const statsAnimStyle = useAnimatedStyle(() => ({
+      opacity: statsReveal.value,
+      transform: [{ translateY: interpolate(statsReveal.value, [0, 1], [12, 0]) }],
+    }));
 
     const skeletonAnimStyle = useAnimatedStyle(() => ({
       opacity: skeletonOpacity.value,
@@ -579,10 +579,17 @@ const QuestCard: React.FC<{
     const [isNearby, setIsNearby] = React.useState(
       Math.abs(index) <= ANIMATION_WINDOW,
     );
+    // Track whether this card is the active (centered) card — gates heavy GPU effects
+    const [isActive, setIsActive] = React.useState(index === 0);
     const setNearbyTrue = useCallback(() => setIsNearby(true), []);
     const setNearbyFalse = useCallback(() => setIsNearby(false), []);
+    const setActiveTrue = useCallback(() => setIsActive(true), []);
+    const setActiveFalse = useCallback(() => setIsActive(false), []);
     const isNearbyDerived = useDerivedValue(
       () => Math.abs(index - activeIdx.value) <= ANIMATION_WINDOW,
+    );
+    const isActiveDerived = useDerivedValue(
+      () => Math.round(activeIdx.value) === index,
     );
     useAnimatedReaction(
       () => isNearbyDerived.value,
@@ -592,11 +599,19 @@ const QuestCard: React.FC<{
         }
       },
     );
+    useAnimatedReaction(
+      () => isActiveDerived.value,
+      (active, prev) => {
+        if (active !== prev) {
+          scheduleOnRN(active ? setActiveTrue : setActiveFalse);
+        }
+      },
+    );
 
-    // Bob animation — only runs when nearby
+    // Bob animation — only runs on active card
     const bobY = useSharedValue(0);
     useEffect(() => {
-      if (isNearby) {
+      if (isActive) {
         bobY.value = withDelay(
           index * 300,
           withRepeat(
@@ -617,7 +632,7 @@ const QuestCard: React.FC<{
       } else {
         bobY.value = withTiming(0, { duration: 200 });
       }
-    }, [index, isNearby]);
+    }, [index, isActive]);
 
     const animatedStyle = useAnimatedStyle(() => {
       // Distance from this card's center to the viewport center
@@ -725,7 +740,6 @@ const QuestCard: React.FC<{
 
     return (
       <Animated.View
-        layout={LinearTransition.springify().damping(28).stiffness(180)}
         style={{ width: CARD_WIDTH, height: CARD_HEIGHT, overflow: "visible" }}
       >
         <Animated.View
@@ -742,20 +756,16 @@ const QuestCard: React.FC<{
               style={[
                 s.card,
                 {
-                  borderColor: !isPromoted && option.questRole
-                    ? option.questRole === "stretch" ? "rgba(251, 191, 36, 0.4)"
-                    : option.questRole === "enjoy" ? "rgba(252, 211, 77, 0.4)"
-                    : option.questRole === "deepen" ? "rgba(192, 132, 252, 0.4)"
-                    : option.questRole === "explore" ? "rgba(125, 211, 252, 0.4)"
-                    : "rgba(134, 239, 172, 0.4)"
+                  borderColor: !isPromoted
+                    ? `${purposeColor}66`
                     : tierMeta.text,
                 },
                 isReady ? undefined : s.cardGenerating,
                 promotionProgress ? promotionBorderStyle : undefined,
               ]}
             >
-              {/* Holographic foil overlay — promoted cards get rarity foil, unpromoted get role foil */}
-              {isReady && isNearby && isPromoted && (
+              {/* Holographic foil overlay — only on active card to limit GPU shaders */}
+              {isReady && isActive && isPromoted && (
                 <HolographicFoil
                   width={CARD_WIDTH}
                   height={CARD_HEIGHT}
@@ -768,29 +778,23 @@ const QuestCard: React.FC<{
                   intensity={FOIL_INTENSITY[rarityKey] ?? FOIL_INTENSITY.common}
                 />
               )}
-              {isReady && isNearby && !isPromoted && option.questRole && (
-                <>
-                  {/* Category foil — subtle base layer for variety */}
-                  <HolographicFoil
-                    width={CARD_WIDTH}
-                    height={CARD_HEIGHT}
-                    variant={getFoilVariant(undefined, colorKey, option.distanceFromHome)}
-                    seed={hashString(option.id)}
-                    intensity={0.04}
-                  />
-                  {/* Role foil — primary pattern */}
-                  <HolographicFoil
-                    width={CARD_WIDTH}
-                    height={CARD_HEIGHT}
-                    variant={`role_${option.questRole}` as import("@/components/effects/HolographicFoil").FoilVariant}
-                    seed={hashString(option.id)}
-                    intensity={0.08}
-                  />
-                </>
+              {isReady && isActive && !isPromoted && (
+                <HolographicFoil
+                  width={CARD_WIDTH}
+                  height={CARD_HEIGHT}
+                  variant={(PURPOSE_FOILS[purpose] ?? "role_explore") as import("@/components/effects/HolographicFoil").FoilVariant}
+                  seed={hashString(option.id)}
+                  intensity={(() => {
+                    const diff = option.objectives?.[0]?.difficulty ?? 5;
+                    if (diff <= 3) return 0.04;
+                    if (diff <= 6) return 0.08;
+                    return 0.12;
+                  })()}
+                />
               )}
 
-              {/* Sheen sweep — only rendered for nearby cards */}
-              {isNearby && (
+              {/* Sheen sweep — only rendered for active card */}
+              {isActive && (
                 <CardSheen
                   sheenTrigger={isReady ? sheenTrigger : revealSheen}
                   index={index}
@@ -823,37 +827,15 @@ const QuestCard: React.FC<{
               >
                 {/* ═══ HEADER ═══ */}
                 <View style={s.headerBand}>
-                  {option.questRole ? (
-                    <Text
-                      style={[
-                        s.headerTier,
-                        {
-                          color:
-                            option.questRole === "stretch"
-                              ? "#fbbf24"
-                              : option.questRole === "enjoy"
-                                ? "#fcd34d"
-                                : option.questRole === "deepen"
-                                  ? "#c084fc"
-                                  : option.questRole === "explore"
-                                    ? "#7dd3fc"
-                                    : "#86efac",
-                        },
-                      ]}
-                    >
-                      {option.pathwayPhase === "dfs" && option.pathwayLabel
-                        ? `${option.pathwayLabel} \u00B7 ${QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? option.questRole.toUpperCase()}`
-                        : QUEST_ROLE_LABELS[option.questRole as keyof typeof QUEST_ROLE_LABELS] ?? option.questRole.toUpperCase()}
-                    </Text>
-                  ) : option.rarity ? (
+                  {isPromoted && option.rarity ? (
                     <Text style={[s.headerTier, { color: tierMeta.text }]}>
                       {"\u2605"} {tierMeta.label}
                     </Text>
                   ) : (
                     <Text
-                      style={[s.headerTier, { color: "rgba(255,255,255,0.3)" }]}
+                      style={[s.headerTier, { color: purposeColor }]}
                     >
-                      {"\u2726"} UNSEALED
+                      {PURPOSE_LABELS[purpose] ?? purpose.toUpperCase()}
                     </Text>
                   )}
                   <View style={{ flex: 1 }} />
@@ -1007,7 +989,7 @@ const QuestCard: React.FC<{
 
                 {/* ═══ FLAVOR TEXT ═══ */}
                 {isReady &&
-                (objectives[0]?.hook || option.summary) &&
+                (option.strategyNote || objectives[0]?.hook || option.summary) &&
                 objectives.length <= 3 ? (
                   <Animated.View
                     style={[
@@ -1020,7 +1002,7 @@ const QuestCard: React.FC<{
                   >
                     <Text style={s.flavorText} numberOfLines={5}>
                       {"\u201C"}
-                      {(objectives[0]?.hook ?? option.summary ?? "")
+                      {(option.strategyNote ?? objectives[0]?.hook ?? option.summary ?? "")
                         .split(/[.!]/)[0]
                         .trim()}
                       .{"\u201D"}
@@ -1227,7 +1209,7 @@ const BlurOverlay: React.FC<{
     const opacity = interpolate(
       dist,
       [0, SNAP_WIDTH * 0.4, SNAP_WIDTH],
-      [0, 0, 1],
+      [0, 0, 0.55],
       "clamp",
     );
     return { opacity };
@@ -1237,13 +1219,14 @@ const BlurOverlay: React.FC<{
     <Animated.View
       style={[
         StyleSheet.absoluteFill,
-        { borderRadius: radius.sm, overflow: "hidden" },
+        {
+          borderRadius: radius.sm,
+          backgroundColor: "rgba(0, 0, 0, 0.85)",
+        },
         blurStyle,
       ]}
       pointerEvents="none"
-    >
-      <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-    </Animated.View>
+    />
   );
 });
 

@@ -52,6 +52,8 @@ export type UserProfile = Pick<
   | "comfortRadiusMiles"
   | "homeLatitude"
   | "homeLongitude"
+  | "aiFocus"
+  | "socialSituation"
 >;
 
 // ============================================================================
