@@ -689,100 +689,65 @@ const ItineraryDetailScreen = () => {
         onRefresh={handleRefresh}
         contentContainerStyle={styles.scrollPadding}
       >
-        {/* ── Hero Section ── */}
+        {/* ── Hero Section (Redesigned) ── */}
         <Animated.View
           entering={FadeIn.duration(500).easing(Easing.out(Easing.cubic))}
           style={styles.hero}
         >
-          {/* Title block */}
+          {/* Purpose badge + Title */}
           <Animated.View
             entering={FadeInDown.delay(100)
               .duration(450)
               .easing(Easing.out(Easing.cubic))}
           >
-            <Text style={styles.heroTitle}>
-              {itinerary?.title ?? "Sidequest"}
-            </Text>
-            <View style={styles.heroLabelRow}>
-              <View style={styles.heroLabelPill}>
-                <Text style={styles.heroLabelText}>SIDEQUEST</Text>
-              </View>
-              <Text style={styles.heroDot}> · </Text>
-              <Text style={styles.heroDate}>{itinerary.city}</Text>
-            </View>
-          </Animated.View>
-
-          {/* Purpose badge */}
-          {displaySidequest && !displaySidequest.promotedAt && (() => {
-            const purpose = getQuestPurpose(displaySidequest);
-            const pColor = PURPOSE_COLORS[purpose] ?? "#7dd3fc";
-            const pLabel = PURPOSE_LABELS[purpose] ?? "";
-            return pLabel ? (
-              <Animated.View
-                entering={FadeInDown.delay(130)
-                  .duration(400)
-                  .easing(Easing.out(Easing.cubic))}
-              >
+            {displaySidequest && (() => {
+              const purpose = getQuestPurpose(displaySidequest);
+              const pColor = PURPOSE_COLORS[purpose] ?? "#7dd3fc";
+              const pLabel = PURPOSE_LABELS[purpose] ?? "";
+              return pLabel ? (
                 <View style={[styles.purposeBadge, { borderColor: `${pColor}44`, backgroundColor: `${pColor}18` }]}>
                   <Text style={[styles.purposeBadgeText, { color: pColor }]}>{pLabel}</Text>
                 </View>
-              </Animated.View>
-            ) : null;
-          })()}
+              ) : null;
+            })()}
+            <Text style={styles.heroTitle}>
+              {itinerary?.title ?? "Quest"}
+            </Text>
+          </Animated.View>
 
-          {/* Quest categories */}
-          {(() => {
-            const questCats = (itinerary.categories ?? []).length > 0
-              ? itinerary.categories!
-              : objectives.filter(o => o.venueCategory).map(o => o.venueCategory!);
-            if (questCats.length === 0) return null;
-            return (
+          {/* Venue card — compact info block */}
+          {objectives[0] && (
             <Animated.View
-              entering={FadeInDown.delay(150)
+              entering={FadeInDown.delay(160)
                 .duration(400)
                 .easing(Easing.out(Easing.cubic))}
-              style={styles.vibeRow}
+              style={styles.venueCard}
             >
-              {questCats.slice(0, 4).map((cat, i) => {
-                const vibeColor = getCategoryColor(cat);
-                const [vr, vg, vb] = hexToRgb(vibeColor);
-                return (
-                  <Animated.View
-                    key={cat}
-                    entering={FadeInRight.delay(200 + i * 60).duration(350)}
-                    style={[
-                      styles.vibePill,
-                      { backgroundColor: `rgba(${vr}, ${vg}, ${vb}, 0.12)` },
-                    ]}
-                  >
-                    <Text style={[styles.vibeText, { color: vibeColor }]}>
-                      {cat}
-                    </Text>
-                  </Animated.View>
-                );
-              })}
-            </Animated.View>
-            );
-          })()}
-
-          {/* Summary */}
-          {itinerary?.summary && (
-            <Animated.View
-              entering={FadeInDown.delay(200)
-                .duration(450)
-                .easing(Easing.out(Easing.cubic))}
-            >
-              <LinkedText
-                text={itinerary?.summary}
-                style={styles.heroSummary}
-              />
+              <Text style={styles.venueEmoji}>{objectives[0].emoji ?? "\uD83D\uDCCD"}</Text>
+              <View style={styles.venueInfo}>
+                <Text style={styles.venueName} numberOfLines={1}>
+                  {objectives[0].venueName ?? itinerary.city}
+                </Text>
+                <Text style={styles.venueDetails} numberOfLines={1}>
+                  {[
+                    objectives[0].venueCategory,
+                    itinerary.distanceFromHome != null
+                      ? `${Number(itinerary.distanceFromHome).toFixed(1)} mi`
+                      : null,
+                    totalCost > 0 ? `~$${totalCost}` : "Free",
+                  ].filter(Boolean).join(" \u00B7 ")}
+                </Text>
+              </View>
+              <Text style={[styles.venueDifficulty, { color: accentHex }]}>
+                {Math.min(Number(objectives[0]?.difficulty ?? 1), 10)}/10
+              </Text>
             </Animated.View>
           )}
 
-          {/* Strategy Note — why the AI chose this quest */}
+          {/* Strategy Note — promoted to top, right after venue */}
           {itinerary?.strategyNote && (
             <Animated.View
-              entering={FadeInDown.delay(280)
+              entering={FadeInDown.delay(220)
                 .duration(450)
                 .easing(Easing.out(Easing.cubic))}
               style={styles.strategyNoteContainer}
@@ -794,76 +759,49 @@ const ItineraryDetailScreen = () => {
             </Animated.View>
           )}
 
-          {/* ── Stat Bars ── */}
+          {/* The Playbook — what to actually do */}
           <Animated.View
-            entering={FadeInDown.delay(300)
+            entering={FadeInDown.delay(280)
               .duration(450)
               .easing(Easing.out(Easing.cubic))}
-            style={styles.statsBlock}
+            style={styles.playbookSection}
           >
-            {(() => {
-              const diff = Math.min(Number(objectives[0]?.difficulty ?? 1), 10);
-              const dist =
-                itinerary.distanceFromHome != null
-                  ? Number(itinerary.distanceFromHome)
-                  : null;
-              const diffPct = (diff / 10) * 100;
-              const distPct = dist != null ? Math.min(dist / 10, 1) * 100 : 0;
-              const costPct =
-                totalCost > 0 ? Math.min(totalCost / 50, 1) * 100 : 0;
-              return (
-                <>
-                  <View style={styles.statRow}>
-                    <Text style={styles.statLabel}>Difficulty</Text>
-                    <View style={styles.statBarTrack}>
-                      <View
-                        style={[
-                          styles.statBarFill,
-                          { width: `${diffPct}%`, backgroundColor: accentHex },
-                        ]}
-                      />
-                    </View>
-                    <Text style={[styles.statValue, { color: accentHex }]}>
-                      {diff}/10
-                    </Text>
+            <Text style={styles.playbookLabel}>YOUR PLAYBOOK</Text>
+
+            {/* Description as the main instruction */}
+            {objectives[0]?.description && (
+              <LinkedText
+                text={objectives[0].description}
+                style={styles.playbookDescription}
+              />
+            )}
+
+            {/* Suggested activities as clear steps */}
+            {(objectives[0]?.suggestedActivities ?? []).length > 0 && (
+              <View style={styles.playbookSteps}>
+                {(objectives[0]?.suggestedActivities ?? []).map((step, i) => (
+                  <View key={i} style={styles.playbookStep}>
+                    <Text style={styles.playbookStepText}>{step}</Text>
                   </View>
-                  <View style={styles.statRow}>
-                    <Text style={styles.statLabel}>Distance</Text>
-                    <View style={styles.statBarTrack}>
-                      <View
-                        style={[
-                          styles.statBarFill,
-                          { width: `${distPct}%`, backgroundColor: accentHex },
-                        ]}
-                      />
-                    </View>
-                    <Text style={[styles.statValue, { color: accentHex }]}>
-                      {dist != null
-                        ? dist < 0.1
-                          ? "<0.1"
-                          : dist.toFixed(1)
-                        : "?"}{" "}
-                      mi
-                    </Text>
-                  </View>
-                  <View style={styles.statRow}>
-                    <Text style={styles.statLabel}>Cost</Text>
-                    <View style={styles.statBarTrack}>
-                      <View
-                        style={[
-                          styles.statBarFill,
-                          { width: `${costPct}%`, backgroundColor: accentHex },
-                        ]}
-                      />
-                    </View>
-                    <Text style={[styles.statValue, { color: accentHex }]}>
-                      {totalCost > 0 ? `$${totalCost}` : "FREE"}
-                    </Text>
-                  </View>
-                </>
-              );
-            })()}
+                ))}
+              </View>
+            )}
           </Animated.View>
+
+          {/* Journal prompt — priming reflection */}
+          {objectives[0]?.journalPrompt && (
+            <Animated.View
+              entering={FadeInDown.delay(340)
+                .duration(400)
+                .easing(Easing.out(Easing.cubic))}
+              style={styles.journalPromptSection}
+            >
+              <Text style={styles.journalPromptLabel}>REFLECT AFTER</Text>
+              <Text style={styles.journalPromptText}>
+                {"\u201C"}{objectives[0].journalPrompt}{"\u201D"}
+              </Text>
+            </Animated.View>
+          )}
         </Animated.View>
 
         {/* ── Divider ── */}
@@ -1375,7 +1313,7 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       paddingHorizontal: 10,
       borderRadius: 6,
       borderWidth: 1,
-      marginTop: 4,
+      marginBottom: 8,
     },
     purposeBadgeText: {
       fontFamily: fontFamily.mono,
@@ -1384,9 +1322,97 @@ const createStyles = (colors: Colors, accentHex = "#7dd3fc") => {
       letterSpacing: 1,
     },
 
+    // ── Venue card ──
+    venueCard: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 12,
+      backgroundColor: "rgba(255, 255, 255, 0.04)",
+      borderRadius: radius.md,
+      padding: 12,
+    },
+    venueEmoji: {
+      fontSize: 24,
+    },
+    venueInfo: {
+      flex: 1,
+      gap: 2,
+    },
+    venueName: {
+      fontSize: 15,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.semibold,
+      color: colors.text.primary,
+    },
+    venueDetails: {
+      fontSize: 12,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+    },
+    venueDifficulty: {
+      fontSize: 13,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.bold,
+    },
+
+    // ── Playbook ──
+    playbookSection: {
+      gap: 10,
+    },
+    playbookLabel: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      color: colors.text.disabled,
+      letterSpacing: 1,
+    },
+    playbookDescription: {
+      fontSize: 15,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.regular,
+      color: colors.text.primary,
+      lineHeight: 23,
+    },
+    playbookSteps: {
+      gap: 6,
+    },
+    playbookStep: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      backgroundColor: "rgba(255, 255, 255, 0.04)",
+      borderRadius: radius.sm,
+    },
+    playbookStepText: {
+      fontSize: 14,
+      fontFamily: fontFamily.mono,
+      color: colors.text.secondary,
+      lineHeight: 20,
+    },
+
+    // ── Journal prompt ──
+    journalPromptSection: {
+      paddingTop: 8,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border.subtle,
+    },
+    journalPromptLabel: {
+      fontSize: 11,
+      fontFamily: fontFamily.mono,
+      fontWeight: fontWeight.medium,
+      color: colors.text.disabled,
+      letterSpacing: 1,
+      marginBottom: 4,
+    },
+    journalPromptText: {
+      fontSize: 14,
+      fontFamily: fontFamily.mono,
+      fontStyle: "italic" as const,
+      color: colors.text.secondary,
+      lineHeight: 21,
+    },
+
     strategyNoteContainer: {
-      marginTop: 12,
-      paddingTop: 12,
+      paddingTop: 8,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.border.subtle,
     },
