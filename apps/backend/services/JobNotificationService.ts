@@ -287,8 +287,3 @@ export class JobNotificationService {
   }
 }
 
-export function createJobNotificationService(
-  deps: JobNotificationServiceDeps,
-): JobNotificationService {
-  return new JobNotificationService(deps);
-}

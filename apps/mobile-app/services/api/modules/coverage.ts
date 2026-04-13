@@ -1,4 +1,3 @@
-import { BaseApiModule } from "../base/BaseApiModule";
 import type { BaseApiClient } from "../base/ApiClient";
 
 export interface DirectionalGap {
@@ -31,14 +30,12 @@ export interface CoverageSummaryResponse {
   homeLongitude: number | null;
 }
 
-export class CoverageModule extends BaseApiModule {
-  constructor(client: BaseApiClient) {
-    super(client);
-  }
+export class CoverageModule {
+  constructor(protected readonly client: BaseApiClient) {}
 
   async getSummary(): Promise<CoverageSummaryResponse> {
     const url = `${this.client.baseUrl}/api/users/me/coverage`;
-    const response = await this.fetchWithAuth(url);
-    return this.handleResponse<CoverageSummaryResponse>(response);
+    const response = await this.client.fetchWithAuth(url);
+    return this.client.handleResponse<CoverageSummaryResponse>(response);
   }
 }

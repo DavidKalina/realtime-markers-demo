@@ -87,40 +87,7 @@ export interface RedisMessage<T = RedisMessageType> {
   data?: T;
 }
 
-export interface RedisService {
-  publishMessage<T extends RedisMessageType>(
-    channel: RedisChannel,
-    message: T,
-  ): Promise<void>;
-  publish<T>(channel: RedisChannel, message: RedisMessage<T>): Promise<void>;
-  subscribe(
-    channel: RedisChannel,
-    callback: (message: string) => void,
-  ): Promise<void>;
-  set(
-    key: string,
-    value: string | number | object,
-    ttlSeconds?: number,
-  ): Promise<void>;
-  get<T = string>(key: string): Promise<T | null>;
-  del(key: string): Promise<void>;
-  delByPattern(pattern: string): Promise<void>;
-  hset(
-    key: string,
-    field: string,
-    value: string | number | object,
-  ): Promise<void>;
-  hget<T = string>(key: string, field: string): Promise<T | null>;
-  hgetall<T extends Record<string, unknown>>(key: string): Promise<T | null>;
-  hdel(key: string, field: string): Promise<void>;
-  exists(key: string): Promise<boolean>;
-  expire(key: string, seconds: number): Promise<void>;
-  storeUserCity(userId: string, city: string): Promise<void>;
-  getUsersInCity(city: string): Promise<string[]>;
-  getClient(): Redis;
-}
-
-export class RedisServiceImpl implements RedisService {
+export class RedisService {
   private redis: Redis;
 
   constructor(redis: Redis) {
@@ -453,9 +420,3 @@ export class RedisServiceImpl implements RedisService {
   }
 }
 
-/**
- * Factory function to create a RedisService instance
- */
-export function createRedisService(redis: Redis): RedisService {
-  return new RedisServiceImpl(redis);
-}

@@ -1,25 +1,8 @@
-import { CacheServiceImpl } from "./CacheService";
+import { CacheService } from "./CacheService";
 import { OpenAIModel } from "./OpenAIService";
 
-export interface OpenAICacheService {
-  getEmbedding(text: string): Promise<number[] | null>;
-  setEmbedding(text: string, embedding: number[]): Promise<void>;
-  getRateLimitCount(
-    model: OpenAIModel,
-    operation: string,
-  ): Promise<number | null>;
-  incrementRateLimitCount(
-    model: OpenAIModel,
-    operation: string,
-  ): Promise<number>;
-  resetRateLimitCounters(): Promise<void>;
-  invalidateEmbedding(text: string): Promise<void>;
-  invalidateAllEmbeddings(): Promise<void>;
-}
-
-export class OpenAICacheServiceImpl
-  extends CacheServiceImpl
-  implements OpenAICacheService
+export class OpenAICacheService
+  extends CacheService
 {
   private static readonly EMBEDDING_PREFIX = "openai:embedding:";
   private static readonly RATE_LIMIT_PREFIX = "openai:ratelimit:";
@@ -31,10 +14,10 @@ export class OpenAICacheServiceImpl
    */
   async getEmbedding(text: string): Promise<number[] | null> {
     return this.get<number[]>(
-      `${OpenAICacheServiceImpl.EMBEDDING_PREFIX}${text}`,
+      `${OpenAICacheService.EMBEDDING_PREFIX}${text}`,
       {
         useMemoryCache: true,
-        ttlSeconds: OpenAICacheServiceImpl.EMBEDDING_TTL,
+        ttlSeconds: OpenAICacheService.EMBEDDING_TTL,
       },
     );
   }
@@ -44,11 +27,11 @@ export class OpenAICacheServiceImpl
    */
   async setEmbedding(text: string, embedding: number[]): Promise<void> {
     await this.set(
-      `${OpenAICacheServiceImpl.EMBEDDING_PREFIX}${text}`,
+      `${OpenAICacheService.EMBEDDING_PREFIX}${text}`,
       embedding,
       {
         useMemoryCache: true,
-        ttlSeconds: OpenAICacheServiceImpl.EMBEDDING_TTL,
+        ttlSeconds: OpenAICacheService.EMBEDDING_TTL,
       },
     );
   }
@@ -60,12 +43,12 @@ export class OpenAICacheServiceImpl
     model: OpenAIModel,
     operation: string,
   ): Promise<number | null> {
-    const key = `${OpenAICacheServiceImpl.RATE_LIMIT_PREFIX}${model}:${operation}:${Math.floor(
+    const key = `${OpenAICacheService.RATE_LIMIT_PREFIX}${model}:${operation}:${Math.floor(
       Date.now() / 60000,
     )}`;
     return this.get<number>(key, {
       useMemoryCache: false,
-      ttlSeconds: OpenAICacheServiceImpl.RATE_LIMIT_TTL,
+      ttlSeconds: OpenAICacheService.RATE_LIMIT_TTL,
     });
   }
 
@@ -76,14 +59,14 @@ export class OpenAICacheServiceImpl
     model: OpenAIModel,
     operation: string,
   ): Promise<number> {
-    const key = `${OpenAICacheServiceImpl.RATE_LIMIT_PREFIX}${model}:${operation}:${Math.floor(
+    const key = `${OpenAICacheService.RATE_LIMIT_PREFIX}${model}:${operation}:${Math.floor(
       Date.now() / 60000,
     )}`;
     const currentCount = (await this.getRateLimitCount(model, operation)) || 0;
     const newCount = currentCount + 1;
     await this.set(key, newCount, {
       useMemoryCache: false,
-      ttlSeconds: OpenAICacheServiceImpl.RATE_LIMIT_TTL,
+      ttlSeconds: OpenAICacheService.RATE_LIMIT_TTL,
     });
     return newCount;
   }
@@ -93,7 +76,7 @@ export class OpenAICacheServiceImpl
    */
   async resetRateLimitCounters(): Promise<void> {
     await this.invalidateByPattern(
-      `${OpenAICacheServiceImpl.RATE_LIMIT_PREFIX}*`,
+      `${OpenAICacheService.RATE_LIMIT_PREFIX}*`,
     );
   }
 
@@ -101,7 +84,7 @@ export class OpenAICacheServiceImpl
    * Invalidate embedding cache for specific text
    */
   async invalidateEmbedding(text: string): Promise<void> {
-    await this.invalidate(`${OpenAICacheServiceImpl.EMBEDDING_PREFIX}${text}`);
+    await this.invalidate(`${OpenAICacheService.EMBEDDING_PREFIX}${text}`);
   }
 
   /**
@@ -109,14 +92,8 @@ export class OpenAICacheServiceImpl
    */
   async invalidateAllEmbeddings(): Promise<void> {
     await this.invalidateByPattern(
-      `${OpenAICacheServiceImpl.EMBEDDING_PREFIX}*`,
+      `${OpenAICacheService.EMBEDDING_PREFIX}*`,
     );
   }
 }
 
-/**
- * Factory function to create an OpenAICacheService instance
- */
-export function createOpenAICacheService(): OpenAICacheService {
-  return new OpenAICacheServiceImpl();
-}

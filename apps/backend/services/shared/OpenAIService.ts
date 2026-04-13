@@ -85,52 +85,6 @@ export interface ResponsesCreateParams {
   reasoning?: { effort: "none" | "minimal" | "low" | "medium" | "high" };
 }
 
-export interface OpenAIService {
-  executeChatCompletion(
-    params: {
-      model: OpenAIModel;
-      messages: ChatCompletionMessageParam[];
-      temperature?: number;
-      max_tokens?: number;
-      max_completion_tokens?: number;
-      response_format?: { type: "json_object" | "text" };
-      tools?: ChatCompletionTool[];
-      tool_choice?: ChatCompletionToolChoiceOption;
-    },
-    caller?: string,
-  ): Promise<ChatCompletion>;
-
-  executeResponse(
-    params: ResponsesCreateParams,
-    caller?: string,
-  ): Promise<string>;
-
-  executeResponseWithTools(
-    params: {
-      model: OpenAIModel;
-      instructions?: string;
-      input: import("openai/resources/responses/responses").ResponseInputItem[];
-      tools?: import("openai/resources/responses/responses").Tool[];
-      max_output_tokens?: number;
-      temperature?: number;
-    },
-    caller?: string,
-  ): Promise<import("openai/resources/responses/responses").Response>;
-
-  generateEmbedding(
-    text: string,
-    model?: OpenAIModel,
-    caller?: string,
-  ): Promise<number[]>;
-
-  getStats(): Promise<{
-    activeRequests: Record<string, number>;
-    rateLimits: Record<RateLimitKey, number>;
-  }>;
-
-  resetRateLimits(): Promise<void>;
-}
-
 // Define dependencies interface for cleaner constructor
 export interface OpenAIServiceDependencies {
   redisService: RedisService;
@@ -138,7 +92,7 @@ export interface OpenAIServiceDependencies {
   dataSource: DataSource;
 }
 
-export class OpenAIServiceImpl implements OpenAIService {
+export class OpenAIService {
   private openai: OpenAI;
   private redisService: RedisService;
   private openAICacheService: OpenAICacheService;
@@ -471,11 +425,3 @@ export class OpenAIServiceImpl implements OpenAIService {
   }
 }
 
-/**
- * Factory function to create an OpenAIService instance
- */
-export function createOpenAIService(
-  dependencies: OpenAIServiceDependencies,
-): OpenAIService {
-  return new OpenAIServiceImpl(dependencies);
-}

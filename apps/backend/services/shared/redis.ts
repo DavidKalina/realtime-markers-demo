@@ -1,5 +1,5 @@
 import Redis from "ioredis";
-import { createRedisService } from "./RedisService";
+import { RedisService } from "./RedisService";
 
 const redisConfig = {
   host: process.env.REDIS_HOST || "redis",
@@ -83,7 +83,7 @@ redis.on("end", () => {
 });
 
 // Create and export Redis service instance
-export const redisService = createRedisService(redis);
+export const redisService = new RedisService(redis);
 
 // Export the Redis client for direct access if needed
 export const redisClient = redis;

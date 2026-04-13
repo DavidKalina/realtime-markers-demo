@@ -1,11 +1,8 @@
-import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
 import { User, AuthTokens, LoginResponse } from "../base/types";
 
-export class AuthModule extends BaseApiModule {
-  constructor(client: BaseApiClient) {
-    super(client);
-  }
+export class AuthModule {
+  constructor(protected readonly client: BaseApiClient) {}
 
   /**
    * Login with email and password
@@ -22,7 +19,7 @@ export class AuthModule extends BaseApiModule {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await this.handleResponse<LoginResponse>(response);
+      const data = await this.client.handleResponse<LoginResponse>(response);
 
       if (!data.user) {
         throw new Error("User data missing from login response");
@@ -38,16 +35,16 @@ export class AuthModule extends BaseApiModule {
       };
 
       // Save auth state and notify listeners
-      await this.saveAuthState(data.user, tokens);
+      await this.client.saveAuthState(data.user, tokens);
 
       // Ensure we're initialized
-      await this.ensureInitialized();
+      await this.client.ensureInitialized();
 
       return data.user;
     } catch (error) {
       console.error("Login error:", error);
       // Clear any partial auth state on error
-      await this.clearAuthState();
+      await this.client.clearAuthState();
       throw error;
     }
   }
@@ -71,7 +68,7 @@ export class AuthModule extends BaseApiModule {
       body: JSON.stringify({ email, password, firstName, lastName }),
     });
 
-    return this.handleResponse<User>(response);
+    return this.client.handleResponse<User>(response);
   }
 
   /**
@@ -82,7 +79,7 @@ export class AuthModule extends BaseApiModule {
     if (accessToken) {
       try {
         const url = `${this.client.baseUrl}/api/auth/logout`;
-        await this.fetchWithAuth(url, {
+        await this.client.fetchWithAuth(url, {
           method: "POST",
         });
       } catch (error) {
@@ -98,13 +95,13 @@ export class AuthModule extends BaseApiModule {
    */
   async getUserProfile(): Promise<User> {
     const url = `${this.client.baseUrl}/api/auth/me`;
-    const response = await this.fetchWithAuth(url, { method: "POST" });
-    const user = await this.handleResponse<User>(response);
+    const response = await this.client.fetchWithAuth(url, { method: "POST" });
+    const user = await this.client.handleResponse<User>(response);
 
     // Update local user state with the new data
     if (this.client.user) {
       this.client.user = { ...this.client.user, ...user };
-      await this.saveAuthState(this.client.user, this.client.tokens!);
+      await this.client.saveAuthState(this.client.user, this.client.tokens!);
     }
 
     return user;
@@ -116,17 +113,17 @@ export class AuthModule extends BaseApiModule {
    */
   async updateUserProfile(updates: Partial<User>): Promise<User> {
     const url = `${this.client.baseUrl}/api/users/me`;
-    const response = await this.fetchWithAuth(url, {
+    const response = await this.client.fetchWithAuth(url, {
       method: "PATCH",
       body: JSON.stringify(updates),
     });
 
-    const updatedUser = await this.handleResponse<User>(response);
+    const updatedUser = await this.client.handleResponse<User>(response);
 
     // Update local user state
     if (this.client.user) {
       this.client.user = { ...this.client.user, ...updatedUser };
-      await this.saveAuthState(this.client.user, this.client.tokens!);
+      await this.client.saveAuthState(this.client.user, this.client.tokens!);
     }
 
     return updatedUser;
@@ -141,12 +138,12 @@ export class AuthModule extends BaseApiModule {
     newPassword: string,
   ): Promise<boolean> {
     const url = `${this.client.baseUrl}/api/users/me/change-password`;
-    const response = await this.fetchWithAuth(url, {
+    const response = await this.client.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify({ currentPassword, newPassword }),
     });
 
-    await this.handleResponse<{ success: boolean }>(response);
+    await this.client.handleResponse<{ success: boolean }>(response);
     return true;
   }
 
@@ -156,13 +153,13 @@ export class AuthModule extends BaseApiModule {
    */
   async deleteAccount(password: string): Promise<boolean> {
     const url = `${this.client.baseUrl}/api/auth/account`;
-    const response = await this.fetchWithAuth(url, {
+    const response = await this.client.fetchWithAuth(url, {
       method: "DELETE",
       body: JSON.stringify({ password }),
     });
 
-    await this.handleResponse<{ message: string }>(response);
-    await this.clearAuthState();
+    await this.client.handleResponse<{ message: string }>(response);
+    await this.client.clearAuthState();
     return true;
   }
 
@@ -232,8 +229,8 @@ export class AuthModule extends BaseApiModule {
       this.client.tokens = newTokens;
 
       await Promise.all([
-        this.saveAuthState(this.client.user!, newTokens),
-        this.syncTokensWithStorage(),
+        this.client.saveAuthState(this.client.user!, newTokens),
+        this.client.syncTokensWithStorage(),
       ]);
 
       console.log("Token refresh successful");
@@ -258,7 +255,7 @@ export class AuthModule extends BaseApiModule {
       body: JSON.stringify({ email }),
     });
 
-    await this.handleResponse<{ message: string }>(response);
+    await this.client.handleResponse<{ message: string }>(response);
     return true;
   }
 
@@ -280,7 +277,7 @@ export class AuthModule extends BaseApiModule {
       body: JSON.stringify({ email, code, newPassword }),
     });
 
-    await this.handleResponse<{ message: string }>(response);
+    await this.client.handleResponse<{ message: string }>(response);
     return true;
   }
 
@@ -298,7 +295,7 @@ export class AuthModule extends BaseApiModule {
       body: JSON.stringify({ token }),
     });
 
-    await this.handleResponse<{ message: string }>(response);
+    await this.client.handleResponse<{ message: string }>(response);
     return true;
   }
 
@@ -308,11 +305,11 @@ export class AuthModule extends BaseApiModule {
    */
   async requestEmailVerification(): Promise<boolean> {
     const url = `${this.client.baseUrl}/api/auth/verify-email/request`;
-    const response = await this.fetchWithAuth(url, {
+    const response = await this.client.fetchWithAuth(url, {
       method: "POST",
     });
 
-    await this.handleResponse<{ message: string }>(response);
+    await this.client.handleResponse<{ message: string }>(response);
     return true;
   }
 
@@ -320,7 +317,7 @@ export class AuthModule extends BaseApiModule {
    * Sync auth tokens with storage
    */
   async syncTokens(): Promise<AuthTokens | null> {
-    return this.syncTokensWithStorage();
+    return this.client.syncTokensWithStorage();
   }
 }
 

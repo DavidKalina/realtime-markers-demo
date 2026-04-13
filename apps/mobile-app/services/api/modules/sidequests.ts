@@ -1,4 +1,3 @@
-import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
 
 export interface GoalRefinementState {
@@ -122,10 +121,8 @@ export interface WorldSizeResponse {
   uniqueCategories: number;
 }
 
-export class SidequestsModule extends BaseApiModule {
-  constructor(client: BaseApiClient) {
-    super(client);
-  }
+export class SidequestsModule {
+  constructor(protected readonly client: BaseApiClient) {}
 
   async list(
     limit = 20,
@@ -141,7 +138,7 @@ export class SidequestsModule extends BaseApiModule {
     if (filters?.sort) params.set("sort", filters.sort);
     if (filters?.intention) params.set("intention", filters.intention);
     if (filters?.status) params.set("status", filters.status);
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests?${params}`,
     );
     const json = await response.json();
@@ -152,22 +149,22 @@ export class SidequestsModule extends BaseApiModule {
   }
 
   async getById(id: string): Promise<SidequestResponse> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/${id}`,
     );
-    return this.handleResponse<SidequestResponse>(response);
+    return this.client.handleResponse<SidequestResponse>(response);
   }
 
   async deleteById(id: string): Promise<void> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/${id}`,
       { method: "DELETE" },
     );
-    await this.handleResponse(response);
+    await this.client.handleResponse(response);
   }
 
   async batchDelete(ids: string[]): Promise<{ deletedCount: number }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/batch-delete`,
       {
         method: "POST",
@@ -175,41 +172,41 @@ export class SidequestsModule extends BaseApiModule {
         body: JSON.stringify({ ids }),
       },
     );
-    return this.handleResponse<{ deletedCount: number }>(response);
+    return this.client.handleResponse<{ deletedCount: number }>(response);
   }
 
   async share(id: string): Promise<{ shareToken: string }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/${id}/share`,
       { method: "POST" },
     );
-    return this.handleResponse<{ shareToken: string }>(response);
+    return this.client.handleResponse<{ shareToken: string }>(response);
   }
 
   async activate(id: string): Promise<{ success: boolean }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/${id}/activate`,
       { method: "POST" },
     );
-    return this.handleResponse<{ success: boolean }>(response);
+    return this.client.handleResponse<{ success: boolean }>(response);
   }
 
   async deactivate(): Promise<{ success: boolean }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/deactivate`,
       { method: "POST" },
     );
-    return this.handleResponse<{ success: boolean }>(response);
+    return this.client.handleResponse<{ success: boolean }>(response);
   }
 
   async getActive(): Promise<{
     active: boolean;
     sidequest?: SidequestResponse;
   }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/active`,
     );
-    return this.handleResponse<{
+    return this.client.handleResponse<{
       active: boolean;
       sidequest?: SidequestResponse;
     }>(response);
@@ -219,11 +216,11 @@ export class SidequestsModule extends BaseApiModule {
     sidequestId: string,
     objectiveId: string,
   ): Promise<{ success: boolean; checkedInAt?: string }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/${sidequestId}/objectives/${objectiveId}/checkin`,
       { method: "POST" },
     );
-    return this.handleResponse<{ success: boolean; checkedInAt?: string }>(
+    return this.client.handleResponse<{ success: boolean; checkedInAt?: string }>(
       response,
     );
   }
@@ -237,7 +234,7 @@ export class SidequestsModule extends BaseApiModule {
       socialContext?: string;
     },
   ): Promise<{ success: boolean; checkedInAt?: string }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/${sidequestId}/objectives/${objectiveId}/complete-challenge`,
       {
         method: "POST",
@@ -245,7 +242,7 @@ export class SidequestsModule extends BaseApiModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.handleResponse<{ success: boolean; checkedInAt?: string }>(
+    return this.client.handleResponse<{ success: boolean; checkedInAt?: string }>(
       response,
     );
   }
@@ -255,7 +252,7 @@ export class SidequestsModule extends BaseApiModule {
     rating: number,
     comment?: string,
   ): Promise<{ success: boolean; rating: number }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/${id}/rate`,
       {
         method: "POST",
@@ -263,7 +260,7 @@ export class SidequestsModule extends BaseApiModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.handleResponse<{ success: boolean; rating: number }>(response);
+    return this.client.handleResponse<{ success: boolean; rating: number }>(response);
   }
 
   async search(
@@ -274,34 +271,34 @@ export class SidequestsModule extends BaseApiModule {
       q: query,
       limit: String(limit),
     });
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/search?${params}`,
     );
-    return this.handleResponse<{ data: SidequestResponse[] }>(response);
+    return this.client.handleResponse<{ data: SidequestResponse[] }>(response);
   }
 
   async listCompleted(limit = 20): Promise<{ data: SidequestResponse[] }> {
     const params = new URLSearchParams({ limit: String(limit) });
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/completed?${params}`,
     );
-    return this.handleResponse<{ data: SidequestResponse[] }>(response);
+    return this.client.handleResponse<{ data: SidequestResponse[] }>(response);
   }
 
   async listUnrated(limit = 5): Promise<{ data: SidequestResponse[] }> {
     const params = new URLSearchParams({ limit: String(limit) });
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/unrated?${params}`,
     );
-    return this.handleResponse<{ data: SidequestResponse[] }>(response);
+    return this.client.handleResponse<{ data: SidequestResponse[] }>(response);
   }
 
   async listPendingCapture(limit = 3): Promise<{ data: SidequestResponse[] }> {
     const params = new URLSearchParams({ limit: String(limit) });
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/pending-capture?${params}`,
     );
-    return this.handleResponse<{ data: SidequestResponse[] }>(response);
+    return this.client.handleResponse<{ data: SidequestResponse[] }>(response);
   }
 
   async browse(
@@ -321,26 +318,26 @@ export class SidequestsModule extends BaseApiModule {
     if (options?.limit) params.set("limit", String(options.limit));
     if (options?.cursor) params.set("cursor", options.cursor);
 
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/browse?${params}`,
     );
-    return this.handleResponse<{ data: BrowseSidequestResponse[] }>(response);
+    return this.client.handleResponse<{ data: BrowseSidequestResponse[] }>(response);
   }
 
   async promote(id: string): Promise<SidequestResponse> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/${id}/promote`,
       { method: "POST" },
     );
-    return this.handleResponse<SidequestResponse>(response);
+    return this.client.handleResponse<SidequestResponse>(response);
   }
 
   async adopt(id: string): Promise<SidequestResponse> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/${id}/adopt`,
       { method: "POST" },
     );
-    return this.handleResponse<SidequestResponse>(response);
+    return this.client.handleResponse<SidequestResponse>(response);
   }
 
   async getPopularStops(city: string, limit = 15): Promise<PopularStop[]> {
@@ -351,7 +348,7 @@ export class SidequestsModule extends BaseApiModule {
     const response = await fetch(
       `${this.client.baseUrl}/api/public/sidequests/popular-stops?${params}`,
     );
-    const json = await this.handleResponse<{ data: PopularStop[] }>(response);
+    const json = await this.client.handleResponse<{ data: PopularStop[] }>(response);
     return json.data;
   }
 
@@ -362,7 +359,7 @@ export class SidequestsModule extends BaseApiModule {
     questType?: "venue" | "challenge";
     challengeCategory?: string;
   }): Promise<{ jobId: string; streamUrl: string }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/prescribe`,
       {
         method: "POST",
@@ -370,7 +367,7 @@ export class SidequestsModule extends BaseApiModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.handleResponse<{ jobId: string; streamUrl: string }>(response);
+    return this.client.handleResponse<{ jobId: string; streamUrl: string }>(response);
   }
 
   async prescribeWeekPack(params: {
@@ -378,7 +375,7 @@ export class SidequestsModule extends BaseApiModule {
     longitude: number;
     timezone?: string;
   }): Promise<{ jobId: string; streamUrl: string }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/prescribe-pack`,
       {
         method: "POST",
@@ -386,28 +383,28 @@ export class SidequestsModule extends BaseApiModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.handleResponse<{ jobId: string; streamUrl: string }>(response);
+    return this.client.handleResponse<{ jobId: string; streamUrl: string }>(response);
   }
 
   async getComfortZone(): Promise<ComfortZoneResponse> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/comfort-zone`,
     );
-    return this.handleResponse<ComfortZoneResponse>(response);
+    return this.client.handleResponse<ComfortZoneResponse>(response);
   }
 
   async getWorldSize(): Promise<WorldSizeResponse> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/world-size`,
     );
-    return this.handleResponse<WorldSizeResponse>(response);
+    return this.client.handleResponse<WorldSizeResponse>(response);
   }
 
   async setHomeAnchor(
     latitude: number,
     longitude: number,
   ): Promise<ComfortZoneResponse> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/home-anchor`,
       {
         method: "POST",
@@ -415,7 +412,7 @@ export class SidequestsModule extends BaseApiModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.handleResponse<ComfortZoneResponse>(response);
+    return this.client.handleResponse<ComfortZoneResponse>(response);
   }
 
   async assessGoal(params: {
@@ -431,7 +428,7 @@ export class SidequestsModule extends BaseApiModule {
     reframedGoal: string | null;
     state: GoalRefinementState;
   }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/assess-goal`,
       {
         method: "POST",
@@ -439,7 +436,7 @@ export class SidequestsModule extends BaseApiModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.handleResponse(response);
+    return this.client.handleResponse(response);
   }
 
   async refineGoal(params: {
@@ -451,7 +448,7 @@ export class SidequestsModule extends BaseApiModule {
     refinedGoal: string | null;
     state: GoalRefinementState;
   }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/refine-goal`,
       {
         method: "POST",
@@ -459,13 +456,13 @@ export class SidequestsModule extends BaseApiModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.handleResponse(response);
+    return this.client.handleResponse(response);
   }
 
   async generateBarriers(params: {
     primaryGoal: string;
   }): Promise<{ barriers: { key: string; label: string; text: string }[] }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/generate-barriers`,
       {
         method: "POST",
@@ -473,7 +470,7 @@ export class SidequestsModule extends BaseApiModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.handleResponse(response);
+    return this.client.handleResponse(response);
   }
 
   async generateFearLadder(params: {
@@ -482,7 +479,7 @@ export class SidequestsModule extends BaseApiModule {
     barriers: string[];
     activities: string[];
   }): Promise<{ scenarios: { id: string; text: string; dimension: string }[]; dimensions: string[] }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/generate-fear-ladder`,
       {
         method: "POST",
@@ -490,7 +487,7 @@ export class SidequestsModule extends BaseApiModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.handleResponse(response);
+    return this.client.handleResponse(response);
   }
 
   async updateComfortProfile(params: {
@@ -500,7 +497,7 @@ export class SidequestsModule extends BaseApiModule {
     onboardingProfile?: { activities: string[] };
     socialSituation?: { ageRange: string; gender: string; timeInArea: string; currentSocialLife: string; lookingFor: string[]; workSituation: string; livingSituation: string; dailyRoutine?: string; transportation?: string; budget?: string };
   }): Promise<ComfortZoneResponse> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/comfort-profile`,
       {
         method: "PUT",
@@ -508,7 +505,7 @@ export class SidequestsModule extends BaseApiModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.handleResponse<ComfortZoneResponse>(response);
+    return this.client.handleResponse<ComfortZoneResponse>(response);
   }
 
   async updateObjectiveJournal(
@@ -521,7 +518,7 @@ export class SidequestsModule extends BaseApiModule {
       wouldReturn?: boolean;
     },
   ): Promise<{ success: boolean }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/objectives/${objectiveId}/journal`,
       {
         method: "PUT",
@@ -529,7 +526,7 @@ export class SidequestsModule extends BaseApiModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.handleResponse<{ success: boolean }>(response);
+    return this.client.handleResponse<{ success: boolean }>(response);
   }
 
   async updateObjectivePrediction(
@@ -540,7 +537,7 @@ export class SidequestsModule extends BaseApiModule {
       predictedOutcome?: string;
     },
   ): Promise<{ success: boolean }> {
-    const response = await this.fetchWithAuth(
+    const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/objectives/${objectiveId}/prediction`,
       {
         method: "PUT",
@@ -548,7 +545,7 @@ export class SidequestsModule extends BaseApiModule {
         headers: { "Content-Type": "application/json" },
       },
     );
-    return this.handleResponse<{ success: boolean }>(response);
+    return this.client.handleResponse<{ success: boolean }>(response);
   }
 
 }

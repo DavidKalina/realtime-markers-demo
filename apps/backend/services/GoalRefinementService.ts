@@ -40,10 +40,6 @@ export interface RefinementStep {
 
 // ── Interface ────────────────────────────────────────────────
 
-export interface GoalRefinementService {
-  assessGoal(rawGoal: string): Promise<GoalAssessment>;
-  refineNext(state: RefinementState, userResponse: string): Promise<RefinementStep>;
-}
 
 // ── Prompts ──────────────────────────────────────────────────
 
@@ -197,7 +193,7 @@ interface GoalRefinementServiceDeps {
   openAIService: OpenAIService;
 }
 
-class GoalRefinementServiceImpl implements GoalRefinementService {
+export class GoalRefinementService {
   private openAIService: OpenAIService;
 
   constructor(deps: GoalRefinementServiceDeps) {
@@ -439,8 +435,3 @@ function inferTargetDate(signals: ExtractedSignals, refinedGoal: string | null):
   return undefined;
 }
 
-export function createGoalRefinementService(
-  deps: GoalRefinementServiceDeps,
-): GoalRefinementService {
-  return new GoalRefinementServiceImpl(deps);
-}

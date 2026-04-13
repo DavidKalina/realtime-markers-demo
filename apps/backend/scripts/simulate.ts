@@ -8,7 +8,7 @@
  *   npx tsx apps/backend/scripts/simulate.ts --dfs-threshold 0.6 --min-quests-dfs 2
  */
 
-import { createSimulationService, type SimulationPersona, type SimulationResult } from "../services/SimulationService";
+import { SimulationService, type SimulationPersona, type SimulationResult } from "../services/SimulationService";
 import { DEFAULT_QUEST_CONFIG, type QuestConfig } from "../services/shared/QuestConfig";
 
 // ── Built-in personas ────────────────────────────────────────
@@ -257,7 +257,7 @@ function printResult(result: SimulationResult, simulateReflection = false): void
 function main(): void {
   const { personaKey, questCount, seed, simulateReflection, configOverrides } = parseArgs();
 
-  const sim = createSimulationService();
+  const sim = new SimulationService({});
   const personasToRun = personaKey
     ? { [personaKey]: PERSONAS[personaKey] }
     : PERSONAS;

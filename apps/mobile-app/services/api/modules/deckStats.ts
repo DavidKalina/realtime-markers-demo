@@ -1,4 +1,3 @@
-import { BaseApiModule } from "../base/BaseApiModule";
 import type { BaseApiClient } from "../base/ApiClient";
 
 export interface DeckStatsResponse {
@@ -12,14 +11,12 @@ export interface DeckStatsResponse {
   recentCards: { name: string; tier: string; daysAgo: number }[];
 }
 
-export class DeckStatsModule extends BaseApiModule {
-  constructor(client: BaseApiClient) {
-    super(client);
-  }
+export class DeckStatsModule {
+  constructor(protected readonly client: BaseApiClient) {}
 
   async getStats(): Promise<DeckStatsResponse> {
     const url = `${this.client.baseUrl}/api/sidequests/deck-stats`;
-    const response = await this.fetchWithAuth(url);
-    return this.handleResponse<DeckStatsResponse>(response);
+    const response = await this.client.fetchWithAuth(url);
+    return this.client.handleResponse<DeckStatsResponse>(response);
   }
 }

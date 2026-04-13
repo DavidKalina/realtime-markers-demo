@@ -1,24 +1,10 @@
 // worker.ts
 import AppDataSource from "./data-source";
-import {
-  createJobQueue,
-  type JobQueue,
-  type JobData,
-} from "./services/JobQueue";
-import {
-  createRedisService,
-  type RedisService,
-} from "./services/shared/RedisService";
+import type { JobQueue, JobData } from "./services/JobQueue";
+import type { RedisService } from "./services/shared/RedisService";
 import { JobHandlerRegistry } from "./handlers/job/JobHandlerRegistry";
 import { Redis } from "ioredis";
-import { createGoogleGeocodingService } from "./services/shared/GoogleGeocodingService";
-import { createConfigService } from "./services/shared/ConfigService";
-import { createEmbeddingService } from "./services/shared/EmbeddingService";
-import { createOpenAIService } from "./services/shared/OpenAIService";
-import { createOpenAICacheService } from "./services/shared/OpenAICacheService";
-import { createPushNotificationService } from "./services/PushNotificationService";
-import { createJobNotificationService } from "./services/JobNotificationService";
-
+import { ServiceInitializer } from "./services/ServiceInitializer";
 
 // Constants
 const POLLING_INTERVAL = 1000; // 1 second
@@ -45,89 +31,18 @@ async function initializeWorker() {
     password: process.env.REDIS_PASSWORD,
   });
 
-  // Create RedisService instance
-  redisService = createRedisService(redisClient);
+  // Reuse ServiceInitializer — same service graph as the backend
+  const initializer = new ServiceInitializer(AppDataSource, redisClient);
+  const services = await initializer.initialize();
 
-  // Initialize job queue
-  jobQueue = createJobQueue({
-    redisService,
-  });
-
-  // Initialize config service
-  const configService = createConfigService();
-
-  // Create OpenAIService
-  const openAIService = createOpenAIService({
-    redisService,
-    openAICacheService: createOpenAICacheService(),
-    dataSource: AppDataSource,
-  });
-
-  // Create embedding service
-  const embeddingService = createEmbeddingService({
-    openAIService,
-    configService,
-  });
-
-  const geocodingService = createGoogleGeocodingService(
-    openAIService,
-    redisService,
-  );
-
-  // Initialize sidequest prescription service
-  const { createSidequestPrescriptionService } =
-    await import("./services/SidequestPrescriptionService");
-  const { createOverpassService } =
-    await import("./services/shared/OverpassService");
-  const { createComfortZoneService } =
-    await import("./services/ComfortZoneService");
-  const overpassService = createOverpassService({ redisService });
-  const comfortZoneService = createComfortZoneService({
-    dataSource: AppDataSource,
-    openAIService,
-  });
-  const { createCoverageService } =
-    await import("./services/CoverageService");
-  const coverageService = createCoverageService({
-    dataSource: AppDataSource,
-  });
-  const { createResonanceService } =
-    await import("./services/ResonanceService");
-  const resonanceService = createResonanceService({
-    dataSource: AppDataSource,
-  });
-  const { createPathwayService } =
-    await import("./services/PathwayService");
-  const pathwayService = createPathwayService({
-    dataSource: AppDataSource,
-  });
-  const sidequestPrescriptionService = createSidequestPrescriptionService({
-    dataSource: AppDataSource,
-    openAIService,
-    geocodingService,
-    overpassService,
-    embeddingService,
-    redisService,
-    comfortZoneService,
-    coverageService,
-    resonanceService,
-    pathwayService,
-  });
-
-  const pushNotificationService = createPushNotificationService({
-    dataSource: AppDataSource,
-  });
-
-  const jobNotificationService = createJobNotificationService({
-    dataSource: AppDataSource,
-    pushNotificationService,
-  });
+  redisService = services.redisService;
+  jobQueue = services.jobQueue;
 
   jobHandlerRegistry = new JobHandlerRegistry(
     jobQueue,
     redisService,
-    sidequestPrescriptionService,
-    jobNotificationService,
+    services.sidequestPrescriptionService,
+    services.jobNotificationService,
   );
 
   console.log("Worker initialized successfully");

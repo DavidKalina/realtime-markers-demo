@@ -1,4 +1,3 @@
-import { BaseApiModule } from "../base/BaseApiModule";
 import type { BaseApiClient } from "../base/ApiClient";
 
 export interface PathwayData {
@@ -17,14 +16,12 @@ export interface PathwaysResponse {
   recommendation: string;
 }
 
-export class PathwaysModule extends BaseApiModule {
-  constructor(client: BaseApiClient) {
-    super(client);
-  }
+export class PathwaysModule {
+  constructor(protected readonly client: BaseApiClient) {}
 
   async getPathways(): Promise<PathwaysResponse> {
     const url = `${this.client.baseUrl}/api/users/me/pathways`;
-    const response = await this.fetchWithAuth(url);
-    return this.handleResponse<PathwaysResponse>(response);
+    const response = await this.client.fetchWithAuth(url);
+    return this.client.handleResponse<PathwaysResponse>(response);
   }
 }

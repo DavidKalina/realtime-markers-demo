@@ -8,25 +8,13 @@ export interface EmailOptions {
   from?: string;
 }
 
-export interface EmailService {
-  sendEmail(options: EmailOptions): Promise<boolean>;
-  sendAdminNotification(subject: string, message: string): Promise<boolean>;
-  sendWelcomeEmail(to: string): Promise<boolean>;
-  sendAdminAddedNotification(
-    adminEmail: string,
-    adminName: string,
-    addedBy: string,
-  ): Promise<boolean>;
-  sendPasswordResetEmail(to: string, code: string): Promise<boolean>;
-}
-
 export interface EmailServiceDependencies {
   apiKey: string;
   fromEmail: string;
   adminEmails: string[];
 }
 
-export class ResendEmailService implements EmailService {
+export class EmailService {
   private resend: Resend;
   private fromEmail: string;
   private adminEmails: string[];
@@ -167,16 +155,13 @@ export class ResendEmailService implements EmailService {
   }
 }
 
-// Factory function to create email service
-export function createEmailService(
-  dependencies: EmailServiceDependencies,
-): EmailService {
-  return new ResendEmailService(dependencies);
-}
-
 // Mock email service for development/testing
-export class MockEmailService implements EmailService {
-  async sendEmail(options: EmailOptions): Promise<boolean> {
+export class MockEmailService extends EmailService {
+  constructor() {
+    super({ apiKey: "", fromEmail: "", adminEmails: [] });
+  }
+
+  override async sendEmail(options: EmailOptions): Promise<boolean> {
     console.log("📧 [MOCK] Email would be sent:", {
       to: options.to,
       subject: options.subject,

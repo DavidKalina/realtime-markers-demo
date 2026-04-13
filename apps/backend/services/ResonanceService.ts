@@ -241,17 +241,12 @@ function clamp(v: number, min: number, max: number): number {
 
 // ── DB-backed service (wraps pure function with data fetching) ─
 
-export interface ResonanceService {
-  computeResonanceForSidequest(sidequestId: string): Promise<ResonanceResult | null>;
-  computeResonanceBatch(userId: string, limit?: number): Promise<ResonanceResult[]>;
-}
-
 interface ResonanceServiceDeps {
   dataSource: DataSource;
   config?: QuestConfig;
 }
 
-class ResonanceServiceImpl implements ResonanceService {
+export class ResonanceService {
   private dataSource: DataSource;
   private config: QuestConfig;
 
@@ -439,6 +434,3 @@ export async function analyzeJournalReflection(
   };
 }
 
-export function createResonanceService(deps: ResonanceServiceDeps): ResonanceService {
-  return new ResonanceServiceImpl(deps);
-}

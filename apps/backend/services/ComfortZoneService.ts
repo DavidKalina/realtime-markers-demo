@@ -14,63 +14,6 @@ import {
   type Rarity,
 } from "@realtime-markers/shared";
 
-export interface ComfortZoneService {
-  detectHomeAnchor(
-    userId: string,
-    latitude: number,
-    longitude: number,
-  ): Promise<void>;
-  getComfortZone(userId: string): Promise<ComfortZone>;
-  recalculateRadius(userId: string): Promise<number>;
-  getWorldSize(userId: string): Promise<WorldSize>;
-  computeDistanceFromHome(
-    userId: string,
-    latitude: number,
-    longitude: number,
-  ): Promise<number | null>;
-  assignRarity(
-    userId: string,
-    distanceFromHome: number,
-    venueCategory: string,
-    isInCoverageGap?: boolean,
-  ): Promise<string>;
-  computeGrowthRarity(
-    resonanceScore: number,
-    reflectionTags: string[],
-    isInCoverageGap?: boolean,
-  ): string;
-  updateComfortProfile(
-    userId: string,
-    updates: {
-      pacePreference?: string;
-      comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[]; northStar?: string; primaryGoal?: string; targetDate?: string; goalLocation?: string };
-      fearLadder?: { overallScore: number; dimensionScores: Record<string, number>; responses: Record<string, number>; scenarios?: { id: string; text: string; dimension: string }[]; dimensions?: string[] };
-      onboardingProfile?: { activities: string[] };
-      socialSituation?: { ageRange: string; gender: string; timeInArea: string; currentSocialLife: string; lookingFor: string[]; workSituation: string; livingSituation: string; dailyRoutine?: string; transportation?: string; budget?: string };
-    },
-  ): Promise<void>;
-  updateObjectiveJournal(
-    userId: string,
-    objectiveId: string,
-    updates: {
-      journalEntry?: string;
-      completedActivity?: string;
-      photoUrl?: string;
-      socialContext?: string;
-      wouldReturn?: boolean;
-    },
-  ): Promise<boolean>;
-  updateObjectivePrediction(
-    userId: string,
-    objectiveId: string,
-    prediction: {
-      predictedAnxiety?: number;
-      predictedDifficulty?: number;
-      predictedOutcome?: string;
-    },
-  ): Promise<boolean>;
-}
-
 export interface ComfortZone {
   homeLatitude: number | null;
   homeLongitude: number | null;
@@ -91,7 +34,7 @@ interface ComfortZoneServiceDeps {
   openAIService?: OpenAIService;
 }
 
-class ComfortZoneServiceImpl implements ComfortZoneService {
+export class ComfortZoneService {
   private dataSource: DataSource;
   private openAIService?: OpenAIService;
 
@@ -648,8 +591,3 @@ function haversineDistanceMiles(
   return haversineDistance(lat1, lon1, lat2, lon2, "miles");
 }
 
-export function createComfortZoneService(
-  deps: ComfortZoneServiceDeps,
-): ComfortZoneService {
-  return new ComfortZoneServiceImpl(deps);
-}

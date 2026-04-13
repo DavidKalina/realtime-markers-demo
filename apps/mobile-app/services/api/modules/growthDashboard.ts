@@ -1,4 +1,3 @@
-import { BaseApiModule } from "../base/BaseApiModule";
 import type { BaseApiClient } from "../base/ApiClient";
 
 // ── Response types ─────────────────────────────────────────────
@@ -99,14 +98,12 @@ export interface GrowthDashboardResponse {
 
 // ── Module ─────────────────────────────────────────────────────
 
-export class GrowthDashboardModule extends BaseApiModule {
-  constructor(client: BaseApiClient) {
-    super(client);
-  }
+export class GrowthDashboardModule {
+  constructor(protected readonly client: BaseApiClient) {}
 
   async getDashboard(): Promise<GrowthDashboardResponse> {
     const url = `${this.client.baseUrl}/api/users/me/growth-dashboard`;
-    const response = await this.fetchWithAuth(url);
-    return this.handleResponse<GrowthDashboardResponse>(response);
+    const response = await this.client.fetchWithAuth(url);
+    return this.client.handleResponse<GrowthDashboardResponse>(response);
   }
 }

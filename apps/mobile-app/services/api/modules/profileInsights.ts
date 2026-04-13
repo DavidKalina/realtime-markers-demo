@@ -1,4 +1,3 @@
-import { BaseApiModule } from "../base/BaseApiModule";
 import type { BaseApiClient } from "../base/ApiClient";
 
 export interface ActivityDay {
@@ -60,14 +59,12 @@ export interface ProfileInsightsResponse {
   };
 }
 
-export class ProfileInsightsModule extends BaseApiModule {
-  constructor(client: BaseApiClient) {
-    super(client);
-  }
+export class ProfileInsightsModule {
+  constructor(protected readonly client: BaseApiClient) {}
 
   async getInsights(): Promise<ProfileInsightsResponse> {
     const url = `${this.client.baseUrl}/api/users/me/profile-insights`;
-    const response = await this.fetchWithAuth(url);
-    return this.handleResponse<ProfileInsightsResponse>(response);
+    const response = await this.client.fetchWithAuth(url);
+    return this.client.handleResponse<ProfileInsightsResponse>(response);
   }
 }

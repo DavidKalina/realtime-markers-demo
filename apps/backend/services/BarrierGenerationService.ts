@@ -14,10 +14,6 @@ export interface GenerateBarriersResult {
   barriers: GeneratedBarrier[];
 }
 
-export interface BarrierGenerationService {
-  generateBarriers(input: GenerateBarriersInput): Promise<GenerateBarriersResult>;
-}
-
 interface BarrierGenerationServiceDeps {
   openAIService: OpenAIService;
 }
@@ -65,7 +61,7 @@ const TOOL_DEFINITION = {
   },
 };
 
-class BarrierGenerationServiceImpl implements BarrierGenerationService {
+export class BarrierGenerationService {
   private openAIService: OpenAIService;
 
   constructor(deps: BarrierGenerationServiceDeps) {
@@ -121,8 +117,3 @@ class BarrierGenerationServiceImpl implements BarrierGenerationService {
   }
 }
 
-export function createBarrierGenerationService(
-  deps: BarrierGenerationServiceDeps,
-): BarrierGenerationService {
-  return new BarrierGenerationServiceImpl(deps);
-}

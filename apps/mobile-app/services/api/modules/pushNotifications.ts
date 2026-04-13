@@ -1,4 +1,3 @@
-import { BaseApiModule } from "../base/BaseApiModule";
 import { BaseApiClient } from "../base/ApiClient";
 
 export interface DeviceInfo {
@@ -19,10 +18,8 @@ export interface PushToken {
   lastUsedAt: string | null;
 }
 
-export class PushNotificationsModule extends BaseApiModule {
-  constructor(client: BaseApiClient) {
-    super(client);
-  }
+export class PushNotificationsModule {
+  constructor(protected readonly client: BaseApiClient) {}
 
   /**
    * Register a push token for the current user
@@ -32,12 +29,12 @@ export class PushNotificationsModule extends BaseApiModule {
     deviceInfo?: DeviceInfo,
   ): Promise<PushToken> {
     const url = `${this.client.baseUrl}/api/push-notifications/register`;
-    const response = await this.fetchWithAuth(url, {
+    const response = await this.client.fetchWithAuth(url, {
       method: "POST",
       body: JSON.stringify({ token, deviceInfo }),
     });
 
-    const data = await this.handleResponse<{
+    const data = await this.client.handleResponse<{
       success: boolean;
       token: PushToken;
     }>(response);
@@ -49,7 +46,7 @@ export class PushNotificationsModule extends BaseApiModule {
    */
   async unregisterToken(token: string): Promise<void> {
     const url = `${this.client.baseUrl}/api/push-notifications/unregister`;
-    await this.fetchWithAuth(url, {
+    await this.client.fetchWithAuth(url, {
       method: "DELETE",
       body: JSON.stringify({ token }),
     });
@@ -60,8 +57,8 @@ export class PushNotificationsModule extends BaseApiModule {
    */
   async getUserTokens(): Promise<PushToken[]> {
     const url = `${this.client.baseUrl}/api/push-notifications/tokens`;
-    const response = await this.fetchWithAuth(url, { method: "GET" });
-    const data = await this.handleResponse<{
+    const response = await this.client.fetchWithAuth(url, { method: "GET" });
+    const data = await this.client.handleResponse<{
       success: boolean;
       tokens: PushToken[];
     }>(response);

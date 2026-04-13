@@ -47,113 +47,7 @@ export interface VerifiedVenue {
   primaryType?: string;
 }
 
-export interface GoogleGeocodingService extends ILocationResolutionService {
-  getTimezoneFromCoordinates(lat: number, lng: number): Promise<string>;
-  resolveLocation(
-    locationClues: string[],
-    userContext?: {
-      cityState?: string;
-      coordinates?: { lat: number; lng: number };
-    },
-  ): Promise<LocationResolutionResult>;
-  geocodeAddress(address: string): Promise<[number, number]>;
-  reverseGeocodeCityState(lat: number, lng: number): Promise<string>;
-  getTimezone(lat: number, lng: number): Promise<string>;
-  searchPlaceForFrontend(
-    query: string,
-    userCoordinates?: { lat: number; lng: number },
-    knownCityState?: string,
-  ): Promise<{
-    success: boolean;
-    error?: string;
-    place?: {
-      name: string;
-      address: string;
-      coordinates: [number, number];
-      placeId: string;
-      types: string[];
-      rating?: number;
-      userRatingsTotal?: number;
-      businessStatus?: string;
-      primaryType?: string;
-      distance?: number;
-      locationNotes?: string;
-    };
-  }>;
-  searchPlacesByCategory(
-    category: string,
-    city: string,
-    cityCenter?: { lat: number; lng: number },
-    maxResults?: number,
-  ): Promise<VerifiedVenue[]>;
-  searchCityState(
-    query: string,
-    userCoordinates?: { lat: number; lng: number },
-  ): Promise<{
-    success: boolean;
-    error?: string;
-    cityState?: {
-      city: string;
-      state: string;
-      coordinates: [number, number];
-      formattedAddress: string;
-      placeId: string;
-      distance?: number;
-    };
-  }>;
-  searchNearby(
-    lat: number,
-    lng: number,
-    radius?: number,
-    maxResults?: number,
-  ): Promise<{
-    success: boolean;
-    error?: string;
-    places: {
-      name: string;
-      address: string;
-      coordinates: [number, number];
-      placeId: string;
-      types: string[];
-      rating?: number;
-      primaryType?: string;
-      distance?: number;
-    }[];
-  }>;
-  reverseGeocodeAddress(
-    lat: number,
-    lng: number,
-  ): Promise<{
-    success: boolean;
-    error?: string;
-    address?: {
-      formattedAddress: string;
-      addressComponents: {
-        streetNumber?: string;
-        streetName?: string;
-        city?: string;
-        state?: string;
-        zipCode?: string;
-      };
-      placeId: string;
-      locationType: string;
-      partialMatch: boolean;
-      coordinates: [number, number];
-    };
-  }>;
-  searchEntryPoint(
-    lat: number,
-    lng: number,
-    venueCategory: string,
-  ): Promise<{
-    latitude: number;
-    longitude: number;
-    name: string;
-    placeId: string;
-  } | null>;
-}
-
-export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
+export class GoogleGeocodingService {
   private static readonly CACHE_TTL_SECONDS = 604800; // 7 days
   private static readonly CACHE_PREFIX = "geocache:";
   private static readonly PLACES_CACHE_TTL_SECONDS = 172800; // 48 hours
@@ -542,7 +436,7 @@ export class GoogleGeocodingServiceImpl implements GoogleGeocodingService {
       userCityState,
     );
 
-    const cacheKey = `${GoogleGeocodingServiceImpl.CACHE_PREFIX}${cluesFingerprint}`;
+    const cacheKey = `${GoogleGeocodingService.CACHE_PREFIX}${cluesFingerprint}`;
     const cachedLocation =
       await this.redisService.get<CachedLocation>(cacheKey);
     if (cachedLocation) {
@@ -852,7 +746,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           timezone,
           locationNotes,
         },
-        GoogleGeocodingServiceImpl.CACHE_TTL_SECONDS,
+        GoogleGeocodingService.CACHE_TTL_SECONDS,
       );
 
       return {
@@ -1006,7 +900,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
     // Round to ~1km precision so nearby coords share cache
     const roundedLat = Math.round(lat * 100) / 100;
     const roundedLng = Math.round(lng * 100) / 100;
-    const cacheKey = `${GoogleGeocodingServiceImpl.REVERSE_GEOCODE_CACHE_PREFIX}${roundedLat},${roundedLng}`;
+    const cacheKey = `${GoogleGeocodingService.REVERSE_GEOCODE_CACHE_PREFIX}${roundedLat},${roundedLng}`;
 
     try {
       const cached = await this.redisService.get<string>(cacheKey);
@@ -1062,7 +956,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
         await this.redisService.set(
           cacheKey,
           cityState,
-          GoogleGeocodingServiceImpl.REVERSE_GEOCODE_CACHE_TTL_SECONDS,
+          GoogleGeocodingService.REVERSE_GEOCODE_CACHE_TTL_SECONDS,
         );
         return cityState;
       } else {
@@ -1193,8 +1087,8 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
     try {
       // Coarser cache key — round coords to ~5km so nearby searches share results
       const cacheKey = cityCenter
-        ? `${GoogleGeocodingServiceImpl.PLACES_CACHE_PREFIX}${category.toLowerCase()}:${city.toLowerCase()}:${Math.round(cityCenter.lat * 20) / 20},${Math.round(cityCenter.lng * 20) / 20}`
-        : `${GoogleGeocodingServiceImpl.PLACES_CACHE_PREFIX}${category.toLowerCase()}:${city.toLowerCase()}`;
+        ? `${GoogleGeocodingService.PLACES_CACHE_PREFIX}${category.toLowerCase()}:${city.toLowerCase()}:${Math.round(cityCenter.lat * 20) / 20},${Math.round(cityCenter.lng * 20) / 20}`
+        : `${GoogleGeocodingService.PLACES_CACHE_PREFIX}${category.toLowerCase()}:${city.toLowerCase()}`;
       const cached = await this.redisService.get<VerifiedVenue[]>(cacheKey);
       if (cached) {
         console.log(`[searchPlacesByCategory] Cache hit for "${category}" in ${city}`);
@@ -1305,7 +1199,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
         await this.redisService.set(
           cacheKey,
           venues,
-          GoogleGeocodingServiceImpl.PLACES_CACHE_TTL_SECONDS,
+          GoogleGeocodingService.PLACES_CACHE_TTL_SECONDS,
         );
       }
 
@@ -1581,7 +1475,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
     // Round to ~100m precision for cache key
     const roundedLat = Math.round(lat * 1000) / 1000;
     const roundedLng = Math.round(lng * 1000) / 1000;
-    const cacheKey = `${GoogleGeocodingServiceImpl.ENTRY_POINT_CACHE_PREFIX}${venueCategory}:${roundedLat},${roundedLng}`;
+    const cacheKey = `${GoogleGeocodingService.ENTRY_POINT_CACHE_PREFIX}${venueCategory}:${roundedLat},${roundedLng}`;
 
     const cached = await this.redisService.get<{
       latitude: number;
@@ -1674,7 +1568,7 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
           await this.redisService.set(
             cacheKey,
             result,
-            GoogleGeocodingServiceImpl.ENTRY_POINT_CACHE_TTL_SECONDS,
+            GoogleGeocodingService.ENTRY_POINT_CACHE_TTL_SECONDS,
           );
           return result;
         }
@@ -1963,12 +1857,3 @@ ${userCityState ? `User is in ${userCityState}.` : userCoordinates ? `User coord
   }
 }
 
-/**
- * Factory function to create a GoogleGeocodingService instance
- */
-export function createGoogleGeocodingService(
-  openAIService: OpenAIService,
-  redisService: RedisService,
-): GoogleGeocodingService {
-  return new GoogleGeocodingServiceImpl(openAIService, redisService);
-}

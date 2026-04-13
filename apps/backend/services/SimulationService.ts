@@ -127,15 +127,11 @@ const NEUTRAL_JOURNALS = [
 
 // ── Simulation engine ────────────────────────────────────────
 
-export interface SimulationService {
-  runSimulation(params: SimulationParams): SimulationResult;
-}
-
 interface SimulationServiceDeps {
   config?: QuestConfig;
 }
 
-class SimulationServiceImpl implements SimulationService {
+export class SimulationService {
   private defaultConfig: QuestConfig;
 
   constructor(deps: SimulationServiceDeps) {
@@ -476,8 +472,3 @@ function mergeConfig(base: QuestConfig, overrides?: Partial<QuestConfig>): Quest
   };
 }
 
-// ── Factory ──────────────────────────────────────────────────
-
-export function createSimulationService(deps: SimulationServiceDeps = {}): SimulationService {
-  return new SimulationServiceImpl(deps);
-}

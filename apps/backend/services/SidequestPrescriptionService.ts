@@ -14,7 +14,7 @@ import type {
   VerifiedVenue,
 } from "./shared/GoogleGeocodingService";
 import type { OverpassService, Trail } from "./shared/OverpassService";
-import type { IEmbeddingService } from "./shared/EmbeddingService";
+import type { EmbeddingService } from "./shared/EmbeddingService";
 import type { RedisService } from "./shared/RedisService";
 import type { AgentCandidate } from "./shared/JobPipeline";
 import { OpenAIResponsesAgent } from "./shared/OpenAIResponsesAgent";
@@ -235,21 +235,6 @@ function isSocialBlocker(blockerType: string): boolean {
 
 // ─── Interface ──────────────────────────────────────────────────────
 
-export interface SidequestPrescriptionService {
-  prescribeQuest(
-    userId: string,
-    input: PrescribeQuestInput,
-    onProgress?: SidequestProgressCallback,
-    siblingContext?: SiblingContext,
-  ): Promise<Sidequest>;
-
-  prescribeWeekPack(
-    userId: string,
-    input: PrescribeQuestInput,
-    onProgress?: SidequestProgressCallback,
-  ): Promise<WeekPackResult>;
-}
-
 // ─── Dependencies ───────────────────────────────────────────────────
 
 interface SidequestPrescriptionServiceDeps {
@@ -257,7 +242,7 @@ interface SidequestPrescriptionServiceDeps {
   openAIService: OpenAIService;
   geocodingService: GoogleGeocodingService;
   overpassService: OverpassService;
-  embeddingService?: IEmbeddingService;
+  embeddingService?: EmbeddingService;
   redisService?: RedisService;
   comfortZoneService: ComfortZoneService;
   coverageService?: CoverageService;
@@ -303,12 +288,12 @@ interface BlockerDetectionResult {
 
 // ─── Implementation ─────────────────────────────────────────────────
 
-class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
+export class SidequestPrescriptionService {
   private dataSource: DataSource;
   private openAIService: OpenAIService;
   private geocodingService: GoogleGeocodingService;
   private overpassService: OverpassService;
-  private embeddingService?: IEmbeddingService;
+  private embeddingService?: EmbeddingService;
   private redisService?: RedisService;
   private comfortZoneService: ComfortZoneService;
   private coverageService?: CoverageService;
@@ -3101,10 +3086,3 @@ ${result.suggestedProgression}\n` };
   }
 }
 
-// ─── Factory ────────────────────────────────────────────────────────
-
-export function createSidequestPrescriptionService(
-  deps: SidequestPrescriptionServiceDeps,
-): SidequestPrescriptionService {
-  return new SidequestPrescriptionServiceImpl(deps);
-}

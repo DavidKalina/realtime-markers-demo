@@ -37,20 +37,6 @@ function weeksBetween(mondayA: string, mondayB: string): number {
   return Math.round(Math.abs(b - a) / (7 * 24 * 60 * 60 * 1000));
 }
 
-export interface SidequestCheckinService {
-  checkAndNotify(userId: string, lat: number, lng: number): Promise<void>;
-  activateSidequest(userId: string, sidequestId: string): Promise<boolean>;
-  deactivateSidequest(userId: string): Promise<boolean>;
-  manualCheckin(
-    userId: string,
-    sidequestId: string,
-    objectiveId: string,
-  ): Promise<{ success: boolean; checkedInAt?: Date }>;
-  getActiveSidequest(userId: string): Promise<Sidequest | null>;
-  /** Check deck count and generate a replacement quest if below target */
-  replenishDeck(userId: string): Promise<void>;
-}
-
 interface SidequestCheckinServiceDeps {
   dataSource: DataSource;
   pushService: PushNotificationService;
@@ -84,7 +70,7 @@ interface ProcessCheckinResult {
   remaining: number;
 }
 
-class SidequestCheckinServiceImpl implements SidequestCheckinService {
+export class SidequestCheckinService {
   private dataSource: DataSource;
   private pushService: PushNotificationService;
   private redisService: RedisService;
@@ -874,8 +860,3 @@ GUIDELINES:
   }
 }
 
-export function createSidequestCheckinService(
-  deps: SidequestCheckinServiceDeps,
-): SidequestCheckinService {
-  return new SidequestCheckinServiceImpl(deps);
-}

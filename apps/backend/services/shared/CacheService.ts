@@ -1,6 +1,6 @@
 // src/services/shared/CacheService.ts
 import { Redis } from "ioredis";
-import { createRedisService } from "./RedisService";
+import { RedisService } from "./RedisService";
 
 export interface CacheOptions {
   ttlSeconds?: number;
@@ -12,26 +12,8 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
-export interface CacheService {
-  get<T>(key: string, options?: CacheOptions): Promise<T | null>;
-  set<T extends string | number | object>(
-    key: string,
-    value: T,
-    options?: CacheOptions,
-  ): Promise<void>;
-  invalidate(key: string): Promise<void>;
-  invalidateByPattern(pattern: string): Promise<void>;
-  getCacheStats(): {
-    redis: { hits: number; misses: number; hitRate: number };
-    memory: { hits: number; misses: number; hitRate: number };
-    uptime: number;
-  };
-  resetCacheStats(): void;
-  monitorMemoryUsage(): void;
-}
-
-export class CacheServiceImpl implements CacheService {
-  private redisService: ReturnType<typeof createRedisService> | null = null;
+export class CacheService {
+  private redisService: RedisService | null = null;
   private memoryCache = new Map<string, CacheEntry<unknown>>();
   private cacheStats = {
     redisHits: 0,
@@ -44,12 +26,12 @@ export class CacheServiceImpl implements CacheService {
   // Cache size limits
   private readonly MAX_MEMORY_CACHE_SIZE = 1000;
 
-  constructor(redisService?: ReturnType<typeof createRedisService>) {
+  constructor(redisService?: RedisService) {
     this.redisService = redisService || null;
   }
 
   initRedis(redis: Redis): void {
-    this.redisService = createRedisService(redis);
+    this.redisService = new RedisService(redis);
   }
 
   getCacheStats() {
@@ -188,13 +170,3 @@ export class CacheServiceImpl implements CacheService {
   }
 }
 
-/**
- * Factory function to create a CacheService instance
- */
-export function createCacheService(redis?: Redis): CacheService {
-  const cacheService = new CacheServiceImpl();
-  if (redis) {
-    cacheService.initRedis(redis);
-  }
-  return cacheService;
-}

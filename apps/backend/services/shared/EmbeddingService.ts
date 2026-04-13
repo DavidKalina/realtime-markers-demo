@@ -2,20 +2,6 @@
 
 import pgvector from "pgvector";
 import type { OpenAIService, OpenAIModel } from "./OpenAIService";
-import type { ConfigService } from "./ConfigService";
-
-/**
- * Interface for embedding services
- */
-export interface IEmbeddingService {
-  getEmbedding(text: string, model?: OpenAIModel): Promise<number[]>;
-  getEmbeddingSql(text: string, model?: OpenAIModel): Promise<string>;
-  getStructuredEmbedding(input: EmbeddingInput, model?: OpenAIModel): Promise<number[]>;
-  getStructuredEmbeddingSql(input: EmbeddingInput, model?: OpenAIModel): Promise<string>;
-  parseSqlEmbedding(sqlEmbedding: string | null | undefined): number[];
-  calculateSimilarity(a: number[], b: number[]): number;
-  clearCache(): void;
-}
 
 /**
  * Input for generating embeddings
@@ -66,7 +52,6 @@ export interface EmbeddingInput {
 // Define dependencies interface for cleaner constructor
 export interface EmbeddingServiceDependencies {
   openAIService: OpenAIService;
-  configService?: ConfigService;
 }
 
 /**
@@ -105,7 +90,7 @@ class InMemoryEmbeddingCache {
  * Provides a standardized interface for embedding generation across the application
  * Uses caching for performance optimization
  */
-export class EmbeddingServiceImpl implements IEmbeddingService {
+export class EmbeddingService {
   // Default embedding model
   private readonly DEFAULT_MODEL: OpenAIModel;
 
@@ -123,11 +108,8 @@ export class EmbeddingServiceImpl implements IEmbeddingService {
   private readonly embeddingCache = new InMemoryEmbeddingCache();
 
   constructor(private dependencies: EmbeddingServiceDependencies) {
-    // Initialize with config or defaults
     this.DEFAULT_MODEL =
-      (dependencies.configService?.get(
-        "openai.embeddingModel",
-      ) as OpenAIModel) || "text-embedding-3-small";
+      (process.env.EMBEDDING_MODEL as OpenAIModel) || "text-embedding-3-small";
   }
 
   /**
@@ -352,11 +334,3 @@ export class EmbeddingServiceImpl implements IEmbeddingService {
   }
 }
 
-/**
- * Factory function to create an EmbeddingService instance
- */
-export function createEmbeddingService(
-  dependencies: EmbeddingServiceDependencies,
-): EmbeddingServiceImpl {
-  return new EmbeddingServiceImpl(dependencies);
-}

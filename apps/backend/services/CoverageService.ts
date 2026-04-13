@@ -82,29 +82,11 @@ export interface CoverageSummary {
   homeLongitude: number | null;
 }
 
-export interface CoverageService {
-  upsertCluster(
-    userId: string,
-    latitude: number,
-    longitude: number,
-    venueCategory?: string,
-  ): Promise<CoverageCluster>;
-  getClusters(userId: string): Promise<CoverageCluster[]>;
-  getCoverageSummary(userId: string): Promise<CoverageSummary>;
-  recomputeSnapshot(userId: string): Promise<CoverageSnapshot>;
-  buildLLMCoverageContext(userId: string): Promise<{ context: string; profile: ExplorationProfile }>;
-  isInCoverageGap(
-    userId: string,
-    latitude: number,
-    longitude: number,
-  ): Promise<boolean>;
-}
-
 interface CoverageServiceDeps {
   dataSource: DataSource;
 }
 
-class CoverageServiceImpl implements CoverageService {
+export class CoverageService {
   private dataSource: DataSource;
 
   constructor(deps: CoverageServiceDeps) {
@@ -674,8 +656,3 @@ class CoverageServiceImpl implements CoverageService {
   }
 }
 
-export function createCoverageService(
-  deps: CoverageServiceDeps,
-): CoverageService {
-  return new CoverageServiceImpl(deps);
-}

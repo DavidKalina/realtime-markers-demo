@@ -22,28 +22,6 @@ export interface NearbyCity {
   distanceMeters: number;
 }
 
-export interface OverpassService {
-  fetchPavedTrails(
-    lat: number,
-    lng: number,
-    radiusMeters?: number,
-    maxResults?: number,
-  ): Promise<Trail[]>;
-  fetchHikingTrails(
-    lat: number,
-    lng: number,
-    radiusMeters?: number,
-    maxResults?: number,
-  ): Promise<Trail[]>;
-  fetchTrailById(wayId: number): Promise<Trail | null>;
-  fetchNearbyCities(
-    lat: number,
-    lng: number,
-    radiusMeters?: number,
-    maxResults?: number,
-  ): Promise<NearbyCity[]>;
-}
-
 interface OverpassServiceDeps {
   redisService: RedisService;
 }
@@ -96,7 +74,7 @@ const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1500;
 const MIN_REQUEST_GAP_MS = 1200; // minimum gap between Overpass requests
 
-class OverpassServiceImpl implements OverpassService {
+export class OverpassService {
   private redisService: RedisService;
   private requestQueue: Promise<void> = Promise.resolve();
   private lastRequestTime = 0;
@@ -553,8 +531,3 @@ interface OverpassResponse {
   elements: OverpassElement[];
 }
 
-export function createOverpassService(
-  deps: OverpassServiceDeps,
-): OverpassService {
-  return new OverpassServiceImpl(deps);
-}

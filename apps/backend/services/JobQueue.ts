@@ -1,6 +1,5 @@
 // src/services/JobQueue.ts
 import { Redis } from "ioredis";
-import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
 import type { RedisService } from "./shared/RedisService";
 
@@ -106,7 +105,7 @@ export class JobQueue {
     data: Record<string, unknown>,
     options: { bufferData?: Buffer } = {},
   ): Promise<string> {
-    const jobId = uuidv4();
+    const jobId = crypto.randomUUID();
 
     // Create job metadata (excluding large buffer data)
     const jobData: JobData = {
@@ -344,9 +343,3 @@ export class JobQueue {
   }
 }
 
-/**
- * Factory function to create a JobQueue instance
- */
-export function createJobQueue(dependencies: JobQueueDependencies): JobQueue {
-  return new JobQueue(dependencies);
-}

@@ -567,8 +567,3 @@ export class AuthService {
 
 }
 
-export function createAuthService(
-  dependencies: AuthServiceDependencies,
-): AuthService {
-  return new AuthService(dependencies);
-}

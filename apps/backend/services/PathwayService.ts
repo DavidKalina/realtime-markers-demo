@@ -372,25 +372,12 @@ export function buildPhaseContext(pathways: PathwayState[]): PhaseContext {
 
 // ── DB-backed service ────────────────────────────────────────
 
-export interface PathwayService {
-  detectOrCreatePathway(
-    userId: string,
-    sidequestId: string,
-    venueCategory: string,
-    difficulty: number,
-    resonance: ResonanceResult,
-    wouldReturn?: boolean,
-  ): Promise<PathwayDetectionResult | null>;
-  getPathways(userId: string): Promise<Pathway[]>;
-  getUserPhaseContext(userId: string): Promise<PhaseContext>;
-}
-
 interface PathwayServiceDeps {
   dataSource: DataSource;
   config?: QuestConfig;
 }
 
-class PathwayServiceImpl implements PathwayService {
+export class PathwayService {
   private dataSource: DataSource;
   private config: QuestConfig;
 
@@ -507,6 +494,3 @@ class PathwayServiceImpl implements PathwayService {
   }
 }
 
-export function createPathwayService(deps: PathwayServiceDeps): PathwayService {
-  return new PathwayServiceImpl(deps);
-}

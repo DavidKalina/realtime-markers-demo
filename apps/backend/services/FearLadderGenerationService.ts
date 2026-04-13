@@ -18,10 +18,6 @@ export interface GenerateFearLadderResult {
   dimensions: string[];
 }
 
-export interface FearLadderGenerationService {
-  generateFearLadder(input: GenerateFearLadderInput): Promise<GenerateFearLadderResult>;
-}
-
 interface FearLadderGenerationServiceDeps {
   openAIService: OpenAIService;
 }
@@ -89,7 +85,7 @@ const TOOL_DEFINITION = {
   },
 };
 
-class FearLadderGenerationServiceImpl implements FearLadderGenerationService {
+export class FearLadderGenerationService {
   private openAIService: OpenAIService;
 
   constructor(deps: FearLadderGenerationServiceDeps) {
@@ -184,8 +180,3 @@ class FearLadderGenerationServiceImpl implements FearLadderGenerationService {
   }
 }
 
-export function createFearLadderGenerationService(
-  deps: FearLadderGenerationServiceDeps,
-): FearLadderGenerationService {
-  return new FearLadderGenerationServiceImpl(deps);
-}

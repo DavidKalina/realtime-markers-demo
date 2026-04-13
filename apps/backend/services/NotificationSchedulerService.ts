@@ -136,8 +136,3 @@ export class NotificationSchedulerService {
   }
 }
 
-export function createNotificationSchedulerService(
-  deps: NotificationSchedulerDeps,
-): NotificationSchedulerService {
-  return new NotificationSchedulerService(deps);
-}

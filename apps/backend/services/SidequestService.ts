@@ -6,7 +6,7 @@ import {
   User,
 } from "@realtime-markers/database";
 import type { OpenAIService } from "./shared/OpenAIService";
-import type { IEmbeddingService } from "./shared/EmbeddingService";
+import type { EmbeddingService } from "./shared/EmbeddingService";
 import type { RedisService } from "./shared/RedisService";
 import type { ComfortZoneService } from "./ComfortZoneService";
 import type { CoverageService } from "./CoverageService";
@@ -41,50 +41,6 @@ export interface ListByUserOptions {
   sort?: ListByUserSort;
   intention?: string;
   status?: ListByUserStatus;
-}
-
-export interface SidequestService {
-  listByUser(
-    userId: string,
-    options?: ListByUserOptions,
-  ): Promise<{ data: Sidequest[]; nextCursor: string | null }>;
-  getById(id: string, userId?: string): Promise<Sidequest | null>;
-  deleteById(id: string, userId: string): Promise<boolean>;
-  deleteByIds(ids: string[], userId: string): Promise<number>;
-  generateShareToken(id: string, userId: string): Promise<string | null>;
-  getByShareToken(shareToken: string): Promise<Sidequest | null>;
-  getPopularStops(city: string, limit?: number): Promise<PopularStop[]>;
-  rate(
-    id: string,
-    userId: string,
-    rating: number,
-    comment?: string,
-  ): Promise<Sidequest | null>;
-  countCreatedSince(userId: string, since: Date): Promise<number>;
-  listCompleted(userId: string, limit?: number): Promise<Sidequest[]>;
-  listUnrated(userId: string, limit?: number): Promise<Sidequest[]>;
-  /** Completed quests with checked-in objectives that skipped the reflection capture */
-  listPendingCapture(userId: string, limit?: number): Promise<Sidequest[]>;
-  promote(id: string, userId: string): Promise<Sidequest>;
-  getDeckStats(userId: string): Promise<DeckStats>;
-  searchByUser(
-    userId: string,
-    query: string,
-    limit?: number,
-  ): Promise<Sidequest[]>;
-  browsePublished(options: BrowsePublishedOptions): Promise<BrowseSidequest[]>;
-  listPublishedInternal(
-    page: number,
-    pageSize: number,
-  ): Promise<{
-    sidequests: InternalSidequest[];
-    pagination: {
-      page: number;
-      pageSize: number;
-      total: number;
-      hasMore: boolean;
-    };
-  }>;
 }
 
 export interface InternalSidequest {
@@ -150,7 +106,7 @@ export interface DeckStats {
 interface SidequestServiceDeps {
   dataSource: DataSource;
   openAIService: OpenAIService;
-  embeddingService?: IEmbeddingService;
+  embeddingService?: EmbeddingService;
   redisService?: RedisService;
   comfortZoneService?: ComfortZoneService;
   coverageService?: CoverageService;
@@ -158,10 +114,10 @@ interface SidequestServiceDeps {
   pathwayService?: PathwayService;
 }
 
-class SidequestServiceImpl implements SidequestService {
+export class SidequestService {
   private dataSource: DataSource;
   private openAIService: OpenAIService;
-  private embeddingService?: IEmbeddingService;
+  private embeddingService?: EmbeddingService;
   private redisService?: RedisService;
   private comfortZoneService?: ComfortZoneService;
   private coverageService?: CoverageService;
@@ -858,8 +814,3 @@ class SidequestServiceImpl implements SidequestService {
   }
 }
 
-export function createSidequestService(
-  deps: SidequestServiceDeps,
-): SidequestService {
-  return new SidequestServiceImpl(deps);
-}

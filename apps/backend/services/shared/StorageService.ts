@@ -3,7 +3,7 @@
 import { GetObjectCommand, S3 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { EventEmitter } from "events";
-import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 
 export interface StorageServiceDependencies {
   // No external dependencies needed for now
@@ -174,7 +174,7 @@ export class StorageService extends EventEmitter {
   ): Promise<string | null> {
     try {
       // Generate a unique ID for the image
-      const imageId = uuidv4();
+      const imageId = crypto.randomUUID();
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
       const key = `${prefix}/${timestamp}-${imageId}.jpg`;
 
@@ -338,8 +338,3 @@ export class StorageService extends EventEmitter {
   }
 }
 
-export function createStorageService(
-  dependencies: StorageServiceDependencies = {},
-): StorageService {
-  return new StorageService(dependencies);
-}

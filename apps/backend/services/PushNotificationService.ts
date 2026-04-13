@@ -306,8 +306,3 @@ export class PushNotificationService {
   }
 }
 
-export function createPushNotificationService(
-  deps: PushNotificationServiceDeps,
-): PushNotificationService {
-  return new PushNotificationService(deps);
-}
