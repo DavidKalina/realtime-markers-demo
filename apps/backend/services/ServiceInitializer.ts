@@ -8,6 +8,7 @@ import { StorageService } from "./shared/StorageService";
 import { AuthService } from "./AuthService";
 import { EmailService, MockEmailService } from "./shared/EmailService";
 import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
+import { GooglePlacesService } from "./shared/GooglePlacesService";
 import { JobQueue } from "./JobQueue";
 
 import { User } from "@realtime-markers/database";
@@ -21,33 +22,32 @@ import { ComfortZoneService } from "./ComfortZoneService";
 import { CoverageService } from "./CoverageService";
 import { ResonanceService } from "./ResonanceService";
 import { PathwayService } from "./PathwayService";
-import { FearLadderGenerationService } from "./FearLadderGenerationService";
-import { BarrierGenerationService } from "./BarrierGenerationService";
-import { GoalRefinementService } from "./GoalRefinementService";
+
 export interface ServiceContainer {
   dataSource: DataSource;
-  storageService: StorageService;
-  authService: AuthService;
   openAIService: OpenAIService;
   embeddingService: EmbeddingService;
-  emailService: EmailService;
   jobQueue: JobQueue;
   redisService: RedisService;
   geocodingService: GoogleGeocodingService;
-  sidequestService: SidequestService;
-  sidequestPrescriptionService: SidequestPrescriptionService;
-  sidequestCheckinService: SidequestCheckinService;
+  placesService: GooglePlacesService;
   overpassService: OverpassService;
   comfortZoneService: ComfortZoneService;
   coverageService: CoverageService;
   resonanceService: ResonanceService;
   pathwayService: PathwayService;
+  sidequestPrescriptionService: SidequestPrescriptionService;
   pushNotificationService: PushNotificationService;
   jobNotificationService: JobNotificationService;
-  fearLadderGenerationService: FearLadderGenerationService;
-  barrierGenerationService: BarrierGenerationService;
-  goalRefinementService: GoalRefinementService;
+  // HTTP-only services (null in worker mode)
+  storageService: StorageService | null;
+  authService: AuthService | null;
+  emailService: EmailService | null;
+  sidequestService: SidequestService | null;
+  sidequestCheckinService: SidequestCheckinService | null;
 }
+
+export type InitMode = "http" | "worker";
 
 export class ServiceInitializer {
   private dataSource: DataSource;
@@ -58,16 +58,14 @@ export class ServiceInitializer {
     this.redisClient = redisClient;
   }
 
-  async initialize(): Promise<ServiceContainer> {
-    console.log("Initializing services...");
+  async initialize(mode: InitMode = "http"): Promise<ServiceContainer> {
+    console.log(`Initializing services (mode: ${mode})...`);
 
     const redisService = new RedisService(this.redisClient);
     const jobQueue = new JobQueue({ redisService });
 
-    // Initialize cache services
     const openAICacheService = new OpenAICacheService();
 
-    // Initialize AI services
     const openAIService = new OpenAIService({
       redisService,
       openAICacheService,
@@ -78,27 +76,19 @@ export class ServiceInitializer {
       openAIService,
     });
 
-    // Initialize business services
-    const storageService = new StorageService({});
-
-    const emailService = process.env.RESEND_API_KEY
-      ? new EmailService({
-          apiKey: process.env.RESEND_API_KEY,
-          fromEmail: process.env.EMAIL_FROM || "noreply@mail.davidkalina.com",
-          adminEmails: process.env.ADMIN_EMAILS?.split(",") || [],
-        })
-      : new MockEmailService();
-
-    const authService = new AuthService({
-      userRepository: this.dataSource.getRepository(User),
-      dataSource: this.dataSource,
-      emailService,
-    });
-
     const geocodingService = new GoogleGeocodingService(
       openAIService,
       redisService,
     );
+
+    const placesService = new GooglePlacesService(
+      openAIService,
+      redisService,
+      geocodingService,
+    );
+
+    // Wire the lazy binding so resolveLocationInternal can call searchPlaces
+    geocodingService.setPlacesService(placesService);
 
     const overpassService = new OverpassService({ redisService });
 
@@ -119,21 +109,11 @@ export class ServiceInitializer {
       dataSource: this.dataSource,
     });
 
-    const sidequestService = new SidequestService({
-      dataSource: this.dataSource,
-      openAIService,
-      embeddingService,
-      redisService,
-      comfortZoneService,
-      coverageService,
-      resonanceService,
-      pathwayService,
-    });
-
     const sidequestPrescriptionService = new SidequestPrescriptionService({
       dataSource: this.dataSource,
       openAIService,
       geocodingService,
+      placesService,
       overpassService,
       embeddingService,
       redisService,
@@ -154,52 +134,74 @@ export class ServiceInitializer {
       pushNotificationService,
     });
 
-    const fearLadderGenerationService = new FearLadderGenerationService({
-      openAIService,
-    });
+    // HTTP-only services — skip in worker mode
+    let storageService: StorageService | null = null;
+    let authService: AuthService | null = null;
+    let emailService: EmailService | null = null;
+    let sidequestService: SidequestService | null = null;
+    let sidequestCheckinService: SidequestCheckinService | null = null;
 
-    const barrierGenerationService = new BarrierGenerationService({
-      openAIService,
-    });
+    if (mode === "http") {
+      storageService = new StorageService({});
 
-    const goalRefinementService = new GoalRefinementService({
-      openAIService,
-    });
+      emailService = process.env.RESEND_API_KEY
+        ? new EmailService({
+            apiKey: process.env.RESEND_API_KEY,
+            fromEmail: process.env.EMAIL_FROM || "noreply@mail.davidkalina.com",
+            adminEmails: process.env.ADMIN_EMAILS?.split(",") || [],
+          })
+        : new MockEmailService();
 
-    const sidequestCheckinService = new SidequestCheckinService({
-      dataSource: this.dataSource,
-      pushService: pushNotificationService,
-      redisService,
-      openAIService,
-      coverageService,
-      jobQueue,
-    });
+      authService = new AuthService({
+        userRepository: this.dataSource.getRepository(User),
+        dataSource: this.dataSource,
+        emailService,
+      });
+
+      sidequestService = new SidequestService({
+        dataSource: this.dataSource,
+        openAIService,
+        embeddingService,
+        redisService,
+        comfortZoneService,
+        coverageService,
+        resonanceService,
+        pathwayService,
+      });
+
+      sidequestCheckinService = new SidequestCheckinService({
+        dataSource: this.dataSource,
+        pushService: pushNotificationService,
+        redisService,
+        openAIService,
+        coverageService,
+        jobQueue,
+      });
+    }
 
     console.log("Services initialized successfully");
 
     return {
       dataSource: this.dataSource,
-      storageService,
-      authService,
       openAIService,
       embeddingService,
-      emailService,
       jobQueue,
       redisService,
       geocodingService,
-      sidequestService,
-      sidequestPrescriptionService,
-      sidequestCheckinService,
+      placesService,
       overpassService,
       comfortZoneService,
       coverageService,
       resonanceService,
       pathwayService,
+      sidequestPrescriptionService,
       pushNotificationService,
       jobNotificationService,
-      fearLadderGenerationService,
-      barrierGenerationService,
-      goalRefinementService,
+      storageService,
+      authService,
+      emailService,
+      sidequestService,
+      sidequestCheckinService,
     };
   }
 }

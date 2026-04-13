@@ -31,9 +31,9 @@ async function initializeWorker() {
     password: process.env.REDIS_PASSWORD,
   });
 
-  // Reuse ServiceInitializer — same service graph as the backend
+  // Initialize only worker-required services (skips auth, storage, email, etc.)
   const initializer = new ServiceInitializer(AppDataSource, redisClient);
-  const services = await initializer.initialize();
+  const services = await initializer.initialize("worker");
 
   redisService = services.redisService;
   jobQueue = services.jobQueue;

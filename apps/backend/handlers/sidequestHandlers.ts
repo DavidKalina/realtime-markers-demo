@@ -6,9 +6,9 @@ import {
 import type { SidequestService } from "../services/SidequestService";
 import type { SidequestCheckinService } from "../services/SidequestCheckinService";
 import type { ComfortZoneService } from "../services/ComfortZoneService";
-import type { FearLadderGenerationService } from "../services/FearLadderGenerationService";
-import type { BarrierGenerationService } from "../services/BarrierGenerationService";
-import type { GoalRefinementService } from "../services/GoalRefinementService";
+import { generateFearLadder } from "../services/FearLadderGenerationService";
+import { generateBarriers } from "../services/BarrierGenerationService";
+import { assessGoal, refineNext } from "../services/GoalRefinementService";
 import type { RefinementState } from "../services/GoalRefinementService";
 import type { StorageService } from "../services/shared/StorageService";
 import { User } from "@realtime-markers/database";
@@ -800,8 +800,8 @@ export const generateFearLadderHandler: Handler = withErrorHandling(
       return c.json({ error: "primaryGoal must be 500 characters or fewer" }, 400);
     }
 
-    const fearLadderGenerationService = c.get("fearLadderGenerationService") as FearLadderGenerationService;
-    const result = await fearLadderGenerationService.generateFearLadder({
+    const openAIService = c.get("openAIService");
+    const result = await generateFearLadder(openAIService, {
       primaryGoal: body.primaryGoal.trim(),
       goals: body.goals ?? [],
       barriers: body.barriers ?? [],
@@ -826,8 +826,8 @@ export const generateBarriersHandler: Handler = withErrorHandling(
       return c.json({ error: "primaryGoal must be 500 characters or fewer" }, 400);
     }
 
-    const barrierGenerationService = c.get("barrierGenerationService") as BarrierGenerationService;
-    const result = await barrierGenerationService.generateBarriers({
+    const openAIService = c.get("openAIService");
+    const result = await generateBarriers(openAIService, {
       primaryGoal: body.primaryGoal.trim(),
     });
 
@@ -849,8 +849,8 @@ export const assessGoalHandler: Handler = withErrorHandling(
       return c.json({ error: "goal must be 500 characters or fewer" }, 400);
     }
 
-    const goalRefinementService = c.get("goalRefinementService") as GoalRefinementService;
-    const result = await goalRefinementService.assessGoal(body.goal.trim());
+    const openAIService = c.get("openAIService");
+    const result = await assessGoal(openAIService, body.goal.trim());
 
     return c.json(result);
   },
@@ -877,8 +877,8 @@ export const refineGoalHandler: Handler = withErrorHandling(
       return c.json({ error: "response must be 1000 characters or fewer" }, 400);
     }
 
-    const goalRefinementService = c.get("goalRefinementService") as GoalRefinementService;
-    const result = await goalRefinementService.refineNext(body.state, body.response.trim());
+    const openAIService = c.get("openAIService");
+    const result = await refineNext(openAIService, body.state, body.response.trim());
 
     return c.json(result);
   },

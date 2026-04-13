@@ -22,7 +22,8 @@ import type {
 import type { OpenAIResponsesAgent, AgentToolResult } from "../shared/OpenAIResponsesAgent";
 import type { OpenAIService } from "../shared/OpenAIService";
 import { OpenAIModel } from "../shared/OpenAIService";
-import type { GoogleGeocodingService, VerifiedVenue } from "../shared/GoogleGeocodingService";
+import type { GoogleGeocodingService } from "../shared/GoogleGeocodingService";
+import type { GooglePlacesService, VerifiedVenue } from "../shared/GooglePlacesService";
 import type { OverpassService, Trail } from "../shared/OverpassService";
 import type { PrescriptionPromptRegistry } from "../prompts/PrescriptionPromptRegistry";
 
@@ -80,6 +81,7 @@ export interface MultiAgentStrategyDeps {
   openAIService: OpenAIService;
   agent: OpenAIResponsesAgent;
   geocodingService: GoogleGeocodingService;
+  placesService: GooglePlacesService;
   overpassService: OverpassService;
   promptRegistry: PrescriptionPromptRegistry;
 }
@@ -104,6 +106,7 @@ export class MultiAgentStrategy {
   private openAIService: OpenAIService;
   private agent: OpenAIResponsesAgent;
   private geocodingService: GoogleGeocodingService;
+  private placesService: GooglePlacesService;
   private overpassService: OverpassService;
   private promptRegistry: PrescriptionPromptRegistry;
   private models: AgentModelConfig;
@@ -112,6 +115,7 @@ export class MultiAgentStrategy {
     this.openAIService = deps.openAIService;
     this.agent = deps.agent;
     this.geocodingService = deps.geocodingService;
+    this.placesService = deps.placesService;
     this.overpassService = deps.overpassService;
     this.promptRegistry = deps.promptRegistry;
     this.models = { ...DEFAULT_MODELS, ...models };
@@ -421,7 +425,7 @@ Find REAL venues with verified addresses. Use search_places to confirm. Submit 3
 
         try {
           const near = `${lat},${lng}`;
-          const venues = await this.geocodingService.searchPlacesByCategory(query, near, undefined, 5);
+          const venues = await this.placesService.searchPlacesByCategory(query, near, undefined, 5);
           const newVenues = venues.filter((v: VerifiedVenue) => !seenVenueIds.has(v.placeId));
           for (const v of newVenues) {
             seenVenueIds.add(v.placeId);

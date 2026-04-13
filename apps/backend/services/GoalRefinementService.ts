@@ -38,9 +38,6 @@ export interface RefinementStep {
   state: RefinementState;
 }
 
-// ── Interface ────────────────────────────────────────────────
-
-
 // ── Prompts ──────────────────────────────────────────────────
 
 const ASSESS_SYSTEM_PROMPT = `You evaluate how specific and actionable a user's stated goal is for a social-life-building app.
@@ -187,218 +184,196 @@ Respond with JSON:
 const MAX_TURNS = 3;
 const SPECIFICITY_THRESHOLD = 0.6;
 
-// ── Implementation ───────────────────────────────────────────
+// ── Functions ───────────────────────────────────────────────
 
-interface GoalRefinementServiceDeps {
-  openAIService: OpenAIService;
-}
+export async function assessGoal(openAIService: OpenAIService, rawGoal: string): Promise<GoalAssessment> {
+  const response = await openAIService.executeChatCompletion(
+    {
+      model: OpenAIModel.GPT4OMini,
+      messages: [
+        { role: "system", content: ASSESS_SYSTEM_PROMPT },
+        { role: "user", content: rawGoal.trim() },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+      max_tokens: 400,
+    },
+    "goal_refinement_assess",
+  );
 
-export class GoalRefinementService {
-  private openAIService: OpenAIService;
-
-  constructor(deps: GoalRefinementServiceDeps) {
-    this.openAIService = deps.openAIService;
-  }
-
-  async assessGoal(rawGoal: string): Promise<GoalAssessment> {
-    const response = await this.openAIService.executeChatCompletion(
-      {
-        model: OpenAIModel.GPT4OMini,
-        messages: [
-          { role: "system", content: ASSESS_SYSTEM_PROMPT },
-          { role: "user", content: rawGoal.trim() },
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.3,
-        max_tokens: 400,
-      },
-      "goal_refinement_assess",
-    );
-
-    const content = response.choices[0]?.message?.content?.trim();
-    if (!content) {
-      return {
-        specificity: 0,
-        feasibility: "actionable",
-        needsRefinement: true,
-        refinedGoal: null,
-        firstQuestion: "Can you tell me a bit more about what that looks like for you? What would be different in your life if you achieved this?",
-        redirectMessage: null,
-        reframeSuggestion: null,
-        reframedGoal: null,
-        state: { rawGoal, turns: [], extractedSignals: {} },
-      };
-    }
-
-    const parsed = JSON.parse(content);
-    const specificity = clamp(parsed.specificity ?? 0, 0, 1);
-    const feasibility: GoalFeasibility = parsed.feasibility ?? "actionable";
-
-    // If unfeasible or concerning, short-circuit — no refinement
-    if (feasibility === "unfeasible" || feasibility === "concerning") {
-      return {
-        specificity,
-        feasibility,
-        needsRefinement: false,
-        refinedGoal: null,
-        firstQuestion: null,
-        redirectMessage: parsed.redirectMessage ?? (feasibility === "concerning"
-          ? "It sounds like you might be going through a tough time. Please reach out to someone who can help — the 988 Suicide & Crisis Lifeline is available 24/7 (call or text 988)."
-          : "This app works best with goals you can make real progress on through everyday experiences. What's something you'd genuinely like to work toward?"),
-        reframeSuggestion: null,
-        reframedGoal: null,
-        state: { rawGoal, turns: [], extractedSignals: {} },
-      };
-    }
-
-    // Out of scope — offer a reframe toward what the app CAN help with
-    if (feasibility === "out_of_scope") {
-      return {
-        specificity,
-        feasibility,
-        needsRefinement: false,
-        refinedGoal: null,
-        firstQuestion: null,
-        redirectMessage: null,
-        reframeSuggestion: parsed.reframeSuggestion ?? "This app is best at helping you get out into the world — exploring places, building social confidence, and trying new things. Is there a piece of your goal that involves getting out there?",
-        reframedGoal: parsed.reframedGoal ?? null,
-        state: { rawGoal, turns: [], extractedSignals: {} },
-      };
-    }
-
-    const needsRefinement = specificity < SPECIFICITY_THRESHOLD;
-
-    const initialSignals: ExtractedSignals = {
-      domain: parsed.domain ?? undefined,
-      targetDate: parsed.targetDate ?? undefined,
-      goalLocation: parsed.goalLocation ?? undefined,
-    };
-
-    // Infer targetDate from the goal text if LLM didn't return one
-    if (!initialSignals.targetDate) {
-      initialSignals.targetDate = inferTargetDate(initialSignals, parsed.refinedGoal ?? rawGoal);
-    }
-
-    const state: RefinementState = {
-      rawGoal,
-      turns: [],
-      extractedSignals: initialSignals,
-    };
-
+  const content = response.choices[0]?.message?.content?.trim();
+  if (!content) {
     return {
-      specificity,
-      feasibility,
-      needsRefinement,
-      refinedGoal: needsRefinement ? null : (parsed.refinedGoal ?? rawGoal),
-      firstQuestion: needsRefinement ? (parsed.firstQuestion ?? null) : null,
+      specificity: 0,
+      feasibility: "actionable",
+      needsRefinement: true,
+      refinedGoal: null,
+      firstQuestion: "Can you tell me a bit more about what that looks like for you? What would be different in your life if you achieved this?",
       redirectMessage: null,
       reframeSuggestion: null,
       reframedGoal: null,
-      state,
+      state: { rawGoal, turns: [], extractedSignals: {} },
     };
   }
 
-  async refineNext(
-    state: RefinementState,
-    userResponse: string,
-  ): Promise<RefinementStep> {
-    const lastQuestion = state.turns.length > 0
-      ? state.turns[state.turns.length - 1].question
-      : "initial assessment";
+  const parsed = JSON.parse(content);
+  const specificity = clamp(parsed.specificity ?? 0, 0, 1);
+  const feasibility: GoalFeasibility = parsed.feasibility ?? "actionable";
 
-    const updatedTurns = [
-      ...state.turns,
-      { question: lastQuestion, answer: userResponse.trim() },
-    ];
+  if (feasibility === "unfeasible" || feasibility === "concerning") {
+    return {
+      specificity,
+      feasibility,
+      needsRefinement: false,
+      refinedGoal: null,
+      firstQuestion: null,
+      redirectMessage: parsed.redirectMessage ?? (feasibility === "concerning"
+        ? "It sounds like you might be going through a tough time. Please reach out to someone who can help — the 988 Suicide & Crisis Lifeline is available 24/7 (call or text 988)."
+        : "This app works best with goals you can make real progress on through everyday experiences. What's something you'd genuinely like to work toward?"),
+      reframeSuggestion: null,
+      reframedGoal: null,
+      state: { rawGoal, turns: [], extractedSignals: {} },
+    };
+  }
 
-    // Force completion if we've hit the max
-    const forceDone = updatedTurns.length >= MAX_TURNS;
+  if (feasibility === "out_of_scope") {
+    return {
+      specificity,
+      feasibility,
+      needsRefinement: false,
+      refinedGoal: null,
+      firstQuestion: null,
+      redirectMessage: null,
+      reframeSuggestion: parsed.reframeSuggestion ?? "This app is best at helping you get out into the world — exploring places, building social confidence, and trying new things. Is there a piece of your goal that involves getting out there?",
+      reframedGoal: parsed.reframedGoal ?? null,
+      state: { rawGoal, turns: [], extractedSignals: {} },
+    };
+  }
 
-    const conversationContext = updatedTurns
-      .map((t, i) => `Q${i + 1}: ${t.question}\nA${i + 1}: ${t.answer}`)
-      .join("\n\n");
+  const needsRefinement = specificity < SPECIFICITY_THRESHOLD;
 
-    const userMessage = `ORIGINAL GOAL: "${state.rawGoal}"
+  const initialSignals: ExtractedSignals = {
+    domain: parsed.domain ?? undefined,
+    targetDate: parsed.targetDate ?? undefined,
+    goalLocation: parsed.goalLocation ?? undefined,
+  };
+
+  if (!initialSignals.targetDate) {
+    initialSignals.targetDate = inferTargetDate(initialSignals, parsed.refinedGoal ?? rawGoal);
+  }
+
+  const state: RefinementState = {
+    rawGoal,
+    turns: [],
+    extractedSignals: initialSignals,
+  };
+
+  return {
+    specificity,
+    feasibility,
+    needsRefinement,
+    refinedGoal: needsRefinement ? null : (parsed.refinedGoal ?? rawGoal),
+    firstQuestion: needsRefinement ? (parsed.firstQuestion ?? null) : null,
+    redirectMessage: null,
+    reframeSuggestion: null,
+    reframedGoal: null,
+    state,
+  };
+}
+
+export async function refineNext(
+  openAIService: OpenAIService,
+  state: RefinementState,
+  userResponse: string,
+): Promise<RefinementStep> {
+  const lastQuestion = state.turns.length > 0
+    ? state.turns[state.turns.length - 1].question
+    : "initial assessment";
+
+  const updatedTurns = [
+    ...state.turns,
+    { question: lastQuestion, answer: userResponse.trim() },
+  ];
+
+  const forceDone = updatedTurns.length >= MAX_TURNS;
+
+  const conversationContext = updatedTurns
+    .map((t, i) => `Q${i + 1}: ${t.question}\nA${i + 1}: ${t.answer}`)
+    .join("\n\n");
+
+  const userMessage = `ORIGINAL GOAL: "${state.rawGoal}"
 
 CONVERSATION SO FAR:
 ${conversationContext}
 
 ${forceDone ? "You MUST finalize the refined goal now — this is the last turn. Write the best refined goal you can from what you know." : `Turns used: ${updatedTurns.length}/${MAX_TURNS}. You have ${MAX_TURNS - updatedTurns.length} question(s) left. If you have enough to write a good refined goal, do it now — don't ask questions just because you can.`}`;
 
-    const response = await this.openAIService.executeChatCompletion(
-      {
-        model: OpenAIModel.GPT4OMini,
-        messages: [
-          { role: "system", content: REFINE_SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.4,
-        max_tokens: 400,
-      },
-      "goal_refinement_next",
-    );
+  const response = await openAIService.executeChatCompletion(
+    {
+      model: OpenAIModel.GPT4OMini,
+      messages: [
+        { role: "system", content: REFINE_SYSTEM_PROMPT },
+        { role: "user", content: userMessage },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.4,
+      max_tokens: 400,
+    },
+    "goal_refinement_next",
+  );
 
-    const content = response.choices[0]?.message?.content?.trim();
-    if (!content) {
-      return {
-        done: true,
-        question: null,
-        refinedGoal: state.rawGoal,
-        state: { ...state, turns: updatedTurns },
-      };
-    }
-
-    const parsed = JSON.parse(content);
-    const done = forceDone || parsed.done === true;
-
-    const extractedSignals: ExtractedSignals = {
-      ...state.extractedSignals,
-      ...(parsed.extractedSignals ?? {}),
-    };
-
-    // Infer targetDate from conversation if LLM didn't return an explicit one
-    if (!extractedSignals.targetDate) {
-      extractedSignals.targetDate = inferTargetDate(extractedSignals, parsed.refinedGoal ?? null);
-    }
-
-    const updatedState: RefinementState = {
-      ...state,
-      turns: updatedTurns,
-      extractedSignals,
-    };
-
-    if (done) {
-      return {
-        done: true,
-        question: null,
-        refinedGoal: parsed.refinedGoal ?? state.rawGoal,
-        state: updatedState,
-      };
-    }
-
+  const content = response.choices[0]?.message?.content?.trim();
+  if (!content) {
     return {
-      done: false,
-      question: parsed.question ?? null,
-      refinedGoal: null,
+      done: true,
+      question: null,
+      refinedGoal: state.rawGoal,
+      state: { ...state, turns: updatedTurns },
+    };
+  }
+
+  const parsed = JSON.parse(content);
+  const done = forceDone || parsed.done === true;
+
+  const extractedSignals: ExtractedSignals = {
+    ...state.extractedSignals,
+    ...(parsed.extractedSignals ?? {}),
+  };
+
+  if (!extractedSignals.targetDate) {
+    extractedSignals.targetDate = inferTargetDate(extractedSignals, parsed.refinedGoal ?? null);
+  }
+
+  const updatedState: RefinementState = {
+    ...state,
+    turns: updatedTurns,
+    extractedSignals,
+  };
+
+  if (done) {
+    return {
+      done: true,
+      question: null,
+      refinedGoal: parsed.refinedGoal ?? state.rawGoal,
       state: updatedState,
     };
   }
+
+  return {
+    done: false,
+    question: parsed.question ?? null,
+    refinedGoal: null,
+    state: updatedState,
+  };
 }
 
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
 
-/**
- * Infer a targetDate from timeHorizon or the refined goal text when the LLM
- * doesn't return an explicit ISO date. E.g. "within the next 12 months" or
- * "within 6 months" → compute an approximate target date from now.
- */
 function inferTargetDate(signals: ExtractedSignals, refinedGoal: string | null): string | undefined {
   if (signals.targetDate) return signals.targetDate;
 
-  // Try to extract months from timeHorizon or goal text
   const sources = [signals.timeHorizon, refinedGoal].filter(Boolean).join(" ");
   const monthMatch = sources.match(/(\d+)\s*months?/i);
   const yearMatch = sources.match(/(\d+)\s*years?/i);
@@ -412,7 +387,6 @@ function inferTargetDate(signals: ExtractedSignals, refinedGoal: string | null):
   } else if (weekMatch) {
     daysFromNow = parseInt(weekMatch[1], 10) * 7;
   } else if (sources.match(/by\s+(next\s+)?(spring|summer|fall|autumn|winter)/i)) {
-    // Rough season mapping
     const now = new Date();
     const month = now.getMonth();
     const seasonMonths: Record<string, number> = { spring: 3, summer: 6, fall: 9, autumn: 9, winter: 12 };
@@ -434,4 +408,3 @@ function inferTargetDate(signals: ExtractedSignals, refinedGoal: string | null):
 
   return undefined;
 }
-

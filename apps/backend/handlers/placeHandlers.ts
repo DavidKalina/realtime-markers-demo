@@ -1,4 +1,5 @@
 import type { GoogleGeocodingService } from "../services/shared/GoogleGeocodingService";
+import type { GooglePlacesService } from "../services/shared/GooglePlacesService";
 import { z } from "zod";
 import { withErrorHandling, type Handler } from "../utils/handlerUtils";
 
@@ -36,11 +37,11 @@ export const searchPlace: Handler = withErrorHandling(async (c) => {
 
   const { query, coordinates } = validationResult.data;
 
-  // Get the geocoding service from context
-  const geocodingService = c.get("geocodingService") as GoogleGeocodingService;
+  // Get the places service from context
+  const placesService = c.get("placesService") as GooglePlacesService;
 
   // Search for the place
-  const result = await geocodingService.searchPlaceForFrontend(
+  const result = await placesService.searchPlaceForFrontend(
     query,
     coordinates,
   );
@@ -117,9 +118,9 @@ export const searchNearbyHandler: Handler = withErrorHandling(async (c) => {
   }
 
   const { lat, lng, radius, maxResults } = validationResult.data;
-  const geocodingService = c.get("geocodingService") as GoogleGeocodingService;
+  const placesService = c.get("placesService") as GooglePlacesService;
 
-  const result = await geocodingService.searchNearby(
+  const result = await placesService.searchNearby(
     lat,
     lng,
     radius,

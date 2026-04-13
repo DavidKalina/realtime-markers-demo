@@ -18,10 +18,6 @@ export interface GenerateFearLadderResult {
   dimensions: string[];
 }
 
-interface FearLadderGenerationServiceDeps {
-  openAIService: OpenAIService;
-}
-
 const SYSTEM_PROMPT = `You are designing a personalized fear ladder for a social-life-building app. The user is trying to build a social life from scratch, and you need to create 10 scenarios that represent steps of increasing social challenge.
 
 Each scenario should be a concrete, real-world social action — something specific and observable, not vague or abstract.
@@ -85,98 +81,89 @@ const TOOL_DEFINITION = {
   },
 };
 
-export class FearLadderGenerationService {
-  private openAIService: OpenAIService;
+export async function generateFearLadder(openAIService: OpenAIService, input: GenerateFearLadderInput): Promise<GenerateFearLadderResult> {
+  const userMessage = buildUserMessage(input);
 
-  constructor(deps: FearLadderGenerationServiceDeps) {
-    this.openAIService = deps.openAIService;
+  const response = await openAIService.executeChatCompletion({
+    model: OpenAIModel.GPT4OMini,
+    temperature: 0.7,
+    max_tokens: 1500,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: userMessage },
+    ],
+    tools: [TOOL_DEFINITION],
+    tool_choice: { type: "function", function: { name: "submit_fear_ladder" } },
+  }, "fear_ladder_generation");
+
+  const toolCall = response.choices[0]?.message?.tool_calls?.[0] as
+    | { type: "function"; function: { name: string; arguments: string } }
+    | undefined;
+  if (!toolCall || toolCall.function.name !== "submit_fear_ladder") {
+    throw new Error("LLM did not return a valid fear ladder tool call");
   }
 
-  async generateFearLadder(input: GenerateFearLadderInput): Promise<GenerateFearLadderResult> {
-    const userMessage = this.buildUserMessage(input);
+  const parsed = JSON.parse(toolCall.function.arguments) as {
+    dimensions: string[];
+    scenarios: { id: string; text: string; dimension: string }[];
+  };
 
-    const response = await this.openAIService.executeChatCompletion({
-      model: OpenAIModel.GPT4OMini,
-      temperature: 0.7,
-      max_tokens: 1500,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userMessage },
-      ],
-      tools: [TOOL_DEFINITION],
-      tool_choice: { type: "function", function: { name: "submit_fear_ladder" } },
-    }, "fear_ladder_generation");
+  validateFearLadder(parsed);
 
-    const toolCall = response.choices[0]?.message?.tool_calls?.[0] as
-      | { type: "function"; function: { name: string; arguments: string } }
-      | undefined;
-    if (!toolCall || toolCall.function.name !== "submit_fear_ladder") {
-      throw new Error("LLM did not return a valid fear ladder tool call");
-    }
+  return {
+    scenarios: parsed.scenarios,
+    dimensions: parsed.dimensions,
+  };
+}
 
-    const parsed = JSON.parse(toolCall.function.arguments) as {
-      dimensions: string[];
-      scenarios: { id: string; text: string; dimension: string }[];
-    };
+function buildUserMessage(input: GenerateFearLadderInput): string {
+  const parts: string[] = [];
 
-    this.validate(parsed);
+  parts.push(`PRIMARY GOAL: "${input.primaryGoal}"`);
 
-    return {
-      scenarios: parsed.scenarios,
-      dimensions: parsed.dimensions,
-    };
+  if (input.goals.length > 0) {
+    parts.push(`Supporting goals: ${input.goals.join(", ")}`);
   }
 
-  private buildUserMessage(input: GenerateFearLadderInput): string {
-    const parts: string[] = [];
-
-    parts.push(`PRIMARY GOAL: "${input.primaryGoal}"`);
-
-    if (input.goals.length > 0) {
-      parts.push(`Supporting goals: ${input.goals.join(", ")}`);
-    }
-
-    if (input.barriers.length > 0) {
-      parts.push(`Barriers they face: ${input.barriers.join(", ")}`);
-    }
-
-    if (input.activities.length > 0) {
-      parts.push(`Activities they enjoy: ${input.activities.join(", ")}`);
-    }
-
-    parts.push(
-      "\nGenerate a personalized fear ladder with 10 scenarios across 5 dimensions that are specifically relevant to achieving this goal. Use the submit_fear_ladder tool.",
-    );
-
-    return parts.join("\n");
+  if (input.barriers.length > 0) {
+    parts.push(`Barriers they face: ${input.barriers.join(", ")}`);
   }
 
-  private validate(result: { dimensions: string[]; scenarios: { id: string; text: string; dimension: string }[] }): void {
-    if (result.dimensions.length !== 5) {
-      throw new Error(`Expected 5 dimensions, got ${result.dimensions.length}`);
-    }
+  if (input.activities.length > 0) {
+    parts.push(`Activities they enjoy: ${input.activities.join(", ")}`);
+  }
 
-    if (result.scenarios.length !== 10) {
-      throw new Error(`Expected 10 scenarios, got ${result.scenarios.length}`);
-    }
+  parts.push(
+    "\nGenerate a personalized fear ladder with 10 scenarios across 5 dimensions that are specifically relevant to achieving this goal. Use the submit_fear_ladder tool.",
+  );
 
-    const ids = new Set(result.scenarios.map((s) => s.id));
-    if (ids.size !== 10) {
-      throw new Error("Scenario IDs are not unique");
-    }
+  return parts.join("\n");
+}
 
-    for (const scenario of result.scenarios) {
-      if (!result.dimensions.includes(scenario.dimension)) {
-        throw new Error(`Scenario "${scenario.id}" references unknown dimension "${scenario.dimension}"`);
-      }
-    }
+function validateFearLadder(result: { dimensions: string[]; scenarios: { id: string; text: string; dimension: string }[] }): void {
+  if (result.dimensions.length !== 5) {
+    throw new Error(`Expected 5 dimensions, got ${result.dimensions.length}`);
+  }
 
-    for (const dim of result.dimensions) {
-      const count = result.scenarios.filter((s) => s.dimension === dim).length;
-      if (count !== 2) {
-        throw new Error(`Dimension "${dim}" has ${count} scenarios, expected 2`);
-      }
+  if (result.scenarios.length !== 10) {
+    throw new Error(`Expected 10 scenarios, got ${result.scenarios.length}`);
+  }
+
+  const ids = new Set(result.scenarios.map((s) => s.id));
+  if (ids.size !== 10) {
+    throw new Error("Scenario IDs are not unique");
+  }
+
+  for (const scenario of result.scenarios) {
+    if (!result.dimensions.includes(scenario.dimension)) {
+      throw new Error(`Scenario "${scenario.id}" references unknown dimension "${scenario.dimension}"`);
+    }
+  }
+
+  for (const dim of result.dimensions) {
+    const count = result.scenarios.filter((s) => s.dimension === dim).length;
+    if (count !== 2) {
+      throw new Error(`Dimension "${dim}" has ${count} scenarios, expected 2`);
     }
   }
 }
-

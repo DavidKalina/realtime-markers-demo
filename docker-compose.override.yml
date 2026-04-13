@@ -1,7 +1,13 @@
 # Dev overrides — auto-loaded by `docker compose up`
-# Mounts source code and enables hot reload via `bun --watch`
+# Mounts source code, enables hot reload, disables Traefik, exposes ports directly
 services:
+  traefik:
+    profiles: ["never"] # Disabled in dev — access backend directly on :3000
+
   backend:
+    ports:
+      - "3000:3000"
+    labels: []
     volumes:
       - ./apps/backend:/app/apps/backend
       - ./packages/database:/app/packages/database
@@ -17,3 +23,10 @@ services:
       - /app/packages/database/node_modules
     command: ["bun", "--watch", "run", "/app/apps/backend/worker.ts"]
 
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
