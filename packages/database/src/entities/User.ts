@@ -107,14 +107,9 @@ export class User {
   @OneToMany("UserPushToken", "user")
   pushTokens!: Relation<UserPushToken>[];
 
-  @Column({ name: "preference_embedding", type: "text", nullable: true })
-  preferenceEmbedding?: string;
-
   @Column({ name: "onboarding_profile", type: "jsonb", nullable: true })
   onboardingProfile?: {
     activities: string[];
-    vibes: string[];
-    idealDay: string;
     pace: string;
   };
 
@@ -196,6 +191,9 @@ export class User {
     lookingFor: string[];
     workSituation: string;
     livingSituation: string;
+    dailyRoutine?: string;
+    transportation?: string;
+    budget?: string;
   };
 
   @Column({ name: "active_sidequest_id", type: "uuid", nullable: true })

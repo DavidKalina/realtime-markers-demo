@@ -125,7 +125,7 @@ export class MultiAgentStrategy implements PrescriptionStrategy {
     if (onProgress) await onProgress(10, "Planning your quest strategy...");
 
     const brief = await this.runStrategist(input);
-    console.log(`[multi-agent] Strategist: ${brief.experienceType} (${brief.suggestedCategories.join(", ")}), target=${brief.targetCity}, difficulty ${brief.difficultyRange[0]}-${brief.difficultyRange[1]}, social=${brief.socialChallengeLevel}`);
+    console.log(`[multi-agent] Strategist: ${brief.experienceType} (${brief.suggestedCategories.join(", ")}), target=${brief.targetCity}, difficulty ${brief.difficultyRange[0]}-${brief.difficultyRange[1]}, social=${brief.socialChallengeLevel}, timing=${brief.suggestedTiming}`);
 
     // ── 2. Scout + Validator loop ──────────────────────────
     let scoutResult: ScoutResult | null = null;
@@ -189,6 +189,7 @@ USER PROFILE:
 - Comfort radius: ${ctx.radius.toFixed(1)} miles
 - Pace: ${ctx.pace}
 ${ctx.user.comfortProfile?.primaryGoal ? `- Goal: "${ctx.user.comfortProfile.primaryGoal}"` : ""}
+${ctx.user.comfortProfile?.targetDate ? `- Target date: ${ctx.user.comfortProfile.targetDate}${ctx.user.comfortProfile?.goalLocation ? ` (${ctx.user.comfortProfile.goalLocation})` : ""} — pace quests toward readiness by this deadline` : ctx.user.comfortProfile?.goalLocation ? `- Goal location: ${ctx.user.comfortProfile.goalLocation}` : ""}
 ${ctx.user.comfortProfile?.barriers ? `- Barriers: "${ctx.user.comfortProfile.barriers}"` : ""}
 ${ctx.user.comfortProfile?.northStar ? `- North star: "${ctx.user.comfortProfile.northStar}"` : ""}
 ${ctx.user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${ctx.user.onboardingProfile.activities.join(", ")}` : ""}
@@ -216,7 +217,7 @@ CRITICAL — RECURRING BLOCKER OVERRIDE:
 ${ctx.blockerContext}
 The blocker context above TAKES PRIORITY over normal progression. Do NOT prescribe experiences that require the blocked action as a primary objective. Instead, prescribe experiences that build toward it indirectly — the user needs wins, not more failures. Set socialChallengeLevel to "none" or "low" and focus on activities where the blocked action might happen naturally but is NOT required.
 ` : ""}
-GEOGRAPHIC INTELLIGENCE:
+GEOGRAPHIC & PRACTICAL INTELLIGENCE:
 You must think about WHERE this person should go, not just WHAT they should do. Consider:
 - Their home town's population, demographics, and what's realistically available there.
 - Small towns (under 20K) have limited social infrastructure — coffee shops, a rec center, maybe a brewery. If their goal requires meeting new people, dating, or finding community, they WILL need to venture to larger nearby cities.
@@ -224,6 +225,20 @@ You must think about WHERE this person should go, not just WHAT they should do. 
 - Think about what cities within 30-40 miles have the density, scene, and demographics to support their goal. A 25-year-old looking for friends and dates in a retirement community won't find them no matter how many quests they do there.
 - The user's comfort radius (${ctx.radius.toFixed(1)} mi) represents how far they've gone — not how far they SHOULD go. If they're ready, push past it. A quest in a new city is both a geographic AND a social stretch.
 - Name a specific city or area to search in when relevant (e.g. "Search in Longmont" or "Search in Boulder's Pearl Street area").
+- TRANSPORTATION: If they don't have a car, keep quests reachable by their transport mode. Don't send a transit rider 30 miles to a trailhead with no bus route.
+- BUDGET: Respect their spending comfort. If they said "free only," don't prescribe a $40 pottery class. If budget is flexible, you can suggest paid experiences freely.
+- SCHEDULE: Match quest timing to their availability. Shift workers need flexible-hour venues, not 9am weekday classes.
+
+CURRENT TIME & DAY:
+- It is currently ${ctx.hour}:00 on ${ctx.dayOfWeek}.
+- The quest will be done TODAY or in the NEXT FEW DAYS. Factor in realistic timing:
+  - If the user has a 9-to-5 schedule and it's a weekday, suggest EVENING activities (after 5:30pm) or plan for the upcoming weekend.
+  - If it's a weekend, they have all day — mornings and afternoons are fair game.
+  - Coffee shops are morning/afternoon venues (typically close by 5-6pm). Do NOT suggest coffee shops for evening quests.
+  - Bars, breweries, restaurants, music venues, karaoke — these are evening-appropriate.
+  - Classes, workshops, rec center activities — check if they're typically offered at the suggested time.
+  - Trails/parks — consider daylight. Don't suggest a hike at 8pm in winter.
+- Be SPECIFIC about timing in your suggestedTiming field: "weekday evening after 6pm", "this Saturday morning", "Sunday afternoon", etc.
 
 Think holistically about this person:
 - What would a thoughtful friend who knows the whole Front Range suggest?
@@ -232,7 +247,7 @@ ${ctx.blockerContext ? `- They have a RECURRING BLOCKER. Do NOT push the blocked
 - Are they stuck in a geographic or activity pattern that needs breaking?
 - POTENTIAL REGULARS: If the history shows anchor venues (marked with ★), they're places the user enjoyed. You MAY suggest a return visit — but frame it as an invitation, not a pattern. The user hasn't said they want to be a regular anywhere yet. Use anchor venues when the strategy genuinely calls for deepening or when a return visit with a new angle (different time, social challenge, event) would be more valuable than a novel venue. Don't force it — mix return visits with exploration naturally.
 
-Respond with JSON:
+${ctx.siblingInstructions ? `${ctx.siblingInstructions}\n` : ""}Respond with JSON:
 {
   "experienceType": "<what kind of experience, e.g. 'hands-on creative workshop with strangers', 'casual trivia night at a brewery in a bigger city'>",
   "suggestedCategories": ["<2-3 specific venue categories to search for>"],
@@ -244,6 +259,7 @@ Respond with JSON:
   "preferredVenue": "<OPTIONAL — if returning to an anchor venue, put its exact name here so the Scout can verify it. Otherwise null>",
   "avoidVenues": ["<venue names to avoid from history>"],
   "avoidCategories": ["<categories that are overrepresented>"],
+  "suggestedTiming": "<when to do this quest — be specific, e.g. 'weekday evening after 6pm', 'Saturday morning', 'Sunday afternoon'. Factor in user's schedule and venue hours>",
   "rationale": "<1-2 sentences explaining WHY this is the right next step, including why this location>"
 }`;
 
@@ -274,6 +290,7 @@ Respond with JSON:
       preferredVenue: parsed.preferredVenue ?? undefined,
       avoidVenues: parsed.avoidVenues ?? [],
       avoidCategories: parsed.avoidCategories ?? [],
+      suggestedTiming: parsed.suggestedTiming ?? "",
       rationale: parsed.rationale ?? "",
     };
   }
@@ -298,6 +315,7 @@ STRATEGY:
 - Target city/area: ${brief.targetCity}
 - Max distance: ${brief.maxDistanceMiles.toFixed(1)} miles from user's home
 - Social challenge: ${brief.socialChallengeLevel}
+- Suggested timing: ${brief.suggestedTiming || "flexible"} — find venues that are OPEN and active at this time
 - Rationale: ${brief.rationale}
 
 USER HOME: ${input.city} (${input.searchLat.toFixed(4)}, ${input.searchLng.toFixed(4)})
@@ -579,6 +597,7 @@ Write like that friend, not a therapist or a GPS app.
 
 USER:
 ${ctx.user.comfortProfile?.primaryGoal ? `- Goal: "${ctx.user.comfortProfile.primaryGoal}"` : ""}
+${ctx.user.comfortProfile?.targetDate ? `- Target date: ${ctx.user.comfortProfile.targetDate}${ctx.user.comfortProfile?.goalLocation ? ` (${ctx.user.comfortProfile.goalLocation})` : ""}` : ctx.user.comfortProfile?.goalLocation ? `- Goal location: ${ctx.user.comfortProfile.goalLocation}` : ""}
 ${ctx.user.comfortProfile?.barriers ? `- Barriers: "${ctx.user.comfortProfile.barriers}"` : ""}
 ${ctx.user.comfortProfile?.northStar ? `- North star: "${ctx.user.comfortProfile.northStar}"` : ""}
 - Pace: ${ctx.pace}
@@ -587,6 +606,7 @@ ${ctx.user.onboardingProfile?.activities?.length ? `- Interests: ${ctx.user.onbo
 STRATEGY CONTEXT:
 - Experience type: ${brief.experienceType}
 - Social challenge: ${brief.socialChallengeLevel}
+- Suggested timing: ${brief.suggestedTiming || "flexible"}
 - Rationale: ${brief.rationale}
 ${ctx.blockerContext ? `
 BLOCKER CONTEXT — READ THIS CAREFULLY:

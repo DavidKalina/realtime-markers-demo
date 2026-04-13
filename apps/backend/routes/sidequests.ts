@@ -14,6 +14,8 @@ import {
   completeChallengeHandler,
   rateSidequestHandler,
   listCompletedHandler,
+  listUnratedHandler,
+  listPendingCaptureHandler,
   browseSidequestsHandler,
   getDeckStatsHandler,
   promoteSidequestHandler,
@@ -30,9 +32,6 @@ import {
   generateBarriersHandler,
   assessGoalHandler,
   refineGoalHandler,
-  goalCheckInHandler,
-  goalPacingHandler,
-  saveGoalReflectionHandler,
 } from "../handlers/sidequestHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -64,6 +63,8 @@ const writeRateLimit = rateLimit({
 
 sidequestRouter.get("/", readRateLimit, listSidequestsHandler);
 sidequestRouter.get("/completed", readRateLimit, listCompletedHandler);
+sidequestRouter.get("/unrated", readRateLimit, listUnratedHandler);
+sidequestRouter.get("/pending-capture", readRateLimit, listPendingCaptureHandler);
 sidequestRouter.get("/active", readRateLimit, getActiveSidequestHandler);
 sidequestRouter.get("/browse", readRateLimit, browseSidequestsHandler);
 sidequestRouter.get("/search", readRateLimit, searchSidequestsHandler);
@@ -94,9 +95,6 @@ sidequestRouter.post("/generate-fear-ladder", writeRateLimit, generateFearLadder
 sidequestRouter.post("/generate-barriers", writeRateLimit, generateBarriersHandler);
 sidequestRouter.post("/assess-goal", writeRateLimit, assessGoalHandler);
 sidequestRouter.post("/refine-goal", writeRateLimit, refineGoalHandler);
-sidequestRouter.get("/goal-check-in", readRateLimit, goalCheckInHandler);
-sidequestRouter.get("/goal-pacing", readRateLimit, goalPacingHandler);
-sidequestRouter.post("/goal-reflection", writeRateLimit, saveGoalReflectionHandler);
 sidequestRouter.put("/comfort-profile", writeRateLimit, updateComfortProfileHandler);
 sidequestRouter.put(
   "/objectives/:objectiveId/journal",

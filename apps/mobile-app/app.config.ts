@@ -26,17 +26,17 @@ export default {
         CFBundleDisplayName: "Sidequests",
         ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription:
-          "Realtime Markers uses your location while the app is in use to center the map on your current position and improve address search results when scanning event flyers. Coordinates are sent to our server for better relevance.",
+          "Sidequests uses your location to find nearby places for your adventures and track your progress on active quests.",
         NSLocationAlwaysAndWhenInUseUsageDescription:
-          "Realtime Markers may access your location in the background to support location-based flyer scanning and event discovery. Your coordinates are securely sent to our server to improve results.",
+          "Sidequests may access your location in the background to notify you when you're near a quest objective.",
         NSLocationAlwaysUsageDescription:
-          "Realtime Markers may access your location in the background to support location-based flyer scanning and event discovery. Your coordinates are securely sent to our server to improve results.",
+          "Sidequests may access your location in the background to notify you when you're near a quest objective.",
         NSCalendarsUsageDescription:
           "Sidequests can add your planned adventures to your calendar so you never miss an outing.",
         NSCalendarsWriteOnlyAccessUsageDescription:
           "Sidequests can add your planned adventures to your calendar so you never miss an outing.",
         NSCameraUsageDescription:
-          "Realtime Markers needs camera access to scan event flyers. Images are processed on our server and may be stored to display event details to other users.",
+          "Sidequests uses your camera to capture photos during your adventures.",
         NSAppTransportSecurity: {
           NSAllowsArbitraryLoads: false,
         },
@@ -94,7 +94,7 @@ export default {
         "expo-image-picker",
         {
           photosPermission:
-            "The app accesses your photos to let you upload them to save events.",
+            "Sidequests accesses your photos to let you add images to your adventures.",
         },
       ],
       [
@@ -117,7 +117,7 @@ export default {
         "expo-camera",
         {
           cameraPermission:
-            "Allow $(PRODUCT_NAME) to access your camera to take photos of event flyers",
+            "Allow $(PRODUCT_NAME) to access your camera to capture photos during adventures",
           recordAudioAndroid: false,
         },
       ],

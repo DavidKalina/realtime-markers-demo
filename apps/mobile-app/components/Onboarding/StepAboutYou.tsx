@@ -6,6 +6,9 @@ import {
   TIME_IN_AREA_OPTIONS,
   WORK_OPTIONS,
   LIVING_OPTIONS,
+  ROUTINE_OPTIONS,
+  TRANSPORT_OPTIONS,
+  BUDGET_OPTIONS,
 } from "./constants";
 import { StepLayout, NextButton } from "./shared";
 import { fontFamily, fontWeight, spacing, useColors } from "@/theme";
@@ -100,6 +103,9 @@ export interface SocialSituation {
   timeInArea: string;
   workSituation: string;
   livingSituation: string;
+  dailyRoutine?: string;
+  transportation?: string;
+  budget?: string;
 }
 
 export function StepAboutYou({
@@ -164,6 +170,24 @@ export function StepAboutYou({
           options={LIVING_OPTIONS}
           selected={situation.livingSituation}
           onSelect={(v) => onUpdate("livingSituation", v)}
+        />
+        <ChipRow
+          label="Schedule"
+          options={ROUTINE_OPTIONS}
+          selected={situation.dailyRoutine ?? ""}
+          onSelect={(v) => onUpdate("dailyRoutine", v)}
+        />
+        <ChipRow
+          label="Getting around"
+          options={TRANSPORT_OPTIONS}
+          selected={situation.transportation ?? ""}
+          onSelect={(v) => onUpdate("transportation", v)}
+        />
+        <ChipRow
+          label="Quest budget"
+          options={BUDGET_OPTIONS}
+          selected={situation.budget ?? ""}
+          onSelect={(v) => onUpdate("budget", v)}
         />
       </ScrollView>
     </StepLayout>

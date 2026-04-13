@@ -73,6 +73,8 @@ export interface StrategyBrief {
   preferredVenue?: string;
   avoidVenues: string[];
   avoidCategories: string[];
+  /** When to do this quest, e.g. "weekday evening after work", "Saturday morning" */
+  suggestedTiming: string;
   rationale: string;
 }
 

@@ -12,4 +12,3 @@ export * from "./CoverageCluster";
 export * from "./CoverageSnapshot";
 
 export * from "./Pathway";
-export * from "./GoalReflection";

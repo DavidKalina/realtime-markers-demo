@@ -288,6 +288,22 @@ export class SidequestsModule extends BaseApiModule {
     return this.handleResponse<{ data: SidequestResponse[] }>(response);
   }
 
+  async listUnrated(limit = 5): Promise<{ data: SidequestResponse[] }> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/unrated?${params}`,
+    );
+    return this.handleResponse<{ data: SidequestResponse[] }>(response);
+  }
+
+  async listPendingCapture(limit = 3): Promise<{ data: SidequestResponse[] }> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    const response = await this.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/pending-capture?${params}`,
+    );
+    return this.handleResponse<{ data: SidequestResponse[] }>(response);
+  }
+
   async browse(
     city: string,
     options?: {
@@ -482,7 +498,7 @@ export class SidequestsModule extends BaseApiModule {
     comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[]; northStar?: string; primaryGoal?: string; targetDate?: string; goalLocation?: string };
     fearLadder?: { overallScore: number; dimensionScores: Record<string, number>; responses: Record<string, number>; scenarios?: { id: string; text: string; dimension: string }[]; dimensions?: string[] };
     onboardingProfile?: { activities: string[] };
-    socialSituation?: { ageRange: string; gender: string; timeInArea: string; currentSocialLife: string; lookingFor: string[]; workSituation: string; livingSituation: string };
+    socialSituation?: { ageRange: string; gender: string; timeInArea: string; currentSocialLife: string; lookingFor: string[]; workSituation: string; livingSituation: string; dailyRoutine?: string; transportation?: string; budget?: string };
   }): Promise<ComfortZoneResponse> {
     const response = await this.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/comfort-profile`,
@@ -535,52 +551,6 @@ export class SidequestsModule extends BaseApiModule {
     return this.handleResponse<{ success: boolean }>(response);
   }
 
-  async getGoalCheckIn(): Promise<{
-    isDue: boolean;
-    milestone: "early_momentum" | "midpoint" | "approaching" | "final_stretch" | "target_reached" | null;
-    journalPrompt: string | null;
-  }> {
-    const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests/goal-check-in`,
-      { method: "GET" },
-    );
-    return this.handleResponse(response);
-  }
-
-  async saveGoalReflection(params: {
-    milestone: string;
-    journalEntry: string;
-    journalPrompt?: string;
-    percentElapsed?: number;
-    remainingDays?: number;
-    completedQuestCount?: number;
-  }): Promise<{ id: string }> {
-    const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests/goal-reflection`,
-      {
-        method: "POST",
-        body: JSON.stringify(params),
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-    return this.handleResponse(response);
-  }
-
-  async getGoalPacing(): Promise<{
-    hasTimeline: boolean;
-    percentElapsed?: number;
-    remainingDays?: number;
-    totalDays?: number;
-    milestone?: string | null;
-    completedQuestCount?: number;
-    isPast?: boolean;
-  }> {
-    const response = await this.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests/goal-pacing`,
-      { method: "GET" },
-    );
-    return this.handleResponse(response);
-  }
 }
 
 // Backward-compat aliases for files still using old names

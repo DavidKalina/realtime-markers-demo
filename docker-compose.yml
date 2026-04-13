@@ -149,13 +149,6 @@ services:
       - DO_SPACE_ACCESS_KEY=${DO_SPACE_ACCESS_KEY}
       - DO_SPACE_SECRET_KEY=${DO_SPACE_SECRET_KEY}
       - DO_SPACE_PUBLIC_URL=${DO_SPACE_PUBLIC_URL:-https://nyc3.digitaloceanspaces.com}
-      # Ticketmaster event import
-      - TICKETMASTER_API_KEY=${TICKETMASTER_API_KEY:-}
-      - IMPORT_LATITUDE=${IMPORT_LATITUDE:-}
-      - IMPORT_LONGITUDE=${IMPORT_LONGITUDE:-}
-      - IMPORT_RADIUS_KM=${IMPORT_RADIUS_KM:-50}
-      - IMPORT_INTERVAL_HOURS=${IMPORT_INTERVAL_HOURS:-6}
-      - DISABLE_EVENT_IMPORT=${DISABLE_EVENT_IMPORT:-false}
       # Email (Resend)
       - RESEND_API_KEY=${RESEND_API_KEY:-}
       - EMAIL_FROM=${EMAIL_FROM:-noreply@mail.davidkalina.com}
@@ -222,13 +215,6 @@ services:
       - DO_SPACE_ACCESS_KEY=${DO_SPACE_ACCESS_KEY}
       - DO_SPACE_SECRET_KEY=${DO_SPACE_SECRET_KEY}
       - DO_SPACE_PUBLIC_URL=${DO_SPACE_PUBLIC_URL:-https://nyc3.digitaloceanspaces.com}
-      # Ticketmaster event import
-      - TICKETMASTER_API_KEY=${TICKETMASTER_API_KEY:-}
-      - IMPORT_LATITUDE=${IMPORT_LATITUDE:-}
-      - IMPORT_LONGITUDE=${IMPORT_LONGITUDE:-}
-      - IMPORT_RADIUS_KM=${IMPORT_RADIUS_KM:-50}
-      - IMPORT_INTERVAL_HOURS=${IMPORT_INTERVAL_HOURS:-6}
-      - DISABLE_EVENT_IMPORT=${DISABLE_EVENT_IMPORT:-false}
     networks:
       - marker-network
     depends_on:

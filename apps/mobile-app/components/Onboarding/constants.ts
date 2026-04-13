@@ -72,6 +72,29 @@ export const LIVING_OPTIONS = [
   { key: "partner", label: "Partner" },
 ];
 
+export const ROUTINE_OPTIONS = [
+  { key: "nine_to_five", label: "9-to-5" },
+  { key: "flexible", label: "Flexible hours" },
+  { key: "shift_work", label: "Shift work" },
+  { key: "nights_weekends", label: "Free nights & weekends" },
+  { key: "unpredictable", label: "Unpredictable" },
+];
+
+export const TRANSPORT_OPTIONS = [
+  { key: "car", label: "Car" },
+  { key: "transit", label: "Transit" },
+  { key: "bike", label: "Bike" },
+  { key: "walk", label: "Walk" },
+  { key: "rideshare", label: "Rideshare" },
+];
+
+export const BUDGET_OPTIONS = [
+  { key: "free_only", label: "Free stuff only" },
+  { key: "low", label: "Under $20" },
+  { key: "moderate", label: "$20\u2013$50" },
+  { key: "flexible", label: "Not worried about it" },
+];
+
 // ── Activity options ────────────────────────────────────────
 
 export const ACTIVITY_OPTIONS = [

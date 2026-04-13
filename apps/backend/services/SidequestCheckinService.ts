@@ -47,6 +47,8 @@ export interface SidequestCheckinService {
     objectiveId: string,
   ): Promise<{ success: boolean; checkedInAt?: Date }>;
   getActiveSidequest(userId: string): Promise<Sidequest | null>;
+  /** Check deck count and generate a replacement quest if below target */
+  replenishDeck(userId: string): Promise<void>;
 }
 
 interface SidequestCheckinServiceDeps {
@@ -345,29 +347,36 @@ class SidequestCheckinServiceImpl implements SidequestCheckinService {
     });
   }
 
+  async replenishDeck(userId: string): Promise<void> {
+    this.checkAndAutoPrescribe(userId).catch((err) => {
+      console.error("[SidequestCheckin] Deck replenish failed:", err);
+    });
+  }
+
   private async checkAndAutoPrescribe(userId: string): Promise<void> {
     if (!this.jobQueue) return;
 
     const client = this.redisService.getClient();
     const lockKey = `auto-prescribe:${userId}`;
 
-    // Prevent duplicate triggers with a 5-minute lock
-    const acquired = await client.set(lockKey, "1", "EX", 300, "NX");
+    // Prevent duplicate triggers with a 3-minute lock
+    const acquired = await client.set(lockKey, "1", "EX", 180, "NX");
     if (!acquired) return;
 
     try {
-      // Check if user has any remaining READY, non-completed quests
+      // Count remaining READY, non-completed quests in deck
       const remaining = await this.dataSource.getRepository(Sidequest).count({
         where: {
           userId,
           status: SidequestStatus.READY,
           completedAt: IsNull(),
+          parentId: IsNull(),
         },
       });
 
-      if (remaining > 0) return;
+      if (remaining >= 5) return;
 
-      // No quests left — fetch user's home location and prescribe next batch
+      // Fetch user's home location for quest generation
       const user = await this.dataSource.getRepository(User).findOne({
         where: { id: userId },
         select: ["id", "homeLatitude", "homeLongitude"],
@@ -375,7 +384,8 @@ class SidequestCheckinServiceImpl implements SidequestCheckinService {
 
       if (!user?.homeLatitude || !user?.homeLongitude) return;
 
-      const jobId = await this.jobQueue.enqueue("prescribe_week_pack", {
+      // Generate a single replacement quest (not a full pack)
+      const jobId = await this.jobQueue.enqueue("prescribe_quest", {
         userId,
         creatorId: userId,
         latitude: Number(user.homeLatitude),
@@ -383,19 +393,9 @@ class SidequestCheckinServiceImpl implements SidequestCheckinService {
       });
 
       console.log(
-        `[SidequestCheckin] Auto-prescribed week pack for user ${userId}, jobId=${jobId}`,
+        `[SidequestCheckin] Auto-prescribed replacement quest for user ${userId} ` +
+        `(deck: ${remaining}/${5}), jobId=${jobId}`,
       );
-
-      // Notify user that new quests are being crafted
-      await this.pushService.sendToUser(userId, {
-        title: "New quests incoming!",
-        body: "Your next adventures are being crafted...",
-        sound: "default",
-        data: {
-          type: "week_pack_generating",
-          jobId,
-        },
-      });
     } catch (err) {
       // Release lock on failure so it can be retried
       await client.del(lockKey);

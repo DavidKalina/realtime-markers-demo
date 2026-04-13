@@ -16,6 +16,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useState,
 } from "react";
 import {
   ActivityIndicator,
@@ -40,22 +41,22 @@ import Screen from "../Layout/Screen";
 import { useUserLocation } from "@/contexts/LocationContext";
 
 import ActiveQuestBanner from "./ActiveQuestBanner";
+import DeckHandSection from "./DeckHandSection";
+import PendingReflectionCard from "./PendingReflectionCard";
+import PendingCaptureCard from "./PendingCaptureCard";
 import { SettingsSection } from "./SettingsSection";
 import AIFocusCard from "./AIFocusCard";
-import CalibratingCard from "./CalibratingCard";
+import JourneyCard from "./JourneyCard";
 import SectionMark from "./SectionMark";
+import { useJobProgressContext } from "@/contexts/JobProgressContext";
+import type { SidequestResponse } from "@/services/api/modules/sidequests";
 
 // Growth dashboard components
 import GrowthScoreHero from "./GrowthScoreHero";
 import GrowthArc from "./GrowthArc";
 import SelfInsight from "./SelfInsight";
 import PathwayMomentum from "./PathwayMomentum";
-import BlindSpotCard from "./BlindSpotCard";
-import ExplorationCompass from "./ExplorationCompass";
 import SocialLadder from "./SocialLadder";
-import ComfortExpansion from "./ComfortExpansion";
-import PerceivedFearMeter from "./PerceivedFearMeter";
-import NorthStarCard from "./NorthStarCard";
 
 // ── Ambient glow background ──────────────────────────────
 
@@ -192,6 +193,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
   const { data: insights, refetch: refetchInsights } = useProfileInsights();
   const { data: dashboard, refetch: refetchDashboard } = useGrowthDashboard();
+  const { isGenerating, stepLabel } = useJobProgressContext();
 
   // Merge API social growth data with default rungs so all 4 always show
   const socialData = useMemo(() => {
@@ -203,6 +205,39 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   // Home base
   const { userLocation } = useUserLocation();
   const homeSet = user?.homeLatitude != null;
+
+  // Deck — all unplayed quests in the user's hand
+  const [deckQuests, setDeckQuests] = useState<SidequestResponse[]>([]);
+  const activeItinerary = useActiveItineraryStore((s) => s.itinerary);
+
+  // Pending reflections — completed but unrated quests
+  const [unratedQuests, setUnratedQuests] = useState<SidequestResponse[]>([]);
+
+  // Pending capture — checked in but skipped the reflection modal
+  const [pendingCaptures, setPendingCaptures] = useState<SidequestResponse[]>([]);
+
+  const fetchDashboardQuests = useCallback(async () => {
+    // Fetch deck, unrated, and pending capture independently so one
+    // failing (e.g. new endpoint not deployed yet) doesn't block the others
+    const [listRes, unratedRes, captureRes] = await Promise.allSettled([
+      apiClient.sidequests.list(10, undefined, { status: "upcoming" }),
+      apiClient.sidequests.listUnrated(3),
+      apiClient.sidequests.listPendingCapture(2),
+    ]);
+    if (listRes.status === "fulfilled") {
+      setDeckQuests(listRes.value.data ?? []);
+    }
+    if (unratedRes.status === "fulfilled") {
+      setUnratedQuests(unratedRes.value.data ?? []);
+    }
+    if (captureRes.status === "fulfilled") {
+      setPendingCaptures(captureRes.value.data ?? []);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardQuests();
+  }, [fetchDashboardQuests]);
 
   const handleUpdateHomeBase = useCallback(async () => {
     if (!userLocation) return;
@@ -221,9 +256,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       refetch(),
       refetchInsights(),
       refetchDashboard(),
+      fetchDashboardQuests(),
       useActiveItineraryStore.getState().refresh(),
     ]);
-  }, [refetch, refetchInsights, refetchDashboard]);
+  }, [refetch, refetchInsights, refetchDashboard, fetchDashboardQuests]);
 
   if (loading) {
     return (
@@ -238,7 +274,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   const gs = dashboard?.growthScore;
   const ga = dashboard?.growthArc;
   const si = dashboard?.selfInsight;
-  const ec = dashboard?.explorationCompass;
 
   // ── Progressive reveal tiers ──────────────────────────
   const completedQuests = ga?.completedQuests ?? 0;
@@ -281,13 +316,61 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           <ActiveQuestBanner />
         </ParallaxWidget>
 
-        {/* 1.5 AI Focus — what the AI is working on */}
+        {/* 1.5 Your Hand — show deck of quest cards */}
+        {deckQuests.length > 0 && (
+          <ParallaxWidget scrollY={scrollY} index={2} delay={100}>
+            <DeckHandSection
+              quests={deckQuests}
+              activeQuestId={activeItinerary?.id}
+            />
+          </ParallaxWidget>
+        )}
+
+        {/* 1.7 Pending Reflections — unrated completed quests */}
+        {unratedQuests.map((q, i) => (
+          <ParallaxWidget key={q.id} scrollY={scrollY} index={2} delay={120 + i * 60}>
+            <PendingReflectionCard
+              quest={q}
+              onRated={() => {
+                setUnratedQuests((prev) => prev.filter((uq) => uq.id !== q.id));
+                fetchDashboardQuests();
+              }}
+            />
+          </ParallaxWidget>
+        ))}
+
+        {/* 1.8 Pending Capture — checked in but skipped reflection */}
+        {pendingCaptures.map((q, i) => (
+          <ParallaxWidget key={`cap-${q.id}`} scrollY={scrollY} index={2} delay={140 + i * 60}>
+            <PendingCaptureCard quest={q} />
+          </ParallaxWidget>
+        ))}
+
+        {/* 2. Your Journey — goal, phase, tip, generating state */}
         <ParallaxWidget scrollY={scrollY} index={2} delay={120}>
+          <SectionMark
+            icon={"\u2B50"}
+            tint="rgba(251, 191, 36, 0.5)"
+            label="Your Journey"
+            side="right"
+          />
+          <JourneyCard
+            primaryGoal={profileData?.comfortProfile?.primaryGoal}
+            northStar={profileData?.comfortProfile?.northStar}
+            phase={ga?.phase ?? 0}
+            completedQuests={completedQuests}
+            isGenerating={isGenerating}
+            stepLabel={stepLabel}
+          />
+        </ParallaxWidget>
+
+        {/* 3. AI Focus — what the AI is working on */}
+        <ParallaxWidget scrollY={scrollY} index={3} delay={200}>
           <SectionMark
             icon={"\u2728"}
             tint="rgba(168, 85, 247, 0.5)"
             label="AI Focus"
-            side="right"
+            side="left"
           />
           <AIFocusCard
             summary={profileData?.aiFocus?.summary}
@@ -295,13 +378,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           />
         </ParallaxWidget>
 
-        {/* 2. Growth Score Hero */}
-        <ParallaxWidget scrollY={scrollY} index={2} delay={160}>
+        {/* 4. Growth Score Hero */}
+        <ParallaxWidget scrollY={scrollY} index={4} delay={280}>
           <SectionMark
             icon={"\uD83D\uDCCA"}
             tint="rgba(125, 211, 252, 0.5)"
             label="Growth"
-            side="left"
+            side="right"
             trailing={!hasTier1 ? "Calibrating" : undefined}
             trailingColor={colors.text.secondary}
           />
@@ -318,39 +401,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           />
         </ParallaxWidget>
 
-        {/* 3. North Star */}
-        {(profileData?.comfortProfile?.northStar || profileData?.comfortProfile?.primaryGoal) && (
-          <ParallaxWidget scrollY={scrollY} index={3} delay={240}>
-            <SectionMark
-              icon={"\u2B50"}
-              tint="rgba(251, 191, 36, 0.5)"
-              label="Your North Star"
-              side="right"
-            />
-            <NorthStarCard
-              northStar={profileData.comfortProfile.northStar}
-              primaryGoal={profileData.comfortProfile.primaryGoal}
-              targetDate={profileData.comfortProfile.targetDate}
-              goalLocation={profileData.comfortProfile.goalLocation}
-            />
-          </ParallaxWidget>
-        )}
-
-        {/* 4. Perceived Fear */}
-        {hasTier2 && profileData?.fearLadder && (
-          <ParallaxWidget scrollY={scrollY} index={4} delay={320}>
-            <SectionMark icon={"\uD83C\uDFA2"} tint="rgba(251, 146, 60, 0.5)" label="Perceived Fear" side="left" />
-            <PerceivedFearMeter
-              overallScore={profileData.fearLadder.overallScore}
-              dimensionScores={profileData.fearLadder.dimensionScores}
-            />
-          </ParallaxWidget>
-        )}
-
-        {/* 5. Growth Arc */}
+        {/* 5. Growth Arc — unlocks at tier 2 */}
         {hasTier2 && ga && (
-          <ParallaxWidget scrollY={scrollY} index={5} delay={400}>
-            <SectionMark icon={"\uD83D\uDCC8"} tint="rgba(52, 211, 153, 0.5)" label="Growth Arc" side="right" />
+          <ParallaxWidget scrollY={scrollY} index={5} delay={360}>
+            <SectionMark icon={"\uD83D\uDCC8"} tint="rgba(52, 211, 153, 0.5)" label="Growth Arc" side="left" />
             <GrowthArc
               phase={ga.phase}
               phaseReason={ga.phaseReason}
@@ -363,10 +417,10 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           </ParallaxWidget>
         )}
 
-        {/* 6. Self-Awareness */}
+        {/* 6. Self-Awareness — unlocks at tier 2 */}
         {hasTier2 && si && (
-          <ParallaxWidget scrollY={scrollY} index={6} delay={480}>
-            <SectionMark icon={"\uD83E\uDE9E"} tint="rgba(168, 85, 247, 0.5)" label="Self-Awareness" side="left" />
+          <ParallaxWidget scrollY={scrollY} index={6} delay={440}>
+            <SectionMark icon={"\uD83E\uDE9E"} tint="rgba(168, 85, 247, 0.5)" label="Self-Awareness" side="right" />
             <SelfInsight
               avgAnxietyDelta={si.avgAnxietyDelta}
               avgDifficultyDelta={si.avgDifficultyDelta}
@@ -377,80 +431,24 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           </ParallaxWidget>
         )}
 
-        {/* Calibrating card for tier 2 */}
-        {!hasTier2 && (
-          <ParallaxWidget scrollY={scrollY} index={4} delay={320}>
-            <SectionMark icon={"\uD83D\uDD2E"} tint="rgba(168, 85, 247, 0.5)" label="Growth Insights" side="right" />
-            <CalibratingCard
-              questsCompleted={completedQuests}
-              questsNeeded={TIER_2_QUESTS}
-              label="Growth Insights"
-            />
-          </ParallaxWidget>
-        )}
-
-        {/* 7. Pathway Momentum */}
+        {/* 7. Pathway Momentum — unlocks at tier 3 */}
         {hasTier3 && dashboard && dashboard.pathwayMomentum.length > 0 && (
-          <ParallaxWidget scrollY={scrollY} index={7} delay={560}>
+          <ParallaxWidget scrollY={scrollY} index={7} delay={520}>
             <SectionMark icon={"\uD83D\uDEE4\uFE0F"} tint="rgba(56, 189, 248, 0.5)" label="Pathways" side="left" />
             <PathwayMomentum pathways={dashboard.pathwayMomentum} />
           </ParallaxWidget>
         )}
 
-        {/* 8. Blind Spots */}
-        {hasTier3 && dashboard && dashboard.blindSpots.length > 0 && (
-          <ParallaxWidget scrollY={scrollY} index={8} delay={640}>
-            <SectionMark icon={"\uD83D\uDD0D"} tint="rgba(244, 114, 182, 0.5)" label="Blind Spots" side="right" />
-            <BlindSpotCard blindSpots={dashboard.blindSpots} />
-          </ParallaxWidget>
-        )}
-
-        {/* 9. Social Ladder */}
+        {/* 8. Social Ladder — unlocks at tier 3 */}
         {hasTier3 && (
-          <ParallaxWidget scrollY={scrollY} index={9} delay={720}>
-            <SectionMark icon={"\uD83D\uDC65"} tint="rgba(52, 211, 153, 0.5)" label="Social Growth" side="left" />
+          <ParallaxWidget scrollY={scrollY} index={8} delay={600}>
+            <SectionMark icon={"\uD83D\uDC65"} tint="rgba(52, 211, 153, 0.5)" label="Social Growth" side="right" />
             <SocialLadder data={socialData} />
           </ParallaxWidget>
         )}
 
-        {/* 10. Exploration Compass */}
-        {hasTier3 && ec && (
-          <ParallaxWidget scrollY={scrollY} index={10} delay={800}>
-            <SectionMark icon={"\uD83E\uDDED"} tint="rgba(125, 211, 252, 0.5)" label="Exploration" side="right" />
-            <ExplorationCompass
-              gaps={ec.gaps}
-              explorationProfile={ec.explorationProfile}
-              coveragePct={ec.coveragePct}
-              territorySqMiles={ec.territorySqMiles}
-              clusterCount={ec.clusterCount}
-            />
-          </ParallaxWidget>
-        )}
-
-        {/* 11. Comfort Expansion */}
-        {hasTier3 && (
-          <ParallaxWidget scrollY={scrollY} index={11} delay={880}>
-            <SectionMark icon={"\uD83C\uDF0A"} tint="rgba(56, 189, 248, 0.5)" label="Comfort Zone" side="left" />
-            <ComfortExpansion
-              currentRadiusMiles={profileData?.comfortRadiusMiles ?? 2.3}
-            />
-          </ParallaxWidget>
-        )}
-
-        {/* Calibrating card for tier 3 */}
-        {!hasTier3 && hasTier1 && (
-          <ParallaxWidget scrollY={scrollY} index={7} delay={560}>
-            <SectionMark icon={"\uD83E\uDDED"} tint="rgba(125, 211, 252, 0.5)" label="Exploration & Pathways" side="right" />
-            <CalibratingCard
-              questsCompleted={completedQuests}
-              questsNeeded={TIER_3_QUESTS}
-              label="Exploration & Pathways"
-            />
-          </ParallaxWidget>
-        )}
-
-        {/* 12. Settings */}
-        <ParallaxWidget scrollY={scrollY} index={12} delay={hasTier3 ? 960 : hasTier2 ? 560 : 400}>
+        {/* 9. Settings */}
+        <ParallaxWidget scrollY={scrollY} index={9} delay={hasTier3 ? 680 : hasTier2 ? 520 : 360}>
           <SectionMark icon={"\u2699\uFE0F"} tint="rgba(255, 255, 255, 0.3)" label="Settings" side="left" />
           <SettingsSection
             email={profileData?.email ?? ""}

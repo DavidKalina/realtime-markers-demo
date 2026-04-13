@@ -47,9 +47,6 @@ import { createBarrierGenerationService } from "./BarrierGenerationService";
 import type { BarrierGenerationService } from "./BarrierGenerationService";
 import { createGoalRefinementService } from "./GoalRefinementService";
 import type { GoalRefinementService } from "./GoalRefinementService";
-import { createPacingService } from "./PacingService";
-import type { PacingService } from "./PacingService";
-
 export interface ServiceContainer {
   dataSource: DataSource;
   storageService: StorageService;
@@ -73,7 +70,6 @@ export interface ServiceContainer {
   fearLadderGenerationService: FearLadderGenerationService;
   barrierGenerationService: BarrierGenerationService;
   goalRefinementService: GoalRefinementService;
-  pacingService: PacingService;
 }
 
 export class ServiceInitializer {
@@ -164,10 +160,6 @@ export class ServiceInitializer {
       pathwayService,
     });
 
-    const pacingService = createPacingService({
-      dataSource: this.dataSource,
-    });
-
     const sidequestPrescriptionService = createSidequestPrescriptionService({
       dataSource: this.dataSource,
       openAIService,
@@ -179,7 +171,6 @@ export class ServiceInitializer {
       coverageService,
       resonanceService,
       pathwayService,
-      pacingService,
       prescriptionModel: process.env.PRESCRIPTION_MODEL || undefined,
       promptVersion: process.env.PRESCRIPTION_PROMPT_VERSION || undefined,
       prescriptionStrategy: (process.env.PRESCRIPTION_STRATEGY as "monolithic" | "multi-agent") || undefined,
@@ -240,7 +231,6 @@ export class ServiceInitializer {
       fearLadderGenerationService,
       barrierGenerationService,
       goalRefinementService,
-      pacingService,
     };
   }
 }

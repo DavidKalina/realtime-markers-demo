@@ -62,6 +62,9 @@ export interface SidequestService {
   ): Promise<Sidequest | null>;
   countCreatedSince(userId: string, since: Date): Promise<number>;
   listCompleted(userId: string, limit?: number): Promise<Sidequest[]>;
+  listUnrated(userId: string, limit?: number): Promise<Sidequest[]>;
+  /** Completed quests with checked-in objectives that skipped the reflection capture */
+  listPendingCapture(userId: string, limit?: number): Promise<Sidequest[]>;
   promote(id: string, userId: string): Promise<Sidequest>;
   getDeckStats(userId: string): Promise<DeckStats>;
   searchByUser(
@@ -409,6 +412,38 @@ class SidequestServiceImpl implements SidequestService {
       order: { completedAt: "DESC" },
       take: limit,
     });
+  }
+
+  async listUnrated(userId: string, limit = 5): Promise<Sidequest[]> {
+    return this.dataSource
+      .getRepository(Sidequest)
+      .createQueryBuilder("s")
+      .leftJoinAndSelect("s.objectives", "obj")
+      .where("s.user_id = :userId", { userId })
+      .andWhere("s.completed_at IS NOT NULL")
+      .andWhere("s.rating IS NULL")
+      .andWhere("s.parent_id IS NULL")
+      .orderBy("s.completed_at", "DESC")
+      .take(limit)
+      .getMany();
+  }
+
+  async listPendingCapture(userId: string, limit = 3): Promise<Sidequest[]> {
+    // Find completed quests where at least one objective was checked in
+    // but the user skipped the reflection capture (no wouldReturn AND no journalEntry)
+    return this.dataSource
+      .getRepository(Sidequest)
+      .createQueryBuilder("s")
+      .innerJoinAndSelect("s.objectives", "obj")
+      .where("s.user_id = :userId", { userId })
+      .andWhere("s.completed_at IS NOT NULL")
+      .andWhere("s.parent_id IS NULL")
+      .andWhere("obj.checked_in_at IS NOT NULL")
+      .andWhere("obj.would_return IS NULL")
+      .andWhere("obj.journal_entry IS NULL")
+      .orderBy("s.completed_at", "DESC")
+      .take(limit)
+      .getMany();
   }
 
   async promote(id: string, userId: string): Promise<Sidequest> {

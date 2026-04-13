@@ -606,15 +606,22 @@ const ItineraryDetailScreen = () => {
     setSelectedItem(item);
   }, []);
 
-  // Next unchecked objective for mini compass
-  const displayedNextObjective = useMemo(
+  // Next unchecked objective (for mini compass on venue quests, for mark-complete on challenge quests)
+  const nextUncheckedObjective = useMemo(
     () =>
       [...(displaySidequest?.objectives ?? [])]
-        .filter(
-          (o) => !o.checkedInAt && o.latitude != null && o.longitude != null,
-        )
+        .filter((o) => !o.checkedInAt)
         .sort((a, b) => a.sortOrder - b.sortOrder)[0] ?? null,
     [displaySidequest?.objectives],
+  );
+
+  // For mini compass — only objectives with coordinates
+  const displayedNextObjective = useMemo(
+    () =>
+      nextUncheckedObjective?.latitude != null && nextUncheckedObjective?.longitude != null
+        ? nextUncheckedObjective
+        : null,
+    [nextUncheckedObjective],
   );
 
   const miniDistance = useMemo(() => {
@@ -671,6 +678,7 @@ const ItineraryDetailScreen = () => {
 
   // --- Computed values ---
 
+  const isChallenge = displaySidequest?.questType === "challenge";
   const objectives = displaySidequest?.objectives ?? [];
   const totalCost = objectives.reduce(
     (sum, i) => sum + (Number(i.estimatedCost) || 0),
@@ -998,16 +1006,33 @@ const ItineraryDetailScreen = () => {
           {isThisActive ? (
             <>
               <View style={styles.buttonRow}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.navigateButton,
-                    { flex: 1 },
-                    pressed && styles.navigateButtonPressed,
-                  ]}
-                  onPress={handleNavigate}
-                >
-                  <Text style={styles.navigateButtonText}>Navigate</Text>
-                </Pressable>
+                {isChallenge ? (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.navigateButton,
+                      { flex: 1 },
+                      pressed && styles.navigateButtonPressed,
+                      !nextUncheckedObjective && { opacity: 0.4 },
+                    ]}
+                    onPress={() => nextUncheckedObjective && handleManualCheckin(nextUncheckedObjective.id)}
+                    disabled={!nextUncheckedObjective}
+                  >
+                    <Text style={styles.navigateButtonText}>
+                      {nextUncheckedObjective ? "Mark Complete" : "All Done"}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.navigateButton,
+                      { flex: 1 },
+                      pressed && styles.navigateButtonPressed,
+                    ]}
+                    onPress={handleNavigate}
+                  >
+                    <Text style={styles.navigateButtonText}>Navigate</Text>
+                  </Pressable>
+                )}
                 <Pressable
                   style={({ pressed }) => [
                     styles.endButton,
@@ -1076,11 +1101,13 @@ const ItineraryDetailScreen = () => {
       <CheckinCaptureModal
         visible={!!captureObjective}
         objectiveId={captureObjective?.id ?? ""}
+        sidequestId={id}
         objectiveTitle={captureObjective?.title ?? ""}
         objectiveEmoji={captureObjective?.emoji}
         suggestedActivities={captureObjective?.suggestedActivities ?? []}
         actionItems={captureObjective?.actionItems ?? []}
         journalPrompt={captureObjective?.journalPrompt}
+        mode={isChallenge ? "challenge" : "venue"}
         onDismiss={() => {
           const capturedId = captureObjective?.id;
           setCaptureObjective(null);

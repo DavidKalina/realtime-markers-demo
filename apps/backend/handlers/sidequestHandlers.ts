@@ -10,9 +10,8 @@ import type { FearLadderGenerationService } from "../services/FearLadderGenerati
 import type { BarrierGenerationService } from "../services/BarrierGenerationService";
 import type { GoalRefinementService } from "../services/GoalRefinementService";
 import type { RefinementState } from "../services/GoalRefinementService";
-import type { PacingService } from "../services/PacingService";
 import type { StorageService } from "../services/shared/StorageService";
-import { GoalReflection, User } from "@realtime-markers/database";
+import { User } from "@realtime-markers/database";
 
 export const listSidequestsHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
@@ -82,6 +81,10 @@ export const deleteSidequestHandler: Handler = withErrorHandling(async (c) => {
     return c.json({ error: "Sidequest not found" }, 404);
   }
 
+  // Replenish deck if below target
+  const sidequestCheckinService = c.get("sidequestCheckinService") as SidequestCheckinService;
+  sidequestCheckinService.replenishDeck(userId);
+
   return c.json({ success: true });
 });
 
@@ -110,6 +113,10 @@ export const batchDeleteSidequestHandler: Handler = withErrorHandling(
       ids as string[],
       userId,
     );
+
+    // Replenish deck if below target
+    const sidequestCheckinService = c.get("sidequestCheckinService") as SidequestCheckinService;
+    sidequestCheckinService.replenishDeck(userId);
 
     return c.json({ success: true, deletedCount });
   },
@@ -332,6 +339,28 @@ export const listCompletedHandler: Handler = withErrorHandling(async (c) => {
   return c.json({ data });
 });
 
+export const listUnratedHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const userId = user.id;
+
+  const limit = Math.min(parseInt(c.req.query("limit") || "5", 10), 10);
+  const sidequestService = c.get("sidequestService") as SidequestService;
+  const data = await sidequestService.listUnrated(userId, limit);
+
+  return c.json({ data });
+});
+
+export const listPendingCaptureHandler: Handler = withErrorHandling(async (c) => {
+  const user = requireAuth(c);
+  const userId = user.id;
+
+  const limit = Math.min(parseInt(c.req.query("limit") || "3", 10), 5);
+  const sidequestService = c.get("sidequestService") as SidequestService;
+  const data = await sidequestService.listPendingCapture(userId, limit);
+
+  return c.json({ data });
+});
+
 export const browseSidequestsHandler: Handler = withErrorHandling(
   async (c) => {
     const city = c.req.query("city");
@@ -426,7 +455,7 @@ export const getDeckStatsHandler: Handler = withErrorHandling(async (c) => {
 
 // ─── Wellness Pivot Handlers ───────────────────────────────────────
 
-const DAILY_PRESCRIBE_LIMIT = 999; // TODO: restore to 3 after testing
+const DAILY_PRESCRIBE_LIMIT = 3;
 
 export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
@@ -585,6 +614,9 @@ export const updateComfortProfileHandler: Handler = withErrorHandling(
         lookingFor: string[];
         workSituation: string;
         livingSituation: string;
+        dailyRoutine?: string;
+        transportation?: string;
+        budget?: string;
       };
     }>();
 
@@ -854,76 +886,3 @@ export const refineGoalHandler: Handler = withErrorHandling(
   },
 );
 
-export const goalCheckInHandler: Handler = withErrorHandling(
-  async (c) => {
-    const user = requireAuth(c);
-
-    const pacingService = c.get("pacingService") as PacingService;
-    const result = await pacingService.getCheckInDue(user.id);
-
-    return c.json(result);
-  },
-);
-
-export const goalPacingHandler: Handler = withErrorHandling(
-  async (c) => {
-    const user = requireAuth(c);
-
-    const pacingService = c.get("pacingService") as PacingService;
-    const result = await pacingService.getPacingState(user.id);
-
-    if (!result) {
-      return c.json({ hasTimeline: false });
-    }
-
-    return c.json({
-      hasTimeline: true,
-      percentElapsed: Math.round(result.timeline.percentElapsed * 100),
-      remainingDays: result.timeline.remainingDays,
-      totalDays: result.timeline.totalDays,
-      milestone: result.milestone,
-      completedQuestCount: result.completedQuestCount,
-      isPast: result.timeline.isPast,
-    });
-  },
-);
-
-export const saveGoalReflectionHandler: Handler = withErrorHandling(
-  async (c) => {
-    const user = requireAuth(c);
-
-    const body = await c.req.json<{
-      milestone: string;
-      journalEntry: string;
-      journalPrompt?: string;
-      percentElapsed?: number;
-      remainingDays?: number;
-      completedQuestCount?: number;
-    }>();
-
-    if (!body.milestone || !body.journalEntry?.trim()) {
-      return c.json({ error: "milestone and journalEntry are required" }, 400);
-    }
-
-    if (body.journalEntry.length > 2000) {
-      return c.json({ error: "journalEntry must be 2000 characters or fewer" }, 400);
-    }
-
-    const dataSource = c.get("dataSource");
-    const repo = dataSource.getRepository(GoalReflection);
-
-    const reflection = repo.create({
-      userId: user.id,
-      milestone: body.milestone,
-      journalEntry: body.journalEntry.trim(),
-      journalPrompt: body.journalPrompt,
-      percentElapsed: body.percentElapsed,
-      remainingDays: body.remainingDays,
-      completedQuestCount: body.completedQuestCount,
-    });
-
-    await repo.save(reflection);
-
-    return c.json({ id: reflection.id });
-  },
-);

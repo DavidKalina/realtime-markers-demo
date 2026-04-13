@@ -23,7 +23,6 @@ import type { ComfortZoneService } from "./ComfortZoneService";
 import type { CoverageService } from "./CoverageService";
 import type { ResonanceService } from "./ResonanceService";
 import type { PathwayService } from "./PathwayService";
-import type { PacingService } from "./PacingService";
 import {
   createPrescriptionPromptRegistry,
   type PrescriptionPromptRegistry,
@@ -267,7 +266,6 @@ interface SidequestPrescriptionServiceDeps {
   coverageService?: CoverageService;
   resonanceService?: ResonanceService;
   pathwayService?: PathwayService;
-  pacingService?: PacingService;
   promptRegistry?: PrescriptionPromptRegistry;
   promptVersion?: string;
   /** Model to use for quest prescription. Defaults to GPT54Mini. */
@@ -321,7 +319,6 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
   private coverageService?: CoverageService;
   private resonanceService?: ResonanceService;
   private pathwayService?: PathwayService;
-  private pacingService?: PacingService;
   private agent: OpenAIResponsesAgent;
   private promptRegistry: PrescriptionPromptRegistry;
   private promptVersion: string;
@@ -340,7 +337,6 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
     this.coverageService = deps.coverageService;
     this.resonanceService = deps.resonanceService;
     this.pathwayService = deps.pathwayService;
-    this.pacingService = deps.pacingService;
     this.agent = new OpenAIResponsesAgent(deps.openAIService);
     this.promptRegistry = deps.promptRegistry ?? createPrescriptionPromptRegistry();
     this.promptVersion = deps.promptVersion ?? "v1-default";
@@ -530,16 +526,6 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
       }
     }
 
-    // 2d. Build timeline context (progressive — only injected at milestones)
-    let timelineContext = "";
-    if (this.pacingService) {
-      try {
-        timelineContext = await this.pacingService.getTimelineContext(userId) ?? "";
-      } catch (err) {
-        console.error("[prescribeQuest] Timeline context failed:", err);
-      }
-    }
-
     // 3. Determine quest role — from sibling context (pack) or auto-detected (individual)
     let questRole: string | undefined;
     let roleTargetPathway: { id: string; theme: string; label: string; phase: string } | undefined;
@@ -621,7 +607,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         explorationProfileLabel,
         expansionTarget,
         phaseContext,
-        timelineContext,
+        timelineContext: "",
         fearLadderContext: user.fearLadder
           ? this.buildFearLadderContext(user.fearLadder, fearLadderReadiness) : "",
         expectancyContext: user.expectancyCalibration
@@ -1218,15 +1204,6 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
       }
     }
 
-    let timelineContext = "";
-    if (this.pacingService) {
-      try {
-        timelineContext = await this.pacingService.getTimelineContext(userId) ?? "";
-      } catch (err) {
-        console.error("[prescribeChallengeQuest] Timeline context failed:", err);
-      }
-    }
-
     const pace = user.pacePreference ?? "steady";
     const radius = this.comfortZoneService
       ? await this.comfortZoneService.recalculateRadius(userId)
@@ -1272,7 +1249,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         explorationProfileLabel: "",
         expansionTarget: "",
         phaseContext,
-        timelineContext,
+        timelineContext: "",
         fearLadderContext: user.fearLadder
           ? this.buildFearLadderContext(user.fearLadder, fearLadderReadiness) : "",
         expectancyContext: user.expectancyCalibration
@@ -2882,6 +2859,9 @@ ${result.suggestedProgression}\n` };
     lookingFor: string[];
     workSituation: string;
     livingSituation: string;
+    dailyRoutine?: string;
+    transportation?: string;
+    budget?: string;
   } | null | undefined, city: string): string {
     if (!socialSituation) return "";
     const genderLabel = socialSituation.gender === "prefer_not_to_say" ? "" : `, ${socialSituation.gender}`;
@@ -2897,13 +2877,44 @@ ${result.suggestedProgression}\n` };
       casual_friends: "some casual friends",
       solid_group: "a solid friend group",
     };
-    return `SOCIAL SITUATION:
-- ${socialSituation.ageRange}${genderLabel}, living in ${city}
-- In area: ${timeLabels[socialSituation.timeInArea] ?? socialSituation.timeInArea}
-- Current social life: ${socialLabels[socialSituation.currentSocialLife] ?? socialSituation.currentSocialLife}
-- Looking for: ${socialSituation.lookingFor.join(", ")}
-- Work: ${socialSituation.workSituation}
-- Living: ${socialSituation.livingSituation}`;
+    const routineLabels: Record<string, string> = {
+      nine_to_five: "standard 9-to-5",
+      flexible: "flexible hours",
+      shift_work: "shift work (irregular hours)",
+      nights_weekends: "free nights & weekends",
+      unpredictable: "unpredictable schedule",
+    };
+    const transportLabels: Record<string, string> = {
+      car: "has a car",
+      transit: "uses public transit",
+      bike: "bikes",
+      walk: "walks",
+      rideshare: "uses rideshare",
+    };
+    const budgetLabels: Record<string, string> = {
+      free_only: "free activities only",
+      low: "budget-conscious (under $20/quest)",
+      moderate: "$20-$50 per quest",
+      flexible: "budget is not a concern",
+    };
+    const lines = [
+      `- ${socialSituation.ageRange}${genderLabel}, living in ${city}`,
+      `- In area: ${timeLabels[socialSituation.timeInArea] ?? socialSituation.timeInArea}`,
+      `- Current social life: ${socialLabels[socialSituation.currentSocialLife] ?? socialSituation.currentSocialLife}`,
+      `- Looking for: ${socialSituation.lookingFor.join(", ")}`,
+      `- Work: ${socialSituation.workSituation}`,
+      `- Living: ${socialSituation.livingSituation}`,
+    ];
+    if (socialSituation.dailyRoutine) {
+      lines.push(`- Schedule: ${routineLabels[socialSituation.dailyRoutine] ?? socialSituation.dailyRoutine}`);
+    }
+    if (socialSituation.transportation) {
+      lines.push(`- Transportation: ${transportLabels[socialSituation.transportation] ?? socialSituation.transportation}`);
+    }
+    if (socialSituation.budget) {
+      lines.push(`- Budget: ${budgetLabels[socialSituation.budget] ?? socialSituation.budget}`);
+    }
+    return `SOCIAL SITUATION:\n${lines.join("\n")}`;
   }
 
   private buildFearLadderContext(fearLadder: {
@@ -3279,14 +3290,16 @@ ${result.suggestedProgression}\n` };
     const slots = await this.determinePackSlots(userId);
 
     if (onProgress) {
-      await onProgress(5, `Crafting ${slots.length} quests in parallel...`);
+      await onProgress(5, `Crafting ${slots.length} quests...`);
     }
 
-    // Generate all quests in parallel — each gets its role but no
-    // previousSiblings since they run concurrently. The distinct roles
-    // (discover/explore/stretch/deepen/enjoy) naturally differentiate
-    // venue selection and the validator catches history-based repeats.
-    const questPromises = slots.map((slot, i) => {
+    // Generate quests sequentially so each one knows what's already been
+    // prescribed. This prevents duplicate venues/categories within a pack.
+    const quests: Sidequest[] = [];
+    const previousSiblings: SiblingContext["previousSiblings"] = [];
+
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i];
       const siblingContext: SiblingContext = {
         batchId,
         batchIndex: i,
@@ -3294,27 +3307,28 @@ ${result.suggestedProgression}\n` };
         questRole: slot.role,
         difficultyTier: slot.difficultyTier,
         targetPathway: slot.targetPathway,
-        previousSiblings: [],
+        previousSiblings: [...previousSiblings],
       };
 
       const questInput = slot.questType
         ? { ...input, questType: slot.questType, challengeCategory: slot.challengeCategory }
         : input;
 
-      return this.prescribeQuest(userId, questInput, undefined, siblingContext);
-    });
+      try {
+        const quest = await this.prescribeQuest(userId, questInput, undefined, siblingContext);
+        quests.push(quest);
 
-    const results = await Promise.allSettled(questPromises);
-
-    const quests: Sidequest[] = [];
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
-      if (result.status === "fulfilled") {
-        quests.push(result.value);
-      } else {
+        // Feed this quest's info to subsequent siblings for dedup
+        const primaryItem = quest.objectives?.[0];
+        previousSiblings.push({
+          title: quest.title ?? "Untitled",
+          venueName: primaryItem?.venueName ?? "Unknown",
+          venueCategory: primaryItem?.venueCategory ?? "Unknown",
+        });
+      } catch (err) {
         console.error(
-          `[SidequestPrescription] Quest ${i + 1} (${slots[i].role}) failed:`,
-          result.reason,
+          `[SidequestPrescription] Quest ${i + 1} (${slot.role}) failed:`,
+          err,
         );
       }
     }
