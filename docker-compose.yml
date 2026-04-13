@@ -185,7 +185,8 @@ services:
   worker:
     build:
       context: .
-      dockerfile: apps/backend/worker.Dockerfile
+      dockerfile: apps/backend/Dockerfile
+    command: ["bun", "run", "/app/apps/backend/worker.ts"]
     environment:
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=${POSTGRES_USER:-postgres}

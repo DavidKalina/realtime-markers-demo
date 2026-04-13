@@ -2,341 +2,222 @@
 
 import type { Context } from "hono";
 import type { AppContext } from "../types/context";
-export type AuthHandler = (
-  c: Context<AppContext>,
-) => Promise<Response> | Response;
+import { withErrorHandling, type Handler } from "../utils/handlerUtils";
+import {
+  AuthenticationError,
+  NotFoundError,
+  ValidationError,
+} from "../utils/errors";
 
-// Helper function to get services from context
-function getServices(c: Context<AppContext>) {
-  const authService = c.get("authService");
-  const redisService = c.get("redisService");
+function getAuthService(c: Context<AppContext>) {
+  return c.get("authService");
+}
 
-  return {
-    authService,
-    redisService,
-  };
+/**
+ * Extract user ID from the Authorization header JWT.
+ * Throws AuthenticationError if the token is missing or invalid.
+ */
+function requireUserId(c: Context<AppContext>): string {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    throw new AuthenticationError();
+  }
+  const token = authHeader.substring(7);
+  try {
+    const decoded = getAuthService(c).validateToken(token) as { id: string };
+    return decoded.id;
+  } catch {
+    throw new AuthenticationError();
+  }
 }
 
 /**
  * Register a new user
  */
-export const registerHandler: AuthHandler = async (c) => {
-  try {
-    const { email, password, firstName, lastName } = await c.req.json();
-    const { authService } = getServices(c);
+export const registerHandler: Handler = withErrorHandling(async (c) => {
+  const { email, password, firstName, lastName } = await c.req.json();
+  const authService = getAuthService(c);
 
-    const user = await authService.register({
-      email,
-      password,
-      firstName,
-      lastName,
-    });
-    // Log in the user right after registration
-    const { tokens } = await authService.login(email, password);
+  const user = await authService.register({
+    email,
+    password,
+    firstName,
+    lastName,
+  });
+  const { tokens } = await authService.login(email, password);
 
-    return c.json(
-      {
-        message: "User registered successfully",
-        user,
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-      },
-      201,
-    );
-  } catch (error) {
-    console.error("Registration error:", error);
-    return c.json(
-      {
-        error: "Registration failed",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      400,
-    );
-  }
-};
+  return c.json(
+    {
+      message: "User registered successfully",
+      user,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    },
+    201,
+  );
+});
 
 /**
  * Login a user
  */
-export const loginHandler: AuthHandler = async (c) => {
-  try {
-    const { email, password } = await c.req.json();
-    const { authService } = getServices(c);
+export const loginHandler: Handler = withErrorHandling(async (c) => {
+  const { email, password } = await c.req.json();
+  const authService = getAuthService(c);
 
-    const { user, tokens } = await authService.login(email, password);
-    return c.json({
-      message: "Login successful",
-      user,
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-    });
-  } catch (error) {
-    console.error("Login error:", error);
-    return c.json(
-      {
-        error: "Login failed",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      401,
-    );
-  }
-};
+  const { user, tokens } = await authService.login(email, password);
+  return c.json({
+    message: "Login successful",
+    user,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+  });
+});
 
 /**
  * Refresh access token
  */
-export const refreshTokenHandler: AuthHandler = async (c) => {
-  try {
-    const { refreshToken } = await c.req.json();
-
-    if (!refreshToken) {
-      return c.json({ error: "Refresh token is required" }, 400);
-    }
-
-    const { authService } = getServices(c);
-    const tokens = await authService.refreshToken(refreshToken);
-
-    return c.json({
-      message: "Token refreshed successfully",
-      accessToken: tokens.accessToken,
-    });
-  } catch (error) {
-    console.error("Error refreshing token:", error);
-    return c.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Failed to refresh token",
-      },
-      401,
-    );
+export const refreshTokenHandler: Handler = withErrorHandling(async (c) => {
+  const { refreshToken } = await c.req.json();
+  if (!refreshToken) {
+    throw new ValidationError("Refresh token is required");
   }
-};
+
+  const authService = getAuthService(c);
+  const tokens = await authService.refreshToken(refreshToken);
+
+  return c.json({
+    message: "Token refreshed successfully",
+    accessToken: tokens.accessToken,
+  });
+});
 
 /**
  * Logout a user
  */
-export const logoutHandler: AuthHandler = async (c) => {
-  try {
-    // For example, assume the user id is extracted from a token.
-    // You can create a helper to get the user id from the Authorization header.
-    const userId = getUserIdFromToken(c);
-    if (!userId) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
+export const logoutHandler: Handler = withErrorHandling(async (c) => {
+  const userId = requireUserId(c);
+  const authService = getAuthService(c);
 
-    const { authService } = getServices(c);
-    const success = await authService.logout(userId);
-    if (!success) {
-      return c.json({ error: "User not found" }, 404);
-    }
-
-    return c.json({ message: "Logged out successfully" });
-  } catch (error) {
-    console.error("Error during logout:", error);
-    return c.json(
-      { error: error instanceof Error ? error.message : "Logout failed" },
-      500,
-    );
+  const success = await authService.logout(userId);
+  if (!success) {
+    throw new NotFoundError("User not found");
   }
-};
+
+  return c.json({ message: "Logged out successfully" });
+});
 
 /**
  * Get current user profile
  */
-export const getCurrentUserHandler: AuthHandler = async (c) => {
-  try {
-    const user = c.get("user");
-    if (!user || !user.id) {
-      return c.json({ error: "Not authenticated" }, 401);
-    }
-
-    const { authService } = getServices(c);
-    const userData = await authService.getUserProfile(user.id);
-    if (!userData) {
-      return c.json({ error: "User not found" }, 404);
-    }
-
-    return c.json(userData);
-  } catch (error) {
-    console.error("Error fetching current user:", error);
-    return c.json(
-      {
-        error: "Failed to fetch user data",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      500,
-    );
+export const getCurrentUserHandler: Handler = withErrorHandling(async (c) => {
+  const user = c.get("user");
+  if (!user || !user.id) {
+    throw new AuthenticationError();
   }
-};
+
+  const authService = getAuthService(c);
+  const userData = await authService.getUserProfile(user.id);
+  if (!userData) {
+    throw new NotFoundError("User not found");
+  }
+
+  return c.json(userData);
+});
 
 /**
  * Update user profile
  */
-export const updateProfileHandler: AuthHandler = async (c) => {
-  try {
-    const userId = getUserIdFromToken(c);
-    if (!userId) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
+export const updateProfileHandler: Handler = withErrorHandling(async (c) => {
+  const userId = requireUserId(c);
+  const userData = await c.req.json();
 
-    const userData = await c.req.json();
-
-    // Update profile via auth service
-    const { authService } = getServices(c);
-    const updatedUser = await authService.updateUserProfile(userId, userData);
-    if (!updatedUser) {
-      return c.json({ error: "User not found" }, 404);
-    }
-
-    return c.json({
-      message: "Profile updated successfully",
-      user: updatedUser,
-    });
-  } catch (error) {
-    console.error("Error updating profile:", error);
-    return c.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Failed to update profile",
-      },
-      500,
-    );
+  const authService = getAuthService(c);
+  const updatedUser = await authService.updateUserProfile(userId, userData);
+  if (!updatedUser) {
+    throw new NotFoundError("User not found");
   }
-};
+
+  return c.json({
+    message: "Profile updated successfully",
+    user: updatedUser,
+  });
+});
 
 /**
  * Change password
  */
-export const changePasswordHandler: AuthHandler = async (c) => {
-  try {
-    const userId = getUserIdFromToken(c);
-    if (!userId) {
-      return c.json({ error: "Unauthorized" }, 401);
-    }
-
-    const { currentPassword, newPassword } = await c.req.json();
-    if (!currentPassword || !newPassword) {
-      return c.json(
-        { error: "Current password and new password are required" },
-        400,
-      );
-    }
-
-    const { authService } = getServices(c);
-    await authService.changePassword(userId, currentPassword, newPassword);
-    return c.json({ message: "Password changed successfully" });
-  } catch (error) {
-    console.error("Error changing password:", error);
-    return c.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Failed to change password",
-      },
-      500,
+export const changePasswordHandler: Handler = withErrorHandling(async (c) => {
+  const userId = requireUserId(c);
+  const { currentPassword, newPassword } = await c.req.json();
+  if (!currentPassword || !newPassword) {
+    throw new ValidationError(
+      "Current password and new password are required",
     );
   }
-};
+
+  const authService = getAuthService(c);
+  await authService.changePassword(userId, currentPassword, newPassword);
+  return c.json({ message: "Password changed successfully" });
+});
 
 /**
  * Delete user account
  */
-export const deleteAccountHandler: AuthHandler = async (c) => {
-  try {
-    const user = c.get("user");
-    if (!user || !user.userId) {
-      return c.json({ error: "Not authenticated" }, 401);
-    }
-
-    const { password } = await c.req.json();
-    if (!password) {
-      return c.json({ error: "Password is required" }, 400);
-    }
-
-    const { authService } = getServices(c);
-    await authService.deleteAccount(user.userId, password);
-    return c.json({ message: "Account deleted successfully" });
-  } catch (error) {
-    console.error("Error deleting account:", error);
-    return c.json(
-      {
-        error: "Failed to delete account",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      500,
-    );
+export const deleteAccountHandler: Handler = withErrorHandling(async (c) => {
+  const user = c.get("user");
+  if (!user || !user.userId) {
+    throw new AuthenticationError();
   }
-};
 
-/**
- * Helper function to extract user ID from token.
- * This is just an example; adjust the implementation based on your authentication scheme.
- */
-function getUserIdFromToken(c: Context<AppContext>): string | null {
-  const authHeader = c.req.header("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return null;
+  const { password } = await c.req.json();
+  if (!password) {
+    throw new ValidationError("Password is required");
   }
-  const token = authHeader.substring(7);
-  try {
-    // Get services from context
-    const { authService } = getServices(c);
-    // Validate the token using the AuthService
-    const decoded = authService.validateToken(token) as { id: string };
-    return decoded.id;
-  } catch (error) {
-    return null;
-  }
-}
+
+  const authService = getAuthService(c);
+  await authService.deleteAccount(user.userId, password);
+  return c.json({ message: "Account deleted successfully" });
+});
 
 /**
  * Request a password reset (public, unauthenticated)
  */
-export const requestPasswordResetHandler: AuthHandler = async (c) => {
-  try {
+export const requestPasswordResetHandler: Handler = withErrorHandling(
+  async (c) => {
     const { email } = await c.req.json();
-    const { authService } = getServices(c);
+    const authService = getAuthService(c);
 
     // Always returns 200 to prevent email enumeration
-    await authService.requestPasswordReset(email || "");
+    try {
+      await authService.requestPasswordReset(email || "");
+    } catch (err) {
+      console.error("Password reset request error:", err);
+    }
 
     return c.json({ message: "If that email exists, a reset code was sent." });
-  } catch (err) {
-    console.error("Password reset request error:", err);
-    return c.json({ message: "If that email exists, a reset code was sent." });
-  }
-};
+  },
+);
 
 /**
  * Confirm password reset with code (public, unauthenticated)
  */
-export const confirmPasswordResetHandler: AuthHandler = async (c) => {
-  try {
+export const confirmPasswordResetHandler: Handler = withErrorHandling(
+  async (c) => {
     const { email, code, newPassword } = await c.req.json();
 
     if (!email || !code || !newPassword) {
-      return c.json(
-        { error: "Email, code, and new password are required" },
-        400,
+      throw new ValidationError(
+        "Email, code, and new password are required",
       );
     }
 
     if (newPassword.length < 6) {
-      return c.json({ error: "Password must be at least 6 characters" }, 400);
+      throw new ValidationError("Password must be at least 6 characters");
     }
 
-    const { authService } = getServices(c);
+    const authService = getAuthService(c);
     await authService.confirmPasswordReset(email, code, newPassword);
 
     return c.json({ message: "Password reset successfully" });
-  } catch (error) {
-    console.error("Password reset confirm error:", error);
-    return c.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Failed to reset password",
-      },
-      400,
-    );
-  }
-};
-
+  },
+);

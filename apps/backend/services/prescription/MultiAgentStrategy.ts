@@ -12,7 +12,6 @@ import {
   VENUE_CATEGORIES,
 } from "./PrescriptionStrategy";
 import type {
-  PrescriptionStrategy,
   PrescriptionStrategyInput,
   PrescriptionStrategyResult,
   LLMResponseRaw,
@@ -101,7 +100,7 @@ const DEFAULT_MODELS: AgentModelConfig = {
 
 // ── Implementation ──────────────────────────────────────────
 
-export class MultiAgentStrategy implements PrescriptionStrategy {
+export class MultiAgentStrategy {
   private openAIService: OpenAIService;
   private agent: OpenAIResponsesAgent;
   private geocodingService: GoogleGeocodingService;

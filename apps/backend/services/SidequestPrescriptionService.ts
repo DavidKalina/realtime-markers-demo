@@ -18,7 +18,6 @@ import type { IEmbeddingService } from "./shared/EmbeddingService";
 import type { RedisService } from "./shared/RedisService";
 import type { AgentCandidate } from "./shared/JobPipeline";
 import { OpenAIResponsesAgent } from "./shared/OpenAIResponsesAgent";
-import type { AgentToolResult } from "./shared/OpenAIResponsesAgent";
 import type { ComfortZoneService } from "./ComfortZoneService";
 import type { CoverageService } from "./CoverageService";
 import type { ResonanceService } from "./ResonanceService";
@@ -43,8 +42,6 @@ export interface PrescribeQuestInput {
   timezone?: string;
   /** Override the model for this specific prescription (e.g. "gpt-5.4", "gpt-5.4-mini") */
   model?: string;
-  /** Override the strategy for this specific prescription */
-  strategy?: "monolithic" | "multi-agent";
   /** Quest type: "venue" (default, location-based) or "challenge" (social/vulnerability) */
   questType?: "venue" | "challenge";
   /** Challenge category — required when questType is "challenge" */
@@ -270,8 +267,6 @@ interface SidequestPrescriptionServiceDeps {
   promptVersion?: string;
   /** Model to use for quest prescription. Defaults to GPT54Mini. */
   prescriptionModel?: string;
-  /** Strategy: "monolithic" (single agent) or "multi-agent" (4-agent pipeline) */
-  prescriptionStrategy?: "monolithic" | "multi-agent";
 }
 
 // ─── Fear Ladder Readiness ──────────────────────────────────────────
@@ -323,8 +318,7 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
   private promptRegistry: PrescriptionPromptRegistry;
   private promptVersion: string;
   private prescriptionModel?: string;
-  private multiAgentStrategy?: MultiAgentStrategy;
-  private defaultStrategy: "monolithic" | "multi-agent";
+  private multiAgentStrategy: MultiAgentStrategy;
 
   constructor(deps: SidequestPrescriptionServiceDeps) {
     this.dataSource = deps.dataSource;
@@ -341,18 +335,13 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
     this.promptRegistry = deps.promptRegistry ?? createPrescriptionPromptRegistry();
     this.promptVersion = deps.promptVersion ?? "v1-default";
     this.prescriptionModel = deps.prescriptionModel;
-    this.defaultStrategy = deps.prescriptionStrategy ?? "multi-agent";
-
-    if (this.defaultStrategy === "multi-agent" || true) {
-      // Always instantiate so per-request switching works
-      this.multiAgentStrategy = new MultiAgentStrategy({
-        openAIService: deps.openAIService,
-        agent: this.agent,
-        geocodingService: deps.geocodingService,
-        overpassService: deps.overpassService,
-        promptRegistry: this.promptRegistry,
-      });
-    }
+    this.multiAgentStrategy = new MultiAgentStrategy({
+      openAIService: deps.openAIService,
+      agent: this.agent,
+      geocodingService: deps.geocodingService,
+      overpassService: deps.overpassService,
+      promptRegistry: this.promptRegistry,
+    });
   }
 
   // ─── Public Method ──────────────────────────────────────────────
@@ -569,8 +558,6 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
 
     try {
       // 5. Generate via agent
-      const seenVenueIds = new Set<string>();
-      const seenTrailIds = new Set<number>();
 
       const now = new Date();
       const hour = now.getHours();
@@ -622,367 +609,23 @@ class SidequestPrescriptionServiceImpl implements SidequestPrescriptionService {
         siblingContext: siblingContext ?? null,
       };
 
-      // ── Strategy selection ──────────────────────────────────
-      const useStrategy = input.strategy ?? this.defaultStrategy;
-
-      let agentRaw: LLMResponseRaw;
-      let allVenues: VerifiedVenue[];
-      let allTrails: Trail[];
-
-      if (useStrategy === "multi-agent" && this.multiAgentStrategy) {
-        // Multi-agent pipeline
-        const strategyInput: PrescriptionStrategyInput = {
-          promptContext: promptCtx,
-          promptVersion: this.promptVersion,
-          city,
-          searchLat,
-          searchLng,
-          radius,
-          prescriptionModel: this.prescriptionModel,
-          inputModelOverride: input.model,
-          onProgress,
-        };
-
-        const strategyResult = await this.multiAgentStrategy.execute(strategyInput);
-        agentRaw = strategyResult.raw as unknown as LLMResponseRaw;
-        allVenues = strategyResult.allVenues;
-        allTrails = strategyResult.allTrails;
-      } else {
-      // ── Monolithic strategy (existing single-agent flow) ──
-      allVenues = [];
-      allTrails = [];
-      const promptOutput = this.promptRegistry.build(this.promptVersion, promptCtx);
-      const instructions = promptOutput.instructions;
-
-      type Tool = import("openai/resources/responses/responses").Tool;
-      const tools: Tool[] = [
-        {
-          type: "web_search",
-          user_location: {
-            type: "approximate",
-            city,
-            country: "US",
-          },
-          search_context_size: "medium",
-        },
-        {
-          type: "function",
-          name: "search_places",
-          description:
-            "Search Google Places for verified venues near a location. Returns name, address, coordinates, rating.",
-          parameters: {
-            type: "object" as const,
-            properties: {
-              query: {
-                type: "string",
-                description: "Search query (e.g. 'coffee shop', 'park', 'bookstore')",
-              },
-              near: {
-                type: "string",
-                description: "City/town to search near",
-              },
-            },
-            required: ["query", "near"],
-          },
-          strict: false,
-        },
-        {
-          type: "function",
-          name: "search_trails",
-          description:
-            "Search for trails/paths near coordinates. Returns name, surface type, length, lighting.",
-          parameters: {
-            type: "object" as const,
-            properties: {
-              type: {
-                type: "string",
-                enum: ["paved", "hiking"],
-                description: "Trail type",
-              },
-              lat: { type: "number", description: "Latitude" },
-              lng: { type: "number", description: "Longitude" },
-              radius_miles: {
-                type: "number",
-                description: "Search radius in miles (default 10)",
-              },
-            },
-            required: ["type", "lat", "lng"],
-          },
-          strict: false,
-        },
-        {
-          type: "function",
-          name: "submit_quest",
-          description: "Submit the final prescribed quest with exactly 1 stop.",
-          parameters: {
-            type: "object" as const,
-            properties: {
-              t: { type: "string", description: "Quest title (3-6 words)" },
-              s: {
-                type: "string",
-                description: "Quest summary (1-2 sentences, frame why this matters)",
-              },
-              items: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    t: { type: "string", description: "Stop title" },
-                    d: { type: "string", description: "2-3 sentences max. What to do at this stop — concrete and direct. Do NOT embed URLs or phone numbers here — those go in 'ai' (action items)." },
-                    e: { type: "string", description: "Emoji" },
-                    ec: {
-                      type: ["number", "null"],
-                      description: "Estimated cost",
-                    },
-                    vn: { type: "string", description: "Venue name (exact)" },
-                    va: { type: "string", description: "Venue address (exact)" },
-                    vc: {
-                      type: "string",
-                      description:
-                        "Venue category — use a specific, descriptive label (e.g. coffee_shop, hiking_trail, brewery, dance_studio, game_cafe, makerspace, climbing_gym, cooking_class, book_club, open_mic, farmers_market, coworking_space, dog_park, pottery_studio, etc). Be specific — 'dance_studio' not 'venue', 'game_cafe' not 'other'.",
-                    },
-                    hook: {
-                      type: "string",
-                      description: "Why this spot expands their world",
-                    },
-                    sa: {
-                      type: "array",
-                      items: { type: "string" },
-                      description:
-                        "2-3 emoji-prefixed activity ideas — what people typically do here. General suggestions, NO URLs or phone numbers. Examples: '🚶 Walk the loop', '📸 Snap a photo of the view'.",
-                    },
-                    ai: {
-                      type: "array",
-                      items: { type: "string" },
-                      description:
-                        "1-3 concrete next steps with links, phone numbers, or specific instructions. Examples: '🔗 longmontcolorado.gov/rec-services — sign up', '📞 (303) 774-4800 — ask about beginner classes'. Empty array if no actionable info exists.",
-                    },
-                    jp: {
-                      type: "string",
-                      description:
-                        "Journal prompt — reflective question for after the visit",
-                    },
-                    df: {
-                      type: "number",
-                      description:
-                        "Difficulty 1-10. 1=trivially easy, 3=comfortable, 5=moderate stretch, 7=significant challenge, 10=maximum push",
-                    },
-                    act: {
-                      type: "string",
-                      enum: ["actionable", "suggestive", "milestone"],
-                      description:
-                        "actionable = concrete next steps with signup links/times/instructions, suggestive = go explore this place, milestone = reflection checkpoint on progress",
-                    },
-                  },
-                  required: ["t", "d", "e", "ec", "vn", "va", "vc", "hook", "sa", "ai", "jp", "df", "act"],
-                },
-                maxItems: 1,
-                minItems: 1,
-              },
-            },
-            required: ["t", "s", "items"],
-          },
-          strict: false,
-        },
-      ];
-
-      // Tool handlers (reuse same patterns as generateSingleOption)
-      const toolHandlers: Record<
-        string,
-        (args: Record<string, unknown>) => Promise<AgentToolResult>
-      > = {
-        search_places: async (args) => {
-          const query = args.query as string;
-          const near = args.near as string;
-          try {
-            const venues =
-              await this.geocodingService.searchPlacesByCategory(
-                query,
-                near,
-                undefined,
-                5,
-              );
-
-            for (const v of venues) {
-              if (!seenVenueIds.has(v.placeId)) {
-                seenVenueIds.add(v.placeId);
-                allVenues.push(v);
-              }
-            }
-
-            const resultText =
-              venues.length > 0
-                ? venues
-                    .map((v) => {
-                      const [lng, lat] = v.coordinates;
-                      return `- ${v.name} (${v.address}) [${lat.toFixed(4)},${lng.toFixed(4)}]${v.rating ? ` ★${v.rating}` : ""}`;
-                    })
-                    .join("\n")
-                : "No results found for this search.";
-
-            if (onProgress && venues.length > 0) {
-              await onProgress(
-                40,
-                `Found ${venues.length} spots for "${query}"`,
-                venues.map((v) => ({
-                  name: v.name,
-                  coordinates: v.coordinates,
-                  type: "venue" as const,
-                  rating: v.rating,
-                  query,
-                })),
-              );
-            }
-
-            return { output: resultText };
-          } catch (err) {
-            return {
-              output: `Search failed: ${err instanceof Error ? err.message : "unknown error"}`,
-            };
-          }
-        },
-
-        search_trails: async (args) => {
-          const trailType = (args.type as string) || "paved";
-          const trailSearchLat = args.lat as number;
-          const trailSearchLng = args.lng as number;
-          const searchRadiusMiles = (args.radius_miles as number) || 10;
-          const searchRadiusMeters = searchRadiusMiles * 1609.34;
-
-          try {
-            const foundTrails =
-              trailType === "hiking"
-                ? await this.overpassService.fetchHikingTrails(
-                    trailSearchLat,
-                    trailSearchLng,
-                    searchRadiusMeters,
-                    10,
-                  )
-                : await this.overpassService.fetchPavedTrails(
-                    trailSearchLat,
-                    trailSearchLng,
-                    searchRadiusMeters,
-                    10,
-                  );
-
-            for (const t of foundTrails) {
-              if (!seenTrailIds.has(t.id)) {
-                seenTrailIds.add(t.id);
-                allTrails.push(t);
-              }
-            }
-
-            const resultText =
-              foundTrails.length > 0
-                ? foundTrails
-                    .map((t) => {
-                      const [tLng, tLat] = t.center;
-                      const dist = this.haversineDistanceMiles(
-                        trailSearchLat,
-                        trailSearchLng,
-                        tLat,
-                        tLng,
-                      );
-                      return `- ${t.name} (${t.surface}, ${(t.lengthMeters / 1000).toFixed(1)}km${t.lit ? ", lit" : ""}) [${tLat.toFixed(4)},${tLng.toFixed(4)}] ~${dist.toFixed(1)}mi away`;
-                    })
-                    .join("\n")
-                : `No ${trailType} trails found in this area.`;
-
-            if (onProgress && foundTrails.length > 0) {
-              await onProgress(
-                40,
-                `Discovered ${foundTrails.length} ${trailType} trails nearby`,
-                foundTrails.map((t) => {
-                  const [tLng, tLat] = t.center;
-                  return {
-                    name: t.name,
-                    coordinates: t.center as [number, number],
-                    type: "trail" as const,
-                    distanceMiles: this.haversineDistanceMiles(
-                      trailSearchLat,
-                      trailSearchLng,
-                      tLat,
-                      tLng,
-                    ),
-                    query: `${trailType} trails`,
-                  };
-                }),
-              );
-            }
-
-            return { output: resultText };
-          } catch (err) {
-            return {
-              output: `Trail search failed: ${err instanceof Error ? err.message : "unknown error"}`,
-            };
-          }
-        },
-
-        submit_quest: async (args) => {
-          const questData = args as unknown as LLMResponseRaw;
-
-          // Enforce single stop
-          if (questData.items && questData.items.length > 1) {
-            questData.items = questData.items.slice(0, 1);
-          }
-
-          // Validate trail stops
-          const trailItems = (questData.items || []).filter(
-            (item) => item.vc && /trail|hike|hiking/i.test(item.vc),
-          );
-          for (const item of trailItems) {
-            const itemName = (item.vn || "").toLowerCase().trim();
-            const matched = allTrails.some((t) => {
-              const trailName = t.name.toLowerCase().trim();
-              return (
-                trailName === itemName ||
-                trailName.includes(itemName) ||
-                itemName.includes(trailName)
-              );
-            });
-
-            if (!matched && allTrails.length > 0) {
-              const availableTrails = allTrails
-                .slice(0, 5)
-                .map((t) => t.name)
-                .join(", ");
-              return {
-                output: "",
-                rejection: `REJECTED: Trail "${item.vn}" was not found in your search_trails results. Available trails: ${availableTrails}. Call submit_quest again with a trail from that list.`,
-              };
-            }
-          }
-
-          return { output: "Quest accepted", terminal: true };
-        },
+      // ── Multi-agent pipeline ────────────────────────────────
+      const strategyInput: PrescriptionStrategyInput = {
+        promptContext: promptCtx,
+        promptVersion: this.promptVersion,
+        city,
+        searchLat,
+        searchLng,
+        radius,
+        prescriptionModel: this.prescriptionModel,
+        inputModelOverride: input.model,
+        onProgress,
       };
 
-      const initialMessage = promptOutput.initialMessage;
-
-      if (onProgress) {
-        await onProgress(10, "Analyzing your comfort zone...");
-      }
-
-      const agentResult = await this.agent.run<LLMResponseRaw>(
-        {
-          instructions,
-          tools,
-          toolHandlers,
-          maxRounds: 8,
-          temperature: 0.8,
-          maxOutputTokens: 2500,
-          caller: "prescribe_quest",
-          ...((input.model || this.prescriptionModel) && { model: (input.model || this.prescriptionModel) as OpenAIModel }),
-        },
-        initialMessage,
-      );
-
-      if (onProgress) {
-        await onProgress(80, "Building your quest...");
-      }
-
-      agentRaw = agentResult.result;
-      } // end monolithic else
+      const strategyResult = await this.multiAgentStrategy.execute(strategyInput);
+      const agentRaw = strategyResult.raw as unknown as LLMResponseRaw;
+      const allVenues = strategyResult.allVenues;
+      const allTrails = strategyResult.allTrails;
 
       const llmResult = expandLLMResponse(agentRaw);
 

@@ -1,7 +1,5 @@
 /**
- * Strategy interface for quest prescription.
- * Abstracts monolithic (single-agent) vs multi-agent approaches
- * so they can be A/B tested with the same input/output contract.
+ * Shared types for quest prescription.
  */
 
 import type { PrescriptionPromptContext } from "../prompts/PrescriptionPromptRegistry";
@@ -53,10 +51,6 @@ export interface PrescriptionStrategyResult {
   raw: LLMResponseRaw;
   allVenues: VerifiedVenue[];
   allTrails: Trail[];
-}
-
-export interface PrescriptionStrategy {
-  execute(input: PrescriptionStrategyInput): Promise<PrescriptionStrategyResult>;
 }
 
 // ── Multi-agent intermediate types ──────────────────────────

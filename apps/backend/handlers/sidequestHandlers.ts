@@ -466,7 +466,6 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
     longitude: number;
     timezone?: string;
     model?: string;
-    strategy?: "monolithic" | "multi-agent";
     questType?: "venue" | "challenge";
     challengeCategory?: string;
   }>();
@@ -504,7 +503,6 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
     longitude: body.longitude,
     ...(body.timezone && { timezone: body.timezone }),
     ...(body.model && { model: body.model }),
-    ...(body.strategy && { strategy: body.strategy }),
     ...(body.questType && { questType: body.questType }),
     ...(body.challengeCategory && { challengeCategory: body.challengeCategory }),
   });

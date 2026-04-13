@@ -1233,7 +1233,6 @@ async function main() {
         latitude: simLat,
         longitude: simLng,
         ...(simModel && { model: simModel }),
-        ...(simStrategy && { strategy: simStrategy }),
         ...(isChallenge && { questType: "challenge", challengeCategory }),
       });
 
