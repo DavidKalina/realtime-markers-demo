@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiClient } from "@/services/ApiClient";
-import type { ProfileInsightsResponse } from "@/services/api/modules/profileInsights";
+import { apiClient, type ProfileInsightsResponse } from "@/services/ApiClient";
 
 let cachedInsights: ProfileInsightsResponse | null = null;
 let cacheTimestamp = 0;
@@ -22,7 +21,7 @@ export function useProfileInsights() {
 
     try {
       setIsLoading(true);
-      const result = await apiClient.profileInsights.getInsights();
+      const result = await apiClient.getProfileInsights();
       cachedInsights = result;
       cacheTimestamp = Date.now();
       setData(result);
@@ -36,7 +35,7 @@ export function useProfileInsights() {
   const refetch = useCallback(async () => {
     try {
       setIsLoading(true);
-      const result = await apiClient.profileInsights.getInsights();
+      const result = await apiClient.getProfileInsights();
       cachedInsights = result;
       cacheTimestamp = Date.now();
       setData(result);

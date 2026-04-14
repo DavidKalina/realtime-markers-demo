@@ -41,7 +41,7 @@ TaskManager.defineTask(
     const { longitude: lng, latitude: lat } = location.coords;
 
     try {
-      await apiClient.users.sendLocation(lat, lng);
+      await apiClient.sendLocation(lat, lng);
     } catch (err) {
       console.error("[BackgroundLocation] Failed to send location:", err);
     }

@@ -2,27 +2,24 @@
 
 import { BaseApiClient } from "./api/base/ApiClient";
 import { AuthModule } from "./api/modules/auth";
-import { PushNotificationsModule } from "./api/modules/pushNotifications";
 import { SidequestsModule } from "./api/modules/sidequests";
-import { DeckStatsModule } from "./api/modules/deckStats";
-import { ProfileInsightsModule } from "./api/modules/profileInsights";
-import { CoverageModule } from "./api/modules/coverage";
-import { PathwaysModule } from "./api/modules/pathways";
-import { GrowthDashboardModule } from "./api/modules/growthDashboard";
-import { UsersModule } from "./api/modules/users";
+import type { DeckStatsResponse } from "./api/modules/deckStats";
+import type { ProfileInsightsResponse } from "./api/modules/profileInsights";
+import type { CoverageSummaryResponse } from "./api/modules/coverage";
+import type { PathwaysResponse } from "./api/modules/pathways";
+import type { GrowthDashboardResponse } from "./api/modules/growthDashboard";
+import type { DeviceInfo, PushToken } from "./api/modules/pushNotifications";
 
-// Re-export types and enums
+// Re-export types
 export * from "./api/base/types";
 export * from "./api/modules/auth";
 export * from "./api/modules/pushNotifications";
 export * from "./api/modules/sidequests";
-
 export * from "./api/modules/deckStats";
 export * from "./api/modules/profileInsights";
 export * from "./api/modules/coverage";
 export * from "./api/modules/pathways";
 export {
-  GrowthDashboardModule,
   type GrowthDashboardResponse,
   type GrowthScoreData,
   type GrowthArcData,
@@ -40,26 +37,12 @@ class ApiClient extends BaseApiClient {
   private static instance: ApiClient | null = null;
 
   public readonly auth: AuthModule;
-  public readonly pushNotifications: PushNotificationsModule;
   public readonly sidequests: SidequestsModule;
-  public readonly deckStats: DeckStatsModule;
-  public readonly profileInsights: ProfileInsightsModule;
-  public readonly coverage: CoverageModule;
-  public readonly pathways: PathwaysModule;
-  public readonly growthDashboard: GrowthDashboardModule;
-  public readonly users: UsersModule;
 
   private constructor(baseUrl: string) {
     super(baseUrl);
     this.auth = new AuthModule(this);
-    this.pushNotifications = new PushNotificationsModule(this);
     this.sidequests = new SidequestsModule(this);
-    this.deckStats = new DeckStatsModule(this);
-    this.profileInsights = new ProfileInsightsModule(this);
-    this.coverage = new CoverageModule(this);
-    this.pathways = new PathwaysModule(this);
-    this.growthDashboard = new GrowthDashboardModule(this);
-    this.users = new UsersModule(this);
   }
 
   public static getInstance(baseUrl?: string): ApiClient {
@@ -72,6 +55,84 @@ class ApiClient extends BaseApiClient {
       ApiClient.instance = new ApiClient(baseUrl);
     }
     return ApiClient.instance;
+  }
+
+  // ── Inlined from thin modules ─────────────────────────────────
+
+  async sendLocation(lat: number, lng: number): Promise<void> {
+    const url = `${this.baseUrl}/api/users/location`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lng, lat }),
+    });
+    if (!response.ok) {
+      console.error("[LocationSender] API error:", response.status);
+    }
+  }
+
+  async getDeckStats(): Promise<DeckStatsResponse> {
+    const url = `${this.baseUrl}/api/sidequests/deck-stats`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<DeckStatsResponse>(response);
+  }
+
+  async getCoverageSummary(): Promise<CoverageSummaryResponse> {
+    const url = `${this.baseUrl}/api/users/me/coverage`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<CoverageSummaryResponse>(response);
+  }
+
+  async getPathways(): Promise<PathwaysResponse> {
+    const url = `${this.baseUrl}/api/users/me/pathways`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<PathwaysResponse>(response);
+  }
+
+  async getGrowthDashboard(): Promise<GrowthDashboardResponse> {
+    const url = `${this.baseUrl}/api/users/me/growth-dashboard`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<GrowthDashboardResponse>(response);
+  }
+
+  async getProfileInsights(): Promise<ProfileInsightsResponse> {
+    const url = `${this.baseUrl}/api/users/me/profile-insights`;
+    const response = await this.fetchWithAuth(url);
+    return this.handleResponse<ProfileInsightsResponse>(response);
+  }
+
+  async registerPushToken(
+    token: string,
+    deviceInfo?: DeviceInfo,
+  ): Promise<PushToken> {
+    const url = `${this.baseUrl}/api/push-notifications/register`;
+    const response = await this.fetchWithAuth(url, {
+      method: "POST",
+      body: JSON.stringify({ token, deviceInfo }),
+    });
+    const data = await this.handleResponse<{
+      success: boolean;
+      token: PushToken;
+    }>(response);
+    return data.token;
+  }
+
+  async unregisterPushToken(token: string): Promise<void> {
+    const url = `${this.baseUrl}/api/push-notifications/unregister`;
+    await this.fetchWithAuth(url, {
+      method: "DELETE",
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  async getUserPushTokens(): Promise<PushToken[]> {
+    const url = `${this.baseUrl}/api/push-notifications/tokens`;
+    const response = await this.fetchWithAuth(url, { method: "GET" });
+    const data = await this.handleResponse<{
+      success: boolean;
+      tokens: PushToken[];
+    }>(response);
+    return data.tokens;
   }
 }
 

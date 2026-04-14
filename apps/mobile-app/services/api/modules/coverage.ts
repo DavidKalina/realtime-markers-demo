@@ -1,4 +1,4 @@
-import type { BaseApiClient } from "../base/ApiClient";
+// Types-only module — methods moved to ApiClient
 
 export interface DirectionalGap {
   direction: string;
@@ -28,14 +28,4 @@ export interface CoverageSummaryResponse {
   canvasGeojson?: GeoJSON.Geometry;
   homeLatitude: number | null;
   homeLongitude: number | null;
-}
-
-export class CoverageModule {
-  constructor(protected readonly client: BaseApiClient) {}
-
-  async getSummary(): Promise<CoverageSummaryResponse> {
-    const url = `${this.client.baseUrl}/api/users/me/coverage`;
-    const response = await this.client.fetchWithAuth(url);
-    return this.client.handleResponse<CoverageSummaryResponse>(response);
-  }
 }

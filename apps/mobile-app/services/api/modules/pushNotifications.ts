@@ -1,4 +1,4 @@
-import { BaseApiClient } from "../base/ApiClient";
+// Types-only module — methods moved to ApiClient
 
 export interface DeviceInfo {
   platform: "ios" | "android" | "web";
@@ -16,52 +16,4 @@ export interface PushToken {
   isActive: boolean;
   createdAt: string;
   lastUsedAt: string | null;
-}
-
-export class PushNotificationsModule {
-  constructor(protected readonly client: BaseApiClient) {}
-
-  /**
-   * Register a push token for the current user
-   */
-  async registerToken(
-    token: string,
-    deviceInfo?: DeviceInfo,
-  ): Promise<PushToken> {
-    const url = `${this.client.baseUrl}/api/push-notifications/register`;
-    const response = await this.client.fetchWithAuth(url, {
-      method: "POST",
-      body: JSON.stringify({ token, deviceInfo }),
-    });
-
-    const data = await this.client.handleResponse<{
-      success: boolean;
-      token: PushToken;
-    }>(response);
-    return data.token;
-  }
-
-  /**
-   * Unregister a push token for the current user
-   */
-  async unregisterToken(token: string): Promise<void> {
-    const url = `${this.client.baseUrl}/api/push-notifications/unregister`;
-    await this.client.fetchWithAuth(url, {
-      method: "DELETE",
-      body: JSON.stringify({ token }),
-    });
-  }
-
-  /**
-   * Get all push tokens for the current user
-   */
-  async getUserTokens(): Promise<PushToken[]> {
-    const url = `${this.client.baseUrl}/api/push-notifications/tokens`;
-    const response = await this.client.fetchWithAuth(url, { method: "GET" });
-    const data = await this.client.handleResponse<{
-      success: boolean;
-      tokens: PushToken[];
-    }>(response);
-    return data.tokens;
-  }
 }

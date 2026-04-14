@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiClient } from "@/services/ApiClient";
-import type { PathwaysResponse } from "@/services/api/modules/pathways";
+import { apiClient, type PathwaysResponse } from "@/services/ApiClient";
 
 let cachedPathways: PathwaysResponse | null = null;
 let cacheTimestamp = 0;
@@ -20,7 +19,7 @@ export function usePathways() {
 
     try {
       setIsLoading(true);
-      const result = await apiClient.pathways.getPathways();
+      const result = await apiClient.getPathways();
       cachedPathways = result;
       cacheTimestamp = Date.now();
       setData(result);
@@ -34,7 +33,7 @@ export function usePathways() {
   const refetch = useCallback(async () => {
     try {
       setIsLoading(true);
-      const result = await apiClient.pathways.getPathways();
+      const result = await apiClient.getPathways();
       cachedPathways = result;
       cacheTimestamp = Date.now();
       setData(result);

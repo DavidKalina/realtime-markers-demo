@@ -5,7 +5,6 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/bun": "latest",
-    "@types/geojson": "^7946.0.16",
     "@types/ngeohash": "^0.6.8",
     "@types/ws": "^8.18.1",
     "ts-node": "^10.9.2",
@@ -36,10 +35,8 @@
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "dotenv": "^16.6.1",
-
     "expo-server-sdk": "^3.15.0",
     "geo-tz": "^8.1.5",
-    "geojson": "^0.5.0",
     "hono": "^4.12.0",
     "hono-rate-limiter": "^0.4.2",
     "ioredis": "^5.9.3",

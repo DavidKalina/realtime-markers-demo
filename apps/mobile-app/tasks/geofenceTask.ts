@@ -63,7 +63,7 @@ TaskManager.defineTask(
       // Send the region center (objective location) as the user's position.
       // The user is within the geofence radius (150m) of this point, so the
       // backend's PostGIS ST_DWithin check will succeed.
-      await apiClient.users.sendLocation(region.latitude, region.longitude);
+      await apiClient.sendLocation(region.latitude, region.longitude);
     } catch (err) {
       console.error("[Geofence] Failed to send location:", err);
     }

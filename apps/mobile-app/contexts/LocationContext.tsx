@@ -9,8 +9,7 @@ import React, {
 } from "react";
 import { Alert } from "react-native";
 import * as Location from "expo-location";
-import { useEventBroker } from "@/hooks/useEventBroker";
-import { EventTypes, BaseEvent } from "@/services/EventBroker";
+import { eventBroker, EventTypes, type BaseEvent } from "@/services/EventBroker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Define the event types
@@ -77,7 +76,12 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({
     useState<Location.LocationSubscription | null>(null);
 
   // Get the event broker
-  const { publish } = useEventBroker();
+  const publish = useCallback(
+    <T extends BaseEvent>(eventType: string, data: T) => {
+      eventBroker.emit(eventType, data);
+    },
+    [],
+  );
 
   // Load cached location on mount
   const loadCachedLocation = useCallback(async () => {

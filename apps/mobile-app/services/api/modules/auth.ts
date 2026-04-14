@@ -164,84 +164,6 @@ export class AuthModule {
   }
 
   /**
-   * Check if the current access token is expired
-   * @returns true if the token is expired
-   */
-  async isTokenExpired(): Promise<boolean> {
-    if (!this.client.tokens?.accessToken) return true;
-
-    try {
-      const url = `${this.client.baseUrl}/api/auth/me`;
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.client.tokens.accessToken}`,
-        },
-      });
-
-      return response.status === 401;
-    } catch (error) {
-      console.error("Error checking token expiration:", error);
-      return true;
-    }
-  }
-
-  /**
-   * Refresh the current access token using the refresh token
-   * @returns true if the refresh was successful
-   */
-  async refreshTokens(): Promise<boolean> {
-    if (!this.client.tokens?.refreshToken) {
-      console.log("No refresh token available");
-      return false;
-    }
-
-    try {
-      console.log("Attempting to refresh token");
-      const url = `${this.client.baseUrl}/api/auth/refresh-token`;
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ refreshToken: this.client.tokens.refreshToken }),
-      });
-
-      if (!response.ok) {
-        console.error("Token refresh failed with status:", response.status);
-        return false;
-      }
-
-      const data = await response.json();
-
-      if (!data.accessToken) {
-        console.error("Invalid refresh token response:", data);
-        return false;
-      }
-
-      const newTokens: AuthTokens = {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken || this.client.tokens.refreshToken,
-      };
-
-      this.client.tokens = newTokens;
-
-      await Promise.all([
-        this.client.saveAuthState(this.client.user!, newTokens),
-        this.client.syncTokensWithStorage(),
-      ]);
-
-      console.log("Token refresh successful");
-      return true;
-    } catch (error) {
-      console.error("Token refresh error:", error);
-      return false;
-    }
-  }
-
-  /**
    * Request a password reset email
    * @returns true if the request was successful
    */
@@ -313,11 +235,5 @@ export class AuthModule {
     return true;
   }
 
-  /**
-   * Sync auth tokens with storage
-   */
-  async syncTokens(): Promise<AuthTokens | null> {
-    return this.client.syncTokensWithStorage();
-  }
 }
 

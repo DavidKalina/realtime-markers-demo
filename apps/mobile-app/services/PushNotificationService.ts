@@ -130,7 +130,7 @@ export class PushNotificationService {
       const deviceInfo = await this.getDeviceInfo();
 
       // Register token with backend
-      await apiClient.pushNotifications.registerToken(
+      await apiClient.registerPushToken(
         tokenData.data,
         deviceInfo,
       );
@@ -169,7 +169,7 @@ export class PushNotificationService {
    */
   async unregisterPushToken(token: string): Promise<void> {
     try {
-      await apiClient.pushNotifications.unregisterToken(token);
+      await apiClient.unregisterPushToken(token);
       console.log("✅ Push token unregistered successfully");
     } catch (error) {
       console.error("❌ Error unregistering push token:", error);
@@ -181,7 +181,7 @@ export class PushNotificationService {
    */
   async getUserTokens() {
     try {
-      return await apiClient.pushNotifications.getUserTokens();
+      return await apiClient.getUserPushTokens();
     } catch (error) {
       console.error("❌ Error getting user tokens:", error);
       return [];

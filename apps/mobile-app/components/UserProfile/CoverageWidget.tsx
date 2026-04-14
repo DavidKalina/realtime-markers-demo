@@ -121,9 +121,9 @@ export function CoverageWidget({ data: dataProp }: CoverageWidgetProps) {
       setLoading(false);
       return;
     }
-    apiClient.coverage
-      .getSummary()
-      .then((d) => { setData(d); setLoading(false); })
+    apiClient
+      .getCoverageSummary()
+      .then((d: CoverageSummaryResponse) => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, [dataProp]);
 

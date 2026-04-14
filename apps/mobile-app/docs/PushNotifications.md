@@ -60,7 +60,7 @@ The app automatically registers push tokens with the backend:
 
 ```typescript
 // This happens automatically in AuthContext
-await apiClient.pushNotifications.registerToken(token, deviceInfo);
+await apiClient.registerPushToken(token, deviceInfo);
 ```
 
 ### Device Information

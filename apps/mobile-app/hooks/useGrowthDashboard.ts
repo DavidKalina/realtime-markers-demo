@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiClient } from "@/services/ApiClient";
-import type { GrowthDashboardResponse } from "@/services/api/modules/growthDashboard";
+import { apiClient, type GrowthDashboardResponse } from "@/services/ApiClient";
 
 let cached: GrowthDashboardResponse | null = null;
 let cacheTimestamp = 0;
@@ -20,7 +19,7 @@ export function useGrowthDashboard() {
 
     try {
       setIsLoading(true);
-      const result = await apiClient.growthDashboard.getDashboard();
+      const result = await apiClient.getGrowthDashboard();
       cached = result;
       cacheTimestamp = Date.now();
       setData(result);
@@ -34,7 +33,7 @@ export function useGrowthDashboard() {
   const refetch = useCallback(async () => {
     try {
       setIsLoading(true);
-      const result = await apiClient.growthDashboard.getDashboard();
+      const result = await apiClient.getGrowthDashboard();
       cached = result;
       cacheTimestamp = Date.now();
       setData(result);

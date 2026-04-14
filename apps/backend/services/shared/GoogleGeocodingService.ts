@@ -3,7 +3,10 @@ import { find } from "geo-tz";
 import { normalizeCity } from "./geo/cityUtils";
 import { OpenAIModel, type OpenAIService } from "./OpenAIService";
 import type { RedisService } from "./RedisService";
-import type { Point } from "geojson";
+interface Point {
+  type: "Point";
+  coordinates: number[];
+}
 import type { GooglePlacesService } from "./GooglePlacesService";
 import { validateCoordinates, calculateDistance } from "./geo/utils";
 
