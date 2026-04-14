@@ -5,6 +5,7 @@ services:
     profiles: ["never"] # Disabled in dev — access backend directly on :3000
 
   backend:
+    working_dir: /app/apps/backend
     ports:
       - "3000:3000"
     labels: []
@@ -14,6 +15,7 @@ services:
     command: ["bun", "--watch", "run", "/app/apps/backend/index.ts"]
 
   worker:
+    working_dir: /app/apps/backend
     volumes:
       - ./apps/backend:/app/apps/backend
       - /app/apps/backend/node_modules

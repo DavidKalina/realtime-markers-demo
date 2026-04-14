@@ -138,6 +138,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+    working_dir: /app/apps/backend
     environment:
       <<: *shared-env
       PORT: "3000"
@@ -174,6 +175,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+    working_dir: /app/apps/backend
     command: ["bun", "run", "/app/apps/backend/worker.ts"]
     environment:
       <<: *shared-env

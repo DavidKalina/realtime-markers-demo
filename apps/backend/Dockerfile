@@ -39,6 +39,9 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # Expose ports
 EXPOSE 3000 8080
 
+# Set working directory to backend so Bun resolves the correct tsconfig.json
+WORKDIR /app/apps/backend
+
 # Use the entrypoint script
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["bun", "run", "/app/apps/backend/index.ts"]
