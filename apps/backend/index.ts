@@ -149,26 +149,17 @@ await seedUsers(dataSource).catch((err) =>
 console.log("All services initialized successfully");
 
 // ── Context injection ────────────────────────────────────────────────
+// Spread all services onto the Hono context once; adding a new service
+// to ServiceContainer automatically makes it available via c.get().
+const contextValues = {
+  ...services,
+  redisClient: services.redisService.getClient(),
+} as Record<string, unknown>;
+
 app.use("*", async (c, next) => {
-  c.set("dataSource", services.dataSource);
-  c.set("jobQueue", services.jobQueue);
-  c.set("redisClient", services.redisService.getClient());
-  c.set("redisService", services.redisService);
-  c.set("storageService", services.storageService!);
-  c.set("authService", services.authService!);
-  c.set("geocodingService", services.geocodingService);
-  c.set("placesService", services.placesService);
-  c.set("emailService", services.emailService!);
-  c.set("sidequestService", services.sidequestService!);
-  c.set("sidequestPrescriptionService", services.sidequestPrescriptionService);
-  c.set("sidequestCheckinService", services.sidequestCheckinService!);
-  c.set("overpassService", services.overpassService);
-  c.set("comfortZoneService", services.comfortZoneService);
-  c.set("coverageService", services.coverageService);
-  c.set("pathwayService", services.pathwayService);
-  c.set("pushNotificationService", services.pushNotificationService);
-  c.set("jobNotificationService", services.jobNotificationService);
-  c.set("openAIService", services.openAIService);
+  for (const [key, value] of Object.entries(contextValues)) {
+    c.set(key as never, value as never);
+  }
   await next();
 });
 

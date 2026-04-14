@@ -15,7 +15,7 @@ import {
   stopGeofencing,
   ensureGeofencesFromStore,
 } from "@/hooks/useGeofencing";
-import { sendLocationToBackend } from "@/utils/sendLocationToBackend";
+import { apiClient } from "@/services/ApiClient";
 
 export interface CompletionData {
   itinerary: SidequestResponse;
@@ -125,7 +125,7 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
             accuracy: Location.Accuracy.High,
           })
             .then((loc) =>
-              sendLocationToBackend(loc.coords.latitude, loc.coords.longitude),
+              apiClient.users.sendLocation(loc.coords.latitude, loc.coords.longitude),
             )
             .catch(() => {});
           return true;

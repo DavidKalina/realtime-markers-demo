@@ -1,6 +1,5 @@
-import type { JobData } from "../../services/JobQueue";
-import type { JobHandlerContext } from "./BaseJobHandler";
-import { BaseJobHandler } from "./BaseJobHandler";
+import type { JobData, JobQueue } from "../../services/JobQueue";
+import type { RedisService } from "../../services/shared/RedisService";
 import type { SidequestPrescriptionService } from "../../services/SidequestPrescriptionService";
 import type { SidequestProgressCallback } from "../../services/SidequestPrescriptionService";
 import {
@@ -9,20 +8,16 @@ import {
 } from "../../services/shared/JobPipeline";
 import type { JobNotificationService } from "../../services/JobNotificationService";
 
-export class PrescribeWeekPackHandler extends BaseJobHandler {
-  readonly jobType = "prescribe_week_pack";
-
+export class PrescribeWeekPackHandler {
   constructor(
     private readonly sidequestPrescriptionService: SidequestPrescriptionService,
     private readonly jobNotificationService: JobNotificationService,
-  ) {
-    super();
-  }
+  ) {}
 
   async handle(
     jobId: string,
     job: JobData,
-    context: JobHandlerContext,
+    context: { jobQueue: JobQueue; redisService: RedisService },
   ): Promise<void> {
     const tracker = createJobTracker(jobId, WEEK_PACK_PIPELINE, {
       jobQueue: context.jobQueue,

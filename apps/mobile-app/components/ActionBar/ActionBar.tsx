@@ -18,7 +18,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, fontWeight } from "@/theme";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
-import { useDeckBadgeStore } from "@/stores/useDeckBadgeStore";
+import { useUIStore } from "@/stores/useUIStore";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import { createStyles } from "./styles";
 
@@ -149,8 +149,8 @@ export const ActionBar: React.FC = React.memo(() => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { hasReady: hasItineraryReady, isGenerating: isItineraryGenerating, clearReady } = useJobProgressContext();
-  const hasNewDeckCards = useDeckBadgeStore((s) => s.hasNewCards);
-  const clearDeckBadge = useDeckBadgeStore((s) => s.clearBadge);
+  const hasNewDeckCards = useUIStore((s) => s.hasNewDeckCards);
+  const clearDeckBadge = useUIStore((s) => s.clearDeckBadge);
   const hasActiveQuest = useActiveItineraryStore((s) => s.itinerary != null);
 
   const activeTab = useMemo(() => getActiveTabKey(pathname), [pathname]);

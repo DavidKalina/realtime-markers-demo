@@ -1,6 +1,6 @@
 import * as TaskManager from "expo-task-manager";
 
-import { sendLocationToBackend } from "@/utils/sendLocationToBackend";
+import { apiClient } from "@/services/ApiClient";
 
 export const BACKGROUND_LOCATION_TASK = "background-location-task";
 
@@ -41,7 +41,7 @@ TaskManager.defineTask(
     const { longitude: lng, latitude: lat } = location.coords;
 
     try {
-      await sendLocationToBackend(lat, lng);
+      await apiClient.users.sendLocation(lat, lng);
     } catch (err) {
       console.error("[BackgroundLocation] Failed to send location:", err);
     }

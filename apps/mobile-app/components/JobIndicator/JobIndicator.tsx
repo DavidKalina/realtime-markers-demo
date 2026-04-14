@@ -19,7 +19,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Settings, CheckCircle2, AlertCircle } from "lucide-react-native";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
-import { useJobSheetStore } from "@/stores/useJobSheetStore";
+import { useUIStore } from "@/stores/useUIStore";
 import { useColors, spacing, fontFamily, type Colors } from "@/theme";
 
 // Max visible width for the label area before marquee kicks in
@@ -144,7 +144,7 @@ const JobIndicator: React.FC = () => {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { activeJobs } = useJobProgressContext();
-  const openSheet = useJobSheetStore((s) => s.open);
+  const openSheet = useUIStore((s) => s.openJobSheet);
   const rotation = useSharedValue(0);
   const progressWidth = useSharedValue(0);
 

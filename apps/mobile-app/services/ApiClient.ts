@@ -9,6 +9,7 @@ import { ProfileInsightsModule } from "./api/modules/profileInsights";
 import { CoverageModule } from "./api/modules/coverage";
 import { PathwaysModule } from "./api/modules/pathways";
 import { GrowthDashboardModule } from "./api/modules/growthDashboard";
+import { UsersModule } from "./api/modules/users";
 
 // Re-export types and enums
 export * from "./api/base/types";
@@ -46,6 +47,7 @@ class ApiClient extends BaseApiClient {
   public readonly coverage: CoverageModule;
   public readonly pathways: PathwaysModule;
   public readonly growthDashboard: GrowthDashboardModule;
+  public readonly users: UsersModule;
 
   private constructor(baseUrl: string) {
     super(baseUrl);
@@ -57,6 +59,7 @@ class ApiClient extends BaseApiClient {
     this.coverage = new CoverageModule(this);
     this.pathways = new PathwaysModule(this);
     this.growthDashboard = new GrowthDashboardModule(this);
+    this.users = new UsersModule(this);
   }
 
   public static getInstance(baseUrl?: string): ApiClient {

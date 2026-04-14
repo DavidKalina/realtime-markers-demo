@@ -52,7 +52,7 @@ import type {
   SidequestResponse,
 } from "@/services/api/modules/sidequests";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
-import { useDeckBadgeStore } from "@/stores/useDeckBadgeStore";
+import { useUIStore } from "@/stores/useUIStore";
 import {
   fontFamily,
   fontSize,
@@ -277,7 +277,7 @@ const ItineraryDetailScreen = () => {
   const deactivateItinerary = useActiveItineraryStore((s) => s.deactivate);
   const markCheckedIn = useActiveItineraryStore((s) => s.markCheckedIn);
   const confirmCheckin = useActiveItineraryStore((s) => s.confirmCheckin);
-  const markNewDeckCard = useDeckBadgeStore((s) => s.markNewCard);
+  const markNewDeckCard = useUIStore((s) => s.markNewDeckCard);
   const isActivating = useActiveItineraryStore((s) => s.isLoading);
 
   const isThisActive = activeItinerary?.id === id;

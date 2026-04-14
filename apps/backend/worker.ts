@@ -2,7 +2,8 @@
 import AppDataSource from "./data-source";
 import type { JobQueue, JobData } from "./services/JobQueue";
 import type { RedisService } from "./services/shared/RedisService";
-import { JobHandlerRegistry } from "./handlers/job/JobHandlerRegistry";
+import { PrescribeQuestHandler } from "./handlers/job/PrescribeQuestHandler";
+import { PrescribeWeekPackHandler } from "./handlers/job/PrescribeWeekPackHandler";
 import { Redis } from "ioredis";
 import { createServices } from "./services/ServiceInitializer";
 
@@ -15,7 +16,7 @@ const JOB_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 let activeJobs = 0;
 let jobQueue: JobQueue;
 let redisService: RedisService;
-let jobHandlerRegistry: JobHandlerRegistry;
+let handlers: Record<string, { handle: (jobId: string, job: JobData, ctx: { jobQueue: JobQueue; redisService: RedisService }) => Promise<void> }>;
 
 async function initializeWorker() {
   console.log("Initializing worker...");
@@ -37,12 +38,19 @@ async function initializeWorker() {
   redisService = services.redisService;
   jobQueue = services.jobQueue;
 
-  jobHandlerRegistry = new JobHandlerRegistry(
-    jobQueue,
-    redisService,
+  const prescribeQuest = new PrescribeQuestHandler(
     services.sidequestPrescriptionService,
     services.jobNotificationService,
   );
+  const prescribeWeekPack = new PrescribeWeekPackHandler(
+    services.sidequestPrescriptionService,
+    services.jobNotificationService,
+  );
+
+  handlers = {
+    prescribe_quest: prescribeQuest,
+    prescribe_week_pack: prescribeWeekPack,
+  };
 
   console.log("Worker initialized successfully");
 }
@@ -84,13 +92,13 @@ async function processJobs() {
     console.log(`[Worker] Processing job ${jobId} of type ${job.type}`);
 
     // Get handler for job type
-    const handler = jobHandlerRegistry.getHandler(job.type);
+    const handler = handlers[job.type];
     if (!handler) {
       throw new Error(`No handler found for job type: ${job.type}`);
     }
 
     // Process the job
-    await handler.handle(jobId, job, jobHandlerRegistry.getContext());
+    await handler.handle(jobId, job, { jobQueue, redisService });
 
     // Clear timeout
     clearTimeout(timeoutId);

@@ -1,7 +1,7 @@
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 
-import { sendLocationToBackend } from "@/utils/sendLocationToBackend";
+import { apiClient } from "@/services/ApiClient";
 
 export const GEOFENCE_TASK = "geofence-proximity-task";
 
@@ -63,7 +63,7 @@ TaskManager.defineTask(
       // Send the region center (objective location) as the user's position.
       // The user is within the geofence radius (150m) of this point, so the
       // backend's PostGIS ST_DWithin check will succeed.
-      await sendLocationToBackend(region.latitude, region.longitude);
+      await apiClient.users.sendLocation(region.latitude, region.longitude);
     } catch (err) {
       console.error("[Geofence] Failed to send location:", err);
     }
