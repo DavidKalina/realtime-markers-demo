@@ -5,6 +5,10 @@ import {
   UserPushToken,
 } from "../entities";
 
+// Re-export UserProfile from shared — the canonical definition lives there
+// so the mobile app can import it without depending on this package.
+export type { UserProfile } from "@realtime-markers/shared";
+
 // ============================================================================
 // USER TYPES
 // ============================================================================
@@ -25,35 +29,6 @@ export type UserUpdate = Partial<
     | "updatedAt"
     | "pushTokens"
   >
->;
-
-export type UserProfile = Pick<
-  User,
-  | "id"
-  | "firstName"
-  | "lastName"
-  | "email"
-  | "avatarUrl"
-  | "bio"
-  | "role"
-  | "isVerified"
-  | "discoveryCount"
-  | "scanCount"
-  | "saveCount"
-  | "viewCount"
-  | "totalXp"
-  | "currentTier"
-  | "currentStreak"
-  | "longestStreak"
-  | "onboardingProfile"
-  | "comfortProfile"
-  | "fearLadder"
-  | "pacePreference"
-  | "comfortRadiusMiles"
-  | "homeLatitude"
-  | "homeLongitude"
-  | "aiFocus"
-  | "socialSituation"
 >;
 
 // ============================================================================

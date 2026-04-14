@@ -1,5 +1,5 @@
 // types.ts - Core app types
-import { UserProfile } from "@realtime-markers/database";
+import type { UserProfile } from "@realtime-markers/shared";
 
 // Coordinates type for location data
 export type Coordinates = [number, number]; // [longitude, latitude]
@@ -12,36 +12,17 @@ export interface MarkerData {
   categories?: string[];
   color?: string;
   isPrivate?: boolean;
-  isVerified?: boolean;
   description?: string;
   location?: string;
   distance?: string;
   time?: string;
   eventDate?: string;
   endDate?: string;
-  created_at?: string;
-  updated_at?: string;
   createdAt?: string;
   updatedAt?: string;
   status?: string;
   locationNotes?: string;
   entityType?: string;
-  isRecurring?: boolean;
-  goingCount?: number;
-  isTrending?: boolean;
-  isOfficial?: boolean;
-  scanCount?: number;
-  saveCount?: number;
-  viewCount?: number;
-  creator?: unknown;
-  creatorId?: string;
-  qrUrl?: string | null;
-  qrCodeData?: string;
-  qrImagePath?: string | null;
-  hasQrCode?: boolean;
-  qrGeneratedAt?: string | null;
-  qrDetectedInImage?: boolean;
-  detectedQrData?: string | null;
   [key: string]: unknown;
 }
 

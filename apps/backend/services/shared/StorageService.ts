@@ -5,10 +5,6 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { EventEmitter } from "events";
 import crypto from "crypto";
 
-export interface StorageServiceDependencies {
-  // No external dependencies needed for now
-}
-
 export class StorageService extends EventEmitter {
   private s3Client: S3 | null = null;
   private bucketName: string = "event-images";
@@ -21,8 +17,8 @@ export class StorageService extends EventEmitter {
   }> = [];
   private isProcessing: boolean = false;
 
-  constructor(private dependencies: StorageServiceDependencies) {
-    super(); // Initialize EventEmitter
+  constructor() {
+    super(); // EventEmitter — used internally for queue drain coordination
     console.log("StorageService constructor called");
 
     // Check if storage is enabled via environment variable

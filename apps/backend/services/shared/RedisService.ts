@@ -413,6 +413,18 @@ export class RedisService {
   }
 
   /**
+   * Get-or-compute cache helper. Returns cached value if present,
+   * otherwise calls fn(), stores the result with the given TTL, and returns it.
+   */
+  async cached<T extends string | number | object>(key: string, ttlSeconds: number, fn: () => Promise<T>): Promise<T> {
+    const existing = await this.get<T>(key);
+    if (existing !== null) return existing;
+    const result = await fn();
+    await this.set(key, result, ttlSeconds);
+    return result;
+  }
+
+  /**
    * Get the underlying Redis client
    */
   getClient(): Redis {

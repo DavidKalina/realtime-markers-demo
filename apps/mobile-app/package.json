@@ -26,7 +26,6 @@
     "@react-native-community/netinfo": "^11.5.2",
     "@react-navigation/bottom-tabs": "^7.15.9",
     "@react-navigation/native": "^7.2.2",
-    "@realtime-markers/database": "workspace:*",
     "@realtime-markers/shared": "workspace:*",
     "@rnmapbox/maps": "^10.3.0",
     "@sentry/react-native": "^7.11.0",

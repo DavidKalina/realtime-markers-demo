@@ -4,7 +4,7 @@ import type { JobQueue, JobData } from "./services/JobQueue";
 import type { RedisService } from "./services/shared/RedisService";
 import { JobHandlerRegistry } from "./handlers/job/JobHandlerRegistry";
 import { Redis } from "ioredis";
-import { ServiceInitializer } from "./services/ServiceInitializer";
+import { createServices } from "./services/ServiceInitializer";
 
 // Constants
 const POLLING_INTERVAL = 1000; // 1 second
@@ -32,8 +32,7 @@ async function initializeWorker() {
   });
 
   // Initialize only worker-required services (skips auth, storage, email, etc.)
-  const initializer = new ServiceInitializer(AppDataSource, redisClient);
-  const services = await initializer.initialize("worker");
+  const services = await createServices(AppDataSource, redisClient, "worker");
 
   redisService = services.redisService;
   jobQueue = services.jobQueue;

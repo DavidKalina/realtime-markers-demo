@@ -22,54 +22,8 @@ export const requireAuth = (c: Context<AppContext>) => {
   return user;
 };
 
-export const requireAuthHandler = (handler: AsyncHandler): Handler => {
-  return async (c: Context<AppContext>) => {
-    try {
-      requireAuth(c);
-      return await handler(c);
-    } catch (error) {
-      return handleError(c, error);
-    }
-  };
-};
-
-// Parameter validation utilities
-export const requireParam = (
-  c: Context<AppContext>,
-  paramName: string,
-): string => {
-  const param = c.req.param(paramName);
-  if (!param || typeof param !== "string") {
-    throw new ValidationError(`Missing required parameter: ${paramName}`);
-  }
-  return param;
-};
-
-export const requireQueryParam = (
-  c: Context<AppContext>,
-  paramName: string,
-): string => {
-  const param = c.req.query(paramName);
-  if (!param) {
-    throw new ValidationError(`Missing required query parameter: ${paramName}`);
-  }
-  return param;
-};
-
-export const requireBodyField = async <T>(
-  c: Context<AppContext>,
-  fieldName: string,
-): Promise<T> => {
-  const body = await c.req.json();
-  const field = body[fieldName];
-  if (field === undefined || field === null) {
-    throw new ValidationError(`Missing required field: ${fieldName}`);
-  }
-  return field;
-};
-
 // Error handling utility
-export const handleError = (
+const handleError = (
   c: Context<AppContext>,
   error: unknown,
 ): Response => {
@@ -110,46 +64,4 @@ export const withErrorHandling = (handler: AsyncHandler): Handler => {
       return handleError(c, error);
     }
   };
-};
-
-// Common response patterns
-export const successResponse = (
-  c: Context<AppContext>,
-  data: Record<string, unknown>,
-) => {
-  return c.json(data);
-};
-
-// Validation utilities
-export const validateArray = (value: unknown, fieldName: string): unknown[] => {
-  if (!Array.isArray(value)) {
-    throw new ValidationError(`${fieldName} must be an array`);
-  }
-  return value;
-};
-
-export const validateEnum = (
-  value: unknown,
-  allowedValues: string[],
-  fieldName: string,
-): string => {
-  if (typeof value !== "string" || !allowedValues.includes(value)) {
-    throw new ValidationError(
-      `Invalid ${fieldName}. Must be one of: ${allowedValues.join(", ")}`,
-    );
-  }
-  return value;
-};
-
-// Service getter utilities
-export const getAuthService = (c: Context<AppContext>) => {
-  return c.get("authService");
-};
-
-export const getJobQueue = (c: Context<AppContext>) => {
-  return c.get("jobQueue");
-};
-
-export const getRedisClient = (c: Context<AppContext>) => {
-  return c.get("redisClient");
 };

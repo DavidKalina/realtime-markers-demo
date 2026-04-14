@@ -1,38 +1,80 @@
-// src/index.ts
 import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { logger } from "hono/logger";
 import "reflect-metadata";
 import AppDataSource, { initializeDatabase } from "./data-source";
 import type { AppContext } from "./types/context";
 import { redisClient } from "./services/shared/redis";
 
-// Import utilities
 import {
   testRedisConnection,
   ensureDatabaseReadyForServices,
   getDatabaseStatus,
 } from "./utils/databaseInitializer";
 import { seedUsers } from "./utils/userSeeder";
-import { setupMiddlewares, setupErrorHandlers } from "./utils/middlewareSetup";
-import { setupRoutes } from "./utils/routeSetup";
-import { setupContext } from "./utils/contextSetup";
-import { ServiceInitializer } from "./services/ServiceInitializer";
+import { performanceMonitor } from "./middleware/performanceMonitor";
+import { requestLimiter } from "./middleware/requestLimiter";
+import { securityHeaders } from "./middleware/securityHeaders";
+import { createServices } from "./services/ServiceInitializer";
 import { NotificationSchedulerService } from "./services/NotificationSchedulerService";
 
-// Create the app with proper typing
-const app = new Hono<AppContext>();
+// Route imports
+import { adminRouter } from "./routes/admin";
+import { authRouter } from "./routes/auth";
+import { jobsRouter } from "./routes/jobs";
+import { jobStreamingRouter } from "./routes/jobStreaming";
+import { pushNotificationRouter } from "./routes/pushNotifications";
+import { usersRouter } from "./routes/users";
+import { sidequestRouter, publicSidequestRouter } from "./routes/sidequests";
 
-// Setup global error handlers
-setupErrorHandlers();
+// ── Global error handlers ────────────────────────────────────────────
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception:", error);
+});
+
+// ── App setup ────────────────────────────────────────────────────────
+const app = new Hono<AppContext>();
 
 // Test Redis connection after a short delay
 setTimeout(() => {
   testRedisConnection(redisClient);
 }, 5000);
 
-// Setup middlewares
-setupMiddlewares(app, redisClient);
+// ── Middlewares ──────────────────────────────────────────────────────
+app.use("*", logger());
+app.use(
+  "*",
+  cors({
+    origin: process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(",")
+      : "*",
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization"],
+    maxAge: 86400,
+  }),
+);
+app.use("*", securityHeaders());
+app.use(
+  "*",
+  requestLimiter({
+    maxBodySize: 5 * 1024 * 1024, // 5MB for file uploads
+    maxUrlLength: 2048,
+    maxHeadersSize: 8192,
+  }),
+);
+app.use("*", performanceMonitor(redisClient));
+app.use("*", async (c, next) => {
+  const url = c.req.url;
+  if (url !== "/" && url.endsWith("/")) {
+    return c.redirect(url.slice(0, -1));
+  }
+  return next();
+});
 
-// Enhanced health check endpoint with detailed database status
+// ── Health check ─────────────────────────────────────────────────────
 app.get("/api/health", async (c) => {
   const isDbConnected = AppDataSource.isInitialized;
 
@@ -42,7 +84,7 @@ app.get("/api/health", async (c) => {
         status: "initializing",
         message: "Database connection in progress",
         timestamp: new Date().toISOString(),
-        db_connection: isDbConnected ? "connected" : "connecting",
+        db_connection: "connecting",
         storage: {
           configured:
             !!process.env.DO_SPACE_ACCESS_KEY &&
@@ -54,9 +96,7 @@ app.get("/api/health", async (c) => {
   }
 
   try {
-    // Get detailed database status
     const dbStatus = await getDatabaseStatus(AppDataSource);
-
     return c.json({
       status:
         dbStatus.migrationsRun && dbStatus.tablesReady ? "healthy" : "degraded",
@@ -83,52 +123,74 @@ app.get("/api/health", async (c) => {
   }
 });
 
-// Initialize services using ServiceInitializer with comprehensive database validation
-async function initializeServices() {
-  console.log("Initializing database connection...");
-  const dataSource = await initializeDatabase();
-  console.log("Database connection established");
+// ── Initialize services ──────────────────────────────────────────────
+console.log("Initializing database connection...");
+const dataSource = await initializeDatabase();
+console.log("Database connection established");
 
-  // Ensure database is fully ready before creating services
-  console.log("Validating database readiness...");
-  await ensureDatabaseReadyForServices(dataSource);
-  console.log("Database validation passed - creating services");
+console.log("Validating database readiness...");
+await ensureDatabaseReadyForServices(dataSource);
+console.log("Database validation passed — creating services");
 
-  // Create ServiceInitializer and initialize all services
-  const serviceInitializer = new ServiceInitializer(dataSource, redisClient);
-  const services = await serviceInitializer.initialize();
+const services = await createServices(dataSource, redisClient);
 
-  // Setup push notification schedules (streak-at-risk, weekly nudge)
-  const notificationScheduler = new NotificationSchedulerService({
-    dataSource,
-    pushNotificationService: services.pushNotificationService,
-  });
-  notificationScheduler.start();
+// Setup push notification schedules (streak-at-risk, weekly nudge)
+const notificationScheduler = new NotificationSchedulerService({
+  dataSource,
+  pushNotificationService: services.pushNotificationService,
+});
+notificationScheduler.start();
 
-  // Seed dev users on startup (idempotent — skips if they already exist)
-  await seedUsers(dataSource).catch((err) =>
-    console.warn("User seeding skipped:", err.message),
-  );
+// Seed dev users on startup (idempotent — skips if they already exist)
+await seedUsers(dataSource).catch((err) =>
+  console.warn("User seeding skipped:", err.message),
+);
 
-  console.log("All services initialized successfully");
-  return services;
-}
+console.log("All services initialized successfully");
 
-// Initialize all services async
-const services = await initializeServices();
+// ── Context injection ────────────────────────────────────────────────
+app.use("*", async (c, next) => {
+  c.set("dataSource", services.dataSource);
+  c.set("jobQueue", services.jobQueue);
+  c.set("redisClient", services.redisService.getClient());
+  c.set("redisService", services.redisService);
+  c.set("storageService", services.storageService!);
+  c.set("authService", services.authService!);
+  c.set("geocodingService", services.geocodingService);
+  c.set("placesService", services.placesService);
+  c.set("emailService", services.emailService!);
+  c.set("sidequestService", services.sidequestService!);
+  c.set("sidequestPrescriptionService", services.sidequestPrescriptionService);
+  c.set("sidequestCheckinService", services.sidequestCheckinService!);
+  c.set("overpassService", services.overpassService);
+  c.set("comfortZoneService", services.comfortZoneService);
+  c.set("coverageService", services.coverageService);
+  c.set("pathwayService", services.pathwayService);
+  c.set("pushNotificationService", services.pushNotificationService);
+  c.set("jobNotificationService", services.jobNotificationService);
+  c.set("openAIService", services.openAIService);
+  await next();
+});
 
-// Setup context injection
-setupContext(app, services);
+// ── Routes ───────────────────────────────────────────────────────────
+// Public routes (no auth required) — must come before authenticated routes
+app.route("/api/public/sidequests", publicSidequestRouter);
 
-// Setup routes
-setupRoutes(app);
+app.route("/api/auth", authRouter);
+app.route("/api/admin", adminRouter);
+app.route("/api/push-notifications", pushNotificationRouter);
+app.route("/api/users", usersRouter);
+app.route("/api/sidequests", sidequestRouter);
 
-// 404 handler
+// Job streaming routes (must be before jobs router)
+app.route("/api/jobs", jobStreamingRouter);
+app.route("/api/jobs", jobsRouter);
+
+// ── Error handling ───────────────────────────────────────────────────
 app.notFound((c) => {
   return c.json({ error: "Not Found" }, 404);
 });
 
-// Error handler
 app.onError((err, c) => {
   console.error("Unhandled error:", err);
   return c.json({ error: "Internal Server Error" }, 500);

@@ -1,3 +1,4 @@
+export type { UserProfile } from "./userProfile.js";
 export { CHECKIN_RADIUS_M, ALMOST_THERE_RADIUS_M } from "./geofence.js";
 export { haversineDistance, bearing } from "./geo.js";
 export { RARITY_TIERS, boostRarity, type Rarity } from "./rarity.js";

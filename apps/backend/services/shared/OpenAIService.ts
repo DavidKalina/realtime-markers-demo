@@ -3,7 +3,6 @@ import { OpenAI } from "openai";
 import type { DataSource, Repository } from "typeorm";
 import { LlmUsageLog } from "@realtime-markers/database";
 import type { RedisService } from "./RedisService";
-import type { OpenAICacheService } from "./OpenAICacheService";
 import type {
   ChatCompletion,
   ChatCompletionMessageParam,
@@ -85,17 +84,54 @@ export interface ResponsesCreateParams {
   reasoning?: { effort: "none" | "minimal" | "low" | "medium" | "high" };
 }
 
+// ── Inline TTL cache (replaces OpenAICacheService) ──────────────────
+const MAX_MEMORY_CACHE_SIZE = 1000;
+const EMBEDDING_CACHE_PREFIX = "openai:embedding:";
+const RATE_LIMIT_CACHE_PREFIX = "openai:ratelimit:";
+const EMBEDDING_TTL = 24 * 60 * 60; // 24 hours
+const RATE_LIMIT_TTL = 120; // 2 minutes
+
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
+class MemoryCache {
+  private store = new Map<string, CacheEntry<unknown>>();
+
+  get<T>(key: string): T | null {
+    const entry = this.store.get(key);
+    if (entry && entry.expiresAt > Date.now()) return entry.value as T;
+    if (entry) this.store.delete(key);
+    return null;
+  }
+
+  set<T>(key: string, value: T, ttlSeconds: number): void {
+    if (this.store.size >= MAX_MEMORY_CACHE_SIZE) {
+      const oldestKey = this.store.keys().next().value;
+      if (oldestKey) this.store.delete(oldestKey);
+    }
+    this.store.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
+  }
+
+  deleteByPrefix(prefix: string): void {
+    for (const key of this.store.keys()) {
+      if (key.startsWith(prefix)) this.store.delete(key);
+    }
+  }
+}
+// ─────────────────────────────────────────────────────────────────────
+
 // Define dependencies interface for cleaner constructor
 export interface OpenAIServiceDependencies {
   redisService: RedisService;
-  openAICacheService: OpenAICacheService;
   dataSource: DataSource;
 }
 
 export class OpenAIService {
   private openai: OpenAI;
   private redisService: RedisService;
-  private openAICacheService: OpenAICacheService;
+  private cache = new MemoryCache();
   private activeRequests: Map<string, number> = new Map();
   private llmUsageRepository: Repository<LlmUsageLog>;
 
@@ -107,7 +143,6 @@ export class OpenAIService {
     }
 
     this.redisService = dependencies.redisService;
-    this.openAICacheService = dependencies.openAICacheService;
 
     this.llmUsageRepository =
       dependencies.dataSource.getRepository(LlmUsageLog);
@@ -230,10 +265,10 @@ export class OpenAIService {
   ): Promise<void> {
     if (!model || !operation) return;
 
-    const requestCount = await this.openAICacheService.incrementRateLimitCount(
-      model,
-      operation,
-    );
+    const rateLimitKey = `${RATE_LIMIT_CACHE_PREFIX}${model}:${operation}:${Math.floor(Date.now() / 60000)}`;
+    const currentCount = this.cache.get<number>(rateLimitKey) || 0;
+    const requestCount = currentCount + 1;
+    this.cache.set(rateLimitKey, requestCount, RATE_LIMIT_TTL);
 
     if (requestCount > limits.requestsPerMinute) {
       // If we're over the limit, determine wait time
@@ -258,10 +293,8 @@ export class OpenAIService {
     // Get rate limit stats for each model and operation
     for (const model of Object.values(OpenAIModel)) {
       for (const operation of ["embeddings", "chat", "api"] as const) {
-        const count = await this.openAICacheService.getRateLimitCount(
-          model,
-          operation,
-        );
+        const rlKey = `${RATE_LIMIT_CACHE_PREFIX}${model}:${operation}:${Math.floor(Date.now() / 60000)}`;
+        const count = this.cache.get<number>(rlKey);
         if (count !== null) {
           const key = `${model}:${operation}` as RateLimitKey;
           stats.rateLimits[key] = count;
@@ -386,7 +419,7 @@ export class OpenAIService {
     caller: string = "unknown",
   ): Promise<number[]> {
     // Try to get from cache first
-    const cachedEmbedding = await this.openAICacheService.getEmbedding(text);
+    const cachedEmbedding = this.cache.get<number[]>(`${EMBEDDING_CACHE_PREFIX}${text}`);
     if (cachedEmbedding) {
       return cachedEmbedding;
     }
@@ -414,14 +447,14 @@ export class OpenAIService {
     const embedding = response.data[0].embedding;
 
     // Cache the embedding
-    await this.openAICacheService.setEmbedding(text, embedding);
+    this.cache.set(`${EMBEDDING_CACHE_PREFIX}${text}`, embedding, EMBEDDING_TTL);
 
     return embedding;
   }
 
   // Reset all rate limit counters
   async resetRateLimits(): Promise<void> {
-    await this.openAICacheService.resetRateLimitCounters();
+    this.cache.deleteByPrefix(RATE_LIMIT_CACHE_PREFIX);
   }
 }
 
