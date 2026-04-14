@@ -5,7 +5,7 @@ import { authMiddleware } from "../middleware/authMiddleware";
 import { adminAuthMiddleware } from "../middleware/adminMiddleware";
 import { ip } from "../middleware/ip";
 import { rateLimit } from "../middleware/rateLimit";
-import { UserRole } from "@realtime-markers/database";
+import { UserRole } from "../entities";
 import { UserService } from "../services/UserService";
 
 export const adminRouter = new Hono<AppContext>();

@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { find } from "geo-tz";
-import { normalizeCity } from "@realtime-markers/database";
+import { normalizeCity } from "./geo/cityUtils";
 import { OpenAIModel, type OpenAIService } from "./OpenAIService";
 import type { RedisService } from "./RedisService";
 import type { Point } from "geojson";

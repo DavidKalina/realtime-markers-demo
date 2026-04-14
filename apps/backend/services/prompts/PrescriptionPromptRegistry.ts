@@ -107,14 +107,7 @@ export type PrescriptionPromptBuilder = (ctx: PrescriptionPromptContext) => Pres
 
 // ── Registry ────────────────────────────────────────────────
 
-export interface PrescriptionPromptRegistry {
-  register(name: string, builder: PrescriptionPromptBuilder): void;
-  get(name: string): PrescriptionPromptBuilder;
-  build(name: string, ctx: PrescriptionPromptContext): PrescriptionPromptOutput;
-  list(): string[];
-}
-
-class PrescriptionPromptRegistryImpl implements PrescriptionPromptRegistry {
+export class PrescriptionPromptRegistry {
   private builders = new Map<string, PrescriptionPromptBuilder>();
 
   register(name: string, builder: PrescriptionPromptBuilder): void {
@@ -373,7 +366,7 @@ Pick the right rung on the ladder based on their history and comfort level.`;
 // ── Factory ─────────────────────────────────────────────────
 
 export function createPrescriptionPromptRegistry(): PrescriptionPromptRegistry {
-  const registry = new PrescriptionPromptRegistryImpl();
+  const registry = new PrescriptionPromptRegistry();
   registry.register("v1-default", defaultPrompt);
   registry.register("v1-challenge", challengePrompt);
   return registry;

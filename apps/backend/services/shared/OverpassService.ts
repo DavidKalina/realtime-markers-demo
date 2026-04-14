@@ -1,4 +1,4 @@
-import { normalizeCity, stateCodeFromCoords } from "@realtime-markers/database";
+import { normalizeCity, stateCodeFromCoords } from "./geo/cityUtils";
 import type { RedisService } from "./RedisService";
 
 export interface Trail {

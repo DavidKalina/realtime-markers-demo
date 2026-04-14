@@ -1,7 +1,7 @@
 // src/services/OpenAIService.ts
 import { OpenAI } from "openai";
 import type { DataSource, Repository } from "typeorm";
-import { LlmUsageLog } from "@realtime-markers/database";
+import { LlmUsageLog } from "../../entities";
 import type { RedisService } from "./RedisService";
 import type {
   ChatCompletion,

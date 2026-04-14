@@ -1,5 +1,5 @@
 import type { DataSource } from "typeorm";
-import { Sidequest, Objective } from "@realtime-markers/database";
+import { Sidequest, Objective } from "../entities";
 import {
   type QuestConfig,
   type ResonanceWeights,

@@ -4,7 +4,7 @@ import {
   Objective,
   SidequestStatus,
   User,
-} from "@realtime-markers/database";
+} from "../entities";
 import type { OpenAIService } from "./shared/OpenAIService";
 import type { EmbeddingService } from "./shared/EmbeddingService";
 import type { RedisService } from "./shared/RedisService";

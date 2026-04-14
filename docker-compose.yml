@@ -1,3 +1,32 @@
+x-shared-env: &shared-env
+  POSTGRES_HOST: postgres
+  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  POSTGRES_DB: ${POSTGRES_DB:-markersdb}
+  DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-markersdb}
+  REDIS_HOST: ${REDIS_HOST}
+  REDIS_PORT: ${REDIS_PORT}
+  REDIS_PASSWORD: ${REDIS_PASSWORD}
+  NODE_ENV: production
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
+  MAPBOX_GEOCODING_TOKEN: ${MAPBOX_GEOCODING_TOKEN}
+  GOOGLE_GEOCODING_API_KEY: ${GOOGLE_GEOCODING_API_KEY}
+  JWT_SECRET: ${JWT_SECRET}
+  REFRESH_SECRET: ${REFRESH_SECRET}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+  GOOGLE_IOS_CLIENT_ID: ${GOOGLE_IOS_CLIENT_ID}
+  GOOGLE_ANDROID_CLIENT_ID: ${GOOGLE_ANDROID_CLIENT_ID}
+  FACEBOOK_CLIENT_ID: ${FACEBOOK_CLIENT_ID}
+  FACEBOOK_CLIENT_SECRET: ${FACEBOOK_CLIENT_SECRET}
+  ENABLE_IMAGE_STORAGE: ${ENABLE_IMAGE_STORAGE:-false}
+  DO_SPACE_ENDPOINT: ${DO_SPACE_ENDPOINT:-https://nyc3.digitaloceanspaces.com}
+  DO_SPACE_REGION: ${DO_SPACE_REGION:-nyc3}
+  DO_SPACE_BUCKET: ${DO_SPACE_BUCKET:-event-images}
+  DO_SPACE_ACCESS_KEY: ${DO_SPACE_ACCESS_KEY}
+  DO_SPACE_SECRET_KEY: ${DO_SPACE_SECRET_KEY}
+  DO_SPACE_PUBLIC_URL: ${DO_SPACE_PUBLIC_URL:-https://nyc3.digitaloceanspaces.com}
+
 services:
   # Traefik Reverse Proxy
   traefik:
@@ -47,9 +76,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-markersdb}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # Remove port exposure - only accessible via internal network
-    # ports:
-    #   - "127.0.0.1:5432:5432"
     networks:
       - marker-network
     healthcheck:
@@ -70,9 +96,6 @@ services:
 
   adminer:
     image: adminer:latest
-    # Remove port exposure - only accessible via Traefik
-    # ports:
-    #   - "127.0.0.1:8080:8080"
     networks:
       - marker-network
     depends_on:
@@ -87,9 +110,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    # Remove port exposure - only accessible via internal network
-    # ports:
-    #   - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -119,43 +139,11 @@ services:
       context: .
       dockerfile: apps/backend/Dockerfile
     environment:
-      - PORT=3000
-      - POSTGRES_HOST=postgres
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB:-markersdb}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-markersdb}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - NODE_ENV=production
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - MAPBOX_GEOCODING_TOKEN=${MAPBOX_GEOCODING_TOKEN}
-      - GOOGLE_GEOCODING_API_KEY=${GOOGLE_GEOCODING_API_KEY}
-      - JWT_SECRET=${JWT_SECRET}
-      - REFRESH_SECRET=${REFRESH_SECRET}
-      # OAuth Credentials
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - GOOGLE_IOS_CLIENT_ID=${GOOGLE_IOS_CLIENT_ID}
-      - GOOGLE_ANDROID_CLIENT_ID=${GOOGLE_ANDROID_CLIENT_ID}
-      - FACEBOOK_CLIENT_ID=${FACEBOOK_CLIENT_ID}
-      - FACEBOOK_CLIENT_SECRET=${FACEBOOK_CLIENT_SECRET}
-      # Image storage configuration
-      - ENABLE_IMAGE_STORAGE=${ENABLE_IMAGE_STORAGE:-false}
-      - DO_SPACE_ENDPOINT=${DO_SPACE_ENDPOINT:-https://nyc3.digitaloceanspaces.com}
-      - DO_SPACE_REGION=${DO_SPACE_REGION:-nyc3}
-      - DO_SPACE_BUCKET=${DO_SPACE_BUCKET:-event-images}
-      - DO_SPACE_ACCESS_KEY=${DO_SPACE_ACCESS_KEY}
-      - DO_SPACE_SECRET_KEY=${DO_SPACE_SECRET_KEY}
-      - DO_SPACE_PUBLIC_URL=${DO_SPACE_PUBLIC_URL:-https://nyc3.digitaloceanspaces.com}
-      # Email (Resend)
-      - RESEND_API_KEY=${RESEND_API_KEY:-}
-      - EMAIL_FROM=${EMAIL_FROM:-noreply@mail.davidkalina.com}
+      <<: *shared-env
+      PORT: "3000"
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@mail.davidkalina.com}
 
-    # Remove port exposure - only accessible via Traefik
-    # ports:
-    #   - "127.0.0.1:3000:3000"
     networks:
       - marker-network
     depends_on:
@@ -188,34 +176,7 @@ services:
       dockerfile: apps/backend/Dockerfile
     command: ["bun", "run", "/app/apps/backend/worker.ts"]
     environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB:-markersdb}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-markersdb}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - NODE_ENV=production
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - JWT_SECRET=${JWT_SECRET}
-      - REFRESH_SECRET=${REFRESH_SECRET}
-      # OAuth Credentials
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - GOOGLE_IOS_CLIENT_ID=${GOOGLE_IOS_CLIENT_ID}
-      - GOOGLE_ANDROID_CLIENT_ID=${GOOGLE_ANDROID_CLIENT_ID}
-      - FACEBOOK_CLIENT_ID=${FACEBOOK_CLIENT_ID}
-      - FACEBOOK_CLIENT_SECRET=${FACEBOOK_CLIENT_SECRET}
-      - MAPBOX_GEOCODING_TOKEN=${MAPBOX_GEOCODING_TOKEN}
-      - GOOGLE_GEOCODING_API_KEY=${GOOGLE_GEOCODING_API_KEY}
-      - ENABLE_IMAGE_STORAGE=${ENABLE_IMAGE_STORAGE:-false}
-      - DO_SPACE_ENDPOINT=${DO_SPACE_ENDPOINT:-https://nyc3.digitaloceanspaces.com}
-      - DO_SPACE_REGION=${DO_SPACE_REGION:-nyc3}
-      - DO_SPACE_BUCKET=${DO_SPACE_BUCKET:-event-images}
-      - DO_SPACE_ACCESS_KEY=${DO_SPACE_ACCESS_KEY}
-      - DO_SPACE_SECRET_KEY=${DO_SPACE_SECRET_KEY}
-      - DO_SPACE_PUBLIC_URL=${DO_SPACE_PUBLIC_URL:-https://nyc3.digitaloceanspaces.com}
+      <<: *shared-env
     networks:
       - marker-network
     depends_on:

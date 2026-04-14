@@ -6,7 +6,7 @@ import {
   Objective,
   SidequestStatus,
   User,
-} from "@realtime-markers/database";
+} from "../entities";
 import type {
   PushNotificationService,
   PushNotificationPayload,

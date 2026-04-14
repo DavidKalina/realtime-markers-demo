@@ -5,7 +5,7 @@ import {
 } from "../utils/handlerUtils";
 import type { ComfortZoneService } from "../services/ComfortZoneService";
 import type { StorageService } from "../services/shared/StorageService";
-import { User } from "@realtime-markers/database";
+import { User } from "../entities";
 
 export const objectivePredictionHandler: Handler = withErrorHandling(
   async (c) => {

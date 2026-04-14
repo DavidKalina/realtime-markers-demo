@@ -3,7 +3,7 @@ import {
   CoverageCluster,
   CoverageSnapshot,
   User,
-} from "@realtime-markers/database";
+} from "../entities";
 import { bearing as bearingFromTo } from "@realtime-markers/shared";
 
 const SHADE_DECAY_RATE = 0.5;

@@ -3,12 +3,12 @@
 import bcrypt from "bcryptjs";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { Repository, DataSource } from "typeorm";
-import { User } from "@realtime-markers/database";
+import { User } from "../entities";
 import type {
   UserInput,
   UserUpdate,
   UserProfile,
-} from "@realtime-markers/database";
+} from "../types/derived";
 import { addDays, format } from "date-fns";
 import type { EmailService } from "./shared/EmailService";
 

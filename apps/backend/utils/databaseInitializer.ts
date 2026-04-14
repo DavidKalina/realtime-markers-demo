@@ -1,7 +1,6 @@
 import { DataSource } from "typeorm";
 import { Redis } from "ioredis";
 import { initializeDatabase } from "../data-source";
-import { getAllRequiredTableNames } from "@realtime-markers/database";
 
 export interface DatabaseStatus {
   isConnected: boolean;
@@ -94,9 +93,8 @@ export async function validateTables(dataSource: DataSource): Promise<{
     throw new Error("Database must be initialized before checking tables");
   }
 
-  // Dynamically get required tables from entities instead of hardcoding
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const requiredTables = getAllRequiredTableNames(dataSource as any);
+  // Get required table names from TypeORM entity metadata
+  const requiredTables = dataSource.entityMetadatas.map((m) => m.tableName);
 
   if (requiredTables.length === 0) {
     console.warn(

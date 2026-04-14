@@ -1,5 +1,5 @@
 import { type DataSource, Not, IsNull } from "typeorm";
-import { User, Objective, Sidequest } from "@realtime-markers/database";
+import { User, Objective, Sidequest } from "../entities";
 import { type OpenAIService, OpenAIModel } from "./shared/OpenAIService";
 import { analyzeJournalReflection } from "./ResonanceService";
 

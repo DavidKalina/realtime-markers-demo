@@ -30,7 +30,6 @@
     "@aws-sdk/client-s3": "^3.995.0",
     "@aws-sdk/s3-request-presigner": "^3.995.0",
     "@hono-rate-limiter/redis": "^0.1.4",
-    "@realtime-markers/database": "workspace:*",
     "@realtime-markers/shared": "workspace:*",
     "@types/jsonwebtoken": "^9.0.10",
     "bcryptjs": "^2.4.3",

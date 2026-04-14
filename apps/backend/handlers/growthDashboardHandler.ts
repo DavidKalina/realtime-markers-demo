@@ -6,7 +6,7 @@
  */
 
 import type { DataSource } from "typeorm";
-import { User } from "@realtime-markers/database";
+import { User } from "../entities";
 import {
   withErrorHandling,
   requireAuth,

@@ -1,5 +1,5 @@
 import { type DataSource, Repository, MoreThanOrEqual } from "typeorm";
-import { User, UserRole } from "@realtime-markers/database";
+import { User, UserRole } from "../entities";
 import type { EmailService } from "./shared/EmailService";
 import bcrypt from "bcryptjs";
 

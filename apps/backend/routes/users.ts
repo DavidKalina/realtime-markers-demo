@@ -4,7 +4,7 @@ import { getProfileInsights } from "../handlers/profileInsightsHandler";
 import { getGrowthDashboard } from "../handlers/growthDashboardHandler";
 import { withErrorHandling, requireAuth } from "../utils/handlerUtils";
 import { ValidationError } from "../utils/errors";
-import { User } from "@realtime-markers/database";
+import { User } from "../entities";
 import type { AppContext } from "../types/context";
 import type { CoverageService } from "../services/CoverageService";
 import type { PathwayService } from "../services/PathwayService";

@@ -4,8 +4,8 @@ import {
   Objective,
   SidequestStatus,
   User,
-  normalizeCity,
-} from "@realtime-markers/database";
+} from "../entities";
+import { normalizeCity } from "./shared/geo/cityUtils";
 import { haversineDistance } from "@realtime-markers/shared";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";

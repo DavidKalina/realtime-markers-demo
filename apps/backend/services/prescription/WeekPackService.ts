@@ -6,9 +6,9 @@
  */
 
 import type { DataSource } from "typeorm";
-import type { Sidequest } from "@realtime-markers/database";
+import type { Sidequest } from "../../entities";
 import type { PathwayService, PhaseContext } from "../PathwayService";
-import type { Pathway } from "@realtime-markers/database";
+import type { Pathway } from "../../entities";
 import type {
   PrescribeQuestInput,
   SiblingContext,

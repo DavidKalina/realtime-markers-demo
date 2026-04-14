@@ -10,7 +10,7 @@ import { GoogleGeocodingService } from "./shared/GoogleGeocodingService";
 import { GooglePlacesService } from "./shared/GooglePlacesService";
 import { JobQueue } from "./JobQueue";
 
-import { User } from "@realtime-markers/database";
+import { User } from "../entities";
 import { PushNotificationService } from "./PushNotificationService";
 import { JobNotificationService } from "./JobNotificationService";
 import { SidequestService } from "./SidequestService";

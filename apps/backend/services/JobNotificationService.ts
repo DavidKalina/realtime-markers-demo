@@ -1,5 +1,5 @@
 import { type DataSource, Repository } from "typeorm";
-import { User } from "@realtime-markers/database";
+import { User } from "../entities";
 import type { PushNotificationService } from "./PushNotificationService";
 import type { JobData } from "./JobQueue";
 

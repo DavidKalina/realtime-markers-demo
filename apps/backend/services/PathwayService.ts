@@ -1,5 +1,5 @@
 import type { DataSource } from "typeorm";
-import { Pathway } from "@realtime-markers/database";
+import { Pathway } from "../entities";
 import type { ResonanceResult } from "./ResonanceService";
 import {
   type QuestConfig,

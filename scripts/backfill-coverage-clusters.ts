@@ -18,7 +18,7 @@ import {
   UserBadge,
   CoverageCluster,
   CoverageSnapshot,
-} from "@realtime-markers/database";
+} from "../apps/backend/entities";
 
 const SHADE_DECAY_RATE = 0.5;
 

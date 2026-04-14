@@ -18,7 +18,7 @@ import {
   CoverageCluster,
   CoverageSnapshot,
   Pathway,
-} from "@realtime-markers/database";
+} from "./entities";
 
 // Create the DataSource instance
 const AppDataSource = new DataSource({

@@ -10,17 +10,13 @@ services:
     labels: []
     volumes:
       - ./apps/backend:/app/apps/backend
-      - ./packages/database:/app/packages/database
       - /app/apps/backend/node_modules
-      - /app/packages/database/node_modules
     command: ["bun", "--watch", "run", "/app/apps/backend/index.ts"]
 
   worker:
     volumes:
       - ./apps/backend:/app/apps/backend
-      - ./packages/database:/app/packages/database
       - /app/apps/backend/node_modules
-      - /app/packages/database/node_modules
     command: ["bun", "--watch", "run", "/app/apps/backend/worker.ts"]
 
   postgres:

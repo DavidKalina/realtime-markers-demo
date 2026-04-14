@@ -6,7 +6,7 @@
  */
 
 import type { DataSource } from "typeorm";
-import { User } from "@realtime-markers/database";
+import { User } from "../../entities";
 import type { OpenAIService } from "../shared/OpenAIService";
 import { OpenAIModel } from "../shared/OpenAIService";
 import type { ComfortZoneService } from "../ComfortZoneService";
@@ -1284,7 +1284,7 @@ export function buildDynamicFearLadderContext(fearLadder: {
  * Tells the agent how miscalibrated the user's fear predictions are,
  * so it can push harder when the user consistently overestimates threat.
  */
-export function buildExpectancyContext(cal: NonNullable<import("@realtime-markers/database").User["expectancyCalibration"]>): string {
+export function buildExpectancyContext(cal: NonNullable<import("../../entities").User["expectancyCalibration"]>): string {
   if (cal.totalViolations < 2) return ""; // Not enough data yet
 
   const lines: string[] = [];
