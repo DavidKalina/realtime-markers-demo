@@ -1,53 +1,25 @@
-// src/types/context.ts
-import type { DataSource } from "typeorm";
-import type { JobQueue } from "../services/JobQueue";
 import type Redis from "ioredis";
-import type { StorageService } from "../services/shared/StorageService";
-import type { RedisService } from "../services/shared/RedisService";
-import type { AuthService } from "../services/AuthService";
-import type { GoogleGeocodingService } from "../services/shared/GoogleGeocodingService";
-import type { GooglePlacesService } from "../services/shared/GooglePlacesService";
-import type { EmailService } from "../services/shared/EmailService";
-import type { SidequestService } from "../services/SidequestService";
-import type { SidequestPrescriptionService } from "../services/SidequestPrescriptionService";
-import type { SidequestCheckinService } from "../services/SidequestCheckinService";
-import type { OverpassService } from "../services/shared/OverpassService";
-import type { EmbeddingService } from "../services/shared/EmbeddingService";
-import type { ComfortZoneService } from "../services/ComfortZoneService";
-import type { CoverageService } from "../services/CoverageService";
-import type { PathwayService } from "../services/PathwayService";
-import type { PushNotificationService } from "../services/PushNotificationService";
-import type { JobNotificationService } from "../services/JobNotificationService";
-import type { OpenAIService } from "../services/shared/OpenAIService";
-export interface AppVariables {
-  dataSource: DataSource;
-  storageService: StorageService;
-  jobQueue: JobQueue;
-  redisClient: Redis;
-  redisService: RedisService;
-  authService: AuthService;
-  geocodingService: GoogleGeocodingService;
-  placesService: GooglePlacesService;
-  emailService: EmailService;
-  sidequestService: SidequestService;
-  sidequestPrescriptionService: SidequestPrescriptionService;
-  sidequestCheckinService: SidequestCheckinService;
-  overpassService: OverpassService;
+import type { ServiceContainer } from "../services/ServiceInitializer";
 
-  embeddingService: EmbeddingService;
-  comfortZoneService: ComfortZoneService;
-  coverageService: CoverageService;
-  pathwayService: PathwayService;
-  pushNotificationService: PushNotificationService;
-  jobNotificationService: JobNotificationService;
-  openAIService: OpenAIService;
+/**
+ * Hono context variables. Derived from ServiceContainer so adding a service
+ * only requires editing ServiceInitializer.ts and the injection middleware.
+ */
+export interface AppVariables extends ServiceContainer {
+  // Override nullable HTTP-only services — handlers run in HTTP mode where these are always set
+  storageService: NonNullable<ServiceContainer["storageService"]>;
+  authService: NonNullable<ServiceContainer["authService"]>;
+  emailService: NonNullable<ServiceContainer["emailService"]>;
+  sidequestService: NonNullable<ServiceContainer["sidequestService"]>;
+  sidequestCheckinService: NonNullable<ServiceContainer["sidequestCheckinService"]>;
+
+  // Request-specific context (not part of ServiceContainer)
+  redisClient: Redis;
   user?: { id: string; email: string; role: string; userId?: string };
   userId?: string;
 }
 
 export type AppContext = {
   Variables: AppVariables;
-  Bindings: {
-    // ... existing bindings ...
-  };
+  Bindings: {};
 };

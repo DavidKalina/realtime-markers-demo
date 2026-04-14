@@ -34,7 +34,6 @@ import QuestCardDeck from "@/components/Itinerary/QuestCardDeck";
 import BatchRevealOverlay from "@/components/Quest/BatchRevealOverlay";
 import { apiClient } from "@/services/ApiClient";
 import type {
-  ItineraryResponse,
   SidequestResponse,
 } from "@/services/api/modules/sidequests";
 import {
@@ -127,7 +126,7 @@ const ItinerariesListScreen = () => {
   );
 
   const PAGE_SIZE = 20;
-  const [itineraries, setItineraries] = useState<ItineraryResponse[]>([]);
+  const [itineraries, setItineraries] = useState<SidequestResponse[]>([]);
   const [discardingId, setDiscardingId] = useState<string | null>(null);
   const [markedIds, setMarkedIds] = useState<Set<string>>(new Set());
   const [batchDiscardingIds, setBatchDiscardingIds] = useState<Set<string> | null>(null);

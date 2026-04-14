@@ -1,7 +1,7 @@
 import * as Calendar from "expo-calendar";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { ItineraryResponse } from "@/services/api/modules/sidequests";
+import type { SidequestResponse } from "@/services/api/modules/sidequests";
 
 const CALENDAR_EVENT_KEY_PREFIX = "calendar_event_id:";
 const APP_CALENDAR_TITLE = "A Third Space";
@@ -85,7 +85,7 @@ class CalendarService {
    * Add an itinerary to the device calendar.
    */
   async addItineraryToCalendar(
-    itinerary: ItineraryResponse,
+    itinerary: SidequestResponse,
   ): Promise<string | null> {
     try {
       const hasPermission = await this.requestPermission();

@@ -1,8 +1,8 @@
 import * as Location from "expo-location";
 import { create } from "zustand";
 import type {
-  ItineraryResponse,
-  ItineraryItemResponse,
+  SidequestResponse,
+  ObjectiveResponse,
 } from "@/services/api/modules/sidequests";
 import { apiClient } from "@/services/ApiClient";
 import {
@@ -18,7 +18,7 @@ import {
 import { sendLocationToBackend } from "@/utils/sendLocationToBackend";
 
 export interface CompletionData {
-  itinerary: ItineraryResponse;
+  itinerary: SidequestResponse;
   completedAt: string;
 }
 
@@ -29,7 +29,7 @@ export interface CheckinReplay {
 
 interface ActiveItineraryStore {
   /** The currently active itinerary (being walked) */
-  itinerary: ItineraryResponse | null;
+  itinerary: SidequestResponse | null;
   /** Loading state for activate/deactivate */
   isLoading: boolean;
   /** Data for the completion celebration overlay */
@@ -40,7 +40,7 @@ interface ActiveItineraryStore {
   pendingConfirmations: Set<string>;
 
   /** Activate an itinerary for check-in tracking */
-  activate: (itinerary: ItineraryResponse) => Promise<boolean>;
+  activate: (itinerary: SidequestResponse) => Promise<boolean>;
   /** Deactivate the current itinerary */
   deactivate: () => Promise<void>;
   /** Mark a specific item as checked in (from push notification or manual) */
@@ -65,8 +65,8 @@ interface ActiveItineraryStore {
  * in on the server while the app was backgrounded).
  */
 function detectMissedCheckins(
-  localItems: ItineraryItemResponse[],
-  serverItems: ItineraryItemResponse[],
+  localItems: ObjectiveResponse[],
+  serverItems: ObjectiveResponse[],
 ): CheckinReplay[] {
   const replays: CheckinReplay[] = [];
   for (const serverItem of serverItems) {
@@ -88,9 +88,9 @@ function detectMissedCheckins(
  * when `markCheckedIn` is called during replay.
  */
 function nullCheckins(
-  itinerary: ItineraryResponse,
+  itinerary: SidequestResponse,
   replays: CheckinReplay[],
-): ItineraryResponse {
+): SidequestResponse {
   if (replays.length === 0) return itinerary;
   const replayIds = new Set(replays.map((r) => r.itemId));
   return {

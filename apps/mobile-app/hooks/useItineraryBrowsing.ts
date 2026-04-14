@@ -1,12 +1,12 @@
 import { useCallback, useState } from "react";
-import type { ItineraryResponse } from "@/services/api/modules/sidequests";
+import type { SidequestResponse } from "@/services/api/modules/sidequests";
 import {
   getFirstStop,
   type ItineraryPreviewStop,
 } from "@/components/Itinerary/ItineraryCarousel";
 
 interface UseItineraryBrowsingOptions {
-  itineraries: ItineraryResponse[];
+  itineraries: SidequestResponse[];
   handlePreviewStop: (stop: ItineraryPreviewStop | null) => void;
 }
 

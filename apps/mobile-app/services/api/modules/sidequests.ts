@@ -550,10 +550,6 @@ export class SidequestsModule {
 
 }
 
-// Backward-compat aliases for files still using old names
-export type ItineraryResponse = SidequestResponse;
-export type ItineraryItemResponse = ObjectiveResponse;
-export type BrowseItineraryResponse = BrowseSidequestResponse;
 export interface PopularStop {
   venueName: string;
   venueCategory: string | null;

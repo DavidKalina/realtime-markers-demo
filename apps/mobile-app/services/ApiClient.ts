@@ -37,18 +37,26 @@ export {
 
 class ApiClient extends BaseApiClient {
   private static instance: ApiClient | null = null;
-  private _auth: AuthModule | null = null;
-  private _pushNotifications: PushNotificationsModule | null = null;
-  private _sidequests: SidequestsModule | null = null;
 
-  private _deckStats: DeckStatsModule | null = null;
-  private _profileInsights: ProfileInsightsModule | null = null;
-  private _coverage: CoverageModule | null = null;
-  private _pathways: PathwaysModule | null = null;
-  private _growthDashboard: GrowthDashboardModule | null = null;
+  public readonly auth: AuthModule;
+  public readonly pushNotifications: PushNotificationsModule;
+  public readonly sidequests: SidequestsModule;
+  public readonly deckStats: DeckStatsModule;
+  public readonly profileInsights: ProfileInsightsModule;
+  public readonly coverage: CoverageModule;
+  public readonly pathways: PathwaysModule;
+  public readonly growthDashboard: GrowthDashboardModule;
 
   private constructor(baseUrl: string) {
     super(baseUrl);
+    this.auth = new AuthModule(this);
+    this.pushNotifications = new PushNotificationsModule(this);
+    this.sidequests = new SidequestsModule(this);
+    this.deckStats = new DeckStatsModule(this);
+    this.profileInsights = new ProfileInsightsModule(this);
+    this.coverage = new CoverageModule(this);
+    this.pathways = new PathwaysModule(this);
+    this.growthDashboard = new GrowthDashboardModule(this);
   }
 
   public static getInstance(baseUrl?: string): ApiClient {
@@ -61,66 +69,6 @@ class ApiClient extends BaseApiClient {
       ApiClient.instance = new ApiClient(baseUrl);
     }
     return ApiClient.instance;
-  }
-
-  public get auth(): AuthModule {
-    if (!this._auth) {
-      this._auth = new AuthModule(this);
-    }
-    return this._auth;
-  }
-
-  public get pushNotifications(): PushNotificationsModule {
-    if (!this._pushNotifications) {
-      this._pushNotifications = new PushNotificationsModule(this);
-    }
-    return this._pushNotifications;
-  }
-
-  public get sidequests(): SidequestsModule {
-    if (!this._sidequests) {
-      this._sidequests = new SidequestsModule(this);
-    }
-    return this._sidequests;
-  }
-
-  public get deckStats(): DeckStatsModule {
-    if (!this._deckStats) {
-      this._deckStats = new DeckStatsModule(this);
-    }
-    return this._deckStats;
-  }
-
-  public get profileInsights(): ProfileInsightsModule {
-    if (!this._profileInsights) {
-      this._profileInsights = new ProfileInsightsModule(this);
-    }
-    return this._profileInsights;
-  }
-
-  public get coverage(): CoverageModule {
-    if (!this._coverage) {
-      this._coverage = new CoverageModule(this);
-    }
-    return this._coverage;
-  }
-
-  public get pathways(): PathwaysModule {
-    if (!this._pathways) {
-      this._pathways = new PathwaysModule(this);
-    }
-    return this._pathways;
-  }
-
-  public get growthDashboard(): GrowthDashboardModule {
-    if (!this._growthDashboard) {
-      this._growthDashboard = new GrowthDashboardModule(this);
-    }
-    return this._growthDashboard;
-  }
-
-  override setBaseUrl(baseUrl: string): void {
-    super.setBaseUrl(baseUrl);
   }
 }
 

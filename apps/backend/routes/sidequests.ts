@@ -22,17 +22,23 @@ import {
   searchSidequestsHandler,
   prescribeQuestHandler,
   prescribeWeekPackHandler,
+} from "../handlers/sidequestHandlers";
+import {
   getComfortZoneHandler,
   getWorldSizeHandler,
   setHomeAnchorHandler,
   updateComfortProfileHandler,
-  objectiveJournalHandler,
-  objectivePredictionHandler,
+} from "../handlers/comfortZoneHandlers";
+import {
   generateFearLadderHandler,
   generateBarriersHandler,
   assessGoalHandler,
   refineGoalHandler,
-} from "../handlers/sidequestHandlers";
+} from "../handlers/goalHandlers";
+import {
+  objectiveJournalHandler,
+  objectivePredictionHandler,
+} from "../handlers/objectiveHandlers";
 import type { AppContext } from "../types/context";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { ip } from "../middleware/ip";

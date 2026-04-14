@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiClient } from "@/services/ApiClient";
-import type { ItineraryResponse } from "@/services/api/modules/sidequests";
+import type { SidequestResponse } from "@/services/api/modules/sidequests";
 
 /**
  * Fetches the user's recent READY (uncompleted) itineraries.
  * Shared between ItineraryMapMarkers and ItineraryCarousel.
  */
 export function useRecentItineraries() {
-  const [itineraries, setItineraries] = useState<ItineraryResponse[]>([]);
+  const [itineraries, setItineraries] = useState<SidequestResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetch = useCallback(async () => {

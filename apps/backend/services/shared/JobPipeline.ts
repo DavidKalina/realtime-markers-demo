@@ -5,9 +5,6 @@ import type { JobNotificationService } from "../JobNotificationService";
 // --- Types ---
 
 export type JobType =
-  | "process_flyer"
-  | "cleanup_outdated_events"
-  | "import_external_events"
   | "prescribe_quest"
   | "prescribe_week_pack";
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
@@ -77,46 +74,6 @@ export function definePipeline<TStepId extends string>(
 }
 
 // --- Pipeline definitions ---
-
-export type FlyerStepId =
-  | "validate"
-  | "fetch_image"
-  | "upload"
-  | "analyze"
-  | "process"
-  | "save";
-
-export const FLYER_PIPELINE = definePipeline<FlyerStepId>("process_flyer", [
-  { id: "validate", label: "Validating request", weight: 1 },
-  { id: "fetch_image", label: "Retrieving image", weight: 1 },
-  { id: "upload", label: "Uploading to storage", weight: 2 },
-  { id: "analyze", label: "Analyzing image", weight: 4 },
-  { id: "process", label: "Processing details", weight: 2 },
-  { id: "save", label: "Creating event", weight: 1 },
-]);
-
-export type CleanupStepId = "query" | "delete" | "notify";
-
-export const CLEANUP_PIPELINE = definePipeline<CleanupStepId>(
-  "cleanup_outdated_events",
-  [
-    { id: "query", label: "Finding outdated events", weight: 1 },
-    { id: "delete", label: "Removing events", weight: 1 },
-    { id: "notify", label: "Sending notifications", weight: 1 },
-  ],
-);
-
-export type ImportStepId = "fetch" | "deduplicate" | "create" | "notify";
-
-export const IMPORT_PIPELINE = definePipeline<ImportStepId>(
-  "import_external_events",
-  [
-    { id: "fetch", label: "Fetching external events", weight: 2 },
-    { id: "deduplicate", label: "Checking for duplicates", weight: 1 },
-    { id: "create", label: "Importing events", weight: 4 },
-    { id: "notify", label: "Completing import", weight: 1 },
-  ],
-);
 
 export type PrescribeStepId = "generate" | "save";
 

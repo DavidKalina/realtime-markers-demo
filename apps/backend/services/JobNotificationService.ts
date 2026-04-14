@@ -5,28 +5,8 @@ import type { JobData } from "./JobQueue";
 
 export interface JobCompletionResult {
   message?: string;
-  confidence?: number;
-  threshold?: number;
-  daysFromNow?: number;
-  date?: string;
-  deletedCount?: number;
-  hasMore?: boolean;
-  eventId?: string;
   title?: string;
   emoji?: string;
-  coordinates?: [number, number];
-  type?: string;
-  status?: string;
-  hasImages?: boolean;
-  events?: Array<{
-    eventId: string;
-    title: string;
-    emoji: string;
-    coordinates: [number, number];
-    confidence?: number;
-    isDuplicate?: boolean;
-  }>;
-  isMultiEvent?: boolean;
   [key: string]: unknown;
 }
 
@@ -178,68 +158,14 @@ export class JobNotificationService {
     result: JobCompletionResult,
   ): { title: string; body: string } | null {
     switch (job.type) {
-      case "process_flyer":
-        return this.createFlyerCompletionNotification(result);
-
       case "prescribe_week_pack":
         return this.createWeekPackCompletionNotification(result);
 
       default:
-        // Don't send notifications for other job types
         return null;
     }
   }
 
-  /**
-   * Create notification content for flyer completion
-   */
-  private createFlyerCompletionNotification(result: JobCompletionResult): {
-    title: string;
-    body: string;
-  } {
-    // Handle multi-event results
-    if (result.isMultiEvent && result.events && result.events.length > 0) {
-      const eventCount = result.events.length;
-      return {
-        title: `🎉 ${eventCount} Events Found!`,
-        body: `We found ${eventCount} events in your flyer and added them to the community calendar.`,
-      };
-    }
-
-    // Handle single event results
-    if (result.eventId && result.title) {
-      return {
-        title: `🎉 Event Added!`,
-        body: `"${result.title}" has been successfully added to the community calendar.`,
-      };
-    }
-
-    // Handle duplicate events
-    if (result.isDuplicate && result.title) {
-      return {
-        title: `🔍 Event Already Exists`,
-        body: `"${result.title}" was already in our database, so we linked to the existing event.`,
-      };
-    }
-
-    // Handle low confidence or no events
-    if (result.confidence !== undefined && result.confidence < 0.75) {
-      return {
-        title: `❓ No Event Detected`,
-        body: `We couldn't find a clear event in your image. Please try with a different flyer or contact support.`,
-      };
-    }
-
-    // Default success message
-    return {
-      title: `✅ Flyer Processed`,
-      body: result.message || "Your flyer has been processed successfully.",
-    };
-  }
-
-  /**
-   * Create notification content for week pack completion
-   */
   private createWeekPackCompletionNotification(result: JobCompletionResult): {
     title: string;
     body: string;
@@ -266,14 +192,6 @@ export class JobNotificationService {
     message?: string,
   ): { title: string; body: string } | null {
     switch (job.type) {
-      case "process_flyer":
-        return {
-          title: `❌ Flyer Processing Failed`,
-          body:
-            message ||
-            "There was an error processing your flyer. Please try again with a different image.",
-        };
-
       case "prescribe_week_pack":
         return {
           title: "Quest generation hit a snag",
@@ -281,7 +199,6 @@ export class JobNotificationService {
         };
 
       default:
-        // Don't send notifications for other job types
         return null;
     }
   }

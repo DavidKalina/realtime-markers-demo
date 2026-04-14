@@ -24,16 +24,8 @@ export interface JobData {
   };
   result?: {
     message?: string;
-    confidence?: number;
-    threshold?: number;
-    daysFromNow?: number;
-    date?: string;
-    deletedCount?: number;
-    hasMore?: boolean;
-    eventId?: string;
     title?: string;
     emoji?: string;
-    coordinates?: [number, number];
     [key: string]: unknown;
   };
   data: Record<string, unknown>;
@@ -149,11 +141,6 @@ export class JobQueue {
    */
   async getJobStatus(jobId: string): Promise<JobData | null> {
     return this.dependencies.redisService.get<JobData>(`job:${jobId}`);
-  }
-
-  // Add to JobQueue.ts
-  async enqueueCleanupJob(batchSize = 100): Promise<string> {
-    return this.enqueue("cleanup_outdated_events", { batchSize });
   }
 
   /**

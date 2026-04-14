@@ -1,4 +1,4 @@
-import type { ItineraryResponse } from "@/services/api/modules/sidequests";
+import type { SidequestResponse } from "@/services/api/modules/sidequests";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
 import {
   fontFamily,
@@ -46,7 +46,7 @@ export interface ItineraryPreviewStop {
 interface ItineraryCarouselProps {
   style?: ViewStyle;
   /** Itineraries to display — passed from parent (shared with map markers) */
-  itineraries: ItineraryResponse[];
+  itineraries: SidequestResponse[];
   /** Externally controlled active index (e.g. from tapping a map marker) */
   activeIndex: number;
   /** Called when the user swipes to a different itinerary */
@@ -59,7 +59,7 @@ interface ItineraryCarouselProps {
 
 /** Extract the preview stop data for a given itinerary */
 export function getFirstStop(
-  itinerary: ItineraryResponse,
+  itinerary: SidequestResponse,
 ): ItineraryPreviewStop | null {
   const firstItem = [...itinerary.objectives]
     .sort((a, b) => a.sortOrder - b.sortOrder)
