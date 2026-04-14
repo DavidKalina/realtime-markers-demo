@@ -234,6 +234,9 @@ export class User {
   })
   passwordResetExpiresAt?: Date;
 
+  @Column({ name: "onboarding_phase", type: "integer", default: 0 })
+  onboardingPhase!: number;
+
   @Column({ name: "expectancy_calibration", type: "jsonb", nullable: true })
   expectancyCalibration?: {
     totalViolations: number;

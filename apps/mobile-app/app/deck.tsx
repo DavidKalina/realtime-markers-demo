@@ -262,6 +262,9 @@ const DeckScreen = () => {
     fetchCards();
   }, [fetchCards]);
 
+  // Progressive onboarding is triggered by the quest-complete screen
+  // and by the delayed push notification — not by the deck itself.
+
   // Tap a card → open memory modal, or capture modal if data is missing
   const handleCardPress = useCallback((card: SidequestResponse) => {
     // Track which card is active for promote

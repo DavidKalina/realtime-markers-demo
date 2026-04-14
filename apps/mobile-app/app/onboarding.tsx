@@ -6,125 +6,31 @@ import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   StyleSheet,
   View,
-  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
 import Animated, {
-  Easing,
   FadeIn,
   FadeInLeft,
   FadeInRight,
   FadeOutLeft,
   FadeOutRight,
-  useDerivedValue,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
 } from "react-native-reanimated";
 
+import { SkiaGlow } from "@/components/SkiaGlow";
 import { StepProgress } from "@/components/Onboarding/shared";
-import {
-  deriveBarriersText,
-  scoreFearLadder,
-} from "@/components/Onboarding/constants";
 import { StepWelcome } from "@/components/Onboarding/StepWelcome";
-import { StepAboutYou, type SocialSituation } from "@/components/Onboarding/StepAboutYou";
-import { StepSocialLife } from "@/components/Onboarding/StepSocialLife";
-import { StepBarriers } from "@/components/Onboarding/StepBarriers";
-import { StepGeneratingLadder } from "@/components/Onboarding/StepGeneratingLadder";
-import { StepFearLadder } from "@/components/Onboarding/StepFearLadder";
-import { StepNorthStar } from "@/components/Onboarding/StepNorthStar";
+import { StepGoal } from "@/components/Onboarding/StepGoal";
 import { StepActivities } from "@/components/Onboarding/StepActivities";
+import { StepQuickDetails, type QuickDetails } from "@/components/Onboarding/StepQuickDetails";
 import { GOAL_OPTIONS } from "@/components/Onboarding/constants";
-
-// ── Skia glow background ────────────────────────────────
-
-const GLOW_SKSL = Skia.RuntimeEffect.Make(`
-uniform float2 resolution;
-uniform float time;
-uniform float reveal;
-
-half4 main(float2 xy) {
-  vec2 uv = xy / resolution;
-
-  float cx = 0.5 + sin(time * 6.2832) * 0.02;
-  float cy = 0.38;
-
-  float dx = uv.x - cx;
-  float dy = (uv.y - cy) * (resolution.y / resolution.x);
-  float dist = sqrt(dx * dx + dy * dy);
-
-  float glow1 = exp(-dist * dist * 4.0);
-  float glow2 = exp(-dist * dist * 12.0);
-  float glow3 = exp(-dist * dist * 2.0) * 0.25;
-
-  float pulse = 0.85 + 0.15 * sin(time * 6.2832);
-
-  vec3 blue = vec3(0.3, 0.67, 0.97);
-  vec3 cyan = vec3(0.4, 0.9, 0.85);
-  vec3 warm = vec3(0.52, 0.38, 0.85);
-
-  vec3 col = blue * glow1 + cyan * glow2 * 0.5 + warm * glow3;
-  col *= pulse;
-
-  float alpha = (glow1 * 0.25 + glow2 * 0.15 + glow3 * 0.08) * pulse * reveal;
-
-  return half4(col * alpha, alpha);
-}
-`);
-
-const SkiaGlow: React.FC = React.memo(() => {
-  const { width, height } = useWindowDimensions();
-  const time = useSharedValue(0);
-  const reveal = useSharedValue(0);
-
-  useEffect(() => {
-    reveal.value = withDelay(
-      300,
-      withTiming(1, { duration: 1000, easing: Easing.out(Easing.cubic) }),
-    );
-    time.value = withDelay(
-      300,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-        ),
-        -1,
-        true,
-      ),
-    );
-  }, []);
-
-  const uniforms = useDerivedValue(() => ({
-    resolution: vec(width, height),
-    time: time.value,
-    reveal: reveal.value,
-  }));
-
-  if (!GLOW_SKSL) return null;
-
-  return (
-    <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Fill>
-        <Shader source={GLOW_SKSL} uniforms={uniforms} />
-      </Fill>
-    </Canvas>
-  );
-});
-
-SkiaGlow.displayName = "SkiaGlow";
 
 // ── Main screen ─────────────────────────────────────────
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 4;
 
 const OnboardingScreen: React.FC = () => {
   const colors = useColors();
@@ -137,24 +43,14 @@ const OnboardingScreen: React.FC = () => {
   const directionRef = useRef<"forward" | "back">("forward");
 
   // Form state
-  const [socialSituation, setSocialSituation] = useState<SocialSituation>({
-    ageRange: "",
-    gender: "",
-    timeInArea: "",
-    workSituation: "",
-    livingSituation: "",
-  });
-  const [currentSocialLevel, setCurrentSocialLevel] = useState("");
-  const [lookingFor, setLookingFor] = useState<string[]>([]);
   const [selectedGoalKey, setSelectedGoalKey] = useState("");
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
-  const [selectedBarriers, setSelectedBarriers] = useState<string[]>([]);
-  const [fearLadderResponses, setFearLadderResponses] = useState<Record<string, number>>({});
-  const [northStar, setNorthStar] = useState("");
-
-  // LLM-generated data (fear ladder scenarios)
-  const [generatedScenarios, setGeneratedScenarios] = useState<{ id: string; text: string; dimension: string }[] | null>(null);
-  const [generatedDimensions, setGeneratedDimensions] = useState<string[] | null>(null);
+  const [quickDetails, setQuickDetails] = useState<QuickDetails>({
+    ageRange: "",
+    dailyRoutine: "",
+    transportation: "",
+    budget: "",
+  });
 
   // Generation state
   const [isLoading, setIsLoading] = useState(false);
@@ -181,38 +77,8 @@ const OnboardingScreen: React.FC = () => {
     [],
   );
 
-  const handleFearRate = useCallback((scenarioId: string, value: number) => {
-    setFearLadderResponses((prev) => ({ ...prev, [scenarioId]: value }));
-  }, []);
-
-  const handleUpdateSituation = useCallback((field: keyof SocialSituation, value: string) => {
-    setSocialSituation((prev) => ({ ...prev, [field]: value }));
-  }, []);
-
-  const handleToggleLookingFor = useCallback((key: string) => {
-    setLookingFor((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-    );
-  }, []);
-
-  const handleScenariosReady = useCallback((scenarios: { id: string; text: string; dimension: string }[], dimensions: string[]) => {
-    directionRef.current = "forward";
-    setGeneratedScenarios(scenarios);
-    setGeneratedDimensions(dimensions);
-    setFearLadderResponses({});
-    setStep((prev) => prev + 1);
-  }, []);
-
-  const handleBackFromGenerating = useCallback(() => {
-    directionRef.current = "back";
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(5);
-  }, []);
-
-  const handleBackFromFearLadder = useCallback(() => {
-    directionRef.current = "back";
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(5);
+  const handleUpdateDetail = useCallback((field: keyof QuickDetails, value: string) => {
+    setQuickDetails((prev) => ({ ...prev, [field]: value }));
   }, []);
 
   // ── Finish ────────────────────────────────────────────
@@ -223,46 +89,38 @@ const OnboardingScreen: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const barriers = deriveBarriersText(selectedBarriers);
-      const fearLadder = scoreFearLadder(
-        fearLadderResponses,
-        generatedScenarios ?? undefined,
-        generatedDimensions ?? undefined,
-      );
-
       // Derive primary goal from selected goal key
       const goalOption = GOAL_OPTIONS.find((g) => g.key === selectedGoalKey);
       const primaryGoal = goalOption
         ? goalOption.label.replace(/^[^\s]+\s/, "") // strip leading emoji
-        : lookingFor.join(", ") || "Build a social life";
+        : "Build a social life";
 
+      // Save profile — includes practical details for first quest relevance
       await apiClient.sidequests.updateComfortProfile({
-        pacePreference: fearLadder.derivedPace,
+        pacePreference: "steady", // sensible default, refined after quest 1
         comfortProfile: {
-          comfortZone: barriers || "Getting started",
-          barriers,
+          comfortZone: "Getting started",
+          barriers: "",
           goals: primaryGoal,
-          goalTags: selectedBarriers,
-          northStar: northStar || undefined,
-          primaryGoal: primaryGoal || undefined,
-        },
-        fearLadder: {
-          overallScore: fearLadder.overallScore,
-          dimensionScores: fearLadder.dimensionScores,
-          responses: fearLadder.responses,
-          scenarios: generatedScenarios ?? undefined,
-          dimensions: generatedDimensions ?? undefined,
+          goalTags: [],
+          primaryGoal,
         },
         onboardingProfile: selectedActivities.length > 0
           ? { activities: selectedActivities }
           : undefined,
-        socialSituation: socialSituation.ageRange
-          ? {
-              ...socialSituation,
-              currentSocialLife: currentSocialLevel,
-              lookingFor,
-            }
-          : undefined,
+        socialSituation: {
+          ageRange: quickDetails.ageRange,
+          gender: "",
+          timeInArea: "",
+          currentSocialLife: "",
+          lookingFor: [],
+          workSituation: "",
+          livingSituation: "",
+          dailyRoutine: quickDetails.dailyRoutine,
+          transportation: quickDetails.transportation,
+          budget: quickDetails.budget,
+        },
+        onboardingPhase: 0,
       });
 
       if (userLocation) {
@@ -271,12 +129,10 @@ const OnboardingScreen: React.FC = () => {
 
       await refreshAuth();
 
-      // Kick off quest generation in the background — the job
-      // progress indicator on the dashboard tracks it, and a push
-      // notification fires when quests are ready.
+      // Prescribe a single first quest (not a pack)
       const lat = userLocation ? userLocation[1] : 0;
       const lng = userLocation ? userLocation[0] : 0;
-      const { jobId } = await apiClient.sidequests.prescribeWeekPack({
+      const { jobId } = await apiClient.sidequests.prescribeQuest({
         latitude: lat,
         longitude: lng,
         timezone: getUserTimezone(),
@@ -296,7 +152,7 @@ const OnboardingScreen: React.FC = () => {
       );
       setIsLoading(false);
     }
-  }, [selectedGoalKey, lookingFor, selectedActivities, selectedBarriers, fearLadderResponses, generatedScenarios, generatedDimensions, northStar, socialSituation, currentSocialLevel, userLocation, refreshAuth, trackJob, router]);
+  }, [selectedGoalKey, selectedActivities, quickDetails, userLocation, refreshAuth, trackJob, router]);
 
   // ── Transitions ──────────────────────────────────────
 
@@ -310,50 +166,20 @@ const OnboardingScreen: React.FC = () => {
 
   // ── Render ────────────────────────────────────────────
 
-  // Derive primary goal text for LLM steps
-  const primaryGoalText = (() => {
-    const goalOption = GOAL_OPTIONS.find((g) => g.key === selectedGoalKey);
-    return goalOption
-      ? goalOption.label.replace(/^[^\s]+\s/, "")
-      : lookingFor.join(", ") || "Build a social life";
-  })();
-
   const renderStep = () => {
     switch (step) {
       case 1:
         return <StepWelcome onNext={handleNext} />;
       case 2:
         return (
-          <StepAboutYou
-            situation={socialSituation}
-            onUpdate={handleUpdateSituation}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        );
-      case 3:
-        return (
-          <StepSocialLife
-            currentLevel={currentSocialLevel}
-            lookingFor={lookingFor}
+          <StepGoal
             selectedGoal={selectedGoalKey}
-            onSetLevel={setCurrentSocialLevel}
-            onToggleLookingFor={handleToggleLookingFor}
             onSetGoal={setSelectedGoalKey}
             onNext={handleNext}
             onBack={handleBack}
           />
         );
-      case 4:
-        return (
-          <StepBarriers
-            selected={selectedBarriers}
-            onToggle={(k) => toggle(selectedBarriers, setSelectedBarriers, k)}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        );
-      case 5:
+      case 3:
         return (
           <StepActivities
             selected={selectedActivities}
@@ -362,36 +188,12 @@ const OnboardingScreen: React.FC = () => {
             onBack={handleBack}
           />
         );
-      case 6:
+      case 4:
         return (
-          <StepGeneratingLadder
-            primaryGoal={primaryGoalText}
-            goals={[]}
-            barriers={selectedBarriers}
-            activities={selectedActivities}
-            onScenariosReady={handleScenariosReady}
-            onBack={handleBackFromGenerating}
-          />
-        );
-      case 7:
-        return (
-          <StepFearLadder
-            scenarios={generatedScenarios ?? undefined}
-            responses={fearLadderResponses}
-            onRate={handleFearRate}
-            onNext={handleNext}
-            onBack={handleBackFromFearLadder}
-          />
-        );
-      case 8:
-        return (
-          <StepNorthStar
-            northStar={northStar}
-            setNorthStar={setNorthStar}
-            userLocation={userLocation}
-            isLoading={isLoading}
-            error={error}
-            onFinish={handleFinish}
+          <StepQuickDetails
+            details={quickDetails}
+            onUpdate={handleUpdateDetail}
+            onNext={handleFinish}
             onBack={handleBack}
           />
         );

@@ -1067,7 +1067,7 @@ export function buildSocialSituationContext(socialSituation: {
   budget?: string;
 } | null | undefined, city: string): string {
   if (!socialSituation) return "";
-  const genderLabel = socialSituation.gender === "prefer_not_to_say" ? "" : `, ${socialSituation.gender}`;
+
   const timeLabels: Record<string, string> = {
     just_moved: "just moved here",
     under_1yr: "less than a year",
@@ -1100,14 +1100,33 @@ export function buildSocialSituationContext(socialSituation: {
     moderate: "$20-$50 per quest",
     flexible: "budget is not a concern",
   };
-  const lines = [
-    `- ${socialSituation.ageRange}${genderLabel}, living in ${city}`,
-    `- In area: ${timeLabels[socialSituation.timeInArea] ?? socialSituation.timeInArea}`,
-    `- Current social life: ${socialLabels[socialSituation.currentSocialLife] ?? socialSituation.currentSocialLife}`,
-    `- Looking for: ${socialSituation.lookingFor.join(", ")}`,
-    `- Work: ${socialSituation.workSituation}`,
-    `- Living: ${socialSituation.livingSituation}`,
-  ];
+
+  // Only include lines where data is actually populated
+  const lines: string[] = [];
+
+  // Demographics line — only if we have age or gender
+  const hasAge = !!socialSituation.ageRange;
+  const hasGender = !!socialSituation.gender && socialSituation.gender !== "prefer_not_to_say";
+  if (hasAge || hasGender) {
+    const parts = [hasAge ? socialSituation.ageRange : "", hasGender ? socialSituation.gender : ""].filter(Boolean).join(", ");
+    lines.push(`- ${parts}, living in ${city}`);
+  }
+
+  if (socialSituation.timeInArea) {
+    lines.push(`- In area: ${timeLabels[socialSituation.timeInArea] ?? socialSituation.timeInArea}`);
+  }
+  if (socialSituation.currentSocialLife) {
+    lines.push(`- Current social life: ${socialLabels[socialSituation.currentSocialLife] ?? socialSituation.currentSocialLife}`);
+  }
+  if (socialSituation.lookingFor?.length) {
+    lines.push(`- Looking for: ${socialSituation.lookingFor.join(", ")}`);
+  }
+  if (socialSituation.workSituation) {
+    lines.push(`- Work: ${socialSituation.workSituation}`);
+  }
+  if (socialSituation.livingSituation) {
+    lines.push(`- Living: ${socialSituation.livingSituation}`);
+  }
   if (socialSituation.dailyRoutine) {
     lines.push(`- Schedule: ${routineLabels[socialSituation.dailyRoutine] ?? socialSituation.dailyRoutine}`);
   }
@@ -1117,6 +1136,8 @@ export function buildSocialSituationContext(socialSituation: {
   if (socialSituation.budget) {
     lines.push(`- Budget: ${budgetLabels[socialSituation.budget] ?? socialSituation.budget}`);
   }
+
+  if (lines.length === 0) return "";
   return `SOCIAL SITUATION:\n${lines.join("\n")}`;
 }
 
@@ -1655,4 +1676,37 @@ export async function computeFearLadderReadiness(dataSource: DataSource, userId:
     avgRating, hasGrowthSignals, positiveQuestCount,
     recentAvgDifficulty, hasDfsPathway, phaseReason,
   };
+}
+
+// ─── Individual Quest Role Selection ──────────────────────────────
+
+/**
+ * Determine a quest role for individual (non-pack) prescriptions.
+ *
+ * Role distribution (deterministic cycle after enough data):
+ *   - <5 quests: always "explore" (still onboarding)
+ *   - 5+ quests: rotating pattern — explore, explore, enjoy, explore, stretch
+ *   - Enjoy quests are "cheat meals" — pure fun based on interests, decoupled from pathways
+ *   - Stretch quests push beyond comfort zone on multiple dimensions
+ */
+export function determineIndividualQuestRole(
+  readiness: FearLadderReadiness,
+): { role: "explore" | "enjoy" | "stretch"; targetPathway?: { id: string; theme: string; label: string; phase: string } } {
+  // Early phase — always explore
+  if (readiness.completedQuests < 5) {
+    return { role: "explore" };
+  }
+
+  // Deterministic role rotation based on completed quest count.
+  // Pattern: explore, explore, enjoy, explore, stretch (repeats)
+  const cycle = readiness.completedQuests % 5;
+  if (cycle === 2 && readiness.completedQuests >= 8) {
+    // Every 5th quest (offset 2) is enjoy — a cheat meal, no pathway target needed
+    return { role: "enjoy" };
+  } else if (cycle === 4) {
+    // Every 5th quest (offset 4) is stretch — push them
+    return { role: "stretch" };
+  }
+
+  return { role: "explore" };
 }

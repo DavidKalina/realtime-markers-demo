@@ -23,27 +23,6 @@ export const BARRIER_OPTIONS = [
 
 // ── Social situation options ────────────────────────────────
 
-export const AGE_RANGE_OPTIONS = [
-  { key: "18-24", label: "18\u201324" },
-  { key: "25-30", label: "25\u201330" },
-  { key: "31-40", label: "31\u201340" },
-  { key: "41+", label: "41+" },
-];
-
-export const GENDER_OPTIONS = [
-  { key: "male", label: "Male" },
-  { key: "female", label: "Female" },
-  { key: "nonbinary", label: "Nonbinary" },
-  { key: "prefer_not_to_say", label: "Prefer not to say" },
-];
-
-export const TIME_IN_AREA_OPTIONS = [
-  { key: "just_moved", label: "Just moved here" },
-  { key: "under_1yr", label: "Less than a year" },
-  { key: "1_3yr", label: "1\u20133 years" },
-  { key: "3plus_yr", label: "3+ years" },
-];
-
 export const CURRENT_SOCIAL_OPTIONS = [
   { key: "isolated", label: "Pretty isolated" },
   { key: "few_acquaintances", label: "A few acquaintances" },
@@ -51,25 +30,13 @@ export const CURRENT_SOCIAL_OPTIONS = [
   { key: "solid_group", label: "Solid friend group" },
 ];
 
-export const LOOKING_FOR_OPTIONS = [
-  { key: "friends", label: "Friends" },
-  { key: "dating", label: "Dating" },
-  { key: "community", label: "Community" },
-];
+// ── Quick details options (initial onboarding) ────────────
 
-export const WORK_OPTIONS = [
-  { key: "remote", label: "Remote" },
-  { key: "office", label: "Office" },
-  { key: "hybrid", label: "Hybrid" },
-  { key: "student", label: "Student" },
-  { key: "other", label: "Other" },
-];
-
-export const LIVING_OPTIONS = [
-  { key: "alone", label: "Alone" },
-  { key: "roommates", label: "Roommates" },
-  { key: "family", label: "Family" },
-  { key: "partner", label: "Partner" },
+export const AGE_RANGE_OPTIONS = [
+  { key: "18-24", label: "18\u201324" },
+  { key: "25-30", label: "25\u201330" },
+  { key: "31-40", label: "31\u201340" },
+  { key: "41+", label: "41+" },
 ];
 
 export const ROUTINE_OPTIONS = [
@@ -112,13 +79,38 @@ export const ACTIVITY_OPTIONS = [
   "\uD83C\uDF31 Gardening", "\uD83D\uDC15 Dog walks", "\uD83C\uDF33 Nature", "\uD83D\uDC86 Spa",
 ];
 
-// ── Pace options ────────────────────────────────────────────
+// ── Quest reflection options ───────────────────────────────
 
-export const PACE_OPTIONS = [
-  { key: "gentle", emoji: "\uD83D\uDC22", label: "Gentle", desc: "Ease me in, stay close" },
-  { key: "steady", emoji: "\uD83D\uDEB6", label: "Steady", desc: "Balanced expansion" },
-  { key: "push_me", emoji: "\uD83D\uDE80", label: "Push Me", desc: "Challenge me, stretch further" },
+export const QUEST_REFLECTION_OPTIONS = [
+  { key: "too_easy", label: "Too easy \u2014 I barely noticed" },
+  { key: "just_right", label: "Just right \u2014 felt good" },
+  { key: "pushed_me", label: "Pushed me \u2014 that took effort" },
 ];
+
+export function reflectionToPace(reflectionKey: string): string {
+  switch (reflectionKey) {
+    case "too_easy": return "push_me";
+    case "pushed_me": return "gentle";
+    default: return "steady";
+  }
+}
+
+export function summarizeBarriers(barrierKeys: string[]): string {
+  if (barrierKeys.length === 0) return "";
+  const labels = barrierKeys
+    .slice(0, 2)
+    .map((key) => {
+      const option = BARRIER_OPTIONS.find((b) => b.key === key);
+      if (!option) return key;
+      // Strip leading emoji and "I " prefix for concise summary
+      return option.label
+        .replace(/^[^\s]+\s/, "")
+        .replace(/^I\s+/i, "")
+        .toLowerCase();
+    });
+  if (labels.length === 1) return labels[0];
+  return `${labels[0]} and ${labels[1]}`;
+}
 
 // ── Fear ladder scenarios ──────────────────────────────────
 // Each scenario probes a specific comfort dimension.
@@ -216,22 +208,6 @@ export function scoreFearLadder(
 
 // ── Derivation helpers ──────────────────────────────────────
 
-export function deriveComfortZone(barrierKeys: string[], goalKeys: string[]): string {
-  const parts: string[] = [];
-
-  if (barrierKeys.includes("homebody")) parts.push("Mostly stays home");
-  else if (barrierKeys.includes("stuck")) parts.push("Tends to stick to familiar places");
-  else parts.push("Open to going out but needs direction");
-
-  if (barrierKeys.includes("solo")) parts.push("prefers familiar company");
-  if (barrierKeys.includes("anxiety")) parts.push("can feel overwhelmed in new settings");
-  if (goalKeys.includes("explore")) parts.push("wants to explore but needs a push");
-  if (goalKeys.includes("socialize")) parts.push("interested in meeting new people");
-  if (goalKeys.includes("discover_hobby")) parts.push("wants to discover a new hobby or activity");
-
-  return parts.join("; ");
-}
-
 export function deriveBarriersText(
   barrierKeys: string[],
   dynamicBarriers?: { key: string; label: string; text: string }[],
@@ -243,9 +219,3 @@ export function deriveBarriersText(
     .join("; ");
 }
 
-export function deriveGoalsText(goalKeys: string[]): string {
-  return goalKeys
-    .map((key) => GOAL_OPTIONS.find((g) => g.key === key)?.label.replace(/^[^\s]+\s/, ""))
-    .filter(Boolean)
-    .join(", ");
-}

@@ -267,6 +267,7 @@ const ItineraryDetailScreen = () => {
   const router = useRouter();
   const colors = useColors();
 
+
   const [itinerary, setItinerary] = useState<SidequestResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -286,8 +287,6 @@ const ItineraryDetailScreen = () => {
   const [showCompass, setShowCompass] = useState(false);
 
   // Quest reflection overlay — shown after final check-in
-  const [showReflection, setShowReflection] = useState(false);
-  const [reflectionText, setReflectionText] = useState<string | null>(null);
 
   // Check-in capture modal
   const [captureObjective, setCaptureObjective] = useState<{
@@ -324,30 +323,13 @@ const ItineraryDetailScreen = () => {
     return () => subscription.remove();
   }, [isThisActive, refreshItinerary]);
 
-  // Handle quest completion — show reflection overlay, poll for AI reflection, then navigate
+  // Handle quest completion — navigate to completion screen
   const handleQuestComplete = useCallback(async () => {
     markNewDeckCard();
-    setShowReflection(true);
-
-    // Poll for AI reflection (generated server-side on completion)
-    if (id) {
-      let attempts = 0;
-      const poll = async () => {
-        while (attempts < 8) {
-          attempts++;
-          await new Promise((r) => setTimeout(r, 1500));
-          try {
-            const fresh = await apiClient.sidequests.getById(id);
-            if (fresh.aiReflection) {
-              setReflectionText(fresh.aiReflection);
-              return;
-            }
-          } catch { /* ignore */ }
-        }
-      };
-      poll();
-    }
-  }, [id, markNewDeckCard]);
+    // Navigate to a dedicated completion screen that handles the ceremony,
+    // AI reflection polling, and routing to progressive onboarding or deck.
+    router.replace(`/quest-complete?id=${id}`);
+  }, [id, markNewDeckCard, router]);
 
   // Use active store's data if this sidequest is active (has live checkin data)
   const displaySidequest =
@@ -1132,48 +1114,7 @@ const ItineraryDetailScreen = () => {
         }}
       />
 
-      {/* Quest Reflection Overlay — what the AI learned */}
-      <Modal
-        visible={showReflection}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setShowReflection(false);
-          router.push("/deck");
-        }}
-      >
-        <View style={styles.reflectionOverlay}>
-          <Animated.View
-            entering={FadeInDown.delay(200).duration(500).easing(Easing.out(Easing.cubic))}
-            style={styles.reflectionCard}
-          >
-            <Text style={styles.reflectionLabel}>What I learned</Text>
-            {reflectionText ? (
-              <Text style={styles.reflectionText}>{reflectionText}</Text>
-            ) : (
-              <View style={styles.reflectionShimmer}>
-                <ActivityIndicator
-                  size="small"
-                  color={colors.text.secondary}
-                />
-                <Text style={styles.reflectionLoadingText}>
-                  Reflecting on your experience...
-                </Text>
-              </View>
-            )}
-            <Pressable
-              style={styles.reflectionButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowReflection(false);
-                router.push("/deck");
-              }}
-            >
-              <Text style={styles.reflectionButtonText}>Continue</Text>
-            </Pressable>
-          </Animated.View>
-        </View>
-      </Modal>
+      {/* Quest reflection moved to /quest-complete screen */}
 
       {/* Item detail modal */}
       <Modal

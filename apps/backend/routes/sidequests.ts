@@ -21,7 +21,6 @@ import {
   promoteSidequestHandler,
   searchSidequestsHandler,
   prescribeQuestHandler,
-  prescribeWeekPackHandler,
 } from "../handlers/sidequestHandlers";
 import {
   objectiveJournalHandler,
@@ -75,7 +74,6 @@ sidequestRouter.get("/:id", getSidequestHandler);
 
 // ── Write routes ────────────────────────────────────────────
 sidequestRouter.post("/prescribe", prescribeQuestHandler);
-sidequestRouter.post("/prescribe-pack", prescribeWeekPackHandler);
 sidequestRouter.post("/batch-delete", batchDeleteSidequestHandler);
 sidequestRouter.post("/deactivate", deactivateSidequestHandler);
 
@@ -235,6 +233,7 @@ sidequestRouter.put(
         transportation?: string;
         budget?: string;
       };
+      onboardingPhase?: number;
     }>();
 
     const validPaces = ["gentle", "steady", "push_me"];
@@ -244,7 +243,7 @@ sidequestRouter.put(
         400,
       );
     }
-    if (!body.pacePreference && !body.comfortProfile && !body.fearLadder && !body.onboardingProfile && !body.socialSituation) {
+    if (!body.pacePreference && !body.comfortProfile && !body.fearLadder && !body.onboardingProfile && !body.socialSituation && body.onboardingPhase === undefined) {
       return c.json({ error: "No fields to update" }, 400);
     }
 
@@ -255,6 +254,7 @@ sidequestRouter.put(
       fearLadder: body.fearLadder,
       onboardingProfile: body.onboardingProfile,
       socialSituation: body.socialSituation,
+      onboardingPhase: body.onboardingPhase,
     });
 
     return c.json(await comfortZoneService.getComfortZone(user.id));

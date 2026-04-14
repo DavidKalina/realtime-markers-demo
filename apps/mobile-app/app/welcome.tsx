@@ -1,5 +1,6 @@
 import AppHeader from "@/components/AnimationHeader";
 import MiniDeck from "@/components/Login/MiniDeck";
+import { SkiaGlow } from "@/components/SkiaGlow";
 import {
   useColors,
   fontFamily,
@@ -10,112 +11,27 @@ import {
   spring,
   type Colors,
 } from "@/theme";
-import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import {
   Platform,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, {
-  Easing,
   FadeInDown,
   FadeInUp,
   useAnimatedStyle,
-  useDerivedValue,
   useSharedValue,
-  withDelay,
-  withRepeat,
   withSequence,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
-
-const GLOW_SKSL = Skia.RuntimeEffect.Make(`
-uniform float2 resolution;
-uniform float time;
-uniform float reveal;
-
-half4 main(float2 xy) {
-  vec2 uv = xy / resolution;
-
-  // Glow centered horizontally, positioned in upper third
-  float cx = 0.5 + sin(time * 6.2832) * 0.02;
-  float cy = 0.38;
-
-  float dx = uv.x - cx;
-  float dy = (uv.y - cy) * (resolution.y / resolution.x);
-  float dist = sqrt(dx * dx + dy * dy);
-
-  // Wide, soft falloff — fills the screen naturally
-  float glow1 = exp(-dist * dist * 4.0);
-  float glow2 = exp(-dist * dist * 12.0);
-  float glow3 = exp(-dist * dist * 2.0) * 0.25;
-
-  float pulse = 0.85 + 0.15 * sin(time * 6.2832);
-
-  vec3 blue = vec3(0.3, 0.67, 0.97);
-  vec3 cyan = vec3(0.4, 0.9, 0.85);
-  vec3 warm = vec3(0.52, 0.38, 0.85);
-
-  vec3 col = blue * glow1 + cyan * glow2 * 0.5 + warm * glow3;
-  col *= pulse;
-
-  float alpha = (glow1 * 0.25 + glow2 * 0.15 + glow3 * 0.08) * pulse * reveal;
-
-  return half4(col * alpha, alpha);
-}
-`);
-
-const SkiaGlow: React.FC = React.memo(() => {
-  const { width, height } = useWindowDimensions();
-  const time = useSharedValue(0);
-  const reveal = useSharedValue(0);
-
-  useEffect(() => {
-    reveal.value = withDelay(
-      500,
-      withTiming(1, { duration: 1000, easing: Easing.out(Easing.cubic) }),
-    );
-    time.value = withDelay(
-      500,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-        ),
-        -1,
-        true,
-      ),
-    );
-  }, []);
-
-  const uniforms = useDerivedValue(() => ({
-    resolution: vec(width, height),
-    time: time.value,
-    reveal: reveal.value,
-  }));
-
-  if (!GLOW_SKSL) return null;
-
-  return (
-    <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Fill>
-        <Shader source={GLOW_SKSL} uniforms={uniforms} />
-      </Fill>
-    </Canvas>
-  );
-});
-
-SkiaGlow.displayName = "SkiaGlow";
 
 export default function WelcomeScreen() {
   const colors = useColors();
@@ -158,7 +74,7 @@ export default function WelcomeScreen() {
         backgroundColor={colors.fixed.black}
       />
 
-      <SkiaGlow />
+      <SkiaGlow revealDelay={500} />
 
       <SafeAreaView style={styles.foreground}>
         {/* Centered branding */}

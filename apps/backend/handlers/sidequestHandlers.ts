@@ -511,36 +511,5 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
   );
 });
 
-export const prescribeWeekPackHandler: Handler = withErrorHandling(async (c) => {
-  const user = requireAuth(c);
-  const userId = user.id;
-
-  const body = await c.req.json<{
-    latitude: number;
-    longitude: number;
-    timezone?: string;
-  }>();
-
-  if (typeof body.latitude !== "number" || typeof body.longitude !== "number") {
-    return c.json({ error: "latitude and longitude are required" }, 400);
-  }
-
-  const jobQueue = c.get("jobQueue");
-  const jobId = await jobQueue.enqueue("prescribe_week_pack", {
-    userId,
-    creatorId: userId,
-    latitude: body.latitude,
-    longitude: body.longitude,
-    ...(body.timezone && { timezone: body.timezone }),
-  });
-
-  return c.json(
-    {
-      jobId,
-      streamUrl: `/api/jobs/${jobId}/stream`,
-    },
-    202,
-  );
-});
 
 

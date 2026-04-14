@@ -360,9 +360,11 @@ export class ComfortZoneService {
       fearLadder?: { overallScore: number; dimensionScores: Record<string, number>; responses: Record<string, number>; scenarios?: { id: string; text: string; dimension: string }[]; dimensions?: string[] };
       onboardingProfile?: { activities: string[] };
       socialSituation?: { ageRange: string; gender: string; timeInArea: string; currentSocialLife: string; lookingFor: string[]; workSituation: string; livingSituation: string; dailyRoutine?: string; transportation?: string; budget?: string };
+      onboardingPhase?: number;
     },
   ): Promise<void> {
     const fields: Record<string, unknown> = {};
+    if (updates.onboardingPhase !== undefined) fields.onboardingPhase = updates.onboardingPhase;
     if (updates.pacePreference) fields.pacePreference = updates.pacePreference;
     if (updates.comfortProfile) {
       fields.comfortProfile = Object.fromEntries(

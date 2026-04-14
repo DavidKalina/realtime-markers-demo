@@ -3,7 +3,6 @@ import AppDataSource from "./data-source";
 import type { JobQueue, JobData } from "./services/JobQueue";
 import type { RedisService } from "./services/shared/RedisService";
 import { PrescribeQuestHandler } from "./handlers/job/PrescribeQuestHandler";
-import { PrescribeWeekPackHandler } from "./handlers/job/PrescribeWeekPackHandler";
 import { Redis } from "ioredis";
 import { createServices } from "./services/ServiceInitializer";
 
@@ -42,14 +41,9 @@ async function initializeWorker() {
     services.sidequestPrescriptionService,
     services.jobNotificationService,
   );
-  const prescribeWeekPack = new PrescribeWeekPackHandler(
-    services.sidequestPrescriptionService,
-    services.jobNotificationService,
-  );
 
   handlers = {
     prescribe_quest: prescribeQuest,
-    prescribe_week_pack: prescribeWeekPack,
   };
 
   console.log("Worker initialized successfully");

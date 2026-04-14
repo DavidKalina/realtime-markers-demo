@@ -40,6 +40,14 @@ export const SCREEN_CONFIGS: readonly ScreenConfig[] = [
     name: "itineraries/[id]",
     options: { animation: "slide_from_right", animationDuration: 250 },
   },
+  {
+    name: "quest-complete",
+    options: { animation: "fade", animationDuration: 400 },
+  },
+  {
+    name: "progressive-onboarding",
+    options: { animation: "fade_from_bottom", animationDuration: 300 },
+  },
   { name: "+not-found" },
 ] as const;
 export const FONT_FAMILY_PATH = "../assets/fonts/SpaceMono-Regular.ttf";

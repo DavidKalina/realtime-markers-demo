@@ -42,6 +42,7 @@ export interface UserProfile {
     scenarios?: { id: string; text: string; dimension: string }[];
     dimensions?: string[];
   };
+  onboardingPhase: number;
   pacePreference?: string;
   comfortRadiusMiles?: number;
   homeLatitude?: number;
