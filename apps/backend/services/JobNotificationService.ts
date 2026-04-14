@@ -54,11 +54,7 @@ export class JobNotificationService {
       const notification = this.createJobCompletionNotification(job, result);
 
       if (notification) {
-        // Use a specific notification type for week pack completions
-        // so the mobile app can route directly to itineraries
-        const notificationType = job.type === "prescribe_week_pack"
-          ? "quests_ready"
-          : "job_completion";
+        const notificationType = "job_completion";
 
         const pushResult = await this.pushNotificationService.sendToUser(creatorId, {
           title: notification.title,
@@ -158,29 +154,15 @@ export class JobNotificationService {
     result: JobCompletionResult,
   ): { title: string; body: string } | null {
     switch (job.type) {
-      case "prescribe_week_pack":
-        return this.createWeekPackCompletionNotification(result);
+      case "prescribe_quest":
+        return {
+          title: "Your quest is ready!",
+          body: "A new quest just landed in your deck. Tap to check it out.",
+        };
 
       default:
         return null;
     }
-  }
-
-  private createWeekPackCompletionNotification(result: JobCompletionResult): {
-    title: string;
-    body: string;
-  } {
-    const questCount = (result.questCount as number) ?? 0;
-    if (questCount > 0) {
-      return {
-        title: "Your quests are ready!",
-        body: `${questCount} new quest${questCount === 1 ? "" : "s"} just landed in your deck. Tap to check them out.`,
-      };
-    }
-    return {
-      title: "Quests ready",
-      body: "Your new quests are waiting for you.",
-    };
   }
 
   /**
@@ -192,10 +174,10 @@ export class JobNotificationService {
     message?: string,
   ): { title: string; body: string } | null {
     switch (job.type) {
-      case "prescribe_week_pack":
+      case "prescribe_quest":
         return {
           title: "Quest generation hit a snag",
-          body: "We couldn't generate your quests this time. Try again from the app.",
+          body: "We couldn't generate your quest this time. Try again from the app.",
         };
 
       default:

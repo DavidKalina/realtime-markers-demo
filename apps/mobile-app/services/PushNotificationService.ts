@@ -347,6 +347,13 @@ export class PushNotificationService {
         source: "PushNotification",
         path: `/itineraries/${data.itineraryId}`,
       });
+    } else if (data?.type === "progressive_onboarding") {
+      // Progressive onboarding prompt — navigate to profile collection
+      eventBroker.emit(EventTypes.NAVIGATE_TO_SCREEN, {
+        timestamp: Date.now(),
+        source: "PushNotification",
+        path: "/progressive-onboarding",
+      });
     } else if (data?.type === "event") {
       // Navigate to event details
       console.log("Navigate to event:", data.eventId);

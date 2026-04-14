@@ -354,8 +354,6 @@ function parseArgs() {
   let ratingBiasOverride: number | null = null;
   let blockerOverride = "";
   let challengeMix = 0;
-  let weekPacks = false;
-
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
       case "--email": email = args[++i]; break;
@@ -372,7 +370,6 @@ function parseArgs() {
       case "--rating-bias": ratingBiasOverride = parseFloat(args[++i]); break;
       case "--blocker": blockerOverride = args[++i]; break;
       case "--challenge-mix": challengeMix = parseInt(args[++i], 10); break;
-      case "--week-packs": weekPacks = true; break;
       case "--help":
         console.log(`
 Live Sidequest Simulator — Real LLM prescriptions via backend API
@@ -394,7 +391,6 @@ Options:
   --strategy <name>      Prescription strategy: "monolithic" or "multi-agent"
   --rating-bias <0-1>    Override rating bias (0.2 = mostly 1-2 stars, 0.5 = mixed, 0.8 = mostly 4-5)
   --challenge-mix <n>    Prescribe every Nth quest as a challenge quest (e.g. 4 = every 4th quest)
-  --week-packs           Use week-pack prescription (3 quests per pack) instead of individual
 
 Examples:
   npx tsx apps/backend/scripts/simulate-live.ts --goal "become a stand-up comedian" --quests 10
@@ -402,7 +398,6 @@ Examples:
   npx tsx apps/backend/scripts/simulate-live.ts --goal "become a salesman" --blocker "making phone calls" --quests 10
   npx tsx apps/backend/scripts/simulate-live.ts --persona shy-sarah --blocker "talking to strangers" --quests 8
   npx tsx apps/backend/scripts/simulate-live.ts --persona adventurous-alex --challenge-mix 3 --quests 12
-  npx tsx apps/backend/scripts/simulate-live.ts --persona fitness-fiona --week-packs --quests 12
 
 Estimated cost: ~$0.02-0.05 per quest (GPT-5.4-nano + Google Places)
 `);
@@ -410,7 +405,7 @@ Estimated cost: ~$0.02-0.05 per quest (GPT-5.4-nano + Google Places)
     }
   }
 
-  return { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model, strategy, ratingBiasOverride, blockerOverride, challengeMix, weekPacks };
+  return { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model, strategy, ratingBiasOverride, blockerOverride, challengeMix };
 }
 
 /**
@@ -885,7 +880,7 @@ function scoreFearLadder(
 // ── Main ─────────────────────────────────────────────────────
 
 async function main() {
-  const { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model: simModel, strategy: simStrategy, ratingBiasOverride, blockerOverride, challengeMix, weekPacks } = parseArgs();
+  const { email, password, personaKey, goal, questCount, seed, dryRun, skipProfile, skipFearLadder, model: simModel, strategy: simStrategy, ratingBiasOverride, blockerOverride, challengeMix } = parseArgs();
 
   let persona: LivePersona | undefined;
 
@@ -932,9 +927,6 @@ async function main() {
   }
   if (challengeMix > 0) {
     console.log(`  Challenge: every ${challengeMix}${challengeMix === 1 ? "st" : challengeMix === 2 ? "nd" : challengeMix === 3 ? "rd" : "th"} quest`);
-  }
-  if (weekPacks) {
-    console.log(`  Mode:     week packs (3 quests per pack)`);
   }
   console.log(`  Est cost: $${(questCount * 0.035).toFixed(2)}`);
   console.log();
@@ -1178,8 +1170,6 @@ async function main() {
   console.log(`  Starting ${questCount}-quest simulation...`);
   console.log(`${"─".repeat(60)}\n`);
 
-  // ── Week-pack state ──────────────────────────────────────
-  let packQueuedIds: string[] = [];
   let challengeCount = 0;
   const predictionHistory: { predicted: number; actual: number; title: string }[] = [];
 
@@ -1194,66 +1184,32 @@ async function main() {
 
     let sidequestId: string | undefined;
 
-    if (weekPacks && packQueuedIds.length === 0) {
-      // Prescribe a new 3-quest pack
-      console.log("│  Prescribing week pack (3 quests)...");
-      const packRes = await api("POST", "/api/sidequests/prescribe-pack", token, {
-        latitude: simLat,
-        longitude: simLng,
-      });
+    // Individual prescription
+    console.log(`│  Prescribing ${isChallenge ? `challenge (${challengeCategory})` : "venue"} quest...`);
+    const prescribeRes = await api("POST", "/api/sidequests/prescribe", token, {
+      latitude: simLat,
+      longitude: simLng,
+      ...(simModel && { model: simModel }),
+      ...(isChallenge && { questType: "challenge", challengeCategory }),
+    });
 
-      if (packRes.status !== 202) {
-        console.error(`│  Pack prescription failed (${packRes.status}): ${JSON.stringify(packRes.data)}`);
-        continue;
-      }
-
-      let packResult: any;
-      try {
-        packResult = await pollJobCompletion(packRes.data.jobId, token);
-        console.log();
-      } catch (err: any) {
-        console.error(`\n│  ${err.message}`);
-        continue;
-      }
-
-      packQueuedIds = packResult?.result?.sidequestIds ?? [];
-      if (packQueuedIds.length === 0) {
-        console.error("│  Pack returned no sidequest IDs");
-        continue;
-      }
-      console.log(`│  Pack prescribed: ${packQueuedIds.length} quests (${(packResult?.result?.titles ?? []).join(", ")})`);
+    if (prescribeRes.status !== 202) {
+      console.error(`│  Prescription failed (${prescribeRes.status}): ${JSON.stringify(prescribeRes.data)}`);
+      continue;
     }
 
-    if (weekPacks && packQueuedIds.length > 0) {
-      sidequestId = packQueuedIds.shift()!;
-    } else if (!weekPacks) {
-      // Individual prescription
-      console.log(`│  Prescribing ${isChallenge ? `challenge (${challengeCategory})` : "venue"} quest...`);
-      const prescribeRes = await api("POST", "/api/sidequests/prescribe", token, {
-        latitude: simLat,
-        longitude: simLng,
-        ...(simModel && { model: simModel }),
-        ...(isChallenge && { questType: "challenge", challengeCategory }),
-      });
+    const { jobId } = prescribeRes.data;
 
-      if (prescribeRes.status !== 202) {
-        console.error(`│  Prescription failed (${prescribeRes.status}): ${JSON.stringify(prescribeRes.data)}`);
-        continue;
-      }
-
-      const { jobId } = prescribeRes.data;
-
-      let jobResult: any;
-      try {
-        jobResult = await pollJobCompletion(jobId, token);
-        console.log();
-      } catch (err: any) {
-        console.error(`\n│  ${err.message}`);
-        continue;
-      }
-
-      sidequestId = jobResult?.result?.sidequestId;
+    let jobResult: any;
+    try {
+      jobResult = await pollJobCompletion(jobId, token);
+      console.log();
+    } catch (err: any) {
+      console.error(`\n│  ${err.message}`);
+      continue;
     }
+
+    sidequestId = jobResult?.result?.sidequestId;
 
     if (!sidequestId) {
       console.error("│  No sidequest ID");

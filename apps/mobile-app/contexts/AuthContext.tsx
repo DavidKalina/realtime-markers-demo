@@ -28,7 +28,9 @@ interface AuthContextType {
     currentPassword: string,
     newPassword: string,
   ) => Promise<boolean>;
-  refreshAuth: () => Promise<boolean>; // New method to manually trigger auth refresh
+  refreshAuth: () => Promise<boolean>; // Rotates tokens + re-fetches user — logs out on failure
+  reloadUser: () => Promise<boolean>; // Re-fetches user profile only — never logs out
+  patchUser: (updates: Partial<User>) => void; // Locally merge fields into user state (no API call)
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -184,6 +186,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  /**
+   * Re-fetch the user profile from the server using the existing access token.
+   * Unlike refreshAuth, this never rotates tokens and never logs out on failure.
+   * Use this when you just need fresh user data (e.g. after a profile update).
+   */
+  const reloadUser = async (): Promise<boolean> => {
+    try {
+      const freshUser = await apiClient.auth.getUserProfile();
+      if (freshUser) {
+        setUser(freshUser);
+        return true;
+      }
+      return false;
+    } catch {
+      // Silently fail — don't log out, don't clear user state.
+      // The existing user data stays in place.
+      console.warn("[Auth] reloadUser failed, keeping existing user data");
+      return false;
+    }
+  };
+
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
@@ -283,6 +306,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const patchUser = (updates: Partial<User>) => {
+    setUser((prev) => (prev ? { ...prev, ...updates } : prev));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -296,6 +323,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         updateProfile,
         changePassword,
         refreshAuth,
+        reloadUser,
+        patchUser,
       }}
     >
       {children}

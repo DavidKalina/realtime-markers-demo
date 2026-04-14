@@ -30,17 +30,8 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { StepProgress } from "@/components/Onboarding/shared";
-import {
-  deriveBarriersText,
-  scoreFearLadder,
-} from "@/components/Onboarding/constants";
 import { StepWelcome } from "@/components/Onboarding/StepWelcome";
-import { StepAboutYou, type SocialSituation } from "@/components/Onboarding/StepAboutYou";
-import { StepSocialLife } from "@/components/Onboarding/StepSocialLife";
-import { StepBarriers } from "@/components/Onboarding/StepBarriers";
-import { StepGeneratingLadder } from "@/components/Onboarding/StepGeneratingLadder";
-import { StepFearLadder } from "@/components/Onboarding/StepFearLadder";
-import { StepNorthStar } from "@/components/Onboarding/StepNorthStar";
+import { StepGoal } from "@/components/Onboarding/StepGoal";
 import { StepActivities } from "@/components/Onboarding/StepActivities";
 import { GOAL_OPTIONS } from "@/components/Onboarding/constants";
 
@@ -124,7 +115,7 @@ SkiaGlow.displayName = "SkiaGlow";
 
 // ── Main screen ─────────────────────────────────────────
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 3;
 
 const OnboardingScreen: React.FC = () => {
   const colors = useColors();
@@ -136,25 +127,9 @@ const OnboardingScreen: React.FC = () => {
   const [step, setStep] = useState(1);
   const directionRef = useRef<"forward" | "back">("forward");
 
-  // Form state
-  const [socialSituation, setSocialSituation] = useState<SocialSituation>({
-    ageRange: "",
-    gender: "",
-    timeInArea: "",
-    workSituation: "",
-    livingSituation: "",
-  });
-  const [currentSocialLevel, setCurrentSocialLevel] = useState("");
-  const [lookingFor, setLookingFor] = useState<string[]>([]);
+  // Form state — minimal for initial onboarding
   const [selectedGoalKey, setSelectedGoalKey] = useState("");
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
-  const [selectedBarriers, setSelectedBarriers] = useState<string[]>([]);
-  const [fearLadderResponses, setFearLadderResponses] = useState<Record<string, number>>({});
-  const [northStar, setNorthStar] = useState("");
-
-  // LLM-generated data (fear ladder scenarios)
-  const [generatedScenarios, setGeneratedScenarios] = useState<{ id: string; text: string; dimension: string }[] | null>(null);
-  const [generatedDimensions, setGeneratedDimensions] = useState<string[] | null>(null);
 
   // Generation state
   const [isLoading, setIsLoading] = useState(false);
@@ -181,40 +156,6 @@ const OnboardingScreen: React.FC = () => {
     [],
   );
 
-  const handleFearRate = useCallback((scenarioId: string, value: number) => {
-    setFearLadderResponses((prev) => ({ ...prev, [scenarioId]: value }));
-  }, []);
-
-  const handleUpdateSituation = useCallback((field: keyof SocialSituation, value: string) => {
-    setSocialSituation((prev) => ({ ...prev, [field]: value }));
-  }, []);
-
-  const handleToggleLookingFor = useCallback((key: string) => {
-    setLookingFor((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-    );
-  }, []);
-
-  const handleScenariosReady = useCallback((scenarios: { id: string; text: string; dimension: string }[], dimensions: string[]) => {
-    directionRef.current = "forward";
-    setGeneratedScenarios(scenarios);
-    setGeneratedDimensions(dimensions);
-    setFearLadderResponses({});
-    setStep((prev) => prev + 1);
-  }, []);
-
-  const handleBackFromGenerating = useCallback(() => {
-    directionRef.current = "back";
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(5);
-  }, []);
-
-  const handleBackFromFearLadder = useCallback(() => {
-    directionRef.current = "back";
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setStep(5);
-  }, []);
-
   // ── Finish ────────────────────────────────────────────
 
   const handleFinish = useCallback(async () => {
@@ -223,46 +164,26 @@ const OnboardingScreen: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const barriers = deriveBarriersText(selectedBarriers);
-      const fearLadder = scoreFearLadder(
-        fearLadderResponses,
-        generatedScenarios ?? undefined,
-        generatedDimensions ?? undefined,
-      );
-
       // Derive primary goal from selected goal key
       const goalOption = GOAL_OPTIONS.find((g) => g.key === selectedGoalKey);
       const primaryGoal = goalOption
         ? goalOption.label.replace(/^[^\s]+\s/, "") // strip leading emoji
-        : lookingFor.join(", ") || "Build a social life";
+        : "Build a social life";
 
+      // Save minimal profile — enough for first quest prescription
       await apiClient.sidequests.updateComfortProfile({
-        pacePreference: fearLadder.derivedPace,
+        pacePreference: "steady", // sensible default, collected after quest 1
         comfortProfile: {
-          comfortZone: barriers || "Getting started",
-          barriers,
+          comfortZone: "Getting started",
+          barriers: "",
           goals: primaryGoal,
-          goalTags: selectedBarriers,
-          northStar: northStar || undefined,
-          primaryGoal: primaryGoal || undefined,
-        },
-        fearLadder: {
-          overallScore: fearLadder.overallScore,
-          dimensionScores: fearLadder.dimensionScores,
-          responses: fearLadder.responses,
-          scenarios: generatedScenarios ?? undefined,
-          dimensions: generatedDimensions ?? undefined,
+          goalTags: [],
+          primaryGoal,
         },
         onboardingProfile: selectedActivities.length > 0
           ? { activities: selectedActivities }
           : undefined,
-        socialSituation: socialSituation.ageRange
-          ? {
-              ...socialSituation,
-              currentSocialLife: currentSocialLevel,
-              lookingFor,
-            }
-          : undefined,
+        onboardingPhase: 0,
       });
 
       if (userLocation) {
@@ -271,12 +192,10 @@ const OnboardingScreen: React.FC = () => {
 
       await refreshAuth();
 
-      // Kick off quest generation in the background — the job
-      // progress indicator on the dashboard tracks it, and a push
-      // notification fires when quests are ready.
+      // Prescribe a single first quest (not a pack)
       const lat = userLocation ? userLocation[1] : 0;
       const lng = userLocation ? userLocation[0] : 0;
-      const { jobId } = await apiClient.sidequests.prescribeWeekPack({
+      const { jobId } = await apiClient.sidequests.prescribeQuest({
         latitude: lat,
         longitude: lng,
         timezone: getUserTimezone(),
@@ -296,7 +215,7 @@ const OnboardingScreen: React.FC = () => {
       );
       setIsLoading(false);
     }
-  }, [selectedGoalKey, lookingFor, selectedActivities, selectedBarriers, fearLadderResponses, generatedScenarios, generatedDimensions, northStar, socialSituation, currentSocialLevel, userLocation, refreshAuth, trackJob, router]);
+  }, [selectedGoalKey, selectedActivities, userLocation, refreshAuth, trackJob, router]);
 
   // ── Transitions ──────────────────────────────────────
 
@@ -310,88 +229,25 @@ const OnboardingScreen: React.FC = () => {
 
   // ── Render ────────────────────────────────────────────
 
-  // Derive primary goal text for LLM steps
-  const primaryGoalText = (() => {
-    const goalOption = GOAL_OPTIONS.find((g) => g.key === selectedGoalKey);
-    return goalOption
-      ? goalOption.label.replace(/^[^\s]+\s/, "")
-      : lookingFor.join(", ") || "Build a social life";
-  })();
-
   const renderStep = () => {
     switch (step) {
       case 1:
         return <StepWelcome onNext={handleNext} />;
       case 2:
         return (
-          <StepAboutYou
-            situation={socialSituation}
-            onUpdate={handleUpdateSituation}
+          <StepGoal
+            selectedGoal={selectedGoalKey}
+            onSetGoal={setSelectedGoalKey}
             onNext={handleNext}
             onBack={handleBack}
           />
         );
       case 3:
         return (
-          <StepSocialLife
-            currentLevel={currentSocialLevel}
-            lookingFor={lookingFor}
-            selectedGoal={selectedGoalKey}
-            onSetLevel={setCurrentSocialLevel}
-            onToggleLookingFor={handleToggleLookingFor}
-            onSetGoal={setSelectedGoalKey}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        );
-      case 4:
-        return (
-          <StepBarriers
-            selected={selectedBarriers}
-            onToggle={(k) => toggle(selectedBarriers, setSelectedBarriers, k)}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        );
-      case 5:
-        return (
           <StepActivities
             selected={selectedActivities}
             onToggle={(a) => toggle(selectedActivities, setSelectedActivities, a)}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        );
-      case 6:
-        return (
-          <StepGeneratingLadder
-            primaryGoal={primaryGoalText}
-            goals={[]}
-            barriers={selectedBarriers}
-            activities={selectedActivities}
-            onScenariosReady={handleScenariosReady}
-            onBack={handleBackFromGenerating}
-          />
-        );
-      case 7:
-        return (
-          <StepFearLadder
-            scenarios={generatedScenarios ?? undefined}
-            responses={fearLadderResponses}
-            onRate={handleFearRate}
-            onNext={handleNext}
-            onBack={handleBackFromFearLadder}
-          />
-        );
-      case 8:
-        return (
-          <StepNorthStar
-            northStar={northStar}
-            setNorthStar={setNorthStar}
-            userLocation={userLocation}
-            isLoading={isLoading}
-            error={error}
-            onFinish={handleFinish}
+            onNext={handleFinish}
             onBack={handleBack}
           />
         );

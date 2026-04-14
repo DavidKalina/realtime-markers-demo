@@ -331,6 +331,59 @@ export class SidequestCheckinService {
     this.checkAndAutoPrescribe(userId).catch((err) => {
       console.error("[SidequestCheckin] Auto-prescribe check failed:", err);
     });
+
+    this.scheduleProgressiveOnboardingNudge(userId).catch((err) => {
+      console.error("[SidequestCheckin] Progressive onboarding nudge failed:", err);
+    });
+  }
+
+  /**
+   * If the user hasn't finished progressive onboarding (phase < 3),
+   * send a delayed push notification nudging them to fill in more profile data.
+   * Delay: 30 minutes after quest completion.
+   */
+  private async scheduleProgressiveOnboardingNudge(userId: string): Promise<void> {
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { id: userId },
+      select: ["id", "onboardingPhase"],
+    });
+
+    if (!user || user.onboardingPhase >= 3) return;
+
+    const DELAY_MS = 30 * 60 * 1000; // 30 minutes
+    const phaseMessages = [
+      { title: "Nice work out there!", body: "Take 30 seconds to set your pace — it helps us dial in your next quest." },
+      { title: "You're building momentum!", body: "A quick question about what's held you back — so we can work around it." },
+      { title: "Almost there!", body: "One last step: map your comfort zone so we can push you in the right ways." },
+    ];
+
+    const message = phaseMessages[user.onboardingPhase] ?? phaseMessages[0];
+
+    setTimeout(async () => {
+      try {
+        // Re-check phase in case they completed it in the meantime
+        const freshUser = await this.dataSource.getRepository(User).findOne({
+          where: { id: userId },
+          select: ["id", "onboardingPhase"],
+        });
+        if (!freshUser || freshUser.onboardingPhase >= 3) return;
+
+        await this.pushService.sendToUser(userId, {
+          title: message.title,
+          body: message.body,
+          sound: "default",
+          data: {
+            type: "progressive_onboarding",
+            phase: freshUser.onboardingPhase,
+          },
+        });
+        console.log(
+          `[SidequestCheckin] Sent progressive onboarding nudge to user ${userId} (phase ${freshUser.onboardingPhase})`,
+        );
+      } catch (err) {
+        console.error("[SidequestCheckin] Failed to send progressive onboarding nudge:", err);
+      }
+    }, DELAY_MS);
   }
 
   async replenishDeck(userId: string): Promise<void> {

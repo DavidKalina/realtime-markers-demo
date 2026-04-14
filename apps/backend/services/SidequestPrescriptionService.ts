@@ -40,15 +40,11 @@ import {
   buildIndividualRoleInstructions,
   buildSocialSituationContext,
   computeFearLadderReadiness,
+  determineIndividualQuestRole,
   type PrescriptionContextDeps,
   type FearLadderReadiness,
   type BlockerDetectionResult,
 } from "./prescription/PrescriptionContextBuilder";
-
-import {
-  prescribeWeekPack as weekPackPrescribe,
-  determineIndividualQuestRole,
-} from "./prescription/WeekPackService";
 
 // ── Re-exports (keep public API stable) ────────────────────────────
 export type { FearLadderReadiness, BlockerDetectionResult } from "./prescription/PrescriptionContextBuilder";
@@ -79,11 +75,6 @@ export interface SiblingContext {
   difficultyTier?: "easy" | "medium" | "stretch";
   targetPathway?: { id: string; theme: string; label: string; phase: string };
   previousSiblings: { title: string; venueCategory: string; venueName: string }[];
-}
-
-export interface WeekPackResult {
-  batchId: string;
-  quests: Sidequest[];
 }
 
 // ─── LLM Types (only used by prescription) ──────────────────────────
@@ -1328,17 +1319,4 @@ export class SidequestPrescriptionService {
     return haversineDistance(lat1, lon1, lat2, lon2, "miles");
   }
 
-  // ─── Weekly Pack Orchestrator (delegates to WeekPackService) ───
-
-  async prescribeWeekPack(
-    userId: string,
-    input: PrescribeQuestInput,
-    onProgress?: SidequestProgressCallback,
-  ): Promise<WeekPackResult> {
-    return weekPackPrescribe(userId, input, onProgress, {
-      dataSource: this.dataSource,
-      pathwayService: this.pathwayService,
-      prescribeQuest: (uid, inp, prog, ctx) => this.prescribeQuest(uid, inp, prog, ctx),
-    });
-  }
 }

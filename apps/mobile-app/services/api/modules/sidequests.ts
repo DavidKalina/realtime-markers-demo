@@ -370,22 +370,6 @@ export class SidequestsModule {
     return this.client.handleResponse<{ jobId: string; streamUrl: string }>(response);
   }
 
-  async prescribeWeekPack(params: {
-    latitude: number;
-    longitude: number;
-    timezone?: string;
-  }): Promise<{ jobId: string; streamUrl: string }> {
-    const response = await this.client.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests/prescribe-pack`,
-      {
-        method: "POST",
-        body: JSON.stringify(params),
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-    return this.client.handleResponse<{ jobId: string; streamUrl: string }>(response);
-  }
-
   async getComfortZone(): Promise<ComfortZoneResponse> {
     const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/comfort-zone`,
@@ -496,6 +480,7 @@ export class SidequestsModule {
     fearLadder?: { overallScore: number; dimensionScores: Record<string, number>; responses: Record<string, number>; scenarios?: { id: string; text: string; dimension: string }[]; dimensions?: string[] };
     onboardingProfile?: { activities: string[] };
     socialSituation?: { ageRange: string; gender: string; timeInArea: string; currentSocialLife: string; lookingFor: string[]; workSituation: string; livingSituation: string; dailyRoutine?: string; transportation?: string; budget?: string };
+    onboardingPhase?: number;
   }): Promise<ComfortZoneResponse> {
     const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/comfort-profile`,

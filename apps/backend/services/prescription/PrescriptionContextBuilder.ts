@@ -1656,3 +1656,36 @@ export async function computeFearLadderReadiness(dataSource: DataSource, userId:
     recentAvgDifficulty, hasDfsPathway, phaseReason,
   };
 }
+
+// ─── Individual Quest Role Selection ──────────────────────────────
+
+/**
+ * Determine a quest role for individual (non-pack) prescriptions.
+ *
+ * Role distribution (deterministic cycle after enough data):
+ *   - <5 quests: always "explore" (still onboarding)
+ *   - 5+ quests: rotating pattern — explore, explore, enjoy, explore, stretch
+ *   - Enjoy quests are "cheat meals" — pure fun based on interests, decoupled from pathways
+ *   - Stretch quests push beyond comfort zone on multiple dimensions
+ */
+export function determineIndividualQuestRole(
+  readiness: FearLadderReadiness,
+): { role: "explore" | "enjoy" | "stretch"; targetPathway?: { id: string; theme: string; label: string; phase: string } } {
+  // Early phase — always explore
+  if (readiness.completedQuests < 5) {
+    return { role: "explore" };
+  }
+
+  // Deterministic role rotation based on completed quest count.
+  // Pattern: explore, explore, enjoy, explore, stretch (repeats)
+  const cycle = readiness.completedQuests % 5;
+  if (cycle === 2 && readiness.completedQuests >= 8) {
+    // Every 5th quest (offset 2) is enjoy — a cheat meal, no pathway target needed
+    return { role: "enjoy" };
+  } else if (cycle === 4) {
+    // Every 5th quest (offset 4) is stretch — push them
+    return { role: "stretch" };
+  }
+
+  return { role: "explore" };
+}
