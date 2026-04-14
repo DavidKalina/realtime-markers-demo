@@ -52,25 +52,5 @@ for i in {1..30}; do
   sleep 2
 done
 
-echo "Starting index creation process..."
-
-# Create only vector-specific indexes that aren't part of the migration
-PGPASSWORD=$POSTGRES_PASSWORD psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<EOSQL
-    -- Vector indexes
-    DROP INDEX IF EXISTS filters_embedding_idx;
-    CREATE INDEX filters_embedding_idx 
-    ON filters 
-    USING hnsw (embedding vector_cosine_ops)
-    WITH (m = 16, ef_construction = 64);
-
-    DROP INDEX IF EXISTS events_embedding_idx;
-    CREATE INDEX events_embedding_idx 
-    ON events 
-    USING hnsw (embedding vector_cosine_ops)
-    WITH (m = 16, ef_construction = 64);
-EOSQL
-
-echo "Index creation completed successfully"
-
 # Wait for the application to exit
 wait $APP_PID
