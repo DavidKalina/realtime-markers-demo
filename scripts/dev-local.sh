@@ -77,7 +77,7 @@ cleanup() {
   if [[ "$DOCKER_STARTED" == "true" ]]; then
     info "Stopping Docker services..."
     cd "$REPO_ROOT"
-    docker compose -f docker-compose.yml -f docker-compose.http.yml -f docker-compose.local.yml down
+    docker compose -f docker-compose.yml -f docker-compose.http.yml -f docker-compose.override.yml down
   fi
 
   # Clean up temp ngrok config
@@ -144,7 +144,7 @@ if [[ "$NO_CACHE" == "true" ]]; then
   docker compose \
     -f docker-compose.yml \
     -f docker-compose.http.yml \
-    -f docker-compose.local.yml \
+    -f docker-compose.override.yml \
     build --no-cache
 else
   info "Building and starting containers..."
@@ -152,7 +152,7 @@ fi
 docker compose \
   -f docker-compose.yml \
   -f docker-compose.http.yml \
-  -f docker-compose.local.yml \
+  -f docker-compose.override.yml \
   up -d --build
 
 DOCKER_STARTED=true
