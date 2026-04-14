@@ -22,7 +22,7 @@ jobs:
           - service: backend
             dockerfile: apps/backend/Dockerfile
           - service: worker
-            dockerfile: apps/backend/worker.Dockerfile
+            dockerfile: apps/backend/Dockerfile
           - service: postgres
             dockerfile: postgres.Dockerfile
     steps:
