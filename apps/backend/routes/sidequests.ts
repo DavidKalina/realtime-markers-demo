@@ -43,37 +43,18 @@ export const sidequestRouter = new Hono<AppContext>();
 sidequestRouter.use("*", ip());
 sidequestRouter.use("*", authMiddleware);
 
-const readRateLimit = rateLimit({
-  maxRequests: 9999,
-  windowMs: 60 * 60 * 1000,
-  keyGenerator: (c) => {
-    const user = c.get("user");
-    return `sidequest-read:${user?.userId || user?.id || "anon"}`;
-  },
-});
-
-const writeRateLimit = rateLimit({
-  maxRequests: 9999,
-  windowMs: 60 * 60 * 1000,
-  keyGenerator: (c) => {
-    const user = c.get("user");
-    return `sidequest-write:${user?.userId || user?.id || "anon"}`;
-  },
-});
-
 // ── Read routes ─────────────────────────────────────────────
-sidequestRouter.get("/", readRateLimit, listSidequestsHandler);
-sidequestRouter.get("/completed", readRateLimit, listCompletedHandler);
-sidequestRouter.get("/unrated", readRateLimit, listUnratedHandler);
-sidequestRouter.get("/pending-capture", readRateLimit, listPendingCaptureHandler);
-sidequestRouter.get("/active", readRateLimit, getActiveSidequestHandler);
-sidequestRouter.get("/browse", readRateLimit, browseSidequestsHandler);
-sidequestRouter.get("/search", readRateLimit, searchSidequestsHandler);
-sidequestRouter.get("/deck-stats", readRateLimit, getDeckStatsHandler);
+sidequestRouter.get("/", listSidequestsHandler);
+sidequestRouter.get("/completed", listCompletedHandler);
+sidequestRouter.get("/unrated", listUnratedHandler);
+sidequestRouter.get("/pending-capture", listPendingCaptureHandler);
+sidequestRouter.get("/active", getActiveSidequestHandler);
+sidequestRouter.get("/browse", browseSidequestsHandler);
+sidequestRouter.get("/search", searchSidequestsHandler);
+sidequestRouter.get("/deck-stats", getDeckStatsHandler);
 
 sidequestRouter.get(
   "/comfort-zone",
-  readRateLimit,
   withErrorHandling(async (c) => {
     const user = requireAuth(c);
     const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
@@ -83,7 +64,6 @@ sidequestRouter.get(
 
 sidequestRouter.get(
   "/world-size",
-  readRateLimit,
   withErrorHandling(async (c) => {
     const user = requireAuth(c);
     const comfortZoneService = c.get("comfortZoneService") as ComfortZoneService;
@@ -91,17 +71,16 @@ sidequestRouter.get(
   }),
 );
 
-sidequestRouter.get("/:id", readRateLimit, getSidequestHandler);
+sidequestRouter.get("/:id", getSidequestHandler);
 
 // ── Write routes ────────────────────────────────────────────
-sidequestRouter.post("/prescribe", writeRateLimit, prescribeQuestHandler);
-sidequestRouter.post("/prescribe-pack", writeRateLimit, prescribeWeekPackHandler);
-sidequestRouter.post("/batch-delete", writeRateLimit, batchDeleteSidequestHandler);
-sidequestRouter.post("/deactivate", writeRateLimit, deactivateSidequestHandler);
+sidequestRouter.post("/prescribe", prescribeQuestHandler);
+sidequestRouter.post("/prescribe-pack", prescribeWeekPackHandler);
+sidequestRouter.post("/batch-delete", batchDeleteSidequestHandler);
+sidequestRouter.post("/deactivate", deactivateSidequestHandler);
 
 sidequestRouter.post(
   "/home-anchor",
-  writeRateLimit,
   withErrorHandling(async (c) => {
     const user = requireAuth(c);
     const body = await c.req.json<{ latitude: number; longitude: number }>();
@@ -115,24 +94,21 @@ sidequestRouter.post(
   }),
 );
 
-sidequestRouter.post("/:id/share", writeRateLimit, shareSidequestHandler);
-sidequestRouter.post("/:id/activate", writeRateLimit, activateSidequestHandler);
-sidequestRouter.post("/:id/rate", writeRateLimit, rateSidequestHandler);
-sidequestRouter.post("/:id/promote", writeRateLimit, promoteSidequestHandler);
+sidequestRouter.post("/:id/share", shareSidequestHandler);
+sidequestRouter.post("/:id/activate", activateSidequestHandler);
+sidequestRouter.post("/:id/rate", rateSidequestHandler);
+sidequestRouter.post("/:id/promote", promoteSidequestHandler);
 sidequestRouter.post(
   "/:id/objectives/:objectiveId/checkin",
-  writeRateLimit,
   checkinObjectiveHandler,
 );
 sidequestRouter.post(
   "/:id/objectives/:objectiveId/complete-challenge",
-  writeRateLimit,
   completeChallengeHandler,
 );
 
 sidequestRouter.post(
   "/generate-fear-ladder",
-  writeRateLimit,
   withErrorHandling(async (c) => {
     requireAuth(c);
     const body = await c.req.json<{
@@ -163,7 +139,6 @@ sidequestRouter.post(
 
 sidequestRouter.post(
   "/generate-barriers",
-  writeRateLimit,
   withErrorHandling(async (c) => {
     requireAuth(c);
     const body = await c.req.json<{ primaryGoal: string }>();
@@ -184,7 +159,6 @@ sidequestRouter.post(
 
 sidequestRouter.post(
   "/assess-goal",
-  writeRateLimit,
   withErrorHandling(async (c) => {
     requireAuth(c);
     const body = await c.req.json<{ goal: string }>();
@@ -203,7 +177,6 @@ sidequestRouter.post(
 
 sidequestRouter.post(
   "/refine-goal",
-  writeRateLimit,
   withErrorHandling(async (c) => {
     requireAuth(c);
     const body = await c.req.json<{
@@ -228,7 +201,6 @@ sidequestRouter.post(
 
 sidequestRouter.put(
   "/comfort-profile",
-  writeRateLimit,
   withErrorHandling(async (c) => {
     const user = requireAuth(c);
     const body = await c.req.json<{
@@ -291,15 +263,13 @@ sidequestRouter.put(
 
 sidequestRouter.put(
   "/objectives/:objectiveId/journal",
-  writeRateLimit,
   objectiveJournalHandler,
 );
 sidequestRouter.put(
   "/objectives/:objectiveId/prediction",
-  writeRateLimit,
   objectivePredictionHandler,
 );
-sidequestRouter.delete("/:id", writeRateLimit, deleteSidequestHandler);
+sidequestRouter.delete("/:id", deleteSidequestHandler);
 
 // ── Public shared sidequest router (no auth) ────────────────
 export const publicSidequestRouter = new Hono<AppContext>();

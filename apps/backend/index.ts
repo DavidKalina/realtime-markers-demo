@@ -65,7 +65,7 @@ app.use(
     maxHeadersSize: 8192,
   }),
 );
-app.use("*", performanceMonitor(redisClient));
+app.use("*", performanceMonitor());
 app.use("*", async (c, next) => {
   const url = c.req.url;
   if (url !== "/" && url.endsWith("/")) {

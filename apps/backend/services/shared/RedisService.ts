@@ -2,46 +2,9 @@ import { Redis } from "ioredis";
 
 export type RedisChannel =
   | "notifications"
-  | "user_updates"
-  | "location_updates"
   | "job_created"
   | "job_updates"
-  | "level-update"
   | `job:${string}:updates`;
-
-// Define base interface for messages that require timestamps
-interface TimestampedMessage {
-  timestamp: string;
-}
-
-// Define specific message types for better type safety
-export type FilterChangeMessage = TimestampedMessage & {
-  userId: string;
-  filters: Array<{
-    id: string;
-    name: string;
-    criteria: Record<string, unknown>;
-    isActive: boolean;
-  }>;
-};
-
-export type ViewportUpdateMessage = TimestampedMessage & {
-  userId: string;
-  viewport: {
-    minX: number;
-    minY: number;
-    maxX: number;
-    maxY: number;
-  };
-};
-
-export type FilteredEventMessage = TimestampedMessage & {
-  type: "add-event" | "update-event" | "delete-event" | "replace-all";
-  event?: Record<string, unknown>;
-  id?: string;
-  events?: Array<Record<string, unknown>>;
-  count?: number;
-};
 
 export type NotificationMessage = {
   type: string;
@@ -52,21 +15,9 @@ export type NotificationMessage = {
   source: string;
 };
 
-export type LevelUpdateMessage = {
-  type: string;
-  data: {
-    userId: string;
-    level: number;
-    title: string;
-    action: string;
-    amount: number;
-    totalXp: number;
-    timestamp: string;
-  };
-};
-
-export type JobCreatedMessage = TimestampedMessage & {
+export type JobCreatedMessage = {
   type: "JOB_CREATED";
+  timestamp: string;
   data: {
     jobId: string;
     jobType?: string;
@@ -74,13 +25,9 @@ export type JobCreatedMessage = TimestampedMessage & {
 };
 
 export type RedisMessageType =
-  | FilterChangeMessage
-  | ViewportUpdateMessage
-  | FilteredEventMessage
   | NotificationMessage
-  | LevelUpdateMessage
   | JobCreatedMessage
-  | (Record<string, unknown> & Partial<TimestampedMessage>);
+  | Record<string, unknown>;
 
 export interface RedisMessage<T = RedisMessageType> {
   type?: string;
@@ -95,328 +42,133 @@ export class RedisService {
   }
 
   /**
-   * Publish a message to a Redis channel with standardized formatting
+   * Publish a typed message to a Redis channel.
    */
   async publishMessage<T extends RedisMessageType>(
     channel: RedisChannel,
     message: T,
   ): Promise<void> {
-    try {
-      // Ensure timestamp is present for messages that support it
-      const messageWithTimestamp = {
-        ...message,
-        ...("timestamp" in message && !message.timestamp
-          ? { timestamp: new Date().toISOString() }
-          : {}),
-      };
-
-      // For notifications, ensure the format matches what WebSocket expects
-      if (channel === "notifications") {
-        const notificationMessage = message as NotificationMessage;
-        await this.redis.publish(
-          channel,
-          JSON.stringify({
-            type: notificationMessage.type,
-            title: notificationMessage.title,
-            message: notificationMessage.message,
-            notificationType: notificationMessage.notificationType,
-            timestamp: notificationMessage.timestamp || Date.now(),
-            source: notificationMessage.source || "backend",
-          }),
-        );
-        return;
-      }
-
-      // For level updates, ensure the format matches what WebSocket expects
-      if (channel === "level-update") {
-        const levelMessage = message as LevelUpdateMessage;
-        await this.redis.publish(
-          channel,
-          JSON.stringify({
-            type: levelMessage.type,
-            data: {
-              ...levelMessage.data,
-              timestamp:
-                levelMessage.data.timestamp || new Date().toISOString(),
-            },
-          }),
-        );
-        return;
-      }
-
-      // For job created, ensure the format matches what WebSocket expects
-      if (channel === "job_created") {
-        const jobCreatedMessage = message as JobCreatedMessage;
-        await this.redis.publish(
-          channel,
-          JSON.stringify({
-            type: jobCreatedMessage.type,
-            data: {
-              ...jobCreatedMessage.data,
-              timestamp:
-                jobCreatedMessage.timestamp || new Date().toISOString(),
-            },
-          }),
-        );
-        return;
-      }
-
-      // Default case: publish the message as-is
-      await this.redis.publish(channel, JSON.stringify(messageWithTimestamp));
-    } catch (error) {
-      console.error(`Error publishing message to channel ${channel}:`, error);
-      throw error;
+    if (channel === "notifications") {
+      const m = message as NotificationMessage;
+      await this.redis.publish(
+        channel,
+        JSON.stringify({
+          type: m.type,
+          title: m.title,
+          message: m.message,
+          notificationType: m.notificationType,
+          timestamp: m.timestamp || Date.now(),
+          source: m.source || "backend",
+        }),
+      );
+      return;
     }
+
+    if (channel === "job_created") {
+      const m = message as JobCreatedMessage;
+      await this.redis.publish(
+        channel,
+        JSON.stringify({
+          type: m.type,
+          data: {
+            ...m.data,
+            timestamp: m.timestamp || new Date().toISOString(),
+          },
+        }),
+      );
+      return;
+    }
+
+    await this.redis.publish(channel, JSON.stringify(message));
   }
 
   /**
-   * Publish a message to a Redis channel
+   * Publish a raw message to a Redis channel.
    */
   async publish<T>(
     channel: RedisChannel,
     message: RedisMessage<T>,
   ): Promise<void> {
-    try {
-      await this.redis.publish(channel, JSON.stringify(message));
-    } catch (error) {
-      console.error(`Error publishing to channel ${channel}:`, error);
-      throw error;
-    }
+    await this.redis.publish(channel, JSON.stringify(message));
   }
 
   /**
-   * Subscribe to a Redis channel
+   * Subscribe to a Redis channel.
    */
   async subscribe(
     channel: RedisChannel,
     callback: (message: string) => void,
   ): Promise<void> {
-    try {
-      await this.redis.subscribe(channel);
-      this.redis.on("message", (receivedChannel: string, message: string) => {
-        if (receivedChannel === channel) {
-          callback(message);
-        }
-      });
-    } catch (error) {
-      console.error(`Error subscribing to channel ${channel}:`, error);
-      throw error;
-    }
+    await this.redis.subscribe(channel);
+    this.redis.on("message", (receivedChannel: string, message: string) => {
+      if (receivedChannel === channel) {
+        callback(message);
+      }
+    });
   }
 
   /**
-   * Set a key-value pair in Redis
+   * Set a key-value pair in Redis.
    */
   async set(
     key: string,
     value: string | number | object,
     ttlSeconds?: number,
   ): Promise<void> {
-    try {
-      const serializedValue =
-        typeof value === "object" ? JSON.stringify(value) : String(value);
+    const serializedValue =
+      typeof value === "object" ? JSON.stringify(value) : String(value);
 
-      if (ttlSeconds) {
-        await this.redis.setex(key, ttlSeconds, serializedValue);
-      } else {
-        await this.redis.set(key, serializedValue);
-      }
-    } catch (error) {
-      console.error(`Error setting key ${key}:`, error);
-      throw error;
+    if (ttlSeconds) {
+      await this.redis.setex(key, ttlSeconds, serializedValue);
+    } else {
+      await this.redis.set(key, serializedValue);
     }
   }
 
   /**
-   * Get a value from Redis
+   * Get a value from Redis. Attempts JSON parse, falls back to raw string.
    */
   async get<T = string>(key: string): Promise<T | null> {
+    const value = await this.redis.get(key);
+    if (value === null) return null;
+
     try {
-      const value = await this.redis.get(key);
-      if (value === null) return null;
-
-      // Try to parse as JSON first, fall back to string
-      try {
-        return JSON.parse(value) as T;
-      } catch {
-        return value as T;
-      }
-    } catch (error) {
-      console.error(`Error getting key ${key}:`, error);
-      return null;
-    }
-  }
-
-  /**
-   * Delete a key from Redis
-   */
-  async del(key: string): Promise<void> {
-    try {
-      await this.redis.del(key);
-    } catch (error) {
-      console.error(`Error deleting key ${key}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Delete keys by pattern
-   */
-  async delByPattern(pattern: string): Promise<void> {
-    try {
-      const keys = await this.redis.keys(pattern);
-      if (keys.length > 0) {
-        await this.redis.del(...keys);
-      }
-    } catch (error) {
-      console.error(`Error deleting pattern ${pattern}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Set a hash field
-   */
-  async hset(
-    key: string,
-    field: string,
-    value: string | number | object,
-  ): Promise<void> {
-    try {
-      const serializedValue =
-        typeof value === "object" ? JSON.stringify(value) : String(value);
-      await this.redis.hset(key, field, serializedValue);
-    } catch (error) {
-      console.error(`Error setting hash field ${key}.${field}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get a hash field
-   */
-  async hget<T = string>(key: string, field: string): Promise<T | null> {
-    try {
-      const value = await this.redis.hget(key, field);
-      if (value === null) return null;
-
-      // Try to parse as JSON first, fall back to string
-      try {
-        return JSON.parse(value) as T;
-      } catch {
-        return value as T;
-      }
-    } catch (error) {
-      console.error(`Error getting hash field ${key}.${field}:`, error);
-      return null;
-    }
-  }
-
-  /**
-   * Get all hash fields
-   */
-  async hgetall<T extends Record<string, unknown>>(
-    key: string,
-  ): Promise<T | null> {
-    try {
-      const hash = await this.redis.hgetall(key);
-      if (!hash || Object.keys(hash).length === 0) return null;
-
-      const result: Record<string, unknown> = {};
-      for (const [field, value] of Object.entries(hash)) {
-        try {
-          result[field] = JSON.parse(value);
-        } catch {
-          result[field] = value;
-        }
-      }
-
-      return result as T;
-    } catch (error) {
-      console.error(`Error getting hash ${key}:`, error);
-      return null;
-    }
-  }
-
-  /**
-   * Delete a hash field
-   */
-  async hdel(key: string, field: string): Promise<void> {
-    try {
-      await this.redis.hdel(key, field);
-    } catch (error) {
-      console.error(`Error deleting hash field ${key}.${field}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Check if a key exists
-   */
-  async exists(key: string): Promise<boolean> {
-    try {
-      const result = await this.redis.exists(key);
-      return result === 1;
-    } catch (error) {
-      console.error(`Error checking existence of key ${key}:`, error);
-      return false;
-    }
-  }
-
-  /**
-   * Set expiration for a key
-   */
-  async expire(key: string, seconds: number): Promise<void> {
-    try {
-      await this.redis.expire(key, seconds);
-    } catch (error) {
-      console.error(`Error setting expiration for key ${key}:`, error);
-      throw error;
+      return JSON.parse(value) as T;
+    } catch {
+      return value as T;
     }
   }
 
   /**
    * Store which city a user is currently in (for background push discovery).
-   * Maintains a per-user key and a reverse index SET per city.
    */
   async storeUserCity(userId: string, city: string): Promise<void> {
-    try {
-      const userCityKey = `user:${userId}:city`;
+    const userCityKey = `user:${userId}:city`;
 
-      // Remove user from their previous city set (if any)
-      const previousCity = await this.redis.get(userCityKey);
-      if (previousCity && previousCity !== city) {
-        await this.redis.srem(`city:${previousCity}:users`, userId);
-      }
-
-      // Store the user's current city with 24h TTL
-      await this.redis.setex(userCityKey, 86400, city);
-
-      // Add user to the city's user set
-      await this.redis.sadd(`city:${city}:users`, userId);
-    } catch (error) {
-      console.error(`Error storing city for user ${userId}:`, error);
-      throw error;
+    const previousCity = await this.redis.get(userCityKey);
+    if (previousCity && previousCity !== city) {
+      await this.redis.srem(`city:${previousCity}:users`, userId);
     }
+
+    await this.redis.setex(userCityKey, 86400, city);
+    await this.redis.sadd(`city:${city}:users`, userId);
   }
 
   /**
    * Get all user IDs currently in a given city.
    */
   async getUsersInCity(city: string): Promise<string[]> {
-    try {
-      return await this.redis.smembers(`city:${city}:users`);
-    } catch (error) {
-      console.error(`Error getting users in city ${city}:`, error);
-      return [];
-    }
+    return this.redis.smembers(`city:${city}:users`);
   }
 
   /**
-   * Get-or-compute cache helper. Returns cached value if present,
-   * otherwise calls fn(), stores the result with the given TTL, and returns it.
+   * Get-or-compute cache helper.
    */
-  async cached<T extends string | number | object>(key: string, ttlSeconds: number, fn: () => Promise<T>): Promise<T> {
+  async cached<T extends string | number | object>(
+    key: string,
+    ttlSeconds: number,
+    fn: () => Promise<T>,
+  ): Promise<T> {
     const existing = await this.get<T>(key);
     if (existing !== null) return existing;
     const result = await fn();
@@ -425,10 +177,9 @@ export class RedisService {
   }
 
   /**
-   * Get the underlying Redis client
+   * Get the underlying Redis client for direct operations.
    */
   getClient(): Redis {
     return this.redis;
   }
 }
-

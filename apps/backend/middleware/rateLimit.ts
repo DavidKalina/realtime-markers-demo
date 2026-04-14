@@ -1,5 +1,5 @@
 import type { Context, Next } from "hono";
-import { Redis } from "ioredis";
+import type { Redis } from "ioredis";
 
 interface RateLimitOptions {
   maxRequests: number;
@@ -7,25 +7,12 @@ interface RateLimitOptions {
   keyGenerator?: (c: Context) => string;
 }
 
-let redisClient: Redis | null = null;
-
-function getRedisClient(): Redis {
-  if (!redisClient) {
-    redisClient = new Redis({
-      host: process.env.REDIS_HOST || "localhost",
-      port: parseInt(process.env.REDIS_PORT || "6379"),
-      password: process.env.REDIS_PASSWORD || undefined,
-    });
-  }
-  return redisClient;
-}
-
 async function checkRateLimit(
+  redis: Redis,
   key: string,
   maxRequests: number,
   windowMs: number,
 ): Promise<{ limited: boolean; remaining: number; resetTime: number }> {
-  const redis = getRedisClient();
   const now = Date.now();
   const windowKey = `ratelimit:${key}:${Math.floor(now / windowMs)}`;
 
@@ -59,9 +46,11 @@ export const rateLimit = (options: RateLimitOptions) => {
 
   return async (c: Context, next: Next) => {
     const key = (options.keyGenerator || defaultKeyGenerator)(c);
+    const redis = c.get("redisClient") as Redis;
 
     try {
       const { limited, remaining, resetTime } = await checkRateLimit(
+        redis,
         key,
         options.maxRequests,
         options.windowMs,
