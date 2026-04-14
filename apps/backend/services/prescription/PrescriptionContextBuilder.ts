@@ -1067,7 +1067,7 @@ export function buildSocialSituationContext(socialSituation: {
   budget?: string;
 } | null | undefined, city: string): string {
   if (!socialSituation) return "";
-  const genderLabel = socialSituation.gender === "prefer_not_to_say" ? "" : `, ${socialSituation.gender}`;
+
   const timeLabels: Record<string, string> = {
     just_moved: "just moved here",
     under_1yr: "less than a year",
@@ -1100,14 +1100,33 @@ export function buildSocialSituationContext(socialSituation: {
     moderate: "$20-$50 per quest",
     flexible: "budget is not a concern",
   };
-  const lines = [
-    `- ${socialSituation.ageRange}${genderLabel}, living in ${city}`,
-    `- In area: ${timeLabels[socialSituation.timeInArea] ?? socialSituation.timeInArea}`,
-    `- Current social life: ${socialLabels[socialSituation.currentSocialLife] ?? socialSituation.currentSocialLife}`,
-    `- Looking for: ${socialSituation.lookingFor.join(", ")}`,
-    `- Work: ${socialSituation.workSituation}`,
-    `- Living: ${socialSituation.livingSituation}`,
-  ];
+
+  // Only include lines where data is actually populated
+  const lines: string[] = [];
+
+  // Demographics line — only if we have age or gender
+  const hasAge = !!socialSituation.ageRange;
+  const hasGender = !!socialSituation.gender && socialSituation.gender !== "prefer_not_to_say";
+  if (hasAge || hasGender) {
+    const parts = [hasAge ? socialSituation.ageRange : "", hasGender ? socialSituation.gender : ""].filter(Boolean).join(", ");
+    lines.push(`- ${parts}, living in ${city}`);
+  }
+
+  if (socialSituation.timeInArea) {
+    lines.push(`- In area: ${timeLabels[socialSituation.timeInArea] ?? socialSituation.timeInArea}`);
+  }
+  if (socialSituation.currentSocialLife) {
+    lines.push(`- Current social life: ${socialLabels[socialSituation.currentSocialLife] ?? socialSituation.currentSocialLife}`);
+  }
+  if (socialSituation.lookingFor?.length) {
+    lines.push(`- Looking for: ${socialSituation.lookingFor.join(", ")}`);
+  }
+  if (socialSituation.workSituation) {
+    lines.push(`- Work: ${socialSituation.workSituation}`);
+  }
+  if (socialSituation.livingSituation) {
+    lines.push(`- Living: ${socialSituation.livingSituation}`);
+  }
   if (socialSituation.dailyRoutine) {
     lines.push(`- Schedule: ${routineLabels[socialSituation.dailyRoutine] ?? socialSituation.dailyRoutine}`);
   }
@@ -1117,6 +1136,8 @@ export function buildSocialSituationContext(socialSituation: {
   if (socialSituation.budget) {
     lines.push(`- Budget: ${budgetLabels[socialSituation.budget] ?? socialSituation.budget}`);
   }
+
+  if (lines.length === 0) return "";
   return `SOCIAL SITUATION:\n${lines.join("\n")}`;
 }
 

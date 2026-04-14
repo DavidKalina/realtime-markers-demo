@@ -10,18 +10,22 @@ export function StepBarriers({
   onNext,
   onBack,
   options,
+  title,
+  subtitle,
 }: {
   selected: string[];
   onToggle: (key: string) => void;
   onNext: () => void;
   onBack?: () => void;
   options?: { key: string; label: string; text: string }[];
+  title?: string;
+  subtitle?: string;
 }) {
   const barrierOptions = options ?? BARRIER_OPTIONS;
   return (
     <StepLayout
-      title="What's kept you stuck?"
-      subtitle="Select all that apply \u2014 no judgment, just calibration"
+      title={title ?? "What's kept you stuck?"}
+      subtitle={subtitle ?? "Select all that apply \u2014 no judgment, just calibration"}
       onBack={onBack}
       heroStep={4}
       bottomAction={

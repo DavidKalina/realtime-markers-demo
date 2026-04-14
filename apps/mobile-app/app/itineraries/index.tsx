@@ -33,9 +33,6 @@ import EmptyState from "@/components/Layout/EmptyState";
 import QuestCardDeck from "@/components/Itinerary/QuestCardDeck";
 import BatchRevealOverlay from "@/components/Quest/BatchRevealOverlay";
 import { apiClient } from "@/services/ApiClient";
-import { useUserLocation } from "@/contexts/LocationContext";
-import { useJobProgressContext } from "@/contexts/JobProgressContext";
-import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import type {
   SidequestResponse,
 } from "@/services/api/modules/sidequests";
@@ -127,8 +124,6 @@ const ItinerariesListScreen = () => {
   const activeItineraryId = useActiveItineraryStore(
     (s) => s.itinerary?.id ?? null,
   );
-  const { userLocation } = useUserLocation();
-  const { trackJob } = useJobProgressContext();
 
   const PAGE_SIZE = 20;
   const [itineraries, setItineraries] = useState<SidequestResponse[]>([]);
@@ -165,44 +160,6 @@ const ItinerariesListScreen = () => {
   useEffect(() => {
     fetchItineraries();
   }, [fetchItineraries]);
-
-  // Auto-replenish: if deck is empty after loading, prescribe a new quest
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  const prescribeNewQuest = useCallback(async () => {
-    if (isGenerating) return;
-    setIsGenerating(true);
-    try {
-      const lat = userLocation ? userLocation[1] : 0;
-      const lng = userLocation ? userLocation[0] : 0;
-      const { jobId } = await apiClient.sidequests.prescribeQuest({
-        latitude: lat,
-        longitude: lng,
-        timezone: getUserTimezone(),
-      });
-      trackJob(jobId);
-      // Poll until the quest appears
-      let attempts = 0;
-      const poll = setInterval(async () => {
-        attempts++;
-        await fetchItineraries();
-        if (attempts >= 20) clearInterval(poll);
-      }, 2000);
-      // Also clear on unmount
-      return () => clearInterval(poll);
-    } catch (err) {
-      console.error("[Itineraries] Failed to prescribe quest:", err);
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [isGenerating, userLocation, trackJob, fetchItineraries]);
-
-  useEffect(() => {
-    if (!isLoading && itineraries.length === 0 && !isGenerating) {
-      console.log("[Itineraries] Empty deck — auto-prescribing a quest");
-      prescribeNewQuest();
-    }
-  }, [isLoading, itineraries.length]);
 
   // Batch reveal state — shown when auto-prescribed quests arrive
   const [revealQuests, setRevealQuests] = useState<SidequestResponse[]>([]);
@@ -331,35 +288,11 @@ const ItinerariesListScreen = () => {
         noAnimation
       >
         <EmptyState
-          emoji={isGenerating ? "\u2728" : "\u{1F5FA}\u{FE0F}"}
-          title={isGenerating ? "Crafting your next quest..." : "No quests yet"}
-          subtitle={isGenerating ? "Hang tight — we're finding the perfect spot" : "Your social life starts here"}
+          emoji={"\u{1F5FA}\u{FE0F}"}
+          title="No quests yet"
+          subtitle="Your social life starts here"
           style={{ justifyContent: "flex-start", paddingTop: spacing["3xl"] }}
         />
-        {!isGenerating && (
-          <Pressable
-            onPress={prescribeNewQuest}
-            style={{
-              marginTop: spacing.lg,
-              alignSelf: "center",
-              paddingVertical: 14,
-              paddingHorizontal: 28,
-              borderRadius: radius.md,
-              borderWidth: 1,
-              borderColor: colors.accent.border,
-              backgroundColor: colors.accent.muted,
-            }}
-          >
-            <Text style={{
-              fontFamily: fontFamily.mono,
-              fontSize: 14,
-              fontWeight: fontWeight.semibold,
-              color: colors.accent.primary,
-            }}>
-              Get a quest
-            </Text>
-          </Pressable>
-        )}
       </Screen>
     );
   }

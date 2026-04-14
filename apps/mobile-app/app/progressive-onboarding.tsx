@@ -4,219 +4,93 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
 import Animated, {
-  Easing,
-  FadeIn,
   FadeInRight,
   FadeOutLeft,
-  useDerivedValue,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
 } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 
 import { apiClient } from "@/services/ApiClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors, fontFamily, fontWeight, spacing } from "@/theme";
-import { StepProgress } from "@/components/Onboarding/shared";
-import { NextButton, OnboardingChip, StepLayout } from "@/components/Onboarding/shared";
+import { SkiaGlow } from "@/components/SkiaGlow";
+import { StepQuestReflection } from "@/components/Onboarding/StepQuestReflection";
 import { StepBarriers } from "@/components/Onboarding/StepBarriers";
-import { StepAboutYou, type SocialSituation } from "@/components/Onboarding/StepAboutYou";
 import { StepSocialLife } from "@/components/Onboarding/StepSocialLife";
 import { StepGeneratingLadder } from "@/components/Onboarding/StepGeneratingLadder";
 import { StepFearLadder } from "@/components/Onboarding/StepFearLadder";
 import {
   deriveBarriersText,
+  reflectionToPace,
+  summarizeBarriers,
   scoreFearLadder,
-  GOAL_OPTIONS,
 } from "@/components/Onboarding/constants";
 
-// ── Skia glow background (shared with onboarding) ─────────
+// ── Phase 0: Reflect on quest + barriers ─────────────────
 
-const GLOW_SKSL = Skia.RuntimeEffect.Make(`
-uniform float2 resolution;
-uniform float time;
-uniform float reveal;
-
-half4 main(float2 xy) {
-  vec2 uv = xy / resolution;
-  float cx = 0.5 + sin(time * 6.2832) * 0.02;
-  float cy = 0.38;
-  float dx = uv.x - cx;
-  float dy = (uv.y - cy) * (resolution.y / resolution.x);
-  float dist = sqrt(dx * dx + dy * dy);
-  float glow1 = exp(-dist * dist * 4.0);
-  float glow2 = exp(-dist * dist * 12.0);
-  float glow3 = exp(-dist * dist * 2.0) * 0.25;
-  float pulse = 0.85 + 0.15 * sin(time * 6.2832);
-  vec3 blue = vec3(0.3, 0.67, 0.97);
-  vec3 cyan = vec3(0.4, 0.9, 0.85);
-  vec3 warm = vec3(0.52, 0.38, 0.85);
-  vec3 col = blue * glow1 + cyan * glow2 * 0.5 + warm * glow3;
-  col *= pulse;
-  float alpha = (glow1 * 0.25 + glow2 * 0.15 + glow3 * 0.08) * pulse * reveal;
-  return half4(col * alpha, alpha);
-}
-`);
-
-const SkiaGlow: React.FC = React.memo(() => {
-  const { width, height } = useWindowDimensions();
-  const time = useSharedValue(0);
-  const reveal = useSharedValue(0);
-
-  useEffect(() => {
-    reveal.value = withDelay(
-      300,
-      withTiming(1, { duration: 1000, easing: Easing.out(Easing.cubic) }),
-    );
-    time.value = withDelay(
-      300,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-        ),
-        -1,
-        true,
-      ),
-    );
-  }, []);
-
-  const uniforms = useDerivedValue(() => ({
-    resolution: vec(width, height),
-    time: time.value,
-    reveal: reveal.value,
-  }));
-
-  if (!GLOW_SKSL) return null;
-
-  return (
-    <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Fill>
-        <Shader source={GLOW_SKSL} uniforms={uniforms} />
-      </Fill>
-    </Canvas>
-  );
-});
-
-SkiaGlow.displayName = "SkiaGlow";
-
-// ── Pace preference options ────────────────────────────────
-
-const PACE_OPTIONS = [
-  { key: "gentle", label: "\u{1F331} Gentle — ease me in slowly" },
-  { key: "steady", label: "\u{1F6B6} Steady — a comfortable pace" },
-  { key: "push_me", label: "\u{1F525} Push me — I'm ready for more" },
-];
-
-// ── Phase 0: Pace preference ──────────────────────────────
-
-function PacePhase({ onComplete }: { onComplete: (pace: string) => void }) {
-  const [selected, setSelected] = useState("");
-
-  return (
-    <StepLayout
-      title="How should we pace things?"
-      subtitle="Now that you've done your first quest, how fast should we push?"
-      heroStep={2}
-      bottomAction={
-        <NextButton
-          label="Continue"
-          onPress={() => onComplete(selected)}
-          disabled={selected === ""}
-        />
-      }
-    >
-      <View style={s.paceList}>
-        {PACE_OPTIONS.map(({ key, label }) => (
-          <OnboardingChip
-            key={key}
-            label={label}
-            selected={selected === key}
-            onPress={() => setSelected(key)}
-          />
-        ))}
-      </View>
-    </StepLayout>
-  );
-}
-
-// ── Phase 1: Barriers + social basics ─────────────────────
-
-function BarriersPhase({
+function ReflectAndBarriersPhase({
   primaryGoal,
   onComplete,
 }: {
   primaryGoal: string;
-  onComplete: (data: {
-    barriers: string[];
-    socialSituation: SocialSituation;
-    currentSocialLevel: string;
-    lookingFor: string[];
-  }) => void;
+  onComplete: (data: { reflectionKey: string; barriers: string[] }) => void;
 }) {
-  const [subStep, setSubStep] = useState<"barriers" | "social">("barriers");
+  const [subStep, setSubStep] = useState<"reflect" | "barriers">("reflect");
+  const [reflectionKey, setReflectionKey] = useState("");
   const [selectedBarriers, setSelectedBarriers] = useState<string[]>([]);
-  const [socialSituation, setSocialSituation] = useState<SocialSituation>({
-    ageRange: "",
-    gender: "",
-    timeInArea: "",
-    workSituation: "",
-    livingSituation: "",
-  });
-  const [currentSocialLevel, setCurrentSocialLevel] = useState("");
-  const [lookingFor, setLookingFor] = useState<string[]>([]);
-  const [selectedGoalKey, setSelectedGoalKey] = useState("");
 
-  const handleUpdateSituation = useCallback((field: keyof SocialSituation, value: string) => {
-    setSocialSituation((prev) => ({ ...prev, [field]: value }));
-  }, []);
-
-  const handleToggleLookingFor = useCallback((key: string) => {
-    setLookingFor((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-    );
-  }, []);
-
-  if (subStep === "barriers") {
+  if (subStep === "reflect") {
     return (
-      <StepBarriers
-        selected={selectedBarriers}
-        onToggle={(k) =>
-          setSelectedBarriers((prev) =>
-            prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k],
-          )
-        }
-        onNext={() => setSubStep("social")}
+      <StepQuestReflection
+        selected={reflectionKey}
+        onSelect={setReflectionKey}
+        onNext={() => setSubStep("barriers")}
       />
     );
   }
 
   return (
-    <StepSocialLife
-      currentLevel={currentSocialLevel}
-      lookingFor={lookingFor}
-      selectedGoal={selectedGoalKey}
-      onSetLevel={setCurrentSocialLevel}
-      onToggleLookingFor={handleToggleLookingFor}
-      onSetGoal={setSelectedGoalKey}
-      onNext={() =>
-        onComplete({
-          barriers: selectedBarriers,
-          socialSituation,
-          currentSocialLevel,
-          lookingFor,
-        })
+    <StepBarriers
+      title={`You want to ${primaryGoal.toLowerCase()}...`}
+      subtitle="What's made that hard before?"
+      selected={selectedBarriers}
+      onToggle={(k) =>
+        setSelectedBarriers((prev) =>
+          prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k],
+        )
       }
-      onBack={() => setSubStep("barriers")}
+      onNext={() => onComplete({ reflectionKey, barriers: selectedBarriers })}
+      onBack={() => setSubStep("reflect")}
+    />
+  );
+}
+
+// ── Phase 1: Social context ──────────────────────────────
+
+function SocialContextPhase({
+  barriers,
+  onComplete,
+}: {
+  barriers: string[];
+  onComplete: (data: { currentSocialLevel: string }) => void;
+}) {
+  const [currentSocialLevel, setCurrentSocialLevel] = useState("");
+
+  const barrierSummary = summarizeBarriers(barriers);
+
+  return (
+    <StepSocialLife
+      title="Where you're starting from"
+      subtitle={
+        barrierSummary
+          ? `You mentioned ${barrierSummary}. Let's get specific.`
+          : "Let's get specific about your social life right now."
+      }
+      currentLevel={currentSocialLevel}
+      onSetLevel={setCurrentSocialLevel}
+      onNext={() => onComplete({ currentSocialLevel })}
     />
   );
 }
@@ -332,40 +206,26 @@ const ProgressiveOnboardingScreen: React.FC = () => {
           onboardingPhase: nextPhase,
         });
         // Reload full user from server so context has the latest state
-        // (reloadUser never logs out on failure)
         await reloadUser();
       } catch (err) {
         console.error("Progressive onboarding error:", err);
       } finally {
         setIsSaving(false);
         // Always return to deck after completing a phase.
-        // The next phase will be triggered after the next quest completion.
         router.replace("/deck");
       }
     },
     [localPhase, router, reloadUser],
   );
 
-  // ── Phase 0: Pace preference ──────────────────────────
+  // ── Phase 0: Reflect + barriers ───────────────────────
 
-  const handlePaceComplete = useCallback(
-    (pace: string) => {
-      saveAndAdvance({ pacePreference: pace });
-    },
-    [saveAndAdvance],
-  );
-
-  // ── Phase 1: Barriers + social basics ─────────────────
-
-  const handleBarriersComplete = useCallback(
-    (data: {
-      barriers: string[];
-      socialSituation: SocialSituation;
-      currentSocialLevel: string;
-      lookingFor: string[];
-    }) => {
+  const handleReflectAndBarriersComplete = useCallback(
+    (data: { reflectionKey: string; barriers: string[] }) => {
       const barriersText = deriveBarriersText(data.barriers);
+      const initialPace = reflectionToPace(data.reflectionKey);
       saveAndAdvance({
+        pacePreference: initialPace,
         comfortProfile: {
           comfortZone: barriersText || "Getting started",
           barriers: barriersText,
@@ -373,14 +233,34 @@ const ProgressiveOnboardingScreen: React.FC = () => {
           goalTags: data.barriers,
           primaryGoal,
         },
-        socialSituation: {
-          ...data.socialSituation,
-          currentSocialLife: data.currentSocialLevel,
-          lookingFor: data.lookingFor,
-        },
       });
     },
     [saveAndAdvance, primaryGoal],
+  );
+
+  // ── Phase 1: Social context ───────────────────────────
+
+  const handleSocialContextComplete = useCallback(
+    (data: { currentSocialLevel: string }) => {
+      // Merge with existing socialSituation to preserve quick details
+      // (age, schedule, transport, budget) saved during initial onboarding
+      const existing = user?.socialSituation;
+      saveAndAdvance({
+        socialSituation: {
+          ageRange: existing?.ageRange ?? "",
+          gender: existing?.gender ?? "",
+          timeInArea: existing?.timeInArea ?? "",
+          currentSocialLife: data.currentSocialLevel,
+          lookingFor: existing?.lookingFor ?? [],
+          workSituation: existing?.workSituation ?? "",
+          livingSituation: existing?.livingSituation ?? "",
+          dailyRoutine: existing?.dailyRoutine,
+          transportation: existing?.transportation,
+          budget: existing?.budget,
+        },
+      });
+    },
+    [saveAndAdvance, user?.socialSituation],
   );
 
   // ── Phase 2: Fear ladder ──────────────────────────────
@@ -396,7 +276,6 @@ const ProgressiveOnboardingScreen: React.FC = () => {
       };
     }) => {
       const scored = data.fearLadder;
-      // Derive pace from fear ladder scores if not already set
       const derivedPace =
         scored.overallScore < 0.35
           ? "gentle"
@@ -430,12 +309,17 @@ const ProgressiveOnboardingScreen: React.FC = () => {
   const renderPhase = () => {
     switch (localPhase) {
       case 0:
-        return <PacePhase onComplete={handlePaceComplete} />;
+        return (
+          <ReflectAndBarriersPhase
+            primaryGoal={primaryGoal}
+            onComplete={handleReflectAndBarriersComplete}
+          />
+        );
       case 1:
         return (
-          <BarriersPhase
-            primaryGoal={primaryGoal}
-            onComplete={handleBarriersComplete}
+          <SocialContextPhase
+            barriers={user?.comfortProfile?.goalTags ?? []}
+            onComplete={handleSocialContextComplete}
           />
         );
       case 2:
@@ -452,7 +336,7 @@ const ProgressiveOnboardingScreen: React.FC = () => {
     }
   };
 
-  const phaseTitle = ["Set your pace", "Tell us more", "Map your comfort zone"][localPhase] ?? "";
+  const phaseTitle = ["Reflect on your quest", "Your social context", "Map your comfort zone"][localPhase] ?? "";
 
   return (
     <View style={[s.container, { backgroundColor: colors.fixed.black }]}>
@@ -509,9 +393,6 @@ const s = StyleSheet.create({
   },
   stepWrapper: {
     flex: 1,
-  },
-  paceList: {
-    gap: 10,
   },
 });
 

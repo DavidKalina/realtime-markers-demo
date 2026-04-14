@@ -6,116 +6,31 @@ import { useJobProgressContext } from "@/contexts/JobProgressContext";
 import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   StyleSheet,
   View,
-  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
 import Animated, {
-  Easing,
   FadeIn,
   FadeInLeft,
   FadeInRight,
   FadeOutLeft,
   FadeOutRight,
-  useDerivedValue,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
 } from "react-native-reanimated";
 
+import { SkiaGlow } from "@/components/SkiaGlow";
 import { StepProgress } from "@/components/Onboarding/shared";
 import { StepWelcome } from "@/components/Onboarding/StepWelcome";
 import { StepGoal } from "@/components/Onboarding/StepGoal";
 import { StepActivities } from "@/components/Onboarding/StepActivities";
+import { StepQuickDetails, type QuickDetails } from "@/components/Onboarding/StepQuickDetails";
 import { GOAL_OPTIONS } from "@/components/Onboarding/constants";
-
-// ── Skia glow background ────────────────────────────────
-
-const GLOW_SKSL = Skia.RuntimeEffect.Make(`
-uniform float2 resolution;
-uniform float time;
-uniform float reveal;
-
-half4 main(float2 xy) {
-  vec2 uv = xy / resolution;
-
-  float cx = 0.5 + sin(time * 6.2832) * 0.02;
-  float cy = 0.38;
-
-  float dx = uv.x - cx;
-  float dy = (uv.y - cy) * (resolution.y / resolution.x);
-  float dist = sqrt(dx * dx + dy * dy);
-
-  float glow1 = exp(-dist * dist * 4.0);
-  float glow2 = exp(-dist * dist * 12.0);
-  float glow3 = exp(-dist * dist * 2.0) * 0.25;
-
-  float pulse = 0.85 + 0.15 * sin(time * 6.2832);
-
-  vec3 blue = vec3(0.3, 0.67, 0.97);
-  vec3 cyan = vec3(0.4, 0.9, 0.85);
-  vec3 warm = vec3(0.52, 0.38, 0.85);
-
-  vec3 col = blue * glow1 + cyan * glow2 * 0.5 + warm * glow3;
-  col *= pulse;
-
-  float alpha = (glow1 * 0.25 + glow2 * 0.15 + glow3 * 0.08) * pulse * reveal;
-
-  return half4(col * alpha, alpha);
-}
-`);
-
-const SkiaGlow: React.FC = React.memo(() => {
-  const { width, height } = useWindowDimensions();
-  const time = useSharedValue(0);
-  const reveal = useSharedValue(0);
-
-  useEffect(() => {
-    reveal.value = withDelay(
-      300,
-      withTiming(1, { duration: 1000, easing: Easing.out(Easing.cubic) }),
-    );
-    time.value = withDelay(
-      300,
-      withRepeat(
-        withSequence(
-          withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-        ),
-        -1,
-        true,
-      ),
-    );
-  }, []);
-
-  const uniforms = useDerivedValue(() => ({
-    resolution: vec(width, height),
-    time: time.value,
-    reveal: reveal.value,
-  }));
-
-  if (!GLOW_SKSL) return null;
-
-  return (
-    <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Fill>
-        <Shader source={GLOW_SKSL} uniforms={uniforms} />
-      </Fill>
-    </Canvas>
-  );
-});
-
-SkiaGlow.displayName = "SkiaGlow";
 
 // ── Main screen ─────────────────────────────────────────
 
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS = 4;
 
 const OnboardingScreen: React.FC = () => {
   const colors = useColors();
@@ -127,9 +42,15 @@ const OnboardingScreen: React.FC = () => {
   const [step, setStep] = useState(1);
   const directionRef = useRef<"forward" | "back">("forward");
 
-  // Form state — minimal for initial onboarding
+  // Form state
   const [selectedGoalKey, setSelectedGoalKey] = useState("");
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
+  const [quickDetails, setQuickDetails] = useState<QuickDetails>({
+    ageRange: "",
+    dailyRoutine: "",
+    transportation: "",
+    budget: "",
+  });
 
   // Generation state
   const [isLoading, setIsLoading] = useState(false);
@@ -156,6 +77,10 @@ const OnboardingScreen: React.FC = () => {
     [],
   );
 
+  const handleUpdateDetail = useCallback((field: keyof QuickDetails, value: string) => {
+    setQuickDetails((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
   // ── Finish ────────────────────────────────────────────
 
   const handleFinish = useCallback(async () => {
@@ -170,9 +95,9 @@ const OnboardingScreen: React.FC = () => {
         ? goalOption.label.replace(/^[^\s]+\s/, "") // strip leading emoji
         : "Build a social life";
 
-      // Save minimal profile — enough for first quest prescription
+      // Save profile — includes practical details for first quest relevance
       await apiClient.sidequests.updateComfortProfile({
-        pacePreference: "steady", // sensible default, collected after quest 1
+        pacePreference: "steady", // sensible default, refined after quest 1
         comfortProfile: {
           comfortZone: "Getting started",
           barriers: "",
@@ -183,6 +108,18 @@ const OnboardingScreen: React.FC = () => {
         onboardingProfile: selectedActivities.length > 0
           ? { activities: selectedActivities }
           : undefined,
+        socialSituation: {
+          ageRange: quickDetails.ageRange,
+          gender: "",
+          timeInArea: "",
+          currentSocialLife: "",
+          lookingFor: [],
+          workSituation: "",
+          livingSituation: "",
+          dailyRoutine: quickDetails.dailyRoutine,
+          transportation: quickDetails.transportation,
+          budget: quickDetails.budget,
+        },
         onboardingPhase: 0,
       });
 
@@ -215,7 +152,7 @@ const OnboardingScreen: React.FC = () => {
       );
       setIsLoading(false);
     }
-  }, [selectedGoalKey, selectedActivities, userLocation, refreshAuth, trackJob, router]);
+  }, [selectedGoalKey, selectedActivities, quickDetails, userLocation, refreshAuth, trackJob, router]);
 
   // ── Transitions ──────────────────────────────────────
 
@@ -247,6 +184,15 @@ const OnboardingScreen: React.FC = () => {
           <StepActivities
             selected={selectedActivities}
             onToggle={(a) => toggle(selectedActivities, setSelectedActivities, a)}
+            onNext={handleNext}
+            onBack={handleBack}
+          />
+        );
+      case 4:
+        return (
+          <StepQuickDetails
+            details={quickDetails}
+            onUpdate={handleUpdateDetail}
             onNext={handleFinish}
             onBack={handleBack}
           />
