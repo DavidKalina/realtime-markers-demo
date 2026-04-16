@@ -4,7 +4,7 @@ import type { JobNotificationService } from "../JobNotificationService";
 
 // --- Types ---
 
-export type JobType = "prescribe_quest" | "generate_concepts";
+export type JobType = "prescribe_quest";
 export type JobStatus = "pending" | "processing" | "completed" | "failed";
 
 export interface PipelineStep<TStepId extends string> {
@@ -80,15 +80,6 @@ export const PRESCRIBE_PIPELINE = definePipeline<PrescribeStepId>(
   [
     { id: "generate", label: "Analyzing your comfort zone", weight: 5 },
     { id: "save", label: "Preparing your quest", weight: 1 },
-  ],
-);
-
-export type GenerateConceptsStepId = "generate";
-
-export const GENERATE_CONCEPTS_PIPELINE = definePipeline<GenerateConceptsStepId>(
-  "generate_concepts",
-  [
-    { id: "generate", label: "Generating quest ideas", weight: 1 },
   ],
 );
 

@@ -138,109 +138,81 @@ export class MultiAgentStrategy {
   async execute(input: PrescriptionStrategyInput): Promise<PrescriptionStrategyResult> {
     const { promptContext, onProgress } = input;
 
-    // ── 1. Strategist (or skip if concept was pre-selected) ──
-    let brief: StrategyBrief;
+    // ── 1. Strategist ──────────────────────────────────────
+    if (onProgress) await onProgress(10, "Planning your quest strategy...");
+    const brief: StrategyBrief = await this.runStrategist(input);
+    console.log(`[multi-agent] Strategist: capacity=${brief.capacityTrack} ("${brief.repIntent}"), ${brief.experienceType} (${brief.suggestedCategories.join(", ")}), target=${brief.targetCity}, difficulty ${brief.difficultyRange[0]}-${brief.difficultyRange[1]}, social=${brief.socialChallengeLevel}, timing=${brief.suggestedTiming}`);
 
-    if (input.chosenConcept) {
-      // User already picked a concept — construct brief directly.
-      // Concept-picker is a deprecated path (slice I retirement), so we
-      // default capacity to NOVELTY_TOLERANCE — the user chose something new.
-      brief = {
-        capacityTrack: CapacityTrack.NOVELTY_TOLERANCE,
-        repIntent: `Try something you picked yourself: "${input.chosenConcept.title}".`,
-        experienceType: input.chosenConcept.experienceType,
-        suggestedCategories: input.chosenConcept.suggestedCategories,
-        targetCity: input.chosenConcept.targetCity,
-        maxDistanceMiles: input.radius * 1.5,
-        difficultyRange: [
-          Math.max(1, input.chosenConcept.difficulty - 1),
-          Math.min(10, input.chosenConcept.difficulty + 1),
-        ],
-        socialChallengeLevel: "low",
-        searchQueries: input.chosenConcept.searchQueries,
-        avoidVenues: [],
-        avoidCategories: [],
-        suggestedTiming: "",
-        rationale: `User chose: "${input.chosenConcept.title}"`,
+    // Slice E — enforce early-calibration guardrails as code. The prompt
+    // asks the LLM to obey these, but we hard-clamp the brief so a single
+    // rogue token can't push a new user to a crowded meetup on quest 2.
+    if (promptContext.isEarlyCalibration) {
+      const before = {
+        maxDistance: brief.maxDistanceMiles,
+        social: brief.socialChallengeLevel,
+        diffMax: brief.difficultyRange[1],
       };
-      if (onProgress) await onProgress(15, "Finding your chosen quest...");
-      console.log(`[multi-agent] Concept pre-selected: "${input.chosenConcept.title}" (${brief.suggestedCategories.join(", ")})`);
-    } else {
-      if (onProgress) await onProgress(10, "Planning your quest strategy...");
-      brief = await this.runStrategist(input);
-      console.log(`[multi-agent] Strategist: capacity=${brief.capacityTrack} ("${brief.repIntent}"), ${brief.experienceType} (${brief.suggestedCategories.join(", ")}), target=${brief.targetCity}, difficulty ${brief.difficultyRange[0]}-${brief.difficultyRange[1]}, social=${brief.socialChallengeLevel}, timing=${brief.suggestedTiming}`);
-
-      // Slice E — enforce early-calibration guardrails as code. The prompt
-      // asks the LLM to obey these, but we hard-clamp the brief so a single
-      // rogue token can't push a new user to a crowded meetup on quest 2.
-      if (promptContext.isEarlyCalibration) {
-        const before = {
-          maxDistance: brief.maxDistanceMiles,
-          social: brief.socialChallengeLevel,
-          diffMax: brief.difficultyRange[1],
-        };
-        if (brief.maxDistanceMiles > input.radius) {
-          brief.maxDistanceMiles = input.radius;
-        }
-        if (brief.socialChallengeLevel === "medium" || brief.socialChallengeLevel === "high") {
-          brief.socialChallengeLevel = "low";
-        }
-        if (brief.difficultyRange[1] > 5) {
-          brief.difficultyRange = [Math.min(brief.difficultyRange[0], 5), 5];
-        }
-        const changed =
-          before.maxDistance !== brief.maxDistanceMiles ||
-          before.social !== brief.socialChallengeLevel ||
-          before.diffMax !== brief.difficultyRange[1];
-        if (changed) {
-          console.log(`[multi-agent] Early-calibration clamp: distance ${before.maxDistance}→${brief.maxDistanceMiles}, social ${before.social}→${brief.socialChallengeLevel}, diffMax ${before.diffMax}→${brief.difficultyRange[1]}`);
-        }
+      if (brief.maxDistanceMiles > input.radius) {
+        brief.maxDistanceMiles = input.radius;
       }
+      if (brief.socialChallengeLevel === "medium" || brief.socialChallengeLevel === "high") {
+        brief.socialChallengeLevel = "low";
+      }
+      if (brief.difficultyRange[1] > 5) {
+        brief.difficultyRange = [Math.min(brief.difficultyRange[0], 5), 5];
+      }
+      const changed =
+        before.maxDistance !== brief.maxDistanceMiles ||
+        before.social !== brief.socialChallengeLevel ||
+        before.diffMax !== brief.difficultyRange[1];
+      if (changed) {
+        console.log(`[multi-agent] Early-calibration clamp: distance ${before.maxDistance}→${brief.maxDistanceMiles}, social ${before.social}→${brief.socialChallengeLevel}, diffMax ${before.diffMax}→${brief.difficultyRange[1]}`);
+      }
+    }
 
-      // Slice F — recurring-rejection pattern clamps. Hard guarantee the
-      // dimension gets dampened even if the strategist fails to obey the
-      // prompt guidance above.
-      const pattern = promptContext.rejectionPattern;
-      if (pattern) {
-        const before = {
-          maxDistance: brief.maxDistanceMiles,
-          social: brief.socialChallengeLevel,
-          diffMax: brief.difficultyRange[1],
-          avoidCats: brief.avoidCategories.length,
-        };
-        switch (pattern.reason) {
-          case "TOO_SOCIAL":
+    // Slice F — recurring-rejection pattern clamps. Hard guarantee the
+    // dimension gets dampened even if the strategist fails to obey the
+    // prompt guidance above.
+    const pattern = promptContext.rejectionPattern;
+    if (pattern) {
+      const before = {
+        maxDistance: brief.maxDistanceMiles,
+        social: brief.socialChallengeLevel,
+        diffMax: brief.difficultyRange[1],
+        avoidCats: brief.avoidCategories.length,
+      };
+      switch (pattern.reason) {
+        case "TOO_SOCIAL":
+          brief.socialChallengeLevel = "none";
+          break;
+        case "TOO_FAR":
+          brief.maxDistanceMiles = Math.min(brief.maxDistanceMiles, input.radius * 0.5);
+          break;
+        case "TOO_MUCH_EFFORT":
+        case "NEED_GENTLER":
+          brief.difficultyRange = [1, Math.min(3, brief.difficultyRange[1])];
+          if (pattern.reason === "NEED_GENTLER") {
             brief.socialChallengeLevel = "none";
-            break;
-          case "TOO_FAR":
-            brief.maxDistanceMiles = Math.min(brief.maxDistanceMiles, input.radius * 0.5);
-            break;
-          case "TOO_MUCH_EFFORT":
-          case "NEED_GENTLER":
-            brief.difficultyRange = [1, Math.min(3, brief.difficultyRange[1])];
-            if (pattern.reason === "NEED_GENTLER") {
-              brief.socialChallengeLevel = "none";
+          }
+          break;
+        case "NOT_MY_VIBE":
+          // Add the recurring-rejection categories to the avoid list so the
+          // Scout skips them and the Validator hard-blocks any drift.
+          for (const cat of pattern.categories) {
+            if (cat && !brief.avoidCategories.includes(cat)) {
+              brief.avoidCategories.push(cat);
             }
-            break;
-          case "NOT_MY_VIBE":
-            // Add the recurring-rejection categories to the avoid list so the
-            // Scout skips them and the Validator hard-blocks any drift.
-            for (const cat of pattern.categories) {
-              if (cat && !brief.avoidCategories.includes(cat)) {
-                brief.avoidCategories.push(cat);
-              }
-            }
-            break;
-          // TOO_PUBLIC + BAD_TIMING are prompt-only — no mechanical clamp.
-        }
-        const changed =
-          before.maxDistance !== brief.maxDistanceMiles ||
-          before.social !== brief.socialChallengeLevel ||
-          before.diffMax !== brief.difficultyRange[1] ||
-          before.avoidCats !== brief.avoidCategories.length;
-        if (changed) {
-          console.log(`[multi-agent] Rejection-pattern clamp (${pattern.reason} × ${pattern.count}): distance ${before.maxDistance}→${brief.maxDistanceMiles}, social ${before.social}→${brief.socialChallengeLevel}, diffMax ${before.diffMax}→${brief.difficultyRange[1]}, avoidCats ${before.avoidCats}→${brief.avoidCategories.length}`);
-        }
+          }
+          break;
+        // TOO_PUBLIC + BAD_TIMING are prompt-only — no mechanical clamp.
+      }
+      const changed =
+        before.maxDistance !== brief.maxDistanceMiles ||
+        before.social !== brief.socialChallengeLevel ||
+        before.diffMax !== brief.difficultyRange[1] ||
+        before.avoidCats !== brief.avoidCategories.length;
+      if (changed) {
+        console.log(`[multi-agent] Rejection-pattern clamp (${pattern.reason} × ${pattern.count}): distance ${before.maxDistance}→${brief.maxDistanceMiles}, social ${before.social}→${brief.socialChallengeLevel}, diffMax ${before.diffMax}→${brief.difficultyRange[1]}, avoidCats ${before.avoidCats}→${brief.avoidCategories.length}`);
       }
     }
 
@@ -338,7 +310,9 @@ Your new prescription MUST:
 
 ` : "";
 
-    const systemPrompt = `${rejectionPatternBlock}${earlyCalibrationBlock}${recalibrationBlock}You are a Social Life Strategist. Based on a user's profile, social situation, history, and growth phase, decide what TYPE of experience they need next AND where they should go to find it. You do NOT pick a specific venue — you create a strategy brief that a separate agent will use to search. Your job is to help someone build a real social life from scratch.
+    // Kept static so OpenAI's automatic prefix cache can hit — any
+    // per-user content lives in the user message below.
+    const systemPrompt = `You are a Social Life Strategist. Based on a user's profile, social situation, history, and growth phase, decide what TYPE of experience they need next AND where they should go to find it. You do NOT pick a specific venue — you create a strategy brief that a separate agent will use to search. Your job is to help someone build a real social life from scratch.
 
 CAPACITY REP — DECIDE THIS FIRST:
 Every prescription trains ONE capacity muscle. Pick the muscle BEFORE you pick a venue type — the venue is the environment; the rep is the prescription.
@@ -358,16 +332,6 @@ Pick ONE track per prescription. Never stack multiple muscles. In the early ques
 
 "repIntent" is your one-line plain-English description of what specific rep they are training, e.g. "Stay in public for at least 10 minutes after arriving" or "Return to a place you've been before and linger." Keep it under 20 words.
 
-USER PROFILE:
-- Home: ${ctx.city} (${ctx.homeLat.toFixed(4)}, ${ctx.homeLng.toFixed(4)})
-- Comfort radius: ${ctx.radius.toFixed(1)} miles
-- Pace: ${ctx.pace}
-${ctx.user.comfortProfile?.primaryGoal ? `- Goal: "${ctx.user.comfortProfile.primaryGoal}"` : ""}
-${ctx.user.comfortProfile?.barriers ? `- Barriers: "${ctx.user.comfortProfile.barriers}"` : ""}
-${ctx.user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${ctx.user.onboardingProfile.activities.join(", ")}` : ""}
-${ctx.socialSituationContext ? `
-${ctx.socialSituationContext}
-
 SOCIAL STRATEGY PRINCIPLES:
 - Regularity beats novelty. Becoming a regular somewhere creates more connection than visiting 10 new places once.
 - Co-ed group activities (classes, rec leagues, meetups) are the highest-leverage move for someone starting from zero — both for friends and dating.
@@ -376,34 +340,21 @@ SOCIAL STRATEGY PRINCIPLES:
 - Remote workers are starved for third places — coworking spaces, cafes with laptop culture, classes provide structure and faces.
 - If they live alone, they need reasons to leave the house. Structure removes decision fatigue.
 - Small towns require expanding the search radius. Push to nearby cities with more social infrastructure when the goal demands it.
-` : ""}
-${ctx.fearLadderContext}
-${ctx.expectancyContext}
-${ctx.difficultyGuidance}
 
-${ctx.historyContext}
-${ctx.timelineContext ? `
-${ctx.timelineContext}
-` : ""}${ctx.blockerContext ? `
-CRITICAL — RECURRING BLOCKER OVERRIDE:
-${ctx.blockerContext}
-The blocker context above TAKES PRIORITY over normal progression. Do NOT prescribe experiences that require the blocked action as a primary objective. Instead, prescribe experiences that build toward it indirectly — the user needs wins, not more failures. Set socialChallengeLevel to "none" or "low" and focus on activities where the blocked action might happen naturally but is NOT required.
-` : ""}
 GEOGRAPHIC & PRACTICAL INTELLIGENCE:
 You must think about WHERE this person should go, not just WHAT they should do. Consider:
 - Their home town's population, demographics, and what's realistically available there.
 - Small towns (under 20K) have limited social infrastructure — coffee shops, a rec center, maybe a brewery. If their goal requires meeting new people, dating, or finding community, they WILL need to venture to larger nearby cities.
 - Every quest doesn't need to push geographically, but the overall trajectory should expand their world over time. If they've done 5+ quests all in the same small town, it's time to push outward.
 - Think about what cities within 30-40 miles have the density, scene, and demographics to support their goal. A 25-year-old looking for friends and dates in a retirement community won't find them no matter how many quests they do there.
-- The user's comfort radius (${ctx.radius.toFixed(1)} mi) represents how far they've gone — not how far they SHOULD go. If they're ready, push past it. A quest in a new city is both a geographic AND a social stretch.
+- The user's comfort radius represents how far they've gone — not how far they SHOULD go. If they're ready, push past it. A quest in a new city is both a geographic AND a social stretch.
 - Name a specific city or area to search in when relevant (e.g. "Search in Longmont" or "Search in Boulder's Pearl Street area").
 - TRANSPORTATION: If they don't have a car, keep quests reachable by their transport mode. Don't send a transit rider 30 miles to a trailhead with no bus route.
 - BUDGET: Respect their spending comfort. If they said "free only," don't prescribe a $40 pottery class. If budget is flexible, you can suggest paid experiences freely.
 - SCHEDULE: Match quest timing to their availability. Shift workers need flexible-hour venues, not 9am weekday classes.
 
-CURRENT TIME & DAY:
-- It is currently ${ctx.hour}:00 on ${ctx.dayOfWeek}.
-- The quest will be done TODAY or in the NEXT FEW DAYS. Factor in realistic timing:
+TIMING GUIDANCE:
+The quest will be done TODAY or in the NEXT FEW DAYS. Factor in realistic timing:
   - If the user has a 9-to-5 schedule and it's a weekday, suggest EVENING activities (after 5:30pm) or plan for the upcoming weekend.
   - If it's a weekend, they have all day — mornings and afternoons are fair game.
   - Coffee shops are morning/afternoon venues (typically close by 5-6pm). Do NOT suggest coffee shops for evening quests.
@@ -413,13 +364,14 @@ CURRENT TIME & DAY:
 - Be SPECIFIC about timing in your suggestedTiming field: "weekday evening after 6pm", "this Saturday morning", "Sunday afternoon", etc.
 
 Think holistically about this person:
-- What would a thoughtful friend who knows the whole Front Range suggest?
+- What would a thoughtful friend who knows the local area suggest?
 - Is their current town limiting their progress? Be honest about this.
-${ctx.blockerContext ? `- They have a RECURRING BLOCKER. Do NOT push the blocked action directly. What experience would build confidence AROUND the blocker without requiring them to do the thing they keep failing at?` : `- What specific type of social challenge would grow them right now?`}
+- If they have a RECURRING BLOCKER, do NOT push the blocked action directly — build confidence around it instead.
+- Otherwise, what specific type of social challenge would grow them right now?
 - Are they stuck in a geographic or activity pattern that needs breaking?
 - POTENTIAL REGULARS: If the history shows anchor venues (marked with ★), they're places the user enjoyed. You MAY suggest a return visit — but frame it as an invitation, not a pattern. The user hasn't said they want to be a regular anywhere yet. Use anchor venues when the strategy genuinely calls for deepening or when a return visit with a new angle (different time, social challenge, event) would be more valuable than a novel venue. Don't force it — mix return visits with exploration naturally.
 
-${ctx.siblingInstructions ? `${ctx.siblingInstructions}\n` : ""}Respond with JSON:
+Respond with JSON:
 {
   "capacityTrack": "ACTIVATION" | "PUBLIC_PRESENCE" | "NOVELTY_TOLERANCE" | "STAYING_POWER" | "RETURNABILITY" | "MICRO_INTERACTION" | "SOCIAL_EXTENSION" | "RECOVERY" | "IDENTITY_EVIDENCE",
   "repIntent": "<one-line rep description in capacity terms, under 20 words>",
@@ -437,7 +389,42 @@ ${ctx.siblingInstructions ? `${ctx.siblingInstructions}\n` : ""}Respond with JSO
   "rationale": "<1-2 sentences explaining WHY this is the right next step, including why this capacity track + location>"
 }`;
 
-    const userMessage = `What experience should this user have next? Think about what would genuinely move them toward their goal.`;
+    // All per-user context lives here so the system prompt above can be
+    // cached by OpenAI's automatic prefix cache. Dynamic blocks (rejection
+    // pattern, early calibration, recalibration) go FIRST because they
+    // are the most important framing for this specific call.
+    const blockerOverride = ctx.blockerContext
+      ? `CRITICAL — RECURRING BLOCKER OVERRIDE:
+${ctx.blockerContext}
+The blocker context above TAKES PRIORITY over normal progression. Do NOT prescribe experiences that require the blocked action as a primary objective. Instead, prescribe experiences that build toward it indirectly — the user needs wins, not more failures. Set socialChallengeLevel to "none" or "low" and focus on activities where the blocked action might happen naturally but is NOT required.
+
+`
+      : "";
+
+    const timelineBlock = ctx.timelineContext ? `${ctx.timelineContext}\n\n` : "";
+    const socialSituationBlock = ctx.socialSituationContext
+      ? `${ctx.socialSituationContext}\n\n`
+      : "";
+    const siblingBlock = ctx.siblingInstructions
+      ? `${ctx.siblingInstructions}\n\n`
+      : "";
+
+    const userMessage = `${rejectionPatternBlock}${earlyCalibrationBlock}${recalibrationBlock}USER PROFILE:
+- Home: ${ctx.city} (${ctx.homeLat.toFixed(4)}, ${ctx.homeLng.toFixed(4)})
+- Comfort radius: ${ctx.radius.toFixed(1)} miles
+- Pace: ${ctx.pace}
+${ctx.user.comfortProfile?.primaryGoal ? `- Goal: "${ctx.user.comfortProfile.primaryGoal}"` : ""}
+${ctx.user.comfortProfile?.barriers ? `- Barriers: "${ctx.user.comfortProfile.barriers}"` : ""}
+${ctx.user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${ctx.user.onboardingProfile.activities.join(", ")}` : ""}
+
+${socialSituationBlock}${ctx.fearLadderContext}
+${ctx.expectancyContext}
+${ctx.difficultyGuidance}
+
+${ctx.historyContext}
+${timelineBlock}${blockerOverride}CURRENT TIME: ${ctx.hour}:00 on ${ctx.dayOfWeek}.
+
+${siblingBlock}What experience should this user have next? Think about what would genuinely move them toward their goal.`;
 
     const response = await this.openAIService.executeChatCompletion({
       model: this.models.strategist as OpenAIModel,
@@ -828,9 +815,6 @@ STRATEGY CONTEXT:
 - Rationale: ${brief.rationale}
 
 The venue is the environment. The rep is the prescription. Your title, description, smaller/tiny versions, minimum viable win, and hook should all reinforce the capacity rep above — not just describe the venue.
-${input.chosenConcept ? `
-USER CHOSE THIS CONCEPT: "${input.chosenConcept.title}"
-Honor their choice — your quest title and framing should align with what they picked. They chose this because it resonated, so lean into that direction.` : ""}
 ${ctx.blockerContext ? `
 BLOCKER CONTEXT — READ THIS CAREFULLY:
 This user has a recurring blocker. They keep failing at a specific action and it's destroying their confidence.

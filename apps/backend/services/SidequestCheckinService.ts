@@ -187,7 +187,8 @@ export class SidequestCheckinService {
     userId: string,
     sidequestId: string,
     objectiveId: string,
-  ): Promise<{ success: boolean; checkedInAt?: Date }> {
+    userLocation?: { latitude: number; longitude: number },
+  ): Promise<{ success: boolean; checkedInAt?: Date; tooFar?: boolean }> {
     const objective = await this.dataSource.getRepository(Objective).findOne({
       where: { id: objectiveId, sidequestId },
       relations: ["sidequest"],
@@ -202,12 +203,59 @@ export class SidequestCheckinService {
       return { success: true, checkedInAt: objective.checkedInAt };
     }
 
+    // Server-side distance validation when the client sends its location.
+    // Per product spec, manual is a valid fallback — we don't reject on
+    // "outside geofence radius" alone. But an extreme distance (>1km) is
+    // overwhelmingly fake GPS or a bug, not a real manual check-in, so we
+    // hard-reject those. Everything in between is accepted and logged as
+    // manual, with the measured distance persisted for audit.
+    let source: "proximity" | "manual" = "manual";
+    let distanceMeters: number | undefined;
+    if (
+      userLocation &&
+      objective.latitude != null &&
+      objective.longitude != null
+    ) {
+      const rows: { distance_meters: string | number }[] = await this.dataSource.query(
+        `SELECT ST_Distance(
+            ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+            ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography
+          ) AS distance_meters`,
+        [
+          Number(objective.longitude),
+          Number(objective.latitude),
+          userLocation.longitude,
+          userLocation.latitude,
+        ],
+      );
+      distanceMeters = Number(rows[0]?.distance_meters ?? 0);
+
+      const FRAUD_LIMIT_METERS = 1000;
+      if (distanceMeters > FRAUD_LIMIT_METERS) {
+        console.warn(
+          `[SidequestCheckin] Rejected manual check-in: user ${userId} is ${distanceMeters.toFixed(0)}m from objective ${objectiveId} (limit ${FRAUD_LIMIT_METERS}m)`,
+        );
+        return { success: false, tooFar: true };
+      }
+
+      if (distanceMeters <= CHECKIN_RADIUS_METERS) {
+        source = "proximity";
+      } else {
+        console.warn(
+          `[SidequestCheckin] Manual check-in outside geofence: user ${userId} is ${distanceMeters.toFixed(0)}m from objective ${objectiveId} (radius ${CHECKIN_RADIUS_METERS}m)`,
+        );
+      }
+    }
+
     const { checkedInAt } = await this.processCheckin({
       userId,
       sidequestId,
       objectiveId,
       sortOrder: objective.sortOrder,
-      source: "manual",
+      source,
+      userLatitude: userLocation?.latitude,
+      userLongitude: userLocation?.longitude,
+      distanceMeters,
     });
 
     return { success: true, checkedInAt };

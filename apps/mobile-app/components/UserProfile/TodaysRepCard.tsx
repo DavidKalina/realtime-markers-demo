@@ -89,10 +89,20 @@ const TodaysRepCard: React.FC<Props> = ({ quest }) => {
         </Animated.View>
       )}
 
-      {objective?.minViableWin && (
+      {(objective?.minViableWin || objective?.exitRamp) && (
         <Animated.View entering={FadeInDown.delay(320).duration(400)} style={s.winBlock}>
-          <Text style={s.winLabel}>COUNTS AS DONE</Text>
-          <Text style={s.winText}>{objective.minViableWin}</Text>
+          {objective?.minViableWin && (
+            <>
+              <Text style={s.winLabel}>COUNTS AS DONE</Text>
+              <Text style={s.winText}>{objective.minViableWin}</Text>
+            </>
+          )}
+          {objective?.exitRamp && (
+            <View style={objective?.minViableWin ? s.exitRow : undefined}>
+              <Text style={s.winLabel}>EXIT RAMP</Text>
+              <Text style={s.winText}>{objective.exitRamp}</Text>
+            </View>
+          )}
         </Animated.View>
       )}
 
@@ -201,6 +211,9 @@ const createStyles = (colors: Colors, accentHex: string) => {
       fontWeight: fontWeight.regular,
       color: colors.text.secondary,
       lineHeight: 19,
+    },
+    exitRow: {
+      marginTop: spacing.xs,
     },
     buttonRow: {
       flexDirection: "row" as const,

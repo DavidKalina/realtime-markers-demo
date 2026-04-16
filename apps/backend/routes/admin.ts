@@ -235,10 +235,6 @@ adminRouter.post("/users/admins", async (c) => {
       avatarUrl: newAdmin.avatarUrl,
       role: newAdmin.role,
       isVerified: newAdmin.isVerified,
-      discoveryCount: newAdmin.discoveryCount,
-      scanCount: newAdmin.scanCount,
-      saveCount: newAdmin.saveCount,
-      viewCount: newAdmin.viewCount,
       createdAt: newAdmin.createdAt,
       updatedAt: newAdmin.updatedAt,
     };

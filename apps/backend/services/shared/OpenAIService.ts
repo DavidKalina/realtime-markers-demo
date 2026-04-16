@@ -152,6 +152,12 @@ export class OpenAIService {
       apiKey: process.env.OPENAI_API_KEY,
       // Use a fetch wrapper to implement rate limiting and retries
       fetch: this.createFetchWithRateLimit(),
+      // Hard cap per-request latency. The prescription pipeline is user-facing;
+      // a hung call blocks the strategist or writer agent and leaves the user
+      // staring at a spinner. The Scout's agent loop runs these one round at
+      // a time, so 60s is the per-round ceiling, not the whole pipeline.
+      timeout: 60_000,
+      maxRetries: 1,
     });
   }
 

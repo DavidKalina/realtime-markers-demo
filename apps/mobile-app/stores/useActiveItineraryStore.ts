@@ -178,8 +178,25 @@ export const useActiveItineraryStore = create<ActiveItineraryStore>(
       const { itinerary, pendingConfirmations } = get();
       if (!itinerary) return false;
 
+      // Grab the user's location opportunistically so the backend can
+      // distance-validate the check-in. If permission is denied or the
+      // read fails, fall through — the backend accepts locationless
+      // manual check-ins as a product fallback.
+      let location: { latitude: number; longitude: number } | undefined;
       try {
-        await apiClient.sidequests.checkin(itinerary.id, itemId);
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        location = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        };
+      } catch {
+        // Ignore — server treats as manual/unverified.
+      }
+
+      try {
+        await apiClient.sidequests.checkin(itinerary.id, itemId, location);
 
         // Confirmed — remove from pending set
         const nextPending = new Set(pendingConfirmations);

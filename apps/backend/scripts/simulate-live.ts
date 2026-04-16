@@ -666,54 +666,6 @@ Respond with JSON:
   };
 }
 
-/**
- * Have the persona choose a quest concept from the generated options.
- * Falls back to the first concept if LLM is unavailable.
- */
-async function chooseConceptAsPersona(
-  persona: LivePersona,
-  concepts: { id: string; title: string; pitch: string; difficulty: number; emoji: string }[],
-  questIndex: number,
-  fearScore: number,
-): Promise<number> {
-  if (concepts.length <= 1) return 0;
-
-  const conceptList = concepts
-    .map((c, i) => `  ${i + 1}. ${c.emoji} "${c.title}" (difficulty ${c.difficulty}/10) — ${c.pitch}`)
-    .join("\n");
-
-  const result = await llmJson(
-    `You are roleplaying as a person with this profile:
-- Goal: ${persona.primaryGoal}
-- Barriers: ${persona.barriers}
-- Comfort zone: ${persona.comfortZone}
-- Fear score: ${fearScore.toFixed(2)}/1.0 (higher = more anxious)
-- Pace: ${persona.pace}
-- This is quest #${questIndex + 1} in their journey.
-
-You're being offered a choice of quest concepts. Pick the one that feels most right for where you are in your journey. Be in-character — if you're anxious, you might pick the safer option. If you're feeling bold, go for the stretch.`,
-    `Here are your options:
-${conceptList}
-
-Which one do you pick? Respond with JSON:
-{
-  "choice": <number 1-${concepts.length}>,
-  "reason": "<1 sentence, in-character, why you picked this one>"
-}`,
-    150,
-  );
-
-  if (result && typeof result.choice === "number" && result.choice >= 1 && result.choice <= concepts.length) {
-    const idx = result.choice - 1;
-    if (result.reason) {
-      console.log(`│  Choice reason: "${result.reason}"`);
-    }
-    return idx;
-  }
-
-  return 0;
-}
-
 // ── Synthetic data generators ────────────────────────────────
 
 function generateRating(bias: number, rand: () => number): number {
@@ -1157,65 +1109,12 @@ async function main() {
 
     let sidequestId: string | undefined;
 
-    // For venue quests: generate concepts, pick one, then prescribe with it
-    let chosenConcept: { title: string; experienceType: string; suggestedCategories: string[]; targetCity: string; searchQueries: string[]; difficulty: number } | undefined;
-
-    if (!isChallenge) {
-      console.log(`│  Generating quest concepts...`);
-      const conceptRes = await api("POST", "/api/sidequests/prescribe/concepts", token, {
-        latitude: simLat,
-        longitude: simLng,
-      });
-
-      if (conceptRes.status === 202 && conceptRes.data?.jobId) {
-        try {
-          await pollJobCompletion(conceptRes.data.jobId, token);
-          console.log();
-
-          // Fetch generated concepts from Redis via API
-          const fetchRes = await api("GET", "/api/sidequests/prescribe/concepts", token);
-          const concepts = fetchRes.data?.concepts ?? [];
-
-          if (concepts.length > 0) {
-            console.log(`│  ${concepts.length} concepts generated:`);
-            for (const c of concepts) {
-              console.log(`│    ${c.emoji} "${c.title}" (difficulty ${c.difficulty}) — ${c.pitch}`);
-            }
-
-            // Have the persona choose in-character
-            const choiceIdx = persona
-              ? await chooseConceptAsPersona(persona, concepts, i, simFearScore)
-              : 0;
-            const picked = concepts[choiceIdx];
-            console.log(`│  Picked: ${picked.emoji} "${picked.title}"`);
-
-            chosenConcept = {
-              title: picked.title,
-              experienceType: picked.experienceType,
-              suggestedCategories: picked.suggestedCategories ?? [],
-              targetCity: picked.targetCity ?? "",
-              searchQueries: picked.searchQueries ?? [],
-              difficulty: picked.difficulty ?? 3,
-            };
-          } else {
-            console.log(`│  No concepts returned, prescribing without concept selection`);
-          }
-        } catch (err: any) {
-          console.log(`│  Concept generation failed: ${err.message}, prescribing without concept selection`);
-        }
-      } else {
-        console.log(`│  Concept generation failed (${conceptRes.status}), prescribing without concept selection`);
-      }
-    }
-
-    // Prescribe quest (with chosen concept if available)
     console.log(`│  Prescribing ${isChallenge ? `challenge (${challengeCategory})` : "venue"} quest...`);
     const prescribeRes = await api("POST", "/api/sidequests/prescribe", token, {
       latitude: simLat,
       longitude: simLng,
       ...(simModel && { model: simModel }),
       ...(isChallenge && { questType: "challenge", challengeCategory }),
-      ...(chosenConcept && { chosenConcept }),
     });
 
     if (prescribeRes.status !== 202) {

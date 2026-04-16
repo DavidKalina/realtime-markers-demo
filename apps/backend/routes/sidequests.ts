@@ -69,56 +69,9 @@ sidequestRouter.get(
   }),
 );
 
-// ── Concept routes (must be before /:id catch-all) ──────────
-sidequestRouter.get(
-  "/prescribe/concepts",
-  withErrorHandling(async (c) => {
-    const user = requireAuth(c);
-    const redisService = c.get("redisService");
-    const raw = await redisService.get(`pending_concepts:${user.id}`);
-
-    if (!raw) {
-      return c.json({ concepts: [] });
-    }
-
-    const concepts = typeof raw === "string" ? JSON.parse(raw) : raw;
-    return c.json({ concepts });
-  }),
-);
-
 sidequestRouter.get("/:id", getSidequestHandler);
 
 // ── Write routes ────────────────────────────────────────────
-sidequestRouter.post(
-  "/prescribe/concepts",
-  withErrorHandling(async (c) => {
-    const user = requireAuth(c);
-    const body = await c.req.json<{
-      latitude: number;
-      longitude: number;
-      timezone?: string;
-    }>();
-
-    if (typeof body.latitude !== "number" || typeof body.longitude !== "number") {
-      return c.json({ error: "latitude and longitude are required" }, 400);
-    }
-
-    const jobQueue = c.get("jobQueue");
-    const jobId = await jobQueue.enqueue("generate_concepts", {
-      userId: user.id,
-      creatorId: user.id,
-      latitude: body.latitude,
-      longitude: body.longitude,
-      ...(body.timezone && { timezone: body.timezone }),
-    });
-
-    return c.json(
-      { jobId, streamUrl: `/api/jobs/${jobId}/stream` },
-      202,
-    );
-  }),
-);
-
 sidequestRouter.post("/prescribe", prescribeQuestHandler);
 sidequestRouter.post("/batch-delete", batchDeleteSidequestHandler);
 sidequestRouter.post("/deactivate", deactivateSidequestHandler);

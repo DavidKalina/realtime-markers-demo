@@ -160,12 +160,6 @@ export class JobNotificationService {
           body: "A new quest just landed in your deck. Tap to check it out.",
         };
 
-      case "generate_concepts":
-        return {
-          title: "Pick your next quest",
-          body: "We've got a few ideas for you. Tap to choose one.",
-        };
-
       default:
         return null;
     }
@@ -184,12 +178,6 @@ export class JobNotificationService {
         return {
           title: "Quest generation hit a snag",
           body: "We couldn't generate your quest this time. Try again from the app.",
-        };
-
-      case "generate_concepts":
-        return {
-          title: "Something went wrong",
-          body: "We couldn't generate quest ideas. Try again from the app.",
         };
 
       default:

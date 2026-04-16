@@ -216,10 +216,36 @@ export const checkinObjectiveHandler: Handler = withErrorHandling(
       return c.json({ error: "id and objectiveId are required" }, 400);
     }
 
+    // Body is optional — legacy clients still POST empty. Newer clients
+    // send lat/lng so the server can distance-validate the check-in.
+    let userLocation: { latitude: number; longitude: number } | undefined;
+    try {
+      const body = await c.req.json<{ latitude?: number; longitude?: number }>();
+      if (
+        typeof body?.latitude === "number" &&
+        typeof body?.longitude === "number"
+      ) {
+        userLocation = { latitude: body.latitude, longitude: body.longitude };
+      }
+    } catch {
+      // No body — fall through as pre-location client.
+    }
+
     const sidequestCheckinService = c.get("sidequestCheckinService") as SidequestCheckinService;
-    const result = await sidequestCheckinService.manualCheckin(userId, id, objectiveId);
+    const result = await sidequestCheckinService.manualCheckin(
+      userId,
+      id,
+      objectiveId,
+      userLocation,
+    );
 
     if (!result.success) {
+      if (result.tooFar) {
+        return c.json(
+          { error: "You're too far from this location to check in." },
+          403,
+        );
+      }
       return c.json({ error: "Objective not found" }, 404);
     }
 
@@ -243,7 +269,14 @@ export const completeChallengeHandler: Handler = withErrorHandling(
       completedActivity?: string;
       socialContext?: string;
       completedVersion?: string;
+      latitude?: number;
+      longitude?: number;
     }>();
+
+    const userLocation =
+      typeof body.latitude === "number" && typeof body.longitude === "number"
+        ? { latitude: body.latitude, longitude: body.longitude }
+        : undefined;
 
     // Reflection gate: require a meaningful journal entry
     if (!body.journalEntry?.trim() || body.journalEntry.trim().length < 20) {
@@ -285,9 +318,20 @@ export const completeChallengeHandler: Handler = withErrorHandling(
 
     // 2. Mark checked in (triggers sidequest completion if last objective)
     const sidequestCheckinService = c.get("sidequestCheckinService") as SidequestCheckinService;
-    const result = await sidequestCheckinService.manualCheckin(userId, id, objectiveId);
+    const result = await sidequestCheckinService.manualCheckin(
+      userId,
+      id,
+      objectiveId,
+      userLocation,
+    );
 
     if (!result.success) {
+      if (result.tooFar) {
+        return c.json(
+          { error: "You're too far from this location to complete the challenge." },
+          403,
+        );
+      }
       return c.json({ error: "Failed to complete challenge" }, 500);
     }
 
@@ -469,14 +513,6 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
     model?: string;
     questType?: "venue" | "challenge";
     challengeCategory?: string;
-    chosenConcept?: {
-      title: string;
-      experienceType: string;
-      suggestedCategories: string[];
-      targetCity: string;
-      searchQueries: string[];
-      difficulty: number;
-    };
   }>();
 
   if (typeof body.latitude !== "number" || typeof body.longitude !== "number") {
@@ -503,12 +539,6 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
     );
   }
 
-  // Clear pending concepts immediately if user picked one
-  if (body.chosenConcept) {
-    const redisService = c.get("redisService");
-    await redisService.getClient().del(`pending_concepts:${userId}`);
-  }
-
   // Enqueue prescription job
   const jobQueue = c.get("jobQueue");
   const jobId = await jobQueue.enqueue("prescribe_quest", {
@@ -520,7 +550,6 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
     ...(body.model && { model: body.model }),
     ...(body.questType && { questType: body.questType }),
     ...(body.challengeCategory && { challengeCategory: body.challengeCategory }),
-    ...(body.chosenConcept && { chosenConcept: body.chosenConcept }),
   });
 
   return c.json(

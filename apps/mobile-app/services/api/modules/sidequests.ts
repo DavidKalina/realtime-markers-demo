@@ -142,27 +142,6 @@ export interface WorldSizeResponse {
   uniqueCategories: number;
 }
 
-export interface QuestConcept {
-  id: string;
-  title: string;
-  pitch: string;
-  difficulty: number;
-  experienceType: string;
-  emoji: string;
-  suggestedCategories: string[];
-  targetCity: string;
-  searchQueries: string[];
-}
-
-export interface ChosenConcept {
-  title: string;
-  experienceType: string;
-  suggestedCategories: string[];
-  targetCity: string;
-  searchQueries: string[];
-  difficulty: number;
-}
-
 export type RejectionReason =
   | "TOO_SOCIAL"
   | "TOO_FAR"
@@ -276,10 +255,19 @@ export class SidequestsModule {
   async checkin(
     sidequestId: string,
     objectiveId: string,
+    location?: { latitude: number; longitude: number },
   ): Promise<{ success: boolean; checkedInAt?: string }> {
     const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/${sidequestId}/objectives/${objectiveId}/checkin`,
-      { method: "POST" },
+      {
+        method: "POST",
+        ...(location
+          ? {
+              body: JSON.stringify(location),
+              headers: { "Content-Type": "application/json" },
+            }
+          : {}),
+      },
     );
     return this.client.handleResponse<{ success: boolean; checkedInAt?: string }>(
       response,
@@ -406,36 +394,12 @@ export class SidequestsModule {
     return json.data;
   }
 
-  async generateConcepts(params: {
-    latitude: number;
-    longitude: number;
-    timezone?: string;
-  }): Promise<{ jobId: string; streamUrl: string }> {
-    const response = await this.client.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests/prescribe/concepts`,
-      {
-        method: "POST",
-        body: JSON.stringify(params),
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-    return this.client.handleResponse<{ jobId: string; streamUrl: string }>(response);
-  }
-
-  async getPendingConcepts(): Promise<{ concepts: QuestConcept[] }> {
-    const response = await this.client.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests/prescribe/concepts`,
-    );
-    return this.client.handleResponse<{ concepts: QuestConcept[] }>(response);
-  }
-
   async prescribeQuest(params: {
     latitude: number;
     longitude: number;
     timezone?: string;
     questType?: "venue" | "challenge";
     challengeCategory?: string;
-    chosenConcept?: ChosenConcept;
   }): Promise<{ jobId: string; streamUrl: string }> {
     const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/prescribe`,

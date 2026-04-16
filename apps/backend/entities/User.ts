@@ -58,18 +58,6 @@ export class User {
   @Column({ name: "is_verified", type: "boolean", default: false })
   isVerified!: boolean;
 
-  @Column({ name: "discovery_count", type: "integer", default: 0 })
-  discoveryCount!: number;
-
-  @Column({ name: "scan_count", type: "integer", default: 0 })
-  scanCount!: number;
-
-  @Column({ name: "save_count", type: "integer", default: 0 })
-  saveCount!: number;
-
-  @Column({ name: "view_count", type: "integer", default: 0 })
-  viewCount!: number;
-
   @Column({ name: "total_xp", type: "integer", default: 0 })
   totalXp!: number;
 
@@ -80,12 +68,6 @@ export class User {
     default: "Explorer",
   })
   currentTier!: string;
-
-  @Column({ name: "weekly_scan_count", type: "integer", default: 0 })
-  weeklyScanCount!: number;
-
-  @Column({ name: "last_scan_reset", type: "timestamptz", nullable: true })
-  lastScanReset?: Date;
 
   @Column({ name: "current_streak", type: "integer", default: 0 })
   currentStreak!: number;

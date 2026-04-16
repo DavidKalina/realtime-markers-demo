@@ -250,9 +250,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     }
   }, [hasReady, clearReady, fetchDashboardQuests]);
 
-  // Fallback: if deck is empty, prescribe a rep directly (no concept picker).
-  // Slice I — retired the concept-picker path so the default first-run flow
-  // exercises the strategist + early-calibration clamps.
+  // Fallback: if deck is empty, prescribe a rep directly.
   const fallbackTriggeredRef = useRef(false);
   useEffect(() => {
     if (

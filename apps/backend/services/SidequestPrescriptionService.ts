@@ -27,7 +27,7 @@ import {
   type PrescriptionPromptContext,
 } from "./prompts/PrescriptionPromptRegistry";
 import { MultiAgentStrategy } from "./prescription/MultiAgentStrategy";
-import type { PrescriptionStrategyInput, QuestConcept } from "./prescription/PrescriptionStrategy";
+import type { PrescriptionStrategyInput } from "./prescription/PrescriptionStrategy";
 import { resolveGoalTags } from "./shared/QuestConfig";
 
 // ── Extracted modules ──────────────────────────────────────────────
@@ -69,15 +69,6 @@ export interface PrescribeQuestInput {
   questType?: "venue" | "challenge";
   /** Challenge category — required when questType is "challenge" */
   challengeCategory?: string;
-  /** When provided, skip the Strategist and constrain the pipeline to this concept */
-  chosenConcept?: {
-    title: string;
-    experienceType: string;
-    suggestedCategories: string[];
-    targetCity: string;
-    searchQueries: string[];
-    difficulty: number;
-  };
 }
 
 export interface SiblingContext {
@@ -574,13 +565,7 @@ export class SidequestPrescriptionService {
         prescriptionModel: this.prescriptionModel,
         inputModelOverride: input.model,
         onProgress,
-        chosenConcept: input.chosenConcept,
       };
-
-      // Clear pending concepts if user picked one
-      if (input.chosenConcept && this.redisService) {
-        await this.redisService.getClient().del(`pending_concepts:${userId}`);
-      }
 
       const strategyResult = await this.multiAgentStrategy.execute(strategyInput);
       const agentRaw = strategyResult.raw as unknown as LLMResponseRaw;
@@ -754,217 +739,6 @@ export class SidequestPrescriptionService {
       await repo.save(sidequest);
       throw error;
     }
-  }
-
-  // ─── Concept Generation (lightweight pre-selection) ────────────
-
-  async generateConcepts(
-    userId: string,
-    input: { latitude: number; longitude: number; timezone?: string },
-  ): Promise<QuestConcept[]> {
-    if (!this.comfortZoneService) {
-      throw new Error("ComfortZoneService required for generateConcepts");
-    }
-
-    // 1. Get comfort zone + user profile (same as prescribeQuest)
-    const zone = await this.comfortZoneService.getComfortZone(userId);
-    if (!zone.hasHomeAnchor) {
-      await this.comfortZoneService.detectHomeAnchor(userId, input.latitude, input.longitude);
-    }
-
-    const radius = await this.comfortZoneService.recalculateRadius(userId);
-
-    const user = await this.dataSource.getRepository(User).findOne({
-      where: { id: userId },
-      select: [
-        "id", "homeLatitude", "homeLongitude", "comfortProfile",
-        "onboardingProfile", "pacePreference", "behavioralProfile",
-        "fearLadder", "expectancyCalibration", "socialSituation",
-      ],
-    });
-
-    if (!user) throw new Error("User not found");
-
-    const homeLat = Number(user.homeLatitude ?? input.latitude);
-    const homeLng = Number(user.homeLongitude ?? input.longitude);
-
-    let city = "Unknown";
-    try {
-      city = await this.geocodingService.reverseGeocodeCityState(homeLat, homeLng);
-    } catch {
-      // Fall through
-    }
-
-    // 2. Build full context (same depth as the Strategist agent)
-    const historyContext = await buildPrescriptionContext(
-      this.contextDeps, userId,
-      user.behavioralProfile ?? null,
-      resolveGoalTags(user.comfortProfile),
-    );
-
-    const fearLadderReadiness = await computeFearLadderReadiness(this.dataSource, userId);
-    const { promptText: blockerContext, blocker: blockerMeta } = await buildBlockerContext(this.contextDeps, userId);
-
-    const socialMicroRepContext = await buildSocialMicroRepContext(
-      this.dataSource,
-      userId,
-      user.fearLadder ?? null,
-      fearLadderReadiness,
-      resolveGoalTags(user.comfortProfile),
-      blockerMeta,
-    );
-
-    // Coverage context (Voronoi directional gaps + exploration profile)
-    let coverageContext = "";
-    let explorationProfileLabel = "";
-    if (this.coverageService) {
-      try {
-        const coverage = await this.coverageService.buildLLMCoverageContext(userId);
-        coverageContext = coverage.context;
-        explorationProfileLabel = coverage.profile.label;
-      } catch (err) {
-        console.error("[generateConcepts] Coverage context failed:", err);
-      }
-    }
-
-    // Phase context from pathways (BFS/DFS)
-    let phaseContext = "";
-    if (this.pathwayService) {
-      try {
-        const phase = await this.pathwayService.getUserPhaseContext(userId);
-        phaseContext = phase.recommendation;
-      } catch (err) {
-        console.error("[generateConcepts] Phase context failed:", err);
-      }
-    }
-
-    const pace = user.pacePreference ?? "steady";
-    const now = new Date();
-    const hour = now.getHours();
-    const dayOfWeek = now.toLocaleDateString("en-US", { weekday: "long" });
-
-    const socialSituationContext = buildSocialSituationContext(user.socialSituation, city);
-    const fearLadderContext = user.fearLadder ? buildFearLadderContext(user.fearLadder, fearLadderReadiness) : "";
-    const expectancyContext = user.expectancyCalibration ? buildExpectancyContext(user.expectancyCalibration) : "";
-    const difficultyGuidance = buildDifficultyGuidance(pace, fearLadderReadiness, false, false, undefined);
-
-    // 3. Call Strategist for concepts (single LLM call, no tools)
-    const systemPrompt = `You are a Social Life Strategist. Based on a user's profile, social situation, history, and growth phase, suggest 3 DIFFERENT quest concepts — diverse options so they can pick one that excites them. Your job is to help someone build a real social life from scratch.
-
-USER PROFILE:
-- Home: ${city} (${homeLat.toFixed(4)}, ${homeLng.toFixed(4)})
-- Comfort radius: ${radius.toFixed(1)} miles
-- Pace: ${pace}
-${user.comfortProfile?.primaryGoal ? `- Goal: "${user.comfortProfile.primaryGoal}"` : ""}
-${user.comfortProfile?.barriers ? `- Barriers: "${user.comfortProfile.barriers}"` : ""}
-${user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${user.onboardingProfile.activities.join(", ")}` : ""}
-${socialSituationContext ? `
-${socialSituationContext}
-
-SOCIAL STRATEGY PRINCIPLES:
-- Regularity beats novelty. Becoming a regular somewhere creates more connection than visiting 10 new places once.
-- Co-ed group activities (classes, rec leagues, meetups) are the highest-leverage move for someone starting from zero — both for friends and dating.
-- Venue timing matters: suggest evenings and weekends for social density, weekday mornings for low-pressure solo practice.
-- Dating is a byproduct of having a social life, not a standalone goal. Build the social ecosystem first.
-- Remote workers are starved for third places — coworking spaces, cafes with laptop culture, classes provide structure and faces.
-- If they live alone, they need reasons to leave the house. Structure removes decision fatigue.
-- Small towns require expanding the search radius. Push to nearby cities with more social infrastructure when the goal demands it.
-` : ""}
-${fearLadderContext}
-${expectancyContext}
-${difficultyGuidance}
-
-${historyContext}
-${phaseContext ? `\n${phaseContext}\n` : ""}${coverageContext ? `\n${coverageContext}\n` : ""}${socialMicroRepContext ? `\n${socialMicroRepContext}\n` : ""}${blockerContext ? `
-CRITICAL — RECURRING BLOCKER OVERRIDE:
-${blockerContext}
-The blocker context above TAKES PRIORITY over normal progression. Do NOT suggest experiences that require the blocked action as a primary objective. Instead, suggest experiences that build toward it indirectly — the user needs wins, not more failures. Focus on activities where the blocked action might happen naturally but is NOT required.
-` : ""}
-GEOGRAPHIC & PRACTICAL INTELLIGENCE:
-You must think about WHERE this person should go, not just WHAT they should do. Consider:
-- Their home town's population, demographics, and what's realistically available there.
-- Small towns (under 20K) have limited social infrastructure — coffee shops, a rec center, maybe a brewery. If their goal requires meeting new people, dating, or finding community, they WILL need to venture to larger nearby cities.
-- Every quest doesn't need to push geographically, but the overall trajectory should expand their world over time. If they've done 5+ quests all in the same small town, it's time to push outward.
-- Think about what cities within 30-40 miles have the density, scene, and demographics to support their goal. A 25-year-old looking for friends and dates in a retirement community won't find them no matter how many quests they do there.
-- The user's comfort radius (${radius.toFixed(1)} mi) represents how far they've gone — not how far they SHOULD go. If they're ready, push past it.
-- Name a specific city or area to search in when relevant (e.g. "Search in Longmont" or "Search in Boulder's Pearl Street area").
-- TRANSPORTATION: If they don't have a car, keep quests reachable by their transport mode.
-- BUDGET: Respect their spending comfort. If they said "free only," don't prescribe a $40 pottery class.
-- SCHEDULE: Match quest timing to their availability. Shift workers need flexible-hour venues, not 9am weekday classes.
-
-CURRENT TIME & DAY:
-- It is currently ${hour}:00 on ${dayOfWeek}.
-- The quest will be done TODAY or in the NEXT FEW DAYS. Factor in realistic timing:
-  - If the user has a 9-to-5 schedule and it's a weekday, suggest EVENING activities (after 5:30pm) or plan for the upcoming weekend.
-  - If it's a weekend, they have all day — mornings and afternoons are fair game.
-  - Coffee shops are morning/afternoon venues (typically close by 5-6pm). Do NOT suggest coffee shops for evening quests.
-  - Bars, breweries, restaurants, music venues, karaoke — these are evening-appropriate.
-  - Classes, workshops, rec center activities — check if they're typically offered at the suggested time.
-  - Trails/parks — consider daylight. Don't suggest a hike at 8pm in winter.
-
-Think holistically about this person:
-- What would a thoughtful friend who knows their area suggest?
-- Is their current town limiting their progress? Be honest about this.
-${blockerContext ? `- They have a RECURRING BLOCKER. Do NOT push the blocked action directly. What experience would build confidence AROUND the blocker without requiring them to do the thing they keep failing at?` : `- What specific type of social challenge would grow them right now?`}
-- Are they stuck in a geographic or activity pattern that needs breaking?
-- POTENTIAL REGULARS: If the history shows anchor venues (marked with ★), you MAY suggest a return visit for one concept — but frame it as an invitation, not a pattern. Mix return visits with exploration naturally.
-
-DIVERSITY RULES:
-- Each concept must be a DIFFERENT type of experience (e.g., don't suggest 3 coffee shops)
-- Vary the social challenge level across concepts (one low-pressure, one moderate, one stretch)
-- Vary venue categories across concepts
-- At least one should align closely with their stated activities/interests
-- At least one should gently stretch into something new
-- Keep difficulty appropriate for their pace and fear ladder readiness
-- Vary geography when appropriate — not every concept needs to be in their home town
-
-Respond with JSON:
-{
-  "concepts": [
-    {
-      "id": "concept-0",
-      "title": "<catchy 3-6 word title>",
-      "pitch": "<one sentence — what they'd do and why it matters>",
-      "difficulty": <1-10>,
-      "experienceType": "<type of experience>",
-      "emoji": "<single emoji>",
-      "suggestedCategories": ["<1-2 venue categories>"],
-      "targetCity": "<specific city or area to search in>",
-      "searchQueries": ["<2-3 search queries including city name>"]
-    }
-  ]
-}`;
-
-    const response = await this.openAIService.executeChatCompletion({
-      model: OpenAIModel.GPT54,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: "Suggest 3 diverse quest concepts for this user." },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.9,
-      max_completion_tokens: 1200,
-    }, "concept_generator");
-
-    const text = response.choices[0]?.message?.content?.trim() ?? "{}";
-    const parsed = JSON.parse(text);
-    const concepts: QuestConcept[] = (parsed.concepts ?? []).map(
-      (c: Record<string, unknown>, i: number) => ({
-        id: c.id ?? `concept-${i}`,
-        title: String(c.title ?? "Untitled"),
-        pitch: String(c.pitch ?? ""),
-        difficulty: Number(c.difficulty ?? 3),
-        experienceType: String(c.experienceType ?? "exploration"),
-        emoji: String(c.emoji ?? "✨"),
-        suggestedCategories: Array.isArray(c.suggestedCategories) ? c.suggestedCategories : [],
-        targetCity: String(c.targetCity ?? city),
-        searchQueries: Array.isArray(c.searchQueries) ? c.searchQueries : [],
-      }),
-    );
-
-    console.log(`[generateConcepts] Generated ${concepts.length} concepts for user ${userId}: ${concepts.map(c => c.title).join(", ")}`);
-
-    return concepts;
   }
 
   // ─── Challenge Quest Prescription ──────────────────────────────

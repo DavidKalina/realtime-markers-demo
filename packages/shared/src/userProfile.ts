@@ -13,10 +13,6 @@ export interface UserProfile {
   bio?: string;
   role: string;
   isVerified: boolean;
-  discoveryCount: number;
-  scanCount: number;
-  saveCount: number;
-  viewCount: number;
   totalXp: number;
   currentTier: string;
   currentStreak: number;
