@@ -221,14 +221,9 @@ export class PushNotificationService {
           });
         }
 
-        // Concept generation completed — prompt user to pick
-        if (data?.type === "job_completion" && data.jobType === "generate_concepts") {
-          eventBroker.emit(EventTypes.NAVIGATE_TO_SCREEN, {
-            timestamp: Date.now(),
-            source: "PushNotification",
-            path: "/concept-picker",
-          });
-        }
+        // Slice I — concept generation is retired. Stale pushes from before
+        // the cutover arrive here; route them to the home screen where the
+        // prescribed rep already leads.
 
       },
     );
@@ -362,13 +357,6 @@ export class PushNotificationService {
         timestamp: Date.now(),
         source: "PushNotification",
         path: "/progressive-onboarding",
-      });
-    } else if (data?.type === "job_completion" && data.jobType === "generate_concepts") {
-      // Concept generation completed — navigate to concept picker
-      eventBroker.emit(EventTypes.NAVIGATE_TO_SCREEN, {
-        timestamp: Date.now(),
-        source: "PushNotification",
-        path: "/concept-picker",
       });
     } else if (data?.type === "event") {
       // Navigate to event details

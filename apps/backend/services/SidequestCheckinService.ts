@@ -403,9 +403,23 @@ export class SidequestCheckinService {
     if (!acquired) return;
 
     try {
-      // Skip if user already has pending concepts waiting to be picked
-      const hasPending = await client.exists(`pending_concepts:${userId}`);
-      if (hasPending) return;
+      // Slice I — skip if the user already has 3+ prescribed-but-not-started
+      // quests waiting in the deck. The old flow was gated on "do they have
+      // pending concepts?" — without that gate, auto-prescribe would stack
+      // reps indefinitely as the user deletes and completes.
+      const pendingCount = await this.dataSource.query(
+        `SELECT COUNT(*)::int as count
+         FROM sidequests
+         WHERE user_id = $1
+           AND status = 'READY'
+           AND completed_at IS NULL
+           AND deleted_at IS NULL`,
+        [userId],
+      );
+      if ((pendingCount[0]?.count ?? 0) >= 3) {
+        await client.del(lockKey);
+        return;
+      }
 
       // Fetch user's home location for quest generation
       const user = await this.dataSource.getRepository(User).findOne({
@@ -415,8 +429,11 @@ export class SidequestCheckinService {
 
       if (!user?.homeLatitude || !user?.homeLongitude) return;
 
-      // Always generate concepts after quest completion — user picks their next quest
-      const jobId = await this.jobQueue.enqueue("generate_concepts", {
+      // Post-completion, prescribe the next rep directly. The old behavior
+      // generated 3 concepts for the user to pick from, which bypassed the
+      // strategist and therefore the early-calibration and rejection-pattern
+      // clamps. Prescribing keeps the full safety stack.
+      const jobId = await this.jobQueue.enqueue("prescribe_quest", {
         userId,
         creatorId: userId,
         latitude: Number(user.homeLatitude),
@@ -424,7 +441,7 @@ export class SidequestCheckinService {
       });
 
       console.log(
-        `[SidequestCheckin] Generated concepts for user ${userId}, jobId=${jobId}`,
+        `[SidequestCheckin] Prescribed next rep for user ${userId}, jobId=${jobId}`,
       );
     } catch (err) {
       // Release lock on failure so it can be retried

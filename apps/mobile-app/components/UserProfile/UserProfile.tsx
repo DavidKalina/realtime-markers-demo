@@ -47,7 +47,6 @@ import DeckHandSection from "./DeckHandSection";
 import TodaysRepCard from "./TodaysRepCard";
 import PendingReflectionCard from "./PendingReflectionCard";
 import PendingCaptureCard from "./PendingCaptureCard";
-import PendingConceptsCard from "./PendingConceptsCard";
 import { SettingsSection } from "./SettingsSection";
 import AIFocusCard from "./AIFocusCard";
 import JourneyCard from "./JourneyCard";
@@ -220,17 +219,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   // Pending capture — checked in but skipped the reflection modal
   const [pendingCaptures, setPendingCaptures] = useState<SidequestResponse[]>([]);
 
-  // Pending concepts — quest ideas waiting to be picked
-  const [hasPendingConcepts, setHasPendingConcepts] = useState(false);
-
   const fetchDashboardQuests = useCallback(async () => {
-    // Fetch deck, unrated, pending capture, and pending concepts independently
-    // so one failing (e.g. new endpoint not deployed yet) doesn't block the others
-    const [listRes, unratedRes, captureRes, conceptsRes] = await Promise.allSettled([
+    // Fetch deck, unrated, and pending capture independently so one failing
+    // (e.g. new endpoint not deployed yet) doesn't block the others.
+    const [listRes, unratedRes, captureRes] = await Promise.allSettled([
       apiClient.sidequests.list(10, undefined, { status: "upcoming" }),
       apiClient.sidequests.listUnrated(3),
       apiClient.sidequests.listPendingCapture(2),
-      apiClient.sidequests.getPendingConcepts(),
     ]);
     if (listRes.status === "fulfilled") {
       setDeckQuests(listRes.value.data ?? []);
@@ -240,9 +235,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     }
     if (captureRes.status === "fulfilled") {
       setPendingCaptures(captureRes.value.data ?? []);
-    }
-    if (conceptsRes.status === "fulfilled") {
-      setHasPendingConcepts((conceptsRes.value.concepts ?? []).length > 0);
     }
   }, []);
 
@@ -258,13 +250,14 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     }
   }, [hasReady, clearReady, fetchDashboardQuests]);
 
-  // Fallback: if deck is empty and no concepts pending, trigger generation
+  // Fallback: if deck is empty, prescribe a rep directly (no concept picker).
+  // Slice I — retired the concept-picker path so the default first-run flow
+  // exercises the strategist + early-calibration clamps.
   const fallbackTriggeredRef = useRef(false);
   useEffect(() => {
     if (
       !loading &&
       deckQuests.length === 0 &&
-      !hasPendingConcepts &&
       !isGenerating &&
       !fallbackTriggeredRef.current &&
       userLocation
@@ -272,23 +265,23 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
       fallbackTriggeredRef.current = true;
       (async () => {
         try {
-          const { jobId } = await apiClient.sidequests.generateConcepts({
+          const { jobId } = await apiClient.sidequests.prescribeQuest({
             latitude: userLocation[1],
             longitude: userLocation[0],
             timezone: getUserTimezone(),
           });
           trackJob(jobId);
         } catch (err) {
-          console.error("[UserProfile] Fallback concept generation failed:", err);
+          console.error("[UserProfile] Fallback prescription failed:", err);
           fallbackTriggeredRef.current = false;
         }
       })();
     }
-    // Reset when concepts arrive or deck fills
-    if (hasPendingConcepts || deckQuests.length > 0) {
+    // Reset when the deck fills.
+    if (deckQuests.length > 0) {
       fallbackTriggeredRef.current = false;
     }
-  }, [loading, deckQuests.length, hasPendingConcepts, isGenerating, userLocation, trackJob]);
+  }, [loading, deckQuests.length, isGenerating, userLocation, trackJob]);
 
   const handleUpdateHomeBase = useCallback(async () => {
     if (!userLocation) return;
@@ -373,13 +366,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
         {!activeItinerary && deckQuests[0] && (
           <ParallaxWidget scrollY={scrollY} index={1} delay={100}>
             <TodaysRepCard quest={deckQuests[0]} />
-          </ParallaxWidget>
-        )}
-
-        {/* 1.2 Pending Concepts — pick your quest */}
-        {hasPendingConcepts && (
-          <ParallaxWidget scrollY={scrollY} index={1} delay={120}>
-            <PendingConceptsCard />
           </ParallaxWidget>
         )}
 

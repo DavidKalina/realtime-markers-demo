@@ -130,10 +130,12 @@ const OnboardingScreen: React.FC = () => {
 
       await refreshAuth();
 
-      // Enqueue concept generation (non-blocking)
+      // Slice I — onboarding now prescribes a rep directly. The concept picker
+      // flow bypassed the strategist (and therefore the early-calibration
+      // clamps), so a new user could get a miscalibrated quest on turn one.
       const lat = userLocation ? userLocation[1] : 0;
       const lng = userLocation ? userLocation[0] : 0;
-      const { jobId } = await apiClient.sidequests.generateConcepts({
+      const { jobId } = await apiClient.sidequests.prescribeQuest({
         latitude: lat,
         longitude: lng,
         timezone: getUserTimezone(),
@@ -141,7 +143,7 @@ const OnboardingScreen: React.FC = () => {
 
       trackJob(jobId);
 
-      // Navigate to dashboard immediately — concepts arrive via push notification
+      // Navigate to dashboard immediately — the prescription arrives via SSE
       router.replace("/");
     } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
