@@ -428,13 +428,11 @@ export class ComfortZoneService {
         .update({ id: objectiveId }, fields);
     }
 
-    // Fire async LLM journal analysis (non-blocking)
-    const journalText = updates.journalEntry ?? objective.journalEntry;
-    if (journalText && this.openAIService) {
-      this.analyzeJournalAsync(objectiveId, journalText).catch((err) =>
-        console.error(`[ComfortZoneService] Journal analysis failed for ${objectiveId}:`, err),
-      );
-    }
+    // Journal reflection analysis (depth / sentiment / tags) is now owned by
+    // SidequestService.computeResonanceAndPathway, which runs after capture
+    // and before pathway detection. We used to fire a second fire-and-forget
+    // analysis from here, but that raced with the sync analysis in recompute
+    // and doubled LLM cost. Single owner, one call per completion.
 
     return {
       sidequestId: sidequest.id,
@@ -478,8 +476,30 @@ export class ComfortZoneService {
     return true;
   }
 
-  private async analyzeJournalAsync(objectiveId: string, journalEntry: string): Promise<void> {
+  /**
+   * Runs journal reflection analysis (depth / sentiment / tags) AND the
+   * expectancy-violation computation off the resulting sentiment. Owned here
+   * because expectancy tracking lives in ComfortZoneService. Called by
+   * SidequestService.computeResonanceAndPathway before resonance is scored,
+   * so tags are always present by the time pathway detection runs.
+   *
+   * Idempotent: if the objective already has reflection fields, skip the LLM
+   * call but still reconcile the expectancy violation (cheap DB read).
+   */
+  async analyzeJournal(objectiveId: string, journalEntry: string): Promise<void> {
     if (!this.openAIService) return;
+
+    // If tags already exist, skip the LLM round-trip.
+    const existing = await this.dataSource.getRepository(Objective).findOne({
+      where: { id: objectiveId },
+      select: ["id", "reflectionTags", "reflectionSentiment"],
+    });
+    if (existing?.reflectionTags && existing.reflectionSentiment != null) {
+      await this.computeExpectancyViolation(objectiveId, existing.reflectionSentiment).catch((err) =>
+        console.error(`[ComfortZoneService] Expectancy violation computation failed for ${objectiveId}:`, err),
+      );
+      return;
+    }
 
     const analysis = await analyzeJournalReflection(this.openAIService, journalEntry);
 
@@ -492,7 +512,6 @@ export class ComfortZoneService {
       },
     );
 
-    // Compute expectancy violation if pre-quest predictions exist
     await this.computeExpectancyViolation(objectiveId, analysis.sentiment).catch((err) =>
       console.error(`[ComfortZoneService] Expectancy violation computation failed for ${objectiveId}:`, err),
     );

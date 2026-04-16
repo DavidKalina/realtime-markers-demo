@@ -865,27 +865,20 @@ export class SidequestService {
   ): Promise<void> {
     if (!this.resonanceService || !this.pathwayService) return;
 
-    // Ensure reflection analysis is complete before computing resonance
-    // (the async journal analysis may not have finished yet)
+    // Ensure reflection analysis + expectancy violation are up-to-date before
+    // resonance is scored. Delegated to ComfortZoneService so there's one
+    // owner for journal-analysis side effects (tags, sentiment, depth, and
+    // the expectancy-violation bookkeeping that feeds inhibitory-learning UX).
     const sq = await this.dataSource.getRepository(Sidequest).findOne({
       where: { id: sidequestId },
       relations: ["objectives"],
     });
     const firstObj = sq?.objectives?.[0];
-    if (firstObj?.journalEntry && !firstObj.reflectionTags && this.openAIService) {
+    if (firstObj?.journalEntry && this.comfortZoneService) {
       try {
-        const { analyzeJournalReflection } = await import("./ResonanceService");
-        const analysis = await analyzeJournalReflection(this.openAIService, firstObj.journalEntry);
-        await this.dataSource.getRepository(Objective).update(
-          { id: firstObj.id },
-          {
-            reflectionDepth: analysis.depth,
-            reflectionSentiment: analysis.sentiment,
-            reflectionTags: analysis.tags,
-          },
-        );
+        await this.comfortZoneService.analyzeJournal(firstObj.id, firstObj.journalEntry);
       } catch (err) {
-        console.error("[SidequestService] Sync reflection analysis failed:", err);
+        console.error("[SidequestService] Journal analysis failed:", err);
       }
     }
 

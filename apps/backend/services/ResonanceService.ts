@@ -40,10 +40,14 @@ export interface ResonanceInput {
   reflectionDepth: number | null;
   reflectionSentiment: number | null;
   reflectionTags: string[] | null;
-  // Slice A — which rep variant the user actually completed. Tiny and
-  // smaller completions are still completions (we celebrate them), but they
-  // carry less capacity-building weight than a full rep. Null = legacy quest
-  // without variants, treated as a full completion.
+  // Which rep variant the user actually completed. Passed through as
+  // metadata — the resonance score treats all completions equally. Weighting
+  // tiny/smaller lower crushed pathway formation for anxious users who
+  // consistently picked gentler versions, so "capacity evidence" (what they
+  // did) and "deep resonance" (how it landed) are intentionally separate
+  // signals. Version lives on the Objective and in Reps Built; don't fold
+  // it back into this score without a deliberate reason.
+  // Null = legacy quest without variants.
   completedVersion: "full" | "smaller" | "tiny" | null;
 }
 
