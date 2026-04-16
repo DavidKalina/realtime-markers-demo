@@ -155,6 +155,8 @@ export async function createServices(
       redisService,
       openAIService,
       coverageService,
+      resonanceService,
+      pathwayService,
       jobQueue,
     });
   }

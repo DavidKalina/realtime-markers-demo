@@ -48,7 +48,28 @@ interface JourneyEntry {
   isBreakthrough: boolean;
   questType: string;
   questRole: string | null;
+  /** Rejection reasons the persona fired before accepting a prescription for this slot. */
+  rejections: RejectionReason[];
 }
+
+type RejectionReason =
+  | "TOO_SOCIAL"
+  | "TOO_FAR"
+  | "TOO_PUBLIC"
+  | "TOO_MUCH_EFFORT"
+  | "NOT_MY_VIBE"
+  | "BAD_TIMING"
+  | "NEED_GENTLER";
+
+const REJECTION_REASONS: readonly RejectionReason[] = [
+  "TOO_SOCIAL",
+  "TOO_FAR",
+  "TOO_PUBLIC",
+  "TOO_MUCH_EFFORT",
+  "NOT_MY_VIBE",
+  "BAD_TIMING",
+  "NEED_GENTLER",
+] as const;
 
 interface PathwaySnapshot {
   questIndex: number;
@@ -666,6 +687,117 @@ Respond with JSON:
   };
 }
 
+/**
+ * Decide in-character whether the persona rejects a prescription, and with
+ * what reason. Returns null to accept. Exercises the calibration loop:
+ * /reject → backend clamps the next brief → new prescription should address
+ * the dimension the persona flagged.
+ *
+ * Calibration is a property we want to regression-test — if "Shy Sarah"
+ * gets a crowded meetup on quest 2 and the strategist keeps sending
+ * social-heavy prescriptions after she rejects TOO_SOCIAL, that's a
+ * product failure, not a prompt tuning issue.
+ */
+async function decideRejection(
+  persona: LivePersona | undefined,
+  quest: {
+    title?: string;
+    distanceFromHome?: number | string;
+    capacityTrack?: string;
+    repIntent?: string;
+    objectives?: { venueName?: string; venueCategory?: string; difficulty?: number; hook?: string; description?: string }[];
+  },
+  fearScore: number,
+  questIndex: number,
+  attemptNumber: number,
+): Promise<RejectionReason | null> {
+  if (!persona) return null;
+
+  if (!process.env.OPENAI_API_KEY) {
+    return ruleBasedRejection(persona, quest, fearScore, attemptNumber);
+  }
+
+  const obj = quest.objectives?.[0] ?? {};
+  const attemptNote =
+    attemptNumber > 0
+      ? ` (you've already rejected ${attemptNumber} prescription${attemptNumber === 1 ? "" : "s"} for this slot; on recalibration #${attemptNumber + 1})`
+      : "";
+
+  const result = await llmJson(
+    `You are roleplaying as "${persona.name}":
+- Goal: ${persona.primaryGoal}
+- Barriers: ${persona.barriers}
+- Current comfort zone: ${persona.comfortZone}
+- Fear score: ${fearScore.toFixed(2)}/1.0 (higher = more anxious)
+- Pace preference: ${persona.pace}
+- This is quest #${questIndex + 1} in your journey${attemptNote}.
+
+You just saw a prescription. Decide in-character whether to ACCEPT it or reject with a specific reason. A thoughtful person rejects rarely — roughly 15-25% of the time — so lean toward ACCEPT unless something really doesn't fit. Use a gentle pace + high fear score as a signal to reject more.
+
+Rejection reasons (pick the most honest one if you reject):
+- TOO_SOCIAL — social challenge level is higher than you can handle today
+- TOO_FAR — distance feels too far right now
+- TOO_PUBLIC — venue would feel too exposed / too busy
+- TOO_MUCH_EFFORT — logistics too heavy (planning, gear, signups, new-user forms)
+- NOT_MY_VIBE — category / activity just isn't what you want
+- BAD_TIMING — suggested time-of-day doesn't fit your life
+- NEED_GENTLER — the whole thing feels like too big a step regardless of which dimension
+
+Be consistent with yourself: if you already rejected this slot once, the recalibrated version should probably be acceptable unless it genuinely failed to adjust.`,
+    `The prescription:
+- Title: "${quest.title ?? "(untitled)"}"
+- Venue: ${obj.venueName ?? "?"} (${obj.venueCategory ?? "?"})
+- Capacity rep: ${quest.capacityTrack ?? "?"} — ${quest.repIntent ?? "?"}
+- Difficulty: ${obj.difficulty ?? "?"}/10
+- Distance from home: ${quest.distanceFromHome != null ? Number(quest.distanceFromHome).toFixed(1) + " mi" : "?"}
+- Hook: ${obj.hook ?? "?"}
+- Description: ${(obj.description ?? "").slice(0, 240)}
+
+Respond with JSON:
+{
+  "decision": "ACCEPT" | "TOO_SOCIAL" | "TOO_FAR" | "TOO_PUBLIC" | "TOO_MUCH_EFFORT" | "NOT_MY_VIBE" | "BAD_TIMING" | "NEED_GENTLER",
+  "reason": "<one short sentence, in-character, why>"
+}`,
+    180,
+  );
+
+  const decision = typeof result?.decision === "string" ? result.decision.toUpperCase() : "ACCEPT";
+  if (decision === "ACCEPT") return null;
+  if ((REJECTION_REASONS as readonly string[]).includes(decision)) {
+    if (typeof result?.reason === "string") {
+      console.log(`│  Rejection reason: "${result.reason}"`);
+    }
+    return decision as RejectionReason;
+  }
+  return null;
+}
+
+function ruleBasedRejection(
+  persona: LivePersona,
+  quest: { distanceFromHome?: number | string; objectives?: { difficulty?: number; venueCategory?: string; hook?: string }[] },
+  fearScore: number,
+  attemptNumber: number,
+): RejectionReason | null {
+  // Higher rejection rate for gentle/anxious personas, lower for push_me.
+  // After one rejection the next prescription should be easier — drop rate so we don't spin.
+  const baseRate =
+    persona.pace === "gentle" ? 0.28 : persona.pace === "push_me" ? 0.08 : 0.15;
+  const rate = baseRate * (attemptNumber === 0 ? 1 : 0.4);
+  if (Math.random() > rate) return null;
+
+  const obj = quest.objectives?.[0] ?? {};
+  const difficulty = obj.difficulty ?? 3;
+  const distance = quest.distanceFromHome != null ? Number(quest.distanceFromHome) : 0;
+  const hook = (obj.hook ?? "").toLowerCase();
+  const socialHeavy = /social|group|meetup|class|strangers|crowd|people/.test(hook);
+
+  if (fearScore > 0.6 && socialHeavy) return "TOO_SOCIAL";
+  if (distance > 6) return "TOO_FAR";
+  if (persona.pace === "gentle" && difficulty > 5) return "NEED_GENTLER";
+  if (difficulty > 7) return "TOO_MUCH_EFFORT";
+  return "NOT_MY_VIBE";
+}
+
 // ── Synthetic data generators ────────────────────────────────
 
 function generateRating(bias: number, rand: () => number): number {
@@ -1108,6 +1240,10 @@ async function main() {
     if (isChallenge) challengeCount++;
 
     let sidequestId: string | undefined;
+    let quest: any;
+    let obj: any;
+    const rejectionsThisSlot: RejectionReason[] = [];
+    const MAX_REJECTIONS = 2;
 
     console.log(`│  Prescribing ${isChallenge ? `challenge (${challengeCategory})` : "venue"} quest...`);
     const prescribeRes = await api("POST", "/api/sidequests/prescribe", token, {
@@ -1122,52 +1258,92 @@ async function main() {
       continue;
     }
 
-    const { jobId } = prescribeRes.data;
+    let jobId: string | undefined = prescribeRes.data.jobId;
 
-    let jobResult: any;
-    try {
-      jobResult = await pollJobCompletion(jobId, token);
-      console.log();
-    } catch (err: any) {
-      console.error(`\n│  ${err.message}`);
-      continue;
-    }
-
-    sidequestId = jobResult?.result?.sidequestId;
-
-    if (!sidequestId) {
-      console.error("│  No sidequest ID");
-      continue;
-    }
-
-    // Fetch the quest details
-    const questRes = await api("GET", `/api/sidequests/${sidequestId}`, token);
-    const quest = questRes.data;
-
-    if (!quest || !quest.objectives?.length) {
-      console.error("│  Quest has no objectives");
-      continue;
-    }
-
-    const obj = quest.objectives[0];
-    console.log(`│`);
-    console.log(`│  "${quest.title}"`);
-    console.log(`│     ${obj.venueName} — ${obj.venueCategory}`);
-    console.log(`│     ${obj.venueAddress ?? "no address"}`);
-    console.log(`│     Hook: ${obj.hook ?? "none"}`);
-    console.log(`│     Difficulty: ${obj.difficulty ?? "?"} | Rarity: ${quest.rarity ?? "?"} | Actionability: ${obj.actionability ?? "?"}`);
-    console.log(`│     Type: ${quest.questType ?? "venue"} | Role: ${quest.questRole ?? "none"}${quest.questRole === "enjoy" ? " ★ ENJOY QUEST" : ""}`);
-    console.log(`│     Distance: ${quest.distanceFromHome ? Number(quest.distanceFromHome).toFixed(2) + " mi" : "?"}`);
-    if (obj.description) {
-      console.log(`│     Description: ${obj.description}`);
-    }
-    if (obj.suggestedActivities?.length) {
-      console.log(`│     Checklist:`);
-      for (const sa of obj.suggestedActivities) {
-        console.log(`│       ◇ ${sa}`);
+    // Rejection loop — persona decides whether to accept each prescription.
+    // Backend auto-enqueues a fresh prescribe_quest job on /reject and
+    // hands back a new jobId. We cap retries at MAX_REJECTIONS so the sim
+    // can't spin forever on a miscalibrated persona.
+    let acceptFailed = false;
+    for (let attempt = 0; ; attempt++) {
+      if (!jobId) {
+        acceptFailed = true;
+        break;
       }
+      let jobResult: any;
+      try {
+        jobResult = await pollJobCompletion(jobId, token);
+        console.log();
+      } catch (err: any) {
+        console.error(`\n│  ${err.message}`);
+        acceptFailed = true;
+        break;
+      }
+
+      sidequestId = jobResult?.result?.sidequestId;
+      if (!sidequestId) {
+        console.error("│  No sidequest ID");
+        acceptFailed = true;
+        break;
+      }
+
+      const questRes = await api("GET", `/api/sidequests/${sidequestId}`, token);
+      quest = questRes.data;
+      obj = quest?.objectives?.[0];
+
+      if (!quest || !quest.objectives?.length) {
+        console.error("│  Quest has no objectives");
+        acceptFailed = true;
+        break;
+      }
+
+      const attemptLabel = attempt === 0 ? "" : `  (recalibration #${attempt})`;
+      console.log(`│`);
+      console.log(`│  "${quest.title}"${attemptLabel}`);
+      console.log(`│     ${obj.venueName} — ${obj.venueCategory}`);
+      console.log(`│     ${obj.venueAddress ?? "no address"}`);
+      console.log(`│     Hook: ${obj.hook ?? "none"}`);
+      console.log(`│     Capacity: ${quest.capacityTrack ?? "?"} — ${quest.repIntent ?? "?"}`);
+      console.log(`│     Difficulty: ${obj.difficulty ?? "?"} | Rarity: ${quest.rarity ?? "?"} | Actionability: ${obj.actionability ?? "?"}`);
+      console.log(`│     Type: ${quest.questType ?? "venue"} | Role: ${quest.questRole ?? "none"}${quest.questRole === "enjoy" ? " ★ ENJOY QUEST" : ""}`);
+      console.log(`│     Distance: ${quest.distanceFromHome ? Number(quest.distanceFromHome).toFixed(2) + " mi" : "?"}`);
+      if (obj.description) {
+        console.log(`│     Description: ${obj.description}`);
+      }
+      if (obj.suggestedActivities?.length) {
+        console.log(`│     Checklist:`);
+        for (const sa of obj.suggestedActivities) {
+          console.log(`│       ◇ ${sa}`);
+        }
+      }
+      console.log(`│     Objectives in quest: ${quest.objectives.length}`);
+
+      // Challenges don't go through the calibration loop — they don't have
+      // the "too far / too social" dimensions and are meant as fixed reps.
+      if (isChallenge || attempt >= MAX_REJECTIONS) break;
+
+      const rejection = await decideRejection(persona, quest, simFearScore, i, attempt);
+      if (!rejection) break;
+
+      rejectionsThisSlot.push(rejection);
+      console.log(`│  ❌ Rejected: ${rejection} (${rejectionsThisSlot.length}/${MAX_REJECTIONS + 1})`);
+
+      const rejectRes = await api("POST", `/api/sidequests/${sidequestId}/reject`, token, {
+        reason: rejection,
+        latitude: simLat,
+        longitude: simLng,
+      });
+
+      if (rejectRes.status !== 202 || !rejectRes.data?.jobId) {
+        console.log(`│  Reject endpoint returned ${rejectRes.status} — proceeding with current prescription`);
+        break;
+      }
+
+      jobId = rejectRes.data.jobId;
+      console.log(`│  Waiting for recalibrated prescription...`);
     }
-    console.log(`│     Objectives in quest: ${quest.objectives.length}`);
+
+    if (acceptFailed || !sidequestId || !quest || !obj) continue;
 
     // Pre-quest predictions
     let predictedAnxiety: number | null = null;
@@ -1379,6 +1555,7 @@ async function main() {
       reflectionDepth: null,
       reflectionSentiment: null,
       reflectionTags: null,
+      completedVersion: null,
     };
     const resonance = computeResonance(resonanceInput, DEFAULT_QUEST_CONFIG);
 
@@ -1499,6 +1676,7 @@ async function main() {
       isBreakthrough,
       questType: quest.questType ?? "venue",
       questRole: quest.questRole ?? null,
+      rejections: rejectionsThisSlot,
     });
 
     // Track prediction accuracy for calibration feedback
@@ -1556,6 +1734,32 @@ async function main() {
     } else {
       console.log(`    Blocker NOT resolved (${blockerConsecutiveSuccesses}/${blockerResolveThreshold} consecutive successes)`);
     }
+  }
+
+  // Calibration loop (rejections → recalibrated prescriptions)
+  const slotsWithRejections = journey.filter((j) => j.rejections.length > 0);
+  const totalRejections = journey.reduce((s, j) => s + j.rejections.length, 0);
+  if (totalRejections > 0) {
+    const reasonCounts: Record<string, number> = {};
+    for (const j of journey) {
+      for (const r of j.rejections) reasonCounts[r] = (reasonCounts[r] ?? 0) + 1;
+    }
+    console.log(`\n  Calibration Loop:`);
+    console.log(`    Slots with rejections: ${slotsWithRejections.length}/${journey.length} (${((slotsWithRejections.length / journey.length) * 100).toFixed(0)}%)`);
+    console.log(`    Total rejections: ${totalRejections}`);
+    console.log(`    By reason:`);
+    for (const [reason, count] of Object.entries(reasonCounts).sort((a, b) => b[1] - a[1])) {
+      console.log(`      ${reason.padEnd(18)} ${"█".repeat(count)} ${count}`);
+    }
+    // A recurring reason (3+ of the same kind) should trigger the pattern
+    // detector in PrescriptionContextBuilder and clamp the next brief. Flag
+    // it so you can eyeball whether the strategist actually adjusted.
+    const patternReasons = Object.entries(reasonCounts).filter(([, c]) => c >= 3);
+    if (patternReasons.length > 0) {
+      console.log(`    ⚠ Pattern threshold hit (3+): ${patternReasons.map(([r, c]) => `${r} × ${c}`).join(", ")} — strategist should have clamped.`);
+    }
+  } else {
+    console.log(`\n  Calibration Loop: no rejections fired across ${journey.length} quests.`);
   }
 
   // Expectancy calibration

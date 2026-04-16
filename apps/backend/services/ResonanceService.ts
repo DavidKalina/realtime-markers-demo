@@ -40,6 +40,11 @@ export interface ResonanceInput {
   reflectionDepth: number | null;
   reflectionSentiment: number | null;
   reflectionTags: string[] | null;
+  // Slice A — which rep variant the user actually completed. Tiny and
+  // smaller completions are still completions (we celebrate them), but they
+  // carry less capacity-building weight than a full rep. Null = legacy quest
+  // without variants, treated as a full completion.
+  completedVersion: "full" | "smaller" | "tiny" | null;
 }
 
 export interface ResonanceComponents {
@@ -115,7 +120,7 @@ export function computeResonance(
     difficultyAlignment,
   };
 
-  const score = clamp(
+  const rawScore = clamp(
     ratingSignal * w.rating +
     journalDepth * w.journalDepth +
     sentimentSignal * w.sentiment +
@@ -126,12 +131,32 @@ export function computeResonance(
     1,
   );
 
+  // Slice A — scale by completed version. Doing the tiny rep is a real win
+  // and earns resonance, but it shouldn't signal "this pathway is deeply
+  // resonant" as strongly as a full completion would. Legacy completions
+  // (null) are treated as full for backwards compatibility.
+  const versionMultiplier = completedVersionMultiplier(input.completedVersion);
+  const score = clamp(rawScore * versionMultiplier, 0, 1);
+
   return {
     score,
     components,
     venueCategory: input.venueCategory,
     reflectionTags: input.reflectionTags ?? undefined,
   };
+}
+
+function completedVersionMultiplier(version: ResonanceInput["completedVersion"]): number {
+  switch (version) {
+    case "tiny":
+      return 0.5;
+    case "smaller":
+      return 0.75;
+    case "full":
+    case null:
+    default:
+      return 1.0;
+  }
 }
 
 // ── Component functions ──────────────────────────────────────
@@ -293,6 +318,7 @@ export class ResonanceService {
       reflectionDepth: obj.reflectionDepth ?? null,
       reflectionSentiment: obj.reflectionSentiment ?? null,
       reflectionTags: obj.reflectionTags ?? null,
+      completedVersion: obj.completedVersion ?? null,
     };
 
     const result = computeResonance(input, this.config);
@@ -339,6 +365,7 @@ export class ResonanceService {
         reflectionDepth: obj.reflectionDepth ?? null,
         reflectionSentiment: obj.reflectionSentiment ?? null,
         reflectionTags: obj.reflectionTags ?? null,
+        completedVersion: obj.completedVersion ?? null,
       };
 
       const result = computeResonance(input, this.config);

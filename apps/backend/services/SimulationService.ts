@@ -225,6 +225,7 @@ export class SimulationService {
         reflectionDepth: reflection?.depth ?? null,
         reflectionSentiment: reflection?.sentiment ?? null,
         reflectionTags: reflection?.tags ?? null,
+        completedVersion: null,
       };
 
       const resonance = computeResonance(resonanceInput, config);

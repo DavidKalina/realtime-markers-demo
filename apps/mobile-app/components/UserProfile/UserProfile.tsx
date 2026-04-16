@@ -45,6 +45,7 @@ import { getUserTimezone } from "@/utils/dateTimeFormatting";
 import ActiveQuestBanner from "./ActiveQuestBanner";
 import DeckHandSection from "./DeckHandSection";
 import TodaysRepCard from "./TodaysRepCard";
+import CapacityRepsSection from "./CapacityRepsSection";
 import PendingReflectionCard from "./PendingReflectionCard";
 import PendingCaptureCard from "./PendingCaptureCard";
 import { SettingsSection } from "./SettingsSection";
@@ -52,7 +53,7 @@ import AIFocusCard from "./AIFocusCard";
 import JourneyCard from "./JourneyCard";
 import SectionMark from "./SectionMark";
 import { useJobProgressContext } from "@/contexts/JobProgressContext";
-import type { SidequestResponse } from "@/services/api/modules/sidequests";
+import type { SidequestResponse, CapacityRepSummary } from "@/services/api/modules/sidequests";
 
 // Growth dashboard components
 import GrowthScoreHero from "./GrowthScoreHero";
@@ -219,13 +220,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   // Pending capture — checked in but skipped the reflection modal
   const [pendingCaptures, setPendingCaptures] = useState<SidequestResponse[]>([]);
 
+  // Capacity reps — counts per capacity track (Slice C follow-up)
+  const [capacityReps, setCapacityReps] = useState<CapacityRepSummary[]>([]);
+
   const fetchDashboardQuests = useCallback(async () => {
-    // Fetch deck, unrated, and pending capture independently so one failing
-    // (e.g. new endpoint not deployed yet) doesn't block the others.
-    const [listRes, unratedRes, captureRes] = await Promise.allSettled([
+    // Fetch independently so one failing (e.g. new endpoint not deployed yet)
+    // doesn't block the others.
+    const [listRes, unratedRes, captureRes, capacityRes] = await Promise.allSettled([
       apiClient.sidequests.list(10, undefined, { status: "upcoming" }),
       apiClient.sidequests.listUnrated(3),
       apiClient.sidequests.listPendingCapture(2),
+      apiClient.sidequests.getCapacityReps(),
     ]);
     if (listRes.status === "fulfilled") {
       setDeckQuests(listRes.value.data ?? []);
@@ -235,6 +240,9 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     }
     if (captureRes.status === "fulfilled") {
       setPendingCaptures(captureRes.value.data ?? []);
+    }
+    if (capacityRes.status === "fulfilled") {
+      setCapacityReps(capacityRes.value.data ?? []);
     }
   }, []);
 
@@ -431,6 +439,18 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
             summary={profileData?.aiFocus?.summary}
             completedQuests={completedQuests}
           />
+        </ParallaxWidget>
+
+        {/* 3.5 Reps Built — capacity evidence leads looking-back sections,
+             ahead of the composite Growth Signal metric. */}
+        <ParallaxWidget scrollY={scrollY} index={3} delay={240}>
+          <SectionMark
+            icon={"\uD83C\uDFCB\uFE0F"}
+            tint="rgba(134, 239, 172, 0.5)"
+            label="Reps Built"
+            side="right"
+          />
+          <CapacityRepsSection reps={capacityReps} />
         </ParallaxWidget>
 
         {/* 4. Growth Score Hero */}

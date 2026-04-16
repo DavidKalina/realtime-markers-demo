@@ -151,6 +151,15 @@ export type RejectionReason =
   | "BAD_TIMING"
   | "NEED_GENTLER";
 
+export interface CapacityRepSummary {
+  track: CapacityTrack;
+  count: number;
+  fullCount: number;
+  smallerCount: number;
+  tinyCount: number;
+  lastCompletedAt: string | null;
+}
+
 export const REJECTION_REASONS: { value: RejectionReason; label: string }[] = [
   { value: "TOO_SOCIAL", label: "Too social" },
   { value: "TOO_FAR", label: "Too far" },
@@ -380,6 +389,13 @@ export class SidequestsModule {
       { method: "POST" },
     );
     return this.client.handleResponse<SidequestResponse>(response);
+  }
+
+  async getCapacityReps(): Promise<{ data: CapacityRepSummary[] }> {
+    const response = await this.client.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/capacity-reps`,
+    );
+    return this.client.handleResponse<{ data: CapacityRepSummary[] }>(response);
   }
 
   async getPopularStops(city: string, limit = 15): Promise<PopularStop[]> {

@@ -22,6 +22,7 @@ import {
   searchSidequestsHandler,
   prescribeQuestHandler,
   rejectQuestHandler,
+  getCapacityRepsHandler,
 } from "../handlers/sidequestHandlers";
 import {
   objectiveJournalHandler,
@@ -50,6 +51,7 @@ sidequestRouter.get("/active", getActiveSidequestHandler);
 sidequestRouter.get("/browse", browseSidequestsHandler);
 sidequestRouter.get("/search", searchSidequestsHandler);
 sidequestRouter.get("/deck-stats", getDeckStatsHandler);
+sidequestRouter.get("/capacity-reps", getCapacityRepsHandler);
 
 sidequestRouter.get(
   "/comfort-zone",

@@ -15,6 +15,8 @@ import type { RedisService } from "./shared/RedisService";
 import type { OpenAIService } from "./shared/OpenAIService";
 import { OpenAIModel } from "./shared/OpenAIService";
 import type { CoverageService } from "./CoverageService";
+import type { ResonanceService } from "./ResonanceService";
+import type { PathwayService } from "./PathwayService";
 import type { JobQueue } from "./JobQueue";
 import {
   CHECKIN_RADIUS_M as CHECKIN_RADIUS_METERS,
@@ -43,6 +45,8 @@ interface SidequestCheckinServiceDeps {
   redisService: RedisService;
   openAIService: OpenAIService;
   coverageService?: CoverageService;
+  resonanceService?: ResonanceService;
+  pathwayService?: PathwayService;
   jobQueue?: JobQueue;
 }
 
@@ -76,6 +80,8 @@ export class SidequestCheckinService {
   private redisService: RedisService;
   private openAIService: OpenAIService;
   private coverageService?: CoverageService;
+  private resonanceService?: ResonanceService;
+  private pathwayService?: PathwayService;
   private jobQueue?: JobQueue;
   constructor(deps: SidequestCheckinServiceDeps) {
     this.dataSource = deps.dataSource;
@@ -83,6 +89,8 @@ export class SidequestCheckinService {
     this.redisService = deps.redisService;
     this.openAIService = deps.openAIService;
     this.coverageService = deps.coverageService;
+    this.resonanceService = deps.resonanceService;
+    this.pathwayService = deps.pathwayService;
     this.jobQueue = deps.jobQueue;
   }
 
@@ -376,6 +384,13 @@ export class SidequestCheckinService {
       console.error("[SidequestCheckin] Behavioral profile generation failed:", err);
     });
 
+    // Completion is now a first-class learning event — don't wait for a rating
+    // to start resonance/pathway attribution. Rating still triggers a recompute
+    // in SidequestService.rate(); both paths are idempotent at the DB layer.
+    this.updateResonanceAndPathway(sidequestId, userId).catch((err) => {
+      console.error("[SidequestCheckin] Resonance/pathway update failed:", err);
+    });
+
     this.checkAndAutoPrescribe(userId).catch((err) => {
       console.error("[SidequestCheckin] Auto-prescribe check failed:", err);
     });
@@ -383,6 +398,50 @@ export class SidequestCheckinService {
     this.scheduleProgressiveOnboardingNudge(userId).catch((err) => {
       console.error("[SidequestCheckin] Progressive onboarding nudge failed:", err);
     });
+  }
+
+  /**
+   * Compute resonance + detect/update pathway for a just-completed quest.
+   * Mirrors SidequestService.computeResonanceAndPathway but fires at
+   * completion (not rating), so learning doesn't stall on users who never
+   * rate — which is the majority once calibration feedback replaces rating
+   * as the primary signal (Slice B).
+   */
+  private async updateResonanceAndPathway(
+    sidequestId: string,
+    userId: string,
+  ): Promise<void> {
+    if (!this.resonanceService || !this.pathwayService) return;
+
+    const resonance = await this.resonanceService.computeResonanceForSidequest(sidequestId);
+    if (!resonance) return;
+
+    const sidequest = await this.dataSource.getRepository(Sidequest).findOne({
+      where: { id: sidequestId },
+      relations: ["objectives"],
+    });
+    if (!sidequest) return;
+
+    const obj = sidequest.objectives?.[0];
+    const venueCategory = obj?.venueCategory ?? "other";
+    const difficulty = obj?.difficulty ?? 1;
+
+    const result = await this.pathwayService.detectOrCreatePathway(
+      userId,
+      sidequestId,
+      venueCategory,
+      difficulty,
+      resonance,
+      obj?.wouldReturn ?? undefined,
+    );
+
+    if (result) {
+      console.log(
+        `[SidequestCheckin] Resonance ${resonance.score.toFixed(3)} for quest ${sidequestId} ` +
+        `(version=${obj?.completedVersion ?? "?"}, track=${sidequest.capacityTrack ?? "?"}), ` +
+        `pathway "${result.pathway.themeLabel}" (${result.pathway.phase}, ${result.isNew ? "new" : "updated"})`,
+      );
+    }
   }
 
   /**
@@ -499,8 +558,13 @@ export class SidequestCheckinService {
   }
 
   private async checkCompletionMilestone(userId: string): Promise<void> {
+    // The `parent_id IS NOT NULL` filter was a relic of the old 3-tier
+    // parent/children model (the parent shell was counted separately from
+    // completed tier children). In the single-prescription model the parent
+    // column is null, so the legacy filter counted zero completions and
+    // milestone pushes never fired. Count every completed, non-deleted quest.
     const result = await this.dataSource.query(
-      `SELECT COUNT(*) as count FROM sidequests WHERE user_id = $1 AND completed_at IS NOT NULL AND parent_id IS NOT NULL`,
+      `SELECT COUNT(*) as count FROM sidequests WHERE user_id = $1 AND completed_at IS NOT NULL AND deleted_at IS NULL`,
       [userId],
     );
     const completedCount = Number(result[0]?.count ?? 0);

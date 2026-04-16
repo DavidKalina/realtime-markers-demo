@@ -793,6 +793,57 @@ export class SidequestService {
       recentCards,
     };
   }
+  /**
+   * Aggregate completed reps per capacity track for a user. Returns rows only
+   * for tracks with at least one completion — the client fills in the rest so
+   * the user always sees all 9 tracks.
+   */
+  async getCapacityReps(userId: string): Promise<
+    {
+      track: string;
+      count: number;
+      fullCount: number;
+      smallerCount: number;
+      tinyCount: number;
+      lastCompletedAt: string | null;
+    }[]
+  > {
+    const rows: {
+      track: string;
+      count: string;
+      full_count: string;
+      smaller_count: string;
+      tiny_count: string;
+      last_completed_at: Date | null;
+    }[] = await this.dataSource.query(
+      `SELECT
+         s.capacity_track AS track,
+         COUNT(*) AS count,
+         SUM(CASE WHEN o.completed_version = 'full' THEN 1 ELSE 0 END) AS full_count,
+         SUM(CASE WHEN o.completed_version = 'smaller' THEN 1 ELSE 0 END) AS smaller_count,
+         SUM(CASE WHEN o.completed_version = 'tiny' THEN 1 ELSE 0 END) AS tiny_count,
+         MAX(s.completed_at) AS last_completed_at
+       FROM sidequests s
+       LEFT JOIN objectives o ON o.sidequest_id = s.id
+       WHERE s.user_id = $1
+         AND s.completed_at IS NOT NULL
+         AND s.deleted_at IS NULL
+         AND s.capacity_track IS NOT NULL
+       GROUP BY s.capacity_track
+       ORDER BY count DESC`,
+      [userId],
+    );
+
+    return rows.map((r) => ({
+      track: r.track,
+      count: Number(r.count),
+      fullCount: Number(r.full_count ?? 0),
+      smallerCount: Number(r.smaller_count ?? 0),
+      tinyCount: Number(r.tiny_count ?? 0),
+      lastCompletedAt: r.last_completed_at ? r.last_completed_at.toISOString() : null,
+    }));
+  }
+
   // prescribeQuest and its helpers have been extracted to SidequestPrescriptionService
 
 
