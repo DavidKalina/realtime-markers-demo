@@ -508,6 +508,10 @@ export const getCapacityRepsHandler: Handler = withErrorHandling(async (c) => {
 // ─── Wellness Pivot Handlers ───────────────────────────────────────
 
 const DAILY_PRESCRIBE_LIMIT = 3;
+// In-flight dedup window. Long enough to cover a typical prescription job,
+// short enough that a legitimate follow-up tap isn't blocked. Mirrors the
+// auto-prescribe lock in SidequestCheckinService.
+const PRESCRIBE_INFLIGHT_TTL_SECONDS = 90;
 
 export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
   const user = requireAuth(c);
@@ -546,18 +550,49 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
     );
   }
 
+  // In-flight dedup. Frontend has multiple paths that can fire prescribe
+  // during the onboarding→dashboard handoff (the post-onboarding call plus
+  // the empty-deck fallback in UserProfile). Reserve a per-user slot so
+  // racing requests collapse onto the original job.
+  const redisService = c.get("redisService");
+  const client = redisService.getClient();
+  const lockKey = `prescribe-quest-inflight:${userId}`;
+  const reserved = await client.set(lockKey, "RESERVED", "EX", PRESCRIBE_INFLIGHT_TTL_SECONDS, "NX");
+  if (!reserved) {
+    const existingJobId = await client.get(lockKey);
+    const inflightJobId = existingJobId && existingJobId !== "RESERVED" ? existingJobId : null;
+    return c.json(
+      {
+        jobId: inflightJobId,
+        streamUrl: inflightJobId ? `/api/jobs/${inflightJobId}/stream` : undefined,
+        deduplicated: true,
+        remaining: DAILY_PRESCRIBE_LIMIT - todayCount,
+      },
+      202,
+    );
+  }
+
   // Enqueue prescription job
   const jobQueue = c.get("jobQueue");
-  const jobId = await jobQueue.enqueue("prescribe_quest", {
-    userId,
-    creatorId: userId,
-    latitude: body.latitude,
-    longitude: body.longitude,
-    ...(body.timezone && { timezone: body.timezone }),
-    ...(body.model && { model: body.model }),
-    ...(body.questType && { questType: body.questType }),
-    ...(body.challengeCategory && { challengeCategory: body.challengeCategory }),
-  });
+  let jobId: string;
+  try {
+    jobId = await jobQueue.enqueue("prescribe_quest", {
+      userId,
+      creatorId: userId,
+      latitude: body.latitude,
+      longitude: body.longitude,
+      ...(body.timezone && { timezone: body.timezone }),
+      ...(body.model && { model: body.model }),
+      ...(body.questType && { questType: body.questType }),
+      ...(body.challengeCategory && { challengeCategory: body.challengeCategory }),
+    });
+  } catch (err) {
+    await client.del(lockKey);
+    throw err;
+  }
+
+  // Stash the real jobId so racing callers can subscribe to the same stream.
+  await client.set(lockKey, jobId, "EX", PRESCRIBE_INFLIGHT_TTL_SECONDS);
 
   return c.json(
     {
