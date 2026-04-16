@@ -46,6 +46,7 @@ import {
   type Colors,
 } from "@/theme";
 import { useActiveItineraryStore } from "@/stores/useActiveItineraryStore";
+import { useJobProgressContext } from "@/contexts/JobProgressContext";
 
 // --- Ambient Glow ---
 
@@ -124,6 +125,7 @@ const ItinerariesListScreen = () => {
   const activeItineraryId = useActiveItineraryStore(
     (s) => s.itinerary?.id ?? null,
   );
+  const { isGenerating, stepLabel, hasReady } = useJobProgressContext();
 
   const PAGE_SIZE = 20;
   const [itineraries, setItineraries] = useState<SidequestResponse[]>([]);
@@ -160,6 +162,13 @@ const ItinerariesListScreen = () => {
   useEffect(() => {
     fetchItineraries();
   }, [fetchItineraries]);
+
+  // Refetch when a job completes (new quest arrives)
+  useEffect(() => {
+    if (hasReady) {
+      fetchItineraries();
+    }
+  }, [hasReady, fetchItineraries]);
 
   // Batch reveal state — shown when auto-prescribed quests arrive
   const [revealQuests, setRevealQuests] = useState<SidequestResponse[]>([]);
@@ -287,12 +296,21 @@ const ItinerariesListScreen = () => {
         showBackButton={false}
         noAnimation
       >
-        <EmptyState
-          emoji={"\u{1F5FA}\u{FE0F}"}
-          title="No quests yet"
-          subtitle="Your social life starts here"
-          style={{ justifyContent: "flex-start", paddingTop: spacing["3xl"] }}
-        />
+        {isGenerating ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="small" color={colors.accent.primary} />
+            <Text style={styles.generatingLabel}>
+              {stepLabel || "Crafting your quest..."}
+            </Text>
+          </View>
+        ) : (
+          <EmptyState
+            emoji={"\u{1F5FA}\u{FE0F}"}
+            title="No quests yet"
+            subtitle="Your social life starts here"
+            style={{ justifyContent: "flex-start", paddingTop: spacing["3xl"] }}
+          />
+        )}
       </Screen>
     );
   }
@@ -317,6 +335,15 @@ const ItinerariesListScreen = () => {
           </View>
         </View>
       </View>
+      {isGenerating && (
+        <Animated.View entering={FadeInUp.duration(200)} exiting={FadeOutUp.duration(150)} style={styles.generatingBar}>
+          <ActivityIndicator size="small" color={colors.accent.primary} />
+          <Text style={styles.generatingBarText}>
+            {stepLabel || "Crafting your quest..."}
+          </Text>
+        </Animated.View>
+      )}
+
       <View style={styles.deckScreen}>
         <QuestCardDeck
           options={itineraries}
@@ -453,5 +480,29 @@ const createScreenStyles = (colors: Colors) =>
       fontSize: 11,
       fontWeight: fontWeight.bold,
       color: "#fff",
+    },
+    generatingBar: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      marginHorizontal: spacing.lg,
+      marginTop: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderRadius: radius.md,
+      backgroundColor: `rgba(${colors.accent.rgb}, 0.06)`,
+      borderWidth: 1,
+      borderColor: `rgba(${colors.accent.rgb}, 0.12)`,
+    },
+    generatingBarText: {
+      fontFamily: fontFamily.mono,
+      fontSize: 12,
+      color: colors.accent.primary,
+    },
+    generatingLabel: {
+      fontFamily: fontFamily.mono,
+      fontSize: 14,
+      color: colors.text.secondary,
+      marginTop: spacing.md,
     },
   });

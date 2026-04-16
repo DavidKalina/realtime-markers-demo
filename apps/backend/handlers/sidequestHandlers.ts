@@ -462,6 +462,14 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
     model?: string;
     questType?: "venue" | "challenge";
     challengeCategory?: string;
+    chosenConcept?: {
+      title: string;
+      experienceType: string;
+      suggestedCategories: string[];
+      targetCity: string;
+      searchQueries: string[];
+      difficulty: number;
+    };
   }>();
 
   if (typeof body.latitude !== "number" || typeof body.longitude !== "number") {
@@ -488,6 +496,12 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
     );
   }
 
+  // Clear pending concepts immediately if user picked one
+  if (body.chosenConcept) {
+    const redisService = c.get("redisService");
+    await redisService.getClient().del(`pending_concepts:${userId}`);
+  }
+
   // Enqueue prescription job
   const jobQueue = c.get("jobQueue");
   const jobId = await jobQueue.enqueue("prescribe_quest", {
@@ -499,6 +513,7 @@ export const prescribeQuestHandler: Handler = withErrorHandling(async (c) => {
     ...(body.model && { model: body.model }),
     ...(body.questType && { questType: body.questType }),
     ...(body.challengeCategory && { challengeCategory: body.challengeCategory }),
+    ...(body.chosenConcept && { chosenConcept: body.chosenConcept }),
   });
 
   return c.json(

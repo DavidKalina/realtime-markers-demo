@@ -26,7 +26,7 @@ import { StepWelcome } from "@/components/Onboarding/StepWelcome";
 import { StepGoal } from "@/components/Onboarding/StepGoal";
 import { StepActivities } from "@/components/Onboarding/StepActivities";
 import { StepQuickDetails, type QuickDetails } from "@/components/Onboarding/StepQuickDetails";
-import { GOAL_OPTIONS } from "@/components/Onboarding/constants";
+import { GOAL_OPTIONS, goalKeyToTags } from "@/components/Onboarding/constants";
 
 // ── Main screen ─────────────────────────────────────────
 
@@ -81,7 +81,7 @@ const OnboardingScreen: React.FC = () => {
     setQuickDetails((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  // ── Finish ────────────────────────────────────────────
+  // ── Finish → save profile + enqueue concept generation ──
 
   const handleFinish = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -102,7 +102,8 @@ const OnboardingScreen: React.FC = () => {
           comfortZone: "Getting started",
           barriers: "",
           goals: primaryGoal,
-          goalTags: [],
+          goalKey: selectedGoalKey,
+          goalTags: goalKeyToTags(selectedGoalKey),
           primaryGoal,
         },
         onboardingProfile: selectedActivities.length > 0
@@ -129,10 +130,10 @@ const OnboardingScreen: React.FC = () => {
 
       await refreshAuth();
 
-      // Prescribe a single first quest (not a pack)
+      // Enqueue concept generation (non-blocking)
       const lat = userLocation ? userLocation[1] : 0;
       const lng = userLocation ? userLocation[0] : 0;
-      const { jobId } = await apiClient.sidequests.prescribeQuest({
+      const { jobId } = await apiClient.sidequests.generateConcepts({
         latitude: lat,
         longitude: lng,
         timezone: getUserTimezone(),
@@ -140,7 +141,7 @@ const OnboardingScreen: React.FC = () => {
 
       trackJob(jobId);
 
-      // Navigate to dashboard immediately — don't wait for generation
+      // Navigate to dashboard immediately — concepts arrive via push notification
       router.replace("/");
     } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -195,6 +196,7 @@ const OnboardingScreen: React.FC = () => {
             onUpdate={handleUpdateDetail}
             onNext={handleFinish}
             onBack={handleBack}
+            loading={isLoading}
           />
         );
       default:

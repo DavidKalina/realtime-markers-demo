@@ -862,16 +862,6 @@ export async function buildArcNarrative(dataSource: DataSource, userId: string):
   // Current
   parts.push(`and most recently visited a ${m.latest_category ?? "venue"} in ${m.latest_city ?? "their area"}`);
 
-  // North star
-  const userRow = await dataSource.query(
-    `SELECT comfort_profile FROM users WHERE id = $1`,
-    [userId],
-  );
-  const northStar = userRow[0]?.comfort_profile?.northStar;
-  if (northStar) {
-    parts.push(`Their north star: "${northStar}"`);
-  }
-
   return parts.join(", ") + ". Frame this quest as the next chapter in their story.";
 }
 

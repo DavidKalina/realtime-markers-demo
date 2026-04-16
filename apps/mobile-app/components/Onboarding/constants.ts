@@ -8,6 +8,21 @@ export const GOAL_OPTIONS = [
   { key: "from_scratch", label: "\uD83D\uDD04 Build a social life from scratch" },
 ];
 
+// ── Goal key → resonance weight tags ───────────────────────
+// Maps onboarding goal keys to the resonance weight tags in QuestConfig.goalWeights
+
+const GOAL_KEY_TO_TAGS: Record<string, string[]> = {
+  build_friends: ["socialize"],
+  start_dating: ["socialize"],
+  stop_homebody: ["explore", "routine"],
+  find_people: ["socialize", "explore"],
+  from_scratch: ["socialize", "routine"],
+};
+
+export function goalKeyToTags(goalKey: string): string[] {
+  return GOAL_KEY_TO_TAGS[goalKey] ?? [];
+}
+
 // ── Barrier options ─────────────────────────────────────────
 
 export const BARRIER_OPTIONS = [

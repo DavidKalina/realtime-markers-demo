@@ -26,7 +26,7 @@ export class PrescribeQuestHandler {
     });
 
     try {
-      const { userId, latitude, longitude, timezone, model, questType, challengeCategory } = job.data as {
+      const { userId, latitude, longitude, timezone, model, questType, challengeCategory, chosenConcept } = job.data as {
         userId: string;
         latitude: number;
         longitude: number;
@@ -34,6 +34,14 @@ export class PrescribeQuestHandler {
         model?: string;
         questType?: "venue" | "challenge";
         challengeCategory?: string;
+        chosenConcept?: {
+          title: string;
+          experienceType: string;
+          suggestedCategories: string[];
+          targetCity: string;
+          searchQueries: string[];
+          difficulty: number;
+        };
       };
 
       await tracker.step("generate");
@@ -44,7 +52,7 @@ export class PrescribeQuestHandler {
 
       const sidequest = await this.sidequestPrescriptionService.prescribeQuest(
         userId,
-        { latitude, longitude, timezone, model, questType, challengeCategory },
+        { latitude, longitude, timezone, model, questType, challengeCategory, chosenConcept },
         onProgress,
       );
 

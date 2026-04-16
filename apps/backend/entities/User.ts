@@ -153,11 +153,9 @@ export class User {
     comfortZone: string;
     barriers: string;
     goals: string;
+    goalKey?: string;
     goalTags?: string[];
-    northStar?: string;
     primaryGoal?: string;
-    targetDate?: string;
-    goalLocation?: string;
   };
 
   @Column({ name: "fear_ladder", type: "jsonb", nullable: true })

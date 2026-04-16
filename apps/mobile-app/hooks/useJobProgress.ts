@@ -25,6 +25,7 @@ export interface JobExtractions {
 
 export interface TrackedJob {
   jobId: string;
+  jobType?: string;
   itineraryId?: string;
   status: JobStatus;
   progress: number;
@@ -140,6 +141,7 @@ export function useJobProgress(): UseJobProgressReturn {
 
               next.set(jobId, {
                 jobId,
+                jobType: data.jobType || existing?.jobType,
                 itineraryId: existing?.itineraryId,
                 status: data.status || existing?.status || "processing",
                 progress: data.progress ?? existing?.progress ?? 0,

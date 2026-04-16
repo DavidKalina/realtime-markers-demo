@@ -29,11 +29,9 @@ export interface UserProfile {
     comfortZone: string;
     barriers: string;
     goals: string;
+    goalKey?: string;
     goalTags?: string[];
-    northStar?: string;
     primaryGoal?: string;
-    targetDate?: string;
-    goalLocation?: string;
   };
   fearLadder?: {
     overallScore: number;

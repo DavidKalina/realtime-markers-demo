@@ -80,7 +80,7 @@ interface BlockerConfig {
 interface LivePersona {
   name: string;
   primaryGoal: string;
-  northStar: string;
+  goalKey?: string;
   pace: "gentle" | "steady" | "push_me";
   goals: string[];
   goalTags: string[];
@@ -94,17 +94,13 @@ interface LivePersona {
   journalProbability: number;
   socialEscalationRate: number;
   blocker?: BlockerConfig;
-  /** ISO date string — if set, the simulation will test the timeline/pacing flow */
-  targetDate?: string;
-  /** City/location for the goal — used with targetDate for relocation goals */
-  goalLocation?: string;
 }
 
 const PERSONAS: Record<string, LivePersona> = {
   "shy-sarah": {
     name: "Shy Sarah",
     primaryGoal: "Overcome social anxiety and feel comfortable going out alone",
-    northStar: "I want to walk into a crowded room and feel like I belong there.",
+    goalKey: "stop_homebody",
     pace: "gentle",
     goals: ["I want to meet people and feel less isolated"],
     goalTags: ["socialize", "unwind"],
@@ -121,7 +117,7 @@ const PERSONAS: Record<string, LivePersona> = {
   "adventurous-alex": {
     name: "Adventurous Alex",
     primaryGoal: "Discover every hidden gem in my city and build a community",
-    northStar: "I want to be the person everyone asks for recommendations.",
+    goalKey: "find_people",
     pace: "push_me",
     goals: ["I want to find my community and try everything this city has"],
     goalTags: ["explore", "fitness", "new_skill"],
@@ -138,7 +134,7 @@ const PERSONAS: Record<string, LivePersona> = {
   "routine-rick": {
     name: "Routine Rick",
     primaryGoal: "Break out of my routine and build healthier habits",
-    northStar: "I want to look forward to my weekends instead of dreading them.",
+    goalKey: "stop_homebody",
     pace: "steady",
     goals: ["I want to break out of my routine and build new habits"],
     goalTags: ["routine", "fitness", "socialize"],
@@ -155,7 +151,7 @@ const PERSONAS: Record<string, LivePersona> = {
   "comedian-carl": {
     name: "Comedian Carl",
     primaryGoal: "Become a stand-up comedian and perform at open mics regularly",
-    northStar: "I want to do a 10-minute set that makes a room full of strangers laugh.",
+    goalKey: "find_people",
     pace: "steady",
     goals: ["I want to build the confidence to perform comedy on stage"],
     goalTags: ["new_skill", "socialize"],
@@ -172,7 +168,7 @@ const PERSONAS: Record<string, LivePersona> = {
   "fitness-fiona": {
     name: "Fitness Fiona",
     primaryGoal: "Train for and complete a half marathon",
-    northStar: "I want to cross a finish line and feel like I earned it.",
+    goalKey: "find_people",
     pace: "push_me",
     goals: ["I want to get in shape and find a running community"],
     goalTags: ["fitness", "routine", "socialize"],
@@ -185,12 +181,11 @@ const PERSONAS: Record<string, LivePersona> = {
     ratingBias: 0.65,
     journalProbability: 0.55,
     socialEscalationRate: 0.25,
-    targetDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
   },
   "mover-mike": {
     name: "Mover Mike",
     primaryGoal: "Move out of my parents' house and into my own place in Denver",
-    northStar: "I want to sign a lease on my own apartment and feel ready to live independently.",
+    goalKey: "from_scratch",
     pace: "steady",
     goals: ["I want to become financially and socially ready to live on my own"],
     goalTags: ["independence", "socialize", "routine"],
@@ -203,13 +198,11 @@ const PERSONAS: Record<string, LivePersona> = {
     ratingBias: 0.6,
     journalProbability: 0.6,
     socialEscalationRate: 0.18,
-    targetDate: new Date(Date.now() + 270 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    goalLocation: "Denver, CO",
   },
   "wallflower-wendy": {
     name: "Wallflower Wendy",
     primaryGoal: "Build a real social circle and feel comfortable at meetups and group events",
-    northStar: "I want to walk into a room full of strangers and leave with a friend.",
+    goalKey: "build_friends",
     pace: "steady",
     goals: ["I want to make friends and stop being so isolated"],
     goalTags: ["socialize", "explore"],
@@ -421,7 +414,6 @@ Respond with JSON matching this exact shape:
 {
   "name": "Firstname Lastname",
   "primaryGoal": "<the goal, slightly expanded if needed>",
-  "northStar": "<1 sentence — what success ultimately looks like to them>",
   "pace": "gentle" | "steady" | "push_me",
   "goals": ["<1 sentence describing what they want>"],
   "goalTags": ["<2-3 tags from: explore, socialize, discover_hobby, routine, fitness, new_skill, unwind>"],
@@ -432,8 +424,6 @@ Respond with JSON matching this exact shape:
   "ratingBias": <0.4-0.8 float — lower means they'll rate quests lower on average>,
   "journalProbability": <0.3-0.8 float — how likely they are to journal>,
   "socialEscalationRate": <0.05-0.4 float — how quickly they escalate social context>,
-  "targetDate": "<YYYY-MM-DD or null — a realistic deadline if the goal is time-bound>",
-  "goalLocation": "<city/region or null — if the goal involves a specific location>",
   "blocker": {
     "description": "<action they consistently avoid, or null if no blocker>",
     "avoidanceActivity": "<what they do instead when the blocker fires>"
@@ -447,8 +437,6 @@ Guidelines:
 - ratingBias should correlate with confidence (anxious = lower ~0.5, confident = higher ~0.7)
 - journalProbability should correlate with introspection
 - socialEscalationRate should correlate with social comfort
-- targetDate: set a realistic date 3-12 months from now if the goal has a natural deadline (race, move, event, season). Null if open-ended.
-- goalLocation: only set if the goal references a specific city/region (e.g. "move to Denver"). Null otherwise.
 - blocker: identify ONE recurring avoidance behavior that would realistically hold this person back. Set to null only if the goal has no obvious psychological barrier. Most goals have one.`,
     `Goal: "${goal}"`,
     600,
@@ -462,7 +450,6 @@ Guidelines:
   const persona: LivePersona = {
     name: result.name ?? "Generated User",
     primaryGoal: result.primaryGoal ?? goal,
-    northStar: result.northStar ?? `I want to achieve: ${goal}`,
     pace: ["gentle", "steady", "push_me"].includes(result.pace) ? result.pace : "steady",
     goals: Array.isArray(result.goals) ? result.goals : [goal],
     goalTags: Array.isArray(result.goalTags) ? result.goalTags : ["new_skill"],
@@ -475,8 +462,6 @@ Guidelines:
     ratingBias: typeof result.ratingBias === "number" ? Math.max(0.4, Math.min(0.8, result.ratingBias)) : 0.6,
     journalProbability: typeof result.journalProbability === "number" ? Math.max(0.3, Math.min(0.8, result.journalProbability)) : 0.5,
     socialEscalationRate: typeof result.socialEscalationRate === "number" ? Math.max(0.05, Math.min(0.4, result.socialEscalationRate)) : 0.2,
-    ...(result.targetDate && typeof result.targetDate === "string" && result.targetDate !== "null" && { targetDate: result.targetDate }),
-    ...(result.goalLocation && typeof result.goalLocation === "string" && result.goalLocation !== "null" && { goalLocation: result.goalLocation }),
     ...(result.blocker && typeof result.blocker === "object" && result.blocker.description && result.blocker.description !== "null" && {
       blocker: {
         description: result.blocker.description,
@@ -488,13 +473,10 @@ Guidelines:
 
   console.log(`  Name: ${persona.name}`);
   console.log(`  Goal: ${persona.primaryGoal}`);
-  console.log(`  North Star: ${persona.northStar}`);
   console.log(`  Pace: ${persona.pace}`);
   console.log(`  Barriers: ${persona.barriers}`);
   console.log(`  Comfort Zone: ${persona.comfortZone}`);
   console.log(`  Activities: ${persona.activities.join(", ")}`);
-  if (persona.targetDate) console.log(`  Target Date: ${persona.targetDate}`);
-  if (persona.goalLocation) console.log(`  Goal Location: ${persona.goalLocation}`);
   if (persona.blocker) console.log(`  Blocker: "${persona.blocker.description}" → "${persona.blocker.avoidanceActivity}"`);
   console.log(`  Rating bias: ${persona.ratingBias.toFixed(2)}, Journal prob: ${persona.journalProbability.toFixed(2)}, Social rate: ${persona.socialEscalationRate.toFixed(2)}`);
 
@@ -682,6 +664,54 @@ Respond with JSON:
     difficulty: typeof result.difficulty === "number" ? Math.max(1, Math.min(10, Math.round(result.difficulty))) : 5,
     outcome: typeof result.outcome === "string" ? result.outcome.slice(0, 500) : "Not sure what to expect.",
   };
+}
+
+/**
+ * Have the persona choose a quest concept from the generated options.
+ * Falls back to the first concept if LLM is unavailable.
+ */
+async function chooseConceptAsPersona(
+  persona: LivePersona,
+  concepts: { id: string; title: string; pitch: string; difficulty: number; emoji: string }[],
+  questIndex: number,
+  fearScore: number,
+): Promise<number> {
+  if (concepts.length <= 1) return 0;
+
+  const conceptList = concepts
+    .map((c, i) => `  ${i + 1}. ${c.emoji} "${c.title}" (difficulty ${c.difficulty}/10) — ${c.pitch}`)
+    .join("\n");
+
+  const result = await llmJson(
+    `You are roleplaying as a person with this profile:
+- Goal: ${persona.primaryGoal}
+- Barriers: ${persona.barriers}
+- Comfort zone: ${persona.comfortZone}
+- Fear score: ${fearScore.toFixed(2)}/1.0 (higher = more anxious)
+- Pace: ${persona.pace}
+- This is quest #${questIndex + 1} in their journey.
+
+You're being offered a choice of quest concepts. Pick the one that feels most right for where you are in your journey. Be in-character — if you're anxious, you might pick the safer option. If you're feeling bold, go for the stretch.`,
+    `Here are your options:
+${conceptList}
+
+Which one do you pick? Respond with JSON:
+{
+  "choice": <number 1-${concepts.length}>,
+  "reason": "<1 sentence, in-character, why you picked this one>"
+}`,
+    150,
+  );
+
+  if (result && typeof result.choice === "number" && result.choice >= 1 && result.choice <= concepts.length) {
+    const idx = result.choice - 1;
+    if (result.reason) {
+      console.log(`│  Choice reason: "${result.reason}"`);
+    }
+    return idx;
+  }
+
+  return 0;
 }
 
 // ── Synthetic data generators ────────────────────────────────
@@ -963,56 +993,6 @@ async function main() {
       longitude: persona.homeLongitude,
     });
 
-    // 2b. Goal refinement
-    console.log("Assessing goal specificity...");
-    const assessRes = await api("POST", "/api/sidequests/assess-goal", token, {
-      goal: persona.primaryGoal,
-    });
-    if (assessRes.status === 200 && assessRes.data) {
-      const { specificity, feasibility, needsRefinement, refinedGoal } = assessRes.data;
-      console.log(`  Specificity: ${specificity.toFixed(2)}, Feasibility: ${feasibility}`);
-      if (feasibility === "unfeasible" || feasibility === "concerning" || feasibility === "out_of_scope") {
-        console.log(`  ⚠ Goal rejected (${feasibility}): ${assessRes.data.redirectMessage ?? assessRes.data.reframeSuggestion}`);
-        console.log("  Proceeding with raw goal anyway (simulation).");
-      } else if (needsRefinement) {
-        console.log(`  Goal needs refinement. First question: "${assessRes.data.firstQuestion}"`);
-        // Simulate answering the refinement question
-        let state = assessRes.data.state;
-        const answers = [
-          `I want to ${persona.primaryGoal.toLowerCase()} within the next ${persona.targetDate ? "few months" : "year or so"}.${persona.goalLocation ? ` I'm thinking about ${persona.goalLocation}.` : ""}`,
-          "I just want to feel ready and confident about it. Like I've actually built the skills I need.",
-        ];
-        for (let i = 0; i < Math.min(answers.length, 3); i++) {
-          const refineRes = await api("POST", "/api/sidequests/refine-goal", token, {
-            state,
-            response: answers[i] ?? "I'm not sure, whatever feels right.",
-          });
-          if (refineRes.status === 200 && refineRes.data) {
-            if (refineRes.data.done && refineRes.data.refinedGoal) {
-              persona.primaryGoal = refineRes.data.refinedGoal;
-              console.log(`  ✓ Refined goal: "${persona.primaryGoal}"`);
-              if (refineRes.data.state?.extractedSignals?.targetDate) {
-                persona.targetDate = refineRes.data.state.extractedSignals.targetDate;
-                console.log(`  ✓ Extracted target date: ${persona.targetDate}`);
-              }
-              if (refineRes.data.state?.extractedSignals?.goalLocation) {
-                persona.goalLocation = refineRes.data.state.extractedSignals.goalLocation;
-                console.log(`  ✓ Extracted goal location: ${persona.goalLocation}`);
-              }
-              break;
-            }
-            state = refineRes.data.state;
-            if (refineRes.data.question) {
-              console.log(`  Q: "${refineRes.data.question}"`);
-            }
-          }
-        }
-      } else if (refinedGoal) {
-        persona.primaryGoal = refinedGoal;
-        console.log(`  ✓ Goal already specific: "${persona.primaryGoal}"`);
-      }
-    }
-
     // 3. Generate fear ladder (unless skipped)
     if (!skipFearLadder) {
       console.log("Generating personalized fear ladder...");
@@ -1059,11 +1039,9 @@ async function main() {
             comfortZone: persona.comfortZone,
             barriers: persona.barriers,
             goals: persona.goals[0],
+            goalKey: persona.goalKey,
             goalTags: persona.goalTags,
-            northStar: persona.northStar,
             primaryGoal: persona.primaryGoal,
-            targetDate: persona.targetDate || undefined,
-            goalLocation: persona.goalLocation || undefined,
           },
           fearLadder: {
             overallScore: scored.overallScore,
@@ -1082,11 +1060,9 @@ async function main() {
             comfortZone: persona.comfortZone,
             barriers: persona.barriers,
             goals: persona.goals[0],
+            goalKey: persona.goalKey,
             goalTags: persona.goalTags,
-            northStar: persona.northStar,
             primaryGoal: persona.primaryGoal,
-            targetDate: persona.targetDate || undefined,
-            goalLocation: persona.goalLocation || undefined,
           },
         });
       }
@@ -1100,10 +1076,7 @@ async function main() {
           barriers: persona.barriers,
           goals: persona.goals[0],
           goalTags: persona.goalTags,
-          northStar: persona.northStar,
           primaryGoal: persona.primaryGoal,
-          targetDate: persona.targetDate || undefined,
-          goalLocation: persona.goalLocation || undefined,
         },
       });
     }
@@ -1184,13 +1157,65 @@ async function main() {
 
     let sidequestId: string | undefined;
 
-    // Individual prescription
+    // For venue quests: generate concepts, pick one, then prescribe with it
+    let chosenConcept: { title: string; experienceType: string; suggestedCategories: string[]; targetCity: string; searchQueries: string[]; difficulty: number } | undefined;
+
+    if (!isChallenge) {
+      console.log(`│  Generating quest concepts...`);
+      const conceptRes = await api("POST", "/api/sidequests/prescribe/concepts", token, {
+        latitude: simLat,
+        longitude: simLng,
+      });
+
+      if (conceptRes.status === 202 && conceptRes.data?.jobId) {
+        try {
+          await pollJobCompletion(conceptRes.data.jobId, token);
+          console.log();
+
+          // Fetch generated concepts from Redis via API
+          const fetchRes = await api("GET", "/api/sidequests/prescribe/concepts", token);
+          const concepts = fetchRes.data?.concepts ?? [];
+
+          if (concepts.length > 0) {
+            console.log(`│  ${concepts.length} concepts generated:`);
+            for (const c of concepts) {
+              console.log(`│    ${c.emoji} "${c.title}" (difficulty ${c.difficulty}) — ${c.pitch}`);
+            }
+
+            // Have the persona choose in-character
+            const choiceIdx = persona
+              ? await chooseConceptAsPersona(persona, concepts, i, simFearScore)
+              : 0;
+            const picked = concepts[choiceIdx];
+            console.log(`│  Picked: ${picked.emoji} "${picked.title}"`);
+
+            chosenConcept = {
+              title: picked.title,
+              experienceType: picked.experienceType,
+              suggestedCategories: picked.suggestedCategories ?? [],
+              targetCity: picked.targetCity ?? "",
+              searchQueries: picked.searchQueries ?? [],
+              difficulty: picked.difficulty ?? 3,
+            };
+          } else {
+            console.log(`│  No concepts returned, prescribing without concept selection`);
+          }
+        } catch (err: any) {
+          console.log(`│  Concept generation failed: ${err.message}, prescribing without concept selection`);
+        }
+      } else {
+        console.log(`│  Concept generation failed (${conceptRes.status}), prescribing without concept selection`);
+      }
+    }
+
+    // Prescribe quest (with chosen concept if available)
     console.log(`│  Prescribing ${isChallenge ? `challenge (${challengeCategory})` : "venue"} quest...`);
     const prescribeRes = await api("POST", "/api/sidequests/prescribe", token, {
       latitude: simLat,
       longitude: simLng,
       ...(simModel && { model: simModel }),
       ...(isChallenge && { questType: "challenge", challengeCategory }),
+      ...(chosenConcept && { chosenConcept }),
     });
 
     if (prescribeRes.status !== 202) {
@@ -1500,7 +1525,7 @@ async function main() {
     }
 
     // ── Goal pacing / milestone check ─────────────────────
-    if (persona?.targetDate || !skipProfile) {
+    if (!skipProfile) {
       const pacingRes = await api("GET", "/api/sidequests/goal-pacing", token);
       if (pacingRes.data?.hasTimeline) {
         const p = pacingRes.data;
@@ -1718,8 +1743,6 @@ async function main() {
     for (const m of milestoneEvents) {
       console.log(`    Quest ${m.questIndex + 1}: ${m.milestone} (${m.percentElapsed}% elapsed, ${m.remainingDays}d left) ${m.reflectionSaved ? "— reflection saved" : "— reflection failed"}`);
     }
-  } else if (persona?.targetDate) {
-    console.log(`\n  Milestone Timeline: No milestones triggered (target date may be too far out for ${questCount} quests)`);
   }
 
   // Journey timeline

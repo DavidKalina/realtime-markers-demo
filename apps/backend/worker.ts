@@ -3,6 +3,7 @@ import AppDataSource from "./data-source";
 import type { JobQueue, JobData } from "./services/JobQueue";
 import type { RedisService } from "./services/shared/RedisService";
 import { PrescribeQuestHandler } from "./handlers/job/PrescribeQuestHandler";
+import { GenerateConceptsHandler } from "./handlers/job/GenerateConceptsHandler";
 import { Redis } from "ioredis";
 import { createServices } from "./services/ServiceInitializer";
 
@@ -42,8 +43,14 @@ async function initializeWorker() {
     services.jobNotificationService,
   );
 
+  const generateConcepts = new GenerateConceptsHandler(
+    services.sidequestPrescriptionService,
+    services.jobNotificationService,
+  );
+
   handlers = {
     prescribe_quest: prescribeQuest,
+    generate_concepts: generateConcepts,
   };
 
   console.log("Worker initialized successfully");

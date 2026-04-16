@@ -45,12 +45,37 @@ export interface PrescriptionStrategyInput {
   prescriptionModel?: string;
   inputModelOverride?: string;
   onProgress?: SidequestProgressCallback;
+  /** When provided, skip the Strategist and use this as the strategy brief */
+  chosenConcept?: ChosenConcept;
 }
 
 export interface PrescriptionStrategyResult {
   raw: LLMResponseRaw;
   allVenues: VerifiedVenue[];
   allTrails: Trail[];
+}
+
+// ── Quest concept (lightweight pre-selection) ──────────────
+
+export interface QuestConcept {
+  id: string;
+  title: string;
+  pitch: string;
+  difficulty: number;
+  experienceType: string;
+  emoji: string;
+  suggestedCategories: string[];
+  targetCity: string;
+  searchQueries: string[];
+}
+
+export interface ChosenConcept {
+  title: string;
+  experienceType: string;
+  suggestedCategories: string[];
+  targetCity: string;
+  searchQueries: string[];
+  difficulty: number;
 }
 
 // ── Multi-agent intermediate types ──────────────────────────

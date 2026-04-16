@@ -21,10 +21,7 @@ export interface PrescriptionPromptContext {
       barriers?: string;
       goals?: string;
       goalTags?: string[];
-      northStar?: string;
       comfortZone?: string;
-      targetDate?: string;
-      goalLocation?: string;
     } | null;
     onboardingProfile: {
       activities?: string[];
@@ -196,11 +193,9 @@ USER PROFILE:
 ${isAwayFromHome ? "- USER IS AWAY FROM HOME. Search near their CURRENT location, not their home. Keep it easy — they're already out of their usual zone." : ""}
 - Pace: ${pace === "gentle" ? "Gentle — ease them in, stay close, familiar categories" : pace === "push_me" ? "Push me — they want to be challenged, stretch further" : "Steady — balanced expansion, moderate stretches"}
 ${comfortProfile?.primaryGoal ? `- PRIMARY GOAL: "${comfortProfile.primaryGoal}" — every quest should advance this goal or build supporting skills/confidence` : ""}
-${comfortProfile?.targetDate ? `- Target date: ${comfortProfile.targetDate}${comfortProfile?.goalLocation ? ` (${comfortProfile.goalLocation})` : ""} — pace quests to build readiness by this deadline` : comfortProfile?.goalLocation ? `- Goal location: ${comfortProfile.goalLocation} — quests should help prepare for this move/transition` : ""}
 ${comfortProfile ? `- What keeps them from going out: "${comfortProfile.barriers}"` : ""}
 ${comfortProfile?.goalTags?.length ? `- Goals: ${comfortProfile.goalTags.join(", ")}` : ""}
 ${comfortProfile?.goals ? `- Additional context: "${comfortProfile.goals}"` : ""}
-${comfortProfile?.northStar ? `- North star (what success means to them): "${comfortProfile.northStar}"` : ""}
 ${user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${user.onboardingProfile.activities.join(", ")}` : ""}
 ${fearLadderContext}
 ${expectancyContext}
@@ -328,9 +323,7 @@ ${allLaddersContext}
 USER PROFILE:
 - Pace: ${pace === "gentle" ? "Gentle — ease them in, low-pressure challenges" : pace === "push_me" ? "Push me — they want to be challenged, go higher on the ladder" : "Steady — balanced, moderate stretch"}
 ${comfortProfile?.primaryGoal ? `- PRIMARY GOAL: "${comfortProfile.primaryGoal}"` : ""}
-${comfortProfile?.targetDate ? `- Target date: ${comfortProfile.targetDate}${comfortProfile?.goalLocation ? ` (${comfortProfile.goalLocation})` : ""}` : comfortProfile?.goalLocation ? `- Goal location: ${comfortProfile.goalLocation}` : ""}
 ${comfortProfile?.barriers ? `- What holds them back: "${comfortProfile.barriers}"` : ""}
-${comfortProfile?.northStar ? `- North star: "${comfortProfile.northStar}"` : ""}
 ${fearLadderContext ? `\n${fearLadderContext}` : ""}
 ${expectancyContext ? `\n${expectancyContext}` : ""}
 ${blockerContext ? `\nCRITICAL — RECURRING BLOCKER:\n${blockerContext}\nDo NOT prescribe the blocked action. Work around it.\n` : ""}

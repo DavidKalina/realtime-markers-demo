@@ -4,6 +4,7 @@ import {
   type QuestConfig,
   type ResonanceWeights,
   DEFAULT_QUEST_CONFIG,
+  resolveGoalTags,
 } from "./shared/QuestConfig";
 import { type OpenAIService, OpenAIModel } from "./shared/OpenAIService";
 
@@ -267,7 +268,7 @@ export class ResonanceService {
       [sidequest.userId],
     );
     const pace = user[0]?.pace_preference ?? "steady";
-    const goalTags: string[] = user[0]?.comfort_profile?.goalTags ?? [];
+    const goalTags = resolveGoalTags(user[0]?.comfort_profile);
 
     // Get previous social contexts for escalation detection
     const prevContexts = await this.getPreviousSocialContexts(sidequest.userId, sidequestId);
@@ -312,7 +313,7 @@ export class ResonanceService {
       [userId],
     );
     const pace = user[0]?.pace_preference ?? "steady";
-    const goalTags: string[] = user[0]?.comfort_profile?.goalTags ?? [];
+    const goalTags = resolveGoalTags(user[0]?.comfort_profile);
 
     const results: ResonanceResult[] = [];
     const seenContexts: string[] = [];

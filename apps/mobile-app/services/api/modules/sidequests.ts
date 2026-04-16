@@ -1,18 +1,5 @@
 import { BaseApiClient } from "../base/ApiClient";
 
-export interface GoalRefinementState {
-  rawGoal: string;
-  turns: { question: string; answer: string }[];
-  extractedSignals: {
-    domain?: string;
-    timeHorizon?: string;
-    targetDate?: string;
-    goalLocation?: string;
-    currentBaseline?: string;
-    successLooksLike?: string;
-  };
-}
-
 export interface ObjectiveResponse {
   id: string;
   sortOrder: number;
@@ -119,6 +106,27 @@ export interface WorldSizeResponse {
   totalLocations: number;
   furthestMiles: number;
   uniqueCategories: number;
+}
+
+export interface QuestConcept {
+  id: string;
+  title: string;
+  pitch: string;
+  difficulty: number;
+  experienceType: string;
+  emoji: string;
+  suggestedCategories: string[];
+  targetCity: string;
+  searchQueries: string[];
+}
+
+export interface ChosenConcept {
+  title: string;
+  experienceType: string;
+  suggestedCategories: string[];
+  targetCity: string;
+  searchQueries: string[];
+  difficulty: number;
 }
 
 export class SidequestsModule {
@@ -352,12 +360,36 @@ export class SidequestsModule {
     return json.data;
   }
 
+  async generateConcepts(params: {
+    latitude: number;
+    longitude: number;
+    timezone?: string;
+  }): Promise<{ jobId: string; streamUrl: string }> {
+    const response = await this.client.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/prescribe/concepts`,
+      {
+        method: "POST",
+        body: JSON.stringify(params),
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    return this.client.handleResponse<{ jobId: string; streamUrl: string }>(response);
+  }
+
+  async getPendingConcepts(): Promise<{ concepts: QuestConcept[] }> {
+    const response = await this.client.fetchWithAuth(
+      `${this.client.baseUrl}/api/sidequests/prescribe/concepts`,
+    );
+    return this.client.handleResponse<{ concepts: QuestConcept[] }>(response);
+  }
+
   async prescribeQuest(params: {
     latitude: number;
     longitude: number;
     timezone?: string;
     questType?: "venue" | "challenge";
     challengeCategory?: string;
+    chosenConcept?: ChosenConcept;
   }): Promise<{ jobId: string; streamUrl: string }> {
     const response = await this.client.fetchWithAuth(
       `${this.client.baseUrl}/api/sidequests/prescribe`,
@@ -399,50 +431,6 @@ export class SidequestsModule {
     return this.client.handleResponse<ComfortZoneResponse>(response);
   }
 
-  async assessGoal(params: {
-    goal: string;
-  }): Promise<{
-    specificity: number;
-    feasibility: "actionable" | "ambitious" | "out_of_scope" | "unfeasible" | "concerning";
-    needsRefinement: boolean;
-    refinedGoal: string | null;
-    firstQuestion: string | null;
-    redirectMessage: string | null;
-    reframeSuggestion: string | null;
-    reframedGoal: string | null;
-    state: GoalRefinementState;
-  }> {
-    const response = await this.client.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests/assess-goal`,
-      {
-        method: "POST",
-        body: JSON.stringify(params),
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-    return this.client.handleResponse(response);
-  }
-
-  async refineGoal(params: {
-    state: GoalRefinementState;
-    response: string;
-  }): Promise<{
-    done: boolean;
-    question: string | null;
-    refinedGoal: string | null;
-    state: GoalRefinementState;
-  }> {
-    const response = await this.client.fetchWithAuth(
-      `${this.client.baseUrl}/api/sidequests/refine-goal`,
-      {
-        method: "POST",
-        body: JSON.stringify(params),
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-    return this.client.handleResponse(response);
-  }
-
   async generateBarriers(params: {
     primaryGoal: string;
   }): Promise<{ barriers: { key: string; label: string; text: string }[] }> {
@@ -476,7 +464,7 @@ export class SidequestsModule {
 
   async updateComfortProfile(params: {
     pacePreference?: string;
-    comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[]; northStar?: string; primaryGoal?: string; targetDate?: string; goalLocation?: string };
+    comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalKey?: string; goalTags?: string[]; primaryGoal?: string };
     fearLadder?: { overallScore: number; dimensionScores: Record<string, number>; responses: Record<string, number>; scenarios?: { id: string; text: string; dimension: string }[]; dimensions?: string[] };
     onboardingProfile?: { activities: string[] };
     socialSituation?: { ageRange: string; gender: string; timeInArea: string; currentSocialLife: string; lookingFor: string[]; workSituation: string; livingSituation: string; dailyRoutine?: string; transportation?: string; budget?: string };

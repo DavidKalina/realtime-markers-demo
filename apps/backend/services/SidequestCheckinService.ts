@@ -403,17 +403,9 @@ export class SidequestCheckinService {
     if (!acquired) return;
 
     try {
-      // Count remaining READY, non-completed quests in deck
-      const remaining = await this.dataSource.getRepository(Sidequest).count({
-        where: {
-          userId,
-          status: SidequestStatus.READY,
-          completedAt: IsNull(),
-          parentId: IsNull(),
-        },
-      });
-
-      if (remaining >= 5) return;
+      // Skip if user already has pending concepts waiting to be picked
+      const hasPending = await client.exists(`pending_concepts:${userId}`);
+      if (hasPending) return;
 
       // Fetch user's home location for quest generation
       const user = await this.dataSource.getRepository(User).findOne({
@@ -423,8 +415,8 @@ export class SidequestCheckinService {
 
       if (!user?.homeLatitude || !user?.homeLongitude) return;
 
-      // Generate a single replacement quest (not a full pack)
-      const jobId = await this.jobQueue.enqueue("prescribe_quest", {
+      // Always generate concepts after quest completion — user picks their next quest
+      const jobId = await this.jobQueue.enqueue("generate_concepts", {
         userId,
         creatorId: userId,
         latitude: Number(user.homeLatitude),
@@ -432,8 +424,7 @@ export class SidequestCheckinService {
       });
 
       console.log(
-        `[SidequestCheckin] Auto-prescribed replacement quest for user ${userId} ` +
-        `(deck: ${remaining}/${5}), jobId=${jobId}`,
+        `[SidequestCheckin] Generated concepts for user ${userId}, jobId=${jobId}`,
       );
     } catch (err) {
       // Release lock on failure so it can be retried

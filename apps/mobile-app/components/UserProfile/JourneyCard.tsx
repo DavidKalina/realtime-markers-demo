@@ -49,7 +49,6 @@ function pickTip(tips: string[], seed: number): string {
 
 interface JourneyCardProps {
   primaryGoal?: string;
-  northStar?: string;
   phase: number;
   completedQuests: number;
   isGenerating: boolean;
@@ -58,7 +57,6 @@ interface JourneyCardProps {
 
 function JourneyCard({
   primaryGoal,
-  northStar,
   phase,
   completedQuests,
   isGenerating,
@@ -123,13 +121,6 @@ function JourneyCard({
             {stepLabel || "Crafting your quests..."}
           </Text>
         </View>
-      )}
-
-      {/* North star quote */}
-      {northStar && (
-        <Text style={s.northStarText}>
-          {"\u201C"}{northStar}{"\u201D"}
-        </Text>
       )}
 
       {/* Contextual tip */}
@@ -198,14 +189,6 @@ const createStyles = (colors: Colors) =>
       fontSize: 13,
       color: colors.text.secondary,
       flex: 1,
-    },
-    northStarText: {
-      fontFamily: fontFamily.mono,
-      fontSize: 13,
-      color: colors.text.secondary,
-      lineHeight: 20,
-      fontStyle: "italic",
-      opacity: 0.7,
     },
     tipRow: {
       borderTopWidth: StyleSheet.hairlineWidth,

@@ -16,6 +16,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -39,11 +40,13 @@ import { Canvas, Fill, Shader, Skia, vec } from "@shopify/react-native-skia";
 import PullToActionScrollView from "../Layout/PullToActionScrollView";
 import Screen from "../Layout/Screen";
 import { useUserLocation } from "@/contexts/LocationContext";
+import { getUserTimezone } from "@/utils/dateTimeFormatting";
 
 import ActiveQuestBanner from "./ActiveQuestBanner";
 import DeckHandSection from "./DeckHandSection";
 import PendingReflectionCard from "./PendingReflectionCard";
 import PendingCaptureCard from "./PendingCaptureCard";
+import PendingConceptsCard from "./PendingConceptsCard";
 import { SettingsSection } from "./SettingsSection";
 import AIFocusCard from "./AIFocusCard";
 import JourneyCard from "./JourneyCard";
@@ -193,7 +196,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
 
   const { data: insights, refetch: refetchInsights } = useProfileInsights();
   const { data: dashboard, refetch: refetchDashboard } = useGrowthDashboard();
-  const { isGenerating, stepLabel } = useJobProgressContext();
+  const { isGenerating, stepLabel, hasReady, clearReady, trackJob } = useJobProgressContext();
 
   // Merge API social growth data with default rungs so all 4 always show
   const socialData = useMemo(() => {
@@ -216,13 +219,17 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
   // Pending capture — checked in but skipped the reflection modal
   const [pendingCaptures, setPendingCaptures] = useState<SidequestResponse[]>([]);
 
+  // Pending concepts — quest ideas waiting to be picked
+  const [hasPendingConcepts, setHasPendingConcepts] = useState(false);
+
   const fetchDashboardQuests = useCallback(async () => {
-    // Fetch deck, unrated, and pending capture independently so one
-    // failing (e.g. new endpoint not deployed yet) doesn't block the others
-    const [listRes, unratedRes, captureRes] = await Promise.allSettled([
+    // Fetch deck, unrated, pending capture, and pending concepts independently
+    // so one failing (e.g. new endpoint not deployed yet) doesn't block the others
+    const [listRes, unratedRes, captureRes, conceptsRes] = await Promise.allSettled([
       apiClient.sidequests.list(10, undefined, { status: "upcoming" }),
       apiClient.sidequests.listUnrated(3),
       apiClient.sidequests.listPendingCapture(2),
+      apiClient.sidequests.getPendingConcepts(),
     ]);
     if (listRes.status === "fulfilled") {
       setDeckQuests(listRes.value.data ?? []);
@@ -233,11 +240,54 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
     if (captureRes.status === "fulfilled") {
       setPendingCaptures(captureRes.value.data ?? []);
     }
+    if (conceptsRes.status === "fulfilled") {
+      setHasPendingConcepts((conceptsRes.value.concepts ?? []).length > 0);
+    }
   }, []);
 
   useEffect(() => {
     fetchDashboardQuests();
   }, [fetchDashboardQuests]);
+
+  // Refetch when any job completes (concepts ready, quest generated, etc.)
+  useEffect(() => {
+    if (hasReady) {
+      fetchDashboardQuests();
+      clearReady();
+    }
+  }, [hasReady, clearReady, fetchDashboardQuests]);
+
+  // Fallback: if deck is empty and no concepts pending, trigger generation
+  const fallbackTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (
+      !loading &&
+      deckQuests.length === 0 &&
+      !hasPendingConcepts &&
+      !isGenerating &&
+      !fallbackTriggeredRef.current &&
+      userLocation
+    ) {
+      fallbackTriggeredRef.current = true;
+      (async () => {
+        try {
+          const { jobId } = await apiClient.sidequests.generateConcepts({
+            latitude: userLocation[1],
+            longitude: userLocation[0],
+            timezone: getUserTimezone(),
+          });
+          trackJob(jobId);
+        } catch (err) {
+          console.error("[UserProfile] Fallback concept generation failed:", err);
+          fallbackTriggeredRef.current = false;
+        }
+      })();
+    }
+    // Reset when concepts arrive or deck fills
+    if (hasPendingConcepts || deckQuests.length > 0) {
+      fallbackTriggeredRef.current = false;
+    }
+  }, [loading, deckQuests.length, hasPendingConcepts, isGenerating, userLocation, trackJob]);
 
   const handleUpdateHomeBase = useCallback(async () => {
     if (!userLocation) return;
@@ -316,6 +366,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           <ActiveQuestBanner />
         </ParallaxWidget>
 
+        {/* 1.2 Pending Concepts — pick your quest */}
+        {hasPendingConcepts && (
+          <ParallaxWidget scrollY={scrollY} index={1} delay={90}>
+            <PendingConceptsCard />
+          </ParallaxWidget>
+        )}
+
         {/* 1.5 Your Hand — show deck of quest cards */}
         {deckQuests.length > 0 && (
           <ParallaxWidget scrollY={scrollY} index={2} delay={100}>
@@ -356,7 +413,6 @@ const UserProfile: React.FC<UserProfileProps> = ({ onBack }) => {
           />
           <JourneyCard
             primaryGoal={profileData?.comfortProfile?.primaryGoal}
-            northStar={profileData?.comfortProfile?.northStar}
             phase={ga?.phase ?? 0}
             completedQuests={completedQuests}
             isGenerating={isGenerating}

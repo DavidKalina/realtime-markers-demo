@@ -99,11 +99,13 @@ export function StepQuickDetails({
   onUpdate,
   onNext,
   onBack,
+  loading,
 }: {
   details: QuickDetails;
   onUpdate: (field: keyof QuickDetails, value: string) => void;
   onNext: () => void;
   onBack?: () => void;
+  loading?: boolean;
 }) {
   const canProceed =
     details.ageRange !== "" &&
@@ -118,7 +120,11 @@ export function StepQuickDetails({
       onBack={onBack}
       heroStep={5}
       bottomAction={
-        <NextButton onPress={onNext} disabled={!canProceed} />
+        <NextButton
+          label={loading ? "Generating ideas..." : "Next"}
+          onPress={onNext}
+          disabled={!canProceed || loading}
+        />
       }
     >
       <ScrollView

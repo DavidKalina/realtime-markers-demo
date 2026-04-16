@@ -112,7 +112,9 @@ export const DEFAULT_QUEST_CONFIG: QuestConfig = {
       difficultyAlignment: 0.10,
     },
     goalWeights: {
-      // Keys match onboarding GOAL_OPTIONS keys stored in comfortProfile.goalTags
+      // Keys are resonance weight tags (socialize, explore, etc.)
+      // Onboarding goal keys (build_friends, start_dating, etc.) are mapped
+      // to these tags via goalKeyToTags() in Onboarding/constants.ts
       socialize: {
         rating: 0.30, journalDepth: 0.15, sentiment: 0.10,
         socialEscalation: 0.30, speedToCompletion: 0.05, difficultyAlignment: 0.10,
@@ -154,3 +156,42 @@ export const DEFAULT_QUEST_CONFIG: QuestConfig = {
     newPathwayMinResonance: 0.4,
   },
 };
+
+// ── Goal tag inference (backward compat for users without goalKey) ──
+
+const GOAL_KEY_TO_TAGS: Record<string, string[]> = {
+  build_friends: ["socialize"],
+  start_dating: ["socialize"],
+  stop_homebody: ["explore", "routine"],
+  find_people: ["socialize", "explore"],
+  from_scratch: ["socialize", "routine"],
+};
+
+const PRIMARY_GOAL_TO_TAGS: [RegExp, string[]][] = [
+  [/friend/i, ["socialize"]],
+  [/dating|date/i, ["socialize"]],
+  [/homebody|get out|leave the house/i, ["explore", "routine"]],
+  [/find.*people|my people/i, ["socialize", "explore"]],
+  [/social life|from scratch/i, ["socialize", "routine"]],
+];
+
+/**
+ * Resolve goalTags from comfortProfile, falling back to inference from
+ * goalKey or primaryGoal text for users who onboarded before goalKey was saved.
+ */
+export function resolveGoalTags(
+  comfortProfile: { goalKey?: string; goalTags?: string[]; primaryGoal?: string } | null | undefined,
+): string[] {
+  if (comfortProfile?.goalTags && comfortProfile.goalTags.length > 0) {
+    return comfortProfile.goalTags;
+  }
+  if (comfortProfile?.goalKey && GOAL_KEY_TO_TAGS[comfortProfile.goalKey]) {
+    return GOAL_KEY_TO_TAGS[comfortProfile.goalKey];
+  }
+  if (comfortProfile?.primaryGoal) {
+    for (const [pattern, tags] of PRIMARY_GOAL_TO_TAGS) {
+      if (pattern.test(comfortProfile.primaryGoal)) return tags;
+    }
+  }
+  return [];
+}

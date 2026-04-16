@@ -124,11 +124,34 @@ export class MultiAgentStrategy {
   async execute(input: PrescriptionStrategyInput): Promise<PrescriptionStrategyResult> {
     const { promptContext, onProgress } = input;
 
-    // ── 1. Strategist ──────────────────────────────────────
-    if (onProgress) await onProgress(10, "Planning your quest strategy...");
+    // ── 1. Strategist (or skip if concept was pre-selected) ──
+    let brief: StrategyBrief;
 
-    const brief = await this.runStrategist(input);
-    console.log(`[multi-agent] Strategist: ${brief.experienceType} (${brief.suggestedCategories.join(", ")}), target=${brief.targetCity}, difficulty ${brief.difficultyRange[0]}-${brief.difficultyRange[1]}, social=${brief.socialChallengeLevel}, timing=${brief.suggestedTiming}`);
+    if (input.chosenConcept) {
+      // User already picked a concept — construct brief directly
+      brief = {
+        experienceType: input.chosenConcept.experienceType,
+        suggestedCategories: input.chosenConcept.suggestedCategories,
+        targetCity: input.chosenConcept.targetCity,
+        maxDistanceMiles: input.radius * 1.5,
+        difficultyRange: [
+          Math.max(1, input.chosenConcept.difficulty - 1),
+          Math.min(10, input.chosenConcept.difficulty + 1),
+        ],
+        socialChallengeLevel: "low",
+        searchQueries: input.chosenConcept.searchQueries,
+        avoidVenues: [],
+        avoidCategories: [],
+        suggestedTiming: "",
+        rationale: `User chose: "${input.chosenConcept.title}"`,
+      };
+      if (onProgress) await onProgress(15, "Finding your chosen quest...");
+      console.log(`[multi-agent] Concept pre-selected: "${input.chosenConcept.title}" (${brief.suggestedCategories.join(", ")})`);
+    } else {
+      if (onProgress) await onProgress(10, "Planning your quest strategy...");
+      brief = await this.runStrategist(input);
+      console.log(`[multi-agent] Strategist: ${brief.experienceType} (${brief.suggestedCategories.join(", ")}), target=${brief.targetCity}, difficulty ${brief.difficultyRange[0]}-${brief.difficultyRange[1]}, social=${brief.socialChallengeLevel}, timing=${brief.suggestedTiming}`);
+    }
 
     // ── 2. Scout + Validator loop ──────────────────────────
     let scoutResult: ScoutResult | null = null;
@@ -192,9 +215,7 @@ USER PROFILE:
 - Comfort radius: ${ctx.radius.toFixed(1)} miles
 - Pace: ${ctx.pace}
 ${ctx.user.comfortProfile?.primaryGoal ? `- Goal: "${ctx.user.comfortProfile.primaryGoal}"` : ""}
-${ctx.user.comfortProfile?.targetDate ? `- Target date: ${ctx.user.comfortProfile.targetDate}${ctx.user.comfortProfile?.goalLocation ? ` (${ctx.user.comfortProfile.goalLocation})` : ""} — pace quests toward readiness by this deadline` : ctx.user.comfortProfile?.goalLocation ? `- Goal location: ${ctx.user.comfortProfile.goalLocation}` : ""}
 ${ctx.user.comfortProfile?.barriers ? `- Barriers: "${ctx.user.comfortProfile.barriers}"` : ""}
-${ctx.user.comfortProfile?.northStar ? `- North star: "${ctx.user.comfortProfile.northStar}"` : ""}
 ${ctx.user.onboardingProfile?.activities?.length ? `- Activities they enjoy: ${ctx.user.onboardingProfile.activities.join(", ")}` : ""}
 ${ctx.socialSituationContext ? `
 ${ctx.socialSituationContext}
@@ -600,9 +621,7 @@ Write like that friend, not a therapist or a GPS app.
 
 USER:
 ${ctx.user.comfortProfile?.primaryGoal ? `- Goal: "${ctx.user.comfortProfile.primaryGoal}"` : ""}
-${ctx.user.comfortProfile?.targetDate ? `- Target date: ${ctx.user.comfortProfile.targetDate}${ctx.user.comfortProfile?.goalLocation ? ` (${ctx.user.comfortProfile.goalLocation})` : ""}` : ctx.user.comfortProfile?.goalLocation ? `- Goal location: ${ctx.user.comfortProfile.goalLocation}` : ""}
 ${ctx.user.comfortProfile?.barriers ? `- Barriers: "${ctx.user.comfortProfile.barriers}"` : ""}
-${ctx.user.comfortProfile?.northStar ? `- North star: "${ctx.user.comfortProfile.northStar}"` : ""}
 - Pace: ${ctx.pace}
 ${ctx.user.onboardingProfile?.activities?.length ? `- Interests: ${ctx.user.onboardingProfile.activities.join(", ")}` : ""}
 
@@ -611,6 +630,9 @@ STRATEGY CONTEXT:
 - Social challenge: ${brief.socialChallengeLevel}
 - Suggested timing: ${brief.suggestedTiming || "flexible"}
 - Rationale: ${brief.rationale}
+${input.chosenConcept ? `
+USER CHOSE THIS CONCEPT: "${input.chosenConcept.title}"
+Honor their choice — your quest title and framing should align with what they picked. They chose this because it resonated, so lean into that direction.` : ""}
 ${ctx.blockerContext ? `
 BLOCKER CONTEXT — READ THIS CAREFULLY:
 This user has a recurring blocker. They keep failing at a specific action and it's destroying their confidence.

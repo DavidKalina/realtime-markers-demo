@@ -33,8 +33,6 @@ import { rateLimit } from "../middleware/rateLimit";
 import { withErrorHandling, requireAuth } from "../utils/handlerUtils";
 import { generateFearLadder } from "../services/FearLadderGenerationService";
 import { generateBarriers } from "../services/BarrierGenerationService";
-import { assessGoal, refineNext } from "../services/GoalRefinementService";
-import type { RefinementState } from "../services/GoalRefinementService";
 import type { ComfortZoneService } from "../services/ComfortZoneService";
 
 export const sidequestRouter = new Hono<AppContext>();
@@ -70,9 +68,56 @@ sidequestRouter.get(
   }),
 );
 
+// ── Concept routes (must be before /:id catch-all) ──────────
+sidequestRouter.get(
+  "/prescribe/concepts",
+  withErrorHandling(async (c) => {
+    const user = requireAuth(c);
+    const redisService = c.get("redisService");
+    const raw = await redisService.get(`pending_concepts:${user.id}`);
+
+    if (!raw) {
+      return c.json({ concepts: [] });
+    }
+
+    const concepts = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return c.json({ concepts });
+  }),
+);
+
 sidequestRouter.get("/:id", getSidequestHandler);
 
 // ── Write routes ────────────────────────────────────────────
+sidequestRouter.post(
+  "/prescribe/concepts",
+  withErrorHandling(async (c) => {
+    const user = requireAuth(c);
+    const body = await c.req.json<{
+      latitude: number;
+      longitude: number;
+      timezone?: string;
+    }>();
+
+    if (typeof body.latitude !== "number" || typeof body.longitude !== "number") {
+      return c.json({ error: "latitude and longitude are required" }, 400);
+    }
+
+    const jobQueue = c.get("jobQueue");
+    const jobId = await jobQueue.enqueue("generate_concepts", {
+      userId: user.id,
+      creatorId: user.id,
+      latitude: body.latitude,
+      longitude: body.longitude,
+      ...(body.timezone && { timezone: body.timezone }),
+    });
+
+    return c.json(
+      { jobId, streamUrl: `/api/jobs/${jobId}/stream` },
+      202,
+    );
+  }),
+);
+
 sidequestRouter.post("/prescribe", prescribeQuestHandler);
 sidequestRouter.post("/batch-delete", batchDeleteSidequestHandler);
 sidequestRouter.post("/deactivate", deactivateSidequestHandler);
@@ -155,48 +200,6 @@ sidequestRouter.post(
   }),
 );
 
-sidequestRouter.post(
-  "/assess-goal",
-  withErrorHandling(async (c) => {
-    requireAuth(c);
-    const body = await c.req.json<{ goal: string }>();
-
-    if (!body.goal || typeof body.goal !== "string" || body.goal.trim().length === 0) {
-      return c.json({ error: "goal is required" }, 400);
-    }
-    if (body.goal.length > 500) {
-      return c.json({ error: "goal must be 500 characters or fewer" }, 400);
-    }
-
-    const openAIService = c.get("openAIService");
-    return c.json(await assessGoal(openAIService, body.goal.trim()));
-  }),
-);
-
-sidequestRouter.post(
-  "/refine-goal",
-  withErrorHandling(async (c) => {
-    requireAuth(c);
-    const body = await c.req.json<{
-      state: RefinementState;
-      response: string;
-    }>();
-
-    if (!body.state || !body.state.rawGoal) {
-      return c.json({ error: "state with rawGoal is required" }, 400);
-    }
-    if (!body.response || typeof body.response !== "string" || body.response.trim().length === 0) {
-      return c.json({ error: "response is required" }, 400);
-    }
-    if (body.response.length > 1000) {
-      return c.json({ error: "response must be 1000 characters or fewer" }, 400);
-    }
-
-    const openAIService = c.get("openAIService");
-    return c.json(await refineNext(openAIService, body.state, body.response.trim()));
-  }),
-);
-
 sidequestRouter.put(
   "/comfort-profile",
   withErrorHandling(async (c) => {
@@ -207,11 +210,9 @@ sidequestRouter.put(
         comfortZone: string;
         barriers: string;
         goals: string;
+        goalKey?: string;
         goalTags?: string[];
-        northStar?: string;
         primaryGoal?: string;
-        targetDate?: string;
-        goalLocation?: string;
       };
       onboardingProfile?: { activities: string[] };
       fearLadder?: {

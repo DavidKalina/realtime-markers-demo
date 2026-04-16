@@ -356,7 +356,7 @@ export class ComfortZoneService {
     userId: string,
     updates: {
       pacePreference?: string;
-      comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalTags?: string[]; northStar?: string; primaryGoal?: string; targetDate?: string; goalLocation?: string };
+      comfortProfile?: { comfortZone: string; barriers: string; goals: string; goalKey?: string; goalTags?: string[]; primaryGoal?: string };
       fearLadder?: { overallScore: number; dimensionScores: Record<string, number>; responses: Record<string, number>; scenarios?: { id: string; text: string; dimension: string }[]; dimensions?: string[] };
       onboardingProfile?: { activities: string[] };
       socialSituation?: { ageRange: string; gender: string; timeInArea: string; currentSocialLife: string; lookingFor: string[]; workSituation: string; livingSituation: string; dailyRoutine?: string; transportation?: string; budget?: string };

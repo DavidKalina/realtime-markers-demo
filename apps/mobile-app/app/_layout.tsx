@@ -1,7 +1,7 @@
 import "@/tasks/backgroundLocationTask";
 import "@/tasks/geofenceTask";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   DarkTheme,
   DefaultTheme,
@@ -18,7 +18,7 @@ import { isRunningInExpoGo } from "expo";
 
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LocationProvider } from "@/contexts/LocationContext";
-import { JobProgressProvider } from "@/contexts/JobProgressContext";
+import { JobProgressProvider, useJobProgressContext } from "@/contexts/JobProgressContext";
 import { ThemeProvider, useTheme } from "@/theme";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { ActionBar } from "@/components/ActionBar/ActionBar";
@@ -118,8 +118,27 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function useConceptJobNavigation() {
+  const { activeJobs } = useJobProgressContext();
+  const navigatedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    for (const job of activeJobs) {
+      if (
+        job.jobType === "generate_concepts" &&
+        job.status === "completed" &&
+        !navigatedRef.current.has(job.jobId)
+      ) {
+        navigatedRef.current.add(job.jobId);
+        router.push("/concept-picker");
+      }
+    }
+  }, [activeJobs]);
+}
+
 function AppContent({ children }: AppContentProps) {
   usePushNotifications();
+  useConceptJobNavigation();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthGuard>
